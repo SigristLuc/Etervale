@@ -1,0 +1,177 @@
+using System;
+using System.IO;
+using System.Threading.Tasks;
+using System.Diagnostics;
+using PristonTale.Display;
+using PristonTale.Engine3D.IO;
+using PristonTale.Engine3D.Diagnostics;
+using PristonTale.Engine3D.Rendering;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using PristonTale.Gameplay.Screens;
+using PristonTale.Gameplay.Screens.Framework;
+
+namespace PristonTale;
+
+public class Game1 : Game
+{
+    private const string ServerAddress = "http://localhost:10012";
+
+    private readonly GraphicsDeviceManager _graphics;
+    private GameClient _client;
+
+    private KeyboardState _lastKeyboardState;
+    private readonly FrameTiming _timing = new();
+    private readonly PresentationSettings _presentation = new();
+    private readonly ClientSettingsStore _settingsStore;
+    private PresentationController _presentationController;
+    private Task _shutdown;
+
+    public Game1(string settingsPath = null)
+    {
+        _settingsStore = new ClientSettingsStore(settingsPath ?? ClientSettingsStore.DefaultPath, ConsoleClientLog.Instance);
+        _presentation.Requested = _settingsStore.Load();
+        _graphics = new GraphicsDeviceManager(this)
+        {
+            PreferredBackBufferWidth = _presentation.Requested.WindowWidth,
+            PreferredBackBufferHeight = _presentation.Requested.WindowHeight,
+            GraphicsProfile = GraphicsProfile.HiDef,
+            HardwareModeSwitch = true,
+            SynchronizeWithVerticalRetrace = _presentation.VerticalSync,
+            // The scene renders directly to the multisampled back buffer.
+            PreferMultiSampling = _presentation.Requested.MultiSampleCount > 0
+        };
+        // Request the configured sample count; the device can select fewer samples and reports the effective value.
+        _graphics.PreparingDeviceSettings += (_, e) =>
+            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = _presentation.Requested.MultiSampleCount;
+        // A variable presentation step avoids repeating client work before Draw; authority remains at 20 Hz.
+        IsFixedTimeStep = false;
+        InactiveSleepTime = TimeSpan.Zero;
+        TargetElapsedTime = TimeSpan.FromSeconds(1d / FrameTiming.TargetHz);
+        Window.AllowUserResizing = true;
+        Content.RootDirectory = "Content";
+        IsMouseVisible = true;
+    }
+
+    protected override void LoadContent()
+    {
+        _presentationController = new PresentationController(_presentation, _settingsStore, _graphics, Window);
+        _client = new GameClient(GraphicsDevice, Content, ResolveAssetRoot(), ServerAddress, _presentation);
+        _client.LoadContent();
+        ConsoleClientLog.Instance.Info($"[Presentation] GPU={GraphicsDevice.Adapter.Description}; variable timestep; VSync={_presentation.VerticalSync}; maxFps={_presentation.Requested.MaxFps} (0=unlimited).");
+    }
+
+    private static string ResolveAssetRoot()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, "assets");
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+        return Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "assets");
+    }
+
+    protected override void Update(GameTime gameTime)
+    {
+        var started = Stopwatch.GetTimestamp();
+        var allocated = GC.GetAllocatedBytesForCurrentThread();
+        if (_shutdown is not null)
+        {
+            if (_shutdown.IsCompleted)
+            {
+                Exit();
+            }
+
+            UpdateWindowTitle();
+            base.Update(gameTime);
+            _timing.RecordUpdate(Stopwatch.GetTimestamp() - started, GC.GetAllocatedBytesForCurrentThread() - allocated);
+            return;
+        }
+
+        var keyboard = Keyboard.GetState();
+        var escapePressed = keyboard.IsKeyDown(Keys.Escape) && !_lastKeyboardState.IsKeyDown(Keys.Escape);
+        if (_presentation.AwaitingConfirmation)
+        {
+            _presentation.RevertRequested |= escapePressed;
+            _presentation.ConfirmRequested |= keyboard.IsKeyDown(Keys.Enter) && !_lastKeyboardState.IsKeyDown(Keys.Enter);
+            escapePressed = false;
+        }
+        if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || escapePressed && !_client.HandleEscape())
+        {
+            Exit();
+        }
+
+        _client.Update(gameTime, IsActive);
+        UpdateWindowTitle();
+        _lastKeyboardState = Keyboard.GetState();
+        base.Update(gameTime);
+        _timing.RecordUpdate(Stopwatch.GetTimestamp() - started, GC.GetAllocatedBytesForCurrentThread() - allocated);
+    }
+
+    private void UpdateWindowTitle()
+    {
+        if (!_timing.TrySample(Stopwatch.GetTimestamp(), out var sample))
+        {
+            return;
+        }
+
+        var res = $"{GraphicsDevice.Viewport.Width}x{GraphicsDevice.Viewport.Height}";
+        var limit = _presentation.Requested.FrameLimit(IsActive);
+        var ceiling = limit == 0 ? "unlimited" : limit.ToString();
+        Window.Title = $"FPS {sample.FramesPerSecond:F0} | cap {ceiling} | p95/p99 {sample.FrameP95Ms:F1}/{sample.FrameP99Ms:F1}ms"
+            + $" | work {sample.WorkP95Ms:F1}ms | present {sample.PresentP95Ms:F1}ms | {sample.AllocatedBytesPerFrame / 1024:F1}KB/frame"
+            + $" | pacing {sample.PacingP95Ms:F1}ms"
+            + $" | VSync {(_presentation.VerticalSync ? "on" : "off")} | {res} | {_client.StatusText}";
+    }
+
+    protected override void Draw(GameTime gameTime)
+    {
+        var started = Stopwatch.GetTimestamp();
+        var allocated = GC.GetAllocatedBytesForCurrentThread();
+        _client.Draw();
+        base.Draw(gameTime);
+        _timing.RecordDraw(started, Stopwatch.GetTimestamp(), GC.GetAllocatedBytesForCurrentThread() - allocated);
+    }
+
+    protected override void OnExiting(object sender, ExitingEventArgs args)
+    {
+        if (_client is not null)
+        {
+            _shutdown ??= Task.WhenAll(_client.BeginShutdown(), _presentationController.CompleteAsync());
+            args.Cancel = !_shutdown.IsCompleted;
+        }
+
+        base.OnExiting(sender, args);
+    }
+
+    protected override void EndDraw()
+    {
+        var started = Stopwatch.GetTimestamp();
+        var allocated = GC.GetAllocatedBytesForCurrentThread();
+        base.EndDraw();
+        _timing.RecordPresentation(Stopwatch.GetTimestamp() - started, GC.GetAllocatedBytesForCurrentThread() - allocated);
+        if (_shutdown is null)
+        {
+            _presentationController.CaptureWindowSize(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+            _presentationController.UpdateBoundary();
+        }
+
+        _timing.RecordPacing(_presentationController.Pace(IsActive));
+    }
+
+    protected override void UnloadContent()
+    {
+        _client?.Dispose();
+        base.UnloadContent();
+    }
+}

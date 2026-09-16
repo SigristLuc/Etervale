@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package pristontale.common;
+option csharp_namespace = "PristonTale.Protocol.Common";
+
+message Vec3 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+enum EntityKind {
+  ENTITY_KIND_UNSPECIFIED = 0;
+  ENTITY_KIND_PLAYER = 1;
+  ENTITY_KIND_MONSTER = 2;
+  ENTITY_KIND_NPC = 3;
+}
+
+enum MoveState {
+  MOVE_STATE_UNSPECIFIED = 0;
+  MOVE_STATE_IDLE = 1;
+  MOVE_STATE_WALKING = 2;
+  MOVE_STATE_RUNNING = 3;
+  MOVE_STATE_ATTACK = 4;
+  MOVE_STATE_DAMAGE = 5;
+  MOVE_STATE_DEAD = 6;
+  MOVE_STATE_SKILL = 7;
+  MOVE_STATE_EAT = 8;
+}

@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package pristontale;
+option csharp_namespace = "PristonTale.Protocol";
+
+import "messages/auth.proto";
+import "messages/character.proto";
+import "messages/session.proto";
+import "messages/world.proto";
+
+service AuthService {
+  rpc Login (pristontale.auth.LoginRequest) returns (pristontale.auth.LoginReply);
+}
+
+service CharacterService {
+  rpc ListCharacters (pristontale.character.ListCharactersRequest) returns (pristontale.character.ListCharactersReply);
+  rpc CreateCharacter (pristontale.character.CreateCharacterRequest) returns (pristontale.character.CreateCharacterReply);
+  rpc DeleteCharacter (pristontale.character.DeleteCharacterRequest) returns (pristontale.character.DeleteCharacterReply);
+}
+
+service GameSessionService {
+  rpc ApplyProgression (pristontale.session.ProgressionRequest) returns (pristontale.session.ProgressionReply);
+  rpc InteractNpc (pristontale.session.NpcInteractionRequest) returns (pristontale.session.NpcInteractionReply);
+  rpc ApplyInventory (pristontale.session.InventoryRequest) returns (pristontale.session.InventoryReply);
+  rpc EnterWorld (pristontale.session.EnterWorldRequest) returns (pristontale.session.EnterWorldReply);
+  rpc Play (stream pristontale.session.ClientInput) returns (stream pristontale.session.WorldUpdate);
+  rpc GetWorldCatalog (pristontale.world.GetWorldCatalogRequest) returns (pristontale.world.WorldCatalogReply);
+}

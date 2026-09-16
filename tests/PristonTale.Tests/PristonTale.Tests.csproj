@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Fixtures/first-tier-source.json" />
+    <EmbeddedResource Include="Fixtures/job-head-source.json" />
+    <ProjectReference Include="../../Client/PristonTale.Gameplay/PristonTale.Gameplay.csproj" />
+    <ProjectReference Include="../../tools/PristonTale.GltfExport/PristonTale.GltfExport.csproj" />
+    <ProjectReference Include="../../tools/PristonTale.WorldImport/PristonTale.WorldImport.csproj" />
+  </ItemGroup>
+</Project>

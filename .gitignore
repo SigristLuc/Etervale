@@ -1,0 +1,107 @@
+## ---------------------------------------------------------------------------
+## .NET / C# build output
+## ---------------------------------------------------------------------------
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+build/
+bld/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+
+# .NET artifacts / restore
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*.nuget.props
+*.nuget.targets
+.packages/
+nuget.config.local
+
+# Build results / binaries
+*.dll
+*.exe
+*.pdb
+*.cache
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.sln.ide/
+
+## ---------------------------------------------------------------------------
+## MonoGame content pipeline (MGCB) intermediate + built output
+## ---------------------------------------------------------------------------
+# Compiled .xnb / packed content and MGCB intermediates
+*.xnb
+[Cc]ontent/obj/
+[Cc]ontent/bin/
+
+## ---------------------------------------------------------------------------
+## Test / coverage results
+## ---------------------------------------------------------------------------
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.coveragexml
+
+## ---------------------------------------------------------------------------
+## IDEs / editors
+## ---------------------------------------------------------------------------
+# Visual Studio
+.vs/
+*.VC.db
+*.VC.VC.opendb
+
+# JetBrains Rider / ReSharper
+.idea/
+*.sln.iml
+_ReSharper*/
+*.DotSettings.user
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+## ---------------------------------------------------------------------------
+## OS noise
+## ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+## ---------------------------------------------------------------------------
+## Project-specific
+## ---------------------------------------------------------------------------
+# Local offline single-player save (SQLite)
+offline.db
+*.db-shm
+*.db-wal
+
+# Local environment / secrets
+*.env
+.env.local
+appsettings.*.local.json
+
+assets/*
+assets_n/
+original_references/
+/GameServer/
+3d/
+/docs/
+*.7z

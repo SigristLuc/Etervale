@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package pristontale.auth;
+option csharp_namespace = "PristonTale.Protocol.Auth";
+
+message LoginRequest {
+  string account = 1;
+  string password = 2;
+  int32 client_version = 3;
+}
+
+message LoginReply {
+  bool ok = 1;
+  string session_token = 2;
+  string message = 3;
+}

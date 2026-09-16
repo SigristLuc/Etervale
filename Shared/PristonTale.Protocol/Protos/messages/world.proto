@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package pristontale.world;
+option csharp_namespace = "PristonTale.Protocol.World";
+
+message GetWorldCatalogRequest {
+  string session_token = 1;
+}
+
+message WorldCatalogReply {
+  repeated MonsterRenderDef monsters = 1;
+  repeated NpcRenderDef npcs = 2;
+}
+
+message NpcRenderDef {
+  uint32 template_id = 1;
+  string model_inx_path = 2;
+  float model_scale = 3;
+  string name = 4;
+  uint32 services = 5;
+  int32 sound_code = 6;
+}
+
+message MonsterRenderDef {
+  uint32 template_id = 1;
+  string model_inx_path = 2;
+  float model_scale = 3;
+  string name = 4;
+  int32 level = 5;
+}

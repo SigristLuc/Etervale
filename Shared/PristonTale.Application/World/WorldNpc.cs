@@ -1,0 +1,174 @@
+using System.Numerics;
+using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.World.Fields;
+using PristonTale.Simulation.World.Motion;
+using PristonTale.Simulation.World.Npcs;
+
+namespace PristonTale.Application.World;
+
+public sealed class WorldNpc
+{
+    private const float WalkUnitsPerSecond = 70f;
+    private const float DefaultStandDurationMs = 40f * MotionTiming.MsPerFrame;
+    private const float MaximumStepMs = 2_000f;
+
+    private readonly IReadOnlyList<MotionClip> _standClips;
+    private readonly bool _canWalk;
+    private readonly float _moveRange;
+    private uint _randomState;
+    private float _standMsLeft;
+    private Vector3 _moveTarget;
+
+    private WorldNpc(
+        uint entityId,
+        NpcDefinition definition,
+        Vector3 position,
+        float facing,
+        MotionTimingSet? motionTimings)
+    {
+        EntityId = entityId;
+        Definition = definition;
+        Position = position;
+        HomeAnchor = position;
+        Facing = facing;
+        MoveState = MoveStateView.Idle;
+        _moveRange = MathF.Max(0f, definition.MoveRange);
+        _standClips = motionTimings?.ClipsForState(MotionStateCode.Stand) ?? Array.Empty<MotionClip>();
+        _canWalk = _moveRange > 0f && motionTimings?.TryGetClip(MotionStateCode.Walk, out _) == true;
+        _randomState = entityId ^ unchecked((uint)definition.Code * 0x9E3779B9u) ^ 0xA341316Cu;
+        if (_randomState == 0)
+        {
+            _randomState = 1;
+        }
+
+        BeginStand();
+    }
+
+    public uint EntityId { get; }
+    public NpcDefinition Definition { get; }
+    public Vector3 HomeAnchor { get; }
+    public Vector3 Position { get; private set; }
+    public float Facing { get; private set; }
+    public MoveStateView MoveState { get; private set; }
+    public bool CanWalk => _canWalk;
+
+    public static WorldNpc Place(
+        uint entityId,
+        NpcDefinition definition,
+        FixedNpc placement,
+        MotionTimingSet? motionTimings = null)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        var position = new Vector3(placement.X / 256f, placement.Y / 256f, placement.Z / 256f);
+        var facing = (placement.Angle & 4095) * (MathF.Tau / 4096);
+        return new WorldNpc(entityId, definition, position, facing, motionTimings);
+    }
+
+    public Vector3 IntegrateStep(float dtSeconds)
+    {
+        if (!float.IsFinite(dtSeconds) || dtSeconds <= 0f)
+        {
+            return Position;
+        }
+
+        var dtMs = Math.Clamp(dtSeconds * 1000f, 0f, MaximumStepMs);
+        if (!_canWalk)
+        {
+            return Position;
+        }
+
+        if (MoveState == MoveStateView.Idle)
+        {
+            _standMsLeft -= dtMs;
+            if (_standMsLeft > 0f)
+            {
+                return Position;
+            }
+
+            // PTClassic ActionPattern 12: after a Stand boundary, ((rand()%4096 >> 2) & 3)==0
+            // gives the wandering branch a 25% chance when the model has Walk and a non-zero radius.
+            if (((NextRandom(4096) >> 2) & 3) != 0)
+            {
+                BeginStand();
+                return Position;
+            }
+
+            BeginWalk();
+        }
+
+        var current = new Vector2(Position.X, Position.Z);
+        var target = new Vector2(_moveTarget.X, _moveTarget.Z);
+        var step = DestinationMovement.Advance(current, target, WalkUnitsPerSecond, dtMs / 1000f);
+        if (step.Direction != Vector2.Zero)
+        {
+            Facing = MathF.Atan2(step.Direction.X, step.Direction.Y);
+        }
+
+        return new Vector3(step.Position.X, Position.Y, step.Position.Y);
+    }
+
+    public void CommitStep(Vector3 accepted, bool blocked)
+    {
+        Position = accepted;
+        if (blocked || DestinationMovement.HasArrived(
+            new Vector2(Position.X, Position.Z),
+            new Vector2(_moveTarget.X, _moveTarget.Z)))
+        {
+            BeginStand();
+        }
+    }
+
+    public EntityView ToView()
+    {
+        return new EntityView(
+            EntityId,
+            EntityKindView.Npc,
+            false,
+            Position,
+            Facing,
+            MoveState,
+            1,
+            1,
+            1,
+            default,
+            (uint)Definition.Code,
+            moveSpeed: _canWalk ? 1 : 0);
+    }
+
+    private void BeginStand()
+    {
+        MoveState = MoveStateView.Idle;
+        if (_standClips.Count == 0)
+        {
+            _standMsLeft = DefaultStandDurationMs;
+            return;
+        }
+
+        var clip = _standClips[NextRandom(_standClips.Count)];
+        _standMsLeft = MotionTiming.DurationMs(clip.Frames, 1f);
+    }
+
+    private void BeginWalk()
+    {
+        var angle = NextRandom(4096) * (MathF.Tau / 4096f);
+        var distance = _moveRange * (0.35f + 0.65f * NextUnit());
+        _moveTarget = new Vector3(
+            HomeAnchor.X + MathF.Sin(angle) * distance,
+            HomeAnchor.Y,
+            HomeAnchor.Z + MathF.Cos(angle) * distance);
+        Facing = angle;
+        MoveState = MoveStateView.Walking;
+    }
+
+    private int NextRandom(int upperBound)
+    {
+        _randomState = unchecked((_randomState * 214013u) + 2531011u);
+        var value = (int)((_randomState >> 16) & 0x7FFFu);
+        return upperBound > 0 ? value % upperBound : 0;
+    }
+
+    private float NextUnit()
+    {
+        return NextRandom(32768) / 32768f;
+    }
+}

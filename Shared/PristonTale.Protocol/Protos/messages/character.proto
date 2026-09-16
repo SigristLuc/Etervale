@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package pristontale.character;
+option csharp_namespace = "PristonTale.Protocol.Character";
+
+message CharacterSummary {
+  string name = 1;
+  int32 class_id = 2;
+  int32 level = 3;
+  int32 face_index = 4;
+  int32 tier = 5;
+  int32 hair_index = 6;
+  string armor_key = 7;
+  string weapon_key = 8;
+  string off_hand_key = 9;
+  bool in_village = 10;
+}
+
+message ListCharactersRequest {
+  string session_token = 1;
+}
+message ListCharactersReply {
+  repeated CharacterSummary characters = 1;
+}
+
+message CreateCharacterRequest {
+  string session_token = 1;
+  string name = 2;
+  int32 class_id = 3;
+  int32 face_index = 4;
+}
+message CreateCharacterReply {
+  bool ok = 1;
+  string message = 2;
+  CharacterSummary character = 3;
+}
+
+message DeleteCharacterRequest {
+  string session_token = 1;
+  string name = 2;
+}
+message DeleteCharacterReply {
+  bool ok = 1;
+  string message = 2;
+}

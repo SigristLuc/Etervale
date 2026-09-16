@@ -1,0 +1,1042 @@
+[
+  {
+    "name": "Extreme Shield",
+    "description": "Temporarily increases block rating of the current shield",
+    "level": 10,
+    "stamina": 34,
+    "step": 2,
+    "weapons": [
+      "sinDS1"
+    ],
+    "symbol": "SKILL_EXTREME_SHIELD",
+    "code": 16842753,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      12,
+      14,
+      17,
+      20,
+      23,
+      26,
+      30,
+      34,
+      39,
+      44
+    ],
+    "icon": "TM10 Ex_shield"
+  },
+  {
+    "name": "Mechanic Bomb",
+    "description": "Throws a bomb to enemies within explosive blast radius",
+    "level": 12,
+    "stamina": 28,
+    "step": 2,
+    "weapons": [],
+    "symbol": "SKILL_MECHANIC_BOMB",
+    "code": 16842754,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      8,
+      10,
+      12,
+      14,
+      17,
+      20,
+      23,
+      26,
+      29,
+      33
+    ],
+    "icon": "TM12 M_bomb"
+  },
+  {
+    "name": "Poison Attribute",
+    "description": "Permanently raises resistance to poison",
+    "level": 14,
+    "stamina": 0,
+    "step": 0,
+    "weapons": [],
+    "symbol": "SKILL_POISON_ATTRIBUTE",
+    "code": 16842756,
+    "use": "SIN_SKILL_USE_NOT",
+    "mana": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "icon": "TM14 P_attribute"
+  },
+  {
+    "name": "Physical Absorption",
+    "description": "Temporarily increases the body's ability to absorb damage",
+    "level": 17,
+    "stamina": 30,
+    "step": 2,
+    "weapons": [],
+    "symbol": "SKILL_PHYSICAL_ABSORB",
+    "code": 16842755,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      20,
+      24,
+      28,
+      32,
+      36,
+      40,
+      44,
+      48,
+      52,
+      56
+    ],
+    "icon": "TM17 Ph_absorb"
+  },
+  {
+    "name": "Melee Mastery",
+    "description": "Increases efficiency in melee weapons, increasing Attack Power permanently",
+    "level": 10,
+    "stamina": 0,
+    "step": 0,
+    "weapons": [
+      "sinWA1",
+      "sinWC1",
+      "sinWH1",
+      "sinWS2"
+    ],
+    "symbol": "SKILL_MELEE_MASTERY",
+    "code": 33619969,
+    "use": "SIN_SKILL_USE_NOT",
+    "mana": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "icon": "TF10 M_mastery"
+  },
+  {
+    "name": "Fire Attribute",
+    "description": "Permanently raises resistance to fire",
+    "level": 12,
+    "stamina": 0,
+    "step": 0,
+    "weapons": [],
+    "symbol": "SKILL_FIRE_ATTRIBUTE",
+    "code": 33619970,
+    "use": "SIN_SKILL_USE_NOT",
+    "mana": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "icon": "TF12 F_attribute"
+  },
+  {
+    "name": "Raving",
+    "description": "Goes berserk for a short period of time, but loses HP with each attack",
+    "level": 14,
+    "stamina": 35,
+    "step": 2,
+    "weapons": [
+      "sinWA1",
+      "sinWC1",
+      "sinWH1",
+      "sinWP1",
+      "sinWS2"
+    ],
+    "symbol": "SKILL_RAVING",
+    "code": 33619971,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      14,
+      16,
+      18,
+      20,
+      22,
+      24,
+      26,
+      29,
+      32,
+      35
+    ],
+    "icon": "TF14 raving"
+  },
+  {
+    "name": "Impact",
+    "description": "Raises attack rating to accurately strike the enemy",
+    "level": 17,
+    "stamina": 37,
+    "step": 2,
+    "weapons": [
+      "sinWA1",
+      "sinWC1",
+      "sinWP1",
+      "sinWS2"
+    ],
+    "symbol": "SKILL_IMPACT",
+    "code": 33619972,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      18,
+      20,
+      22,
+      24,
+      26,
+      29,
+      33,
+      37,
+      41,
+      45
+    ],
+    "icon": "TF17 impact"
+  },
+  {
+    "name": "Pike Wind",
+    "description": "Creates a whirlwind to push back and damage enemies",
+    "level": 10,
+    "stamina": 27,
+    "step": 2,
+    "weapons": [
+      "sinWP1"
+    ],
+    "symbol": "SKILL_PIKE_WIND",
+    "code": 50397185,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      14,
+      16,
+      18,
+      20,
+      23,
+      26,
+      29,
+      32,
+      35,
+      39
+    ],
+    "icon": "TP10 P_wind"
+  },
+  {
+    "name": "Ice Attribute",
+    "description": "Permanently raises resistance to frost",
+    "level": 12,
+    "stamina": 0,
+    "step": 0,
+    "weapons": [],
+    "symbol": "SKILL_ICE_ATTRIBUTE",
+    "code": 50397186,
+    "use": "SIN_SKILL_USE_NOT",
+    "mana": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "icon": "TP12 I_attribute"
+  },
+  {
+    "name": "Critical Hit",
+    "description": "Aims for enemies' weak spots to raise probability of a critical strike",
+    "level": 14,
+    "stamina": 31,
+    "step": 2,
+    "weapons": [
+      "sinWP1",
+      "sinWC1",
+      "sinWH1",
+      "sinWS2"
+    ],
+    "symbol": "SKILL_CRITICAL_HIT",
+    "code": 50397187,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      14,
+      16,
+      18,
+      20,
+      23,
+      26,
+      29,
+      33,
+      37,
+      41
+    ],
+    "icon": "TP14 Cri_hit"
+  },
+  {
+    "name": "Jumping Crash",
+    "description": "Leaps up into the air to strikedown with a powerful blow",
+    "level": 17,
+    "stamina": 34,
+    "step": 2,
+    "weapons": [
+      "sinWA1",
+      "sinWP1",
+      "sinWS2"
+    ],
+    "symbol": "SKILL_JUMPING_CRASH",
+    "code": 50397188,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      16,
+      18,
+      20,
+      23,
+      26,
+      29,
+      32,
+      35,
+      39,
+      43
+    ],
+    "icon": "TP17 J_Crash"
+  },
+  {
+    "name": "Scout Hawk",
+    "description": "Summons a hawk to scout the surrounding area, raising attack rating",
+    "level": 10,
+    "stamina": 25,
+    "step": 2,
+    "weapons": [],
+    "symbol": "SKILL_SCOUT_HAWK",
+    "code": 67174401,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      14,
+      16,
+      18,
+      20,
+      23,
+      26,
+      30,
+      34,
+      39,
+      44
+    ],
+    "icon": "TA10 S_hawk"
+  },
+  {
+    "name": "Shooting Mastery",
+    "description": "Permanently raises attack power with bows and crossbows",
+    "level": 12,
+    "stamina": 0,
+    "step": 0,
+    "weapons": [
+      "sinWS1"
+    ],
+    "symbol": "SKILL_SHOOTING_MASTERY",
+    "code": 67174402,
+    "use": "SIN_SKILL_USE_NOT",
+    "mana": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "icon": "TA12 S_mastery"
+  },
+  {
+    "name": "Wind Arrow",
+    "description": "Imbues an arrow with wind properties to increase attack power",
+    "level": 14,
+    "stamina": 25,
+    "step": 2,
+    "weapons": [
+      "sinWS1"
+    ],
+    "symbol": "SKILL_WIND_ARROW",
+    "code": 67174403,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      12,
+      14,
+      16,
+      18,
+      20,
+      23,
+      26,
+      29,
+      32,
+      35
+    ],
+    "icon": "TA14 W_arrow"
+  },
+  {
+    "name": "Perfect Aim",
+    "description": "Makes an aimed shot with increased Attack Rating and Power",
+    "level": 17,
+    "stamina": 29,
+    "step": 2,
+    "weapons": [
+      "sinWS1"
+    ],
+    "symbol": "SKILL_PERFECT_AIM",
+    "code": 67174404,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      14,
+      16,
+      18,
+      20,
+      22,
+      25,
+      28,
+      31,
+      35,
+      39
+    ],
+    "icon": "TA17 P_aim"
+  },
+  {
+    "name": "Sword Blast",
+    "description": "throws a devastating sword to attack enemies",
+    "level": 10,
+    "stamina": 22,
+    "step": 2,
+    "weapons": [
+      "sinWS2"
+    ],
+    "symbol": "SKILL_SWORD_BLAST",
+    "code": 83951617,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      8,
+      10,
+      12,
+      15,
+      18,
+      21,
+      25,
+      29,
+      33,
+      38
+    ],
+    "icon": "MN10 S_Blast"
+  },
+  {
+    "name": "Holy Body",
+    "description": "become holy to increase absorption against undead units.",
+    "level": 12,
+    "stamina": 28,
+    "step": 2,
+    "weapons": [],
+    "symbol": "SKILL_HOLY_BODY",
+    "code": 83951618,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      18,
+      21,
+      24,
+      27,
+      30,
+      34,
+      38,
+      42,
+      46,
+      50
+    ],
+    "icon": "MN12 H_Body"
+  },
+  {
+    "name": "Physical Training",
+    "description": "physical training increases stamina permanently",
+    "level": 14,
+    "stamina": 0,
+    "step": 0,
+    "weapons": [],
+    "symbol": "SKILL_PHYSICAL_TRANING",
+    "code": 83951619,
+    "use": "SIN_SKILL_USE_NOT",
+    "mana": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "icon": "MN14 P_Traning"
+  },
+  {
+    "name": "Double Crash",
+    "description": "makes 2 consecutive attacks to enemies.",
+    "level": 17,
+    "stamina": 35,
+    "step": 2,
+    "weapons": [
+      "sinWA1",
+      "sinWC1",
+      "sinWS2"
+    ],
+    "symbol": "SKILL_DOUBLE_CRASH",
+    "code": 83951620,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      18,
+      20,
+      22,
+      24,
+      27,
+      30,
+      33,
+      36,
+      39,
+      42
+    ],
+    "icon": "MN17 D_Crash"
+  },
+  {
+    "name": "Shield Strike",
+    "description": "hurls a shield to attack enemies.",
+    "level": 10,
+    "stamina": 23,
+    "step": 2,
+    "weapons": [
+      "sinDS1"
+    ],
+    "symbol": "SKILL_SHIELD_STRIKE",
+    "code": 100728833,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      16,
+      18,
+      20,
+      22,
+      24,
+      27,
+      30,
+      33,
+      36,
+      40
+    ],
+    "icon": "MA10 S_Strike"
+  },
+  {
+    "name": "Farina",
+    "description": "throws a spear that creates illusions",
+    "level": 12,
+    "stamina": 26,
+    "step": 2,
+    "weapons": [
+      "sinWT1"
+    ],
+    "symbol": "SKILL_FARINA",
+    "code": 100728834,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      17,
+      19,
+      21,
+      23,
+      26,
+      29,
+      32,
+      35,
+      38,
+      41
+    ],
+    "icon": "MA12 Farina"
+  },
+  {
+    "name": "Throwing Mastery",
+    "description": "train javelin attacks to increase damage permanently.",
+    "level": 14,
+    "stamina": 0,
+    "step": 0,
+    "weapons": [
+      "sinWT1"
+    ],
+    "symbol": "SKILL_THROWING_MASTERY",
+    "code": 100728835,
+    "use": "SIN_SKILL_USE_NOT",
+    "mana": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "icon": "MA14 T_Mastery"
+  },
+  {
+    "name": "Bigger Spear",
+    "description": "attack an enemy with holy javelin.",
+    "level": 17,
+    "stamina": 32,
+    "step": 2,
+    "weapons": [
+      "sinWP1",
+      "sinWT1"
+    ],
+    "symbol": "SKILL_VIGOR_SPEAR",
+    "code": 100728836,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      19,
+      21,
+      23,
+      25,
+      28,
+      31,
+      34,
+      37,
+      40,
+      43
+    ],
+    "icon": "MA17 V_Spear"
+  },
+  {
+    "name": "Healing",
+    "description": "heals life with its holy magic.",
+    "level": 10,
+    "stamina": 15,
+    "step": 1,
+    "weapons": [
+      "sinWM1"
+    ],
+    "symbol": "SKILL_HEALING",
+    "code": 117506049,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      11,
+      14,
+      17,
+      20,
+      24,
+      28,
+      32,
+      37,
+      42,
+      47
+    ],
+    "icon": "MP10 Healing"
+  },
+  {
+    "name": "Holy Bolt",
+    "description": "hurls a holy bolt to enemies.",
+    "level": 12,
+    "stamina": 11,
+    "step": 1,
+    "weapons": [
+      "sinWM1"
+    ],
+    "symbol": "SKILL_HOLY_BOLT",
+    "code": 117506050,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      14,
+      17,
+      20,
+      23,
+      27,
+      31,
+      35,
+      40,
+      45,
+      50
+    ],
+    "icon": "MP12 HolyBolt"
+  },
+  {
+    "name": "Multi Spark",
+    "description": "Releases magical sparks to attack enemies.",
+    "level": 14,
+    "stamina": 14,
+    "step": 1,
+    "weapons": [
+      "sinWM1"
+    ],
+    "symbol": "SKILL_MULTISPARK",
+    "code": 117506051,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      16,
+      19,
+      22,
+      25,
+      29,
+      33,
+      37,
+      42,
+      47,
+      52
+    ],
+    "icon": "MP14 M_Spark"
+  },
+  {
+    "name": "Holy Mind",
+    "description": "It weakens enemy's attack in a given time.",
+    "level": 17,
+    "stamina": 19,
+    "step": 1,
+    "weapons": [
+      "sinWM1"
+    ],
+    "symbol": "SKILL_HOLY_MIND",
+    "code": 117506052,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      22,
+      25,
+      28,
+      32,
+      36,
+      40,
+      45,
+      50,
+      55,
+      60
+    ],
+    "icon": "MP17 HolyMind"
+  },
+  {
+    "name": "Agony",
+    "description": "sacrifice oneself to increase spirit.",
+    "level": 10,
+    "stamina": 12,
+    "step": 1,
+    "weapons": [
+      "sinWM1"
+    ],
+    "symbol": "SKILL_AGONY",
+    "code": 134283265,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "icon": "MM10 Agony"
+  },
+  {
+    "name": "Fire Bolt",
+    "description": "calls down small fireballs to attack enemies",
+    "level": 12,
+    "stamina": 11,
+    "step": 1,
+    "weapons": [
+      "sinWM1"
+    ],
+    "symbol": "SKILL_FIRE_BOLT",
+    "code": 134283266,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      16,
+      18,
+      20,
+      22,
+      25,
+      28,
+      31,
+      34,
+      38,
+      42
+    ],
+    "icon": "MM12 FireBolt"
+  },
+  {
+    "name": "Zenith",
+    "description": "Increase element features with strong spirit for a given time.",
+    "level": 14,
+    "stamina": 15,
+    "step": 1,
+    "weapons": [
+      "sinWM1"
+    ],
+    "symbol": "SKILL_ZENITH",
+    "code": 134283267,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      18,
+      20,
+      22,
+      25,
+      28,
+      31,
+      35,
+      39,
+      43,
+      48
+    ],
+    "icon": "MM14 Zenith"
+  },
+  {
+    "name": "Fire Ball",
+    "description": "calls down huge fireballs to attack enemies",
+    "level": 17,
+    "stamina": 19,
+    "step": 1,
+    "weapons": [
+      "sinWM1"
+    ],
+    "symbol": "SKILL_FIRE_BALL",
+    "code": 134283268,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      22,
+      24,
+      26,
+      28,
+      31,
+      34,
+      38,
+      42,
+      46,
+      50
+    ],
+    "icon": "MM17 FireBall"
+  },
+  {
+    "name": "Stinger",
+    "description": "Dash straight into the enemy and deal damage.",
+    "level": 10,
+    "stamina": 22,
+    "step": 2,
+    "weapons": [
+      "ITEMTYPE_Dagger"
+    ],
+    "symbol": "SKILLID_Stinger",
+    "code": 268500993,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      8,
+      10,
+      12,
+      15,
+      18,
+      21,
+      25,
+      29,
+      33,
+      38
+    ],
+    "icon": "TA10 Stingger"
+  },
+  {
+    "name": "Running Hit",
+    "description": "Deals continuous damage to the enemy while spinning",
+    "level": 12,
+    "stamina": 27,
+    "step": 2,
+    "weapons": [
+      "ITEMTYPE_Dagger"
+    ],
+    "symbol": "SKILLID_RunningHit",
+    "code": 268500994,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      14,
+      16,
+      18,
+      20,
+      23,
+      26,
+      29,
+      32,
+      35,
+      39
+    ],
+    "icon": "TA12 R_Hit"
+  },
+  {
+    "name": "Dual Wield Mastery",
+    "description": "Permanently raises the base attack power of dagger-type weapons",
+    "level": 14,
+    "stamina": 0,
+    "step": 0,
+    "weapons": [
+      "ITEMTYPE_Dagger"
+    ],
+    "symbol": "SKILLID_DualWieldMastery",
+    "code": 268500995,
+    "use": "SIN_SKILL_USE_NOT",
+    "mana": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "icon": "TA14 D_Mastery"
+  },
+  {
+    "name": "Wisp",
+    "description": "Reduces targeted enemy damage for a period of time",
+    "level": 17,
+    "stamina": 37,
+    "step": 2,
+    "weapons": [
+      "ITEMTYPE_Dagger"
+    ],
+    "symbol": "SKILLID_Wisp",
+    "code": 268500996,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      18,
+      20,
+      22,
+      24,
+      26,
+      29,
+      33,
+      37,
+      41,
+      45
+    ],
+    "icon": "TA17 Wisp"
+  },
+  {
+    "name": "Dark Bolt",
+    "description": "Hits the enemy with an almighty bolt of dark magic created with sorcery",
+    "level": 10,
+    "stamina": 8,
+    "step": 1,
+    "weapons": [
+      "ITEMTYPE_Phantom"
+    ],
+    "symbol": "SKILLID_DarkBolt",
+    "code": 1342242817,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      14,
+      16,
+      18,
+      20,
+      22,
+      24,
+      26,
+      28,
+      30,
+      32
+    ],
+    "icon": "MS10 Darkbolt"
+  },
+  {
+    "name": "Dark Wave",
+    "description": "Performs a consecutive area attack with almighty bolts of dark magic",
+    "level": 12,
+    "stamina": 19,
+    "step": 1,
+    "weapons": [
+      "ITEMTYPE_Phantom"
+    ],
+    "symbol": "SKILLID_DarkWave",
+    "code": 1342242818,
+    "use": "SIN_SKILL_USE_ALL",
+    "mana": [
+      22,
+      24,
+      26,
+      28,
+      31,
+      34,
+      38,
+      42,
+      46,
+      50
+    ],
+    "icon": "MS12 Darkwave"
+  },
+  {
+    "name": "Inertia",
+    "description": "Throws a curse onto the enemies, slowing them down temporarily",
+    "level": 14,
+    "stamina": 20,
+    "step": 1,
+    "weapons": [
+      "ITEMTYPE_Phantom"
+    ],
+    "symbol": "SKILLID_Inertia",
+    "code": 1342242819,
+    "use": "SIN_SKILL_USE_RIGHT",
+    "mana": [
+      25,
+      28,
+      32,
+      36,
+      40,
+      45,
+      50,
+      55,
+      60,
+      65
+    ],
+    "icon": "MS14 Curselazy"
+  },
+  {
+    "name": "Inner Peace",
+    "description": "Through mental training, increases MP potion recovery and mana capacity permanently",
+    "level": 17,
+    "stamina": 0,
+    "step": 0,
+    "weapons": [],
+    "symbol": "SKILLID_InnerPeace",
+    "code": 1342242820,
+    "use": "SIN_SKILL_USE_NOT",
+    "mana": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "icon": "MS17 I_peace"
+  }
+]
