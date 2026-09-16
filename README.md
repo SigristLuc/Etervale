@@ -121,6 +121,17 @@ rm "$OFFLINE_DB"
 Then run the offline import and verification commands above. This resets local accounts and characters in the new
 database. Skip this step for a new installation where `offline.db` does not yet exist.
 
+## Screenshots
+
+<img width="1918" height="1012" alt="image" src="https://github.com/user-attachments/assets/2850e4b8-9c72-43b2-9171-6434a6313135" />
+--
+<img width="1918" height="1012" alt="image" src="https://github.com/user-attachments/assets/81668a53-e1ed-499d-b5d5-e13488e596dd" />
+--
+<img width="1918" height="1012" alt="image" src="https://github.com/user-attachments/assets/ac1b25ce-96f1-489f-9aa4-a2c9f6e70fb1" />
+
+
+
+
 ## Online: migrate, import, and connect
 
 `docker-compose.yml` defines the local development PostgreSQL server on host port **5433**. Its database, user, and
