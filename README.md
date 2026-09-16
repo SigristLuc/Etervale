@@ -9,10 +9,8 @@ from the repository root and use the Release configuration.
 ## Requirements
 
 - .NET 10 SDK.
-- The game asset archive (download link **to be added by the maintainer**). Extract it at the repository root so the
-  archive's `assets/` directory appears beside this README.
-- The original server configuration files for a complete world import. Place the `GameServer/` directory at the
-  repository root, or pass its actual location with `--source`.
+- [Game data archive](https://drive.google.com/file/d/1p9YSki_Jad7aAcpsXC4W5VpYLqv_Sl6v/view?usp=sharing).
+  Download and extract it at the repository root. The archive contains both `assets/` and `GameServer/`.
 - A working graphics environment for the client. On Linux, shader compilation also requires Wine and a MonoGame MGFXC
   Wine prefix; set `MGFXC_WINE_PATH` to that prefix when building.
 - Docker with Compose only if you want the online PostgreSQL server. Offline play does not require Docker or PostgreSQL.
@@ -25,7 +23,7 @@ MonoGame content build.
 Expected layout:
 
 ```text
-PristonTale/
+Etervale/
 ├── assets/
 │   ├── char/
 │   ├── Field/
