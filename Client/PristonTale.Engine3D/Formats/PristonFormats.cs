@@ -430,6 +430,8 @@ public sealed record PristonModelInfo(
 
     public bool MotionFramesWereProtected { get; init; }
 
+    public bool MotionKeywordsFromOtherPath { get; init; }
+
     public IReadOnlyList<int> NpcMotionRates { get; init; } = [];
 
     public IReadOnlyList<int> NpcMotionSelection { get; init; } = [];

@@ -77,7 +77,7 @@ public sealed class PristonSmdReader
             throw new InvalidDataException($"{path} is not a stage SMD. Header kind: {header.Kind}.");
         }
 
-        if (LooksLikeModelLayout(data, header))
+        if (LooksLikeModelLayout(data, header, requireObjectHead: true))
         {
             throw new InvalidDataException($"{path} carries a stage signature but its offsets and object records form a model SMD. Load it through ReadModel.");
         }
@@ -142,7 +142,7 @@ public sealed class PristonSmdReader
         var data = PristonFileResolver.ReadAllBytes(path);
         var cursor = new BinaryCursor(data);
         var header = ReadHeader(cursor);
-        var stageSignatureWithModelLayout = IsStageHeader(header.Kind) && header.ObjectCount > 0 && LooksLikeModelLayout(data, header);
+        var stageSignatureWithModelLayout = IsStageHeader(header.Kind) && header.ObjectCount > 0 && LooksLikeModelLayout(data, header, requireObjectHead: true);
         if (!IsModelHeader(header.Kind) && !stageSignatureWithModelLayout)
         {
             throw new InvalidDataException($"{path} is not a model SMD/SMB. Header kind: {header.Kind}.");
@@ -283,13 +283,15 @@ public sealed class PristonSmdReader
             throw new InvalidDataException($"{path} has invalid TmFrameCounter {header.FrameRangeCount}.");
         }
 
-        if (!LooksLikeModelLayout(data, header))
+        // smPAT3D::LoadFile never checks smOBJ3D::Head; some costume exporters overwrote it with
+        // material string bytes, so a model signature only needs a consistent object range.
+        if (!LooksLikeModelLayout(data, header, requireObjectHead: !IsModelHeader(header.Kind)))
         {
             throw new InvalidDataException($"{path} does not have a complete Win32 model layout with valid object offsets and lengths.");
         }
     }
 
-    private static bool LooksLikeModelLayout(byte[] data, DFileHeader header)
+    private static bool LooksLikeModelLayout(byte[] data, DFileHeader header, bool requireObjectHead)
     {
         try
         {
@@ -324,7 +326,7 @@ public sealed class PristonSmdReader
                 }
 
                 var head = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(info.Offset, sizeof(uint)));
-                if ((head & ~ObjHeadTypeNewNormal) != ObjHeadMagic)
+                if (requireObjectHead && (head & ~ObjHeadTypeNewNormal) != ObjHeadMagic)
                 {
                     return false;
                 }
@@ -725,10 +727,6 @@ public sealed class PristonSmdReader
     {
         var objectStart = cursor.Position;
         var head = cursor.UInt32();
-        if ((head & ~ObjHeadTypeNewNormal) != ObjHeadMagic)
-        {
-            throw new InvalidDataException($"Invalid smOBJ3D head 0x{head:X8} at offset {objectStart} in {path}.");
-        }
 
         var vertexPointer32 = cursor.UInt32();
         var facePointer32 = cursor.UInt32();

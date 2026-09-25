@@ -85,9 +85,11 @@ public sealed class PristonInxReader
         ValidateTableCount(talkMotionCount, PristonFormatConstants.TalkMotionInfoCount, "talk motion");
         var motionFramesWereProtected = motionCount > PristonFormatConstants.CharacterMotionBase
             && talkMotionCount <= PristonFormatConstants.CharacterMotionBase;
+        var motionKeywordCode = fileCode;
         if (motionFramesWereProtected)
         {
-            DecodeProtectedMotionFrames(path, motions, motionCount, fileCode);
+            motionKeywordCode = ResolveMotionKeywordCode(motions, motionCount, fileCode);
+            DecodeProtectedMotionFrames(path, motions, motionCount, motionKeywordCode);
         }
 
         var tailStart = cursor.Position;
@@ -138,6 +140,7 @@ public sealed class PristonInxReader
             DecodedLinkKeyword = keywordValidation.LinkCode,
             ModelKeywordsValid = keywordValidation.IsValid,
             MotionFramesWereProtected = motionFramesWereProtected,
+            MotionKeywordsFromOtherPath = motionKeywordCode != fileCode,
             NpcMotionRates = npcMotionRates,
             NpcMotionSelection = npcMotionSelection,
             TalkMotionRates = talkMotionRates,
@@ -339,6 +342,44 @@ public sealed class PristonInxReader
         };
     }
 
+    // Motion keywords embed GetSpeedSum of the path the INX was encoded under. Some shipped INX files
+    // were copied to another folder, which MotionKeyWordDecode rejects; when every protected frame
+    // carries one identical keyword the frames are intact and that keyword is accepted instead.
+    private static uint ResolveMotionKeywordCode(List<PristonMotionInfo> motions, uint motionCount, uint fileCode)
+    {
+        uint? sharedKeyword = null;
+        var matchesFile = true;
+        for (var index = PristonFormatConstants.CharacterMotionBase; index < motionCount; index++)
+        {
+            var motion = motions[index];
+            var keywords = new List<uint>(2);
+            if (motion.MotionKeyword1 != 0 || motion.RawStartFrame != 0)
+            {
+                keywords.Add(StartFrameKeyword(motion.MotionKeyword1, motion.RawStartFrame));
+            }
+
+            if (motion.MotionKeyword2 != 0 || motion.RawEndFrame != 0)
+            {
+                keywords.Add(EndFrameKeyword(motion.MotionKeyword2, motion.RawEndFrame));
+            }
+
+            foreach (var keyword in keywords)
+            {
+                matchesFile &= keyword == fileCode;
+                if (sharedKeyword is null)
+                {
+                    sharedKeyword = keyword;
+                }
+                else if (sharedKeyword != keyword)
+                {
+                    return fileCode;
+                }
+            }
+        }
+
+        return matchesFile || sharedKeyword is null ? fileCode : sharedKeyword.Value;
+    }
+
     private static void DecodeProtectedMotionFrames(string path, List<PristonMotionInfo> motions, uint motionCount, uint fileCode)
     {
         for (var index = PristonFormatConstants.CharacterMotionBase; index < motionCount; index++)
@@ -408,13 +449,25 @@ public sealed class PristonInxReader
             decodedFileCodeWithLink == fileCode && decodedLinkCode == expectedLinkCode);
     }
 
-    private static bool TryDecodeStartFrame(uint code, uint keyword, uint encodedFrame, out uint frame)
+    private static uint StartFrameKeyword(uint keyword, uint encodedFrame)
     {
-        var decodedKeyword =
-            (keyword & 0xFF000000u) |
+        return (keyword & 0xFF000000u) |
             ((keyword & 0x0000FF00u) << 8) |
             (encodedFrame & 0x0000FF00u) |
             ((encodedFrame & 0xFF000000u) >> 24);
+    }
+
+    private static uint EndFrameKeyword(uint keyword, uint encodedFrame)
+    {
+        return ((encodedFrame & 0x0000FF00u) << 16) |
+            ((encodedFrame & 0xFF000000u) >> 8) |
+            (keyword & 0x0000FF00u) |
+            ((keyword & 0xFF000000u) >> 24);
+    }
+
+    private static bool TryDecodeStartFrame(uint code, uint keyword, uint encodedFrame, out uint frame)
+    {
+        var decodedKeyword = StartFrameKeyword(keyword, encodedFrame);
 
         frame =
             ((encodedFrame & 0x000000FFu) << 24) |
@@ -427,11 +480,7 @@ public sealed class PristonInxReader
 
     private static bool TryDecodeEndFrame(uint code, uint keyword, uint encodedFrame, out uint frame)
     {
-        var decodedKeyword =
-            ((encodedFrame & 0x0000FF00u) << 16) |
-            ((encodedFrame & 0xFF000000u) >> 8) |
-            (keyword & 0x0000FF00u) |
-            ((keyword & 0xFF000000u) >> 24);
+        var decodedKeyword = EndFrameKeyword(keyword, encodedFrame);
 
         frame =
             ((keyword & 0x00FF0000u) << 8) |

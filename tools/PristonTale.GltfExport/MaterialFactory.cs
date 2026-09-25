@@ -19,26 +19,39 @@ internal sealed class MaterialFactory
         uint BlendType,
         float Transparency,
         bool RenderLast,
+        bool SelfIllum,
         AlphaMode AlphaMode);
 
     private readonly record struct ImageKey(
         string Texture,
         string Opacity,
-        AlphaMode AlphaMode);
+        BlendAlpha BlendAlpha);
+
+    // glTF only offers alpha blending, so the reference SMMAT_BLEND colour modes are approximated
+    // by deriving coverage from the texture colour when the texture carries no alpha channel.
+    private enum BlendAlpha
+    {
+        Opaque,
+        Luminance,
+        Shadow,
+        InverseShadow
+    }
 
     private readonly string _assetDirectory;
     private readonly string _pngDirectory;
     private readonly bool _forceDoubleSided;
+    private readonly bool _unlit;
     private readonly Dictionary<MaterialKey, MaterialBuilder> _materials = [];
     private readonly Dictionary<ImageKey, string> _pngPaths = [];
     private int _missingTextures;
     private int _generatedPngs;
 
-    public MaterialFactory(string assetDirectory, string pngDirectory, bool forceDoubleSided = false)
+    public MaterialFactory(string assetDirectory, string pngDirectory, bool forceDoubleSided = false, bool unlit = false)
     {
         _assetDirectory = assetDirectory;
         _pngDirectory = pngDirectory;
         _forceDoubleSided = forceDoubleSided;
+        _unlit = unlit;
     }
 
     public int MissingTextures => _missingTextures;
@@ -73,23 +86,33 @@ internal sealed class MaterialFactory
             material.BlendType,
             material.Transparency,
             material.RenderLast,
+            material.IsSelfIllum,
             alphaMode);
         if (_materials.TryGetValue(key, out var cached))
         {
             return cached;
         }
 
-        var pngPath = BakePng(source, index, alphaMode);
+        var pngPath = BakePng(source, index, BlendAlphaOf(material, alphaMode));
         var builder = new MaterialBuilder($"mat{index}_{Path.GetFileNameWithoutExtension(source.TextureName)}")
-            .WithDoubleSide(_forceDoubleSided || material.TwoSided)
-            .WithMetallicRoughnessShader()
-            .WithMetallicRoughness(0f, 1f)
-            .WithChannelImage(KnownChannel.BaseColor, pngPath);
-        builder.GetChannel(KnownChannel.BaseColor)?.Texture?.WithSampler(
-            SharpGLTF.Schema2.TextureWrapMode.REPEAT,
-            SharpGLTF.Schema2.TextureWrapMode.REPEAT,
-            SharpGLTF.Schema2.TextureMipMapFilter.LINEAR_MIPMAP_LINEAR,
-            SharpGLTF.Schema2.TextureInterpolationFilter.LINEAR);
+            .WithDoubleSide(_forceDoubleSided || material.TwoSided);
+        if (_unlit)
+        {
+            builder.WithUnlitShader();
+        }
+        else
+        {
+            builder.WithMetallicRoughnessShader().WithMetallicRoughness(0f, 1f);
+        }
+
+        builder.WithChannelImage(KnownChannel.BaseColor, pngPath);
+        ApplySampler(builder, KnownChannel.BaseColor);
+        if (!_unlit && material.IsSelfIllum)
+        {
+            builder.WithChannelImage(KnownChannel.Emissive, pngPath);
+            builder.WithEmissive(System.Numerics.Vector3.One);
+            ApplySampler(builder, KnownChannel.Emissive);
+        }
 
         if (alphaMode == AlphaMode.MASK)
         {
@@ -104,12 +127,39 @@ internal sealed class MaterialFactory
         return builder;
     }
 
-    private string BakePng(TextureSource source, int index, AlphaMode alphaMode)
+    private static void ApplySampler(MaterialBuilder builder, KnownChannel channel)
+    {
+        builder.GetChannel(channel)?.Texture?.WithSampler(
+            SharpGLTF.Schema2.TextureWrapMode.REPEAT,
+            SharpGLTF.Schema2.TextureWrapMode.REPEAT,
+            SharpGLTF.Schema2.TextureMipMapFilter.LINEAR_MIPMAP_LINEAR,
+            SharpGLTF.Schema2.TextureInterpolationFilter.LINEAR);
+    }
+
+    private static BlendAlpha BlendAlphaOf(PristonMaterial material, AlphaMode alphaMode)
+    {
+        if (alphaMode != AlphaMode.BLEND)
+        {
+            return BlendAlpha.Opaque;
+        }
+
+        // Model vertices are drawn with alpha 255 and stage transparency is already baked into the
+        // stage vertex alpha, so BLEND_ALPHA and plain transparent materials keep an opaque texture.
+        return material.BlendType switch
+        {
+            2 or 4 or 5 => BlendAlpha.Luminance,
+            3 => BlendAlpha.Shadow,
+            6 => BlendAlpha.InverseShadow,
+            _ => BlendAlpha.Opaque
+        };
+    }
+
+    private string BakePng(TextureSource source, int index, BlendAlpha blendAlpha)
     {
         var imageKey = new ImageKey(
             Normalize(source.TextureName),
             Normalize(source.OpacityName),
-            alphaMode);
+            blendAlpha);
         if (_pngPaths.TryGetValue(imageKey, out var existing))
         {
             return existing;
@@ -119,7 +169,7 @@ internal sealed class MaterialFactory
         {
             imageKey.Texture,
             imageKey.Opacity,
-            Mode = (int)imageKey.AlphaMode
+            Mode = (int)imageKey.BlendAlpha
         });
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)));
         var sourceName = string.IsNullOrWhiteSpace(source.TextureName)
@@ -131,7 +181,7 @@ internal sealed class MaterialFactory
 
         if (image.IsValid)
         {
-            PrepareAlpha(ref image, sourcePath, source.OpacityName, alphaMode);
+            PrepareAlpha(ref image, sourcePath, source.OpacityName, blendAlpha);
             PngWriter.Write(pngPath, image.Width, image.Height, image.Rgba);
         }
         else
@@ -149,7 +199,7 @@ internal sealed class MaterialFactory
         ref DecodedImage image,
         string sourcePath,
         string opacityName,
-        AlphaMode alphaMode)
+        BlendAlpha blendAlpha)
     {
         if (image.HasSourceAlpha)
         {
@@ -162,13 +212,21 @@ internal sealed class MaterialFactory
             return;
         }
 
-        if (alphaMode == AlphaMode.BLEND)
+        switch (blendAlpha)
         {
-            SetLuminanceAlpha(image);
-            return;
+            case BlendAlpha.Luminance:
+                SetLuminanceAlpha(image);
+                break;
+            case BlendAlpha.Shadow:
+                SetShadowAlpha(image, inverse: false);
+                break;
+            case BlendAlpha.InverseShadow:
+                SetShadowAlpha(image, inverse: true);
+                break;
+            default:
+                SetOpaque(image);
+                break;
         }
-
-        SetOpaque(image);
     }
 
     private void ApplyOpacity(ref DecodedImage image, string sourcePath, string opacityName)
@@ -278,6 +336,22 @@ internal sealed class MaterialFactory
             image.Rgba[index + 3] = Math.Max(
                 image.Rgba[index],
                 Math.Max(image.Rgba[index + 1], image.Rgba[index + 2]));
+        }
+    }
+
+    // SHADOW multiplies the destination by the source colour and INVSHADOW by its complement; both
+    // are expressed as black coverage over the destination.
+    private static void SetShadowAlpha(DecodedImage image, bool inverse)
+    {
+        for (var index = 0; index < image.Rgba.Length; index += 4)
+        {
+            var brightness = Math.Max(
+                image.Rgba[index],
+                Math.Max(image.Rgba[index + 1], image.Rgba[index + 2]));
+            image.Rgba[index] = 0;
+            image.Rgba[index + 1] = 0;
+            image.Rgba[index + 2] = 0;
+            image.Rgba[index + 3] = inverse ? brightness : (byte)(255 - brightness);
         }
     }
 

@@ -48,7 +48,8 @@ public static class PristonImageDecoder
     {
         hasSourceAlpha = false;
         var bytes = (byte[])source.Clone();
-        if (bytes[0] == 'A' && bytes[1] == '8')
+        var legacyHeader = bytes[0] == 'A' && bytes[1] == '8';
+        if (legacyHeader)
         {
             for (var i = 0; i < 14; i++)
             {
@@ -61,6 +62,21 @@ public static class PristonImageDecoder
         if (dibSize < 40 || bytes.Length < 14 + dibSize)
         {
             return DecodedPristonImage.Empty;
+        }
+
+        // ImageDecode.cpp: some release A8 files leave bfOffBits zero; their pixels follow the DIB and palette.
+        if (legacyHeader && pixelOffset == 0)
+        {
+            var inferredBitCount = BitConverter.ToUInt16(bytes, 28);
+            var colorsUsed = BitConverter.ToInt32(bytes, 46);
+            var paletteBytes = inferredBitCount == 8 ? 4L * (colorsUsed != 0 ? colorsUsed : 256) : 0L;
+            var inferred = 14L + dibSize + paletteBytes;
+            if (inferred > bytes.Length)
+            {
+                return DecodedPristonImage.Empty;
+            }
+
+            pixelOffset = (int)inferred;
         }
 
         var width = BitConverter.ToInt32(bytes, 18);
