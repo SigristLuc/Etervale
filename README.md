@@ -14,7 +14,7 @@ from the repository root and use the Release configuration.
 ## Requirements
 
 - .NET 10 SDK.
-- [Game data archive](https://drive.google.com/file/d/1p9YSki_Jad7aAcpsXC4W5VpYLqv_Sl6v/view?usp=sharing).
+- [Game data archive](https://drive.google.com/file/d/1-uiMsGgfICPkTvObkp80vsnYp1PH8v5N/view?usp=drive_link).
   Download and extract it at the repository root. Place authored configuration in `assets/GameServer/`.
 - A working graphics environment for the client. On Linux, shader compilation also requires Wine and a MonoGame MGFXC
   Wine prefix; set `MGFXC_WINE_PATH` to that prefix when building.
