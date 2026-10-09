@@ -9,7 +9,6 @@ namespace PristonTale.Gameplay.Screens.Framework;
 public sealed class ScreenContext
 {
     private readonly Action<GameScreen> _requestScreen;
-    private readonly Action<IGameBackend> _setBackend;
 
     public ScreenContext(
         GraphicsDevice graphicsDevice,
@@ -20,7 +19,6 @@ public sealed class ScreenContext
         IGameBackend backend,
         IClientLog log,
         Action<GameScreen> requestScreen,
-        Action<IGameBackend> setBackend,
         PristonTale.Engine3D.Rendering.PresentationSettings presentation = null,
         PristonTale.Gameplay.UI.Rendering.HudAtlas uiAtlas = null,
         PristonTale.Engine3D.Rendering.PristonSkyLibrary sky = null,
@@ -35,7 +33,6 @@ public sealed class ScreenContext
         Backend = backend;
         Log = log ?? ConsoleClientLog.Instance;
         _requestScreen = requestScreen;
-        _setBackend = setBackend;
         Presentation = presentation ?? new PristonTale.Engine3D.Rendering.PresentationSettings();
         UiAtlas = uiAtlas;
         Sky = sky;
@@ -57,13 +54,7 @@ public sealed class ScreenContext
 
     public IClientLog Log { get; }
 
-    public IGameBackend Backend { get; private set; }
-
-    public void UseBackend(IGameBackend backend)
-    {
-        Backend = backend;
-        _setBackend(backend);
-    }
+    public IGameBackend Backend { get; }
 
     public void RequestScreen(GameScreen next) => _requestScreen(next);
 }

@@ -11,6 +11,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="../../Shared/PristonTale.Geometry/PristonTale.Geometry.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <InternalsVisibleTo Include="PristonTale.Tests"/>
         <InternalsVisibleTo Include="ptdump"/>
         <InternalsVisibleTo Include="ptgltf"/>

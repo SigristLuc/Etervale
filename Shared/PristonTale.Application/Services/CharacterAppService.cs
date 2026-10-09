@@ -48,6 +48,13 @@ public sealed class CharacterAppService
         return summaries;
     }
 
+    // ISRECORDDATA: whether any account already uses the name.
+    public async Task<bool> NameExistsAsync(string sessionToken, string name, CancellationToken ct = default)
+    {
+        Authenticate(sessionToken);
+        return await _characters.NameExistsAsync(name?.Trim() ?? string.Empty, ct);
+    }
+
     public async Task<CreateCharacterOutcome> CreateCharacterAsync(
         string sessionToken, string name, int classId, int faceIndex, CancellationToken ct = default)
     {
@@ -55,21 +62,21 @@ public sealed class CharacterAppService
 
         var trimmed = name?.Trim() ?? string.Empty;
         if (trimmed.Length is < 3 or > 16)
-            return CreateCharacterOutcome.Failed("name must be 3–16 characters");
+            return CreateCharacterOutcome.Failed(CreateCharacterFailure.NameLength);
 
         var playerClass = (PlayerClass)classId;
         if (!Enum.IsDefined(playerClass))
-            return CreateCharacterOutcome.Failed("unknown class");
+            return CreateCharacterOutcome.Failed(CreateCharacterFailure.UnknownClass);
 
         if (!CharacterFace.IsValidIndex(faceIndex))
-            return CreateCharacterOutcome.Failed("invalid face");
+            return CreateCharacterOutcome.Failed(CreateCharacterFailure.InvalidFace);
 
         if (await _characters.NameExistsAsync(trimmed, ct))
-            return CreateCharacterOutcome.Failed("that name is taken");
+            return CreateCharacterOutcome.Failed(CreateCharacterFailure.NameTaken);
 
         var usedSlots = await _characters.UsedSlotsAsync(session.AccountId, ct);
         if (usedSlots.Count >= MaxCharactersPerAccount)
-            return CreateCharacterOutcome.Failed("no free character slots");
+            return CreateCharacterOutcome.Failed(CreateCharacterFailure.NoFreeSlot);
         var slot = FirstFreeSlot(usedSlots);
 
         var record = CharacterRecordFactory.NewStarter(

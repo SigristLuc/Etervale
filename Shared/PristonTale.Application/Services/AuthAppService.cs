@@ -18,40 +18,25 @@ public sealed class AuthAppService
     public async Task<LoginOutcome> LoginAsync(string account, string password, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(account) || string.IsNullOrEmpty(password))
-            return LoginOutcome.Denied("account and password are required");
+        {
+            return LoginOutcome.Denied(LoginFailure.BadCredentials);
+        }
 
         var record = await _accounts.FindByUserIdAsync(account, ct);
 
         if (record is null)
         {
-            // First login provisions the account (dev bootstrap — see class remarks).
-            record = await _accounts.CreateAsync(account, PasswordHasher.Hash(password), ct);
-        }
-        else
-        {
-            if (record.IsBlocked)
-                return LoginOutcome.Denied("account is blocked");
-            if (!PasswordHasher.Verify(password, record.PasswordHash))
-                return LoginOutcome.Denied("invalid account or password");
+            return LoginOutcome.Denied(LoginFailure.BadCredentials);
         }
 
-        await _accounts.UpdateLastLoginAsync(record.Id, ct);
-        var session = _sessions.Create(record.Id, record.UserId);
-
-        return LoginOutcome.Success(session.SessionToken, $"welcome, {record.UserId}");
-    }
-
-    public async Task<LoginOutcome> LoginLocalProfileAsync(string profileName, CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(profileName))
-            return LoginOutcome.Denied("a profile name is required");
-
-        var record = await _accounts.FindByUserIdAsync(profileName, ct);
-
-        if (record is null)
+        if (record.IsBlocked)
         {
-            // First use creates the named local profile; no real password (offline never verifies).
-            record = await _accounts.CreateAsync(profileName, PasswordHasher.Hash(string.Empty), ct);
+            return LoginOutcome.Denied(LoginFailure.LoginDenied);
+        }
+
+        if (!PasswordHasher.Verify(password, record.PasswordHash))
+        {
+            return LoginOutcome.Denied(LoginFailure.BadCredentials);
         }
 
         await _accounts.UpdateLastLoginAsync(record.Id, ct);

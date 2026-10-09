@@ -1,16 +1,14 @@
-using Grpc.Core;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Application.World;
 using PristonTale.Client.Net;
-using PristonTale.Client.Net.Offline;
 using PristonTale.Client.Net.Online;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Client.Net.WorldCatalog;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.World.Remote;
-using PristonTale.Protocol.Session;
+using PristonTale.Protocol.Binary;
 using PristonTale.Simulation.Characters;
 
 namespace PristonTale.Tests;
@@ -19,10 +17,8 @@ internal static class ClientTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("offline SQLite preserves the sixth character and drains save/close races", OfflineSaveAsync);
-        yield return ("gRPC saturation rejects excess producers without growing pending work", SaturationAsync);
-        yield return ("gRPC has one writer and drains before half-close", OrderedWritesAsync);
-        yield return ("offline presence retains combat events and field identity", PresenceAsync);
+        yield return ("original presence packets retain combat events, skill motion and field identity", PresenceAsync);
+        yield return ("crowded presence keeps position updates inside the per-receiver budget without starving walkers", CrowdBudgetAsync);
         yield return ("remote rates and explicit swing events replace per-frame restarts", RemoteMotionAsync);
         yield return ("NPC duplicate Stand clips preserve exact INX indices and weighted selection", NpcStandMotionsAsync);
         yield return ("pending actor preparation does not block presence or resurrect removals", PendingActorAsync);
@@ -31,134 +27,43 @@ internal static class ClientTests
         yield return ("cursor rays originate at the camera and reject an enclosing NPC pick volume", CursorPickingAsync);
     }
 
-    private static async Task OfflineSaveAsync()
-    {
-        var directory = Path.Combine(Path.GetTempPath(), "priston-offline-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        var path = Path.Combine(directory, "save.db");
-        try
-        {
-            var backend = new OfflineBackend(path);
-            try
-            {
-                Assert.True((await backend.LoginAsync("LocalTest", "", 1)).Ok, "local login failed");
-                for (var slot = 0; slot < CharacterSlots.Maximum; slot++)
-                {
-                    Assert.True((await backend.CreateCharacterAsync("Hero" + slot, 1, 0)).Ok, "valid slot rejected");
-                }
-
-                Assert.True(!(await backend.CreateCharacterAsync("Seventh", 1, 0)).Ok, "seventh slot accepted");
-                Assert.True((await backend.EnterWorldAsync("Hero5")).Ok, "sixth character could not enter");
-                var channel = backend.OpenPlayChannel();
-                var saves = Enumerable.Range(0, 8).Select(_ => backend.SaveCharacterAsync()).ToArray();
-                var closing = channel.DisposeAsync().AsTask();
-                Assert.True((await Task.WhenAll(saves)).All(saved => saved), "save was lost during channel close");
-                await closing;
-            }
-            finally
-            {
-                await backend.DisposeAsync();
-            }
-
-            await using var reopened = new OfflineBackend(path);
-            Assert.True((await reopened.LoginAsync("LocalTest", "", 1)).Ok, "saved profile could not log in");
-            Assert.True((await reopened.ListCharactersAsync()).Count == CharacterSlots.Maximum, "roster did not persist");
-            Assert.True((await reopened.EnterWorldAsync("Hero5")).Ok, "saved sixth character could not enter");
-        }
-        finally
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-    }
-
-    private static async Task SaturationAsync()
-    {
-        var writer = new TestWriter();
-        var call = new AsyncDuplexStreamingCall<ClientInput, WorldUpdate>(writer, new EmptyReader(), Task.FromResult(new Metadata()), () => Status.DefaultSuccess, () => new Metadata(), () =>
-        {
-        });
-        await using var channel = new OnlinePlayChannel(call);
-        var accepted = new List<Task>();
-        var rejected = 0;
-        for (uint index = 0; index < 300; index++)
-        {
-            var send = channel.SendHeartbeatAsync(index);
-            if (send.IsFaulted)
-            {
-                await Assert.ThrowsAsync(() => send);
-                rejected++;
-            }
-            else
-            {
-                accepted.Add(send);
-            }
-        }
-
-        Assert.True(accepted.Count <= 129 && rejected > 0, "outgoing queue admitted unbounded producers");
-        writer.Release.TrySetResult();
-        await Task.WhenAll(accepted);
-    }
-
-    private static async Task OrderedWritesAsync()
-    {
-        var writer = new TestWriter();
-        var disposed = false;
-        var call = new AsyncDuplexStreamingCall<ClientInput, WorldUpdate>(
-            writer,
-            new EmptyReader(),
-            Task.FromResult(new Metadata()),
-            () => Status.DefaultSuccess,
-            () => new Metadata(),
-            () => disposed = true);
-        var channel = new OnlinePlayChannel(call);
-        var writes = new List<Task>();
-        for (uint index = 0; index < 40; index++)
-        {
-            writes.Add(channel.SendHeartbeatAsync(index));
-        }
-
-        Assert.True(!writes[0].IsCompleted, "fake writer did not stall");
-        var shutdown = channel.DisposeAsync().AsTask();
-        Assert.True(!writer.Completed, "half-close raced a pending write");
-        writer.Release.TrySetResult();
-        await Task.WhenAll(writes);
-        await shutdown;
-        Assert.True(writer.MaximumConcurrent == 1, "writes overlapped");
-        Assert.True(writer.Values.SequenceEqual(Enumerable.Range(0, 40).Select(index => (uint)index)), "write order changed");
-        Assert.True(writer.Completed && disposed, "channel not closed/disposed");
-        await Assert.ThrowsAsync(() => channel.SendHeartbeatAsync(99));
-    }
-
     private static Task PresenceAsync()
     {
-        var snapshot = new WorldSnapshot(7, [], [new CombatEventView(1, 2, CombatEventKindView.SwingBegin)], 3);
-        var diff = new SubscriberPresence(1).Diff(snapshot);
-        var update = OfflinePresenceMapping.ToNeutral(snapshot.ServerTick, diff, snapshot.FieldId);
-        Assert.True(update.Events.Count == 1 && update.FieldId == 3, "offline mapping dropped metadata");
-        var onlineSkill = PresenceMapping.ToNeutral(new EntityState
-        {
-            EntityId = 2,
-            Position = new PristonTale.Protocol.Common.Vec3(),
-            MoveState = PristonTale.Protocol.Common.MoveState.Skill
-        });
-        Assert.True(onlineSkill.MoveState == RemoteMoveState.Skill, "online mapping dropped skill motion");
         var origin = new System.Numerics.Vector3(120, 35, -400);
         var impact = new CombatEventView(9, 1, CombatEventKindView.MonsterSkillImpact,
             sourceSoundCode: 0x18E0, position: origin, facing: 1.2f);
-        var impactSnapshot = new WorldSnapshot(8, [], [impact], 3);
-        var impactDiff = new SubscriberPresence(1).Diff(impactSnapshot);
-        var offlineImpact = OfflinePresenceMapping.ToNeutral(8, impactDiff, 3).Events.Single();
-        var onlineImpact = PresenceMapping.ToNeutral(new PristonTale.Protocol.Session.CombatEvent
+        var entity = new EntityView(2, EntityKindView.Monster, false, origin, 1.2f, MoveStateView.Skill,
+            10, 45, 60, default, templateId: 1);
+        var self = new EntityView(1, EntityKindView.Player, false, origin, 0f, MoveStateView.Idle, 1, 100, 100,
+            new PlayerAppearanceView("Self", 2, 0, 0, 0, "", ""));
+        var snapshot = new WorldSnapshot(8, [self, entity], [impact], 3);
+        var update = new WireRoundTrip(1).PushMerged(snapshot);
+        Assert.True(update.FieldId == 3 && update.Spawns.Single(spawn => spawn.EntityId == 2).MoveState == RemoteMoveState.Skill,
+            "TCP presence dropped field or skill motion");
+        Assert.True(update.Spawns.Single(spawn => spawn.EntityId == 1).IsSelf, "own avatar was not marked as self");
+        Assert.True(update.Events.Single().Position == origin && update.Events.Single().Kind == RemoteCombatEventKind.MonsterSkillImpact,
+            "TCP presence dropped skill impact data");
+        return Task.CompletedTask;
+    }
+
+    private static Task CrowdBudgetAsync()
+    {
+        EntityView Walker(int id, float offset) => new((uint)id, EntityKindView.Player, false, new System.Numerics.Vector3(id + offset, 0, id % 20 * 10f), 0f,
+            MoveStateView.Walking, 1, 100, 100, new PlayerAppearanceView("W" + id, 2, 0, 0, 0, "", ""));
+        var wire = new WireRoundTrip(1);
+        var spawned = wire.PushMerged(new WorldSnapshot(1, Enumerable.Range(1, 300).Select(id => Walker(id, 0)).ToArray(), fieldId: 3));
+        Assert.True(spawned.Spawns.Count == 300, "spawns were held back by the movement budget");
+        var updated = new HashSet<uint>();
+        for (uint tick = 2; tick < 42; tick++)
         {
-            AttackerId = 9,
-            TargetId = 1,
-            Kind = PristonTale.Protocol.Session.CombatEventKind.MonsterSkillImpact,
-            SourceSoundCode = 0x18E0,
-            Position = new PristonTale.Protocol.Common.Vec3 { X = 120, Y = 35, Z = -400 },
-            Facing = 1.2f
-        });
-        Assert.True(onlineImpact == offlineImpact && offlineImpact.Position == origin
-            && offlineImpact.Kind == RemoteCombatEventKind.MonsterSkillImpact, "skill impact metadata diverged between transports");
+            var before = wire.BytesSent;
+            var update = wire.PushMerged(new WorldSnapshot(tick, Enumerable.Range(1, 300).Select(id => Walker(id, tick)).ToArray(), fieldId: 3));
+            // Budget for others, plus the receiver's own entry and at most two PLAYDATAGROUP headers.
+            Assert.True(wire.BytesSent - before <= 2048 + 84 + 2 * 16, "a crowd exceeded the per-receiver movement budget");
+            updated.UnionWith(update.States.Select(state => state.EntityId));
+        }
+
+        Assert.True(updated.Count == 300, "age weighting starved part of the crowd");
         return Task.CompletedTask;
     }
 
@@ -411,39 +316,6 @@ internal static class ClientTests
         var enclosingRay = new Ray(Vector3.Zero, Vector3.Forward);
         Assert.True(CursorPicking.IntersectSphere(enclosingRay, Vector3.Zero, 40f) is null, "camera inside an NPC volume made every cursor direction a hit");
         return Task.CompletedTask;
-    }
-
-    private sealed class TestWriter : IClientStreamWriter<ClientInput>
-    {
-        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public List<uint> Values { get; } = new();
-        public int MaximumConcurrent { get; private set; }
-        public bool Completed { get; private set; }
-        public WriteOptions? WriteOptions { get; set; }
-        private int _active;
-
-        public async Task WriteAsync(ClientInput message)
-        {
-            _active++;
-            MaximumConcurrent = Math.Max(MaximumConcurrent, _active);
-            await Release.Task;
-            await Task.Yield();
-            Values.Add(message.Heartbeat.ClientTick);
-            _active--;
-        }
-
-        public Task CompleteAsync()
-        {
-            Assert.True(_active == 0, "CompleteAsync overlapped a write");
-            Completed = true;
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class EmptyReader : IAsyncStreamReader<WorldUpdate>
-    {
-        public WorldUpdate Current => new();
-        public Task<bool> MoveNext(CancellationToken cancellationToken) => Task.FromResult(false);
     }
 
     private sealed class PendingComposer : IPlayerActorComposer, IModelActorComposer

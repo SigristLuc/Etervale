@@ -5,28 +5,45 @@ using PristonTale.Gameplay.UI.Rendering;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
+// Target inspection box (playmain.cpp DrawEachPlayer at 0.92/0.1 with cw.tga and ActorHud.cpp DrawStateBar)
+// and combat lines in the bottom-left chat area (sinInterFace.cpp DisplayChatMessage at x=16).
 public sealed class HudCombat
 {
+    private const int StateBarWidth = 100;
+    private const int StateBarSize = 92;
+    private const int LogLines = 6;
+
     private sealed class Entity(EntitySpawnInfo spawn)
     {
         public EntitySpawnInfo Spawn { get; } = spawn;
         public int Hp { get; set; } = spawn.Hp;
+        public Vector3 Position { get; set; } = new(spawn.Position.X, spawn.Position.Y, spawn.Position.Z);
     }
 
     private readonly Dictionary<uint, Entity> _entities = new();
-    private readonly string[] _history = new string[64];
+    private readonly (string Text, Color Color)[] _history = new (string, Color)[64];
     private WorldRenderCatalog _catalog = WorldRenderCatalog.Empty;
     private uint _self;
     private int _historyCount;
     private int _historyEnd;
-    private uint _lastTarget;
-    private int _lastHp;
-    private int _lastMaximum;
-    private string _targetHealth = "";
 
     public int HistoryCount => _historyCount;
-    public string LatestMessage => _historyCount > 0 ? _history[(_historyEnd + 63) % 64] : "";
+    public string LatestMessage => _historyCount > 0 ? _history[(_historyEnd + 63) % 64].Text : "";
     public void SetCatalog(WorldRenderCatalog catalog) => _catalog = catalog;
+
+    public IEnumerable<Vector3> NpcPositions
+    {
+        get
+        {
+            foreach (var entity in _entities.Values)
+            {
+                if (entity.Spawn.Kind == RemoteEntityKind.Npc)
+                {
+                    yield return entity.Position;
+                }
+            }
+        }
+    }
 
     public void Observe(PresenceUpdate update)
     {
@@ -44,6 +61,7 @@ public sealed class HudCombat
             if (_entities.TryGetValue(state.EntityId, out var entity))
             {
                 entity.Hp = state.Hp;
+                entity.Position = new Vector3(state.Position.X, state.Position.Y, state.Position.Z);
             }
         }
 
@@ -55,17 +73,14 @@ public sealed class HudCombat
             }
 
             var prefix = combat.Critical ? "Critical! " : "";
-            var text = combat.AttackerId == _self
-                ? $"{prefix}{Name(combat.TargetId)}: -{combat.Damage} HP"
-                : $"{prefix}You received {combat.Damage} damage";
+            var outgoing = combat.AttackerId == _self;
+            var text = outgoing ? $"{prefix}{Name(combat.TargetId)}: -{combat.Damage} HP" : $"{prefix}You received {combat.Damage} damage";
             if (combat.Killed)
             {
                 text += " (defeated)";
             }
 
-            _history[_historyEnd] = text;
-            _historyEnd = (_historyEnd + 1) % _history.Length;
-            _historyCount = Math.Min(_historyCount + 1, _history.Length);
+            Add(text, outgoing ? Color.White : new Color(255, 160, 120));
         }
 
         foreach (var id in update.Removed)
@@ -74,50 +89,81 @@ public sealed class HudCombat
         }
     }
 
-    public void Draw(HudCanvas canvas, HudLayout layout, uint target, Rectangle occupiedPanel)
+    public void Add(string text, Color color)
     {
-        var width = (int)(layout.ViewportWidth / layout.Scale);
-        var height = (int)(layout.ViewportHeight / layout.Scale);
-        if (target != 0 && _entities.TryGetValue(target, out var entity))
+        _history[_historyEnd] = (text, color);
+        _historyEnd = (_historyEnd + 1) % _history.Length;
+        _historyCount = Math.Min(_historyCount + 1, _history.Length);
+    }
+
+    public static Rectangle TargetBox(HudLayout layout)
+    {
+        var height = layout.Height / 6 + 10;
+        var width = (int)(layout.Height * 1.34f / 8) + 10;
+        var centerX = (int)(layout.Width * 0.92f);
+        var centerY = (int)(layout.Height * 0.1f);
+        return new Rectangle(centerX - (width >> 1), centerY - (height >> 1), width, height);
+    }
+
+    // ActorHud.cpp DrawStateBar: red to yellow to green over the squared life fraction.
+    public static Color StateColor(int life, int maximum)
+    {
+        if (maximum <= 0)
         {
-            var bounds = new Rectangle((width - 280) / 2, 18, 280, 67);
-            if (bounds.Intersects(occupiedPanel))
-            {
-                bounds.X = Math.Max(8, (occupiedPanel.Left - bounds.Width) / 2);
-            }
-
-            canvas.Frame(bounds, "Panel", 15);
-            canvas.Text(Name(target), new Rectangle(bounds.X + 14, bounds.Y + 9, 252, 23), scale: 0.8f, centered: true);
-            var maximum = entity.Spawn.MaxHp;
-            if (target != _lastTarget || entity.Hp != _lastHp || maximum != _lastMaximum)
-            {
-                _lastTarget = target;
-                _lastHp = entity.Hp;
-                _lastMaximum = maximum;
-                _targetHealth = $"{entity.Hp} / {maximum}";
-            }
-
-            canvas.Bar(new Rectangle(bounds.X + 14, bounds.Y + 36, 252, 20), entity.Hp, maximum, new Color(177, 55, 57), _targetHealth);
+            return Color.Red;
         }
 
-        if (_historyCount == 0)
+        var percent = (int)((long)Math.Clamp(life, 0, maximum) * 511 / maximum);
+        percent = percent * percent / 512;
+        var low = percent & 0xFF;
+        return percent < 256 ? new Color(255, low, 0) : new Color(255 - low, 255, 0);
+    }
+
+    public void DrawTarget(HudPainter painter, HudLayout layout, uint target)
+    {
+        if (target == 0 || !_entities.TryGetValue(target, out var entity))
         {
             return;
         }
 
-        var log = new Rectangle(16, height - 108, Math.Min(300, layout.Resources.X - 24), 92);
-        if (log.Width < 190)
+        var box = TargetBox(layout);
+        // cw.tga has a translucent centre; the original fills the portrait viewport behind it.
+        painter.ColorBox(new Rectangle(box.X + 4, box.Y + 4, box.Width - 8, box.Height - 8), 8, 10, 12, 255);
+        painter.Stretch(HudArt.TargetBox, box);
+        var name = Name(target);
+        var color = entity.Spawn.Kind switch
         {
-            log.Width = 250;
-            log.Y = layout.Resources.Y - 100;
+            RemoteEntityKind.Monster => new Color(255, 160, 120),
+            RemoteEntityKind.Npc => new Color(255, 255, 180),
+            _ => Color.White
+        };
+        painter.TextCentered(painter.Fit(name, box.Width - 8), box.Left, box.Right, box.Bottom - 16, color);
+
+        var maximum = entity.Spawn.MaxHp;
+        if (maximum <= 0)
+        {
+            return;
         }
-        canvas.Frame(log, "Inset", 12);
-        canvas.Text("COMBAT", new Rectangle(log.X + 12, log.Y + 7, log.Width - 24, 17), scale: 0.55f);
-        var count = Math.Min(3, _historyCount);
+
+        var x = box.X + 5;
+        var y = box.Bottom + 2;
+        var width = box.Width - 10;
+        painter.Stretch(HudArt.EnergyBack, new Rectangle(x, y, width, 16), new Rectangle(0, 0, StateBarWidth, 15));
+        if (entity.Hp > 0)
+        {
+            var percent = (int)((long)Math.Min(entity.Hp, maximum) * StateBarSize / maximum);
+            painter.Stretch(HudArt.EnergyFill, new Rectangle(x, y, (percent + 3) * width / StateBarWidth, 16), new Rectangle(0, 0, percent + 3, 15),
+                StateColor(entity.Hp, maximum));
+        }
+    }
+
+    public void DrawLog(HudPainter painter, HudLayout layout)
+    {
+        var count = Math.Min(LogLines, _historyCount);
         for (var index = 0; index < count; index++)
         {
-            var entry = (_historyEnd - count + index + _history.Length) % _history.Length;
-            canvas.Text(_history[entry], new Rectangle(log.X + 12, log.Y + 29 + index * 18, log.Width - 24, 17), HudCanvas.Muted, 0.6f);
+            var entry = _history[(_historyEnd - 1 - index + _history.Length) % _history.Length];
+            painter.Text(painter.Fit(entry.Text, 270), 16, layout.BottomOffset + 565 - (index + 1) * HudPainter.LineHeight, entry.Color);
         }
     }
 

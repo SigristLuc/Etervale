@@ -29,12 +29,13 @@ internal sealed class DisplayConfirmation
         if (settings.AwaitingConfirmation && _context.IsWindowActive)
         {
             var layout = Layout();
+            var panel = Panel(layout);
             var pointer = layout.ToLogical(mouse.Position);
             var clicked = mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
             settings.ConfirmRequested |= keyboard.IsKeyDown(Keys.Enter) && !_previousKeyboard.IsKeyDown(Keys.Enter)
-                || clicked && Confirm(layout.Panel).Contains(pointer);
+                || clicked && Confirm(panel).Contains(pointer);
             settings.RevertRequested |= keyboard.IsKeyDown(Keys.Escape) && !_previousKeyboard.IsKeyDown(Keys.Escape)
-                || clicked && Revert(layout.Panel).Contains(pointer);
+                || clicked && Revert(panel).Contains(pointer);
         }
 
         if (_seconds != settings.ConfirmationSeconds)
@@ -55,7 +56,7 @@ internal sealed class DisplayConfirmation
         }
 
         var layout = Layout();
-        var panel = layout.Panel;
+        var panel = Panel(layout);
         _canvas.Begin(layout.Scale);
         _canvas.Frame(panel);
         _canvas.Text("Keep these display settings?", new Rectangle(panel.X + 20, panel.Y + 14, panel.Width - 40, 32), centered: true);
@@ -71,10 +72,14 @@ internal sealed class DisplayConfirmation
     private HudLayout Layout()
     {
         var viewport = _context.GraphicsDevice.Viewport;
-        var layout = HudLayout.Create(viewport.Width, viewport.Height, _context.Presentation.Requested.UiScale);
-        var width = (int)(viewport.Width / layout.Scale);
-        var height = (int)(viewport.Height / layout.Scale);
-        return layout with { Panel = new Rectangle((width - 620) / 2, (height - 180) / 2, 620, 180) };
+        return HudLayout.Create(viewport.Width, viewport.Height);
+    }
+
+    // Uses the in-game integer scale; the frame comes from the shared login atlas.
+    private static Rectangle Panel(HudLayout layout)
+    {
+        var width = Math.Min(620, layout.Width);
+        return new Rectangle((layout.Width - width) / 2, (layout.Height - 180) / 2, width, 180);
     }
 
     private static Rectangle Confirm(Rectangle panel) => new(panel.X + 24, panel.Bottom - 58, 272, 36);

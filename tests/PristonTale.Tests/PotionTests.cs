@@ -37,8 +37,8 @@ internal static class PotionTests
         Assert.True(!player.BeginPendingPotion(600, 500), "potion interrupted an active swing");
         player.TickAction(100, out _);
         Assert.True(player.BeginPendingPotion(600, 500), "queued potion did not start after attack");
-        player.SetTarget(new Vector3(50, 0, 0), true);
-        Assert.True(player.IntegrateStep(1) == Vector3.Zero, "movement interrupted EAT");
+        Assert.True(player.ReportMovement(new Vector3(50, 0, 0), 0f, true, true, 0, 1000) != MovementVerdict.Accepted && player.Position == Vector3.Zero,
+            "movement interrupted EAT");
         Assert.True(player.TickPotion(499, random) == PotionResource.None && character.Life == 1, "restored before event");
         Assert.True(player.TickPotion(1, random) == (PotionResource)7, "missing resource effects at event");
         Assert.True(character.Life == character.MaxLife && character.Mana == character.MaxMana

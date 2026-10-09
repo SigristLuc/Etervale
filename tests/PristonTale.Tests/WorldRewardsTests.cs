@@ -1,7 +1,7 @@
 using System.Numerics;
 using PristonTale.Application.World;
-using PristonTale.Client.Net.Offline;
 using PristonTale.Client.Net.Online;
+using PristonTale.Protocol.Binary;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
@@ -20,7 +20,7 @@ internal static class WorldRewardsTests
         yield return ("reference XP event multiplies before level penalty and crosses real level thresholds", ExperienceAsync);
         yield return ("field death materializes its rolled loot and grants XP exactly once", DeathAsync);
         yield return ("ground loot respects ownership, reservations, rollback and expiry", GroundAsync);
-        yield return ("ground presence survives skipped snapshots and has online/offline parity", PresenceAsync);
+        yield return ("ground presence survives skipped snapshots", PresenceAsync);
     }
 
     private static Task ExperienceAsync()
@@ -53,6 +53,13 @@ internal static class WorldRewardsTests
         Assert.True(field.SetAttackTarget(1, monster.EntityId, true), "fixture target rejected");
         for (int index = 0; index < 400 && monster.IsAlive; index++)
         {
+            if (!player.InAttackRange(monster.Position))
+            {
+                // The client chases its attack target and reports each step, as the original client does.
+                var step = Vector3.Normalize(monster.Position - player.Position) * 6f;
+                player.ReportMovement(player.Position + step, 0f, true, true, monster.EntityId, field.NowMs);
+            }
+
             field.Step(0.05f);
         }
 
@@ -101,29 +108,22 @@ internal static class WorldRewardsTests
 
     private static Task PresenceAsync()
     {
-        var drop = new GroundDropView(Guid.NewGuid(), 55, "WA101", "Stone Axe", 1, false, new Vector3(12, 3, -24));
-        var cursor = new SubscriberPresence(1);
-        var snapshot = new WorldSnapshot(1, [], groundDrops: [new GroundDropState(drop, 1, false)]);
-        var diff = cursor.Diff(snapshot);
-        Assert.True(diff.GroundAdded.Count == 1 && cursor.Diff(snapshot).GroundAdded.Count == 0, "unchanged ground loot resent");
-        Assert.True(new SubscriberPresence(2).Diff(snapshot).GroundAdded.Count == 0, "private loot leaked in presence");
-        var offline = OfflinePresenceMapping.ToNeutral(1, diff);
-        var wire = new PristonTale.Protocol.Session.WorldUpdate();
-        wire.GroundAdded.Add(new PristonTale.Protocol.Session.GroundDrop
-        {
-            Id = drop.Id.ToString(),
-            ItemCode = drop.ItemCode,
-            CatalogKey = drop.CatalogKey,
-            Name = drop.Name,
-            Amount = 1,
-            Position = new PristonTale.Protocol.Common.Vec3 { X = 12, Y = 3, Z = -24 }
-        });
-        Assert.True(PresenceMapping.ToNeutral(wire).GroundAdded.Single() == offline.GroundAdded.Single(), "ground transport parity failed");
+        var code = LegacyItemCode.Parse("WA101");
+        var drop = new GroundDropView(Guid.NewGuid(), code, "WA101", "Stone Axe", 1, false, new Vector3(12, 3, -24)) { Handle = 7 };
+        EntityView Avatar(uint id) => new(id, EntityKindView.Player, false, Vector3.Zero, 0f, MoveStateView.Idle, 1, 10, 10, default);
+        var snapshot = new WorldSnapshot(1, [Avatar(1), Avatar(2)], groundDrops: [new GroundDropState(drop, 1, false)]);
+        var owner = new WireRoundTrip(1);
+        var added = owner.PushMerged(snapshot).GroundAdded.Single();
+        Assert.True(added.Handle == 7 && added.Id == GroundDropHandle.ToGuid(7) && added.ItemCode == code && added.CatalogKey == "WA101"
+            && added.Name == "Stone Axe" && added.Amount == 1 && !added.Gold && added.Position == drop.Position, "ground loot changed over PLAYITEM");
+        Assert.True(owner.PushMerged(snapshot).GroundAdded.Count == 0, "unchanged ground loot resent");
+        Assert.True(new WireRoundTrip(2).PushMerged(snapshot).GroundAdded.Count == 0, "private loot leaked in presence");
         var outbox = new WorldOutbox();
         outbox.Writer.TryWrite(snapshot);
         outbox.Writer.TryWrite(new WorldSnapshot(2, [], groundDrops: snapshot.GroundDrops));
         Assert.True(outbox.Reader.TryRead(out var latest) && latest.GroundDrops.Single().View == drop, "latest roster lost loot");
-        Assert.True(cursor.Diff(new WorldSnapshot(3, [])).GroundRemoved.Single() == drop.Id, "pickup/expiry did not remove loot");
+        Assert.True(owner.PushMerged(new WorldSnapshot(3, [Avatar(1)])).GroundRemoved.Single() == GroundDropHandle.ToGuid(7),
+            "pickup/expiry did not send DELITEM");
         return Task.CompletedTask;
     }
 }

@@ -9,18 +9,11 @@ public sealed class WorldDataLoadService(
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        try
-        {
-            var data = await worldData.BuildAsync(cancellationToken);
-            holder.Current = data;
-            logger.LogInformation(
-                "World catalogs loaded: {Items} items / {Monsters} monsters / {Npcs} npcs / {Fields} fields-with-spawns.",
-                data.Items.All.Count, data.Monsters.All.Count, data.Npcs.All.Count, data.FieldSpawns.Count);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "World-data load failed — running with empty catalogs.");
-        }
+        var data = await worldData.BuildAsync(cancellationToken);
+        holder.Current = data;
+        logger.LogInformation(
+            "World catalogs loaded: {Items} items / {Monsters} monsters / {Npcs} npcs / {Fields} fields-with-spawns.",
+            data.Items.All.Count, data.Monsters.All.Count, data.Npcs.All.Count, data.FieldSpawns.Count);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

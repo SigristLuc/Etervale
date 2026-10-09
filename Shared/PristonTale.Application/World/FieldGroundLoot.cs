@@ -9,6 +9,8 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
     public const float PickupReach = 32f;
     public const int Capacity = 1024;
     private readonly Dictionary<Guid, Entry> _entries = new();
+    private readonly Dictionary<uint, Guid> _handles = new();
+    private uint _nextHandle;
     private readonly List<Guid> _expired = [];
     private GroundDropState[] _snapshot = [];
     private bool _dirty;
@@ -38,8 +40,10 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
 
             bool gold = drop.Kind == DropKind.Gold;
             var id = Guid.NewGuid();
+            var handle = NextHandle();
             var view = new GroundDropView(id, drop.ItemCode, gold ? "GG101" : definition!.CatalogKey,
-                gold ? "Gold" : definition!.Name, drop.Amount, gold, position);
+                gold ? "Gold" : definition!.Name, drop.Amount, gold, position) { Handle = handle };
+            _handles.Add(handle, id);
             // OnSever.cpp AddItem: gold, life and stamina potions expire in 90s; mana and other items in 180s.
             bool shortLived = gold || definition?.CatalogKey.StartsWith("PL", StringComparison.OrdinalIgnoreCase) == true
                 || definition?.CatalogKey.StartsWith("PS", StringComparison.OrdinalIgnoreCase) == true;
@@ -68,8 +72,7 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
 
         foreach (var id in _expired)
         {
-            _entries.Remove(id);
-            _dirty = true;
+            RemoveEntry(id);
         }
     }
 
@@ -119,12 +122,35 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
 
         if (committed)
         {
-            _entries.Remove(id);
-            _dirty = true;
+            RemoveEntry(id);
         }
         else
         {
             entry.Reservation = Guid.Empty;
+        }
+    }
+
+    // Clients address drops by the 32-bit handle carried in TRANS_ITEM.lpStgArea; stored item ids stay random GUIDs.
+    public Guid ResolveClientId(Guid clientId) =>
+        GroundDropHandle.TryParse(clientId, out var handle) && _handles.TryGetValue(handle, out var id) ? id : clientId;
+
+    private uint NextHandle()
+    {
+        do
+        {
+            _nextHandle++;
+        }
+        while (_nextHandle == 0 || _handles.ContainsKey(_nextHandle));
+
+        return _nextHandle;
+    }
+
+    private void RemoveEntry(Guid id)
+    {
+        if (_entries.Remove(id, out var entry))
+        {
+            _handles.Remove(entry.View.Handle);
+            _dirty = true;
         }
     }
 

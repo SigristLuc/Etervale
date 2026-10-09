@@ -1,31 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
-
   <ItemGroup>
-    <PackageReference Include="Grpc.Net.Client" Version="2.80.0" />
-    <!-- OfflineBackend builds a small in-process ServiceProvider for the app services + SQLite store. -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
+    <ProjectReference Include="../../Shared/PristonTale.Protocol/PristonTale.Protocol.csproj" />
+    <ProjectReference Include="../../Shared/PristonTale.Simulation/PristonTale.Simulation.csproj" />
+    <ProjectReference Include="../../Shared/PristonTale.Application/PristonTale.Application.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <!-- The wire contract. Engine3D/MonoGame are intentionally NOT referenced: this assembly is the
-         client's networking seam, free of rendering concerns, consumed by the exe/Gameplay layer. -->
-    <ProjectReference Include="..\..\Shared\PristonTale.Protocol\PristonTale.Protocol.csproj" />
-    <ProjectReference Include="..\..\Shared\PristonTale.Simulation\PristonTale.Simulation.csproj" />
-    <!-- The neutral Application outcome types (LoginOutcome/CharacterSummary/…) that IGameBackend
-         returns, so the screens never see protobuf and an offline backend can share the surface. -->
-    <ProjectReference Include="..\..\Shared\PristonTale.Application\PristonTale.Application.csproj" />
-    <!-- OfflineBackend hosts the app services in-process over the local SQLite store (no server). -->
-    <ProjectReference Include="..\..\Persistence\PristonTale.Persistence.Sqlite\PristonTale.Persistence.Sqlite.csproj" />
-    <ProjectReference Include="..\..\Persistence\PristonTale.Persistence.Abstractions\PristonTale.Persistence.Abstractions.csproj" />
-  </ItemGroup>
-
   <ItemGroup>
     <InternalsVisibleTo Include="PristonTale.Tests" />
   </ItemGroup>

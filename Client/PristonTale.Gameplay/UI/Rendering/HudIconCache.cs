@@ -6,19 +6,12 @@ using PristonTale.Engine3D.Rendering;
 
 namespace PristonTale.Gameplay.UI.Rendering;
 
-public enum HudIconCatalog
-{
-    Items,
-    Skills
-}
-
 public sealed class HudIconCache : IDisposable
 {
     private sealed record PreparedIcon(string Key, DecodedPristonImage Image);
 
     private readonly GraphicsDevice _device;
     private readonly IClientLog _log;
-    private readonly HudIconCatalog _catalog;
     private readonly Task<Dictionary<string, string>> _index;
     private readonly Dictionary<string, Texture2D> _textures = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _requested = new(StringComparer.OrdinalIgnoreCase);
@@ -27,13 +20,12 @@ public sealed class HudIconCache : IDisposable
     private bool _disposed;
     private bool _failed;
 
-    public HudIconCache(GraphicsDevice device, string assetRoot, IClientLog log, HudIconCatalog catalog)
+    public HudIconCache(GraphicsDevice device, string assetRoot, IClientLog log)
     {
         _device = device;
         _log = log;
-        _catalog = catalog;
-        _index = Task.Run(() => Index(assetRoot, catalog));
-        _ = _index.ContinueWith(task => log.Error($"HUD {catalog} icon index failed", task.Exception),
+        _index = Task.Run(() => Index(assetRoot));
+        _ = _index.ContinueWith(task => log.Error("HUD item icon index failed", task.Exception),
             CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
     }
 
@@ -131,7 +123,7 @@ public sealed class HudIconCache : IDisposable
         {
             var paths = _index.Result;
             _decode = Task.Run(() => Decode(key, paths));
-            _ = _decode.ContinueWith(task => _log.Error($"HUD {_catalog} icon failed: {key}", task.Exception),
+            _ = _decode.ContinueWith(task => _log.Error($"HUD item icon failed: {key}", task.Exception),
                 CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         }
     }
@@ -140,7 +132,7 @@ public sealed class HudIconCache : IDisposable
     {
         if (!paths.TryGetValue(key, out var path))
         {
-            throw new FileNotFoundException($"HUD {_catalog} icon is missing for key '{key}'.", key);
+            throw new FileNotFoundException($"HUD item icon is missing for key '{key}'.", key);
         }
 
         var image = PristonImageDecoder.Decode(PristonFileResolver.ReadAllBytes(path), ".bmp");
@@ -154,10 +146,9 @@ public sealed class HudIconCache : IDisposable
         return new PreparedIcon(key, image);
     }
 
-    private static Dictionary<string, string> Index(string assetRoot, HudIconCatalog catalog)
+    private static Dictionary<string, string> Index(string assetRoot)
     {
-        var folder = catalog == HudIconCatalog.Items ? "Items" : "skill";
-        var root = PristonFileResolver.Resolve(Path.Combine(assetRoot, "image", "Sinimage", folder));
+        var root = PristonFileResolver.Resolve(Path.Combine(assetRoot, "image", "Sinimage", "Items"));
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
         {
@@ -166,22 +157,9 @@ public sealed class HudIconCache : IDisposable
                 continue;
             }
 
-            var name = Path.GetFileNameWithoutExtension(path);
-            var directory = Path.GetDirectoryName(path);
-            if (catalog == HudIconCatalog.Skills)
-            {
-                // sinSkill.cpp LoadUseSkillImage uses Class/Button/<FileName>.bmp.
-                // The trailing underscore selects the pressed state, not a different skill.
-                if (Path.GetFileName(directory).Equals("Button", StringComparison.OrdinalIgnoreCase) && !name.EndsWith('_'))
-                {
-                    result.Add(name, path);
-                }
-
-                continue;
-            }
-
             // DropItem contains model texture sheets with names that collide with inventory sprites.
-            var relative = Path.GetRelativePath(root, directory);
+            var name = Path.GetFileNameWithoutExtension(path);
+            var relative = Path.GetRelativePath(root, Path.GetDirectoryName(path));
             if (relative.Split(Path.DirectorySeparatorChar).Any(part => part.Equals("DropItem", StringComparison.OrdinalIgnoreCase)))
             {
                 continue;

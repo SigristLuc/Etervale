@@ -87,7 +87,7 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
                 }
             }
 
-            snapshot = new WorldSnapshot(_latest.ServerTick, _latest.Entities, events, _latest.FieldId, _latest.Owner, _latest.GroundDrops);
+            snapshot = _latest.WithEvents(events);
             _latest = default;
             _eventCount = 0;
             _hasState = false;

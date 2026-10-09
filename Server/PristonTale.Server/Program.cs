@@ -1,8 +1,7 @@
 using PristonTale.Server.Hosting;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = Host.CreateApplicationBuilder(args);
 builder.AddPristonServer();
 
 var app = builder.Build();
-app.MapPristonServices();
 app.Run();

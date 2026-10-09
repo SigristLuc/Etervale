@@ -4,8 +4,16 @@ using PristonTale.Gameplay.UI.Rendering;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
+// Display/audio options reached from the system menu "Settings" entry, drawn in the original help box.
+// The interface scale is not listed: the in-game HUD always uses the largest integer scale that fits.
 internal sealed class HudSettingsPanel
 {
+    public const int BoxX = 50;
+    public const int BoxY = 45;
+    public const int SizeW = 9;
+    public const int SizeH = 12;
+    private const int RowHeight = 17;
+
     private static readonly int[] FrameLimits = [0, 30, 60, 90, 120, 144, 165, 240, 360];
     private static readonly int[] Samples = [0, 2, 4, 8];
     private static readonly int[] ShadowSizes = [1024, 2048, 4096, 8192];
@@ -13,12 +21,18 @@ internal sealed class HudSettingsPanel
     private static readonly int[] ShadowUpdateRates = [30, 60, 120, 0];
     private static readonly Point[] WindowSizes = [new(800, 600), new(1024, 768), new(1280, 720), new(1920, 1080), new(2560, 1440)];
     private readonly PresentationSettings _settings;
-    private readonly string[] _labels = new string[15];
+    private readonly string[] _labels = new string[14];
     private ClientSettings _labelSettings;
 
     public HudSettingsPanel(PresentationSettings settings) => _settings = settings;
 
-    public void Click(Rectangle panel, Point pointer, bool backwards)
+    public static Rectangle Box => HudPainter.HelpBoxBounds(BoxX, BoxY, SizeW, SizeH);
+    public static Rectangle Title => new(BoxX + (SizeW * 32 + 64) / 2 - 76, BoxY + 14, 152, 28);
+    public static Rectangle OkButton => new(BoxX + (SizeW * 32 + 64) / 2 - 24 + 9, BoxY + SizeH * 32 - 2 + 4, 32, 16);
+
+    public static Rectangle Row(int row) => new(BoxX + 24, BoxY + 64 + row * RowHeight, SizeW * 32 + 64 - 48, RowHeight - 1);
+
+    public void Click(Point pointer, bool backwards)
     {
         if (_settings.AwaitingConfirmation)
         {
@@ -28,7 +42,7 @@ internal sealed class HudSettingsPanel
         var current = _settings.Requested;
         for (var row = 0; row < _labels.Length; row++)
         {
-            if (!Row(panel, row).Contains(pointer))
+            if (!Row(row).Contains(pointer))
             {
                 continue;
             }
@@ -50,39 +64,37 @@ internal sealed class HudSettingsPanel
                 11 => current with { LampShadowTileSize = Cycle(LampSizes, current.LampShadowTileSize, direction) },
                 12 => current with { ShadowUpdateRate = Cycle(ShadowUpdateRates, current.ShadowUpdateRate, direction) },
                 13 => current with { ShadowsEnabled = !current.ShadowsEnabled },
-                14 => current with { UiScale = Math.Clamp(MathF.Round(current.UiScale + direction * 0.1f, 2), 0.75f, 1.5f) },
                 _ => current
             };
             return;
         }
     }
 
-    public void Draw(HudCanvas canvas, Rectangle panel)
+    public void Draw(HudPainter painter, Point pointer)
     {
         RefreshLabels();
+        painter.HelpBox(BoxX, BoxY, SizeW, SizeH);
+        var title = Title;
+        painter.Sprite(HudArt.HelpTitle, title.X, title.Y);
+        painter.TextCentered("Settings", title.Left, title.Right, title.Y + 7, new Color(255, 255, 180));
         for (var index = 0; index < _labels.Length; index++)
         {
-            var row = Row(panel, index);
-            canvas.Frame(row, "Button", 5);
-            canvas.Text(_labels[index], row, scale: 0.62f, centered: true);
+            var row = Row(index);
+            if (row.Contains(pointer))
+            {
+                painter.Fill(row, Color.FromNonPremultiplied(255, 200, 0, 64));
+            }
+
+            painter.Text(painter.Fit(_labels[index], row.Width - 8), row.X + 6, row.Y + 1);
         }
 
-        var effective = new Rectangle(panel.X + 18, panel.Bottom - 58, panel.Width - 36, 20);
-        canvas.Text(_settings.EffectiveDisplay, effective, HudCanvas.Muted, 0.5f, centered: true);
-        var hint = new Rectangle(panel.X + 18, panel.Bottom - 32, panel.Width - 36, 20);
-        if (_settings.Message.Length > 0)
-        {
-            canvas.Text("Settings need attention; see the client log.", hint, Color.Orange, 0.53f, centered: true);
-            return;
-        }
-
-        canvas.Text("Click: next   Shift+click: previous", hint, HudCanvas.Muted, 0.53f, centered: true);
-    }
-
-    private static Rectangle Row(Rectangle panel, int row)
-    {
-        var step = Math.Min(28, (panel.Height - 106) / 15);
-        return new Rectangle(panel.X + 18, panel.Y + 46 + row * step, panel.Width - 36, step - 3);
+        var notes = Row(_labels.Length);
+        painter.Text(painter.Fit(_settings.EffectiveDisplay, notes.Width - 8), notes.X + 6, notes.Y + 6, new Color(200, 200, 200));
+        var hint = _settings.Message.Length > 0 ? "Settings need attention; see the client log." : "Click: next   Shift+click: previous";
+        painter.Text(hint, notes.X + 6, notes.Y + 6 + RowHeight, _settings.Message.Length > 0 ? Color.Orange : new Color(200, 200, 200));
+        var ok = OkButton;
+        painter.Sprite(HudArt.HelpButton, ok.X - 9, ok.Y - 4);
+        painter.Sprite(ok.Contains(pointer) ? HudArt.OkYellow : HudArt.OkGray, ok.X, ok.Y);
     }
 
     private ClientSettings NextResolution(ClientSettings current, int direction)
@@ -167,6 +179,5 @@ internal sealed class HudSettingsPanel
         _labels[11] = $"Lamp shadow: {settings.LampShadowTileSize}";
         _labels[12] = settings.ShadowUpdateRate == 0 ? "Shadow animation: every frame" : $"Shadow animation: {settings.ShadowUpdateRate} Hz";
         _labels[13] = settings.ShadowsEnabled ? "Shadows: on" : "Shadows: off";
-        _labels[14] = $"Interface scale: {settings.UiScale:F2}";
     }
 }

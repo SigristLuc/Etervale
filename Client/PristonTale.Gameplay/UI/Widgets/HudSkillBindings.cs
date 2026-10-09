@@ -18,8 +18,9 @@ public sealed class HudSkillBindings
     private SkillMouseUse _pressedSide;
     private bool _boundDuringPress;
 
+    // record.cpp restores both sockets from wSelectSkill, which is 0 (UseSkill[0], the normal attack) until a skill is chosen.
     public uint LeftSkillId { get; private set; } = BasicAttackId;
-    public uint RightSkillId { get; private set; }
+    public uint RightSkillId { get; private set; } = BasicAttackId;
     public HudSkillChoice Left => _choices.GetValueOrDefault(LeftSkillId);
     public HudSkillChoice Right => _choices.GetValueOrDefault(RightSkillId);
     public HudSkillShortcut Shortcut(int index) => _shortcuts[index];

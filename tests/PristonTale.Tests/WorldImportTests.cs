@@ -30,12 +30,13 @@ internal static class WorldImportTests
 
         await WriteCp949Async(Path.Combine(itemDirectory, "2_WA101.txt"), "*코드 WA101\n*이름 \"Variant Axe\"\n");
         await WriteCp949Async(Path.Combine(itemDirectory, "WA101.txt"), "*코드 WA101\n*이름 \"Original Axe\"\n*연결파일 name\\WA101.zhoon\n");
+        await WriteCp949Async(Path.Combine(itemDirectory, "BI319.txt"), "*코드 BI319\n*이름 \"Unmapped Blue Stone\"\n");
         await WriteCp949Async(Path.Combine(nameDirectory, "wa101.ZHOON"),
             "*NAME \"Linked Axe\"\n*최대수량 20\n*보유공간 3\n*마법기술숙련도 1.5\n");
         await WriteCp949Async(Path.Combine(monsterDirectory, "Wolf.inf"),
-            "*이름 \"Wolf\"\n*Name \"WOLF\"\n*모델 \"wolf.ini\"\n*효과음 WOLVERLIN\n*모델크기 1.4\n*이동속도 12\n*아이템 100 ZZ999\n");
+            "*이름 \"Wolf\"\n*Name \"WOLF\"\n*모델 \"wolf.ini\"\n*효과음 WOLVERLIN\n*모델크기 1.4\n*이동속도 12\n*아이템 100 ZZ999\n*아이템 100 BI319\n");
         await WriteCp949Async(Path.Combine(npcDirectory, "Merchant.npc"),
-            "*이름 \"Merchant\"\n*모델 \"merchant.ini\"\n*효과음 WOLVERLIN\n*무기판매 WA101 ZZ999\n");
+            "*이름 \"Merchant\"\n*모델 \"merchant.ini\"\n*효과음 WOLVERLIN\n*무기판매 WA101 BI319 ZZ999\n");
 
         var services = new ServiceCollection();
         services.AddLogging();
@@ -50,8 +51,8 @@ internal static class WorldImportTests
             var first = await importer.RunAsync();
             var second = await importer.RunAsync();
 
-            Assert.True(first.ItemRows == 1 && second.ItemRows == 1, "the base item was not selected consistently");
-            Assert.True(first.SourceFiles == 5 && first.EntityVariants == 4, "an authored file or variant was omitted");
+            Assert.True(first.ItemRows == 2 && second.ItemRows == 2, "the base items were not selected consistently");
+            Assert.True(first.SourceFiles == 6 && first.EntityVariants == 5, "an authored file or variant was omitted");
             Assert.True(first.UnresolvedReferenceRows == 2 && second.UnresolvedReferenceRows == 2,
                 "unresolved references were dropped or duplicated");
 
@@ -60,6 +61,9 @@ internal static class WorldImportTests
                 "SELECT name, item_code_mask, max_stack, potion_space, magic_mastery FROM item_templates WHERE code = 'WA101'");
             Assert.True(item.Name == "Linked Axe", "linked display name was not imported");
             Assert.True(item.Mask == LegacyItemCode.Parse("WA101"), "item mask differs from the original DWORD");
+            Assert.True(await connection.ExecuteScalarAsync<long>(
+                "SELECT item_code_mask FROM item_templates WHERE code = 'BI319'") == 0,
+                "an item absent from the original DWORD table was given an invented code");
             Assert.True(item.MaxStack == 20 && item.PotionSpace == 3 && Math.Abs(item.MagicMastery - 1.5f) < 0.001f,
                 "linked item properties were not imported");
 
@@ -80,12 +84,17 @@ internal static class WorldImportTests
             var repository = provider.GetRequiredService<IWorldDataRepository>();
             var items = WorldDataFactory.ToItemDefinitions(await repository.GetAllItemTemplatesAsync());
             var monsters = WorldDataFactory.ToMonsterDefinitions(await repository.GetAllMonstersAsync()).Definitions;
+            var monstersWithCatalog = WorldDataFactory.ToMonsterDefinitions(
+                await repository.GetAllMonstersAsync(),
+                items.ToDictionary(static item => item.CatalogKey, static item => item.Code, StringComparer.OrdinalIgnoreCase)).Definitions;
             var npcs = WorldDataFactory.ToNpcDefinitions(await repository.GetAllNpcsAsync()).Definitions;
             Assert.True(items.Single().MaxStack == 20, "runtime item catalog lost the imported stack size");
             Assert.True(monsters.Single().SoundCode == LegacyNpcSoundCode.Wolverine,
                 "runtime monster catalog lost the imported sound code");
             Assert.True(Math.Abs(monsters.Single().ModelScale - 1.4f) < 0.001f,
                 "runtime monster catalog lost the imported model scale");
+            Assert.True(monstersWithCatalog.Single().Drops.MainEntries.All(static entry => entry.Kind != PristonTale.Simulation.World.Loot.DropKind.Item),
+                "unmapped authored item leaked into the runtime drop table");
             Assert.True(npcs.Single().Shop.WeaponItemCodes.Single() == LegacyItemCode.Parse("WA101"),
                 "runtime NPC shop uses a different item identity from the catalog");
         }

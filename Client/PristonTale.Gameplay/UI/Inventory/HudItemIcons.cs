@@ -11,7 +11,7 @@ public sealed class HudItemIcons : IDisposable
 
     public HudItemIcons(GraphicsDevice device, string assetRoot, IClientLog log)
     {
-        _cache = new HudIconCache(device, assetRoot, log, HudIconCatalog.Items);
+        _cache = new HudIconCache(device, assetRoot, log);
     }
 
     public Texture2D Find(string key) => _cache.Find(key);

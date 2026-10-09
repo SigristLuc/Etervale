@@ -11,11 +11,9 @@ public interface IPlayChannel : IAsyncDisposable
     Task<ProgressionOutcome> ApplyProgressionAsync(ProgressionCommand command, CancellationToken ct = default);
     Task<NpcInteraction> InteractNpcAsync(uint entityId, CancellationToken ct = default);
     Task<InventoryOutcome> ApplyInventoryAsync(InventoryCommand command, CancellationToken ct = default);
-    Task SendMoveAsync(Vector3 target, bool run, CancellationToken ct = default);
 
-    Task SendHeartbeatAsync(uint clientTick, CancellationToken ct = default);
-
-    Task SendEnterFieldAsync(int fieldCode, Vector3 position, CancellationToken ct = default);
+    // TRANSPLAYDATA: the client's own position (PT-global coordinates), motion and action target, plus its field code.
+    Task SendMovementAsync(Vector3 position, float facing, bool moving, bool running, uint actionTarget, int fieldCode, CancellationToken ct = default);
 
     Task SendAttackAsync(uint targetEntityId, bool sustained, CancellationToken ct = default, ulong sequence = 0);
 

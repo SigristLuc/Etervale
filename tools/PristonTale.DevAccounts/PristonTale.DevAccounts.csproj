@@ -12,6 +12,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>ptdevaccounts</AssemblyName>
     <RootNamespace>PristonTale.DevAccounts</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Persistence\PristonTale.Persistence.Postgres\PristonTale.Persistence.Postgres.csproj" />
+    <ProjectReference Include="..\..\Persistence\PristonTale.Persistence.Sqlite\PristonTale.Persistence.Sqlite.csproj" />
     <ProjectReference Include="..\..\Persistence\PristonTale.Persistence.Abstractions\PristonTale.Persistence.Abstractions.csproj" />
     <ProjectReference Include="..\..\Shared\PristonTale.Simulation\PristonTale.Simulation.csproj" />
   </ItemGroup>

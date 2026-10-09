@@ -148,4 +148,11 @@ public readonly struct WorldSnapshot
     public int? FieldId { get; }
     public OwnerState? Owner { get; }
     public GroundDropState[] GroundDrops { get; }
+
+    // Built once per field and tick; subscribers share it to find nearby entities without scanning the field.
+    public EntityGrid? Grid { get; init; }
+
+    public WorldSnapshot WithOwner(OwnerState? owner) => new(ServerTick, Entities, Events, FieldId, owner, GroundDrops) { Grid = Grid };
+
+    public WorldSnapshot WithEvents(CombatEventView[] events) => new(ServerTick, Entities, events, FieldId, Owner, GroundDrops) { Grid = Grid };
 }

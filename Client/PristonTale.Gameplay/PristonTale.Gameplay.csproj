@@ -15,8 +15,7 @@
              CharacterSelectScreen drives the green altar flame/beam through an EffectsEngine. -->
         <ProjectReference Include="..\PristonTale.Effects\PristonTale.Effects.csproj" />
         <ProjectReference Include="..\..\Shared\PristonTale.Simulation\PristonTale.Simulation.csproj" />
-        <!-- Client networking seam: the screen layer (login / character select) talks to the server
-             through GameServerConnection. Brings in Protocol (gRPC); no cycle (Client.Net doesn't ref us). -->
+        <!-- The screen layer uses GameServerConnection for TCP sessions. -->
         <ProjectReference Include="..\PristonTale.Client.Net\PristonTale.Client.Net.csproj" />
     </ItemGroup>
   <ItemGroup>

@@ -58,7 +58,7 @@ public static class WorldDataFactory
     }
 
     public static IReadOnlyList<ItemDefinition> ToItemDefinitions(IEnumerable<ItemTemplateRecord> records) =>
-        records.Select(ToItemDefinition).ToList();
+        records.Where(static record => record.ItemCodeMask != 0).Select(ToItemDefinition).ToList();
 
     // Item resistances are min/max ranges; the equipped baseline uses the midpoint of each element.
     private static ResistanceBlock ToItemResistances(ItemTemplateRecord r) => new(
@@ -162,7 +162,7 @@ public static class WorldDataFactory
         _ => MonsterActiveHour.Any,
     };
 
-    // Null item keys retain their weight as NothingSlot; non-null missing keys invalidate the catalog.
+    // Unresolved authored drops retain their probability as empty slots; bonus drops have no probability slot.
     private static DropTable ToDropTable(MonsterRecord r, IReadOnlyDictionary<string, uint>? itemCodes)
     {
         if (r.DropConfig is null && r.DropItems.Count == 0 && r.DropsPlus.Count == 0)
@@ -173,22 +173,27 @@ public static class WorldDataFactory
         var entries = new List<DropEntry>(r.DropItems.Count + r.DropsPlus.Count);
         foreach (var d in r.DropItems)
         {
-            entries.Add((DropKind)d.Kind switch
+            if ((DropKind)d.Kind == DropKind.Gold)
             {
-                DropKind.Gold => DropEntry.GoldSlot(d.Weight, d.GoldMin, d.GoldMax),
-                DropKind.Item when d.ItemCode is null => DropEntry.NothingSlot(d.Weight),
-                DropKind.Item => new DropEntry(DropKind.Item, d.Weight, ResolveDrop(d.ItemCode, itemCodes), 0, 0, IsBonus: false),
-                _ => DropEntry.NothingSlot(d.Weight),
-            });
+                entries.Add(DropEntry.GoldSlot(d.Weight, d.GoldMin, d.GoldMax));
+            }
+            else if ((DropKind)d.Kind == DropKind.Item && TryResolveDrop(d.ItemCode, itemCodes, out var code))
+            {
+                entries.Add(new DropEntry(DropKind.Item, d.Weight, code, 0, 0, IsBonus: false));
+            }
+            else
+            {
+                entries.Add(DropEntry.NothingSlot(d.Weight));
+            }
         }
         foreach (var p in r.DropsPlus)
         {
-            if (p.ItemCode is null)
+            if (!TryResolveDrop(p.ItemCode, itemCodes, out var code))
             {
                 continue;
             }
 
-            entries.Add(new DropEntry(DropKind.Item, p.Weight, ResolveDrop(p.ItemCode, itemCodes), 0, 0, IsBonus: true));
+            entries.Add(new DropEntry(DropKind.Item, p.Weight, code, 0, 0, IsBonus: true));
         }
 
         return new DropTable(
@@ -197,14 +202,10 @@ public static class WorldDataFactory
             AllPlayersSeeDrops: r.DropConfig?.AllPlayersSee ?? false);
     }
 
-    private static uint ResolveDrop(string? key, IReadOnlyDictionary<string, uint>? itemCodes)
+    private static bool TryResolveDrop(string? key, IReadOnlyDictionary<string, uint>? itemCodes, out uint code)
     {
-        if (key is not null && itemCodes is not null && itemCodes.TryGetValue(key, out var code) && code != 0)
-        {
-            return code;
-        }
-
-        throw new InvalidDataException($"Drop references missing item '{key}'.");
+        code = 0;
+        return key is not null && itemCodes is not null && itemCodes.TryGetValue(key, out code) && code != 0;
     }
 
     public static (IReadOnlyList<NpcDefinition> Definitions, IReadOnlyDictionary<string, int> CodeByName)
@@ -235,9 +236,9 @@ public static class WorldDataFactory
             Shop = (r.ShopStock.Count == 0)
                 ? NpcShopStock.Empty
                 : new NpcShopStock(
-                    weapons.Select(static s => CodeToUint(s.ItemCode)).ToList(),
-                    armour.Select(static s => CodeToUint(s.ItemCode)).ToList(),
-                    misc.Select(static s => CodeToUint(s.ItemCode)).ToList()),
+                    weapons.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(LegacyItemCode.Parse).ToList(),
+                    armour.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(LegacyItemCode.Parse).ToList(),
+                    misc.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(LegacyItemCode.Parse).ToList()),
             Quest = r.SvcQuest ? new NpcQuestHook(r.QuestCode, r.QuestParam) : NpcQuestHook.None,
             Dialog = dialog,
             SoundCode = r.SoundCode,
@@ -246,7 +247,7 @@ public static class WorldDataFactory
         };
     }
 
-    private static uint CodeToUint(string code) => LegacyItemCode.Parse(code);
+    private static bool IsSupportedItemCode(string code) => LegacyItemCode.TryParse(code, out _);
 
     private static NpcServices FoldServices(NpcRecord r)
     {

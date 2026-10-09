@@ -69,7 +69,7 @@ internal sealed class FieldCombat
 
         if (!player.InAttackRange(monster.Position))
         {
-            player.ApproachAttackTarget(monster.Position, running: player.RunMode);
+            // The client walks into range and reports it, as in the original; the lock waits for that position.
             return;
         }
 

@@ -1,3 +1,4 @@
+using PristonTale.Simulation.World;
 using PristonTale.Simulation.Items;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -46,15 +47,17 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
     private double _nowMs;
 
     public FieldInstance(int fieldId)
-        : this(fieldId, FieldSpawnData.Empty, new MonsterCatalog([]), new EntityIdAllocator(), new CombatRng(fieldId))
+        : this(fieldId, FieldSpawnData.Empty, new MonsterCatalog([]), new EntityIdAllocator(), new CombatRng(fieldId), terrain: null)
     {
     }
 
     public FieldInstance(
         int fieldId, FieldSpawnData spawnData, MonsterCatalog catalog, EntityIdAllocator ids, CombatRng rng,
-        MotionTimingCatalog? motions = null, NpcCatalog? npcs = null, int experienceMultiplier = 1, ItemCatalog? items = null)
+        MotionTimingCatalog? motions = null, NpcCatalog? npcs = null, int experienceMultiplier = 1, ItemCatalog? items = null,
+        FieldTerrain? terrain = null)
     {
         FieldId = fieldId;
+        Terrain = terrain ?? FieldTerrain.None;
         GroundLoot = new FieldGroundLoot(items ?? new ItemCatalog([]));
         _ids = ids;
         _rng = rng;
@@ -77,6 +80,8 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
     }
 
     public int FieldId { get; }
+    public FieldTerrain Terrain { get; }
+    public long NowMs => (long)_nowMs;
     public int PlayerCount => _players.Count;
     public int MonsterCount => _monsters.Count;
     public FieldGroundLoot GroundLoot { get; }
@@ -161,7 +166,8 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
                 var payout = _combat.ResolvePlayerSwingHit(player, hitTargetId, nowMs);
                 if (payout is { } reward && _monsters.TryGetValue(hitTargetId, out var killed))
                 {
-                    GroundLoot.Place(reward, killed.Position, killed.Def.Drops.AllPlayersSeeDrops, nowMs);
+                    var dropPosition = Terrain.SettleNear(killed.Position, FieldTerrain.DropTolerance);
+                    GroundLoot.Place(reward, dropPosition, killed.Def.Drops.AllPlayersSeeDrops, nowMs);
                 }
             }
 
@@ -180,28 +186,17 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
             }
 
             _combat.StepPlayerAttack(player);
-            StepPlayer(player, dt);
+            StepPlayer(player, nowMs);
         }
 
         _combat.TickCorpses(dtMs);
         GroundLoot.Step(nowMs);
     }
 
-    private void StepPlayer(WorldPlayer player, float dt)
+    private void StepPlayer(WorldPlayer player, long nowMs)
     {
-        Vector3 oldPos = player.Position;
-        Vector3 desired = player.IntegrateStep(dt);
-        if (desired == oldPos)
-        {
-            player.CommitStep(desired);
-            return;
-        }
-
-        BuildNeighbours(player.EntityId, oldPos, desired, EntityCollisionRadii.Player);
-        Vector3 accepted = EntityCollision.Resolve(oldPos, desired, EntityCollisionRadii.Player, _neighbourScratch);
-        player.CommitStep(accepted);
-        _collisionIndex.Put(player.EntityId, accepted);
-        // Collision hard-blocks the step instead of pushing entities apart.
+        player.ExpireStaleMotion(nowMs);
+        _collisionIndex.Put(player.EntityId, player.Position);
     }
 
     private void StepMonster(MonsterInstance monster, float dtMs)
@@ -226,7 +221,9 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         {
             BuildNeighbours(monster.EntityId, before, desired, EntityCollisionRadii.Monster);
             Vector3 accepted = EntityCollision.Resolve(before, desired, EntityCollisionRadii.Monster, _neighbourScratch);
-            monster.Position = accepted;
+            // Walls and climbs above a step stop the monster, as CheckNextMove does on the original server.
+            monster.Position = Terrain.TryStep(before, accepted, out var grounded) ? grounded : before;
+            accepted = monster.Position;
             _collisionIndex.Put(monster.EntityId, accepted);
         }
 
@@ -247,6 +244,7 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
 
         BuildNeighbours(npc.EntityId, before, desired, EntityCollisionRadii.Npc);
         var accepted = EntityCollision.Resolve(before, desired, EntityCollisionRadii.Npc, _neighbourScratch);
+        accepted = Terrain.TryStep(before, accepted, out var grounded) ? grounded : before;
         npc.CommitStep(accepted, accepted == before);
         _collisionIndex.Put(npc.EntityId, accepted);
     }
@@ -376,7 +374,7 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
     MonsterInstance ISpawnSink.Spawn(MonsterDefinition definition, Vector3 position, int spawnPointIndex, float facing)
     {
         uint id = _ids.NextMonsterId();
-        var monster = new MonsterInstance(id, definition, position, facing, spawnPointIndex);
+        var monster = new MonsterInstance(id, definition, Terrain.PlaceOnFloor(position), facing, spawnPointIndex);
         _monsters[id] = monster;
         return monster;
     }

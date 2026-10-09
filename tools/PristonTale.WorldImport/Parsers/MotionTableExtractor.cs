@@ -60,7 +60,10 @@ public sealed class MotionTableExtractor
             return false;
         }
 
-        var info = _reader.Read(modelDiskPath);
+        if (!TryReadInfo(modelDiskPath, out var info, out failure))
+        {
+            return false;
+        }
         var tableKey = modelKey;
 
         if (!HasUsableMotions(info))
@@ -82,7 +85,10 @@ public sealed class MotionTableExtractor
                     return false;
                 }
 
-                info = _reader.Read(linkDiskPath);
+                if (!TryReadInfo(linkDiskPath, out info, out failure))
+                {
+                    return false;
+                }
                 if (!HasUsableMotions(info))
                 {
                     failure = $"motion table has no usable motions: {tableKey} (for {modelKey})";
@@ -96,6 +102,22 @@ public sealed class MotionTableExtractor
 
         _models[modelKey] = tableKey;
         return true;
+    }
+
+    private bool TryReadInfo(string path, out PristonModelInfo info, out string failure)
+    {
+        try
+        {
+            info = _reader.Read(path);
+            failure = string.Empty;
+            return true;
+        }
+        catch (Exception exception) when (exception is InvalidDataException or IOException)
+        {
+            info = null!;
+            failure = $"invalid INX {path}: {exception.Message}";
+            return false;
+        }
     }
 
     private static bool HasUsableMotions(PristonModelInfo info)

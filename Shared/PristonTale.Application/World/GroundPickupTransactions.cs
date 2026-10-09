@@ -9,8 +9,9 @@ internal static class GroundPickupTransactions
     public static PreparedCharacterOperation<InventoryOutcome> Prepare(PlayerSession session, WorldPlayer player, FieldInstance field, InventoryCommand command)
     {
         var original = player.Character;
+        var dropId = field.GroundLoot.ResolveClientId(command.ItemId);
         if (command.ExpectedRevision != original.InventoryRevision || command.Count != 1
-            || !field.GroundLoot.TryReserve(command.ItemId, command.OperationId, player, out var drop, out var item))
+            || !field.GroundLoot.TryReserve(dropId, command.OperationId, player, out var drop, out var item))
         {
             return new(original, null, null, new(false, original.InventoryRevision, "drop unavailable or out of reach"));
         }
@@ -35,7 +36,7 @@ internal static class GroundPickupTransactions
         {
             if (!prepared)
             {
-                field.GroundLoot.Resolve(command.ItemId, command.OperationId, committed: false);
+                field.GroundLoot.Resolve(dropId, command.OperationId, committed: false);
             }
         }
     }

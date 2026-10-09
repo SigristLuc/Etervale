@@ -196,6 +196,12 @@ static string DefaultSqlitePath() =>
 static string DefaultSourceRoot()
 {
     var workingDirectoryRoot = Path.GetFullPath("GameServer");
+    var workingDirectoryAssetsRoot = Path.GetFullPath(Path.Combine("assets", "GameServer"));
+    if (Directory.Exists(workingDirectoryAssetsRoot))
+    {
+        return workingDirectoryAssetsRoot;
+    }
+
     if (Directory.Exists(workingDirectoryRoot))
     {
         return workingDirectoryRoot;
@@ -204,6 +210,12 @@ static string DefaultSourceRoot()
     var dir = new DirectoryInfo(AppContext.BaseDirectory);
     while (dir is not null)
     {
+        var assetsCandidate = Path.Combine(dir.FullName, "assets", "GameServer");
+        if (Directory.Exists(assetsCandidate))
+        {
+            return assetsCandidate;
+        }
+
         var candidate = Path.Combine(dir.FullName, "GameServer");
         if (Directory.Exists(candidate))
         {
@@ -247,7 +259,7 @@ static void PrintUsage()
         Options:
           --sqlite <path>     use a SQLite DB at <path> (default: %TEMP%/pristontale-world.db)
           --postgres <conn>   use a Postgres DB (Npgsql connection string)
-          --source <dir>      GameServer config root (default: GameServer/ in the working directory
+          --source <dir>      GameServer config root (default: assets/GameServer/ or GameServer/
                               or an ancestor of the executable)
           --assets <dir>      game assets root for the INX motion-timing pass (default: nearest
                               ancestor assets/; motion pass skipped when absent)

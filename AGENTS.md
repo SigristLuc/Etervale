@@ -21,11 +21,11 @@ documentation before editing.
 
 ## Architecture and data
 
-- Keep shared gameplay rules in `Shared/PristonTale.Simulation` and online/offline authority in
+- Keep shared gameplay rules in `Shared/PristonTale.Simulation` and online authority in
   `Shared/PristonTale.Application`. Keep MonoGame in the client, transport mapping at the network edges, and SQL in
   persistence.
 - Treat `original_references/` as reference material. Check version and encoding before extracting behavior; use
-  `PristonFileResolver` for legacy asset paths.
+  `PristonFileResolver` for original asset paths.
 - Keep database migrations structural. Import authored world data through `tools/PristonTale.WorldImport`, preserving
   duplicate definitions and unresolved references. Check importer, repository, runtime catalog, and both providers when
   data contracts change.

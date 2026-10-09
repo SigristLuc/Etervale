@@ -78,7 +78,7 @@ internal static class CharacterHeadTests
             Assert.True(layout.Panel.Left >= 0 && layout.Panel.Top >= 0
                 && layout.Panel.Right * layout.Scale <= width && layout.Panel.Bottom * layout.Scale <= height, "login artwork is clipped");
             var previousBottom = 0;
-            foreach (var box in new[] { layout.Account, layout.Password, layout.Login, layout.Offline })
+            foreach (var box in new[] { layout.Account, layout.Password, layout.Login })
             {
                 Assert.True(layout.Panel.Contains(box) && box.Top > previousBottom, "login hit regions overlap");
                 var center = box.Center;

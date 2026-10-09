@@ -11,15 +11,17 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     private readonly ScreenContext _context = context;
     private readonly Func<InventoryCommand, Task<InventoryOutcome>> _applyInventory = applyInventory;
     private OwnerState _state;
-    private HudLayout _layout;
+    private Point _origin;
     private MouseState _previousMouse;
     private Guid _dragging;
     private bool _pendingOperation;
     private volatile InventoryOutcome _completedOperation;
 
-    public string Message { get; private set; } = "Drag: move   Shift-drag: split   Right-click: equip / use potion";
+    public string Message { get; private set; } = "";
+    public int Completions { get; private set; }
     public bool Pending => _pendingOperation;
     public Guid Dragging => _dragging;
+    public Point Origin => _origin;
 
     public void CancelDrag()
     {
@@ -29,13 +31,14 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     public void Update(OwnerState state, HudLayout layout, bool visible, KeyboardState keyboard, MouseState mouse)
     {
         _state = state;
-        _layout = layout;
+        _origin = HudInventoryLayout.Origin(layout);
         var completed = _completedOperation;
         if (completed is not null)
         {
             _completedOperation = null;
             _pendingOperation = false;
             Message = completed.Message;
+            Completions++;
         }
 
         if (visible && state is not null && !_pendingOperation)
@@ -53,14 +56,11 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
 
     private void UpdateInventoryInput(KeyboardState keyboard, MouseState mouse, Point pointer, bool clicked)
     {
-        var grid = HudInventoryLayout.Bag(_layout);
+        var grid = HudInventoryLayout.Bag(_origin);
         OwnedItemView selected = null;
         foreach (var item in _state.Items)
         {
-            var bounds = item.Slot >= 0 ? EquipmentBounds(item.Slot)
-                : new Rectangle(grid.X + item.Anchor % 12 * _layout.CellSize, grid.Y + item.Anchor / 12 * _layout.CellSize,
-                    item.Width * _layout.CellSize, item.Height * _layout.CellSize);
-            if (bounds.Contains(pointer))
+            if (ItemBounds(item).Contains(pointer))
             {
                 selected = item;
                 break;
@@ -97,7 +97,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             _dragging = Guid.Empty;
             if (grid.Contains(pointer))
             {
-                var destination = (pointer.Y - grid.Y) / _layout.CellSize * 12 + (pointer.X - grid.X) / _layout.CellSize;
+                var destination = HudInventoryLayout.CellAt(_origin, pointer);
                 var source = _state.Items.FirstOrDefault(item => item.InstanceId == identity);
                 if (source is not null && source.Anchor != destination)
                 {
@@ -149,10 +149,10 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         }
     }
 
-    public Rectangle EquipmentBounds(int slot)
-    {
-        return HudInventoryLayout.Equipment(_layout, slot);
-    }
+    public Rectangle EquipmentBounds(int slot) => HudInventoryLayout.Equipment(_origin, slot);
+
+    public Rectangle ItemBounds(OwnedItemView item) =>
+        item.Slot >= 0 ? EquipmentBounds(item.Slot) : HudInventoryLayout.Cell(_origin, item.Anchor, item.Width, item.Height);
 
     private EquipmentSlot? SlotFor(ItemKind kind)
     {

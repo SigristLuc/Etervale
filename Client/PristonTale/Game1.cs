@@ -16,7 +16,7 @@ namespace PristonTale;
 
 public class Game1 : Game
 {
-    private const string ServerAddress = "http://localhost:10012";
+    private const string ServerAddress = "tcp://localhost:10009";
 
     private readonly GraphicsDeviceManager _graphics;
     private GameClient _client;

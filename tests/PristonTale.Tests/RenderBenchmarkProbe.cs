@@ -193,7 +193,6 @@ internal sealed class RenderBenchmarkProbe : Game
             null!,
             PristonTale.Engine3D.Diagnostics.ConsoleClientLog.Instance,
             _ => { },
-            _ => { },
             _settings,
             _uiAtlas);
         _hud = new GameplayHud(

@@ -70,8 +70,6 @@ public sealed class GameScene : IDisposable, IFieldContext
     private float _serverAttackRate = 1f;
     private Vector2 _positionCorrection;
     private readonly GroundFloorQuery _groundFloorQuery;
-    private float _fieldRequestAge = 2f;
-    private bool _awaitingField;
     private int? _snapshotField;
 
     private float MovementSpeed(bool running)
@@ -100,15 +98,21 @@ public sealed class GameScene : IDisposable, IFieldContext
     private CancellationTokenSource _presenceCts;
     private Task _presenceReader;
     private readonly Channel<PresenceUpdate> _presenceQueue = Channel.CreateBounded<PresenceUpdate>(
-        new BoundedChannelOptions(64)
+        new BoundedChannelOptions(4096)
         {
             SingleReader = true,
             SingleWriter = true,
             FullMode = BoundedChannelFullMode.Wait
         });
-    private const int HeartbeatIntervalTicks = 60;
-    private uint _clientTick;
-    private uint _lastHeartbeatTick;
+    // TRANSPLAYDATA cadence: the original sends every 64 frames; moving avatars report at 5 Hz for smoother peers.
+    private const double MovingReportMs = 200;
+    private const double IdleReportMs = 1000;
+    private double _reportClockMs;
+    private double _lastReportMs = double.NegativeInfinity;
+    private bool _reportDue;
+    private bool _lastReportMoving;
+    private bool _lastReportRunning;
+    private uint _lastReportTarget;
     private int _lastSentFieldCode = -1;
 
     private readonly PristonSkyLibrary _sky;
@@ -146,6 +150,11 @@ public sealed class GameScene : IDisposable, IFieldContext
     public bool CameraInputEnabled { get; set; } = true;
     public bool RightAttackEnabled { get; set; }
     public uint AttackTargetId => _attackInput.TargetId;
+    public FieldDef ActiveFieldDefinition => _activeField?.Definition;
+    public PristonIntRectangle ActiveMapRectangle => _activeField?.Stage.AuthoredMapRectangle ?? default;
+    public Vector3 PlayerPosition => _playerBody?.Position ?? Vector3.Zero;
+    public Vector3 PlayerForward => _playerForward;
+    public bool RunMode => _runMode;
     public event Action<PresenceUpdate> PresenceObserved;
 
     public Task<PristonTale.Simulation.Items.InventoryOutcome> ApplyInventoryAsync(PristonTale.Simulation.Items.InventoryCommand command)
@@ -417,14 +426,20 @@ public sealed class GameScene : IDisposable, IFieldContext
 
         try
         {
-            for (var processed = 0; processed < 4 && _presenceQueue.Reader.TryRead(out var update); processed++)
+            for (var processed = 0; processed < 64 && _presenceQueue.Reader.TryRead(out var update); processed++)
             {
                 _snapshotField = update.FieldId;
                 if (update.Owner is not null)
                 {
                     Owner = update.Owner;
                 }
-                _remote.Apply(RemapToWorld(update));
+                var remapped = RemapToWorld(update);
+                _remote.Apply(remapped);
+                if (remapped.Warp is { } warp)
+                {
+                    ApplyWarp(warp);
+                }
+
                 _groundLoot.Apply(update);
                 ObserveEffects(update);
                 PresenceObserved?.Invoke(update);
@@ -471,7 +486,10 @@ public sealed class GameScene : IDisposable, IFieldContext
             u.Removed,
             u.Events,
             u.FieldId,
-            u.Owner);
+            u.Owner)
+        {
+            Warp = u.Warp is { } warp ? warp with { Position = FlipZ(warp.Position) } : null
+        };
     }
 
     private static NumVector3 FlipZ(NumVector3 v) => new(v.X, v.Y, -v.Z);
@@ -771,7 +789,7 @@ public sealed class GameScene : IDisposable, IFieldContext
         _lootInteraction?.Cancel();
         StopPredictedMovement();
         HoldAtSpecialWarp(warp);
-        SendMoveIntent(_playerBody.PlanarPosition, false);
+        _reportDue = true;
         _returnEffect?.Start(_playerBody.Position + Vector3.Up * GroundTraversal.VisualOffset);
         _fieldAudio?.PlayPortalWarp();
         RequestField(_worldCatalog.GetField(warp.DestinationFieldId));
@@ -916,7 +934,9 @@ public sealed class GameScene : IDisposable, IFieldContext
         _selfHp = state.Hp;
         _serverMoveSpeed = state.MoveSpeed;
         _serverAttackRate = state.AttackRate;
-        ReconcilePosition(state.Position, state.MoveState);
+        // The client owns locomotion; server echoes lag behind it, so only WARPFIELD moves the local avatar.
+        _serverPlanarPosition = new Vector2(state.Position.X, state.Position.Z);
+        _serverCollisionHeight = state.Position.Y;
         var wire = RemoteEntityBase.ToActorMotion(state.MoveState);
         bool wasDead = _playerController.IsDead;
         switch (wire)
@@ -965,57 +985,40 @@ public sealed class GameScene : IDisposable, IFieldContext
         }
     }
 
-    private void ReconcilePosition(NumVector3 position, RemoteMoveState moveState)
+    private void ApplyWarp(WarpInfo warp)
     {
-        _serverPlanarPosition = new Vector2(position.X, position.Z);
-        _serverCollisionHeight = position.Y;
+        _serverPlanarPosition = new Vector2(warp.Position.X, warp.Position.Z);
         if (_playerBody is null)
         {
             return;
         }
 
-        if (_snapshotField.HasValue && _activeField?.Definition.FieldCode != _snapshotField.Value)
+        if (_activeField?.Definition.FieldCode != warp.FieldId && _worldCatalog.TryGetFieldByCode(warp.FieldId, out var field))
         {
-            if (_awaitingField && _fieldRequestAge < 1f)
+            var loaded = _fields.FirstOrDefault(candidate => candidate.Definition.Id == field.Id);
+            if (loaded is null)
             {
+                RequestField(field);
                 return;
             }
 
-            if (_worldCatalog.TryGetFieldByCode(_snapshotField.Value, out var field))
-            {
-                var loaded = _fields.FirstOrDefault(candidate => candidate.Definition.Id == field.Id);
-                if (loaded is null)
-                {
-                    RequestField(field);
-                    return;
-                }
-
-                SetActiveField(loaded);
-                _lastSentFieldCode = field.FieldCode;
-                _hasMoveTarget = false;
-                _awaitingField = false;
-            }
-        }
-        else
-        {
-            _awaitingField = false;
+            SetActiveField(loaded);
+            _lastSentFieldCode = field.FieldCode;
+            _hasMoveTarget = false;
         }
 
-        var authoritative = new Vector2(position.X, position.Z);
+        var authoritative = new Vector2(warp.Position.X, warp.Position.Z);
         var difference = authoritative - _playerBody.PlanarPosition;
-        if (difference.LengthSquared() > 200f * 200f)
+        if (warp.Forced || difference.LengthSquared() > 200f * 200f)
         {
-            _log.Info($"[Movement] correction {difference.Length():F1} units; field={_snapshotField}, state={moveState}, pendingMove={_hasMoveTarget}.");
+            _log.Info($"[Movement] correction {difference.Length():F1} units; field={warp.FieldId}, forced={warp.Forced}.");
+            StopPredictedMovement();
             _playerBody.PlanarPosition = authoritative;
             _positionCorrection = Vector2.Zero;
             TrackBodyHeight(_playerBody);
             ApplyPlayerWorld();
             _camera?.SnapFollow(_playerBody.Position, _fieldCollision);
-        }
-        else
-        {
-            var deadband = moveState is RemoteMoveState.Walking or RemoteMoveState.Running ? 8f : 0.1f;
-            _positionCorrection = difference.LengthSquared() > deadband * deadband ? difference : Vector2.Zero;
+            _reportDue = true;
         }
     }
 
@@ -1096,7 +1099,6 @@ public sealed class GameScene : IDisposable, IFieldContext
         {
             _fieldAudio?.Update(_playerBody.Position, TimeOfDay, frameDt);
         }
-        _fieldRequestAge += frameDt;
         var completedField = _fieldStreamer?.Update();
         if (completedField is not null)
         {
@@ -1120,8 +1122,7 @@ public sealed class GameScene : IDisposable, IFieldContext
         }
 
         var dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
-        NotifyFieldChangeIfNeeded();
-        UpdateHeartbeat();
+        UpdateMovementReport(dt);
         _currentField?.OnUpdate?.Invoke(this, dt);
     }
 
@@ -1133,15 +1134,37 @@ public sealed class GameScene : IDisposable, IFieldContext
         }
     }
 
-    private void UpdateHeartbeat()
+    private void UpdateMovementReport(float dt)
     {
-        if (_playChannel == null)
+        _reportClockMs += dt * 1000.0;
+        if (_playChannel == null || _activeField == null || _playerBody == null)
+        {
             return;
-        _clientTick++;
-        if (_clientTick - _lastHeartbeatTick < HeartbeatIntervalTicks)
+        }
+
+        var current = _playerController.Current;
+        var moving = current is PristonActorMotion.Walk or PristonActorMotion.Run;
+        var running = current == PristonActorMotion.Run;
+        var target = _attackInput.TargetId;
+        var fieldCode = _activeField.Definition.FieldCode;
+        var elapsed = _reportClockMs - _lastReportMs;
+        var changed = moving != _lastReportMoving || running != _lastReportRunning || target != _lastReportTarget || fieldCode != _lastSentFieldCode;
+        if (!_reportDue && !changed && elapsed < (moving ? MovingReportMs : IdleReportMs))
+        {
             return;
-        _lastHeartbeatTick = _clientTick;
-        SendUpstream(_playChannel.SendHeartbeatAsync(_clientTick, _presenceCts.Token), "heartbeat");
+        }
+
+        _reportDue = false;
+        _lastReportMs = _reportClockMs;
+        _lastReportMoving = moving;
+        _lastReportRunning = running;
+        _lastReportTarget = target;
+        _lastSentFieldCode = fieldCode;
+        // Transport is PT-global (x, z); presentation uses (x, -z).
+        var planar = _playerBody.PlanarPosition;
+        var position = new NumVector3(planar.X, _playerBody.Height, -planar.Y);
+        var facing = MathF.Atan2(_playerForward.X, -_playerForward.Z);
+        SendUpstream(_playChannel.SendMovementAsync(position, facing, moving, running, target, fieldCode, _presenceCts.Token), "movement");
     }
 
     private void SendUpstream(Task send, string what)
@@ -1314,7 +1337,7 @@ public sealed class GameScene : IDisposable, IFieldContext
                 _lootInteraction.Cancel();
                 _moveTargetRun = doubleClickRun || shiftRun;
                 _runMode = _moveTargetRun;
-                SendMoveIntent(_moveTarget, _moveTargetRun);
+                _reportDue = true;
             }
         }
 
@@ -1334,7 +1357,7 @@ public sealed class GameScene : IDisposable, IFieldContext
             if (running != _runMode)
             {
                 _runMode = running;
-                SendMoveIntent(_moveTarget, running);
+                _reportDue = true;
             }
 
             var step = DestinationMovement.Advance(
@@ -1369,35 +1392,6 @@ public sealed class GameScene : IDisposable, IFieldContext
         }
 
         _lastMouseState = mouse;
-    }
-
-    private void SendMoveIntent(Vector2 worldTarget, bool running)
-    {
-        if (_playChannel == null)
-            return;
-        var ptTarget = new NumVector3(worldTarget.X, 0f, -worldTarget.Y);
-        SendUpstream(_playChannel.SendMoveAsync(ptTarget, running, _presenceCts.Token), "move");
-    }
-
-    private void NotifyFieldChangeIfNeeded()
-    {
-        if (_playChannel == null || _activeField == null)
-        {
-            return;
-        }
-
-        var fieldCode = _activeField.Definition.FieldCode;
-        if (fieldCode == _lastSentFieldCode)
-        {
-            return;
-        }
-
-        _lastSentFieldCode = fieldCode;
-        _fieldRequestAge = 0f;
-        _awaitingField = true;
-        var planar = _playerBody.PlanarPosition;
-        var ptPos = new NumVector3(planar.X, 0f, -planar.Y);
-        SendUpstream(_playChannel.SendEnterFieldAsync(fieldCode, ptPos, _presenceCts.Token), "enter-field");
     }
 
     public void DrawGroundLabels(SpriteBatch batch, SpriteFont font)
@@ -1441,7 +1435,7 @@ public sealed class GameScene : IDisposable, IFieldContext
         _moveTarget = new Vector2(position.X, position.Z);
         _moveTargetRun = _runMode;
         _hasMoveTarget = true;
-        SendMoveIntent(_moveTarget, _moveTargetRun);
+        _reportDue = true;
         return true;
     }
 
@@ -1569,7 +1563,7 @@ public sealed class GameScene : IDisposable, IFieldContext
         if (decision.SendStop)
         {
             _npcMoveSent = true;
-            SendMoveIntent(decision.Destination, false);
+            _reportDue = true;
         }
 
         if (decision.OpenDialog)
@@ -1586,7 +1580,7 @@ public sealed class GameScene : IDisposable, IFieldContext
             _moveTargetRun = _runMode;
             _hasMoveTarget = true;
             _npcMoveSent = true;
-            SendMoveIntent(_moveTarget, _moveTargetRun);
+            _reportDue = true;
         }
     }
 

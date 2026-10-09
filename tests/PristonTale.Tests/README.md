@@ -7,11 +7,12 @@ dotnet build tests/PristonTale.Tests -c Release -m:1 -warnaserror
 dotnet run --project tests/PristonTale.Tests -c Release --no-build
 ```
 
-The default runner executes 22 regressions using synthetic data, fake gRPC streams and SQLite databases created and removed in the temporary directory.
+The default runner uses synthetic data, original-protocol byte fixtures, a loopback TCP exchange and SQLite databases created and removed in the temporary directory.
 It returns a nonzero exit code on failure. It is a console runner, not a test framework discovered by `dotnet test`.
 No default case reads game assets, production databases or legacy reference directories.
 
-Cases cover persisted attributes, session ownership, tick commands, field transitions, invalid coordinates, AI integration, inventory atomicity, ordered/bounded gRPC output and offline save/close races.
+Cases cover persisted attributes, session ownership, tick commands, validated movement reports, field transitions, invalid coordinates, AI integration,
+inventory atomicity, original struct layouts, the packet cipher and replay window, and presence encoding through `WireRoundTrip`.
 Presentation cases cover combat events/rates, pending actor removal, unused material tables, shadow-caster eligibility, CPU mesh preparation, image decoding and glTF opacity variants.
 
 Optional synthetic CPU benchmark:
@@ -51,6 +52,15 @@ The lamp benchmark reports production dispatch, the previous scalar oracle and e
 It uses 20,000 deterministic positions, 6/72/192 lights, warmup and five samples of 200,000 vertex evaluations; setup is outside the measured region.
 The streaming probe uses the same 32-step/2 ms policy as the game; `--profile-stream-baseline` uses eight steps to isolate the previous limit.
 Authentication and job-head coverage uses presentation probes in this runner.
+HUD cases cover the original 800x600 layout at integer scales, its bottom/right anchors and hit rectangles, gauge cropping,
+the panel slide steps, minimap clipping and the Sinimage color keys (black key for BMP, premultiplied TGA alpha).
+The optional HUD probe renders the original in-game HUD scenarios, including scale 2 and 3, to PNG files:
+
+```bash
+dotnet tests/PristonTale.Tests/bin/Release/net10.0/PristonTale.Tests.dll --capture-hud assets Client/PristonTale/bin/Release/net10.0/Content /tmp/hud
+```
+
+It reads the Ricarten stage only for the authored minimap rectangle and accepts an optional background PNG as a fifth argument.
 The login probe exercises Draw before Update with a preloaded shared atlas, a 1×1 viewport followed by restoration, disabled credentials, keyboard navigation, masking and scaled mouse hit tests.
 The default suite covers zero/tiny viewport overlay bounds and all 416 normal job heads against `Fixtures/job-head-source.json`, extracted from PTClassic `playmodel.h` rows 0..3.
 # Regressões de terreno e transição

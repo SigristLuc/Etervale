@@ -7,8 +7,6 @@ public interface IGameBackend : IAsyncDisposable
 {
     string? SessionToken { get; }
 
-    bool SupportsLivePresence { get; }
-
     Task<LoginOutcome> LoginAsync(string account, string password, int clientVersion, CancellationToken ct = default);
 
     Task<IReadOnlyList<CharacterSummary>> ListCharactersAsync(CancellationToken ct = default);
@@ -21,7 +19,6 @@ public interface IGameBackend : IAsyncDisposable
 
     IPlayChannel OpenPlayChannel(CancellationToken ct = default);
 
+    // Live catalog: monster and NPC templates appear as their PLAYERINFO descriptions arrive.
     Task<WorldRenderCatalog> GetWorldCatalogAsync(CancellationToken ct = default);
-
-    Task<bool> SaveCharacterAsync(CancellationToken ct = default);
 }

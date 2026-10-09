@@ -3,31 +3,89 @@ using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
-using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.Progression;
+using PristonTale.Simulation.Skills;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
-public sealed class HudSkillsPanel(SpriteFont font, HudIconCache icons)
+// sinSkill.cpp cSKILL::Draw/DrawSkillText: Skil24.bmp, job titles, skill buttons (gray "_" variant when unusable),
+// rank gauges, F1-F8 short keys and the SelectSkill hover frame. All sixteen nodes are shown for reference.
+public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
 {
+    private const int TooltipWidth = 260;
+
     private sealed record Entry(Skill Skill, string Level, string[] Description, string[] Weapons, string Cost, string Mouse,
         int Rank = 0, string Status = "Unlearned");
+
+    private static readonly CharacterClassRegistry Classes = new();
+    private readonly List<string> _classSprites = [];
     private Entry[] _entries = [];
+    private PlayerClass _class;
     private int _points = -1;
     private string _pointsText = "";
-    private static readonly CharacterClassRegistry Classes = new();
-    private static readonly string[] TierNumbers = ["I", "II", "III", "IV"];
-    private static readonly string[] Shortcuts = ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"];
-    private IReadOnlyList<string> _jobTitles = Array.Empty<string>();
     private int _trainingIndex = -1;
     private string _trainingName = "";
     private string _trainingPrice = "";
     private IReadOnlyList<OwnedSkillView> _displayedSkills;
+    private Entry _hovered;
+    private bool _hoveredBasic;
+
+    public bool TrainingPending => _trainingIndex >= 0;
     public void CancelTraining() => _trainingIndex = -1;
 
-    private static Rectangle ConfirmButton(Rectangle panel, bool accept) => HudSkillTreeLayout.ConfirmButton(panel, accept);
+    public static Rectangle ClassRow(Point origin, int index) => HudSkillTreeLayout.Node(origin, index);
 
-    public void HandleTrainingClick(Rectangle panel, Point pointer, OwnerState state, uint npcId, HudProgressionController controller)
+    public void SetClass(PlayerClass characterClass)
+    {
+        _class = characterClass;
+        _displayedSkills = null;
+        CancelTraining();
+        var skills = Classes.Get(characterClass).Skills;
+        _entries = new Entry[skills.Count];
+        var previous = _classSprites.ToArray();
+        _classSprites.Clear();
+        for (var tier = 0; tier < 4; tier++)
+        {
+            _classSprites.Add(HudArt.JobTitle(characterClass, tier));
+        }
+
+        for (var index = 0; index < skills.Count; index++)
+        {
+            var skill = skills[index];
+            if (skill.Code == 0)
+            {
+                _entries[index] = new Entry(skill, "", [], [], "", "", Status: "Unavailable in this version");
+                continue;
+            }
+
+            _classSprites.Add(HudArt.SkillButton(characterClass, skill.IconKey, false));
+            _classSprites.Add(HudArt.SkillButton(characterClass, skill.IconKey, true));
+            var weapons = skill.AllowedWeaponsMask == 0 ? "Any weapon" : string.Join(", ", Enum.GetValues<ItemKind>().Where(skill.AllowsWeapon));
+            var mouse = skill.MouseUse switch
+            {
+                SkillMouseUse.Left => "Left mouse",
+                SkillMouseUse.Right => "Right mouse",
+                SkillMouseUse.Both => "Left or right mouse",
+                _ => "Passive skill"
+            };
+            var cost = skill.MouseUse == SkillMouseUse.None ? "No activation cost" : $"Rank 1: MP {skill.ManaForRank(1)} | SP {skill.StaminaForRank(1)}";
+            _entries[index] = new Entry(skill, $"Lv {skill.RequiredLevel}",
+                HudTextLayout.Wrap(font, skill.Description, TooltipWidth - 20, HudPainter.TextScale),
+                HudTextLayout.Wrap(font, "Equipment: " + weapons, TooltipWidth - 20, HudPainter.TextScale), cost, mouse);
+        }
+
+        foreach (var path in previous.Except(_classSprites, StringComparer.OrdinalIgnoreCase))
+        {
+            sprites.Release(path);
+        }
+
+        sprites.Request(_classSprites);
+    }
+
+    public uint HoveredSkill(Point origin, Point pointer) =>
+        HudSkillTreeLayout.BasicAttack(origin).Contains(pointer) ? HudSkillBindings.BasicAttackId : 0;
+
+    public void HandleTrainingClick(Point origin, Point pointer, OwnerState state, uint npcId, HudProgressionController controller)
     {
         if (state is null || npcId == 0 || controller.Pending)
         {
@@ -36,13 +94,13 @@ public sealed class HudSkillsPanel(SpriteFont font, HudIconCache icons)
 
         if (_trainingIndex >= 0)
         {
-            if (ConfirmButton(panel, true).Contains(pointer))
+            if (HudMessageBox.Accept.Contains(pointer))
             {
                 controller.Submit(new ProgressionCommand(Guid.NewGuid(), state.ProgressionRevision, ProgressionAction.LearnSkill,
                     SkillCode: _entries[_trainingIndex].Skill.Code, NpcEntityId: npcId));
                 _trainingIndex = -1;
             }
-            else if (ConfirmButton(panel, false).Contains(pointer))
+            else if (HudMessageBox.Reject.Contains(pointer))
             {
                 _trainingIndex = -1;
             }
@@ -52,7 +110,7 @@ public sealed class HudSkillsPanel(SpriteFont font, HudIconCache icons)
 
         for (var index = 0; index < Math.Min(4, _entries.Length); index++)
         {
-            if (!ClassRow(panel, index).Contains(pointer))
+            if (!ClassRow(origin, index).Contains(pointer))
             {
                 continue;
             }
@@ -65,14 +123,99 @@ public sealed class HudSkillsPanel(SpriteFont font, HudIconCache icons)
             }
 
             _trainingIndex = index;
-            _trainingName = $"{entry.Skill.Name} | Rank {rank + 1}";
-            _trainingPrice = $"{SkillLearning.Price(index, rank):N0} gold + 1 skill point";
+            _trainingName = entry.Skill.Name;
+            _trainingPrice = $"Rank {rank + 1}: {SkillLearning.Price(index, rank):N0} gold";
+        }
+    }
+
+    public void Draw(HudPainter painter, Point origin, Point pointer, OwnerState state, HudSkillBindings bindings, uint skillMaster, bool pressed,
+        bool interactive)
+    {
+        RefreshRanks(state);
+        _hovered = null;
+        _hoveredBasic = false;
+        painter.Sprite(HudArt.SkillWindow, origin.X, origin.Y + 400);
+        for (var tier = 0; tier < 4; tier++)
+        {
+            var title = HudSkillTreeLayout.Title(origin, tier);
+            painter.Sprite(HudArt.JobTitle(_class, tier), title.X, title.Y);
+        }
+
+        for (var index = 0; index < Math.Min(_entries.Length, HudSkillTreeLayout.NodeCount); index++)
+        {
+            var entry = _entries[index];
+            var node = ClassRow(origin, index);
+            if (entry.Skill.Code != 0)
+            {
+                var usable = entry.Rank > 0 || skillMaster != 0 && CanTrain(index, state);
+                painter.Sprite(HudArt.SkillButton(_class, entry.Skill.IconKey, !usable), node.X, node.Y);
+                if (index < 4)
+                {
+                    // Only the first job tier is available (no class change), as sinSkill draws gauges for flagged skills.
+                    var mastery = HudSkillTreeLayout.MasteryGauge(origin, index);
+                    painter.Sprite(entry.Skill.MouseUse == SkillMouseUse.None ? HudArt.SkillGaugePassive : HudArt.SkillGaugeBack, mastery.X, mastery.Y);
+                }
+
+                var rank = HudSkillTreeLayout.RankGauge(origin, index);
+                var length = Math.Clamp(entry.Rank, 0, 10) * rank.Height / 10;
+                painter.Sprite(HudArt.SkillGauge, rank.X, rank.Bottom - length, new Rectangle(0, rank.Height - length, rank.Width, length));
+                DrawShortcut(painter, node, entry.Skill.Code, bindings);
+            }
+
+            if (interactive && node.Contains(pointer))
+            {
+                _hovered = entry;
+                painter.Sprite(HudArt.SkillSelect, node.X + (pressed ? 1 : 0), node.Y + (pressed ? 1 : 0));
+            }
+        }
+
+        var basic = HudSkillTreeLayout.BasicAttack(origin);
+        DrawShortcut(painter, basic, HudSkillBindings.BasicAttackId, bindings);
+        if (interactive && basic.Contains(pointer))
+        {
+            _hoveredBasic = true;
+            painter.Sprite(HudArt.SkillSelect, basic.X + (pressed ? 1 : 0), basic.Y + (pressed ? 1 : 0));
+        }
+
+        if (state is not null)
+        {
+            if (_points != state.SkillPoints)
+            {
+                _points = state.SkillPoints;
+                _pointsText = _points.ToString();
+            }
+
+            painter.TextCentered(_pointsText, origin.X + 165, origin.X + 253, origin.Y + 578);
+        }
+    }
+
+    public void DrawOverlay(HudPainter painter, HudLayout layout, Point pointer, uint skillMaster, string message)
+    {
+        if (_trainingIndex >= 0)
+        {
+            painter.Flush();
+            HudMessageBox.Draw(painter, _trainingName, _trainingPrice, pointer);
+            return;
+        }
+
+        if (_hovered is not null)
+        {
+            DrawDetails(painter, layout, pointer, _hovered);
+        }
+        else if (_hoveredBasic)
+        {
+            DrawLines(painter, layout, pointer, "Basic attack", ["Release LMB or RMB to select.", "Hold the button + F1-F8 to bind."]);
+        }
+        else if (skillMaster != 0)
+        {
+            DrawLines(painter, layout, new Point(layout.Width / 2, layout.BottomOffset + 400), "Skill master",
+                [message.Length > 0 ? message : "Select a skill to train."]);
         }
     }
 
     private bool CanTrain(int index, OwnerState state)
     {
-        if (state is null || index >= 4)
+        if (state is null || index >= 4 || index >= _entries.Length)
         {
             return false;
         }
@@ -97,186 +240,38 @@ public sealed class HudSkillsPanel(SpriteFont font, HudIconCache icons)
         return 0;
     }
 
-    public void SetClass(PlayerClass characterClass)
+    private static void DrawLines(HudPainter painter, HudLayout layout, Point anchor, string title, string[] lines)
     {
-        _displayedSkills = null;
-        CancelTraining();
-        var skills = Classes.Get(characterClass).Skills;
-        _jobTitles = HudJobTitles.For(characterClass);
-        _entries = new Entry[skills.Count];
-        for (var index = 0; index < skills.Count; index++)
+        var width = Math.Max(painter.Measure(title), lines.Max(painter.Measure)) + 24;
+        var height = 24 + lines.Length * HudPainter.LineHeight + 8;
+        var size = HudPainter.InfoBoxBounds(0, 0, width, height);
+        var place = layout.PlaceOverlay(new Point(anchor.X - size.Width / 2, anchor.Y - size.Height - 8), size.Width, size.Height);
+        var bounds = HudPainter.InfoBoxBounds(place.X, place.Y, place.Width, place.Height);
+        painter.Flush();
+        painter.InfoBox(bounds);
+        painter.Text(title, bounds.X + 10, bounds.Y + 8, new Color(255, 255, 180));
+        for (var index = 0; index < lines.Length; index++)
         {
-            var skill = skills[index];
-            if (skill.Code == 0)
-            {
-                _entries[index] = new Entry(skill, "", [], [], "", "", Status: "Unavailable in this version");
-                continue;
-            }
-
-            var weapons = skill.AllowedWeaponsMask == 0 ? "Any weapon" : string.Join(", ",
-                Enum.GetValues<ItemKind>().Where(skill.AllowsWeapon));
-            var mouse = skill.MouseUse switch
-            {
-                SkillMouseUse.Left => "Left mouse",
-                SkillMouseUse.Right => "Right mouse",
-                SkillMouseUse.Both => "Left or right mouse",
-                _ => "Passive skill"
-            };
-            var cost = skill.MouseUse == SkillMouseUse.None ? "No activation cost" : $"Rank 1: MP {skill.ManaForRank(1)} | SP {skill.StaminaForRank(1)}";
-            _entries[index] = new Entry(skill, $"Lv {skill.RequiredLevel}",
-                HudTextLayout.Wrap(font, skill.Description, 312, 0.68f),
-                HudTextLayout.Wrap(font, "Equipment: " + weapons, 312, 0.62f), cost, mouse);
-        }
-
-        icons.Request(skills.Select(skill => skill.IconKey));
-    }
-
-    public static Rectangle ClassRow(Rectangle panel, int index) => HudSkillTreeLayout.Node(panel, index);
-
-    public void Draw(HudCanvas canvas, HudLayout layout, Point pointer, OwnerState state, HudSkillBindings bindings,
-        uint skillMaster = 0, string message = "")
-    {
-        RefreshRanks(state);
-        var panel = layout.Panel;
-        for (var tier = 0; tier < _jobTitles.Count; tier++)
-        {
-            var column = HudSkillTreeLayout.Column(panel, tier);
-            var heading = new Rectangle(column.X, panel.Y + 42, column.Width - 6, 22);
-            canvas.Frame(heading, "Inset", 4);
-            canvas.Text(TierNumbers[tier], new Rectangle(heading.X + 5, heading.Y, 22, 22), scale: 0.65f);
-            canvas.Text(_jobTitles[tier], new Rectangle(heading.X + 30, heading.Y, heading.Width - 34, 22),
-                tier == 0 ? HudCanvas.Gold : HudCanvas.Muted, 0.67f, centered: true);
-        }
-
-        var basic = HudActions.SkillRow(panel);
-        canvas.Frame(basic, basic.Contains(pointer) ? "Selected" : "Slot", 5);
-        canvas.Image("Attack", new Rectangle(basic.X + 4, basic.Y + 4, basic.Width - 8, basic.Height - 8));
-        DrawShortcut(canvas, basic, HudSkillBindings.BasicAttackId, bindings);
-        Entry hovered = null;
-        for (var index = 0; index < _entries.Length; index++)
-        {
-            var entry = _entries[index];
-            var bounds = ClassRow(panel, index);
-            var hover = bounds.Contains(pointer);
-            canvas.Frame(bounds, hover ? "Selected" : "Slot", 5);
-            var texture = icons.Find(entry.Skill.IconKey);
-            if (texture is not null)
-            {
-                var tint = entry.Rank > 0 || skillMaster != 0 && CanTrain(index, state) ? Color.White : new Color(130, 140, 149);
-                canvas.Icon(texture, new Rectangle(bounds.X + 2, bounds.Y + 2, bounds.Width - 4, bounds.Height - 4), tint);
-            }
-
-            if (entry.Skill.Code != 0)
-            {
-                DrawRank(canvas, bounds, entry.Rank);
-                DrawShortcut(canvas, bounds, entry.Skill.Code, bindings);
-            }
-
-            if (hover)
-            {
-                hovered = entry;
-            }
-        }
-
-        if (state is not null)
-        {
-            if (_points != state.SkillPoints)
-            {
-                _points = state.SkillPoints;
-                _pointsText = $"Points: {_points}";
-            }
-
-            canvas.Text(_pointsText, new Rectangle(panel.X + 132, panel.Y + 17, 130, 22), HudCanvas.Muted, 0.7f);
-        }
-
-        canvas.Text(skillMaster == 0 ? "Select: LMB / RMB     Bind: hold + F1-F8" : "Skill master: select a skill to train",
-            new Rectangle(panel.X + 270, panel.Y + 17, panel.Width - 324, 22), HudCanvas.Muted, 0.62f);
-        if (_trainingIndex >= 0)
-        {
-            DrawConfirmation(canvas, panel);
-        }
-        else if (hovered is not null)
-        {
-            DrawDetails(canvas, layout, pointer, hovered);
-        }
-        else if (basic.Contains(pointer))
-        {
-            DrawNotice(canvas, layout, "Basic attack", "Release LMB or RMB to select. Hold + F1-F8 to bind.");
-        }
-        else if (skillMaster != 0 && message.Length > 0)
-        {
-            DrawNotice(canvas, layout, "Skill master", message);
+            painter.Text(lines[index], bounds.X + 10, bounds.Y + 26 + index * HudPainter.LineHeight, new Color(220, 220, 220));
         }
     }
 
-    private void DrawConfirmation(HudCanvas canvas, Rectangle panel)
-    {
-        var box = HudSkillTreeLayout.Confirmation(panel);
-        canvas.FlushText();
-        canvas.Frame(box);
-        canvas.Text("CONFIRM TRAINING", new Rectangle(box.X + 20, box.Y + 12, box.Width - 40, 26), scale: 0.82f);
-        canvas.Text(_trainingName, new Rectangle(box.X + 20, box.Y + 50, box.Width - 40, 28), scale: 0.75f);
-        canvas.Text(_trainingPrice, new Rectangle(box.X + 20, box.Y + 88, box.Width - 40, 26), scale: 0.7f);
-        canvas.Frame(ConfirmButton(panel, false), "Button", 8);
-        canvas.Frame(ConfirmButton(panel, true), "Button", 8);
-        canvas.Text("Cancel", ConfirmButton(panel, false), centered: true);
-        canvas.Text("Learn", ConfirmButton(panel, true), centered: true);
-    }
-
-    private static void DrawNotice(HudCanvas canvas, HudLayout layout, string title, string message)
-    {
-        var bounds = layout.PlaceOverlay(new Point(layout.Panel.Center.X - 200, layout.Panel.Y - 78), 400, 72);
-        canvas.FlushText();
-        canvas.Frame(bounds, "Panel", 14);
-        canvas.Text(title, new Rectangle(bounds.X + 14, bounds.Y + 10, bounds.Width - 28, 24), scale: 0.75f);
-        canvas.Text(message, new Rectangle(bounds.X + 14, bounds.Y + 37, bounds.Width - 28, 22), HudCanvas.Muted, 0.62f);
-    }
-
-    private static void DrawRank(HudCanvas canvas, Rectangle bounds, int rank)
-    {
-        var track = new Rectangle(bounds.Right + 1, bounds.Y + 3, 7, bounds.Height - 6);
-        canvas.Frame(track, "Inset", 2);
-        var height = (track.Height - 4) * rank / 10;
-        if (height > 0)
-        {
-            canvas.Image("Fill", new Rectangle(track.X + 2, track.Bottom - 2 - height, 3, height), new Color(117, 187, 98));
-        }
-    }
-
-    private static void DrawDetails(HudCanvas canvas, HudLayout layout, Point pointer, Entry entry)
+    private static void DrawDetails(HudPainter painter, HudLayout layout, Point pointer, Entry entry)
     {
         if (entry.Skill.Code == 0)
         {
-            DrawNotice(canvas, layout, entry.Skill.Name, entry.Status);
+            DrawLines(painter, layout, pointer, entry.Skill.Name, [entry.Status]);
             return;
         }
 
-        var height = 168 + (entry.Description.Length + entry.Weapons.Length) * 22;
-        var bounds = layout.PlaceOverlay(new Point(pointer.X - 170, layout.Panel.Y - height - 8), 340, height);
-        canvas.FlushText();
-        canvas.Frame(bounds, "Panel", 16);
-        var y = bounds.Y + 12;
-        canvas.Text(entry.Skill.Name, new Rectangle(bounds.X + 14, y, 312, 28), scale: 0.83f);
-        y += 32;
-        foreach (var line in entry.Description)
+        var lines = new List<string>(entry.Description)
         {
-            canvas.Text(line, new Rectangle(bounds.X + 14, y, 312, 22), Color.White, 0.68f);
-            y += 22;
-        }
-
-        y += 8;
-        canvas.Text(entry.Level, new Rectangle(bounds.X + 14, y, 65, 22), HudCanvas.Muted, 0.65f);
-        canvas.Text(entry.Mouse, new Rectangle(bounds.X + 88, y, 228, 22), HudCanvas.Muted, 0.65f);
-        y += 24;
-        canvas.Text(entry.Cost, new Rectangle(bounds.X + 14, y, 312, 22), scale: 0.68f);
-        y += 24;
-        foreach (var line in entry.Weapons)
-        {
-            canvas.Text(line, new Rectangle(bounds.X + 14, y, 312, 22), HudCanvas.Muted, 0.62f);
-            y += 22;
-        }
-
-        canvas.Text(entry.Status, new Rectangle(bounds.X + 14, y + 8, 312, 22), HudCanvas.Muted, 0.6f);
+            $"{entry.Level}   {entry.Mouse}",
+            entry.Cost
+        };
+        lines.AddRange(entry.Weapons);
+        lines.Add(entry.Status);
+        DrawLines(painter, layout, pointer, entry.Skill.Name, lines.ToArray());
     }
 
     private void RefreshRanks(OwnerState state)
@@ -315,18 +310,15 @@ public sealed class HudSkillsPanel(SpriteFont font, HudIconCache icons)
         }
     }
 
-    private static void DrawShortcut(HudCanvas canvas, Rectangle node, uint skillCode, HudSkillBindings bindings)
+    // sinSkill.cpp: ShortKey\f<n>.bmp at BoxRect.left+9, BoxRect.top-6.
+    private static void DrawShortcut(HudPainter painter, Rectangle node, uint skillCode, HudSkillBindings bindings)
     {
-        for (var index = 0; index < Shortcuts.Length; index++)
+        for (var index = 0; index < 8; index++)
         {
-            if (bindings.Shortcut(index).SkillId != skillCode)
+            if (bindings.Shortcut(index).SkillId == skillCode)
             {
-                continue;
+                painter.Sprite(HudArt.ShortKeys[index], node.X + 9, node.Y - 6);
             }
-
-            var badge = new Rectangle(node.X, node.Y, 22, 15);
-            canvas.Frame(badge, "Inset", 2);
-            canvas.Text(Shortcuts[index], badge, Color.White, 0.5f, centered: true);
         }
     }
 }

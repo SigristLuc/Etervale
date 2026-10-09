@@ -8,8 +8,7 @@ namespace PristonTale.Gameplay.UI;
 public enum LoginIntent
 {
     None,
-    SubmitLogin,
-    PlayOffline
+    SubmitLogin
 }
 
 public sealed class LoginPanel
@@ -18,8 +17,7 @@ public sealed class LoginPanel
     {
         Account,
         Password,
-        Login,
-        Offline
+        Login
     }
 
     private readonly HudCanvas _canvas;
@@ -58,7 +56,7 @@ public sealed class LoginPanel
             if (Pressed(keyboard, previousKeyboard, Keys.Tab))
             {
                 var direction = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift) ? -1 : 1;
-                SetFocus((FocusTarget)(((int)_focus + direction + 4) % 4));
+                SetFocus((FocusTarget)(((int)_focus + direction + 3) % 3));
             }
 
             if (clicked)
@@ -76,11 +74,6 @@ public sealed class LoginPanel
                     SetFocus(FocusTarget.Login);
                     intent = LoginIntent.SubmitLogin;
                 }
-                else if (layout.Offline.Contains(cursor))
-                {
-                    SetFocus(FocusTarget.Offline);
-                    intent = LoginIntent.PlayOffline;
-                }
             }
 
             Account.Update(keyboard, previousKeyboard, dtSeconds);
@@ -88,7 +81,7 @@ public sealed class LoginPanel
             if (Pressed(keyboard, previousKeyboard, Keys.Enter)
                 || _focus >= FocusTarget.Login && Pressed(keyboard, previousKeyboard, Keys.Space))
             {
-                intent = _focus == FocusTarget.Offline ? LoginIntent.PlayOffline : LoginIntent.SubmitLogin;
+                intent = LoginIntent.SubmitLogin;
             }
         }
 
@@ -111,12 +104,11 @@ public sealed class LoginPanel
         _canvas.Image("LoginPanel", layout.Panel);
         _canvas.Text("PRISTON TALE", layout.Title, scale: 1.25f, centered: true);
         _canvas.Text("Your adventure begins here", layout.Subtitle, HudCanvas.Muted, 0.7f, centered: true);
-        DrawField("Account / local profile", Account, layout.Account, tint);
+        DrawField("Account", Account, layout.Account, tint);
         DrawField("Password", Password, layout.Password, tint);
         DrawButton("Log in", layout.Login, _focus == FocusTarget.Login, layout, tint);
-        DrawButton("Play offline", layout.Offline, _focus == FocusTarget.Offline, layout, tint);
         _canvas.Text(Status, layout.Status, HudCanvas.Gold, 0.68f, centered: true);
-        _canvas.Text("Offline play does not require a password", layout.Hint, HudCanvas.Muted, 0.56f, centered: true);
+        _canvas.Text("Connect to the game server", layout.Hint, HudCanvas.Muted, 0.56f, centered: true);
         _canvas.End();
     }
 

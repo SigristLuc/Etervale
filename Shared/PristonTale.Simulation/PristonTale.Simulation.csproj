@@ -6,4 +6,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="../PristonTale.Geometry/PristonTale.Geometry.csproj" />
+  </ItemGroup>
+
 </Project>

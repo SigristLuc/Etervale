@@ -45,7 +45,7 @@ public sealed class Importer
         _assetRoot = assetRoot;
     }
 
-    public static long ItemCodeMask(string code) => LegacyItemCode.Parse(code);
+    public static long ItemCodeMask(string code) => LegacyItemCode.TryParse(code, out var value) ? value : 0;
 
     public async Task<ImportReport> RunAsync(CancellationToken ct = default)
     {
@@ -56,6 +56,16 @@ public sealed class Importer
 
         // ---- 1. Parse all sources -------------------------------------------------------------------
         var items = ParseItems(report);
+        var unmappedCategories = items
+            .Where(static item => !LegacyItemCode.TryParse(item.Code, out _))
+            .Select(static item => item.Code.Length >= 3 ? item.Code[..3].ToUpperInvariant() : item.Code)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static category => category, StringComparer.Ordinal)
+            .ToArray();
+        if (unmappedCategories.Length > 0)
+        {
+            report.Warnings.Add($"Item categories absent from the reference DWORD table are retained with mask 0 and excluded from runtime: {string.Join(", ", unmappedCategories)}.");
+        }
         var monsters = ParseMonsters(report);
         var npcs = ParseNpcs(report);
         var fields = ParseFields(report);

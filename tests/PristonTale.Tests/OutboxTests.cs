@@ -80,14 +80,12 @@ internal static class OutboxTests
     {
         foreach (var resolution in new[] { (800, 600), (1024, 768), (1280, 720), (1920, 1080), (3440, 1440) })
         {
-            foreach (var scale in new[] { 0.75f, 1f, 1.5f })
+            var layout = HudLayout.Create(resolution.Item1, resolution.Item2);
+            var bar = layout.Bottom(new Microsoft.Xna.Framework.Rectangle(288, 472, 512, 128));
+            foreach (var rectangle in new[] { bar, PristonTale.Gameplay.UI.Widgets.HudMinimap.Box(layout) })
             {
-                var layout = HudLayout.Create(resolution.Item1, resolution.Item2, scale);
-                foreach (var rectangle in new[] { layout.Resources, layout.Menu, layout.Panel })
-                {
-                    Assert.True(rectangle.Left >= 0 && rectangle.Top >= 0 && rectangle.Right * layout.Scale <= resolution.Item1
-                        && rectangle.Bottom * layout.Scale <= resolution.Item2, "HUD escaped viewport");
-                }
+                Assert.True(rectangle.Left >= 0 && rectangle.Top >= 0 && rectangle.Right * layout.Scale <= resolution.Item1
+                    && rectangle.Bottom * layout.Scale <= resolution.Item2, "HUD escaped viewport");
             }
         }
 

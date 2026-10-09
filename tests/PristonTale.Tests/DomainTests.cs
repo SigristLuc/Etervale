@@ -203,18 +203,18 @@ internal static class DomainTests
         Assert.True(!await Tick(world, world.MoveToFieldAsync(3, 5, player, Vector3.Zero, writer)), "level gate bypassed");
         Assert.True(await Tick(world, world.MoveToFieldAsync(3, 4, player, new Vector3(99999), writer)), "valid gate rejected");
         Assert.True(player.Position == new Vector3(100, 0, 100), "gate trusted requested placement");
-        player.SetTarget(new Vector3(1000, 0, 100), false);
-        Assert.Near(Locomotion.WalkUnitsPerSecond(player.Character.Derived.MoveSpeed, false), player.IntegrateStep(1).X - 100);
+        Assert.True(player.ReportMovement(new Vector3(150, 0, 100), 0f, true, false, 0, 1000) == MovementVerdict.Accepted && player.Position.X == 150,
+            "walk report after a gate rejected");
         player.ApplyDamage(int.MaxValue);
         player.TickRespawn(WorldPlayer.RespawnDelayMs);
         Assert.True(player.Position == new Vector3(5000, 0, 6000), "respawn retained previous field anchor");
         var high = Player(2, 10);
         var highWriter = Channel.CreateUnbounded<WorldSnapshot>().Writer;
         await Tick(world, world.JoinAsync(3, high, highWriter));
-        high.SetTarget(new Vector3(1000, 0, 100), true);
+        var origin = high.Position;
         Assert.True(await Tick(world, world.MoveToFieldAsync(3, 5, high, Vector3.Zero, highWriter)), "valid warp rejected");
         Assert.True(high.Position == new Vector3(9000, 77, 8000), "warp did not preserve the catalog exit height");
-        Assert.True(high.IntegrateStep(0.05f) == high.Position, "warp resumed the previous movement");
+        Assert.True(high.ReportMovement(origin, 0f, true, true, 0, 100) == MovementVerdict.Rejected, "warp accepted a pre-warp position");
     }
 
     private static async Task RunningTransferAsync()
@@ -223,17 +223,17 @@ internal static class DomainTests
         var player = Player();
         var writer = Channel.CreateUnbounded<WorldSnapshot>().Writer;
         await Tick(world, world.JoinAsync(3, player, writer));
-        var target = new Vector3(1000, 0, 100);
-        Assert.True(await Tick(world, world.SetMoveTargetAsync(3, player.EntityId, target, true)), "run command rejected");
-        var beforeTransfer = player.Position;
+        var target = new Vector3(150, 0, 100);
+        Assert.True(await Tick(world, world.ReportMovementAsync(3, player.EntityId, target, 0f, true, true, 0)) == MovementVerdict.Accepted,
+            "run report rejected");
         Assert.True(await Tick(world, world.MoveToFieldAsync(3, 4, player, new Vector3(99999), writer)), "gate rejected");
-        Assert.True(player.Position.X > beforeTransfer.X && player.MoveState == MoveStateView.Running, "gate stopped authoritative running");
-        for (uint tick = 2; tick < 202; tick++)
+        Assert.True(player.Position == target && player.MoveState == MoveStateView.Running, "gate stopped reported running");
+        for (uint tick = 2; tick < 62; tick++)
         {
             world.Tick(0.05f, tick);
         }
 
-        Assert.True(player.Position == target && player.MoveState == MoveStateView.Idle, "run did not finish at its original destination");
+        Assert.True(player.Position == target && player.MoveState == MoveStateView.Idle, "a silent client kept running after the gate");
     }
 
     private static Task MovementAsync()
@@ -250,16 +250,19 @@ internal static class DomainTests
         {
             var player = Player();
             var before = player.Position;
-            player.SetTarget(new Vector3(value, 0, 100), false);
-            player.CommitStep(player.IntegrateStep(0.05f));
+            Assert.True(player.ReportMovement(new Vector3(value, 0, 100), 0f, true, false, 0, 100) == MovementVerdict.Rejected, "invalid report accepted");
+            if (!float.IsFinite(value))
+            {
+                Assert.True(player.ReportMovement(before, value, true, false, 0, 100) == MovementVerdict.Rejected, "invalid facing accepted");
+            }
+
             Assert.True(player.Position == before, "invalid input moved player");
         }
 
         var elevated = Player();
-        elevated.SetTarget(new Vector3(1000, 9000, 100), false);
-        elevated.CommitStep(elevated.IntegrateStep(0.05f));
+        var lifted = elevated.Position + new Vector3(10, 9000, 0);
+        Assert.True(elevated.ReportMovement(lifted, 0f, true, false, 0, 100) == MovementVerdict.Accepted, "planar report rejected");
         Assert.Near(0, elevated.Position.Y);
-        Assert.True(elevated.IntegrateStep(float.NaN) == elevated.Position, "invalid tick contaminated position");
         return Task.CompletedTask;
     }
 
@@ -347,10 +350,10 @@ internal static class DomainTests
 
             world.Tick(0.05f, 1);
             await Task.WhenAll(joins);
-            var moves = new List<Task<bool>>();
+            var moves = new List<Task<MovementVerdict>>();
             for (uint id = 1; id <= 128; id++)
             {
-                moves.Add(world.SetMoveTargetAsync(3, id, new Vector3(100000, 0, (id / 16) * 200), true));
+                moves.Add(world.ReportMovementAsync(3, id, new Vector3((id % 16) * 200 + 20, 0, (id / 16) * 200), 0f, true, true, 0));
             }
 
             world.Tick(0.05f, 2);

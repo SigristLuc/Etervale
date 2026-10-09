@@ -4,6 +4,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Gameplay.World;
 using PristonTale.Gameplay.UI;
+using PristonTale.Gameplay.UI.Widgets;
 
 namespace PristonTale.Gameplay.Screens.Gameplay;
 
@@ -37,8 +38,7 @@ public sealed class GameplayScreen : GameScreen
         _scene.PresenceObserved += _hud.Combat.Observe;
         _scene.NpcSelected += _hud.OpenNpc;
 
-        if (Context.Backend.SupportsLivePresence)
-            _scene.BeginRemotePresence(Context.Backend.OpenPlayChannel(), _entered);
+        _scene.BeginRemotePresence(Context.Backend.OpenPlayChannel(), _entered);
 
         _ = FetchWorldCatalogAsync();
     }
@@ -85,6 +85,9 @@ public sealed class GameplayScreen : GameScreen
             _hud.Combat.SetCatalog(catalog);
         }
 
+        var field = _scene.ActiveFieldDefinition;
+        _hud.World = new HudWorldView(field?.Id, field?.Underground == true, _scene.ActiveMapRectangle, _scene.PlayerPosition,
+            _scene.PlayerForward, _scene.TimeOfDay, _scene.RunMode);
         _hud.Update(_scene.Owner);
         _scene.PointerCaptured = _hud.PointerCaptured;
         _scene.CameraInputEnabled = Context.IsWindowActive && !Context.Presentation.AwaitingConfirmation;

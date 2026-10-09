@@ -1,9 +1,8 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Application.World;
-using PristonTale.Client.Net.Online;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.World.Remote;
-using PristonTale.Protocol.Session;
+using PristonTale.Protocol.Binary;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
@@ -100,8 +99,9 @@ internal static class RangedEquipmentTests
         Assert.True(!player.InAttackRange(new NumVector3(100, 65, 0)), "ranged attack bypassed vertical gate");
         var owner = OwnerState.Capture(character);
         Assert.True(AttackPresentation.Decide(Vector2.Zero, new Vector2(200, 0), owner.AttackRange).ShouldAttack, "prediction still approached melee range");
-        var mapped = PresenceMapping.ToNeutral(new WorldUpdate { Owner = new OwnedCharacterState { AttackRange = owner.AttackRange } });
-        Assert.True(mapped.Owner!.AttackRange == 245, "online owner mapping lost ranged reach");
+        var buffer = new byte[PristonTale.Protocol.Packets.OwnerStatusPacket.Size];
+        PristonTale.Server.Net.WireMapping.Status(owner).Write(buffer);
+        Assert.True(PristonTale.Protocol.Packets.OwnerStatusPacket.Read(buffer).AttackRange == 245, "TCP owner state lost ranged reach");
         character.Equip(EquipmentSlot.Weapon, Weapon(ItemKind.ThrowingWeapon, 205));
         owner = OwnerState.Capture(character, owner);
         Assert.True(owner.AttackRange == 205 && !player.InAttackRange(new NumVector3(206, 0, 0)), "weapon swap retained previous bow reach");

@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using PristonTale.Application.World;
-using PristonTale.Client.Net.Offline;
+using PristonTale.Client.Net.Online;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Combat;
@@ -21,7 +21,7 @@ internal static class MonsterSkillTests
         yield return ("monster skills preserve spherical and forward square boundaries", ShapesAsync);
         yield return ("ordinary monster skills bypass precision and block while preserving flat absorption", DamageAsync);
         yield return ("monster skill impact is single-use, interruptible and independent of target movement", ImpactAsync);
-        yield return ("field emits skill motion and repeated cast timing through offline presence", FieldAsync);
+        yield return ("field emits skill motion and repeated cast timing through presence", FieldAsync);
         yield return ("single-target monster skill cannot hit bystanders or escaping prey", SingleTargetAsync);
     }
 
@@ -174,10 +174,11 @@ internal static class MonsterSkillTests
                 Assert.Near(990, cast.DurationMs);
                 Assert.Near(330, cast.HitAtMs);
                 var snapshot = new WorldSnapshot(tick, field.BuildViews(), events, 3);
-                var diff = new SubscriberPresence(player.EntityId).Diff(snapshot);
-                var presence = OfflinePresenceMapping.ToNeutral(tick, diff, 3);
-                Assert.True(presence.Spawns.Any(entity => entity.EntityId == monster.EntityId && entity.MoveState == RemoteMoveState.Skill),
-                    "offline presence collapsed skill into basic attack");
+                // Snapshots are sampled only at cast starts, so each one is checked as a fresh subscriber would see it.
+                var presence = new WireRoundTrip(player.EntityId).PushMerged(snapshot);
+                Assert.True(presence.Spawns.Any(entity => entity.EntityId == monster.EntityId && entity.MoveState == RemoteMoveState.Skill)
+                    || presence.States.Any(entity => entity.EntityId == monster.EntityId && entity.MoveState == RemoteMoveState.Skill),
+                    "presence collapsed skill into basic attack");
             }
         }
 

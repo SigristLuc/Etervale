@@ -88,8 +88,7 @@ desktop.ini
 ## ---------------------------------------------------------------------------
 ## Project-specific
 ## ---------------------------------------------------------------------------
-# Local offline single-player save (SQLite)
-offline.db
+**/data/*.db
 *.db-shm
 *.db-wal
 
@@ -105,3 +104,4 @@ original_references/
 3d/
 /docs/
 *.7z
+3d_glb/

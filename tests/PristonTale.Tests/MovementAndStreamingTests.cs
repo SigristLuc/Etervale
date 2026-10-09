@@ -11,11 +11,11 @@ internal static class MovementAndStreamingTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("prediction and authority stop at the same point at different tick rates", ArrivalAsync);
-        yield return ("blocked final movement remains pending until collision accepts it", BlockedArrivalAsync);
+        yield return ("client-reported movement at 5 Hz is accepted and stops at the reported point", ArrivalAsync);
+        yield return ("reports beyond run speed or during busy actions keep the authoritative position", BlockedArrivalAsync);
         yield return ("streaming follows the movement destination without loading a distant adjacent field while idle", PrefetchAsync);
         yield return ("NPC approach stops locally before authority confirms interaction range", NpcApproachAsync);
-        yield return ("continuous gates preserve a running destination while warps cancel it", GateMovementAsync);
+        yield return ("continuous gates keep reported running while warps reject stale positions", GateMovementAsync);
     }
 
     private static Task ArrivalAsync()
@@ -28,27 +28,29 @@ internal static class MovementAndStreamingTests
                 var start = new Vector3(100, 0, 100);
                 var target = new Vector2(start.X, start.Z) + offset;
                 var player = new WorldPlayer(1, start, character, true, default);
-                player.SetTarget(new Vector3(target.X, 0, target.Y), running);
                 var predicted = new Vector2(start.X, start.Z);
                 var speed = running
                     ? Locomotion.RunUnitsPerSecond(character.Derived.MoveSpeed)
                     : Locomotion.WalkUnitsPerSecond(character.Derived.MoveSpeed, true);
-                for (var frame = 0; frame < 600; frame++)
+                for (var frame = 1; frame <= 600; frame++)
                 {
-                    predicted = DestinationMovement.Advance(predicted, target, speed, 1f / 60f).Position;
-                    if (frame % 3 == 0)
+                    var step = DestinationMovement.Advance(predicted, target, speed, 1f / 60f);
+                    predicted = step.Position;
+                    if (frame % 12 == 0 || step.Arrived)
                     {
-                        player.CommitStep(player.IntegrateStep(0.05f));
+                        var verdict = player.ReportMovement(new Vector3(predicted.X, 0, predicted.Y), 0f, !step.Arrived, running, 0, frame * 1000 / 60);
+                        Assert.True(verdict == MovementVerdict.Accepted, "a report within run speed was rejected");
+                    }
+
+                    if (step.Arrived)
+                    {
+                        break;
                     }
                 }
 
                 Assert.True(predicted == target, "prediction stopped before the clicked point");
                 Assert.True(new Vector2(player.Position.X, player.Position.Z) == target, "authority stopped at another point");
                 Assert.True(player.MoveState == MoveStateView.Idle, "arrival did not publish idle");
-                for (var tick = 0; tick < 20; tick++)
-                {
-                    Assert.True(player.IntegrateStep(0.05f) == player.Position, "idle moved the avatar after arrival");
-                }
             }
         }
 
@@ -61,14 +63,16 @@ internal static class MovementAndStreamingTests
     {
         var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Blocked");
         var player = new WorldPlayer(1, new Vector3(100, 0, 100), character, true, default);
-        var target = player.Position + Vector3.UnitX;
-        player.SetTarget(target, false);
-        Assert.True(player.IntegrateStep(0.05f) == target, "short destination was not proposed");
-        player.CommitStep(player.Position);
-        Assert.True(player.MoveState == MoveStateView.Walking, "rejected destination was marked idle");
-        Assert.True(player.IntegrateStep(0.05f) == target, "collision rejection lost the destination");
-        player.CommitStep(target);
-        Assert.True(player.MoveState == MoveStateView.Idle && player.IntegrateStep(0.05f) == target, "accepted arrival did not stop");
+        Assert.True(player.ReportMovement(new Vector3(140, 0, 100), 0f, true, true, 0, 100) == MovementVerdict.Accepted, "short report rejected");
+        Assert.True(player.ReportMovement(new Vector3(2000, 0, 100), 0f, true, true, 0, 300) == MovementVerdict.Rejected
+            && player.Position == new Vector3(140, 0, 100), "a teleporting report moved the avatar");
+        player.BeginSwing(2, new Vector3(150, 0, 100), 500, 250);
+        Assert.True(player.ReportMovement(new Vector3(150, 0, 100), 0f, true, false, 2, 1300) == MovementVerdict.Ignored
+            && player.Position == new Vector3(140, 0, 100) && player.MoveState == MoveStateView.Attack, "a swing accepted locomotion");
+        Assert.True(player.ReportMovement(new Vector3(800, 0, 100), 0f, true, false, 2, 1400) == MovementVerdict.Rejected,
+            "large drift during a swing was not corrected");
+        player.ExpireStaleMotion(10_000);
+        Assert.True(player.MoveState == MoveStateView.Attack, "stale-motion expiry overrode a busy action");
         return Task.CompletedTask;
     }
 
@@ -123,26 +127,16 @@ internal static class MovementAndStreamingTests
     {
         var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "GateRunner");
         var player = new WorldPlayer(1, new Vector3(100, 0, 100), character, false, default);
-        var destination = new Vector3(1000, 0, 100);
-        player.SetTarget(destination, true);
-        var previous = player.Position;
-        for (var tick = 0; tick < 200; tick++)
-        {
-            if (tick == 20 || tick == 40)
-            {
-                player.CrossGate(tick == 20, new Vector3(5000, 0, 6000));
-            }
-
-            player.CommitStep(player.IntegrateStep(0.05f));
-            Assert.True(player.Position.X >= previous.X, "crossing a gate reversed the run");
-            previous = player.Position;
-        }
-
-        Assert.True(player.Position == destination, "gate cancelled the running destination");
-        player.SetTarget(new Vector3(2000, 0, 100), true);
+        Assert.True(player.ReportMovement(new Vector3(150, 0, 100), 0f, true, true, 0, 100) == MovementVerdict.Accepted, "run report rejected");
+        player.CrossGate(true, new Vector3(5000, 0, 6000));
+        Assert.True(player.MoveState == MoveStateView.Running && player.Position == new Vector3(150, 0, 100), "crossing a gate stopped the run");
+        Assert.True(player.ReportMovement(new Vector3(200, 0, 100), 0f, true, true, 0, 500) == MovementVerdict.Accepted, "run after a gate rejected");
+        player.ExpireStaleMotion(2100);
+        Assert.True(player.MoveState == MoveStateView.Idle, "a silent client kept running");
         var warp = new Vector3(9000, 0, 8000);
         player.EnterField(warp, true, warp);
-        Assert.True(player.IntegrateStep(0.05f) == warp, "warp retained a destination from the old field");
+        Assert.True(player.ReportMovement(new Vector3(250, 0, 100), 0f, true, true, 0, 2200) == MovementVerdict.Rejected && player.Position == warp,
+            "warp accepted a position from the old field");
         return Task.CompletedTask;
     }
 }

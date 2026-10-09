@@ -4,9 +4,13 @@ using Microsoft.Xna.Framework.Input;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Client.Net.WorldCatalog;
 using PristonTale.Engine3D.Diagnostics;
+using PristonTale.Engine3D.Formats;
+using PristonTale.Engine3D.IO;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Gameplay.UI;
+using PristonTale.Gameplay.UI.Inventory;
+using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Npcs;
@@ -15,48 +19,61 @@ namespace PristonTale.Tests;
 
 internal sealed class HudCaptureProbe : Game
 {
-    private sealed record Scenario(string Name, int Width, int Height, float Scale, Keys Panel = Keys.None, bool LowHealth = false,
-        int Hover = 0, int HealthPercent = 100, PlayerClass Class = PlayerClass.Mechanician,
-        bool Npc = false, bool Settings = false, bool VerticalSync = false, bool Learned = false, bool Training = false);
+    private enum Hover
+    {
+        None,
+        Life,
+        Mana,
+        Experience,
+        InventoryButton,
+        MapToggle,
+        Item,
+        SkillNode,
+        SkillBasic,
+        SettingsRow,
+        AllocateArrow
+    }
+
+    private sealed record Scenario(string Name, int Width, int Height, Keys Panel = Keys.None, Hover Hover = Hover.None, int HealthPercent = 100,
+        PlayerClass Class = PlayerClass.Mechanician, bool Npc = false, bool Settings = false, bool SystemMenu = false, bool Learned = false,
+        bool Training = false, bool LowHealth = false, float Hour = 13);
 
     private static readonly Scenario[] Scenarios =
     [
-        new("resources-1280", 1280, 720, 1),
-        new("npc-unicode-1280", 1280, 720, 1, Npc: true),
-        new("npc-unicode-800", 800, 600, 1, Npc: true),
-        new("settings-vsync-off", 1280, 720, 1, Hover: 6, Settings: true),
-        new("settings-vsync-on-800", 800, 600, 1, Hover: 6, Settings: true, VerticalSync: true),
-        new("health-tooltip-1280", 1280, 720, 1, Hover: 1),
-        new("mana-tooltip-1280", 1280, 720, 1, Hover: 2),
-        new("right-action-tooltip-1280", 1280, 720, 1, Hover: 3),
-        new("inventory-1280", 1280, 720, 1, Keys.I),
-        new("character-1280", 1280, 720, 1, Keys.C),
-        new("character-800", 800, 600, 1, Keys.C),
-        new("character-ultrawide", 3440, 1440, 1.5f, Keys.C),
-        new("skills-ultrawide", 3440, 1440, 1.5f, Keys.S),
-        new("skills-unavailable", 1280, 720, 1, Keys.S, Hover: 7),
-        new("skill-training-800", 800, 600, 1, Npc: true, Learned: true, Training: true),
-        new("skills-learned", 1280, 720, 1, Keys.S, Learned: true),
-        new("actions-1280", 1280, 720, 1, Keys.S),
-        new("skill-details-1280", 1280, 720, 1, Keys.S, Hover: 4),
-        new("skill-details-800", 800, 600, 1, Keys.S, Hover: 4),
-        new("skills-fighter", 1280, 720, 1, Keys.S, Hover: 4, Class: PlayerClass.Fighter),
-        new("skills-pikeman", 1280, 720, 1, Keys.S, Class: PlayerClass.Pikeman),
-        new("skills-archer", 1280, 720, 1, Keys.S, Class: PlayerClass.Archer),
-        new("skills-knight", 1280, 720, 1, Keys.S, Hover: 5, Class: PlayerClass.Knight),
-        new("skills-atalanta", 1280, 720, 1, Keys.S, Class: PlayerClass.Atalanta),
-        new("skills-priestess", 1280, 720, 1, Keys.S, Class: PlayerClass.Priestess),
-        new("skills-magician", 1280, 720, 1, Keys.S, Class: PlayerClass.Magician),
-        new("skills-assassin", 1280, 720, 1, Keys.S, Class: PlayerClass.Assassin),
-        new("skills-shaman", 1280, 720, 1, Keys.S, Class: PlayerClass.Shaman),
-        new("health-empty-1280", 1280, 720, 1, HealthPercent: 0),
-        new("health-quarter-1280", 1280, 720, 1, HealthPercent: 25),
-        new("health-half-1280", 1280, 720, 1, HealthPercent: 50),
-        new("health-three-quarters-1280", 1280, 720, 1, HealthPercent: 75),
-        new("low-resources-800", 800, 600, 1, LowHealth: true),
-        new("inventory-800", 800, 600, 1, Keys.I),
-        new("inventory-ultrawide", 3440, 1440, 1.5f, Keys.I),
-        new("inventory-small-ui", 1024, 768, 0.75f, Keys.I)
+        new("bar-800", 800, 600),
+        new("bar-1024", 1024, 768),
+        new("bar-1280", 1280, 720),
+        new("bar-1600x1200-scale2", 1600, 1200),
+        new("bar-3440-scale2", 3440, 1440),
+        new("bar-3840-scale3", 3840, 2160),
+        new("bar-night-800", 800, 600, Hour: 1),
+        new("life-tooltip-800", 800, 600, Hover: Hover.Life, HealthPercent: 60),
+        new("mana-tooltip-800", 800, 600, Hover: Hover.Mana),
+        new("experience-tooltip-800", 800, 600, Hover: Hover.Experience),
+        new("menu-button-hover-800", 800, 600, Hover: Hover.InventoryButton),
+        new("map-toggle-hover-800", 800, 600, Hover: Hover.MapToggle),
+        new("low-resources-800", 800, 600, LowHealth: true),
+        new("inventory-800", 800, 600, Keys.I),
+        new("inventory-item-hover-800", 800, 600, Keys.I, Hover.Item),
+        new("inventory-1600x1200-scale2", 1600, 1200, Keys.I),
+        new("inventory-1920", 1920, 1080, Keys.I),
+        new("status-800", 800, 600, Keys.C),
+        new("status-arrow-hover-800", 800, 600, Keys.C, Hover.AllocateArrow),
+        new("status-1280", 1280, 720, Keys.C),
+        new("skills-800", 800, 600, Keys.S),
+        new("skills-learned-800", 800, 600, Keys.S, Learned: true),
+        new("skill-details-800", 800, 600, Keys.S, Hover.SkillNode),
+        new("skill-basic-800", 800, 600, Keys.S, Hover.SkillBasic),
+        new("skills-fighter-800", 800, 600, Keys.S, Class: PlayerClass.Fighter),
+        new("skills-knight-800", 800, 600, Keys.S, Class: PlayerClass.Knight),
+        new("skills-priestess-800", 800, 600, Keys.S, Class: PlayerClass.Priestess),
+        new("skills-shaman-800", 800, 600, Keys.S, Class: PlayerClass.Shaman),
+        new("npc-unicode-800", 800, 600, Npc: true),
+        new("npc-unicode-1280", 1280, 720, Npc: true),
+        new("skill-training-800", 800, 600, Npc: true, Learned: true, Training: true),
+        new("system-menu-800", 800, 600, SystemMenu: true),
+        new("settings-800", 800, 600, Hover: Hover.SettingsRow, Settings: true),
+        new("settings-1600x1200-scale2", 1600, 1200, Settings: true)
     ];
 
     private readonly string _assetRoot;
@@ -67,6 +84,7 @@ internal sealed class HudCaptureProbe : Game
     private Texture2D? _background;
     private RenderTarget2D? _target;
     private OwnerState _owner = null!;
+    private HudWorldView _world;
     private int _scenario;
     private int _frames;
     private bool _prepared;
@@ -93,9 +111,9 @@ internal sealed class HudCaptureProbe : Game
         Directory.CreateDirectory(_output);
         _batch = new SpriteBatch(GraphicsDevice);
         var font = Content.Load<SpriteFont>("Fonts/UI");
-        Console.WriteLine($"HUD font: {font.Texture.Width}x{font.Texture.Height}; format={font.Texture.Format}; glyphs={font.Characters.Count}");
+        Console.WriteLine($"HUD font: {font.Texture.Width}x{font.Texture.Height}; format={font.Texture.Format}; glyphs={font.Characters.Count}; lineSpacing={font.LineSpacing}; M={font.MeasureString("M")}");
         var context = new ScreenContext(GraphicsDevice, Content, _batch, font,
-            _assetRoot, null!, ConsoleClientLog.Instance, _ => { }, _ => { }, _presentation);
+            _assetRoot, null!, ConsoleClientLog.Instance, _ => { }, _presentation);
         _hud = new GameplayHud(context,
             _ => Task.FromResult(new InventoryOutcome(false, 0, "Capture fixture: commands disabled")),
             interactNpc: id => Task.FromResult(new NpcInteraction(true, id, "스킬마스터 베르칸", NpcServices.SkillMaster,
@@ -117,6 +135,13 @@ internal sealed class HudCaptureProbe : Game
             }
         };
 
+        // Diagnostic bootstrap only: the Ricarten stage supplies the authored minimap rectangle.
+        var stage = new PristonSmdReader().ReadStage(PristonFileResolver.Resolve(Path.Combine(_assetRoot, "Field", "Ricarten", "village-2.smd")));
+        var map = stage.AuthoredMapRectangle;
+        var center = new Vector3((map.Left + map.Right) / 512f, 0, -(map.Top + map.Bottom) / 512f);
+        _world = new HudWorldView("village-2", false, map, center, new Vector3(0.6f, 0, -0.8f), 13, false);
+        Console.WriteLine($"HUD minimap rectangle: {map}");
+
         _hud.Combat.SetCatalog(new WorldRenderCatalog(new Dictionary<uint, MonsterRenderInfo>
         {
             [1] = new(1, "", 1, "Hopy", 1)
@@ -125,7 +150,8 @@ internal sealed class HudCaptureProbe : Game
         [
             new(1, RemoteEntityKind.Player, true, default, 0, RemoteMoveState.Idle, 64, 64,
                 new PlayerAppearanceInfo("Panzer", 1, 0, 0, 0, "", "", 1), 0),
-            new(2, RemoteEntityKind.Monster, false, default, 0, RemoteMoveState.Idle, 31, 50, null, 1)
+            new(2, RemoteEntityKind.Monster, false, default, 0, RemoteMoveState.Idle, 31, 50, null, 1),
+            new(3, RemoteEntityKind.Npc, false, new System.Numerics.Vector3(center.X + 300, 0, center.Z - 200), 0, RemoteMoveState.Idle, 1, 1, null, 1)
         ], [], [],
         [
             new(1, 2, RemoteCombatEventKind.Hit, 0, 0, 8, false, false),
@@ -135,7 +161,6 @@ internal sealed class HudCaptureProbe : Game
         _hud.TargetId = 2;
         if (_backgroundPath is not null)
         {
-            // Diagnostic bootstrap only; no gameplay loop is running while the capture backdrop is loaded.
             var image = PristonImageDecoder.Decode(File.ReadAllBytes(_backgroundPath), ".png");
             _background = new Texture2D(GraphicsDevice, image.Width, image.Height);
             _background.SetData(image.Pixels);
@@ -145,7 +170,7 @@ internal sealed class HudCaptureProbe : Game
     protected override void Update(GameTime gameTime)
     {
         _frames++;
-        if (_frames > 1800 || _hud.AssetsFailed)
+        if (_frames > 3600 || _hud.AssetsFailed)
         {
             throw new InvalidOperationException("HUD assets did not become ready within the capture timeout.");
         }
@@ -163,28 +188,31 @@ internal sealed class HudCaptureProbe : Game
             _target = new RenderTarget2D(GraphicsDevice, scenario.Width, scenario.Height);
             GraphicsDevice.SetRenderTarget(_target);
             _hud.ClosePanel();
-            _hud.Scale = scenario.Scale;
             _hud.CharacterClass = scenario.Class;
-            _presentation.VerticalSync = scenario.VerticalSync;
+            _hud.World = _world with { TimeOfDay = scenario.Hour };
+            var state = ScenarioState(scenario);
+            var layout = HudLayout.Create(scenario.Width, scenario.Height);
             if (scenario.Npc)
             {
                 _hud.OpenNpc(7);
             }
-            _hud.Update(_owner, default, default);
-            var state = ScenarioState(scenario);
-            _hud.Update(state, scenario.Panel == Keys.None ? default : new KeyboardState(scenario.Panel), Pointer(scenario));
+
+            _hud.Update(state, default, default);
+            _hud.Update(state, scenario.Panel == Keys.None ? default : new KeyboardState(scenario.Panel), default);
+            if (scenario.Settings || scenario.SystemMenu)
+            {
+                Click(state, layout, layout.Bottom(HudBar.MenuButton(HudMenuButton.System)).Center);
+            }
+
             if (scenario.Settings)
             {
-                var pointer = Pointer(scenario).Position;
-                _hud.Update(state, default, new MouseState(pointer.X, pointer.Y, 0,
-                    ButtonState.Pressed, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released));
+                Click(state, layout, layout.Bottom(HudSystemMenu.Entry(HudSystemEntry.Settings)).Center);
             }
+
             if (scenario.Training)
             {
-                var dialog = HudLayout.Create(scenario.Width, scenario.Height, scenario.Scale);
-                Click(state, PristonTale.Gameplay.UI.Widgets.HudNpcPanel.TrainingButton(dialog.Panel).Center, dialog.Scale);
-                var dock = HudLayout.Create(scenario.Width, scenario.Height, scenario.Scale, docked: true);
-                Click(state, PristonTale.Gameplay.UI.Widgets.HudSkillsPanel.ClassRow(dock.Panel, 0).Center, dock.Scale);
+                Click(state, layout, HudNpcPanel.TrainingButton(layout).Center);
+                Click(state, layout, HudSkillsPanel.ClassRow(HudInventoryLayout.Origin(layout), 0).Center);
             }
 
             _prepared = true;
@@ -192,8 +220,7 @@ internal sealed class HudCaptureProbe : Game
         else
         {
             GraphicsDevice.SetRenderTarget(_target);
-            var state = ScenarioState(scenario);
-            _hud.Update(state, default, Pointer(scenario));
+            _hud.Update(ScenarioState(scenario), default, Pointer(scenario));
         }
     }
 
@@ -219,7 +246,7 @@ internal sealed class HudCaptureProbe : Game
         GraphicsDevice.SetRenderTarget(null);
         using var stream = File.Create(Path.Combine(_output, scenario.Name + ".png"));
         _target!.SaveAsPng(stream, scenario.Width, scenario.Height);
-        Console.WriteLine($"HUD {scenario.Name}: captured; atlasBytes={_hud.AtlasTextureBytes}; GPU={GraphicsDevice.Adapter.Description}");
+        Console.WriteLine($"HUD {scenario.Name}: captured; textureBytes={_hud.TextureBytes}; GPU={GraphicsDevice.Adapter.Description}");
         _scenario++;
         _prepared = false;
     }
@@ -232,10 +259,10 @@ internal sealed class HudCaptureProbe : Game
         _batch.Dispose();
     }
 
-    private void Click(OwnerState state, Point logical, float scale)
+    private void Click(OwnerState state, HudLayout layout, Point logical)
     {
-        var x = (int)(logical.X * scale);
-        var y = (int)(logical.Y * scale);
+        var x = logical.X * layout.Scale;
+        var y = logical.Y * layout.Scale;
         _hud.Update(state, default, new MouseState(x, y, 0,
             ButtonState.Pressed, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released));
         _hud.Update(state, default, new MouseState(x, y, 0,
@@ -244,20 +271,23 @@ internal sealed class HudCaptureProbe : Game
 
     private static MouseState Pointer(Scenario scenario)
     {
-        var layout = HudLayout.Create(scenario.Width, scenario.Height, scenario.Scale, scenario.Panel is Keys.I or Keys.C or Keys.S);
-        var resources = layout.Resources;
+        var layout = HudLayout.Create(scenario.Width, scenario.Height);
+        var origin = HudInventoryLayout.Origin(layout);
         var point = scenario.Hover switch
         {
-            1 => new Point(resources.Center.X, resources.Y + 52),
-            2 => new Point(resources.X + 120, resources.Y + 54),
-            3 => PristonTale.Gameplay.UI.Widgets.HudActions.Socket(resources, true).Center,
-            4 => PristonTale.Gameplay.UI.Widgets.HudSkillsPanel.ClassRow(layout.Panel, 0).Center,
-            5 => PristonTale.Gameplay.UI.Widgets.HudSkillsPanel.ClassRow(layout.Panel, 3).Center,
-            7 => PristonTale.Gameplay.UI.Widgets.HudSkillsPanel.ClassRow(layout.Panel, 15).Center,
-            6 => new Point(layout.Menu.X + 9 + 3 * 39 + 18, layout.Menu.Y + 33),
-            _ => Point.Zero
+            Hover.Life => layout.Bottom(HudBar.LifeHover).Center,
+            Hover.Mana => layout.Bottom(HudBar.ManaHover).Center,
+            Hover.Experience => layout.Bottom(HudBar.ExperienceHover).Center,
+            Hover.InventoryButton => layout.Bottom(HudBar.MenuButton(HudMenuButton.Inventory)).Center,
+            Hover.MapToggle => layout.Bottom(HudBar.Toggle(HudToggle.Map)).Center,
+            Hover.Item => HudInventoryLayout.Cell(origin, 3, 2, 3).Center,
+            Hover.SkillNode => HudSkillsPanel.ClassRow(origin, 0).Center,
+            Hover.SkillBasic => HudSkillTreeLayout.BasicAttack(origin).Center,
+            Hover.SettingsRow => HudSettingsPanel.Row(4).Center,
+            Hover.AllocateArrow => HudStatusPanel.AllocateButton(origin, 0).Center,
+            _ => new Point(layout.Width - 200, layout.Height / 2)
         };
-        return new MouseState((int)(point.X * layout.Scale), (int)(point.Y * layout.Scale), 0,
+        return new MouseState(point.X * layout.Scale, point.Y * layout.Scale, 0,
             ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released);
     }
 
@@ -273,6 +303,8 @@ internal sealed class HudCaptureProbe : Game
             };
         }
 
-        return scenario.LowHealth ? _owner with { Hp = 1, Mp = 0, Sp = 2 } : _owner with { Hp = _owner.MaxHp * scenario.HealthPercent / 100 };
+        return scenario.LowHealth
+            ? _owner with { Hp = 1, Mp = 0, Sp = 2 }
+            : _owner with { Hp = _owner.MaxHp * scenario.HealthPercent / 100, Experience = (_owner.LevelStart + _owner.NextLevel) / 2 };
     }
 }

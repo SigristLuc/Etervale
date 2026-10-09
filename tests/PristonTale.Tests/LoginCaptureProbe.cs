@@ -11,7 +11,7 @@ namespace PristonTale.Tests;
 
 internal sealed class LoginCaptureProbe : Game
 {
-    private sealed record Scenario(string Name, int Width, int Height, bool Busy = false, string Status = "", bool OfflineFocus = false);
+    private sealed record Scenario(string Name, int Width, int Height, bool Busy = false, string Status = "", bool LoginFocus = false);
 
     private static readonly Scenario[] Scenarios =
     [
@@ -20,7 +20,7 @@ internal sealed class LoginCaptureProbe : Game
         new("login-ultrawide", 3440, 1440),
         new("login-connecting", 1280, 720, Busy: true, Status: "Connecting…"),
         new("login-error", 800, 600, Status: "Could not reach server. Please try again."),
-        new("login-offline-focus", 1280, 720, OfflineFocus: true)
+        new("login-keyboard-focus", 1280, 720, LoginFocus: true)
     ];
 
     private readonly string _assetRoot;
@@ -52,11 +52,10 @@ internal sealed class LoginCaptureProbe : Game
         _background = new Texture2D(GraphicsDevice, decoded.Width, decoded.Height);
         _background.SetData(decoded.Pixels);
         var context = new ScreenContext(GraphicsDevice, Content, _batch, _font, _assetRoot, null!, ConsoleClientLog.Instance,
-            _ => { }, _ => { }, uiAtlas: _atlas);
+            _ => { }, uiAtlas: _atlas);
         using (var hud = new GameplayHud(context, _ => throw new InvalidOperationException("Capture only")))
         {
-            Assert.True(hud.IsReady, "gameplay recreated or delayed the shared atlas");
-            // Screen transitions can Draw immediately after Enter, before the first HUD Update.
+            // Screen transitions can Draw immediately after Enter, before the first HUD Update or sprite upload.
             hud.Draw();
             var viewport = GraphicsDevice.Viewport;
             GraphicsDevice.Viewport = new Viewport(0, 0, 1, 1);
@@ -84,9 +83,9 @@ internal sealed class LoginCaptureProbe : Game
         }
 
         panel.Password.Focused = false;
-        if (scenario.OfflineFocus)
+        if (scenario.LoginFocus)
         {
-            for (var index = 0; index < 3; index++)
+            for (var index = 0; index < 2; index++)
             {
                 panel.Update(new KeyboardState(Keys.Tab), default, default, 0, new Viewport(0, 0, scenario.Width, scenario.Height));
             }
@@ -108,7 +107,7 @@ internal sealed class LoginCaptureProbe : Game
         panel.InputEnabled = true;
         panel.Update(new KeyboardState(Keys.LeftShift, Keys.Tab), default, default, 0, viewport);
         intent = panel.Update(new KeyboardState(Keys.Enter), default, default, 0, viewport);
-        Assert.True(intent == LoginIntent.PlayOffline, "keyboard focus could not activate offline mode");
+        Assert.True(intent == LoginIntent.SubmitLogin, "keyboard focus could not activate login");
         var layout = LoginLayout.Create(viewport.Width, viewport.Height);
         var center = layout.Login.Center;
         var mouse = new MouseState((int)(center.X * layout.Scale), (int)(center.Y * layout.Scale), 0,

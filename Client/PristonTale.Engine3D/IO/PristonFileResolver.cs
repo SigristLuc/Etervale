@@ -12,17 +12,24 @@ public static class PristonFileResolver
         if (string.IsNullOrEmpty(path))
             return path;
 
-        return Cache.GetOrAdd(path, static requested =>
+        if (Cache.TryGetValue(path, out var cached))
         {
-            var normalized = requested
-                .Replace('\\', Path.DirectorySeparatorChar)
-                .Replace('/', Path.DirectorySeparatorChar);
+            return cached;
+        }
 
-            if (File.Exists(normalized) || Directory.Exists(normalized))
-                return normalized;
+        var normalized = path
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
+        var resolved = File.Exists(normalized) || Directory.Exists(normalized)
+            ? normalized
+            : WalkCaseInsensitive(normalized);
 
-            return WalkCaseInsensitive(normalized);
-        });
+        if (File.Exists(resolved) || Directory.Exists(resolved))
+        {
+            return Cache.GetOrAdd(path, resolved);
+        }
+
+        return resolved;
     }
 
     public static bool Exists(string path)

@@ -40,12 +40,12 @@ public sealed class SessionAppService
     {
         if (!_sessions.TryGet(sessionToken, out var session))
         {
-            return EnterWorldOutcome.Denied("invalid session");
+            return EnterWorldOutcome.Denied(EnterWorldFailure.InvalidSession);
         }
 
         if (!session.TryBeginEntry())
         {
-            return EnterWorldOutcome.Denied("session already entering or playing");
+            return EnterWorldOutcome.Denied(EnterWorldFailure.AlreadyEntering);
         }
 
         long? claimedCharacter = null;
@@ -55,17 +55,17 @@ public sealed class SessionAppService
             var record = await _characters.FindByNameForAccountAsync(session.AccountId, characterName ?? string.Empty, ct);
             if (record is null)
             {
-                return EnterWorldOutcome.Denied("character not found");
+                return EnterWorldOutcome.Denied(EnterWorldFailure.NotFound);
             }
 
             if (!_world.TryGetFieldByCode(record.FieldId, out var field) || !Enum.IsDefined(typeof(PlayerClass), record.JobCode))
             {
-                return EnterWorldOutcome.Denied("invalid saved character class or field");
+                return EnterWorldOutcome.Denied(EnterWorldFailure.InvalidSavedClassOrField);
             }
 
             if (!_sessions.TryClaimCharacter(record.Id, sessionToken))
             {
-                return EnterWorldOutcome.Denied("character already active");
+                return EnterWorldOutcome.Denied(EnterWorldFailure.AlreadyActive);
             }
 
             claimedCharacter = record.Id;
@@ -77,7 +77,7 @@ public sealed class SessionAppService
             }
             catch (Exception exception) when (exception is InvalidDataException or JsonException or ArgumentException)
             {
-                return EnterWorldOutcome.Denied("invalid or unsupported saved character state; saved data preserved");
+                return EnterWorldOutcome.Denied(EnterWorldFailure.UnsupportedSavedState);
             }
             if (record.Life > 0)
             {
@@ -89,7 +89,7 @@ public sealed class SessionAppService
             var spawn = ResolveSpawn(record, field);
             if (!_sessions.TryGet(sessionToken, out var current) || !ReferenceEquals(current, session))
             {
-                return EnterWorldOutcome.Denied("session closed during entry");
+                return EnterWorldOutcome.Denied(EnterWorldFailure.SessionClosed);
             }
 
             session.CharacterName = record.Name;
@@ -100,7 +100,7 @@ public sealed class SessionAppService
             session.InVillage = field.State == FieldState.Village;
             if (!session.CompleteEntry(true))
             {
-                return EnterWorldOutcome.Denied("session closed during hydration");
+                return EnterWorldOutcome.Denied(EnterWorldFailure.SessionClosed);
             }
 
             ready = true;

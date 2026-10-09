@@ -18,12 +18,14 @@ public sealed class WorldServer
 {
     public const int TickHz = 20;
 
-    private readonly Channel<Action> _commands = Channel.CreateBounded<Action>(new BoundedChannelOptions(4096)
+    private readonly Channel<Action> _commands = Channel.CreateBounded<Action>(new BoundedChannelOptions(65536)
     {
         SingleReader = true,
         FullMode = BoundedChannelFullMode.Wait
     });
-    private const int CommandsPerTick = 1024;
+    // Movement reports arrive at about 5 Hz per moving player; the budget bounds one tick's command phase.
+    private const int CommandsPerTick = 16384;
+    private readonly List<FieldInstance> _activeFields = new();
     private int _playerCount;
     private bool _membershipChanged;
     private IReadOnlyList<(int FieldId, int PlayerCount)> _activeCounts = Array.Empty<(int, int)>();
@@ -35,6 +37,7 @@ public sealed class WorldServer
     private readonly TimeProvider _clock;
     private readonly long _clockOrigin;
     private readonly BossSpawnSchedule _bossSchedule;
+    private readonly FieldTerrainCatalog _terrain;
 
     private sealed record Connection(
         int FieldId,
@@ -49,9 +52,11 @@ public sealed class WorldServer
         WorldDataHolder worldData,
         WorldCatalog? catalog = null,
         TimeProvider? clock = null,
-        ISimRng? bossRng = null)
+        ISimRng? bossRng = null,
+        FieldTerrainCatalog? terrain = null)
     {
         _worldData = worldData;
+        _terrain = terrain ?? new FieldTerrainCatalog();
         _catalog = catalog ?? new WorldCatalog();
         _clock = clock ?? TimeProvider.System;
         _clockOrigin = _clock.GetTimestamp();
@@ -76,7 +81,8 @@ public sealed class WorldServer
             data.Motions,
             data.Npcs,
             experienceMultiplier: 5,
-            items: data.Items);
+            items: data.Items,
+            terrain: _terrain.Get(fieldId));
         _fields.Add(fieldId, field);
         return field;
     }
@@ -92,9 +98,10 @@ public sealed class WorldServer
                 return false;
             }
 
-            var anchor = RespawnPoint(definition, player.Position);
-            player.EnterField(player.Position, definition.State == FieldState.Village, anchor);
-            GetField(fieldId).Add(player);
+            var field = GetField(fieldId);
+            var anchor = field.Terrain.PlaceOnFloor(RespawnPoint(definition, player.Position));
+            player.EnterField(field.Terrain.PlaceOnFloor(player.Position), definition.State == FieldState.Village, anchor);
+            field.Add(player);
             _connections.Add(player.EntityId, new Connection(fieldId, player, outbound, session));
             _membershipChanged = true;
             UpdatePlacement(session, fieldId, player.Position, definition.State == FieldState.Village);
@@ -144,10 +151,12 @@ public sealed class WorldServer
             // The request's placement never becomes authoritative. Gates retain position; warps use catalog exits.
             _fields[oldFieldId].Remove(player.EntityId);
             var inVillage = destination.State == FieldState.Village;
-            var respawnPoint = RespawnPoint(destination, arrival.Position);
+            var terrain = GetField(newFieldId).Terrain;
+            var respawnPoint = terrain.PlaceOnFloor(RespawnPoint(destination, arrival.Position));
             if (arrival.IsWarp)
             {
-                player.EnterField(arrival.Position, inVillage, respawnPoint);
+                // Warp exits carry an authored height; settle on the floor at or just below it rather than on a roof.
+                player.EnterField(terrain.SettleNear(arrival.Position, FieldTerrain.DropTolerance * 2f), inVillage, respawnPoint);
             }
             else
             {
@@ -164,18 +173,23 @@ public sealed class WorldServer
         });
     }
 
-    public Task<bool> SetMoveTargetAsync(int fieldId, uint entityId, Vector3 target, bool running)
+    public Task<MovementVerdict> ReportMovementAsync(int fieldId, uint entityId, Vector3 position, float facing, bool moving, bool running, uint actionTarget)
     {
         return EnqueueAsync(() =>
         {
-            if (_connections.TryGetValue(entityId, out var connection) && connection.FieldId == fieldId)
+            if (_connections.TryGetValue(entityId, out var connection) && connection.FieldId == fieldId
+                && _fields.TryGetValue(fieldId, out var field))
             {
-                connection.Player.SetTarget(target, running);
-                return true;
+                return connection.Player.ReportMovement(position, facing, moving, running, actionTarget, field.NowMs, field.Terrain);
             }
 
-            return false;
+            return MovementVerdict.Ignored;
         });
+    }
+
+    public Task<Vector3?> PositionOfAsync(uint entityId)
+    {
+        return EnqueueAsync<Vector3?>(() => _connections.TryGetValue(entityId, out var connection) ? connection.Player.Position : null);
     }
 
     public Task<bool> SetAttackTargetAsync(int fieldId, uint attackerEntityId, uint targetEntityId, bool sustained, ulong sequence = 0)
@@ -397,25 +411,10 @@ public sealed class WorldServer
         bool bossPassDue = _bossSchedule.TryBeginPass(localNow, _clock.GetElapsedTime(_clockOrigin));
         int? bossHour = bossPassDue ? localNow.Hour : null;
 
-        foreach (var field in _fields.Values)
-        {
-            field.Step(dt, bossHour);
-            if (field.PlayerCount == 0)
-            {
-                continue;
-            }
-
-            var snapshot = new WorldSnapshot(serverTick, field.BuildViews(), field.SnapshotEvents(), field.FieldId, groundDrops: field.GroundLoot.Snapshot());
-            foreach (var entityId in field.PlayerIds)
-            {
-                if (_connections.TryGetValue(entityId, out var connection))
-                {
-                    var owner = OwnerState.Capture(connection.Player.Character, connection.LastOwner);
-                    connection.LastOwner = owner;
-                    connection.Outbound.TryWrite(new WorldSnapshot(serverTick, snapshot.Entities, snapshot.Events, field.FieldId, owner, snapshot.GroundDrops));
-                }
-            }
-        }
+        _activeFields.Clear();
+        _activeFields.AddRange(_fields.Values);
+        // Fields share only immutable catalogs and the thread-safe id allocator, so they step in parallel.
+        Parallel.ForEach(_activeFields, field => StepField(field, dt, serverTick, bossHour));
 
         if (!_membershipChanged)
         {
@@ -434,6 +433,30 @@ public sealed class WorldServer
         }
 
         Volatile.Write(ref _activeCounts, counts.AsReadOnly());
+    }
+
+    private void StepField(FieldInstance field, float dt, uint serverTick, int? bossHour)
+    {
+        field.Step(dt, bossHour);
+        if (field.PlayerCount == 0)
+        {
+            return;
+        }
+
+        var entities = field.BuildViews();
+        var snapshot = new WorldSnapshot(serverTick, entities, field.SnapshotEvents(), field.FieldId, groundDrops: field.GroundLoot.Snapshot())
+        {
+            Grid = EntityGrid.Build(entities)
+        };
+        foreach (var entityId in field.PlayerIds)
+        {
+            if (_connections.TryGetValue(entityId, out var connection))
+            {
+                var owner = OwnerState.Capture(connection.Player.Character, connection.LastOwner);
+                connection.LastOwner = owner;
+                connection.Outbound.TryWrite(snapshot.WithOwner(owner));
+            }
+        }
     }
 
     private static Vector3 RespawnPoint(FieldDef field, Vector3 fallback)

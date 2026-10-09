@@ -14,7 +14,7 @@ internal static class WorldLoadBenchmark
     public static void Run()
     {
         Console.WriteLine($"Field CPU workload: 128 players + 512 monsters; 20 Hz; Release; runtime={Environment.Version}; CPUs={Environment.ProcessorCount}");
-        Console.WriteLine("Includes AI, combat, collision, snapshots and 128 real WorldOutboxes drained synchronously; excludes GPU, protobuf, sockets and database.");
+        Console.WriteLine("Includes AI, combat, collision, snapshots and 128 real WorldOutboxes drained synchronously; excludes GPU, sockets and database.");
         foreach (var spacing in new[] { 128, 64 })
         {
             for (var run = 0; run < 5; run++)

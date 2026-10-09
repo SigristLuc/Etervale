@@ -1,11 +1,11 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Application.World;
-using PristonTale.Client.Net.Offline;
 using PristonTale.Client.Net.Online;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.World.Remote;
+using PristonTale.Protocol.Binary;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Motion;
@@ -19,7 +19,7 @@ internal static class EquipmentTests
         yield return ("original catalog metadata enables armor and weapons without allowing two-handed shield combinations", CatalogMetadataAsync);
         yield return ("equipment resources preserve original indices, armor aliases and village bones", ResourcesAsync);
         yield return ("motion selection respects item lists, class and map masks", MotionAsync);
-        yield return ("equipment changes refresh public appearance in online and offline mappings", PresenceAsync);
+        yield return ("equipment changes refresh public appearance over TCP", PresenceAsync);
         yield return ("remote equipment preparation preserves old actors and discards superseded swaps", ReplacementAsync);
     }
 
@@ -86,15 +86,14 @@ internal static class EquipmentTests
         character.Equip(EquipmentSlot.Weapon, new ItemInstance(new ItemDefinition(1, "Claw", ItemKind.Claw, EquipmentSlot.Weapon) { CatalogKey = "WC101" }));
         var diff = cursor.Diff([player.ToView()]);
         Assert.True(diff.Spawns.Count == 1 && diff.Spawns[0].IsSelf, "equipment was omitted from appearance refresh");
-        var offline = OfflinePresenceMapping.ToNeutral(1, diff, 3).Spawns[0].Player!;
-        var online = PresenceMapping.ToNeutral(new PristonTale.Protocol.Session.PlayerAppearance
-        {
-            Name = "Gear",
-            JobCode = 2,
-            Level = 1,
-            WeaponKey = "WC101"
-        });
-        Assert.True(online == offline, "equipment metadata differs between transports");
+        var wire = new WireRoundTrip(1);
+        var projected = wire.PushMerged(new WorldSnapshot(1, [player.ToView()], fieldId: 3)).Spawns.Single().Player!;
+        Assert.True(projected.WeaponKey == "WC101" && projected.Name == "Gear", "equipment metadata changed over TCP");
+        character.Equip(EquipmentSlot.Weapon, null!);
+        var refreshed = wire.PushMerged(new WorldSnapshot(2, [player.ToView()], fieldId: 3));
+        Assert.True(refreshed.Spawns.Single().Player!.WeaponKey == "", "unequip did not refresh the PLAYERINFO description");
+        Assert.True(wire.PushMerged(new WorldSnapshot(3, [player.ToView()], fieldId: 3)).Spawns.Count == 0, "unchanged description was resent");
+        character.Equip(EquipmentSlot.Weapon, new ItemInstance(new ItemDefinition(1, "Claw", ItemKind.Claw, EquipmentSlot.Weapon) { CatalogKey = "WC101" }));
         Assert.True(cursor.Diff([player.ToView()]).Spawns.Count == 0, "unchanged equipment resent a descriptor");
         var field = new FieldInstance(3);
         var timing = field.PlayerSwingTiming(player);

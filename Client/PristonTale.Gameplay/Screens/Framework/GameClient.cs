@@ -23,7 +23,6 @@ public sealed class GameClient : IDisposable
     private ScreenContext _context;
     private GameScreen _screen;
     private GameScreen _pendingScreen;
-    private readonly List<Task> _backendShutdowns = new();
     private Task _shutdown;
     private SpriteFont _font;
     private HudAtlas _uiAtlas;
@@ -51,11 +50,6 @@ public sealed class GameClient : IDisposable
                 return "Saving and disconnecting…";
             }
 
-            if (_backend is OfflineBackend { LastSaveError: not null })
-            {
-                return "SAVE FAILED — retrying at the next checkpoint";
-            }
-
             return _screen?.StatusText ?? "Loading…";
         }
     }
@@ -70,7 +64,7 @@ public sealed class GameClient : IDisposable
         _effects = PristonTale.Gameplay.Effects.LegacyEffectLibrary.LoadBootstrap(_graphicsDevice, _assetRoot, ConsoleClientLog.Instance);
         _audio = PristonAudioLibrary.LoadBootstrap(_assetRoot, ConsoleClientLog.Instance);
         _audio.ApplySettings(_presentation.Requested);
-        _backend = new OnlineBackend(new GameServerConnection(_serverAddress));
+        _backend = new GameServerConnection(_serverAddress);
         _context = new ScreenContext(
             _graphicsDevice,
             _content,
@@ -80,7 +74,6 @@ public sealed class GameClient : IDisposable
             _backend,
             ConsoleClientLog.Instance,
             RequestScreen,
-            UseBackend,
             _presentation,
             _uiAtlas,
             _sky,
@@ -128,23 +121,6 @@ public sealed class GameClient : IDisposable
 
     private void RequestScreen(GameScreen next) => _pendingScreen = next;
 
-    // Swap the active backend (e.g. the opening screen switching to OfflineBackend after a "Play offline"
-    // login). GameClient owns whatever backend is current and disposes the previous one here.
-    private void UseBackend(IGameBackend next)
-    {
-        if (ReferenceEquals(next, _backend))
-        {
-            return;
-        }
-
-        var previous = _backend;
-        _backend = next;
-        if (previous is not null)
-        {
-            _backendShutdowns.Add(Task.Run(() => DisposeBackendAsync(previous)));
-        }
-    }
-
     private void SetScreen(GameScreen next)
     {
         _screen?.Dispose();
@@ -175,12 +151,7 @@ public sealed class GameClient : IDisposable
         _screen?.Dispose();
         _screen = null;
         _pendingScreen = null;
-        if (_backend is not null)
-        {
-            _backendShutdowns.Add(Task.Run(() => DisposeBackendAsync(_backend)));
-        }
-
-        _shutdown = Task.WhenAll(_backendShutdowns);
+        _shutdown = _backend is null ? Task.CompletedTask : Task.Run(() => DisposeBackendAsync(_backend));
         return _shutdown;
     }
 

@@ -4,18 +4,27 @@ using PristonTale.Persistence.Abstractions.Accounts;
 using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Persistence.Abstractions.Security;
 using PristonTale.Persistence.Postgres;
+using PristonTale.Persistence.Sqlite;
 using PristonTale.Simulation.Characters;
 
-// Dev CLI to seed accounts + characters into the dev Postgres, for testing the login / char-select wire.
+// Dev CLI to seed accounts + characters into the same database as the online server.
 // Reuses the real persistence layer (PasswordHasher, repositories, CharacterRecordFactory) so seeded data
 // is identical to what the server would create. The schema is ensured idempotently via DatabaseMigrator.
 
-const string DefaultConnection = "Host=localhost;Port=5433;Database=pristontale;Username=pristontale;Password=pristontale";
-const int StartingFieldId = 3; // Ricarten — matches CharacterGrpcService.StartingFieldId
+const string DefaultSqlitePath = "data/pristontale.db";
+const int StartingFieldId = 3; // Ricarten
 const int MaxSlots = 6;
 
 var argv = new List<string>(args);
-var connection = TakeOption(argv, "--conn") ?? Environment.GetEnvironmentVariable("PT_PG_CONN") ?? DefaultConnection;
+var requestedConnection = TakeOption(argv, "--conn");
+var requestedSqlitePath = TakeOption(argv, "--sqlite");
+var connection = requestedConnection ?? (requestedSqlitePath is null ? Environment.GetEnvironmentVariable("PT_PG_CONN") : null);
+var sqlitePath = requestedSqlitePath ?? DefaultSqlitePath;
+if (requestedConnection is not null && requestedSqlitePath is not null)
+{
+    Console.Error.WriteLine("Use either --conn or --sqlite.");
+    return 1;
+}
 
 if (argv.Count == 0)
 {
@@ -26,7 +35,14 @@ var command = argv[0].ToLowerInvariant();
 
 var services = new ServiceCollection();
 services.AddLogging(); // no provider — the migrator's ILogger is a no-op; results/errors print to console
-services.AddPristonPostgres(connection);
+if (connection is not null)
+{
+    services.AddPristonPostgres(connection);
+}
+else
+{
+    services.AddPristonSqlite(SqliteDatabasePath.Resolve(sqlitePath));
+}
 services.AddSingleton<CharacterClassRegistry>();
 await using var provider = services.BuildServiceProvider();
 
@@ -41,6 +57,7 @@ try
     return command switch
     {
         "create-account" => await CreateAccount(argv),
+        "create-bots" => await CreateBots(argv),
         "add-char" => await AddCharacter(argv),
         "list" => await ListCharacters(argv),
         _ => Usage($"unknown command '{command}'"),
@@ -49,7 +66,7 @@ try
 catch (Exception ex)
 {
     Console.Error.WriteLine($"error: {ex.Message}");
-    Console.Error.WriteLine("(is the dev Postgres up? container pgsql-pristontale on localhost:5433)");
+    Console.Error.WriteLine($"(database: {(connection is null ? sqlitePath : "Postgres")})");
     return 1;
 }
 
@@ -66,6 +83,27 @@ async Task<int> CreateAccount(List<string> a)
     }
     var account = await accounts.CreateAsync(user, PasswordHasher.Hash(password));
     Console.WriteLine($"created account #{account.Id} '{account.UserId}'");
+    return 0;
+}
+
+async Task<int> CreateBots(List<string> a)
+{
+    if (a.Count < 4 || !int.TryParse(a[2], out var count) || count is < 1 or > 100_000)
+        return Usage("usage: create-bots <prefix> <count> <password>");
+    var (prefix, password) = (a[1], a[3]);
+    var hash = PasswordHasher.Hash(password);
+    var created = 0;
+    for (var index = 1; index <= count; index++)
+    {
+        var user = $"{prefix}{index:D4}";
+        if (await accounts.FindByUserIdAsync(user) is null)
+        {
+            await accounts.CreateAsync(user, hash);
+            created++;
+        }
+    }
+
+    Console.WriteLine($"created {created} of {count} load-test accounts '{prefix}0001'..'{prefix}{count:D4}'");
     return 0;
 }
 
@@ -151,15 +189,17 @@ static int Usage(string message)
 static void PrintUsage()
 {
     Console.WriteLine("""
-        ptdevaccounts — seed dev accounts/characters into the dev Postgres.
+        ptdevaccounts — seed dev accounts/characters into the online server database.
 
         Commands:
           create-account <user> <password>            create a login account (hashed)
+          create-bots <prefix> <count> <password>     create load-test accounts <prefix>0001..<prefix>NNNN
           add-char <user> <name> <class> [level]      seed a character on an account
           list <user>                                 list an account's characters
 
         Options:
-          --conn "<npgsql connection string>"         override the DB (default: dev localhost:5433)
+          --sqlite <path>                           SQLite path (default: data/pristontale.db)
+          --conn "<npgsql connection string>"         use Postgres instead of SQLite
 
         Examples:
           dotnet run --project tools/PristonTale.DevAccounts -- create-account demo change-me

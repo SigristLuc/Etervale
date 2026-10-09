@@ -8,6 +8,13 @@ using PristonTale.Simulation.World.Motion;
 
 namespace PristonTale.Application.World;
 
+public enum MovementVerdict
+{
+    Accepted,
+    Ignored,
+    Rejected
+}
+
 public enum PlayerActionState
 {
     Idle = 0,
@@ -29,11 +36,16 @@ public sealed class WorldPlayer
     private bool _inVillage;
     private Vector3 _respawnPoint;
 
-    private Vector3 _target;
-    private bool _hasTarget;
-    private bool _running;
-    // Attack approaches reuse the last explicit movement mode.
-    private bool _runMode;
+    // The client owns locomotion as in the original TRANSPLAYDATA flow; the server bounds each report by run speed.
+    private const float ReportSpeedTolerance = 1.35f;
+    private const float ReportDistanceSlack = 32f;
+    private const float BusyCorrectionDistance = 192f;
+    private const long StaleMotionMs = 1500;
+    // Reports may climb this much at once (a long report over stairs); falls of any height are accepted.
+    private const float ReportClimb = 64f;
+    // Reports shorter than this may cut a corner the client slid around between reports; longer ones may not cross walls.
+    private const float WallCheckDistance = 48f;
+    private long _lastReportMs = -1;
 
     private uint _attackTargetId;
     private bool _attackSustained;
@@ -148,8 +160,6 @@ public sealed class WorldPlayer
 
     public bool IsBusy => Action != PlayerActionState.Idle;
 
-    public bool RunMode => _runMode;
-
     private readonly PlayerAppearanceView _appearance;
     public PlayerAppearanceView Appearance => _appearance with
     {
@@ -165,29 +175,68 @@ public sealed class WorldPlayer
 
     public PlayerCharacter Character => _character;
 
-    // WorldServer serializes this operation with the tick and other world mutations.
-    public void SetTarget(Vector3 target, bool running)
+    // WorldServer serializes this with the tick. Height stays authoritative; client terrain samples are not trusted.
+    public MovementVerdict ReportMovement(Vector3 position, float facing, bool moving, bool running, uint actionTarget, long nowMs,
+        FieldTerrain? terrain = null)
     {
-        if (!WorldPosition.IsValid(target) || IsDead)
+        if (!WorldPosition.IsValid(position) || !float.IsFinite(facing) || IsDead)
         {
-            return;
+            return IsDead ? MovementVerdict.Ignored : MovementVerdict.Rejected;
         }
 
-        // Moving drops the target lock without interrupting a swing already in progress.
-        _attackTargetId = 0;
-        _attackSustained = false;
-        // Height is owned by the authority; client terrain samples are not trusted placement.
-        _target = new Vector3(target.X, Position.Y, target.Z);
-        _running = running;
-        _runMode = running;
-        _hasTarget = true;
+        float dx = position.X - Position.X;
+        float dz = position.Z - Position.Z;
+        float distance = MathF.Sqrt(dx * dx + dz * dz);
+        if (IsBusy)
+        {
+            // Swings, flinches and potions own the avatar; small drift is tolerated, large drift is corrected.
+            return distance > BusyCorrectionDistance ? MovementVerdict.Rejected : MovementVerdict.Ignored;
+        }
+
+        float elapsed = _lastReportMs < 0 ? 0.5f : Math.Clamp((nowMs - _lastReportMs) / 1000f, 0.05f, 2f);
+        float allowed = Locomotion.RunUnitsPerSecond(_character.Derived.MoveSpeed) * elapsed * ReportSpeedTolerance + ReportDistanceSlack;
+        if (distance > allowed)
+        {
+            return MovementVerdict.Rejected;
+        }
+
+        // The original rsCheckPlayField only reported players off the floor; Etervale rejects the report instead.
+        terrain ??= FieldTerrain.None;
+        var planar = new Vector3(position.X, Position.Y, position.Z);
+        if (!terrain.TryFloorNear(planar, ReportClimb, out var floor)
+            || distance > WallCheckDistance && terrain.CrossesWall(Position, planar))
+        {
+            return MovementVerdict.Rejected;
+        }
+
+        if (moving && actionTarget == 0 && _attackTargetId != 0)
+        {
+            // A move without an action target is a ground click, which drops the attack lock (playmain.cpp).
+            ClearAttackTarget();
+        }
+
+        _lastReportMs = nowMs;
+        Position = new Vector3(position.X, floor, position.Z);
+        Facing = facing;
+
+        MoveState = !moving ? MoveStateView.Idle : running ? MoveStateView.Running : MoveStateView.Walking;
+        return MovementVerdict.Accepted;
+    }
+
+    // A client that stops reporting while moving is shown standing, like the original's 1.5 s OVER_TRANS_TIME cut-off.
+    public void ExpireStaleMotion(long nowMs)
+    {
+        if (!IsBusy && !IsDead && MoveState is MoveStateView.Walking or MoveStateView.Running
+            && _lastReportMs >= 0 && nowMs - _lastReportMs > StaleMotionMs)
+        {
+            MoveState = MoveStateView.Idle;
+        }
     }
 
     public void SetAttackTarget(uint targetEntityId, bool sustained)
     {
         _attackTargetId = targetEntityId;
         _attackSustained = sustained;
-        _hasTarget = false;
     }
 
     public void ClearAttackTarget()
@@ -205,7 +254,7 @@ public sealed class WorldPlayer
 
         Position = position;
         ClearAttackTarget();
-        _hasTarget = false;
+        _lastReportMs = -1;
         _pendingPotion = null;
         Action = PlayerActionState.Idle;
         MoveState = MoveStateView.Idle;
@@ -230,70 +279,11 @@ public sealed class WorldPlayer
             throw new ArgumentOutOfRangeException(nameof(respawnPoint));
         }
 
-        if (_attackTargetId != 0)
-        {
-            // A chase target belongs to the previous field; a ground destination does not.
-            _hasTarget = false;
-            ClearAttackTarget();
-        }
+        // A chase target belongs to the previous field.
+        ClearAttackTarget();
 
         _inVillage = inVillage;
         _respawnPoint = respawnPoint;
-    }
-
-    public Vector3 IntegrateStep(float dt)
-    {
-        if (!float.IsFinite(dt) || dt <= 0f || IsDead)
-        {
-            return Position;
-        }
-
-        if (IsBusy)
-        {
-            // Busy actions own MoveState and freeze movement.
-            return Position;
-        }
-
-        if (!_hasTarget)
-        {
-            MoveState = MoveStateView.Idle;
-            return Position;
-        }
-
-        var moveSpeed = _character.Derived.MoveSpeed;
-        var speed = _running
-            ? Locomotion.RunUnitsPerSecond(moveSpeed)
-            : Locomotion.WalkUnitsPerSecond(moveSpeed, _inVillage);
-        var step = DestinationMovement.Advance(
-            new Vector2(Position.X, Position.Z),
-            new Vector2(_target.X, _target.Z),
-            speed,
-            dt);
-        if (step.Direction != Vector2.Zero)
-        {
-            Facing = MathF.Atan2(step.Direction.X, step.Direction.Y);
-        }
-
-        MoveState = _running ? MoveStateView.Running : MoveStateView.Walking;
-        return new Vector3(step.Position.X, Position.Y, step.Position.Y);
-    }
-
-    public void CommitStep(Vector3 accepted)
-    {
-        if (WorldPosition.IsValid(accepted))
-        {
-            Position = accepted;
-            if (_hasTarget && DestinationMovement.HasArrived(
-                new Vector2(accepted.X, accepted.Z),
-                new Vector2(_target.X, _target.Z)))
-            {
-                _hasTarget = false;
-                if (!IsBusy && !IsDead)
-                {
-                    MoveState = MoveStateView.Idle;
-                }
-            }
-        }
     }
 
     public float DistanceSqTo(Vector3 worldPos)
@@ -314,7 +304,6 @@ public sealed class WorldPlayer
         Facing = MathF.Atan2(targetPos.X - Position.X, targetPos.Z - Position.Z);
         Action = PlayerActionState.Swing;
         MoveState = MoveStateView.Attack;
-        _hasTarget = false;
         _swingElapsedMs = 0f;
         _swingDurationMs = MathF.Max(durationMs, 1f);
         _swingHitAtMs = hitAtMs;
@@ -376,13 +365,6 @@ public sealed class WorldPlayer
         }
     }
 
-    public void ApproachAttackTarget(Vector3 targetPos, bool running)
-    {
-        _target = new Vector3(targetPos.X, Position.Y, targetPos.Z);
-        _running = running;
-        _hasTarget = true;
-    }
-
     public void ApplyDamage(int amount)
     {
         if (amount <= 0 || IsDead)
@@ -399,7 +381,6 @@ public sealed class WorldPlayer
             Action = PlayerActionState.Idle;
             _attackTargetId = 0;
             _attackSustained = false;
-            _hasTarget = false;
             _respawnMsLeft = RespawnDelayMs;
             MoveState = MoveStateView.Dead;
         }
@@ -443,7 +424,7 @@ public sealed class WorldPlayer
         _character.Mana = _character.MaxMana;
         _character.Stamina = _character.MaxStamina;
         IsDead = false;
-        _hasTarget = false;
+        _lastReportMs = -1;
         _attackTargetId = 0;
         MoveState = MoveStateView.Idle;
         return true;
