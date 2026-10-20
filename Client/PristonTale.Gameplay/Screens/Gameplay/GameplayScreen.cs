@@ -70,9 +70,11 @@ public sealed class GameplayScreen : GameScreen
             var stats = _scene.LastRenderStats;
             var hour = _scene.TimeOfDay;
             var clock = $"{(int)hour:00}:{(int)((hour - (int)hour) * 60):00}";
-            return $"Shadows {shadows} | {clock} | Lights {_scene.StageLightCount} | Draw {stats.DrawCalls} | " +
+            return $"Shadows {shadows} | {clock} | Pos {_scene.PlayerPosition.X:F0} {-_scene.PlayerPosition.Z:F0} | Lights {_scene.StageLightCount} | " +
+                   $"Draw {stats.DrawCalls} | " +
                    $"Shadow S{(stats.SunShadowUpdated ? 1 : 0)}/L{stats.LampShadowMapsUpdated}/D{stats.ShadowDrawCalls} | " +
-                   $"Vis {stats.VisibleBatches}/{stats.TotalBatches} | Tri {stats.Triangles} | State {stats.StateChanges}";
+                   $"Vis {stats.VisibleBatches}/{stats.TotalBatches} | Tri {stats.Triangles} | State {stats.StateChanges} | " +
+                   $"View {_scene.RenderDebugView}";
         }
     }
 
@@ -98,7 +100,7 @@ public sealed class GameplayScreen : GameScreen
             UpdateDebugKeys();
         }
         _scene.Update(gameTime);
-        _hud.TargetId = _scene.AttackTargetId;
+        _hud.TargetId = _scene.SelectedTargetId;
         _lastKeyboard = Keyboard.GetState();
     }
 
@@ -161,6 +163,10 @@ public sealed class GameplayScreen : GameScreen
         if (control && Pressed(keyboard, Keys.F5))
         {
             _scene.ToggleShadows();
+        }
+        if (control && Pressed(keyboard, Keys.F10))
+        {
+            _scene.CycleRenderDebugView();
         }
         if (Pressed(keyboard, Keys.OemComma))
         {

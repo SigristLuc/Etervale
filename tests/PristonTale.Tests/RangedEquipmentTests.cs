@@ -41,7 +41,7 @@ internal static class RangedEquipmentTests
 
     private static Task BowHandsAsync()
     {
-        // sinItem.cpp declares RHAND for crossbows; two-handed occupancy does not select an attachment hand.
+        // The original item table declares the right hand for crossbows; two-handed occupancy does not select an attachment hand.
         string[] crossbows = ["WS104", "WS108", "WS110", "WS113", "WS117"];
         foreach (string key in crossbows)
         {

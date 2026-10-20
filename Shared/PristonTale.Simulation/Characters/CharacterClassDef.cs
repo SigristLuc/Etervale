@@ -14,7 +14,7 @@ public sealed record CharacterClassDef(
     CharacterFunctionProfile FunctionProfile,
     IReadOnlyList<EquipmentRef> StartingEquipment)
 {
-    // fileread.cpp BitMaskJobNames uses sequential job bits; item specialization uses JobBitCode instead.
+    // Motion job masks use sequential job bits; item specialization uses JobBitCode instead.
     public uint MotionJobMask => 1u << (JobCode - 1);
 
     public CharacterAttributes AttributesAtLevel(int level)

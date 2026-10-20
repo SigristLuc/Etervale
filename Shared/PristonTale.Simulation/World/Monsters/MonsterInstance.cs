@@ -64,7 +64,28 @@ public sealed class MonsterInstance
 
     public Vector3 ProgressProbePosition { get; set; }
 
-    public float MovementCyclesSinceProbe { get; set; }
+    // Locomotion clip ends since the last progress probe (PosBeginCount) and the running fraction of the current clip.
+    public int ProbeClips { get; set; }
+
+    public float ClipProgress { get; set; }
+
+    // Clips left on a fixed-heading leash or stuck manoeuvre (TargetMoveCount); the target is kept meanwhile.
+    public int ManoeuvreClipsLeft { get; set; }
+
+    public float ManoeuvreHeading { get; set; }
+
+    // Set by the first swing on the current target; it widens the distance at which the chase may run again.
+    public bool Engaged { get; set; }
+
+    // Set by the host after collision: walk and run are published only for ticks where the monster really moved.
+    public bool MovedThisTick { get; set; }
+
+    // Set by the host when other monsters, not the stage, stopped the step; a queue is not a stuck monster.
+    public bool Crowded { get; set; }
+
+    public bool CrowdedSinceProbe { get; set; }
+
+    public MonsterMotionState PresentedMotion => Motion.IsMoving() && !MovedThisTick ? MonsterMotionState.Stand : Motion;
 
     public float SpawnWalkElapsedMs { get; set; }
 

@@ -22,6 +22,19 @@ public sealed class MonsterAiTuning
 
     public const float BossTargetLockMs = 4000f;
 
+    // Original clip-end rules: more than 4 clips probe progress; leash and stuck set the manoeuvre count to 6 and 10.
+    public const int ProgressProbeClips = 5;
+
+    public const int LeashManoeuvreClips = 6;
+
+    public const int StuckManoeuvreClips = 10;
+
+    // Etervale rules near the target: approach to this much inside the reach, and keep walking instead of running
+    // while the target stays within this band beyond the reach after a swing.
+    public const int StopMargin = 8;
+
+    public const int ChaseHysteresis = 24;
+
     public MonsterAiTuning(MonsterDefinition def, MotionTimingSet timing = null)
     {
         int sight = Math.Max(0, def.Ai.SightRadius);
@@ -34,6 +47,11 @@ public sealed class MonsterAiTuning
         // Player targets use Shooting_Range without the summon branch's padding.
         AttackRange = Math.Max(0, def.Combat.MeleeRange);
         AttackRangeSq = (long)AttackRange * AttackRange;
+        StopDistance = Math.Max(0, AttackRange - StopMargin);
+
+        // Shooting_Range 0 never passes PlayAttackFromPosi (dist < 0), and the five such definitions (doors and maple
+        // event objects) have no walk or run clip, so SetMotionFromCode(WALK) fails and they never move either.
+        IsImmobile = AttackRange == 0;
 
         StuckDistanceSq = (long)StuckDistance * StuckDistance;
         VerticalAggroGateF = VerticalAggroGate;
@@ -102,6 +120,8 @@ public sealed class MonsterAiTuning
     public long RunDistanceSq { get; }
     public long AttackRangeSq { get; }
     public int AttackRange { get; }
+    public int StopDistance { get; }
+    public bool IsImmobile { get; }
     public long StuckDistanceSq { get; }
     public float VerticalAggroGateF { get; }
     public bool CanRun { get; }

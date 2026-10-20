@@ -64,7 +64,7 @@ public static class PristonImageDecoder
             return DecodedPristonImage.Empty;
         }
 
-        // ImageDecode.cpp: some release A8 files leave bfOffBits zero; their pixels follow the DIB and palette.
+        // Some legacy 8-bit alpha files leave bfOffBits zero; their pixels follow the DIB header and palette.
         if (legacyHeader && pixelOffset == 0)
         {
             var inferredBitCount = BitConverter.ToUInt16(bytes, 28);

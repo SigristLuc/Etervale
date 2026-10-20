@@ -2,7 +2,7 @@ using PristonTale.Protocol.Binary;
 
 namespace PristonTale.Protocol.Packets;
 
-// TRANS_ITEM (smPacket.h): {state, type, ItemCode, x, y, z, szName[64], lpStgArea} = 92 bytes on the 32-bit wire.
+// Ground item record: {state, type, ItemCode, x, y, z, szName[64], lpStgArea} = 92 bytes on the 32-bit wire.
 // lpStgArea is an opaque server handle the client echoes back; Etervale stores the drop handle there and the
 // quantity in the otherwise unused type field.
 public readonly record struct GroundItemEntry(uint Handle, uint ItemCode, int Amount, int X, int Y, int Z, string Name)
@@ -34,7 +34,7 @@ public readonly record struct GroundItemEntry(uint Handle, uint ItemCode, int Am
     }
 }
 
-// smTRANS_ITEMS (PLAYITEM): {size, code, state, Count, TRANS_ITEM[Count]}, at most TRANS_ITEM_MAX = 16 entries.
+// PLAYITEM packet: {size, code, state, Count, ground item record[Count]}, at most 16 entries.
 public static class GroundItemList
 {
     public const int HeaderSize = 16;
@@ -80,7 +80,7 @@ public static class GroundItemList
     }
 }
 
-// smTRANS_ACITON_ITEM (DELITEM, PUTITEM request): {size, code, state, x, y, z, lpStgArea} = 28 bytes.
+// Item action packet (DELITEM, PUTITEM request): {size, code, state, x, y, z, lpStgArea} = 28 bytes.
 public readonly record struct GroundItemAction(uint Code, int State, int X, int Y, int Z, uint Handle)
 {
     public const int Size = 28;
@@ -103,7 +103,7 @@ public readonly record struct GroundItemAction(uint Code, int State, int X, int 
     }
 }
 
-// TRANS_CHATMESSAGE: {size, code, dwIP, dwObjectSerial, szMessage[256]}; senders use size = 32 + strlen(szMessage).
+// Chat message packet: {size, code, dwIP, dwObjectSerial, szMessage[256]}; senders use size = 32 + strlen(szMessage).
 public readonly record struct ChatMessagePacket(uint Code, uint Ip, uint ObjectSerial, string Message)
 {
     public const int HeaderSize = 16;
@@ -132,7 +132,7 @@ public readonly record struct ChatMessagePacket(uint Code, uint Ip, uint ObjectS
         var terminator = text.IndexOf((byte)0);
         if (terminator < 0)
         {
-            throw new InvalidDataException("TRANS_CHATMESSAGE text is not NUL-terminated.");
+            throw new InvalidDataException("Chat message text is not NUL-terminated.");
         }
 
         return new ChatMessagePacket(reader.Code, ip, serial, PristonText.Lenient.GetString(text[..terminator]));

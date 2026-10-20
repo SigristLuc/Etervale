@@ -1,15 +1,14 @@
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Formats;
 
 namespace PristonTale.Engine3D.Rendering;
 
 internal static class PristonModelGeometry
 {
-    internal static Dictionary<int, List<VertexPositionColorTexture>> BuildGroups(
+    internal static Dictionary<int, List<PristonCornerVertex>> BuildGroups(
         PristonModel model, Matrix world, Color color, PristonModel skeleton = null, float frame = 0)
     {
-        var groups = new Dictionary<int, List<VertexPositionColorTexture>>();
+        var groups = new Dictionary<int, List<PristonCornerVertex>>();
         var transforms = new PristonModelAnimator(skeleton ?? model).Evaluate(frame);
         Dictionary<string, int> bones = null;
         if (skeleton is not null)
@@ -39,17 +38,16 @@ internal static class PristonModelGeometry
                     continue;
                 }
 
-                var tex = face.TexLinkIndex >= 0 && face.TexLinkIndex < obj.TexLinks.Count ? obj.TexLinks[face.TexLinkIndex] : PristonTexLink.Empty;
-                var list = GetGroup(groups, face.MaterialIndex);
-                AddTriangle(
-                    list,
+                PristonCornerVertex.AddTriangle(
+                    GetGroup(groups, face.MaterialIndex),
                     Position(face.A),
                     Position(face.B),
                     Position(face.C),
                     color,
                     color,
                     color,
-                    tex);
+                    obj.TexLinks,
+                    face.TexLinkIndex);
             }
         }
 
@@ -67,7 +65,7 @@ internal static class PristonModelGeometry
         return name.Length > 0 && boneLookup.TryGetValue(name, out int index) ? index : -1;
     }
 
-    private static List<VertexPositionColorTexture> GetGroup(Dictionary<int, List<VertexPositionColorTexture>> groups, int material)
+    private static List<PristonCornerVertex> GetGroup(Dictionary<int, List<PristonCornerVertex>> groups, int material)
     {
         if (!groups.TryGetValue(material, out var list))
         {
@@ -76,24 +74,6 @@ internal static class PristonModelGeometry
         }
 
         return list;
-    }
-
-    private static void AddTriangle(
-        List<VertexPositionColorTexture> vertices,
-        Vector3 a,
-        Vector3 b,
-        Vector3 c,
-        Color ca,
-        Color cb,
-        Color cc,
-        PristonTexLink texLink)
-    {
-        var ta = texLink.A;
-        var tb = texLink.B;
-        var tc = texLink.C;
-        vertices.Add(new VertexPositionColorTexture(a, ca, ta));
-        vertices.Add(new VertexPositionColorTexture(b, cb, tb));
-        vertices.Add(new VertexPositionColorTexture(c, cc, tc));
     }
 
     private static bool ValidFace(int a, int b, int c, int vertexCount) =>

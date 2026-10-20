@@ -81,7 +81,7 @@ internal sealed class OpeningCinematic : IDisposable
         _effectLibrary = effects;
         if (effects is not null)
         {
-            _effects = new EffectsEngine(graphicsDevice, 0x5054);
+            _effects = new EffectsEngine(graphicsDevice, content, 0x5054);
         }
         _renderer = new PristonRenderer(graphicsDevice, content, log, presentation)
         {
@@ -206,6 +206,7 @@ internal sealed class OpeningCinematic : IDisposable
         _graphicsDevice.Clear(_renderer.SkyColor);
         _renderer.Draw(_camera);
         _effects?.Draw(_camera.View, _camera.Projection, _camera.Position);
+        _renderer.ComposeScene();
     }
 
     private List<PristonSceneryInstance> LoadScenery()

@@ -2,7 +2,7 @@ using PristonTale.Protocol.Binary;
 
 namespace PristonTale.Protocol.Packets;
 
-// smTRANS_COMMAND (smPacket.h): {size, code, LParam, WParam, SParam, EParam}; LParam precedes WParam on the wire.
+// Command packet: {size, code, LParam, WParam, SParam, EParam}; LParam precedes WParam on the wire.
 public readonly record struct TransCommand(uint Code, int LParam = 0, int WParam = 0, int SParam = 0, int EParam = 0)
 {
     public const int Size = 24;
@@ -17,7 +17,7 @@ public readonly record struct TransCommand(uint Code, int LParam = 0, int WParam
         return writer.Finish();
     }
 
-    // CHECK_NETSTATE5 replies keep the 24-byte body but declare sizeof(TRANS_ATTACKDATA); readers accept trailing bytes.
+    // CHECK_NETSTATE5 replies keep the 24-byte body but declare the attack data size; readers accept trailing bytes.
     public static TransCommand Read(ReadOnlySpan<byte> packet)
     {
         var reader = new PacketReader(packet, Size);
@@ -25,7 +25,7 @@ public readonly record struct TransCommand(uint Code, int LParam = 0, int WParam
     }
 }
 
-// smTRANS_COMMAND_EX: smTRANS_COMMAND followed by LxParam, WxParam, SxParam, ExParam.
+// Extended command packet: command packet followed by LxParam, WxParam, SxParam, ExParam.
 public readonly record struct TransCommandEx(uint Code, int LParam, int WParam, int SParam, int EParam, int LxParam, int WxParam, int SxParam, int ExParam)
 {
     public const int Size = 40;
@@ -52,7 +52,7 @@ public readonly record struct TransCommandEx(uint Code, int LParam, int WParam, 
     }
 }
 
-// smTRANS_CHAR_COMMAND: {size, code, LParam, WParam, SParam, char szName[32]} = 52 bytes.
+// Character command packet: {size, code, LParam, WParam, SParam, char szName[32]} = 52 bytes.
 public readonly record struct CharCommand(uint Code, int LParam, int WParam, int SParam, string Name)
 {
     public const int Size = 52;
@@ -75,9 +75,9 @@ public readonly record struct CharCommand(uint Code, int LParam, int WParam, int
     }
 }
 
-// smTRANS_CHAR_COMMAND2: smTRANS_CHAR_COMMAND with szId[32] before szName[32] = 84 bytes.
+// Account command packet: character command packet with szId[32] before szName[32] = 84 bytes.
 // ID_GETUSERINFO carries the password in szName; INSRECORDDATA leaves LParam/SParam uninitialised in the original,
-// so Etervale uses them for JOB_CODE and face index.
+// so Etervale uses them for the class code and face index.
 public readonly record struct CharCommand2(uint Code, int LParam, int WParam, int SParam, string Id, string Name)
 {
     public const int Size = 84;

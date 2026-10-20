@@ -12,6 +12,7 @@ public sealed class PristonSkyLibrary : IDisposable
     private readonly PristonTextureLoader _textures;
     private readonly List<PristonGpuMesh> _meshes = [];
     private readonly List<RenderBatch[]> _profiles = [];
+    private readonly List<bool> _animated = [];
 
     private PristonSkyLibrary(GraphicsDevice device, IClientLog log)
     {
@@ -77,7 +78,9 @@ public sealed class PristonSkyLibrary : IDisposable
                             throw new InvalidDataException($"Invalid sky material {materialIndex} in {path}.");
                         }
 
-                        var authored = model.Materials[materialIndex] with { SelfIllum = 1f, TwoSided = true };
+                        // The sky dome tints each layer with its RGBA through the vertex colour. Self-illumination would discard
+                        // that tint (it forces white diffuse), so sky layers are lit by the sky frame's unit ambient.
+                        var authored = model.Materials[materialIndex] with { SelfIllum = 0f, TwoSided = true };
                         if (relative.Equals("Effect/Sky/losttemple/day/space.smd", StringComparison.OrdinalIgnoreCase)
                             && authored.TextureName.Equals("space.bmp", StringComparison.OrdinalIgnoreCase))
                         {
@@ -95,9 +98,9 @@ public sealed class PristonSkyLibrary : IDisposable
                             textures.Add(texture);
                         }
 
-                        if (material.SecondTexture != null)
+                        foreach (var stage in material.Layers)
                         {
-                            textures.Add(material.SecondTexture);
+                            textures.Add(stage.Texture);
                         }
                     }
 
@@ -109,6 +112,7 @@ public sealed class PristonSkyLibrary : IDisposable
             }
 
             _profiles.Add(batches.ToArray());
+            _animated.Add(batches.Exists(static batch => IsAnimated(batch.Material)));
         }
 
         foreach (var texture in textures)
@@ -127,6 +131,30 @@ public sealed class PristonSkyLibrary : IDisposable
         return _profiles[profile];
     }
 
+    // Scrolling, multi-frame or water layers change the composed sky over time even within one profile.
+    internal bool IsAnimated(int profile)
+    {
+        return profile >= 0 && profile < _animated.Count && _animated[profile];
+    }
+
+    private static bool IsAnimated(PristonMaterialRuntime material)
+    {
+        if (material.TextureFormState != 0 || material.Textures.Length > 1 || material.Water)
+        {
+            return true;
+        }
+
+        foreach (var layer in material.Layers)
+        {
+            if (layer.FormState != 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public void Dispose()
     {
         foreach (var mesh in _meshes)
@@ -136,6 +164,7 @@ public sealed class PristonSkyLibrary : IDisposable
 
         _meshes.Clear();
         _profiles.Clear();
+        _animated.Clear();
         _textures.Dispose();
     }
 }

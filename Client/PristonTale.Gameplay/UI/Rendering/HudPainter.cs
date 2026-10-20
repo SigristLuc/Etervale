@@ -140,7 +140,7 @@ public sealed class HudPainter : IDisposable
         }
     }
 
-    // Drawsub dsDrawColorBox colors are straight RGBA.
+    // Original colour box fills are straight RGBA.
     public void ColorBox(Rectangle bounds, int r, int g, int b, int a) => Fill(bounds, Color.FromNonPremultiplied(r, g, b, a));
 
     public void Text(string value, int x, int y, Color? color = null, bool shadow = true)
@@ -180,7 +180,7 @@ public sealed class HudPainter : IDisposable
         return string.Empty;
     }
 
-    // sinItem.cpp ItemInfoBox: nine 16x16 tiles repeated over a box measured in whole tiles.
+    // Item info box: nine 16x16 tiles repeated over a box measured in whole tiles.
     public void InfoBox(Rectangle bounds)
     {
         var columns = Math.Max(2, (bounds.Width + 15) / 16);
@@ -199,7 +199,7 @@ public sealed class HudPainter : IDisposable
     public static Rectangle InfoBoxBounds(int x, int y, int width, int height) =>
         new(x, y, Math.Max(2, (width + 15) / 16) * 16, Math.Max(2, (height + 15) / 16) * 16);
 
-    // sinHelp.cpp sinShowHelp: 64-pixel corners/sides, 32-pixel repeated edges and centre, Box_Line separator.
+    // Help box: 64-pixel corners/sides, 32-pixel repeated edges and centre, Box_Line separator.
     public void HelpBox(int x, int y, int sizeW, int sizeH, bool separator = true)
     {
         sizeW = Math.Max(2, sizeW);

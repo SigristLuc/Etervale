@@ -10,6 +10,7 @@ internal static class ClientSettingsTests
     {
         yield return ("settings validate limits without restricting valid monitor modes", ValidationAsync);
         yield return ("older settings inherit the current shadow refresh default", LegacyDefaultsAsync);
+        yield return ("legacy boolean distance fog settings load as fog modes", LegacyDistanceFogAsync);
         yield return ("settings persistence drains the latest snapshot on shutdown", PersistenceAsync);
         yield return ("invalid and future settings documents survive attempted saves", PreserveInvalidAsync);
         yield return ("settings write failures are observable without faulting gameplay", WriteFailureAsync);
@@ -59,6 +60,34 @@ internal static class ClientSettingsTests
         {
             File.Delete(path);
         }
+    }
+
+    private static async Task LegacyDistanceFogAsync()
+    {
+        foreach (var (json, expected) in new[]
+        {
+            ("true", DistanceFogMode.Atmospheric),
+            ("false", DistanceFogMode.Off),
+            ("\"Classic\"", DistanceFogMode.Classic)
+        })
+        {
+            var path = Path.Combine(Path.GetTempPath(), "priston-settings-" + Guid.NewGuid().ToString("N") + ".json");
+            try
+            {
+                await File.WriteAllTextAsync(path, "{\"version\":1,\"distanceFog\":" + json + "}");
+                var store = new ClientSettingsStore(path, NullClientLog.Instance);
+                var loaded = store.Load();
+                await store.CompleteAsync();
+                Assert.True(loaded.DistanceFog == expected && store.LastError.Length == 0, $"distanceFog {json} did not load as {expected}");
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        var serialized = System.Text.Json.JsonSerializer.Serialize(new ClientSettings { DistanceFog = DistanceFogMode.Classic });
+        Assert.True(serialized.Contains("\"DistanceFog\":\"Classic\"", StringComparison.Ordinal), "fog mode is not written by name");
     }
 
     private static async Task PersistenceAsync()

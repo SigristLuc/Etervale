@@ -26,6 +26,9 @@ documentation before editing.
   persistence.
 - Treat `original_references/` as reference material. Check version and encoding before extracting behavior; use
   `PristonFileResolver` for original asset paths.
+- Never cite the original source in this repository: no file names, paths, line numbers, function or struct names
+  from `original_references/` in code, comments, identifiers, messages, tests or documentation. Describe behavior,
+  rules and binary formats in Etervale's own terms.
 - Keep database migrations structural. Import authored world data through `tools/PristonTale.WorldImport`, preserving
   duplicate definitions and unresolved references. Check importer, repository, runtime catalog, and both providers when
   data contracts change.

@@ -15,13 +15,12 @@ internal sealed class HudSettingsPanel
     private const int RowHeight = 17;
 
     private static readonly int[] FrameLimits = [0, 30, 60, 90, 120, 144, 165, 240, 360];
-    private static readonly int[] Samples = [0, 2, 4, 8];
     private static readonly int[] ShadowSizes = [1024, 2048, 4096, 8192];
-    private static readonly int[] LampSizes = [256, 512, 1024];
+    private static readonly GraphicsQuality[] Presets = [GraphicsQuality.Low, GraphicsQuality.Medium, GraphicsQuality.High, GraphicsQuality.Ultra];
     private static readonly int[] ShadowUpdateRates = [30, 60, 120, 0];
     private static readonly Point[] WindowSizes = [new(800, 600), new(1024, 768), new(1280, 720), new(1920, 1080), new(2560, 1440)];
     private readonly PresentationSettings _settings;
-    private readonly string[] _labels = new string[14];
+    private readonly string[] _labels = new string[15];
     private ClientSettings _labelSettings;
 
     public HudSettingsPanel(PresentationSettings settings) => _settings = settings;
@@ -59,11 +58,12 @@ internal sealed class HudSettingsPanel
                 6 => current with { SoundEnabled = !current.SoundEnabled },
                 7 => current with { MaxFps = Cycle(FrameLimits, current.MaxFps, direction) },
                 8 => current with { BackgroundMaxFps = Cycle(FrameLimits, current.BackgroundMaxFps, direction) },
-                9 => current with { MultiSampleCount = Cycle(Samples, current.MultiSampleCount, direction) },
-                10 => current with { ShadowMapSize = Cycle(ShadowSizes, current.ShadowMapSize, direction) },
-                11 => current with { LampShadowTileSize = Cycle(LampSizes, current.LampShadowTileSize, direction) },
-                12 => current with { ShadowUpdateRate = Cycle(ShadowUpdateRates, current.ShadowUpdateRate, direction) },
-                13 => current with { ShadowsEnabled = !current.ShadowsEnabled },
+                9 => current with { Quality = GraphicsQuality.Custom, AntiAliasing = (AntiAliasingMode)(((int)current.AntiAliasing + direction + 5) % 5) },
+                10 => current with { Quality = GraphicsQuality.Custom, ShadowMapSize = Cycle(ShadowSizes, current.ShadowMapSize, direction) },
+                11 => current.WithQuality(NextPreset(current.Quality, direction)),
+                12 => current with { Quality = GraphicsQuality.Custom, ShadowUpdateRate = Cycle(ShadowUpdateRates, current.ShadowUpdateRate, direction) },
+                13 => current with { Quality = GraphicsQuality.Custom, ShadowsEnabled = !current.ShadowsEnabled },
+                14 => current with { ClassicTargetHealthBar = !current.ClassicTargetHealthBar },
                 _ => current
             };
             return;
@@ -141,6 +141,17 @@ internal sealed class HudSettingsPanel
         return Cycle(frequencies, current.RefreshRate, direction);
     }
 
+    private static GraphicsQuality NextPreset(GraphicsQuality quality, int direction)
+    {
+        var index = Array.IndexOf(Presets, quality);
+        if (index < 0)
+        {
+            return direction > 0 ? Presets[0] : Presets[^1];
+        }
+
+        return Presets[(index + direction + Presets.Length) % Presets.Length];
+    }
+
     private static int Cycle(IReadOnlyList<int> values, int value, int direction)
     {
         var index = 0;
@@ -174,10 +185,13 @@ internal sealed class HudSettingsPanel
         _labels[6] = settings.SoundEnabled ? "Audio: on" : "Audio: off";
         _labels[7] = settings.MaxFps == 0 ? "Maximum FPS: unlimited" : $"Maximum FPS: {settings.MaxFps}";
         _labels[8] = settings.BackgroundMaxFps == 0 ? "Background FPS: foreground limit" : $"Background FPS: {settings.BackgroundMaxFps}";
-        _labels[9] = $"MSAA: {settings.MultiSampleCount}x (0 = off)";
+        _labels[9] = settings.AntiAliasing == AntiAliasingMode.Msaa
+            ? $"Anti-aliasing: MSAA {Math.Max(settings.MultiSampleCount, 2)}x"
+            : $"Anti-aliasing: {settings.AntiAliasing.ToString().ToUpperInvariant()}";
         _labels[10] = $"Sun shadow: {settings.ShadowMapSize}";
-        _labels[11] = $"Lamp shadow: {settings.LampShadowTileSize}";
+        _labels[11] = $"Graphics quality: {settings.Quality}";
         _labels[12] = settings.ShadowUpdateRate == 0 ? "Shadow animation: every frame" : $"Shadow animation: {settings.ShadowUpdateRate} Hz";
         _labels[13] = settings.ShadowsEnabled ? "Shadows: on" : "Shadows: off";
+        _labels[14] = settings.ClassicTargetHealthBar ? "Target HP: classic (after first hit)" : "Target HP: always, with percentage";
     }
 }

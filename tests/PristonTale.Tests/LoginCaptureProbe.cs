@@ -38,7 +38,7 @@ internal sealed class LoginCaptureProbe : Game
         _output = output;
         _backgroundPath = background;
         _ = new GraphicsDeviceManager(this) { SynchronizeWithVerticalRetrace = false };
-        Content.RootDirectory = Path.GetFullPath(contentRoot);
+        Content = new AbsoluteContentManager(Services, contentRoot);
         IsFixedTimeStep = false;
     }
 
@@ -137,7 +137,7 @@ internal sealed class LoginCaptureProbe : Game
         GraphicsDevice.SetRenderTarget(null);
         using var file = File.Create(Path.Combine(_output, scenario.Name + ".png"));
         target.SaveAsPng(file, target.Width, target.Height);
-        Console.WriteLine($"Login {scenario.Name}: captured; atlas={_atlas.TextureBytes} bytes; GPU={GraphicsDevice.Adapter.Description}");
+        Console.WriteLine($"Login {scenario.Name}: captured; atlas={_atlas.TextureBytes} bytes; GPU={GraphicsDevice.Adapter.DeviceName}");
     }
 
     protected override void UnloadContent()

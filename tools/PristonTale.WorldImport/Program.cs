@@ -246,7 +246,7 @@ static string? DefaultAssetsRoot()
 static void PrintUsage()
 {
     Console.WriteLine("""
-        ptworld — apply the baseline and import the original PTClassic CP949 world configuration.
+        ptworld — apply the baseline and import the original CP949 world configuration.
 
         Commands:
           import [options]    parse the config files and idempotently upsert all world data

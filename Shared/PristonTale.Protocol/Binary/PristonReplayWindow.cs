@@ -1,6 +1,6 @@
 namespace PristonTale.Protocol.Binary;
 
-// CheckEncRecvPacket (smwsock.cpp): a counter is rejected if it repeats one of the last 16 accepted counters
+// Encrypted receive check: a counter is rejected if it repeats one of the last 16 accepted counters
 // or falls more than 16 behind the highest counter seen. The original compares plain integers, so a direction
 // stops accepting packets once its 16-bit counter wraps; this window compares in modulo-65536 order instead.
 public sealed class PristonReplayWindow

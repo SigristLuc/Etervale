@@ -57,9 +57,6 @@ internal static class RenderTests
             false,
             false,
             0,
-            0,
-            false,
-            null!,
             0);
         var batch = new RenderBatch(
             [],
@@ -98,14 +95,17 @@ internal static class RenderTests
 
     private static Task MeshAsync()
     {
-        var a = new VertexPositionColorTexture(Vector3.Zero, Color.White, Vector2.Zero);
-        var b = new VertexPositionColorTexture(Vector3.UnitZ, Color.White, Vector2.UnitY);
-        var c = new VertexPositionColorTexture(Vector3.UnitX, Color.White, Vector2.UnitX);
+        var a = new PristonCornerVertex(Vector3.Zero, Color.White, Vector2.Zero, Vector2.One, Vector2.Zero);
+        var b = new PristonCornerVertex(Vector3.UnitZ, Color.White, Vector2.UnitY, Vector2.One, Vector2.Zero);
+        var c = new PristonCornerVertex(Vector3.UnitX, Color.White, Vector2.UnitX, Vector2.One, Vector2.Zero);
         var builder = new PristonGpuMeshBuilder(null!);
         var prepared = builder.PrepareStaticMesh([a, b, c, a, b, c]);
         Assert.True(prepared.Vertices.Length == 3 && prepared.Indices.Length == 6, "mesh topology/deduplication changed");
         Assert.True(prepared.Vertices.All(vertex => vertex.Normal == Vector3.Up), "prepared normals changed");
+        Assert.True(prepared.Vertices.All(vertex => vertex.TextureCoordinate1 == Vector2.One), "stage 1 UVs were lost");
         Assert.True(prepared.Bounds.Max == new Vector3(1, 0, 1), "prepared bounds changed");
+        var otherLayerUv = a with { Uv1 = Vector2.Zero };
+        Assert.True(builder.PrepareStaticMesh([a, b, c, otherLayerUv, b, c]).Vertices.Length == 4, "corners with different stage UVs were welded");
         return Task.CompletedTask;
     }
 

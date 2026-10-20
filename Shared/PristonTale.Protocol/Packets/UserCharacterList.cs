@@ -2,7 +2,7 @@ using PristonTale.Protocol.Binary;
 
 namespace PristonTale.Protocol.Packets;
 
-// _TRANS_CHAR_INFO (record.h): 240 bytes per character slot. PosX/PosZ are fixed-point (x256) like rsPLAYPOS.
+// Character slot record: 240 bytes per character slot. PosX/PosZ are fixed-point (x256) like saved positions.
 // dwArmorCode carries the equipped armour item code; dwTemp[13] holds Etervale appearance fields.
 public sealed record UserCharacterEntry(
     string Name,
@@ -67,7 +67,7 @@ public sealed record UserCharacterEntry(
     }
 }
 
-// TRANS_USERCHAR_INFO (record.h): {size, code, szID[32], PlayUserCount, _TRANS_CHAR_INFO[6]}; always the full 1484 bytes.
+// Character list packet: {size, code, szID[32], PlayUserCount, character slot[6]}; always the full 1484 bytes.
 public sealed record UserCharacterList(string AccountId, IReadOnlyList<UserCharacterEntry> Characters)
 {
     public const int MaxCharacters = 6;
@@ -77,7 +77,7 @@ public sealed record UserCharacterList(string AccountId, IReadOnlyList<UserChara
     {
         if (Characters.Count > MaxCharacters)
         {
-            throw new ArgumentException("TRANS_USERCHAR_INFO holds at most six characters.");
+            throw new ArgumentException("Character list packet holds at most six characters.");
         }
 
         var writer = new PacketWriter(destination, PristonOpcodes.IdSetUserInfo);
@@ -99,7 +99,7 @@ public sealed record UserCharacterList(string AccountId, IReadOnlyList<UserChara
         var count = reader.Int32();
         if (count is < 0 or > MaxCharacters)
         {
-            throw new InvalidDataException("TRANS_USERCHAR_INFO has an invalid character count.");
+            throw new InvalidDataException("Character list packet has an invalid character count.");
         }
 
         var characters = new UserCharacterEntry[count];

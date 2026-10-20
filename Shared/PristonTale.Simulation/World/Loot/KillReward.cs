@@ -14,7 +14,7 @@ public static class KillReward
             <= 30 => 70,
             _ => 55
         };
-        // Event bonus precedes srGetTotalExp; widen before multiplying to avoid overflow.
+        // Event bonus precedes the experience total; widen before multiplying to avoid overflow.
         long boosted = checked((long)baseExp * multiplier);
         return checked((int)(boosted * percent / 100));
     }

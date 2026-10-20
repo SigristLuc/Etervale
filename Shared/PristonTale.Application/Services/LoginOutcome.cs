@@ -1,6 +1,6 @@
 namespace PristonTale.Application.Services;
 
-// Values are the smTRANSCODE_FAILCONNECT WParam codes the original login screen understands (HoOpening.cpp).
+// Values are the FAILCONNECT WParam codes the original login screen understands.
 // Unknown accounts report a bad password so the reply does not reveal which accounts exist.
 public enum LoginFailure
 {

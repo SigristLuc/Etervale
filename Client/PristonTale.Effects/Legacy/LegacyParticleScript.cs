@@ -77,7 +77,7 @@ public static partial class LegacyParticleScript
                     throw new InvalidDataException("Unsupported particle system property.");
                 }
 
-                // HoNewParticleMgr.Start calls SetPos after compilation, overriding this authored default.
+                // The original particle manager sets the position after compilation, overriding this authored default.
                 var position = Range(value, 3);
                 if (position.Min != position.Max)
                 {

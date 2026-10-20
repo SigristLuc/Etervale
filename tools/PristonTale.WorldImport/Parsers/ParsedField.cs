@@ -11,7 +11,7 @@ public sealed class ParsedField
 {
     public required string AseBase { get; init; }
 
-    // .spm budget knobs (DecodeOpenMonster). Defaults match the source (LimitMax 10, OpenLimit 3).
+    // .spm budget knobs. Defaults match the original (10 concurrent monsters, 3 per wave).
     public int MaxConcurrentMonsters { get; set; } = 10;
     public int MaxPerSpawnPoint { get; set; } = 3;
     public int SpawnInterval { get; set; }

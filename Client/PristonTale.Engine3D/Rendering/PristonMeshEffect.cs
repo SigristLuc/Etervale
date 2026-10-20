@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Formats;
 
@@ -7,16 +8,22 @@ namespace PristonTale.Engine3D.Rendering;
 public sealed class PristonMeshEffect : IDisposable
 {
     private readonly GraphicsDevice _device;
-    private readonly BasicEffect _effect;
+    private readonly PristonUnlitEffect _effect;
     private readonly List<Batch>[] _frames;
     public int FrameCount => _frames.Length;
 
-    public PristonMeshEffect(GraphicsDevice device, PristonTextureLoader textures, PristonModel mesh, PristonModel skeleton, int frameCount)
+    public PristonMeshEffect(
+        GraphicsDevice device,
+        ContentManager content,
+        PristonTextureLoader textures,
+        PristonModel mesh,
+        PristonModel skeleton,
+        int frameCount)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(frameCount, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(frameCount, 60);
         _device = device;
-        _effect = new BasicEffect(device) { TextureEnabled = true, VertexColorEnabled = true, LightingEnabled = false };
+        _effect = new PristonUnlitEffect(content) { Sampler = SamplerState.LinearWrap };
         _frames = new List<Batch>[frameCount];
         try
         {
@@ -40,7 +47,13 @@ public sealed class PristonMeshEffect : IDisposable
                     }
 
                     var texture = textures.LoadTexture(directory, material.TextureName, material.OpacityName);
-                    var vertices = group.Value.ToArray();
+                    var vertices = new VertexPositionColorTexture[group.Value.Count];
+                    for (var index = 0; index < vertices.Length; index++)
+                    {
+                        var corner = group.Value[index];
+                        vertices[index] = new VertexPositionColorTexture(corner.Position, corner.Color, corner.Uv0);
+                    }
+
                     var buffer = new VertexBuffer(device, VertexPositionColorTexture.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
                     batches.Add(new Batch(buffer, texture, vertices.Length / 3));
                     buffer.SetData(vertices);
@@ -60,20 +73,17 @@ public sealed class PristonMeshEffect : IDisposable
         _effect.View = view;
         _effect.Projection = projection;
         _effect.Alpha = MathHelper.Clamp(opacity, 0, 1);
+        // Additive: the opacity fades the added light itself.
         _effect.DiffuseColor = new Vector3(_effect.Alpha);
         _device.BlendState = BlendState.Additive;
         _device.DepthStencilState = DepthStencilState.DepthRead;
         _device.RasterizerState = RasterizerState.CullNone;
-        _device.SamplerStates[0] = SamplerState.LinearWrap;
         foreach (var batch in _frames[Math.Clamp(frame, 0, FrameCount - 1)])
         {
             _effect.Texture = batch.Texture;
             _device.SetVertexBuffer(batch.Vertices);
-            foreach (var pass in _effect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                _device.DrawPrimitives(PrimitiveType.TriangleList, 0, batch.Primitives);
-            }
+            _effect.Apply();
+            _device.DrawPrimitives(PrimitiveType.TriangleList, 0, batch.Primitives);
         }
     }
 
@@ -92,7 +102,7 @@ public sealed class PristonMeshEffect : IDisposable
             }
         }
 
-        _effect.Dispose();
+        _effect?.Dispose();
     }
 
     private readonly record struct Batch(VertexBuffer Vertices, Texture2D Texture, int Primitives);

@@ -11,14 +11,14 @@ using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Client.Net.Online;
 
-// Rebuilds the neutral presence model from original packets. Like the original client (netplay.cpp), an unknown
+// Rebuilds the neutral presence model from original packets. Like the original client, an unknown
 // serial in PLAYDATAGROUP triggers GETPLAYERINFO; the object is published once its PLAYERINFO description arrives,
 // and a changed bUpdateInfo[0] revision requests a fresh description.
 internal sealed class PresenceDecoder
 {
     private const uint GoldCode = 0x05010100;
     private readonly Dictionary<uint, Tracked> _objects = new();
-    // Monster and NPC descriptions are shared by template, like the original client's enemy cache (playsub.cpp).
+    // Monster and NPC descriptions are shared by template, like the original client's enemy cache.
     private readonly Dictionary<uint, Description> _templates = new();
     private readonly WorldRenderCatalog _catalog;
     private readonly Action<uint> _requestDescription;
@@ -30,6 +30,7 @@ internal sealed class PresenceDecoder
     private long _skillsRevision = -1;
     private IReadOnlyList<OwnedSkillView> _skills = [];
     private long _tick;
+    private double? _clockMs;
 
     public PresenceDecoder(WorldRenderCatalog catalog, Action<uint> requestDescription)
     {
@@ -57,11 +58,21 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.OwnerStatus => OnOwnerStatus(OwnerStatusPacket.Read(packet)),
             EtervaleOpcodes.Inventory => OnInventory(InventoryPartPacket.Read(packet)),
             EtervaleOpcodes.Skills => OnSkills(SkillsPacket.Read(packet)),
+            EtervaleOpcodes.PresenceClock => OnPresenceClock(PresenceClockPacket.Read(packet)),
             _ => null
         };
         return update is not null || code is PristonOpcodes.PlayDataGroup or PristonOpcodes.PlayerInfo or EtervaleOpcodes.RemoveObjects
             or EtervaleOpcodes.CombatEvents or PristonOpcodes.PlayItem or PristonOpcodes.DelItem or PristonOpcodes.WarpField
-            or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills;
+            or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills or EtervaleOpcodes.PresenceClock;
+    }
+
+    public double? ServerTimeMs => _clockMs;
+
+    // A server without the extension leaves the time unset and the client falls back to arrival time.
+    public PresenceUpdate? OnPresenceClock(PresenceClockPacket clock)
+    {
+        _clockMs = clock.ServerTimeMs;
+        return null;
     }
 
     public PresenceUpdate? OnPlayDataGroup(ReadOnlySpan<byte> packet)
@@ -81,7 +92,7 @@ internal sealed class PresenceDecoder
                 Apply(PlayDataCoarse.Read(entry), states);
             }
         });
-        return spawns.Count == 0 && states.Count == 0 ? null : Update(spawns, states);
+        return spawns.Count == 0 && states.Count == 0 ? null : Update(spawns, states) with { ServerTimeMs = _clockMs };
     }
 
     private void Apply(TransPlayData data, List<EntitySpawnInfo> spawns, List<EntityStateInfo> states)
@@ -105,6 +116,7 @@ internal sealed class PresenceDecoder
         tracked.Position = Position(buffer.X, buffer.Y, buffer.Z);
         tracked.Facing = PristonUnits.FromAngle(buffer.AngleY);
         tracked.Motion = MoveState(buffer.Action);
+        tracked.SampleTimeMs = _clockMs;
         tracked.HasState = true;
         if (tracked.Description is null && data.AutoCharCode != 0 && _templates.TryGetValue(data.AutoCharCode, out var shared)
             && shared.Revision == data.DescriptorRevision)
@@ -135,6 +147,7 @@ internal sealed class PresenceDecoder
         tracked.Position = Position(data.X, data.Y, data.Z);
         tracked.Facing = PristonUnits.FromAngle(data.AngleY);
         tracked.Motion = MoveState(data.Action);
+        tracked.SampleTimeMs = _clockMs;
         if (tracked.Published)
         {
             states.Add(State(data.ObjectSerial, tracked));
@@ -220,7 +233,7 @@ internal sealed class PresenceDecoder
                 entry.SoundCode, Position(entry.X, entry.Y, entry.Z), PristonUnits.FromAngle(entry.Angle)));
         }
 
-        return Update([], [], events: events);
+        return Update([], [], events: events) with { ServerTimeMs = _clockMs };
     }
 
     public PresenceUpdate OnGroundItems(GroundItemEntry[] items)
@@ -332,14 +345,14 @@ internal sealed class PresenceDecoder
 
         return new EntitySpawnInfo(serial, description.Kind, serial == SelfSerial, tracked.Position, tracked.Facing, tracked.Motion, tracked.Hp,
             tracked.MaxHp, player, description.Kind == RemoteEntityKind.Player ? 0 : character.Temp[CharacterInfo.TempTemplateCode], character.MoveSpeed,
-            AttackRate(character), tracked.Target, tracked.Sequence);
+            AttackRate(character), tracked.Target, tracked.Sequence, tracked.SampleTimeMs, character.Name ?? "", character.Level);
     }
 
     private static EntityStateInfo State(uint serial, Tracked tracked)
     {
         var character = tracked.Description!.Character;
         return new EntityStateInfo(serial, tracked.Position, tracked.Facing, tracked.Motion, tracked.Hp, character.MoveSpeed, AttackRate(character),
-            tracked.Target, tracked.Sequence);
+            tracked.Target, tracked.Sequence, tracked.SampleTimeMs);
     }
 
     private static float AttackRate(CharacterInfo character)
@@ -388,5 +401,6 @@ internal sealed class PresenceDecoder
         public int MaxHp { get; set; }
         public uint Target { get; set; }
         public ulong Sequence { get; set; }
+        public double? SampleTimeMs { get; set; }
     }
 }

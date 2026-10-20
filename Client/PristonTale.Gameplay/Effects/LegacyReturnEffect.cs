@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Effects.Particles;
+using PristonTale.Engine3D.Rendering;
 using PristonTale.Engine3D.Rendering.Lighting;
 
 namespace PristonTale.Gameplay.Effects;
@@ -18,7 +19,7 @@ public sealed class LegacyReturnEffect : IDisposable
     private readonly PristonTransientLights _lights;
     private readonly LegacyBillboardAnimation _particleAnimation;
     private readonly LegacyBillboardAnimation _rayAnimation;
-    private readonly BasicEffect _effect;
+    private readonly PristonUnlitEffect _effect;
     private readonly ParticleState[] _particles = new ParticleState[ParticleCount];
     private readonly RayState[] _rays = new RayState[RayCount];
     private readonly VertexPositionColorTexture[][] _particleVertices;
@@ -44,14 +45,7 @@ public sealed class LegacyReturnEffect : IDisposable
         _lights = lights;
         _particleAnimation = library.ReturnParticle;
         _rayAnimation = library.ReturnRay;
-        _effect = new BasicEffect(device)
-        {
-            TextureEnabled = true,
-            VertexColorEnabled = true,
-            LightingEnabled = false,
-            FogEnabled = false,
-            World = Matrix.Identity
-        };
+        _effect = new PristonUnlitEffect(library.Content);
         _particleVertices = CreateVertexBuffers(_particleAnimation.Textures.Count, ParticleCount);
         _rayVertices = CreateVertexBuffers(_rayAnimation.Textures.Count, RayCount);
         _particleVertexCounts = new int[_particleAnimation.Textures.Count];
@@ -131,7 +125,6 @@ public sealed class LegacyReturnEffect : IDisposable
         _device.BlendState = BlendState.Additive;
         _device.DepthStencilState = DepthStencilState.DepthRead;
         _device.RasterizerState = RasterizerState.CullNone;
-        _device.SamplerStates[0] = SamplerState.LinearClamp;
         DrawBuffers(_particleAnimation.Textures, _particleVertices, _particleVertexCounts);
         DrawBuffers(_rayAnimation.Textures, _rayVertices, _rayVertexCounts);
     }
@@ -307,11 +300,8 @@ public sealed class LegacyReturnEffect : IDisposable
             }
 
             _effect.Texture = textures[index];
-            foreach (var pass in _effect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                _device.DrawUserPrimitives(PrimitiveType.TriangleList, buffers[index], 0, count / 3);
-            }
+            _effect.Apply();
+            _device.DrawUserPrimitives(PrimitiveType.TriangleList, buffers[index], 0, count / 3);
         }
     }
 

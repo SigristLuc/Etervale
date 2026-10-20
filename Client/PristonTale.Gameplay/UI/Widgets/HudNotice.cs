@@ -3,7 +3,7 @@ using PristonTale.Gameplay.UI.Rendering;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
-// sinMessageBox.cpp ShowMessage: CutBox left/centre/right strip at y=5 with text at +43,+17, cleared after a few seconds.
+// Original notice: CutBox left/centre/right strip at y=5 with text at +43,+17, cleared after a few seconds.
 public sealed class HudNotice
 {
     public const double Seconds = 3;

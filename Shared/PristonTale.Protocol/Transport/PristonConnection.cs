@@ -14,12 +14,12 @@ public sealed record PristonConnectionOptions
 }
 
 // One Priston TCP stream: frames are {int size, uint code}, at most 8192 bytes. Packets whose code high word is 0x8001
-// are EncodePacket envelopes (smwsock.cpp) checked by the replay window; every other code is plaintext.
+// are encrypted envelopes checked by the replay window; every other code is plaintext.
 // Sends from any thread are appended to one pending buffer and flushed by a single writer, so packets queued while a
 // socket write is in flight leave together in the next write.
 public sealed class PristonConnection : IPacketSink, IAsyncDisposable
 {
-    // Send2 only encrypts below smSOCKBUFF_SIZE - 16 bytes; larger packets go out in plaintext.
+    // The original only encrypts below the 8192-byte frame size - 16 bytes; larger packets go out in plaintext.
     public const int MaxEncryptedPlaintext = PristonFrameCodec.MaxFrameSize - 16;
     private const uint EnvelopeMask = 0xFFFF0000;
     private const int ReceiveBufferSize = PristonFrameCodec.MaxFrameSize * 2;
@@ -142,7 +142,7 @@ public sealed class PristonConnection : IPacketSink, IAsyncDisposable
                     }
                     else if ((code & EnvelopeMask) == 0x90010000)
                     {
-                        throw new InvalidDataException("ENCODE_PACKET2 requires the server-pushed decoder and is not supported");
+                        throw new InvalidDataException("The 0x9001xxxx envelope requires the server-pushed decoder and is not supported");
                     }
                     else
                     {
@@ -171,7 +171,7 @@ public sealed class PristonConnection : IPacketSink, IAsyncDisposable
 
     public bool Send(ReadOnlySpan<byte> packet) => Enqueue(packet, encrypt: false);
 
-    // smWINSOCK::Send2: EncodePacket with the session XOR when the packet fits, otherwise plaintext.
+    // Encrypted envelope with the session XOR when the packet fits, otherwise plaintext.
     public bool SendEncrypted(ReadOnlySpan<byte> packet) => Enqueue(packet, encrypt: packet.Length < MaxEncryptedPlaintext);
 
     private bool Enqueue(ReadOnlySpan<byte> packet, bool encrypt)

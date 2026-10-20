@@ -8,8 +8,9 @@ internal static class SkyTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("HoSky manifest preserves ordered layers, RGBA and Windows path normalization", ManifestAsync);
-        yield return ("all configured outdoor fields resolve their original HoSky profiles", ProfilesAsync);
+        yield return ("sky manifest preserves ordered layers, RGBA and Windows path normalization", ManifestAsync);
+        yield return ("all configured outdoor fields resolve their original sky profiles", ProfilesAsync);
+        yield return ("distance fog keeps the original start, caps atmospheric opacity and keeps the classic clip", FogCurveAsync);
     }
 
     private static Task ManifestAsync()
@@ -42,6 +43,22 @@ internal static class SkyTests
         }
 
         Assert.True(PristonSkyProfiles.Opening.Select(12) == 22, "opening lost its 0x80 sky");
+        return Task.CompletedTask;
+    }
+
+    private static Task FogCurveAsync()
+    {
+        var atmospheric = PristonDistanceFog.Atmospheric;
+        const float start = PristonDistanceFog.OriginalStartDistance;
+        Assert.True(atmospheric.Level(start) == 0f, "fog moved the original near start");
+        Assert.Near(0.5f * atmospheric.MaxOpacity, atmospheric.Level(start + MathF.Log(2f) / atmospheric.Density));
+        Assert.True(atmospheric.Level(start + 510f) < 0.15f, "atmospheric fog still hides geometry at the classic end distance");
+        var far = atmospheric.Level(20000f);
+        Assert.True(far <= atmospheric.MaxOpacity && far > atmospheric.MaxOpacity - 0.03f, "atmospheric fog misses its cap at the far plane");
+        Assert.True(atmospheric.MaxOpacity is > 0.8f and <= 0.9f, "atmospheric cap left the 0.8..0.9 range");
+        Assert.True(PristonDistanceFog.Disabled.Level(20000f) == 0f, "disabled fog still applies");
+        Assert.True(PristonDistanceFog.For(DistanceFogMode.Classic) == atmospheric && new ClientSettings().DistanceFog == DistanceFogMode.Atmospheric,
+            "Classic settings no longer fall back to the atmospheric fog, or the default changed");
         return Task.CompletedTask;
     }
 }

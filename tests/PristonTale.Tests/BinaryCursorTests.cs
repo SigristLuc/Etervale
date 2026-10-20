@@ -16,7 +16,7 @@ internal static class BinaryCursorTests
         yield return ("render clock preserves sub-millisecond frames and legacy uint wrap", ClockAsync);
         yield return ("INX reader preserves complete fixed-width motion records", InxLayoutAsync);
         yield return ("SMD reader accepts verified model signatures and preserves stale file trailers", ModelLayoutsAsync);
-        yield return ("SMD stage reader decodes PTClassic WORD and EU DWORD area indexes", StageAreaLayoutsAsync);
+        yield return ("SMD stage reader decodes classic WORD and EU DWORD area indexes", StageAreaLayoutsAsync);
         yield return ("CAM reader preserves Win32 rotation records and uses incremental quaternions", CameraLayoutAsync);
     }
 
@@ -225,12 +225,12 @@ internal static class BinaryCursorTests
             var camera = PristonCameraPath.ReadCam(path);
             Assert.True(camera.InitialFrame == 23 && camera.LastFrame == 160, "camera header fields changed");
             Assert.True(camera.PositionKeys.Count == 2 && camera.RotationKeys.Count == 2, "camera key counts changed");
-            Assert.True(camera.PositionKeys[1] == new PristonCameraPositionKey(160, new Vector3(5f, 6f, 7f)), "smTM_POS fields changed");
+            Assert.True(camera.PositionKeys[1] == new PristonCameraPositionKey(160, new Vector3(5f, 6f, 7f)), "position key fields changed");
 
             var rotation = camera.RotationKeys[0];
             Assert.True(rotation.Angles == new Int3(11, 12, 13), "SRotAngle fields were discarded");
-            Assert.True(rotation.QuaternionAlignmentPadding32 == 0xAABBCCDDu, "smDTM_ROT alignment bytes were discarded");
-            Assert.True(rotation.IncrementalQuaternion == new PristonDoubleQuaternion(0d, 0d, 0d, 1d), "smDTM_ROT doubles changed");
+            Assert.True(rotation.QuaternionAlignmentPadding32 == 0xAABBCCDDu, "rotation key alignment bytes were discarded");
+            Assert.True(rotation.IncrementalQuaternion == new PristonDoubleQuaternion(0d, 0d, 0d, 1d), "rotation key doubles changed");
 
             camera.Sample(80f, out var position, out var forward, out var up);
             Assert.True(position == new Vector3(3f, 4f, -5f), "camera position interpolation changed");

@@ -24,7 +24,7 @@ namespace PristonTale.WorldImport;
 /// The production <see cref="IWorldDataRepository"/> is read-only by design, so the WRITE SQL lives here
 /// (mirroring DapperCharacterRepository's explicit-column, provider-agnostic style).
 ///
-/// Item DWORDs use the original category and ordinal bits from sinItem.h, shared with runtime catalog mapping.
+/// Item DWORDs use the original category and ordinal bits of the binary item code, shared with runtime catalog mapping.
 /// </summary>
 public sealed class Importer
 {

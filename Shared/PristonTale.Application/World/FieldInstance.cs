@@ -28,6 +28,7 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
     private readonly List<MonsterInstance> _liveScratch = new();
     private readonly List<EntityNeighbour> _neighbourScratch = new();
     private readonly FieldPreyView _prey = new();
+    private readonly MonsterOccupancy _occupancy;
     private readonly SpatialIndex _collisionIndex = new();
     private readonly List<SpatialEntry> _collisionQuery = new();
     private readonly Dictionary<int, MonsterAiTuning> _tuningByCode = new();
@@ -63,6 +64,7 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         _rng = rng;
         _motions = motions ?? MotionTimingCatalog.Empty;
         _ = PlayerEquipmentTiming.Count;
+        _occupancy = new MonsterOccupancy(_neighbourScratch);
         _spawner = new FieldSpawner(spawnData, catalog, rng);
         _brain = new MonsterAiBrain(rng);
         _combat = new FieldCombat(this, rng, experienceMultiplier);
@@ -215,17 +217,29 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
                 monster.EntityId, monster.TargetId, CombatEventKindView.SwingBegin, durationMs, hitAtMs));
         }
 
-        // Re-resolve AI movement against the authoritative entity roster.
+        // Re-resolve AI movement against the stage and the other monsters only, sliding like CheckNextMove.
         Vector3 desired = monster.Position;
-        if (desired != before)
+        float dx = desired.X - before.X;
+        float dz = desired.Z - before.Z;
+        float distance = MathF.Sqrt((dx * dx) + (dz * dz));
+        bool moved = false;
+        bool crowded = false;
+        if (distance > 0f)
         {
-            BuildNeighbours(monster.EntityId, before, desired, EntityCollisionRadii.Monster);
-            Vector3 accepted = EntityCollision.Resolve(before, desired, EntityCollisionRadii.Monster, _neighbourScratch);
-            // Walls and climbs above a step stop the monster, as CheckNextMove does on the original server.
-            monster.Position = Terrain.TryStep(before, accepted, out var grounded) ? grounded : before;
-            accepted = monster.Position;
+            BuildMonsterNeighbours(monster.EntityId, before, distance);
+            var result = MonsterStepping.Step(Terrain, before, MathF.Atan2(dx, dz), distance, _occupancy, out var accepted);
+            crowded = result == MonsterStepResult.Crowded;
+            monster.Position = accepted;
+            moved = accepted.X != before.X || accepted.Z != before.Z;
             _collisionIndex.Put(monster.EntityId, accepted);
         }
+        else if (desired != before)
+        {
+            monster.Position = before;
+        }
+
+        monster.MovedThisTick = moved;
+        monster.Crowded = crowded;
 
         if (attack is { } landed)
         {
@@ -364,6 +378,39 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         }
     }
 
+    // Live monsters around a mover, for the original's monster-only overlap test (Serv_CheckOtherPlayPosi).
+    private void BuildMonsterNeighbours(uint selfId, Vector3 origin, float distance)
+    {
+        _neighbourScratch.Clear();
+        _collisionIndex.Query(origin, distance + EntityCollisionRadii.Monster * 2f, _collisionQuery);
+        foreach (var entry in _collisionQuery)
+        {
+            if (entry.Id != selfId && _monsters.TryGetValue(entry.Id, out var other) && other.IsAlive)
+            {
+                _neighbourScratch.Add(new EntityNeighbour(other.Position, EntityCollisionRadii.Monster));
+            }
+        }
+    }
+
+    private sealed class MonsterOccupancy(List<EntityNeighbour> neighbours) : IStepOccupancy
+    {
+        public bool IsOccupied(Vector3 position)
+        {
+            foreach (var neighbour in neighbours)
+            {
+                float dx = neighbour.Position.X - position.X;
+                float dz = neighbour.Position.Z - position.Z;
+                float overlap = neighbour.Radius;
+                if (MathF.Abs(neighbour.Position.Y - position.Y) < overlap && (dx * dx) + (dz * dz) < overlap * overlap)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     private void SnapshotLiveMonsters()
     {
         _liveScratch.Clear();
@@ -434,14 +481,14 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         isSelf: false,
         m.Position,
         m.Facing,
-        ToMoveState(m.Motion),
+        ToMoveState(m.PresentedMotion),
         level: m.Def.Combat.Level,
         hp: m.Life,
         maxHp: m.Def.Combat.MaxLife,
         appearance: default,
         templateId: (uint)m.Def.Code,
         moveSpeed: m.Def.Ai.MoveSpeed,
-        attackRate: 1f); // monsters never scale their attack advance (character.cpp:2862,5031-5037).
+        attackRate: 1f); // monsters never scale their attack advance.
 
     private static MoveStateView ToMoveState(MonsterMotionState motion) => motion switch
     {

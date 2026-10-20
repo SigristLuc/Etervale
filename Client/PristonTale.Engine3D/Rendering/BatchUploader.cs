@@ -26,7 +26,7 @@ internal sealed class BatchUploader
         {
             batch.DynamicBuffer = new DynamicVertexBuffer(
                 _graphicsDevice,
-                PristonDynamicVertex.VertexDeclaration,
+                PristonStaticVertex.VertexDeclaration,
                 batch.Vertices.Length,
                 BufferUsage.WriteOnly);
             batch.DynamicBufferDirty = true;
@@ -35,7 +35,7 @@ internal sealed class BatchUploader
         if (batch.DynamicBufferDirty)
         {
             batch.DynamicBuffer.SetData(batch.Vertices, 0, batch.Vertices.Length, SetDataOptions.Discard);
-            UploadedBytes += (long)batch.Vertices.Length * PristonDynamicVertex.VertexDeclaration.VertexStride;
+            UploadedBytes += (long)batch.Vertices.Length * PristonStaticVertex.VertexDeclaration.VertexStride;
             batch.DynamicBufferDirty = false;
         }
     }

@@ -3,7 +3,7 @@ using PristonTale.Gameplay.UI.Rendering;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
-// sinMessageBox.cpp ShowMessage3: BoxMain.tga at (300,200), top anchored, with two 32x16 buttons and two text lines.
+// Original two-button message box: BoxMain.tga at (300,200), top anchored, with two 32x16 buttons and two text lines.
 public static class HudMessageBox
 {
     private const int VisibleWidth = 168;

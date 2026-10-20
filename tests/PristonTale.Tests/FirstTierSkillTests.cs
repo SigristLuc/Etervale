@@ -70,10 +70,10 @@ internal static class FirstTierSkillTests
             Assert.True(skill.RequiredLevel == source.Level, "source required level changed");
             var mouseUse = source.Use switch
             {
-                "SIN_SKILL_USE_ALL" => SkillMouseUse.Both,
-                "SIN_SKILL_USE_RIGHT" => SkillMouseUse.Right,
-                "SIN_SKILL_USE_LEFT" => SkillMouseUse.Left,
-                "SIN_SKILL_USE_NOT" => SkillMouseUse.None,
+                "Both" => SkillMouseUse.Both,
+                "Right" => SkillMouseUse.Right,
+                "Left" => SkillMouseUse.Left,
+                "None" => SkillMouseUse.None,
                 _ => throw new InvalidDataException(source.Use)
             };
             Assert.True(skill.MouseUse == mouseUse, "source mouse use changed");

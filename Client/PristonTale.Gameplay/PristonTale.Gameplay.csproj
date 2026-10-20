@@ -6,7 +6,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.4.1" />
+        <!-- MonoGame Native platform (Vulkan) from the fork in monogame/ (monogame/README.md). -->
+        <ProjectReference Include="../../monogame/framework/MonoGame.Framework/MonoGame.Framework.Native.csproj" />
     </ItemGroup>
 
     <ItemGroup>

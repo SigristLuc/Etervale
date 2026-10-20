@@ -2,7 +2,7 @@ using Microsoft.Xna.Framework;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
-// sinSkill.cpp sSkillBox/SkillTitle in design coordinates of the fully open Skil24.bmp window.
+// Original skill boxes and titles in design coordinates of the fully open Skil24.bmp window.
 public static class HudSkillTreeLayout
 {
     private static readonly Point[] Nodes =

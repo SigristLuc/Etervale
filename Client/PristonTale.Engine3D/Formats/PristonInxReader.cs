@@ -105,7 +105,7 @@ public sealed class PristonInxReader
         if (cursor.Position - tailStart != ModelInfoTailSize || cursor.Position != cursor.Length)
         {
             throw new InvalidDataException(
-                $"{path} has an invalid Win32 smMODELINFO tail: consumed {cursor.Position - tailStart} of {ModelInfoTailSize} bytes; "
+                $"{path} has an invalid Win32 model info tail: consumed {cursor.Position - tailStart} of {ModelInfoTailSize} bytes; "
                 + $"file position {cursor.Position} of {cursor.Length}.");
         }
 

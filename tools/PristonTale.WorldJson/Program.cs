@@ -49,7 +49,7 @@ var fields = catalog.AllFields.Select(f => new
 
 var world = new
 {
-    // Streaming radii from the original DIST_TRANSLEVEL_CONNECT/DISCONNECT (PT global units). Multiply by
+    // Streaming radii from the original connect/disconnect view ranges (PT global units). Multiply by
     // the export scale in the runtime. Gate planar mapping to a Y-up engine: (x, -z).
     streamConnect = 1086.0,
     streamDisconnect = 1810.0,

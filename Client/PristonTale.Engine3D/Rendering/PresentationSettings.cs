@@ -18,10 +18,7 @@ public sealed class PresentationSettings
 
     public void ApplyRendering(ClientSettings settings)
     {
-        if (settings.ShadowMapSize == Rendering.ShadowMapSize
-            && settings.LampShadowTileSize == Rendering.LampShadowTileSize
-            && settings.ShadowUpdateRate == Rendering.ShadowUpdateRate
-            && settings.ShadowsEnabled == Rendering.ShadowsEnabled)
+        if (settings.HasSameRendering(Rendering))
         {
             return;
         }

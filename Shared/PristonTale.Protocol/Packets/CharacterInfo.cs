@@ -9,7 +9,7 @@ public static class CharacterState
     public const int User = 0x80;
 }
 
-// smCHAR_INFO (smPacket.h) with the 32-bit layout: 464 bytes, lpMonInfo kept as a zero 4-byte slot at offset 328.
+// Character info record with the 32-bit layout: 464 bytes, lpMonInfo kept as a zero 4-byte slot at offset 328.
 public sealed class CharacterInfo
 {
     public const int Size = 464;
@@ -206,7 +206,7 @@ public sealed class CharacterInfo
         writer.UInt16(Version1);
         if (writer.Position - start != Size)
         {
-            throw new InvalidOperationException("smCHAR_INFO layout drifted from 464 bytes.");
+            throw new InvalidOperationException("Character info record layout drifted from 464 bytes.");
         }
     }
 
@@ -306,14 +306,14 @@ public sealed class CharacterInfo
         info.Version1 = reader.UInt16();
         if (reader.Position - start != Size)
         {
-            throw new InvalidOperationException("smCHAR_INFO layout drifted from 464 bytes.");
+            throw new InvalidOperationException("Character info record layout drifted from 464 bytes.");
         }
 
         return info;
     }
 }
 
-// smTRNAS_PLAYERINFO: {size, code, smCHAR_INFO, dwObjectSerial, x, y, z, ax, ay, az, state} = 504 bytes.
+// PLAYERINFO packet: {size, code, character info, dwObjectSerial, x, y, z, ax, ay, az, state} = 504 bytes.
 public sealed record PlayerInfoPacket(CharacterInfo Character, uint ObjectSerial, int X, int Y, int Z, int AngleX = 0, int AngleY = 0, int AngleZ = 0, int State = 0)
 {
     public const int Size = 504;

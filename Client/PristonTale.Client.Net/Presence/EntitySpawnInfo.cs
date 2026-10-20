@@ -16,4 +16,7 @@ public sealed record EntitySpawnInfo(
     int MoveSpeed = 0,
     float AttackRate = 1f,
     uint AttackTargetId = 0,
-    ulong AttackSequence = 0);
+    ulong AttackSequence = 0,
+    double? ServerTimeMs = null,
+    string Name = "",
+    int Level = 0);

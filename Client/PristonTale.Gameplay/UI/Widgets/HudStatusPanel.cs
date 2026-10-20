@@ -4,7 +4,7 @@ using PristonTale.Simulation.Characters;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
-// sinCharStatus.cpp: Status.bmp with sCharRectPosi text columns and the PointButton attribute arrows.
+// Original status window: Status.bmp with its text columns and the attribute point arrows.
 // The element resistances (RegiBox) are not part of the authoritative owner state and stay empty.
 public sealed class HudStatusPanel
 {

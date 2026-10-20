@@ -3,9 +3,9 @@ using PristonTale.Protocol.Binary;
 
 namespace PristonTale.Protocol.Packets;
 
-// TRANS_ATTACKDATA2 sent as smTRANSCODE_ATTACK_DAMAGE (92 bytes). The client computes dwChkSum with dm_GetDamgeChkSum,
-// XOR-chains dwords 2..22 with dm_EncodePacket keyed by its own object serial, then wraps it with Send2.
-// Clicking an NPC uses the same packet with the NPC as target (playmain.cpp). Etervale ignores Power and computes damage.
+// Attack data packet sent as ATTACK_DAMAGE (92 bytes). The client computes dwChkSum with the damage checksum below,
+// XOR-chains dwords 2..22 with the damage cipher keyed by its own object serial, then sends it through the encrypted
+// envelope. Clicking an NPC uses the same packet with the NPC as target. Etervale ignores Power and computes damage.
 public sealed record AttackDamagePacket(
     uint AttackerSerial,
     uint TargetSerial,
@@ -91,7 +91,7 @@ public sealed record AttackDamagePacket(
         return new AttackDamagePacket(attacker, target, x, y, z, state, size, powerMin, powerMax, skill, time, count, weapon, field);
     }
 
-    // dm_GetDamgeChkSum (game/combat/Damage.cpp).
+    // Damage checksum of the original client.
     internal static uint Checksum(ReadOnlySpan<byte> packet)
     {
         var checksum = Dword(packet, 4);
@@ -107,7 +107,7 @@ public sealed record AttackDamagePacket(
 
     private static uint Dword(ReadOnlySpan<byte> packet, int offset) => BinaryPrimitives.ReadUInt32LittleEndian(packet[offset..]);
 
-    // dm_EncodePacket: running XOR over dwords [2, size/4) keyed by the opcode and the sender's object serial.
+    // Damage cipher: running XOR over dwords [2, size/4) keyed by the opcode and the sender's object serial.
     internal static void Encode(Span<byte> packet, uint senderSerial)
     {
         var size = BinaryPrimitives.ReadUInt32LittleEndian(packet) / 4;
@@ -124,7 +124,7 @@ public sealed record AttackDamagePacket(
         }
     }
 
-    // dm_DecodePacket.
+    // Inverse of the damage cipher.
     internal static void Decode(Span<byte> packet, uint senderSerial)
     {
         var size = BinaryPrimitives.ReadUInt32LittleEndian(packet) / 4;

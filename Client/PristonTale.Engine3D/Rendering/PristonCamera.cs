@@ -134,8 +134,16 @@ public sealed class PristonCamera
 
         _projectionWidth = width;
         _projectionHeight = height;
-        Projection = Matrix.CreatePerspectiveFieldOfView(
-            _fieldOfViewRadians, width / (float)height, _settings.NearPlane, _settings.FarPlane);
+        var aspect = width / (float)height;
+        var verticalFieldOfView = VerticalFieldOfView(_fieldOfViewRadians, _settings.MaxHorizontalFieldOfViewDegrees, aspect);
+        Projection = Matrix.CreatePerspectiveFieldOfView(verticalFieldOfView, aspect, _settings.NearPlane, _settings.FarPlane);
+    }
+
+    internal static float VerticalFieldOfView(float verticalRadians, float maxHorizontalDegrees, float aspect)
+    {
+        var maxHorizontal = maxHorizontalDegrees * MathF.PI / 180f;
+        var capped = 2f * MathF.Atan(MathF.Tan(maxHorizontal * 0.5f) / aspect);
+        return MathF.Min(verticalRadians, capped);
     }
 
     public void UpdateFollow(Vector3 target, float deltaSeconds, IPristonCollisionQuery collisionWorld = null)
@@ -148,7 +156,8 @@ public sealed class PristonCamera
             lookAt = Vector3.Lerp(Target, lookAt, alpha);
         }
 
-        var desired = lookAt - CameraForward() * _distance;
+        var arm = lookAt - CameraForward() * _distance;
+        var desired = arm;
         if (_hasPosition)
         {
             var translated = _position + lookAt - Target;
@@ -157,12 +166,37 @@ public sealed class PristonCamera
 
         Target = lookAt;
         var previous = _hasPosition ? _position : desired;
-        _position = PristonCameraCollision.Resolve(previous, desired, lookAt.Y, _settings, collisionWorld);
+        var resolved = PristonCameraCollision.Resolve(previous, desired, lookAt.Y, _settings, collisionWorld);
+        if (_hasPosition && IsStranded(resolved, desired, arm, lookAt, collisionWorld))
+        {
+            // The camera sweeps from its own position so poles and portals never pull it forward. A camera that is held
+            // away from its arm by a wall it cannot see the focus through was left behind a wall the target crossed (a
+            // field edge, a gate, a server correction); sweeping from there would keep it stuck, so re-anchor on the arm.
+            resolved = PristonCameraCollision.Resolve(lookAt, arm, lookAt.Y, _settings, collisionWorld);
+        }
+
+        _position = resolved;
         _hasPosition = true;
 
         FlatForward = new Vector3(MathF.Sin(_yaw), 0f, MathF.Cos(_yaw));
         var viewTarget = Vector3.DistanceSquared(_position, lookAt) > 0.000001f ? lookAt : _position + CameraForward();
         View = Matrix.CreateLookAt(_position, viewTarget, Vector3.Up);
+    }
+
+    private bool IsStranded(Vector3 position, Vector3 desired, Vector3 arm, Vector3 lookAt, IPristonCollisionQuery collisionWorld)
+    {
+        if (collisionWorld is null || Vector3.DistanceSquared(position, desired) <= 1f)
+        {
+            return false;
+        }
+
+        var strandedDistance = _settings.CollisionWallPad * 2f;
+        if (Vector3.DistanceSquared(position, arm) <= strandedDistance * strandedDistance)
+        {
+            return false;
+        }
+
+        return collisionWorld.TryTraceSegment(lookAt, position, out _, out _);
     }
 
     private static Vector3 NormalizedForward(Vector3 forward)

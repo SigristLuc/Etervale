@@ -5,7 +5,7 @@ using PristonTale.Simulation.Items;
 
 namespace PristonTale.Gameplay.UI.Inventory;
 
-// sinInvenTory.cpp cINVENTORY::Draw/DrawInvenText with the original window, equipment covers and selection colors.
+// The original inventory window and its text, with the original equipment covers and selection colors.
 public sealed class HudInventoryPanel
 {
     private static readonly Color Placement = Color.FromNonPremultiplied(160, 235, 255, 128);
@@ -71,7 +71,7 @@ public sealed class HudInventoryPanel
         _dragged = dragged;
     }
 
-    // Drawn after the bottom bar so the held item and the item box stay on top, as cItem.Draw follows cInterFace.Draw.
+    // Drawn after the bottom bar so the held item and the item box stay on top, as the original draws items after the interface.
     public void DrawOverlay(HudPainter painter, HudLayout layout, HudItemIcons icons, Point pointer)
     {
         if (_dragged is not null)
@@ -131,7 +131,7 @@ public sealed class HudInventoryPanel
         var texture = icons.Find(item.CatalogKey);
         if (texture is not null)
         {
-            // Item bitmaps are authored at their cell size; draw unscaled and centered as sinInvenTory does.
+            // Item bitmaps are authored at their cell size; draw unscaled and centered as the original inventory does.
             var x = bounds.X + (bounds.Width - texture.Width) / 2;
             var y = bounds.Y + (bounds.Height - texture.Height) / 2;
             painter.Image(texture, new Rectangle(x, y, texture.Width, texture.Height), tint);

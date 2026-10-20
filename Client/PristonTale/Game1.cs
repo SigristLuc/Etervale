@@ -39,12 +39,10 @@ public class Game1 : Game
             GraphicsProfile = GraphicsProfile.HiDef,
             HardwareModeSwitch = true,
             SynchronizeWithVerticalRetrace = _presentation.VerticalSync,
-            // The scene renders directly to the multisampled back buffer.
-            PreferMultiSampling = _presentation.Requested.MultiSampleCount > 0
+            // The scene renders into the renderer's multisampled HDR target; the back buffer receives the display
+            // transform and the UI only.
+            PreferMultiSampling = false
         };
-        // Request the configured sample count; the device can select fewer samples and reports the effective value.
-        _graphics.PreparingDeviceSettings += (_, e) =>
-            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = _presentation.Requested.MultiSampleCount;
         // A variable presentation step avoids repeating client work before Draw; authority remains at 20 Hz.
         IsFixedTimeStep = false;
         InactiveSleepTime = TimeSpan.Zero;
@@ -56,10 +54,10 @@ public class Game1 : Game
 
     protected override void LoadContent()
     {
-        _presentationController = new PresentationController(_presentation, _settingsStore, _graphics, Window);
+        _presentationController = new PresentationController(_presentation, _settingsStore, _graphics);
         _client = new GameClient(GraphicsDevice, Content, ResolveAssetRoot(), ServerAddress, _presentation);
         _client.LoadContent();
-        ConsoleClientLog.Instance.Info($"[Presentation] GPU={GraphicsDevice.Adapter.Description}; variable timestep; VSync={_presentation.VerticalSync}; maxFps={_presentation.Requested.MaxFps} (0=unlimited).");
+        ConsoleClientLog.Instance.Info($"[Presentation] GPU={GraphicsDevice.Adapter.DeviceName}; variable timestep; VSync={_presentation.VerticalSync}; maxFps={_presentation.Requested.MaxFps} (0=unlimited).");
     }
 
     private static string ResolveAssetRoot()

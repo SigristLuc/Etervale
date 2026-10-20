@@ -13,9 +13,9 @@ public sealed class RemoteModelEntity : RemoteEntityBase
     private readonly float _scale;
     private readonly NpcStandMotionCycle _standMotionCycle;
 
-    public RemoteModelEntity(IActorScene scene, ActorHandle actor, float scale, Vector3 position, float facing, RemoteMoveState moveState, int hp,
-        RemoteEntityKind kind = RemoteEntityKind.Monster, int soundCode = 0, PristonModelInfo modelInfo = null, uint entityId = 0)
-        : base(kind, position, facing, moveState, hp, soundCode)
+    public RemoteModelEntity(IActorScene scene, ActorHandle actor, float scale, double timeMs, Vector3 position, float facing, RemoteMoveState moveState,
+        int hp, RemoteEntityKind kind = RemoteEntityKind.Monster, int soundCode = 0, PristonModelInfo modelInfo = null, uint entityId = 0)
+        : base(kind, timeMs, position, facing, moveState, hp, soundCode)
     {
         _scene = scene;
         _actor = actor;
@@ -26,20 +26,19 @@ public sealed class RemoteModelEntity : RemoteEntityBase
         }
     }
 
-    public override void Update(float dt, FloorHeightQuery floor = null, int floorRevision = 0)
+    public override void Update(float dt, double nowMs)
     {
-        base.Update(dt, floor, floorRevision);
+        base.Update(dt, nowMs);
         if (_standMotionCycle is null)
         {
             return;
         }
 
-        var update = _standMotionCycle.Update(dt, Motion);
+        var update = _standMotionCycle.Update(dt, ShownMotion);
         if (update.MotionChanged)
         {
             _scene.SetActorMotionIndex(_actor, update.MotionIndex);
         }
-
     }
 
     protected override void ApplyWorld(Matrix world)
@@ -57,8 +56,9 @@ public sealed class RemoteModelEntity : RemoteEntityBase
         {
             _scene.SetActorMotion(_actor, command.Motion);
         }
-        _scene.SetActorPlaybackRate(_actor, RemoteRateFor(command.Motion));
     }
+
+    protected override void ApplyPlaybackRate(float rate) => _scene.SetActorPlaybackRate(_actor, rate);
 
     public override void Dispose() => _scene.RemoveActor(_actor);
 }

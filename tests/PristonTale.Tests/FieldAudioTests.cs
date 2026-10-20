@@ -138,8 +138,8 @@ internal static class FieldAudioTests
     {
         var ricarten = new WorldCatalog().GetField("village-2");
         Assert.True(ricarten.Ambients.Count == 2, "Ricarten machinery ambience sources are incomplete");
-        Assert.True(ricarten.Ambients[0] == new FieldAmbient(new FieldVector(-1006, 170, -17835), 80, 27), "store-cart ambience differs from field.cpp");
-        Assert.True(ricarten.Ambients[1] == new FieldAmbient(new FieldVector(2632, 321, -17285), 80, 27), "mechanical-windmill ambience differs from field.cpp");
+        Assert.True(ricarten.Ambients[0] == new FieldAmbient(new FieldVector(-1006, 170, -17835), 80, 27), "store-cart ambience differs from the original field table");
+        Assert.True(ricarten.Ambients[1] == new FieldAmbient(new FieldVector(2632, 321, -17285), 80, 27), "mechanical-windmill ambience differs from the original field table");
 
         return Task.CompletedTask;
     }

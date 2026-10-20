@@ -2,8 +2,8 @@ using Microsoft.Xna.Framework;
 
 namespace PristonTale.Gameplay.UI;
 
-// The original HUD is authored for 800x600. GameHud.cpp sets dsDrawOffset_X/Y to (WinSizeX-800, WinSizeY-600):
-// dsARRAY_BOTTOM elements move down by the extra height and dsARRAY_RIGHT elements move right by the extra width.
+// The original HUD is authored for 800x600 and offset by (window width - 800, window height - 600):
+// bottom-anchored elements move down by the extra height and right-anchored elements move right by the extra width.
 public readonly record struct HudLayout(int Scale, int Width, int Height, int ViewportWidth, int ViewportHeight)
 {
     public const int DesignWidth = 800;

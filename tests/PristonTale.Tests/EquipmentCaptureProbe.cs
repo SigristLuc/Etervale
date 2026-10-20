@@ -27,7 +27,7 @@ internal sealed class EquipmentCaptureProbe : Game
         _ranged = ranged;
         _root = root;
         _output = output;
-        Content.RootDirectory = Path.GetFullPath(content);
+        Content = new AbsoluteContentManager(Services, content);
         _ = new GraphicsDeviceManager(this)
         {
             PreferredBackBufferWidth = 1280,
@@ -118,6 +118,7 @@ internal sealed class EquipmentCaptureProbe : Game
             _camera.SetScriptedView(GraphicsDevice, new Vector3(0, 220, 470), new Vector3(0, 32, 55));
         }
         _renderer.Draw(_camera);
+        _renderer.ComposeScene();
         GraphicsDevice.SetRenderTarget(null);
         string path = Path.Combine(_output, $"equipment-{_phase}.png");
         using (var stream = File.Create(path))

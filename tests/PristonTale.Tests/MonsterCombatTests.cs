@@ -125,17 +125,10 @@ internal static class MonsterCombatTests
         field.Add(player);
         var monster = ((ISpawnSink)field).Spawn(definition, new Vector3(90, 0, 0), 0, 0);
         var attackEntries = 0;
-        var wasAttacking = false;
         for (var tick = 0; tick < 300; tick++)
         {
             field.Step(0.05f);
-            var attacking = monster.AiState == MonsterAiState.Attack;
-            if (attacking && !wasAttacking)
-            {
-                attackEntries++;
-            }
-
-            wasAttacking = attacking;
+            attackEntries += (field.SnapshotEvents() ?? []).Count(value => value.Kind == CombatEventKindView.SwingBegin && value.AttackerId == monster.EntityId);
         }
 
         Assert.True(attackEntries >= 3, $"short melee stopped outside its reach: distance={monster.Position.Length()}, swings={attackEntries}");

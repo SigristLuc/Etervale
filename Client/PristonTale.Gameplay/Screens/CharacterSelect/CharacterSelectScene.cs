@@ -142,6 +142,7 @@ internal sealed class CharacterSelectScene
                 summary.FaceIndex,
                 SlotWorld(slot),
                 PristonActorMotion.Stand);
+            ApplySelectPose(handles);
             _placed.Add(new Placed(summary, slot, handles));
         }
     }
@@ -192,6 +193,7 @@ internal sealed class CharacterSelectScene
                 0,
                 SlotWorld(JobCharacterPos[i]),
                 PristonActorMotion.Stand);
+            ApplySelectPose(handles);
             _jobActors.Add(new JobActor(jobs[i], i, visuals, handles));
         }
     }
@@ -227,6 +229,7 @@ internal sealed class CharacterSelectScene
             _facePreviewVisuals,
             faceIndex,
             PristonActorMotion.Stand);
+        ApplySelectPose(_facePreview);
         SetHandlesColorAdd(_facePreview, Vector3.Zero);
     }
 
@@ -407,6 +410,11 @@ internal sealed class CharacterSelectScene
         var motion = _jobPhase == JobMovePhase.Running ? PristonActorMotion.Run : PristonActorMotion.Stand;
         _actorScene.RemoveActor(job.Handles.Head);
         var head = _playerComposer.ComposeHead(_assetRoot, job.Visuals, faceIndex, world, motion);
+        if (motion == PristonActorMotion.Stand)
+        {
+            ApplySelectPose(head);
+        }
+
         var handles = job.Handles with { Head = head };
         _jobActors[jobIndex] = job with { Handles = handles };
         var intensity = HighlightIntensity(jobIndex, _jobHover, _jobSelection);
@@ -422,6 +430,7 @@ internal sealed class CharacterSelectScene
                 Matrix.Identity,
                 PristonActorMotion.Stand,
                 visibleInMainPass: false);
+            ApplySelectPose(previewHead);
             _facePreview = _facePreview with { Head = previewHead };
             SetHandlesColorAdd(_facePreview, Vector3.Zero);
         }
@@ -568,8 +577,39 @@ internal sealed class CharacterSelectScene
     {
         var world = SlotWorld(slot, yaw);
         SetHandlesWorld(job.Handles, world);
+        if (motion == PristonActorMotion.Stand)
+        {
+            ApplySelectPose(job.Handles);
+            return;
+        }
+
         _actorScene.SetActorMotion(job.Handles.Body, motion);
         _actorScene.SetActorMotion(job.Handles.Head, motion);
+    }
+
+    private void ApplySelectPose(PlayerActorHandles handles)
+    {
+        ApplySelectPose(handles.Body);
+        ApplySelectPose(handles.Head);
+    }
+
+    // The original select and creation lineups play motion slot 10 (the relaxed stand) directly,
+    // not the weapon-dependent Stand that motion selection picks in the field (bare hands resolve to a guard stance).
+    private void ApplySelectPose(ActorHandle handle)
+    {
+        if (!handle.IsValid)
+        {
+            return;
+        }
+
+        try
+        {
+            _actorScene.SetActorMotionIndex(handle, PristonFormatConstants.CharacterMotionBase);
+        }
+        catch (Exception exception) when (exception is ArgumentOutOfRangeException or InvalidDataException)
+        {
+            _actorScene.SetActorMotion(handle, PristonActorMotion.Stand);
+        }
     }
 
     private Vector3 RosterFootWorld(int i)

@@ -220,7 +220,7 @@ public sealed class HudSprites : IDisposable
         return result;
     }
 
-    // GameRenderDevice.cpp enables an exact black color key for every authored UI bitmap; TGA files carry alpha.
+    // The original renderer enables an exact black color key for every authored UI bitmap; TGA files carry alpha.
     public static PristonUiColorKey ColorKeyFor(string extension) =>
         extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase) ? PristonUiColorKey.Black : PristonUiColorKey.None;
 

@@ -2,13 +2,13 @@ namespace PristonTale.Simulation.Characters;
 
 public static class AnimationRate
 {
-    // PTClassic baseline FrameStep (character.cpp:1193, :4294). All factors are FrameStep / Baseline.
+    // Baseline animation frame step of the original client. All factors are frame step / Baseline.
     private const float Baseline = 80f;
-    // character.cpp:4283 — the MoveSpeed used in the walk/run FrameStep is capped at 350.
+    // The move speed used in the walk/run frame step is capped at 350.
     private const int MoveSpeedCap = 350;
-    // character.cpp:4287 — divisor in (80*MoveSpeed)/300.
+    // Walk/run frame step = (80 * move speed) / 300.
     private const int MoveDivisor = 300;
-    // playsub.cpp:6701-6710 — AttackSpeed = fONE + 32*clamp(stat-6,0,6); fONE = 256, FLOATNS = 8.
+    // Attack speed = 256 + 32 * clamp(stat - 6, 0, 6) in 8-bit fixed point (256 = 1.0).
     private const int FixedOne = 256;
 
     public static float MoveRate(int perTickTranslation)

@@ -8,6 +8,8 @@ using PristonTale.Simulation.World.Loot;
 
 namespace PristonTale.Gameplay.World.Remote;
 
+public delegate bool FloorHeightQuery(float x, float z, out float y);
+
 public sealed class GroundLootPresentation(IActorScene scene, PristonActorLoader loader, string root, IClientLog log) : IDisposable
 {
     private readonly Dictionary<Guid, Entry> _entries = new();

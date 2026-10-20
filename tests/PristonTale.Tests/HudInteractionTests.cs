@@ -31,7 +31,7 @@ internal static class HudInteractionTests
         yield return ("atlas gauge separation preserves the frame and masks every rectangular corner", AtlasGaugeAsync);
         yield return ("HUD overlays tolerate uninitialized and tiny resized viewports", OverlayAsync);
         yield return ("bottom windows slide with the original 70 Hz steps", SlideAsync);
-        yield return ("minimap crops the field map around the player like Minimap.cpp", MinimapAsync);
+        yield return ("minimap crops the field map around the player like the original", MinimapAsync);
     }
 
     private static Task OwnerStatsAsync()
@@ -94,7 +94,7 @@ internal static class HudInteractionTests
         var origin = Point.Zero;
         var window = HudInventoryLayout.Window(origin);
         var bag = HudInventoryLayout.Bag(origin);
-        Assert.True(window.Contains(bag) && bag.Width == 12 * 22 && bag.Height == 6 * 22, "bag grid differs from sinInvenTory StartX/StartY");
+        Assert.True(window.Contains(bag) && bag.Width == 12 * 22 && bag.Height == 6 * 22, "bag grid differs from the original inventory origin");
         AssertDisjointInside(Enumerable.Range(0, 10).Select(slot => HudInventoryLayout.Equipment(origin, slot)).Append(bag).ToArray(), window,
             "equipment slots and bag");
         Assert.True(HudInventoryLayout.Equipment(origin, (int)EquipmentSlot.Weapon) == new Rectangle(575, 434, 65, 110), "weapon slot moved");

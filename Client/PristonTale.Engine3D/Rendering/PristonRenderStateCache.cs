@@ -23,16 +23,15 @@ internal sealed class PristonRenderStateCache
     public int SamplerStateChanges { get; private set; }
     public int VertexBufferChanges { get; private set; }
     public int IndexBufferChanges { get; private set; }
-    public int TextureChanges { get; private set; }
 
+    // Texture bindings go through effect parameters and are counted by PristonShaderLibrary.
     public int TotalStateChanges =>
         BlendStateChanges +
         DepthStateChanges +
         RasterizerStateChanges +
         SamplerStateChanges +
         VertexBufferChanges +
-        IndexBufferChanges +
-        TextureChanges;
+        IndexBufferChanges;
 
     public void BeginFrame()
     {
@@ -42,7 +41,6 @@ internal sealed class PristonRenderStateCache
         SamplerStateChanges = 0;
         VertexBufferChanges = 0;
         IndexBufferChanges = 0;
-        TextureChanges = 0;
     }
 
     public void InvalidateDeviceState()
@@ -113,30 +111,5 @@ internal sealed class PristonRenderStateCache
         _graphicsDevice.Indices = indexBuffer;
         _indexBuffer = indexBuffer;
         IndexBufferChanges++;
-    }
-
-    public bool SetEffectTexture(Effect effect, Texture2D texture)
-    {
-        if (effect is BasicEffect basicEffect)
-        {
-            if (ReferenceEquals(basicEffect.Texture, texture))
-                return false;
-
-            basicEffect.Texture = texture;
-            TextureChanges++;
-            return true;
-        }
-
-        if (effect is AlphaTestEffect alphaTestEffect)
-        {
-            if (ReferenceEquals(alphaTestEffect.Texture, texture))
-                return false;
-
-            alphaTestEffect.Texture = texture;
-            TextureChanges++;
-            return true;
-        }
-
-        return false;
     }
 }

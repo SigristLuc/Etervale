@@ -36,16 +36,26 @@ public sealed class WorldPlayer
     private bool _inVillage;
     private Vector3 _respawnPoint;
 
-    // The client owns locomotion as in the original TRANSPLAYDATA flow; the server bounds each report by run speed.
+    // The client owns locomotion as in the original TRANSPLAYDATA flow. Reports spend a distance budget that refills at
+    // 1.35 x run speed and holds at most two seconds of it plus 32 units, so many small reports in one tick cannot add
+    // up to more than one long report could.
     private const float ReportSpeedTolerance = 1.35f;
     private const float ReportDistanceSlack = 32f;
+    private const float FirstReportSeconds = 0.5f;
+    private const float MaxBudgetSeconds = 2f;
     private const float BusyCorrectionDistance = 192f;
     private const long StaleMotionMs = 1500;
-    // Reports may climb this much at once (a long report over stairs); falls of any height are accepted.
+    // Reports may climb this much at once (a long report over stairs); falls of any height are accepted. The client
+    // still steps at most GroundTraversal.StepUp (10 units) per frame; only server-moved monsters climb 20.
     private const float ReportClimb = 64f;
-    // Reports shorter than this may cut a corner the client slid around between reports; longer ones may not cross walls.
+    // Every report is checked against walls. One up to this long follows the client's wall slide and may end this far
+    // from the reported point (a corner cut between reports); the server then keeps the slid point on its side of the
+    // wall. Longer reports may not cross a wall at all.
     private const float WallCheckDistance = 48f;
+    private const float CornerCutTolerance = 8f;
     private long _lastReportMs = -1;
+    private float _moveBudget;
+    private long _budgetMs = -1;
 
     private uint _attackTargetId;
     private bool _attackSustained;
@@ -193,9 +203,7 @@ public sealed class WorldPlayer
             return distance > BusyCorrectionDistance ? MovementVerdict.Rejected : MovementVerdict.Ignored;
         }
 
-        float elapsed = _lastReportMs < 0 ? 0.5f : Math.Clamp((nowMs - _lastReportMs) / 1000f, 0.05f, 2f);
-        float allowed = Locomotion.RunUnitsPerSecond(_character.Derived.MoveSpeed) * elapsed * ReportSpeedTolerance + ReportDistanceSlack;
-        if (distance > allowed)
+        if (distance > RefillMoveBudget(nowMs))
         {
             return MovementVerdict.Rejected;
         }
@@ -203,27 +211,64 @@ public sealed class WorldPlayer
         // The original rsCheckPlayField only reported players off the floor; Etervale rejects the report instead.
         terrain ??= FieldTerrain.None;
         var planar = new Vector3(position.X, Position.Y, position.Z);
-        if (!terrain.TryFloorNear(planar, ReportClimb, out var floor)
-            || distance > WallCheckDistance && terrain.CrossesWall(Position, planar))
+        var reached = planar;
+        if (distance > WallCheckDistance)
+        {
+            if (terrain.CrossesWall(Position, planar))
+            {
+                return MovementVerdict.Rejected;
+            }
+        }
+        else if (distance > 0f)
+        {
+            reached = terrain.Slide(Position, planar);
+            float missX = reached.X - planar.X;
+            float missZ = reached.Z - planar.Z;
+            if ((missX * missX) + (missZ * missZ) > CornerCutTolerance * CornerCutTolerance)
+            {
+                return MovementVerdict.Rejected;
+            }
+        }
+
+        if (!terrain.TryFloorNear(reached, ReportClimb, out var floor))
         {
             return MovementVerdict.Rejected;
         }
 
+        _moveBudget -= distance;
+
         if (moving && actionTarget == 0 && _attackTargetId != 0)
         {
-            // A move without an action target is a ground click, which drops the attack lock (playmain.cpp).
+            // A move without an action target is a ground click, which drops the attack lock.
             ClearAttackTarget();
         }
 
         _lastReportMs = nowMs;
-        Position = new Vector3(position.X, floor, position.Z);
+        Position = new Vector3(reached.X, floor, reached.Z);
         Facing = facing;
 
         MoveState = !moving ? MoveStateView.Idle : running ? MoveStateView.Running : MoveStateView.Walking;
         return MovementVerdict.Accepted;
     }
 
-    // A client that stops reporting while moving is shown standing, like the original's 1.5 s OVER_TRANS_TIME cut-off.
+    private float RefillMoveBudget(long nowMs)
+    {
+        float rate = Locomotion.RunUnitsPerSecond(_character.Derived.MoveSpeed) * ReportSpeedTolerance;
+        if (_budgetMs < 0)
+        {
+            _moveBudget = rate * FirstReportSeconds + ReportDistanceSlack;
+        }
+        else
+        {
+            float refill = rate * Math.Max(0L, nowMs - _budgetMs) / 1000f;
+            _moveBudget = MathF.Min(rate * MaxBudgetSeconds + ReportDistanceSlack, _moveBudget + refill);
+        }
+
+        _budgetMs = nowMs;
+        return _moveBudget;
+    }
+
+    // A client that stops reporting while moving is shown standing, like the original's 1.5 s motion cut-off.
     public void ExpireStaleMotion(long nowMs)
     {
         if (!IsBusy && !IsDead && MoveState is MoveStateView.Walking or MoveStateView.Running
@@ -255,6 +300,7 @@ public sealed class WorldPlayer
         Position = position;
         ClearAttackTarget();
         _lastReportMs = -1;
+        _budgetMs = -1;
         _pendingPotion = null;
         Action = PlayerActionState.Idle;
         MoveState = MoveStateView.Idle;
@@ -425,6 +471,7 @@ public sealed class WorldPlayer
         _character.Stamina = _character.MaxStamina;
         IsDead = false;
         _lastReportMs = -1;
+        _budgetMs = -1;
         _attackTargetId = 0;
         MoveState = MoveStateView.Idle;
         return true;

@@ -12,8 +12,8 @@ public sealed class RemoteEntity : RemoteEntityBase
     private readonly ActorHandle _head;
     private readonly PlayerActorHandles _handles;
 
-    public RemoteEntity(IActorScene scene, PlayerActorHandles handles, Vector3 position, float facing, RemoteMoveState moveState, int hp)
-        : base(RemoteEntityKind.Player, position, facing, moveState, hp)
+    public RemoteEntity(IActorScene scene, PlayerActorHandles handles, double timeMs, Vector3 position, float facing, RemoteMoveState moveState, int hp)
+        : base(RemoteEntityKind.Player, timeMs, position, facing, moveState, hp)
     {
         _scene = scene;
         _handles = handles;
@@ -41,9 +41,10 @@ public sealed class RemoteEntity : RemoteEntityBase
             _scene.SetActorMotion(_body, command.Motion);
             _scene.SetActorMotion(_head, command.Motion);
         }
+    }
 
-        // Per-state playback rate (approximate — the wire lacks this entity's precise MoveSpeed/AttackSpeed).
-        var rate = RemoteRateFor(command.Motion);
+    protected override void ApplyPlaybackRate(float rate)
+    {
         _scene.SetActorPlaybackRate(_body, rate);
         _scene.SetActorPlaybackRate(_head, rate);
     }

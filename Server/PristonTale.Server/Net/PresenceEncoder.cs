@@ -9,21 +9,22 @@ using PristonTale.Simulation.World.Loot;
 namespace PristonTale.Server.Net;
 
 // Turns one subscriber's share of a field snapshot into original Priston packets. It keeps the original's view
-// ranges (character.h DIST_TRANSLEVEL_*) and distance-weighted detail, but queries the field grid instead of scanning
+// ranges and distance-weighted detail, but queries the field grid instead of scanning
 // every slot, sends an entity only when it changed, and lets the near ring update faster than the far ring.
 internal sealed class PresenceEncoder
 {
-    // Squared constants are in world units: CONNECT 0x120000, HIGH 0x48000, MHIGH 0xC8000.
+    // Squared view ranges in world units: connect 0x120000, high detail 0x48000, ground items 0xC8000.
     public static readonly float ViewRadius = MathF.Sqrt(0x120000);
     private static readonly float ForgetRadius = ViewRadius * 1.15f;
     private static readonly float NearRadius = MathF.Sqrt(0x48000);
     private static readonly float ItemRadius = MathF.Sqrt(0xC8000);
-    // 5 Hz inside HIGH and 2 Hz out to CONNECT; the original relayed players at about 2.2 Hz and monsters at 1.1 Hz.
+    // 5 Hz inside the high-detail range and 2 Hz out to the connect range; the original relayed players at about 2.2 Hz and monsters at 1.1 Hz.
     private const uint NearIntervalTicks = 4;
     private const uint FarIntervalTicks = 10;
-    // Like TRANS_MAX_USER_LIMIT, a crowd cannot exceed a per-receiver movement budget (about 40 KiB/s at 20 Hz).
+    // Like the original per-receiver user limit, a crowd cannot exceed a per-receiver movement budget (about 40 KiB/s at 20 Hz).
     // Spawns and discrete changes always go out; position-only updates are ranked by how overdue they are.
     private const int MovementBudgetBytes = 2048;
+    private const uint TickIntervalMs = 1000 / WorldServer.TickHz;
 
     private readonly uint _self;
     private readonly WorldDataHolder _data;
@@ -44,6 +45,8 @@ internal sealed class PresenceEncoder
     private long _inventoryRevision = -1;
     private long _skillsRevision = -1;
     private uint _groupCounter;
+    private uint _clockTick;
+    private bool _clockPending;
 
     public PresenceEncoder(uint self, WorldDataHolder data)
     {
@@ -141,6 +144,8 @@ internal sealed class PresenceEncoder
         }
 
         var tick = snapshot.ServerTick;
+        _clockTick = tick;
+        _clockPending = true;
         var group = new PlayDataGroupWriter(_group, ++_groupCounter);
         _seen.Clear();
         _removed.Clear();
@@ -278,7 +283,7 @@ internal sealed class PresenceEncoder
         group.Commit(WireMapping.PlayData(view, field, revision).Write(group.Reserve(size)));
     }
 
-    private static void EnsureSpace(ref PlayDataGroupWriter group, IPacketSink connection, int size)
+    private void EnsureSpace(ref PlayDataGroupWriter group, IPacketSink connection, int size)
     {
         if (group.Free < size)
         {
@@ -286,13 +291,14 @@ internal sealed class PresenceEncoder
         }
     }
 
-    private static void FlushGroup(ref PlayDataGroupWriter group, IPacketSink connection)
+    private void FlushGroup(ref PlayDataGroupWriter group, IPacketSink connection)
     {
         if (group.Count == 0)
         {
             return;
         }
 
+        SendClock(connection);
         connection.Send(group.Finish());
         group.Reset();
     }
@@ -333,6 +339,11 @@ internal sealed class PresenceEncoder
             {
                 _events.Add(WireMapping.Event(combatEvent));
             }
+        }
+
+        if (_events.Count > 0)
+        {
+            SendClock(connection);
         }
 
         var events = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_events);
@@ -423,6 +434,19 @@ internal sealed class PresenceEncoder
             var skills = owner.Skills.Take(SkillsPacket.MaxSkills).Select(skill => (skill.Code, skill.Rank)).ToArray();
             connection.Send(_scratch.AsSpan(0, new SkillsPacket(owner.SkillsRevision, skills).Write(_scratch)));
         }
+    }
+
+    // Precedes the first presence entry of each tick so the client can place samples and events on the server timeline.
+    private void SendClock(IPacketSink connection)
+    {
+        if (!_clockPending)
+        {
+            return;
+        }
+
+        _clockPending = false;
+        var length = new PresenceClockPacket(_clockTick, TickIntervalMs).Write(_scratch);
+        connection.Send(_scratch.AsSpan(0, length));
     }
 
     private void SendCommand(IPacketSink connection, TransCommand command, bool encrypt)

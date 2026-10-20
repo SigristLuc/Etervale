@@ -3,8 +3,8 @@ using PristonTale.Protocol.Binary;
 
 namespace PristonTale.Protocol.Packets;
 
-// TRANS_RECORD_DATA (persistence/characters/record.h): header "RC 1.50", smCHAR_INFO at 16, sGAME_SAVE_INFO (512 bytes)
-// at 480, sTHROW_ITEM_INFO[64] at 992, then ThrowItemCount, ItemCount, ItemSubStart, DataSize and the item blob at 1776.
+// Character record: header "RC 1.50", character info record at 16, game save block (512 bytes)
+// at 480, 64 thrown-item records at 992, then ThrowItemCount, ItemCount, ItemSubStart, DataSize and the item blob at 1776.
 // Etervale keeps inventory server-side and sends it with EtervaleOpcodes.Inventory, so ItemCount and DataSize are zero.
 public sealed record RecordDataPacket(CharacterInfo Character, int FieldCode, int PosX, int PosZ)
 {
@@ -33,13 +33,13 @@ public sealed record RecordDataPacket(CharacterInfo Character, int FieldCode, in
         var reader = new PacketReader(record, FixedSize);
         if (reader.Code != PristonOpcodes.RecordData || !reader.Bytes(8).SequenceEqual(Header))
         {
-            throw new InvalidDataException("TRANS_RECORD_DATA has an unexpected code or version header.");
+            throw new InvalidDataException("Character record has an unexpected code or version header.");
         }
 
         var character = CharacterInfo.Read(ref reader);
         if (reader.Position != SaveInfoOffset)
         {
-            throw new InvalidOperationException("TRANS_RECORD_DATA layout drifted.");
+            throw new InvalidOperationException("Character record layout drifted.");
         }
 
         reader.Skip(4);
@@ -51,9 +51,9 @@ public sealed record RecordDataPacket(CharacterInfo Character, int FieldCode, in
     }
 }
 
-// TRANS_RECORD_DATAS: {size, code, Count, Total, TransSize, szData[8160]}. Each chunk declares TransSize + 32 bytes
+// Record chunk packet: {size, code, Count, Total, TransSize, szData[8160]}. Each chunk declares TransSize + 32 bytes
 // (12 bytes past the data are padding). Total is size/8160 plus one for a remainder only when size > 8160, so a
-// record that fits one chunk declares Total = 0 (PTClassic record.cpp).
+// record that fits one chunk declares Total = 0.
 public static class RecordDataChunks
 {
     public const int ChunkData = 8160;

@@ -16,10 +16,10 @@ internal static class EffectLoadingTests
     {
         using var content = new FailedContent();
         var log = new RecordingLog();
-        const string asset = "Effects/PristonSkinnedOpaque";
+        const string asset = PristonShaderLibrary.SkinnedSurfaceAsset;
         try
         {
-            PristonEffectPipeline.LoadRequired(content, asset, log);
+            PristonShaderLibrary.LoadRequired(content, asset, log);
         }
         catch (ContentLoadException exception)
         {

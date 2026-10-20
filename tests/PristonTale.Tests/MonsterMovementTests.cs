@@ -13,7 +13,8 @@ internal static class MonsterMovementTests
         yield return ("monster pursuit and attacks face forward in all eight directions", HeadingAsync);
         yield return ("monster translation uses original generic and family movement steps", SpeedAsync);
         yield return ("untargeted monsters walk two clips then stand without orbiting home", SpawnWalkAsync);
-        yield return ("monster stuck detection measures five movement clips and never teleports", StuckAsync);
+        yield return ("monster stuck detection measures five clips, then turns off the way home for ten keeping its target", StuckAsync);
+        yield return ("monster leaving its leash heads home for six clips and may resume the chase", SoftLeashAsync);
         yield return ("monster perception includes height and population leash is independent of NPC movement range", PerceptionAsync);
     }
 
@@ -122,14 +123,65 @@ internal static class MonsterMovementTests
         }
 
         brain.Tick(monster, tuning, prey, 60);
-        Assert.True(monster.AiState == MonsterAiState.Leash && monster.Position.X > 90 && monster.Position.X < 100,
-            "blocked monster failed to return home gradually");
-        for (int tick = 0; tick < 10; tick++)
+        Assert.True(monster.AiState == MonsterAiState.Leash && monster.TargetId == 1 && monster.Motion == MonsterMotionState.Run,
+            "stuck manoeuvre dropped the target or did not run");
+        Assert.True(monster.ManoeuvreClipsLeft == MonsterAiTuning.StuckManoeuvreClips, "stuck manoeuvre did not last ten clips");
+        var home = -Vector3.UnitX;
+        var heading = new Vector3(MathF.Sin(monster.ManoeuvreHeading), 0, MathF.Cos(monster.ManoeuvreHeading));
+        Assert.True(Vector3.Dot(heading, home) >= MathF.Cos(MathF.PI / 4f) - 0.001f, "stuck turn exceeded 45 degrees off the way home");
+        Assert.True(monster.Position.X < 100 && monster.Position.X > 90, "blocked monster teleported instead of stepping");
+        var turned = monster.ManoeuvreHeading;
+        for (int tick = 0; tick < 40; tick++)
         {
             brain.Tick(monster, tuning, prey, 50);
-            Assert.True(monster.AiState == MonsterAiState.Leash, "retarget interrupted return home");
+            Assert.True(monster.AiState == MonsterAiState.Leash && monster.ManoeuvreHeading == turned, "manoeuvre ended or turned early");
         }
 
+        for (int tick = 0; tick < 40 && monster.AiState == MonsterAiState.Leash; tick++)
+        {
+            brain.Tick(monster, tuning, prey, 50);
+        }
+
+        Assert.True(monster.AiState == MonsterAiState.Chase && monster.TargetId == 1, "chase did not resume on the kept target");
+        return Task.CompletedTask;
+    }
+
+    private static Task SoftLeashAsync()
+    {
+        var definition = Definition();
+        var timing = MotionTimingSet.Build([
+            new(MotionStateCode.Walk, new MotionClip(0, 10, 0, 0, 0, 0, true)),
+            new(MotionStateCode.Run, new MotionClip(0, 10, 0, 0, 0, 0, true))
+        ]);
+        var tuning = new MonsterAiTuning(definition, timing);
+        var monster = new MonsterInstance(2, definition, Vector3.Zero, 0, 0)
+        {
+            Position = new Vector3(1270, 0, 0),
+            ProgressProbePosition = new Vector3(1270, 0, 0),
+            TargetId = 1,
+            AiState = MonsterAiState.Chase
+        };
+        var brain = new MonsterAiBrain(new CombatRng(1));
+        var prey = new Prey(new PreyCandidate(1, new Vector3(1500, 0, 0), true));
+        var leashed = false;
+        for (int tick = 0; tick < 20 && !leashed; tick++)
+        {
+            brain.Tick(monster, tuning, prey, 50);
+            leashed = monster.AiState == MonsterAiState.Leash;
+        }
+
+        Assert.True(leashed && monster.TargetId == 1 && monster.ManoeuvreClipsLeft == MonsterAiTuning.LeashManoeuvreClips,
+            "leaving the leash did not start a six-clip return that keeps the target");
+        Assert.True(MathF.Abs(MathF.Sin(monster.ManoeuvreHeading)) > 0.999f && MathF.Sin(monster.ManoeuvreHeading) < 0, "leash did not head home");
+        prey.Candidate = new PreyCandidate(1, monster.Position + new Vector3(-150, 0, 0), true);
+        var resumed = false;
+        for (int tick = 0; tick < 200 && !resumed; tick++)
+        {
+            brain.Tick(monster, tuning, prey, 50);
+            resumed = monster.AiState is MonsterAiState.Chase or MonsterAiState.Attack;
+        }
+
+        Assert.True(resumed && monster.TargetId == 1, "monster never resumed the chase after its leash return");
         return Task.CompletedTask;
     }
 

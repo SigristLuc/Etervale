@@ -3,11 +3,11 @@ namespace PristonTale.WorldImport.Parsers;
 using PristonTale.Simulation.World.Npcs;
 
 /// <summary>
-/// Parses one NPC <c>.npc</c> → <see cref="ParsedNpc"/>, faithful to <c>smCharDecode</c> (the NPC branch,
-/// fileread.cpp:4279 + the service-flag region 5180-5354). Service flags are single tokens (TRUE if the
+/// Parses one NPC <c>.npc</c> → <see cref="ParsedNpc"/> with the original character-definition rules for
+/// NPCs and their service flags. Service flags are single tokens (TRUE if the
 /// line is present); sell lists are ≤32 quoted-or-plain item codes; <c>*대화</c> appends a dialog line
-/// (≤20). <c>*연결파일</c> reopens a linked file and keeps parsing it (the original <c>fclose</c>+<c>fopen</c>
-/// continuation) — we follow it only when it resolves on disk, else record nothing extra.
+/// (≤20). <c>*연결파일</c> reopens a linked file and keeps parsing it (the original closes the current file
+/// and continues in the linked one) — we follow it only when it resolves on disk, else record nothing extra.
 ///
 /// The name is preserved VERBATIM so field <c>.spc</c> fixed-NPC placements can cross-reference it exactly.
 /// </summary>

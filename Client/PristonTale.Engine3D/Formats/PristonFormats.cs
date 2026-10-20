@@ -152,7 +152,7 @@ public enum PristonActorMotion : uint
 public enum PristonMaterialSurfaceFlags : uint
 {
     None = 0,
-    Move = 0x0001,        // wind sway (sMATS_SCRIPT_WIND → WINDZ1, PTClassic smTexture.cpp:886; NOT a UV scroll). The common foliage flag.
+    Move = 0x0001,        // wind sway (the WINDZ1 material script; NOT a UV scroll). The common foliage flag.
     Animating2 = 0x0002,
     Animating4 = 0x0004,
     Animating8 = 0x0008,
@@ -191,7 +191,7 @@ public sealed record PristonMaterial(
     string SecondTextureName = "",
     string SecondOpacityName = "")
 {
-    // MULTIMIX adds slot1 over slot0 with an independent form-state scroll.
+    // MULTIMIX (texture type 0) combines its slots as texture stages, each with its own operation and UVs.
     private const uint MultiMix = 0u;
 
     public bool HasSecondTexture => TextureType == MultiMix
@@ -199,6 +199,45 @@ public sealed record PristonMaterial(
         && !string.IsNullOrWhiteSpace(SecondTextureName);
 
     public bool HasAnimatedTexture => TextureType == 1 && AnimationTextureNames.Count > 0;
+
+    // The shipped assets combine at most three MULTIMIX stages (diffuse, add/modulate layer, lightmap).
+    public const int MaxRenderedStages = 3;
+
+    // Stage 0 is TextureName/OpacityName (or the animation frames); MULTIMIX stages above it follow the slots.
+    public int RenderedStageCount => TextureType == MultiMix ? (int)Math.Clamp(TextureCounter, 1u, MaxRenderedStages) : 1;
+
+    public string StageTextureName(int stage) => stage < TextureNames.Count ? TextureNames[stage] : string.Empty;
+
+    public string StageOpacityName(int stage) => stage < OpacityNames.Count ? OpacityNames[stage] : string.Empty;
+
+    public uint StageState(int stage) => stage < TextureStageStates.Count ? TextureStageStates[stage] : 0u;
+
+    public uint StageFormState(int stage) => stage < TextureFormStates.Count ? TextureFormStates[stage] : 0u;
+
+    // MULTIMIX stages above 0 combined in the same pass. The chain stops at a disabled stage (code 1), a missing
+    // texture, or a stage with its own opacity mask, which the original drew in a separate pass (MapDualRend).
+    public int CombinedLayerCount
+    {
+        get
+        {
+            var count = 0;
+            for (var stage = 1; stage < RenderedStageCount; stage++)
+            {
+                var name = StageTextureName(stage);
+                if (StageState(stage) == 1
+                    || string.IsNullOrWhiteSpace(name)
+                    || !string.IsNullOrWhiteSpace(StageOpacityName(stage))
+                    || name.EndsWith(".tga", StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
+                count++;
+            }
+
+            return count;
+        }
+    }
 
     // Textureless materials are skipped; a white fallback would expose hidden legacy geometry.
     public bool HasNoRenderableTexture => TextureCounter == 0 && !HasAnimatedTexture;
@@ -236,7 +275,18 @@ public sealed record PristonMaterial(
 public sealed record PristonTexLink(Vector2 A, Vector2 B, Vector2 C, uint NextPointer)
 {
     public static readonly PristonTexLink Empty = new(Vector2.Zero, Vector2.UnitX, Vector2.UnitY, 0);
+    // A MULTIMIX stage without its own link samples texture coordinate (0, 0), as the reference renderer does.
+    public static readonly PristonTexLink Zero = new(Vector2.Zero, Vector2.Zero, Vector2.Zero, 0);
     public uint TexturePointer32 { get; init; }
+    // Index of the next stage's link (the texture link record's next pointer) in the same list, or -1 at the end of the chain.
+    public int NextIndex { get; init; } = -1;
+
+    public Vector2 Corner(int corner) => corner switch
+    {
+        0 => A,
+        1 => B,
+        _ => C
+    };
 }
 
 public sealed record PristonStageVertex(Vector3 Position, Color Color)
@@ -253,7 +303,7 @@ public sealed record PristonStageFace(int A, int B, int C, int MaterialIndex, in
     public Short4 AuthoredNormal { get; init; }
 }
 
-// Decoded from the Win32 smLIGHT3D record (28 bytes). Its final WORD is compiler alignment after the
+// Decoded from the Win32 stage light record (28 bytes). Its final WORD is compiler alignment after the
 // three signed colour shorts. It is preserved so no byte of the serialized structure is discarded.
 public sealed record PristonStageLight(int Type, Vector3 Position, float Range, Vector3 Color)
 {

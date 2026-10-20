@@ -12,8 +12,8 @@ public enum HudSystemEntry
     Exit
 }
 
-// sinInterFace.cpp ExitButtonClick menu. The shipped ExitMenu.tga is a newer 128x159 five-entry sheet
-// (the source draws a 128x64 three-entry menu at 698,504), so it is raised to end just above the menu buttons.
+// Original exit button menu. The shipped ExitMenu.tga is a newer 128x159 five-entry sheet
+// (the original draws a 128x64 three-entry menu at 698,504), so it is raised to end just above the menu buttons.
 public static class HudSystemMenu
 {
     public const int X = 698;

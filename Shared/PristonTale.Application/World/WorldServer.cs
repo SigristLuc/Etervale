@@ -2,6 +2,7 @@ using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Spawning;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.World.Npcs;
+using System.Collections.Concurrent;
 using System.Numerics;
 using System.Threading.Channels;
 using PristonTale.Application.Sessions;
@@ -38,6 +39,14 @@ public sealed class WorldServer
     private readonly long _clockOrigin;
     private readonly BossSpawnSchedule _bossSchedule;
     private readonly FieldTerrainCatalog _terrain;
+    private readonly WorldServerOptions _options;
+    // Commands each player has waiting in the shared queue; entries are dropped when the player leaves the world.
+    private readonly ConcurrentDictionary<uint, PendingCommands> _pendingByPlayer = new();
+
+    private sealed class PendingCommands
+    {
+        public int Count;
+    }
 
     private sealed record Connection(
         int FieldId,
@@ -53,8 +62,10 @@ public sealed class WorldServer
         WorldCatalog? catalog = null,
         TimeProvider? clock = null,
         ISimRng? bossRng = null,
-        FieldTerrainCatalog? terrain = null)
+        FieldTerrainCatalog? terrain = null,
+        WorldServerOptions? options = null)
     {
+        _options = (options ?? WorldServerOptions.Default).Validated();
         _worldData = worldData;
         _terrain = terrain ?? new FieldTerrainCatalog();
         _catalog = catalog ?? new WorldCatalog();
@@ -80,7 +91,7 @@ public sealed class WorldServer
             new CombatRng(fieldId),
             data.Motions,
             data.Npcs,
-            experienceMultiplier: 5,
+            experienceMultiplier: _options.ExperienceMultiplier,
             items: data.Items,
             terrain: _terrain.Get(fieldId));
         _fields.Add(fieldId, field);
@@ -89,7 +100,7 @@ public sealed class WorldServer
 
     public Task<bool> JoinAsync(int fieldId, WorldPlayer player, ChannelWriter<WorldSnapshot> outbound, PlayerSession? session = null)
     {
-        return EnqueueAsync(() =>
+        return EnqueueAsync(player.EntityId, () =>
         {
             if (!_catalog.TryGetFieldByCode(fieldId, out var definition)
                 || _connections.ContainsKey(player.EntityId)
@@ -109,9 +120,10 @@ public sealed class WorldServer
         });
     }
 
+    // Leaving must not be refused: it waits for queue room and is exempt from the player's quota.
     public Task<bool> LeaveAsync(int fieldId, uint entityId, ChannelWriter<WorldSnapshot> outbound)
     {
-        return EnqueueAsync(() =>
+        return EnqueueAsync(NoOwner, () =>
         {
             if (!_connections.TryGetValue(entityId, out var connection) || !ReferenceEquals(connection.Outbound, outbound))
             {
@@ -121,9 +133,10 @@ public sealed class WorldServer
             UpdatePlacement(connection.Session, connection.FieldId, connection.Player.Position);
             _fields[connection.FieldId].Remove(entityId);
             _connections.Remove(entityId);
+            _pendingByPlayer.TryRemove(entityId, out _);
             _membershipChanged = true;
             return true;
-        });
+        }, waitForCapacity: true);
     }
 
     public Task<bool> MoveToFieldAsync(
@@ -133,7 +146,7 @@ public sealed class WorldServer
         Vector3 requestedPosition,
         ChannelWriter<WorldSnapshot> outbound)
     {
-        return EnqueueAsync(() =>
+        return EnqueueAsync(player.EntityId, () =>
         {
             if (!WorldPosition.IsValid(requestedPosition)
                 || player.IsDead
@@ -175,7 +188,7 @@ public sealed class WorldServer
 
     public Task<MovementVerdict> ReportMovementAsync(int fieldId, uint entityId, Vector3 position, float facing, bool moving, bool running, uint actionTarget)
     {
-        return EnqueueAsync(() =>
+        return EnqueueAsync(entityId, () =>
         {
             if (_connections.TryGetValue(entityId, out var connection) && connection.FieldId == fieldId
                 && _fields.TryGetValue(fieldId, out var field))
@@ -189,12 +202,12 @@ public sealed class WorldServer
 
     public Task<Vector3?> PositionOfAsync(uint entityId)
     {
-        return EnqueueAsync<Vector3?>(() => _connections.TryGetValue(entityId, out var connection) ? connection.Player.Position : null);
+        return EnqueueAsync<Vector3?>(entityId, () => _connections.TryGetValue(entityId, out var connection) ? connection.Player.Position : null);
     }
 
     public Task<bool> SetAttackTargetAsync(int fieldId, uint attackerEntityId, uint targetEntityId, bool sustained, ulong sequence = 0)
     {
-        return EnqueueAsync(() =>
+        return EnqueueAsync(attackerEntityId, () =>
         {
             return _fields.TryGetValue(fieldId, out var field) && field.SetAttackTarget(attackerEntityId, targetEntityId, sustained, sequence);
         });
@@ -202,7 +215,7 @@ public sealed class WorldServer
 
     public Task<CharacterSaveSnapshot?> CaptureForSaveAsync(PlayerSession session)
     {
-        return EnqueueAsync<CharacterSaveSnapshot?>(() =>
+        return EnqueueAsync<CharacterSaveSnapshot?>(NoOwner, () =>
         {
             if (session.Character is null || session.Loaded is null)
             {
@@ -215,14 +228,14 @@ public sealed class WorldServer
             }
 
             return CharacterRecordFactory.Capture(session.Loaded, session.Character, session.FieldId, session.SpawnPosition);
-        });
+        }, waitForCapacity: true);
     }
 
     public int PlayerCount => Volatile.Read(ref _playerCount);
 
     public Task<NpcInteraction> InteractNpcAsync(PlayerSession session, uint npcId)
     {
-        return EnqueueAsync(() =>
+        return EnqueueAsync(session.EntityId, () =>
         {
             if (!session.IsPlaying || !_connections.TryGetValue(session.EntityId, out var connection)
                 || !ReferenceEquals(connection.Session, session) || !_fields.TryGetValue(connection.FieldId, out var field)
@@ -240,7 +253,7 @@ public sealed class WorldServer
     public Task<PreparedCharacterOperation<ProgressionOutcome>?> PrepareProgressionAsync(
         PlayerSession session, ProgressionCommand command)
     {
-        return EnqueueAsync<PreparedCharacterOperation<ProgressionOutcome>?>(() =>
+        return EnqueueAsync<PreparedCharacterOperation<ProgressionOutcome>?>(session.EntityId, () =>
         {
             if (!session.IsPlaying || session.Character is null || session.Loaded is null
                 || !_connections.TryGetValue(session.EntityId, out var connection) || !ReferenceEquals(connection.Session, session))
@@ -255,7 +268,7 @@ public sealed class WorldServer
     public Task<bool> CommitProgressionAsync(PlayerSession session,
         PreparedCharacterOperation<ProgressionOutcome> operation)
     {
-        return EnqueueAsync(() =>
+        return EnqueueAsync(NoOwner, () =>
         {
             if (!ReferenceEquals(session.Character, operation.Original) || operation.Candidate is null
                 || !operation.Original.ApplyProgression(operation.Candidate.ProgressionOperations[^1].Command))
@@ -269,7 +282,7 @@ public sealed class WorldServer
 
     public Task<PreparedCharacterOperation<InventoryOutcome>?> PrepareInventoryAsync(PlayerSession session, InventoryCommand command)
     {
-        return EnqueueAsync<PreparedCharacterOperation<InventoryOutcome>?>(() =>
+        return EnqueueAsync<PreparedCharacterOperation<InventoryOutcome>?>(session.EntityId, () =>
         {
             if (!session.IsPlaying || session.Character is null || session.Loaded is null
                 || !_connections.TryGetValue(session.EntityId, out var connection) || !ReferenceEquals(connection.Session, session))
@@ -321,7 +334,7 @@ public sealed class WorldServer
 
     public Task<bool> CommitInventoryAsync(PlayerSession session, PreparedCharacterOperation<InventoryOutcome> operation)
     {
-        return EnqueueAsync(() =>
+        return EnqueueAsync(NoOwner, () =>
         {
             // SaveGate remains held through commit, including when the connection leaves during storage I/O.
             if (!ReferenceEquals(session.Character, operation.Original) || operation.Candidate is null)
@@ -356,7 +369,7 @@ public sealed class WorldServer
 
     public Task<bool> AbortCharacterOperationAsync<T>(PreparedCharacterOperation<T> operation)
     {
-        return EnqueueAsync(() =>
+        return EnqueueAsync(NoOwner, () =>
         {
             if (operation is PreparedPickupOperation pickup)
             {
@@ -367,11 +380,32 @@ public sealed class WorldServer
         }, waitForCapacity: true);
     }
 
-    private async Task<T> EnqueueAsync<T>(Func<T> operation, bool waitForCapacity = false)
+    private const uint NoOwner = 0;
+
+    public int PendingCommandsOf(uint entityId) => _pendingByPlayer.TryGetValue(entityId, out var pending) ? Volatile.Read(ref pending.Count) : 0;
+
+    // Not async: a refused command throws WorldBusyException to the caller synchronously instead of faulting the task.
+    private Task<T> EnqueueAsync<T>(uint owner, Func<T> operation, bool waitForCapacity = false)
     {
+        PendingCommands? pending = null;
+        if (owner != NoOwner)
+        {
+            pending = _pendingByPlayer.GetOrAdd(owner, static _ => new PendingCommands());
+            if (Interlocked.Increment(ref pending.Count) > _options.MaxPendingCommandsPerPlayer)
+            {
+                Interlocked.Decrement(ref pending.Count);
+                throw new WorldBusyException("The player's command quota is full.");
+            }
+        }
+
         var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
         Action command = () =>
         {
+            if (pending is not null)
+            {
+                Interlocked.Decrement(ref pending.Count);
+            }
+
             try
             {
                 completion.TrySetResult(operation());
@@ -381,18 +415,29 @@ public sealed class WorldServer
                 completion.TrySetException(ex);
             }
         };
-        if (!_commands.Writer.TryWrite(command))
+        if (_commands.Writer.TryWrite(command))
         {
-            if (!waitForCapacity)
-            {
-                throw new InvalidOperationException("The authoritative command queue is full.");
-            }
-
-            // Durably admitted transactions cannot be abandoned when ordinary command admission is saturated.
-            await _commands.Writer.WriteAsync(command);
+            return completion.Task;
         }
 
-        return await completion.Task;
+        if (!waitForCapacity)
+        {
+            if (pending is not null)
+            {
+                Interlocked.Decrement(ref pending.Count);
+            }
+
+            throw new WorldBusyException("The authoritative command queue is full.");
+        }
+
+        // Durably admitted transactions cannot be abandoned when ordinary command admission is saturated.
+        return WriteThenAwaitAsync(command, completion.Task);
+    }
+
+    private async Task<T> WriteThenAwaitAsync<T>(Action command, Task<T> result)
+    {
+        await _commands.Writer.WriteAsync(command);
+        return await result;
     }
 
     public void Tick(float dt, uint serverTick)

@@ -9,6 +9,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.World.Remote;
 using PristonTale.Protocol.Binary;
+using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 
 namespace PristonTale.Tests;
@@ -22,8 +23,8 @@ internal static class ClientTests
         yield return ("remote rates and explicit swing events replace per-frame restarts", RemoteMotionAsync);
         yield return ("NPC duplicate Stand clips preserve exact INX indices and weighted selection", NpcStandMotionsAsync);
         yield return ("pending actor preparation does not block presence or resurrect removals", PendingActorAsync);
-        yield return ("stationary NPC floor queries invalidate on movement and geometry residency", NpcFloorAsync);
-        yield return ("NPC, monster and player collision survives pending assets and ignores visual floor height", CollisionRosterAsync);
+        yield return ("remote height follows the server sample instead of the highest floor", ServerHeightAsync);
+        yield return ("NPC, monster and player collision survives pending assets", CollisionRosterAsync);
         yield return ("cursor rays originate at the camera and reject an enclosing NPC pick volume", CursorPickingAsync);
     }
 
@@ -43,6 +44,7 @@ internal static class ClientTests
         Assert.True(update.Spawns.Single(spawn => spawn.EntityId == 1).IsSelf, "own avatar was not marked as self");
         Assert.True(update.Events.Single().Position == origin && update.Events.Single().Kind == RemoteCombatEventKind.MonsterSkillImpact,
             "TCP presence dropped skill impact data");
+        Assert.True(update.Spawns.All(spawn => spawn.ServerTimeMs == 8 * 50), "presence samples lost the server tick stamp");
         return Task.CompletedTask;
     }
 
@@ -58,8 +60,8 @@ internal static class ClientTests
         {
             var before = wire.BytesSent;
             var update = wire.PushMerged(new WorldSnapshot(tick, Enumerable.Range(1, 300).Select(id => Walker(id, tick)).ToArray(), fieldId: 3));
-            // Budget for others, plus the receiver's own entry and at most two PLAYDATAGROUP headers.
-            Assert.True(wire.BytesSent - before <= 2048 + 84 + 2 * 16, "a crowd exceeded the per-receiver movement budget");
+            // Budget for others, plus the receiver's own entry, at most two PLAYDATAGROUP headers and the tick's clock.
+            Assert.True(wire.BytesSent - before <= 2048 + 84 + 2 * 16 + PresenceClockPacket.Size, "a crowd exceeded the per-receiver movement budget");
             updated.UnionWith(update.States.Select(state => state.EntityId));
         }
 
@@ -74,54 +76,50 @@ internal static class ClientTests
             scene,
             ActorHandle.None,
             1,
+            0,
             Vector3.Zero,
             0,
             RemoteMoveState.Attack,
             100);
+        var now = 1000d;
+        void Settle()
+        {
+            for (var frame = 0; frame < 4; frame++)
+            {
+                now += 50;
+                remote.Update(0.05f, now);
+            }
+        }
+
+        var swing = new CombatEventInfo(2, 1, RemoteCombatEventKind.SwingBegin, 800, 400, 0, false, false);
         remote.SetRates(5, 1.75f);
-        remote.ApplyCombatEvent(new CombatEventInfo(
-            2,
-            1,
-            RemoteCombatEventKind.SwingBegin,
-            800,
-            400,
-            0,
-            false,
-            false));
-        remote.Update(0.05f);
+        remote.ApplyCombatEvent(swing, now);
+        Settle();
         Assert.True(scene.Restarts == 1, "swing did not restart exactly once");
         Assert.Near(1.75f, scene.LastRate);
         var commands = scene.Commands;
         for (var index = 0; index < 10; index++)
         {
-            remote.Update(0.016f);
+            now += 16;
+            remote.Update(0.016f, now);
         }
 
         Assert.True(scene.Commands == commands, "held Attack emitted per-frame commands");
-        remote.ApplyCombatEvent(new CombatEventInfo(
-            2,
-            1,
-            RemoteCombatEventKind.SwingBegin,
-            800,
-            400,
-            0,
-            false,
-            false));
-        remote.Update(0.05f);
+        remote.ApplyCombatEvent(swing, now);
+        Settle();
         Assert.True(scene.Restarts == 2, "second swing event was lost");
-        remote.SetTarget(Vector3.Zero, 0, RemoteMoveState.Skill, 100);
+        remote.SetTarget(now, Vector3.Zero, 0, RemoteMoveState.Skill, 100);
         var cast = new CombatEventInfo(2, 1, RemoteCombatEventKind.SwingBegin, 1980, 957, 0, false, false);
-        remote.ApplyCombatEvent(cast);
-        remote.Update(.05f);
+        remote.ApplyCombatEvent(cast, now);
+        Settle();
         Assert.True(scene.Restarts == 3 && remote.Motion == PristonActorMotion.Skill, "skill entry restarted basic attack");
-        remote.ApplyCombatEvent(cast);
-        remote.Update(.05f);
+        remote.ApplyCombatEvent(cast, now);
+        Settle();
         Assert.True(scene.Restarts == 4 && remote.Motion == PristonActorMotion.Skill, "repeated skill did not restart its own motion");
-        remote.SetTarget(Vector3.Zero, 0, RemoteMoveState.Walking, 100);
-        remote.Update(.05f);
-        Assert.Near(1f, scene.LastRate);
-        remote.SetTarget(Vector3.Zero, 0, RemoteMoveState.Running, 100);
-        remote.Update(.05f);
+        remote.SetTarget(now, Vector3.Zero, 0, RemoteMoveState.Walking, 100);
+        Settle();
+        Settle();
+        Assert.True(remote.ShownMotion == PristonActorMotion.Stand, "Walk without ground motion was shown walking");
         Assert.Near(1f, scene.LastRate);
         return Task.CompletedTask;
     }
@@ -162,6 +160,7 @@ internal static class ClientTests
             scene,
             ActorHandle.None,
             1f,
+            0,
             Vector3.Zero,
             0f,
             RemoteMoveState.Idle,
@@ -169,7 +168,7 @@ internal static class ClientTests
             RemoteEntityKind.Npc,
             modelInfo: warehouseInfo,
             entityId: 91);
-        npc.Update(0f);
+        npc.Update(0f, 0);
         Assert.True(scene.ExactMotionIndices.Count == 1 && scene.ExactMotionIndices[0] is 11 or 12, "remote NPC collapsed its selected Stand entry back to the enum");
         return Task.CompletedTask;
     }
@@ -219,40 +218,26 @@ internal static class ClientTests
         return Task.CompletedTask;
     }
 
-    private static Task NpcFloorAsync()
+    private static Task ServerHeightAsync()
     {
-        var remote = new RemoteModelEntity(new FakeScene(), ActorHandle.None, 1, Vector3.Zero, 0,
-            RemoteMoveState.Idle, 1, RemoteEntityKind.Npc);
-        var calls = 0;
-        var height = 7f;
-        var found = true;
-        bool Floor(float x, float z, out float y)
+        // A monster under a bridge: the server keeps it on the lower floor and the client must not lift it.
+        var remote = new RemoteModelEntity(new FakeScene(), ActorHandle.None, 1, 0, new Vector3(0, 7, 0), 0, RemoteMoveState.Idle, 1);
+        var now = 0d;
+        for (var frame = 0; frame < 4; frame++)
         {
-            calls++;
-            y = height;
-            return found;
+            now += 50;
+            remote.Update(0.05f, now);
         }
 
-        PristonTale.Gameplay.World.Remote.FloorHeightQuery query = Floor;
-        for (var index = 0; index < 120; index++)
+        Assert.True(remote.DrawnPosition.Y == 7, "spawn height was replaced");
+        remote.SetTarget(now, new Vector3(0.5f, -40, 0), 0, RemoteMoveState.Idle, 1);
+        for (var frame = 0; frame < 8; frame++)
         {
-            remote.Update(1f / 120, query, 0);
+            now += 50;
+            remote.Update(0.05f, now);
         }
 
-        Assert.True(calls == 1 && remote.DrawnPosition.Y == 7, "stationary NPC repeated the geometry query");
-        height = 11;
-        remote.Update(1f / 120, query, 1);
-        Assert.True(calls == 2 && remote.DrawnPosition.Y == 11, "loaded geometry did not invalidate the cached height");
-        remote.SetTarget(new Vector3(0.5f, 0, 0), 0, RemoteMoveState.Idle, 1);
-        remote.Update(1f / 120, query, 1);
-        Assert.True(calls == 3 && remote.DrawnPosition.X == 0.5f, "movement reused another position's height");
-        found = false;
-        remote.Update(1f / 120, query, 2);
-        remote.Update(1f / 120, query, 2);
-        Assert.True(calls == 4 && remote.DrawnPosition.Y == 0, "unloaded terrain retained stale height or repeated a cached miss");
-        found = true;
-        remote.Update(1f / 120, query, 3);
-        Assert.True(calls == 5 && remote.DrawnPosition.Y == 11, "a cached miss survived geometry publication");
+        Assert.True(remote.DrawnPosition.Y == -40 && remote.DrawnPosition.X == 0.5f, "remote height did not follow the server sample");
         return Task.CompletedTask;
     }
 
@@ -278,15 +263,10 @@ internal static class ClientTests
             Assert.True(accepted == origin, "client predicted movement through a live entity");
         }
 
-        manager.SetFloorQuery(static (float x, float z, out float y) =>
-        {
-            y = 1000;
-            return true;
-        });
         composer.Ready.TrySetResult();
         manager.Update(0.1f);
         manager.CollectNeighbours(1, neighbours);
-        Assert.True(neighbours.All(neighbour => neighbour.Position.Y == 7), "visual floor height leaked into authority collision space");
+        Assert.True(neighbours.All(neighbour => neighbour.Position.Y == 7), "presentation leaked into authority collision space");
         manager.Apply(new PresenceUpdate(2, [], [], [2, 3], []));
         manager.CollectNeighbours(1, neighbours);
         Assert.True(neighbours.Count == 1, "removed pending entities left phantom blockers");

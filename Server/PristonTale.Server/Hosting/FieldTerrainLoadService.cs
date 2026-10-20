@@ -6,8 +6,9 @@ using PristonTale.Simulation.World;
 
 namespace PristonTale.Server.Hosting;
 
-// Loads every field's stage collision at startup, as the original server does in srReadStage (OnSever.cpp).
-// A missing assets directory or stage leaves that field without terrain checks instead of stopping the server.
+// Loads every field's stage collision at startup, as the original server does, which also
+// refuses to start without its stages. A missing assets directory or stage stops startup unless
+// Assets:AllowMissingTerrain is set, which leaves those fields without terrain checks (tests and development only).
 public sealed class FieldTerrainLoadService(
     WorldCatalog world,
     FieldTerrainCatalog terrain,
@@ -16,9 +17,15 @@ public sealed class FieldTerrainLoadService(
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        var allowMissing = configuration.GetValue("Assets:AllowMissingTerrain", false);
         var root = configuration["Assets:Root"] is { Length: > 0 } configured ? configured : AssetPath.FindAssetsRoot();
         if (root is null || !Directory.Exists(root))
         {
+            if (!allowMissing)
+            {
+                throw new InvalidOperationException("No assets directory found. Set Assets:Root, or Assets:AllowMissingTerrain=true to run without terrain.");
+            }
+
             logger.LogWarning("No assets directory found (set Assets:Root); fields run without terrain collision.");
             return;
         }
@@ -27,12 +34,13 @@ public sealed class FieldTerrainLoadService(
         var memoryBefore = GC.GetTotalMemory(forceFullCollection: true);
         var loaded = new ConcurrentDictionary<int, FieldTerrain>();
         var triangles = 0L;
+        var failures = new ConcurrentBag<string>();
         await Parallel.ForEachAsync(world.AllFields, cancellationToken, async (field, ct) =>
         {
             var path = string.IsNullOrEmpty(field.StageSmd) ? null : AssetPath.Resolve(root, field.StageSmd);
             if (path is null)
             {
-                logger.LogWarning("Field {Field} ({Code}): stage {Stage} not found.", field.Id, field.FieldCode, field.StageSmd);
+                failures.Add($"field {field.Id} ({field.FieldCode}): stage '{field.StageSmd}' not found");
                 return;
             }
 
@@ -44,9 +52,20 @@ public sealed class FieldTerrainLoadService(
             }
             catch (InvalidDataException ex)
             {
-                logger.LogWarning("Field {Field} ({Code}): stage {Stage} unreadable: {Message}", field.Id, field.FieldCode, field.StageSmd, ex.Message);
+                failures.Add($"field {field.Id} ({field.FieldCode}): stage '{field.StageSmd}' unreadable: {ex.Message}");
             }
         });
+
+        if (!failures.IsEmpty)
+        {
+            var report = string.Join("; ", failures.Order(StringComparer.Ordinal));
+            if (!allowMissing)
+            {
+                throw new InvalidOperationException($"Field terrain incomplete ({failures.Count} stages): {report}. Set Assets:AllowMissingTerrain=true to start anyway.");
+            }
+
+            logger.LogWarning("Fields without terrain collision: {Report}", report);
+        }
 
         terrain.Publish(new Dictionary<int, FieldTerrain>(loaded));
         var memory = (GC.GetTotalMemory(forceFullCollection: true) - memoryBefore) / (1024.0 * 1024.0);

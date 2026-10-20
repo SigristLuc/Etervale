@@ -1,5 +1,7 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
+using PristonTale.Engine3D.Rendering;
 using PristonTale.Effects.Effects;
 using PristonTale.Effects.Particles;
 
@@ -8,7 +10,7 @@ namespace PristonTale.Effects.Rendering;
 public sealed class ParticleRenderer : IDisposable
 {
     private readonly GraphicsDevice _device;
-    private readonly BasicEffect _effect;
+    private readonly PristonUnlitEffect _effect;
 
     // Reusable batch buffers keyed by (texture, blend). Each batch grows its vertex array as needed and
     // is cleared (count reset to 0) — not freed — at the start of every Draw, so no per-frame alloc.
@@ -16,17 +18,16 @@ public sealed class ParticleRenderer : IDisposable
     private readonly List<DrawCommand> _commands = new();
     private readonly ParticleBlendStates _blendStates = new();
 
-    public ParticleRenderer(GraphicsDevice device)
+    public ParticleRenderer(GraphicsDevice device, ContentManager content)
     {
         _device = device ?? throw new ArgumentNullException(nameof(device));
-        _effect = new BasicEffect(device)
-        {
-            TextureEnabled = true,
-            VertexColorEnabled = true,
-            LightingEnabled = false,
-            FogEnabled = false,
-            World = Matrix.Identity
-        };
+        _effect = new PristonUnlitEffect(content);
+    }
+
+    public bool DisplayOutput
+    {
+        get => _effect.DisplayOutput;
+        set => _effect.DisplayOutput = value;
     }
 
     public void Draw(IReadOnlyList<EffectInstance> instances, Matrix view, Matrix projection, Vector3 cameraPosition)
@@ -135,7 +136,6 @@ public sealed class ParticleRenderer : IDisposable
         // test on, write off), no culling so both quad faces draw, linear-clamp sampling.
         _device.DepthStencilState = DepthStencilState.DepthRead;
         _device.RasterizerState = RasterizerState.CullNone;
-        _device.SamplerStates[0] = SamplerState.LinearClamp;
 
         for (var k = 0; k < _commands.Count; k++)
         {
@@ -149,11 +149,8 @@ public sealed class ParticleRenderer : IDisposable
             _effect.Texture = key.Texture;
 
             var primitiveCount = command.Count / 3;
-            foreach (var pass in _effect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                _device.DrawUserPrimitives(PrimitiveType.TriangleList, batch.Vertices, command.Start, primitiveCount);
-            }
+            _effect.Apply();
+            _device.DrawUserPrimitives(PrimitiveType.TriangleList, batch.Vertices, command.Start, primitiveCount);
         }
     }
 

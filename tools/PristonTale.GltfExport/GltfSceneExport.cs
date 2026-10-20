@@ -44,7 +44,7 @@ internal static class GltfSceneExport
 {
     internal const float TicksPerSecond = 160000f / 33f;
 
-    // smAdvanceStageObjectFrame adds two ticks per elapsed millisecond and, after the first pass,
+    // Animated stage objects advance two ticks per elapsed millisecond and, after the first pass,
     // wraps playback into the [160, MaxFrame] range.
     internal const float StageObjectTicksPerSecond = 2000f;
     private const int StageObjectLoopStartTicks = 160;
@@ -627,7 +627,7 @@ internal static class GltfSceneExport
                 continue;
             }
 
-            // smMOTIONINFO frames are signed in the client; a decoded 0xFFFFFFF8 end frame is -8, an empty range.
+            // Motion record frames are signed in the client; a decoded 0xFFFFFFF8 end frame is -8, an empty range.
             var offset = MotionFrameOffsetTicks(actor, motion) / SampleStepTicks;
             var startTicksLong = ((long)unchecked((int)motion.StartFrame) + offset) * SampleStepTicks;
             var endTicksLong = ((long)unchecked((int)motion.EndFrame) + offset) * SampleStepTicks;

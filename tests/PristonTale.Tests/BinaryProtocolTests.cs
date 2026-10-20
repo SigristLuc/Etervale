@@ -15,11 +15,11 @@ internal static class BinaryProtocolTests
         yield return ("Priston TCP header handles partial reads and rejects invalid lengths", HeaderAsync);
         yield return ("Priston packet cipher matches the default C++ English build", CipherAsync);
         yield return ("Priston server list preserves the C++ field layout and counts", ServerListAsync);
-        yield return ("smCHAR_INFO and PLAYERINFO keep the 32-bit x86 layout", CharacterInfoAsync);
-        yield return ("TRANS_USERCHAR_INFO is 1484 bytes with 240-byte character slots", CharacterListAsync);
-        yield return ("ATTACK_DAMAGE uses dm_GetDamgeChkSum and dm_EncodePacket keyed by the sender serial", AttackDamageAsync);
-        yield return ("PLAYDATAGROUP nests self-sized TRANS_PLAYDATA and PLAYDATA entries", PlayDataGroupAsync);
-        yield return ("RECORDDATA chunks follow the original TRANS_RECORD_DATAS totals", RecordChunksAsync);
+        yield return ("character info and PLAYERINFO keep the 32-bit x86 layout", CharacterInfoAsync);
+        yield return ("character list is 1484 bytes with 240-byte character slots", CharacterListAsync);
+        yield return ("ATTACK_DAMAGE uses the damage checksum and damage cipher keyed by the sender serial", AttackDamageAsync);
+        yield return ("PLAYDATAGROUP nests self-sized play data and PLAYDATA entries", PlayDataGroupAsync);
+        yield return ("RECORDDATA chunks follow the original chunk totals", RecordChunksAsync);
         yield return ("replay window rejects repeats and stale counters and survives the 16-bit wrap", ReplayWindowAsync);
         yield return ("TCP connection delivers encrypted and plain packets and coalesces sends", ConnectionAsync);
     }
@@ -109,9 +109,9 @@ internal static class BinaryProtocolTests
         var packet = new byte[PlayerInfoPacket.Size];
         var written = new PlayerInfoPacket(character, 0x4000_0001, 256, 512, -768).Write(packet);
         Assert.True(written == 504, "PLAYERINFO is not 504 bytes");
-        Assert.True(Encoding.ASCII.GetString(packet, 8, 4) == "Gear" && packet[40] == (byte)'c', "smCHAR_INFO names moved");
+        Assert.True(Encoding.ASCII.GetString(packet, 8, 4) == "Gear" && packet[40] == (byte)'c', "character info names moved");
         Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(8 + 180)) == 2 && BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(8 + 184)) == 7,
-            "JOB_CODE or Level offset changed");
+            "class code or Level offset changed");
         Assert.True(BinaryPrimitives.ReadInt16LittleEndian(packet.AsSpan(8 + 292)) == 90 && BinaryPrimitives.ReadInt16LittleEndian(packet.AsSpan(8 + 294)) == 120,
             "Life[2] offset changed");
         Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(8 + 328)) == 0, "lpMonInfo slot is not a zero 32-bit pointer");
@@ -130,11 +130,11 @@ internal static class BinaryProtocolTests
     {
         var entry = new UserCharacterEntry("Alpha", "", "", 6, 42, 0, 0x02010100, 3, 1024, -2048, 2, 1, 1, 0x01010300, 0, true);
         var packet = new byte[UserCharacterList.Size];
-        Assert.True(new UserCharacterList("acct", [entry]).Write(packet) == 1484, "TRANS_USERCHAR_INFO is not 1484 bytes");
+        Assert.True(new UserCharacterList("acct", [entry]).Write(packet) == 1484, "character list is not 1484 bytes");
         Assert.True(BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(40)) == 1, "PlayUserCount offset changed");
         Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(44 + 160)) == 6 && BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(44 + 164)) == 42
             && BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(44 + 172)) == 0x02010100
-            && BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(44 + 184)) == -2048, "_TRANS_CHAR_INFO field offsets changed");
+            && BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(44 + 184)) == -2048, "character slot field offsets changed");
         Assert.True(UserCharacterList.Read(packet).Characters.Single() == entry, "character list round trip changed fields");
         return Task.CompletedTask;
     }
@@ -145,7 +145,7 @@ internal static class BinaryProtocolTests
         var packet = new byte[AttackDamagePacket.Size];
         Assert.True(attack.Write(packet) == 92, "ATTACK_DAMAGE is not 92 bytes");
         Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(4)) == PristonOpcodes.AttackDamage
-            && BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(16)) != 0x4000_0020, "dm_EncodePacket left the target serial readable");
+            && BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(16)) != 0x4000_0020, "damage cipher left the target serial readable");
         Assert.True(AttackDamagePacket.Read(packet, 0x4000_0010) == attack, "ATTACK_DAMAGE round trip changed fields");
         var rejected = false;
         try
@@ -169,13 +169,13 @@ internal static class BinaryProtocolTests
         var buffer = new byte[PristonFrameCodec.MaxFrameSize];
         var group = new PlayDataGroupWriter(buffer, 5);
         var size = TransPlayData.SizeFor(1);
-        Assert.True(size == 84, "one-buffer smTRANS_PLAYDATA is not 84 bytes");
+        Assert.True(size == 84, "one-buffer play data packet is not 84 bytes");
         group.Commit(detailed.Write(group.Reserve(size)));
         group.Commit(coarse.Write(group.Reserve(PlayDataCoarse.Size)));
         var packet = group.Finish().ToArray();
         Assert.True(packet.Length == 16 + 84 + 40 && BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(8)) == 2, "PLAYDATAGROUP header changed");
         Assert.True(BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(16 + 16)) == 1 && BinaryPrimitives.ReadInt16LittleEndian(packet.AsSpan(16 + 32)) == 3
-            && BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(16 + 48)) == 256, "smTRANS_PLAYDATA offsets changed");
+            && BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(16 + 48)) == 256, "play data packet offsets changed");
         var entries = new List<byte[]>();
         PlayDataGroup.Read(packet, entry => entries.Add(entry.ToArray()));
         var read = TransPlayData.Read(entries[0]);

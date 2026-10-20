@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
@@ -5,6 +6,8 @@ using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
+using PristonTale.Engine3D.Rendering.Lighting;
+using PristonTale.Engine3D.Rendering.Post;
 
 namespace PristonTale.Engine3D.Rendering;
 
@@ -12,9 +15,7 @@ public sealed class PristonRenderer : IDisposable
 {
     private static readonly ConditionalWeakTable<PristonActor, PreparedActorGeometry> PreparedActorGeometries = new();
 
-    // Changing the shadow-map size requires matching bias changes in PristonEffectPipeline.
-    private int ShadowMapSize => _shadowMap.Width;
-    // FieldRuntime.cpp advances stage-object animation by two ticks per millisecond.
+    // The original game advances stage-object animation by two ticks per millisecond.
     private const float StageObjectFrameRate = 2000f;
 
     private static readonly bool ShadowDiagnostics =
@@ -22,7 +23,7 @@ public sealed class PristonRenderer : IDisposable
     // PlaybackRate supplies the rules-layer FrameStep/80 ratio for speed-scaled motions.
     private const float ReferenceTicksPerSecond = 160000f / 33f;
     private const float DamageEatRateFactor = 92f / 80f;
-    private const float ShadowFrustumRadius = 1400f;
+    private const int MinimumShadowMapSize = 1024;
     private const float ShadowTeleportRefreshDistance = 350f;
     private const uint TexFormScroll = 4;
     private const uint TexFormScroll2 = 6;
@@ -51,18 +52,20 @@ public sealed class PristonRenderer : IDisposable
     private readonly GraphicsDevice _graphicsDevice;
     private readonly IClientLog _log;
     private readonly PristonRenderStateCache _stateCache;
-    private readonly PristonEffectPipeline _effectPipeline;
+    private readonly PristonShaderLibrary _shaders;
     private readonly PristonTextureLoader _textureLoader;
     private readonly PristonMaterialRuntimeFactory _materialFactory;
     private readonly PristonGpuMeshBuilder _meshBuilder;
     private readonly BatchUploader _batchUploader;
     private RenderTarget2D _shadowMap;
     private readonly PresentationSettings _presentation;
-    private readonly Action<Matrix, Matrix> _drawLampCasters;
+    private readonly PristonSceneTargets _sceneTargets;
+    private int _multiSampleCount;
     private readonly List<RenderStageHandle> _stages = [];
     // Rebuilt on residency changes so Draw remains allocation-free.
     private readonly List<RenderBatch> _renderBatches = [];
     private readonly List<RenderBatch> _shadowBatches = [];
+    private bool _batchListsDirty;
     // Generations prevent recycled actor slots from validating stale handles.
     private readonly List<ActorRuntime> _actors = [];
     private readonly Stack<int> _freeActorSlots = new();
@@ -78,48 +81,116 @@ public sealed class PristonRenderer : IDisposable
     private const int LightLens = 0x00002;
     private const int LightDynamic = 0x80000;
 
+    // Stage lamps (Shaders/Lighting/Shading.hlsli): the illuminance at the reference distance (150 units), in units of the
+    // authored level over the night reference (PristonPhotometry), falling off with the inverse square; the authored range
+    // is where the light is windowed to zero.
+    private const float LampLevelScale = 2f;
+    private const float LampRangeStretch = 1f;
+    // Self-illumination at night: the luminance (cd/m^2) of an emissive albedo of 1; by day it shows at its authored
+    // display level instead (EmissionScale is the larger of the two).
+    private const float EmissiveLuminance = 40f;
+    // Combat and spell lights by day: a modest share of the daylight, several overlap (meteors, fire fields).
+    private const float TransientDaylightShare = 0.12f;
+
     private PristonPointLight[] _overrideLights;
-    private float _lampIntensity = 4f;
+    private float _lampIntensity = 1f;
     private float _lampRangeScale = 1f;
     private float _glowIntensity = 1f;
     private float _glowScale = 1f;
     private readonly List<PristonPointLight> _activeLights = new(MaxActiveLights);
-    private readonly List<PristonPointLight> _activeLampLights = new(MaxActiveLights);
     public Lighting.PristonTransientLights TransientLights { get; } = new();
     private readonly List<PristonPointLight> _tunedCandidates = [];
     private readonly List<PristonPointLight> _frameGlowLights = [];
     private const float EmitterGlowRadius = 175f;
-    private Matrix _lightView = Matrix.Identity;
-    private Matrix _lightProjection = Matrix.Identity;
-    private Matrix _cachedSunLightViewProjection = Matrix.Identity;
     private readonly FixedRateRefreshScheduler _sunShadowRefresh = new();
-    private readonly FixedRateRefreshScheduler _lampShadowRefresh = new();
+    private readonly PristonShadowCascades _cascades = new();
+    private ShadowFilterMode _shadowFilter = ShadowFilterMode.Pcss;
+    private bool _ambientOcclusion = true;
+    private bool _contactShadows = true;
+    private bool _fullShadowRefresh = true;
+    private int _cascadeMask;
+    private Vector3 _shadowLightDirection;
+    private PristonScreenOcclusion _screenOcclusion;
+    private readonly PristonLampShadows _lampShadows;
+    private readonly PristonLightCulling _lightCulling;
+    private readonly PristonEnvironmentLighting _environment;
+    private readonly PristonScreenReflections _reflections;
+    private bool _screenReflections = true;
+    private PristonFrameContext _reflectionFrame;
+    private PristonCalibrationSpheres _calibration;
+    private bool _calibrationSpheres;
+    private readonly PristonVolumetricLight _volumetric;
+    private bool _volumetricLight = true;
+    private bool _imageBasedLighting = true;
+    private int _lampShadowRedraw;
+    // The lit pass over surfaces the depth pre-pass already wrote: test against their depth, do not write it again.
+    private static readonly DepthStencilState PrepassedDepth = new()
+    {
+        Name = "PristonPrepassedDepth",
+        DepthBufferEnable = true,
+        DepthBufferWriteEnable = false,
+        DepthBufferFunction = CompareFunction.LessEqual
+    };
+    // Clearing a cascade tile writes far depth whatever the tile held.
+    private static readonly DepthStencilState ShadowClearDepth = new()
+    {
+        Name = "PristonShadowClear",
+        DepthBufferEnable = true,
+        DepthBufferWriteEnable = true,
+        DepthBufferFunction = CompareFunction.Always
+    };
+    // The depth pre-pass writes depth, linear depth, normals and motion, never the scene colour.
+    private static readonly BlendState PrepassBlend = CreatePrepassBlend();
     private Vector3 _sunShadowFocus;
-    private Vector3 _lampShadowFocus;
     private bool _sunShadowFocusValid;
-    private bool _lampShadowFocusValid;
     private int _shadowUpdateRate;
     private int _shadowDrawCalls;
 
     private readonly GlowRenderer _glowRenderer;
-    private LampShadowSystem _lampShadows;
+    private readonly PristonSkyCapture _skyCapture;
+    private Vector3 _towardSun = Vector3.Up;
+    private Vector3 _fogSunColour;
+    private float _sunElevation;
     private float _lampFactor;
+    private PristonFrameExposure _exposure = PristonFrameExposure.Neutral;
+    private PristonPostSettings _postSettings = PristonPostSettings.From(new ClientSettings());
+    private float _lastDeltaSeconds;
+    // Motion vectors: the frame counter the skin palettes are stamped with, and the previous frame's unjittered camera.
+    private uint _motionFrame = 1;
+    private bool _hasPreviousCamera;
+    private Matrix _previousView;
+    private Matrix _previousProjection;
+    private uint _previousRenderTime;
+    private float _previousPreExposure = 1f;
+    private PristonTemporalFrame _temporalFrame;
+    private PristonExposureInputs _exposureInputs;
+    private readonly Dictionary<BlendState, BlendState> _temporalBlendStates = new(ReferenceEqualityComparer.Instance);
 
     public PristonRenderer(GraphicsDevice graphicsDevice, ContentManager content, IClientLog log = null, PresentationSettings presentation = null)
     {
         _graphicsDevice = graphicsDevice;
         _log = log ?? ConsoleClientLog.Instance;
         _presentation = presentation;
-        _drawLampCasters = DrawLampCasters;
         _stateCache = new PristonRenderStateCache(graphicsDevice);
-        _effectPipeline = new PristonEffectPipeline(content, _log);
         _textureLoader = new PristonTextureLoader(graphicsDevice, _log);
         _textureLoader.Initialize();
+        _shaders = new PristonShaderLibrary(content, _log, _textureLoader.White);
+        _sceneTargets = new PristonSceneTargets(graphicsDevice, content, _log);
         _materialFactory = new PristonMaterialRuntimeFactory(_textureLoader);
         _meshBuilder = new PristonGpuMeshBuilder(graphicsDevice);
         _batchUploader = new BatchUploader(graphicsDevice);
-        // Shadow depth is stored in R32F rather than a quantized color channel.
-        _glowRenderer = new GlowRenderer(graphicsDevice);
+        _glowRenderer = new GlowRenderer(graphicsDevice, content, _log);
+        _skyCapture = new PristonSkyCapture(graphicsDevice);
+        _lampShadows = new PristonLampShadows(graphicsDevice, _log);
+        _environment = new PristonEnvironmentLighting(graphicsDevice, _sceneTargets.Triangle,
+            PristonShaderLibrary.LoadRequired(content, PristonEnvironmentLighting.Asset, _log));
+        _reflections = new PristonScreenReflections(graphicsDevice, _sceneTargets.Triangle,
+            PristonShaderLibrary.LoadRequired(content, PristonScreenReflections.Asset, _log));
+        _volumetric = new PristonVolumetricLight(graphicsDevice, _sceneTargets.Triangle,
+            PristonShaderLibrary.LoadRequired(content, PristonVolumetricLight.Asset, _log));
+        _lightCulling = new PristonLightCulling(graphicsDevice, PristonShaderLibrary.LoadRequired(content, PristonLightCulling.Asset, _log));
+        _screenOcclusion = new PristonScreenOcclusion(graphicsDevice, _sceneTargets.Triangle,
+            PristonShaderLibrary.LoadRequired(content, PristonScreenOcclusion.Asset, _log));
         ApplyQuality(presentation?.Rendering ?? new ClientSettings());
         if (_presentation is not null)
         {
@@ -131,69 +202,76 @@ public sealed class PristonRenderer : IDisposable
     {
         if (_shadowMap?.Width != settings.ShadowMapSize)
         {
-            var size = settings.ShadowMapSize;
-            while (true)
-            {
-                try
-                {
-                    var replacement = new RenderTarget2D(_graphicsDevice, size, size, false, SurfaceFormat.Single, DepthFormat.Depth24);
-                    _shadowMap?.Dispose();
-                    _shadowMap = replacement;
-                    break;
-                }
-                catch (Exception exception) when (size > 1024 && exception is ArgumentException or InvalidOperationException)
-                {
-                    size /= 2;
-                    _log.Warn($"[Rendering] Shadow allocation failed; trying {size}: {exception.Message}");
-                }
-            }
-        }
-
-        if (_lampShadows?.TileSize != settings.LampShadowTileSize)
-        {
-            var replacement = new LampShadowSystem(_graphicsDevice, settings.LampShadowTileSize);
-            _lampShadows?.Dispose();
-            _lampShadows = replacement;
+            // Release first so a size change never holds both maps (an 8192² R32F + D24 pair is ~512 MiB).
+            _shadowMap?.Dispose();
+            _shadowMap = null;
+            _shadowMap = CreateShadowTarget(settings.ShadowMapSize);
         }
 
         _shadowUpdateRate = settings.ShadowUpdateRate;
         _sunShadowRefresh.Invalidate();
-        _lampShadowRefresh.Invalidate();
+        _cascades.Configure(settings.ShadowCascades, _shadowMap.Width);
+        _lampShadows.Configure(settings.ShadowsEnabled ? settings.LampShadowCount : 0, settings.LampShadowTileSize);
+        _shadowFilter = settings.ShadowFilter;
+        _ambientOcclusion = settings.AmbientOcclusion;
+        _contactShadows = settings.ContactShadows;
+        _imageBasedLighting = settings.ImageBasedLighting;
+        _screenReflections = settings.ScreenSpaceReflections;
+        _calibrationSpheres = settings.CalibrationSpheres;
+        _volumetricLight = settings.VolumetricLight;
+        _fullShadowRefresh = true;
+        _multiSampleCount = settings.AntiAliasing == AntiAliasingMode.Msaa ? Math.Clamp(settings.MultiSampleCount, 2, 4) : 0;
         ShadowsEnabled = settings.ShadowsEnabled;
+        DistanceFog = PristonDistanceFog.For(settings.DistanceFog);
+        DebugView = settings.DebugView;
+        ExposureCompensation = settings.ExposureCompensation;
+        _maxLocalLights = Math.Clamp(settings.LocalLightLimit, 1, MaxActiveLights);
+        _postSettings = PristonPostSettings.From(settings);
         _log.Info(
-            $"[Rendering] effective sun shadow={_shadowMap.Width}; lamp tile={_lampShadows.TileSize}; " +
-            $"shadow update={FormatUpdateRate(_shadowUpdateRate)}; shadows={ShadowsEnabled}.");
+            $"[Rendering] quality={settings.Quality}; sun shadow={_shadowMap.Width} in {_cascades.Count} cascade(s) of {_cascades.TileSize} " +
+            $"to {PristonShadowCascades.ShadowDistance:0} units, {settings.ShadowFilter}; ambient occlusion={settings.AmbientOcclusion}; " +
+            $"contact shadows={settings.ContactShadows}; lamp shadows={_lampShadows.Lamps} x {settings.LampShadowTileSize}; " +
+            $"anti-aliasing={settings.AntiAliasing}" +
+            $"{(_multiSampleCount > 0 ? $" {_multiSampleCount}x" : string.Empty)}; shadow update={FormatUpdateRate(_shadowUpdateRate)}; " +
+            $"shadows={ShadowsEnabled}; local lights={_maxLocalLights}; distance fog={settings.DistanceFog}; auto exposure={settings.AutoExposure}; " +
+            $"compensation={settings.ExposureCompensation:+0.0;-0.0;0} EV; tonemapper={settings.Tonemapper}; bloom={settings.Bloom}; " +
+            $"grade={settings.ColorGrading}; sharpening={settings.Sharpening:0.00}; debug view={DebugView}.");
     }
 
-    private void DrawLampCasters(Matrix view, Matrix projection)
+    // A device that cannot allocate the map throws; each failure steps down to the next smaller size, 2048 being the
+    // low tier and 1024 the last resort. Shadow depth is stored in R32F rather than a quantized colour channel.
+    private RenderTarget2D CreateShadowTarget(int requestedSize)
     {
-        _effectPipeline.ApplyDepthFrame(view, projection, _renderTime);
-        DrawShadowQueueItems(_renderQueueBuilder.Queue.ShadowCasters, view * projection);
-    }
-
-    private static Texture2D CreateGlowTexture(GraphicsDevice graphicsDevice)
-    {
-        const int size = 64;
-        var data = new Color[size * size];
-        var c = (size - 1) * 0.5f;
-        for (var y = 0; y < size; y++)
-            for (var x = 0; x < size; x++)
+        for (var size = requestedSize; ; size /= 2)
+        {
+            try
             {
-                var d = new Vector2((x - c) / c, (y - c) / c).Length();
-                var a = MathHelper.Clamp(1f - d, 0f, 1f);
-                a = a * a;
-                data[y * size + x] = new Color(1f, 1f, 1f, a);
+                // PreserveContents: the cascades refresh at different rates, and binding a DiscardContents target clears it.
+                return new RenderTarget2D(_graphicsDevice, size, size, false, SurfaceFormat.Single, DepthFormat.Depth24, 0,
+                    RenderTargetUsage.PreserveContents);
             }
-        var texture = new Texture2D(graphicsDevice, size, size, false, SurfaceFormat.Color);
-        texture.SetData(data);
-        return texture;
+            catch (Exception exception) when (size > MinimumShadowMapSize && exception is ArgumentException or InvalidOperationException or OutOfMemoryException)
+            {
+                _log.Warn($"[Rendering] Sun shadow {size} allocation failed; trying {size / 2}: {exception.Message}");
+            }
+        }
     }
 
     public BoundingBox Bounds { get; private set; }
     public BoundingBox StageBounds { get; private set; }
     public PristonRenderStats LastFrameStats { get; private set; }
+    public PristonFrameProfiler Profiler { get; } = new();
+    public PristonStreamingStats LastStreamingStats { get; private set; } = PristonStreamingStats.Empty;
 
     public bool ShadowsEnabled { get; set; } = true;
+
+    public PristonDistanceFog DistanceFog { get; set; } = PristonDistanceFog.Atmospheric;
+
+    // Sky captures rendered since the renderer was created; the fog refreshes its sky copy only on sky changes.
+    public int SkyCaptureRefreshes => _skyCapture.Refreshes;
+
+    // Development view of the surface shader; Overdraw also switches every scene pass to additive blending.
+    public PristonDebugView DebugView { get; set; }
 
     private int _skyProfile = -1;
     private int _previousSkyProfile = -1;
@@ -355,14 +433,17 @@ public sealed class PristonRenderer : IDisposable
             Matrix.Identity,
             _textureLoader.White,
             false,
-            _lampFactor);
+            _lampFactor,
+            Exposure: _exposure.DisplayScale,
+            DisplayOutput: true,
+            EmissionScale: _exposure.EmissionScale);
         _portraitQueueBuilder.Build(_portraitBatches, [], frame, includeShadowCasters: false);
 
         _stateCache.BeginFrame();
         _stateCache.InvalidateDeviceState();
         _stateCache.SetDepthStencilState(DepthStencilState.Default);
         _stateCache.SetSamplerState0(PristonSamplerStates.AnisotropicWrap);
-        _effectPipeline.ApplyFrame(frame);
+        _shaders.ApplyFrame(frame);
 
         var staticBatches = 0;
         var dynamicBatches = 0;
@@ -383,7 +464,8 @@ public sealed class PristonRenderer : IDisposable
             ref staticIndices,
             ref normalBatches,
             ref twoSidedBatches,
-            ref diagnostics);
+            ref diagnostics,
+            intoScene: false);
     }
 
     public void CopyActorPlayback(ActorHandle source, ActorHandle destination)
@@ -503,9 +585,10 @@ public sealed class PristonRenderer : IDisposable
             _glowIntensity,
             _glowScale);
 
-        _meshBuilder.SetBakeLights(BuildBakeLights(handle));
         var shadowCollector = new StaticShadowCollector();
         BuildStageGeometry(stage, stageDir, handle, shadowCollector);
+        var bakedLight = PristonStageBakedLight.For(stage);
+        handle.LightField = PristonStageLightField.Build(stage);
         var animatedModels = new List<PreparedAnimatedInstance>();
         foreach (var instance in models)
         {
@@ -517,11 +600,11 @@ public sealed class PristonRenderer : IDisposable
                     model,
                     modelDir,
                     instance.World,
-                    PrepareAnimatedModel(model, instance.World, _meshBuilder)));
+                    PrepareAnimatedModel(model, instance.World, bakedLight)));
             }
             else
             {
-                AddModel(model, modelDir, handle, instance.World, shadowCollector);
+                AddModel(model, modelDir, handle, instance.World, shadowCollector, bakedLight);
             }
         }
 
@@ -532,7 +615,7 @@ public sealed class PristonRenderer : IDisposable
         LogAnimatedStageSummary(handle);
         AssignEmitterGlowColors(handle, stage);
 
-        handle.Bounds = PristonBinaryUtil.BoundsFrom(handle.Batches.SelectMany(static b => b.BoundsPoints()));
+        handle.Bounds = UnionBatchBounds(handle.Batches);
         _stages.Add(handle);
         RebuildRenderBatches();
         return handle;
@@ -551,111 +634,31 @@ public sealed class PristonRenderer : IDisposable
             _glowIntensity,
             _glowScale);
         var published = false;
-        var cpuBuilder = new PristonGpuMeshBuilder(null);
-        cpuBuilder.SetBakeLights(BuildBakeLights(handle));
-        var shadowCollector = new StaticShadowCollector();
-        _log.Info($"[Stream] lamp kernel: {cpuBuilder.LampKernel}.");
-        var animatedPreparation = Task.Run(() =>
-        {
-            var prepared = new Dictionary<PristonModel, PreparedAnimatedModel>();
-            foreach (var model in models)
-            {
-                if (model.IsAnimated)
-                {
-                    prepared.Add(model, PrepareAnimatedModel(model, Matrix.Identity, cpuBuilder));
-                }
-            }
-
-            return prepared;
-        });
+        var stats = new PristonStreamingStats(Path.GetFileName(stage.Path));
+        using var steps = StageUploadSteps(stage, models, handle).GetEnumerator();
         try
         {
-            var stageDirectory = Path.GetDirectoryName(stage.Path) ?? ".";
-            foreach (var step in _textureLoader.UploadPreparedTextures(stageDirectory, PristonMaterialUsage.ForStage(stage)))
+            while (true)
             {
-                yield return null;
-            }
-
-            foreach (var model in models)
-            {
-                var directory = Path.GetDirectoryName(model.Path) ?? ".";
-                foreach (var step in _textureLoader.UploadPreparedTextures(directory, PristonMaterialUsage.ForModel(model)))
+                var started = Stopwatch.GetTimestamp();
+                if (!steps.MoveNext())
                 {
-                    yield return null;
+                    break;
                 }
-            }
 
-            var groupsTask = Task.Run(() => BuildStageGroups(stage));
-            while (!groupsTask.IsCompleted)
-            {
+                stats.Record(steps.Current.Step, Stopwatch.GetElapsedTime(started).TotalMilliseconds, steps.Current.Bytes);
                 yield return null;
             }
 
-            foreach (var step in AddGroupsIncrementally(
-                CompletedResult(groupsTask),
-                stage.Materials,
-                stageDirectory,
-                handle,
-                cpuBuilder,
-                shadowCollector))
-            {
-                yield return null;
-            }
-
-            var animatedModels = new List<PreparedAnimatedInstance>();
-            foreach (var model in models)
-            {
-                var directory = Path.GetDirectoryName(model.Path) ?? ".";
-                if (model.IsAnimated)
-                {
-                    while (!animatedPreparation.IsCompleted)
-                    {
-                        yield return null;
-                    }
-
-                    var prepared = CompletedResult(animatedPreparation)[model];
-                    animatedModels.Add(new PreparedAnimatedInstance(
-                        model,
-                        directory,
-                        Matrix.Identity,
-                        prepared));
-                }
-                else
-                {
-                    var modelTask = Task.Run(() => PristonModelGeometry.BuildGroups(model, Matrix.Identity, Color.White));
-                    while (!modelTask.IsCompleted)
-                    {
-                        yield return null;
-                    }
-
-                    foreach (var step in AddGroupsIncrementally(
-                        CompletedResult(modelTask),
-                        model.Materials,
-                        directory,
-                        handle,
-                        cpuBuilder,
-                        shadowCollector))
-                    {
-                        yield return null;
-                    }
-                }
-            }
-
-            foreach (var step in AddAnimatedModelGroupsIncrementally(animatedModels, handle))
-            {
-                yield return null;
-            }
-
-            foreach (var step in AddStaticShadowAggregateIncrementally(handle, shadowCollector, cpuBuilder))
-            {
-                yield return null;
-            }
-
+            var publishStarted = Stopwatch.GetTimestamp();
             LogAnimatedStageSummary(handle);
             AssignEmitterGlowColors(handle, stage);
-            handle.Bounds = PristonBinaryUtil.BoundsFrom(handle.Batches.SelectMany(static batch => batch.BoundsPoints()));
+            handle.Bounds = UnionBatchBounds(handle.Batches);
             _stages.Add(handle);
             RebuildRenderBatches();
+            stats.Record(StreamingStep.Publish, Stopwatch.GetElapsedTime(publishStarted).TotalMilliseconds);
+            LastStreamingStats = stats;
+            _log.Info($"[Stream] upload steps {stats.Source}: {stats.Summary()}");
             published = true;
             yield return handle;
         }
@@ -666,6 +669,135 @@ public sealed class PristonRenderer : IDisposable
                 handle.DisposeGpu();
             }
         }
+    }
+
+    // Each yielded item describes the main-thread work done just before it, so the caller can time every step.
+    private IEnumerable<StreamingWork> StageUploadSteps(PristonStage stage, IReadOnlyList<PristonModel> models, RenderStageHandle handle)
+    {
+        var cpuBuilder = new PristonGpuMeshBuilder(null);
+        var shadowCollector = new StaticShadowCollector();
+        var bakedLight = PristonStageBakedLight.For(stage);
+        var lightField = Task.Run(() => PristonStageLightField.Build(stage));
+        var animatedPreparation = Task.Run(() =>
+        {
+            var prepared = new Dictionary<PristonModel, PreparedAnimatedModel>();
+            foreach (var model in models)
+            {
+                if (model.IsAnimated)
+                {
+                    prepared.Add(model, PrepareAnimatedModel(model, Matrix.Identity, bakedLight));
+                }
+            }
+
+            return prepared;
+        });
+        var stageDirectory = Path.GetDirectoryName(stage.Path) ?? ".";
+        foreach (var bytes in _textureLoader.UploadPreparedTextures(stageDirectory, PristonMaterialUsage.ForStage(stage)))
+        {
+            yield return new StreamingWork(StreamingStep.TextureUpload, bytes);
+        }
+
+        foreach (var model in models)
+        {
+            var directory = Path.GetDirectoryName(model.Path) ?? ".";
+            foreach (var bytes in _textureLoader.UploadPreparedTextures(directory, PristonMaterialUsage.ForModel(model)))
+            {
+                yield return new StreamingWork(StreamingStep.TextureUpload, bytes);
+            }
+        }
+
+        var groupsTask = Task.Run(() => BuildStageGroups(stage));
+        while (!groupsTask.IsCompleted)
+        {
+            yield return StreamingWork.Wait;
+        }
+
+        foreach (var step in AddGroupsIncrementally(
+            CompletedResult(groupsTask),
+            stage.Materials,
+            stageDirectory,
+            handle,
+            cpuBuilder,
+            shadowCollector))
+        {
+            yield return step;
+        }
+
+        var animatedModels = new List<PreparedAnimatedInstance>();
+        foreach (var model in models)
+        {
+            var directory = Path.GetDirectoryName(model.Path) ?? ".";
+            if (model.IsAnimated)
+            {
+                while (!animatedPreparation.IsCompleted)
+                {
+                    yield return StreamingWork.Wait;
+                }
+
+                var prepared = CompletedResult(animatedPreparation)[model];
+                animatedModels.Add(new PreparedAnimatedInstance(
+                    model,
+                    directory,
+                    Matrix.Identity,
+                    prepared));
+            }
+            else
+            {
+                var modelTask = Task.Run(() => WithBakedLight(PristonModelGeometry.BuildGroups(model, Matrix.Identity, Color.White), model.Materials, bakedLight));
+                while (!modelTask.IsCompleted)
+                {
+                    yield return StreamingWork.Wait;
+                }
+
+                foreach (var step in AddGroupsIncrementally(
+                    CompletedResult(modelTask),
+                    model.Materials,
+                    directory,
+                    handle,
+                    cpuBuilder,
+                    shadowCollector))
+                {
+                    yield return step;
+                }
+            }
+        }
+
+        foreach (var step in AddAnimatedModelGroupsIncrementally(animatedModels, handle))
+        {
+            yield return step;
+        }
+
+        while (!lightField.IsCompleted)
+        {
+            yield return StreamingWork.Wait;
+        }
+
+        handle.LightField = CompletedResult(lightField);
+        foreach (var step in AddStaticShadowAggregateIncrementally(handle, shadowCollector, cpuBuilder))
+        {
+            yield return step;
+        }
+    }
+
+    private readonly record struct StreamingWork(StreamingStep Step, long Bytes)
+    {
+        public static StreamingWork Wait => new(StreamingStep.PreparationWait, 0);
+    }
+
+    private static BoundingBox UnionBatchBounds(IReadOnlyList<RenderBatch> batches)
+    {
+        if (batches.Count == 0)
+        {
+            return new BoundingBox(Vector3.Zero, Vector3.Zero);
+        }
+
+        var bounds = batches[0].Bounds;
+        for (var index = 1; index < batches.Count; index++)
+        {
+            bounds = BoundingBox.CreateMerged(bounds, batches[index].Bounds);
+        }
+
+        return bounds;
     }
 
     private static T CompletedResult<T>(Task<T> task)
@@ -698,16 +830,16 @@ public sealed class PristonRenderer : IDisposable
         }
     }
 
-    private IEnumerable<bool> AddGroupsIncrementally(
-        Dictionary<int, List<VertexPositionColorTexture>> groups,
+    private IEnumerable<StreamingWork> AddGroupsIncrementally(
+        Dictionary<int, List<PristonCornerVertex>> groups,
         IReadOnlyList<PristonMaterial> materials,
         string directory,
         RenderStageHandle handle,
         PristonGpuMeshBuilder cpuBuilder,
         StaticShadowCollector shadowCollector)
     {
-        var merged = new Dictionary<StaticMergeKey, (PristonMaterialRuntime Material, List<VertexPositionColorTexture> Vertices)>();
-        var pending = new List<(PristonMaterialRuntime Material, List<VertexPositionColorTexture> Vertices)>();
+        var merged = new Dictionary<StaticMergeKey, (PristonMaterialRuntime Material, List<PristonCornerVertex> Vertices)>();
+        var pending = new List<(PristonMaterialRuntime Material, List<PristonCornerVertex> Vertices)>();
         foreach (var (index, vertices) in groups)
         {
             var material = index >= 0 && index < materials.Count ? materials[index] : FallbackMaterial;
@@ -744,7 +876,7 @@ public sealed class PristonRenderer : IDisposable
                 pending.Add((runtime, vertices));
             }
 
-            yield return false;
+            yield return new StreamingWork(StreamingStep.MaterialSetup, 0);
         }
 
         pending.AddRange(merged.Values);
@@ -763,7 +895,7 @@ public sealed class PristonRenderer : IDisposable
         });
         while (!preparation.IsCompleted)
         {
-            yield return false;
+            yield return StreamingWork.Wait;
         }
 
         foreach (var prepared in CompletedResult(preparation))
@@ -775,14 +907,14 @@ public sealed class PristonRenderer : IDisposable
                 uploaded,
                 prepared.Material,
                 ShadowCoveredByAggregate: prepared.ShadowCoveredByAggregate));
-            yield return false;
+            yield return new StreamingWork(StreamingStep.StaticMeshUpload, PristonGpuMeshBuilder.EstimateBytes(prepared.Mesh));
         }
     }
 
     private sealed record PreparedStaticBatch(
         PristonMaterialRuntime Material,
         PristonGpuMeshBuilder.PreparedMesh Mesh,
-        PristonDynamicVertex[] Vertices,
+        PristonStaticVertex[] Vertices,
         bool ShadowCoveredByAggregate);
 
     private static bool CanMerge(PristonMaterialRuntime material)
@@ -792,7 +924,7 @@ public sealed class PristonRenderer : IDisposable
             && !material.Water
             && !material.Blinking
             && !material.Wind
-            && !material.HasSecondTexture
+            && !material.HasLayers
             && material.Textures.Length == 1;
     }
 
@@ -818,7 +950,7 @@ public sealed class PristonRenderer : IDisposable
         }
     }
 
-    private IEnumerable<bool> AddStaticShadowAggregateIncrementally(
+    private IEnumerable<StreamingWork> AddStaticShadowAggregateIncrementally(
         RenderStageHandle handle,
         StaticShadowCollector collector,
         PristonGpuMeshBuilder cpuBuilder)
@@ -841,14 +973,14 @@ public sealed class PristonRenderer : IDisposable
         });
         while (!preparation.IsCompleted)
         {
-            yield return false;
+            yield return StreamingWork.Wait;
         }
 
         foreach (var prepared in CompletedResult(preparation))
         {
             var mesh = _meshBuilder.Upload(prepared);
             handle.ShadowBatches.Add(new RenderBatch([], [], mesh, collector.Material, ForceCastsShadow: true));
-            yield return false;
+            yield return new StreamingWork(StreamingStep.ShadowAggregateUpload, PristonGpuMeshBuilder.EstimateBytes(prepared));
         }
     }
 
@@ -856,14 +988,14 @@ public sealed class PristonRenderer : IDisposable
     {
         // Spatial aggregation keeps depth submissions low without turning the whole field into one
         // giant caster that defeats the light-frustum cull. A 1024-unit cell gives the 2800-unit sun
-        // footprint useful granularity and normally leaves a lamp frustum intersecting only a few cells.
+        // footprint useful granularity.
         private const float CellSize = 1024f;
-        private readonly Dictionary<(int X, int Z), List<VertexPositionColorTexture>> _cells = [];
+        private readonly Dictionary<(int X, int Z), List<PristonCornerVertex>> _cells = [];
 
         public int Count => _cells.Count;
         public PristonMaterialRuntime Material { get; private set; }
 
-        public void Add(PristonMaterialRuntime material, List<VertexPositionColorTexture> vertices)
+        public void Add(PristonMaterialRuntime material, List<PristonCornerVertex> vertices)
         {
             Material ??= material;
             var source = CollectionsMarshal.AsSpan(vertices);
@@ -876,7 +1008,7 @@ public sealed class PristonRenderer : IDisposable
                 {
                     // Eight triangles cover the common small-cell case while avoiding a large eager
                     // allocation for sparse edge cells. List<T> grows geometrically if the cell is dense.
-                    cell = new List<VertexPositionColorTexture>(24);
+                    cell = new List<PristonCornerVertex>(24);
                 }
 
                 var destinationIndex = cell.Count;
@@ -886,7 +1018,7 @@ public sealed class PristonRenderer : IDisposable
             }
         }
 
-        public IEnumerable<List<VertexPositionColorTexture>> OrderedCells()
+        public IEnumerable<List<PristonCornerVertex>> OrderedCells()
         {
             foreach (var cell in _cells.OrderBy(static pair => pair.Key.X).ThenBy(static pair => pair.Key.Z))
             {
@@ -920,7 +1052,8 @@ public sealed class PristonRenderer : IDisposable
             generation = 0;
             _actors.Add(runtime);
         }
-        RebuildRenderBatches();
+
+        _batchListsDirty = true;
         return new ActorHandle(slot, generation);
     }
 
@@ -931,7 +1064,7 @@ public sealed class PristonRenderer : IDisposable
         ReleaseActorGpuResource(runtime);
         runtime.Alive = false;
         _freeActorSlots.Push(handle.Slot);
-        RebuildRenderBatches();
+        _batchListsDirty = true;
     }
 
     public void ClearActors()
@@ -946,7 +1079,7 @@ public sealed class PristonRenderer : IDisposable
 
         _actors.Clear();
         _freeActorSlots.Clear();
-        RebuildRenderBatches();
+        _batchListsDirty = true;
     }
 
     private void RemoveAllStages()
@@ -956,7 +1089,25 @@ public sealed class PristonRenderer : IDisposable
         _stages.Clear();
     }
 
+    // Stage residency changes the static casters, so the sun shadow map must be redrawn.
     private void RebuildRenderBatches()
+    {
+        RebuildBatchLists();
+        StageBounds = UnionStageBounds();
+        _sunShadowRefresh.Invalidate();
+    }
+
+    // Actor spawns and despawns only mark the lists dirty: bursts coalesce into one rebuild before the next draw,
+    // and actors reach the shadow maps on their next scheduled refresh instead of forcing one per event.
+    private void EnsureBatchLists()
+    {
+        if (_batchListsDirty)
+        {
+            RebuildBatchLists();
+        }
+    }
+
+    private void RebuildBatchLists()
     {
         _renderBatches.Clear();
         _shadowBatches.Clear();
@@ -965,6 +1116,7 @@ public sealed class PristonRenderer : IDisposable
             _renderBatches.AddRange(stage.Batches);
             _shadowBatches.AddRange(stage.ShadowBatches);
         }
+
         foreach (var actor in _actors)
         {
             if (actor.Alive && actor.Instance.VisibleInMainPass)
@@ -974,11 +1126,12 @@ public sealed class PristonRenderer : IDisposable
             }
         }
 
-        Bounds = PristonBinaryUtil.BoundsFrom(_renderBatches.SelectMany(static b => b.BoundsPoints()));
-        StageBounds = UnionStageBounds();
-        _sunShadowRefresh.Invalidate();
-        _lampShadowRefresh.Invalidate();
+        Bounds = UnionBatchBounds(_renderBatches);
+        _batchListsDirty = false;
+        BatchListRebuilds++;
     }
+
+    internal int BatchListRebuilds { get; private set; }
 
     private BoundingBox UnionStageBounds()
     {
@@ -1004,6 +1157,7 @@ public sealed class PristonRenderer : IDisposable
     public void Update(GameTime gameTime)
     {
         var dt = MathF.Max(0f, (float)gameTime.ElapsedGameTime.TotalSeconds);
+        _lastDeltaSeconds = dt;
         _dayNight.Update(dt);
         TransientLights.Update(MathF.Max(0, dt));
         var profile = SkyProfiles.Select(TimeOfDay);
@@ -1019,6 +1173,13 @@ public sealed class PristonRenderer : IDisposable
         if (UseExternalAnimationClock)
             return;
 
+        Profiler.Begin(RenderSection.Update);
+        AdvanceAnimation(dt);
+        Profiler.End(RenderSection.Update);
+    }
+
+    private void AdvanceAnimation(float dt)
+    {
         foreach (var stage in _stages)
         {
             foreach (var model in stage.AnimatedModels)
@@ -1077,6 +1238,11 @@ public sealed class PristonRenderer : IDisposable
         }
     }
 
+    // Frame passes, in order (each a profiler section): Lighting (CPU light selection), Queue (culling), SunShadow,
+    // SkyCapture (the fog's sky copy, when the sky changed), Sky (the dome, then the pass that fills every scene target),
+    // Opaque and Masked (with the motion and depth targets of the temporal anti-aliasing), Transparent, Glow. The HDR
+    // scene stays bound after Draw so effects can add to it; ComposeScene then runs the post chain (Temporal, Exposure,
+    // Bloom, DisplayTransform, PostAntiAliasing) into the caller's target.
     public void Draw(PristonCamera camera)
     {
         var staticBatches = 0;
@@ -1088,63 +1254,124 @@ public sealed class PristonRenderer : IDisposable
         var normalBatches = 0;
         var twoSidedBatches = 0;
         var visibleStaticMeshDiagnostics = new PristonMeshDiagnostics();
+        var temporal = _postSettings.AntiAliasing == AntiAliasingMode.Taa && DebugView != PristonDebugView.Overdraw;
+        // The depth pre-pass pays for itself: the lit pass shades each pixel once and the light tiles get depth bounds.
+        var prepass = _multiSampleCount == 0 && DebugView != PristonDebugView.Overdraw;
+        // Binding the scene target ends the caller's render pass, so the profiler can reset its timestamps outside one.
+        _sceneTargets.Begin(_multiSampleCount, temporal, prepass);
+        Profiler.BeginFrame();
+        Profiler.Begin(RenderSection.Frame);
+        EnsureBatchLists();
         _batchUploader.BeginFrame();
+        _shaders.BeginFrame();
         _shadowDrawCalls = 0;
         var skyBatchCount = 0;
+        Profiler.Begin(RenderSection.Lighting);
         var lighting = BuildFrameLighting(camera.Target);
-        // Skip the unused sun pass when its shader contribution is zero.
-        var sunShadowsEnabled = ShadowsEnabled && _lampFactor < 1f && lighting.Sun.DiffuseColor != Vector3.Zero;
+        Profiler.End(RenderSection.Lighting);
+        var sunShadowsEnabled = ShadowsEnabled && lighting.Sun.DiffuseColor != Vector3.Zero && !Underground;
         InvalidateShadowAfterTeleport(camera.Target);
-        var sunShadowUpdated = _sunShadowRefresh.ShouldRefresh(_renderTime, _shadowUpdateRate, sunShadowsEnabled);
+        // The moon's shadows move with the actors only: half the refresh rate is enough for its soft, dim light.
+        var shadowRate = _sunElevation > -0.05f || _shadowUpdateRate == 0 ? _shadowUpdateRate : Math.Max(_shadowUpdateRate / 2, 30);
+        var sunShadowUpdated = _sunShadowRefresh.ShouldRefresh(_renderTime, shadowRate, sunShadowsEnabled);
         if (sunShadowUpdated)
         {
-            _cachedSunLightViewProjection = CreateLightViewProjection(lighting, camera.Target);
+            FitCascades(camera, lighting.Sun.Direction);
             _sunShadowFocus = camera.Target;
             _sunShadowFocusValid = true;
         }
 
-        var lightViewProjection = sunShadowsEnabled ? _cachedSunLightViewProjection : Matrix.Identity;
-        var lampShadowsEnabled = ShadowsEnabled && _lampFactor > 0.05f && _activeLampLights.Count > 0;
-        var lampShadowsUpdated = _lampShadowRefresh.ShouldRefresh(_renderTime, _shadowUpdateRate, lampShadowsEnabled);
+        var lightViewProjection = Matrix.Identity;
+        _lampShadowRedraw = ShadowsEnabled && _lampFactor > 0.01f ? _lampShadows.Assign(lighting.PointLights, lighting.TransientLightCount) : 0;
+        var lampShadows = _lampShadows.Atlas is not null && ShadowsEnabled && _lampFactor > 0.01f
+            ? new PristonLampShadowFrame(_lampShadows.Atlas, _lampShadows.Rows, _lampShadows.FaceSize, _lampShadows.Lamps)
+            : default;
+        var displayScale = _exposure.DisplayScale;
+        var skyRadiance = SrgbToLinear((BackgroundColor ?? SkyColor).ToVector3()) / displayScale;
+        var projection = camera.Projection;
+        var jitterPixels = Vector2.Zero;
+        var jitterClip = Vector2.Zero;
+        if (temporal)
+        {
+            jitterPixels = PristonTemporalAntiAliasing.JitterPixels(_motionFrame);
+            jitterClip = PristonTemporalAntiAliasing.PixelsToClip(jitterPixels, _sceneTargets.Width, _sceneTargets.Height);
+            projection = PristonTemporalAntiAliasing.Jitter(projection, jitterClip);
+        }
+
+        var hasPrevious = temporal && _hasPreviousCamera;
+        var motion = new PristonMotionFrame(
+            hasPrevious ? _previousView * _previousProjection : camera.View * camera.Projection,
+            jitterClip,
+            hasPrevious ? _previousRenderTime : _renderTime,
+            temporal,
+            _motionFrame);
         var frame = new PristonFrameContext(
             camera.View,
-            camera.Projection,
+            projection,
             camera.Position,
             _renderTime,
             lighting,
             lightViewProjection,
             sunShadowsEnabled ? _shadowMap : _textureLoader.White,
             sunShadowsEnabled,
-            _lampFactor);
+            _lampFactor,
+            DistanceFog with { Color = skyRadiance },
+            DebugView,
+            Exposure: displayScale,
+            EmissionScale: _exposure.EmissionScale,
+            Motion: motion,
+            Shadows: new PristonShadowFrame(_cascades, ShadowFilterOfHour(), null, Vector2.Zero, temporal ? _motionFrame % 8 : 0f),
+            LampShadows: lampShadows);
+        PristonUnlitEffect.SceneExposure = displayScale;
+        _temporalFrame = new PristonTemporalFrame(
+            camera.View,
+            camera.Projection,
+            hasPrevious ? _previousView : camera.View,
+            hasPrevious ? _previousProjection : camera.Projection,
+            jitterPixels,
+            _previousPreExposure > 0f ? _exposure.PreExposure / _previousPreExposure : 1f);
+        Profiler.Begin(RenderSection.Queue);
         var culledBatches = _renderQueueBuilder.Build(
             _renderBatches,
             _shadowBatches,
             frame,
-            sunShadowUpdated || lampShadowsUpdated);
+            sunShadowUpdated || _lampShadowRedraw != 0);
+        Profiler.End(RenderSection.Queue);
         if (sunShadowUpdated)
         {
+            Profiler.Begin(RenderSection.SunShadow);
             RenderShadowMap();
+            Profiler.End(RenderSection.SunShadow);
         }
 
-        var lampShadowMapsUpdated = 0;
-        if (lampShadowsUpdated)
+        if (_lampShadowRedraw != 0)
         {
-            _lampShadows.Select(_activeLampLights, camera.Target, _lampFactor);
-            _lampShadows.Render(_graphicsDevice, _drawLampCasters);
-            lampShadowMapsUpdated = _lampShadows.Count;
-            _lampShadowFocus = camera.Target;
-            _lampShadowFocusValid = true;
+            Profiler.Begin(RenderSection.LampShadows);
+            RenderLampShadows();
+            Profiler.End(RenderSection.LampShadows);
         }
-        else if (!lampShadowsEnabled)
-        {
-            _lampShadows.Clear();
-            _lampShadowFocusValid = false;
-        }
+
         _stateCache.BeginFrame();
         _stateCache.InvalidateDeviceState();
-        if (Sky != null && !Underground)
+        var skyVisible = Sky != null && !Underground && DebugView != PristonDebugView.Overdraw;
+        var skyPosition = new Vector3(0f, MathF.Min(camera.Position.Y, 150000f / 256f) / 8f, 0f);
+        frame = frame with { FogSky = PrepareFogSky(frame, skyVisible, skyPosition) };
+        if (_imageBasedLighting && DebugView != PristonDebugView.Overdraw)
         {
-            var skyPosition = new Vector3(0f, MathF.Min(camera.Position.Y, 150000f / 256f) / 8f, 0f);
+            if (_environment.ShouldRefresh(_renderTime))
+            {
+                Profiler.Begin(RenderSection.Environment);
+                RenderEnvironment(frame, skyVisible, skyPosition);
+                Profiler.End(RenderSection.Environment);
+            }
+
+            frame = frame with { Environment = new PristonEnvironmentFrame(_environment.Atlas, _environment.Sh, _environment.BrdfLut) };
+        }
+        Profiler.Begin(RenderSection.Sky);
+        if (skyVisible)
+        {
+            _sceneTargets.BeginSky(SkyColor);
+            _stateCache.InvalidateDeviceState();
             var skyView = frame.View;
             skyView.Translation = Vector3.Zero;
             skyView.Translation = Vector3.TransformNormal(-skyPosition, skyView);
@@ -1152,45 +1379,73 @@ public sealed class PristonRenderer : IDisposable
             var nearPlane = skyProjection.M43 / skyProjection.M33;
             skyProjection.M33 = -1f;
             skyProjection.M43 = -nearPlane;
-            var skyFrame = frame with
-            {
-                View = skyView,
-                Projection = skyProjection,
-                CameraPosition = skyPosition,
-                Lighting = new PristonLighting(Vector3.One, new PristonDirectionalLight(Vector3.Down, Vector3.Zero), []),
-                ShadowsEnabled = false,
-                LampFactor = 0f
-            };
-            _effectPipeline.ApplyFrame(skyFrame);
+            _shaders.ApplyFrame(CreateSkyFrame(frame, skyView, skyProjection, skyPosition));
             _stateCache.SetDepthStencilState(DepthStencilState.None);
-            _stateCache.SetSamplerState0(PristonSamplerStates.AnisotropicWrap);
-            var currentProfile = SkyProfiles.Select(TimeOfDay);
-            for (var layer = 0; layer < 2; layer++)
-            {
-                var profile = layer == 0 ? currentProfile : _previousSkyProfile;
-                var opacity = layer == 0 ? 1f : 1f - _skyBlend;
-                if (profile < 0 || opacity <= 0f)
-                {
-                    continue;
-                }
-
-                foreach (var batch in Sky.GetBatches(profile))
-                {
-                    var blend = batch.Material.BlendType <= 1 ? BlendState.NonPremultiplied : batch.Material.BlendState;
-                    _stateCache.SetBlendState(blend);
-                    DrawBatch(batch, ref staticBatches, ref dynamicBatches, ref drawCalls, ref triangles,
-                        ref staticVertices, ref staticIndices, ref normalBatches, ref twoSidedBatches,
-                        ref visibleStaticMeshDiagnostics, opacity);
-                    skyBatchCount++;
-                }
-            }
+            skyBatchCount = DrawSkyLayers(
+                SkyProfiles.Select(TimeOfDay),
+                ref staticBatches,
+                ref dynamicBatches,
+                ref drawCalls,
+                ref triangles,
+                ref staticVertices,
+                ref staticIndices,
+                ref normalBatches,
+                ref twoSidedBatches,
+                ref visibleStaticMeshDiagnostics);
         }
 
+        _sceneTargets.Fill(skyVisible, displayScale, skyRadiance);
+        Profiler.End(RenderSection.Sky);
+
+        _stateCache.InvalidateDeviceState();
         _stateCache.SetDepthStencilState(DepthStencilState.Default);
-        _stateCache.SetSamplerState0(PristonSamplerStates.AnisotropicWrap);
-        _effectPipeline.ApplyFrame(frame);
-        _effectPipeline.ApplyLampShadows(_lampShadows);
-        _stateCache.SetDepthStencilState(DepthStencilState.Default);
+        _shaders.ApplyFrame(frame);
+        _prepassDrawn = false;
+        if (_sceneTargets.Prepass)
+        {
+            Profiler.Begin(RenderSection.Prepass);
+            DrawPrepass(_renderQueueBuilder.Queue);
+            Profiler.End(RenderSection.Prepass);
+            // Contact shadows of the sun only, as for the shafts.
+            var contact = _contactShadows && sunShadowsEnabled && _sunElevation > -0.05f;
+            if (_ambientOcclusion || contact)
+            {
+                Profiler.Begin(RenderSection.AmbientOcclusion);
+                var occlusion = _screenOcclusion.Run(
+                    _sceneTargets.LinearDepth,
+                    _sceneTargets.Normals,
+                    frame.View,
+                    frame.Projection,
+                    -Vector3.Normalize(lighting.Sun.Direction),
+                    _ambientOcclusion,
+                    contact,
+                    frame.Shadows.NoiseOffset);
+                Profiler.End(RenderSection.AmbientOcclusion);
+                var strength = new Vector2(_ambientOcclusion ? 1f : 0f, contact ? 1f : 0f);
+                frame = frame with { Shadows = frame.Shadows with { Occlusion = occlusion, OcclusionStrength = strength } };
+                _shaders.ApplyFrame(frame);
+            }
+
+            _sceneTargets.Bind();
+            _stateCache.InvalidateDeviceState();
+            _prepassDrawn = true;
+        }
+
+        if (lighting.PointLights.Count > 0)
+        {
+            Profiler.Begin(RenderSection.LightCulling);
+            var near = frame.Projection.M43 / frame.Projection.M33;
+            var far = frame.Projection.M43 / (frame.Projection.M33 + 1f);
+            var tiles = _lightCulling.Run(lighting.PointLights, frame.View, frame.Projection, near, far, _sceneTargets.Width,
+                _sceneTargets.Height, _prepassDrawn ? _sceneTargets.LinearDepth : null, _textureLoader.White);
+            Profiler.End(RenderSection.LightCulling);
+            frame = frame with { Tiles = tiles };
+            _shaders.ApplyFrame(frame);
+            _sceneTargets.Bind();
+            _stateCache.InvalidateDeviceState();
+        }
+
+        _reflectionFrame = frame;
         DrawQueue(
             _renderQueueBuilder.Queue,
             ref staticBatches,
@@ -1202,6 +1457,18 @@ public sealed class PristonRenderer : IDisposable
             ref normalBatches,
             ref twoSidedBatches,
             ref visibleStaticMeshDiagnostics);
+        if (_calibrationSpheres)
+        {
+            _calibration ??= new PristonCalibrationSpheres(_textureLoader.White);
+            _calibration.Place(camera.Target);
+            _stateCache.SetBlendState(BlendState.Opaque);
+            _stateCache.SetDepthStencilState(DepthStencilState.Default);
+            DrawBatch(_calibration.Grey, ref staticBatches, ref dynamicBatches, ref drawCalls, ref triangles, ref staticVertices,
+                ref staticIndices, ref normalBatches, ref twoSidedBatches, ref visibleStaticMeshDiagnostics);
+            DrawBatch(_calibration.Chrome, ref staticBatches, ref dynamicBatches, ref drawCalls, ref triangles, ref staticVertices,
+                ref staticIndices, ref normalBatches, ref twoSidedBatches, ref visibleStaticMeshDiagnostics);
+        }
+
         _frameGlowLights.Clear();
         foreach (var stage in _stages)
         {
@@ -1219,7 +1486,28 @@ public sealed class PristonRenderer : IDisposable
             }
         }
 
+        Profiler.Begin(RenderSection.Glow);
         _glowRenderer.Draw(frame, _frameGlowLights, _lampFactor);
+        Profiler.End(RenderSection.Glow);
+        // Shafts of the sun only: the moon's are too faint to pay for.
+        if (_prepassDrawn && _volumetricLight && sunShadowsEnabled && _sunElevation > -0.05f)
+        {
+            Profiler.Begin(RenderSection.Volumetric);
+            _volumetric.Run(
+                _sceneTargets.LinearDepth,
+                _shadowMap,
+                _cascades,
+                frame.View,
+                frame.Projection,
+                camera.Position,
+                camera.Target,
+                -Vector3.Normalize(lighting.Sun.Direction),
+                lighting.Sun.DiffuseColor,
+                frame.Shadows.NoiseOffset,
+                _sceneTargets.Bind);
+            Profiler.End(RenderSection.Volumetric);
+            _stateCache.InvalidateDeviceState();
+        }
         LastFrameStats = new PristonRenderStats(
             _renderBatches.Count + skyBatchCount,
             _renderQueueBuilder.Queue.Count + skyBatchCount,
@@ -1232,15 +1520,230 @@ public sealed class PristonRenderer : IDisposable
             staticIndices,
             normalBatches,
             twoSidedBatches,
-            _stateCache.TotalStateChanges,
-            _stateCache.TextureChanges,
+            _stateCache.TotalStateChanges + _shaders.TextureChanges,
+            _shaders.TextureChanges,
             _stateCache.VertexBufferChanges,
             _stateCache.IndexBufferChanges,
             _batchUploader.UploadedBytes,
             visibleStaticMeshDiagnostics,
             sunShadowUpdated,
-            lampShadowMapsUpdated,
+            0,
             _shadowDrawCalls);
+        var dayMetering = MathHelper.Clamp((_exposure.IncidentEv100 - 4f) / 4f, 0f, 1f);
+        _exposureInputs = new PristonExposureInputs(
+            _exposure.PreExposure,
+            _exposure.IncidentEv100,
+            Underground ? 0f : PristonAutoExposure.DayIncidentWeight * dayMetering,
+            ExposureCompensation,
+            Underground);
+        _previousView = camera.View;
+        _previousProjection = camera.Projection;
+        _previousRenderTime = _renderTime;
+        _previousPreExposure = _exposure.PreExposure;
+        _hasPreviousCamera = temporal;
+        Profiler.End(RenderSection.Frame);
+    }
+
+    // Ends the HDR scene: the temporal resolve, the exposure, bloom and the display transform into the target that was
+    // bound when Draw began. Call after the effects that draw into the scene, before the UI.
+    public void ComposeScene()
+    {
+        var postFrame = new PristonPostFrame(
+            _postSettings,
+            _exposureInputs,
+            Vector4.Zero,
+            default,
+            _lastDeltaSeconds,
+            DebugView == PristonDebugView.ExposureFalseColour);
+        _sceneTargets.Compose(postFrame, _temporalFrame, Profiler);
+        _stateCache.InvalidateDeviceState();
+        _motionFrame++;
+    }
+
+    // Exposure compensation in stops on top of the automatic (or fixed) exposure (ClientSettings.ExposureCompensation).
+    public float ExposureCompensation { get; set; }
+
+    // The nominal display scale of the last frame (PristonFrameContext.Exposure).
+    public float DisplayScale => _exposure.DisplayScale;
+
+    // Makes the next frame adopt its metered exposure and drop the temporal history (camera cuts, teleports).
+    public void ResetTemporalState()
+    {
+        _sceneTargets.Post.Exposure.Snap();
+        _sceneTargets.InvalidateHistory();
+        _hasPreviousCamera = false;
+    }
+
+    // Whether actors take the authored light of the floor they stand on (PristonStageLightField). A showcase stage (the
+    // character selection) lights its characters in full instead.
+    public bool ActorFloorLight { get; set; } = true;
+
+    // Background of a scene without a sky (tools and captures); null clears to the sky colour of the hour.
+    public Color? BackgroundColor { get; set; }
+
+    // Samples of the HDR scene target as created (0 without MSAA).
+    public int EffectiveMultiSampleCount => _sceneTargets.EffectiveMultiSampleCount;
+
+    private static Vector3 SrgbToLinear(Vector3 colour) => new(SrgbToLinear(colour.X), SrgbToLinear(colour.Y), SrgbToLinear(colour.Z));
+
+    private static float SrgbToLinear(float value) =>
+        value <= 0.04045f ? value / 12.92f : MathF.Pow((value + 0.055f) / 1.055f, 2.4f);
+
+    private PristonFrameContext CreateSkyFrame(PristonFrameContext frame, Matrix view, Matrix projection, Vector3 skyPosition)
+    {
+        return frame with
+        {
+            View = view,
+            Projection = projection,
+            CameraPosition = skyPosition,
+            ShadowsEnabled = false,
+            LampFactor = 0f,
+            Fog = PristonDistanceFog.Disabled,
+            FogSky = new PristonFogSky(_textureLoader.White, false, Vector3.Up, Vector3.Zero)
+        };
+    }
+
+    private int DrawSkyLayers(
+        int currentProfile,
+        ref int staticBatches,
+        ref int dynamicBatches,
+        ref int drawCalls,
+        ref int triangles,
+        ref int staticVertices,
+        ref int staticIndices,
+        ref int normalBatches,
+        ref int twoSidedBatches,
+        ref PristonMeshDiagnostics visibleStaticMeshDiagnostics)
+    {
+        var count = 0;
+        for (var layer = 0; layer < 2; layer++)
+        {
+            var profile = layer == 0 ? currentProfile : _previousSkyProfile;
+            var opacity = layer == 0 ? 1f : 1f - _skyBlend;
+            if (profile < 0 || opacity <= 0f)
+            {
+                continue;
+            }
+
+            foreach (var batch in Sky.GetBatches(profile))
+            {
+                var blend = batch.Material.BlendType <= 1 ? BlendState.NonPremultiplied : batch.Material.BlendState;
+                _stateCache.SetBlendState(blend);
+                DrawBatch(batch, ref staticBatches, ref dynamicBatches, ref drawCalls, ref triangles,
+                    ref staticVertices, ref staticIndices, ref normalBatches, ref twoSidedBatches,
+                    ref visibleStaticMeshDiagnostics, opacity, sky: true);
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    // Atmospheric fog takes its colour from a small HDR copy of the composed sky, refreshed here, before the scene target
+    // is cleared, because binding another render target may discard it.
+    private PristonFogSky PrepareFogSky(PristonFrameContext frame, bool skyVisible, Vector3 skyPosition)
+    {
+        if (!frame.Fog.Enabled)
+        {
+            return new PristonFogSky(_textureLoader.White, false, _towardSun, Vector3.Zero);
+        }
+
+        Texture2D capture = null;
+        if (skyVisible)
+        {
+            var currentProfile = SkyProfiles.Select(TimeOfDay);
+            var transition = _previousSkyProfile >= 0 && _skyBlend < 1f;
+            var animated = Sky.IsAnimated(currentProfile) || (transition && Sky.IsAnimated(_previousSkyProfile));
+            if (_skyCapture.ShouldRefresh(currentProfile, _previousSkyProfile, _skyBlend, skyPosition.Y, animated, _renderTime))
+            {
+                Profiler.Begin(RenderSection.SkyCapture);
+                RenderSkyCapture(frame, skyPosition, currentProfile);
+                Profiler.End(RenderSection.SkyCapture);
+            }
+
+            capture = _skyCapture.Texture;
+        }
+
+        // The in-scatter follows the sun down to about 7 degrees below the horizon; it is zero at night and underground.
+        var elevation = MathHelper.Clamp((_sunElevation + 0.12f) / 0.17f, 0f, 1f);
+        var gate = elevation * elevation * (3f - 2f * elevation);
+        var inScatter = _fogSunColour * (frame.Fog.InScatter * gate);
+        return new PristonFogSky(capture ?? _textureLoader.White, capture is not null, _towardSun, inScatter);
+    }
+
+    private void RenderSkyCapture(PristonFrameContext frame, Vector3 skyPosition, int currentProfile)
+    {
+        var staticBatches = 0;
+        var dynamicBatches = 0;
+        var drawCalls = 0;
+        var triangles = 0;
+        var staticVertices = 0;
+        var staticIndices = 0;
+        var normalBatches = 0;
+        var twoSidedBatches = 0;
+        var diagnostics = new PristonMeshDiagnostics();
+        var projection = PristonSkyCapture.TileProjection();
+        _skyCapture.Begin(SkyColor, _renderTime);
+        _stateCache.InvalidateDeviceState();
+        for (var tile = 0; tile < PristonSkyCapture.TileCount; tile++)
+        {
+            _skyCapture.BeginTile(tile);
+            _shaders.ApplyFrame(CreateSkyFrame(frame, PristonSkyCapture.TileView(tile, skyPosition), projection, skyPosition));
+            _stateCache.SetDepthStencilState(DepthStencilState.None);
+            DrawSkyLayers(
+                currentProfile,
+                ref staticBatches,
+                ref dynamicBatches,
+                ref drawCalls,
+                ref triangles,
+                ref staticVertices,
+                ref staticIndices,
+                ref normalBatches,
+                ref twoSidedBatches,
+                ref diagnostics);
+        }
+
+        _skyCapture.End();
+    }
+
+    // The dome's six cube faces, then the environment built from them (Lighting/PristonEnvironmentLighting).
+    private void RenderEnvironment(PristonFrameContext frame, bool skyVisible, Vector3 skyPosition)
+    {
+        _environment.BeginFaces(SkyColor);
+        if (skyVisible)
+        {
+            var staticBatches = 0;
+            var dynamicBatches = 0;
+            var drawCalls = 0;
+            var triangles = 0;
+            var staticVertices = 0;
+            var staticIndices = 0;
+            var normalBatches = 0;
+            var twoSidedBatches = 0;
+            var diagnostics = new PristonMeshDiagnostics();
+            var projection = PristonEnvironmentLighting.FaceProjection();
+            _stateCache.InvalidateDeviceState();
+            for (var face = 0; face < 6; face++)
+            {
+                _graphicsDevice.Viewport = PristonEnvironmentLighting.FaceViewport(face);
+                _shaders.ApplyFrame(CreateSkyFrame(frame, PristonEnvironmentLighting.FaceView(face, skyPosition), projection, skyPosition));
+                _stateCache.SetDepthStencilState(DepthStencilState.None);
+                DrawSkyLayers(
+                    SkyProfiles.Select(TimeOfDay),
+                    ref staticBatches,
+                    ref dynamicBatches,
+                    ref drawCalls,
+                    ref triangles,
+                    ref staticVertices,
+                    ref staticIndices,
+                    ref normalBatches,
+                    ref twoSidedBatches,
+                    ref diagnostics);
+            }
+        }
+
+        _environment.Build(_renderTime, frame.Exposure, frame.Lighting.AmbientColor, frame.Lighting.GroundAmbientColor);
+        _stateCache.InvalidateDeviceState();
     }
 
     private void InvalidateShadowAfterTeleport(Vector3 focus)
@@ -1249,11 +1752,7 @@ public sealed class PristonRenderer : IDisposable
         if (_sunShadowFocusValid && Vector3.DistanceSquared(focus, _sunShadowFocus) > thresholdSquared)
         {
             _sunShadowRefresh.Invalidate();
-        }
-
-        if (_lampShadowFocusValid && Vector3.DistanceSquared(focus, _lampShadowFocus) > thresholdSquared)
-        {
-            _lampShadowRefresh.Invalidate();
+            _fullShadowRefresh = true;
         }
     }
 
@@ -1262,46 +1761,29 @@ public sealed class PristonRenderer : IDisposable
         return rate == 0 ? "every frame" : $"{rate} Hz";
     }
 
-    private Matrix CreateLightViewProjection(PristonLighting lighting, Vector3 focusPoint)
+    // The moonlight is dim and diffuse enough that the plain filter serves it; the soft shadows are the sun's.
+    private ShadowFilterMode ShadowFilterOfHour() => _sunElevation > -0.05f ? _shadowFilter : ShadowFilterMode.Pcf;
+
+    // Refits the cascades this refresh updates; a new light direction or a teleport refits them all.
+    private void FitCascades(PristonCamera camera, Vector3 lightDirection)
     {
-        var radius = ShadowFrustumRadius;
-        var center = new Vector3(
-            ClampShadowCenter(focusPoint.X, Bounds.Min.X, Bounds.Max.X, radius),
-            focusPoint.Y,
-            ClampShadowCenter(focusPoint.Z, Bounds.Min.Z, Bounds.Max.Z, radius));
-        var lightDirection = Vector3.Normalize(lighting.Sun.Direction);
-        var lightPosition = center - lightDirection * radius * 1.8f;
-        var up = MathF.Abs(Vector3.Dot(lightDirection, Vector3.Up)) > 0.95f ? Vector3.Forward : Vector3.Up;
-        var view = Matrix.CreateLookAt(lightPosition, center, up);
-        var orthoWidth = radius * 2.0f;
-        var projection = Matrix.CreateOrthographic(orthoWidth, orthoWidth, 10f, radius * 4.0f);
+        var direction = Vector3.Normalize(lightDirection);
+        var full = _fullShadowRefresh || Vector3.Dot(direction, _shadowLightDirection) < 0.99999f;
+        _cascadeMask = _cascades.UpdateMask(full);
+        for (var cascade = 0; cascade < _cascades.Count; cascade++)
+        {
+            if ((_cascadeMask & (1 << cascade)) != 0)
+            {
+                _cascades.Fit(cascade, camera.View, camera.Projection, direction);
+            }
+        }
 
-        projection = StabilizeShadowProjection(view, projection, ShadowMapSize);
-
-        _lightView = view;
-        _lightProjection = projection;
-        return view * projection;
+        _shadowLightDirection = direction;
+        _fullShadowRefresh = false;
     }
 
-    internal static Matrix StabilizeShadowProjection(Matrix view, Matrix projection, int mapSize)
-    {
-        // Snap a fixed world anchor, not the moving frustum centre: that centre always maps
-        // to clip-space zero and cannot reveal the sub-texel motion we need to cancel.
-        var originClip = Vector4.Transform(Vector4.UnitW, view * projection);
-        var texelX = (originClip.X * 0.5f + 0.5f) * mapSize;
-        var texelY = (originClip.Y * 0.5f + 0.5f) * mapSize;
-        var clipPerTexel = 2f / mapSize;
-        projection.M41 += (MathF.Round(texelX) - texelX) * clipPerTexel;
-        projection.M42 += (MathF.Round(texelY) - texelY) * clipPerTexel;
-        return projection;
-    }
-
-    private static float ClampShadowCenter(float value, float min, float max, float radius)
-    {
-        var lower = min + radius;
-        var upper = max - radius;
-        return lower <= upper ? MathHelper.Clamp(value, lower, upper) : (min + max) * 0.5f;
-    }
+    internal static Matrix StabilizeShadowProjection(Matrix view, Matrix projection, int mapSize) =>
+        PristonShadowCascades.StabilizeProjection(view, projection, mapSize);
 
     private static PristonPointLight[] ApplyGlowTuning(PristonPointLight[] lights, float intensity, float scale)
     {
@@ -1360,55 +1842,63 @@ public sealed class PristonRenderer : IDisposable
         return (groundLights, glowLights);
     }
 
-    private static PristonGpuMeshBuilder.BakeLight[] BuildBakeLights(RenderStageHandle stage)
-    {
-        var result = new PristonGpuMeshBuilder.BakeLight[stage.StageLights.Length];
-        for (var i = 0; i < stage.StageLights.Length; i++)
-        {
-            var l = stage.StageLights[i];
-            result[i] = new PristonGpuMeshBuilder.BakeLight(
-                l.Position,
-                l.Color * (l.Intensity * stage.LampIntensity),
-                l.Radius * stage.LampRangeScale);
-        }
-        return result;
-    }
-
+    // The frame's light in photometric units (PristonDayNightCycle, Lighting/PristonPhotometry), pre-exposed by the
+    // incident reading: a white surface under the metered light comes out near 1 at every hour.
     private PristonLighting BuildFrameLighting(Vector3 focusPoint)
     {
         var sky = _dayNight.Evaluate();
-        var ambient = sky.AmbientColor;
-        var sunColor = sky.SunColor;
+        var sunIlluminance = sky.SunIlluminance;
+        var skyIlluminance = sky.SkyIlluminance;
         var lampFactor = sky.LampFactor;
         var skyColor = sky.SkyColor;
+        var sunDirection = sky.SunDirection;
+        var horizontal = sky.HorizontalIlluminance;
         if (Underground)
         {
-            sunColor = Vector3.Zero;
-            ambient = UndergroundAmbient;
+            sunIlluminance = Vector3.Zero;
+            skyIlluminance = PristonPhotometry.LegacyLevelToIlluminance(UndergroundAmbient);
             lampFactor = 1f;
             skyColor = new Vector3(0.02f, 0.02f, 0.03f);
+            horizontal = PristonPhotometry.Luminance(skyIlluminance);
         }
+
         SkyColor = new Color(skyColor);
         _lampFactor = lampFactor;
-        var sun = new PristonDirectionalLight(Vector3.Normalize(sky.SunDirection), sunColor);
-        SelectActiveLights(focusPoint, lampFactor);
-        _activeLampLights.Clear();
-        _activeLampLights.AddRange(_activeLights);
+        _towardSun = sky.TowardSun;
+        _sunElevation = Underground ? -1f : sky.SunElevation;
+        _exposure = PristonFrameExposure.ForIlluminance(horizontal, Underground, ExposureCompensation, EmissiveLuminance);
+        var radianceScale = _exposure.PreExposure / MathF.PI;
+        var sunColor = sunIlluminance * radianceScale;
+        var ambient = skyIlluminance * radianceScale;
+        var ground = PristonPhotometry.Hue(Vector3.Lerp(sunIlluminance, skyIlluminance, 0.5f))
+            * (horizontal * PristonPhotometry.GroundAlbedo * radianceScale);
+        _fogSunColour = sunColor;
+        var sun = new PristonDirectionalLight(Vector3.Normalize(sunDirection), sunColor);
+        // Transient combat lights come first, then the stage lamps nearest the focus, up to the shader's light count.
+        _activeLights.Clear();
         TransientLights.Select(focusPoint, _activeLights);
-        int transientCount = _activeLights.Count;
-        for (int index = 0; index < _activeLampLights.Count && _activeLights.Count < MaxActiveLights; index++)
+        var transientCount = _activeLights.Count;
+        SelectActiveLights(focusPoint, lampFactor);
+        // Combat lights are flashes of feedback: a share of the daylight, so they still read at noon.
+        var transientScale = MathF.Max(1f, TransientDaylightShare * horizontal / PristonPhotometry.NightReferenceIlluminance);
+        for (var index = 0; index < _activeLights.Count; index++)
         {
-            _activeLights.Add(_activeLampLights[index]);
+            var light = _activeLights[index];
+            var scale = index < transientCount ? transientScale : LampLevelScale;
+            var illuminance = PristonPhotometry.LegacyLevelToIlluminance(light.Color * light.Intensity) * scale;
+            _activeLights[index] = light with { Color = illuminance * radianceScale, Intensity = 1f };
         }
 
-        return new PristonLighting(ambient, sun, _activeLights, transientCount);
+        return new PristonLighting(ambient, sun, _activeLights, transientCount, ground);
     }
 
-    private const int MaxActiveLights = 16;
+    private const int MaxActiveLights = 32;
+    private int _maxLocalLights = MaxActiveLights;
+    // The gameplay colour add (hover and target highlight) becomes a rim of this strength rather than added light.
+    private const float SelectionRimScale = 0.6f;
 
     private void SelectActiveLights(Vector3 focusPoint, float lampFactor)
     {
-        _activeLights.Clear();
         if (lampFactor <= 0.01f)
             return;
 
@@ -1420,24 +1910,45 @@ public sealed class PristonRenderer : IDisposable
         if (_tunedCandidates.Count == 0)
             return;
 
-        if (_tunedCandidates.Count <= MaxActiveLights)
+        // Transient lights already hold the first slots; the lamps share the rest of the limit.
+        var limit = Math.Max(_maxLocalLights - _activeLights.Count, 0);
+        if (limit == 0)
+            return;
+
+        if (_tunedCandidates.Count <= limit)
         {
+            // Nearest first, as the lamp shadows take the first lamps.
+            var first = _activeLights.Count;
             _activeLights.AddRange(_tunedCandidates);
+            for (var i = first + 1; i < _activeLights.Count; i++)
+            {
+                var light = _activeLights[i];
+                var distance = Vector3.DistanceSquared(light.Position, focusPoint);
+                var j = i - 1;
+                while (j >= first && Vector3.DistanceSquared(_activeLights[j].Position, focusPoint) > distance)
+                {
+                    _activeLights[j + 1] = _activeLights[j];
+                    j--;
+                }
+
+                _activeLights[j + 1] = light;
+            }
+
             return;
         }
 
-        Span<int> best = stackalloc int[MaxActiveLights];
-        Span<float> bestDist = stackalloc float[MaxActiveLights];
-        for (var i = 0; i < MaxActiveLights; i++) { best[i] = -1; bestDist[i] = float.MaxValue; }
+        Span<int> best = stackalloc int[limit];
+        Span<float> bestDist = stackalloc float[limit];
+        for (var i = 0; i < limit; i++) { best[i] = -1; bestDist[i] = float.MaxValue; }
 
         for (var i = 0; i < _tunedCandidates.Count; i++)
         {
             var d = Vector3.DistanceSquared(_tunedCandidates[i].Position, focusPoint);
-            for (var slot = 0; slot < MaxActiveLights; slot++)
+            for (var slot = 0; slot < limit; slot++)
             {
                 if (d < bestDist[slot])
                 {
-                    for (var k = MaxActiveLights - 1; k > slot; k--)
+                    for (var k = limit - 1; k > slot; k--)
                     {
                         bestDist[k] = bestDist[k - 1];
                         best[k] = best[k - 1];
@@ -1449,7 +1960,7 @@ public sealed class PristonRenderer : IDisposable
             }
         }
 
-        for (var i = 0; i < MaxActiveLights; i++)
+        for (var i = 0; i < limit; i++)
             if (best[i] >= 0)
                 _activeLights.Add(_tunedCandidates[best[i]]);
     }
@@ -1457,25 +1968,73 @@ public sealed class PristonRenderer : IDisposable
     private static PristonPointLight TuneLight(PristonPointLight light, RenderStageHandle stage, float lampFactor) =>
         light with
         {
-            Radius = light.Radius * stage.LampRangeScale,
+            Radius = light.Radius * stage.LampRangeScale * LampRangeStretch,
             Intensity = light.Intensity * stage.LampIntensity * lampFactor
         };
 
+    // Renders the cascades of this refresh into their atlas tiles; each tile is cleared by a far-depth triangle over its
+    // viewport, so the others keep their contents.
     private void RenderShadowMap()
     {
         _graphicsDevice.SetRenderTarget(_shadowMap);
-        _graphicsDevice.Clear(Color.White);
-        _graphicsDevice.DepthStencilState = DepthStencilState.Default;
         _graphicsDevice.BlendState = BlendState.Opaque;
         _graphicsDevice.SamplerStates[0] = SamplerState.LinearWrap;
-        _effectPipeline.ApplyDepthFrame(_lightView, _lightProjection, _renderTime);
-        DrawShadowQueueItems(_renderQueueBuilder.Queue.ShadowCasters, _lightView * _lightProjection);
+        for (var cascade = 0; cascade < _cascades.Count; cascade++)
+        {
+            if ((_cascadeMask & (1 << cascade)) == 0)
+            {
+                continue;
+            }
+
+            var tile = _cascades.TileRectangle(cascade);
+            _graphicsDevice.Viewport = new Viewport(tile.X, tile.Y, tile.Width, tile.Height);
+            _sceneTargets.Triangle.Draw(_shaders.SelectShadowClear(), ShadowClearDepth);
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            var viewProjection = _cascades.ViewProjections[cascade];
+            _shaders.ApplyShadowFrame(viewProjection, _renderTime);
+            DrawShadowQueueItems(_renderQueueBuilder.Queue.ShadowCasters, viewProjection);
+        }
+
+        _graphicsDevice.SetRenderTarget(null);
+    }
+
+    // Redraws the cube faces of the lamp rows this frame needs (PristonLampShadows.Assign). Only actors and animated props
+    // cast: the stage's own occlusion of its lamps is part of the authored lighting (and a lamp's housing would hide it).
+    private void RenderLampShadows()
+    {
+        _graphicsDevice.SetRenderTarget(_lampShadows.Atlas);
+        _graphicsDevice.BlendState = BlendState.Opaque;
+        _graphicsDevice.SamplerStates[0] = SamplerState.LinearWrap;
+        for (var row = 0; row < _lampShadows.Lamps; row++)
+        {
+            if ((_lampShadowRedraw & (1 << row)) == 0)
+            {
+                continue;
+            }
+
+            var position = _lampShadows.RowPosition(row);
+            var radius = _lampShadows.RowRadius(row);
+            var casterLight = new Vector4(position, 1f / MathF.Max(radius, 1f));
+            for (var face = 0; face < PristonLampShadows.Faces; face++)
+            {
+                var tile = _lampShadows.FaceRectangle(row, face);
+                _graphicsDevice.Viewport = new Viewport(tile.X, tile.Y, tile.Width, tile.Height);
+                _sceneTargets.Triangle.Draw(_shaders.SelectShadowClear(), ShadowClearDepth);
+                _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+                var viewProjection = PristonLampShadows.FaceViewProjection(position, radius, face);
+                _shaders.ApplyShadowFrame(viewProjection, _renderTime, casterLight);
+                DrawShadowQueueItems(_renderQueueBuilder.Queue.ShadowCasters, viewProjection, skinnedOnly: true);
+            }
+        }
+
+        _shaders.ApplyShadowFrame(Matrix.Identity, _renderTime);
         _graphicsDevice.SetRenderTarget(null);
     }
 
     private readonly BoundingFrustum _shadowCasterFrustum = new(Matrix.Identity);
 
-    private void DrawShadowQueueItems(IReadOnlyList<PristonRenderQueueItem<RenderBatch>> items, Matrix lightViewProjection)
+    // skinnedOnly: actors and animated props only (the lamps' cube faces).
+    private void DrawShadowQueueItems(IReadOnlyList<PristonRenderQueueItem<RenderBatch>> items, Matrix lightViewProjection, bool skinnedOnly = false)
     {
         _shadowCasterFrustum.Matrix = lightViewProjection;
         // Thin/single-sided casters need both faces in every shadow draw. This state is invariant for
@@ -1484,27 +2043,18 @@ public sealed class PristonRenderer : IDisposable
         for (var i = 0; i < items.Count; i++)
         {
             var batch = items[i].Batch;
-            if (!_shadowCasterFrustum.Intersects(batch.Bounds))
+            if ((skinnedOnly && !batch.IsSkinned) || !_shadowCasterFrustum.Intersects(batch.Bounds))
             {
                 continue;
             }
 
             _shadowDrawCalls++;
 
+            var casterTexture = batch.Material.AlphaTest ? batch.Material.SelectTexture(_renderTime) : null;
+            var casterUvOffset = batch.Material.AlphaTest ? ComputeUvScrollOffset(batch.Material) : Vector2.Zero;
             if (batch.IsSkinned)
             {
-                Effect effect;
-                if (batch.Material.AlphaTest)
-                {
-                    var texture = batch.Material.SelectTexture(_renderTime);
-                    var uvScrollOffset = ComputeUvScrollOffset(batch.Material);
-                    effect = _effectPipeline.SelectSkinnedAlphaTestDepthEffect(texture, batch.SkinPalette, uvScrollOffset);
-                }
-                else
-                {
-                    effect = _effectPipeline.SelectSkinnedOpaqueDepthEffect(batch.SkinPalette);
-                }
-
+                var effect = _shaders.SelectSkinnedShadow(batch.Material, casterTexture, batch.SkinPalette, casterUvOffset);
                 effect.CurrentTechnique.Passes[0].Apply();
                 _graphicsDevice.SetVertexBuffer(batch.SkinnedBuffer);
                 _graphicsDevice.Indices = batch.SkinnedIndexBuffer;
@@ -1512,18 +2062,7 @@ public sealed class PristonRenderer : IDisposable
             }
             else
             {
-                var windParams = ComputeWindParams(batch);
-                Effect effect;
-                if (batch.Material.AlphaTest)
-                {
-                    var texture = batch.Material.SelectTexture(_renderTime);
-                    var uvScrollOffset = ComputeUvScrollOffset(batch.Material);
-                    effect = _effectPipeline.SelectAlphaTestDepthEffect(batch.Material, texture, windParams, uvScrollOffset);
-                }
-                else
-                {
-                    effect = _effectPipeline.SelectOpaqueDepthEffect(batch.Material, windParams);
-                }
+                var effect = _shaders.SelectStaticShadow(batch.Material, casterTexture, ComputeWindParams(batch), casterUvOffset);
 
                 if (batch.Mesh == null)
                 {
@@ -1556,8 +2095,17 @@ public sealed class PristonRenderer : IDisposable
         ref int staticIndices,
         ref int normalBatches,
         ref int twoSidedBatches,
-        ref PristonMeshDiagnostics visibleStaticMeshDiagnostics)
+        ref PristonMeshDiagnostics visibleStaticMeshDiagnostics,
+        bool intoScene = true)
     {
+        // The opaque passes also write the motion and depth of the temporal anti-aliasing; blended passes do not.
+        if (intoScene && !_prepassDrawn)
+        {
+            _sceneTargets.BindTemporal();
+            _temporalTargetsBound = _sceneTargets.Temporal;
+        }
+
+        Profiler.Begin(RenderSection.Opaque);
         DrawQueueItems(
             queue.Opaque,
             ref staticBatches,
@@ -1569,6 +2117,8 @@ public sealed class PristonRenderer : IDisposable
             ref normalBatches,
             ref twoSidedBatches,
             ref visibleStaticMeshDiagnostics);
+        Profiler.End(RenderSection.Opaque);
+        Profiler.Begin(RenderSection.Masked);
         DrawQueueItems(
             queue.AlphaTest,
             ref staticBatches,
@@ -1580,6 +2130,35 @@ public sealed class PristonRenderer : IDisposable
             ref normalBatches,
             ref twoSidedBatches,
             ref visibleStaticMeshDiagnostics);
+        Profiler.End(RenderSection.Masked);
+        if (_temporalTargetsBound)
+        {
+            _sceneTargets.Bind();
+            _stateCache.InvalidateDeviceState();
+            _temporalTargetsBound = false;
+        }
+
+        if (intoScene && _prepassDrawn && _screenReflections && _smoothSurfaceVisible)
+        {
+            Profiler.Begin(RenderSection.Reflections);
+            var frame = _reflectionFrame;
+            _reflections.Run(
+                _sceneTargets.Color,
+                _sceneTargets.LinearDepth,
+                _sceneTargets.Normals,
+                frame.View,
+                frame.Projection,
+                frame.Environment,
+                _textureLoader.White,
+                _environment.Sh,
+                frame.Shadows.NoiseOffset,
+                _sceneTargets.Bind);
+            Profiler.End(RenderSection.Reflections);
+            _stateCache.InvalidateDeviceState();
+        }
+
+        _drawingTransparent = true;
+        Profiler.Begin(RenderSection.Transparent);
         DrawQueueItems(
             queue.Transparent,
             ref staticBatches,
@@ -1591,6 +2170,8 @@ public sealed class PristonRenderer : IDisposable
             ref normalBatches,
             ref twoSidedBatches,
             ref visibleStaticMeshDiagnostics);
+        Profiler.End(RenderSection.Transparent);
+        _drawingTransparent = false;
     }
 
     private void DrawQueueItems(
@@ -1608,7 +2189,23 @@ public sealed class PristonRenderer : IDisposable
         for (var i = 0; i < items.Count; i++)
         {
             var batch = items[i].Batch;
-            _stateCache.SetBlendState(batch.Material.BlendState);
+            if (DebugView == PristonDebugView.Overdraw)
+            {
+                _stateCache.SetBlendState(BlendState.Additive);
+                _stateCache.SetDepthStencilState(DepthStencilState.None);
+            }
+            else if (_prepassDrawn && !_drawingTransparent && Prepassed(batch))
+            {
+                _stateCache.SetBlendState(batch.Material.BlendState);
+                _stateCache.SetDepthStencilState(PrepassedDepth);
+            }
+            else
+            {
+                var writesDepth = batch.Material.WritesDepth;
+                _stateCache.SetBlendState(TemporalBlend(batch.Material.BlendState, writesDepth));
+                _stateCache.SetDepthStencilState(writesDepth ? DepthStencilState.Default : DepthStencilState.DepthRead);
+            }
+
             DrawBatch(
                 batch,
                 ref staticBatches,
@@ -1623,6 +2220,96 @@ public sealed class PristonRenderer : IDisposable
         }
     }
 
+    // With the temporal targets bound, a surface that is blended or writes no depth leaves the motion and depth of what
+    // is behind it: the same blend on the colour, no writes to the other targets.
+    private BlendState TemporalBlend(BlendState blend, bool writesDepth)
+    {
+        if (!_temporalTargetsBound || (writesDepth && ReferenceEquals(blend, BlendState.Opaque)))
+        {
+            return blend;
+        }
+
+        if (_temporalBlendStates.TryGetValue(blend, out var temporal))
+        {
+            return temporal;
+        }
+
+        temporal = new BlendState
+        {
+            Name = blend.Name + " (colour only)",
+            IndependentBlendEnable = true,
+            BlendFactor = blend.BlendFactor
+        };
+        temporal[0].ColorSourceBlend = blend.ColorSourceBlend;
+        temporal[0].ColorDestinationBlend = blend.ColorDestinationBlend;
+        temporal[0].ColorBlendFunction = blend.ColorBlendFunction;
+        temporal[0].AlphaSourceBlend = blend.AlphaSourceBlend;
+        temporal[0].AlphaDestinationBlend = blend.AlphaDestinationBlend;
+        temporal[0].AlphaBlendFunction = blend.AlphaBlendFunction;
+        temporal[0].ColorWriteChannels = blend.ColorWriteChannels;
+        for (var target = 1; target < 4; target++)
+        {
+            temporal[target].ColorWriteChannels = ColorWriteChannels.None;
+        }
+
+        _temporalBlendStates.Add(blend, temporal);
+        return temporal;
+    }
+
+    private bool _temporalTargetsBound;
+    private bool _prepassDrawn;
+    private bool _drawingTransparent;
+    private bool _prepassMode;
+    // Whether the pre-pass drew a surface smooth enough for the screen-space reflections (Passes/Reflections.fx reflects
+    // smoothness from 0.55; water and ice are this smooth, the armour shine is not): the pass and its copy are skipped
+    // otherwise.
+    private bool _smoothSurfaceVisible;
+    private const float SmoothRoughness = 0.3f;
+
+    // Surfaces of the opaque and alpha-tested queues that write their depth (also the legacy alpha-blended ground, whose
+    // blending keeps its depth write) and every cut-out outside the blended queue (foliage, also the late-flagged
+    // leaves: PristonMaterialRuntimeFactory.Classify; their depth, motion and occlusion come from the pre-pass's alpha
+    // test, and the lit pass blends only the front-most leaf): the depth pre-pass draws them, and the lit pass shades
+    // them at that depth with their own blend.
+    private static bool Prepassed(RenderBatch batch) =>
+        batch.Material.WritesDepth || (batch.Material.AlphaTest && !batch.Material.Transparent);
+
+    private static BlendState CreatePrepassBlend()
+    {
+        var blend = new BlendState { Name = "PristonPrepass", IndependentBlendEnable = true };
+        blend[0].ColorWriteChannels = ColorWriteChannels.None;
+        return blend;
+    }
+
+    // The depth pre-pass over the opaque and alpha-tested queues (front to back as sorted).
+    private void DrawPrepass(PristonRenderQueue<RenderBatch> queue)
+    {
+        _sceneTargets.BindPrepass();
+        _stateCache.InvalidateDeviceState();
+        _stateCache.SetBlendState(PrepassBlend);
+        _stateCache.SetDepthStencilState(DepthStencilState.Default);
+        _prepassMode = true;
+        _smoothSurfaceVisible = false;
+        var unused = 0;
+        var diagnostics = new PristonMeshDiagnostics();
+        foreach (var items in new[] { queue.Opaque, queue.AlphaTest })
+        {
+            for (var i = 0; i < items.Count; i++)
+            {
+                var batch = items[i].Batch;
+                if (!Prepassed(batch))
+                {
+                    continue;
+                }
+
+                _smoothSurfaceVisible |= batch.Material.Description.Roughness < SmoothRoughness;
+                DrawBatch(batch, ref unused, ref unused, ref unused, ref unused, ref unused, ref unused, ref unused, ref unused, ref diagnostics);
+            }
+        }
+
+        _prepassMode = false;
+    }
+
     private void DrawBatch(
         RenderBatch batch,
         ref int staticBatches,
@@ -1634,7 +2321,8 @@ public sealed class PristonRenderer : IDisposable
         ref int normalBatches,
         ref int twoSidedBatches,
         ref PristonMeshDiagnostics visibleStaticMeshDiagnostics,
-        float opacity = 1f)
+        float opacity = 1f,
+        bool sky = false)
     {
         if (batch.Material.TwoSided)
         {
@@ -1652,12 +2340,15 @@ public sealed class PristonRenderer : IDisposable
             _stateCache.SetRasterizerState(PristonRasterizerStates.TwoSided);
             var uvScrollOffset = ComputeUvScrollOffset(batch.Material);
             var texture = batch.Material.SelectTexture(_renderTime);
-            var effect = _effectPipeline.SelectSkinnedEffect(
+            var effect = _shaders.SelectSkinnedSurface(
                 batch.Material,
                 texture,
                 uvScrollOffset,
                 batch.SkinPalette,
-                batch.ActorColorAdd);
+                batch.ActorColorAdd * SelectionRimScale,
+                LayerOffset(batch.Material),
+                _prepassMode,
+                batch.FloorLight);
             effect.CurrentTechnique.Passes[0].Apply();
             _stateCache.SetVertexBuffer(batch.SkinnedBuffer);
             _stateCache.SetIndexBuffer(batch.SkinnedIndexBuffer);
@@ -1680,14 +2371,16 @@ public sealed class PristonRenderer : IDisposable
         }
 
         var textureStatic = batch.Material.SelectTexture(_renderTime);
-        var uvScrollOffset2 = ComputeSecondUvScrollOffset(batch.Material);
-        var effectStatic = _effectPipeline.SelectEffect(
-            batch.Material,
-            textureStatic,
-            uvScrollOffsetStatic,
-            ComputeWindParams(batch),
-            uvScrollOffset2,
-            opacity);
+        var effectStatic = sky
+            ? _shaders.SelectSky(batch.Material, textureStatic, uvScrollOffsetStatic, opacity)
+            : _shaders.SelectStaticSurface(
+                batch.Material,
+                textureStatic,
+                uvScrollOffsetStatic,
+                ComputeWindParams(batch),
+                LayerOffset(batch.Material),
+                opacity,
+                _prepassMode);
 
         effectStatic.CurrentTechnique.Passes[0].Apply();
         if (batch.Mesh != null)
@@ -1728,19 +2421,18 @@ public sealed class PristonRenderer : IDisposable
 
     private Vector2 ComputeUvScrollOffset(PristonMaterialRuntime material)
     {
-        // An authored BitmapFormState scroll code ALWAYS wins: this is how the original animates
-        // water/sea surfaces (the "slow scroll" codes are deliberately smooth). Decide by the code's
-        // presence, not by the computed offset, so the per-wrap zero-crossing never falls through to
-        // the water branch and causes a one-frame jump.
+        // An authored texture form-state scroll code always wins: the authored water and sea surfaces are
+        // animated by it (the "slow scroll" codes are deliberately smooth). Decide by the code's presence, not
+        // by the computed offset, so the per-wrap zero-crossing never falls through to the water branch and
+        // causes a one-frame jump.
         if (material.TextureFormState != 0)
         {
             var uOffset = TextureUOffset(material.TextureFormState);
             return uOffset == 0f ? Vector2.Zero : new Vector2(uOffset, 0f);
         }
 
-        // Water (eMaterialType 0x200) WITHOUT a form-state code: gentle diagonal drift. Fine 10-bit
-        // quantization so it reads as smooth, not stepped. Tunable enhancement (no ground-truth formula
-        // exists — the EU release has no renderer and PTClassic drives water via the form-state codes).
+        // Water without a form-state code: a gentle diagonal drift, quantized finely (10 bits) so it reads as
+        // smooth rather than stepped. An Etervale choice: the authored water uses the form-state codes.
         if (material.Water)
             return new Vector2(
                 ((_renderTime >> 6) & 0x3FF) / 1024f,
@@ -1749,13 +2441,9 @@ public sealed class PristonRenderer : IDisposable
         return Vector2.Zero;
     }
 
-    private Vector2 ComputeSecondUvScrollOffset(PristonMaterialRuntime material)
-    {
-        if (!material.HasSecondTexture || material.SecondTextureFormState == 0)
-            return Vector2.Zero;
-        var uOffset = TextureUOffset(material.SecondTextureFormState);
-        return uOffset == 0f ? Vector2.Zero : new Vector2(uOffset, 0f);
-    }
+    // Scroll of the material's second texture layer, from its own form state.
+    private Vector2 LayerOffset(PristonMaterialRuntime material) =>
+        material.Layer is { } layer ? new Vector2(TextureUOffset(layer.FormState), 0f) : Vector2.Zero;
 
     private float TextureUOffset(uint textureFormState)
     {
@@ -1786,9 +2474,9 @@ public sealed class PristonRenderer : IDisposable
         AddGroups(BuildStageGroups(stage), stage.Materials, assetDirectory, handle.Batches, shadowCollector);
     }
 
-    private static Dictionary<int, List<VertexPositionColorTexture>> BuildStageGroups(PristonStage stage)
+    private static Dictionary<int, List<PristonCornerVertex>> BuildStageGroups(PristonStage stage)
     {
-        var groups = new Dictionary<int, List<VertexPositionColorTexture>>();
+        var groups = new Dictionary<int, List<PristonCornerVertex>>();
         foreach (var face in stage.Faces)
         {
             if (!ValidFace(face.A, face.B, face.C, stage.Vertices.Count))
@@ -1796,17 +2484,16 @@ public sealed class PristonRenderer : IDisposable
                 continue;
             }
 
-            var tex = face.TexLinkIndex >= 0 && face.TexLinkIndex < stage.TexLinks.Count ? stage.TexLinks[face.TexLinkIndex] : PristonTexLink.Empty;
-            var list = GetGroup(groups, face.MaterialIndex);
-            AddTriangle(
-                list,
+            PristonCornerVertex.AddTriangle(
+                GetGroup(groups, face.MaterialIndex),
                 stage.Vertices[face.A].Position,
                 stage.Vertices[face.B].Position,
                 stage.Vertices[face.C].Position,
                 stage.Vertices[face.A].Color,
                 stage.Vertices[face.B].Color,
                 stage.Vertices[face.C].Color,
-                tex);
+                stage.TexLinks,
+                face.TexLinkIndex);
         }
 
         return groups;
@@ -1817,14 +2504,33 @@ public sealed class PristonRenderer : IDisposable
         string assetDirectory,
         RenderStageHandle handle,
         Matrix world,
-        StaticShadowCollector shadowCollector)
+        StaticShadowCollector shadowCollector,
+        PristonStageBakedLight bakedLight)
     {
         AddGroups(
-            PristonModelGeometry.BuildGroups(model, world, Color.White),
+            WithBakedLight(PristonModelGeometry.BuildGroups(model, world, Color.White), model.Materials, bakedLight),
             model.Materials,
             assetDirectory,
             handle.Batches,
             shadowCollector);
+    }
+
+    // A scenery model's surfaces take the stage's authored light for their texture (PristonStageBakedLight).
+    private static Dictionary<int, List<PristonCornerVertex>> WithBakedLight(
+        Dictionary<int, List<PristonCornerVertex>> groups,
+        IReadOnlyList<PristonMaterial> materials,
+        PristonStageBakedLight bakedLight)
+    {
+        foreach (var (materialIndex, vertices) in groups)
+        {
+            var light = bakedLight.For(materials, materialIndex);
+            for (var index = 0; index < vertices.Count; index++)
+            {
+                vertices[index] = vertices[index] with { Color = light };
+            }
+        }
+
+        return groups;
     }
 
     private sealed record PreparedSkinnedMesh(
@@ -1856,7 +2562,7 @@ public sealed class PristonRenderer : IDisposable
         BoundingBox Bounds,
         bool ShadowCoveredByAggregate = false);
 
-    private PreparedAnimatedModel PrepareAnimatedModel(PristonModel model, Matrix world, PristonGpuMeshBuilder cpuBuilder)
+    private PreparedAnimatedModel PrepareAnimatedModel(PristonModel model, Matrix world, PristonStageBakedLight bakedLight)
     {
         var groups = new Dictionary<int, List<ModelTriangleRef>>();
         for (var objectIndex = 0; objectIndex < model.Objects.Count; objectIndex++)
@@ -1875,18 +2581,19 @@ public sealed class PristonRenderer : IDisposable
         }
 
         var boneCount = model.Objects.Count;
-        if (boneCount > PristonEffectPipeline.MaxBones)
+        if (boneCount > PristonShaderLibrary.MaxBones)
         {
-            _log.Warn($"[PristonRenderer] AnimatedModel '{model.Path}' has {boneCount} bones, clamping to {PristonEffectPipeline.MaxBones}.");
-            boneCount = PristonEffectPipeline.MaxBones;
+            _log.Warn($"[PristonRenderer] AnimatedModel '{model.Path}' has {boneCount} bones, clamping to {PristonShaderLibrary.MaxBones}.");
+            boneCount = PristonShaderLibrary.MaxBones;
         }
 
-        var bindNormals = BuildSmoothNormals(model);
         var bindTransforms = BuildBindPoseTransforms(model);
         for (var i = 0; i < bindTransforms.Length; i++)
         {
             bindTransforms[i] *= world;
         }
+
+        var cornerNormals = PristonModelNormals.Build(model, (objectIndex, _) => bindTransforms[Math.Min(objectIndex, bindTransforms.Length - 1)]);
 
         var batches = new List<PreparedAnimatedBatch>(groups.Count);
         foreach (var (materialIndex, triangles) in groups.OrderBy(pair => pair.Key))
@@ -1900,10 +2607,9 @@ public sealed class PristonRenderer : IDisposable
             var mesh = PrepareSkinnedAnimatedMesh(
                 model,
                 triangles.ToArray(),
-                bindNormals,
-                bindTransforms,
+                cornerNormals,
                 boneCount,
-                cpuBuilder);
+                bakedLight.For(material));
             batches.Add(new PreparedAnimatedBatch(material, mesh));
         }
 
@@ -1919,7 +2625,7 @@ public sealed class PristonRenderer : IDisposable
         }
     }
 
-    private IEnumerable<bool> AddAnimatedModelGroupsIncrementally(
+    private IEnumerable<StreamingWork> AddAnimatedModelGroupsIncrementally(
         IReadOnlyList<PreparedAnimatedInstance> models,
         RenderStageHandle handle)
     {
@@ -1934,7 +2640,7 @@ public sealed class PristonRenderer : IDisposable
             }
 
             if (chunk.Count > 0
-                && chunkBoneCount + model.Prepared.BoneCount > PristonEffectPipeline.MaxBones)
+                && chunkBoneCount + model.Prepared.BoneCount > PristonShaderLibrary.MaxBones)
             {
                 foreach (var step in AddAnimatedStageGroupSteps(chunk, chunkBoneCount, handle))
                 {
@@ -1958,7 +2664,7 @@ public sealed class PristonRenderer : IDisposable
         }
     }
 
-    private IEnumerable<bool> AddAnimatedStageGroupSteps(
+    private IEnumerable<StreamingWork> AddAnimatedStageGroupSteps(
         IReadOnlyList<PreparedAnimatedInstance> models,
         int boneCount,
         RenderStageHandle handle)
@@ -2052,7 +2758,7 @@ public sealed class PristonRenderer : IDisposable
             group.Batches.Add(new AnimatedStageBatchRuntime(batch, item.Models.ToArray()));
             group.ColorBatchCount++;
             handle.Batches.Add(batch);
-            yield return false;
+            yield return new StreamingWork(StreamingStep.AnimatedMeshUpload, (long)vertCount * PristonSkinnedVertex.VertexDeclaration.VertexStride);
         }
 
         if (shadowMeshes.Count > 0)
@@ -2079,7 +2785,7 @@ public sealed class PristonRenderer : IDisposable
             group.Batches.Add(new AnimatedStageBatchRuntime(batch, shadowModels.ToArray()));
             group.ShadowAggregateCount++;
             handle.ShadowBatches.Add(batch);
-            yield return false;
+            yield return new StreamingWork(StreamingStep.ShadowAggregateUpload, (long)vertexCount * PristonSkinnedVertex.VertexDeclaration.VertexStride);
         }
 
         handle.AnimatedGroups.Add(group);
@@ -2108,7 +2814,7 @@ public sealed class PristonRenderer : IDisposable
     {
         return material.TextureFormState == 0
             && !material.Transparent
-            && !material.HasSecondTexture
+            && !material.HasLayers
             && material.Textures.Length == 1;
     }
 
@@ -2370,7 +3076,12 @@ public sealed class PristonRenderer : IDisposable
 
         // Upload only referenced bones so helper nodes do not exhaust the shader palette.
         var boneMap = BuildActorBoneMap(groups.Values, actor.Skeleton.Objects.Count, actor.Skeleton.Path, _log, out var boneRemap);
-        var bindNormals = BuildSmoothNormals(actor.Mesh);
+        var skeletonPose = BuildBindPoseTransforms(actor.Skeleton);
+        var cornerNormals = PristonModelNormals.Build(actor.Mesh, (objectIndex, vertexIndex) =>
+        {
+            var bone = PristonModelGeometry.ResolvePhysiqueBone(actor.Mesh.Objects[objectIndex], vertexIndex, boneLookup);
+            return skeletonPose[Math.Min(EffectiveBone(bone, objectIndex), skeletonPose.Length - 1)];
+        });
         var batches = new List<PreparedActorBatch>(groups.Count);
         foreach (var materialIndex in groups.Keys.OrderBy(static k => k))
         {
@@ -2381,70 +3092,19 @@ public sealed class PristonRenderer : IDisposable
                 continue;
             }
 
-            var mesh = PrepareSkinnedActorMesh(actor.Mesh, triangleRefs, bindNormals, boneRemap);
+            var mesh = PrepareSkinnedActorMesh(actor.Mesh, triangleRefs, cornerNormals, boneRemap);
             batches.Add(new PreparedActorBatch(material, mesh));
         }
 
         return new PreparedActorGeometry(boneMap, batches.ToArray());
     }
 
-    private static Vector3[][] BuildSmoothNormals(PristonModel model)
-    {
-        var result = new Vector3[model.Objects.Count][];
-        for (var oi = 0; oi < model.Objects.Count; oi++)
-        {
-            var obj = model.Objects[oi];
-            var normals = new Vector3[obj.Vertices.Count];
-
-            var needsFallback = false;
-            for (var vi = 0; vi < normals.Length; vi++)
-            {
-                var authored = obj.Vertices[vi].Normal;
-                if (authored.LengthSquared() > 0.000001f)
-                    normals[vi] = authored;
-                else
-                    needsFallback = true;
-            }
-
-            if (needsFallback)
-            {
-                var averaged = new Vector3[obj.Vertices.Count];
-                foreach (var face in obj.Faces)
-                {
-                    if (!ValidFace(face.A, face.B, face.C, obj.Vertices.Count))
-                        continue;
-                    var pa = obj.Vertices[face.A].Position;
-                    var pb = obj.Vertices[face.B].Position;
-                    var pc = obj.Vertices[face.C].Position;
-                    var n = Vector3.Cross(pb - pa, pc - pa);
-                    if (n.LengthSquared() < 0.000001f)
-                        continue;
-                    n.Normalize();
-                    averaged[face.A] += n;
-                    averaged[face.B] += n;
-                    averaged[face.C] += n;
-                }
-
-                for (var vi = 0; vi < normals.Length; vi++)
-                {
-                    if (normals[vi].LengthSquared() > 0.000001f)
-                        continue;
-                    normals[vi] = averaged[vi].LengthSquared() < 0.000001f ? Vector3.Up : Vector3.Normalize(averaged[vi]);
-                }
-            }
-
-            result[oi] = normals;
-        }
-        return result;
-    }
-
     private static PreparedSkinnedMesh PrepareSkinnedAnimatedMesh(
         PristonModel model,
         ModelTriangleRef[] triangleRefs,
-        Vector3[][] bindNormals,
-        Matrix[] bindTransforms,
+        Dictionary<PristonModelFace, Vector3[]>[] cornerNormals,
         int boneCount,
-        PristonGpuMeshBuilder cpuBuilder)
+        Color light)
     {
         var uniqueVerts = new List<PristonSkinnedVertex>();
         var vertLookup = new Dictionary<SkinnedVertKey, int>();
@@ -2456,44 +3116,28 @@ public sealed class PristonRenderer : IDisposable
         {
             var obj = model.Objects[tri.ObjectIndex];
             var face = tri.Face;
-            var tex = face.TexLinkIndex >= 0 && face.TexLinkIndex < obj.TexLinks.Count ? obj.TexLinks[face.TexLinkIndex] : PristonTexLink.Empty;
+            var stages = PristonStageLinks.Resolve(obj.TexLinks, face.TexLinkIndex);
             var boneIdx = Math.Min(tri.ObjectIndex, boneCount - 1);
             var boneF = (float)boneIdx;
-            var objNormals = bindNormals[tri.ObjectIndex];
-            var bind = bindTransforms[tri.ObjectIndex];
+            var normals = cornerNormals[tri.ObjectIndex][face];
 
-            // Bake the lamp light at each vertex's fixed (bind-pose) world position into COLOR.
-            // The skinned shader adds this as lamp lighting (× LampFactor), so animated scenery is
-            // lit consistently like the static world — no dependency on the dynamic point lights.
-            var cA = BakeAnimatedLamp(obj.Vertices[face.A].Position, objNormals[face.A], bind, cpuBuilder);
-            var cB = BakeAnimatedLamp(obj.Vertices[face.B].Position, objNormals[face.B], bind, cpuBuilder);
-            var cC = BakeAnimatedLamp(obj.Vertices[face.C].Position, objNormals[face.C], bind, cpuBuilder);
-
+            // Animated scenery takes the stage's authored light for its texture (PristonStageBakedLight).
             AddSkinnedVertex(uniqueVerts, vertLookup, indices, ref minPos, ref maxPos,
-                obj.Vertices[face.A].Position, objNormals[face.A], cA, tex.A, boneF);
+                obj.Vertices[face.A].Position, normals[0], light, stages, 0, boneF);
             AddSkinnedVertex(uniqueVerts, vertLookup, indices, ref minPos, ref maxPos,
-                obj.Vertices[face.B].Position, objNormals[face.B], cB, tex.B, boneF);
+                obj.Vertices[face.B].Position, normals[1], light, stages, 1, boneF);
             AddSkinnedVertex(uniqueVerts, vertLookup, indices, ref minPos, ref maxPos,
-                obj.Vertices[face.C].Position, objNormals[face.C], cC, tex.C, boneF);
+                obj.Vertices[face.C].Position, normals[2], light, stages, 2, boneF);
         }
 
         return PrepareSkinnedMesh(uniqueVerts, indices, minPos, maxPos, triangleRefs.Length);
     }
 
-    // Lamp colour baked at an animated prop's bind-pose world position/normal.
-    private static Color BakeAnimatedLamp(Vector3 localPosition, Vector3 localNormal, Matrix bind, PristonGpuMeshBuilder cpuBuilder)
-    {
-        var worldPos = Vector3.Transform(localPosition, bind);
-        var worldNormal = Vector3.TransformNormal(localNormal, bind);
-        if (worldNormal.LengthSquared() > 1e-8f)
-            worldNormal.Normalize();
-        return cpuBuilder.BakeLamp(worldPos, worldNormal);
-    }
 
     private static PreparedSkinnedMesh PrepareSkinnedActorMesh(
         PristonModel mesh,
         ActorTriangleRef[] triangleRefs,
-        Vector3[][] bindNormals,
+        Dictionary<PristonModelFace, Vector3[]>[] cornerNormals,
         Dictionary<int, int> boneRemap)
     {
         var uniqueVerts = new List<PristonSkinnedVertex>();
@@ -2506,19 +3150,19 @@ public sealed class PristonRenderer : IDisposable
         {
             var obj = mesh.Objects[tri.ObjectIndex];
             var face = tri.Face;
-            var tex = face.TexLinkIndex >= 0 && face.TexLinkIndex < obj.TexLinks.Count ? obj.TexLinks[face.TexLinkIndex] : PristonTexLink.Empty;
-            var objNormals = bindNormals[tri.ObjectIndex];
+            var stages = PristonStageLinks.Resolve(obj.TexLinks, face.TexLinkIndex);
+            var normals = cornerNormals[tri.ObjectIndex][face];
 
             var boneA = CompactBone(tri.ABoneIndex, tri.ObjectIndex, boneRemap);
             var boneB = CompactBone(tri.BBoneIndex, tri.ObjectIndex, boneRemap);
             var boneC = CompactBone(tri.CBoneIndex, tri.ObjectIndex, boneRemap);
 
             AddSkinnedVertex(uniqueVerts, vertLookup, indices, ref minPos, ref maxPos,
-                obj.Vertices[face.A].Position, objNormals[face.A], Color.Black, tex.A, (float)boneA);
+                obj.Vertices[face.A].Position, normals[0], Color.White, stages, 0, (float)boneA);
             AddSkinnedVertex(uniqueVerts, vertLookup, indices, ref minPos, ref maxPos,
-                obj.Vertices[face.B].Position, objNormals[face.B], Color.Black, tex.B, (float)boneB);
+                obj.Vertices[face.B].Position, normals[1], Color.White, stages, 1, (float)boneB);
             AddSkinnedVertex(uniqueVerts, vertLookup, indices, ref minPos, ref maxPos,
-                obj.Vertices[face.C].Position, objNormals[face.C], Color.Black, tex.C, (float)boneC);
+                obj.Vertices[face.C].Position, normals[2], Color.White, stages, 2, (float)boneC);
         }
 
         return PrepareSkinnedMesh(uniqueVerts, indices, minPos, maxPos, triangleRefs.Length);
@@ -2548,10 +3192,10 @@ public sealed class PristonRenderer : IDisposable
             }
 
         var map = used.ToArray();
-        if (map.Length > PristonEffectPipeline.MaxBones)
+        if (map.Length > PristonShaderLibrary.MaxBones)
         {
-            log.Warn($"[PristonRenderer] Actor skeleton '{skeletonPath}' skins to {map.Length} distinct bones, clamping to {PristonEffectPipeline.MaxBones}.");
-            map = map[..PristonEffectPipeline.MaxBones];
+            log.Warn($"[PristonRenderer] Actor skeleton '{skeletonPath}' skins to {map.Length} distinct bones, clamping to {PristonShaderLibrary.MaxBones}.");
+            map = map[..PristonShaderLibrary.MaxBones];
         }
         else if (map.Length == 0)
         {
@@ -2573,14 +3217,18 @@ public sealed class PristonRenderer : IDisposable
         Vector3 position,
         Vector3 normal,
         Color color,
-        Vector2 texCoord,
+        PristonStageLinks stages,
+        int corner,
         float boneIndex)
     {
-        var key = new SkinnedVertKey(position, normal, texCoord, boneIndex);
+        var uv0 = stages.Stage0.Corner(corner);
+        var uv1 = stages.Stage1.Corner(corner);
+        var uv2 = stages.Stage2.Corner(corner);
+        var key = new SkinnedVertKey(position, normal, uv0, uv1, uv2, boneIndex);
         if (!lookup.TryGetValue(key, out var idx))
         {
             idx = uniqueVerts.Count;
-            uniqueVerts.Add(new PristonSkinnedVertex(position, normal, color, texCoord, boneIndex));
+            uniqueVerts.Add(new PristonSkinnedVertex(position, normal, color, uv0, boneIndex, uv1, uv2));
             lookup.Add(key, idx);
             minPos = Vector3.Min(minPos, position);
             maxPos = Vector3.Max(maxPos, position);
@@ -2646,7 +3294,7 @@ public sealed class PristonRenderer : IDisposable
         var paletteSize = palette.Length;
         PristonActorPalette.Fill(skeletonTransforms, boneMap, world, runtime.Parent.IsValid, palette);
 
-        runtime.Palette.Pack();
+        runtime.Palette.Pack(_motionFrame);
         // Batches share the packed palette. Refresh their WORLD-space bounds from the
         // animated bone positions, so frustum culling follows the actor (otherwise the
         // bind-pose AABB sits at the origin and the actor pops out when the camera moves).
@@ -2655,6 +3303,12 @@ public sealed class PristonRenderer : IDisposable
             var worldBounds = TransformBoundsByPalette(runtime.BindBounds, palette.AsSpan(0, paletteSize));
             ApplyWorldBounds(runtime.Batches, worldBounds);
             ApplyWorldBounds(runtime.ShadowBatches, worldBounds);
+            var centre = (worldBounds.Min + worldBounds.Max) * 0.5f;
+            var floorLight = FloorLightAt(new Vector3(centre.X, worldBounds.Min.Y, centre.Z));
+            foreach (var batch in runtime.Batches)
+            {
+                batch.FloorLight = floorLight;
+            }
         }
 
         runtime.MarkPaletteCurrent();
@@ -2778,7 +3432,7 @@ public sealed class PristonRenderer : IDisposable
             return;
         }
 
-        group.Palette.Pack();
+        group.Palette.Pack(_motionFrame);
         foreach (var batch in group.Batches)
         {
             var bounds = batch.Models[0].WorldBounds;
@@ -2789,6 +3443,26 @@ public sealed class PristonRenderer : IDisposable
 
             batch.Batch.SetWorldBounds(bounds);
         }
+    }
+
+    // The stage's authored light on the floor under a point, the same light the floor itself is tinted by; full light
+    // where no stage floor lies under it.
+    private float FloorLightAt(Vector3 point)
+    {
+        if (!ActorFloorLight)
+        {
+            return 1f;
+        }
+
+        foreach (var stage in _stages)
+        {
+            if (stage.LightField is not null && stage.LightField.TryLightAt(point, out var light))
+            {
+                return light;
+            }
+        }
+
+        return 1f;
     }
 
     private static void ApplyWorldBounds(IReadOnlyList<RenderBatch> batches, BoundingBox worldBounds)
@@ -2842,13 +3516,13 @@ public sealed class PristonRenderer : IDisposable
         BlendState Blend);
 
     private void AddGroups(
-        Dictionary<int, List<VertexPositionColorTexture>> groups,
+        Dictionary<int, List<PristonCornerVertex>> groups,
         IReadOnlyList<PristonMaterial> materials,
         string assetDirectory,
         List<RenderBatch> target,
         StaticShadowCollector shadowCollector)
     {
-        var merged = new Dictionary<StaticMergeKey, (PristonMaterialRuntime Material, List<VertexPositionColorTexture> Vertices)>();
+        var merged = new Dictionary<StaticMergeKey, (PristonMaterialRuntime Material, List<PristonCornerVertex> Vertices)>();
         foreach (var (materialIndex, vertices) in groups)
         {
             if (vertices.Count == 0)
@@ -2926,24 +3600,27 @@ public sealed class PristonRenderer : IDisposable
         }
     }
 
-    private static PristonDynamicVertex[] ToDynamicVertices(VertexPositionColorTexture[] vertices)
+    // Unwelded per-triangle vertices for UV-form-state materials.
+    private static PristonStaticVertex[] ToDynamicVertices(PristonCornerVertex[] vertices)
     {
-        var dynamicVertices = new PristonDynamicVertex[vertices.Length];
+        var dynamicVertices = new PristonStaticVertex[vertices.Length];
         for (var i = 0; i < vertices.Length; i++)
         {
             var vertex = vertices[i];
-            dynamicVertices[i] = new PristonDynamicVertex(
+            dynamicVertices[i] = new PristonStaticVertex(
                 vertex.Position,
                 Vector3.Up,
                 vertex.Color,
-                vertex.TextureCoordinate);
+                vertex.Uv0,
+                vertex.Uv1,
+                vertex.Uv2);
         }
 
         PristonVertexNormals.RecalculateTriangleNormals(dynamicVertices);
         return dynamicVertices;
     }
 
-    private static List<VertexPositionColorTexture> GetGroup(Dictionary<int, List<VertexPositionColorTexture>> groups, int material)
+    private static List<PristonCornerVertex> GetGroup(Dictionary<int, List<PristonCornerVertex>> groups, int material)
     {
         if (!groups.TryGetValue(material, out var list))
         {
@@ -2976,24 +3653,6 @@ public sealed class PristonRenderer : IDisposable
         return list;
     }
 
-    private static void AddTriangle(
-        List<VertexPositionColorTexture> vertices,
-        Vector3 a,
-        Vector3 b,
-        Vector3 c,
-        Color ca,
-        Color cb,
-        Color cc,
-            PristonTexLink texLink)
-    {
-        var ta = texLink.A;
-        var tb = texLink.B;
-        var tc = texLink.C;
-        vertices.Add(new VertexPositionColorTexture(a, ca, ta));
-        vertices.Add(new VertexPositionColorTexture(b, cb, tb));
-        vertices.Add(new VertexPositionColorTexture(c, cc, tc));
-    }
-
     private static bool ValidFace(int a, int b, int c, int vertexCount) =>
         a >= 0 && b >= 0 && c >= 0 && a < vertexCount && b < vertexCount && c < vertexCount;
 
@@ -3010,8 +3669,17 @@ public sealed class PristonRenderer : IDisposable
         }
 
         _shadowMap.Dispose();
+        Profiler.Dispose();
         _glowRenderer.Dispose();
+        _skyCapture.Dispose();
+        _sceneTargets.Dispose();
+        _screenOcclusion.Dispose();
         _lampShadows.Dispose();
+        _lightCulling.Dispose();
+        _environment.Dispose();
+        _reflections.Dispose();
+        _volumetric.Dispose();
+        _shaders.Dispose();
         _textureLoader.Dispose();
         _disposed = true;
     }
@@ -3023,7 +3691,7 @@ public sealed class PristonRenderer : IDisposable
             Instance = instance;
             World = instance.World;
             Animator = new PristonModelAnimator(instance.Actor.Skeleton);
-            var defaultCount = Math.Min(Animator.ObjectCount, PristonEffectPipeline.MaxBones);
+            var defaultCount = Math.Min(Animator.ObjectCount, PristonShaderLibrary.MaxBones);
             BoneMap = new int[defaultCount];
             for (var i = 0; i < defaultCount; i++)
                 BoneMap[i] = i;
@@ -3132,7 +3800,7 @@ public sealed class PristonRenderer : IDisposable
                 throw new InvalidDataException($"Motion {motionIndex} in '{info.Path}' has an empty frame range.");
             }
 
-            Motion = motion;
+            Motion = ApplyMotionFrameOffset(Instance.Actor, motion);
             Frame = StartTicks(Motion);
         }
 

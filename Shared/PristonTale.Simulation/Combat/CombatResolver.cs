@@ -49,8 +49,8 @@ public static class CombatResolver
         return new HitResult(true, false, false, damage, Element.Bionic);
     }
 
-    // Accuracy step table {AC_R threshold, hit%} ascending — the lookup walks to the bracket and takes
-    // the matched entry's hit%. [VERIFIED PTClassic sinTable.h via sinSubMain.cpp:62-66,1662-1696]
+    // Accuracy step table {accuracy-rating threshold, hit%} ascending — the lookup walks to the bracket and takes
+    // the matched entry's hit%, as in the original client.
     private static readonly (int Threshold, int Hit)[] AccuracyTable =
     {
         (-380, 50), (-360, 51), (-340, 52), (-320, 53), (-300, 54), (-280, 55), (-260, 56), (-240, 57),

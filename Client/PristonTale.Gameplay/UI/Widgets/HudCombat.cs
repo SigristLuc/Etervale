@@ -5,12 +5,16 @@ using PristonTale.Gameplay.UI.Rendering;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
-// Target inspection box (playmain.cpp DrawEachPlayer at 0.92/0.1 with cw.tga and ActorHud.cpp DrawStateBar)
-// and combat lines in the bottom-left chat area (sinInterFace.cpp DisplayChatMessage at x=16).
+// The target frame regions. Portrait is the viewport inside cw.tga reserved for the live 3D portrait.
+public readonly record struct HudTargetFrame(Rectangle Box, Rectangle Portrait, Rectangle HealthBar, int NameY, int LevelY);
+
+// Target inspection box (at 0.92/0.1 of the screen with cw.tga and the original life bar)
+// and combat lines in the bottom-left chat area (chat messages at x=16).
 public sealed class HudCombat
 {
     private const int StateBarWidth = 100;
     private const int StateBarSize = 92;
+    private const int StateBarHeight = 16;
     private const int LogLines = 6;
 
     private sealed class Entity(EntitySpawnInfo spawn)
@@ -18,6 +22,8 @@ public sealed class HudCombat
         public EntitySpawnInfo Spawn { get; } = spawn;
         public int Hp { get; set; } = spawn.Hp;
         public Vector3 Position { get; set; } = new(spawn.Position.X, spawn.Position.Y, spawn.Position.Z);
+        // Set when the local player starts attacking this monster at full life, as in the original.
+        public bool StateBarEnabled { get; set; }
     }
 
     private readonly Dictionary<uint, Entity> _entities = new();
@@ -49,7 +55,8 @@ public sealed class HudCombat
     {
         foreach (var spawn in update.Spawns)
         {
-            _entities[spawn.EntityId] = new Entity(spawn);
+            var enabled = _entities.TryGetValue(spawn.EntityId, out var previous) && previous.StateBarEnabled;
+            _entities[spawn.EntityId] = new Entity(spawn) { StateBarEnabled = enabled };
             if (spawn.IsSelf)
             {
                 _self = spawn.EntityId;
@@ -67,6 +74,11 @@ public sealed class HudCombat
 
         foreach (var combat in update.Events)
         {
+            if (combat.Kind == RemoteCombatEventKind.SwingBegin && combat.AttackerId == _self && _self != 0)
+            {
+                NoteAttack(combat.TargetId);
+            }
+
             if (combat.Kind != RemoteCombatEventKind.Hit || combat.AttackerId != _self && combat.TargetId != _self)
             {
                 continue;
@@ -96,6 +108,16 @@ public sealed class HudCombat
         _historyCount = Math.Min(_historyCount + 1, _history.Length);
     }
 
+    // As in the original, only an attack that finds the monster at full life enables the classic bar.
+    public void NoteAttack(uint target)
+    {
+        if (_entities.TryGetValue(target, out var entity) && entity.Spawn.Kind == RemoteEntityKind.Monster && entity.Spawn.MaxHp > 0
+            && entity.Hp == entity.Spawn.MaxHp)
+        {
+            entity.StateBarEnabled = true;
+        }
+    }
+
     public static Rectangle TargetBox(HudLayout layout)
     {
         var height = layout.Height / 6 + 10;
@@ -105,7 +127,35 @@ public sealed class HudCombat
         return new Rectangle(centerX - (width >> 1), centerY - (height >> 1), width, height);
     }
 
-    // ActorHud.cpp DrawStateBar: red to yellow to green over the squared life fraction.
+    public static HudTargetFrame TargetFrame(HudLayout layout)
+    {
+        var box = TargetBox(layout);
+        var portrait = new Rectangle(box.X + 4, box.Y + 4, box.Width - 8, box.Height - 8);
+        var bar = new Rectangle(box.X + 5, box.Bottom + 2, box.Width - 10, StateBarHeight);
+        return new HudTargetFrame(box, portrait, bar, box.Bottom - 16, bar.Bottom + 1);
+    }
+
+    public static int HealthPercent(int life, int maximum)
+    {
+        if (maximum <= 0 || life <= 0)
+        {
+            return 0;
+        }
+
+        return (int)Math.Clamp((long)Math.Min(life, maximum) * 100 / maximum, 1, 100);
+    }
+
+    public bool ShowsHealthBar(uint target, bool classic)
+    {
+        if (!_entities.TryGetValue(target, out var entity) || entity.Spawn.MaxHp <= 0)
+        {
+            return false;
+        }
+
+        return !classic || entity.StateBarEnabled;
+    }
+
+    // Original life bar: red to yellow to green over the squared life fraction.
     public static Color StateColor(int life, int maximum)
     {
         if (maximum <= 0)
@@ -119,43 +169,63 @@ public sealed class HudCombat
         return percent < 256 ? new Color(255, low, 0) : new Color(255 - low, 255, 0);
     }
 
-    public void DrawTarget(HudPainter painter, HudLayout layout, uint target)
+    // Modern mode (default) always shows the bar with a percentage; classic mode follows StateBarEnabled and, like
+    // the original life bar, shows the bar alone.
+    public void DrawTarget(HudPainter painter, HudLayout layout, uint target, bool classicHealthBar = false)
     {
         if (target == 0 || !_entities.TryGetValue(target, out var entity))
         {
             return;
         }
 
-        var box = TargetBox(layout);
+        var frame = TargetFrame(layout);
+        var box = frame.Box;
         // cw.tga has a translucent centre; the original fills the portrait viewport behind it.
-        painter.ColorBox(new Rectangle(box.X + 4, box.Y + 4, box.Width - 8, box.Height - 8), 8, 10, 12, 255);
+        painter.ColorBox(frame.Portrait, 8, 10, 12, 255);
         painter.Stretch(HudArt.TargetBox, box);
-        var name = Name(target);
         var color = entity.Spawn.Kind switch
         {
             RemoteEntityKind.Monster => new Color(255, 160, 120),
             RemoteEntityKind.Npc => new Color(255, 255, 180),
             _ => Color.White
         };
-        painter.TextCentered(painter.Fit(name, box.Width - 8), box.Left, box.Right, box.Bottom - 16, color);
+        painter.TextCentered(painter.Fit(Name(target), box.Width - 8), box.Left, box.Right, frame.NameY, color);
 
-        var maximum = entity.Spawn.MaxHp;
-        if (maximum <= 0)
+        var level = Level(entity);
+        var levelText = level > 0 ? $"Lv. {level}" : "";
+        var levelColor = new Color(220, 220, 220);
+        if (!ShowsHealthBar(target, classicHealthBar))
         {
+            painter.TextCentered(levelText, box.Left, box.Right, frame.HealthBar.Y, levelColor);
             return;
         }
 
-        var x = box.X + 5;
-        var y = box.Bottom + 2;
-        var width = box.Width - 10;
-        painter.Stretch(HudArt.EnergyBack, new Rectangle(x, y, width, 16), new Rectangle(0, 0, StateBarWidth, 15));
-        if (entity.Hp > 0)
+        var bar = frame.HealthBar;
+        DrawHealthBar(painter, bar, entity.Hp, entity.Spawn.MaxHp);
+        if (classicHealthBar)
         {
-            var percent = (int)((long)Math.Min(entity.Hp, maximum) * StateBarSize / maximum);
-            painter.Stretch(HudArt.EnergyFill, new Rectangle(x, y, (percent + 3) * width / StateBarWidth, 16), new Rectangle(0, 0, percent + 3, 15),
-                StateColor(entity.Hp, maximum));
+            painter.TextCentered(levelText, box.Left, box.Right, frame.LevelY, levelColor);
+            return;
+        }
+
+        // The percentage sits under the bar's right end; the bar art is too thin to hold text.
+        var percent = $"{HealthPercent(entity.Hp, entity.Spawn.MaxHp)}%";
+        painter.Text(levelText, bar.X, frame.LevelY, levelColor);
+        painter.Text(percent, bar.Right - painter.Measure(percent), frame.LevelY, Color.White);
+    }
+
+    private static void DrawHealthBar(HudPainter painter, Rectangle bar, int life, int maximum)
+    {
+        painter.Stretch(HudArt.EnergyBack, bar, new Rectangle(0, 0, StateBarWidth, 15));
+        if (life > 0)
+        {
+            var percent = (int)((long)Math.Min(life, maximum) * StateBarSize / maximum);
+            painter.Stretch(HudArt.EnergyFill, new Rectangle(bar.X, bar.Y, (percent + 3) * bar.Width / StateBarWidth, bar.Height),
+                new Rectangle(0, 0, percent + 3, 15), StateColor(life, maximum));
         }
     }
+
+    private static int Level(Entity entity) => entity.Spawn.Level > 0 ? entity.Spawn.Level : entity.Spawn.Player?.Level ?? 0;
 
     public void DrawLog(HudPainter painter, HudLayout layout)
     {
@@ -174,6 +244,18 @@ public sealed class HudCombat
             return "Target";
         }
 
-        return entity.Spawn.Player?.Name ?? _catalog.GetMonster(entity.Spawn.TemplateId)?.Name ?? "Monster";
+        if (entity.Spawn.Player is { } player)
+        {
+            return player.Name;
+        }
+
+        if (!string.IsNullOrEmpty(entity.Spawn.Name))
+        {
+            return entity.Spawn.Name;
+        }
+
+        return entity.Spawn.Kind == RemoteEntityKind.Npc
+            ? _catalog.GetNpc(entity.Spawn.TemplateId)?.Name ?? "NPC"
+            : _catalog.GetMonster(entity.Spawn.TemplateId)?.Name ?? "Monster";
     }
 }

@@ -6,11 +6,10 @@
     "stamina": 34,
     "step": 2,
     "weapons": [
-      "sinDS1"
+      "DS1"
     ],
-    "symbol": "SKILL_EXTREME_SHIELD",
     "code": 16842753,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       12,
       14,
@@ -32,9 +31,8 @@
     "stamina": 28,
     "step": 2,
     "weapons": [],
-    "symbol": "SKILL_MECHANIC_BOMB",
     "code": 16842754,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       8,
       10,
@@ -56,9 +54,8 @@
     "stamina": 0,
     "step": 0,
     "weapons": [],
-    "symbol": "SKILL_POISON_ATTRIBUTE",
     "code": 16842756,
-    "use": "SIN_SKILL_USE_NOT",
+    "use": "None",
     "mana": [
       0,
       0,
@@ -80,9 +77,8 @@
     "stamina": 30,
     "step": 2,
     "weapons": [],
-    "symbol": "SKILL_PHYSICAL_ABSORB",
     "code": 16842755,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       20,
       24,
@@ -104,14 +100,13 @@
     "stamina": 0,
     "step": 0,
     "weapons": [
-      "sinWA1",
-      "sinWC1",
-      "sinWH1",
-      "sinWS2"
+      "WA1",
+      "WC1",
+      "WH1",
+      "WS2"
     ],
-    "symbol": "SKILL_MELEE_MASTERY",
     "code": 33619969,
-    "use": "SIN_SKILL_USE_NOT",
+    "use": "None",
     "mana": [
       0,
       0,
@@ -133,9 +128,8 @@
     "stamina": 0,
     "step": 0,
     "weapons": [],
-    "symbol": "SKILL_FIRE_ATTRIBUTE",
     "code": 33619970,
-    "use": "SIN_SKILL_USE_NOT",
+    "use": "None",
     "mana": [
       0,
       0,
@@ -157,15 +151,14 @@
     "stamina": 35,
     "step": 2,
     "weapons": [
-      "sinWA1",
-      "sinWC1",
-      "sinWH1",
-      "sinWP1",
-      "sinWS2"
+      "WA1",
+      "WC1",
+      "WH1",
+      "WP1",
+      "WS2"
     ],
-    "symbol": "SKILL_RAVING",
     "code": 33619971,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       14,
       16,
@@ -187,14 +180,13 @@
     "stamina": 37,
     "step": 2,
     "weapons": [
-      "sinWA1",
-      "sinWC1",
-      "sinWP1",
-      "sinWS2"
+      "WA1",
+      "WC1",
+      "WP1",
+      "WS2"
     ],
-    "symbol": "SKILL_IMPACT",
     "code": 33619972,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       18,
       20,
@@ -216,11 +208,10 @@
     "stamina": 27,
     "step": 2,
     "weapons": [
-      "sinWP1"
+      "WP1"
     ],
-    "symbol": "SKILL_PIKE_WIND",
     "code": 50397185,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       14,
       16,
@@ -242,9 +233,8 @@
     "stamina": 0,
     "step": 0,
     "weapons": [],
-    "symbol": "SKILL_ICE_ATTRIBUTE",
     "code": 50397186,
-    "use": "SIN_SKILL_USE_NOT",
+    "use": "None",
     "mana": [
       0,
       0,
@@ -266,14 +256,13 @@
     "stamina": 31,
     "step": 2,
     "weapons": [
-      "sinWP1",
-      "sinWC1",
-      "sinWH1",
-      "sinWS2"
+      "WP1",
+      "WC1",
+      "WH1",
+      "WS2"
     ],
-    "symbol": "SKILL_CRITICAL_HIT",
     "code": 50397187,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       14,
       16,
@@ -295,13 +284,12 @@
     "stamina": 34,
     "step": 2,
     "weapons": [
-      "sinWA1",
-      "sinWP1",
-      "sinWS2"
+      "WA1",
+      "WP1",
+      "WS2"
     ],
-    "symbol": "SKILL_JUMPING_CRASH",
     "code": 50397188,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       16,
       18,
@@ -323,9 +311,8 @@
     "stamina": 25,
     "step": 2,
     "weapons": [],
-    "symbol": "SKILL_SCOUT_HAWK",
     "code": 67174401,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       14,
       16,
@@ -347,11 +334,10 @@
     "stamina": 0,
     "step": 0,
     "weapons": [
-      "sinWS1"
+      "WS1"
     ],
-    "symbol": "SKILL_SHOOTING_MASTERY",
     "code": 67174402,
-    "use": "SIN_SKILL_USE_NOT",
+    "use": "None",
     "mana": [
       0,
       0,
@@ -373,11 +359,10 @@
     "stamina": 25,
     "step": 2,
     "weapons": [
-      "sinWS1"
+      "WS1"
     ],
-    "symbol": "SKILL_WIND_ARROW",
     "code": 67174403,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       12,
       14,
@@ -399,11 +384,10 @@
     "stamina": 29,
     "step": 2,
     "weapons": [
-      "sinWS1"
+      "WS1"
     ],
-    "symbol": "SKILL_PERFECT_AIM",
     "code": 67174404,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       14,
       16,
@@ -425,11 +409,10 @@
     "stamina": 22,
     "step": 2,
     "weapons": [
-      "sinWS2"
+      "WS2"
     ],
-    "symbol": "SKILL_SWORD_BLAST",
     "code": 83951617,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       8,
       10,
@@ -451,9 +434,8 @@
     "stamina": 28,
     "step": 2,
     "weapons": [],
-    "symbol": "SKILL_HOLY_BODY",
     "code": 83951618,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       18,
       21,
@@ -475,9 +457,8 @@
     "stamina": 0,
     "step": 0,
     "weapons": [],
-    "symbol": "SKILL_PHYSICAL_TRANING",
     "code": 83951619,
-    "use": "SIN_SKILL_USE_NOT",
+    "use": "None",
     "mana": [
       0,
       0,
@@ -499,13 +480,12 @@
     "stamina": 35,
     "step": 2,
     "weapons": [
-      "sinWA1",
-      "sinWC1",
-      "sinWS2"
+      "WA1",
+      "WC1",
+      "WS2"
     ],
-    "symbol": "SKILL_DOUBLE_CRASH",
     "code": 83951620,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       18,
       20,
@@ -527,11 +507,10 @@
     "stamina": 23,
     "step": 2,
     "weapons": [
-      "sinDS1"
+      "DS1"
     ],
-    "symbol": "SKILL_SHIELD_STRIKE",
     "code": 100728833,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       16,
       18,
@@ -553,11 +532,10 @@
     "stamina": 26,
     "step": 2,
     "weapons": [
-      "sinWT1"
+      "WT1"
     ],
-    "symbol": "SKILL_FARINA",
     "code": 100728834,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       17,
       19,
@@ -579,11 +557,10 @@
     "stamina": 0,
     "step": 0,
     "weapons": [
-      "sinWT1"
+      "WT1"
     ],
-    "symbol": "SKILL_THROWING_MASTERY",
     "code": 100728835,
-    "use": "SIN_SKILL_USE_NOT",
+    "use": "None",
     "mana": [
       0,
       0,
@@ -605,12 +582,11 @@
     "stamina": 32,
     "step": 2,
     "weapons": [
-      "sinWP1",
-      "sinWT1"
+      "WP1",
+      "WT1"
     ],
-    "symbol": "SKILL_VIGOR_SPEAR",
     "code": 100728836,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       19,
       21,
@@ -632,11 +608,10 @@
     "stamina": 15,
     "step": 1,
     "weapons": [
-      "sinWM1"
+      "WM1"
     ],
-    "symbol": "SKILL_HEALING",
     "code": 117506049,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       11,
       14,
@@ -658,11 +633,10 @@
     "stamina": 11,
     "step": 1,
     "weapons": [
-      "sinWM1"
+      "WM1"
     ],
-    "symbol": "SKILL_HOLY_BOLT",
     "code": 117506050,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       14,
       17,
@@ -684,11 +658,10 @@
     "stamina": 14,
     "step": 1,
     "weapons": [
-      "sinWM1"
+      "WM1"
     ],
-    "symbol": "SKILL_MULTISPARK",
     "code": 117506051,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       16,
       19,
@@ -710,11 +683,10 @@
     "stamina": 19,
     "step": 1,
     "weapons": [
-      "sinWM1"
+      "WM1"
     ],
-    "symbol": "SKILL_HOLY_MIND",
     "code": 117506052,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       22,
       25,
@@ -736,11 +708,10 @@
     "stamina": 12,
     "step": 1,
     "weapons": [
-      "sinWM1"
+      "WM1"
     ],
-    "symbol": "SKILL_AGONY",
     "code": 134283265,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       5,
       6,
@@ -762,11 +733,10 @@
     "stamina": 11,
     "step": 1,
     "weapons": [
-      "sinWM1"
+      "WM1"
     ],
-    "symbol": "SKILL_FIRE_BOLT",
     "code": 134283266,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       16,
       18,
@@ -788,11 +758,10 @@
     "stamina": 15,
     "step": 1,
     "weapons": [
-      "sinWM1"
+      "WM1"
     ],
-    "symbol": "SKILL_ZENITH",
     "code": 134283267,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       18,
       20,
@@ -814,11 +783,10 @@
     "stamina": 19,
     "step": 1,
     "weapons": [
-      "sinWM1"
+      "WM1"
     ],
-    "symbol": "SKILL_FIRE_BALL",
     "code": 134283268,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       22,
       24,
@@ -840,11 +808,10 @@
     "stamina": 22,
     "step": 2,
     "weapons": [
-      "ITEMTYPE_Dagger"
+      "WD1"
     ],
-    "symbol": "SKILLID_Stinger",
     "code": 268500993,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       8,
       10,
@@ -866,11 +833,10 @@
     "stamina": 27,
     "step": 2,
     "weapons": [
-      "ITEMTYPE_Dagger"
+      "WD1"
     ],
-    "symbol": "SKILLID_RunningHit",
     "code": 268500994,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       14,
       16,
@@ -892,11 +858,10 @@
     "stamina": 0,
     "step": 0,
     "weapons": [
-      "ITEMTYPE_Dagger"
+      "WD1"
     ],
-    "symbol": "SKILLID_DualWieldMastery",
     "code": 268500995,
-    "use": "SIN_SKILL_USE_NOT",
+    "use": "None",
     "mana": [
       0,
       0,
@@ -918,11 +883,10 @@
     "stamina": 37,
     "step": 2,
     "weapons": [
-      "ITEMTYPE_Dagger"
+      "WD1"
     ],
-    "symbol": "SKILLID_Wisp",
     "code": 268500996,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       18,
       20,
@@ -944,11 +908,10 @@
     "stamina": 8,
     "step": 1,
     "weapons": [
-      "ITEMTYPE_Phantom"
+      "WN1"
     ],
-    "symbol": "SKILLID_DarkBolt",
     "code": 1342242817,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       14,
       16,
@@ -970,11 +933,10 @@
     "stamina": 19,
     "step": 1,
     "weapons": [
-      "ITEMTYPE_Phantom"
+      "WN1"
     ],
-    "symbol": "SKILLID_DarkWave",
     "code": 1342242818,
-    "use": "SIN_SKILL_USE_ALL",
+    "use": "Both",
     "mana": [
       22,
       24,
@@ -996,11 +958,10 @@
     "stamina": 20,
     "step": 1,
     "weapons": [
-      "ITEMTYPE_Phantom"
+      "WN1"
     ],
-    "symbol": "SKILLID_Inertia",
     "code": 1342242819,
-    "use": "SIN_SKILL_USE_RIGHT",
+    "use": "Right",
     "mana": [
       25,
       28,
@@ -1022,9 +983,8 @@
     "stamina": 0,
     "step": 0,
     "weapons": [],
-    "symbol": "SKILLID_InnerPeace",
     "code": 1342242820,
-    "use": "SIN_SKILL_USE_NOT",
+    "use": "None",
     "mana": [
       0,
       0,

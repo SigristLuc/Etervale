@@ -1,5 +1,7 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
+using PristonTale.Engine3D.Diagnostics;
 
 namespace PristonTale.Engine3D.Rendering;
 
@@ -15,23 +17,15 @@ internal sealed class GlowRenderer : IDisposable
     private const float GlowAlpha = 0.7f;
 
     private readonly GraphicsDevice _graphicsDevice;
-    private readonly BasicEffect _effect;
+    private readonly PristonUnlitEffect _effect;
     private readonly Texture2D _texture;
     private VertexPositionColorTexture[] _vertices = [];
 
-    public GlowRenderer(GraphicsDevice graphicsDevice)
+    public GlowRenderer(GraphicsDevice graphicsDevice, ContentManager content, IClientLog log)
     {
         _graphicsDevice = graphicsDevice;
         _texture = CreateGlowTexture(graphicsDevice);
-        _effect = new BasicEffect(graphicsDevice)
-        {
-            TextureEnabled = true,
-            VertexColorEnabled = true,
-            LightingEnabled = false,
-            FogEnabled = false,
-            World = Matrix.Identity,
-            Texture = _texture
-        };
+        _effect = new PristonUnlitEffect(content, log) { Texture = _texture };
     }
 
     public void Draw(PristonFrameContext frame, IReadOnlyList<PristonPointLight> glowLights, float lampFactor)
@@ -74,13 +68,9 @@ internal sealed class GlowRenderer : IDisposable
         // walls"), but depth-WRITE off (DepthRead) since it's an additive transparent billboard.
         _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
         _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-        _graphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
 
-        foreach (var pass in _effect.CurrentTechnique.Passes)
-        {
-            pass.Apply();
-            _graphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleList, _vertices, 0, glowLights.Count * 2);
-        }
+        _effect.Apply();
+        _graphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleList, _vertices, 0, glowLights.Count * 2);
     }
 
     private static Texture2D CreateGlowTexture(GraphicsDevice graphicsDevice)

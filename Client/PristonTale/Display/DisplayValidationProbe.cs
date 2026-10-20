@@ -50,8 +50,6 @@ internal sealed class DisplayValidationProbe : Game
             SynchronizeWithVerticalRetrace = false
         };
         _settings.Requested = _scenarios[0];
-        _graphics.PreparingDeviceSettings += (_, args) =>
-            args.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = _settings.Requested.MultiSampleCount;
         IsFixedTimeStep = false;
         InactiveSleepTime = TimeSpan.Zero;
         Window.AllowUserResizing = true;
@@ -59,7 +57,7 @@ internal sealed class DisplayValidationProbe : Game
 
     protected override void LoadContent()
     {
-        _controller = new PresentationController(_settings, _store, _graphics, Window);
+        _controller = new PresentationController(_settings, _store, _graphics);
         _requested = _settings.Requested;
     }
 

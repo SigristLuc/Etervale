@@ -9,7 +9,7 @@ namespace PristonTale.Application.Services;
 
 public sealed class CharacterAppService
 {
-    // Up to 6 characters per account, matching the original sPLAY_USER_DATA slot count.
+    // Up to 6 characters per account, matching the original character slot count.
     private const int MaxCharactersPerAccount = CharacterSlots.Maximum;
     // New characters start in the starting town (Ricarten = field 3) at its spawn (resolved later).
     private const int StartingFieldId = 3;

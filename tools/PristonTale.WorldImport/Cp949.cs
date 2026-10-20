@@ -4,12 +4,12 @@ namespace PristonTale.WorldImport;
 
 /// <summary>
 /// CP949 (Unified Hangul Code, code page 949) decoding for the original Korean server config files.
-/// The PTClassic data files are NOT UTF-8 — every Korean token (<c>*이름</c>, <c>*코드</c>, …) is CP949.
+/// The authored data files are NOT UTF-8 — every Korean token (<c>*이름</c>, <c>*코드</c>, …) is CP949.
 /// .NET on non-Windows does not ship code page 949 in the default encoding set, so we register
 /// <see cref="CodePagesEncodingProvider"/> once at startup before any read.
 ///
 /// Asset/config path handling: the original disk layout is case-stable here (these are the literal files
-/// in <c>bin/Server/GameServer</c>), but callers still resolve filenames case-insensitively where they
+/// in <c>GameServer/</c>), but callers still resolve filenames case-insensitively where they
 /// cross-reference a name to a path (the field ASE base ↔ .spm/.spp/.spc filename join).
 /// </summary>
 public static class Cp949

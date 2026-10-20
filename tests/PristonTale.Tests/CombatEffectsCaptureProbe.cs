@@ -33,7 +33,7 @@ internal sealed class CombatEffectsCaptureProbe : Game
     {
         _assets = assets;
         _output = output;
-        Content.RootDirectory = Path.GetFullPath(content);
+        Content = new AbsoluteContentManager(Services, content);
         _ = new GraphicsDeviceManager(this)
         {
             PreferredBackBufferWidth = 960,
@@ -48,9 +48,9 @@ internal sealed class CombatEffectsCaptureProbe : Game
     {
         Directory.CreateDirectory(_output);
         _target = new RenderTarget2D(GraphicsDevice, 960, 540, false, SurfaceFormat.Color, DepthFormat.Depth24);
-        _library = LegacyEffectLibrary.LoadBootstrap(GraphicsDevice, _assets, ConsoleClientLog.Instance);
-        _effects = new EffectsEngine(GraphicsDevice, 812);
-        Assert.True(Content.Load<Effect>("Effects/PristonOpaque").Parameters["TransientLightCount"] is not null,
+        _library = LegacyEffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assets, ConsoleClientLog.Instance);
+        _effects = new EffectsEngine(GraphicsDevice, Content, 812);
+        Assert.True(Content.Load<Effect>("Effects/StaticSurface").Parameters["LocalLightCount"] is not null,
             "capture requires the rebuilt production shader");
         _renderer = new PristonRenderer(GraphicsDevice, Content)
         {
@@ -179,6 +179,7 @@ internal sealed class CombatEffectsCaptureProbe : Game
         _meshes.Draw(_camera.View, _camera.Projection);
         _return.Draw(_camera.View, _camera.Projection, _camera.Position);
         _effects.Draw(_camera.View, _camera.Projection, _camera.Position);
+        _renderer.ComposeScene();
         GraphicsDevice.SetRenderTarget(null);
         var pixels = new Color[960 * 540];
         _target.GetData(pixels);

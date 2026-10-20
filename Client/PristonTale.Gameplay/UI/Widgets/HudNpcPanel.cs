@@ -6,8 +6,8 @@ using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
-// NPC dialog in the sinHelp.cpp help box (QuestMessageBoxPosi2 50,45, 9x10 tiles); skill masters also get the
-// sinInterFace.cpp SkillNpcFlag box (ReStartMain.bmp) with the skill, class-change (inert) and exit buttons.
+// NPC dialog in the original help box (at 50,45, 9x10 tiles); skill masters also get the
+// skill master box (ReStartMain.bmp) with the skill, class-change (inert) and exit buttons.
 public sealed class HudNpcPanel(
     Func<uint, Task<NpcInteraction>> interact,
     IClientLog log,

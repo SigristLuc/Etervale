@@ -1,6 +1,6 @@
 namespace PristonTale.Protocol.Binary;
 
-// smTRANSCODE_* values from original_references/src/network/protocol/smPacket.h.
+// Message codes of the original wire protocol.
 public static class PristonOpcodes
 {
     public const uint Connected = 0x48470080;
@@ -45,7 +45,7 @@ public static class PristonOpcodes
 }
 
 // Etervale-only messages for server-authoritative operations the original client performs locally.
-// The high word "ET" (0x4554) is unused by smPacket.h, so the original client ignores these codes.
+// The high word "ET" (0x4554) is unused by the original protocol, so the original client ignores these codes.
 public static class EtervaleOpcodes
 {
     public const uint OwnerStatus = 0x45540100;
@@ -59,4 +59,5 @@ public static class EtervaleOpcodes
     public const uint CombatEvents = 0x45540140;
     public const uint RemoveObjects = 0x45540150;
     public const uint LeaveWorld = 0x45540160;
+    public const uint PresenceClock = 0x45540170;
 }

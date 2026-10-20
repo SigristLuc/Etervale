@@ -53,11 +53,6 @@ public static class RicartenField
             new FieldAmbient(new FieldVector(2632, 321, -17285), 80, 27)
         ],
         BackMusicCode = "BGM_CODE_TOWN2",
-        ServerCode = "PLAY_SERVER_CODE_MAIN",
-        Lighting = new FieldLighting
-        {
-            LampIntensity = 8f,
-            LampRangeScale = 1.2f
-        }
+        ServerCode = "PLAY_SERVER_CODE_MAIN"
     };
 }

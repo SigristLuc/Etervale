@@ -21,13 +21,13 @@ internal sealed class PresentationController
     private ClientSettings _accepted;
     private long _confirmationDeadline;
 
-    public PresentationController(PresentationSettings shared, ClientSettingsStore store, GraphicsDeviceManager graphics, GameWindow window)
+    public PresentationController(PresentationSettings shared, ClientSettingsStore store, GraphicsDeviceManager graphics)
     {
         _shared = shared;
         _store = store;
         _graphics = graphics;
-        _display = new DisplayController(graphics, window, ConsoleClientLog.Instance);
-        _display.DescribeOptions(shared);
+        _display = new DisplayController(graphics, ConsoleClientLog.Instance);
+        DisplayController.DescribeOptions(shared);
         _accepted = shared.Requested;
         Apply(shared.Requested);
         if (_applied.WindowMode != WindowMode.Windowed)

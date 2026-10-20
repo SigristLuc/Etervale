@@ -18,7 +18,7 @@ internal sealed class SkyCaptureProbe : Game
     {
         _root = root;
         _output = output;
-        Content.RootDirectory = Path.GetFullPath(content);
+        Content = new AbsoluteContentManager(Services, content);
         _ = new GraphicsDeviceManager(this)
         {
             PreferredBackBufferWidth = 1280,
@@ -51,6 +51,7 @@ internal sealed class SkyCaptureProbe : Game
         _camera.SetScriptedView(GraphicsDevice, new Vector3(0f, 200f, 0f), new Vector3(0f, 280f, -1000f));
         _renderer.Update(new GameTime(gameTime.TotalGameTime, TimeSpan.FromSeconds(3)));
         _renderer.Draw(_camera);
+        _renderer.ComposeScene();
         var width = GraphicsDevice.PresentationParameters.BackBufferWidth;
         var height = GraphicsDevice.PresentationParameters.BackBufferHeight;
         var pixels = new Color[width * height];

@@ -45,6 +45,9 @@ public sealed class RenderStageHandle
 
     internal BoundingBox Bounds { get; set; }
 
+    // The floors' authored light for the actors standing on them (null until built).
+    internal Lighting.PristonStageLightField LightField { get; set; }
+
     internal void DisposeGpu()
     {
         foreach (var batch in Batches)

@@ -3,8 +3,8 @@ using PristonTale.Simulation.Characters;
 namespace PristonTale.WorldImport.Parsers;
 
 /// <summary>
-/// Parses one OpenItem <c>.txt</c> → <see cref="ParsedItem"/>, faithful to <c>DecodeItemInfo</c>
-/// (fileread.cpp:3328). Each line's leading word is matched (exact, like the C++ <c>lstrcmp</c>) against
+/// Parses one OpenItem <c>.txt</c> → <see cref="ParsedItem"/> with the original item-definition rules.
+/// Each line's leading word is matched exactly (case-sensitive, ordinal) against
 /// the <see cref="KeyMaps"/> item tokens. The remake uses the supplied <c>*Name</c> alias for display,
 /// falling back to <c>*E_NAME</c>, the original name, and then the item code.
 /// Item identity and foreign keys remain the original item code.
@@ -196,7 +196,7 @@ public sealed class ItemTxtParser
         if (Match(key, KeyMaps.ItemRestoreLife)) { resLifeMin = t.NextInt(); resLifeMax = t.NextInt(); return; }
 
         // ** special bonuses (rare/none in this build): store as a coded (bonus_code, v0, v1) child.
-        // bonus_code = a stable index over the recognised ** tokens. [VERIFIED fileread.cpp:3833-3965].
+        // bonus_code = a stable index over the recognised ** tokens.
         if (key.StartsWith("**", StringComparison.Ordinal))
         {
             var bonusCode = SpecialBonusCode(key);
@@ -226,8 +226,8 @@ public sealed class ItemTxtParser
         return mask;
     }
 
-    // Map a job name (Korean or English) to its JobBitCode. [VERIFIED JobBitCode enum CharacterEnums.cs:23].
-    // The original matches JobDataBase[].szName; we accept the English class names + the canonical Korean.
+    // Map a job name (Korean or English) to its JobBitCode.
+    // The original matches the job table names; we accept the English class names + the canonical Korean.
     private static uint JobBitFor(string name) => name.Trim().ToLowerInvariant() switch
     {
         "fighter" or "전사" => (uint)JobBitCode.Fighter,

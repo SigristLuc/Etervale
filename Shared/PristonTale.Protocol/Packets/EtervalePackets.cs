@@ -403,3 +403,44 @@ public static class RemoveObjectList
         return serials;
     }
 }
+
+// Server simulation clock for the presence entries that follow it on the connection: PLAYDATAGROUP samples and
+// combat events until the next clock. Layout: {size, code, ushort Version, ushort Flags, uint ServerTick,
+// uint TickIntervalMs}. Readers accept newer versions that append fields.
+public readonly record struct PresenceClockPacket(uint ServerTick, uint TickIntervalMs)
+{
+    public const ushort CurrentVersion = 1;
+    public const int Size = 20;
+
+    public double ServerTimeMs => (double)ServerTick * TickIntervalMs;
+
+    public int Write(Span<byte> destination)
+    {
+        var writer = new PacketWriter(destination, EtervaleOpcodes.PresenceClock);
+        writer.UInt16(CurrentVersion);
+        writer.UInt16(0);
+        writer.UInt32(ServerTick);
+        writer.UInt32(TickIntervalMs);
+        return writer.Finish();
+    }
+
+    public static PresenceClockPacket Read(ReadOnlySpan<byte> packet)
+    {
+        var reader = new PacketReader(packet, Size);
+        var version = reader.UInt16();
+        reader.Skip(2);
+        if (version == 0)
+        {
+            throw new InvalidDataException("Presence clock has version 0.");
+        }
+
+        var tick = reader.UInt32();
+        var interval = reader.UInt32();
+        if (interval == 0)
+        {
+            throw new InvalidDataException("Presence clock has a zero tick interval.");
+        }
+
+        return new PresenceClockPacket(tick, interval);
+    }
+}

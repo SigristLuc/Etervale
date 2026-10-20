@@ -6,6 +6,10 @@ namespace PristonTale.Simulation.World.Ai;
 
 public sealed class MonsterAiBrain
 {
+    // A stuck monster turns by rand() % 1024 - 512 on the 4096-step circle (a quarter turn, centred).
+    private const int StuckTurnSteps = 1024;
+    private const float AngleStepRadians = MathF.Tau / 4096f;
+
     private readonly ISimRng _rng;
 
     public MonsterAiBrain(ISimRng rng) => _rng = rng ?? throw new ArgumentNullException(nameof(rng));
@@ -39,10 +43,12 @@ public sealed class MonsterAiBrain
             if (monster.FlinchMsLeft <= 0f)
             {
                 bool targetLive = monster.TargetId != 0 && prey.TryGet(monster.TargetId, out PreyCandidate tgt) && tgt.IsAlive;
+                monster.ManoeuvreClipsLeft = 0;
                 if (targetLive)
                 {
                     monster.AiState = MonsterAiState.Chase;
-                    monster.Motion = MonsterMotionState.Walk;
+                    monster.Motion = MonsterMotionState.Stand;
+                    monster.SinceDecisionMs = MonsterAiTuning.DecisionIntervalMs;
                 }
                 else
                 {
@@ -58,15 +64,14 @@ public sealed class MonsterAiBrain
             return AdvanceAttack(monster, tuning, prey, dtMs);
         }
 
-        CheckMovementProgress(monster, tuning, dtMs);
-
-        if (monster.SinceRetargetMs >= MonsterAiTuning.RetargetIntervalMs
-            && monster.TargetLockMsLeft <= 0f
-            && monster.AiState != MonsterAiState.Leash)
+        // The original target scan runs during leash and stuck manoeuvres too; only a target lock suspends it.
+        if (monster.SinceRetargetMs >= MonsterAiTuning.RetargetIntervalMs && monster.TargetLockMsLeft <= 0f)
         {
             monster.SinceRetargetMs = 0f;
             monster.TargetId = AcquireNearestPrey(monster, tuning, prey);
         }
+
+        AdvanceClips(monster, tuning, dtMs);
 
         if (monster.SinceDecisionMs >= MonsterAiTuning.DecisionIntervalMs)
         {
@@ -80,6 +85,10 @@ public sealed class MonsterAiBrain
             {
                 StepWander(monster, tuning, dtMs);
             }
+            else if (monster.AiState == MonsterAiState.Leash)
+            {
+                IntegrateHeading(monster, monster.ManoeuvreHeading, monster.Motion == MonsterMotionState.Run, dtMs);
+            }
             else
             {
                 IntegrateToward(monster, monster.MoveTarget, monster.Motion == MonsterMotionState.Run, dtMs);
@@ -91,66 +100,60 @@ public sealed class MonsterAiBrain
 
     private MonsterAttackEvent? Decide(MonsterInstance m, MonsterAiTuning t, IPreyView prey, float decisionDt)
     {
-        // Resolve aggro before stuck handling so a fresh target survives its spawn tick.
         PreyCandidate live = default;
         bool hasTarget = m.TargetId != 0 && prey.TryGet(m.TargetId, out live) && live.IsAlive;
         if (!hasTarget)
         {
             live = default;
             m.TargetId = 0;
+            m.Engaged = false;
         }
 
-        float homeDistSq = PlanarDistanceSq(m.Position, m.HomeAnchor);
-        if (homeDistSq > t.LeashSq)
+        if (t.IsImmobile)
         {
-            m.TargetId = 0;
-            hasTarget = false;
-            m.AiState = MonsterAiState.Leash;
-            m.MoveTarget = m.HomeAnchor;
+            EnterIdle(m);
+            return null;
         }
 
-        MonsterAttackEvent? result;
         switch (m.AiState)
         {
             case MonsterAiState.Leash:
-                StepLeash(m, t, decisionDt);
-                result = null;
-                break;
+                // PlayAttackFromPosi runs on every call, so a target in reach is attacked even mid-manoeuvre.
+                if (hasTarget && MonsterAttackReach.CanBegin(m.Def, m.Position, live.Position))
+                {
+                    FaceToward(m, live.Position);
+                    BeginAttack(m, t);
+                }
+                else
+                {
+                    IntegrateHeading(m, m.ManoeuvreHeading, m.Motion == MonsterMotionState.Run, decisionDt);
+                }
+
+                return null;
 
             case MonsterAiState.Idle:
             case MonsterAiState.Wander:
                 if (hasTarget)
                 {
-                    EnterChase(m);
-                    result = StepChase(m, t, live, decisionDt);
-                }
-                else
-                {
-                    StepWander(m, t, decisionDt);
-                    result = null;
+                    m.AiState = MonsterAiState.Chase;
+                    return StepChase(m, t, live, decisionDt);
                 }
 
-                break;
+                StepWander(m, t, decisionDt);
+                return null;
 
             case MonsterAiState.Chase:
                 if (!hasTarget)
                 {
                     EnterIdle(m);
-                    result = null;
-                }
-                else
-                {
-                    result = StepChase(m, t, live, decisionDt);
+                    return null;
                 }
 
-                break;
+                return StepChase(m, t, live, decisionDt);
 
             default:
-                result = null;
-                break;
+                return null;
         }
-
-        return result;
     }
 
     private static uint AcquireNearestPrey(MonsterInstance m, MonsterAiTuning t, IPreyView prey)
@@ -186,23 +189,32 @@ public sealed class MonsterAiBrain
         return best;
     }
 
-    private static void EnterChase(MonsterInstance m)
-    {
-        m.AiState = MonsterAiState.Chase;
-        m.Motion = MonsterMotionState.Walk;
-    }
-
     private static void EnterIdle(MonsterInstance m)
     {
         m.AiState = MonsterAiState.Idle;
         m.Motion = MonsterMotionState.Stand;
         m.TargetId = 0;
+        m.Engaged = false;
+        m.ManoeuvreClipsLeft = 0;
+    }
+
+    private static void EndManoeuvre(MonsterInstance m)
+    {
+        m.ManoeuvreClipsLeft = 0;
+        m.Motion = MonsterMotionState.Stand;
+        if (m.TargetId != 0)
+        {
+            m.AiState = MonsterAiState.Chase;
+            m.SinceDecisionMs = MonsterAiTuning.DecisionIntervalMs;
+        }
+        else
+        {
+            EnterIdle(m);
+        }
     }
 
     private MonsterAttackEvent? StepChase(MonsterInstance m, MonsterAiTuning t, PreyCandidate target, float dt)
     {
-        long distSq = (long)PlanarDistanceSq(m.Position, target.Position);
-
         if (MonsterAttackReach.CanBegin(m.Def, m.Position, target.Position))
         {
             FaceToward(m, target.Position);
@@ -210,10 +222,29 @@ public sealed class MonsterAiBrain
             return null;
         }
 
-        bool run = t.CanRun && distSq < t.RunDistanceSq;
+        float dx = target.Position.X - m.Position.X;
+        float dz = target.Position.Z - m.Position.Z;
+        float distSq = (dx * dx) + (dz * dz);
+        float dist = MathF.Sqrt(distSq);
+        if (m.Engaged && dist > t.AttackRange + MonsterAiTuning.ChaseHysteresis)
+        {
+            m.Engaged = false;
+        }
+
+        // Approach a point inside the reach on the line to the target instead of the target itself; there the next
+        // decision swings. A target the monster cannot swing at from there (height) is faced while standing.
+        if (dist <= t.StopDistance + 0.01f)
+        {
+            FaceToward(m, target.Position);
+            m.Motion = MonsterMotionState.Stand;
+            return null;
+        }
+
+        bool run = !m.Engaged && t.CanRun && distSq < t.RunDistanceSq;
+        float approach = (dist - t.StopDistance) / dist;
+        m.MoveTarget = new Vector3(m.Position.X + dx * approach, m.Position.Y, m.Position.Z + dz * approach);
         m.Motion = run ? MonsterMotionState.Run : MonsterMotionState.Walk;
-        m.MoveTarget = target.Position;
-        IntegrateToward(m, target.Position, run, dt);
+        IntegrateToward(m, m.MoveTarget, run, dt);
         return null;
     }
 
@@ -224,7 +255,13 @@ public sealed class MonsterAiBrain
             return;
         }
 
-        // OpenMonster seeds TargetMoveCount=2. Without prey, walk in the spawn direction for two clips, then stand.
+        if (t.IsImmobile)
+        {
+            EnterIdle(m);
+            return;
+        }
+
+        // A new monster starts with a manoeuvre count of 2. Without prey, walk in the spawn direction for two clips, then stand.
         float remainingMs = 2f * t.WalkCycleMs - m.SpawnWalkElapsedMs;
         if (remainingMs <= 0f)
         {
@@ -243,57 +280,97 @@ public sealed class MonsterAiBrain
         }
     }
 
-    private static void CheckMovementProgress(MonsterInstance m, MonsterAiTuning t, float dtMs)
+    // Clip-end bookkeeping of the original character update for a monster with a target or a manoeuvre: the progress probe, the
+    // manoeuvre count and the leash, in the original order.
+    private void AdvanceClips(MonsterInstance m, MonsterAiTuning t, float dtMs)
     {
-        if (!m.Motion.IsMoving())
+        bool counting = !t.IsImmobile && m.AiState is MonsterAiState.Chase or MonsterAiState.Leash;
+        if (!counting)
         {
-            m.MovementCyclesSinceProbe = 0f;
+            m.ClipProgress = 0f;
+            m.ProbeClips = 0;
+            m.CrowdedSinceProbe = false;
             m.ProgressProbePosition = m.Position;
             return;
         }
 
+        m.CrowdedSinceProbe |= m.Crowded;
         float cycleMs = m.Motion == MonsterMotionState.Run ? t.RunCycleMs : t.WalkCycleMs;
-        m.MovementCyclesSinceProbe += dtMs / cycleMs;
-        if (m.MovementCyclesSinceProbe < 5f)
+        m.ClipProgress += dtMs / MathF.Max(1f, cycleMs);
+        while (m.ClipProgress >= 1f && m.AiState is MonsterAiState.Chase or MonsterAiState.Leash)
         {
-            return;
-        }
-
-        bool stuck = PlanarDistanceSq(m.Position, m.ProgressProbePosition) < t.StuckDistanceSq;
-        m.ProgressProbePosition = m.Position;
-        m.MovementCyclesSinceProbe = 0f;
-        if (stuck && m.AiState == MonsterAiState.Chase)
-        {
-            m.TargetId = 0;
-            m.AiState = MonsterAiState.Leash;
-            m.Motion = MonsterMotionState.Walk;
-            m.MoveTarget = m.HomeAnchor;
+            m.ClipProgress -= 1f;
+            EndClip(m, t);
         }
     }
 
-    private static void StepLeash(MonsterInstance m, MonsterAiTuning t, float dt)
+    private void EndClip(MonsterInstance m, MonsterAiTuning t)
     {
-        m.Motion = MonsterMotionState.Walk;
-        m.MoveTarget = m.HomeAnchor;
-        IntegrateToward(m, m.HomeAnchor, run: false, dt);
-
-        if (PlanarDistanceSq(m.Position, m.HomeAnchor) < t.StuckDistanceSq)
+        m.ProbeClips++;
+        if (m.ProbeClips >= MonsterAiTuning.ProgressProbeClips)
         {
-            EnterIdle(m);
+            bool stuck = PlanarDistanceSq(m.Position, m.ProgressProbePosition) < t.StuckDistanceSq;
+            m.ProgressProbePosition = m.Position;
+            m.ProbeClips = 0;
+            bool queued = m.CrowdedSinceProbe;
+            m.CrowdedSinceProbe = false;
+            if (stuck && !queued)
+            {
+                BeginStuckManoeuvre(m, t);
+                return;
+            }
         }
+
+        if (m.AiState == MonsterAiState.Leash)
+        {
+            m.ManoeuvreClipsLeft--;
+            if (m.ManoeuvreClipsLeft <= 0)
+            {
+                EndManoeuvre(m);
+            }
+        }
+
+        // Soft leash: head home for six clips, keeping the target; the chase may resume afterwards.
+        if (m.Motion.IsMoving() && PlanarDistanceSq(m.Position, m.HomeAnchor) > t.LeashSq)
+        {
+            BeginManoeuvre(m, HeadingTo(m, m.HomeAnchor), MonsterAiTuning.LeashManoeuvreClips, m.Motion);
+        }
+    }
+
+    // Stuck: turn up to 45 degrees off the way home and run for ten clips without dropping the target.
+    private void BeginStuckManoeuvre(MonsterInstance m, MonsterAiTuning t)
+    {
+        int turn = _rng.NextExclusive(0, StuckTurnSteps) - (StuckTurnSteps / 2);
+        float heading = HeadingTo(m, m.HomeAnchor) + (turn * AngleStepRadians);
+        var motion = t.CanRun ? MonsterMotionState.Run : MonsterMotionState.Walk;
+        BeginManoeuvre(m, heading, MonsterAiTuning.StuckManoeuvreClips, motion);
+    }
+
+    private static void BeginManoeuvre(MonsterInstance m, float heading, int clips, MonsterMotionState motion)
+    {
+        m.AiState = MonsterAiState.Leash;
+        m.Motion = motion;
+        m.Engaged = false;
+        m.ManoeuvreClipsLeft = clips;
+        m.ManoeuvreHeading = heading;
+        m.Facing = heading;
     }
 
     private void BeginAttack(MonsterInstance m, MonsterAiTuning tuning)
     {
         m.AiState = MonsterAiState.Attack;
         m.Motion = MonsterMotionState.Attack;
+        m.Engaged = true;
+        m.ManoeuvreClipsLeft = 0;
         m.AttackTimerMs = 0f;
-        m.MovementCyclesSinceProbe = 0f;
+        m.ClipProgress = 0f;
+        m.ProbeClips = 0;
+        m.CrowdedSinceProbe = false;
         m.ProgressProbePosition = m.Position;
         m.AttackHitFired = false;
         m.SwingJustBegan = true;
 
-        // Skill roll on attack entry: rand()%100 < SkillRating (character.cpp:5731-5741).
+        // Skill roll on attack entry: rand()%100 < SkillRating.
         int rating = m.Def.Skill.SkillRatingPercent;
         m.AttackIsSkill = tuning.CanCastOffensiveSkill && _rng.NextExclusive(0, 100) < rating;
         m.SkillImpactPending = false;
@@ -307,7 +384,7 @@ public sealed class MonsterAiBrain
         }
     }
 
-    private static MonsterAttackEvent? AdvanceAttack(MonsterInstance m, MonsterAiTuning t, IPreyView prey, float dtMs)
+    private MonsterAttackEvent? AdvanceAttack(MonsterInstance m, MonsterAiTuning t, IPreyView prey, float dtMs)
     {
         m.AttackTimerMs += dtMs;
 
@@ -334,11 +411,20 @@ public sealed class MonsterAiBrain
 
         if (m.AttackTimerMs >= durationMs)
         {
-            bool stillValid = m.TargetId != 0 && prey.TryGet(m.TargetId, out PreyCandidate tgt2) && tgt2.IsAlive;
-            if (stillValid)
+            PreyCandidate tgt2 = default;
+            bool stillValid = m.TargetId != 0 && prey.TryGet(m.TargetId, out tgt2) && tgt2.IsAlive;
+            // The clip ends in STAND and PlayAttackFromPosi swings again in the same call while the target stays in
+            // reach, so consecutive attacks never pass through a walk. An impact on this tick is resolved first.
+            if (stillValid && landed is null && MonsterAttackReach.CanBegin(m.Def, m.Position, tgt2.Position))
+            {
+                FaceToward(m, tgt2.Position);
+                BeginAttack(m, t);
+            }
+            else if (stillValid)
             {
                 m.AiState = MonsterAiState.Chase;
-                m.Motion = MonsterMotionState.Walk;
+                m.Motion = MonsterMotionState.Stand;
+                m.SinceDecisionMs = MonsterAiTuning.DecisionIntervalMs;
             }
             else
             {
@@ -385,7 +471,8 @@ public sealed class MonsterAiBrain
         }
 
         monster.SkillImpactPending = false;
-        monster.MovementCyclesSinceProbe = 0f;
+        monster.ProbeClips = 0;
+        monster.ClipProgress = 0f;
         monster.ProgressProbePosition = monster.Position;
         monster.Motion = MonsterMotionState.Damage;
         monster.FlinchMsLeft = durationMs;
@@ -409,7 +496,13 @@ public sealed class MonsterAiBrain
         if (boss.AiState is MonsterAiState.Idle or MonsterAiState.Wander or MonsterAiState.Leash)
         {
             boss.AiState = MonsterAiState.Chase;
-            boss.Motion = MonsterMotionState.Walk;
+            boss.ManoeuvreClipsLeft = 0;
+            if (boss.Motion != MonsterMotionState.Damage)
+            {
+                boss.Motion = MonsterMotionState.Stand;
+            }
+
+            boss.SinceDecisionMs = MonsterAiTuning.DecisionIntervalMs;
         }
     }
 
@@ -438,6 +531,23 @@ public sealed class MonsterAiBrain
         float nx = m.Position.X + (dx / dist * step);
         float nz = m.Position.Z + (dz / dist * step);
         m.Position = new Vector3(nx, m.Position.Y, nz);
+    }
+
+    // Manoeuvres keep the heading chosen when they began (MoveAngle along Angle.y); walls are slid by the host.
+    private static void IntegrateHeading(MonsterInstance m, float heading, bool run, float dtMs)
+    {
+        float step = MonsterLocomotion.UnitsPerSecond(m.Def, run) * (dtMs / 1000f);
+        var direction = new Vector3(MathF.Sin(heading), 0f, MathF.Cos(heading));
+        m.Facing = heading;
+        m.MoveTarget = m.Position + direction * 10000f;
+        m.Position += direction * step;
+    }
+
+    private static float HeadingTo(MonsterInstance m, Vector3 point)
+    {
+        float dx = point.X - m.Position.X;
+        float dz = point.Z - m.Position.Z;
+        return (dx * dx) + (dz * dz) < 1e-4f ? m.Facing : MathF.Atan2(dx, dz);
     }
 
     private static void FaceToward(MonsterInstance m, Vector3 target)

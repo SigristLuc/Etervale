@@ -26,6 +26,7 @@ public sealed class RemoteEntityManager
 
     private readonly Dictionary<uint, EntitySpawnInfo> _pendingModels = new();
     private readonly Dictionary<uint, (EntitySpawnInfo Spawn, Task Preparation)> _preparingActors = new();
+    private readonly RemoteServerClock _clock = new();
 
     private uint _selfEntityId;
 
@@ -92,6 +93,12 @@ public sealed class RemoteEntityManager
 
     public void Apply(PresenceUpdate update)
     {
+        if (update.ServerTimeMs is { } serverTime)
+        {
+            _clock.Observe(serverTime);
+        }
+
+        var eventTime = _clock.Stamp(update.ServerTimeMs);
         foreach (var spawn in update.Spawns)
         {
             _collisionRoster.Spawn(spawn);
@@ -117,7 +124,7 @@ public sealed class RemoteEntityManager
             }
             else if (_entities.TryGetValue(entityId, out var entity))
             {
-                entity.ApplyCombatEvent(combatEvent);
+                entity.ApplyCombatEvent(combatEvent, eventTime);
             }
         }
 
@@ -202,12 +209,18 @@ public sealed class RemoteEntityManager
         }
 
         var position = ToXna(spawn.Position);
+        var sampleTime = _clock.Stamp(spawn.ServerTimeMs);
+        var seedTime = sampleTime;
+        var seedFacing = spawn.Facing;
         if (_entities.TryGetValue(spawn.EntityId, out var existingPlayer))
         {
+            // An appearance change keeps playing from the drawn pose towards the latest authoritative sample.
             position = existingPlayer.DrawnPosition;
+            seedFacing = existingPlayer.RenderFacing;
+            seedTime = double.IsFinite(existingPlayer.RenderTimeMs) ? Math.Min(existingPlayer.RenderTimeMs, sampleTime) : sampleTime;
         }
 
-        var world = Microsoft.Xna.Framework.Matrix.CreateRotationY(spawn.Facing)
+        var world = Microsoft.Xna.Framework.Matrix.CreateRotationY(seedFacing)
                     * Microsoft.Xna.Framework.Matrix.CreateTranslation(position);
         var motion = RemoteEntityBase.ToActorMotion(spawn.MoveState);
         visuals = ResolvePlayerHead(visuals, spawn.Player);
@@ -237,11 +250,16 @@ public sealed class RemoteEntityManager
         var replacement = new RemoteEntity(
             _scene,
             handles,
+            seedTime,
             position,
-            spawn.Facing,
+            seedFacing,
             spawn.MoveState,
-            spawn.Hp);
-        replacement.SetTarget(ToXna(spawn.Position), spawn.Facing, spawn.MoveState, spawn.Hp);
+            spawn.Hp)
+        {
+            InVillage = spawn.Player.InVillage
+        };
+        replacement.SetRates(spawn.MoveSpeed, spawn.AttackRate);
+        replacement.SetTarget(sampleTime, ToXna(spawn.Position), spawn.Facing, spawn.MoveState, spawn.Hp);
         _entities[spawn.EntityId] = replacement;
     }
 
@@ -273,6 +291,7 @@ public sealed class RemoteEntityManager
             _scene,
             composed.Handle,
             info.ModelScale,
+            _clock.Stamp(spawn.ServerTimeMs),
             position,
             spawn.Facing,
             spawn.MoveState,
@@ -297,7 +316,7 @@ public sealed class RemoteEntityManager
         if (_entities.TryGetValue(state.EntityId, out var entity))
         {
             entity.SetRates(state.MoveSpeed, state.AttackRate);
-            entity.SetTarget(ToXna(state.Position), state.Facing, state.MoveState, state.Hp);
+            entity.SetTarget(_clock.Stamp(state.ServerTimeMs), ToXna(state.Position), state.Facing, state.MoveState, state.Hp);
             if (!_preparingActors.ContainsKey(state.EntityId))
             {
                 return;
@@ -313,7 +332,8 @@ public sealed class RemoteEntityManager
                 MoveState = state.MoveState,
                 Hp = state.Hp,
                 MoveSpeed = state.MoveSpeed,
-                AttackRate = state.AttackRate
+                AttackRate = state.AttackRate,
+                ServerTimeMs = state.ServerTimeMs
             };
             _preparingActors[state.EntityId] = (latest, preparing.Preparation);
             return;
@@ -328,7 +348,8 @@ public sealed class RemoteEntityManager
                 MoveState = state.MoveState,
                 Hp = state.Hp,
                 MoveSpeed = state.MoveSpeed,
-                AttackRate = state.AttackRate
+                AttackRate = state.AttackRate,
+                ServerTimeMs = state.ServerTimeMs
             };
             return;
         }
@@ -363,15 +384,9 @@ public sealed class RemoteEntityManager
         }
     }
 
-    public void SetFloorQuery(FloorHeightQuery floor) => _floor = floor;
-
-    private FloorHeightQuery _floor;
-    private int _floorRevision;
-
-    public void InvalidateFloor() => _floorRevision++;
-
     public void Update(float dt)
     {
+        _clock.Advance(dt * 1000d);
         uint completed = 0;
         foreach (var (id, pending) in _preparingActors)
         {
@@ -402,9 +417,10 @@ public sealed class RemoteEntityManager
             _preparingActors.Remove(completed);
         }
 
+        var now = _clock.NowMs;
         foreach (var entity in _entities.Values)
         {
-            entity.Update(dt, _floor, _floorRevision);
+            entity.Update(dt, now);
         }
     }
 

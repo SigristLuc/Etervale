@@ -85,7 +85,7 @@ public sealed class WorldNpc
                 return Position;
             }
 
-            // PTClassic ActionPattern 12: after a Stand boundary, ((rand()%4096 >> 2) & 3)==0
+            // Original wandering NPC pattern: after a Stand boundary, ((rand()%4096 >> 2) & 3)==0
             // gives the wandering branch a 25% chance when the model has Walk and a non-zero radius.
             if (((NextRandom(4096) >> 2) & 3) != 0)
             {

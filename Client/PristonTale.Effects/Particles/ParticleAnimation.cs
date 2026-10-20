@@ -43,7 +43,7 @@ public sealed class ParticleAnimation
         age = MathF.Max(0f, age);
         if (float.IsFinite(exitAt) && age >= exitAt)
         {
-            // HoPrimitiveBillboard::Main resets alpha to the penultimate frame when physics expires.
+            // The original billboard update resets alpha to the penultimate frame when physics expires.
             return Interpolate(_frames[^1], _frames[^2].Alpha, age - exitAt);
         }
 

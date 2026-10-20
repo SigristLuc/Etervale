@@ -36,7 +36,7 @@ internal sealed class HudCaptureProbe : Game
 
     private sealed record Scenario(string Name, int Width, int Height, Keys Panel = Keys.None, Hover Hover = Hover.None, int HealthPercent = 100,
         PlayerClass Class = PlayerClass.Mechanician, bool Npc = false, bool Settings = false, bool SystemMenu = false, bool Learned = false,
-        bool Training = false, bool LowHealth = false, float Hour = 13);
+        bool Training = false, bool LowHealth = false, float Hour = 13, bool ClassicTarget = false, uint Target = 2);
 
     private static readonly Scenario[] Scenarios =
     [
@@ -47,6 +47,9 @@ internal sealed class HudCaptureProbe : Game
         new("bar-3440-scale2", 3440, 1440),
         new("bar-3840-scale3", 3840, 2160),
         new("bar-night-800", 800, 600, Hour: 1),
+        new("target-classic-800", 800, 600, ClassicTarget: true),
+        new("target-npc-800", 800, 600, Target: 3),
+        new("target-1920", 1920, 1080),
         new("life-tooltip-800", 800, 600, Hover: Hover.Life, HealthPercent: 60),
         new("mana-tooltip-800", 800, 600, Hover: Hover.Mana),
         new("experience-tooltip-800", 800, 600, Hover: Hover.Experience),
@@ -101,7 +104,7 @@ internal sealed class HudCaptureProbe : Game
             PreferredBackBufferHeight = 720,
             SynchronizeWithVerticalRetrace = false
         };
-        Content.RootDirectory = Path.GetFullPath(contentRoot);
+        Content = new AbsoluteContentManager(Services, contentRoot);
         IsFixedTimeStep = true;
         TargetElapsedTime = TimeSpan.FromSeconds(1d / 60);
     }
@@ -150,8 +153,9 @@ internal sealed class HudCaptureProbe : Game
         [
             new(1, RemoteEntityKind.Player, true, default, 0, RemoteMoveState.Idle, 64, 64,
                 new PlayerAppearanceInfo("Panzer", 1, 0, 0, 0, "", "", 1), 0),
-            new(2, RemoteEntityKind.Monster, false, default, 0, RemoteMoveState.Idle, 31, 50, null, 1),
-            new(3, RemoteEntityKind.Npc, false, new System.Numerics.Vector3(center.X + 300, 0, center.Z - 200), 0, RemoteMoveState.Idle, 1, 1, null, 1)
+            new(2, RemoteEntityKind.Monster, false, default, 0, RemoteMoveState.Idle, 31, 50, null, 1, Level: 7),
+            new(3, RemoteEntityKind.Npc, false, new System.Numerics.Vector3(center.X + 300, 0, center.Z - 200), 0, RemoteMoveState.Idle, 0, 0, null, 1,
+                Name: "Lena")
         ], [], [],
         [
             new(1, 2, RemoteCombatEventKind.Hit, 0, 0, 8, false, false),
@@ -190,6 +194,8 @@ internal sealed class HudCaptureProbe : Game
             _hud.ClosePanel();
             _hud.CharacterClass = scenario.Class;
             _hud.World = _world with { TimeOfDay = scenario.Hour };
+            _hud.TargetId = scenario.Target;
+            _presentation.Requested = _presentation.Requested with { ClassicTargetHealthBar = scenario.ClassicTarget };
             var state = ScenarioState(scenario);
             var layout = HudLayout.Create(scenario.Width, scenario.Height);
             if (scenario.Npc)
@@ -246,7 +252,7 @@ internal sealed class HudCaptureProbe : Game
         GraphicsDevice.SetRenderTarget(null);
         using var stream = File.Create(Path.Combine(_output, scenario.Name + ".png"));
         _target!.SaveAsPng(stream, scenario.Width, scenario.Height);
-        Console.WriteLine($"HUD {scenario.Name}: captured; textureBytes={_hud.TextureBytes}; GPU={GraphicsDevice.Adapter.Description}");
+        Console.WriteLine($"HUD {scenario.Name}: captured; textureBytes={_hud.TextureBytes}; GPU={GraphicsDevice.Adapter.DeviceName}");
         _scenario++;
         _prepared = false;
     }

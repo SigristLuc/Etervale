@@ -1,6 +1,6 @@
 namespace PristonTale.Gameplay.UI.Widgets;
 
-// sinSubMain.cpp ShowInterFace at the original 70 Hz frame rate: opening jumps to 184 and climbs by 7 (slowing past
+// Original window slide at the original 70 Hz frame rate: opening jumps to 184 and climbs by 7 (slowing past
 // 200 and 230) to 256; closing drops 16 per frame. Windows are drawn at y = 600 - move + 56.
 public sealed class HudSlide
 {

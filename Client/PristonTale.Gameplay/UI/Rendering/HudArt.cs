@@ -138,11 +138,11 @@ public static class HudArt
 
     public static string JobTitle(PlayerClass characterClass, int tier) => $"{Sin}skill/{ClassDirectory(characterClass)}/JobTitle/{tier + 1}.bmp";
 
-    // sinSkill.cpp LoadUseSkillImage: Button\<FileName>.bmp, and <FileName>_.bmp for the gray (unusable) state.
+    // Skill buttons: Button\<FileName>.bmp, and <FileName>_.bmp for the gray (unusable) state.
     public static string SkillButton(PlayerClass characterClass, string iconKey, bool gray) =>
         $"{Sin}skill/{ClassDirectory(characterClass)}/Button/{iconKey}{(gray ? "_" : "")}.bmp";
 
-    // field.cpp SetName: field\map\<name>.tga and field\title\<name>t.tga.
+    // Field art: field\map\<name>.tga and field\title\<name>t.tga.
     public static string FieldMap(string fieldId) => $"Field/map/{fieldId}.tga";
     public static string FieldTitle(string fieldId) => $"Field/title/{fieldId}t.tga";
 

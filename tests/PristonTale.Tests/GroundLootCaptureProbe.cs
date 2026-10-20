@@ -26,7 +26,7 @@ internal sealed class GroundLootCaptureProbe : Game
     {
         _root = root;
         _output = output;
-        Content.RootDirectory = Path.GetFullPath(content);
+        Content = new AbsoluteContentManager(Services, content);
         _ = new GraphicsDeviceManager(this)
         {
             PreferredBackBufferWidth = 960,
@@ -93,6 +93,7 @@ internal sealed class GroundLootCaptureProbe : Game
         GraphicsDevice.Clear(new Color(42, 48, 54));
         _camera.SetScriptedView(GraphicsDevice, new Vector3(0, 195, 230), new Vector3(0, 50, 20));
         _renderer.Draw(_camera);
+        _renderer.ComposeScene();
         _batch.Begin();
         _ground.DrawLabels(_batch, _font, GraphicsDevice.Viewport, _camera, showAll: true);
         _batch.End();

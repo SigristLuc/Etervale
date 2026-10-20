@@ -9,6 +9,7 @@
         <PublishReadyToRun>true</PublishReadyToRun>
         <InvariantGlobalization>true</InvariantGlobalization>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <MonoGamePlatform>DesktopVK</MonoGamePlatform>
     </PropertyGroup>
     <PropertyGroup>
         <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -27,10 +28,16 @@
         </EmbeddedResource>
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.4.1"/>
-        <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.4.1"/>
+        <!-- MonoGame Native platform (Vulkan) from the fork in monogame/ (monogame/README.md); its native runtime is
+             copied next to the executable by MonoGameRuntime.targets. -->
+        <ProjectReference Include="../../monogame/framework/MonoGame.Framework/MonoGame.Framework.Native.csproj"/>
+        <!-- The fork's effect processor (SpirvEffectProcessor), which Content/Content.mgcb loads with /reference: built
+             before the content, not referenced. -->
+        <ProjectReference Include="../../monogame/pipeline/MonoGame.Effect.Processor/MonoGame.Effect.Processor.csproj" ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true"/>
+        <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.6"/>
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\PristonTale.Gameplay\PristonTale.Gameplay.csproj"/>
     </ItemGroup>
+    <Import Project="../MonoGameRuntime.targets"/>
 </Project>

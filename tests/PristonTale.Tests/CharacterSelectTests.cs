@@ -78,7 +78,7 @@ internal static class CharacterSelectTests
             CharacterSelectScene.JobClassForBrood(CharacterBrood.Morion, 2) == PlayerClass.Priestess &&
             CharacterSelectScene.JobClassForBrood(CharacterBrood.Morion, 3) == PlayerClass.Magician &&
             CharacterSelectScene.JobClassForBrood(CharacterBrood.Morion, 4) == PlayerClass.Shaman,
-            "class lineup differs from HoLogin");
+            "class lineup differs from the original select screen");
         return Task.CompletedTask;
     }
 
@@ -106,10 +106,10 @@ internal static class CharacterSelectTests
         var assassin = registry.Get(PlayerClass.Assassin).Definition;
         var shaman = registry.Get(PlayerClass.Shaman).Definition;
 
-        Assert.True(assassin.BaseAttributes == new CharacterAttributes(25, 10, 22, 20, 22), "Assassin creation attributes differ from HoLogin");
-        Assert.True(shaman.BaseAttributes == new CharacterAttributes(15, 27, 20, 15, 22), "Shaman creation attributes differ from HoLogin");
-        Assert.True(assassin.DefaultVisuals.Body.InxExtensionPath.EndsWith("e001.inx", StringComparison.OrdinalIgnoreCase), "Assassin body differs from HoLogin");
-        Assert.True(shaman.DefaultVisuals.Body.InxExtensionPath.EndsWith("me001.inx", StringComparison.OrdinalIgnoreCase), "Shaman body differs from HoLogin");
+        Assert.True(assassin.BaseAttributes == new CharacterAttributes(25, 10, 22, 20, 22), "Assassin creation attributes differ from the original");
+        Assert.True(shaman.BaseAttributes == new CharacterAttributes(15, 27, 20, 15, 22), "Shaman creation attributes differ from the original");
+        Assert.True(assassin.DefaultVisuals.Body.InxExtensionPath.EndsWith("e001.inx", StringComparison.OrdinalIgnoreCase), "Assassin body differs from the original");
+        Assert.True(shaman.DefaultVisuals.Body.InxExtensionPath.EndsWith("me001.inx", StringComparison.OrdinalIgnoreCase), "Shaman body differs from the original");
         var armoredAssassin = EquipmentVisuals.Apply(assassin.DefaultVisuals, "DA108", "", "", true, assassin.MotionJobMask);
         var armoredShaman = EquipmentVisuals.Apply(shaman.DefaultVisuals, "DA208", "", "", true, shaman.MotionJobMask);
         Assert.True(armoredAssassin.Body.InxExtensionPath.EndsWith("E008.inx", StringComparison.OrdinalIgnoreCase), "Assassin armor did not use the E resource row");

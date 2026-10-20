@@ -16,7 +16,7 @@ internal sealed class AnimatedModelRuntime
     {
         Model = model;
         Animator = new PristonModelAnimator(model);
-        PaletteCount = Math.Min(Animator.ObjectCount, PristonEffectPipeline.MaxBones);
+        PaletteCount = Math.Min(Animator.ObjectCount, PristonShaderLibrary.MaxBones);
         if (paletteOffset < 0 || paletteOffset + PaletteCount > palette.Count)
         {
             throw new ArgumentOutOfRangeException(nameof(paletteOffset));

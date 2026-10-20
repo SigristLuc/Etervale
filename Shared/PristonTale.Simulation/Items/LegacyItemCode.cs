@@ -75,7 +75,7 @@ public static class LegacyItemCode
         return true;
     }
 
-    // Inverse of TryParse for the item codes carried on the wire (sinXX1|sinNN). Returns false for unknown categories.
+    // Inverse of TryParse for the item codes carried on the wire (category | ordinal). Returns false for unknown categories.
     public static bool TryFormat(uint value, out string code)
     {
         code = "";

@@ -26,7 +26,7 @@ internal sealed class ActorPresentationProbe : Game
         _root = root;
         _output = output;
         _jobHeads = jobHeads;
-        Content.RootDirectory = Path.GetFullPath(content);
+        Content = new AbsoluteContentManager(Services, content);
         _ = new GraphicsDeviceManager(this)
         {
             PreferredBackBufferWidth = 1280,
@@ -39,7 +39,7 @@ internal sealed class ActorPresentationProbe : Game
 
     protected override void LoadContent()
     {
-        _renderer = new PristonRenderer(GraphicsDevice, Content);
+        _renderer = new PristonRenderer(GraphicsDevice, Content) { BackgroundColor = new Color(42, 45, 49) };
         _camera = new PristonCamera(Vector3.Zero, Vector3.Forward,
             _jobHeads ? new PristonCameraSettings { FieldOfViewDegrees = 55 } : PristonCameraSettings.Default);
         _preparation = Task.Run(async () =>
@@ -138,23 +138,29 @@ internal sealed class ActorPresentationProbe : Game
             return;
         }
 
-        GraphicsDevice.Clear(new Color(42, 45, 49));
         var cameraPosition = _jobHeads ? new Vector3(0, 115, -300) : new Vector3(0, 195, -305);
         _camera.SetScriptedView(GraphicsDevice, cameraPosition, new Vector3(0, 20, 48));
         _renderer.Draw(_camera);
+        _renderer.ComposeScene();
         if (_frames >= 180)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(_output))!);
+            // The scene drawn once more into an 8-bit target and read back (reading the presented back buffer is not
+            // reliable on the Vulkan runtime).
             var width = GraphicsDevice.PresentationParameters.BackBufferWidth;
             var height = GraphicsDevice.PresentationParameters.BackBufferHeight;
-            var pixels = new Color[width * height];
-            GraphicsDevice.GetBackBufferData(pixels);
-            using var capture = new Texture2D(GraphicsDevice, width, height);
-            capture.SetData(pixels);
-            using var stream = File.Create(_output);
-            capture.SaveAsPng(stream, width, height);
+            using var target = new RenderTarget2D(GraphicsDevice, width, height, false, SurfaceFormat.Color, DepthFormat.Depth24Stencil8);
+            GraphicsDevice.SetRenderTarget(target);
+            _renderer.Draw(_camera);
+            _renderer.ComposeScene();
+            GraphicsDevice.SetRenderTarget(null);
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(_output))!);
+            using (var stream = File.Create(_output))
+            {
+                target.SaveAsPng(stream, width, height);
+            }
+
             _updateTimes.Sort();
-            Console.WriteLine($"Actor probe: {_actors.Count} actors; GPU={GraphicsDevice.Adapter.Description}; renderer Update p95={_updateTimes[(int)(_updateTimes.Count * 0.95)]:F3}ms");
+            Console.WriteLine($"Actor probe: {_actors.Count} actors; GPU={GraphicsDevice.Adapter.DeviceName}; renderer Update p95={_updateTimes[(int)(_updateTimes.Count * 0.95)]:F3}ms");
             Console.WriteLine($"Capture: {_output}");
             Exit();
         }

@@ -14,17 +14,11 @@ internal sealed class PristonMaterialRuntimeFactory
 
     public PristonMaterialRuntime Create(string assetDirectory, PristonMaterial material, bool softAlpha = false)
     {
-        var alphaTest = !softAlpha && UsesAlphaTest(material);
-
-        // BLEND_ALPHA(1) with zero transparency is opaque in the reference and remains mergeable.
-        var lateBlend = material.BlendType is 2 or 3 or 4 or 5 or 6;
-        var transparent = material.RenderLast || (!(alphaTest && !lateBlend) && (lateBlend || material.Transparency > 0.001f));
+        var (alphaTest, transparent) = Classify(material, softAlpha);
         var (windX, windZ) = WindAmplitudes(material.SurfaceFlags);
-        var formState = FirstTextureFormState(material);
-        var (secondTexture, secondFormState) = LoadSecondTexture(assetDirectory, material);
-        // MULTIMIX slots carry independent scroll states.
-        if (secondTexture != null)
-            formState = material.TextureFormStates.Count > 0 ? material.TextureFormStates[0] : 0u;
+        // Multi-texture slots carry independent form states; a single-slot material takes the first authored one.
+        var formState = material.RenderedStageCount > 1 ? material.StageFormState(0) : FirstTextureFormState(material);
+        var layers = LoadLayers(assetDirectory, material);
         return new PristonMaterialRuntime(
             LoadMaterialTextures(assetDirectory, material),
             material.TwoSided,
@@ -42,24 +36,38 @@ internal sealed class PristonMaterialRuntimeFactory
             material.IsBlinking,
             windX,
             windZ,
-            formState == FsReflex,
-            secondTexture,
-            secondFormState);
+            PristonMaterialLayer.Decode(material.StageState(0)),
+            layers,
+            PristonMaterialAdapter.WithShape(
+                PristonMaterialAdapter.Describe(material, layers.Length > 0 ? layers[0] : null),
+                alphaTest,
+                material.TwoSided));
     }
 
-    private (Texture2D texture, uint formState) LoadSecondTexture(string assetDirectory, PristonMaterial material)
+    private PristonMaterialLayer[] LoadLayers(string assetDirectory, PristonMaterial material)
     {
-        if (!material.HasSecondTexture)
-            return (null, 0u);
+        // The material model uses one layer above the base (PristonMaterialAdapter); further stages are not loaded.
+        var count = Math.Min(material.CombinedLayerCount, 1);
+        if (count == 0)
+        {
+            return [];
+        }
 
-        var texture = _textureLoader.LoadTexture(assetDirectory, material.SecondTextureName, material.SecondOpacityName);
-        var formState = material.TextureFormStates.Count > 1 ? material.TextureFormStates[1] : 0u;
-        return (texture, formState);
+        var layers = new PristonMaterialLayer[count];
+        for (var index = 0; index < count; index++)
+        {
+            var stage = index + 1;
+            var texture = _textureLoader.LoadTexture(assetDirectory, material.StageTextureName(stage), string.Empty);
+            layers[index] = new PristonMaterialLayer(
+                texture,
+                PristonMaterialLayer.Decode(material.StageState(stage)),
+                material.StageFormState(stage));
+        }
+
+        return layers;
     }
 
-    private const uint FsReflex = 5;
-
-    // Bare Move is WINDZ1 in the original rather than a UV-scroll flag.
+    // A bare Move flag is the smaller Z-axis wind sway, not a UV scroll.
     private const float WindSmall = 8f;
     private const float WindLarge = 28f;
 
@@ -83,6 +91,22 @@ internal sealed class PristonMaterialRuntimeFactory
         }
 
         return [_textureLoader.LoadTexture(assetDirectory, material.TextureName, material.OpacityName)];
+    }
+
+    // Whether the material is cut out by its texture alpha, and whether it is drawn in the late, blended queue.
+    internal static (bool AlphaTest, bool Transparent) Classify(PristonMaterial material, bool softAlpha = false)
+    {
+        var alphaTest = !softAlpha && UsesAlphaTest(material);
+
+        // The alpha blend (1) with zero transparency is opaque in the original game and remains mergeable.
+        var lateBlend = material.BlendType is 2 or 3 or 4 or 5 or 6;
+        // Most late-flagged materials are foliage cut-outs drawn opaque with their depth: they stay in the alpha-tested
+        // queue, so the depth pre-pass gives them depth, motion and occlusion like any other leaf. Drawn late, their
+        // leaves would take the depth, motion and fog of the surface behind them (a ghosted, see-through canopy).
+        var opaqueCutout = alphaTest && !lateBlend && material.Transparency <= PristonMaterialRuntime.SolidTransparencyThreshold;
+        var transparent = (material.RenderLast && !opaqueCutout)
+            || (!(alphaTest && !lateBlend) && (lateBlend || material.Transparency > 0.001f));
+        return (alphaTest, transparent);
     }
 
     private static bool UsesAlphaTest(PristonMaterial material)

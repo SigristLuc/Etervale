@@ -1,0 +1,31 @@
+<Project>
+  <!--
+    The effect compiler and content processor of WingSim's MonoGame fork (MonoGame v3.8.6's code, MS-PL, with WingSim's
+    changes). Like monogame/framework it does not import the repository's Directory.Build.props (WingSim's analyzers were
+    not what this code was written against) but builds with MonoGame's own settings for it (those of
+    MonoGame.Framework.Content.Pipeline.csproj: net8.0, nullable, implicit usings, warnings as errors). net8.0 because
+    MGCB, which loads the processor, is a net8.0 tool.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <IsPackable>false</IsPackable>
+    <Version>3.8.6</Version>
+    <InformationalVersion>3.8.6+wingsim</InformationalVersion>
+    <Authors>MonoGame Team; WingSim</Authors>
+    <Product>MonoGame</Product>
+    <!-- The dotnet-mgcb tool of .config/dotnet-tools.json (restored by 'dotnet tool restore'): the processor is compiled
+         against the content pipeline and framework assemblies MGCB loads, and the effect tests run its DXC. -->
+    <WingSimMgcbVersion>3.8.6</WingSimMgcbVersion>
+    <WingSimNuGetRoot>$(NuGetPackageRoot)</WingSimNuGetRoot>
+    <WingSimNuGetRoot Condition="'$(WingSimNuGetRoot)' == '' And '$(NUGET_PACKAGES)' != ''">$(NUGET_PACKAGES)/</WingSimNuGetRoot>
+    <WingSimNuGetRoot Condition="'$(WingSimNuGetRoot)' == ''">$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))/.nuget/packages/</WingSimNuGetRoot>
+    <WingSimMgcbTool>$(WingSimNuGetRoot)dotnet-mgcb/$(WingSimMgcbVersion)/tools/net8.0/any/</WingSimMgcbTool>
+  </PropertyGroup>
+</Project>

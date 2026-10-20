@@ -65,7 +65,7 @@ public sealed class PristonModelAnimator
         return matrix;
     }
 
-    // TmPrevRot stores absolute cumulative orientations; interpolating converted deltas introduces drift.
+    // The previous-rotation matrices hold absolute cumulative orientations; interpolating converted deltas would drift.
     private Matrix SampleRotationMatrix(int objectIndex, PristonModelObject obj, float frame)
     {
         var keys = obj.RotationKeys;

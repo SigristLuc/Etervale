@@ -42,7 +42,7 @@ public sealed class ParsedMonster
     public short Nature { get; init; }
     public short Brood { get; init; }
     public short Class { get; init; }
-    public int StunPct { get; init; } = 100; // *스턴율/*스턴률 DamageStunPers, default 100 (fileread.cpp:4317,4918)
+    public int StunPct { get; init; } = 100; // *스턴율/*스턴률 flinch chance, default 100
 
     public int[] Resistances { get; } = new int[8]; // single value per element, ResistanceBlock order
 

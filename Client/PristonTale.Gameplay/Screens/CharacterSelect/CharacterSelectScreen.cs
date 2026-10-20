@@ -18,7 +18,7 @@ namespace PristonTale.Gameplay.Screens.CharacterSelect;
 
 public sealed class CharacterSelectScreen : GameScreen
 {
-    private const string LoginStagePath = "cSelect/Login.smd";
+    internal const string LoginStagePath = "cSelect/Login.smd";
 
     private static readonly Color LoginClearColor = new(8, 7, 10);
 
@@ -96,9 +96,7 @@ public sealed class CharacterSelectScreen : GameScreen
     {
         _renderer = new PristonRenderer(Context.GraphicsDevice, Context.Content, Context.Log, Context.Presentation);
 
-        _renderer.ConfigureFieldLighting(intensity: 1.6f, rangeScale: 1f, overrideLights: BuildTorchLights(), glowIntensity: 1f, glowScale: 1f);
-        _renderer.Underground = true;
-        _renderer.UndergroundAmbient = new Vector3(0.85f, 0.82f, 0.78f);
+        ConfigureLighting(_renderer);
 
         var stage = _reader.ReadStage(AssetPath(LoginStagePath));
         _renderer.AddStage(stage, Array.Empty<PristonModel>());
@@ -118,7 +116,7 @@ public sealed class CharacterSelectScreen : GameScreen
 
     private void InitEffects()
     {
-        _effects = new EffectsEngine(Context.GraphicsDevice);
+        _effects = new EffectsEngine(Context.GraphicsDevice, Context.Content);
 
         var beam = CharSelectEffects.BuildGreenBeam(_assets.LoadFlipbook(FlameFrameDir, FlameFrameNames));
         if (beam == null)
@@ -180,11 +178,22 @@ public sealed class CharacterSelectScreen : GameScreen
         _lastKeyboard = keyboard;
     }
 
+    // The scene's light: the braziers and a warm, dim interior ambient (also used by the regression's capture probe).
+    internal static void ConfigureLighting(PristonRenderer renderer)
+    {
+        renderer.ConfigureFieldLighting(intensity: 1.6f, rangeScale: 1f, overrideLights: BuildTorchLights(), glowIntensity: 1f, glowScale: 1f);
+        renderer.Underground = true;
+        renderer.UndergroundAmbient = new Vector3(0.85f, 0.82f, 0.78f);
+        renderer.ActorFloorLight = false;
+    }
+
     private static PristonPointLight[] BuildTorchLights()
     {
         var warm = new Vector3(1.0f, 0.6f, 0.35f);
         const float radius = 120f;
-        const float intensity = 0.35f;
+        // Lamp intensities are the light at a shared reference distance of 150 units (Shaders/Lighting/Shading.hlsli),
+        // beyond these braziers' reach: they are set to light the statues beside them warmly without burning them out.
+        const float intensity = 0.035f;
         var lights = new PristonPointLight[BrazierPositions.Length];
         for (var i = 0; i < BrazierPositions.Length; i++)
         {
@@ -753,6 +762,7 @@ public sealed class CharacterSelectScreen : GameScreen
 
         // Effects retain scene depth; the 2D view must remain last.
         _effects?.Draw(_cameraCtl.View, _cameraCtl.Projection, _cameraCtl.Position);
+        _renderer.ComposeScene();
 
         _view.Draw(viewport, viewModel);
     }

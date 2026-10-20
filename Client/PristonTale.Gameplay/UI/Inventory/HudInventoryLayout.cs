@@ -3,7 +3,7 @@ using PristonTale.Simulation.Characters;
 
 namespace PristonTale.Gameplay.UI.Inventory;
 
-// sinInvenTory.cpp sInven/StartX/ArrowPosi/InvenTextPosi in 800x600 design coordinates of the fully open window.
+// Original inventory slots, bag grid, arrows and text positions in 800x600 design coordinates of the fully open window.
 // Origin is the top-left of the bottom-anchored 800x600 frame; panel animation adds its slide offset to Y.
 public static class HudInventoryLayout
 {

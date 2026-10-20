@@ -48,7 +48,17 @@ public static class HostingExtensions
         builder.Services.AddSingleton<FieldTerrainCatalog>();
         builder.Services.AddHostedService<FieldTerrainLoadService>();
 
-        builder.Services.AddSingleton<WorldServer>();
+        var worldOptions = new WorldServerOptions
+        {
+            ExperienceMultiplier = builder.Configuration.GetValue("World:ExperienceMultiplier", WorldServerOptions.DefaultExperienceMultiplier),
+            MaxPendingCommandsPerPlayer = builder.Configuration.GetValue("World:MaxPendingCommandsPerPlayer",
+                WorldServerOptions.DefaultMaxPendingCommandsPerPlayer)
+        }.Validated();
+        builder.Services.AddSingleton(services => new WorldServer(
+            services.GetRequiredService<WorldDataHolder>(),
+            services.GetRequiredService<PristonTale.Simulation.World.WorldCatalog>(),
+            terrain: services.GetRequiredService<FieldTerrainCatalog>(),
+            options: worldOptions));
         builder.Services.AddHostedService<WorldTickService>();
         builder.Services.AddHostedService<PristonTcpServer>();
 

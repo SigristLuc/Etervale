@@ -4,12 +4,12 @@ using System.Text;
 
 namespace PristonTale.Geometry;
 
-// Reads only what collision needs from a stage SMD (smLib3d/smStage3d.cpp smSTAGE3D::LoadFile): the smDFILE_HEADER,
-// smSTAGE3D counts, each smMATERIAL's MeshState and the stage vertices and faces. Positions are Priston world units
+// Reads only what collision needs from a stage SMD: the file header, the stage header counts, each material record's
+// MeshState and the stage vertices and faces. Positions are Priston world units
 // (fixed point / 256) in the file's own axes, which are the server's coordinates.
 public static class StageCollisionReader
 {
-    // SMMAT_STAT_CHECK_FACE: faces of materials with this MeshState bit block and support characters.
+    // Check-face flag: faces of materials with this MeshState bit block and support characters.
     public const uint CheckFace = 0x00000001;
 
     private const int FileHeaderSize = 556;
@@ -18,7 +18,7 @@ public static class StageCollisionReader
     private const int StageCountsOffset = 4 + StageAreaCells * 4 + 12 * 4;
     private const int MaterialGroupSize = 88;
     private const int MaterialSize = 320;
-    // smMATERIAL: 104 bytes of texture slots and states, eleven scalars and the diffuse colour, then UseState at 164.
+    // Material record: 104 bytes of texture slots and states, eleven scalars and the diffuse colour, then UseState at 164.
     private const int MaterialMeshStateOffset = 168;
     private const int VertexSize = 28;
     private const int FaceSize = 28;

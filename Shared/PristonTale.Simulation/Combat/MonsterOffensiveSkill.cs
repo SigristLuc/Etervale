@@ -5,7 +5,7 @@ namespace PristonTale.Simulation.Combat;
 
 public static class MonsterOffensiveSkill
 {
-    // Sound-family identifiers from effectsnd.h. Other families may have curses, summons or distinct impact rules.
+    // Original sound-family identifiers. Other families may have curses, summons or distinct impact rules.
     private const int DarkPhalanx = 0x1840;
     private const int DarkGuard = 0x1890;
     private const int DarkMage = 0x18A0;

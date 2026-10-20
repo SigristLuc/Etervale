@@ -81,7 +81,8 @@ public readonly record struct FieldColor(float R, float G, float B)
 
 public sealed record FieldLighting
 {
-    public float LampIntensity { get; init; } = 4f;
+    // Stage light colours are used as authored, like the original dynamic lights; values above 1 overbright the scene.
+    public float LampIntensity { get; init; } = 1f;
     public float LampRangeScale { get; init; } = 1f;
     public IReadOnlyList<FieldLight> Lights { get; init; } = [];
     public FieldColor Ambient { get; init; } = FieldColor.Grey(0.30f);

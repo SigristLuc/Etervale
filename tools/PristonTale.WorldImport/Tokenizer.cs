@@ -1,13 +1,12 @@
 namespace PristonTale.WorldImport;
 
 /// <summary>
-/// The shared line/token reader for the <c>*token value...</c> text format the C++ parsers consume.
+/// The shared line/token reader for the <c>*token value...</c> text format of the authored config files.
 /// Mirrors the original tokenizer faithfully:
 /// <list type="bullet">
-///   <item><c>GetWord</c> [VERIFIED fileread.cpp:81-100]: skip leading SPACE(0x20)/TAB(0x09), copy bytes
-///   until the next SPACE/TAB or CR/LF — i.e. <b>whitespace-split, no comment character</b>.</item>
-///   <item><c>GetString</c> [VERIFIED smLib3d/smRead3d.cpp:51-68]: scan to the first <c>"</c>, copy until
-///   the closing <c>"</c>. The universal name idiom is: read one word; <b>if it began with <c>"</c></b>,
+///   <item>Words: skip leading SPACE(0x20)/TAB(0x09), copy bytes until the next SPACE/TAB or CR/LF — i.e.
+///   <b>whitespace-split, no comment character</b>.</item>
+///   <item>Quoted strings: scan to the first <c>"</c>, copy until the closing <c>"</c>. The universal name idiom is: read one word; <b>if it began with <c>"</c></b>,
 ///   re-parse from the saved start as a quoted string (so names with spaces survive).</item>
 /// </list>
 /// There is no comment marker in the format: a <c>//</c> line simply has a leading token that matches

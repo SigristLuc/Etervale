@@ -87,6 +87,8 @@ public sealed class GameScene : IDisposable, IFieldContext
     private bool _moveTargetRun;
 
     private readonly AttackInputController _attackInput = new();
+    private readonly TargetSelection _targetSelection = new();
+    private readonly TargetLivenessQuery _targetLiveness;
     private bool _selfAttacking;
 
     private RemoteEntityManager _remote;
@@ -126,7 +128,7 @@ public sealed class GameScene : IDisposable, IFieldContext
         _effectLibrary = effects;
         if (effects is not null)
         {
-            _effects = new PristonTale.Effects.EffectsEngine(graphicsDevice);
+            _effects = new PristonTale.Effects.EffectsEngine(graphicsDevice, content);
         }
         if (audio is not null)
         {
@@ -134,6 +136,7 @@ public sealed class GameScene : IDisposable, IFieldContext
             _npcAudio = new NpcAudioController(audio);
         }
         _groundFloorQuery = TryGetFloorHeightNear;
+        _targetLiveness = QueryTargetLiveness;
         _fieldCollision = new FieldCollisionQuery(_fields);
         _graphicsDevice = graphicsDevice;
         _content = content;
@@ -150,6 +153,7 @@ public sealed class GameScene : IDisposable, IFieldContext
     public bool CameraInputEnabled { get; set; } = true;
     public bool RightAttackEnabled { get; set; }
     public uint AttackTargetId => _attackInput.TargetId;
+    public uint SelectedTargetId => _targetSelection.FrameId;
     public FieldDef ActiveFieldDefinition => _activeField?.Definition;
     public PristonIntRectangle ActiveMapRectangle => _activeField?.Stage.AuthoredMapRectangle ?? default;
     public Vector3 PlayerPosition => _playerBody?.Position ?? Vector3.Zero;
@@ -217,6 +221,17 @@ public sealed class GameScene : IDisposable, IFieldContext
     {
         if (_renderer != null)
             _renderer.ShadowsEnabled = !_renderer.ShadowsEnabled;
+    }
+
+    public PristonDebugView RenderDebugView => _renderer?.DebugView ?? PristonDebugView.Shaded;
+
+    public void CycleRenderDebugView()
+    {
+        if (_renderer != null)
+        {
+            var next = ((int)_renderer.DebugView + 1) % Enum.GetValues<PristonDebugView>().Length;
+            _renderer.DebugView = (PristonDebugView)next;
+        }
     }
 
     public void LoadEntered(string assetRoot, EnteredCharacter entered)
@@ -305,7 +320,6 @@ public sealed class GameScene : IDisposable, IFieldContext
 
         var loaded = LoadFieldResources(assetRoot, field);
         _fields.Add(loaded);
-        _remote?.InvalidateFloor();
         _groundLoot?.InvalidateFloor();
         return loaded;
     }
@@ -328,7 +342,6 @@ public sealed class GameScene : IDisposable, IFieldContext
         foreach (var field in _fields)
             _renderer.RemoveStage(field.RenderHandle);
         _fields.Clear();
-        _remote?.InvalidateFloor();
         _groundLoot?.InvalidateFloor();
         _activeField = null;
     }
@@ -382,7 +395,6 @@ public sealed class GameScene : IDisposable, IFieldContext
             _assetRoot,
             _worldRenderCatalog,
             _log);
-        _remote.SetFloorQuery(RemoteFloorAt);
         _remote.SetSelfSink(OnSelfSpawn, OnSelfState, OnSelfCombatEvent);
         _remote.NpcMotionStarted += OnNpcMotionStarted;
         _renderer.RequirePreparedTextures();
@@ -488,7 +500,8 @@ public sealed class GameScene : IDisposable, IFieldContext
             u.FieldId,
             u.Owner)
         {
-            Warp = u.Warp is { } warp ? warp with { Position = FlipZ(warp.Position) } : null
+            Warp = u.Warp is { } warp ? warp with { Position = FlipZ(warp.Position) } : null,
+            ServerTimeMs = u.ServerTimeMs
         };
     }
 
@@ -512,6 +525,7 @@ public sealed class GameScene : IDisposable, IFieldContext
         _lastSentFieldCode = -1;
         _selfAttacking = false;
         _attackInput.Cancel();
+        _targetSelection.Clear();
         _meteors?.Clear();
         _monsterMeshEffects?.Clear();
         _renderer?.TransientLights.Clear();
@@ -678,7 +692,6 @@ public sealed class GameScene : IDisposable, IFieldContext
     {
         _renderer.RemoveStage(field.RenderHandle);
         _fields.Remove(field);
-        _remote?.InvalidateFloor();
         _groundLoot?.InvalidateFloor();
     }
 
@@ -1103,12 +1116,12 @@ public sealed class GameScene : IDisposable, IFieldContext
         if (completedField is not null)
         {
             _fields.Add(completedField);
-            _remote?.InvalidateFloor();
             _groundLoot?.InvalidateFloor();
         }
         DrainPresence(frameDt);
         ApplyPositionCorrection(frameDt);
         UpdatePlayerInput(gameTime);
+        UpdateTargetSelection(gameTime);
         UpdateWarps((float)gameTime.ElapsedGameTime.TotalSeconds);
         UpdateStreaming();
         if (_camera != null && _activeField != null)
@@ -1276,6 +1289,7 @@ public sealed class GameScene : IDisposable, IFieldContext
             _monsterMeshEffects?.Draw(_camera.View, _camera.Projection);
             _returnEffect?.Draw(_camera.View, _camera.Projection, _camera.Position);
             _effects?.Draw(_camera.View, _camera.Projection, _camera.Position);
+            _renderer.ComposeScene();
         }
     }
 
@@ -1493,6 +1507,7 @@ public sealed class GameScene : IDisposable, IFieldContext
             ClearAttackTarget();
             _npcTargetId = entityId;
             _npcMoveSent = false;
+            _targetSelection.Trace(entityId);
             StopPredictedMovement();
             return true;
         }
@@ -1503,6 +1518,7 @@ public sealed class GameScene : IDisposable, IFieldContext
 
         _npcTargetId = 0;
         _lootInteraction.Cancel();
+        _targetSelection.Trace(entityId);
 
         var kb = Keyboard.GetState();
         var automatic = kb.IsKeyDown(Keys.LeftShift) || kb.IsKeyDown(Keys.RightShift);
@@ -1520,11 +1536,37 @@ public sealed class GameScene : IDisposable, IFieldContext
         SendUpstream(_playChannel.SendAttackAsync(request.TargetId, request.Sustained, _presenceCts.Token, request.Sequence), "attack");
     }
 
+    // Like the original client's attack cancel, this drops the trace but keeps the target frame open.
     private void ClearAttackTarget()
     {
         _attackInput.Cancel();
+        _targetSelection.ClearTrace();
         _npcTargetId = 0;
         _npcMoveSent = false;
+    }
+
+    // Hover picking runs in Update so Draw stays free of scene queries.
+    private void UpdateTargetSelection(GameTime gameTime)
+    {
+        uint hovered = 0;
+        if (_remote is not null && _camera is not null && !PointerCaptured && CameraInputEnabled && TryCursorRay(Mouse.GetState(), out var ray)
+            && _remote.TryPick(ray, _remote.SelfEntityId, out var entityId, out _))
+        {
+            hovered = entityId;
+        }
+
+        _targetSelection.Hover(hovered);
+        _targetSelection.Update(gameTime.TotalGameTime.TotalMilliseconds, _targetLiveness);
+    }
+
+    private TargetLiveness QueryTargetLiveness(uint entityId)
+    {
+        if (_remote is null || !_remote.TryGetTarget(entityId, out _, out var dead))
+        {
+            return TargetLiveness.Missing;
+        }
+
+        return dead ? TargetLiveness.Dead : TargetLiveness.Alive;
     }
 
     private void StopPredictedMovement()
@@ -1731,9 +1773,6 @@ public sealed class GameScene : IDisposable, IFieldContext
     {
         return _fieldCollision.TryGetFloorHeight(position, float.MaxValue, 0f, out height);
     }
-
-    private bool RemoteFloorAt(float x, float z, out float y) =>
-        TryGetFloorHeight(new Vector3(x, 0f, z), out y);
 
     private bool TryRaycastFloor(Ray ray, out Vector3 point)
     {

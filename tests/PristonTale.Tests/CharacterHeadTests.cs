@@ -23,7 +23,7 @@ internal static class CharacterHeadTests
         foreach (var row in rows)
         {
             var actual = CharacterHead.Resolve(Enum.Parse<PlayerClass>(row.Class), row.Tier, row.Hair);
-            Assert.True(string.Equals(actual, row.Path, StringComparison.OrdinalIgnoreCase), $"head differs from playmodel.h: {row.Path}");
+            Assert.True(string.Equals(actual, row.Path, StringComparison.OrdinalIgnoreCase), $"head differs from the original head table: {row.Path}");
         }
 
         Assert.True(CharacterHead.Resolve(PlayerClass.Mechanician, 2, 2) == "char/tmABCD/tmh_a03b.inx", "job head selected a comic-head filename");

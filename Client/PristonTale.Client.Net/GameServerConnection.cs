@@ -21,7 +21,7 @@ namespace PristonTale.Client.Net;
 // progression commands correlate by operation id and NPC clicks by NPC serial.
 public sealed class GameServerConnection : IGameBackend
 {
-    // CLIENT_VERSION_NUM of the English retail build (netplay.cpp); the server's VERSION reply sets the minimum.
+    // Client version of the English retail build; the server's VERSION reply sets the minimum.
     public const int EnglishClientVersion = 3122;
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(4);
 
@@ -122,7 +122,7 @@ public sealed class GameServerConnection : IGameBackend
             return CreateCharacterOutcome.Failed(CreateCharacterFailure.NameLength);
         }
 
-        // INSRECORDDATA carries JOB_CODE and face in LParam/SParam, which the original leaves unset.
+        // INSRECORDDATA carries the class code and face in LParam/SParam, which the original leaves unset.
         var reply = await CharacterRequestAsync(new CharCommand2(PristonOpcodes.InsRecordData, classId, 0, faceIndex, _account, name), ct);
         if (reply.WParam == 0)
         {
@@ -405,7 +405,7 @@ public sealed class GameServerConnection : IGameBackend
         {
             while (await timer.WaitForNextTickAsync(connection.Closed))
             {
-                // CHECK_NETSTATE {LParam = counter, WParam = client time} (netplay.cpp TransCheckNetwork).
+                // CHECK_NETSTATE {LParam = counter, WParam = client time}.
                 Send(new TransCommand(PristonOpcodes.CheckNetState, ++counter, Environment.TickCount), encrypt: true);
             }
         }
@@ -525,7 +525,7 @@ public sealed class GameServerConnection : IGameBackend
             return;
         }
 
-        // CheckServerInfo (netplay.cpp): a client older than the server's limit cannot play.
+        // As in the original, a client older than the server's limit cannot play.
         login.Completion.TrySetResult(_clientVersion < _versionLimit
             ? new LoginOutcome(false, "", "client version is older than the server requires") { Failure = LoginFailure.LoginDenied }
             : LoginOutcome.Success(_account, $"welcome, {_account}"));

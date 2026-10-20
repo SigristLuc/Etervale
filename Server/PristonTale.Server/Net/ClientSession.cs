@@ -21,15 +21,23 @@ internal sealed record SessionServices(
     ISessionRegistry Registry,
     WorldServer World,
     WorldDataHolder WorldData,
-    ILogger Logger);
+    ILogger Logger,
+    NetworkLimits Limits,
+    LoginThrottle LoginThrottle)
+{
+    // Shared by every connection so a flood from many peers still yields one warning per interval.
+    public LogSampler RejectedPackets { get; } = new(5000);
+}
 
 // One client connection following the original order: VERSION, ID_GETUSERINFO, ID_SETUSERINFO + SERVER_INFO,
 // character records, GETRECORDDATA -> RECORDDATA, PLAYERINFO -> CONNECTED, then play traffic.
 internal sealed class ClientSession
 {
-    // Server_LimitVersion default (netplay.cpp); the client compares it with its own CLIENT_VERSION_NUM.
+    // Default minimum client version of the original server; the client compares it with its own version.
     public const int LimitVersion = 167;
     private const long CorrectionIntervalMs = 300;
+    // FAILCONNECT -16: "traffic busy" on the original login screen.
+    private const int TrafficBusy = -16;
 
     private readonly PristonConnection _connection;
     private readonly SessionServices _services;
@@ -44,15 +52,24 @@ internal sealed class ClientSession
     private PresenceEncoder? _encoder;
     private Task? _pump;
     private long _lastCorrectionMs;
+    private readonly PacketRateLimiter _packetRate;
+    private readonly TokenBucket _playerInfoRate;
 
     public ClientSession(PristonConnection connection, SessionServices services)
     {
         _connection = connection;
         _services = services;
-        LastReceivedMs = Environment.TickCount64;
+        ConnectedMs = Environment.TickCount64;
+        LastReceivedMs = ConnectedMs;
+        _packetRate = new PacketRateLimiter(services.Limits.PacketLimit, services.Limits.PacketWindowMs);
+        _playerInfoRate = new TokenBucket(services.Limits.PlayerInfoBurst, services.Limits.PlayerInfoPerSecond);
     }
 
+    public long ConnectedMs { get; }
+
     public long LastReceivedMs { get; private set; }
+
+    public bool IsAuthenticated => Volatile.Read(ref _token) is not null;
 
     public PristonConnection Connection => _connection;
 
@@ -75,8 +92,18 @@ internal sealed class ClientSession
 
     private async ValueTask HandleAsync(ReadOnlyMemory<byte> memory)
     {
-        LastReceivedMs = Environment.TickCount64;
+        var now = Environment.TickCount64;
+        LastReceivedMs = now;
         var code = BinaryPrimitives.ReadUInt32LittleEndian(memory.Span[4..]);
+        // GETPLAYERINFO has its own bucket: one is sent per newly seen entity, so a crowd can exceed the original's
+        // 28-entity updates; every other packet counts toward the original flood limit.
+        if (code != PristonOpcodes.GetPlayerInfo && !_packetRate.Admit(now))
+        {
+            LogRejected(code, "packet flood, closing");
+            _connection.Close("packet flood");
+            return;
+        }
+
         try
         {
             switch (code)
@@ -142,7 +169,7 @@ internal sealed class ClientSession
         }
         catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException)
         {
-            _services.Logger.LogWarning("Rejected {Code:X8} from {Remote}: {Message}", code, _connection.RemoteEndPoint, ex.Message);
+            LogRejected(code, ex.Message);
         }
         catch (System.Data.Common.DbException ex)
         {
@@ -157,8 +184,7 @@ internal sealed class ClientSession
         switch (code)
         {
             case PristonOpcodes.IdGetUserInfo:
-                // FAILCONNECT -16: "traffic busy" on the original login screen.
-                Send(new TransCommand(PristonOpcodes.FailConnect, 0, -16, 0, 2), encrypt: true);
+                Send(new TransCommand(PristonOpcodes.FailConnect, 0, TrafficBusy, 0, 2), encrypt: true);
                 break;
             case PristonOpcodes.InsRecordData:
             case PristonOpcodes.DelRecordData:
@@ -179,14 +205,29 @@ internal sealed class ClientSession
             return;
         }
 
+        var address = NetworkLimits.AddressOf(_connection.RemoteEndPoint);
+        var throttle = _services.LoginThrottle;
+        if (throttle.IsBlocked(address, request.Id, Environment.TickCount64))
+        {
+            LogRejected(PristonOpcodes.IdGetUserInfo, "login throttled");
+            Send(new TransCommand(PristonOpcodes.FailConnect, 0, TrafficBusy, 0, 2), encrypt: true);
+            return;
+        }
+
         var outcome = await _services.Auth.LoginAsync(request.Id, request.Name);
         if (!outcome.Ok || !_services.Registry.TryGet(outcome.SessionToken, out var session))
         {
+            if (outcome.Failure == LoginFailure.BadCredentials)
+            {
+                throttle.RecordFailure(address, request.Id, Environment.TickCount64);
+            }
+
             Send(new TransCommand(PristonOpcodes.FailConnect, 0, (int)outcome.Failure, 0, 2), encrypt: true);
             return;
         }
 
-        _token = outcome.SessionToken;
+        throttle.RecordSuccess(request.Id);
+        Volatile.Write(ref _token, outcome.SessionToken);
         _account = request.Id;
         _session = session;
         await SendCharacterListAsync();
@@ -267,7 +308,17 @@ internal sealed class ClientSession
 
         var player = WorldPlayerFactory.Create(session);
         var outbox = new WorldOutbox();
-        if (!await _services.World.JoinAsync(session.FieldId, player, outbox.Writer, session))
+        bool joined;
+        try
+        {
+            joined = await _services.World.JoinAsync(session.FieldId, player, outbox.Writer, session);
+        }
+        catch (WorldBusyException)
+        {
+            joined = false;
+        }
+
+        if (!joined)
         {
             session.EndPlay();
             throw new InvalidOperationException("World join rejected.");
@@ -276,7 +327,7 @@ internal sealed class ClientSession
         _player = player;
         _outbox = outbox;
         _encoder = new PresenceEncoder(session.EntityId, _services.WorldData);
-        // CONNECTED {LParam = server milliseconds, WParam = object serial} (OnSever.cpp).
+        // CONNECTED {LParam = server milliseconds, WParam = object serial}.
         Send(new TransCommand(PristonOpcodes.Connected, Environment.TickCount, (int)session.EntityId), encrypt: true);
         _pump = PumpAsync(outbox, _encoder);
     }
@@ -314,7 +365,17 @@ internal sealed class ClientSession
         var position = new Vector3(PristonUnits.FromFixed(last.X), PristonUnits.FromFixed(last.Y), PristonUnits.FromFixed(last.Z));
         if (report.FieldCode >= 0 && report.FieldCode != session.FieldId)
         {
-            var transition = _services.World.MoveToFieldAsync(session.FieldId, report.FieldCode, player, position, outbox.Writer);
+            Task<bool> transition;
+            try
+            {
+                transition = _services.World.MoveToFieldAsync(session.FieldId, report.FieldCode, player, position, outbox.Writer);
+            }
+            catch (WorldBusyException)
+            {
+                Correct(force: true);
+                return;
+            }
+
             _ = transition.ContinueWith(task =>
             {
                 if (!task.IsCompletedSuccessfully || !task.Result)
@@ -332,9 +393,9 @@ internal sealed class ClientSession
             verdict = _services.World.ReportMovementAsync(session.FieldId, session.EntityId, position, PristonUnits.FromAngle(last.AngleY), moving,
                 last.Action == MotionStateCode.Run, last.TargetSerial);
         }
-        catch (InvalidOperationException)
+        catch (WorldBusyException)
         {
-            // A saturated command queue drops the report; the next one carries the newer position.
+            // A saturated queue or quota drops the report; the next one carries the newer position.
             return;
         }
 
@@ -377,7 +438,7 @@ internal sealed class ClientSession
         }
         catch (InvalidDataException ex)
         {
-            _services.Logger.LogWarning("Dropped ATTACK_DAMAGE from {Remote}: {Message}", _connection.RemoteEndPoint, ex.Message);
+            LogRejected(PristonOpcodes.AttackDamage, ex.Message);
             return;
         }
 
@@ -410,6 +471,13 @@ internal sealed class ClientSession
 
     private void DescribeObject(TransCommand request)
     {
+        // A 32-byte request costs a 504-byte reply, so requests beyond the bucket are dropped.
+        if (!_playerInfoRate.TryTake(Environment.TickCount64))
+        {
+            LogRejected(PristonOpcodes.GetPlayerInfo, "player info rate exceeded");
+            return;
+        }
+
         // GETPLAYERINFO {WParam = object serial}; the reply is a plain 504-byte PLAYERINFO.
         if (_encoder?.Describe((uint)request.WParam) is { } info)
         {
@@ -499,6 +567,15 @@ internal sealed class ClientSession
     }
 
     private string RequireToken() => _token ?? throw new InvalidOperationException("Log in first.");
+
+    private void LogRejected(uint code, string reason)
+    {
+        if (_services.RejectedPackets.TryEnter(Environment.TickCount64, out var suppressed))
+        {
+            _services.Logger.LogWarning("Rejected {Code:X8} from {Remote}: {Reason} ({Suppressed} similar rejections not logged)",
+                code, _connection.RemoteEndPoint, reason, suppressed);
+        }
+    }
 
     private void Send(TransCommand command, bool encrypt)
     {

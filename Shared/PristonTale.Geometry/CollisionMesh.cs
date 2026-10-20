@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace PristonTale.Geometry;
 
-// Stage collision built from faces whose material carries SMMAT_STAT_CHECK_FACE. Coordinates are whatever space the
+// Stage collision built from faces whose material carries the check-face flag. Coordinates are whatever space the
 // caller supplies: the server uses Priston world units (x, y, z), the client its MonoGame space (x, y, -z).
 // The mesh is immutable after construction, so concurrent queries are safe; a triangle registered in several grid
 // cells may be tested more than once per query, which does not change the nearest hit.

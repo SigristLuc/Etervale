@@ -16,6 +16,7 @@ public sealed class PristonTcpServer(
     ISessionRegistry sessions,
     WorldServer world,
     WorldDataHolder worldData,
+    IConfiguration configuration,
     ILogger<PristonTcpServer> logger) : BackgroundService
 {
     // The client heartbeats every 4 s (TransCheckNetwork); silence beyond this closes the connection.
@@ -23,6 +24,11 @@ public sealed class PristonTcpServer(
     private static readonly TimeSpan ReportInterval = TimeSpan.FromSeconds(30);
     private static readonly HashSet<string> NormalCloseReasons = ["peer closed", "receive ended", "cancelled", "server stopping", "disposed"];
     private readonly ConcurrentDictionary<ClientSession, Task> _clients = new();
+    private readonly NetworkLimits _limits = NetworkLimits.From(configuration);
+    private readonly LogSampler _refusedLog = new(5000);
+    private readonly LogSampler _closedLog = new(1000);
+    private ConnectionLimiter? _perAddress;
+    private LoginThrottle? _loginThrottle;
     private long _closedBytesSent;
     private long _closedBytesReceived;
 
@@ -30,7 +36,9 @@ public sealed class PristonTcpServer(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var services = new SessionServices(auth, characters, sessionsApp, sessions, world, worldData, logger);
+        _perAddress = new ConnectionLimiter(_limits.MaxConnectionsPerIp);
+        _loginThrottle = new LoginThrottle(_limits.LoginFailuresPerAccount, _limits.LoginFailuresPerIp, _limits.LoginFailureWindowMs);
+        var services = new SessionServices(auth, characters, sessionsApp, sessions, world, worldData, logger, _limits, _loginThrottle);
         using var listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp) { DualMode = true };
         listener.Bind(new IPEndPoint(IPAddress.IPv6Any, HostingExtensions.DefaultGamePort));
         listener.Listen(512);
@@ -41,8 +49,21 @@ public sealed class PristonTcpServer(
             while (!stoppingToken.IsCancellationRequested)
             {
                 var socket = await listener.AcceptAsync(stoppingToken);
+                var address = NetworkLimits.AddressOf(socket.RemoteEndPoint);
+                if (!_perAddress.TryAcquire(address))
+                {
+                    socket.Close();
+                    if (_refusedLog.TryEnter(Environment.TickCount64, out var suppressed))
+                    {
+                        logger.LogWarning("Refused connection from {Address}: more than {Limit} open ({Suppressed} similar refusals not logged)",
+                            address, _limits.MaxConnectionsPerIp, suppressed);
+                    }
+
+                    continue;
+                }
+
                 var session = new ClientSession(new PristonConnection(socket), services);
-                _clients[session] = RunClientAsync(session, stoppingToken);
+                _clients[session] = RunClientAsync(session, address, stoppingToken);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -60,7 +81,7 @@ public sealed class PristonTcpServer(
         }
     }
 
-    private async Task RunClientAsync(ClientSession session, CancellationToken cancellationToken)
+    private async Task RunClientAsync(ClientSession session, IPAddress? address, CancellationToken cancellationToken)
     {
         await Task.Yield();
         try
@@ -74,10 +95,13 @@ public sealed class PristonTcpServer(
         finally
         {
             var connection = session.Connection;
-            if (connection.CloseReason is { } reason && !NormalCloseReasons.Contains(reason))
+            if (connection.CloseReason is { } reason && !NormalCloseReasons.Contains(reason)
+                && _closedLog.TryEnter(Environment.TickCount64, out var suppressed))
             {
-                logger.LogWarning("Closed {Remote}: {Reason}", connection.RemoteEndPoint, reason);
+                logger.LogWarning("Closed {Remote}: {Reason} ({Suppressed} similar closes not logged)", connection.RemoteEndPoint, reason, suppressed);
             }
+
+            _perAddress?.Release(address);
 
             Interlocked.Add(ref _closedBytesSent, connection.BytesSent);
             Interlocked.Add(ref _closedBytesReceived, connection.BytesReceived);
@@ -99,11 +123,17 @@ public sealed class PristonTcpServer(
                 var now = Environment.TickCount64;
                 long sent = Interlocked.Read(ref _closedBytesSent);
                 long received = Interlocked.Read(ref _closedBytesReceived);
+                _loginThrottle?.Prune(now);
                 foreach (var client in _clients.Keys)
                 {
                     if (now - client.LastReceivedMs > IdleTimeout.TotalMilliseconds)
                     {
                         client.Connection.Close("idle timeout");
+                    }
+                    else if (_limits.LoginTimeoutMs > 0 && !client.IsAuthenticated && now - client.ConnectedMs > _limits.LoginTimeoutMs)
+                    {
+                        // A heartbeat keeps a socket alive, but not past the login deadline.
+                        client.Connection.Close("login timeout");
                     }
 
                     sent += client.Connection.BytesSent;

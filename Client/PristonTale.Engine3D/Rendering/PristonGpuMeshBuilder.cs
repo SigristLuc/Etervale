@@ -1,29 +1,16 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Formats;
-using PristonTale.Engine3D.Rendering.Lighting;
 
 namespace PristonTale.Engine3D.Rendering;
 
 internal sealed class PristonGpuMeshBuilder
 {
-    internal readonly record struct BakeLight(Vector3 Position, Vector3 Color, float Range);
-
     private readonly GraphicsDevice _graphicsDevice;
-    private PristonLampBaker _lampBaker = new([]);
-
-    internal LampKernel LampKernel => _lampBaker.Kernel;
 
     public PristonGpuMeshBuilder(GraphicsDevice graphicsDevice)
     {
         _graphicsDevice = graphicsDevice;
-    }
-
-    public void SetBakeLights(BakeLight[] lights) => _lampBaker = new PristonLampBaker(lights ?? []);
-
-    public Color BakeLamp(Vector3 position, Vector3 normal)
-    {
-        return _lampBaker.Bake(position, normal);
     }
 
     internal sealed record PreparedMesh(
@@ -32,15 +19,15 @@ internal sealed class PristonGpuMeshBuilder
         PristonMeshDiagnostics Diagnostics,
         BoundingBox Bounds);
 
-    public PristonGpuMesh CreateStaticMesh(VertexPositionColorTexture[] vertices)
+    public PristonGpuMesh CreateStaticMesh(PristonCornerVertex[] vertices)
     {
         return Upload(PrepareStaticMesh(vertices));
     }
 
-    public PreparedMesh PrepareStaticMesh(VertexPositionColorTexture[] vertices)
+    public PreparedMesh PrepareStaticMesh(PristonCornerVertex[] vertices)
     {
-        var uniqueVertices = new List<VertexPositionColorTexture>(vertices.Length);
-        var vertexLookup = new Dictionary<VertexPositionColorTexture, int>(VertexPositionColorTextureComparer.Instance);
+        var uniqueVertices = new List<PristonCornerVertex>(vertices.Length);
+        var vertexLookup = new Dictionary<PristonCornerVertex, int>(vertices.Length);
         var indices = new int[vertices.Length];
         for (var i = 0; i < vertices.Length; i++)
         {
@@ -60,6 +47,17 @@ internal sealed class PristonGpuMeshBuilder
             indices,
             CalculateDiagnostics(uniqueVertices, indices),
             PristonBinaryUtil.BoundsFrom(vertices.Select(static vertex => vertex.Position)));
+    }
+
+    internal static long EstimateBytes(PreparedMesh prepared)
+    {
+        if (prepared is null)
+        {
+            return 0;
+        }
+
+        var indexSize = prepared.Vertices.Length <= ushort.MaxValue ? sizeof(ushort) : sizeof(int);
+        return (long)prepared.Vertices.Length * PristonStaticVertex.VertexDeclaration.VertexStride + (long)prepared.Indices.Length * indexSize;
     }
 
     public PristonGpuMesh Upload(PreparedMesh prepared)
@@ -86,7 +84,7 @@ internal sealed class PristonGpuMeshBuilder
         }
     }
 
-    private static PristonMeshDiagnostics CalculateDiagnostics(IReadOnlyList<VertexPositionColorTexture> vertices, int[] indices)
+    private static PristonMeshDiagnostics CalculateDiagnostics(IReadOnlyList<PristonCornerVertex> vertices, int[] indices)
     {
         var degenerate = 0;
         var up = 0;
@@ -116,7 +114,7 @@ internal sealed class PristonGpuMeshBuilder
         return new PristonMeshDiagnostics(degenerate, up, down, side);
     }
 
-    private PristonStaticVertex[] BuildStaticVertices(IReadOnlyList<VertexPositionColorTexture> vertices, int[] indices)
+    private PristonStaticVertex[] BuildStaticVertices(IReadOnlyList<PristonCornerVertex> vertices, int[] indices)
     {
         var normals = new Vector3[vertices.Count];
         for (var i = 0; i + 2 < indices.Length; i += 3)
@@ -151,8 +149,9 @@ internal sealed class PristonGpuMeshBuilder
                 vertex.Position,
                 normal,
                 vertex.Color,
-                vertex.TextureCoordinate,
-                BakeLamp(vertex.Position, normal));
+                vertex.Uv0,
+                vertex.Uv1,
+                vertex.Uv2);
         }
 
         return staticVertices;

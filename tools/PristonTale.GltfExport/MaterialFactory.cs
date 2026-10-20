@@ -27,7 +27,7 @@ internal sealed class MaterialFactory
         string Opacity,
         BlendAlpha BlendAlpha);
 
-    // glTF only offers alpha blending, so the reference SMMAT_BLEND colour modes are approximated
+    // glTF only offers alpha blending, so the original colour blend modes are approximated
     // by deriving coverage from the texture colour when the texture carries no alpha channel.
     private enum BlendAlpha
     {

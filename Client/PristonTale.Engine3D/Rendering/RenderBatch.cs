@@ -5,8 +5,8 @@ using PristonTale.Engine3D.Formats;
 namespace PristonTale.Engine3D.Rendering;
 
 internal sealed record RenderBatch(
-    PristonDynamicVertex[] Vertices,
-    PristonDynamicVertex[] BaseVertices,
+    PristonStaticVertex[] Vertices,
+    PristonStaticVertex[] BaseVertices,
     PristonGpuMesh Mesh,
     PristonMaterialRuntime Material,
     bool ForceCastsShadow = false,
@@ -37,6 +37,9 @@ internal sealed record RenderBatch(
 
     public Vector3 ActorColorAdd { get; set; }
 
+    // An actor's share of the stage's authored light where it stands (PristonStageLightField); 1 for everything else.
+    public float FloorLight { get; set; } = 1f;
+
     public void UseSkinPalette(PristonSkinPalette palette)
     {
         if (!IsSkinned || palette.Count != BoneCount)
@@ -47,11 +50,6 @@ internal sealed record RenderBatch(
         SkinPalette = palette;
     }
 
-    public IEnumerable<Vector3> BoundsPoints()
-    {
-        return Bounds.GetCorners();
-    }
-
     public void RefreshBounds()
     {
         if (Mesh == null && !IsSkinned)
@@ -60,7 +58,7 @@ internal sealed record RenderBatch(
 
     public void SetWorldBounds(BoundingBox bounds) => Bounds = bounds;
 
-    private static BoundingBox CalculateBounds(PristonDynamicVertex[] vertices)
+    private static BoundingBox CalculateBounds(PristonStaticVertex[] vertices)
     {
         if (vertices.Length == 0)
             return new BoundingBox(Vector3.Zero, Vector3.Zero);
@@ -76,7 +74,7 @@ internal sealed record RenderBatch(
     }
 }
 
-internal readonly record struct SkinnedVertKey(Vector3 Position, Vector3 Normal, Vector2 TexCoord, float BoneIndex);
+internal readonly record struct SkinnedVertKey(Vector3 Position, Vector3 Normal, Vector2 TexCoord, Vector2 TexCoord1, Vector2 TexCoord2, float BoneIndex);
 
 internal sealed record ModelTriangleRef(int ObjectIndex, PristonModelFace Face);
 

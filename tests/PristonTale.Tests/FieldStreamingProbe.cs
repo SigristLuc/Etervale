@@ -33,14 +33,14 @@ internal sealed class FieldStreamingProbe : Game
             PreferredBackBufferHeight = 720,
             SynchronizeWithVerticalRetrace = false
         };
-        Content.RootDirectory = Path.GetFullPath(contentRoot);
+        Content = new AbsoluteContentManager(Services, contentRoot);
         IsFixedTimeStep = true;
         TargetElapsedTime = TimeSpan.FromSeconds(1d / 60d);
     }
 
     protected override void LoadContent()
     {
-        Console.WriteLine($"STREAM GPU={GraphicsDevice.Adapter.Description} steps/frame={_maximumSteps}");
+        Console.WriteLine($"STREAM GPU={GraphicsDevice.Adapter.DeviceName} steps/frame={_maximumSteps}");
         _renderer = new PristonRenderer(GraphicsDevice, Content);
         _renderer.ConfigureFieldLighting(8f, 1.2f, null, 1f, 1f);
         _elapsed.Start();

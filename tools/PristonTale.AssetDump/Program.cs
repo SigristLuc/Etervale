@@ -285,7 +285,7 @@ void DumpInx(PristonModelInfo info)
     {
         Section("USABLE MOTIONS");
         // EventFrames are the raw INX values: (authoredFrame − StartFrame) × 160 offsets from the clip
-        // start (PTClassic fileread.cpp:231) — printed raw + as the authored frame they resolve to, so
+        // start — printed raw + as the authored frame they resolve to, so
         // motion-timing work can be spot-checked against the bytes.
         Console.WriteLine($"  {"slot",-5} {"state",-10} {"start",8} {"end",8} {"repeat",7}  event frames (raw ×160 → authored)");
         foreach (var (slot, m) in usable)
@@ -340,7 +340,7 @@ static void DumpMaterialAggregates(IReadOnlyList<PristonMaterial> mats)
         if (m.RenderLast) renderLast++;
         if (m.TwoSided) twoSided++;
         if (!string.IsNullOrEmpty(m.OpacityName) || m.TextureName.EndsWith(".tga", StringComparison.OrdinalIgnoreCase)) alphaMaybe++;
-        if ((m.MeshState & 0x1) != 0) checkFace++;           // SMMAT_STAT_CHECK_FACE (walkable/collision)
+        if ((m.MeshState & 0x1) != 0) checkFace++;           // check-face flag (walkable/collision)
         if (m.HasAnimatedTexture) animTex++;
     }
     var hist = string.Join(", ", blendHist.Select(kv => $"{BlendName(kv.Key)}({kv.Key})={kv.Value}"));

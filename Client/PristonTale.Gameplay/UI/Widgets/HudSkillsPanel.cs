@@ -8,8 +8,8 @@ using PristonTale.Simulation.Skills;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
-// sinSkill.cpp cSKILL::Draw/DrawSkillText: Skil24.bmp, job titles, skill buttons (gray "_" variant when unusable),
-// rank gauges, F1-F8 short keys and the SelectSkill hover frame. All sixteen nodes are shown for reference.
+// The original skill window and its text: Skil24.bmp, job titles, skill buttons (gray "_" variant when unusable),
+// rank gauges, F1-F8 short keys and the selected-skill hover frame. All sixteen nodes are shown for reference.
 public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
 {
     private const int TooltipWidth = 260;
@@ -151,7 +151,7 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
                 painter.Sprite(HudArt.SkillButton(_class, entry.Skill.IconKey, !usable), node.X, node.Y);
                 if (index < 4)
                 {
-                    // Only the first job tier is available (no class change), as sinSkill draws gauges for flagged skills.
+                    // Only the first job tier is available (no class change), as the original draws gauges for flagged skills.
                     var mastery = HudSkillTreeLayout.MasteryGauge(origin, index);
                     painter.Sprite(entry.Skill.MouseUse == SkillMouseUse.None ? HudArt.SkillGaugePassive : HudArt.SkillGaugeBack, mastery.X, mastery.Y);
                 }
@@ -310,7 +310,7 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
         }
     }
 
-    // sinSkill.cpp: ShortKey\f<n>.bmp at BoxRect.left+9, BoxRect.top-6.
+    // Short keys: ShortKey\f<n>.bmp at the skill box left + 9, top - 6.
     private static void DrawShortcut(HudPainter painter, Rectangle node, uint skillCode, HudSkillBindings bindings)
     {
         for (var index = 0; index < 8; index++)

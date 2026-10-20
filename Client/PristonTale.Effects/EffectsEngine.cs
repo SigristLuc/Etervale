@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Effects.Effects;
 using PristonTale.Effects.Rendering;
@@ -11,10 +12,10 @@ public sealed class EffectsEngine : IDisposable
     private readonly List<EffectInstance> _instances = new();
     private int _spawnCounter;
 
-    public EffectsEngine(GraphicsDevice device, int seed = 12345)
+    public EffectsEngine(GraphicsDevice device, ContentManager content, int seed = 12345)
     {
         ArgumentNullException.ThrowIfNull(device);
-        _renderer = new ParticleRenderer(device);
+        _renderer = new ParticleRenderer(device, content);
         Seed = seed;
     }
 
@@ -60,6 +61,13 @@ public sealed class EffectsEngine : IDisposable
                 _instances.RemoveAt(i);
             }
         }
+    }
+
+    // True when the effects draw into an 8-bit target outside the renderer's HDR scene (tools and captures).
+    public bool DisplayOutput
+    {
+        get => _renderer.DisplayOutput;
+        set => _renderer.DisplayOutput = value;
     }
 
     public void Draw(Matrix view, Matrix projection, Vector3 cameraPosition)

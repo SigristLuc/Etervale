@@ -142,7 +142,7 @@ public sealed class PristonCameraPath
             var start = cursor.Position;
             var frame = cursor.Int32();
             var position = new Vector3(cursor.Single(), cursor.Single(), cursor.Single());
-            EnsureRecordSize(cursor, start, PositionRecordSize, "smTM_POS");
+            EnsureRecordSize(cursor, start, PositionRecordSize, "position key");
             destination.Add(new PristonCameraPositionKey(frame, position));
         }
     }
@@ -155,7 +155,7 @@ public sealed class PristonCameraPath
             var start = cursor.Position;
             var frame = cursor.Int32();
             var values = new Int3(cursor.Int32(), cursor.Int32(), cursor.Int32());
-            EnsureRecordSize(cursor, start, AngleRecordSize, "SRotAngle");
+            EnsureRecordSize(cursor, start, AngleRecordSize, "rotation angle key");
             angles[index] = new PristonCameraAngleRecord(frame, values);
         }
 
@@ -171,7 +171,7 @@ public sealed class PristonCameraPath
             var frame = cursor.Int32();
             var alignmentPadding = cursor.UInt32();
             var value = new PristonDoubleQuaternion(cursor.Double(), cursor.Double(), cursor.Double(), cursor.Double());
-            EnsureRecordSize(cursor, start, QuaternionRecordSize, "smDTM_ROT");
+            EnsureRecordSize(cursor, start, QuaternionRecordSize, "rotation key");
             quaternions[index] = new PristonCameraQuaternionRecord(frame, alignmentPadding, value);
         }
 
@@ -188,7 +188,7 @@ public sealed class PristonCameraPath
         {
             var start = cursor.Position;
             var matrix = ReadCameraFixedMatrix(cursor);
-            EnsureRecordSize(cursor, start, MatrixRecordSize, "smEMATRIX");
+            EnsureRecordSize(cursor, start, MatrixRecordSize, "matrix key");
             var angle = angles[index];
             var quaternion = quaternions[index];
             destination.Add(new PristonCameraRotationKey(angle.Frame, angle.Angles, quaternion.Frame, quaternion.Value, matrix)
@@ -387,7 +387,7 @@ public sealed class PristonCameraPath
 
     private static Matrix InterpolateIncrementalRotation(PristonDoubleQuaternion authored, float amount)
     {
-        // D3DMath_QuaternionSlerp is called with (0,0,0,0) as its first value. For a unit authored
+        // The original quaternion slerp is called with (0,0,0,0) as its first value. For a unit authored
         // quaternion the original function reduces to authored * sin(pi/2 * amount).
         var scale = MathF.Sin(MathF.PI * 0.5f * amount);
         var x = (float)authored.X * scale;
@@ -415,7 +415,7 @@ public sealed class PristonCameraPath
         var f32 = 2f * (yz + wx);
         var f33 = 1f - 2f * (xx + yy);
 
-        // CAutoCamera::DXtoEMatrixFromFMatrix remaps the DirectX matrix into Priston's engine basis.
+        // The original camera path remaps the DirectX matrix into Priston's engine basis.
         return new Matrix(
             f11, f13, f12, 0f,
             f31, f33, f32, 0f,

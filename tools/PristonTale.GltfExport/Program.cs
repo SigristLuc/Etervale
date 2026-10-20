@@ -235,7 +235,7 @@ static SceneBuilder BuildSmdScene(
             && !Path.GetExtension(input).Equals(".smb", StringComparison.OrdinalIgnoreCase)
             && File.Exists(skeletonPath))
         {
-            // smSTAGE_OBJECT::AddObjectFile(file, file) binds physique props to the same-named bone file.
+            // A stage object with physique binds to the bone file of the same name.
             var actor = new PristonActorLoader().LoadSkinned(input, skeletonPath);
             var actorScene = GltfSceneExport.BuildActor(actor, materials, options);
             summary = $"skinned model: {model.Objects.Count} objects, {actor.Skeleton.Objects.Count} bones from {Path.GetFileName(skeletonPath)}, "

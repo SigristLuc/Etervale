@@ -33,7 +33,7 @@ public static class MonsterAttackReach
         return x * x + z * z;
     }
 
-    // PlayAttack's explicit ranged families; IDs from effectsnd.h, not model filename guesses.
+    // Sound families the original attack playback treats as ranged; IDs are the original sound codes, not model filename guesses.
     public static bool HasRangedBasicAttack(int soundCode) => soundCode switch
     {
         0x1020 => true, // IMP

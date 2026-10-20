@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Effects.Effects;
 using PristonTale.Effects.Particles;
@@ -18,11 +19,13 @@ public sealed record LegacyBillboardAnimation(
 public sealed class LegacyEffectLibrary : IDisposable
 {
     private readonly PristonTextureLoader _textures;
+    private readonly ContentManager _content;
     private readonly EffectDefinition[] _potions = new EffectDefinition[3];
     private readonly EffectDefinition[] _hulkHits = new EffectDefinition[3];
 
-    private LegacyEffectLibrary(GraphicsDevice device, IClientLog log)
+    private LegacyEffectLibrary(GraphicsDevice device, ContentManager content, IClientLog log)
     {
+        _content = content;
         _textures = new PristonTextureLoader(device, log);
         _textures.Initialize();
     }
@@ -43,9 +46,12 @@ public sealed class LegacyEffectLibrary : IDisposable
     public EffectDefinition Potion(int index) => _potions[index];
     public EffectDefinition HulkHit(int index) => _hulkHits[index];
 
-    public static LegacyEffectLibrary LoadBootstrap(GraphicsDevice device, string assetRoot, IClientLog log)
+    // The shaders the library's effects draw with come from content.
+    public ContentManager Content => _content;
+
+    public static LegacyEffectLibrary LoadBootstrap(GraphicsDevice device, ContentManager content, string assetRoot, IClientLog log)
     {
-        var library = new LegacyEffectLibrary(device, log);
+        var library = new LegacyEffectLibrary(device, content, log);
         try
         {
             var light = library.LoadAnimation(assetRoot, "Light1.ini");
@@ -89,7 +95,7 @@ public sealed class LegacyEffectLibrary : IDisposable
                 string full = Path.Combine(assetRoot, path);
                 var mesh = reader.ReadModel(full);
                 var skeleton = bones ? reader.ReadModel(Path.ChangeExtension(full, ".smb")) : mesh;
-                return new PristonMeshEffect(device, library._textures, mesh, skeleton, bones ? 30 : 1);
+                return new PristonMeshEffect(device, library._content, library._textures, mesh, skeleton, bones ? 30 : 1);
             }
 
             library.HestMesh = Mesh("Effect/AssaEffect/CaveMummy/b_m_CaveMummy.smd", true);

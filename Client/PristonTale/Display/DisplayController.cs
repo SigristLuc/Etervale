@@ -7,67 +7,55 @@ using PristonTale.Engine3D.Rendering;
 
 namespace PristonTale.Display;
 
+// Window mode, size and vertical sync through MonoGame's Native platform (Vulkan). The platform reports the display
+// modes of the primary monitor only, without refresh rates, and switches exclusive fullscreen to the closest mode at the
+// primary monitor's rate: the client therefore offers one monitor and the desktop frequency (RefreshRate 0). Display
+// selection and per-mode refresh rates need runtime support the MonoGame fork does not have yet.
 internal sealed class DisplayController
 {
-    private readonly GraphicsDeviceManager _graphics;
-    private readonly GameWindow _window;
-    private readonly IClientLog _log;
-    private readonly SdlDisplay _display;
+    private const int PrimaryMonitor = 0;
 
-    public DisplayController(GraphicsDeviceManager graphics, GameWindow window, IClientLog log)
+    private readonly GraphicsDeviceManager _graphics;
+    private readonly IClientLog _log;
+
+    public DisplayController(GraphicsDeviceManager graphics, IClientLog log)
     {
         _graphics = graphics;
-        _window = window;
         _log = log;
-        try
-        {
-            _display = new SdlDisplay();
-        }
-        catch (Exception exception) when (exception is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
-        {
-            _log.Error("[Display] SDL mode access unavailable; using the current monitor and desktop frequency.", exception);
-        }
     }
 
     public string Apply(ClientSettings requested)
     {
         var width = requested.WindowWidth;
         var height = requested.WindowHeight;
-        var monitor = 0;
-        if (_display is not null)
+        if (requested.Monitor > PrimaryMonitor)
         {
-            monitor = _display.MonitorFor(_window.Handle);
-            if (requested.Monitor >= 0 && requested.Monitor < _display.Count)
-            {
-                monitor = requested.Monitor;
-            }
-            else if (requested.Monitor >= 0)
-            {
-                _log.Warn($"[Display] Monitor {requested.Monitor} is unavailable; using {monitor}.");
-            }
+            _log.Warn($"[Display] Monitor {requested.Monitor} is not selectable on this platform; using the primary monitor.");
+        }
 
-            // Leave fullscreen before moving the window to another monitor or choosing a new exclusive mode.
-            if (_graphics.IsFullScreen)
-            {
-                _graphics.IsFullScreen = false;
-                _graphics.ApplyChanges();
-            }
+        if (requested.RefreshRate != 0)
+        {
+            _log.Warn($"[Display] A {requested.RefreshRate} Hz mode is not selectable on this platform; using the desktop frequency.");
+        }
 
-            var bounds = _display.Bounds(monitor);
-            _window.Position = new Point(bounds.X + 32, bounds.Y + 32);
-            if (requested.WindowMode == WindowMode.Fullscreen)
-            {
-                var mode = SelectMode(requested, monitor);
-                _display.Select(_window.Handle, mode);
-                width = mode.Width;
-                height = mode.Height;
-            }
-            else if (requested.WindowMode == WindowMode.Borderless)
-            {
-                var desktop = _display.Desktop(monitor);
-                width = desktop.Width;
-                height = desktop.Height;
-            }
+        // Leave fullscreen before choosing a new exclusive mode.
+        if (_graphics.IsFullScreen)
+        {
+            _graphics.IsFullScreen = false;
+            _graphics.ApplyChanges();
+        }
+
+        var desktop = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
+        if (requested.WindowMode == WindowMode.Fullscreen)
+        {
+            var mode = SelectMode(requested, desktop);
+            width = mode.Width;
+            height = mode.Height;
+        }
+        else if (requested.WindowMode == WindowMode.Borderless)
+        {
+            width = desktop.Width;
+            height = desktop.Height;
         }
 
         _graphics.PreferredBackBufferWidth = width;
@@ -75,72 +63,45 @@ internal sealed class DisplayController
         _graphics.HardwareModeSwitch = requested.WindowMode == WindowMode.Fullscreen;
         _graphics.IsFullScreen = requested.WindowMode != WindowMode.Windowed;
         _graphics.SynchronizeWithVerticalRetrace = requested.VerticalSync;
-        _graphics.PreferMultiSampling = requested.MultiSampleCount > 0;
+        // Multisampling belongs to the HDR scene target (PristonRenderer); the back buffer only receives the display
+        // transform and the UI, so it is never multisampled.
+        _graphics.PreferMultiSampling = false;
         _graphics.ApplyChanges();
 
         var parameters = _graphics.GraphicsDevice.PresentationParameters;
-        var hz = _display?.Current(monitor).RefreshRate ?? 0;
-        var frequency = hz > 0 ? $"{hz} Hz" : "Hz unavailable";
-        var effective = $"Monitor {monitor}: {parameters.BackBufferWidth}x{parameters.BackBufferHeight}, {frequency}, MSAA {parameters.MultiSampleCount}x";
+        var effective = $"Monitor {PrimaryMonitor}: {parameters.BackBufferWidth}x{parameters.BackBufferHeight}, desktop Hz, " +
+            $"scene MSAA {requested.MultiSampleCount}x requested";
         _log.Info($"[Display] requested={requested.WindowMode} {requested.WindowWidth}x{requested.WindowHeight}@{requested.RefreshRate}; effective={effective}");
-        if (parameters.MultiSampleCount != requested.MultiSampleCount)
-        {
-            _log.Warn($"[Display] Requested MSAA {requested.MultiSampleCount}x; device selected {parameters.MultiSampleCount}x.");
-        }
-
         return effective;
     }
 
-    public void DescribeOptions(PresentationSettings shared)
+    public static void DescribeOptions(PresentationSettings shared)
     {
-        if (_display is null)
-        {
-            return;
-        }
-
-        shared.MonitorCount = _display.Count;
+        shared.MonitorCount = 1;
         var options = new List<DisplayModeOption>();
-        for (var monitor = 0; monitor < _display.Count; monitor++)
+        foreach (var mode in GraphicsAdapter.DefaultAdapter.SupportedDisplayModes)
         {
-            foreach (var mode in _display.Modes(monitor))
+            var option = new DisplayModeOption(PrimaryMonitor, mode.Width, mode.Height, 0);
+            if (mode.Width >= 800 && mode.Height >= 600 && !options.Contains(option))
             {
-                var option = new DisplayModeOption(monitor, mode.Width, mode.Height, mode.RefreshRate);
-                if (mode.Width >= 800 && mode.Height >= 600 && !options.Contains(option))
-                {
-                    options.Add(option);
-                }
+                options.Add(option);
             }
         }
 
         shared.DisplayModes = options;
     }
 
-    private SdlDisplay.Mode SelectMode(ClientSettings requested, int monitor)
+    private DisplayMode SelectMode(ClientSettings requested, DisplayMode desktop)
     {
-        var desktop = _display.Desktop(monitor);
-        var selected = desktop;
-        var selectedDistance = int.MaxValue;
-        var targetHz = requested.RefreshRate == 0 ? desktop.RefreshRate : requested.RefreshRate;
-        foreach (var mode in _display.Modes(monitor))
+        foreach (var mode in GraphicsAdapter.DefaultAdapter.SupportedDisplayModes)
         {
-            if (mode.Width != requested.WindowWidth || mode.Height != requested.WindowHeight)
+            if (mode.Width == requested.WindowWidth && mode.Height == requested.WindowHeight)
             {
-                continue;
-            }
-
-            var distance = Math.Abs(mode.RefreshRate - targetHz);
-            if (distance < selectedDistance)
-            {
-                selected = mode;
-                selectedDistance = distance;
+                return mode;
             }
         }
 
-        if (selectedDistance != 0)
-        {
-            _log.Warn($"[Display] Requested fullscreen mode unavailable; selecting {selected.Width}x{selected.Height}@{selected.RefreshRate}.");
-        }
-
-        return selected;
+        _log.Warn($"[Display] Requested fullscreen mode unavailable; selecting {desktop.Width}x{desktop.Height}.");
+        return desktop;
     }
 }

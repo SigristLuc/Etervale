@@ -3,7 +3,7 @@ using PristonTale.Protocol.Binary;
 
 namespace PristonTale.Protocol.Packets;
 
-// Fixed-point and angle conventions from smLib3d/smType.h and smSin.h: positions are world units << 8 (FLOATNS),
+// Fixed-point and angle conventions of the original engine: positions are world units << 8,
 // angles are 4096 per turn and the yaw lives in angle[1].
 public static class PristonUnits
 {
@@ -25,7 +25,7 @@ public static class PristonUnits
     public static float FromAngle(short angle) => (angle & (AngleTurn - 1)) * (2f * MathF.PI / AngleTurn);
 }
 
-// CHRMOTION_STATE_* (game/actors/character.h). smPLAYDATA far entries carry these codes in angle[3]; Etervale uses them
+// Original motion state codes. Coarse play-data entries carry these codes in angle[3]; Etervale uses them
 // in every play buffer because the server has no per-model motion table index.
 public static class MotionStateCode
 {
@@ -39,7 +39,7 @@ public static class MotionStateCode
     public const short Skill = 0x150;
 }
 
-// smPLAYBUFF: {x, y, z, frame, short angle[4], short wStickItems[4], dwTargetSerial} = 36 bytes.
+// Play buffer: {x, y, z, frame, short angle[4], short wStickItems[4], dwTargetSerial} = 36 bytes.
 public readonly record struct PlayBuffer(int X, int Y, int Z, uint Frame, short AngleY, short Action, uint TargetSerial)
 {
     public const int Size = 36;
@@ -76,7 +76,7 @@ public readonly record struct PlayBuffer(int X, int Y, int Z, uint Frame, short 
     }
 }
 
-// smTRANS_PLAYDATA: 44-byte header, PlayBuffCnt x smTRANS_PLAYBUFF {int BuffCount, smPLAYBUFF}, then bEventInfo[3] effects.
+// Play data packet: 44-byte header, PlayBuffCnt x {int BuffCount, play buffer}, then bEventInfo[3] effects.
 // StartPosi is a ring index in the original; Etervale stores the low 32 bits of the attack request sequence there.
 public sealed record TransPlayData(
     uint ObjectSerial,
@@ -101,7 +101,7 @@ public sealed record TransPlayData(
     {
         if (Buffers.Count is < 1 or > MaxBuffers)
         {
-            throw new ArgumentException("smTRANS_PLAYDATA needs between 1 and 31 play buffers.");
+            throw new ArgumentException("Play data packet needs between 1 and 31 play buffers.");
         }
 
         var writer = new PacketWriter(destination, PristonOpcodes.TransPlayData);
@@ -135,7 +135,7 @@ public sealed record TransPlayData(
         var count = reader.Int32();
         if (count is < 1 or > MaxBuffers || reader.Remaining < count * EntrySize)
         {
-            throw new InvalidDataException("smTRANS_PLAYDATA has an invalid play-buffer count.");
+            throw new InvalidDataException("Play data packet has an invalid play-buffer count.");
         }
 
         var startPosi = reader.Int32();
@@ -159,7 +159,7 @@ public sealed record TransPlayData(
     }
 }
 
-// smPLAYDATA (PLAYDATA1): {size, code, dwObjectSerial, x, y, z, short angle[4], frame, dwAutoCharCode} = 40 bytes.
+// Coarse play data (PLAYDATA1): {size, code, dwObjectSerial, x, y, z, short angle[4], frame, dwAutoCharCode} = 40 bytes.
 public readonly record struct PlayDataCoarse(uint ObjectSerial, int X, int Y, int Z, short AngleY, short Action, uint AutoCharCode)
 {
     public const int Size = 40;
@@ -196,7 +196,7 @@ public readonly record struct PlayDataCoarse(uint ObjectSerial, int X, int Y, in
     }
 }
 
-// smPLAYDATA_GROUP: {size, code, PlayDataCnt, dwSendCode} followed by self-sized entries.
+// Play data group: {size, code, PlayDataCnt, dwSendCode} followed by self-sized entries.
 public ref struct PlayDataGroupWriter
 {
     public const int HeaderSize = 16;

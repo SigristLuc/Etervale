@@ -21,13 +21,14 @@ internal sealed class PristonMaterialRuntime
         bool blinking,
         float windAmplitudeX,
         float windAmplitudeZ,
-        bool reflex,
-        Texture2D secondTexture,
-        uint secondTextureFormState)
+        PristonStageOperation baseOperation = PristonStageOperation.Modulate,
+        PristonMaterialLayer[] layers = null,
+        PristonMaterialDescription description = null)
     {
         Textures = textures;
-        SecondTexture = secondTexture;
-        SecondTextureFormState = secondTextureFormState;
+        Description = description ?? PristonMaterialDescription.Default;
+        BaseOperation = baseOperation;
+        Layers = layers ?? [];
         TwoSided = twoSided;
         Transparent = transparent;
         AlphaTest = alphaTest;
@@ -43,7 +44,6 @@ internal sealed class PristonMaterialRuntime
         Blinking = blinking;
         WindAmplitudeX = windAmplitudeX;
         WindAmplitudeZ = windAmplitudeZ;
-        Reflex = reflex;
         var textureHash = textures.Length == 0 ? 0 : textures[0].GetHashCode() & 0xFFFF;
         SortKey = ((ulong)(alphaTest ? 1u : 0u) << 48)
             | ((ulong)(transparent ? 1u : 0u) << 47)
@@ -56,10 +56,17 @@ internal sealed class PristonMaterialRuntime
     public bool TwoSided { get; }
     public bool Transparent { get; }
 
-    // MULTIMIX combines slot 1 additively over slot 0.
-    public Texture2D SecondTexture { get; }
-    public uint SecondTextureFormState { get; }
-    public bool HasSecondTexture => SecondTexture != null;
+    // The material model's inputs (PristonMaterialAdapter).
+    public PristonMaterialDescription Description { get; }
+
+    // The second texture layer the material model uses, if any.
+    public PristonMaterialLayer Layer => Layers.Length > 0 ? Layers[0] : null;
+
+    // How the base texture combined with the vertex light, and the texture layers above it, as authored.
+    public PristonStageOperation BaseOperation { get; }
+    public PristonMaterialLayer[] Layers { get; }
+    public int StageCount => 1 + Layers.Length;
+    public bool HasLayers => Layers.Length > 0;
 
     public bool Invisible { get; }
 
@@ -71,7 +78,27 @@ internal sealed class PristonMaterialRuntime
     public float WindAmplitudeZ { get; }
     public bool Wind => WindAmplitudeX != 0f || WindAmplitudeZ != 0f;
 
-    public bool Reflex { get; }
+    // The texture form state that replaces a layer's UVs with a camera-space reflection sphere map.
+    internal const uint ReflexFormState = 5;
+
+    public bool StageReflex(int stage) =>
+        stage == 0 ? TextureFormState == ReflexFormState : Layers[stage - 1].FormState == ReflexFormState;
+
+    public bool Reflex
+    {
+        get
+        {
+            for (var stage = 0; stage < StageCount; stage++)
+            {
+                if (StageReflex(stage))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
 
     public bool AlphaTest { get; }
     public uint BlendType { get; }
@@ -79,14 +106,18 @@ internal sealed class PristonMaterialRuntime
     public float AlphaCutoff => 60f / 255f;
 
     // Global transparency at/below which a surface counts as visually solid (writes depth /
-    // casts a shadow). Mirrors the reference depth-write threshold (RenderMesh.cpp:285).
-    private const float SolidTransparencyThreshold = 0.2f;
+    // casts a shadow), as the original game decided depth writes.
+    internal const float SolidTransparencyThreshold = 0.2f;
 
-    // BLEND_ALPHA(1) is not a late blend in the reference.
+    // The alpha blend (1) is not a late blend in the original game.
     private bool IsLateBlend => BlendType is 2 or 3 or 4 or 5 or 6;
 
     public bool CastsShadow =>
         !IsLateBlend && (AlphaTest || Transparency <= SolidTransparencyThreshold);
+
+    // Only the global transparency decides depth writes, so additive
+    // and coloured blends with zero transparency still occlude what is drawn after them, as in the original.
+    public bool WritesDepth => Transparency <= SolidTransparencyThreshold;
 
     public bool ReceivesShadow => true;
     public bool SelfIllum { get; }
@@ -101,7 +132,7 @@ internal sealed class PristonMaterialRuntime
             if (AlphaTest && Transparency <= SolidTransparencyThreshold)
                 return BlendState.Opaque;
 
-            // These values follow the reference SMMAT_BLEND table; several modes are not alpha blends.
+            // These follow the legacy blend table (PristonBlendType); several modes are not alpha blends.
             return BlendType switch
             {
                 1 => BlendState.NonPremultiplied, // ALPHA:     SrcAlpha, InvSrcAlpha

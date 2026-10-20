@@ -6,6 +6,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Client.Net.WorldCatalog;
+using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.IO;
 using PristonTale.Engine3D.Rendering;
@@ -34,7 +35,8 @@ internal sealed class RenderBenchmarkProbe : Game
     private sealed record Distribution(double Mean, double P95, double P99, double Maximum);
     private sealed record RunResult(int Run, int Frames, double Seconds, double Fps, Distribution IntervalMs,
         Distribution UpdateMs, Distribution DrawMs, Distribution PresentMs, double AllocatedBytesPerFrame,
-        int SunShadowUpdates, int LampShadowMapUpdates, long ShadowDrawCalls, PristonRenderStats LastFrame);
+        int SunShadowUpdates, int LampShadowMapUpdates, long ShadowDrawCalls, PristonRenderStats LastFrame,
+        Dictionary<string, double> CpuSectionsMs, Dictionary<string, double> GpuSectionsMs, int GpuResultsMissed);
     private sealed record PreparedActor(PristonActor Actor, Matrix World, PristonActorMotion Motion);
     private sealed record PreparedScene(PristonStage Stage, PristonModel[] Models, Vector3 Focus, PreparedActor[] Actors);
 
@@ -53,6 +55,7 @@ internal sealed class RenderBenchmarkProbe : Game
     private readonly float _cameraPitch;
     private readonly float _focusX;
     private readonly float _focusZ;
+    private readonly float _cameraYaw;
     private readonly PresentationSettings _settings;
     private readonly string _settingsPath;
     private PristonRenderer _renderer = null!;
@@ -77,6 +80,7 @@ internal sealed class RenderBenchmarkProbe : Game
     private bool _measuring;
     private bool _capturePending;
     private string _gpu = string.Empty;
+    private bool _gpuTimers;
     private Vector3 _focus;
     private long _cameraStart;
     private bool _actorsPublished;
@@ -91,7 +95,8 @@ internal sealed class RenderBenchmarkProbe : Game
         float cameraDistance = 0f,
         float cameraPitch = float.NaN,
         float focusX = float.NaN,
-        float focusZ = float.NaN)
+        float focusZ = float.NaN,
+        float cameraYaw = 0f)
     {
         if (duration is < 1 or > 600 || repeat is < 1 or > 10 || hour is < 0 or > 23)
         {
@@ -133,6 +138,12 @@ internal sealed class RenderBenchmarkProbe : Game
 
         _focusX = float.IsNaN(focusX) ? _field.Center.X : focusX;
         _focusZ = float.IsNaN(focusZ) ? _field.Center.Z : focusZ;
+        if (!float.IsFinite(cameraYaw))
+        {
+            throw new ArgumentOutOfRangeException(nameof(cameraYaw), "Camera yaw must be finite radians.");
+        }
+
+        _cameraYaw = cameraYaw;
         _settingsPath = settingsPath;
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         var settings = JsonSerializer.Deserialize<ClientSettings>(File.ReadAllText(settingsPath), options)
@@ -158,20 +169,21 @@ internal sealed class RenderBenchmarkProbe : Game
         };
         graphics.PreparingDeviceSettings += (_, args) =>
             args.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = settings.MultiSampleCount;
-        Content.RootDirectory = Path.GetFullPath(content);
+        Content = new AbsoluteContentManager(Services, content);
         IsFixedTimeStep = false;
         InactiveSleepTime = TimeSpan.Zero;
     }
 
     protected override void LoadContent()
     {
-        _gpu = GraphicsDevice.Adapter.Description;
+        _gpu = GraphicsDevice.Adapter.DeviceName;
         _sky = PristonSkyLibrary.LoadBootstrap(GraphicsDevice, _assetRoot);
         _renderer = new PristonRenderer(GraphicsDevice, Content, presentation: _settings)
         {
             Sky = _sky,
             DayLengthSeconds = 0
         };
+        _gpuTimers = _renderer.Profiler.EnableGpuTimers(GraphicsDevice);
         _renderer.SetTimeOfDay(_hour);
         _renderer.SkyProfiles = new PristonSkyProfiles(PristonSkyProfiles.Resolve(_field.Backdrop.Day),
             PristonSkyProfiles.Resolve(_field.Backdrop.Glow), PristonSkyProfiles.Resolve(_field.Backdrop.Night));
@@ -253,7 +265,7 @@ internal sealed class RenderBenchmarkProbe : Game
         _updateStart = Stopwatch.GetTimestamp();
         _updateBytes = GC.GetAllocatedBytesForCurrentThread();
         var cameraElapsed = Stopwatch.GetElapsedTime(_cameraStart).TotalSeconds;
-        var angle = _orbit ? (float)(cameraElapsed * Math.Tau / 30) : 0f;
+        var angle = _cameraYaw + (_orbit ? (float)(cameraElapsed * Math.Tau / 30) : 0f);
         var radius = _cameraDistance * MathF.Cos(_cameraPitch);
         var elevation = _cameraDistance * MathF.Sin(_cameraPitch);
         var offset = new Vector3(MathF.Sin(angle) * radius, elevation, -MathF.Cos(angle) * radius);
@@ -314,20 +326,15 @@ internal sealed class RenderBenchmarkProbe : Game
 
     protected override void Draw(GameTime gameTime)
     {
-        GraphicsDevice.Clear(_renderer.SkyColor);
         if (_stage is null || _updateStart == 0)
         {
+            GraphicsDevice.Clear(_renderer.SkyColor);
             return;
         }
 
-        var started = Stopwatch.GetTimestamp();
-        var allocated = GC.GetAllocatedBytesForCurrentThread();
-        _renderer.Draw(_camera);
-        _spriteBatch.Begin();
-        _spriteBatch.End();
-        _hud.Draw();
-        _drawMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-        _frameBytes += GC.GetAllocatedBytesForCurrentThread() - allocated;
+        // No clear before the scene: the composed scene covers the back buffer, and the GPU profiler can reset its
+        // timestamps only while no render pass is open.
+
         if (_capturePending && Stopwatch.GetElapsedTime(_runStart).TotalSeconds >= 1)
         {
             CaptureScene();
@@ -335,6 +342,45 @@ internal sealed class RenderBenchmarkProbe : Game
             _runStart = Stopwatch.GetTimestamp();
             _cameraStart = _runStart;
         }
+
+        var started = Stopwatch.GetTimestamp();
+        var allocated = GC.GetAllocatedBytesForCurrentThread();
+        DrawFrame();
+        _drawMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        _frameBytes += GC.GetAllocatedBytesForCurrentThread() - allocated;
+    }
+
+    private void DrawFrame()
+    {
+        _renderer.Draw(_camera);
+        _renderer.ComposeScene();
+        _renderer.Profiler.Begin(RenderSection.Hud);
+        _hud.Draw();
+        _renderer.Profiler.End(RenderSection.Hud);
+    }
+
+    // The frame, scene and HUD, drawn once more into an 8-bit target and read back (reading the presented back buffer
+    // is not reliable on the Vulkan runtime); the timed frames are unaffected.
+    private void CaptureScene()
+    {
+        var parameters = GraphicsDevice.PresentationParameters;
+        using var target = new RenderTarget2D(GraphicsDevice, parameters.BackBufferWidth, parameters.BackBufferHeight, false,
+            SurfaceFormat.Color, DepthFormat.Depth24Stencil8);
+        GraphicsDevice.SetRenderTarget(target);
+        DrawFrame();
+        GraphicsDevice.SetRenderTarget(null);
+        var pixels = new Color[target.Width * target.Height];
+        target.GetData(pixels);
+        using var opaque = new Texture2D(GraphicsDevice, target.Width, target.Height);
+        for (var index = 0; index < pixels.Length; index++)
+        {
+            pixels[index].A = 255;
+        }
+
+        opaque.SetData(pixels);
+        Directory.CreateDirectory(Path.GetDirectoryName(_output)!);
+        using var stream = File.Create(_output + ".png");
+        opaque.SaveAsPng(stream, opaque.Width, opaque.Height);
     }
 
     protected override void EndDraw()
@@ -356,6 +402,7 @@ internal sealed class RenderBenchmarkProbe : Game
                 _runStart = now;
                 _lastFrame = now;
                 _measuring = true;
+                _renderer.Profiler.ResetAverages();
             }
 
             return;
@@ -401,9 +448,11 @@ internal sealed class RenderBenchmarkProbe : Game
         var result = new RunResult(_results.Count + 1, _count, elapsed, _count / elapsed,
             Summarize(static frame => frame.IntervalMs), Summarize(static frame => frame.UpdateMs),
             Summarize(static frame => frame.DrawMs), Summarize(static frame => frame.PresentMs), (double)bytes / _count,
-            sunShadowUpdates, lampShadowMapUpdates, shadowDrawCalls, _renderer.LastFrameStats);
+            sunShadowUpdates, lampShadowMapUpdates, shadowDrawCalls, _renderer.LastFrameStats,
+            _renderer.Profiler.CpuMeans(), _renderer.Profiler.GpuMeans(), _renderer.Profiler.GpuResultsMissed);
         _results.Add(result);
         Console.WriteLine($"RENDER {_field.Id} run={result.Run} FPS={result.Fps:F2}; frame p95/p99={result.IntervalMs.P95:F2}/{result.IntervalMs.P99:F2}ms; GPU={_gpu}");
+        Console.WriteLine($"RENDER gpu frame={_renderer.Profiler.GpuMean(RenderSection.Frame):F3}ms cpu frame={_renderer.Profiler.CpuMean(RenderSection.Frame):F3}ms");
         _count = 0;
         _measuring = false;
         _runStart = Stopwatch.GetTimestamp();
@@ -429,18 +478,6 @@ internal sealed class RenderBenchmarkProbe : Game
             _scratch[(int)Math.Ceiling(_count * 0.99) - 1], _scratch[_count - 1]);
     }
 
-    private void CaptureScene()
-    {
-        var parameters = GraphicsDevice.PresentationParameters;
-        var pixels = new Color[parameters.BackBufferWidth * parameters.BackBufferHeight];
-        GraphicsDevice.GetBackBufferData(pixels);
-        using var texture = new Texture2D(GraphicsDevice, parameters.BackBufferWidth, parameters.BackBufferHeight);
-        texture.SetData(pixels);
-        Directory.CreateDirectory(Path.GetDirectoryName(_output)!);
-        using var stream = File.Create(_output + ".png");
-        texture.SaveAsPng(stream, texture.Width, texture.Height);
-    }
-
     public void WriteReport()
     {
         Assert.True(_results.Count == _repeat, "benchmark did not complete all runs");
@@ -453,11 +490,12 @@ internal sealed class RenderBenchmarkProbe : Game
             CameraPitch = _cameraPitch,
             FocusX = _focusX,
             FocusZ = _focusZ,
+            CameraYaw = _cameraYaw,
             Entities = LogicalEntityCount,
             RenderActors = _renderActorCount,
             Hud = true,
             AnimatedMotions = new[] { "Stand", "Walk", "Run", "Attack" },
-            Backend = "MonoGame DesktopGL",
+            Backend = "MonoGame Native (Vulkan), HDR forward",
             EffectContentRoot = Content.RootDirectory,
             Gpu = _gpu,
             CpuArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
@@ -467,9 +505,11 @@ internal sealed class RenderBenchmarkProbe : Game
             Settings = _settings.Requested,
             EffectiveWidth = GraphicsDevice.PresentationParameters.BackBufferWidth,
             EffectiveHeight = GraphicsDevice.PresentationParameters.BackBufferHeight,
-            EffectiveMultiSampleCount = GraphicsDevice.PresentationParameters.MultiSampleCount,
+            EffectiveMultiSampleCount = _renderer.EffectiveMultiSampleCount,
             WarmupSecondsPerRun = 5,
-            GpuTimestamps = false,
+            GpuTimestamps = _gpuTimers,
+            StreamingUploadSteps = _renderer.LastStreamingStats.ToDictionary(),
+            SkyCaptureRefreshes = _renderer.SkyCaptureRefreshes,
             Runs = _results
         };
         File.WriteAllText(_output, JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));

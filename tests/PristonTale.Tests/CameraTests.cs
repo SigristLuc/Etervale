@@ -15,6 +15,8 @@ internal static class CameraTests
         yield return ("camera movement stops at physical obstacles across resident fields", ResidentCollisionAsync);
         yield return ("camera respects ground clearance at low pitch and initial placement", ClearanceAsync);
         yield return ("high camera ignores portal and pole occlusion", OcclusionAsync);
+        yield return ("camera left behind a wall the target crossed re-anchors on its arm", StrandedAsync);
+        yield return ("wide windows cap the horizontal field of view instead of stretching the edges", FieldOfViewAsync);
         yield return ("camera lateral edge orbit is timed and respects viewport and focus", EdgeOrbitAsync);
         yield return ("camera follow is time based and teleport reanchoring preserves framing", FollowAsync);
         yield return ("camera uses middle drag and respects UI pointer ownership", InputAsync);
@@ -88,6 +90,42 @@ internal static class CameraTests
             Assert.True(float.IsFinite(camera.View.Determinant()), "camera view became invalid");
         }
 
+        return Task.CompletedTask;
+    }
+
+    private static Task StrandedAsync()
+    {
+        var query = new FieldCollisionQuery([Wall(-50)]);
+        var camera = CreateCamera();
+        camera.UpdateFollow(Vector3.Zero, 1f / 60, query);
+        Assert.Near(100, camera.Position.Z);
+        for (var frame = 1; frame <= 60; frame++)
+        {
+            camera.UpdateFollow(new Vector3(0, 0, -5f * frame), 1f / 60, query);
+        }
+
+        for (var frame = 0; frame < 60; frame++)
+        {
+            camera.UpdateFollow(new Vector3(0, 0, -300), 1f / 60, query);
+        }
+
+        Assert.True(camera.Position.Z < -50, $"camera stayed behind the wall the target crossed (z={camera.Position.Z:F1})");
+        Assert.True(!query.TryTraceSegment(camera.Target, camera.Position, out _, out _), "camera lost sight of its focus");
+        Assert.Near(-200, camera.Position.Z, 1f);
+        return Task.CompletedTask;
+    }
+
+    private static Task FieldOfViewAsync()
+    {
+        var vertical = MathHelper.ToRadians(65f);
+        foreach (var aspect in new[] { 16f / 9f, 1920f / 1009f, 1912f / 922f, 21f / 9f })
+        {
+            var capped = PristonCamera.VerticalFieldOfView(vertical, 90f, aspect);
+            var horizontal = 2f * MathF.Atan(MathF.Tan(capped * 0.5f) * aspect);
+            Assert.Near(90f, MathHelper.ToDegrees(horizontal), 0.01f);
+        }
+
+        Assert.Near(vertical, PristonCamera.VerticalFieldOfView(vertical, 90f, 4f / 3f));
         return Task.CompletedTask;
     }
 

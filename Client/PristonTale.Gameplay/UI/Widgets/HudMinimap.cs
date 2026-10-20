@@ -13,7 +13,7 @@ public readonly record struct HudWorldView(
     float TimeOfDay,
     bool Running);
 
-// Minimap.cpp DrawFieldMap: 128x128 box at (656,426), right and bottom anchored, black 50% backdrop, the
+// Original field minimap: 128x128 box at (656,426), right and bottom anchored, black 50% backdrop, the
 // field\map\<id>.tga region around the player, NPC dots, the heading arrow, MapBox.tga and the field title.
 public sealed class HudMinimap
 {
@@ -91,7 +91,7 @@ public sealed class HudMinimap
         return dw > 0 && dh > 0;
     }
 
-    // Minimap.cpp DrawMapArrow: the arrow bitmap points down and is turned half a circle before applying the heading.
+    // The minimap arrow bitmap points down and is turned half a circle before applying the heading.
     public static float ArrowRotation(Vector3 forward) =>
         forward.X == 0 && forward.Z == 0 ? MathF.PI : MathF.Atan2(forward.X, -forward.Z) + MathF.PI;
 

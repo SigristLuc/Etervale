@@ -30,7 +30,9 @@ internal static class GroundPickupTransactionTests
             new MonsterCombatStats(4, 1, new MonsterRange(1, 1), 6, 30, 0, 0, 0, 1, ResistanceBlock.Zero), "")
         {
             ExpReward = 105,
-            Drops = new DropTable([DropEntry.GoldSlot(100, 8, 8)], 1, false)
+            Drops = new DropTable([DropEntry.GoldSlot(100, 8, 8)], 1, false),
+            // Monsters walk through players as in the original, so the fixture chases the player to stay in reach.
+            Ai = new MonsterAi(5, MonsterNature.Evil, 200, 1, 0, MonsterRange.Zero, MonsterActiveHour.Any)
         };
         var spawn = new FieldSpawnData([new SpawnPoint(24, 0, true)], [new SpawnTableEntry(1, 100)], [], [])
         {

@@ -44,7 +44,7 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
             var view = new GroundDropView(id, drop.ItemCode, gold ? "GG101" : definition!.CatalogKey,
                 gold ? "Gold" : definition!.Name, drop.Amount, gold, position) { Handle = handle };
             _handles.Add(handle, id);
-            // OnSever.cpp AddItem: gold, life and stamina potions expire in 90s; mana and other items in 180s.
+            // As on the original server, gold, life and stamina potions expire in 90s; mana and other items in 180s.
             bool shortLived = gold || definition?.CatalogKey.StartsWith("PL", StringComparison.OrdinalIgnoreCase) == true
                 || definition?.CatalogKey.StartsWith("PS", StringComparison.OrdinalIgnoreCase) == true;
             long lifetime = shortLived ? 90_000 : 180_000;
@@ -130,7 +130,7 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
         }
     }
 
-    // Clients address drops by the 32-bit handle carried in TRANS_ITEM.lpStgArea; stored item ids stay random GUIDs.
+    // Clients address drops by the 32-bit handle carried in the ground item record's lpStgArea; stored item ids stay random GUIDs.
     public Guid ResolveClientId(Guid clientId) =>
         GroundDropHandle.TryParse(clientId, out var handle) && _handles.TryGetValue(handle, out var id) ? id : clientId;
 

@@ -21,7 +21,7 @@ public enum HudToggle
     Map
 }
 
-// sinInterFace.cpp cINTERFACE::Draw: the bottom-anchored bar, gauges and buttons in 800x600 design coordinates.
+// The original interface bar: the bottom-anchored bar, gauges and buttons in 800x600 design coordinates.
 public sealed class HudBar
 {
     public const int LifeLength = 94;
@@ -37,7 +37,7 @@ public sealed class HudBar
     private string _stamina = "";
     private string _experience = "";
 
-    // ButtonRect: 25x27 cells; the System cell starts at 772, so the Quest cell ends there (first match wins in the source).
+    // Button cells: 25x27; the System cell starts at 772, so the Quest cell ends there (first match wins in the source).
     public static Rectangle MenuButton(HudMenuButton button)
     {
         var index = (int)button;
@@ -67,7 +67,7 @@ public sealed class HudBar
         return false;
     }
 
-    // sinInterFace.cpp CheckingState: DefaultLength * now / max, clamped to the image height.
+    // Gauge length = full length * now / max, clamped to the image height.
     public static int Length(int full, long value, long maximum)
     {
         if (maximum <= 0 || value <= 0)
@@ -85,7 +85,7 @@ public sealed class HudBar
         return new Rectangle(0, full - length, width, length);
     }
 
-    // sinInterFace.cpp GetWordTimeDisplay: day 4h..23h fills left to right, night 23h..4h fills from the right.
+    // Clock gauge: day 4h..23h fills left to right, night 23h..4h fills from the right.
     public static (bool Day, int Length) TimeGauge(float hour)
     {
         hour = float.IsFinite(hour) ? (hour % 24 + 24) % 24 : 0;
@@ -185,7 +185,7 @@ public sealed class HudBar
             return;
         }
 
-        // sinInterFace.cpp: the item-info centre tile stretched behind the text as a readability backdrop.
+        // As in the original, the item-info centre tile is stretched behind the text as a readability backdrop.
         var x = Math.Min(position.X, layout.Width - painter.Measure(text) - 6);
         painter.Stretch(HudArt.InfoBox[4], new Rectangle(x - 5, position.Y - 1 + layout.BottomOffset, painter.Measure(text) + 10, 15));
         painter.Text(text, x, position.Y + layout.BottomOffset);
@@ -193,7 +193,7 @@ public sealed class HudBar
 
     private static void DrawSocket(HudPainter painter, Rectangle socket, int y, bool basicAttack)
     {
-        // sinSkill.cpp draws lpSkillBoxBack (BOX4040.bmp) in an empty socket, but this asset version ships it as a solid
+        // The original draws the skill box background (BOX4040.bmp) in an empty socket, but this asset version ships it as a solid
         // RGB(30,30,30) block and moves the socket background into Menu-1, so an empty socket shows the frame instead.
         if (basicAttack)
         {

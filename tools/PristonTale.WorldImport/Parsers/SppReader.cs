@@ -4,8 +4,8 @@ namespace PristonTale.WorldImport.Parsers;
 
 /// <summary>
 /// Reads one field <c>.spp</c> binary spawn-point file into the supplied <see cref="ParsedField"/>.
-/// Layout [VERIFIED onserver.h:88-91, OnSever.cpp:7052-7064]: a fixed array of 200
-/// <c>STG_START_POINT{ int state; int x; int z; }</c> (12 bytes each, no header) = 2400 bytes total.
+/// Layout: a fixed array of 200 spawn-point records <c>{ int state; int x; int z; }</c> (12 bytes each, no
+/// header) = 2400 bytes total.
 /// Confirmed against real assets (every <c>*.spp</c> on disk is exactly 2400 bytes).
 ///
 /// A point is "live" when its <c>state != 0</c>; we import every record (state carried) and let the
@@ -14,7 +14,7 @@ namespace PristonTale.WorldImport.Parsers;
 public sealed class SppReader
 {
     private const int RecordSize = 12;   // 3 × int32
-    private const int RecordCount = 200; // STG_START_POINT_MAX
+    private const int RecordCount = 200;
 
     public void Read(string path, ParsedField field)
     {

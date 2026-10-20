@@ -12,7 +12,7 @@ using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Gameplay.UI;
 
-// The original in-game interface (sinMain.cpp sinDraw order): status, skill and inventory windows behind the
+// The original in-game interface in its draw order: status, skill and inventory windows behind the
 // bottom bar, then item overlays, help boxes and message boxes. Party, quest, chat input and the system menu
 // entries other than Settings have no server support and are drawn without behaviour.
 public sealed class GameplayHud : IDisposable
@@ -410,7 +410,7 @@ public sealed class GameplayHud : IDisposable
             _minimap.Draw(_painter, layout, World, Combat.NpcPositions);
         }
 
-        Combat.DrawTarget(_painter, layout, TargetId);
+        Combat.DrawTarget(_painter, layout, TargetId, _context.Presentation.Requested.ClassicTargetHealthBar);
         if (!_inventorySlide.Visible && !_statusSlide.Visible && !_skillSlide.Visible)
         {
             Combat.DrawLog(_painter, layout);

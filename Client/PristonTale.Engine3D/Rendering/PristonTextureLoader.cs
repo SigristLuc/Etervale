@@ -14,6 +14,8 @@ public sealed class PristonTextureLoader : IDisposable
     private readonly ConcurrentDictionary<string, Texture2D> _cache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, Lazy<Task<PreparedTexture>>> _preparing = new(StringComparer.OrdinalIgnoreCase);
     private static readonly SemaphoreSlim DecodeSlots = new(2, 2);
+    // The original alpha-test reference (AlphaTestDepth = 60).
+    internal const byte AlphaCutoffByte = 60;
     private Texture2D _white;
     private sealed record PreparedTexture(int Width, int Height, Color[][] Levels);
 
@@ -43,7 +45,10 @@ public sealed class PristonTextureLoader : IDisposable
         return Task.WhenAll(pending);
     }
 
-    internal IEnumerable<bool> UploadPreparedTextures(string directory, IEnumerable<PristonMaterial> materials)
+    // Yields the bytes uploaded by each texture so the caller can time and budget every step. Splitting a texture
+    // into mip or row slices was measured not to shorten the worst step: a single small DesktopGL SetData already
+    // stalls for several milliseconds, so the cost is per call rather than per byte.
+    internal IEnumerable<long> UploadPreparedTextures(string directory, IEnumerable<PristonMaterial> materials)
     {
         foreach (var request in TextureRequests(materials))
         {
@@ -53,9 +58,20 @@ public sealed class PristonTextureLoader : IDisposable
                 continue;
             }
 
-            LoadTexture(directory, request.Name, request.Opacity);
-            yield return false;
+            var texture = LoadTexture(directory, request.Name, request.Opacity);
+            yield return EstimateBytes(texture);
         }
+    }
+
+    internal static long EstimateBytes(Texture2D texture)
+    {
+        var bytes = 0L;
+        for (var level = 0; level < texture.LevelCount; level++)
+        {
+            bytes += Math.Max(1, texture.Width >> level) * (long)Math.Max(1, texture.Height >> level) * 4;
+        }
+
+        return bytes;
     }
 
     internal static IEnumerable<(string Name, string Opacity)> TextureRequests(IEnumerable<PristonMaterial> materials)
@@ -68,9 +84,13 @@ public sealed class PristonTextureLoader : IDisposable
                 continue;
             }
 
-            if (material.HasSecondTexture && seen.Add((material.SecondTextureName, material.SecondOpacityName)))
+            // Must request exactly what PristonMaterialRuntimeFactory.LoadLayers uploads.
+            for (var stage = 1; stage <= material.CombinedLayerCount; stage++)
             {
-                yield return (material.SecondTextureName, material.SecondOpacityName);
+                if (seen.Add((material.StageTextureName(stage), string.Empty)))
+                {
+                    yield return (material.StageTextureName(stage), string.Empty);
+                }
             }
 
             if (material.HasAnimatedTexture)
@@ -187,15 +207,7 @@ public sealed class PristonTextureLoader : IDisposable
             return White;
         }
 
-        var texture = new Texture2D(
-            _graphicsDevice,
-            prepared.Width,
-            prepared.Height,
-            prepared.Levels.Length > 1,
-            SurfaceFormat.Color)
-        {
-            Name = key
-        };
+        var texture = CreateTexture(key, prepared);
         try
         {
             for (var level = 0; level < prepared.Levels.Length; level++)
@@ -211,6 +223,19 @@ public sealed class PristonTextureLoader : IDisposable
         }
 
         return texture;
+    }
+
+    private Texture2D CreateTexture(string key, PreparedTexture prepared)
+    {
+        return new Texture2D(
+            _graphicsDevice,
+            prepared.Width,
+            prepared.Height,
+            prepared.Levels.Length > 1,
+            SurfaceFormat.Color)
+        {
+            Name = key
+        };
     }
 
     private PreparedTexture PrepareUi(string directory, string name, PristonUiColorKey colorKey)
@@ -267,46 +292,10 @@ public sealed class PristonTextureLoader : IDisposable
             }
         }
 
-        var mipmapped = Path.GetExtension(path).Equals(".tga", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrWhiteSpace(opacity);
-        var levels = new List<Color[]>
-        {
-            image.Pixels
-        };
-        var width = image.Width;
-        var height = image.Height;
-        var previous = image.Pixels;
-        while (mipmapped && (width > 1 || height > 1))
-        {
-            var nextWidth = Math.Max(1, width / 2);
-            var nextHeight = Math.Max(1, height / 2);
-            var next = new Color[nextWidth * nextHeight];
-            for (var y = 0; y < nextHeight; y++)
-            {
-                for (var x = 0; x < nextWidth; x++)
-                {
-                    var x0 = x * 2;
-                    var x1 = Math.Min(x0 + 1, width - 1);
-                    var y0 = y * 2;
-                    var y1 = Math.Min(y0 + 1, height - 1);
-                    var a = previous[y0 * width + x0];
-                    var b = previous[y0 * width + x1];
-                    var c = previous[y1 * width + x0];
-                    var d = previous[y1 * width + x1];
-                    next[y * nextWidth + x] = new Color(
-                        (byte)((a.R + b.R + c.R + d.R) / 4),
-                        (byte)((a.G + b.G + c.G + d.G) / 4),
-                        (byte)((a.B + b.B + c.B + d.B) / 4),
-                        (byte)((a.A + b.A + c.A + d.A) / 4));
-                }
-            }
-
-            levels.Add(next);
-            previous = next;
-            width = nextWidth;
-            height = nextHeight;
-        }
-
-        return new PreparedTexture(image.Width, image.Height, levels.ToArray());
+        // Cutout materials are exactly the TGA or opacity-mapped ones (PristonMaterialRuntimeFactory.UsesAlphaTest).
+        var cutout = Path.GetExtension(path).Equals(".tga", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrWhiteSpace(opacity);
+        var levels = PristonMipChain.Build(image.Pixels, image.Width, image.Height, cutout ? AlphaCutoffByte : (byte)0);
+        return new PreparedTexture(image.Width, image.Height, levels);
     }
 
     private static DecodedPristonImage ReadImage(string path)

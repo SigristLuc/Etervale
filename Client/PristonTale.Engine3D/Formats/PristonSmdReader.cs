@@ -7,8 +7,8 @@ namespace PristonTale.Engine3D.Formats;
 
 public sealed class PristonSmdReader
 {
-    private const int DFileHeaderSize = 556;
-    private const int DFileObjInfoSize = 40;
+    private const int FileHeaderSize = 556;
+    private const int ObjectInfoSize = 40;
     private const int MaterialGroupSize = 88;
     private const int MaterialSize = 320;
     private const int Stage3DSize = 262260;
@@ -82,9 +82,9 @@ public sealed class PristonSmdReader
             throw new InvalidDataException($"{path} carries a stage signature but its offsets and object records form a model SMD. Load it through ReadModel.");
         }
 
-        cursor.Position = DFileHeaderSize;
+        cursor.Position = FileHeaderSize;
         var stage = ReadStageHeader(cursor);
-        AssertRecordSize(cursor, DFileHeaderSize, Stage3DSize, "smSTAGE3D");
+        AssertRecordSize(cursor, FileHeaderSize, Stage3DSize, "stage header record");
 
         var materialGroup = header.MaterialCount > 0
             ? ReadMaterialGroup(cursor, header.MaterialCount)
@@ -105,7 +105,7 @@ public sealed class PristonSmdReader
         var textureLinks = new List<PristonTexLink>(stage.TextureLinkCount);
         for (var index = 0; index < stage.TextureLinkCount; index++)
         {
-            textureLinks.Add(ReadTexLink(cursor));
+            textureLinks.Add(ReadTexLink(cursor, stage.TextureLinkPointer32, stage.TextureLinkCount));
         }
 
         var lights = new List<PristonStageLight>(stage.LightCount);
@@ -150,7 +150,7 @@ public sealed class PristonSmdReader
 
         ValidateModelHeader(data, header, path);
         var infos = new List<ObjectInfo>(header.ObjectCount);
-        cursor.Position = DFileHeaderSize;
+        cursor.Position = FileHeaderSize;
         for (var index = 0; index < header.ObjectCount; index++)
         {
             infos.Add(ReadObjectInfo(cursor));
@@ -197,7 +197,7 @@ public sealed class PristonSmdReader
         };
     }
 
-    private static DFileHeader ReadHeader(BinaryCursor cursor)
+    private static SmdFileHeader ReadHeader(BinaryCursor cursor)
     {
         var headerBytes = cursor.ReadSpan(24);
         var kind = ClassifyHeader(headerBytes);
@@ -212,8 +212,8 @@ public sealed class PristonSmdReader
             frameRanges[index] = new PristonFrameRange(cursor.Int32(), cursor.Int32(), cursor.Int32(), cursor.Int32());
         }
 
-        AssertRecordSize(cursor, 0, DFileHeaderSize, "smDFILE_HEADER");
-        return new DFileHeader(kind, objectCount, materialCount, materialOffset, firstObjectOffset, frameRangeCount, frameRanges);
+        AssertRecordSize(cursor, 0, FileHeaderSize, "file header record");
+        return new SmdFileHeader(kind, objectCount, materialCount, materialOffset, firstObjectOffset, frameRangeCount, frameRanges);
     }
 
     private static PristonSmdHeaderKind ClassifyHeader(ReadOnlySpan<byte> headerBytes)
@@ -263,7 +263,7 @@ public sealed class PristonSmdReader
         return kind is PristonSmdHeaderKind.StageVersion72 or PristonSmdHeaderKind.StageVersion73;
     }
 
-    private static PristonSmdHeaderMetadata ToPublicHeader(DFileHeader header, PristonSmdHeaderKind? kind = null)
+    private static PristonSmdHeaderMetadata ToPublicHeader(SmdFileHeader header, PristonSmdHeaderKind? kind = null)
     {
         return new PristonSmdHeaderMetadata(
             kind ?? header.Kind,
@@ -274,7 +274,7 @@ public sealed class PristonSmdReader
             header.FrameRangeCount);
     }
 
-    private static void ValidateModelHeader(byte[] data, DFileHeader header, string path)
+    private static void ValidateModelHeader(byte[] data, SmdFileHeader header, string path)
     {
         ValidateCount(header.ObjectCount, $"{path} model objects");
         ValidateCount(header.MaterialCount, $"{path} model materials");
@@ -283,7 +283,7 @@ public sealed class PristonSmdReader
             throw new InvalidDataException($"{path} has invalid TmFrameCounter {header.FrameRangeCount}.");
         }
 
-        // smPAT3D::LoadFile never checks smOBJ3D::Head; some costume exporters overwrote it with
+        // The original model loader never checks the object record's Head field; some costume exporters overwrote it with
         // material string bytes, so a model signature only needs a consistent object range.
         if (!LooksLikeModelLayout(data, header, requireObjectHead: !IsModelHeader(header.Kind)))
         {
@@ -291,7 +291,7 @@ public sealed class PristonSmdReader
         }
     }
 
-    private static bool LooksLikeModelLayout(byte[] data, DFileHeader header, bool requireObjectHead)
+    private static bool LooksLikeModelLayout(byte[] data, SmdFileHeader header, bool requireObjectHead)
     {
         try
         {
@@ -300,7 +300,7 @@ public sealed class PristonSmdReader
                 return false;
             }
 
-            var infoTableEnd = checked(DFileHeaderSize + header.ObjectCount * DFileObjInfoSize);
+            var infoTableEnd = checked(FileHeaderSize + header.ObjectCount * ObjectInfoSize);
             if (header.MaterialOffset != infoTableEnd || header.FirstObjectOffset < header.MaterialOffset || header.FirstObjectOffset > data.Length)
             {
                 return false;
@@ -313,7 +313,7 @@ public sealed class PristonSmdReader
 
             var cursor = new BinaryCursor(data)
             {
-                Position = DFileHeaderSize
+                Position = FileHeaderSize
             };
             var previousEnd = header.FirstObjectOffset;
             for (var index = 0; index < header.ObjectCount; index++)
@@ -342,7 +342,7 @@ public sealed class PristonSmdReader
         }
     }
 
-    private static IReadOnlyList<PristonFrameRange> EffectiveFrameRanges(DFileHeader header)
+    private static IReadOnlyList<PristonFrameRange> EffectiveFrameRanges(SmdFileHeader header)
     {
         if (header.FrameRangeCount == 0)
         {
@@ -358,7 +358,7 @@ public sealed class PristonSmdReader
     {
         var start = cursor.Position;
         var info = new ObjectInfo(cursor.FixedString(32), cursor.Int32(), cursor.Int32());
-        AssertRecordSize(cursor, start, DFileObjInfoSize, "smDFILE_OBJINFO");
+        AssertRecordSize(cursor, start, ObjectInfoSize, "object info record");
         return info;
     }
 
@@ -400,7 +400,7 @@ public sealed class PristonSmdReader
         var mapTop = cursor.Int32();
         var mapRight = cursor.Int32();
         var mapBottom = cursor.Int32();
-        AssertRecordSize(cursor, start, Stage3DSize, "smSTAGE3D");
+        AssertRecordSize(cursor, start, Stage3DSize, "stage header record");
 
         ValidateCount(vertexCount, "stage vertices");
         ValidateCount(faceCount, "stage faces");
@@ -449,7 +449,7 @@ public sealed class PristonSmdReader
         var maximumMaterialCount = cursor.Int32();
         var lastSearchMaterial = cursor.Int32();
         var lastSearchName = cursor.FixedString(64);
-        AssertRecordSize(cursor, start, MaterialGroupSize, "smMATERIAL_GROUP");
+        AssertRecordSize(cursor, start, MaterialGroupSize, "material group record");
 
         if (materialCount > 10_000)
         {
@@ -464,7 +464,7 @@ public sealed class PristonSmdReader
 
         if (headerMaterialCount != materialCount)
         {
-            throw new InvalidDataException($"SMD header declares {headerMaterialCount} materials, but its smMATERIAL_GROUP contains {materialCount}.");
+            throw new InvalidDataException($"SMD header declares {headerMaterialCount} materials, but its material group record contains {materialCount}.");
         }
 
         var metadata = new PristonMaterialGroupMetadata(
@@ -507,7 +507,7 @@ public sealed class PristonSmdReader
         var frameMask = cursor.UInt32();
         var shiftFrameSpeed = cursor.UInt32();
         var animationFrame = cursor.UInt32();
-        AssertRecordSize(cursor, start, MaterialSize, "smMATERIAL");
+        AssertRecordSize(cursor, start, MaterialSize, "material record");
 
         if (textureCounter > texturePointers32.Length)
         {
@@ -653,7 +653,7 @@ public sealed class PristonSmdReader
         var green = cursor.Int16();
         var red = cursor.Int16();
         var alpha = cursor.Int16();
-        AssertRecordSize(cursor, start, StageVertexSize, "smSTAGE_VERTEX");
+        AssertRecordSize(cursor, start, StageVertexSize, "stage vertex record");
         return new PristonStageVertex(ToMonoGameStagePosition(x, y, z), PristonBinaryUtil.StageColor(blue, green, red, alpha))
         {
             Sum = sum,
@@ -673,7 +673,7 @@ public sealed class PristonSmdReader
         var green = cursor.Int16();
         var blue = cursor.Int16();
         var alignmentPadding = cursor.Int16();
-        AssertRecordSize(cursor, start, StageLightSize, "smLIGHT3D");
+        AssertRecordSize(cursor, start, StageLightSize, "stage light record");
         var color = new Vector3(
             Math.Clamp(red, (short)0, (short)255) / 255f,
             Math.Clamp(green, (short)0, (short)255) / 255f,
@@ -695,7 +695,7 @@ public sealed class PristonSmdReader
         var material = cursor.UInt16();
         var textureLinkPointer32 = cursor.UInt32();
         var normal = new Short4(cursor.Int16(), cursor.Int16(), cursor.Int16(), cursor.Int16());
-        AssertRecordSize(cursor, start, StageFaceSize, "smSTAGE_FACE");
+        AssertRecordSize(cursor, start, StageFaceSize, "stage face record");
         return new PristonStageFace(a, b, c, material, TexLinkIndex(textureLinkPointer32, textureLinkBase))
         {
             Sum = sum,
@@ -705,7 +705,7 @@ public sealed class PristonSmdReader
         };
     }
 
-    private static PristonTexLink ReadTexLink(BinaryCursor cursor)
+    private static PristonTexLink ReadTexLink(BinaryCursor cursor, uint textureLinkBase, int textureLinkCount)
     {
         var start = cursor.Position;
         var u0 = cursor.Single();
@@ -716,10 +716,12 @@ public sealed class PristonSmdReader
         var v2 = cursor.Single();
         var texturePointer32 = cursor.UInt32();
         var nextPointer32 = cursor.UInt32();
-        AssertRecordSize(cursor, start, TexLinkSize, "smTEXLINK");
+        AssertRecordSize(cursor, start, TexLinkSize, "texture link record");
+        var nextIndex = TexLinkIndex(nextPointer32, textureLinkBase);
         return new PristonTexLink(new Vector2(u0, v0), new Vector2(u1, v1), new Vector2(u2, v2), nextPointer32)
         {
-            TexturePointer32 = texturePointer32
+            TexturePointer32 = texturePointer32,
+            NextIndex = nextIndex < textureLinkCount ? nextIndex : -1
         };
     }
 
@@ -778,7 +780,7 @@ public sealed class PristonSmdReader
         var allPositionSegments = ReadMotionSegments(cursor);
         var allScaleSegments = ReadMotionSegments(cursor);
         var frameSegmentCount = cursor.Int32();
-        AssertRecordSize(cursor, objectStart, Obj3DSize, "smOBJ3D");
+        AssertRecordSize(cursor, objectStart, Obj3DSize, "object record");
 
         ValidateCount(vertexCount, $"{path}:{nodeName} vertices");
         ValidateCount(faceCount, $"{path}:{nodeName} faces");
@@ -809,7 +811,7 @@ public sealed class PristonSmdReader
         var textureLinks = new List<PristonTexLink>(textureLinkCount);
         for (var index = 0; index < textureLinkCount; index++)
         {
-            textureLinks.Add(ReadTexLink(cursor));
+            textureLinks.Add(ReadTexLink(cursor, textureLinkPointer32, textureLinkCount));
         }
 
         var rotationKeys = new List<PristonRotationKey>(rotationKeyCount);
@@ -854,7 +856,7 @@ public sealed class PristonSmdReader
         var expectedObjectEnd = checked(info.Offset + info.Length);
         if (cursor.Position != expectedObjectEnd)
         {
-            throw new InvalidDataException($"{path}:{nodeName} consumed {cursor.Position - objectStart} bytes, but smDFILE_OBJINFO.Length declares {info.Length}.");
+            throw new InvalidDataException($"{path}:{nodeName} consumed {cursor.Position - objectStart} bytes, but the object info record Length declares {info.Length}.");
         }
 
         var basePosition = ToMonoGameModelPosition(
@@ -928,7 +930,7 @@ public sealed class PristonSmdReader
             normal.Normalize();
         }
 
-        AssertRecordSize(cursor, start, ModelVertexSize, "smVERTEX");
+        AssertRecordSize(cursor, start, ModelVertexSize, "model vertex record");
         return new PristonModelVertex(position, normal);
     }
 
@@ -943,7 +945,7 @@ public sealed class PristonSmdReader
         var uvB = new Vector2(cursor.Single(), cursor.Single());
         var uvC = new Vector2(cursor.Single(), cursor.Single());
         var textureLinkPointer32 = cursor.UInt32();
-        AssertRecordSize(cursor, start, ModelFaceSize, "smFACE");
+        AssertRecordSize(cursor, start, ModelFaceSize, "model face record");
         return new PristonModelFace(a, b, c, material, TexLinkIndex(textureLinkPointer32, textureLinkBase))
         {
             AuthoredUvA = uvA,
@@ -999,7 +1001,7 @@ public sealed class PristonSmdReader
         }
 
         throw new InvalidDataException(
-            $"{path} has an invalid stage-area payload at offset {dataOffset}; neither the DWORD EU layout nor the WORD PTClassic layout validates every occupied cell.");
+            $"{path} has an invalid stage-area payload at offset {dataOffset}; neither the DWORD EU layout nor the WORD classic layout validates every occupied cell.");
     }
 
     private static bool TryReadStageAreaIndex(
@@ -1240,7 +1242,7 @@ public sealed class PristonSmdReader
         }
     }
 
-    private sealed record DFileHeader(
+    private sealed record SmdFileHeader(
         PristonSmdHeaderKind Kind,
         int ObjectCount,
         int MaterialCount,

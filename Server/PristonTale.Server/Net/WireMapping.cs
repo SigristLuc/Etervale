@@ -58,7 +58,7 @@ internal static class WireMapping
         ActionCode(view.MoveState),
         view.Kind == EntityKindView.Player ? 0u : view.TemplateId);
 
-    // smCHAR_INFO for an object description (PLAYERINFO reply to GETPLAYERINFO).
+    // Character info record for an object description (PLAYERINFO reply to GETPLAYERINFO).
     public static CharacterInfo Describe(in EntityView view, WorldData data)
     {
         var info = new CharacterInfo
@@ -117,7 +117,7 @@ internal static class WireMapping
         return info;
     }
 
-    // smCHAR_INFO embedded in TRANS_RECORD_DATA for the entering character.
+    // Character info record embedded in the character record for the entering character.
     public static CharacterInfo DescribeOwner(PlayerCharacter character, CharacterSummary summary, uint serial)
     {
         var owner = OwnerState.Capture(character);
