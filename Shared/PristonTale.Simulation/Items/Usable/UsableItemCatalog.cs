@@ -134,6 +134,9 @@ public static class UsableItemCatalog
             rules[piece] = new UsableItemRule(UsableItemAction.PuzzleBag);
         }
 
+        // A sealed piece reaches its owner as the lucky bag.
+        rules[Puzzles.LuckyBagIcon] = new UsableItemRule(UsableItemAction.PuzzleBag);
+
         foreach (var (key, _) in ForceOrbs.All)
         {
             rules[key] = new UsableItemRule(UsableItemAction.ForceOrb) { ForbiddenInVillage = true };

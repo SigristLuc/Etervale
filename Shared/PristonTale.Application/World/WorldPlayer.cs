@@ -513,6 +513,7 @@ public sealed class WorldPlayer
             _attackTargetId = 0;
             _attackSustained = false;
             _respawnMsLeft = RespawnDelayMs;
+            DeadMs = 0f;
             MoveState = MoveStateView.Dead;
         }
         else
@@ -537,6 +538,21 @@ public sealed class WorldPlayer
         _character.Life = Math.Min(MaxHp, _character.Life + amount);
     }
 
+    // Real-clock milliseconds before which billing crystals and soul stones refuse (every crystal use restarts it).
+    public long CrystalDelayUntilMs { get; set; }
+
+    // Milliseconds since the player died.
+    public float DeadMs { get; private set; }
+
+    // Keeps a dead player down without counting the respawn delay (a Restoration may still revive it).
+    public void TickDeadHeld(float dtMs)
+    {
+        if (IsDead)
+        {
+            DeadMs += dtMs;
+        }
+    }
+
     public bool TickRespawn(float dtMs)
     {
         if (!IsDead)
@@ -544,6 +560,7 @@ public sealed class WorldPlayer
             return false;
         }
 
+        DeadMs += dtMs;
         _respawnMsLeft -= dtMs;
         if (_respawnMsLeft > 0f)
         {

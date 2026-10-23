@@ -34,7 +34,8 @@ public static class WorldDataFactory
             MaxStack: Math.Max(1, r.MaxStack))
         {
             CatalogKey = r.Code,
-            Potion = (ItemKind)r.Kind == ItemKind.Potion
+            // Potions and event foods restore their authored ranges; only potions are drunk from the belt.
+            Potion = (ItemKind)r.Kind == ItemKind.Potion || r.RestoreLifeMax > 0 || r.RestoreManaMax > 0 || r.RestoreStaminaMax > 0
                 ? new PotionDefinition(r.RestoreLifeMin, r.RestoreLifeMax, r.RestoreManaMin, r.RestoreManaMax, r.RestoreStaminaMin, r.RestoreStaminaMax)
                 : null,
             RequiredLevel = r.ReqLevel,

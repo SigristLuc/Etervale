@@ -7,6 +7,9 @@ public readonly record struct RolledDrop(DropKind Kind, uint ItemCode, int Amoun
     // Rolled from the main weighted table (quest items from it reach only the lower class tiers).
     public bool FromMainTable { get; init; }
 
+    // A puzzle piece that falls sealed as a lucky bag.
+    public bool Sealed { get; init; }
+
     public static RolledDrop Gold(int amount) => new(DropKind.Gold, 0, amount, ToInventory: false);
     public static RolledDrop Item(uint code, bool toInventory = false) => new(DropKind.Item, code, 1, toInventory);
 }
@@ -18,7 +21,8 @@ public static class DropRoller
         DropTable table,
         bool hasEventItem = false,
         uint eventItemCode = 0,
-        int extraRollChance = 0)
+        int extraRollChance = 0,
+        Func<RolledDrop?> eventRoll = null)
     {
         var drops = new List<RolledDrop>();
 
@@ -46,6 +50,13 @@ public static class DropRoller
 
             for (int i = 0; i < rolls; i++)
             {
+                // A running item event may replace the roll with its own item.
+                if (eventRoll?.Invoke() is { } replaced)
+                {
+                    drops.Add(replaced);
+                    continue;
+                }
+
                 var picked = PickWeightedMain(rng, table, mainTotal);
                 if (picked is { Kind: not DropKind.Nothing })
                     drops.Add(MaterializeEntry(rng, picked, mainTable: true));
