@@ -70,6 +70,8 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.OwnerItemStatus => OnOwnerItemStatus(OwnerItemStatusPacket.Read(packet)),
             EtervaleOpcodes.PremiumTimers => OnPremiumTimers(PremiumTimersPacket.Read(packet)),
             EtervaleOpcodes.ItemEffects => OnItemEffects(ItemEffectsPacket.Read(packet)),
+            EtervaleOpcodes.QuestJournal => Update([], []) with { Quest = QuestWireReader.ToView(QuestJournalPacket.Read(packet)) },
+            EtervaleOpcodes.QuestNotices => OnQuestNotices(QuestNoticesPacket.Read(packet)),
             _ => null
         };
         return update is not null || code is PristonOpcodes.PlayDataGroup or PristonOpcodes.PlayerInfo or EtervaleOpcodes.RemoveObjects
@@ -77,8 +79,11 @@ internal sealed class PresenceDecoder
             or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills or EtervaleOpcodes.PresenceClock
             or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult
             or EtervaleOpcodes.ItemDetails or EtervaleOpcodes.OwnerItemStatus
-            or EtervaleOpcodes.PremiumTimers or EtervaleOpcodes.ItemEffects;
+            or EtervaleOpcodes.PremiumTimers or EtervaleOpcodes.ItemEffects or EtervaleOpcodes.QuestJournal or EtervaleOpcodes.QuestNotices;
     }
+
+    private PresenceUpdate OnQuestNotices(QuestNoticesPacket packet) =>
+        Update([], []) with { QuestNotices = QuestWireReader.ToNotices(packet.Notices), QuestPrompt = QuestWireReader.ToPrompt(packet.Prompt) };
 
     public PresenceUpdate OnSkillEvents(SkillEventEntry[] entries)
     {

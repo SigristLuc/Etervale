@@ -78,6 +78,9 @@ public sealed record ItemDefinition(
     // Authored value ranges; null for definitions built without authored data (every range then collapses to the base).
     public ItemTemplate Template { get; init; }
 
+    // The unique marker of a code's quest variant (UniqueItem), kept apart from the regular definition.
+    public const int QuestUnique = 2;
+
     public bool IsEquippable => EquipSlot.HasValue;
     public bool IsStackable => MaxStack > 1;
 

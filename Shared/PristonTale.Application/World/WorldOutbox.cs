@@ -16,6 +16,7 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
     private readonly List<StatusEventView> _statusEvents = new();
     private readonly List<ItemEffectView> _itemEffects = new();
     private SkillCooldownView[]? _cooldowns;
+    private readonly QuestUpdateBuffer _quest = new();
     private readonly int _eventCapacity;
     private WorldSnapshot _latest;
     private int _eventCount;
@@ -65,6 +66,8 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
                 _cooldowns = snapshot.Cooldowns;
             }
 
+            // Quest notices are kept in order up to their own bound; the newest journal view and opened dialog replace older ones.
+            _quest.Add(snapshot.Quest);
             _ready.Writer.TryWrite(true);
             return true;
         }
@@ -107,7 +110,8 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
                 SkillEvents = _skillEvents.Count == 0 ? [] : _skillEvents.ToArray(),
                 StatusEvents = _statusEvents.Count == 0 ? [] : _statusEvents.ToArray(),
                 ItemEffects = _itemEffects.Count == 0 ? [] : _itemEffects.ToArray(),
-                Cooldowns = _cooldowns
+                Cooldowns = _cooldowns,
+                Quest = _quest.Take()
             };
             _skillEvents.Clear();
             _statusEvents.Clear();

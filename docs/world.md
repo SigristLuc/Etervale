@@ -303,6 +303,9 @@ shape; unresolved bonus drops are omitted.
 3. `MaxItemsPerKill` weighted picks from the main entries (`Nothing` picks add nothing). Gold amount is
    `rand[GoldMin, GoldMax]` inclusive.
 
+Quest and ingredient items (`QuestItems.IsQuestDrop`) are flagged `ToInventory` with `FromMainTable` set for main-table
+picks; the field hands them to the credited player's quest upkeep instead of the ground ([quests.md](quests.md)).
+
 `KillReward.ExpForKill(baseExp, monsterLevel, playerLevel, multiplier)`: `baseExp * multiplier`, then 100 / 85 / 70 /
 55 percent for a level gap of at most 10 / 20 / 30 / more. The server passes `World:ExperienceMultiplier`.
 `FirstAttackerStealsCredit`: the first attacker gets the kill over another killer if it dealt at least 40% of max life
@@ -362,16 +365,17 @@ Shop rules (`NpcShopRules`):
   (`ItemRoller.Lower`, see [simulation.md](simulation.md#items)).
 - Worn value: `intact = price * dur / maxDur` (0 counts as 1), `worn = intact + (price - intact) / 4`, where price is
   the copy's own price (a specialized drop costs a fifth more than its kind).
-- Sell: `min(price / 5, worn / 5)`; stackables `(price / 5) * count`; quest items cannot be sold; refused with
-  `GoldLimit` when gold would exceed `MoneyLimits.CarryLimit(level, tier)`.
+- Sell: `min(price / 5, worn / 5)`; stackables `(price / 5) * count`; quest items and the quest weapon and ring a
+  running rank-up holds cannot be sold; refused with `GoldLimit` when gold would exceed
+  `MoneyLimits.CarryLimit(level, tier)`.
 - Repair: `(price - worn) / 8` for items below max durability; requires gold strictly greater than the cost.
 - Carry limit: 200,000 up to level 10; tier 0 `max(200,000, level * 200,000 - 1,800,000)`; tier 1 10M; tier 2 50M;
   higher 100M.
 
 Warehouse (`WarehouseStorage`, one per account): 9×9 grid, at most 100 items, weight 1000, gold 100,000,000; quest
-items and materials are refused. Every change increments `Revision`; `Clone` supports prepare-then-commit. A withdrawal
-that would carry the character over its weight limit is refused (`OverWeight`), and an overweight character cannot
-open the warehouse (`NpcServiceTransactions.Check`).
+items, materials and the quest weapon and ring a running rank-up holds are refused. Every change increments `Revision`;
+`Clone` supports prepare-then-commit. A withdrawal that would carry the character over its weight limit is refused
+(`OverWeight`), and an overweight character cannot open the warehouse (`NpcServiceTransactions.Check`).
 
 Teleport routes (`TeleportRoutes`): route 0 means route 1. Route 1: index 1 field 0 "Mushroom Cave" 100 gold, 2 field 18
 "Beehive Cave" 100, 3 field 7 "Cursed Land" 500, 4 field 12 "Forbidden Land" 1000. The destination field's

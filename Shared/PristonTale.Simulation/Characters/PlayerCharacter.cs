@@ -3,6 +3,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Progression;
+using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World.Npcs;
 
@@ -42,6 +43,9 @@ public sealed class PlayerCharacter
     public int SkillPoints { get; private set; }
     public int EliteSkillPoints { get; private set; }
     public short Tier { get; private set; }
+
+    // Quest progress: the running quest, finished quests and the logs whose bits pay lasting rewards.
+    public QuestJournal Quests { get; private set; } = new();
 
     public void RestoreProgress(long experience, long money, int statPoints = 0, short tier = 0, int skillPoints = 0, int eliteSkillPoints = 0)
     {
@@ -192,7 +196,7 @@ public sealed class PlayerCharacter
         }
 
         Level++;
-        StatPoints += 5;
+        StatPoints += 5 + QuestRewards.LevelUpBonusStatPoints(Level, Quests.LevelLog);
         if (Level >= 10 && Level % 2 == 0)
         {
             SkillPoints++;
@@ -411,6 +415,7 @@ public sealed class PlayerCharacter
     private void Recompute()
     {
         PassiveSkillEffects.Sync(this);
+        QuestEffects.Sync(this);
         PremiumEffects.Sync(this);
         Effects.SetHeld(HeldKinds());
         _derivedStale = false;
@@ -578,8 +583,10 @@ public sealed class PlayerCharacter
         clone.RestoreInventoryHistory(InventoryRevision, _inventoryOperations);
         clone.RestoreServiceHistory(_serviceOperations);
         clone.RestoreProgressionHistory(ProgressionRevision, _progressionOperations);
+        clone.Quests = Quests.Clone();
         clone.Premium.CopyFrom(Premium);
         clone.ItemUses.CopyFrom(ItemUses);
+        clone.Recompute();
         clone.Life = Life;
         clone.Mana = Mana;
         clone.Stamina = Stamina;
@@ -656,6 +663,78 @@ public sealed class PlayerCharacter
         }
 
         ProgressionRevision = revision;
+    }
+
+    public void RestoreQuests(QuestJournal journal)
+    {
+        Quests = journal ?? throw new ArgumentNullException(nameof(journal));
+        Recompute();
+    }
+
+    // Quest changes made outside a stored operation (kill counts, timers) on the live character.
+    public void RefreshQuestEffects() => Recompute();
+
+    // Quest rewards that change progression: the class tier, and stat and skill points added on top of whatever the
+    // tick changed meanwhile.
+    public void ApplyQuestProgress(short tier, int statPoints, int skillPoints, int eliteSkillPoints)
+    {
+        if (tier < Tier || tier > 3 || StatPoints + (long)statPoints < 0 || SkillPoints + (long)skillPoints < 0 || EliteSkillPoints + (long)eliteSkillPoints < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(tier));
+        }
+
+        Tier = tier;
+        StatPoints += statPoints;
+        SkillPoints += skillPoints;
+        EliteSkillPoints += eliteSkillPoints;
+    }
+
+    // The free redistribution a rank-up offers: every learned rank returns to its pool (the first twelve window skills to
+    // the skill points, the final tier's to its own points) and the proficiency is forgotten.
+    public void ResetLearnedSkills()
+    {
+        var skills = Class.Skills;
+        for (var index = 0; index < skills.Count; index++)
+        {
+            var rank = Skills.RankOf(skills[index].Code);
+            if (SkillLearning.UsesFinalTierPoints(index))
+            {
+                EliteSkillPoints += rank;
+            }
+            else
+            {
+                SkillPoints += rank;
+            }
+        }
+
+        Skills.Clear();
+    }
+
+    // Commits a stored quest operation: the candidate's quest journal (keeping kills counted meanwhile), its items and
+    // the progression and gold deltas computed when it was prepared.
+    public void CommitQuestOperation(PlayerCharacter candidate, short tier, int statPoints, int skillPoints, int eliteSkillPoints, long moneyDelta,
+        bool resetSkills)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        if (!CanChangeMoney(moneyDelta))
+        {
+            throw new InvalidOperationException("Quest gold change no longer fits.");
+        }
+
+        CommitInventoryOperation(candidate);
+        if (resetSkills)
+        {
+            // The refunded points are part of the prepared deltas; the save gate kept the ranks unchanged since then.
+            Skills.Clear();
+        }
+
+        ApplyQuestProgress(tier, statPoints, skillPoints, eliteSkillPoints);
+        TryChangeMoney(moneyDelta);
+        Quests.AdoptCommitted(candidate.Quests);
+        Recompute();
+        Life = Math.Min(Life, MaxLife);
+        Mana = Math.Min(Mana, MaxMana);
+        Stamina = Math.Min(Stamina, MaxStamina);
     }
 
     public void CommitInventoryOperation(PlayerCharacter candidate)

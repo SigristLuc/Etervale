@@ -18,7 +18,8 @@ public sealed record SavedItem(
     int DurabilityMax,
     uint JobSpecMask = 0,
     ItemStatBlock RolledBonus = default,
-    ItemRoll? Roll = null);
+    ItemRoll? Roll = null,
+    int Unique = 0);
 
 public sealed record SavedItems(int Version, SavedItem[] Items, long Revision = 0, AppliedInventoryOperation[]? Operations = null,
     AppliedServiceOperation[]? ServiceOperations = null);
@@ -42,6 +43,7 @@ public static class CharacterStateCodec
         var skills = ReadSkills(record.Skills);
         var identities = new HashSet<Guid>();
         character.RestoreProgress(record.Exp, record.Money, record.StatPoints, record.Tier, skills.Points, skills.ElitePoints);
+        character.RestoreQuests(QuestStateCodec.Read(record.Quests));
 
         foreach (var saved in inventory.Items)
         {
@@ -136,13 +138,14 @@ public static class CharacterStateCodec
     internal static SavedItem CaptureItem(ItemInstance item, int anchor, EquipmentSlot? slot)
     {
         return new SavedItem(item.InstanceId, item.Definition.Code, item.Count, anchor, slot, item.UpgradeLevel,
-            item.DurabilityCurrent, item.DurabilityMax, item.JobSpecMask, default, item.Roll);
+            item.DurabilityCurrent, item.DurabilityMax, item.JobSpecMask, default, item.Roll,
+            item.Definition.UniqueItem == ItemDefinition.QuestUnique ? ItemDefinition.QuestUnique : 0);
     }
 
     internal static ItemInstance RestoreItem(SavedItem saved, ItemCatalog catalog, HashSet<Guid> identities)
     {
         if (saved is null || saved.InstanceId == Guid.Empty || !identities.Add(saved.InstanceId)
-            || !catalog.TryGet(saved.Code, out var definition) || saved.Count < 1 || saved.Count > definition.MaxStack
+            || !catalog.TryGet(saved.Code, saved.Unique, out var definition) || saved.Count < 1 || saved.Count > definition.MaxStack
             || saved.UpgradeLevel < 0 || saved.DurabilityCurrent < 0 || saved.DurabilityMax < saved.DurabilityCurrent)
         {
             throw new InvalidDataException("Invalid or unsupported saved item.");

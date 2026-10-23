@@ -108,6 +108,13 @@ public sealed class MonsterInstance
     public float ModelScale { get; set; }
     public bool IsSummon => OwnerId != 0;
 
+    // A quest duel opponent fights only the player it was opened for; MinimumLife keeps it from dying before it yields
+    // or drinks its last potion.
+    public uint DuelPlayerId { get; set; }
+    public bool DuelYielded { get; set; }
+    public int Potions { get; set; }
+    public int MinimumLife { get; set; }
+
     public void ApplyDamage(int amount)
     {
         if (amount <= 0)
@@ -116,6 +123,11 @@ public sealed class MonsterInstance
         }
 
         Life -= amount;
+        if (MinimumLife > 0 && Life < MinimumLife)
+        {
+            Life = MinimumLife;
+        }
+
         if (Life <= 0)
         {
             Life = 0;

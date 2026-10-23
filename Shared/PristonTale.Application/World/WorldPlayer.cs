@@ -80,6 +80,9 @@ public sealed class WorldPlayer
 
     public bool HasPendingPotion => _pendingPotion is not null || Action == PlayerActionState.Eat;
 
+    // Quest work waiting for the next upkeep, notices and dialogs for the owner, and duel bookkeeping.
+    public PlayerQuestState QuestState { get; } = new();
+
     public void QueuePotion(PotionDefinition potion)
     {
         if (!IsDead && !HasPendingPotion)
@@ -229,6 +232,7 @@ public sealed class WorldPlayer
         ArmorKey = _character.GetEquipped(EquipmentSlot.Armor)?.Definition.CatalogKey ?? "",
         OffHandKey = _character.GetEquipped(EquipmentSlot.OffHand)?.Definition.CatalogKey ?? "",
         InVillage = _inVillage,
+        Tier = _character.Tier,
         HelperPet = PremiumPets.HelperPet(_character.Premium) is { } pet ? pet - PremiumEffectKind.HelpPetTerry + 1 : 0,
         Phoenix = _character.Premium.IsActive(PremiumEffectKind.PhoenixPet),
         BigHead = _character.Premium.BigHeadMode

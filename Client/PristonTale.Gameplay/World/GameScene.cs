@@ -233,6 +233,18 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 PristonTale.Simulation.World.Npcs.NpcServiceStatus.Rejected, "world connection unavailable")));
     }
 
+    public Task<PristonTale.Simulation.Quests.QuestOutcome> RequestQuestAsync(PristonTale.Simulation.Quests.QuestCommand command)
+    {
+        return _playChannel is not null ? _playChannel.RequestQuestAsync(command, _presenceCts.Token)
+            : Task.FromResult(PristonTale.Simulation.Quests.QuestOutcome.Failed(PristonTale.Simulation.Quests.QuestStatus.Rejected,
+                "world connection unavailable"));
+    }
+
+    public void PlayQuestFanfare()
+    {
+        _fieldAudio?.PlayQuestFanfare();
+    }
+
     public void PlayNpcInteractionAudio(PristonTale.Simulation.World.Npcs.NpcInteraction interaction)
     {
         if (_npcAudio is null || _remote is null || _playerBody is null
