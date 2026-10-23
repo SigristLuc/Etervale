@@ -20,6 +20,8 @@ public sealed class PlayerEquipmentPresentation
     private bool _appearanceVillage;
     public PlayerActorHandles Handles => _playerHandles;
 
+    public bool HoldsShield => (_requestedPlayerVisuals ?? _basePlayerVisuals)?.OffHandKey?.StartsWith("DS", StringComparison.OrdinalIgnoreCase) == true;
+
     public PlayerEquipmentPresentation(PlayerActorComposer composer, IActorScene scene, IClientLog log, string root,
         CharacterVisualSet visuals, uint jobMask, PlayerActorHandles handles)
     {

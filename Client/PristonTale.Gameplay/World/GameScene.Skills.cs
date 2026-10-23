@@ -5,6 +5,7 @@ using PristonTale.Client.Net.Presence;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Effects;
+using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.Skills;
 using NumVector3 = System.Numerics.Vector3;
 
@@ -20,6 +21,7 @@ public sealed partial class GameScene : ISkillSceneHost
     private const float RangeMargin = 8f;
 
     private SkillPresentation _skillFx;
+    private ActorLookPresenter _looks;
     private SkillSoundBank _skillSounds;
     private double _skillClockMs;
     private uint _castSequence;
@@ -57,6 +59,25 @@ public sealed partial class GameScene : ISkillSceneHost
         _skillSounds = new SkillSoundBank(_assetRoot ?? "", _log);
         _skillFx = new SkillPresentation(_graphicsDevice, _content, _effectLibrary, _renderer.TransientLights, this, _skillSounds, _log);
         _skillFx.CastResolved += OnCastResolved;
+        _looks = new ActorLookPresenter(new RendererActorScene(_renderer), _actorLoader, _assetRoot ?? "");
+    }
+
+    void ISkillSceneHost.ApplyLook(uint entityId, in EntityLook look)
+    {
+        if (_looks is null || _remote is null)
+        {
+            return;
+        }
+
+        if (entityId == _remote.SelfEntityId)
+        {
+            var handles = _equipmentPresentation?.Handles ?? new PlayerActorHandles(_playerBodyActor, _playerHeadActor);
+            _looks.Apply(entityId, handles, _equipmentPresentation?.HoldsShield == true, look);
+            return;
+        }
+
+        _ = _remote.TryGetLookHandles(entityId, out var remote, out var shield);
+        _looks.Apply(entityId, remote, shield, look);
     }
 
     private void ObserveSkills(PresenceUpdate update) => _skillFx?.Observe(update, _skillClockMs);

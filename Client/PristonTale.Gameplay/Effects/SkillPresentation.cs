@@ -25,6 +25,9 @@ public interface ISkillSceneHost : IVfxAnchors
 
     // A released charge: the caster's skill clip jumps to the frame and plays on at the rate.
     void SeekSkillMotion(uint entityId, int framesFromStart, float rate) { }
+
+    // How the entity's actors look this frame (tints, translucency, shield swaps, afterimages); Normal once a look ends.
+    void ApplyLook(uint entityId, in EntityLook look) { }
 }
 
 // Turns the server's skill timeline into motions, effects, sounds, lights, floating numbers and the buff and
@@ -46,6 +49,9 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     private readonly List<Pending> _pending = new(32);
     private readonly Dictionary<uint, VfxInstance> _projectiles = new();
     private readonly List<VfxInstance> _castEffects = new();
+    // Impacts each caster's current cast has had (per-hit sounds and effects).
+    private readonly Dictionary<uint, int> _impacts = new();
+    private readonly Random _soundRandom = new();
     private bool _effectSoundsLoaded;
 
     public SkillPresentation(GraphicsDevice device, ContentManager content, LegacyEffectLibrary legacy, PristonTransientLights lights, ISkillSceneHost host,
@@ -61,7 +67,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         Renderer = new VfxRenderer(device, content);
         Statuses.Added += OnStatusAdded;
         Statuses.Removed += OnStatusRemoved;
-        sounds.Preload(SkillRuleCatalog.All.SelectMany(rule => new[] { rule.CastSound, rule.ImpactSound, rule.CompanionSound }));
+        sounds.Preload(SkillRuleCatalog.All.SelectMany(rule => new[] { rule.CastSound, rule.ImpactSound, rule.CompanionSound }.Concat(rule.ImpactSounds)));
     }
 
     public VfxLibrary Library { get; }
@@ -70,6 +76,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     public StatusBook Statuses { get; } = new();
     public SkillCooldownBook Cooldowns { get; } = new();
     public FloatingCombatText Text { get; } = new();
+    public ActorLookBook Looks { get; } = new();
 
     public event Action<SkillCastResultInfo> CastResolved;
 
@@ -128,6 +135,12 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         }
 
         KeepAuras(nowMs);
+        Looks.Update(seconds, nowMs, Statuses, _host.SelfId);
+        foreach (var (entity, look) in Looks.Looks)
+        {
+            _host.ApplyLook(entity, look);
+        }
+
         System.Update(seconds);
         Text.Update(seconds);
     }
@@ -140,6 +153,8 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         _pending.Clear();
         _projectiles.Clear();
         _castEffects.Clear();
+        _impacts.Clear();
+        Looks.Clear();
         Statuses.Clear();
         System.Clear();
     }
@@ -216,6 +231,8 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
             _pending.Add(new Pending(nowMs + skillEvent.DurationMs * loop / loops, PendingKind.Loop, skillEvent, loop));
         }
 
+        _impacts[skillEvent.CasterId] = 0;
+        Looks.Cast(skillEvent, rule, nowMs);
         var position = Position(skillEvent.CasterId, skillEvent.Position);
         var facing = -skillEvent.Facing;
         if (rule.CastEffect.Length > 0 && Spawn(rule.CastEffect, skillEvent.CasterId, skillEvent.TargetId, position, facing) is { } cast)
@@ -286,8 +303,13 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     }
 
     // The cast's resolution mode (an element picked per cast) may bring its own impact effect.
-    private static string ImpactEffectOf(SkillRule rule, SkillEventInfo skillEvent)
+    private static string ImpactEffectOf(SkillRule rule, SkillEventInfo skillEvent, int impact)
     {
+        if (rule.ImpactEffects.Length > 0 && rule.ImpactEffects[Math.Min(impact, rule.ImpactEffects.Length - 1)] is { Length: > 0 } perHit)
+        {
+            return perHit;
+        }
+
         var mode = (skillEvent.Flags & SkillEventFlags.ModeMask) >> SkillEventFlags.ModeShift;
         if ((skillEvent.Flags & SkillEventFlags.Charged) != 0 && rule.Charge?.Full is { ImpactEffect.Length: > 0 } full)
         {
@@ -322,13 +344,38 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         var point = rule.Kind == SkillKind.Area && rule.AreaCenter == SkillAreaCenter.Caster
             ? Position(skillEvent.CasterId, skillEvent.Position)
             : Position(skillEvent.TargetId, skillEvent.Position);
-        var impactEffect = ImpactEffectOf(rule, skillEvent);
+        var impact = _impacts.GetValueOrDefault(skillEvent.CasterId);
+        _impacts[skillEvent.CasterId] = impact + 1;
+        Looks.Impact(skillEvent, rule);
+        var impactEffect = ImpactEffectOf(rule, skillEvent, impact);
         if (impactEffect.Length > 0 && (skillEvent.TargetCount > 0 || !targetsEntity))
         {
             Spawn(impactEffect, skillEvent.CasterId, skillEvent.TargetId != 0 ? skillEvent.TargetId : skillEvent.CasterId, point, -skillEvent.Facing);
         }
 
-        _sounds.Play(rule.ImpactSound, point, _host.ListenerPosition);
+        _sounds.Play(ImpactSoundOf(rule, skillEvent, impact), point, _host.ListenerPosition);
+    }
+
+    // The impact's sound: the rule's per-hit list when it has one (landed hits only), else its single impact sound.
+    private string ImpactSoundOf(SkillRule rule, SkillEventInfo skillEvent, int impact)
+    {
+        var sounds = rule.ImpactSounds;
+        if (sounds.Length == 0)
+        {
+            return rule.ImpactSound;
+        }
+
+        if (skillEvent.TargetCount <= 0)
+        {
+            return "";
+        }
+
+        return rule.ImpactSoundOrder switch
+        {
+            SkillSoundOrder.Random => sounds[_soundRandom.Next(sounds.Length)],
+            SkillSoundOrder.Final => impact + 1 >= SkillImpacts.Count(rule, skillEvent.Rank) ? sounds[0] : "",
+            _ => sounds[impact % sounds.Length]
+        };
     }
 
     // A chain link (an arc from the previous link to its target), a companion's strike or a support effect on an ally.
@@ -361,6 +408,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
 
     private void Cancel(uint casterId)
     {
+        Looks.Cancel(casterId);
         if (_projectiles.Remove(casterId, out var projectile))
         {
             projectile.Stop();
