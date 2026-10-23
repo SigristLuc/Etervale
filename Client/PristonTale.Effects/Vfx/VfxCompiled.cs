@@ -84,18 +84,28 @@ internal sealed class CompiledTrail
     public VfxCurve Color { get; }
 }
 
-// A definition with its textures and curves resolved, shared by every instance.
+// A definition with its textures, models and curves resolved, shared by every instance. Child effects are looked up
+// by name on first use, so a child may be defined in any file.
 public sealed class CompiledVfx
 {
-    internal CompiledVfx(VfxDefinition definition, CompiledEmitter[] emitters, CompiledTrail[] trails)
+    internal CompiledVfx(VfxDefinition definition, CompiledEmitter[] emitters, CompiledTrail[] trails, CompiledComponent[] components,
+        CompiledSequence[] sequences)
     {
         Definition = definition;
         Emitters = emitters;
         Trails = trails;
+        Components = components;
+        Sequences = sequences;
+        Children = new CompiledVfx?[definition.Children.Length];
+        ChildrenResolved = new bool[definition.Children.Length];
     }
 
     public VfxDefinition Definition { get; }
     public string Name => Definition.Name;
     internal CompiledEmitter[] Emitters { get; }
     internal CompiledTrail[] Trails { get; }
+    internal CompiledComponent[] Components { get; }
+    internal CompiledSequence[] Sequences { get; }
+    internal CompiledVfx?[] Children { get; }
+    internal bool[] ChildrenResolved { get; }
 }

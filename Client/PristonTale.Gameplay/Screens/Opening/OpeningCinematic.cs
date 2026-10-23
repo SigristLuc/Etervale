@@ -69,6 +69,7 @@ internal sealed class OpeningCinematic : IDisposable
 
     private int _vertexCount;
     private int _faceCount;
+    private readonly string _assetRoot;
 
     public OpeningCinematic(GraphicsDevice graphicsDevice, ContentManager content, IClientLog log,
         Func<string, string> assetPath, string assetRoot, PristonSkyLibrary sky = null, PresentationSettings presentation = null, LegacyEffectLibrary effects = null)
@@ -76,6 +77,7 @@ internal sealed class OpeningCinematic : IDisposable
         _graphicsDevice = graphicsDevice;
         _log = log;
         _assetPath = assetPath;
+        _assetRoot = assetRoot;
         _reader = new PristonSmdReader(_assetCache);
         _actorLoader = new PristonActorLoader(_assetCache);
         _effectLibrary = effects;
@@ -102,7 +104,10 @@ internal sealed class OpeningCinematic : IDisposable
         if (_effects is not null)
         {
             var collision = new PristonCollisionWorld(stage);
-            _terrainFire = new LegacyMeteorEffects(_effectLibrary, _effects, _renderer.TransientLights, collision);
+            // The scripts are read here, while loading, so the flight never waits for the disk.
+            _effectLibrary.ParticleScript(_assetRoot, "TerrainFire");
+            _effectLibrary.ParticleScript(_assetRoot, "FireBigHit1");
+            _terrainFire = new LegacyMeteorEffects(new LegacyScriptEffects(_effectLibrary, _effects, _assetRoot), _renderer.TransientLights, collision);
         }
         _renderer.ConfigureFieldLighting(intensity: 4f, rangeScale: 1f, overrideLights: null, glowIntensity: 1f, glowScale: 1f);
         _renderer.AddStage(stage, LoadScenery());

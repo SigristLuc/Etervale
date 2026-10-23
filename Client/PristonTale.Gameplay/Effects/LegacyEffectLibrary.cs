@@ -21,7 +21,6 @@ public sealed class LegacyEffectLibrary : IDisposable
     private readonly PristonTextureLoader _textures;
     private readonly ContentManager _content;
     private readonly EffectDefinition[] _potions = new EffectDefinition[3];
-    private readonly EffectDefinition[] _hulkHits = new EffectDefinition[3];
     private readonly Dictionary<string, EffectDefinition> _scripts = new(StringComparer.OrdinalIgnoreCase);
 
     private LegacyEffectLibrary(GraphicsDevice device, ContentManager content, IClientLog log)
@@ -31,21 +30,16 @@ public sealed class LegacyEffectLibrary : IDisposable
         _textures.Initialize();
     }
 
+    // The effect definitions under Effect/Vfx, prepared on a worker from the moment the library loads.
+    public VfxContent Vfx { get; private set; }
     public PristonMeshEffect HestMesh { get; private set; }
     public PristonMeshEffect HestMesh2 { get; private set; }
     public PristonMeshEffect PiercingMesh { get; private set; }
     public PristonMeshEffect ArrowMesh { get; private set; }
-    public EffectDefinition CaveMummy { get; private set; }
-    public EffectDefinition IcePiercing { get; private set; }
-    public EffectDefinition JavelinTrail { get; private set; }
-    public EffectDefinition JavelinHit { get; private set; }
-    public EffectDefinition TerrainFire { get; private set; }
-    public EffectDefinition FireBigHit { get; private set; }
     public LegacyBillboardAnimation ReturnParticle { get; private set; }
     public LegacyBillboardAnimation ReturnRay { get; private set; }
 
     public EffectDefinition Potion(int index) => _potions[index];
-    public EffectDefinition HulkHit(int index) => _hulkHits[index];
 
     // The shaders the library's effects draw with come from content.
     public ContentManager Content => _content;
@@ -55,6 +49,7 @@ public sealed class LegacyEffectLibrary : IDisposable
         var library = new LegacyEffectLibrary(device, content, log);
         try
         {
+            library.Vfx = new VfxContent(device, content, library._textures, assetRoot, log);
             var light = library.LoadAnimation(assetRoot, "Light1.ini");
             var halo = new EmitterDefinition
             {
@@ -85,11 +80,6 @@ public sealed class LegacyEffectLibrary : IDisposable
                 };
             }
 
-            for (int index = 0; index < library._hulkHits.Length; index++)
-            {
-                library._hulkHits[index] = library.LoadParticleScript(assetRoot, $"HulkHit{index + 1}");
-            }
-
             var reader = new PristonSmdReader();
             PristonMeshEffect Mesh(string path, bool bones)
             {
@@ -103,12 +93,6 @@ public sealed class LegacyEffectLibrary : IDisposable
             library.HestMesh2 = Mesh("Effect/AssaEffect/CaveMummy/b_m_CaveMummy1.smd", true);
             library.PiercingMesh = Mesh("image/Sinimage/AssaEffect/Piercing/Piercing.smd", false);
             library.ArrowMesh = Mesh("Effect/AssaEffect/Skill3Mesh/arrow.smd", false);
-            library.CaveMummy = library.LoadParticleScript(assetRoot, "CaveMummy");
-            library.IcePiercing = library.LoadParticleScript(assetRoot, "IceValentoPiercing");
-            library.JavelinTrail = library.LoadParticleScript(assetRoot, "twistJavelin1");
-            library.JavelinHit = library.LoadParticleScript(assetRoot, "TwistJavelin2");
-            library.TerrainFire = library.LoadParticleScript(assetRoot, "TerrainFire");
-            library.FireBigHit = library.LoadParticleScript(assetRoot, "FireBigHit1");
             var returnParticle = library.LoadAnimation(assetRoot, "ReturnParticle1.ini");
             library.ReturnParticle = new LegacyBillboardAnimation(returnParticle.Textures, returnParticle.Animation);
             var returnRay = library.LoadAnimation(assetRoot, "Return1.ini");
@@ -276,6 +260,7 @@ public sealed class LegacyEffectLibrary : IDisposable
 
     public void Dispose()
     {
+        Vfx?.Dispose();
         HestMesh?.Dispose();
         HestMesh2?.Dispose();
         PiercingMesh?.Dispose();

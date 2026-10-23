@@ -24,9 +24,10 @@ public struct VfxVertex : IVertexType
 }
 
 // Draws every VFX instance into the bound HDR scene target: quads in one growing vertex array, uploaded once per frame
-// to a dynamic buffer with a shared quad index buffer, drawn in runs of (blend, texture). Alpha-blended instances
-// draw first, back to front by instance; additive light is order-independent and follows. Depth is tested, not written.
-public sealed class VfxRenderer : IDisposable
+// to a dynamic buffer with a shared quad index buffer, drawn in runs of (blend, texture). Alpha-blended layers draw
+// first, back to front by instance, then the darkening (shadow) layers, then the order-independent additive light.
+// Effect models draw after the quads through their own mesh draws. Depth is tested, not written.
+public sealed partial class VfxRenderer : IDisposable
 {
     private const int MaxQuads = 16384;
 
@@ -35,6 +36,27 @@ public sealed class VfxRenderer : IDisposable
     private readonly IndexBuffer _indices;
     private readonly List<Run> _runs = new(64);
     private readonly List<(float Distance, int Index)> _order = new(64);
+    private readonly BlendState _shadow = new()
+    {
+        ColorSourceBlend = Blend.Zero,
+        ColorDestinationBlend = Blend.SourceColor,
+        AlphaSourceBlend = Blend.Zero,
+        AlphaDestinationBlend = Blend.One
+    };
+    private readonly BlendState _inverseShadow = new()
+    {
+        ColorSourceBlend = Blend.Zero,
+        ColorDestinationBlend = Blend.InverseSourceColor,
+        AlphaSourceBlend = Blend.Zero,
+        AlphaDestinationBlend = Blend.One
+    };
+    private readonly BlendState _added = new()
+    {
+        ColorSourceBlend = Blend.One,
+        ColorDestinationBlend = Blend.One,
+        AlphaSourceBlend = Blend.Zero,
+        AlphaDestinationBlend = Blend.One
+    };
     private DynamicVertexBuffer? _vertices;
     private VfxVertex[] _scratch = new VfxVertex[4 * 256];
     private int _quadCount;
@@ -72,6 +94,7 @@ public sealed class VfxRenderer : IDisposable
 
     public void Draw(VfxSystem system, Matrix view, Matrix projection, Vector3 cameraPosition, Texture2D? sceneDepth)
     {
+        DrawModels(system, view, projection);
         _quadCount = 0;
         _runs.Clear();
         var right = new Vector3(view.M11, view.M21, view.M31);
@@ -84,11 +107,12 @@ public sealed class VfxRenderer : IDisposable
         }
 
         _order.Sort(static (a, b) => b.Distance.CompareTo(a.Distance));
-        foreach (var blend in (ReadOnlySpan<VfxBlend>)[VfxBlend.Alpha, VfxBlend.Additive])
+        _inverseView = Matrix.Invert(view);
+        for (var pass = 0; pass < 3; pass++)
         {
             foreach (var (_, index) in _order)
             {
-                AppendInstance(instances[index], blend, right, up, cameraPosition);
+                AppendInstance(instances[index], pass, right, up, cameraPosition);
             }
         }
 
@@ -115,7 +139,21 @@ public sealed class VfxRenderer : IDisposable
         _effect.Depth = sceneDepth;
         foreach (var run in _runs)
         {
-            _device.BlendState = run.Blend == VfxBlend.Additive ? BlendState.Additive : BlendState.NonPremultiplied;
+            _device.BlendState = run.Blend switch
+            {
+                VfxBlend.Alpha => BlendState.NonPremultiplied,
+                VfxBlend.Shadow => _shadow,
+                VfxBlend.InvShadow => _inverseShadow,
+                VfxBlend.Color or VfxBlend.AddColor => _added,
+                _ => BlendState.Additive
+            };
+            _effect.Mode = run.Blend switch
+            {
+                VfxBlend.Shadow => PristonVfxEffect.MultiplyMode,
+                VfxBlend.InvShadow => PristonVfxEffect.InverseMultiplyMode,
+                VfxBlend.Color or VfxBlend.AddColor => PristonVfxEffect.SquaredMode,
+                _ => PristonVfxEffect.RadianceMode
+            };
             _effect.Texture = run.Texture;
             _effect.Apply();
             _device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, run.FirstQuad * 6, run.QuadCount * 2);
@@ -125,13 +163,23 @@ public sealed class VfxRenderer : IDisposable
         _device.SetVertexBuffer(null);
     }
 
-    private void AppendInstance(VfxInstance instance, VfxBlend blend, Vector3 right, Vector3 up, Vector3 camera)
+    // Pass 0: alpha; 1: darkening; 2: additive light.
+    internal static int PassOf(VfxBlend blend) => blend switch
     {
+        VfxBlend.Alpha => 0,
+        VfxBlend.Shadow or VfxBlend.InvShadow => 1,
+        _ => 2
+    };
+
+    private void AppendInstance(VfxInstance instance, int pass, Vector3 right, Vector3 up, Vector3 camera)
+    {
+        AppendComponents(instance, pass, right, up, camera);
+        AppendSequences(instance, pass, right, up, camera);
         foreach (var state in instance.EmitterStates)
         {
             var emitter = state.Emitter;
             var source = emitter.Source;
-            if (source.Blend != blend || state.Count == 0)
+            if (PassOf(source.Blend) != pass || state.Count == 0)
             {
                 continue;
             }
@@ -151,7 +199,7 @@ public sealed class VfxRenderer : IDisposable
 
         foreach (var trail in instance.TrailStates)
         {
-            if (trail.Trail.Source.Blend == blend && trail.Count >= 2)
+            if (PassOf(trail.Trail.Source.Blend) == pass && trail.Count >= 2)
             {
                 AppendTrail(trail, camera);
             }
@@ -283,6 +331,9 @@ public sealed class VfxRenderer : IDisposable
 
     public void Dispose()
     {
+        _shadow.Dispose();
+        _inverseShadow.Dispose();
+        _added.Dispose();
         _vertices?.Dispose();
         _indices.Dispose();
         _effect.Dispose();

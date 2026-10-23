@@ -336,8 +336,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _renderer = new PristonRenderer(_graphicsDevice, _content, _log, _presentation) { Sky = _sky };
         if (_effects is not null)
         {
-            _meteors = new PristonTale.Gameplay.Effects.LegacyMeteorEffects(_effectLibrary, _effects, _renderer.TransientLights, _fieldCollision);
-            _monsterMeshEffects = new PristonTale.Gameplay.Effects.LegacyMonsterMeshEffects(_effectLibrary, _effects, _renderer.TransientLights);
+            var scriptEffects = new PristonTale.Gameplay.Effects.VfxScriptEffects(() => _skillFx);
+            _meteors = new PristonTale.Gameplay.Effects.LegacyMeteorEffects(scriptEffects, _renderer.TransientLights, _fieldCollision);
+            _monsterMeshEffects = new PristonTale.Gameplay.Effects.LegacyMonsterMeshEffects(_effectLibrary, scriptEffects, _renderer.TransientLights);
             _returnEffect = new PristonTale.Gameplay.Effects.LegacyReturnEffect(_graphicsDevice, _effectLibrary, _renderer.TransientLights);
         }
 
@@ -1323,7 +1324,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             return;
         }
 
-        if (effect.SourceSoundCode != 0x18E0 || _effects.Instances.Count >= 128)
+        if (effect.SourceSoundCode != 0x18E0)
         {
             return;
         }
@@ -1332,7 +1333,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             effect.Position.X + MathF.Sin(effect.Facing) * 68f,
             caster.Y + 22f,
             -effect.Position.Z - MathF.Cos(effect.Facing) * 68f);
-        _effects.Spawn(_effectLibrary.HulkHit(Random.Shared.Next(3)), position);
+        _skillFx?.SpawnAt($"{PristonTale.Gameplay.Effects.VfxScriptEffects.ParticlePrefix}HulkHit{Random.Shared.Next(3) + 1}", position, Matrix.Identity);
         _renderer.TransientLights.Add(position, new Color(100, 255, 100), 100, 1);
     }
 

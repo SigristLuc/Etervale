@@ -1,13 +1,24 @@
-using System.Text.Json;
 using Microsoft.Xna.Framework.Graphics;
+using PristonTale.Engine3D.Rendering;
 
 namespace PristonTale.Effects.Vfx;
 
-// Named effects compiled against their textures. Definitions come from authored .vfx.json files; a name registered
-// twice keeps the later definition.
+// What compiling an effect needs from the game data: textures and effect models by asset-relative path.
+public interface IVfxResources
+{
+    // Null when the file is missing; the library then draws the fallback texture.
+    Texture2D? Texture(string path);
+
+    // An effect model baked at the given number of frames (30 per second; 1 for a static model); null when it cannot be
+    // read.
+    PristonMeshEffect? Model(string path, string skeleton, int frames);
+}
+
+// Named effects compiled against their textures and models. A name registered twice keeps the later definition.
 public sealed class VfxLibrary
 {
     private readonly Dictionary<string, CompiledVfx> _effects = new(StringComparer.OrdinalIgnoreCase);
+    private readonly IVfxResources? _resources;
     private readonly Func<string, Texture2D?> _textures;
     private readonly Texture2D _fallback;
     private readonly VfxBuiltinTextures? _builtins;
@@ -21,6 +32,12 @@ public sealed class VfxLibrary
         _builtins = builtins;
     }
 
+    public VfxLibrary(IVfxResources resources, Texture2D fallback, VfxBuiltinTextures? builtins = null)
+        : this(resources.Texture, fallback, builtins)
+    {
+        _resources = resources;
+    }
+
     public int Count => _effects.Count;
 
     public IReadOnlyCollection<string> Names => _effects.Keys;
@@ -30,44 +47,50 @@ public sealed class VfxLibrary
         definition.Validate();
         var emitters = definition.Emitters.Select(emitter => new CompiledEmitter(emitter, Texture(emitter.Texture))).ToArray();
         var trails = definition.Trails.Select(trail => new CompiledTrail(trail, Texture(trail.Texture))).ToArray();
-        var compiled = new CompiledVfx(definition, emitters, trails);
+        var components = definition.Components.Select(Compile).ToArray();
+        var sequences = definition.Sequences.Select(sequence => new CompiledSequence(sequence, Texture(sequence.Texture))).ToArray();
+        var compiled = new CompiledVfx(definition, emitters, trails, components, sequences);
         _effects[definition.Name] = compiled;
         return compiled;
     }
 
-    // Authored files are optional: a file that cannot be read or parsed is reported and skipped as a whole.
-    public int LoadDirectory(string directory, Action<string> reportError)
+    public bool TryGet(string name, out CompiledVfx effect) => _effects.TryGetValue(name, out effect!);
+
+    internal CompiledVfx? Child(CompiledVfx parent, int index)
     {
-        if (!Directory.Exists(directory))
+        if (!parent.ChildrenResolved[index])
         {
-            return 0;
+            parent.ChildrenResolved[index] = true;
+            parent.Children[index] = TryGet(parent.Definition.Children[index].Effect, out var child) ? child : null;
         }
 
-        var count = 0;
-        foreach (var path in Directory.EnumerateFiles(directory, "*.vfx.json").Order(StringComparer.Ordinal))
-        {
-            VfxDefinition[] definitions;
-            try
-            {
-                definitions = VfxDefinition.ParseFile(File.ReadAllText(path));
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
-            {
-                reportError($"{path}: {exception.Message}");
-                continue;
-            }
-
-            foreach (var definition in definitions)
-            {
-                Register(definition);
-                count++;
-            }
-        }
-
-        return count;
+        return parent.Children[index];
     }
 
-    public bool TryGet(string name, out CompiledVfx effect) => _effects.TryGetValue(name, out effect!);
+    private CompiledComponent Compile(VfxComponentDefinition component)
+    {
+        if (component.Kind == VfxComponentKind.Model)
+        {
+            var frames = Math.Clamp((int)MathF.Ceiling(component.ModelFrames), 1, PristonMeshEffect.MaxFrames);
+            return new CompiledComponent(component, [], _resources?.Model(component.Model, component.Skeleton, frames));
+        }
+
+        if (component.Frames <= 0)
+        {
+            return new CompiledComponent(component, [Texture(component.Texture)], null);
+        }
+
+        var dot = component.Texture.LastIndexOf('.');
+        var stem = dot > 0 ? component.Texture[..dot] : component.Texture;
+        var extension = dot > 0 ? component.Texture[dot..] : "";
+        var textures = new Texture2D[component.Frames];
+        for (var index = 0; index < textures.Length; index++)
+        {
+            textures[index] = Texture($"{stem}{index + 1}{extension}");
+        }
+
+        return new CompiledComponent(component, textures, null);
+    }
 
     private Texture2D Texture(string path)
     {

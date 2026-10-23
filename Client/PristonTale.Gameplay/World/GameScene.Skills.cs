@@ -55,8 +55,7 @@ public sealed partial class GameScene : ISkillSceneHost
         }
 
         _skillSounds = new SkillSoundBank(_assetRoot ?? "", _log);
-        _skillFx = new SkillPresentation(_graphicsDevice, _content, _assetRoot ?? "", _effectLibrary, _effects, _renderer.TransientLights, this,
-            _skillSounds, _log);
+        _skillFx = new SkillPresentation(_graphicsDevice, _content, _effectLibrary, _renderer.TransientLights, this, _skillSounds, _log);
         _skillFx.CastResolved += OnCastResolved;
     }
 

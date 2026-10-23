@@ -1,0 +1,245 @@
+using Microsoft.Xna.Framework;
+using PristonTale.Effects.Vfx;
+
+namespace PristonTale.Tests;
+
+// Runtime rules of the component, sequence and child layers (the converted original scripts).
+internal static class VfxLayerTests
+{
+    public static IEnumerable<(string, Func<Task>)> Cases()
+    {
+        yield return ("component layers keep the original keyed-event, loop and delay rules", ComponentsAsync);
+        yield return ("component particle pools respect their count, loops and the 100-particle cap", ComponentParticlesAsync);
+        yield return ("sequence layers emit their budget, loop on clock events and stop on request", SequencesAsync);
+        yield return ("child effects start late, follow their anchor and stop with the parent", ChildrenAsync);
+        yield return ("component and sequence updates allocate nothing once warmed up", AllocationsAsync);
+    }
+
+    private static (VfxLibrary Library, VfxSystem System) Setup(params VfxDefinition[] definitions)
+    {
+        var library = new VfxLibrary(_ => null, null!);
+        foreach (var definition in definitions)
+        {
+            library.Register(definition);
+        }
+
+        return (library, new VfxSystem(new Anchors(), null, library));
+    }
+
+    private static void Run(VfxSystem system, float seconds, float step = 0.01f)
+    {
+        for (var elapsed = 0f; elapsed < seconds - 1e-4f; elapsed += step)
+        {
+            system.Update(step);
+        }
+    }
+
+    private static Task ComponentsAsync()
+    {
+        // A ramp at time 0 does not set its value: the colour moves from the initial colour to the ramp at 0.2 s.
+        var (library, system) = Setup(new VfxDefinition
+        {
+            Name = "test.quad",
+            Duration = 10f,
+            Components =
+            [
+                new VfxComponentDefinition
+                {
+                    Kind = VfxComponentKind.Billboard, Texture = "x.bmp", EndTime = [0.5f, 0.5f], Loop = 2, Color = [255f, 255f, 255f, 50f],
+                    Events =
+                    [
+                        new VfxComponentEvent(0f, VfxComponentEventKind.Color, true, [255f, 150f, 50f, 255f]),
+                        new VfxComponentEvent(0.2f, VfxComponentEventKind.Color, true, [255f, 150f, 50f, 255f]),
+                        new VfxComponentEvent(0.4f, VfxComponentEventKind.Size, false, [40f, 40f, 0f])
+                    ]
+                },
+                new VfxComponentDefinition { Kind = VfxComponentKind.Ground, Texture = "x.bmp", Delay = 0.3f, EndTime = [0.2f, 0.2f], Loop = 1 }
+            ]
+        });
+        library.TryGet("test.quad", out var effect);
+        var instance = system.Spawn(effect, new VfxSpawn(0, 0, Vector3.Zero, 0f))!;
+        Run(system, 0.1f);
+        var quad = instance.ComponentStates[0];
+        // Nine of the ten frames apply the ramp: the first frame only starts the clock.
+        Assert.Near(142.25f, quad.Element.Color.W, 1f);
+        Assert.Near(207.75f, quad.Element.Color.Y, 1f);
+        Assert.True(instance.ComponentStates[1].Drawn, "a delayed quad is not drawn with its initial colour");
+        Run(system, 0.35f);
+        Assert.True(quad.Element.Size.X == 40f, "the size event did not apply");
+        Run(system, 0.3f);
+        Assert.True(quad.Live && quad.LoopCount == 1, "the first loop did not restart the quad");
+        Run(system, 0.6f);
+        Assert.True(!quad.Live && !instance.ComponentStates[1].Live, "the quads did not end after their loops");
+        Run(system, 0.1f);
+        Assert.True(system.Instances.Count == 0, "the effect stayed alive after its components ended");
+        return Task.CompletedTask;
+    }
+
+    private static Task ComponentParticlesAsync()
+    {
+        var (library, system) = Setup(new VfxDefinition
+        {
+            Name = "test.pool",
+            Duration = 10f,
+            Components =
+            [
+                new VfxComponentDefinition
+                {
+                    Kind = VfxComponentKind.Particles, Texture = "x.bmp", Count = 300, Rate = 1000, Loop = 1, EndTime = [5f, 5f],
+                    Spawn = VfxSpawnShape.Sphere, SpawnMin = [10f, 0f, 0f], SpawnMax = [10f, 0f, 0f], Outward = true, VelocityMin = [20f, 0f, 0f],
+                    VelocityMax = [20f, 0f, 0f]
+                }
+            ]
+        });
+        library.TryGet("test.pool", out var effect);
+        var instance = system.Spawn(effect, new VfxSpawn(0, 0, new Vector3(100f, 0f, 0f), 0f))!;
+        Run(system, 1f);
+        var pool = instance.ComponentStates[0];
+        var live = pool.Particles.Count(static particle => particle.Live);
+        Assert.True(live == ComponentState.MaxParticles, $"{live} particles live");
+        var first = pool.Particles.First(static particle => particle.Live);
+        var distance = Vector3.Distance(first.Position, new Vector3(100f, 0f, 0f));
+        Assert.True(distance > 10.5f, $"outward particles did not move away ({distance})");
+        Run(system, 6f);
+        Assert.True(system.Instances.Count == 0, "the pool did not end after its loop");
+        return Task.CompletedTask;
+    }
+
+    private static Task SequencesAsync()
+    {
+        var (library, system) = Setup(new VfxDefinition
+        {
+            Name = "test.sequence",
+            Duration = 30f,
+            Sequences =
+            [
+                new VfxSequenceDefinition
+                {
+                    Texture = "x.bmp", Count = 5, Loops = 2, Rate = [100f, 100f], Lifetime = [0.3f, 0.3f], GravityMin = [0f, -10f, 0f],
+                    GravityMax = [0f, -10f, 0f],
+                    Events =
+                    [
+                        new VfxSequenceEvent { T = 0f, Set = VfxSequenceProperty.Size, Min = [10f], Max = [10f] },
+                        new VfxSequenceEvent { T = 0.2f, Ramp = true, Set = VfxSequenceProperty.Size, Min = [30f], Max = [30f] }
+                    ]
+                },
+                new VfxSequenceDefinition
+                {
+                    Texture = "x.bmp", Count = 1, Rate = [10f, 10f], Lifetime = [100f, 100f],
+                    Events =
+                    [
+                        new VfxSequenceEvent { T = 0.25f, Set = VfxSequenceProperty.Alpha, Min = [0f], Max = [0f] },
+                        new VfxSequenceEvent { T = 0.5f, Ramp = true, Set = VfxSequenceProperty.Alpha, Min = [200f], Max = [200f] },
+                        new VfxSequenceEvent { T = 1f, Set = VfxSequenceProperty.Clock, Min = [0.25f], Max = [0.25f] }
+                    ]
+                }
+            ]
+        });
+        library.TryGet("test.sequence", out var effect);
+        var instance = system.Spawn(effect, new VfxSpawn(0, 0, Vector3.Zero, 0f))!;
+        Run(system, 0.1f);
+        var stream = instance.SequenceStates[0];
+        Assert.True(stream.LiveCount == 5, $"{stream.LiveCount} live of a pool of 5");
+        Run(system, 1.5f);
+        Assert.True(stream.Finished && stream.LiveCount == 0, "a stream of two loops kept emitting");
+        var pulse = instance.SequenceStates[1];
+        // The clock goes back to 0.25 s every second: the alpha restarts from 0 and never grows past one cycle's ramp.
+        var peak = 0f;
+        for (var frame = 0; frame < 300; frame++)
+        {
+            system.Update(0.01f);
+            peak = MathF.Max(peak, pulse.Particles[0].Color.W);
+        }
+
+        Assert.True(pulse.LiveCount == 1 && peak is > 150f and < 650f && pulse.Particles[0].Color.W < peak,
+            $"the clock event did not keep the pulse looping (peak {peak}, now {pulse.Particles[0].Color.W})");
+        instance.Stop();
+        Run(system, 0.1f);
+        Assert.True(system.Instances.Count == 1, "stopping killed the live particle instead of letting it play out");
+        return Task.CompletedTask;
+    }
+
+    private static Task ChildrenAsync()
+    {
+        var anchors = new Anchors { Caster = new Vector3(10f, 0f, 0f) };
+        var library = new VfxLibrary(_ => null, null!);
+        library.Register(new VfxDefinition
+        {
+            Name = "test.child",
+            Duration = 30f,
+            Sequences = [new VfxSequenceDefinition { Texture = "x.bmp", Count = 1, Rate = [10f, 10f], Lifetime = [100f, 100f] }]
+        });
+        library.Register(new VfxDefinition
+        {
+            Name = "test.parent",
+            Duration = 1f,
+            Children = [new VfxChildDefinition { Effect = "test.child", Anchor = VfxAnchor.Caster, Offset = [0f, 5f, 0f], Delay = 0.2f, Follow = true }]
+        });
+        var system = new VfxSystem(anchors, null, library);
+        library.TryGet("test.parent", out var parent);
+        var instance = system.Spawn(parent, new VfxSpawn(1, 0, Vector3.Zero, 0f))!;
+        Run(system, 0.1f);
+        Assert.True(system.Instances.Count == 1, "the child started before its delay");
+        Run(system, 0.2f);
+        Assert.True(system.Instances.Count == 2, "the child did not start");
+        var child = system.Instances.First(item => item != instance);
+        anchors.Caster = new Vector3(50f, 0f, 0f);
+        Run(system, 0.05f);
+        Assert.Near(50f, child.Spawn.Point.X, 0.01f);
+        Assert.Near(5f, child.Spawn.Point.Y, 0.01f);
+        instance.Stop();
+        Run(system, 0.05f);
+        Assert.True(child.SequenceStates[0].LiveCount == 1, "a stopped child must let its particles play out");
+        return Task.CompletedTask;
+    }
+
+    private static Task AllocationsAsync()
+    {
+        var (library, system) = Setup(new VfxDefinition
+        {
+            Name = "test.mix",
+            Duration = 60f,
+            Components =
+            [
+                new VfxComponentDefinition { Kind = VfxComponentKind.Particles, Texture = "x.bmp", Count = 50, Rate = 100, Loop = 0, EndTime = [0.3f, 0.5f] },
+                new VfxComponentDefinition
+                {
+                    Kind = VfxComponentKind.Billboard, Texture = "x.bmp", EndTime = [0.2f, 0.2f],
+                    Events = [new VfxComponentEvent(0.1f, VfxComponentEventKind.Color, true, [0f, 0f, 0f, 0f])]
+                }
+            ],
+            Sequences =
+            [
+                new VfxSequenceDefinition
+                {
+                    Texture = "x.bmp", Shape = VfxSequenceShape.Trail, Count = 20, Rate = [40f, 40f], Lifetime = [0.5f, 0.5f],
+                    Events = [new VfxSequenceEvent { T = 0f, Set = VfxSequenceProperty.Stretch, Min = [8f], Max = [8f] }]
+                }
+            ]
+        });
+        library.TryGet("test.mix", out var effect);
+        system.Spawn(effect, new VfxSpawn(0, 0, Vector3.Zero, 0f));
+        Run(system, 1f);
+        var allocated = GC.GetAllocatedBytesForCurrentThread();
+        Run(system, 1f);
+        Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 2048, "layer updates allocated per frame");
+        return Task.CompletedTask;
+    }
+
+    private sealed class Anchors : IVfxAnchors
+    {
+        public Vector3 Caster { get; set; }
+
+        public bool TryGetPosition(uint entityId, out Vector3 position)
+        {
+            position = Caster;
+            return entityId == 1;
+        }
+
+        public bool TryGetBone(uint entityId, string bone, out Vector3 position)
+        {
+            position = Vector3.Zero;
+            return false;
+        }
+    }
+}
