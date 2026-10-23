@@ -266,7 +266,10 @@
     ],
     "sounds": [
       {
-        "path": "wav/Effects/Skill/Morion/Firebolt 1.wav"
+        "path": "wav/Effects/Skill/Morion/Firebolt 1.wav",
+        "variants": [
+          "wav/Effects/Skill/Morion/Firebolt 2.wav"
+        ]
       }
     ]
   },
@@ -618,7 +621,10 @@
     ],
     "sounds": [
       {
-        "path": "wav/Effects/Skill/Morion/FireBall 1.wav"
+        "path": "wav/Effects/Skill/Morion/FireBall 1.wav",
+        "variants": [
+          "wav/Effects/Skill/Morion/FireBall 2.wav"
+        ]
       }
     ]
   },

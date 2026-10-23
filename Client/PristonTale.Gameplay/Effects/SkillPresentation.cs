@@ -118,7 +118,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         if (!_legacy.Vfx.Ready && _legacy.Vfx.Compile(CompileBudget) || _legacy.Vfx.Ready && !_effectSoundsLoaded)
         {
             _effectSoundsLoaded = true;
-            _sounds.Preload(Library.Names.SelectMany(name => Library.TryGet(name, out var effect) ? effect.Definition.Sounds.Select(sound => sound.Path) : []));
+            _sounds.Preload(Library.Names.SelectMany(name => Library.TryGet(name, out var effect) ? effect.Definition.Sounds.SelectMany(sound => sound.AllPaths) : []));
         }
 
         _sounds.Update();

@@ -135,6 +135,7 @@ public sealed class VfxContent : IVfxResources, IDisposable
         var animations = new Dictionary<string, BillboardSequence?>(StringComparer.OrdinalIgnoreCase);
         var reader = new PristonSmdReader();
         var decoding = new List<Task>();
+        var effectTextures = EffectTextureIndex();
         foreach (var definition in catalog.Definitions)
         {
             foreach (var texture in VfxCatalog.Textures(definition))
@@ -146,7 +147,7 @@ public sealed class VfxContent : IVfxResources, IDisposable
             {
                 if (component.Kind == VfxComponentKind.Model)
                 {
-                    QueueModel(reader, component.Model, component.Skeleton, models, decoding);
+                    QueueModel(reader, component.Model, component.Skeleton, models, decoding, effectTextures);
                 }
             }
 
@@ -154,7 +155,7 @@ public sealed class VfxContent : IVfxResources, IDisposable
             {
                 if (part.Shape == VfxPartShape.Model)
                 {
-                    QueueModel(reader, part.Model, part.Skeleton, models, decoding);
+                    QueueModel(reader, part.Model, part.Skeleton, models, decoding, effectTextures);
                 }
                 else if (part.Animation.Length > 0 && !animations.ContainsKey(part.Animation))
                 {
@@ -189,7 +190,8 @@ public sealed class VfxContent : IVfxResources, IDisposable
         }
     }
 
-    private void QueueModel(PristonSmdReader reader, string path, string skeleton, ConcurrentDictionary<string, ParsedModel> models, List<Task> decoding)
+    private void QueueModel(PristonSmdReader reader, string path, string skeleton, ConcurrentDictionary<string, ParsedModel> models, List<Task> decoding,
+        IReadOnlyDictionary<string, string> effectTextures)
     {
         var key = ModelKey(path, skeleton);
         if (models.ContainsKey(key))
@@ -198,6 +200,11 @@ public sealed class VfxContent : IVfxResources, IDisposable
         }
 
         var parsed = Parse(reader, path, skeleton);
+        if (parsed.Mesh is { } mesh)
+        {
+            parsed = parsed with { Mesh = Relink(mesh, effectTextures) };
+        }
+
         models[key] = parsed;
         if (parsed.Mesh is not null)
         {
@@ -243,6 +250,52 @@ public sealed class VfxContent : IVfxResources, IDisposable
     }
 
     private static string ModelKey(string path, string skeleton) => $"{path}|{skeleton}";
+
+    // The effect folders the game registers its effect textures from: a model's material names a file, found anywhere
+    // under them by name when it is not next to the model.
+    private static readonly string[] EffectTextureFolders = ["image/Sinimage/AssaEffect", "Effect/AssaEffect", "Effect/NewEffect/Res"];
+
+    private Dictionary<string, string> EffectTextureIndex()
+    {
+        var index = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var folder in EffectTextureFolders)
+        {
+            var directory = Path.Combine(_assetRoot, folder);
+            if (!Directory.Exists(directory))
+            {
+                continue;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories).Order(StringComparer.OrdinalIgnoreCase))
+            {
+                index.TryAdd(Path.GetFileName(file), file);
+            }
+        }
+
+        return index;
+    }
+
+    private static PristonModel Relink(PristonModel mesh, IReadOnlyDictionary<string, string> effectTextures)
+    {
+        var directory = Path.GetDirectoryName(mesh.Path) ?? ".";
+        string Resolve(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name) || PristonFileResolver.Exists(Path.Combine(directory, name))
+                || !effectTextures.TryGetValue(Path.GetFileName(name), out var found))
+            {
+                return name;
+            }
+
+            return Path.GetRelativePath(directory, found);
+        }
+
+        var materials = mesh.Materials.Select(material => material with
+        {
+            TextureName = Resolve(material.TextureName),
+            OpacityName = Resolve(material.OpacityName)
+        }).ToArray();
+        return mesh with { Materials = materials };
+    }
 
     public void Dispose()
     {

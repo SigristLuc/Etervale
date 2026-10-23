@@ -20,9 +20,11 @@ public readonly record struct EntityLook(
     int Afterimages,
     float AfterimageLagFrames,
     float AfterimageOpacity,
-    float AfterimageOpacityStep)
+    float AfterimageOpacityStep,
+    string ShieldBone,
+    Vector3 ShieldGlow)
 {
-    public static EntityLook Normal => new(Vector3.Zero, 1f, false, true, false, "", 0f, 0f, Vector3.Zero, 0, 0f, 0f, 0f);
+    public static EntityLook Normal => new(Vector3.Zero, 1f, false, true, false, "", 0f, 0f, Vector3.Zero, 0, 0f, 0f, 0f, "", Vector3.Zero);
 
     public bool IsNormal => this == Normal;
 }
@@ -69,7 +71,7 @@ public sealed class ActorLookBook
             StateOf(skillEvent.CasterId).ShieldHeldUntilMs = nowMs + skillEvent.HitAtMs;
         }
 
-        if (rule.WeaponGrowth.Length == 0 && rule.Afterimages == 0)
+        if (rule.WeaponGrowth.Length == 0 && rule.Afterimages == 0 && rule.CastShieldBone.Length == 0)
         {
             return;
         }
@@ -215,6 +217,12 @@ public sealed class ActorLookBook
 
     private static EntityLook WithCast(EntityLook look, SkillRule rule, int rank, float ticks, bool self)
     {
+        if (rule.CastShieldBone.Length > 0)
+        {
+            var glow = rule.CastShieldGlow.Length == 3 ? new Vector3(rule.CastShieldGlow[0], rule.CastShieldGlow[1], rule.CastShieldGlow[2]) / 255f : Vector3.Zero;
+            look = look with { ShieldBone = rule.CastShieldBone, ShieldGlow = glow };
+        }
+
         if (rule.WeaponGrowth.Length > 0)
         {
             var percent = rule.At(rule.WeaponGrowth, rank);

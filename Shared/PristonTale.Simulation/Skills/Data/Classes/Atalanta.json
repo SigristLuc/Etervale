@@ -11,8 +11,8 @@
       "noCritical": true },
     "buff": { "durationTenths": [100, 100, 100, 100, 100, 100, 100, 100, 100, 100], "control": "Stun", "harmful": true, "resistedByBionic": true },
     "motionIndex": 76, "motionFrames": 54, "motionEvents": [34], "motionSpeed": 90,
-    "castEffect": "vfx.atalanta.shieldstrike.cast", "buffEffect": "vfx.debuff.stun", "impactSound": "wav/Effects/Skill/Morion/ShieldSpake 1.wav"
-  },
+    "castEffect": "vfx.atalanta.shieldstrike.cast", "buffEffect": "vfx.debuff.stun", "impactSound": "wav/Effects/Skill/Morion/ShieldSpake 1.wav",
+      "castShieldBone": "Bip-shield", "castShieldGlow": [100, 100, 80] },
   {
     "code": "0x06010002", "name": "Farina", "tier": "Job1", "category": "ActiveAttack", "icon": "MA12 Farina",
     "description": "throws a spear that creates illusions", "requiredLevel": 12, "mouse": "Both",
@@ -73,8 +73,8 @@
       "excludeBroods": ["Undead"], "lifeToCasterCapPercent": 40, "noCritical": true },
     "motionIndex": 78, "motionFrames": 45, "motionEvents": [25], "motionSpeed": 90,
     "impactEffect": "vfx.atalanta.soulsucker.drain",
-    "impactSound": "wav/Effects/Skill/Morion/SoulSucker 2.wav"
-  },
+    "impactSound": "wav/Effects/Skill/Morion/SoulSucker 2.wav",
+      "castShieldBone": "Bip-shield", "castShieldGlow": [100, 100, 80] },
   {
     "code": "0x06020004", "name": "Fire Javelin", "tier": "Job2", "category": "ActiveAttack", "icon": "MA30 F_Javelin",
     "description": "Attack enemy with power of fire.", "requiredLevel": 30, "mouse": "Both",
@@ -123,8 +123,7 @@
       "main": { "attackPower": true, "levelDivisor": 3, "levelOnMax": true, "bonusBroods": ["Undead"], "bonusPercent": 50 } },
     "motionIndex": 83, "motionFrames": 50, "motionEvents": [26], "projectile": true,
     "projectileEffect": "vfx.atalanta.lightning.shot",
-    "impactSound": "wav/Effects/Skill/Morion/LightningJavelin 1.wav"
-  },
+      "impactSoundOrder": "Random", "impactSounds": ["wav/Effects/Skill/Morion/LightningJavelin 1.wav", "wav/Effects/Skill/Morion/LightningJavelin 2.wav"] },
   {
     "code": "0x06040004", "name": "Storm Javelin", "tier": "Job3", "category": "MultiHit", "icon": "MA50 Storm_Javelin",
     "description": "Strong tornado attack to enemies.", "requiredLevel": 50, "mouse": "Right",
@@ -135,8 +134,7 @@
     "loops": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
     "motionIndex": 83, "motionFrames": 50, "motionEvents": [26],
     "impactEffect": "vfx.atalanta.storm.javelin",
-    "impactSound": "wav/Effects/Skill/Morion/StormJavelin 1.wav"
-  },
+      "impactSoundOrder": "Random", "impactSounds": ["wav/Effects/Skill/Morion/StormJavelin 1.wav", "wav/Effects/Skill/Morion/StormJavelin 2.wav"] },
   {
     "code": "0x06080001", "name": "Hall of Valhalla", "tier": "Job4", "category": "Buff", "icon": "MA60 H_O_Valhalla",
     "description": "It makes an ability for creating a space with Power of Vahalla.", "requiredLevel": 60, "mouse": "Right",
@@ -176,8 +174,8 @@
     "exclusive": ["0x06080003"],
     "motionIndex": 82, "motionFrames": 40, "motionEvents": [20], "motionSpeed": 80,
     "castEffect": "vfx.atalanta.frost.cast", "buffEffect": "vfx.atalanta.frost.aura",
-    "castSound": "wav/Effects/Skill/Morion/FrostJavelin 01.wav", "keepIcon": "At4_F_JAVELIN"
-  },
+    "castSound": "wav/Effects/Skill/Morion/FrostJavelin 01.wav", "keepIcon": "At4_F_JAVELIN",
+      "statusLook": "Frost" },
   {
     "code": "0x06080004", "name": "Vengeance", "tier": "Job4", "category": "MultiHit", "icon": "MA70 Vengeance",
     "description": "It attacks fast, continuous ATK.", "requiredLevel": 70, "mouse": "Right",
@@ -187,6 +185,5 @@
     "damage": { "percent": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100] },
     "motionIndex": 85, "motionFrames": 40, "motionEvents": [14, 30], "motionSpeed": 80, "projectile": true,
     "castEffect": "vfx.atalanta.vengeance.cast",
-    "castSound": "wav/Effects/Skill/Morion/Vengeance 01.wav", "impactSound": "wav/Effects/Skill/Morion/Vengeance 02.wav"
-  }
+      "impactSounds": ["wav/Effects/Skill/Morion/Vengeance 01.wav", "wav/Effects/Skill/Morion/Vengeance 02.wav"] }
 ]

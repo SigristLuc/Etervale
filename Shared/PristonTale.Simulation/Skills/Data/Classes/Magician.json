@@ -70,8 +70,7 @@
       "noCritical": true, "spellPower": true },
     "motionIndex": 67, "motionFrames": 50, "motionEvents": [29], "motionSpeed": 90,
     "castEffect": "vfx.magician.castcircle", "impactEffect": "vfx.magician.watornado.column", "castSound": "wav/Effects/Skill/Morion/Casting_M.wav",
-    "impactSound": "wav/Effects/Skill/Morion/Watornado 1.wav"
-  },
+      "impactSoundOrder": "Random", "impactSounds": ["wav/Effects/Skill/Morion/Watornado 1.wav", "wav/Effects/Skill/Morion/Watornado 2.wav"] },
   {
     "code": "0x08020003", "name": "Enchant Weapon", "tier": "Job2", "category": "Buff", "icon": "MM26 E_Weapon",
     "description": "Enhance the attacking element in weapon of party member", "requiredLevel": 26, "mouse": "Right",
@@ -88,8 +87,8 @@
     "exclusive": ["0x08020003"],
     "motionIndex": 69, "motionFrames": 50, "motionEvents": [36], "motionSpeed": 70,
     "castEffect": "vfx.magician.enchant.cast", "buffEffect": "vfx.magician.enchant.aura", "castSound": "wav/Effects/Skill/Morion/EnchantWpn_cast.wav",
-    "keepIcon": "Mg2_E_WEAPON"
-  },
+    "keepIcon": "Mg2_E_WEAPON",
+      "statusLook": "Frost" },
   {
     "code": "0x08020004", "name": "Dead Ray", "tier": "Job2", "category": "ActiveAttack", "icon": "MM30 D_Ray",
     "description": "Fire Powerful ray from palms", "requiredLevel": 30, "mouse": "Both",
@@ -152,9 +151,9 @@
     "exclusive": ["0x08040004"],
     "motionIndex": 68, "motionFrames": 50, "motionEvents": [26], "motionSpeed": 80,
     "castEffect": "vfx.magician.dancingsword.cast", "buffEffect": "vfx.magician.dancingsword.blade", "impactEffect": "vfx.magician.dancingsword.strike",
-    "castSound": "wav/Effects/Skill/Morion/Casting_M.wav", "impactSound": "wav/Effects/Skill/Morion/DancingSword_atk_1.wav",
-    "keepIcon": "Mg3_D_SWORD"
-  },
+    "castSound": "wav/Effects/Skill/Morion/Casting_M.wav",
+    "keepIcon": "Mg3_D_SWORD",
+      "statusLook": "Frost", "impactSoundOrder": "Random", "impactSounds": ["wav/Effects/Skill/Morion/DancingSword_atk_1.wav", "wav/Effects/Skill/Morion/DancingSword_atk_2.wav"] },
   {
     "code": "0x08080001", "name": "Fire Elemental", "tier": "Job4", "category": "Summon", "icon": "MM60 F_Elemental",
     "description": "The skill summons a strong elemental made with fire.", "requiredLevel": 60, "mouse": "Right",
@@ -176,8 +175,7 @@
       "levelDivisor": 2, "spiritMinDivisor": 6, "spiritMaxDivisor": 3, "element": "Fire", "noCritical": true, "spellPower": true },
     "motionIndex": 71, "motionFrames": 78, "motionEvents": [38],
     "castEffect": "vfx.magician.castcircle", "impactEffect": "vfx.magician.flamewave.wave", "castSound": "wav/Effects/Skill/Morion/FlameWaveA 01.wav",
-    "impactSound": "wav/Effects/Skill/Morion/FlameWave 01.wav"
-  },
+      "impactSoundOrder": "Random", "impactSounds": ["wav/Effects/Skill/Morion/FlameWave 01.wav", "wav/Effects/Skill/Morion/FlameWave 02.wav"] },
   {
     "code": "0x08080003", "name": "Distortion", "tier": "Job4", "category": "Debuff", "icon": "MM66 Distortion",
     "description": "It takes down a monster's ability with Distortion of Space.", "requiredLevel": 66, "mouse": "Right",
@@ -187,8 +185,8 @@
     "buff": { "durationTenths": [40, 60, 80, 100, 120, 140, 160, 180, 200, 220], "control": "Slow", "harmful": true,
       "modifiers": [{ "stat": "MoveSpeed", "op": "Percent", "values": [-10, -12, -14, -16, -17, -19, -21, -23, -25, -27] }] },
     "motionIndex": 68, "motionFrames": 50, "motionEvents": [26], "motionSpeed": 80,
-    "castEffect": "vfx.magician.castcircle", "castSound": "wav/Effects/Skill/Morion/Distortion 01.wav", "keepIcon": "Mg4_DISTORTION"
-  },
+    "castEffect": "vfx.magician.castcircle", "castSound": "wav/Effects/Skill/Morion/Distortion 01.wav", "keepIcon": "Mg4_DISTORTION",
+      "statusLook": "Distortion" },
   {
     "code": "0x08080004", "name": "Meteo", "tier": "Job4", "category": "AreaAttack", "icon": "MM70 Meteo",
     "description": "It attacks nearby monsters with summoned meteorites.", "requiredLevel": 70, "mouse": "Right",

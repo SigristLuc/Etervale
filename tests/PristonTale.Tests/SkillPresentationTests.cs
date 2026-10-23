@@ -105,7 +105,7 @@ internal static class SkillPresentationTests
     private static IEnumerable<string> Effects(SkillRule rule)
     {
         var rules = new[] { rule }.Concat(rule.Modes).Concat(rule.Charge?.Full is { } full ? [full] : Array.Empty<SkillRule>());
-        return rules.SelectMany(static item => new[] { item.CastEffect, item.ImpactEffect, item.ProjectileEffect, item.BuffEffect, item.CompanionEffect });
+        return rules.SelectMany(static item => new[] { item.CastEffect, item.ImpactEffect, item.ProjectileEffect, item.BuffEffect, item.CompanionEffect }.Concat(item.ImpactEffects));
     }
 
     private static Task GameDataAsync()
@@ -132,7 +132,7 @@ internal static class SkillPresentationTests
                 }
             }
 
-            foreach (var sound in new[] { rule.CastSound, rule.ImpactSound, rule.CompanionSound })
+            foreach (var sound in new[] { rule.CastSound, rule.ImpactSound, rule.CompanionSound, rule.ShieldModel }.Concat(rule.ImpactSounds))
             {
                 if (sound.Length > 0 && !PristonFileResolver.Exists(Path.Combine(root, sound)))
                 {
@@ -181,11 +181,11 @@ internal static class SkillPresentationTests
                 }
             }
 
-            foreach (var sound in definition.Sounds)
+            foreach (var sound in definition.Sounds.SelectMany(static sound => sound.AllPaths))
             {
-                if (!PristonFileResolver.Exists(Path.Combine(root, sound.Path)))
+                if (!PristonFileResolver.Exists(Path.Combine(root, sound)))
                 {
-                    problems.Add($"{definition.Name} sound {sound.Path} is missing");
+                    problems.Add($"{definition.Name} sound {sound} is missing");
                 }
             }
 

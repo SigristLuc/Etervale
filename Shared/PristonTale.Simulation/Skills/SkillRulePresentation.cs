@@ -44,6 +44,10 @@ public sealed partial record SkillRule
     public int[] WeaponGrowth { get; init; } = [];
     // Afterimages trailing the caster through the cast's skill clip.
     public int Afterimages { get; init; }
+    // During the cast the held shield moves to this bone of the body (a thrown or swung shield) and glows by this light
+    // (0..255 per channel).
+    public string CastShieldBone { get; init; } = "";
+    public int[] CastShieldGlow { get; init; } = [];
 }
 
 public static partial class SkillRuleCatalog
@@ -51,7 +55,7 @@ public static partial class SkillRuleCatalog
     private static bool PresentationValid(SkillRule rule) =>
         rule.ImpactSounds.All(static sound => sound.Length > 0) && rule.RageGlow is >= 0 and <= 255 && Ranked(rule.WeaponGrowth)
         && rule.WeaponGrowth.All(static percent => percent >= 0) && rule.Afterimages is >= 0 and <= 8 && Enum.IsDefined(rule.StatusLook)
-        && Enum.IsDefined(rule.ImpactSoundOrder);
+        && Enum.IsDefined(rule.ImpactSoundOrder) && rule.CastShieldGlow.Length is 0 or 3;
 }
 
 public static class SkillImpacts

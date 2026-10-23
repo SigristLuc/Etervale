@@ -65,8 +65,7 @@
       "noCritical": true },
     "motionIndex": 65, "motionFrames": 50, "motionEvents": [30], "motionSpeed": 85,
     "castEffect": "vfx.priestess.castcircle", "impactEffect": "vfx.priestess.divinelightning.strike", "castSound": "wav/Effects/Skill/Morion/Casting_P.wav",
-    "impactSound": "wav/Effects/Skill/Morion/DivineLightning 1.wav"
-  },
+      "impactSoundOrder": "Random", "impactSounds": ["wav/Effects/Skill/Morion/DivineLightning 1.wav", "wav/Effects/Skill/Morion/DivineLightning 2.wav", "wav/Effects/Skill/Morion/DivineLightning 3.wav"] },
   {
     "code": "0x07020003", "name": "Holy Reflection", "tier": "Job2", "category": "Buff", "icon": "MP26 H_Reflection",
     "description": "Reflect attacks from undead by creating holy magical shield.", "requiredLevel": 26, "mouse": "Right",
@@ -101,8 +100,8 @@
       "spiritMinDivisor": 6, "spiritMaxDivisor": 3, "noCritical": true },
     "motionIndex": 69, "motionFrames": 60, "motionEvents": [29, 44], "motionSpeed": 90, "projectile": true,
     "castEffect": "vfx.priestess.castcircle", "projectileEffect": "vfx.priestess.vigorball.projectile", "impactEffect": "vfx.priestess.vigorball.impact",
-    "castSound": "wav/Effects/Skill/Morion/Casting_P.wav", "impactSound": "wav/Effects/Skill/Morion/VigorBall 1.wav"
-  },
+    "castSound": "wav/Effects/Skill/Morion/Casting_P.wav",
+      "impactSoundOrder": "Random", "impactSounds": ["wav/Effects/Skill/Morion/VigorBall 1.wav", "wav/Effects/Skill/Morion/VigorBall 2.wav"] },
   {
     "code": "0x07040002", "name": "Resurrection", "tier": "Job3", "category": "Heal", "icon": "MP43 Resurrection",
     "description": "Revives a dead party member.", "requiredLevel": 43, "mouse": "Right",
@@ -155,8 +154,8 @@
       "modifiers": [{ "stat": "MoveSpeed", "op": "Percent", "values": [-22, -22, -22, -22, -22, -22, -22, -22, -22, -22] }] },
     "motionIndex": 71, "motionFrames": 75, "motionEvents": [45],
     "castEffect": "vfx.priestess.castcircle", "impactEffect": "vfx.priestess.glacialspike.spikes",
-    "castSound": "wav/Effects/Skill/Morion/Casting_P.wav", "impactSound": "wav/Effects/Skill/Morion/GlacialSpike 01.wav"
-  },
+    "castSound": "wav/Effects/Skill/Morion/Casting_P.wav",
+      "statusLook": "Frost", "impactSoundOrder": "Random", "impactSounds": ["wav/Effects/Skill/Morion/GlacialSpike 01.wav", "wav/Effects/Skill/Morion/GlacialSpike 02.wav"] },
   {
     "code": "0x07080002", "name": "Regeneration Field", "tier": "Job4", "category": "Buff", "icon": "MP63 R_Field",
     "description": "After your sacrifice, it recoveries your company continuously.", "requiredLevel": 63, "mouse": "Right",
@@ -184,8 +183,7 @@
       "levelDivisor": 3, "weaponDivisor": 3, "spiritMinDivisor": 6, "spiritMaxDivisor": 3, "element": "Lighting", "noCritical": true },
     "motionIndex": 73, "motionFrames": 60, "motionEvents": [25],
     "castEffect": "vfx.priestess.chainlightning.cast", "impactEffect": "vfx.priestess.chainlightning.link", "castSound": "wav/Effects/Skill/Morion/Casting_P.wav",
-    "impactSound": "wav/Effects/Skill/Morion/ChainLightning 01.wav"
-  },
+      "impactSoundOrder": "Random", "impactSounds": ["wav/Effects/Skill/Morion/ChainLightning 01.wav", "wav/Effects/Skill/Morion/ChainLightning 02.wav"] },
   {
     "code": "0x07080004", "name": "Summon Muspell", "tier": "Job4", "category": "Summon", "icon": "MP70 S_Muspell",
     "description": "It absorbs undead monster's ATK, resurrects HP and has summoner's ability.", "requiredLevel": 70, "mouse": "Right",

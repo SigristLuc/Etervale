@@ -110,8 +110,8 @@
     "exclusive": ["0x05040002"], "replaces": ["0x05080002"],
     "motionIndex": 71, "motionFrames": 45, "motionEvents": [22], "motionSpeed": 70,
     "castEffect": "vfx.knight.divineinhalation.cast", "buffEffect": "vfx.knight.shield.aura",
-    "castSound": "wav/Effects/Skill/Morion/DivineInhalation 1.wav", "keepIcon": "Kt3_D_INHALATION"
-  },
+    "castSound": "wav/Effects/Skill/Morion/DivineInhalation 1.wav", "keepIcon": "Kt3_D_INHALATION",
+      "shieldModel": "weapons/Nt3_DivineI.smd" },
   {
     "code": "0x05040003", "name": "Holy Incantation", "tier": "Job3", "category": "Debuff", "icon": "MN46 H_Incantation",
     "description": "Holy incantation that lures monsters.", "requiredLevel": 46, "mouse": "Right",
@@ -134,8 +134,7 @@
       "bonusPercentByRank": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50] },
     "motionIndex": 169, "motionFrames": 65, "motionEvents": [17, 49], "motionSpeedSteps": 1,
     "castEffect": "vfx.knight.grandcross.blade", "impactEffect": "vfx.knight.grandcross.hit",
-    "impactSound": "wav/Effects/Skill/Morion/GrandCross 2.wav"
-  },
+      "impactEffects": ["vfx.knight.grandcross.hit", "vfx.knight.grandcross.hit2"], "impactSounds": ["wav/Effects/Skill/Skill_Swing 02.wav", "wav/Effects/Skill/Morion/GrandCross 2.wav"] },
   {
     "code": "0x05080001", "name": "Sword of Justice", "tier": "Job4", "category": "AreaAttack", "icon": "MN60 S_O_Justice",
     "description": "Strike downward with strong power by bending back the body.", "requiredLevel": 60, "mouse": "Right",
@@ -160,8 +159,8 @@
     "exclusive": ["0x05080002"], "replaces": ["0x05040002"],
     "motionIndex": 71, "motionFrames": 45, "motionEvents": [22], "motionSpeed": 80,
     "castEffect": "vfx.knight.godlyshield.cast", "buffEffect": "vfx.knight.shield.aura",
-    "castSound": "wav/Effects/Skill/Tempskron/GodlyShield 01.wav", "keepIcon": "Kt4_G_SHIELD"
-  },
+    "castSound": "wav/Effects/Skill/Tempskron/GodlyShield 01.wav", "keepIcon": "Kt4_G_SHIELD",
+      "shieldModel": "weapons/Godly_Shield.smd" },
   {
     "code": "0x05080003", "name": "God Bless", "tier": "Job4", "category": "Buff", "icon": "MN66 G_Bless",
     "description": "It makes great power of Saint Knight by the name of God.", "requiredLevel": 66, "mouse": "Right",
@@ -187,6 +186,5 @@
       { "fromRank": 5, "motionIndex": 173, "motionFrames": 97, "motionEvents": [6, 28, 43, 59], "extraEvents": [77] },
       { "fromRank": 9, "motionIndex": 174, "motionFrames": 130, "motionEvents": [6, 28, 43, 57], "extraEvents": [71, 92, 110] }],
     "castEffect": "vfx.knight.divinepiercing.blade", "impactEffect": "vfx.knight.divinepiercing.hit",
-    "impactSound": "wav/Effects/Skill/Morion/DIvinePiercing 07.wav"
-  }
+      "impactSoundOrder": "Final", "impactSounds": ["wav/Effects/Skill/Morion/DIvinePiercing 07.wav"] }
 ]

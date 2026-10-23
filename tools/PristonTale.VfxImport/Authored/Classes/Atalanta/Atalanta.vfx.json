@@ -2469,11 +2469,19 @@
     "sounds": [
       {
         "path": "wav/Effects/Skill/Morion/eXtremeRage 02.wav",
-        "delay": 1.254
+        "delay": 1.254,
+        "variants": [
+          "wav/Effects/Skill/Morion/eXtremeRage 01.wav",
+          "wav/Effects/Skill/Morion/eXtremeRage 03.wav"
+        ]
       },
       {
         "path": "wav/Effects/Skill/Morion/eXtremeRage 03.wav",
-        "delay": 1.584
+        "delay": 1.584,
+        "variants": [
+          "wav/Effects/Skill/Morion/eXtremeRage 01.wav",
+          "wav/Effects/Skill/Morion/eXtremeRage 02.wav"
+        ]
       }
     ]
   },

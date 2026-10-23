@@ -54,6 +54,8 @@ public sealed class ActorLookPresenter
             extras.Body = handles.Body;
         }
 
+        extras.OffHand = handles.OffHand;
+
         if (look.IsNormal || !handles.Body.IsValid)
         {
             Remove(extras);
@@ -65,7 +67,9 @@ public sealed class ActorLookPresenter
         var body = new PristonActorAppearance(look.Tint, look.Opacity, look.Wobble, look.CastsShadow, look.Overlay ? _overlay : "",
             look.Overlay ? VagueOverlayForm : 0u, 1f);
         var swapped = UpdateShield(extras, handles, holdsShield ? look.ShieldModel : "");
-        Paint(handles, body, swapped ? body with { Opacity = 0f } : body);
+        MoveShield(extras, handles, look.ShieldBone);
+        var offHand = swapped ? body with { Opacity = 0f } : body with { Tint = body.Tint + look.ShieldGlow };
+        Paint(handles, body, offHand);
         if (extras.Shield.IsValid)
         {
             _scene.SetActorAppearance(extras.Shield, body);
@@ -136,6 +140,28 @@ public sealed class ActorLookPresenter
         extras.Shield = _scene.AddActor(new PristonActorInstance(loading.Result, Matrix.Identity, PristonActorMotion.Stand));
         _scene.AttachActor(extras.Shield, handles.Body, ShieldBone);
         return true;
+    }
+
+    // A thrown or swung shield follows another bone of the body during the cast, and returns to the forearm after.
+    private void MoveShield(Extras extras, PlayerActorHandles handles, string bone)
+    {
+        var wanted = bone.Length > 0 ? bone : ShieldBone;
+        if (!handles.OffHand.IsValid || string.Equals(extras.OffHandBone, wanted, StringComparison.OrdinalIgnoreCase)
+            || bone.Length == 0 && extras.OffHandBone.Length == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _scene.AttachActor(handles.OffHand, handles.Body, wanted);
+            extras.OffHandBone = wanted == ShieldBone ? "" : wanted;
+        }
+        catch (InvalidDataException)
+        {
+            // A body without that bone keeps the shield on the forearm.
+            extras.OffHandBone = "";
+        }
     }
 
     private Task<PristonActor> LoadShield(string model)
@@ -215,6 +241,19 @@ public sealed class ActorLookPresenter
 
     private void Remove(Extras extras)
     {
+        if (extras.OffHandBone.Length > 0 && extras.OffHand.IsValid)
+        {
+            try
+            {
+                _scene.AttachActor(extras.OffHand, extras.Body, ShieldBone);
+            }
+            catch (ArgumentException)
+            {
+                // The body is gone with its shield.
+            }
+        }
+
+        extras.OffHandBone = "";
         RemoveShield(extras);
         RemoveHandle(ref extras.WeaponCopy);
         foreach (var echo in extras.Echoes)
@@ -248,6 +287,9 @@ public sealed class ActorLookPresenter
         public ActorHandle Body = ActorHandle.None;
         public ActorHandle Shield = ActorHandle.None;
         public string ShieldModel = "";
+        // The bone the held shield is attached to while a cast moves it ("" = the forearm), and that shield.
+        public string OffHandBone = "";
+        public ActorHandle OffHand = ActorHandle.None;
         public ActorHandle WeaponCopy = ActorHandle.None;
         public float EchoLag;
         public readonly List<PlayerActorHandles> Echoes = new();

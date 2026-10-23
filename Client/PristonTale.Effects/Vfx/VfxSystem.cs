@@ -512,7 +512,9 @@ public sealed class VfxInstance
             if (!_soundsFired[index] && Age >= sound.Delay)
             {
                 _soundsFired[index] = true;
-                services.PlaySound(sound.Path, AnchorPosition(VfxAnchor.Caster, "", Vector3.Zero, anchors), sound.Volume);
+                var take = sound.Variants.Length == 0 ? 0 : (int)(NextUnit(ref _random) * (sound.Variants.Length + 1));
+                var path = take == 0 ? sound.Path : sound.Variants[Math.Min(take, sound.Variants.Length) - 1];
+                services.PlaySound(path, AnchorPosition(VfxAnchor.Caster, "", Vector3.Zero, anchors), sound.Volume);
             }
         }
     }
