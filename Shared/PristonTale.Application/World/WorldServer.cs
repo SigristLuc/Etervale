@@ -278,11 +278,14 @@ public sealed partial class WorldServer
     {
         return EnqueueAsync(NoOwner, () =>
         {
+            var moneyBefore = operation.Original.Money;
             if (!ReferenceEquals(session.Character, operation.Original) || operation.Candidate is null
                 || !operation.Original.ApplyProgression(operation.Candidate.ProgressionOperations[^1].Command))
             {
                 throw new InvalidOperationException("Character ownership changed during progression commit.");
             }
+
+            Currency.Record(GameMasters.CurrencySink.SkillTraining, moneyBefore - operation.Original.Money);
 
             return true;
         }, waitForCapacity: true);

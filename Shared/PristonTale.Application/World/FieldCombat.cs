@@ -292,7 +292,7 @@ internal sealed class FieldCombat
         var dropBonus = credited != 0 && _host.TryGetPlayer(credited, out var looter) ? PremiumRules.ExtraDropChance(looter.Character.Premium) : 0;
         var level = credited != 0 && _host.TryGetPlayer(credited, out var eventPlayer) ? eventPlayer.Level : -1;
         Func<RolledDrop?>? events = EventRates.Any && level >= 0 ? () => EventDrop(level, monster.Def.Combat.Level) : null;
-        IReadOnlyList<RolledDrop> drops = DropRoller.Roll(_rng, monster.Def.Drops, eventItem, monster.Def.EventItem, dropBonus, events);
+        IReadOnlyList<RolledDrop> drops = monster.DropsDisabled ? [] : DropRoller.Roll(_rng, monster.Def.Drops, eventItem, monster.Def.EventItem, dropBonus, events);
 
         _damageLogs.Remove(monster.EntityId);
         _corpseMsLeft[monster.EntityId] = CorpseDespawnMs;

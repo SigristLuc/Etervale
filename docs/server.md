@@ -26,6 +26,8 @@ layouts live in [protocol.md](protocol.md).
 | `World/QuestUpkeepService.cs` | `BackgroundService` reading `WorldServer.QuestUpkeepRequests` and running `QuestAppService.RunUpkeepAsync`, at most 8 players at a time ([quests.md](quests.md)). |
 | [Net/PristonTcpServer.cs](../Server/PristonTale.Server/Net/PristonTcpServer.cs) | Listener, per-address limit, one `ClientSession` per socket, housekeeping (idle/login timeouts, bandwidth log). |
 | [Net/ClientSession.cs](../Server/PristonTale.Server/Net/ClientSession.cs) | Per-connection state machine: packet dispatch to application services and replies. |
+| `Net/ClientSession.Chat.cs` | The session's `IChatLink`: chat lines, forced warps, close requests and kicks from game masters. |
+| `Net/GameServerControl.cs` | `IServerOperations` for game masters: user limit, blocked logins, the shutdown countdown and host stop. |
 | `Net/PresenceEncoder.cs` | Turns the receiver's `WorldSnapshot` into presence packets (play data, events, drops, owner state). |
 | `Net/WireMapping.cs`, `Net/NpcWireMapping.cs`, `Net/QuestWireMapping.cs` | Authoritative views to wire structs (`CharacterInfo`, play data, events, NPC service state, quest messages). |
 | `Net/NetworkLimits.cs` | `Network:*` settings with defaults and validation; IPv4-mapped address normalisation. |
@@ -127,6 +129,10 @@ limit of `0` disables that limit; negative values stop startup.
 | `Network:LoginFailureWindowSeconds` | 300 | `NetworkLimits` | Window of both failure counters. |
 | `Network:PlayerInfoBurst` | 512 | `NetworkLimits` | Token-bucket capacity for `GETPLAYERINFO` requests. |
 | `Network:PlayerInfoPerSecond` | 128 | `NetworkLimits` | Token refill rate for `GETPLAYERINFO`. |
+| `GameMasters:TestServer` | `false` | `GameMasterOptions` | Lets every game master use `/GiveMeExp!` and `/GiveMeMoney!`. |
+| `GameMasters:DebugServer` | `false` | `GameMasterOptions` | As `TestServer`, and `/` with an item code drops that item. |
+| `GameMasters:PotionMonitor` | `true` | `GameMasterOptions` | Enables `/get_potion`. |
+| `GameMasters:ServerCode` | 0 | `GameMasterOptions` | Server number that prefixes the game-master information replies. |
 | `Logging:LogLevel:Default` | `Information` | host | Standard .NET logging filter. |
 
 Fixed values that are not settings: idle timeout 60 s, housekeeping period 5 s, report period 30 s,
@@ -155,7 +161,9 @@ the same switch.
 
 | Packet | Handler | Application call | Reply |
 | --- | --- | --- | --- |
-| `CHECK_NETSTATE` 1-5 | inline | none | Echo with `SParam` = server `Environment.TickCount`. |
+| `CHECK_NETSTATE` 1-5 | inline | `ChatAppService.Heartbeat` (the standing notice) | Echo with `SParam` = server `Environment.TickCount`. |
+| `CHATMESSAGE` | `ChatAsync` | `ChatAppService.SayAsync` (spoken line, player or game-master command) | Chat lines to the hearers ([chat-and-gm.md](chat-and-gm.md)). |
+| `PARTY_CHATMSG` | `ChatAsync` | `ChatAppService.PartyAsync` | Party line to the other party members. |
 | `ID_GETUSERINFO` | `LoginAsync` | `LoginThrottle.IsBlocked`, `AuthAppService.LoginAsync`, `ISessionRegistry.TryGet` | `ID_SETUSERINFO` + `SERVER_INFO`, or `FAILCONNECT` (`WParam` code, `EParam` 2). |
 | `ISRECORDDATA` | inline | `CharacterAppService.NameExistsAsync` | Echo, `WParam` 1 when the name exists. |
 | `INSRECORDDATA` | `CreateCharacterAsync` | `CharacterAppService.CreateCharacterAsync(token, name, LParam class, SParam face)` | New list on success, then echo. |

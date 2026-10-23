@@ -108,6 +108,9 @@ public sealed class PristonAudioLibrary : IDisposable
 
     // Played when a quest starts, moves on or ends.
     public SoundEffect QuestFanfareSound { get; private set; }
+
+    // Played when a whisper or notice opens the closed chat window.
+    public SoundEffect WhisperSound { get; private set; }
     public bool MusicEnabled { get; private set; } = true;
     public bool SoundEnabled { get; private set; } = true;
     public int AmbientCount => _ambients.Length;
@@ -128,6 +131,7 @@ public sealed class PristonAudioLibrary : IDisposable
             library.CharacterSelectMusic = library.Load(assetRoot, "StartImage/login/CharacterSelect.wav", byPath);
             library.PortalWarpSound = library.Load(assetRoot, "wav/Effects/Skill/Learn_Skill.wav", byPath);
             library.QuestFanfareSound = library.Load(assetRoot, "image/Sinimage/Sound/drink2.wav", byPath);
+            library.WhisperSound = library.Load(assetRoot, "wav/Effects/event/hosound.wav", byPath);
             foreach (var (code, path) in FieldMusicFiles)
             {
                 library._fieldMusic.Add(code, library.Load(assetRoot, path, byPath));

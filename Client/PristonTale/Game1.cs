@@ -57,6 +57,7 @@ public class Game1 : Game
         _presentationController = new PresentationController(_presentation, _settingsStore, _graphics);
         _client = new GameClient(GraphicsDevice, Content, ResolveAssetRoot(), ServerAddress, _presentation);
         _client.LoadContent();
+        Window.TextInput += (_, args) => _client.TypeCharacter(args.Character);
         ConsoleClientLog.Instance.Info($"[Presentation] GPU={GraphicsDevice.Adapter.DeviceName}; variable timestep; VSync={_presentation.VerticalSync}; maxFps={_presentation.Requested.MaxFps} (0=unlimited).");
     }
 
@@ -104,7 +105,7 @@ public class Game1 : Game
             _presentation.ConfirmRequested |= keyboard.IsKeyDown(Keys.Enter) && !_lastKeyboardState.IsKeyDown(Keys.Enter);
             escapePressed = false;
         }
-        if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || escapePressed && !_client.HandleEscape())
+        if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || escapePressed && !_client.HandleEscape() || _client.ExitRequested)
         {
             Exit();
         }

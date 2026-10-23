@@ -8,6 +8,8 @@ public sealed class HudProgressionController(Func<ProgressionCommand, Task<Progr
     private Task<ProgressionOutcome> _pending;
     public bool Pending => _pending is not null;
     public string Message { get; private set; } = "";
+
+    public bool LastOk { get; private set; }
     public int Completions { get; private set; }
 
     public void Submit(ProgressionCommand command)
@@ -43,6 +45,7 @@ public sealed class HudProgressionController(Func<ProgressionCommand, Task<Progr
 
         var outcome = _pending.Result;
         Message = outcome.Ok ? "Saved" : outcome.Message;
+        LastOk = outcome.Ok;
         _pending = null;
         Completions++;
     }

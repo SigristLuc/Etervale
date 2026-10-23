@@ -70,6 +70,27 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
         }
     }
 
+    // An item copy or gold a game master made at a position; it is public at once and lasts as a monster drop does.
+    public bool PlaceCreated(ItemInstance? item, int gold, Vector3 position, uint ownerId, long nowMs)
+    {
+        if (_entries.Count >= Capacity || item is null && gold <= 0)
+        {
+            return false;
+        }
+
+        var id = Guid.NewGuid();
+        var handle = NextHandle();
+        var view = item is null
+            ? new GroundDropView(id, 0u, "GG101", "Gold", gold, true, position) { Handle = handle }
+            : new GroundDropView(id, item.Definition.Code, item.Definition.CatalogKey, item.Definition.Name, item.Count, false, position) { Handle = handle };
+        _handles.Add(handle, id);
+        bool shortLived = item is null || item.Definition.CatalogKey.StartsWith("PL", StringComparison.OrdinalIgnoreCase)
+            || item.Definition.CatalogKey.StartsWith("PS", StringComparison.OrdinalIgnoreCase);
+        _entries.Add(id, new Entry(view, item, ownerId, nowMs, nowMs + (shortLived ? 90_000 : 180_000)));
+        _dirty = true;
+        return true;
+    }
+
     public void Step(long nowMs)
     {
         _nowMs = nowMs;

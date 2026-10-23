@@ -79,6 +79,9 @@ public readonly struct EntityView
 
     public bool IsSelf { get; }
 
+    // A hidden game master: only the player itself receives its view.
+    public bool Hidden { get; init; }
+
     public Vector3 Position { get; }
     public float Facing { get; }
     public MoveStateView MoveState { get; }

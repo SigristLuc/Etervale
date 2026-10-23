@@ -37,6 +37,7 @@ public static class PristonOpcodes
     public const uint SaveClient = 0x484700E8;
     public const uint ChatMessage = 0x48471001;
     public const uint WhisperMessage = 0x48471005;
+    public const uint PartyChatMessage = 0x48471015;
 
     public const uint AttackDamage = 0x50322000;
     public const uint AttackResult = 0x50322020;

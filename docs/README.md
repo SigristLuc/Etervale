@@ -24,6 +24,7 @@ where to look. Setup, build and run commands are in the root [README.md](../READ
 | [skills.md](skills.md) | Skill system end to end: class skill data, server resolution, opcodes, client skill UI and VFX hooks |
 | [quests.md](quests.md) | Quests end to end: quest families, rank-ups and the class tier, server authority, arena duels, quest UI |
 | [special-items.md](special-items.md) | Usable items end to end: premium timers, pets, travel items, scrolls, force orbs, firecrackers, item HUD |
+| [chat-and-gm.md](chat-and-gm.md) | Chat end to end: window, bubbles, routing, whispers, notices; game-master levels, commands and audit |
 | [application.md](application.md) | `Shared/PristonTale.Application`: use cases, sessions, `WorldServer`, tick, transactions, NPC services |
 | [server.md](server.md) | `Server/PristonTale.Server`: startup, hosted services, TCP edge, settings |
 | [protocol.md](protocol.md) | Wire protocol: transport, cipher, login and world messages, Etervale extension opcodes, server capacity |
@@ -49,6 +50,7 @@ The MonoGame fork documents itself in [monogame/README.md](../monogame/README.md
 | Add or change a usable or premium item | special-items.md | application.md, protocol.md |
 | Change monster behavior, spawns or drops | world.md | application.md |
 | Add a player command or NPC service | application.md | protocol.md, server.md, client.md |
+| Change chat routing, the chat window or a game-master command | chat-and-gm.md | application.md, client.md, persistence.md |
 | Add a packet or opcode | protocol.md | server.md, client.md |
 | Add a column, table or migration | persistence.md | world-import.md, application.md |
 | Import a new kind of authored data | world-import.md | persistence.md |

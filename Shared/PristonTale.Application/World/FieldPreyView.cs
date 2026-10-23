@@ -39,6 +39,12 @@ public sealed class FieldPreyView : IPreyView
         _index.Clear();
         foreach (var p in players)
         {
+            // A hidden game master is invisible to monsters as well as to players.
+            if (p.Hidden)
+            {
+                continue;
+            }
+
             var sight = 100 + p.Character.Effects.Totals.Flat(Simulation.Modifiers.StatKind.MonsterSight);
             var candidate = new PreyCandidate(p.EntityId, p.Position, p.Hp > 0, Math.Max(0, sight));
             _candidates.Add(candidate);

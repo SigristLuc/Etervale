@@ -109,6 +109,9 @@ public sealed class MonsterInstance
     public float ModelScale { get; set; }
     public bool IsSummon => OwnerId != 0;
 
+    // A monster a game master called up drops nothing when it dies.
+    public bool DropsDisabled { get; set; }
+
     // A quest duel opponent fights only the player it was opened for; MinimumLife keeps it from dying before it yields
     // or drinks its last potion.
     public uint DuelPlayerId { get; set; }

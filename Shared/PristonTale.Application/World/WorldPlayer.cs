@@ -615,5 +615,24 @@ public sealed class WorldPlayer
         Level, Hp, MaxHp, Appearance,
         moveSpeed: _character.Derived.MoveSpeed,
         attackRate: _character.AttackRate,
-        attackTargetId: AttackTargetId, attackSequence: AttackSequence);
+        attackTargetId: AttackTargetId, attackSequence: AttackSequence)
+    {
+        Hidden = Hidden
+    };
+
+    // A game master who hid is left out of every other player's view and out of monsters' sight.
+    public bool Hidden { get; set; }
+
+    // A game master's kill: the player dies at once, whatever guard is running.
+    public bool Kill()
+    {
+        if (IsDead)
+        {
+            return false;
+        }
+
+        GuardMsLeft = 0f;
+        ApplyDamage(Math.Max(1, _character.Life));
+        return IsDead;
+    }
 }

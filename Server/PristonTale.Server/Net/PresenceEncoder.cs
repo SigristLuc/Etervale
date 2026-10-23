@@ -161,7 +161,7 @@ internal sealed partial class PresenceEncoder
         foreach (var index in _candidates)
         {
             var view = snapshot.Entities[index];
-            if (view.EntityId == _self || HiddenInArena(field, view))
+            if (view.EntityId == _self || view.Hidden || HiddenInArena(field, view))
             {
                 continue;
             }
