@@ -20,7 +20,7 @@ public sealed partial class WorldServer
 {
     public const int TickHz = 20;
 
-    private readonly Channel<Action> _commands = Channel.CreateBounded<Action>(new BoundedChannelOptions(65536)
+    private readonly Channel<WorldCommand> _commands = Channel.CreateBounded<WorldCommand>(new BoundedChannelOptions(65536)
     {
         SingleReader = true,
         FullMode = BoundedChannelFullMode.Wait
@@ -426,7 +426,7 @@ public sealed partial class WorldServer
                 completion.TrySetException(ex);
             }
         };
-        if (_commands.Writer.TryWrite(command))
+        if (_commands.Writer.TryWrite(new WorldCommand(command, default)))
         {
             return completion.Task;
         }
@@ -447,7 +447,7 @@ public sealed partial class WorldServer
 
     private async Task<T> WriteThenAwaitAsync<T>(Action command, Task<T> result)
     {
-        await _commands.Writer.WriteAsync(command);
+        await _commands.Writer.WriteAsync(new WorldCommand(command, default));
         return await result;
     }
 
@@ -460,7 +460,14 @@ public sealed partial class WorldServer
 
         for (var processed = 0; processed < CommandsPerTick && _commands.Reader.TryRead(out var command); processed++)
         {
-            command();
+            if (command.Action is { } action)
+            {
+                action();
+            }
+            else
+            {
+                ApplyMovement(command.Movement);
+            }
         }
 
         var localNow = _clock.GetLocalNow();

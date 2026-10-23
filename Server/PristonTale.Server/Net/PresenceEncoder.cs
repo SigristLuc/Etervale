@@ -37,6 +37,8 @@ internal sealed partial class PresenceEncoder
     // The entities a receiver may show at once; the nearest win in a denser crowd.
     public const int MaxVisible = 256;
     private readonly VisibleSet _visible = new(MaxVisible);
+    private readonly List<int> _related = new();
+    private readonly HashSet<int> _essential = new();
     private readonly Func<int, bool> _isShown;
     private readonly MotionCandidates _pending = new(MovementBudgetBytes / PlayDataCoarse.Size);
     private readonly HashSet<uint> _visibleDrops = new();
@@ -220,23 +222,31 @@ internal sealed partial class PresenceEncoder
         _candidates.Clear();
         _pending.Clear();
         _visible.Clear();
-        grid.Query(self.Position, ForgetRadius, _candidates);
+        _essential.Clear();
+        // Entities a receiver must not lose in a crowd: NPCs, its attack target, whoever targets it and its summons.
+        _related.Clear();
+        _related.AddRange(grid.Npcs);
+        grid.Related(_self, _related);
+        if (self.AttackTargetId != 0 && grid.TryGetIndex(self.AttackTargetId, out var targetIndex))
+        {
+            _related.Add(targetIndex);
+        }
+
+        foreach (var index in _related)
+        {
+            if (_essential.Add(index))
+            {
+                ConsiderVisible(snapshot, field, index, self.Position, essential: true);
+            }
+        }
+
+        grid.Query(self.Position, CrowdRadius(grid, self.Position), _candidates);
         foreach (var index in _candidates)
         {
-            ref readonly var view = ref snapshot.Entities[index];
-            if (view.EntityId == _self || view.Hidden || HiddenInArena(field, view))
+            if (!_essential.Contains(index))
             {
-                continue;
+                ConsiderVisible(snapshot, field, index, self.Position, essential: false);
             }
-
-            var distanceSq = PlanarDistanceSq(view.Position, self.Position);
-            if (distanceSq > ForgetRadius * ForgetRadius || distanceSq > ViewRadius * ViewRadius && !_known.ContainsKey(view.EntityId))
-            {
-                continue;
-            }
-
-            var essential = view.Kind == EntityKindView.Npc || view.AttackTargetId == _self || view.OwnerId == _self || view.EntityId == self.AttackTargetId;
-            _visible.Add(index, distanceSq, essential);
         }
 
         _visible.Trim(_isShown);
@@ -313,6 +323,44 @@ internal sealed partial class PresenceEncoder
         SendOwner(snapshot.Owner, connection);
         SendPremium(snapshot.Owner, connection);
         SendCooldowns(snapshot, connection);
+    }
+
+    // In a crowd denser than the visible cap, only the neighbourhood that holds the nearest MaxVisible entities (and the
+    // keep band around it) is collected: a square of half size h holding at least that many puts all of them within
+    // h times the square root of two.
+    private static float CrowdRadius(EntityGrid grid, Vector3 center)
+    {
+        if (grid.Count <= MaxVisible * 2)
+        {
+            return ForgetRadius;
+        }
+
+        for (var half = EntityGrid.CellSize * 1.5f; half * 1.42f * 1.15f < ForgetRadius; half *= 1.6f)
+        {
+            if (grid.CountInSquare(center, half) >= MaxVisible * 2)
+            {
+                return half * 1.42f * 1.15f;
+            }
+        }
+
+        return ForgetRadius;
+    }
+
+    private void ConsiderVisible(in WorldSnapshot snapshot, int field, int index, Vector3 center, bool essential)
+    {
+        ref readonly var view = ref snapshot.Entities[index];
+        if (view.EntityId == _self || view.Hidden || HiddenInArena(field, view))
+        {
+            return;
+        }
+
+        var distanceSq = PlanarDistanceSq(view.Position, center);
+        if (distanceSq > ForgetRadius * ForgetRadius || distanceSq > ViewRadius * ViewRadius && !_known.ContainsKey(view.EntityId))
+        {
+            return;
+        }
+
+        _visible.Add(index, distanceSq, essential);
     }
 
     // The duel arena is solo: a player sees only the opponent and helper of its own duel.

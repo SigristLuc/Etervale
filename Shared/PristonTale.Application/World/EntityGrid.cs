@@ -3,14 +3,20 @@ using System.Numerics;
 namespace PristonTale.Application.World;
 
 // Uniform planar buckets over one field snapshot. Entity indices are sorted by cell key so a query is a binary
-// search per overlapped cell; the original server instead scanned every connection and monster slot. A field's
-// presence frames rebuild their grid in place every tick.
+// search per overlapped column; the original server instead scanned every connection and monster slot. It also indexes,
+// once per tick for every receiver, who targets or owns whom and where the NPCs are. A field's presence frames rebuild
+// their grid in place every tick.
 public sealed class EntityGrid
 {
-    public const float CellSize = 256f;
+    // Small cells let a receiver in a dense crowd count its neighbourhood without collecting the whole crowd.
+    public const float CellSize = 64f;
     private long[] _keys;
     private int[] _indices;
     private readonly Dictionary<uint, int> _byId;
+    // (related entity id << 32 | index) of every entity that targets or is owned by another one, sorted.
+    private long[] _relations = [];
+    private int _relationCount;
+    private readonly List<int> _npcs = new();
 
     private EntityGrid(int capacity)
     {
@@ -36,14 +42,72 @@ public sealed class EntityGrid
 
         _byId.Clear();
         _byId.EnsureCapacity(entities.Length);
+        _npcs.Clear();
+        _relationCount = 0;
         for (var index = 0; index < entities.Length; index++)
         {
-            _keys[index] = KeyOf(entities[index].Position);
+            ref readonly var entity = ref entities[index];
+            _keys[index] = KeyOf(entity.Position);
             _indices[index] = index;
-            _byId[entities[index].EntityId] = index;
+            _byId[entity.EntityId] = index;
+            if (entity.Kind == EntityKindView.Npc)
+            {
+                _npcs.Add(index);
+            }
+
+            AddRelation(entity.AttackTargetId, index);
+            AddRelation(entity.OwnerId, index);
         }
 
         Array.Sort(_keys, _indices);
+        Array.Sort(_relations, 0, _relationCount);
+    }
+
+    public int Count => _keys.Length;
+
+    // Indices of the NPCs of the snapshot.
+    public IReadOnlyList<int> Npcs => _npcs;
+
+    // Appends the indices of the entities that target or are owned by the given one.
+    public void Related(uint entityId, List<int> results)
+    {
+        var first = (long)entityId << 32;
+        var position = Array.BinarySearch(_relations, 0, _relationCount, first);
+        position = position < 0 ? ~position : position;
+        while (position < _relationCount && _relations[position] >>> 32 == entityId)
+        {
+            results.Add((int)(_relations[position] & 0xFFFFFFFF));
+            position++;
+        }
+    }
+
+    // The number of entities in the cells the square overlaps, without collecting them.
+    public int CountInSquare(Vector3 center, float halfSize)
+    {
+        var minZ = Cell(center.Z - halfSize);
+        var maxZ = Cell(center.Z + halfSize);
+        var count = 0;
+        for (var x = Cell(center.X - halfSize); x <= Cell(center.X + halfSize); x++)
+        {
+            count += LowerBound(Key(x, maxZ) + 1) - LowerBound(Key(x, minZ));
+        }
+
+        return count;
+    }
+
+    private void AddRelation(uint related, int index)
+    {
+        if (related == 0)
+        {
+            return;
+        }
+
+        if (_relationCount == _relations.Length)
+        {
+            Array.Resize(ref _relations, Math.Max(16, _relations.Length * 2));
+        }
+
+        _relations[_relationCount++] = (long)related << 32 | (uint)index;
     }
 
     public bool TryGetIndex(uint entityId, out int index) => _byId.TryGetValue(entityId, out index);

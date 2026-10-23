@@ -182,13 +182,7 @@ internal static class PresenceLoadBenchmark
             {
                 var angle = (tick + index * 7) * 0.05f * 100f / 60f / 4f;
                 var position = homes[index] + new Vector3(MathF.Cos(angle) * 60f, 0f, MathF.Sin(angle) * 60f);
-                try
-                {
-                    _ = world.ReportMovementAsync(Field, players[index].EntityId, position, angle + MathF.PI / 2f, true, false, 0);
-                }
-                catch (WorldBusyException)
-                {
-                }
+                world.TryReportMovement(Field, players[index].EntityId, position, angle + MathF.PI / 2f, true, false, 0, null);
             }
 
             if (index % 10 == 1 && (tick + (uint)index) % 60 == 0)

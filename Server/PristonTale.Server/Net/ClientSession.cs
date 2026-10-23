@@ -41,7 +41,7 @@ internal sealed record SessionServices(
 
 // One client connection following the classic order: Version, IdGetUserInfo, IdSetUserInfo + ServerInfo,
 // character records, GetRecordData -> RecordData, PlayerInfo -> Connected, then play traffic.
-internal sealed partial class ClientSession
+internal sealed partial class ClientSession : IMovementVerdictSink
 {
     // Default minimum client version of the original server; the client compares it with its own version.
     public const int LimitVersion = 167;
@@ -445,25 +445,18 @@ internal sealed partial class ClientSession
         }
 
         var moving = last.Action is MotionStateCode.Walk or MotionStateCode.Run;
-        Task<MovementVerdict> verdict;
-        try
-        {
-            verdict = _services.World.ReportMovementAsync(session.FieldId, session.EntityId, position, PristonUnits.FromAngle(last.AngleY), moving,
-                last.Action == MotionStateCode.Run, last.TargetSerial);
-        }
-        catch (WorldBusyException)
-        {
-            // A saturated queue or quota drops the report; the next one carries the newer position.
-            return;
-        }
+        // A saturated queue or quota drops the report; the next one carries the newer position.
+        _services.World.TryReportMovement(session.FieldId, session.EntityId, position, PristonUnits.FromAngle(last.AngleY), moving,
+            last.Action == MotionStateCode.Run, last.TargetSerial, this);
+    }
 
-        _ = verdict.ContinueWith(task =>
+    // On the tick thread: a rejection is answered from the thread pool, where the correction may wait for the encoder.
+    void IMovementVerdictSink.OnMovementVerdict(MovementVerdict verdict)
+    {
+        if (verdict == MovementVerdict.Rejected)
         {
-            if (task.IsCompletedSuccessfully && task.Result == MovementVerdict.Rejected)
-            {
-                Correct(force: false);
-            }
-        }, TaskScheduler.Default);
+            ThreadPool.UnsafeQueueUserWorkItem(static session => session.Correct(force: false), this, preferLocal: false);
+        }
     }
 
     // WARPFIELD back to the authoritative field and position after a rejected report or field change.
