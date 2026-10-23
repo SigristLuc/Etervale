@@ -14,7 +14,7 @@ from the repository root and use the Release configuration.
 ## Requirements
 
 - .NET 10 SDK.
-- [Game data archive](https://drive.google.com/file/d/1-uiMsGgfICPkTvObkp80vsnYp1PH8v5N/view?usp=drive_link).
+- [Game data archive](https://drive.google.com/file/d/1bddbUz2-mBAfdHeT22BRyxsiQ2oVdOxP/view?usp=sharing).
   Download and extract it at the repository root. Place authored configuration in `assets/GameServer/`.
 - For the client: a GPU and driver with Vulkan 1.1 or later. The client uses MonoGame's Native platform on Vulkan
   through the fork in [monogame/](monogame/README.md); shaders compile with DXC on every platform (no Wine).
