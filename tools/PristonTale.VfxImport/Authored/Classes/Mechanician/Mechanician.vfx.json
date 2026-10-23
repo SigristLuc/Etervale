@@ -1179,7 +1179,12 @@
         "modelSpeed": 52.5,
         "loop": true,
         "fade": "InOut",
-        "fadeIn": 0.7286
+        "fadeIn": 0.7286,
+        "offset": [
+          0,
+          27.34,
+          0
+        ]
       }
     ],
     "children": [

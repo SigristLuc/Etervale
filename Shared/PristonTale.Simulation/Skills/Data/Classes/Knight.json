@@ -13,8 +13,8 @@
     "damage": { "min": [12, 15, 18, 21, 24, 27, 30, 33, 36, 39], "max": [16, 20, 24, 28, 32, 36, 40, 44, 48, 52], "levelDivisor": 2, "levelOnMax": true,
       "noCritical": true, "bonusBroods": ["Normal", "Mutant"], "bonusPercent": 30 },
     "motionIndex": 102, "motionFrames": 50, "motionEvents": [35], "projectile": true,
-    "projectileEffect": "vfx.projectile.sword", "impactEffect": "vfx.impact.slash",
-    "castSound": "wav/Effects/Skill/Morion/SwordBlast 1.wav", "impactSound": "wav/Effects/Skill/Morion/SwordBlast 2.wav"
+    "castEffect": "vfx.knight.swordblast.blade", "projectileEffect": "vfx.knight.swordblast.projectile",
+    "castSound": "wav/Effects/Skill/Morion/SwordBlast 1.wav"
   },
   {
     "code": "0x05010002", "name": "Holy Body", "tier": "Job1", "category": "Buff", "icon": "MN12 H_Body",
@@ -25,7 +25,7 @@
       "modifiers": [{ "stat": "AbsorptionVsUndead", "op": "Flat", "values": [8, 12, 16, 19, 22, 25, 27, 29, 31, 33] }] },
     "exclusive": ["0x05010002", "0x05020001", "0x05020004"],
     "motionIndex": 69, "motionFrames": 45, "motionEvents": [20], "motionSpeed": 70,
-    "castEffect": "vfx.cast.holy", "buffEffect": "vfx.buff.holy", "castSound": "wav/Effects/Skill/Morion/HolyBody 1.wav", "keepIcon": "Kt1_H_BODY"
+    "castEffect": "vfx.knight.holybody.cast", "buffEffect": "vfx.knight.holybody.aura", "castSound": "wav/Effects/Skill/Morion/HolyBody 1.wav", "keepIcon": "Kt1_H_BODY"
   },
   {
     "code": "0x05010003", "name": "Physical Training", "tier": "Job1", "category": "Passive", "icon": "MN14 P_Traning",
@@ -41,7 +41,7 @@
     "kind": "WeaponAttack", "target": "Enemy", "masteryBase": 82, "masteryPerRank": 2,
     "criticalAdd": [3, 3, 4, 4, 5, 5, 6, 6, 7, 7], "damage": { "percent": [10, 14, 18, 22, 25, 28, 31, 34, 37, 40] },
     "motionIndex": 104, "motionFrames": 65, "motionEvents": [19, 34],
-    "impactEffect": "vfx.impact.critical", "castEffect": "vfx.trail.golden"
+    "castEffect": "vfx.knight.doublecrash.blade", "impactEffect": "vfx.knight.doublecrash.hit"
   },
   {
     "code": "0x05020001", "name": "Holy Valor", "tier": "Job2", "category": "Buff", "icon": "MN20 H_Valor",
@@ -64,7 +64,7 @@
     "areaCenter": "Target", "radius": [70, 72, 74, 76, 78, 80, 82, 84, 86, 88],
     "damage": { "attackPower": true, "percent": [10, 16, 22, 28, 34, 40, 46, 52, 58, 64], "noCritical": true },
     "motionIndex": 108, "motionFrames": 55, "motionEvents": [35],
-    "castEffect": "vfx.knight.brandish.trail", "impactEffect": "vfx.knight.brandish.impact",
+    "castEffect": "vfx.knight.brandish.blade", "impactEffect": "vfx.knight.brandish.hit",
     "castSound": "wav/Effects/Skill/Morion/Brandish 1.wav", "impactSound": "wav/Effects/Skill/Morion/Brandish 2.wav"
   },
   {
@@ -77,7 +77,7 @@
     "damage": { "attackPower": true, "percent": [10, 17, 24, 31, 38, 45, 52, 59, 66, 73], "noCritical": true,
       "bonusBroods": ["Mutant"], "bonusPercent": 30 },
     "motionIndex": 111, "motionFrames": 50, "motionEvents": [23],
-    "castEffect": "vfx.knight.piercing.thrust", "impactEffect": "vfx.impact.slash", "castSound": "wav/Effects/Skill/Morion/Piercing 2.wav"
+    "castEffect": "vfx.knight.piercing.cast", "impactEffect": "vfx.knight.piercing.thrust", "castSound": "wav/Effects/Skill/Morion/Piercing 2.wav"
   },
   {
     "code": "0x05020004", "name": "Drastic Spirit", "tier": "Job2", "category": "Buff", "icon": "MN30 D_Spirit",
@@ -109,9 +109,9 @@
       "guard": { "healPercent": [9, 18, 27, 36, 45, 54, 63, 72, 81, 90], "broods": ["Undead"], "onBlock": true } },
     "exclusive": ["0x05040002"], "replaces": ["0x05080002"],
     "motionIndex": 71, "motionFrames": 45, "motionEvents": [22], "motionSpeed": 70,
-    "castEffect": "vfx.knight.divineshield.cast", "buffEffect": "vfx.knight.divineshield.aura",
-    "castSound": "wav/Effects/Skill/Morion/DivineInhalation 1.wav", "keepIcon": "Kt3_D_INHALATION"
-  },
+    "castEffect": "vfx.knight.divineinhalation.cast", "buffEffect": "vfx.knight.shield.aura",
+    "castSound": "wav/Effects/Skill/Morion/DivineInhalation 1.wav", "keepIcon": "Kt3_D_INHALATION",
+      "shieldModel": "weapons/Nt3_DivineI.smd" },
   {
     "code": "0x05040003", "name": "Holy Incantation", "tier": "Job3", "category": "Debuff", "icon": "MN46 H_Incantation",
     "description": "Holy incantation that lures monsters.", "requiredLevel": 46, "mouse": "Right",
@@ -121,7 +121,7 @@
     "charm": { "chance": [45, 54, 62, 69, 75, 80, 84, 88, 92, 96], "lifePercent": [100, 120, 140, 160, 180, 200, 220, 240, 260, 280], "broods": ["Undead"] },
     "buff": { "durationTenths": [900, 1100, 1300, 1500, 1700, 1900, 2100, 2300, 2500, 2700], "control": "Charmed", "harmful": true },
     "motionIndex": 167, "motionFrames": 117, "motionEvents": [90],
-    "castEffect": "vfx.knight.incantation.cast", "impactEffect": "vfx.knight.incantation.impact", "buffEffect": "vfx.knight.incantation.charm",
+    "castEffect": "vfx.knight.incantation.cast", "impactEffect": "vfx.knight.incantation.hit", "buffEffect": "vfx.knight.incantation.charm",
     "impactSound": "wav/Effects/Skill/Morion/Holy Incantation 1.wav"
   },
   {
@@ -133,9 +133,8 @@
     "damage": { "percent": [35, 40, 45, 50, 55, 60, 65, 70, 75, 80], "bonusBroods": ["Undead"],
       "bonusPercentByRank": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50] },
     "motionIndex": 169, "motionFrames": 65, "motionEvents": [17, 49], "motionSpeedSteps": 1,
-    "castEffect": "vfx.knight.grandcross.trail", "impactEffect": "vfx.knight.grandcross.impact",
-    "impactSound": "wav/Effects/Skill/Morion/GrandCross 2.wav"
-  },
+    "castEffect": "vfx.knight.grandcross.blade", "impactEffect": "vfx.knight.grandcross.hit",
+      "impactEffects": ["vfx.knight.grandcross.hit", "vfx.knight.grandcross.hit2"], "impactSounds": ["wav/Effects/Skill/Skill_Swing 02.wav", "wav/Effects/Skill/Morion/GrandCross 2.wav"] },
   {
     "code": "0x05080001", "name": "Sword of Justice", "tier": "Job4", "category": "AreaAttack", "icon": "MN60 S_O_Justice",
     "description": "Strike downward with strong power by bending back the body.", "requiredLevel": 60, "mouse": "Right",
@@ -145,7 +144,7 @@
     "rollsAccuracy": true, "areaIncludesTarget": true,
     "damage": { "attackPower": true, "percent": [100, 110, 120, 130, 140, 150, 160, 170, 180, 190], "noCritical": true },
     "motionIndex": 175, "motionFrames": 70, "motionEvents": [53],
-    "castEffect": "vfx.knight.justice.charge", "impactEffect": "vfx.knight.justice.impact",
+    "castEffect": "vfx.knight.justice.blade", "impactEffect": "vfx.knight.justice.hit",
     "castSound": "wav/Effects/Skill/Morion/SwordofJustice 01.wav"
   },
   {
@@ -159,9 +158,9 @@
         { "stat": "BlockChance", "op": "Flat", "values": [2, 2, 3, 3, 4, 4, 5, 5, 6, 6], "rankOf": "0x05040002" }] },
     "exclusive": ["0x05080002"], "replaces": ["0x05040002"],
     "motionIndex": 71, "motionFrames": 45, "motionEvents": [22], "motionSpeed": 80,
-    "castEffect": "vfx.knight.godlyshield.cast", "buffEffect": "vfx.knight.godlyshield.aura",
-    "castSound": "wav/Effects/Skill/Tempskron/GodlyShield 01.wav", "keepIcon": "Kt4_G_SHIELD"
-  },
+    "castEffect": "vfx.knight.godlyshield.cast", "buffEffect": "vfx.knight.shield.aura",
+    "castSound": "wav/Effects/Skill/Tempskron/GodlyShield 01.wav", "keepIcon": "Kt4_G_SHIELD",
+      "shieldModel": "weapons/Godly_Shield.smd" },
   {
     "code": "0x05080003", "name": "God Bless", "tier": "Job4", "category": "Buff", "icon": "MN66 G_Bless",
     "description": "It makes great power of Saint Knight by the name of God.", "requiredLevel": 66, "mouse": "Right",
@@ -186,7 +185,6 @@
     "motionVariants": [
       { "fromRank": 5, "motionIndex": 173, "motionFrames": 97, "motionEvents": [6, 28, 43, 59], "extraEvents": [77] },
       { "fromRank": 9, "motionIndex": 174, "motionFrames": 130, "motionEvents": [6, 28, 43, 57], "extraEvents": [71, 92, 110] }],
-    "castEffect": "vfx.knight.divinepiercing.trail", "impactEffect": "vfx.knight.divinepiercing.impact",
-    "impactSound": "wav/Effects/Skill/Morion/DIvinePiercing 07.wav"
-  }
+    "castEffect": "vfx.knight.divinepiercing.blade", "impactEffect": "vfx.knight.divinepiercing.hit",
+      "impactSoundOrder": "Final", "impactSounds": ["wav/Effects/Skill/Morion/DIvinePiercing 07.wav"] }
 ]

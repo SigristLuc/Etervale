@@ -37,6 +37,9 @@ internal sealed record RenderBatch(
 
     public Vector3 ActorColorAdd { get; set; }
 
+    // The gameplay appearance of the actor that owns the batch (shared by its batches); null for scenery.
+    public ActorShade Shade { get; set; }
+
     // An actor's share of the stage's authored light where it stands (PristonStageLightField); 1 for everything else.
     public float FloorLight { get; set; } = 1f;
 

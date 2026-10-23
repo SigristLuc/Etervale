@@ -176,6 +176,32 @@ public sealed class PristonTextureLoader : IDisposable
         return texture;
     }
 
+    // The texture once it is cached or its preparation finished (uploading it then); never decodes on the caller.
+    public bool TryLoadPrepared(string assetDirectory, string textureName, out Texture2D texture)
+    {
+        texture = null;
+        var key = CacheKey(assetDirectory, textureName, string.Empty);
+        if (_cache.TryGetValue(key, out var existing))
+        {
+            texture = existing;
+            return true;
+        }
+
+        if (!_preparing.TryGetValue(key, out var preparation) || !preparation.Value.IsCompleted)
+        {
+            return false;
+        }
+
+        if (!preparation.Value.IsCompletedSuccessfully)
+        {
+            _preparing.TryRemove(key, out _);
+            return false;
+        }
+
+        texture = LoadTexture(assetDirectory, textureName, string.Empty);
+        return true;
+    }
+
     public Texture2D LoadTexture(string assetDirectory, string textureName)
     {
         return LoadTexture(assetDirectory, textureName, string.Empty);

@@ -192,7 +192,10 @@ Other probe details:
 - `--capture-skills` casts Fire Ball, Healing, Pike Wind, Extreme Shield and Impact, or the comma-separated hex codes
   given (for example `0x05040004,0x07080003`), through the client's skill presentation with the server's timeline; it
   fails when a cast starts no motion or shows no effect light. Besides `<class>-<skill>-<time>.png` (the lit stage) it
-  saves `<...>.dark.png`, the effects alone on a dark backdrop, because the exposed stage hides additive light.
+  saves `<...>.dark.png`, the effects alone on a dark backdrop, because the exposed stage hides additive light, and
+  `<...>.actor.png`, the caster and the dummy at noon without effects, for skill looks on the actors (tints,
+  translucency, afterimages, shield swaps, enlarged weapons). Custom codes are captured at 0.4, 0.8, 1.2, 1.7, 2.4 and
+  4 s; self buffs add their status to the caster at the hit, harmful statuses land on the dummy with the impact.
 - `--capture-vfx` plays each named effect (default: a representative set of converted scripts) with a caster at the
   origin and a target 85 units away, saves the scene and a `.dark.png` at 0.15, 0.45, 0.9 and 1.5 s, and fails when an
   effect draws nothing at all four moments. Run `ptvfx import assets` first (docs/tools.md).

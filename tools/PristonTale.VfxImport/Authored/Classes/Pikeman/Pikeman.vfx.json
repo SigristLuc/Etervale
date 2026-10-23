@@ -342,36 +342,6 @@
     ]
   },
   {
-    "name": "vfx.pike.expansion.weapon",
-    "duration": 1.2,
-    "parts": [
-      {
-        "shape": "Blade",
-        "texture": "image/MotionMask.bmp",
-        "blend": "Additive",
-        "color": [
-          255,
-          40,
-          40,
-          140
-        ],
-        "anchor": "Caster",
-        "bone": "Bip weapon01",
-        "boneWorld": true,
-        "bladeLength": 70,
-        "trailPoints": 10,
-        "trailFade": 25,
-        "lifetime": [
-          1.0,
-          1.0
-        ],
-        "fade": "InOut",
-        "fadeIn": 0.1,
-        "fadeOut": 0.3
-      }
-    ]
-  },
-  {
     "name": "vfx.pike.expansion.hit",
     "duration": 2.0,
     "lights": [

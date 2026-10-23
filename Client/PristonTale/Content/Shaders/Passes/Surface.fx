@@ -32,6 +32,7 @@ cbuffer SurfaceVertexConstants : register(b0)
     float DrawLight;                  // skinned: an actor's floor light (PristonStageLightField), 1 otherwise
     float4x4 PreviousViewProjection;  // the previous frame's unjittered view-projection
     float4 MotionParams;              // xy this frame's jitter in clip units, z previous animation time, w 1 = motion on
+    float4 ActorParams;               // skinned: x wobble amplitude, y wobble phase (radians), z 1 = the layer is an overlay on uv0
 #ifdef SKINNED
     SKINNING_CONSTANTS
 #else
@@ -152,6 +153,13 @@ VSOut VS_Surface(VSIn i)
     float3 worldNormal;
     float3 previousPosition;
     PlaceVertex(i.Position, i.Normal, bone, worldPosition, worldNormal, previousPosition);
+#ifdef SKINNED
+    // A distortion wobbles every vertex up to ActorParams.x along a sine of its own coordinate (32-unit waves).
+    float3 phase = worldPosition * (6.2831853 / 32.0) + ActorParams.y;
+    float3 wobble = float3(sin(phase.x), sin(phase.y), cos(phase.z)) * ActorParams.x;
+    worldPosition += wobble;
+    previousPosition += wobble;
+#endif
     o.Position = mul(float4(worldPosition, 1.0), ViewProjection);
     o.ClipNow = float3(o.Position.xy - MotionParams.xy * o.Position.w, o.Position.w);
     float4 previous = mul(float4(previousPosition, 1.0), PreviousViewProjection);
@@ -159,7 +167,12 @@ VSOut VS_Surface(VSIn i)
     o.ClipPrevious = MotionParams.w > 0.5 ? previous.xyw : o.ClipNow;
     o.WorldPosition = worldPosition;
     o.Normal = worldNormal;
-    o.Uv = float4(i.Uv0 + UvOffsets.xy, i.Uv1 + UvOffsets.zw);
+#ifdef SKINNED
+    float2 layerUv = ActorParams.z > 0.5 ? i.Uv0 : i.Uv1;
+#else
+    float2 layerUv = i.Uv1;
+#endif
+    o.Uv = float4(i.Uv0 + UvOffsets.xy, layerUv + UvOffsets.zw);
     [branch]
     if (ReflexLayers.x + ReflexLayers.y > 0.0)
     {
@@ -280,6 +293,8 @@ float4 ShadeSurface(VSOut i, bool masked)
     }
 
     radiance += RimColor * (rim / Exposure);
+    // Gameplay tints add (or take away) light in the legacy display units, like the original colour adjustment.
+    radiance = max(radiance + s.Albedo * (ActorTint.rgb / Exposure), 0.0);
     [branch]
     if (DebugView > 0.5)
     {
@@ -288,7 +303,7 @@ float4 ShadeSurface(VSOut i, bool masked)
     }
 
     radiance = ApplyFog(radiance, i.WorldPosition, i.ViewDepth);
-    return FinishOutput(radiance, s.Alpha);
+    return FinishOutput(radiance, s.Alpha * ActorTint.a);
 }
 
 SurfaceOut PS_Opaque(VSOut i)
