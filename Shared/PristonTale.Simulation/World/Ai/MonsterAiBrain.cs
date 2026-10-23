@@ -574,6 +574,7 @@ public sealed class MonsterAiBrain
         else if (MonsterLifeRules.WantsPotion(m))
         {
             m.Potions--;
+            m.DrinkHeals = true;
             special = MonsterMotionState.Eat;
             durationMs = t.EatDurationMs;
         }

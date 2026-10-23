@@ -41,7 +41,8 @@ Default case files by area (all `tests/PristonTale.Tests/<Name>.cs`):
 | Rewards, spawns | `WorldRewardsTests`, `SpawnGateTests`, `SpawnScheduleTests` | Loot, XP, spawn masks, boss hours |
 | Movement | `MovementAndStreamingTests`, `GroundTraversalTests`, `TerrainTests`, `EntitySweepTests`, `SpatialIndexTests` | Reports, stacked floors, ramps, gaps, steps |
 | Camera | `CameraTests` | Camera collision across fields, clearance, follow, edge orbit, middle drag |
-| Monsters, NPCs | `MonsterMovementTests`, `MonsterNavigationTests`, `MonsterCombatTests`, `MonsterSkillTests`, `NpcMovementTests` | AI on synthetic stages |
+| Monsters, NPCs | `MonsterMovementTests`, `MonsterNavigationTests`, `MonsterCombatTests`, `MonsterSkillTests`, `MonsterSkillStatusTests`, `MonsterBossSkillTests`, `NpcMovementTests` | AI on synthetic stages; monster skill families on a one-field world (`MonsterSkillField`) |
+| Monster effects | `MonsterPresentationTests` | Effect families, clip triggers, auras, status visuals, authored monster data |
 | Skill data | `ClassSkillDataTests`, `SkillCatalogTests`, `SkillSystemTests`, `PassiveSkillTests`, `SkillWireTests` | Catalog, formulas, wire |
 | Skill mechanics | `SkillAllyTests`, `SkillAreaTests`, `SkillChargeTests`, `SkillCompanionTests`, `SkillControlTests` | Server resolution |
 | Skill mechanics | `SkillDefenseTests`, `SkillEnchantTests`, `SkillResurrectionTests`, `SkillStealthTests`, `SkillSummonTests` | Server resolution |
@@ -139,7 +140,8 @@ when reading those assets is authorized. GPU probes:
 | `--capture-equipment <assets> <content> <output-dir>` | yes | Equipment captures |
 | `--capture-ranged-equipment <assets> <content> <output-dir>` | yes | Bow and crossbow attachment captures |
 | `--capture-ground-loot <assets> <content> <output-dir>` | yes | Ground drop elevation, coordinate remapping and distinct label click targets |
-| `--capture-combat-effects <assets> <content> <output-dir>` | yes | Combat mesh-effect pool budget, lifetimes and captures |
+| `--capture-combat-effects <assets> <content> <output-dir>` | yes | Temporary lights, meteors and the return effect over time |
+| `--capture-monster-skills <assets> <content> <output-dir> [<case,case,...>]` | yes | Real monsters' attack, skill and death clips with their effects, and monster statuses on a player |
 | `--capture-potions <assets> <content> <output-dir>` | yes | Potion particle captures over time |
 | `--capture-vfx <assets> <content> <output-dir> [<name,name,...>]` | yes | Plays named effects of `assets/Effect/Vfx` (see below) |
 | `--verify-skill-motions <assets>` | no | Every skill rule's motions (index, length, events, class tag) against the class motion tables |

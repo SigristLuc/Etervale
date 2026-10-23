@@ -132,6 +132,7 @@ public sealed class MonsterInstance
     public uint AllyTargetId { get; set; }
     public float SpecialMsLeft { get; set; }
     public MonsterMotionState CompletedSpecial { get; set; }
+    public bool DrinkHeals { get; set; }
     public float AliveMs { get; set; }
 
     public void ApplyDamage(int amount)

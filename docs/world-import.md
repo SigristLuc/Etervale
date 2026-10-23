@@ -236,7 +236,9 @@ several share an identity.
 - A model INX without usable clips borrows the table of its linked motion file (player bodies share one biped table);
   `motion_table_key` then names that file.
 - Failures (missing or invalid INX, no link) add a warning and `MotionUnresolvedModels`; the import continues.
-- `motion_models` rows are upserted; each extracted table's `motion_slots` are deleted and reinserted.
+- `motion_models` rows are upserted; each extracted table's `motion_slots` are deleted and reinserted. A slot keeps its
+  INX motion index (the clip clients play for a monster's swing) and the clip's key character (`key_code`), which
+  selects the skill some monsters perform.
 
 ## Catalog entries, variants and unresolved references
 

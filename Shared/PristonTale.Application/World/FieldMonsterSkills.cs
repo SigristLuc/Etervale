@@ -52,6 +52,8 @@ internal sealed class FieldMonsterSkills
     public const int BeeCap = 4;
     public const float ReinforcementScatter = 100f;
 
+    public const int MagicMasterDrinkPercent = 20;
+
     public void Prepare(MonsterInstance monster)
     {
         MonsterLifeRules.Prepare(monster, _rng);
@@ -99,6 +101,19 @@ internal sealed class FieldMonsterSkills
             monster.AiState = MonsterAiState.Chase;
             monster.Motion = MonsterMotionState.Stand;
             monster.AttackHitFired = true;
+            return;
+        }
+
+        if (monster.AttackIsSkill && monster.Def.SoundCode == MonsterSounds.MagicMaster && _rng.NextExclusive(0, 100) < MagicMasterDrinkPercent)
+        {
+            // The magic master sometimes drinks a mana potion instead of casting; it restores no life.
+            monster.AttackIsSkill = false;
+            monster.SkillImpactPending = false;
+            monster.AttackHitFired = true;
+            monster.AiState = MonsterAiState.Chase;
+            monster.Motion = MonsterMotionState.Eat;
+            monster.SpecialMsLeft = tuning.EatDurationMs;
+            monster.DrinkHeals = false;
             return;
         }
 
@@ -211,7 +226,7 @@ internal sealed class FieldMonsterSkills
         }
 
         monster.CompletedSpecial = MonsterMotionState.Stand;
-        if (completed == MonsterMotionState.Eat)
+        if (completed == MonsterMotionState.Eat && monster.DrinkHeals)
         {
             var max = monster.Def.Combat.MaxLife;
             monster.Life = Math.Min(max, monster.Life + MonsterLifeRules.PotionHeal(monster.Def));
