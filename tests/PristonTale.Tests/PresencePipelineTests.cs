@@ -1,0 +1,185 @@
+using System.Numerics;
+using PristonTale.Application.World;
+using PristonTale.Client.Net.Presence;
+using PristonTale.Protocol.Packets;
+using PristonTale.Server.Net;
+using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Modifiers;
+
+namespace PristonTale.Tests;
+
+// The shared presence pipeline: frames reused between ticks, entries encoded once for every receiver, field-wide
+// descriptor revisions, the crowd cap, per-tick event segments, the grid and the running-status book.
+internal static class PresencePipelineTests
+{
+    public static IEnumerable<(string, Func<Task>)> Cases()
+    {
+        yield return ("presence frames are reused only when no reader pins them and never while an outbox can still hand them out", FramesAsync);
+        yield return ("an entry encoded once for all receivers is byte for byte what one receiver would encode", SharedWireAsync);
+        yield return ("descriptor revisions are field-wide and rise only when what a description shows changes", RevisionsAsync);
+        yield return ("a receiver in a crowd shows its nearest entities and never loses its NPCs, target, attackers or summons", CrowdCapAsync);
+        yield return ("events of ticks a slow reader fell behind on keep their own tick on the timeline", SegmentsAsync);
+        yield return ("the entity grid finds, counts and relates entities on both sides of zero", GridAsync);
+        yield return ("running statuses are kept per field, carried across fields on the new clock and pruned when they end", StatusBookAsync);
+    }
+
+    private static Task FramesAsync()
+    {
+        var frames = new FieldPresenceFrames();
+        var first = frames.Rent(3);
+        var generation = first.Generation;
+        frames.Published(first);
+        Assert.True(first.TryPin(generation, 7), "a published frame refused a reader");
+        var second = frames.Rent(3);
+        Assert.True(!ReferenceEquals(first, second), "the latest published frame was reused");
+        frames.Published(second);
+        var third = frames.Rent(4);
+        Assert.True(!ReferenceEquals(third, first) && third.Views.Length == 4, "a pinned frame was reused");
+        frames.Published(third);
+        first.Release(7);
+        var reused = frames.Rent(3);
+        Assert.True(ReferenceEquals(reused, first) && first.Generation == generation + 1, "an unpinned old frame was not reused");
+        Assert.True(!first.TryPin(generation, 9), "a reader pinned a reused frame under its old generation");
+        frames.Published(reused);
+        Assert.True(first.TryPin(first.Generation, 9), "the reused frame refused its new readers");
+        first.Release(9);
+        return Task.CompletedTask;
+    }
+
+    private static Task SharedWireAsync()
+    {
+        var view = new EntityView(42, EntityKindView.Monster, false, new Vector3(-1234.5f, 17f, 999.25f), 1.1f, MoveStateView.Walking, 30, 77, 120, default,
+            templateId: 9) { Revision = 3 };
+        var wire = SharedPresenceWire.Create(4);
+        var direct = new byte[TransPlayData.SizeFor(1)];
+        WireMapping.WritePlayData(direct, view, 2, view.Revision);
+        Assert.True(wire.Detailed(1, view, 2).SequenceEqual(direct), "the shared detailed entry differs from a receiver's own");
+        Assert.True(wire.Detailed(1, view, 2).SequenceEqual(direct), "a second receiver got other bytes");
+        var record = new byte[direct.Length];
+        WireMapping.PlayData(view, 2, view.Revision).Write(record);
+        Assert.True(record.AsSpan().SequenceEqual(direct), "the single-buffer writer changed the play data layout");
+        var coarse = new byte[PlayDataCoarse.Size];
+        WireMapping.Coarse(view).Write(coarse);
+        Assert.True(wire.Coarse(1, view).SequenceEqual(coarse), "the shared coarse entry differs");
+        var description = new byte[PlayerInfoPacket.Size];
+        PresenceEncoder.DescriptionPacket(view, view.Revision, WorldData.Empty).Write(description);
+        Assert.True(wire.Description(1, view, WorldData.Empty).SequenceEqual(description), "the shared description differs");
+        wire.Reset(4);
+        var moved = new EntityView(42, EntityKindView.Monster, false, Vector3.Zero, 0f, MoveStateView.Idle, 30, 77, 120, default, templateId: 9) { Revision = 3 };
+        WireMapping.WritePlayData(direct, moved, 2, moved.Revision);
+        Assert.True(wire.Detailed(1, moved, 2).SequenceEqual(direct), "a reset frame kept the previous tick's entry");
+        return Task.CompletedTask;
+    }
+
+    private static Task RevisionsAsync()
+    {
+        var field = new FieldInstance(3);
+        var classes = new CharacterClassRegistry();
+        var character = classes.CreatePlayer(PlayerClass.Fighter, "Revised", 10);
+        var player = new WorldPlayer(1, Vector3.Zero, character, false, new PlayerAppearanceView("Revised", 1, 0, 0, 0, "", ""));
+        field.Add(player);
+        field.Add(new WorldPlayer(2, new Vector3(50, 0, 0), classes.CreatePlayer(PlayerClass.Fighter, "Other", 10), false,
+            new PlayerAppearanceView("Other", 1, 0, 0, 0, "", "")));
+        var first = field.BuildViews();
+        Assert.True(first.All(view => view.Revision == 1), "new entities do not start at revision 1");
+        player.ReportMovement(new Vector3(20, 0, 0), 0.5f, true, false, 0, 1000);
+        var moved = field.BuildViews();
+        Assert.True(moved.All(view => view.Revision == 1), "a move changed a description revision");
+        character.Equip(EquipmentSlot.Weapon, SkillScenario.Weapon(ItemKind.Axe, "WA101"));
+        var equipped = field.BuildViews();
+        Assert.True(equipped.Single(view => view.EntityId == 1).Revision == 2 && equipped.Single(view => view.EntityId == 2).Revision == 1,
+            "equipment did not raise only its owner's revision");
+        return Task.CompletedTask;
+    }
+
+    private static Task CrowdCapAsync()
+    {
+        static EntityView Player(uint id, Vector3 at, uint target = 0) => new(id, EntityKindView.Player, false, at, 0f, MoveStateView.Idle, 1, 100, 100,
+            new PlayerAppearanceView("P" + id, 2, 0, 0, 0, "", ""), attackTargetId: target) { Revision = 1 };
+        var views = new List<EntityView> { Player(1, Vector3.Zero, target: 900) };
+        for (uint id = 2; id < 402; id++)
+        {
+            views.Add(Player(id, new Vector3(id % 20 * 8f, 0f, id / 20 * 8f)));
+        }
+
+        // Beyond the crowd but in view: an NPC, the receiver's target, a monster attacking it and its summon.
+        views.Add(new EntityView(900, EntityKindView.Monster, false, new Vector3(700, 0, 0), 0f, MoveStateView.Idle, 1, 10, 10, default, templateId: 5)
+            { Revision = 1 });
+        views.Add(new EntityView(901, EntityKindView.Monster, false, new Vector3(0, 0, 700), 0f, MoveStateView.Attack, 1, 10, 10, default, templateId: 5,
+            attackTargetId: 1) { Revision = 1 });
+        views.Add(new EntityView(902, EntityKindView.Monster, false, new Vector3(-700, 0, 0), 0f, MoveStateView.Idle, 1, 10, 10, default, templateId: 6)
+            { OwnerId = 1, Revision = 1 });
+        views.Add(new EntityView(903, EntityKindView.Npc, false, new Vector3(0, 0, -700), 0f, MoveStateView.Idle, 1, 1, 1, default, templateId: 7)
+            { Revision = 1 });
+        var wire = new WireRoundTrip(1);
+        var update = wire.PushMerged(new WorldSnapshot(1, views.ToArray(), fieldId: 3));
+        var spawned = update.Spawns.Select(spawn => spawn.EntityId).ToHashSet();
+        Assert.True(spawned.Count == PresenceEncoder.MaxVisible + 1, $"the crowd showed {spawned.Count} entities");
+        Assert.True(new uint[] { 900, 901, 902, 903 }.All(spawned.Contains), "an essential entity was dropped for the crowd");
+        Assert.True(spawned.Contains(2) && !spawned.Contains(401), "the crowd did not keep its nearest members");
+        var again = wire.PushMerged(new WorldSnapshot(2, views.ToArray(), fieldId: 3));
+        Assert.True(again.Spawns.Count == 0 && again.Removed.Count == 0, "an unchanged crowd churned its visible set");
+        return Task.CompletedTask;
+    }
+
+    private static Task SegmentsAsync()
+    {
+        var self = new EntityView(1, EntityKindView.Player, false, Vector3.Zero, 0f, MoveStateView.Idle, 1, 100, 100,
+            new PlayerAppearanceView("Self", 2, 0, 0, 0, "", ""));
+        var outbox = new WorldOutbox();
+        CombatEventView Hit(int damage) => new(1, 1, CombatEventKindView.Hit, damage: damage);
+        Assert.True(outbox.Writer.TryWrite(new WorldSnapshot(10, [self], [Hit(5)], 3)), "first tick refused");
+        Assert.True(outbox.Writer.TryWrite(new WorldSnapshot(11, [self], [], 3)), "second tick refused");
+        Assert.True(outbox.Writer.TryWrite(new WorldSnapshot(12, [self], [Hit(7)], 3)), "third tick refused");
+        Assert.True(outbox.Reader.TryRead(out var snapshot), "the outbox delivered nothing");
+        Assert.True(snapshot.Events.Length == 2 && snapshot.EventSegments is { Length: 2 } segments && segments[0].Tick == 10 && segments[1].Tick == 12,
+            "the joined events lost their ticks");
+        var updates = new WireRoundTrip(1).Push(snapshot);
+        var timed = updates.Where(update => update.Events.Count > 0).SelectMany(update => update.Events.Select(value => (update.ServerTimeMs ?? -1d, value.Damage))).ToList();
+        Assert.True(timed.SequenceEqual([(500d, 5), (600d, 7)]), $"events were placed at {string.Join(",", timed)}");
+
+        var single = new WorldOutbox();
+        Assert.True(single.Writer.TryWrite(new WorldSnapshot(20, [self], [Hit(3)], 3)) && single.Writer.TryWrite(new WorldSnapshot(21, [self], [], 3)), "writes refused");
+        Assert.True(single.Reader.TryRead(out var late) && late.EventSegments is [{ Tick: 20 }], "a lone older batch lost its tick");
+        return Task.CompletedTask;
+    }
+
+    private static Task GridAsync()
+    {
+        static EntityView At(uint id, float x, float z, uint target = 0, uint owner = 0, EntityKindView kind = EntityKindView.Monster) =>
+            new(id, kind, false, new Vector3(x, 0, z), 0f, MoveStateView.Idle, 1, 1, 1, default, attackTargetId: target) { OwnerId = owner };
+        var grid = EntityGrid.Build([At(1, -10, -10), At(2, 10, 10, target: 1), At(3, -5000, 0, owner: 1), At(4, 0, 300, kind: EntityKindView.Npc), At(5, 63, -1)]);
+        var found = new List<int>();
+        grid.Query(Vector3.Zero, 70f, found);
+        Assert.True(found.Order().SequenceEqual([0, 1, 4]), $"the grid found {string.Join(",", found)} around the origin");
+        Assert.True(grid.CountInSquare(Vector3.Zero, 70f) == 3, "the square count missed an entity across zero");
+        var related = new List<int>();
+        grid.Related(1, related);
+        Assert.True(related.Order().SequenceEqual([1, 2]), "the attacker and the summon of entity 1 were not related to it");
+        Assert.True(grid.Npcs.SequenceEqual([3]), "the NPC index is wrong");
+        return Task.CompletedTask;
+    }
+
+    private static Task StatusBookAsync()
+    {
+        var book = new FieldStatusBook();
+        StatusEventView Status(uint entity, StatusEventOpView op, int remaining, bool permanent = false) =>
+            new(entity, 9, 0x01010003, op, 1, 1, 0, false, permanent, 10000, remaining, 5);
+        book.Apply([Status(1, StatusEventOpView.Add, 10000), Status(2, StatusEventOpView.Add, 4000)], 1000);
+        Assert.True(book.Snapshot.For(1).Single().At(4000).RemainingMs == 7000, "a running status did not count down");
+        book.Apply([Status(1, StatusEventOpView.Tick, 0)], 2000);
+        Assert.True(book.Snapshot.For(1).Length == 1, "a periodic tick changed the book");
+        var carried = book.Take(1);
+        Assert.True(book.Snapshot.For(1).IsEmpty && carried.Length == 1, "a leaving entity kept its statuses in the field");
+        var other = new FieldStatusBook();
+        other.Carry(1, carried, 5000, 200);
+        Assert.True(other.Snapshot.For(1).Single().At(700).RemainingMs == 5500, "a carried status was not rebased onto the new field clock");
+        book.Apply([Status(2, StatusEventOpView.Remove, 0)], 3000);
+        Assert.True(book.Snapshot.For(2).IsEmpty, "a removed status stayed");
+        book.Apply([Status(3, StatusEventOpView.Add, 1000)], 3000);
+        book.Prune(9000, id => id == 3);
+        Assert.True(book.Snapshot.For(3).IsEmpty, "an ended status survived pruning");
+        return Task.CompletedTask;
+    }
+}

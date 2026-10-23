@@ -313,6 +313,7 @@ specifications.AddRange(MultiplayerCombatTests.Cases());
 specifications.AddRange(MultiplayerPresenceTests.Cases());
 specifications.AddRange(MultiplayerSessionTests.Cases());
 specifications.AddRange(MultiplayerSocialTests.Cases());
+specifications.AddRange(PresencePipelineTests.Cases());
 specifications.AddRange(MonsterSkillTests.Cases());
 specifications.AddRange(MonsterSkillStatusTests.Cases());
 specifications.AddRange(MonsterBossSkillTests.Cases());
