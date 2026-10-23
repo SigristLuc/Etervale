@@ -67,7 +67,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         Renderer = new VfxRenderer(device, content);
         Statuses.Added += OnStatusAdded;
         Statuses.Removed += OnStatusRemoved;
-        sounds.Preload(SkillRuleCatalog.All.SelectMany(rule => new[] { rule.CastSound, rule.ImpactSound, rule.CompanionSound }.Concat(rule.ImpactSounds)));
+        sounds.Preload(SkillRuleCatalog.All.SelectMany(rule => new[] { rule.CastSound, rule.ImpactSound, rule.CompanionSound }.Concat(rule.ImpactSounds).Where(static sound => sound != SkillRule.Silent)));
     }
 
     public VfxLibrary Library { get; }
