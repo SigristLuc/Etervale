@@ -1,5 +1,6 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Skills;
@@ -22,6 +23,7 @@ public sealed class PlayerCharacter
         Attributes = attributes ?? Definition.AttributesAtLevel(Level);
         Skills = new LearnedSkills(characterClass.Skills);
         Skills.Changed += Recompute;
+        Premium.Changed += Recompute;
         Recompute();
         Life = MaxLife;
         Mana = MaxMana;
@@ -133,6 +135,10 @@ public sealed class PlayerCharacter
 
     // Timed and permanent modifiers from every source; the derived stats follow its revision.
     public EffectContainer Effects { get; } = new();
+
+    public PremiumTimers Premium { get; } = new();
+
+    public ItemUseHistory ItemUses { get; } = new();
 
     private DerivedStats _derived;
     private long _derivedEffectsRevision = -1;
@@ -315,6 +321,21 @@ public sealed class PlayerCharacter
         return true;
     }
 
+    // Sets the attributes and the unallocated points of a stat reset; the total of both must not change.
+    public void RedistributeAttributes(CharacterAttributes attributes, int statPoints)
+    {
+        if (attributes is null || statPoints < 0 || Sum(attributes) + statPoints != Sum(Attributes) + StatPoints)
+        {
+            throw new ArgumentException("A stat reset must keep the total of attributes and points.");
+        }
+
+        Attributes = attributes;
+        StatPoints = statPoints;
+        Recompute();
+    }
+
+    private static long Sum(CharacterAttributes a) => (long)a.Strength + a.Spirit + a.Talent + a.Agility + a.Health;
+
     // Item kinds in the main and the off hand (bit per kind), for effects bound to a weapon or a shield.
     private uint HeldKinds()
     {
@@ -349,6 +370,7 @@ public sealed class PlayerCharacter
     private void Recompute()
     {
         PassiveSkillEffects.Sync(this);
+        PremiumEffects.Sync(this);
         Effects.SetHeld(HeldKinds());
         var equipped = EquippedStats();
         var armorPercent = Effects.Totals.Flat(StatKind.ArmorDefence);
@@ -362,6 +384,7 @@ public sealed class PlayerCharacter
         var stats = DerivedStats.Compute(Attributes, Level, Definition.FunctionProfile, equipped);
         _derivedEffectsRevision = Effects.Revision;
         _derived = ModifierRules.Apply(PassiveSkills.Apply(stats, this), Effects.Totals);
+        _derived = _derived with { MaxWeight = _derived.MaxWeight + PremiumRules.WeightBonus(Premium) };
         Life = Math.Min(Life, _derived.MaxLife);
         Mana = Math.Min(Mana, _derived.MaxMana);
         Stamina = Math.Min(Stamina, _derived.MaxStamina);
@@ -511,6 +534,8 @@ public sealed class PlayerCharacter
         clone.RestoreInventoryHistory(InventoryRevision, _inventoryOperations);
         clone.RestoreServiceHistory(_serviceOperations);
         clone.RestoreProgressionHistory(ProgressionRevision, _progressionOperations);
+        clone.Premium.CopyFrom(Premium);
+        clone.ItemUses.CopyFrom(ItemUses);
         clone.Life = Life;
         clone.Mana = Mana;
         clone.Stamina = Stamina;

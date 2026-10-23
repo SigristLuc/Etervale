@@ -44,6 +44,11 @@ internal static class NpcServiceTransactions
     public static PreparedNpcOperation Prepare(PlayerSession session, WorldPlayer player, FieldInstance field, NpcServiceCommand command,
         ItemCatalog items, WorldCatalog world)
     {
+        if (MobileShopTransactions.Handles(command))
+        {
+            return MobileShopTransactions.Prepare(session, player, field, command);
+        }
+
         var original = player.Character;
         var storage = session.Warehouse;
         var check = Check(player, field, command, out var npc, out var service);

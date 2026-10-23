@@ -1,3 +1,4 @@
+using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.Items;
 using System.Collections.Generic;
@@ -75,6 +76,8 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         _combat = new FieldCombat(this, rng, experienceMultiplier);
         _skills = new FieldSkills(this, rng);
         _combat.SkillCombat = _skills;
+        Premium = new FieldPremium(fieldId);
+        _combat.PlayerHitLanded = Premium.RecordHit;
         foreach (var placement in spawnData.FixedNpcs)
         {
             if (npcs is null || !npcs.TryGet(placement.NpcCode, out var definition))
@@ -90,6 +93,8 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
 
     public int FieldId { get; }
     public FieldTerrain Terrain { get; }
+    internal FieldPremium Premium { get; }
+    internal FieldItemEvents ItemEvents { get; } = new();
     public long NowMs => (long)_nowMs;
     public int PlayerCount => _players.Count;
     public int MonsterCount => _monsters.Count;
@@ -143,6 +148,9 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
 
     public long ExpFor(uint playerId) => _combat.ExpFor(playerId);
 
+    // A used item's timed effect on a player of this field; it starts with the next step.
+    internal void QueueItemEffect(uint entityId, EffectSpec spec, float durationMs) => _skills.QueueItemEffect(entityId, spec, durationMs);
+
     // The field's combat resolution, for scenario tests that drive single monster attacks.
     internal FieldCombat Combat => _combat;
 
@@ -153,6 +161,7 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         long nowMs = (long)_nowMs;
         _events.Clear();
         _skills.BeginTick();
+        ItemEvents.BeginTick();
         _prey.Rebuild(_players.Values);
         foreach (var summon in _monsters.Values)
         {
@@ -232,6 +241,8 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         {
             PlaceLoot(reward, nowMs);
         }
+
+        Premium.Step(_players.Values, id => _players.TryGetValue(id, out var found) ? found : null);
 
         _combat.TickCorpses(dtMs);
         GroundLoot.Step(nowMs);

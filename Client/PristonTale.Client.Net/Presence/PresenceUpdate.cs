@@ -24,6 +24,9 @@ public sealed record PresenceUpdate(
     public IReadOnlyList<StatusEffectInfo> StatusEffects { get; init; } = [];
     public SkillCooldownSnapshot? Cooldowns { get; init; }
     public SkillCastResultInfo? CastResult { get; init; }
+
+    public PremiumTimerSnapshot? PremiumTimers { get; init; }
+    public IReadOnlyList<ItemEffectInfo> ItemEffects { get; init; } = [];
 }
 
 public sealed record WarpInfo(int FieldId, System.Numerics.Vector3 Position, bool Forced);

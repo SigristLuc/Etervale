@@ -14,7 +14,8 @@ public static class DropRoller
         CombatRng rng,
         DropTable table,
         bool hasEventItem = false,
-        uint eventItemCode = 0)
+        uint eventItemCode = 0,
+        int extraRollChance = 0)
     {
         var drops = new List<RolledDrop>();
 
@@ -33,7 +34,14 @@ public static class DropRoller
         int mainTotal = table.MainWeightTotal;
         if (mainTotal > 0 && table.MaxItemsPerKill > 0)
         {
-            for (int i = 0; i < table.MaxItemsPerKill; i++)
+            // A drop-bonus item gives a monster that drops at all a percent chance of one more main roll.
+            int rolls = table.MaxItemsPerKill;
+            if (extraRollChance > 0 && rng.RollPercent() < extraRollChance)
+            {
+                rolls++;
+            }
+
+            for (int i = 0; i < rolls; i++)
             {
                 var picked = PickWeightedMain(rng, table, mainTotal);
                 if (picked is { Kind: not DropKind.Nothing })

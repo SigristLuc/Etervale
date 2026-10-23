@@ -24,6 +24,7 @@ public static class HostingExtensions
         builder.Services.AddSingleton(_ => new PristonTale.Simulation.World.WorldCatalog());
         builder.Services.AddSingleton<SessionAppService>();
         builder.Services.AddSingleton<NpcAppService>();
+        builder.Services.AddSingleton<ItemUseAppService>();
 
         var provider = builder.Configuration["Database:Provider"] ?? "Sqlite";
         if (string.Equals(provider, "Sqlite", StringComparison.OrdinalIgnoreCase))

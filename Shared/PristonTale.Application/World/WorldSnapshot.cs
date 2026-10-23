@@ -230,6 +230,7 @@ public readonly struct WorldSnapshot
 
     public SkillEventView[] SkillEvents { get; init; } = [];
     public StatusEventView[] StatusEvents { get; init; } = [];
+    public ItemEffectView[] ItemEffects { get; init; } = [];
 
     // The receiver's running cooldowns; null when they did not change since the last snapshot it was sent.
     public SkillCooldownView[]? Cooldowns { get; init; }
@@ -239,6 +240,7 @@ public readonly struct WorldSnapshot
         Grid = Grid,
         SkillEvents = SkillEvents,
         StatusEvents = StatusEvents,
+        ItemEffects = ItemEffects,
         Cooldowns = cooldowns
     };
 
@@ -247,6 +249,7 @@ public readonly struct WorldSnapshot
         Grid = Grid,
         SkillEvents = SkillEvents,
         StatusEvents = StatusEvents,
+        ItemEffects = ItemEffects,
         Cooldowns = Cooldowns
     };
 }

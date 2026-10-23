@@ -60,6 +60,15 @@ public sealed class LearnedSkills
         _uses[code] = Math.Clamp(uses, 0, MaxUses);
     }
 
+    // Forgets every learned skill and its proficiency (a skill reset).
+    public void Clear()
+    {
+        _ranks.Clear();
+        _uses.Clear();
+        Revision++;
+        Changed?.Invoke();
+    }
+
     public void Restore(uint code, int rank, int uses = 0)
     {
         if (!IsAvailable(code) || rank < 1 || rank > 10 || uses < 0 || uses > MaxUses || !_ranks.TryAdd(code, rank))

@@ -221,7 +221,7 @@ public sealed class WorldPlayer
 
     public bool IsBusy => Action != PlayerActionState.Idle;
 
-    private readonly PlayerAppearanceView _appearance;
+    private PlayerAppearanceView _appearance;
     public PlayerAppearanceView Appearance => _appearance with
     {
         WeaponKey = _character.GetEquipped(EquipmentSlot.Weapon)?.Definition.CatalogKey ?? "",
@@ -229,6 +229,16 @@ public sealed class WorldPlayer
         OffHandKey = _character.GetEquipped(EquipmentSlot.OffHand)?.Definition.CatalogKey ?? "",
         InVillage = _inVillage
     };
+
+    // A hair tint changes the head every viewer draws.
+    public void ChangeHair(int hairIndex)
+    {
+        var current = _appearance;
+        _appearance = new PlayerAppearanceView(current.Name, current.JobCode, current.Tier, current.FaceIndex, hairIndex, current.ModelName, current.ModelName2);
+    }
+
+    // Damage is ignored while the guard runs (revives, invulnerability items).
+    public void Guard(float durationMs) => GuardMsLeft = MathF.Max(GuardMsLeft, durationMs);
 
     public int Level => _character.Level;
     public int Hp => _character.Life;

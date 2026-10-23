@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
 
 namespace PristonTale.Simulation.Characters;
@@ -24,7 +25,12 @@ public sealed record OwnerState(
     public int EliteSkillPoints { get; init; }
     public IReadOnlyList<OwnedSkillView> Skills { get; init; } = Array.Empty<OwnedSkillView>();
 
-    public static OwnerState Capture(PlayerCharacter character, OwnerState previous = null)
+    // The running premium timers, their revision and the world clock (Unix seconds) they were captured at.
+    public long PremiumRevision { get; init; } = -1;
+    public IReadOnlyList<PremiumTimer> PremiumTimers { get; init; } = Array.Empty<PremiumTimer>();
+    public long PremiumClockSeconds { get; init; }
+
+    public static OwnerState Capture(PlayerCharacter character, OwnerState previous = null, long nowSeconds = 0)
     {
         var attributes = character.Attributes;
         if (previous is not null && previous.Level == character.Level && previous.Experience == character.Experience
@@ -38,7 +44,8 @@ public sealed record OwnerState(
             && previous.AttackRating == character.Derived.AttackRating && previous.MoveSpeed == character.Derived.MoveSpeed
             && previous.Defence == character.Derived.Defence && previous.Absorption == character.Derived.Absorption
             && previous.InventoryRevision == character.InventoryRevision
-            && previous.ProgressionRevision == character.ProgressionRevision && previous.SkillsRevision == character.Skills.Revision)
+            && previous.ProgressionRevision == character.ProgressionRevision && previous.SkillsRevision == character.Skills.Revision
+            && previous.PremiumRevision == character.Premium.Revision)
         {
             return previous;
         }
@@ -83,7 +90,11 @@ public sealed record OwnerState(
             Tier = character.Tier,
             EliteSkillPoints = character.EliteSkillPoints,
             Skills = previous is not null && previous.SkillsRevision == character.Skills.Revision ? previous.Skills
-                : Array.AsReadOnly(character.Skills.Ranks.Select(pair => new OwnedSkillView(pair.Key, pair.Value)).ToArray())
+                : Array.AsReadOnly(character.Skills.Ranks.Select(pair => new OwnedSkillView(pair.Key, pair.Value)).ToArray()),
+            PremiumRevision = character.Premium.Revision,
+            PremiumTimers = previous is not null && previous.PremiumRevision == character.Premium.Revision ? previous.PremiumTimers
+                : Array.AsReadOnly(character.Premium.Timers.ToArray()),
+            PremiumClockSeconds = previous is not null && previous.PremiumRevision == character.Premium.Revision ? previous.PremiumClockSeconds : nowSeconds
         };
     }
 

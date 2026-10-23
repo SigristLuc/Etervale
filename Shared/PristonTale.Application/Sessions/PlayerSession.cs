@@ -30,6 +30,9 @@ public sealed class PlayerSession
     public PlayerCharacter? Character { get; set; }
     public bool InVillage { get; set; }
 
+    // A used mobile shop item lets the player sell and repair without a shop NPC until the shop is closed.
+    public bool MobileShopOpen { get; set; }
+
     public CharacterRecord? Loaded { get; set; }
 
     // The account warehouse as last loaded or committed, while this session has it open; changed only under SaveGate.
