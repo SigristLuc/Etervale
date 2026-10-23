@@ -68,6 +68,7 @@ internal static class VfxImportTests
         var source = FindAuthored();
         Assert.True(source is not null, "the importer's Authored folder was not found");
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var definitions = new List<VfxDefinition>();
         var files = VfxImporter.AuthoredFiles(source!).ToArray();
         Assert.True(files.Length > 0, "no authored definitions");
         foreach (var file in files)
@@ -76,10 +77,18 @@ internal static class VfxImportTests
             {
                 definition.Validate();
                 Assert.True(names.Add(definition.Name), $"{definition.Name} is defined twice");
+                definitions.Add(definition);
             }
         }
 
         static bool Converted(string name) => name.StartsWith("script.", StringComparison.Ordinal) || name.StartsWith("particle.", StringComparison.Ordinal);
+        var started = definitions
+            .SelectMany(static definition => definition.Children.Select(static child => child.Effect)
+                .Concat(definition.Parts.SelectMany(static part => new[] { part.EndEffect, part.EveryEffect })))
+            .Where(name => name.Length > 0 && !Converted(name) && !names.Contains(name))
+            .Distinct()
+            .ToArray();
+        Assert.True(started.Length == 0, "effects start undefined effects: " + string.Join(", ", started));
         var missing = SkillRuleCatalog.All
             .SelectMany(static rule => new[] { rule }.Concat(rule.Modes).Concat(rule.Charge?.Full is { } full ? [full] : Array.Empty<SkillRule>()))
             .SelectMany(static rule => new[] { rule.CastEffect, rule.ImpactEffect, rule.ProjectileEffect, rule.BuffEffect, rule.CompanionEffect })

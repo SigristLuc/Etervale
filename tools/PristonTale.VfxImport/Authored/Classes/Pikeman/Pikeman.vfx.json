@@ -1,316 +1,113 @@
 [
   {
     "name": "vfx.impact.crash",
-    "duration": 0.1,
-    "emitters": [
+    "duration": 1.5,
+    "parts": [
       {
-        "texture": "builtin:ring",
-        "anchor": "Target",
+        "animation": "Light1.ini",
+        "size": [
+          120,
+          120
+        ],
+        "anchor": "Point",
         "offset": [
           0,
-          3,
+          24,
           0
         ],
-        "burst": 1,
-        "maxParticles": 1,
-        "lifetime": [
-          0.35,
-          0.35
-        ],
-        "align": "Ground",
-        "softness": 0,
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              10
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              70
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1,
-              0.9,
-              0.6,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1,
-              0.6,
-              0.2,
-              0
-            ]
-          }
-        ]
+        "sized": true
       },
       {
-        "texture": "builtin:smoke",
-        "blend": "Alpha",
-        "anchor": "Target",
+        "animation": "CriticalHit1.ini",
+        "anchor": "Point",
         "offset": [
           0,
-          6,
+          24,
           0
         ],
-        "burst": 14,
-        "maxParticles": 14,
-        "lifetime": [
-          0.6,
-          1.1
-        ],
-        "speed": [
-          40,
-          100
-        ],
-        "shape": "Ring",
-        "radius": [
-          6,
-          12
-        ],
-        "drag": 2,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              10
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              24
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.3,
-              0.27,
-              0.24,
-              0.7
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.3,
-              0.3,
-              0.3,
-              0
-            ]
-          }
-        ]
+        "sized": false
       }
     ],
     "lights": [
       {
-        "anchor": "Target",
+        "anchor": "Point",
         "offset": [
           0,
-          20,
+          24,
           0
         ],
         "color": [
-          1,
-          0.85,
-          0.5
+          0.3922,
+          0.0,
+          0.0
         ],
-        "power": 140,
-        "decay": 6
+        "power": 400,
+        "decay": 10
       }
     ]
   },
   {
     "name": "vfx.area.pikewind",
-    "duration": 0.6,
-    "emitters": [
+    "duration": 2.0,
+    "parts": [
       {
-        "texture": "builtin:ring",
+        "shape": "Model",
+        "model": "Effect/ObjAnimationData/PikeWind/bong.smd",
+        "blend": "Additive",
+        "count": 20,
+        "delay": 0.1143,
         "anchor": "Caster",
-        "offset": [
-          0,
-          4,
-          0
+        "ring": [
+          12.7,
+          12.7
         ],
-        "burst": 2,
-        "maxParticles": 2,
-        "lifetime": [
+        "ringStep": 21.1765,
+        "radial": [
           0.5,
-          0.6
+          0.5
         ],
-        "align": "Ground",
-        "softness": 0,
-        "intensity": 2.5,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              20
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              120
-            ]
-          }
-        ],
+        "faceGoal": true,
         "color": [
-          {
-            "t": 0,
-            "v": [
-              0.5,
-              0.8,
-              1,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.2,
-              0.5,
-              1,
-              0
-            ]
-          }
-        ]
+          205,
+          205,
+          205,
+          255
+        ],
+        "modelStart": 1,
+        "modelFrames": 20,
+        "modelSpeed": 35,
+        "lifetime": [
+          0.5429,
+          0.5429
+        ],
+        "fade": "InOut",
+        "fadeOut": 0.2143
       },
       {
-        "texture": "builtin:smoke",
-        "blend": "Alpha",
+        "count": 20,
+        "delay": 0.1429,
         "anchor": "Caster",
         "offset": [
           0,
-          8,
+          1.95,
           0
         ],
-        "burst": 40,
-        "maxParticles": 40,
+        "ring": [
+          37.6,
+          37.6
+        ],
+        "ringStep": 18.0,
+        "radial": [
+          97.625,
+          97.625
+        ],
+        "swirl": -92.4,
         "lifetime": [
-          0.5,
-          0.9
+          0.4,
+          0.4
         ],
-        "speed": [
-          140,
-          260
-        ],
-        "shape": "Ring",
-        "radius": [
-          10,
-          20
-        ],
-        "drag": 2.2,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              10
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              26
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.6,
-              0.65,
-              0.7,
-              0.6
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.6,
-              0.65,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:spark",
-        "anchor": "Caster",
-        "offset": [
-          0,
-          20,
-          0
-        ],
-        "burst": 50,
-        "maxParticles": 50,
-        "lifetime": [
-          0.3,
-          0.6
-        ],
-        "speed": [
-          180,
-          320
-        ],
-        "shape": "Ring",
-        "radius": [
-          8,
-          12
-        ],
-        "drag": 1.5,
-        "align": "Velocity",
-        "stretch": 0.03,
-        "intensity": 4,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              2
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.6,
-              0.9,
-              1,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.2,
-              0.5,
-              1,
-              0
-            ]
-          }
-        ]
+        "every": 0.0286,
+        "everyEffect": "vfx.pike.wind.dust"
       }
     ],
     "lights": [
@@ -318,150 +115,86 @@
         "anchor": "Caster",
         "offset": [
           0,
-          30,
+          24,
           0
         ],
         "color": [
-          0.4,
-          0.7,
-          1
+          0.1961,
+          0.1961,
+          0.7843
         ],
-        "power": 200,
-        "decay": 6
+        "power": 250,
+        "decay": 3
       }
     ]
   },
   {
     "name": "vfx.pike.groundpike.hit",
-    "duration": 1.0,
-    "emitters": [
+    "duration": 2.0,
+    "parts": [
       {
-        "texture": "builtin:spark",
+        "shape": "Model",
+        "model": "Effect/ObjAnimationData/GroundPike/GroundPike.smd",
+        "blend": "Additive",
+        "count": 10,
+        "delayRandom": 0.1286,
+        "anchor": "Caster",
+        "offset": [
+          0,
+          0,
+          -32
+        ],
+        "ring": [
+          0.01,
+          0.01
+        ],
+        "ringStep": 36,
+        "radial": [
+          560.0,
+          560.0
+        ],
+        "moveTime": 0.1605,
+        "faceGoal": true,
+        "color": [
+          145,
+          145,
+          145,
+          255
+        ],
+        "modelStart": 1,
+        "modelFrames": 10,
+        "modelSpeed": 17.5,
+        "lifetime": [
+          0.75,
+          0.75
+        ],
+        "fade": "InOut",
+        "fadeOut": 0.5714
+      },
+      {
+        "count": 10,
+        "delayRandom": 0.1286,
         "anchor": "Caster",
         "offset": [
           0,
           4,
-          30
+          -32
         ],
-        "burst": 40,
-        "maxParticles": 40,
+        "ring": [
+          0.01,
+          0.01
+        ],
+        "ringStep": 36,
+        "radial": [
+          232.4,
+          232.4
+        ],
         "lifetime": [
-          0.4,
-          0.8
+          0.39,
+          0.39
         ],
-        "speed": [
-          160,
-          320
-        ],
-        "direction": [
-          0,
-          0,
-          1
-        ],
-        "spread": 70,
-        "shape": "Disc",
-        "radius": [
-          5,
-          30
-        ],
-        "align": "Velocity",
-        "stretch": 0.06,
-        "intensity": 5,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              5
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.6,
-              0.85,
-              1.0,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              0.6,
-              0.85,
-              1.0,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.36,
-              0.51,
-              0.6,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:ring",
-        "anchor": "Caster",
-        "offset": [
-          0,
-          3,
-          30
-        ],
-        "burst": 1,
-        "maxParticles": 4,
-        "lifetime": [
-          0.6,
-          0.6
-        ],
-        "align": "Ground",
-        "softness": 0,
-        "intensity": 4,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              20
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              200
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.6,
-              0.85,
-              1.0,
-              0.9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.3,
-              0.425,
-              0.5,
-              0
-            ]
-          }
-        ]
+        "every": 0.0143,
+        "everyEffect": "vfx.pike.groundpike.sparkle"
       }
     ],
     "lights": [
@@ -469,655 +202,332 @@
         "anchor": "Caster",
         "offset": [
           0,
-          30,
-          30
+          24,
+          0
         ],
         "color": [
-          0.2,
-          0.4,
+          0.0,
+          0.0,
+          0.3922
+        ],
+        "power": 700,
+        "decay": 10
+      },
+      {
+        "anchor": "Caster",
+        "offset": [
+          0,
+          24,
+          -32
+        ],
+        "color": [
+          0.1961,
+          0.3922,
           1.0
         ],
-        "power": 300,
+        "power": 250,
         "decay": 3
       }
     ]
   },
   {
     "name": "vfx.pike.tornado.hit",
-    "duration": 1.4,
-    "emitters": [
+    "duration": 2.0,
+    "parts": [
       {
-        "texture": "builtin:smoke",
-        "anchor": "Point",
+        "shape": "Ribbon",
+        "texture": "Effect/ImageData/SkillTornado/Line1.tga",
+        "count": 1,
+        "delay": 0.0,
+        "anchor": "Caster",
         "offset": [
           0,
-          10,
+          10.0,
           0
         ],
-        "blend": "Alpha",
-        "rate": 80,
-        "emitTime": 1.0,
-        "maxParticles": 160,
+        "goal": "Target",
+        "orbitRadius": 50,
+        "orbitSpeed": 840.0,
+        "width": [
+          13.28,
+          13.28
+        ],
+        "trailPoints": 15,
+        "trailFade": 10.4167,
         "lifetime": [
-          0.5,
-          0.9
+          0.5286,
+          0.5286
         ],
-        "speed": [
-          60,
-          120
-        ],
-        "direction": [
-          0,
-          1,
-          0
-        ],
-        "spread": 15,
-        "shape": "Ring",
-        "radius": [
-          10,
-          40
-        ],
-        "spin": [
-          300,
-          500
-        ],
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              10
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              24
-            ]
-          }
-        ],
+        "turn": false,
         "color": [
-          {
-            "t": 0,
-            "v": [
-              0.85,
-              0.85,
-              0.8,
-              0.0
-            ]
-          },
-          {
-            "t": 0.3,
-            "v": [
-              0.85,
-              0.85,
-              0.8,
-              0.45
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.7,
-              0.7,
-              0.65,
-              0
-            ]
-          }
+          255,
+          255,
+          255,
+          250
         ]
       },
       {
-        "texture": "builtin:spark",
-        "anchor": "Point",
+        "shape": "Ribbon",
+        "texture": "Effect/ImageData/SkillTornado/Line1.tga",
+        "count": 1,
+        "delay": 0.0429,
+        "anchor": "Caster",
         "offset": [
           0,
-          30,
+          11.95,
           0
         ],
-        "burst": 24,
-        "maxParticles": 24,
+        "goal": "Target",
+        "orbitRadius": 50,
+        "orbitSpeed": 840.0,
+        "width": [
+          13.28,
+          13.28
+        ],
+        "trailPoints": 15,
+        "trailFade": 10.4167,
         "lifetime": [
-          0.25,
-          0.55
+          0.5286,
+          0.5286
         ],
-        "speed": [
-          150,
-          300
-        ],
-        "spread": 180,
-        "drag": 2.5,
-        "align": "Velocity",
-        "stretch": 0.03,
-        "intensity": 5,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              3
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.75
-            ]
-          }
-        ],
+        "turn": false,
         "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.6,
-              0.6,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.4,
-              0.24,
-              0.24,
-              0
-            ]
-          }
+          255,
+          255,
+          255,
+          250
         ]
       }
     ],
     "lights": [
       {
-        "anchor": "Point",
+        "anchor": "Caster",
         "offset": [
           0,
-          40,
+          24,
           0
         ],
         "color": [
           1.0,
-          0.4,
-          0.4
+          0.3922,
+          0.3922
         ],
-        "power": 240,
+        "power": 200,
         "decay": 3
+      }
+    ],
+    "children": [
+      {
+        "effect": "vfx.common.roundimpact",
+        "anchor": "Target",
+        "offset": [
+          0,
+          0,
+          0
+        ],
+        "turn": true,
+        "delay": 0.5286
+      },
+      {
+        "effect": "vfx.common.roundimpact",
+        "anchor": "Target",
+        "offset": [
+          0,
+          0,
+          0
+        ],
+        "turn": true,
+        "delay": 0.5571
       }
     ]
   },
   {
     "name": "vfx.pike.expansion.weapon",
-    "duration": 1.0,
-    "trails": [
+    "duration": 1.2,
+    "parts": [
       {
-        "texture": "builtin:beam",
+        "shape": "Blade",
+        "texture": "image/MotionMask.bmp",
+        "blend": "Additive",
+        "color": [
+          255,
+          40,
+          40,
+          140
+        ],
         "anchor": "Caster",
         "bone": "Bip weapon01",
-        "width": 30,
-        "lifetime": 0.3,
-        "intensity": 3.5,
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.3,
-              0.3,
-              0.9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.5,
-              0.15,
-              0.15,
-              0
-            ]
-          }
-        ]
+        "boneWorld": true,
+        "bladeLength": 70,
+        "trailPoints": 10,
+        "trailFade": 25,
+        "lifetime": [
+          1.0,
+          1.0
+        ],
+        "fade": "InOut",
+        "fadeIn": 0.1,
+        "fadeOut": 0.3
       }
     ]
   },
   {
     "name": "vfx.pike.expansion.hit",
-    "duration": 0.5,
-    "emitters": [
-      {
-        "texture": "Effect/ImageData/SkillRoundImpact/Hit1.tga",
-        "anchor": "Target",
-        "offset": [
-          0,
-          30,
-          0
-        ],
-        "burst": 1,
-        "maxParticles": 1,
-        "lifetime": [
-          0.35,
-          0.35
-        ],
-        "intensity": 4,
-        "softness": 0,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              36.0
-            ]
-          },
-          {
-            "t": 0.3,
-            "v": [
-              90
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              108.0
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.35,
-              0.3,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              1.0,
-              0.35,
-              0.3,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.21,
-              0.18,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:spark",
-        "anchor": "Target",
-        "offset": [
-          0,
-          30,
-          0
-        ],
-        "burst": 26,
-        "maxParticles": 26,
-        "lifetime": [
-          0.25,
-          0.55
-        ],
-        "speed": [
-          180,
-          340
-        ],
-        "spread": 180,
-        "drag": 2.5,
-        "align": "Velocity",
-        "stretch": 0.03,
-        "intensity": 5,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              3
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.75
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.4,
-              0.3,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.4,
-              0.16000000000000003,
-              0.12,
-              0
-            ]
-          }
-        ]
-      }
-    ],
+    "duration": 2.0,
     "lights": [
       {
-        "anchor": "Target",
+        "anchor": "Point",
         "offset": [
           0,
-          30,
+          24,
           0
         ],
         "color": [
-          1.0,
-          0.25,
-          0.2
+          0.3922,
+          0.0,
+          0.0
         ],
-        "power": 260,
-        "decay": 5
+        "power": 400,
+        "decay": 10
+      }
+    ],
+    "children": [
+      {
+        "effect": "vfx.common.roundimpact",
+        "anchor": "Point",
+        "offset": [
+          0,
+          0,
+          0
+        ],
+        "turn": true
       }
     ]
   },
   {
     "name": "vfx.pike.venomspear.cast",
     "duration": 1.5,
-    "emitters": [
+    "children": [
       {
-        "texture": "builtin:glow",
+        "effect": "particle.Skill3PikeManVenomSpear1",
         "anchor": "Caster",
         "offset": [
           0,
-          30,
-          25
+          3.9,
+          -25
         ],
-        "delay": 0.3,
-        "burst": 24,
-        "maxParticles": 24,
-        "lifetime": [
-          0.4,
-          0.8
-        ],
-        "speed": [
-          30,
-          90
-        ],
-        "spread": 180,
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              8
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.55,
-              1.0,
-              0.3,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              0.55,
-              1.0,
-              0.3,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.33,
-              0.6,
-              0.18,
-              0
-            ]
-          }
-        ]
-      }
-    ],
-    "lights": [
-      {
-        "anchor": "Caster",
-        "offset": [
-          0,
-          30,
-          25
-        ],
-        "color": [
-          0.4,
-          1.0,
-          0.3
-        ],
-        "power": 140,
-        "decay": 3
+        "turn": true
       }
     ]
   },
   {
     "name": "vfx.pike.venomspear.hit",
-    "duration": 1.2,
-    "emitters": [
+    "duration": 2.0,
+    "parts": [
       {
-        "texture": "builtin:ring",
-        "anchor": "Caster",
-        "offset": [
-          0,
-          3,
-          0
-        ],
-        "burst": 1,
-        "maxParticles": 4,
+        "shape": "Model",
+        "model": "Effect/AssaEffect/Skill3Mesh/pk3_Venom24-2.smd",
+        "blend": "Additive",
+        "anchor": "Target",
+        "modelFrames": 24,
+        "modelSpeed": 23.3333,
         "lifetime": [
-          0.7,
-          0.7
+          1.0286,
+          1.0286
         ],
-        "align": "Ground",
-        "softness": 0,
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              20
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              250
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.55,
-              1.0,
-              0.3,
-              0.9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.275,
-              0.5,
-              0.15,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:smoke",
-        "anchor": "Caster",
-        "offset": [
-          0,
-          10,
-          0
-        ],
-        "blend": "Alpha",
-        "burst": 30,
-        "maxParticles": 30,
-        "lifetime": [
-          0.6,
-          1.1
-        ],
-        "speed": [
-          40,
-          120
-        ],
-        "spread": 80,
-        "shape": "Ring",
-        "radius": [
-          20,
-          80
-        ],
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              10
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              22
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.4,
-              0.8,
-              0.2,
-              0.5
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.3,
-              0.6,
-              0.1,
-              0
-            ]
-          }
-        ]
+        "fade": "InOut",
+        "fadeIn": 0.2571,
+        "fadeOut": 0.2571
       }
     ],
-    "lights": [
+    "children": [
       {
-        "anchor": "Caster",
+        "effect": "particle.Skill3PikeManVenomSpear",
+        "anchor": "Target",
         "offset": [
           0,
-          30,
+          0,
           0
         ],
-        "color": [
-          0.4,
-          1.0,
-          0.3
+        "turn": true
+      },
+      {
+        "effect": "particle.Skill3PikeManVenomSpear",
+        "anchor": "Target",
+        "offset": [
+          0,
+          0,
+          0
         ],
-        "power": 200,
-        "decay": 4
+        "turn": true,
+        "delay": 0.3333333333333333
+      },
+      {
+        "effect": "particle.Skill3PikeManVenomSpear",
+        "anchor": "Target",
+        "offset": [
+          0,
+          0,
+          0
+        ],
+        "turn": true,
+        "delay": 0.6666666666666666
       }
     ]
   },
   {
     "name": "vfx.pike.vanish.cast",
-    "duration": 1.2,
-    "emitters": [
+    "duration": 2.5,
+    "parts": [
       {
-        "texture": "builtin:glow",
+        "texture": "Effect/AssaEffect/flare.tga",
+        "color": [
+          150,
+          150,
+          255,
+          252
+        ],
+        "count": 100,
+        "delayStep": 0.0143,
         "anchor": "Caster",
         "offset": [
           0,
-          30,
+          23.4,
           0
         ],
-        "burst": 60,
-        "maxParticles": 60,
-        "lifetime": [
-          0.4,
-          0.8
+        "shell": [
+          76,
+          76,
+          76
         ],
-        "speed": [
-          -160,
-          -80
+        "burst": [
+          -166.6,
+          -166.6
         ],
-        "spread": 180,
-        "shape": "Sphere",
-        "radius": [
-          60,
-          90
-        ],
-        "intensity": 3,
         "size": [
-          {
-            "t": 0,
-            "v": [
-              6
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
+          4.7,
+          6.6
         ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.6,
-              0.6,
-              1.0,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              0.6,
-              0.6,
-              1.0,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.36,
-              0.36,
-              0.6,
-              0
-            ]
-          }
-        ]
+        "lifetime": [
+          0.3429,
+          0.3429
+        ],
+        "fade": "InOut",
+        "fadeIn": 0.1714,
+        "fadeOut": 0.1714
+      }
+    ],
+    "children": [
+      {
+        "effect": "particle.Skill3PikeVanish1",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          3.9,
+          0
+        ],
+        "turn": true,
+        "follow": true
       }
     ]
   },
@@ -1204,691 +614,100 @@
   },
   {
     "name": "vfx.pike.chainlance.hit",
-    "duration": 0.5,
-    "emitters": [
-      {
-        "texture": "builtin:spark",
-        "anchor": "Target",
-        "offset": [
-          0,
-          30,
-          0
-        ],
-        "burst": 20,
-        "maxParticles": 20,
-        "lifetime": [
-          0.25,
-          0.55
-        ],
-        "speed": [
-          160,
-          320
-        ],
-        "spread": 180,
-        "drag": 2.5,
-        "align": "Velocity",
-        "stretch": 0.03,
-        "intensity": 5,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              3
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.75
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.45,
-              0.3,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.4,
-              0.18000000000000002,
-              0.12,
-              0
-            ]
-          }
-        ]
-      }
-    ],
+    "duration": 2.0,
     "lights": [
       {
-        "anchor": "Target",
+        "anchor": "Point",
         "offset": [
           0,
-          30,
+          24,
           0
         ],
         "color": [
-          0.8,
-          0.4,
+          0.3922,
+          0.1961,
           0.0
         ],
-        "power": 220,
-        "decay": 6
+        "power": 250,
+        "decay": 5
+      }
+    ],
+    "children": [
+      {
+        "effect": "particle.Skill3Hit3",
+        "anchor": "Point",
+        "offset": [
+          0,
+          35.72,
+          0
+        ],
+        "turn": true
       }
     ]
   },
   {
-    "name": "vfx.pike.assassineye.cast",
-    "duration": 1.0,
-    "emitters": [
+    "name": "vfx.pike.assassineye.mark",
+    "duration": 600,
+    "children": [
       {
-        "texture": "builtin:glow",
-        "anchor": "Target",
-        "offset": [
-          0,
-          70,
-          0
-        ],
-        "burst": 1,
-        "maxParticles": 1,
-        "lifetime": [
-          0.6,
-          0.6
-        ],
-        "intensity": 4,
-        "softness": 0,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              16.0
-            ]
-          },
-          {
-            "t": 0.3,
-            "v": [
-              40
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              48.0
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.3,
-              0.3,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              1.0,
-              0.3,
-              0.3,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.18,
-              0.18,
-              0
-            ]
-          }
-        ]
-      }
-    ],
-    "lights": [
-      {
+        "effect": "script.SkillLancelotAssassinEye",
         "anchor": "Target",
         "offset": [
           0,
           60,
           0
         ],
-        "color": [
-          1.0,
-          0.2,
-          0.2
-        ],
-        "power": 140,
-        "decay": 4
-      }
-    ]
-  },
-  {
-    "name": "vfx.pike.assassineye.mark",
-    "duration": 20,
-    "emitters": [
-      {
-        "texture": "builtin:ring",
-        "anchor": "Target",
-        "offset": [
-          0,
-          72,
-          0
-        ],
-        "local": true,
-        "rate": 1.5,
-        "maxParticles": 4,
-        "lifetime": [
-          1.2,
-          1.2
-        ],
-        "intensity": 2.5,
-        "softness": 0,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              16
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              10
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.25,
-              0.25,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              1.0,
-              0.25,
-              0.25,
-              0.9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.15,
-              0.15,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:glow",
-        "anchor": "Target",
-        "offset": [
-          0,
-          72,
-          0
-        ],
-        "local": true,
-        "rate": 4,
-        "maxParticles": 8,
-        "lifetime": [
-          0.5,
-          0.5
-        ],
-        "intensity": 2,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              6
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              4
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.3,
-              0.3,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              1.0,
-              0.3,
-              0.3,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.18,
-              0.18,
-              0
-            ]
-          }
-        ]
+        "turn": true,
+        "follow": true
       }
     ]
   },
   {
     "name": "vfx.pike.charging.cast",
     "duration": 3.0,
-    "emitters": [
+    "children": [
       {
-        "texture": "builtin:glow",
+        "effect": "script.SkillLancelotChargingStrike1",
         "anchor": "Caster",
         "offset": [
           0,
-          30,
-          0
+          19.53,
+          -30
         ],
-        "local": true,
-        "rate": 60,
-        "emitTime": 2.0,
-        "maxParticles": 120,
-        "lifetime": [
-          0.3,
-          0.5
-        ],
-        "speed": [
-          -120,
-          -60
-        ],
-        "spread": 180,
-        "shape": "Sphere",
-        "radius": [
-          40,
-          70
-        ],
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              5
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.8,
-              0.4,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              1.0,
-              0.8,
-              0.4,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.48,
-              0.24,
-              0
-            ]
-          }
-        ]
-      }
-    ],
-    "trails": [
-      {
-        "texture": "builtin:beam",
-        "anchor": "Caster",
-        "bone": "Bip weapon01",
-        "width": 14,
-        "lifetime": 0.25,
-        "intensity": 3,
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.85,
-              0.4,
-              0.9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.5,
-              0.425,
-              0.2,
-              0
-            ]
-          }
-        ]
-      }
-    ],
-    "lights": [
-      {
-        "anchor": "Caster",
-        "offset": [
-          0,
-          30,
-          0
-        ],
-        "color": [
-          1.0,
-          0.7,
-          0.3
-        ],
-        "power": 160,
-        "decay": 2
+        "turn": true
       }
     ]
   },
   {
     "name": "vfx.pike.charging.hit",
-    "duration": 0.5,
-    "emitters": [
-      {
-        "texture": "Effect/ImageData/SkillRoundImpact/Hit3.tga",
-        "anchor": "Target",
-        "offset": [
-          0,
-          30,
-          0
-        ],
-        "burst": 1,
-        "maxParticles": 1,
-        "lifetime": [
-          0.35,
-          0.35
-        ],
-        "intensity": 6,
-        "softness": 0,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              40.0
-            ]
-          },
-          {
-            "t": 0.3,
-            "v": [
-              100
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              120.0
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.6,
-              0.3,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              1.0,
-              0.6,
-              0.3,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.36,
-              0.18,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:spark",
-        "anchor": "Target",
-        "offset": [
-          0,
-          30,
-          0
-        ],
-        "burst": 30,
-        "maxParticles": 30,
-        "lifetime": [
-          0.25,
-          0.55
-        ],
-        "speed": [
-          200,
-          420
-        ],
-        "spread": 180,
-        "drag": 2.5,
-        "align": "Velocity",
-        "stretch": 0.03,
-        "intensity": 5,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              3
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.75
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.7,
-              0.3,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.4,
-              0.27999999999999997,
-              0.12,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:ring",
-        "anchor": "Target",
-        "offset": [
-          0,
-          3,
-          0
-        ],
-        "burst": 1,
-        "maxParticles": 4,
-        "lifetime": [
-          0.4,
-          0.4
-        ],
-        "align": "Ground",
-        "softness": 0,
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              20
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              140
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.6,
-              0.3,
-              0.9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.5,
-              0.3,
-              0.15,
-              0
-            ]
-          }
-        ]
-      }
-    ],
+    "duration": 2.0,
     "lights": [
       {
-        "anchor": "Target",
+        "anchor": "Point",
         "offset": [
           0,
-          30,
+          24,
           0
         ],
         "color": [
-          1.0,
+          0.3922,
           0.0,
           0.0
         ],
         "power": 400,
-        "decay": 8
+        "decay": 10
       }
-    ]
-  },
-  {
-    "name": "vfx.pike.vague.cast",
-    "duration": 1.0,
-    "emitters": [
+    ],
+    "children": [
       {
-        "texture": "builtin:glow",
-        "anchor": "Caster",
+        "effect": "vfx.common.tripleimpact",
+        "anchor": "Point",
         "offset": [
           0,
-          30,
+          0,
           0
         ],
-        "burst": 40,
-        "maxParticles": 40,
-        "lifetime": [
-          0.5,
-          0.9
-        ],
-        "speed": [
-          40,
-          120
-        ],
-        "spread": 180,
-        "intensity": 2.5,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              7
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.7,
-              0.9,
-              1.0,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              0.7,
-              0.9,
-              1.0,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.42,
-              0.54,
-              0.6,
-              0
-            ]
-          }
-        ]
+        "turn": true
       }
     ]
   },
@@ -1974,211 +793,95 @@
     ]
   },
   {
-    "name": "vfx.pike.shadowmaster.cast",
-    "duration": 3.0,
-    "trails": [
+    "name": "vfx.pike.shadowmaster.hit",
+    "duration": 2.0,
+    "lights": [
       {
-        "texture": "builtin:beam",
-        "anchor": "Caster",
-        "bone": "Bip weapon01",
-        "width": 16,
-        "lifetime": 0.35,
-        "intensity": 3,
+        "anchor": "Point",
+        "offset": [
+          0,
+          24,
+          0
+        ],
         "color": [
-          {
-            "t": 0,
-            "v": [
-              0.7,
-              0.5,
-              1.0,
-              0.9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.35,
-              0.25,
-              0.5,
-              0
-            ]
-          }
-        ]
-      },
+          0.3922,
+          0.0,
+          0.0
+        ],
+        "power": 400,
+        "decay": 10
+      }
+    ],
+    "children": [
       {
-        "texture": "builtin:beam",
-        "anchor": "Caster",
-        "bone": "Bip weapon01",
-        "width": 24,
-        "lifetime": 0.55,
-        "intensity": 1.5,
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.4,
-              0.3,
-              0.8,
-              0.9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.2,
-              0.15,
-              0.4,
-              0
-            ]
-          }
-        ]
+        "effect": "vfx.common.tripleimpact",
+        "anchor": "Point",
+        "offset": [
+          0,
+          0,
+          0
+        ],
+        "turn": true
       }
     ]
   },
   {
-    "name": "vfx.pike.shadowmaster.hit",
-    "duration": 0.45,
-    "emitters": [
+    "name": "vfx.pike.wind.dust",
+    "duration": 1.5,
+    "parts": [
       {
-        "texture": "Effect/ImageData/SkillRoundImpact/Hit2.tga",
-        "anchor": "Target",
-        "offset": [
-          0,
-          30,
-          0
-        ],
-        "burst": 1,
-        "maxParticles": 1,
-        "lifetime": [
-          0.35,
-          0.35
-        ],
-        "intensity": 4,
-        "softness": 0,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              28.0
-            ]
-          },
-          {
-            "t": 0.3,
-            "v": [
-              70
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              84.0
-            ]
-          }
-        ],
+        "texture": "Effect/ImageData/Particle/Dust.tga",
         "color": [
-          {
-            "t": 0,
-            "v": [
-              0.9,
-              0.5,
-              1.0,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              0.9,
-              0.5,
-              1.0,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.54,
-              0.3,
-              0.6,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:spark",
-        "anchor": "Target",
-        "offset": [
-          0,
-          30,
-          0
+          60,
+          60,
+          60,
+          150
         ],
-        "burst": 22,
-        "maxParticles": 22,
-        "lifetime": [
-          0.25,
-          0.55
-        ],
-        "speed": [
-          180,
-          340
-        ],
-        "spread": 180,
-        "drag": 2.5,
-        "align": "Velocity",
-        "stretch": 0.03,
-        "intensity": 5,
         "size": [
-          {
-            "t": 0,
-            "v": [
-              3
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.75
-            ]
-          }
+          12,
+          12
         ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.8,
-              0.5,
-              1.0,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.32000000000000006,
-              0.2,
-              0.4,
-              0
-            ]
-          }
-        ]
+        "growth": -11.6667,
+        "burst": [
+          41.3,
+          41.3
+        ],
+        "lifetime": [
+          0.6,
+          0.6
+        ],
+        "fade": "InOut",
+        "fadeOut": 0.56
       }
-    ],
-    "lights": [
+    ]
+  },
+  {
+    "name": "vfx.pike.groundpike.sparkle",
+    "duration": 1.5,
+    "parts": [
       {
-        "anchor": "Target",
-        "offset": [
-          0,
-          30,
-          0
-        ],
+        "texture": "Effect/ImageData/Particle/blue.tga",
         "color": [
-          1.0,
-          0.0,
-          0.2
+          255,
+          255,
+          255,
+          100
         ],
-        "power": 300,
-        "decay": 8
+        "size": [
+          10,
+          10
+        ],
+        "growth": -17.5,
+        "burst": [
+          41.3,
+          41.3
+        ],
+        "lifetime": [
+          0.4,
+          0.4
+        ],
+        "fade": "InOut",
+        "fadeOut": 0.4
       }
     ]
   }

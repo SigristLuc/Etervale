@@ -220,6 +220,19 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
             _target.SaveAsPng(stream, 960, 540);
         }
 
+        if (_frame > 0)
+        {
+            // The effects alone on a dark backdrop: the exposed stage hides additive light.
+            GraphicsDevice.SetRenderTarget(_target);
+            GraphicsDevice.Clear(new Color(18, 18, 22));
+            Renderer().DisplayOutput = true;
+            _presentation.Draw(_camera.View, _camera.Projection, _camera.Position, null!);
+            Renderer().DisplayOutput = false;
+            GraphicsDevice.SetRenderTarget(null);
+            using var dark = File.Create(Path.Combine(_output, name + ".dark.png"));
+            _target.SaveAsPng(dark, 960, 540);
+        }
+
         Console.WriteLine(path);
         _frame++;
         if (_frame > times.Length)
@@ -323,15 +336,15 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
 
     public bool TryGetBone(uint entityId, string bone, out Vector3 position)
     {
-        var actor = entityId == CasterId ? _caster.Body : _dummy.Body;
-        if (_renderer.TryGetActorBoneWorld(actor, bone, out var world))
-        {
-            position = world.Translation;
-            return true;
-        }
+        var found = TryGetBoneWorld(entityId, bone, out var world);
+        position = world.Translation;
+        return found;
+    }
 
-        position = default;
-        return false;
+    public bool TryGetBoneWorld(uint entityId, string bone, out Matrix world)
+    {
+        var actor = entityId == CasterId ? _caster.Body : _dummy.Body;
+        return _renderer.TryGetActorBoneWorld(actor, bone, out world);
     }
 
     public void PlaySkillMotion(uint entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)

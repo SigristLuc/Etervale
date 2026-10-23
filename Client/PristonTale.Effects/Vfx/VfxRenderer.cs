@@ -175,6 +175,7 @@ public sealed partial class VfxRenderer : IDisposable
     {
         AppendComponents(instance, pass, right, up, camera);
         AppendSequences(instance, pass, right, up, camera);
+        AppendParts(instance, pass, right, up, camera);
         foreach (var state in instance.EmitterStates)
         {
             var emitter = state.Emitter;

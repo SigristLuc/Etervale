@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework.Graphics;
+using PristonTale.Effects.Legacy;
 using PristonTale.Engine3D.Rendering;
 
 namespace PristonTale.Effects.Vfx;
@@ -12,6 +13,9 @@ public interface IVfxResources
     // An effect model baked at the given number of frames (30 per second; 1 for a static model); null when it cannot be
     // read.
     PristonMeshEffect? Model(string path, string skeleton, int frames);
+
+    // An animated billboard by file name (Effect/AnimationData); null when it is missing or unreadable.
+    BillboardSequence? Animation(string name) => null;
 }
 
 // Named effects compiled against their textures and models. A name registered twice keeps the later definition.
@@ -49,7 +53,8 @@ public sealed class VfxLibrary
         var trails = definition.Trails.Select(trail => new CompiledTrail(trail, Texture(trail.Texture))).ToArray();
         var components = definition.Components.Select(Compile).ToArray();
         var sequences = definition.Sequences.Select(sequence => new CompiledSequence(sequence, Texture(sequence.Texture))).ToArray();
-        var compiled = new CompiledVfx(definition, emitters, trails, components, sequences);
+        var parts = definition.Parts.Select(Compile).ToArray();
+        var compiled = new CompiledVfx(definition, emitters, trails, components, sequences, parts);
         _effects[definition.Name] = compiled;
         return compiled;
     }
@@ -65,6 +70,28 @@ public sealed class VfxLibrary
         }
 
         return parent.Children[index];
+    }
+
+    private CompiledPart Compile(VfxPartDefinition part)
+    {
+        if (part.Shape == VfxPartShape.Model)
+        {
+            var frames = Math.Clamp((int)MathF.Ceiling(part.ModelFrames), 1, PristonMeshEffect.MaxFrames);
+            return new CompiledPart(part, null, [], part.Model.Length > 0 ? _resources?.Model(part.Model, part.Skeleton, frames) : null);
+        }
+
+        if (part.Animation.Length > 0)
+        {
+            var animation = _resources?.Animation(part.Animation);
+            return animation is null ? new CompiledPart(part, null, [], null) : new CompiledPart(part, animation, animation.Images.Select(Texture).ToArray(), null);
+        }
+
+        if (part.Texture.Length == 0)
+        {
+            return new CompiledPart(part, null, [], null);
+        }
+
+        return new CompiledPart(part, null, VfxCatalog.Frames(part.Texture, part.Frames).Select(Texture).ToArray(), null);
     }
 
     private CompiledComponent Compile(VfxComponentDefinition component)

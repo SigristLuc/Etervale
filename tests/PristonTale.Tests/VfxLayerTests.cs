@@ -3,7 +3,7 @@ using PristonTale.Effects.Vfx;
 
 namespace PristonTale.Tests;
 
-// Runtime rules of the component, sequence and child layers (the converted original scripts).
+// Runtime rules of the component, sequence, child and part layers.
 internal static class VfxLayerTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
@@ -13,6 +13,9 @@ internal static class VfxLayerTests
         yield return ("sequence layers emit their budget, loop on clock events and stop on request", SequencesAsync);
         yield return ("child effects start late, follow their anchor and stop with the parent", ChildrenAsync);
         yield return ("component and sequence updates allocate nothing once warmed up", AllocationsAsync);
+        yield return ("parts wait for their delays, start on their ring and end with their life", PartRingAsync);
+        yield return ("parts fly to their goal, start their end effect there and fade out", PartGoalAsync);
+        yield return ("orbiting parts with a goal sweep at the goal's distance and bearing", PartOrbitAsync);
     }
 
     private static (VfxLibrary Library, VfxSystem System) Setup(params VfxDefinition[] definitions)
@@ -24,6 +27,90 @@ internal static class VfxLayerTests
         }
 
         return (library, new VfxSystem(new Anchors(), null, library));
+    }
+
+    private static Task PartRingAsync()
+    {
+        var (library, system) = Setup(new VfxDefinition
+        {
+            Name = "test.ring",
+            Duration = 5f,
+            Parts = [new VfxPartDefinition { Texture = "x.bmp", Count = 4, DelayStep = 0.1f, Ring = [10f, 10f], RingStep = 90f, Lifetime = [0.3f, 0.3f] }]
+        });
+        library.TryGet("test.ring", out var effect);
+        var instance = system.Spawn(effect, new VfxSpawn(0, 0, new Vector3(5f, 0f, 0f), 0f))!;
+        Run(system, 0.05f);
+        Assert.True(instance.PartStates[0].LiveCount == 1, "only the first part is due");
+        Run(system, 0.3f);
+        var parts = instance.PartStates[0];
+        Assert.True(parts.LiveCount == 3, $"{parts.LiveCount} parts live; the first ended with its life, the rest started");
+        var second = parts.Parts[1].Position;
+        Assert.True(Vector3.Distance(second, new Vector3(5f, 0f, 10f)) < 0.01f, $"second part at {second}");
+        Run(system, 0.5f);
+        Assert.True(!instance.Alive, "the effect ends when its parts have");
+        return Task.CompletedTask;
+    }
+
+    private static Task PartGoalAsync()
+    {
+        var anchors = new Anchors { Target = new Vector3(100f, 0f, 0f) };
+        var library = new VfxLibrary(_ => null, null!);
+        library.Register(new VfxDefinition
+        {
+            Name = "test.shot",
+            Duration = 5f,
+            Parts =
+            [
+                new VfxPartDefinition
+                {
+                    Texture = "x.bmp", Anchor = VfxAnchor.Caster, Goal = VfxPartGoal.Target, Speed = 200f, End = VfxPartEnd.Hold, FadeOut = 0.2f,
+                    EndEffect = "test.boom"
+                }
+            ]
+        });
+        library.Register(new VfxDefinition { Name = "test.boom", Duration = 1f, Parts = [new VfxPartDefinition { Texture = "x.bmp", Lifetime = [0.4f, 0.4f] }] });
+        var system = new VfxSystem(anchors, null, library);
+        library.TryGet("test.shot", out var effect);
+        var shot = system.Spawn(effect, new VfxSpawn(1, 2, Vector3.Zero, 0f))!;
+        Run(system, 0.3f);
+        Assert.True(system.Instances.All(static instance => instance.Effect.Name != "test.boom"), "the end effect started before arrival");
+        Run(system, 0.25f);
+        var boom = system.Instances.FirstOrDefault(static instance => instance.Effect.Name == "test.boom");
+        Assert.True(boom is not null && Vector3.Distance(boom.Spawn.Point, anchors.Target) < 0.01f, "the end effect starts where the part arrived");
+        var part = shot.PartStates[0].Parts[0];
+        Assert.True(Vector3.Distance(part.Position, anchors.Target) < 0.01f && shot.PartStates[0].Fade(part) < 1f, "the part holds and fades");
+        Run(system, 0.25f);
+        Assert.True(!shot.Alive, "the part ended after its fade");
+        return Task.CompletedTask;
+    }
+
+    private static Task PartOrbitAsync()
+    {
+        var anchors = new Anchors { Caster = Vector3.Zero, Target = new Vector3(0f, 0f, 30f) };
+        var library = new VfxLibrary(_ => null, null!);
+        library.Register(new VfxDefinition
+        {
+            Name = "test.sweep",
+            Duration = 5f,
+            Parts =
+            [
+                new VfxPartDefinition
+                {
+                    Shape = VfxPartShape.Ribbon, Texture = "x.bmp", Anchor = VfxAnchor.Caster, Goal = VfxPartGoal.Target, OrbitRadius = 5f, OrbitSpeed = 90f,
+                    Lifetime = [2f, 2f], Turn = false
+                }
+            ]
+        });
+        var system = new VfxSystem(anchors, null, library);
+        library.TryGet("test.sweep", out var effect);
+        var sweep = system.Spawn(effect, new VfxSpawn(1, 2, Vector3.Zero, 0f))!;
+        system.Update(0.001f);
+        var start = sweep.PartStates[0].Parts[0].Position;
+        Assert.True(Vector3.Distance(start, anchors.Target) < 0.2f, $"the sweep starts at the target, not at {start}");
+        Run(system, 1f);
+        var later = sweep.PartStates[0].Parts[0].Position;
+        Assert.True(MathF.Abs(later.Length() - 30f) < 0.01f && Vector3.Distance(later, start) > 30f, $"a quarter turn at the target's distance: {later}");
+        return Task.CompletedTask;
     }
 
     private static void Run(VfxSystem system, float seconds, float step = 0.01f)
@@ -215,6 +302,11 @@ internal static class VfxLayerTests
                     Texture = "x.bmp", Shape = VfxSequenceShape.Trail, Count = 20, Rate = [40f, 40f], Lifetime = [0.5f, 0.5f],
                     Events = [new VfxSequenceEvent { T = 0f, Set = VfxSequenceProperty.Stretch, Min = [8f], Max = [8f] }]
                 }
+            ],
+            Parts =
+            [
+                new VfxPartDefinition { Shape = VfxPartShape.Ribbon, Texture = "x.bmp", Count = 3, OrbitRadius = 10f, OrbitSpeed = 200f, OrbitPhaseStep = 120f },
+                new VfxPartDefinition { Shape = VfxPartShape.Streak, Texture = "x.bmp", Count = 20, Burst = [50f, 80f], Lifetime = [3f, 3f] }
             ]
         });
         library.TryGet("test.mix", out var effect);
@@ -230,10 +322,12 @@ internal static class VfxLayerTests
     {
         public Vector3 Caster { get; set; }
 
+        public Vector3 Target { get; set; }
+
         public bool TryGetPosition(uint entityId, out Vector3 position)
         {
-            position = Caster;
-            return entityId == 1;
+            position = entityId == 2 ? Target : Caster;
+            return entityId is 1 or 2;
         }
 
         public bool TryGetBone(uint entityId, string bone, out Vector3 position)

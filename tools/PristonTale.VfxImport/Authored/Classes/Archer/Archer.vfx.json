@@ -1,365 +1,243 @@
 [
   {
     "name": "vfx.projectile.aim",
-    "duration": 2,
-    "trails": [
+    "duration": 10,
+    "parts": [
       {
-        "texture": "builtin:beam",
-        "anchor": "Point",
-        "width": 7,
-        "lifetime": 0.22,
-        "intensity": 4,
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1,
-              0.9,
-              0.4,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1,
-              0.4,
-              0.1,
-              0
-            ]
-          }
-        ]
-      }
-    ],
-    "emitters": [
+        "shape": "Model",
+        "model": "Effect/ObjAnimationData/WindArrow/WindArrow.smd",
+        "blend": "Additive",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          24,
+          -10
+        ],
+        "goal": "Target",
+        "goalOffset": [
+          0,
+          24,
+          0
+        ],
+        "speed": 630.0,
+        "faceGoal": true,
+        "end": "Hold",
+        "fadeOut": 0.1571,
+        "reach": 8,
+        "modelStart": 1,
+        "modelFrames": 3.75,
+        "loopFrom": 1,
+        "loop": true,
+        "modelSpeed": 17.5,
+        "delay": 0.0714,
+        "every": 0.0143,
+        "everyEffect": "vfx.archer.bowpuff"
+      },
       {
-        "texture": "builtin:glow",
-        "anchor": "Point",
-        "rate": 40,
-        "maxParticles": 48,
-        "lifetime": [
-          0.1,
-          0.2
+        "animation": "SkillPerfectAim1.ini",
+        "shape": "Line",
+        "delay": 0.0714,
+        "anchor": "Caster",
+        "offset": [
+          0,
+          24,
+          -10
         ],
-        "intensity": 4,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              6
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
+        "goal": "Target",
+        "goalOffset": [
+          0,
+          24,
+          0
         ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1,
-              0.95,
-              0.6,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1,
-              0.5,
-              0.1,
-              0
-            ]
-          }
-        ]
+        "speed": 1260.0,
+        "lineSeconds": 0.0714,
+        "width": [
+          1.55,
+          1.55
+        ],
+        "loop": true,
+        "sized": false
       }
     ]
   },
   {
     "name": "vfx.projectile.wind",
-    "duration": 2,
-    "emitters": [
+    "duration": 10,
+    "parts": [
       {
-        "texture": "builtin:glow",
-        "anchor": "Point",
-        "rate": 90,
-        "maxParticles": 96,
-        "lifetime": [
-          0.15,
-          0.3
-        ],
-        "speed": [
+        "shape": "Model",
+        "model": "Effect/ObjAnimationData/WindArrow/WindArrow.smd",
+        "blend": "Additive",
+        "anchor": "Caster",
+        "offset": [
           0,
-          8
+          24,
+          -10
         ],
-        "spread": 180,
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              5
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1
-            ]
-          }
+        "goal": "Target",
+        "goalOffset": [
+          0,
+          24,
+          0
         ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.6,
-              1,
-              0.8,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.2,
-              0.8,
-              0.6,
-              0
-            ]
-          }
-        ]
-      }
-    ],
-    "trails": [
-      {
-        "texture": "builtin:beam",
-        "anchor": "Point",
-        "width": 8,
-        "lifetime": 0.15,
-        "intensity": 2.5,
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.7,
-              1,
-              0.9,
-              0.9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.2,
-              0.7,
-              0.5,
-              0
-            ]
-          }
-        ]
+        "speed": 630.0,
+        "faceGoal": true,
+        "end": "Hold",
+        "fadeOut": 0.1571,
+        "reach": 8,
+        "modelStart": 1,
+        "modelFrames": 3.75,
+        "loopFrom": 1,
+        "loop": true,
+        "modelSpeed": 17.5,
+        "every": 0.0143,
+        "everyEffect": "vfx.archer.bowpuff"
       }
     ]
   },
   {
     "name": "vfx.buff.hawk",
-    "duration": 30,
-    "emitters": [
+    "duration": 600,
+    "parts": [
       {
-        "texture": "builtin:glow",
+        "shape": "Model",
+        "model": "Effect/ObjAnimationData/ScoutHawk/Hawk-ani.smd",
+        "skeleton": "Effect/ObjAnimationData/ScoutHawk/Hawk-ani.smb",
+        "delay": 0.0714,
         "anchor": "Caster",
-        "offset": [
-          0,
-          75,
-          0
-        ],
-        "local": true,
-        "rate": 18,
-        "burst": 1,
-        "maxParticles": 32,
-        "lifetime": [
-          0.6,
-          0.9
-        ],
-        "shape": "Ring",
-        "radius": [
-          36,
-          40
-        ],
-        "speed": [
-          0,
-          4
-        ],
-        "intensity": 1.6,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              3
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1,
-              0.9,
-              0.6,
-              0.9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1,
-              0.7,
-              0.4,
-              0
-            ]
-          }
-        ]
+        "follow": true,
+        "turn": false,
+        "modelStart": 1,
+        "modelFrames": 90,
+        "loopFrom": 30,
+        "loop": true,
+        "modelSpeed": 26.25
       }
     ]
   },
   {
     "name": "vfx.cast.hawk",
-    "duration": 0.8,
-    "emitters": [
+    "duration": 2.0,
+    "parts": [
       {
-        "texture": "builtin:star",
+        "animation": "Light1.ini",
+        "size": [
+          120,
+          120
+        ],
         "anchor": "Caster",
         "offset": [
           0,
           60,
           0
         ],
-        "burst": 20,
-        "maxParticles": 20,
-        "lifetime": [
-          0.4,
-          0.8
+        "sized": true
+      },
+      {
+        "animation": "CriticalHit1.ini",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          60,
+          0
         ],
-        "speed": [
-          40,
-          90
+        "sized": false
+      },
+      {
+        "animation": "ScoutHawkLight.ini",
+        "count": 2,
+        "delayStep": 0.0143,
+        "anchor": "Caster",
+        "offset": [
+          0,
+          60,
+          0
         ],
-        "spread": 180,
-        "drag": 1,
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              5
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1
-            ]
-          }
+        "sized": false
+      },
+      {
+        "animation": "ScoutHawkGate.ini",
+        "delay": 0.0714,
+        "anchor": "Caster",
+        "offset": [
+          0,
+          60,
+          0
         ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1,
-              0.95,
-              0.75,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1,
-              0.7,
-              0.3,
-              0
-            ]
-          }
-        ]
+        "sized": false
       }
     ]
   },
   {
     "name": "vfx.archer.falcon.cast",
-    "duration": 1.0,
-    "emitters": [
+    "duration": 2.5,
+    "parts": [
       {
-        "texture": "builtin:glow",
+        "animation": "ReturnParticle1.ini",
+        "count": 20,
+        "size": [
+          7,
+          7
+        ],
+        "delayStep": 0.0286,
+        "loop": true,
         "anchor": "Caster",
         "offset": [
           0,
-          60,
+          50.79,
           0
         ],
-        "burst": 30,
-        "maxParticles": 30,
+        "jitterMin": [
+          -8,
+          0,
+          -8
+        ],
+        "jitterMax": [
+          8,
+          0,
+          8
+        ],
+        "rise": [
+          20,
+          40
+        ],
         "lifetime": [
-          0.4,
-          0.8
+          0.5714,
+          0.8571
         ],
-        "speed": [
-          40,
-          120
+        "sized": true
+      },
+      {
+        "animation": "Return1.ini",
+        "shape": "Streak",
+        "count": 10,
+        "delay": 0.1429,
+        "delayStep": 0.0286,
+        "anchor": "Caster",
+        "offset": [
+          0,
+          50.79,
+          0
         ],
-        "spread": 180,
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              8
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
+        "ring": [
+          6.25,
+          6.25
         ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.8,
-              0.9,
-              1.0,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              0.8,
-              0.9,
-              1.0,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.48,
-              0.54,
-              0.6,
-              0
-            ]
-          }
-        ]
+        "ringStep": 36,
+        "rise": [
+          163.8,
+          163.8
+        ],
+        "width": [
+          1.56,
+          1.56
+        ],
+        "lifetime": [
+          0.6105,
+          0.6105
+        ],
+        "turn": false,
+        "sized": false
       }
     ],
     "lights": [
@@ -367,834 +245,290 @@
         "anchor": "Caster",
         "offset": [
           0,
-          60,
+          78.13,
           0
         ],
         "color": [
-          0.7,
-          0.8,
-          1.0
+          0.7059,
+          0.7059,
+          0.7059
         ],
-        "power": 140,
-        "decay": 3
+        "power": 200,
+        "decay": 1
+      },
+      {
+        "anchor": "Caster",
+        "offset": [
+          0,
+          78.13,
+          0
+        ],
+        "color": [
+          0.9804,
+          0.9804,
+          0.9804
+        ],
+        "power": 100,
+        "decay": 1,
+        "delay": 0.1429
       }
     ]
   },
   {
     "name": "vfx.archer.falcon.aura",
-    "duration": 30,
-    "emitters": [
+    "duration": 600,
+    "parts": [
       {
-        "texture": "builtin:glow",
+        "shape": "Model",
+        "model": "Effect/ObjAnimationData/Falcon/FalconAni.smd",
+        "skeleton": "Effect/ObjAnimationData/Falcon/FalconAni.smb",
         "anchor": "Caster",
+        "follow": true,
         "offset": [
           0,
-          70,
+          78.13,
           0
         ],
-        "local": true,
-        "rate": 10,
-        "maxParticles": 24,
-        "lifetime": [
-          0.5,
-          0.8
-        ],
-        "shape": "Ring",
-        "radius": [
-          18,
-          22
-        ],
-        "intensity": 2,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              5
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.8,
-              0.9,
-              1.0,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              0.8,
-              0.9,
-              1.0,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.48,
-              0.54,
-              0.6,
-              0
-            ]
-          }
-        ]
+        "modelStart": 1,
+        "modelFrames": 100,
+        "loopFrom": 70,
+        "loop": true,
+        "modelSpeed": 26.25,
+        "fade": "InOut",
+        "fadeIn": 0.6
       }
     ]
   },
   {
     "name": "vfx.archer.falcon.strike",
-    "duration": 1.5,
-    "emitters": [
+    "duration": 3.0,
+    "parts": [
       {
-        "texture": "builtin:glow",
-        "anchor": "Point",
+        "shape": "Model",
+        "model": "Effect/ObjAnimationData/Falcon/FalconAni.smd",
+        "skeleton": "Effect/ObjAnimationData/Falcon/FalconAni.smb",
+        "anchor": "Caster",
         "offset": [
           0,
-          0,
+          78.13,
           0
         ],
-        "rate": 60,
-        "maxParticles": 96,
-        "lifetime": [
-          0.2,
-          0.35
-        ],
-        "speed": [
-          2,
-          10
-        ],
-        "spread": 180,
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.85,
-              0.9,
-              1.0,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              0.85,
-              0.9,
-              1.0,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.51,
-              0.54,
-              0.6,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:spark",
-        "anchor": "Target",
-        "offset": [
+        "goal": "Target",
+        "goalOffset": [
           0,
-          40,
+          19.53,
           0
         ],
-        "burst": 14,
-        "maxParticles": 14,
-        "lifetime": [
-          0.25,
-          0.55
-        ],
-        "speed": [
-          120,
-          260
-        ],
-        "spread": 180,
-        "drag": 2.5,
-        "align": "Velocity",
-        "stretch": 0.03,
-        "intensity": 5,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              3
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.75
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.9,
-              0.9,
-              1.0,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.36000000000000004,
-              0.36000000000000004,
-              0.4,
-              0
-            ]
-          }
-        ]
+        "speed": 560.0,
+        "faceGoal": true,
+        "modelStart": 100,
+        "modelFrames": 130,
+        "modelSpeed": 26.25,
+        "endEffect": "vfx.archer.falcon.hit",
+        "end": "Hold",
+        "fadeOut": 0.2
       }
     ]
   },
   {
     "name": "vfx.archer.rage.arrow",
-    "duration": 3,
-    "emitters": [
+    "duration": 10,
+    "parts": [
       {
-        "texture": "builtin:flame",
-        "anchor": "Point",
+        "shape": "Model",
+        "model": "Effect/ObjAnimationData/ArrowRage/Arrow.smd",
+        "blend": "Additive",
+        "anchor": "Caster",
         "offset": [
           0,
-          0,
+          24,
+          -10
+        ],
+        "goal": "Target",
+        "goalOffset": [
+          31.25,
+          234.38,
           0
         ],
-        "rate": 70,
-        "maxParticles": 96,
-        "lifetime": [
-          0.18,
-          0.32
-        ],
-        "speed": [
-          2,
-          10
-        ],
-        "spread": 180,
-        "intensity": 4,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1.8
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.55,
-              0.25,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.4,
-              0.22000000000000003,
-              0.1,
-              0
-            ]
-          }
-        ]
+        "speed": 560.0,
+        "faceGoal": true,
+        "end": "Vanish",
+        "fadeOut": 0.1571,
+        "reach": 8,
+        "endEffect": "vfx.archer.rage.apex"
       },
       {
-        "texture": "builtin:spark",
-        "anchor": "Point",
+        "animation": "Blur1.ini",
+        "shape": "Ribbon",
+        "loop": true,
+        "anchor": "Caster",
         "offset": [
           0,
-          0,
+          24,
+          -10
+        ],
+        "goal": "Target",
+        "goalOffset": [
+          31.25,
+          234.38,
           0
         ],
-        "rate": 30,
-        "maxParticles": 48,
-        "lifetime": [
-          0.15,
-          0.3
+        "speed": 560.0,
+        "width": [
+          3,
+          3
         ],
-        "speed": [
-          20,
-          60
-        ],
-        "spread": 180,
-        "align": "Velocity",
-        "stretch": 0.03,
-        "intensity": 4,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              2
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.5
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.55,
-              0.25,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1.0,
-              0.55,
-              0.25,
-              0
-            ]
-          }
-        ]
+        "trailPoints": 15,
+        "trailFade": 16.6667,
+        "sized": false
+      }
+    ],
+    "sounds": [
+      {
+        "path": "wav/Effects/Skill/Tempskron/Scout_Hawk 01.wav"
       }
     ]
   },
   {
     "name": "vfx.archer.rage.rain",
-    "duration": 1.6,
-    "emitters": [
+    "duration": 2.0,
+    "parts": [
       {
-        "texture": "builtin:spark",
-        "anchor": "Point",
+        "shape": "Model",
+        "model": "Effect/ObjAnimationData/ArrowRage/Arrow.smd",
+        "count": 12,
+        "delayRandom": 0.3,
         "offset": [
           0,
-          260,
+          234.38,
           0
         ],
-        "rate": 40,
-        "emitTime": 1.0,
-        "maxParticles": 64,
+        "ring": [
+          15.63,
+          25.38
+        ],
+        "ringRandom": true,
+        "velocityMin": [
+          0,
+          -1260.0,
+          0
+        ],
+        "velocityMax": [
+          0,
+          -1260.0,
+          0
+        ],
+        "faceGoal": true,
         "lifetime": [
-          0.5,
-          0.6
+          0.186,
+          0.186
         ],
-        "speed": [
-          420,
-          520
-        ],
-        "direction": [
-          0,
-          -1,
-          0
-        ],
-        "spread": 4,
-        "shape": "Disc",
-        "radius": [
-          0,
-          70
-        ],
-        "align": "Velocity",
-        "stretch": 0.06,
-        "intensity": 5,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              3
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.6,
-              0.3,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              1.0,
-              0.6,
-              0.3,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.36,
-              0.18,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:flame",
-        "anchor": "Point",
-        "offset": [
-          0,
-          4,
-          0
-        ],
-        "rate": 50,
-        "emitTime": 1.2,
-        "maxParticles": 80,
-        "lifetime": [
-          0.3,
-          0.6
-        ],
-        "speed": [
-          20,
-          60
-        ],
-        "direction": [
-          0,
-          1,
-          0
-        ],
-        "spread": 40,
-        "shape": "Disc",
-        "radius": [
-          0,
-          70
-        ],
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              10
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              3
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.5,
-              0.2,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              1.0,
-              0.5,
-              0.2,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.3,
-              0.12,
-              0
-            ]
-          }
-        ]
-      }
-    ],
-    "lights": [
-      {
-        "anchor": "Point",
-        "offset": [
-          0,
-          30,
-          0
-        ],
-        "color": [
-          1.0,
-          0.5,
-          0.2
-        ],
-        "power": 260,
-        "decay": 2
+        "endEffect": "vfx.archer.rage.hit"
       }
     ]
   },
   {
     "name": "vfx.archer.avalanche.arrow",
-    "duration": 3,
-    "emitters": [
+    "duration": 10,
+    "parts": [
       {
-        "texture": "builtin:glow",
-        "anchor": "Point",
+        "shape": "Model",
+        "model": "Effect/ObjAnimationData/WindArrow/WindArrow.smd",
+        "blend": "Additive",
+        "anchor": "Caster",
         "offset": [
           0,
+          24,
+          -10
+        ],
+        "goal": "Target",
+        "goalOffset": [
           0,
+          24,
           0
         ],
-        "rate": 60,
-        "maxParticles": 96,
-        "lifetime": [
-          0.18,
-          0.32
-        ],
-        "speed": [
-          2,
-          10
-        ],
-        "spread": 180,
-        "intensity": 4,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              6
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1.2000000000000002
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.8,
-              0.9,
-              1.0,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.32000000000000006,
-              0.36000000000000004,
-              0.4,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:spark",
-        "anchor": "Point",
-        "offset": [
-          0,
-          0,
-          0
-        ],
-        "rate": 30,
-        "maxParticles": 48,
-        "lifetime": [
-          0.15,
-          0.3
-        ],
-        "speed": [
-          20,
-          60
-        ],
-        "spread": 180,
-        "align": "Velocity",
-        "stretch": 0.03,
-        "intensity": 4,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              2
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.5
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.8,
-              0.9,
-              1.0,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.8,
-              0.9,
-              1.0,
-              0
-            ]
-          }
-        ]
+        "speed": 840.0,
+        "faceGoal": true,
+        "end": "Hold",
+        "fadeOut": 0.1571,
+        "reach": 8,
+        "modelStart": 1,
+        "modelFrames": 3.75,
+        "loopFrom": 1,
+        "loop": true,
+        "modelSpeed": 17.5,
+        "every": 0.0143,
+        "everyEffect": "vfx.archer.avalanche.ghost"
       }
     ]
   },
   {
     "name": "vfx.archer.elemental.arrow",
-    "duration": 3,
-    "emitters": [
+    "duration": 10,
+    "parts": [
       {
-        "texture": "builtin:glow",
-        "anchor": "Point",
+        "shape": "Model",
+        "model": "Effect/ObjAnimationData/WindArrow/WindArrow.smd",
+        "blend": "Additive",
+        "anchor": "Caster",
         "offset": [
           0,
+          24,
+          -10
+        ],
+        "goal": "Target",
+        "goalOffset": [
           0,
+          24,
           0
         ],
-        "rate": 70,
-        "maxParticles": 96,
-        "lifetime": [
-          0.18,
-          0.32
-        ],
-        "speed": [
-          2,
-          10
-        ],
-        "spread": 180,
-        "intensity": 4,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              7
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1.4000000000000001
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.8,
-              0.5,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.4,
-              0.32000000000000006,
-              0.2,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:spark",
-        "anchor": "Point",
-        "offset": [
-          0,
-          0,
-          0
-        ],
-        "rate": 30,
-        "maxParticles": 48,
-        "lifetime": [
-          0.15,
-          0.3
-        ],
-        "speed": [
-          20,
-          60
-        ],
-        "spread": 180,
-        "align": "Velocity",
-        "stretch": 0.03,
-        "intensity": 4,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              2
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.5
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.8,
-              0.5,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1.0,
-              0.8,
-              0.5,
-              0
-            ]
-          }
-        ]
+        "speed": 490.0,
+        "faceGoal": true,
+        "end": "Hold",
+        "fadeOut": 0.1571,
+        "reach": 8,
+        "modelStart": 1,
+        "modelFrames": 3.75,
+        "loopFrom": 1,
+        "loop": true,
+        "modelSpeed": 17.5,
+        "every": 0.0143,
+        "everyEffect": "particle.FireJavelinFire"
       }
     ]
   },
   {
     "name": "vfx.archer.elemental.fire",
-    "duration": 0.6,
-    "emitters": [
-      {
-        "texture": "builtin:spark",
-        "anchor": "Target",
-        "offset": [
-          0,
-          30,
-          0
-        ],
-        "burst": 24,
-        "maxParticles": 24,
-        "lifetime": [
-          0.25,
-          0.55
-        ],
-        "speed": [
-          120,
-          260
-        ],
-        "spread": 180,
-        "drag": 2.5,
-        "align": "Velocity",
-        "stretch": 0.03,
-        "intensity": 5,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              3
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.75
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.5,
-              0.2,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.4,
-              0.2,
-              0.08000000000000002,
-              0
-            ]
-          }
-        ]
-      }
-    ],
+    "duration": 2.0,
     "lights": [
       {
-        "anchor": "Target",
+        "anchor": "Point",
         "offset": [
           0,
-          30,
+          24,
           0
         ],
         "color": [
           1.0,
-          0.45,
-          0.15
+          0.7843,
+          0.3922
         ],
-        "power": 220,
-        "decay": 5
+        "power": 120,
+        "decay": 2
+      }
+    ],
+    "sounds": [
+      {
+        "path": "wav/Effects/Skill/Morion/EnchantWpn_add_F 1.wav"
       }
     ],
     "children": [
       {
-        "effect": "particle.FireHIt2",
-        "anchor": "Target",
+        "effect": "particle.FireHIt1",
+        "anchor": "Point",
         "offset": [
           0,
-          30,
+          24,
           0
         ],
         "turn": true
@@ -1203,143 +537,94 @@
   },
   {
     "name": "vfx.archer.elemental.lightning",
-    "duration": 0.6,
-    "emitters": [
+    "duration": 2.0,
+    "parts": [
       {
-        "texture": "builtin:spark",
-        "anchor": "Target",
+        "shape": "Beam",
+        "texture": "Effect/AssaEffect/Skill3Texture/light3_0.bmp",
+        "frames": 4,
+        "frameTime": 0.0429,
+        "loop": true,
+        "anchor": "Point",
         "offset": [
           0,
-          30,
+          70.88,
           0
         ],
-        "burst": 28,
-        "maxParticles": 28,
+        "beamTo": [
+          0,
+          -46.88,
+          0
+        ],
+        "width": [
+          6.835,
+          6.835
+        ],
         "lifetime": [
-          0.25,
-          0.55
+          0.3,
+          0.3
         ],
-        "speed": [
-          180,
-          380
-        ],
-        "spread": 180,
-        "drag": 2.5,
-        "align": "Velocity",
-        "stretch": 0.03,
-        "intensity": 7,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              3
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.75
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.6,
-              0.8,
-              1.0,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.24,
-              0.32000000000000006,
-              0.4,
-              0
-            ]
-          }
-        ]
+        "fade": "InOut",
+        "fadeOut": 0.15
       },
       {
-        "texture": "builtin:ring",
-        "anchor": "Target",
+        "shape": "Ribbon",
+        "texture": "Effect/NewEffect/Res/TextureHit/spark01_01.bmp",
+        "count": 5,
         "offset": [
           0,
-          3,
+          24,
           0
         ],
-        "burst": 1,
-        "maxParticles": 4,
+        "burst": [
+          140.0,
+          140.0
+        ],
+        "width": [
+          2,
+          2
+        ],
+        "trailPoints": 8,
+        "trailFade": 30,
         "lifetime": [
-          0.5,
-          0.5
+          0.3,
+          0.3
         ],
-        "align": "Ground",
-        "softness": 0,
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              10
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              160
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.4,
-              0.9,
-              1.0,
-              0.9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.2,
-              0.45,
-              0.5,
-              0
-            ]
-          }
+        "gravity": [
+          -200,
+          -200
         ]
       }
     ],
     "lights": [
       {
-        "anchor": "Target",
+        "anchor": "Point",
         "offset": [
           0,
-          30,
+          24,
           0
         ],
         "color": [
-          0.4,
-          0.6,
+          1.0,
+          1.0,
           1.0
         ],
-        "power": 240,
-        "decay": 5
+        "power": 100,
+        "decay": 2
+      }
+    ],
+    "sounds": [
+      {
+        "path": "wav/Effects/Skill/Morion/EnchantWpn_add_L 1.wav"
       }
     ],
     "children": [
       {
-        "effect": "particle.LightHIt1",
-        "anchor": "Target",
+        "effect": "particle.DivineLightning",
+        "anchor": "Point",
         "offset": [
           0,
-          30,
+          24,
           0
         ],
         "turn": true
@@ -1348,71 +633,74 @@
   },
   {
     "name": "vfx.archer.goldenfalcon.cast",
-    "duration": 1.0,
-    "emitters": [
+    "duration": 2.5,
+    "parts": [
       {
-        "texture": "builtin:glow",
+        "animation": "ReturnParticle1.ini",
+        "count": 20,
+        "size": [
+          7,
+          7
+        ],
+        "delayStep": 0.0286,
+        "loop": true,
         "anchor": "Caster",
         "offset": [
           0,
-          60,
+          50.79,
           0
         ],
-        "burst": 36,
-        "maxParticles": 36,
+        "jitterMin": [
+          -8,
+          0,
+          -8
+        ],
+        "jitterMax": [
+          8,
+          0,
+          8
+        ],
+        "rise": [
+          20,
+          40
+        ],
         "lifetime": [
-          0.4,
-          0.8
+          0.5714,
+          0.8571
         ],
-        "speed": [
-          40,
-          130
+        "sized": true
+      },
+      {
+        "animation": "Return1.ini",
+        "shape": "Streak",
+        "count": 10,
+        "delay": 0.1429,
+        "delayStep": 0.0286,
+        "anchor": "Caster",
+        "offset": [
+          0,
+          50.79,
+          0
         ],
-        "spread": 180,
-        "intensity": 3.5,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
+        "ring": [
+          6.25,
+          6.25
         ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.85,
-              0.4,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              1.0,
-              0.85,
-              0.4,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.51,
-              0.24,
-              0
-            ]
-          }
-        ]
+        "ringStep": 36,
+        "rise": [
+          163.8,
+          163.8
+        ],
+        "width": [
+          1.56,
+          1.56
+        ],
+        "lifetime": [
+          0.6105,
+          0.6105
+        ],
+        "turn": false,
+        "sized": false
       }
     ],
     "lights": [
@@ -1420,622 +708,357 @@
         "anchor": "Caster",
         "offset": [
           0,
-          60,
+          78.13,
           0
         ],
         "color": [
-          1.0,
-          0.85,
-          0.4
+          0.7059,
+          0.7059,
+          0.7059
         ],
-        "power": 160,
-        "decay": 3
+        "power": 200,
+        "decay": 1
+      },
+      {
+        "anchor": "Caster",
+        "offset": [
+          0,
+          78.13,
+          0
+        ],
+        "color": [
+          0.9804,
+          0.9804,
+          0.9804
+        ],
+        "power": 100,
+        "decay": 1,
+        "delay": 0.1429
       }
     ]
   },
   {
     "name": "vfx.archer.goldenfalcon.aura",
-    "duration": 30,
-    "emitters": [
+    "duration": 600,
+    "parts": [
       {
-        "texture": "builtin:glow",
+        "shape": "Model",
+        "model": "Effect/ObjAnimationData/GoldenFalcon/g-falcon01.smd",
+        "skeleton": "Effect/ObjAnimationData/GoldenFalcon/g-falcon01.smb",
+        "anchor": "Caster",
+        "follow": true,
+        "offset": [
+          0,
+          78.13,
+          0
+        ],
+        "modelStart": 1,
+        "modelFrames": 100,
+        "loopFrom": 70,
+        "loop": true,
+        "modelSpeed": 26.25,
+        "fade": "InOut",
+        "fadeIn": 0.6
+      }
+    ],
+    "children": [
+      {
+        "effect": "particle.Skill3ArcherGoldenFalcon1",
         "anchor": "Caster",
         "offset": [
           0,
-          70,
+          78.13,
           0
         ],
-        "local": true,
-        "rate": 10,
-        "maxParticles": 24,
-        "lifetime": [
-          0.5,
-          0.8
+        "turn": true,
+        "follow": true
+      },
+      {
+        "effect": "particle.Skill3ArcherGoldenFalcon2",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          78.13,
+          0
         ],
-        "shape": "Ring",
-        "radius": [
-          18,
-          22
-        ],
-        "intensity": 2.2,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              5
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.85,
-              0.4,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              1.0,
-              0.85,
-              0.4,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.51,
-              0.24,
-              0
-            ]
-          }
-        ]
+        "turn": true,
+        "follow": true
       }
     ]
   },
   {
     "name": "vfx.archer.goldenfalcon.strike",
-    "duration": 1.5,
-    "emitters": [
+    "duration": 3.0,
+    "parts": [
       {
-        "texture": "builtin:glow",
-        "anchor": "Point",
+        "shape": "Model",
+        "model": "Effect/ObjAnimationData/GoldenFalcon/g-falcon01.smd",
+        "skeleton": "Effect/ObjAnimationData/GoldenFalcon/g-falcon01.smb",
+        "anchor": "Caster",
         "offset": [
           0,
-          0,
+          78.13,
           0
         ],
-        "rate": 60,
-        "maxParticles": 96,
-        "lifetime": [
-          0.2,
-          0.35
-        ],
-        "speed": [
-          2,
-          10
-        ],
-        "spread": 180,
-        "intensity": 3.5,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              10
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.85,
-              0.35,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              1.0,
-              0.85,
-              0.35,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.51,
-              0.21,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:spark",
-        "anchor": "Target",
-        "offset": [
+        "goal": "Target",
+        "goalOffset": [
           0,
-          40,
+          19.53,
           0
         ],
-        "burst": 16,
-        "maxParticles": 16,
-        "lifetime": [
-          0.25,
-          0.55
-        ],
-        "speed": [
-          120,
-          260
-        ],
-        "spread": 180,
-        "drag": 2.5,
-        "align": "Velocity",
-        "stretch": 0.03,
-        "intensity": 5,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              3
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.75
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.85,
-              0.35,
-              1
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.4,
-              0.34,
-              0.13999999999999999,
-              0
-            ]
-          }
-        ]
+        "speed": 560.0,
+        "faceGoal": true,
+        "modelStart": 100,
+        "modelFrames": 130,
+        "modelSpeed": 26.25,
+        "endEffect": "vfx.archer.falcon.hit",
+        "end": "Hold",
+        "fadeOut": 0.2
       }
     ]
   },
   {
     "name": "vfx.archer.bombshot.arrow",
-    "duration": 3,
-    "emitters": [
+    "duration": 10,
+    "parts": [
       {
-        "texture": "builtin:flame",
-        "anchor": "Point",
+        "shape": "Model",
+        "model": "Effect/AssaEffect/Skill3Mesh/At3_SplitJavelin40.smd",
+        "blend": "Additive",
+        "anchor": "Caster",
         "offset": [
           0,
+          24,
+          -40
+        ],
+        "goal": "Target",
+        "goalOffset": [
           0,
+          24,
           0
         ],
-        "rate": 50,
-        "maxParticles": 64,
-        "lifetime": [
-          0.2,
-          0.35
-        ],
-        "speed": [
-          4,
-          16
-        ],
-        "spread": 180,
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              7
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.6,
-              0.2,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              1.0,
-              0.6,
-              0.2,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.36,
-              0.12,
-              0
-            ]
-          }
-        ]
-      }
-    ],
-    "children": [
-      {
-        "effect": "particle.Skill3ArcherBombShot1",
-        "anchor": "Point",
-        "offset": [
-          0,
-          0,
-          0
-        ],
-        "follow": true,
-        "turn": true
+        "speed": 420.0,
+        "faceGoal": true,
+        "end": "Hold",
+        "fadeOut": 0.1571,
+        "reach": 8,
+        "every": 0.0143,
+        "everyEffect": "particle.Skill3ArcherBombShot1"
       }
     ]
   },
   {
     "name": "vfx.archer.bombshot.hit",
-    "duration": 0.8,
-    "emitters": [
-      {
-        "texture": "builtin:ring",
-        "anchor": "Point",
-        "offset": [
-          0,
-          3,
-          0
-        ],
-        "burst": 1,
-        "maxParticles": 4,
-        "lifetime": [
-          0.45,
-          0.45
-        ],
-        "align": "Ground",
-        "softness": 0,
-        "intensity": 4,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              10
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              200
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.6,
-              0.25,
-              0.9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.5,
-              0.3,
-              0.125,
-              0
-            ]
-          }
-        ]
-      }
-    ],
+    "duration": 2.0,
     "lights": [
       {
         "anchor": "Point",
         "offset": [
           0,
-          30,
+          24,
           0
         ],
         "color": [
           1.0,
-          0.5,
-          0.2
+          0.5882,
+          0.1961
         ],
-        "power": 260,
-        "decay": 4
+        "power": 200,
+        "decay": 2
       }
     ],
     "children": [
+      {
+        "effect": "particle.Skill3ArcherBombShotHit1",
+        "anchor": "Point",
+        "offset": [
+          0,
+          24,
+          0
+        ],
+        "turn": true
+      },
+      {
+        "effect": "particle.Skill3ArcherBombShotHit2",
+        "anchor": "Point",
+        "offset": [
+          12,
+          30,
+          0
+        ],
+        "turn": true
+      },
+      {
+        "effect": "particle.Skill3ArcherBombShotHit2",
+        "anchor": "Point",
+        "offset": [
+          -10,
+          34,
+          8
+        ],
+        "turn": true,
+        "delay": 0.0429
+      },
       {
         "effect": "particle.Skill3ArcherBombShotHit2",
         "anchor": "Point",
         "offset": [
           0,
-          20,
-          0
+          28,
+          -12
         ],
-        "turn": true
+        "turn": true,
+        "delay": 0.0857
       }
     ]
   },
   {
     "name": "vfx.archer.perforation.shot",
-    "duration": 0.8,
-    "emitters": [
+    "duration": 3.0,
+    "parts": [
       {
-        "texture": "builtin:spark",
         "anchor": "Caster",
         "offset": [
           0,
-          40,
-          20
+          24,
+          -10
         ],
-        "burst": 30,
-        "maxParticles": 30,
+        "velocityMin": [
+          0,
+          0,
+          -700.0
+        ],
+        "velocityMax": [
+          0,
+          0,
+          -700.0
+        ],
         "lifetime": [
-          0.25,
-          0.4
+          0.45,
+          0.45
         ],
-        "speed": [
-          700,
-          900
+        "every": 0.0286,
+        "everyEffect": "particle.twistJavelin1"
+      },
+      {
+        "shape": "Ribbon",
+        "texture": "Effect/AssaEffect/Shield1.bmp",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          24,
+          -10
         ],
-        "direction": [
+        "velocityMin": [
           0,
           0,
-          1
+          -700.0
         ],
-        "spread": 3,
-        "align": "Velocity",
-        "stretch": 0.04,
-        "intensity": 6,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              4
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
+        "velocityMax": [
+          0,
+          0,
+          -700.0
         ],
+        "lifetime": [
+          0.45,
+          0.45
+        ],
+        "width": [
+          3.905,
+          3.905
+        ],
+        "trailPoints": 15,
+        "trailFade": 16.6667
+      },
+      {
+        "shape": "Ribbon",
+        "texture": "Effect/AssaEffect/Shield1.bmp",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          24,
+          -10
+        ],
+        "velocityMin": [
+          0,
+          0,
+          -700.0
+        ],
+        "velocityMax": [
+          0,
+          0,
+          -700.0
+        ],
+        "lifetime": [
+          0.45,
+          0.45
+        ],
+        "width": [
+          15.625,
+          15.625
+        ],
+        "trailPoints": 15,
+        "trailFade": 16.6667,
         "color": [
-          {
-            "t": 0,
-            "v": [
-              0.9,
-              0.95,
-              1.0,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              0.9,
-              0.95,
-              1.0,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.54,
-              0.57,
-              0.6,
-              0
-            ]
-          }
+          255,
+          255,
+          255,
+          120
         ]
       }
     ]
   },
   {
     "name": "vfx.archer.perforation.hit",
-    "duration": 0.5,
+    "duration": 1.5,
     "children": [
       {
         "effect": "particle.TwistJavelin2",
         "anchor": "Target",
         "offset": [
           0,
-          30,
+          7.81,
           0
         ],
-        "turn": true
+        "turn": true,
+        "delay": 0.5,
+        "stopWithParent": false
       }
     ]
   },
   {
     "name": "vfx.archer.wolverine.cast",
     "duration": 1.5,
-    "emitters": [
+    "parts": [
       {
-        "texture": "builtin:ring",
-        "anchor": "Caster",
+        "animation": "FireParticle1.ini",
+        "count": 4,
+        "size": [
+          25,
+          25
+        ],
         "offset": [
           0,
-          3,
+          24,
           0
         ],
-        "burst": 1,
-        "maxParticles": 4,
+        "radial": [
+          23.2422,
+          23.2422
+        ],
+        "rise": [
+          19.1406,
+          19.1406
+        ],
+        "gravity": [
+          38.2812,
+          76.5625
+        ],
         "lifetime": [
-          0.8,
-          0.8
+          0.2143,
+          0.2714
         ],
-        "align": "Ground",
-        "softness": 0,
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              20
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              140
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.7,
-              0.9,
-              1.0,
-              0.9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.35,
-              0.45,
-              0.5,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:glow",
-        "anchor": "Caster",
-        "offset": [
-          0,
-          20,
-          40
-        ],
-        "burst": 30,
-        "maxParticles": 30,
-        "lifetime": [
-          0.5,
-          1.0
-        ],
-        "speed": [
-          40,
-          120
-        ],
-        "direction": [
-          0,
-          1,
-          0
-        ],
-        "spread": 60,
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              8
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.7,
-              0.9,
-              1.0,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              0.7,
-              0.9,
-              1.0,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.42,
-              0.54,
-              0.6,
-              0
-            ]
-          }
-        ]
-      }
-    ],
-    "lights": [
-      {
-        "anchor": "Caster",
-        "offset": [
-          0,
-          30,
-          40
-        ],
-        "color": [
-          0.6,
-          0.8,
-          1.0
-        ],
-        "power": 200,
-        "decay": 3
+        "sized": true
       }
     ]
   },
@@ -2131,326 +1154,240 @@
   },
   {
     "name": "vfx.archer.phoenix.shot",
-    "duration": 1.2,
-    "emitters": [
+    "duration": 3.0,
+    "parts": [
       {
-        "texture": "builtin:flame",
+        "shape": "Model",
+        "model": "Effect/AssaEffect/PhoenixShot/Ac_4-3.smd",
+        "blend": "Additive",
         "anchor": "Caster",
         "offset": [
           0,
-          40,
-          30
+          24,
+          -24
         ],
-        "burst": 60,
-        "maxParticles": 60,
-        "lifetime": [
-          0.4,
-          0.7
-        ],
-        "speed": [
-          500,
-          700
-        ],
-        "direction": [
+        "goal": "Target",
+        "goalOffset": [
           0,
-          0,
-          1
-        ],
-        "spread": 10,
-        "align": "Velocity",
-        "stretch": 0.02,
-        "intensity": 5,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              14
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              4
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.5,
-              0.15,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              1.0,
-              0.5,
-              0.15,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.3,
-              0.09,
-              0
-            ]
-          }
-        ]
-      }
-    ],
-    "lights": [
-      {
-        "anchor": "Caster",
-        "offset": [
-          0,
-          40,
-          40
-        ],
-        "color": [
-          1.0,
-          0.45,
-          0.15
-        ],
-        "power": 320,
-        "decay": 3
-      }
-    ]
-  },
-  {
-    "name": "vfx.archer.nature.cast",
-    "duration": 1.5,
-    "emitters": [
-      {
-        "texture": "builtin:glow",
-        "anchor": "Caster",
-        "offset": [
-          0,
-          4,
+          24,
           0
         ],
-        "local": false,
-        "rate": 60,
-        "maxParticles": 64,
-        "lifetime": [
-          0.8,
-          1.4
-        ],
-        "speed": [
-          40,
-          100
-        ],
-        "direction": [
-          0,
-          1,
-          0
-        ],
-        "spread": 25,
-        "shape": "Ring",
-        "radius": [
-          20,
-          60
-        ],
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              5
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2.0
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.5,
-              1.0,
-              0.5,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              0.5,
-              1.0,
-              0.5,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.3,
-              0.6,
-              0.3,
-              0
-            ]
-          }
-        ]
-      },
-      {
-        "texture": "builtin:ring",
-        "anchor": "Caster",
-        "offset": [
-          0,
-          3,
-          0
-        ],
-        "burst": 1,
-        "maxParticles": 4,
-        "lifetime": [
-          0.8,
-          0.8
-        ],
-        "align": "Ground",
-        "softness": 0,
-        "intensity": 3,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              20
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              300
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              0.5,
-              1.0,
-              0.6,
-              0.9
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.25,
-              0.5,
-              0.3,
-              0
-            ]
-          }
-        ]
-      }
-    ],
-    "lights": [
-      {
-        "anchor": "Caster",
-        "offset": [
-          0,
-          40,
-          0
-        ],
-        "color": [
-          0.5,
-          1.0,
-          0.5
-        ],
-        "power": 220,
-        "decay": 2
+        "speed": 630.0,
+        "faceGoal": true,
+        "end": "LastFrame",
+        "fadeOut": 0.3714,
+        "every": 0.0286,
+        "everyEffect": "particle.Skill4PhoenixShot"
       }
     ]
   },
   {
     "name": "vfx.archer.nature.aura",
-    "duration": 30,
-    "emitters": [
+    "duration": 600,
+    "children": [
       {
-        "texture": "builtin:glow",
+        "effect": "script.SkillSagittarionForceofNature",
         "anchor": "Caster",
         "offset": [
           0,
-          6,
-          0
-        ],
-        "local": true,
-        "rate": 8,
-        "maxParticles": 64,
-        "lifetime": [
-          0.8,
-          1.4
-        ],
-        "speed": [
-          10,
-          30
-        ],
-        "direction": [
           0,
-          1,
           0
         ],
-        "spread": 25,
-        "shape": "Ring",
-        "radius": [
-          14,
-          22
+        "turn": true,
+        "follow": true
+      }
+    ]
+  },
+  {
+    "name": "vfx.archer.bowpuff",
+    "duration": 1.0,
+    "parts": [
+      {
+        "texture": "Effect/ImageData/Particle/Dust.tga",
+        "count": 4,
+        "color": [
+          100,
+          100,
+          100,
+          150
         ],
-        "intensity": 1.5,
         "size": [
-          {
-            "t": 0,
-            "v": [
-              3.5
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              1.4000000000000001
-            ]
-          }
+          6,
+          6
+        ],
+        "growth": -4,
+        "burst": [
+          27.3,
+          27.3
+        ],
+        "lifetime": [
+          0.5,
+          0.5
+        ],
+        "fade": "InOut",
+        "fadeOut": 0.5
+      }
+    ]
+  },
+  {
+    "name": "vfx.archer.aim.hit",
+    "duration": 1.5,
+    "parts": [
+      {
+        "animation": "Light1.ini",
+        "size": [
+          120,
+          120
+        ],
+        "anchor": "Point",
+        "offset": [
+          0,
+          24,
+          0
+        ],
+        "sized": true
+      },
+      {
+        "animation": "CriticalHit1.ini",
+        "anchor": "Point",
+        "offset": [
+          0,
+          24,
+          0
+        ],
+        "sized": false
+      },
+      {
+        "animation": "Light1.ini",
+        "size": [
+          120,
+          120
+        ],
+        "anchor": "Point",
+        "offset": [
+          0,
+          30,
+          0
+        ],
+        "sized": true
+      },
+      {
+        "animation": "CriticalHit1.ini",
+        "anchor": "Point",
+        "offset": [
+          0,
+          30,
+          0
+        ],
+        "sized": false
+      }
+    ],
+    "sounds": [
+      {
+        "path": "wav/Effects/Skill/bow_skill_hit 02.wav"
+      }
+    ]
+  },
+  {
+    "name": "vfx.archer.rage.apex",
+    "duration": 1.5,
+    "parts": [
+      {
+        "animation": "SkillArrowOfRage1.ini",
+        "sized": false
+      }
+    ]
+  },
+  {
+    "name": "vfx.archer.rage.hit",
+    "duration": 1.0,
+    "parts": [
+      {
+        "animation": "SkillMechanicBombDust1.ini",
+        "count": 5,
+        "jitterMin": [
+          -6,
+          0,
+          -6
+        ],
+        "jitterMax": [
+          6,
+          4,
+          6
+        ],
+        "sized": false
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Point",
+        "offset": [
+          0,
+          4,
+          0
         ],
         "color": [
-          {
-            "t": 0,
-            "v": [
-              0.5,
-              1.0,
-              0.5,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              0.5,
-              1.0,
-              0.5,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.3,
-              0.6,
-              0.3,
-              0
-            ]
-          }
+          1.0,
+          0.1961,
+          0.1961
+        ],
+        "power": 80,
+        "decay": 2
+      }
+    ]
+  },
+  {
+    "name": "vfx.archer.avalanche.ghost",
+    "duration": 1.0,
+    "parts": [
+      {
+        "shape": "Model",
+        "model": "Effect/ObjAnimationData/Avalanche/Avalanche.smd",
+        "blend": "Additive",
+        "modelFrames": 10,
+        "modelSpeed": 35,
+        "offset": [
+          0,
+          0,
+          0
         ]
+      }
+    ]
+  },
+  {
+    "name": "vfx.archer.avalanche.hit",
+    "duration": 2.0,
+    "children": [
+      {
+        "effect": "vfx.common.tripleimpact",
+        "anchor": "Point",
+        "offset": [
+          0,
+          0,
+          0
+        ],
+        "turn": true
+      }
+    ]
+  },
+  {
+    "name": "vfx.archer.falcon.hit",
+    "duration": 2.0,
+    "sounds": [
+      {
+        "path": "wav/Effects/Skill/Tempskron/Falcon Attack 01.wav"
+      }
+    ],
+    "children": [
+      {
+        "effect": "vfx.common.tripleimpact",
+        "anchor": "Point",
+        "offset": [
+          0,
+          0,
+          0
+        ],
+        "turn": true
       }
     ]
   }

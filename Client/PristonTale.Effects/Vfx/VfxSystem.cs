@@ -43,7 +43,7 @@ public readonly record struct VfxSpawn(uint CasterId, uint TargetId, Vector3 Poi
 // nothing once the pools have warmed up; the budget caps live instances so a crowd of casters cannot run away.
 public sealed class VfxSystem
 {
-    public const int MaxInstances = 256;
+    public const int MaxInstances = 1024;
     internal const int TrailPoints = 32;
 
     private readonly List<VfxInstance> _live = new(64);
@@ -78,6 +78,11 @@ public sealed class VfxSystem
                 foreach (var sequence in instance.SequenceStates)
                 {
                     count += sequence.LiveCount;
+                }
+
+                foreach (var part in instance.PartStates)
+                {
+                    count += part.LiveCount;
                 }
             }
 
@@ -134,6 +139,22 @@ public sealed class VfxSystem
         return Spawn(child, new VfxSpawn(parent.Spawn.CasterId, parent.Spawn.TargetId, point, facing));
     }
 
+    // A named effect looked up once and cached by the caller.
+    internal CompiledVfx? Resolve(string name, ref CompiledVfx? cached, ref bool resolved)
+    {
+        if (!resolved)
+        {
+            resolved = true;
+            cached = _library is not null && _library.TryGet(name, out var effect) ? effect : null;
+        }
+
+        return cached;
+    }
+
+    // An effect started by a part of another (an impact where a part lands, dust behind it), with its facing.
+    internal VfxInstance? SpawnFrom(VfxInstance parent, CompiledVfx effect, Vector3 point) =>
+        Spawn(effect, new VfxSpawn(parent.Spawn.CasterId, parent.Spawn.TargetId, point, parent.Spawn.Facing));
+
     public void Clear()
     {
         foreach (var instance in _live)
@@ -152,6 +173,7 @@ public sealed class VfxInstance
     internal TrailState[] TrailStates = [];
     internal ComponentState[] ComponentStates = [];
     internal SequenceState[] SequenceStates = [];
+    internal PartState[] PartStates = [];
     private VfxInstance?[] _children = [];
     private bool[] _lightsFired = [];
     private bool[] _soundsFired = [];
@@ -237,6 +259,13 @@ public sealed class VfxInstance
             SequenceStates[index].Begin(effect.Sequences[index]);
         }
 
+        PartStates = Resize(PartStates, effect.Parts.Length);
+        for (var index = 0; index < effect.Parts.Length; index++)
+        {
+            PartStates[index] ??= new PartState();
+            PartStates[index].Begin(effect.Parts[index], ref _random);
+        }
+
         var definition = effect.Definition;
         _lightsFired = ResizeCleared(_lightsFired, definition.Lights.Length);
         _soundsFired = ResizeCleared(_soundsFired, definition.Sounds.Length);
@@ -274,6 +303,13 @@ public sealed class VfxInstance
             _children[index] = null;
         }
     }
+
+    internal uint EntityOf(VfxAnchor anchor) => anchor switch
+    {
+        VfxAnchor.Caster => Spawn.CasterId,
+        VfxAnchor.Target => Spawn.TargetId,
+        _ => 0u
+    };
 
     internal Vector3 AnchorPosition(VfxAnchor anchor, string bone, Vector3 offset, IVfxAnchors anchors)
     {
@@ -360,6 +396,11 @@ public sealed class VfxInstance
             any |= state.Update(dt, emitting, origin, ref _random);
         }
 
+        for (var index = 0; index < PartStates.Length; index++)
+        {
+            any |= PartStates[index].Update(this, dt, emitting, anchors, system, ref _random);
+        }
+
         FireOneShots(definition, anchors, services, system);
         var children = definition.Children;
         for (var index = 0; index < _children.Length; index++)
@@ -420,7 +461,7 @@ public sealed class VfxInstance
         }
 
         return definition.Emitters.Length == 0 && definition.Trails.Length == 0 && definition.Components.Length == 0 && definition.Sequences.Length == 0
-            && definition.Children.Length == 0 && Age <= definition.Duration;
+            && definition.Children.Length == 0 && definition.Parts.Length == 0 && Age <= definition.Duration;
     }
 
     private void FireOneShots(VfxDefinition definition, IVfxAnchors anchors, IVfxServices? services, VfxSystem system)

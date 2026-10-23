@@ -89,8 +89,9 @@ internal sealed class CompiledTrail
 public sealed class CompiledVfx
 {
     internal CompiledVfx(VfxDefinition definition, CompiledEmitter[] emitters, CompiledTrail[] trails, CompiledComponent[] components,
-        CompiledSequence[] sequences)
+        CompiledSequence[] sequences, CompiledPart[] parts)
     {
+        Parts = parts;
         Definition = definition;
         Emitters = emitters;
         Trails = trails;
@@ -106,6 +107,7 @@ public sealed class CompiledVfx
     internal CompiledTrail[] Trails { get; }
     internal CompiledComponent[] Components { get; }
     internal CompiledSequence[] Sequences { get; }
+    internal CompiledPart[] Parts { get; }
     internal CompiledVfx?[] Children { get; }
     internal bool[] ChildrenResolved { get; }
 }

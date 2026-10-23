@@ -160,6 +160,35 @@ internal static class SkillPresentationTests
                 }
             }
 
+            foreach (var part in definition.Parts)
+            {
+                if (part.Animation.Length > 0 && !PristonFileResolver.Exists(Path.Combine(root, "Effect", "AnimationData", part.Animation)))
+                {
+                    problems.Add($"{definition.Name} animation {part.Animation} is missing");
+                }
+
+                if (part.Model.Length > 0 && !PristonFileResolver.Exists(Path.Combine(root, part.Model)))
+                {
+                    problems.Add($"{definition.Name} model {part.Model} is missing");
+                }
+
+                foreach (var started in new[] { part.EndEffect, part.EveryEffect })
+                {
+                    if (started.Length > 0 && !names.Contains(started))
+                    {
+                        problems.Add($"{definition.Name} starts missing effect {started}");
+                    }
+                }
+            }
+
+            foreach (var sound in definition.Sounds)
+            {
+                if (!PristonFileResolver.Exists(Path.Combine(root, sound.Path)))
+                {
+                    problems.Add($"{definition.Name} sound {sound.Path} is missing");
+                }
+            }
+
             foreach (var component in definition.Components.Where(static component => component.Kind == VfxComponentKind.Model))
             {
                 if (!PristonFileResolver.Exists(Path.Combine(root, component.Model)))

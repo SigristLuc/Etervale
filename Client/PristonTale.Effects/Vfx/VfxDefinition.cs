@@ -159,6 +159,7 @@ public sealed record VfxDefinition
     public VfxComponentDefinition[] Components { get; init; } = [];
     public VfxSequenceDefinition[] Sequences { get; init; } = [];
     public VfxChildDefinition[] Children { get; init; } = [];
+    public VfxPartDefinition[] Parts { get; init; } = [];
 
     public static readonly JsonSerializerOptions Json = new()
     {
@@ -233,6 +234,14 @@ public sealed record VfxDefinition
             }
         }
 
+        foreach (var part in Parts)
+        {
+            if (!PartOk(part))
+            {
+                throw new InvalidDataException($"Effect '{Name}' has an invalid {part.Shape} part.");
+            }
+        }
+
         foreach (var child in Children)
         {
             if (string.IsNullOrWhiteSpace(child.Effect) || child.Effect.Equals(Name, StringComparison.OrdinalIgnoreCase) || !Vec3Ok(child.Offset)
@@ -267,6 +276,27 @@ public sealed record VfxDefinition
             && float.IsFinite(sequence.Delay) && sequence.Delay is >= 0f and <= 60f
             && sequence.Events.All(static e => float.IsFinite(e.T) && e.Min.Length == e.Max.Length && e.Min.Length is >= 1 and <= 4
                 && e.Min.Concat(e.Max).All(float.IsFinite));
+    }
+
+    private static bool PartOk(VfxPartDefinition part)
+    {
+        var vectors = new[]
+        {
+            part.Offset, part.JitterMin, part.JitterMax, part.Shell, part.VelocityMin, part.VelocityMax, part.GoalOffset, part.Angles, part.Tumble, part.BeamTo
+        };
+        var ranges = new[] { part.Lifetime, part.Size, part.Height, part.Rotation, part.Width, part.Scale, part.Pulse, part.Ring, part.Radial, part.Rise, part.Burst,
+            part.Gravity };
+        var scalars = new[] { part.Delay, part.DelayStep, part.DelayRandom, part.FrameTime, part.ModelFrames, part.ModelSpeed, part.ModelStart, part.Growth,
+            part.Spin, part.FadeIn, part.FadeOut, part.PulsePeriod, part.BladeLength, part.LineSeconds, part.TrailFade, part.RingStart, part.RingStep, part.Swirl,
+            part.Speed, part.Reach, part.Lift, part.OrbitRadius, part.OrbitSpeed, part.OrbitTilt, part.OrbitRise, part.OrbitGrowth, part.OrbitPhase,
+            part.OrbitPhaseStep, part.Every, part.MoveTime, part.LoopFrom };
+        var drawn = part.Shape != VfxPartShape.Model || part.Model.Length > 0;
+        return part.Count is >= 1 and <= 1024 && part.Delay >= 0f && part.DelayStep >= 0f && part.DelayRandom >= 0f && part.Frames >= 0 && part.FrameTime > 0f
+            && part.TrailPoints is >= 2 and <= CompiledPart.MaxTrailPoints && part.Color.Length == 4 && part.Color.All(float.IsFinite)
+            && vectors.All(Vec3Ok) && ranges.All(static range => range.Length == 2 && range.All(float.IsFinite) && range[1] >= range[0])
+            && part.Lifetime[0] >= 0f && part.Lifetime[1] <= MaxDuration && scalars.All(float.IsFinite) && part.Speed >= 0f && part.Every >= 0f
+            && (part.Goal == VfxPartGoal.None || part.Speed > 0f || part.Shape == VfxPartShape.Beam || part.OrbitRadius > 0f) && drawn
+            && part.LoopFrom >= 0f && (part.LoopFrom < part.ModelFrames || part.LoopFrom == 0f) && (part.Shape != VfxPartShape.Blade || part.Bone.Length > 0);
     }
 
     private static bool RangeOk(float[] value) => value.Length == 2 && value.All(float.IsFinite) && value[1] >= value[0];

@@ -15,6 +15,7 @@ public sealed partial class VfxRenderer
         LastModelCount = 0;
         foreach (var instance in system.Instances)
         {
+            DrawPartModels(instance, view, projection);
             foreach (var state in instance.ComponentStates)
             {
                 var source = state.Component.Source;

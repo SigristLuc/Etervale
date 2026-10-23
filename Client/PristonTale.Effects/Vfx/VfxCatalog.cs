@@ -66,6 +66,24 @@ public sealed class VfxCatalog
         return new VfxCatalog(definitions, paths.Length, errors);
     }
 
+    // A texture path, or its numbered frames "<stem>1.<ext>" .. "<stem><frames>.<ext>" when frames > 1.
+    public static IEnumerable<string> Frames(string texture, int frames)
+    {
+        if (frames <= 1)
+        {
+            yield return texture;
+            yield break;
+        }
+
+        var dot = texture.LastIndexOf('.');
+        var stem = dot > 0 ? texture[..dot] : texture;
+        var extension = dot > 0 ? texture[dot..] : "";
+        for (var frame = 1; frame <= frames; frame++)
+        {
+            yield return $"{stem}{frame}{extension}";
+        }
+    }
+
     // Asset paths the definitions read: textures (with numbered frames) and models with their skeletons.
     public static IEnumerable<string> Textures(VfxDefinition definition)
     {
@@ -82,6 +100,17 @@ public sealed class VfxCatalog
         foreach (var sequence in definition.Sequences)
         {
             yield return sequence.Texture;
+        }
+
+        foreach (var part in definition.Parts)
+        {
+            if (part.Shape != VfxPartShape.Model && part.Animation.Length == 0 && part.Texture.Length > 0)
+            {
+                foreach (var frame in Frames(part.Texture, part.Frames))
+                {
+                    yield return frame;
+                }
+            }
         }
 
         foreach (var component in definition.Components)

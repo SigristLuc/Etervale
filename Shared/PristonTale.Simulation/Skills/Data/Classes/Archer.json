@@ -28,7 +28,7 @@
       "damage": { "min": [4, 6, 8, 10, 12, 14, 16, 18, 19, 20], "max": [4, 6, 8, 10, 12, 14, 16, 18, 19, 20], "levelDivisorByRank": [8, 8, 8, 8, 7, 7, 7, 6, 6, 6],
         "bonusBroods": ["Demon"], "bonusPercent": 30 },
       "motion": "Attack", "loops": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "projectile": true, "projectileEffect": "vfx.projectile.aim",
-      "impactEffect": "vfx.impact.arrow", "castSound": "wav/Effects/Skill/Tempskron/Perfect Aim 01.wav",
+      "impactEffect": "vfx.archer.aim.hit", "castSound": "wav/Effects/Skill/Tempskron/Perfect Aim 01.wav",
       "impactSound": "wav/Effects/Skill/bow_skill_hit 01.wav" },
     { "code": "0x04020001", "name": "Dion's Eye", "tier": "Job2", "category": "Passive", "icon": "TA20 D_Eye",
       "description": "Trains eyesight like the legendary archer Dion to permanently increase attack rating", "requiredLevel": 20, "mouse": "None",
@@ -58,7 +58,7 @@
       "masteryBase": 103, "masteryPerRank": 2, "criticalPercent": [-50, -50, -50, -50, -50, -50, -50, -50, -50, -50],
       "damage": {"percent": [15, 19, 23, 27, 31, 35, 39, 43, 47, 51]}, "motion": "Attack", "loops": [3, 3, 3, 4, 4, 4, 5, 5, 5, 6],
       "attackSpeedSteps": [1, 1, 1, 2, 2, 2, 3, 3, 3, 4], "projectile": true, "projectileEffect": "vfx.archer.avalanche.arrow",
-      "impactEffect": "vfx.impact.arrow", "castSound": "wav/Effects/Skill/Tempskron/Avalanche 01.wav",
+      "impactEffect": "vfx.archer.avalanche.hit", "castSound": "wav/Effects/Skill/Tempskron/Avalanche 01.wav",
       "impactSound": "wav/Effects/Skill/bow_skill_hit 01.wav" },
     { "code": "0x04040001", "name": "Elemental Shot", "tier": "Job3", "category": "MultiHit", "icon": "TA40 E_Shot",
       "description": "Continuous elememtal attack to opponents", "requiredLevel": 40, "mouse": "Right",
@@ -138,6 +138,6 @@
           {"stat": "HitDamage", "op": "Flat", "values": [12, 15, 18, 21, 24, 27, 30, 33, 36, 39]},
           {"stat": "AttackRating", "op": "Flat", "values": [20, 30, 40, 50, 60, 70, 80, 90, 100, 110]},
           {"stat": "CompanionDamage", "op": "Flat", "values": [22, 26, 30, 34, 38, 42, 46, 50, 54, 58], "othersPercent": 100} ] },
-      "motionIndex": 92, "motionFrames": 57, "motionEvents": [26], "motionSpeed": 80, "castEffect": "vfx.archer.nature.cast",
+      "motionIndex": 92, "motionFrames": 57, "motionEvents": [26], "motionSpeed": 80,
       "buffEffect": "vfx.archer.nature.aura", "castSound": "wav/Effects/Skill/Tempskron/ForceOfNature 01.wav", "keepIcon": "Ac4_F_O_NATURE" }
 ]

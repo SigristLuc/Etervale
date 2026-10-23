@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
+using PristonTale.Effects.Legacy;
 using PristonTale.Effects.Vfx;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
@@ -131,41 +132,86 @@ public sealed class VfxContent : IVfxResources, IDisposable
         var catalog = VfxCatalog.Load(_assetRoot);
         var textures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var models = new ConcurrentDictionary<string, ParsedModel>(StringComparer.OrdinalIgnoreCase);
+        var animations = new Dictionary<string, BillboardSequence?>(StringComparer.OrdinalIgnoreCase);
         var reader = new PristonSmdReader();
         var decoding = new List<Task>();
         foreach (var definition in catalog.Definitions)
         {
             foreach (var texture in VfxCatalog.Textures(definition))
             {
-                if (texture.Length > 0 && !texture.StartsWith(VfxBuiltinTextures.Prefix, StringComparison.OrdinalIgnoreCase) && textures.Add(texture)
-                    && PristonFileResolver.Exists(Path.Combine(_assetRoot, texture)))
-                {
-                    decoding.Add(_textures.PrepareTextureAsync(_assetRoot, texture));
-                }
+                QueueTexture(texture, textures, decoding);
             }
 
             foreach (var component in definition.Components)
             {
-                if (component.Kind != VfxComponentKind.Model)
+                if (component.Kind == VfxComponentKind.Model)
                 {
-                    continue;
+                    QueueModel(reader, component.Model, component.Skeleton, models, decoding);
                 }
+            }
 
-                var key = ModelKey(component.Model, component.Skeleton);
-                if (!models.ContainsKey(key))
+            foreach (var part in definition.Parts)
+            {
+                if (part.Shape == VfxPartShape.Model)
                 {
-                    var parsed = Parse(reader, component.Model, component.Skeleton);
-                    models[key] = parsed;
-                    if (parsed.Mesh is not null)
+                    QueueModel(reader, part.Model, part.Skeleton, models, decoding);
+                }
+                else if (part.Animation.Length > 0 && !animations.ContainsKey(part.Animation))
+                {
+                    var animation = ReadAnimation(part.Animation);
+                    animations[part.Animation] = animation;
+                    foreach (var image in animation?.Images ?? [])
                     {
-                        decoding.Add(_textures.PrepareTexturesAsync(Path.GetDirectoryName(parsed.Mesh.Path) ?? ".", parsed.Mesh.Materials));
+                        QueueTexture(image, textures, decoding);
                     }
                 }
             }
         }
 
         Task.WaitAll(decoding.ToArray());
-        return new Prepared(catalog, models);
+        return new Prepared(catalog, models, animations);
+    }
+
+    BillboardSequence? IVfxResources.Animation(string name) =>
+        _prepared is not null && _prepared.Animations.TryGetValue(name, out var animation) ? animation : null;
+
+    private BillboardSequence? ReadAnimation(string name)
+    {
+        try
+        {
+            return BillboardSequence.Read(name, path => PristonFileResolver.OpenRead(Path.Combine(_assetRoot, path)));
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or FormatException or UnauthorizedAccessException
+            or OverflowException)
+        {
+            _log.Warn($"[Effects] animated billboard {name} could not be read: {exception.Message}");
+            return null;
+        }
+    }
+
+    private void QueueModel(PristonSmdReader reader, string path, string skeleton, ConcurrentDictionary<string, ParsedModel> models, List<Task> decoding)
+    {
+        var key = ModelKey(path, skeleton);
+        if (models.ContainsKey(key))
+        {
+            return;
+        }
+
+        var parsed = Parse(reader, path, skeleton);
+        models[key] = parsed;
+        if (parsed.Mesh is not null)
+        {
+            decoding.Add(_textures.PrepareTexturesAsync(Path.GetDirectoryName(parsed.Mesh.Path) ?? ".", parsed.Mesh.Materials));
+        }
+    }
+
+    private void QueueTexture(string texture, HashSet<string> textures, List<Task> decoding)
+    {
+        if (texture.Length > 0 && !texture.StartsWith(VfxBuiltinTextures.Prefix, StringComparison.OrdinalIgnoreCase) && textures.Add(texture)
+            && PristonFileResolver.Exists(Path.Combine(_assetRoot, texture)))
+        {
+            decoding.Add(_textures.PrepareTextureAsync(_assetRoot, texture));
+        }
     }
 
     private ParsedModel Parse(PristonSmdReader reader, string path, string skeleton)
@@ -210,5 +256,5 @@ public sealed class VfxContent : IVfxResources, IDisposable
 
     private sealed record ParsedModel(PristonModel? Mesh, PristonModel? Skeleton);
 
-    private sealed record Prepared(VfxCatalog Catalog, ConcurrentDictionary<string, ParsedModel> Models);
+    private sealed record Prepared(VfxCatalog Catalog, ConcurrentDictionary<string, ParsedModel> Models, Dictionary<string, BillboardSequence?> Animations);
 }
