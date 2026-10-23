@@ -61,6 +61,13 @@ public static class Puzzles
         return anchor == row * inventoryWidth + column;
     }
 
+    // Whether the revealed pieces of one set lie each in its board cell (keys and anchors of the carried items).
+    public static bool Complete(IEnumerable<(string CatalogKey, int Anchor)> items, int inventoryWidth)
+    {
+        var placed = items.Where(item => InPlace(item.CatalogKey, item.Anchor, inventoryWidth)).Select(static item => item.CatalogKey).ToList();
+        return Enumerable.Range(1, 2).Any(set => placed.Count(key => Set(key) == set) == 8);
+    }
+
     // The value of a set of exchanged pieces, or 0 when a piece repeats or is not a piece.
     public static int Value(IEnumerable<string> catalogKeys)
     {

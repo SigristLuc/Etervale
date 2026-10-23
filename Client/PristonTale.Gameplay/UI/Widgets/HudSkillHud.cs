@@ -213,6 +213,11 @@ public sealed class HudSkillHud : IDisposable
         }
 
         var lines = new List<string> { Name(code) };
+        if (ItemStatuses.Effect(code) is { } effect)
+        {
+            lines.Add(effect);
+        }
+
         if (!status.Permanent && status.DurationMs > 0)
         {
             lines.Add($"Time left: {(int)Math.Ceiling(status.RemainingMs(nowMs) / 1000d)} s");
@@ -266,15 +271,14 @@ public sealed class HudSkillHud : IDisposable
         }
     }
 
-    private static string ItemStatusIcon(uint code) =>
-        ItemScrolls.TryGetByStatus(code, out var scroll) ? scroll.KeepIcon : ForceOrbs.TryGetByStatus(code, out var orb) ? orb.Icon : null;
+    private static string ItemStatusIcon(uint code) => ItemStatuses.Icon(code);
 
     private static double Elapsed(StatusEntry status, double nowMs) =>
         status.Permanent || status.DurationMs <= 0 ? double.MaxValue : Math.Max(0d, status.DurationMs - status.RemainingMs(nowMs));
 
     private static string Name(uint code) =>
         SkillRuleCatalog.TryGet(code, out var rule) ? rule.Name : ClassSkillCatalog.TryGet(code, out var skill) ? skill.Name
-            : ItemScrolls.TryGetByStatus(code, out var scroll) ? scroll.Name : ForceOrbs.TryGetByStatus(code, out var orb) ? orb.Name : $"Effect {code:X8}";
+            : ItemStatuses.Name(code) ?? $"Effect {code:X8}";
 
     // The gauge frames: a white fan of k of the 72 steps (k = 0..72), antialiased, with premultiplied alpha.
     private static Texture2D[] BuildGauge(GraphicsDevice device)

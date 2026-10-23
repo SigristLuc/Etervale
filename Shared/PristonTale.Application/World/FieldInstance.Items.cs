@@ -29,6 +29,9 @@ public sealed partial class FieldInstance
     // The field's random source for item prizes rolled by NPC services.
     internal ISimRng ItemRng => _rng;
 
+    // The monsters of the field, for inspection outside the tick (tests and probes).
+    internal IEnumerable<MonsterInstance> MonstersForInspection => _monsters.Values;
+
     public bool TryFindMonsterKey(string key, [MaybeNullWhen(false)] out MonsterDefinition definition) => _catalog.TryFindKey(key, out definition);
 
     // Calls a crystal's monster for its user: a pet beside him, or a soul stone's hostile monster where he stands.

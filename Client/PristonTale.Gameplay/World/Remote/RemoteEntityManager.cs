@@ -10,7 +10,7 @@ using NumVector3 = System.Numerics.Vector3;
 
 namespace PristonTale.Gameplay.World.Remote;
 
-public sealed class RemoteEntityManager
+public sealed partial class RemoteEntityManager
 {
     private readonly IActorScene _scene;
     private readonly IPlayerActorComposer _playerComposer;
@@ -289,6 +289,7 @@ public sealed class RemoteEntityManager
         if (spawn.OwnerId != 0)
         {
             _summonOwners[spawn.EntityId] = spawn.OwnerId;
+            TrackSummonPlate(spawn, info.Name);
         }
 
         var scale = spawn.ModelScale > 0f ? spawn.ModelScale : info.ModelScale;
@@ -325,6 +326,7 @@ public sealed class RemoteEntityManager
         {
             entity.SetRates(state.MoveSpeed, state.AttackRate);
             entity.SetTarget(_clock.Stamp(state.ServerTimeMs), ToXna(state.Position), state.Facing, state.MoveState, state.Hp);
+            UpdateSummonPlate(state.EntityId, state.Hp);
             if (!_preparingActors.ContainsKey(state.EntityId))
             {
                 return;
@@ -378,6 +380,7 @@ public sealed class RemoteEntityManager
     private void ApplyRemoved(uint entityId)
     {
         _summonOwners.Remove(entityId);
+        _summonPlates.Remove(entityId);
         _playerAppearances.Remove(entityId);
         _collisionRoster.Remove(entityId);
         _pendingModels.Remove(entityId);
@@ -577,6 +580,7 @@ public sealed class RemoteEntityManager
         }
 
         _entities.Clear();
+        _summonPlates.Clear();
         _playerAppearances.Clear();
         _collisionRoster.Clear();
         _pendingModels.Clear();

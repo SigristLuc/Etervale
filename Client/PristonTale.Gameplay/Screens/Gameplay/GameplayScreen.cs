@@ -103,6 +103,7 @@ public sealed class GameplayScreen : GameScreen
         _hud.World = new HudWorldView(field?.Id, field?.Underground == true, _scene.ActiveMapRectangle, _scene.PlayerPosition,
             _scene.PlayerForward, _scene.TimeOfDay, _scene.RunMode, mapHidden, neighbour, neighbourMap);
         _hud.PremiumTimers = _scene.PremiumTimers;
+        _hud.InCastleField = field?.State == Simulation.World.FieldState.Castle;
         _hud.Update(_scene.Owner);
         _scene.PointerCaptured = _hud.PointerCaptured;
         _scene.CameraInputEnabled = Context.IsWindowActive && !Context.Presentation.AwaitingConfirmation;
@@ -130,6 +131,7 @@ public sealed class GameplayScreen : GameScreen
         _scene.Draw();
         Context.SpriteBatch.Begin();
         _scene.DrawGroundLabels(Context.SpriteBatch, Context.Font);
+        _scene.DrawSummonPlates(Context.SpriteBatch, Context.Font);
         Context.SpriteBatch.End();
         _scene.DrawCombatText(Context.SpriteBatch, Context.Font);
         _hud.Draw();

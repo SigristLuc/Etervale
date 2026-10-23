@@ -26,6 +26,9 @@ public sealed partial class WorldServer
         });
     }
 
+    // The open field of a code, for inspection outside the tick (tests and probes).
+    internal bool TryGetOpenField(int fieldId, out FieldInstance field) => _fields.TryGetValue(fieldId, out field!);
+
     // Exempt from the player's quota: the use is already stored.
     public Task<bool> CommitItemUseAsync(PlayerSession session, PreparedItemUseOperation operation)
     {

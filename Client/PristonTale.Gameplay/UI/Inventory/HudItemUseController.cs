@@ -15,6 +15,9 @@ public sealed class HudItemUseController(Func<ItemUseCommand, Task<ItemUseOutcom
     private OwnedItemView _confirmItem;
     private TeleportCoreDestination _confirmDestination;
     private Guid _confirmTeleportItem;
+    private double _deadSinceMs = -1d;
+    private bool _restoreSent;
+    private const double RestorationDelayMs = 10_000d;
 
     public HudTeleportCore Teleport { get; } = new();
     public bool Pending => _pending is not null;
@@ -88,6 +91,36 @@ public sealed class HudItemUseController(Func<ItemUseCommand, Task<ItemUseOutcom
         }
 
         return true;
+    }
+
+    // A carried Restoration revives its dead owner in a castle field ten seconds after death; the client asks once per
+    // death and the server checks the time.
+    public void Restore(OwnerState state, bool inCastle, double nowMs)
+    {
+        if (state is null || state.Hp > 0)
+        {
+            _deadSinceMs = -1d;
+            _restoreSent = false;
+            return;
+        }
+
+        if (_deadSinceMs < 0d)
+        {
+            _deadSinceMs = nowMs;
+        }
+
+        if (!inCastle || Pending || _restoreSent || nowMs - _deadSinceMs < RestorationDelayMs)
+        {
+            return;
+        }
+
+        var restoration = state.Items.FirstOrDefault(static item => item.Slot < 0
+            && UsableItemCatalog.TryGet(item.CatalogKey, out var rule) && rule.Action == UsableItemAction.Restoration);
+        if (restoration is not null)
+        {
+            _restoreSent = true;
+            Send(new ItemUseCommand(Guid.NewGuid(), state.InventoryRevision, restoration.InstanceId));
+        }
     }
 
     public void Close()

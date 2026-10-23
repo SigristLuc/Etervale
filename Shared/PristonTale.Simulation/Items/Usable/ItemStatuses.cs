@@ -1,0 +1,87 @@
+namespace PristonTale.Simulation.Items.Usable;
+
+// The keep icons, names and effect lines of item effects in the running-effects bar: scrolls, force orbs, castle items,
+// and the boosters and skill-delay item, which are premium timers drawn in that bar under their own codes.
+public static class ItemStatuses
+{
+    public const uint PremiumKeepBase = 0xF0000110;
+
+    private const string Keep = "image/Sinimage/skill/keep/";
+
+    public static uint PremiumKeepCode(PremiumEffectKind kind) => PremiumKeepBase + (uint)kind;
+
+    public static bool TryGetPremiumKeep(uint code, out PremiumEffectKind kind)
+    {
+        kind = (PremiumEffectKind)(code - PremiumKeepBase);
+        return code > PremiumKeepBase && code <= PremiumKeepBase + 0x40 && Enum.IsDefined(kind) && PremiumTimers.PausesOffline(kind);
+    }
+
+    public static string Icon(uint code)
+    {
+        if (ItemScrolls.TryGetByStatus(code, out var scroll))
+        {
+            return scroll.KeepIcon;
+        }
+
+        if (ForceOrbs.TryGetByStatus(code, out var orb))
+        {
+            return orb.Icon;
+        }
+
+        if (CastleItems.TryGetByStatus(code, out var castle))
+        {
+            return castle.KeepIcon;
+        }
+
+        return TryGetPremiumKeep(code, out var kind) ? Keep + kind switch
+        {
+            PremiumEffectKind.LifeBooster => "Booster_01.tga",
+            PremiumEffectKind.ManaBooster => "Booster_02.tga",
+            PremiumEffectKind.StaminaBooster => "Booster_03.tga",
+            _ => "Booster_04.tga"
+        } : null;
+    }
+
+    public static string Name(uint code)
+    {
+        if (ItemScrolls.TryGetByStatus(code, out var scroll))
+        {
+            return scroll.Name;
+        }
+
+        if (ForceOrbs.TryGetByStatus(code, out var orb))
+        {
+            return orb.Name;
+        }
+
+        if (CastleItems.TryGetByStatus(code, out var castle))
+        {
+            return castle.Name;
+        }
+
+        return TryGetPremiumKeep(code, out var kind) ? kind switch
+        {
+            PremiumEffectKind.LifeBooster => "Life Booster",
+            PremiumEffectKind.ManaBooster => "Mana Booster",
+            PremiumEffectKind.StaminaBooster => "Stamina Booster",
+            _ => "Skill Delay"
+        } : null;
+    }
+
+    // The effect line under the name, or null.
+    public static string Effect(uint code)
+    {
+        if (CastleItems.TryGetByStatus(code, out var castle))
+        {
+            return castle.Effect;
+        }
+
+        return TryGetPremiumKeep(code, out var kind) ? kind switch
+        {
+            PremiumEffectKind.LifeBooster => $"Raises life by {PremiumRules.BoosterPercent}%",
+            PremiumEffectKind.ManaBooster => $"Raises mana by {PremiumRules.BoosterPercent}%",
+            PremiumEffectKind.StaminaBooster => $"Raises stamina by {PremiumRules.BoosterPercent}%",
+            _ => "Skills recharge in half a second"
+        } : null;
+    }
+}
