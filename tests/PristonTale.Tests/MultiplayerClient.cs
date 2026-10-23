@@ -103,6 +103,8 @@ internal sealed class MultiplayerClient : IAsyncDisposable
         return await WaitAsync(world => world.CastResults.LastOrDefault(result => result.Sequence == sequence), $"{Name}: cast result {sequence}");
     }
 
+    public Task SayAsync(string text) => Play.SendChatAsync(text, party: false, _lifetime.Token);
+
     public Task<Simulation.Items.Usable.ItemUseOutcome> UseItemAsync(string key)
     {
         var (revision, item) = World.Read(world => (world.Owner!.InventoryRevision, world.Owner.Items.First(value => value.CatalogKey == key).InstanceId));
@@ -227,6 +229,7 @@ internal sealed class ObservedWorld
     public List<StatusEffectInfo> Statuses { get; } = new();
     public List<SkillCastResultInfo> CastResults { get; } = new();
     public List<ItemEffectInfo> ItemEffects { get; } = new();
+    public List<ChatLineInfo> Chat { get; } = new();
     public Dictionary<Guid, GroundDropView> Ground { get; } = new();
     public List<Guid> GroundRemoved { get; } = new();
     public List<WarpInfo> Warps { get; } = new();
@@ -294,6 +297,7 @@ internal sealed class ObservedWorld
             Skills.AddRange(update.SkillEvents);
             Statuses.AddRange(update.StatusEffects);
             ItemEffects.AddRange(update.ItemEffects);
+            Chat.AddRange(update.Chat);
             if (update.CastResult is { } result)
             {
                 CastResults.Add(result);

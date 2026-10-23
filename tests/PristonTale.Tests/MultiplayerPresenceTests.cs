@@ -27,6 +27,7 @@ internal static class MultiplayerPresenceTests
         yield return ("multiplayer: a summon shows its owner to every viewer even beside wild monsters of its kind", SummonAsync);
         yield return ("multiplayer: equipment, premium looks, item statuses and item effects of a player reach its viewers", AppearanceAsync);
         yield return ("multiplayer: a player's death and respawn reach the viewers at both places", DeathAsync);
+        yield return ("multiplayer: a crystal pet shows its owner to every viewer beside wild monsters of its kind", CrystalPetAsync);
         yield return ("multiplayer: descriptions the server's rate limit dropped are asked again so a crowd still appears", CrowdAsync);
     }
 
@@ -129,6 +130,38 @@ internal static class MultiplayerPresenceTests
         var status = await b.WaitAsync(world => world.Statuses.FirstOrDefault(value => value.EntityId == a.Serial && value.Op == StatusEffectOp.Add),
             "the scroll's status");
         Assert.True(status.SourceKind == (byte)EffectSourceKind.Item, "the scroll status has another source");
+    }
+
+    private static async Task CrystalPetAsync()
+    {
+        const int hopyCode = 9010;
+        var hopy = new MonsterDefinition(hopyCode, "Hopy", MonsterFaction.Enemy, MonsterClass.Normal, MonsterBrood.Normal,
+            new MonsterCombatStats(5, 100, new MonsterRange(1, 2), 6, 40, 5, 0, 0, 2000, ResistanceBlock.Zero), "")
+        {
+            Key = " \uD638\uD53C ",
+            Ai = new MonsterAi(6, MonsterNature.Natural, 0, 2, 100, new MonsterRange(1, 1), MonsterActiveHour.Any)
+        };
+        var world = MultiplayerServer.WorldWith(MultiplayerServer.SpawnBeside(hopyCode, Spot), hopy);
+        await using var server = await MultiplayerServer.StartAsync(world);
+        await using var b = await Enter(server, "PetWatcher", Spot + new Vector3(-200f, 0f, 0f));
+        var wild = await b.WaitAsync(world => world.Entities.Values.FirstOrDefault(entity => entity.TemplateId == hopyCode), "the wild hopy");
+        await using var a = await Enter(server, "Tamer", Spot + new Vector3(250f, 0f, 0f), level: 20,
+            customize: setup => setup with { Items = [MultiplayerServer.HopyCrystal] });
+        await a.WaitUntilAsync(world => world.Owner is not null && world.Entities.ContainsKey(wild.Id), "its own state and the wild hopy");
+
+        var used = await a.UseItemAsync("GP101");
+        Assert.True(used.Ok, $"the crystal was refused: {used.Status}");
+        foreach (var viewer in new[] { a, b })
+        {
+            var pet = await viewer.WaitAsync(world => world.Entities.Values.FirstOrDefault(entity => entity.TemplateId == hopyCode && entity.OwnerId != 0),
+                "the crystal pet");
+            Assert.True(pet.OwnerId == a.Serial && pet.Id != wild.Id, $"{viewer.Name} saw the pet owned by {pet.OwnerId}");
+        }
+
+        await Task.Delay(300);
+        Assert.True(b.World.Read(world => world.Entities.Values.Count(entity => entity.TemplateId == hopyCode && entity.OwnerId == a.Serial)) == 1,
+            "a wild hopy took the pet's owner");
+        Assert.True(b.World.Read(world => !world.Entities.TryGetValue(wild.Id, out var value) || value.OwnerId == 0), "the wild hopy became owned");
     }
 
     private static async Task DeathAsync()

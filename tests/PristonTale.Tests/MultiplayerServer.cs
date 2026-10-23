@@ -112,6 +112,10 @@ internal sealed class MultiplayerServer : IAsyncDisposable
         return userId;
     }
 
+    public async Task SetGameMasterAsync(string account, int level) =>
+        Assert.True(await _host.Services.GetRequiredService<Persistence.Abstractions.GameMasters.IGameMasterRepository>().SetGmLevelAsync(account, level),
+            $"no account {account}");
+
     public async ValueTask DisposeAsync()
     {
         try
@@ -144,7 +148,7 @@ internal sealed class MultiplayerServer : IAsyncDisposable
     }
 
     public static WorldData WorldWith(IReadOnlyDictionary<int, FieldSpawnData>? spawns = null, params MonsterDefinition[] monsters) =>
-        new(new ItemCatalog([Staff, Firecracker, BigHead, Invulnerability]), new MonsterCatalog(monsters), new NpcCatalog([]), spawns ?? new Dictionary<int, FieldSpawnData>(),
+        new(new ItemCatalog([Staff, Firecracker, BigHead, Invulnerability, HopyCrystal]), new MonsterCatalog(monsters), new NpcCatalog([]), spawns ?? new Dictionary<int, FieldSpawnData>(),
             MotionTimingCatalog.Empty);
 
     // A spawn table that keeps one group of the given monster at a point beside the camp while players are near.
@@ -161,6 +165,7 @@ internal sealed class MultiplayerServer : IAsyncDisposable
     public static readonly ItemDefinition Firecracker = Usable("BI123");
     public static readonly ItemDefinition BigHead = Usable("BI109");
     public static readonly ItemDefinition Invulnerability = Usable("BI105");
+    public static readonly ItemDefinition HopyCrystal = Usable("GP101");
 
     private static ItemDefinition Usable(string key) => new(LegacyItemCode.Parse(key), key, ItemKind.Misc, MaxStack: 1) { CatalogKey = key, Price = 100 };
 
