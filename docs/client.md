@@ -39,7 +39,7 @@ rendering internals, skill presentation and VFX data have their own documents (s
 | `Client/PristonTale.Gameplay/UI/Npc/` | NPC service controller, shop and warehouse windows, store layout, NPC art |
 | `Client/PristonTale.Gameplay/UI/Rendering/` | `HudSprites` (original UI images), `HudIconCache` (item icons), `HudAtlas` (login atlas), `HudPainter`/`HudCanvas` |
 | `Client/PristonTale.Gameplay/Audio/` | `PristonAudioLibrary` (bootstrap sound load), `FieldAudioController` (music, field and positional ambience), `NpcAudioController`, `LegacyTalkSound` |
-| `Client/PristonTale.Gameplay/Effects/` | Effect glue: `LegacyEffectLibrary`, `SkillPresentation`, `SkillSoundBank`, `SkillState`, combat text, meteor, monster mesh and return effects; embedded `Vfx/*.vfx.json` ([effects.md](effects.md)) |
+| `Client/PristonTale.Gameplay/Effects/` | Effect glue: `LegacyEffectLibrary`, `VfxContent` (effect data from `<assetRoot>/Effect/Vfx`, loaded off the game thread), `SkillPresentation`, `ScriptEffects`, `SkillSoundBank`, `SkillState`, combat text, meteor, monster mesh and return effects ([effects.md](effects.md)) |
 | [`Client/PristonTale.Client.Net/GameServerConnection.cs`](../Client/PristonTale.Client.Net/GameServerConnection.cs) | TCP session: connect, login, characters, world entry, request correlation, heartbeat, receive dispatch |
 | `Client/PristonTale.Client.Net/IGameBackend.cs`, `IPlayChannel.cs` | Contracts the screens use: account and character requests; in-world commands and the presence stream |
 | `Client/PristonTale.Client.Net/Online/` | `OnlinePlayChannel` (world session lifetime), `PresenceDecoder` (wire packets to `PresenceUpdate`) |
