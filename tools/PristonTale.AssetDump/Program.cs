@@ -19,8 +19,8 @@ if (args.Length == 4 && args[0] == "--export-field-textures")
 
 // Headless inspector for PristonTale binary assets (.smd stage, .smd/.smb model, .inx index).
 // Prints the decoded structure so material/geometry/light decisions are grounded in real bytes
-// instead of assumption (see docs/CONVENTIONS.md "Material / render conventions" and the
-// dump-asset-data skill). Reuses the real Engine3D readers — no GraphicsDevice, no wine prefix.
+// instead of assumption (see docs/rendering.md for the material and render conventions and docs/tools.md for
+// the options). Reuses the real Engine3D readers — no GraphicsDevice, no wine prefix.
 //
 // Usage:  ptdump <asset-path> [--materials] [--lights] [--objects] [--normals] [--motions] [--matbounds] [--full]
 //   A .bmp/.tga path instead decodes the texture and prints content stats (size/bitcount/alpha/grayscale%).

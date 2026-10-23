@@ -1,0 +1,287 @@
+# Testing
+
+The regression runner in `tests/PristonTale.Tests`: default cases, how they are registered and run, the opt-in CPU
+benchmarks, and the asset/GPU probes that read game data or create a Vulkan device.
+
+## Read this when
+
+- You changed behavior and need to run or extend the regression suite before finishing.
+- You are adding a regression case, a fixture, or a disposable SQLite database to a case.
+- You need a timing number (server tick, world load, parsing, render frame) or a visual capture.
+- You want to check shaders, the look of real scenes, the HUD, skills or equipment against the game data.
+- A runner command "does nothing" or runs the whole suite instead of a probe.
+
+## Code map
+
+| Path | Responsibility |
+| --- | --- |
+| [Program.cs](../tests/PristonTale.Tests/Program.cs) | Probe/benchmark flag dispatch, case registration, `--filter`, run loop, exit code |
+| `PristonTale.Tests.csproj` | Console exe; embeds `Fixtures/*.json`; imports `Client/MonoGameRuntime.targets` (native runtime) |
+| `Assert.cs` | `Assert.True(condition, message)`, `Assert.Near(expected, actual, tolerance)`, `Assert.ThrowsAsync` |
+| `Fixtures/` | Embedded tables: `class-skill-source.json` (class skills), `job-head-source.json` (416 job-head rows) |
+| `SkillFixtures.cs`, `SkillScenario.cs` | Synthetic field, players, monsters, weapons and 50 ms tick stepping for skill cases |
+| `MemoryCharacters.cs` | In-memory `ICharacterRepository` with update hooks for persistence-failure cases |
+| `WireRoundTrip.cs` | Snapshots through server `PresenceEncoder` and client `PresenceDecoder` over original packet bytes |
+| `AbsoluteContentManager.cs` | `ContentManager` that opens `.xnb` files from an absolute content root (GPU probes) |
+| `*Probe.cs`, `*Probe.<Topic>.cs` | Opt-in probes (see Probes); never part of the default suite |
+| `*Benchmark.cs`, `RenderBenchmarkProbe.cs` | Opt-in benchmarks; `DomainTests.BenchmarkAsync` is the `--benchmark` tick benchmark |
+
+The csproj references Gameplay, Server, Protocol, GltfExport and WorldImport, so the runner sees every layer.
+Default case files by area (all `tests/PristonTale.Tests/<Name>.cs`):
+
+| Area | Files | Covers |
+| --- | --- | --- |
+| Domain | `DomainTests`, `ProgressionAndOwnershipTests`, `ProgressionDataTests`, `AuthTests`, `OutboxTests` | Attributes, ownership, mailbox, XP, login, outbox |
+| Transactions | `ProgressionTransactionTests`, `InventoryTransactionTests`, `GroundPickupTransactionTests`, `PotionTests` | Storage-first commit, replay |
+| Equipment | `EquipmentTests`, `RangedEquipmentTests` | Catalog rules, hands, class masks, bone attachments |
+| Protocol | `BinaryProtocolTests`, `ClientTests`, `NetworkHardeningTests` | Struct layouts, framing, cipher, presence, abuse limits |
+| World data | `WorldImportTests`, `NpcPlacementMigrationTests`, `MonsterNameTests`, `NpcServiceTests` | Import and migrations on temp SQLite |
+| Rewards, spawns | `WorldRewardsTests`, `SpawnGateTests`, `SpawnScheduleTests` | Loot, XP, spawn masks, boss hours |
+| Movement | `MovementAndStreamingTests`, `GroundTraversalTests`, `TerrainTests`, `EntitySweepTests`, `SpatialIndexTests` | Reports, stacked floors, ramps, gaps, steps |
+| Camera | `CameraTests` | Camera collision across fields, clearance, follow, edge orbit, middle drag |
+| Monsters, NPCs | `MonsterMovementTests`, `MonsterNavigationTests`, `MonsterCombatTests`, `MonsterSkillTests`, `NpcMovementTests` | AI on synthetic stages |
+| Skill data | `ClassSkillDataTests`, `SkillCatalogTests`, `SkillSystemTests`, `PassiveSkillTests`, `SkillWireTests` | Catalog, formulas, wire |
+| Skill mechanics | `SkillAllyTests`, `SkillAreaTests`, `SkillChargeTests`, `SkillCompanionTests`, `SkillControlTests` | Server resolution |
+| Skill mechanics | `SkillDefenseTests`, `SkillEnchantTests`, `SkillResurrectionTests`, `SkillStealthTests`, `SkillSummonTests` | Server resolution |
+| Skill client | `SkillPresentationTests` | VFX definitions, legacy scripts, cooldown and status books |
+| Client | `RemotePlaybackTests`, `AttackInputTests`, `FrameTimingTests`, `ClientSettingsTests`, `FieldAudioTests` | Playback, input, settings |
+| HUD and screens | `HudInteractionTests`, `CharacterHeadTests`, `CharacterSelectTests`, `GroundLootLabelTests` | 800x600 layout, hit tests |
+| Rendering | `RenderTests`, `RenderFidelityTests`, `PhotorealTests`, `MaterialAdapterTests`, `ShadowProjectionTests`, `SkyTests` | CPU-side renderer |
+| Meshes, effects | `SkinPaletteTests`, `ModelNormalTests`, `AnimationFallbackTests`, `TransientLightTests`, `LegacyParticleTests` | Skinning, particles |
+| Formats | `BinaryCursorTests`, `EffectLoadingTests`, `GltfExportTests` | Binary readers, shader load failure, glTF export |
+
+## Running
+
+```bash
+dotnet build tests/PristonTale.Tests -c Release -m:1 -warnaserror
+dotnet run --project tests/PristonTale.Tests -c Release --no-build
+dotnet run --project tests/PristonTale.Tests -c Release --no-build -- --filter skill
+git diff --check
+```
+
+- The runner is a console program, not a `dotnet test` suite; `dotnet test` discovers nothing.
+- Each case prints `PASS <name>` or `FAIL <name>: <exception>` (stderr); the last line is `<passed>/<total> passed`.
+- Exit code is 0 when every case passes, 1 otherwise.
+- `--filter <text>` keeps only cases whose name contains the text (ordinal, case-insensitive).
+- Probes run through `dotnet run ... -- <flag> ...` or directly as
+  `dotnet tests/PristonTale.Tests/bin/Release/net10.0/PristonTale.Tests.dll <flag> ...` (used below for GPU probes).
+
+### Registration and execution model
+
+- Every test class is `internal static class <Area>Tests` in namespace `PristonTale.Tests` with
+  `public static IEnumerable<(string, Func<Task>)> Cases()` that `yield return`s `("behavior sentence", MethodAsync)`.
+- `Program.cs` appends each class with `specifications.AddRange(<Area>Tests.Cases());`. A class not listed there never
+  runs.
+- Cases run sequentially in registration order. Each is awaited with a 15 s timeout (`WaitAsync`); a timeout fails the
+  case. A thrown exception of any type fails the case; the runner continues with the next one.
+- Production assemblies expose internals to the runner through `InternalsVisibleTo` (Application, Geometry, Protocol,
+  Client.Net, Engine3D, Gameplay, Server, GltfExport).
+
+### What default cases may touch
+
+- Synthetic data built in code, embedded `Fixtures/`, original-protocol byte arrays, a loopback TCP exchange, and files
+  and SQLite databases created and deleted under `Path.GetTempPath()`.
+- Never game assets, a production database, `data/pristontale.db`, or reference directories.
+- One exception: the `SkillPresentationTests` case "skill effect assets exist ..." walks up from the runner for an
+  `assets/` directory containing `Effect/`, checks VFX textures and legacy scripts there, and prints
+  `(skipped: no assets/ directory next to the repository)` when none is found.
+
+## Benchmarks
+
+All CPU-only; no GPU, assets or database unless stated.
+
+| Command (after `dotnet run --project tests/PristonTale.Tests -c Release --no-build --`) | Measures |
+| --- | --- |
+| `--benchmark` | After the (filtered) suite: 5 runs of 128 players, 100 warmup and 1,000 measured 50 ms ticks; median, p95, max, bytes/tick |
+| `--benchmark-world` | 128 players + 512 monsters at 20 Hz (AI, combat, collision, snapshots, 128 drained outboxes); spacing 128 and 64 units, 5 runs each |
+| `--benchmark-parsing <assets>` | Binary cursor microbenchmarks and `Field/forest/fore-1.smd` parses; requires 752 materials, 35,519 faces |
+| `--profile-ricarten <assets>` | Ricarten stage and model parsing, collision build and texture preparation times |
+
+Render and streaming benchmarks need the GPU; see Probes.
+
+## Probes
+
+Probes read game data (`<assets>` is the asset root, normally `assets`) and/or create a graphics device. Run them only
+when reading those assets is authorized. GPU probes:
+
+- Are MonoGame games on the Native platform (Vulkan): they need a Vulkan driver, a desktop session (a virtual X server
+  without Vulkan presentation does not work) and the native runtime the build copies next to the runner (README.md,
+  Build).
+- Read the client's compiled content from `<content>`, normally `Client/PristonTale/bin/Release/net10.0/Content`; build
+  the client first.
+- Honor `MG_HIDDEN_WINDOW=1` to hide the window. It lengthens presentation (about 1.7 ms per frame measured on a GTX
+  1050 Ti), so keep the window visible for timing runs.
+- Report failure by throwing, which ends the process with a nonzero exit code.
+
+### Argument reference
+
+| Flag and exact arguments | GPU | Does |
+| --- | --- | --- |
+| `--verify-shaders <content>` | yes | Draws every technique into float targets and compares with C# references (see below) |
+| `--benchmark-render <assets> <content> <report.json> <field-id> <settings.json> [options]` | yes | Frame timing report plus `<report>.png` |
+| `--check-look <mode> <assets> <content> <output-dir>` | yes | Fails on look regressions; `mode` is `charselect`, `actor`, `opening`, `scenery` or `shade` |
+| `--profile-stream <assets> <content>` | yes | Incremental stage upload with the game's policy at a fixed 60 Hz |
+| `--profile-stream-baseline <assets> <content>` | yes | Same with an 8-step upload limit for comparison |
+| `--capture-hud <assets> <content> <output-dir> [<background.png>]` | yes | In-game HUD scenarios to PNG (scales 2 and 3, `npc-*` dialogs) |
+| `--capture-hud-target <assets> <content> <output-dir>` | yes | Ricarten at 14:00 with remote-roster entities; target frame, bar, resolutions |
+| `--capture-login <assets> <content> <output-dir> <background.png>` | yes | Login screen edge cases (see below) |
+| `--capture-skills <assets> <content> <output-dir> [<hex,hex,...>]` | yes | Casts skills with the server timeline (see below) |
+| `--capture-sky <assets> <content> <output-dir>` | yes | One `sky-NN.png` per sky profile |
+| `--capture-npcs <assets> <content> <output.png>` | yes | NPC presentation capture |
+| `--capture-job-heads <assets> <content> <output.png>` | yes | Job-head presentation capture |
+| `--capture-equipment <assets> <content> <output-dir>` | yes | Equipment captures |
+| `--capture-ranged-equipment <assets> <content> <output-dir>` | yes | Bow and crossbow attachment captures |
+| `--capture-ground-loot <assets> <content> <output-dir>` | yes | Ground drop elevation, coordinate remapping and distinct label click targets |
+| `--capture-combat-effects <assets> <content> <output-dir>` | yes | Combat mesh-effect pool budget, lifetimes and captures |
+| `--capture-potions <assets> <content> <output-dir>` | yes | Potion particle captures over time |
+| `--capture-hulk-hits <assets> <content> <output-dir>` | yes | Same probe with the Hulk hit effects |
+| `--verify-skill-motions <assets>` | no | Every skill rule's motions (index, length, events, class tag) against the class motion tables |
+| `--verify-monster-skills <assets>` | no | Monster skill windup and duration from real models |
+| `--verify-player-timing <assets>` | no | Per-class attack, damage and EAT timing against actor files |
+| `--verify-equipment <assets>` | no | Equipped attack clips against `PlayerEquipmentTiming` |
+| `--export-equipment-timings <assets> <output.cs>` | no | Writes the generated `PlayerEquipmentTiming.cs` (see Pitfalls) |
+| `--verify-world-rewards <assets> <disposable.db>` | no | Real catalog checks on a copy of an imported database (see below) |
+| `--validate-binary-assets <assets>` | no | Parses every `.inx`, `.smd`, `.smb` and `.cam` under the root and lists failures |
+| `--inspect-actor <assets> <actor-path>` | no | Prints mesh, skeleton, material and bone details of one actor |
+| `--inspect-ricarten-ground <assets>` | no | Reads only the Ricarten stage: stacked floors near the entrance gate and high cameras with an occluded focus |
+
+`--benchmark-render` details:
+
+- `[options]` is `<seconds> <runs> <hour> <orbit>` optionally followed by `<distance>`, then `<pitch>`, then
+  `<focusX> <focusZ>`, then `<yaw>`.
+- Accepted argument counts after the flag: 5, 9, 10, 11, 13 or 14; any other count runs the suite instead.
+- Defaults without `[options]`: 60 s, 5 runs, hour 12, no orbit. `distance`, `pitch`, `focusX`, `focusZ` and `yaw` are
+  floats; yaw is in radians (0 looks toward +Z, pi/2 toward -X).
+- The settings file must be a complete, valid client settings document with `maxFps` 0 and a windowed mode.
+- The JSON report holds frame, update, draw and present times; CPU time per render section (`CpuSectionsMs`); GPU time
+  per pass from Vulkan timestamps (`GpuSectionsMs`, through the fork's `GpuTimestampPool`; `GpuTimestamps` is false when
+  the device lacks them, and a frame that begins inside a render pass stays untimed); and the cost of each incremental
+  stage-upload step (`StreamingUploadSteps`). `EffectiveMultiSampleCount` is the HDR scene target's sample count.
+- Section means count only frames in which the section ran. Inside `Frame`: `SunShadow` (cascades refreshed that
+  frame), `LampShadows`, `Prepass`, `AmbientOcclusion` (GTAO, contact shadows, blur), `LightCulling`, `Environment`
+  (sky cube faces, prefiltering, irradiance; four times a second), `Reflections`, `Volumetric`. Outside `Frame` (post
+  chain): `Temporal`, `Exposure`, `Bloom`, `DisplayTransform` (exposure, display transform, grade), `PostAntiAliasing`
+  (FXAA or SMAA). `SkyCapture` is the atmospheric fog's sky copy; `SkyCaptureRefreshes` counts its redraws.
+
+```bash
+dotnet tests/PristonTale.Tests/bin/Release/net10.0/PristonTale.Tests.dll --verify-shaders Client/PristonTale/bin/Release/net10.0/Content
+dotnet tests/PristonTale.Tests/bin/Release/net10.0/PristonTale.Tests.dll --benchmark-render assets \
+  Client/PristonTale/bin/Release/net10.0/Content /tmp/ricarten.json village-2 settings.json 15 2 12 true
+dotnet tests/PristonTale.Tests/bin/Release/net10.0/PristonTale.Tests.dll --check-look charselect assets \
+  Client/PristonTale/bin/Release/net10.0/Content /tmp/look
+dotnet tests/PristonTale.Tests/bin/Release/net10.0/PristonTale.Tests.dll --capture-hud assets \
+  Client/PristonTale/bin/Release/net10.0/Content /tmp/hud
+dotnet tests/PristonTale.Tests/bin/Release/net10.0/PristonTale.Tests.dll --capture-skills assets \
+  Client/PristonTale/bin/Release/net10.0/Content /tmp/skills
+dotnet run --project tests/PristonTale.Tests -c Release --no-build -- --inspect-ricarten-ground assets
+```
+
+Other probe details:
+
+- `--capture-skills` casts Fire Ball, Healing, Pike Wind, Extreme Shield and Impact, or the comma-separated hex codes
+  given (for example `0x05040004,0x07080003`), through the client's skill presentation with the server's timeline; it
+  fails when a cast starts no motion or shows no effect light.
+- `--capture-login` draws before the first Update with a preloaded shared atlas, then covers a 1x1 viewport and its
+  restoration, disabled credentials, keyboard navigation, masking and scaled mouse hit tests.
+- `--capture-hud` shows the typed NPC dialog, teleport destinations, the shop (buy and sell) and the warehouse in its
+  `npc-*` scenarios. It reads the Ricarten stage only for the authored minimap rectangle.
+- `--capture-hud-target` spawns monsters of two races, an NPC and a player through the remote entity roster and captures
+  the target frame's live portrait, the classic bar, 1280x720, 1920x1080, scale 2 and the minimap under the cursor.
+- `--verify-world-rewards` migrates the given database twice, then checks that every item drop code resolves, Hopy
+  yields 525 XP, Ricarten has 40 fixed NPC placements, `pragma_foreign_key_check` is empty and every placed NPC mesh
+  loads.
+
+### `--verify-shaders` coverage
+
+Draws the static and skinned surface effects into a float target and checks against the same formulas in C#
+(`ShaderValidationProbe*.cs`, one partial per topic):
+
+- Material model: emission, masked cutout, UV scroll, second layer (multiply, add), lit model (ambient, sun along the
+  normal, shadow-map receiver), vertex light on both paths (albedo scaled in linear light), selection rim, unlit effect.
+- Fog toward a flat colour and toward a sky capture; sky layers; a night dome with horizon glow and moon disk
+  (reflections never brighter than the visible dome; a dark rough ground reflects no more sky than under a uniform sky
+  of the same irradiance).
+- Shadow casters' depth (orthographic and perspective); skinning by a bone translation; motion target (camera, jitter,
+  a skinned bone's previous pose).
+- Post chain: HDR composition, automatic exposure (histogram, adaptation), bloom pyramid, the three display transforms
+  and the colour grade against CPU references, temporal resolve of a still scene, display-referred output, mesopic
+  vision in the final pass.
+- Lighting: tiled light culling (depth range, side planes), image-based lighting irradiance scale, a lamp-lit actor
+  behind an occluder (never black; inverse-square falloff), screen-space reflections whose rays all miss.
+- Foliage: a two-sided leaf texel above the alpha cut-off covers the background exactly as an opaque texel.
+- Volumetric light: scene x transmittance + in-scatter with the exact optical depth; 24 accumulated frames of shafts
+  through a striped shadow map deviate from the converged mean less than 40 % as much as one frame.
+
+### `--check-look` modes
+
+| Mode | Fails when |
+| --- | --- |
+| `charselect` | Character-select stage, braziers, roster: > 2 % of the frame clipped to white or > 5 % with a clipped channel |
+| `actor` | NPCs at noon, front and back: the two-pixel silhouette ring is more than 1.25 times the interior luminance |
+| `opening` | Login flythrough with meteors: the town in the lower third is more than 1.8 times redder than blue |
+| `scenery` | Ricarten metal on a stage quad vs an animated scenery model, noon and 17:00: luminance > 8 % apart, saturation > 0.05 apart, |
+| | or animated `Specular` debug view > 1.25 x the stage quad's |
+| `shade` | NPC on an open floor and on a dark-lit (shaded) floor at 10:00: actor shade/open ratio off the floor's by > 1.5 x |
+
+### Streaming probe
+
+`--profile-stream` uses `FieldStreamingPolicy.MaximumUploadSteps` (32 steps) and the 2 ms budget of the game. It clears
+the window instead of drawing the world, so timings isolate publication and do not establish in-game frame time or GPU
+capacity. It reports batch and triangle counts and a digest of static vertex data plus skinned bounds and palettes;
+this is not a readback of write-only GPU buffers or a visual comparison.
+
+## How to
+
+### Add a regression case
+
+1. Pick the area file from the Code map, or create `tests/PristonTale.Tests/<Area>Tests.cs` with the shape above.
+2. Add `yield return ("<lowercase sentence stating the guaranteed behavior>", <Name>Async);`. The sentence is what
+   `--filter` matches and what `PASS`/`FAIL` print; make it unique and descriptive.
+3. Write `private static Task <Name>Async()` (or `async Task`) using `Assert.True(condition, "what broke")`.
+   Build data in code; reuse `SkillScenario`/`SkillFixtures` for skills, `MemoryCharacters` for persistence failures,
+   `WireRoundTrip` for presence on the wire.
+4. New class only: add `specifications.AddRange(<Area>Tests.Cases());` to `Program.cs`.
+5. Keep each case under the 15 s timeout and free of assets, GPU and fixed ports.
+6. Run the build and the suite (Running). Update this doc when you add an area file or a probe.
+
+### Add a fixture
+
+- Put the file in `tests/PristonTale.Tests/Fixtures/` and add `<EmbeddedResource Include="Fixtures/<name>" />` to the
+  csproj.
+- Read it with `typeof(<Area>Tests).Assembly.GetManifestResourceStream("PristonTale.Tests.Fixtures.<name>")`.
+- Fixtures hold extracted tables in Etervale's own format; assert their row counts so truncation fails loudly.
+
+### Use a disposable SQLite database
+
+- Directory: `Path.Combine(Path.GetTempPath(), $"priston-<topic>-{Guid.NewGuid():N}")`.
+- `services.AddLogging(); services.AddPristonSqlite(Path.Combine(directory, "world.db"));`, build the provider,
+  `await provider.GetRequiredService<IDatabaseMigrator>().MigrateAsync();`.
+- In `finally`: `Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();` then delete the directory recursively
+  (pooled connections keep the file locked on Windows otherwise).
+- Template: `MonsterNameTests`, `NpcServiceTests`, `WorldImportTests`.
+
+### Add a probe or benchmark
+
+- Add the class (`<Topic>Probe.cs`, a `Game` subclass for GPU work) and a dispatch block in `Program.cs` before the
+  case list, matching `args.Length` exactly and returning 0.
+- Load compiled content through `AbsoluteContentManager`; write captures to the output path argument.
+- Add a row to the Probes table above.
+
+## Pitfalls
+
+- Probe dispatch matches the flag and the exact argument count. A wrong count (or an unknown `--check-look` mode) falls
+  through and silently runs the whole default suite instead.
+- `--benchmark` runs after the suite (and honors `--filter`); `--benchmark-world` skips the suite.
+- `--no-build` runs the last build: rebuild after editing tests or production code.
+- `--export-equipment-timings` overwrites a generated source file; review the diff before keeping it.
+- `--verify-world-rewards` migrates the database it is given: pass a copy, never `data/pristontale.db`.
+- GPU probe timings with `MG_HIDDEN_WINDOW=1` are not comparable with visible-window runs.
+
+## Related
+
+- [README.md](README.md) — documentation index
+- [tools.md](tools.md) — SmokeClient and LoadTest for end-to-end checks against a running server
+- [rendering.md](rendering.md), [shaders.md](shaders.md) — what the render probes measure
+- [client-settings.md](client-settings.md) — the settings file `--benchmark-render` requires
+- [persistence.md](persistence.md) — migrations used by the disposable-database cases
+- [skills.md](skills.md) — skill data checked by the skill cases and probes

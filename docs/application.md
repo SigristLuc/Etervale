@@ -1,0 +1,397 @@
+# Application layer and authoritative world
+
+`Shared/PristonTale.Application`: transport-free use cases (auth, characters, sessions, NPC services), the session
+registry, and `WorldServer`, the single owner of live world state with its 20 Hz tick. The TCP edge that calls into
+it is described in [server.md](server.md); skill resolution details are in [skills.md](skills.md).
+
+## Read this when
+
+- You add or change a player command that mutates world state (movement, attack, cast, field change).
+- You add an NPC service, a shop/warehouse/teleporter action, or change prices, reach or revision checks.
+- You add a durable character operation (inventory, progression, pickup) or touch the prepare/persist/commit flow.
+- You debug a `WorldBusyException`, a "save or character operation pending" reply, or an operation id conflict.
+- You change what the server publishes per tick (entities, combat/skill/status events, cooldowns, ground drops).
+- You touch kill credit, experience, drops, corpses, respawn, regeneration or summon ownership on the server.
+- You need to know what may run on the tick thread and what must stay off it.
+
+## Code map
+
+| Path | Responsibility |
+| --- | --- |
+| `Services/AuthAppService.cs` | Login against `IAccountRepository`, creates a `PlayerSession` |
+| `Services/CharacterAppService.cs` | List, name check, create, delete characters; builds `CharacterSummary` for the select screen |
+| [`Services/SessionAppService.cs`](../Shared/PristonTale.Application/Services/SessionAppService.cs) | World entry, saves, durable inventory and progression operations (`ApplyDurableAsync`) |
+| [`Services/NpcAppService.cs`](../Shared/PristonTale.Application/Services/NpcAppService.cs) | NPC click and NPC service requests; warehouse load and joint character+warehouse write |
+| `Services/*Outcome.cs`, `CharacterSummary.cs` | Result records returned to the edge; failure enums carry stable codes |
+| `Sessions/` | `PlayerSession` (state machine, `SaveGate`, loaded record, open warehouse), `SessionRegistry` |
+| [`World/WorldServer.cs`](../Shared/PristonTale.Application/World/WorldServer.cs) | Command queue, tick, field registry, connections, prepare/commit entry points |
+| `World/WorldServer.Npc.cs` | NPC interaction, NPC service check/prepare/commit, teleport arrival |
+| `World/WorldServerOptions.cs` | `ExperienceMultiplier`, `MaxPendingCommandsPerPlayer`; `WorldBusyException` |
+| [`World/FieldInstance.cs`](../Shared/PristonTale.Application/World/FieldInstance.cs) | One live field: players, monsters, NPCs, spawner, AI, collision index, step order, views |
+| `World/FieldCombat.cs` | Basic attack and monster attack resolution, damage log, kill payout, corpses |
+| `World/FieldSkills*.cs` | Player skill authority, effect timers, regeneration, familiars, summons (see [skills.md](skills.md)) |
+| `World/WorldPlayer.cs` | Server-side avatar: movement validation, action state (swing, flinch, eat, cast), death, respawn |
+| `World/WorldNpc.cs` | Placed NPC with deterministic wander |
+| `World/FieldGroundLoot.cs` | Ground drops per field: ownership window, expiry, reservation for pickup, client handles |
+| `World/FieldTransition.cs` | Authorizes gate and warp field changes |
+| `World/*Transactions.cs`, `World/Prepared*Operation.cs` | Prepare side of durable operations (pickup, progression, NPC services) |
+| `World/WorldSnapshot.cs` | Published view types: `EntityView`, `CombatEventView`, `SkillEventView`, `StatusEventView`, `WorldSnapshot` |
+| `World/WorldOutbox.cs` | Per-connection coalescing channel between the tick and the edge |
+| `World/SubscriberPresence.cs` | Spawn/state/remove diff of snapshots per subscriber (used by tests; the server encoder diffs itself) |
+| `World/EntityGrid.cs` | Sorted 256-unit planar buckets built once per field snapshot for nearby queries at the edge |
+| `World/PlayerSkillCooldowns.cs` | Cooldowns on the field clock, rebased on field change, revisioned for snapshots |
+| `World/WorldData*.cs`, `FieldTerrainCatalog.cs` | Catalogs loaded at startup (`WorldDataAppService.BuildAsync`), held in volatile holders |
+| `World/WorldStatusReadModel.cs`, `ServerStatus.cs` | Lock-free player and per-field counts for status reporting |
+| `World/EntityIdAllocator.cs` | Thread-safe monster/NPC/summon ids from `0x4000_0000` |
+
+The project references only `PristonTale.Simulation` and `PristonTale.Persistence.Abstractions`, and exposes internals
+to `PristonTale.Tests`. No sockets, packets, SQL or MonoGame.
+
+## Use cases (transport-free services)
+
+| Service and method | Contract |
+| --- | --- |
+| `AuthAppService.LoginAsync` | Empty input, unknown account, wrong password: `BadCredentials` (-2); blocked: `LoginDenied` (-24). Values are wire codes. Success returns a token. |
+| `CharacterAppService.ListCharactersAsync` | Summaries with armour/weapon/off-hand catalog keys and `InVillage`; throws `InvalidDataException` on corrupt saved equipment |
+| `CharacterAppService.CreateCharacterAsync` | Trimmed name 3-16, defined class, valid face, unique name, `CharacterSlots.Maximum` per account, first free slot, starter record in field 3 |
+| `CharacterAppService.DeleteCharacterAsync` / `NameExistsAsync` | Account-scoped delete by name; global name check. |
+| `SessionAppService.EnterWorldAsync` | Load record, validate field and class, claim the character, `CharacterStateCodec.Restore`, clamp resources, resolve spawn, mark ready |
+| `SessionAppService.SaveCharacterAsync` | Waits for `SaveGate`; captures on the tick while playing, else from the session; writes through `ICharacterRepository.UpdateAsync`. |
+| `SessionAppService.ApplyInventoryAsync` / `ApplyProgressionAsync` | Durable operations, see [Durable operations](#durable-operations). |
+| `NpcAppService.InteractAsync` / `RequestAsync` | NPC dialog and services, see [NPC services](#npc-services). |
+| `WorldDataAppService.BuildAsync` | Reads world-data repositories into `WorldData` (items, monsters, NPCs, field spawns, motion timings). |
+
+`CharacterAppService` throws `InvalidSessionException` for an unknown token; the other services return a rejected
+outcome. Failure enums (`CreateCharacterFailure`, `EnterWorldFailure`, `LoginFailure`) have a fixed `MessageFor` text.
+
+## Sessions and ownership
+
+`SessionRegistry` (singleton) maps a GUID token (`"N"` format) to a `PlayerSession`. The player entity id is assigned
+at login from an interlocked counter starting at 1; monsters, NPCs and summons use `EntityIdAllocator` from
+`0x4000_0000`, so the two ranges never collide.
+
+`PlayerSession` state (an int changed only by compare-exchange):
+
+| State | Entered by | Left by |
+| --- | --- | --- |
+| 0 authenticated | `Create` | `TryBeginEntry` (to 1) |
+| 1 loading | `EnterWorldAsync` | `CompleteEntry(true)` to 2, `CompleteEntry(false)` back to 0 |
+| 2 ready | successful entry | `TryBeginPlay` (to 3), called by the edge before `JoinAsync` |
+| 3 playing (`IsPlaying`) | edge | `EndPlay` (to 4) after `LeaveAsync` |
+| 4 closing | `EndPlay` or `SessionRegistry.Remove` (`MarkClosed`) | terminal; a session enters the world once |
+
+Character ownership: `TryClaimCharacter(characterId, token)` admits one session per character
+(`EnterWorldFailure.AlreadyActive` otherwise). The claim is released when entry fails or the session is removed.
+`EnterWorldAsync` re-checks that the token still maps to the same session before publishing the loaded state.
+
+Spawn resolution on entry: saved X/Z when valid and not both zero, else the field's first start point, else its
+center. Height is resolved later on the field terrain (`FieldTerrain.PlaceOnFloor` in `JoinAsync`).
+
+`SaveGate` (`SemaphoreSlim(1,1)`) serializes everything that writes the character: saves wait for it; inventory,
+progression and NPC operations try it with zero timeout and answer "save or character operation pending; retry" /
+`NpcServiceStatus.Busy`. `session.Warehouse` (the account warehouse while open) changes only under the gate.
+
+Lifecycle seen from the edge: `LoginAsync` -> `EnterWorldAsync` -> `TryBeginPlay` -> `WorldPlayerFactory.Create` ->
+`WorldServer.JoinAsync(field, player, outbox.Writer, session)` -> play commands -> `LeaveAsync` -> `EndPlay` ->
+`SaveCharacterAsync` -> `SessionRegistry.Remove`.
+
+## Authoritative world
+
+### Tick loop
+
+`WorldTickService` (server) calls `WorldServer.Tick(1/20 s, ++tick)` from a `PeriodicTimer` at `WorldServer.TickHz`
+(20). `Tick` ignores non-finite or non-positive `dt`, then:
+
+1. Command phase: drains up to `CommandsPerTick` (16384) queued commands on the calling thread.
+2. Boss clock: `BossSpawnSchedule.TryBeginPass` on the injected `TimeProvider` yields at most one hour value per pass,
+   shared by all fields.
+3. Field phase: `Parallel.ForEach` over every created field: `FieldInstance.Step`, then (only with players present)
+   build one `WorldSnapshot` and write it, stamped per player with `OwnerState` and changed cooldowns, to each
+   connection's outbox.
+4. When membership changed: publish `PlayerCount` and per-field counts with `Volatile.Write` for the read model.
+
+### Command queue
+
+All world access from other threads goes through `EnqueueAsync`, which wraps a closure into a bounded
+(65536, single reader) channel and returns a `Task` completed on the tick thread. A closure that throws faults the task.
+
+- Per-player quota: commands tagged with the player's entity id count against `MaxPendingCommandsPerPlayer`
+  (default 64, config `World:MaxPendingCommandsPerPlayer`). Over quota, or with the channel full, `EnqueueAsync`
+  throws `WorldBusyException` synchronously; the edge drops the command like a lost packet.
+- Exempt commands use owner 0 (`NoOwner`) and `waitForCapacity: true`: `LeaveAsync`, `CaptureForSaveAsync`, every
+  `Commit*Async` and `AbortCharacterOperationAsync`. These cannot be refused because a durable write may already
+  have happened or the player is leaving.
+- The per-player counter entry is removed on leave. `PendingCommandsOf(entityId)` exposes it for tests.
+
+### Threading model
+
+| Context | May touch | Must not |
+| --- | --- | --- |
+| Caller threads (edge, services) | Session fields under `SaveGate`, repositories, `EnqueueAsync` | Any `WorldServer`/`FieldInstance`/`WorldPlayer` state |
+| Command phase (tick thread, serial) | Everything in `WorldServer`: `_fields`, `_connections`, players, fields | Await, block, do IO, wait on locks |
+| Field phase (parallel per field) | Its own field, its players' connections (outbox write, owner/cooldown stamps), immutable catalogs, `EntityIdAllocator` | Other fields, `_fields`/`_connections` mutation, IO |
+
+Immutable shared inputs: `WorldDataHolder.Current` and `FieldTerrainCatalog` are swapped whole (volatile) at startup
+by the server's load services before players join. Tick-owned scratch lists in `FieldInstance` and `FieldSkills` avoid
+per-tick allocation; event lists are copied to arrays before publication.
+
+Persistence never runs on the tick. Durable work is split: the tick prepares a candidate and a
+`CharacterSaveSnapshot` (pure memory), the service writes it off the tick, the tick commits. See below.
+
+### Interface used by the TCP edge
+
+| Call | Queue owner | Result |
+| --- | --- | --- |
+| `JoinAsync(fieldId, player, outbound, session)` | player | false if unknown field, already connected, or session not playing |
+| `LeaveAsync(fieldId, entityId, outbound)` | exempt | removes the player only if `outbound` matches the connection |
+| `MoveToFieldAsync(old, new, player, requestedPosition, outbound)` | player | gate or warp change authorized by `FieldTransition` |
+| `ReportMovementAsync(field, entity, position, facing, moving, running, actionTarget)` | player | `MovementVerdict` |
+| `SetAttackTargetAsync(field, attacker, target, sustained, sequence)` | player | false on dead attacker, stale sequence, invalid target |
+| `CastSkillAsync(field, entity, SkillCastRequest)` | player | `SkillCastOutcome` (cast, release, summon mode) |
+| `InteractNpcAsync(session, npcId)` | player | `NpcInteraction` (offers + one random dialog line) |
+| `PositionOfAsync(entity)` | player | current position or null |
+| `PlayerCount`, `ActiveFieldCounts()` | none (volatile) | read model values |
+
+Durable entry points (`Prepare*Async`, `Commit*Async`, `CheckNpcServiceAsync`, `CaptureForSaveAsync`) are called by
+`SessionAppService` and `NpcAppService`, not by the edge directly.
+
+## Field instances
+
+- Created lazily by `GetField` on first join or arrival, never removed, and stepped every tick even when empty
+  (population, despawns, boss passes). Snapshots are built only when the field has players.
+- Each field owns a `CombatRng` seeded with its field id, its own clock `NowMs` (starts at 0 when created) and its
+  stage collision from `FieldTerrainCatalog` (`FieldTerrain.None` when no stage was loaded).
+- Fixed NPCs are placed in the constructor; a placement that references a missing NPC throws `InvalidDataException`.
+
+`FieldInstance.Step(dt, bossHour)` order:
+
+1. Advance the clock, clear events, `FieldSkills.BeginTick` (moves cast start events queued by commands into this
+   tick), rebuild the prey view (players; live summons as target-only).
+2. Spawner: maintain population and despawns for wild monsters; scheduled bosses when the hour pass is due.
+3. Rebuild the collision index; step wild monsters (AI brain, swing-begin events, `MoveMonster`, hit resolution).
+4. Step summons, then NPC wander with entity collision and terrain step.
+5. Per player: respawn countdown when dead; else action tick (swing hit), potion tick and pending potion start, attack
+   lock (`StepPlayerAttack`), stale-motion expiry.
+6. `FieldSkills.Step` (cast timelines, projectiles, familiars, pulses, effect timers, regeneration), then place skill
+   kill payouts as loot.
+7. Corpse timers, ground loot expiry.
+
+### Players (`WorldPlayer`)
+
+- Movement is client-owned and validated: a distance budget refills at 1.35 x run speed (start 0.5 s, cap 2 s, +32
+  units slack); reports over 48 units must not cross a wall, shorter ones follow the wall slide within 8 units; the
+  floor must be within 64 units of climb. Height is always the server's floor. Busy players (swing, flinch, eat,
+  cast) ignore drift up to 192 units and reject larger. A move without an action target drops the attack lock.
+- Motion stops showing after 1.5 s without reports. Death clears actions and potion; respawn after 5000 ms at the
+  field respawn point with full life, mana and stamina. `Revive` brings a player back in place with a damage guard.
+- Field changes (`MoveToFieldAsync`): the requested position is never used. A gate keeps the current position
+  (`CrossGate`); a warp places the player at the catalog exit, settled on the floor. `FieldTransition` accepts a warp
+  gate within `max(width, 48) + 64` of the player (level and destination level checked, special effect 2 excluded) or
+  a gate of either field pointing at the other within 1810 units. Cooldowns are rebased to the new field clock.
+
+### Monsters, summons and NPCs
+
+- Wild monsters come from `FieldSpawner`; summons are added by `FieldSkills` through `IFieldSkillHost.AddSummon` and
+  stepped separately. Summons never count toward population and are never valid basic-attack or lock targets.
+- Monster movement re-resolves the AI's desired step against the stage and other live monsters only
+  (`MonsterStepping.Step`); players and NPCs do not block monsters. NPCs collide with all entities.
+- AI tuning per monster code is cached (`TuningFor`) from its motion timings.
+- `WorldNpc` wanders deterministically (LCG seeded from entity id and NPC code) inside `MoveRange` of its home anchor
+  when its model has a walk clip; otherwise it stands. Placement converts authored fixed-point (/256) and 4096-step
+  angles.
+
+### Combat resolution
+
+Player basic attack:
+
+1. `SetAttackTargetAsync` sets the lock (`AcceptAttackSequence` refuses an older sequence; 0 auto-increments).
+2. `FieldCombat.StepPlayerAttack`: when idle and in `AttackRange` (height within 64), `BeginSwing` with timing from the
+   class/weapon motion clip and emits `SwingBegin`. The client walks into range; the server waits for that position.
+3. `WorldPlayer.TickAction` fires the hit once when elapsed time crosses the clip's event offset (or at clip end).
+4. `ResolvePlayerSwingHit`: `SkillFormulas.NormalAttack` + next-hit bonus, `CombatResolver.Resolve`,
+   `ModifierRules.ScaleDamage`, skill hooks (`IPlayerSkillCombat.BasicStrike`), then `ApplyPlayerDamage`.
+5. `ApplyPlayerDamage` (shared by swings, skills, familiars and summons): records the hit in `MonsterDamageLog`,
+   applies damage, boss retarget, emits `Hit` (attacker id is the summon/familiar when `sourceEntityId` is set), flinch
+   roll, or on death `OnMonsterDeath`.
+6. Kill credit goes to the killer unless the first attacker (latched at full HP) dealt enough damage and hit within
+   `KillReward.FirstAttackerDisengageMs` (15000). Experience is `KillReward.ExpForKill(..., ExperienceMultiplier)`
+   awarded to the credited player; drops are rolled; the corpse despawns after `CorpseDespawnMs` (5710).
+7. `KillPayout` drops are placed at the corpse, settled on the floor (`FieldGroundLoot.Place`).
+
+Monster attacks (`ResolveMonsterHit`): basic hits check reach, reflection and evasion hooks, roll with
+`CombatResolver.ResolveMonsterAttack` (shield block), scale by modifiers and undead absorption, pass the skill
+`Defend` hook, then `WorldPlayer.ApplyDamage` (ignored during a revive guard). A monster's area skill hits every player
+inside its shape once per cast (`SkillImpactPending` is consumed before visiting victims). Monster hits on summons use
+accuracy versus the summon's defence and subtract its absorption.
+
+### Player skills (`FieldSkills`)
+
+`FieldSkills` is the per-field skill authority: `Cast` validates on the command phase (dead, busy, village,
+learned, caster checks, cooldown, target and range with 24 units slack), spends mana and stamina, starts the cooldown
+and the cast motion; `Step` fires hits at the motion's event times. Partial files by mechanic: `Damage`, `Areas`,
+`Buffs`, `Allies`, `Defense` (hooks into `FieldCombat` via `IPlayerSkillCombat`), `Charge`, `Charm`, `Companions`,
+`Resurrection`, `Summons`. Details, data and protocol: [skills.md](skills.md).
+
+### Regeneration and effect timers
+
+`FieldSkills.StepEffects` runs for every player each tick: dead players lose timed effects and reset regeneration;
+players in a village lose their timed player-skill effects; then effects step and
+`RegenerationState.Step(character, posture, dt)` restores resources by posture (`WorldPlayer.Posture`: standing,
+walking, running, acting). Monster effects step too. Formulas live in Simulation ([simulation.md](simulation.md)).
+
+### Summon ownership
+
+One summon per owner (`FieldSkills` maps owner id to summon id); a new call replaces the old one. A summon's
+`OwnerId` is published in `EntityView.OwnerId`; its damage credits the owner. It ends when it expires, dies, its
+owner leaves the field (`FieldInstance.Remove` -> `FieldSkills.Forget` -> dismiss), is too far to recall, or the owner's
+summon status ends. Charmed wild monsters become summons for the charm duration.
+
+### Ground loot (`FieldGroundLoot`)
+
+- At most 1024 drops per field. Non-public drops (monster without `AllPlayersSeeDrops`) belong to the credited player
+  for 5 s. Lifetime 90 s for gold and catalog keys starting `PL`/`PS`, 180 s otherwise.
+- Clients address drops by a 32-bit handle packed into a GUID (`GroundDropHandle`); `ResolveClientId` maps it back.
+- Pickup reserves a drop by operation id (`TryReserve`, reach 32 units); a reserved drop does not expire. `Resolve`
+  removes it on commit or releases it on abort. Inventory-delivered drops (`ToInventory`) throw `NotSupportedException`.
+
+## Durable operations
+
+Every change to a character's durable state uses prepare, persist, commit under the session's `SaveGate`:
+
+| Step | Where | What |
+| --- | --- | --- |
+| Admit | caller thread | `SaveGate.WaitAsync(0)`; busy if held |
+| Prepare | tick (player-owned command) | verify session/connection, replay check, clone (`CloneForInventoryOperation`), apply to the candidate, record the operation, `CharacterRecordFactory.Capture` -> `CharacterSaveSnapshot` |
+| Persist | caller thread | `ICharacterRepository.UpdateAsync` or `IWarehouseRepository.SaveWithCharacterAsync`, always with `CancellationToken.None` once admitted |
+| Commit | tick (exempt command) | apply the candidate's domain to the live character; throws if the session's character changed |
+| Abort | tick (exempt) | only pickups: release the ground reservation when storage failed |
+
+A prepared operation with `Snapshot == null` is final (rejection or replay) and nothing is written.
+
+| Operation | Prepare | Commit applies |
+| --- | --- | --- |
+| Inventory move/split/merge/equip/unequip | `WorldServer.PrepareInventoryAsync` -> `InventoryCommands.Apply` | inventory, equipment, histories |
+| `ConsumePotion` | same; refused when dead or a potion is pending (`PreparedPotionOperation`) | inventory, then `QueuePotion`; the field starts the eat motion and restores at the clip event |
+| `Pickup` | `GroundPickupTransactions.Prepare` (`PreparedPickupOperation`) | inventory, gold via `TryChangeMoney`, drop removed |
+| Progression (attributes, learn skill) | `ProgressionTransactions.Prepare`; learning needs a reachable skill master | re-applies the command to the live character (`ApplyProgression`) |
+| NPC services | `NpcServiceTransactions.Prepare` (`PreparedNpcOperation`) | inventory, gold delta, open warehouse, teleport arrival |
+
+Revisions and idempotency:
+
+- Commands carry a client GUID `OperationId` and an `ExpectedRevision` (`InventoryRevision` or `ProgressionRevision`;
+  warehouse actions also `ExpectedStorageRevision`). A stale revision is refused without writing.
+- Applied operations are stored per character in three histories (inventory, service, progression), each capped at
+  the last 64, and persisted with the character. The same id with an identical command replays as success
+  ("already committed") with the recorded revision; the same id with a different command is an "operation identity
+  conflict". This makes a retry after a lost reply safe and never charges twice.
+- Commit merges only the transaction's domain into the live character (inventory, equipment, histories, money
+  delta). Life, experience, skill use counters and position keep changing on the tick during storage IO and are not
+  overwritten; the next save persists them.
+
+## NPC services
+
+Flow (`NpcAppService.RequestAsync`):
+
+1. Session lookup, `SaveGate` (zero wait, `Busy` otherwise).
+2. Warehouse `Open` only: `CheckNpcServiceAsync` (tick), then the warehouse is read from storage on every open into
+   `session.Warehouse` (unreadable data -> `StorageFailed`, cache cleared).
+3. `PrepareNpcServiceAsync` (tick): `NpcServiceTransactions.Check` -> NPC exists in the player's field, player alive
+   and within `NpcInteraction.Reach` (96, planar), NPC offers the service, the action fits the service, the service is
+   available (`NpcServiceAvailability`). Warehouse actions other than `Close` need an open warehouse (`NotOpen`).
+4. Non-durable actions (`Open`, `Close`, `Refresh`) return the view: shop catalog (3 tabs) and quotes, warehouse view,
+   or teleport destinations. Durable actions check replay, empty id and revisions, then apply to a candidate.
+5. Persist: character only, or character plus warehouse in one transaction under the expected warehouse revision.
+   A warehouse revision mismatch returns `Conflict` and clears the cached warehouse ("open it again").
+6. `CommitNpcServiceAsync` (tick): inventory, `MoneyDelta`, warehouse cache, and for a teleport `Arrive` (move to the
+   destination field's first start point; the edge then sends a forced warp).
+
+| Service | Actions | Rules (Simulation) |
+| --- | --- | --- |
+| Shop | Open, Refresh, Buy, Sell, Repair, RepairAll, Close | `NpcShopRules`: buy own stock at catalog price (unrolled); sell at a fifth of worn value (no quest items); repair an eighth of lost value; gold cap `MoneyLimits.CarryLimit` |
+| Warehouse | Open, Refresh, Deposit, Withdraw, Move, DepositGold, WithdrawGold, Close | `WarehouseStorage`: per account, 9x9 grid, 100 items, weight 1000, 100,000,000 gold; quest items and materials stay on the character |
+| Teleporter | Open, Teleport, Close | `TeleportRoutes`: route 1 only (Mushroom Cave 100, Beehive Cave 100, Cursed Land 500, Forbidden Land 1000 gold); level must reach the destination field's `LimitLevel` |
+| Skill master | (dialog only here) | Learning goes through `ProgressionCommand.LearnSkill` with the NPC's entity id |
+
+Other `NpcServiceKind` values answer `NotAvailable`. Prices, stock, totals and destinations always come from the
+catalogs, never from the client. `InteractNpcAsync` returns all offers with their availability and one random line.
+
+## Published outcomes and events
+
+- Command results return through the `Task` of the call (`MovementVerdict`, `SkillCastOutcome`, `InventoryOutcome`,
+  `ProgressionOutcome`, `NpcServiceReply`, `NpcInteraction`).
+- Per tick and field, one `WorldSnapshot`: server tick, `EntityView[]` (players, monsters, NPCs), `CombatEventView[]`
+  (`SwingBegin`, `Hit`, `PotionBegin`, `PotionApplied`, `MonsterSkillImpact`, `Heal`, `Evade`, `Revive`),
+  `SkillEventView[]` (start, impact, cancel, release), `StatusEventView[]` (add, refresh, remove, tick), ground drops
+  with owner and visibility, and an `EntityGrid`. `WithOwner` stamps each copy with the receiver's `OwnerState` (only
+  when changed) and its cooldowns (null when unchanged since the last send).
+- `WorldOutbox` is the per-connection `Channel<WorldSnapshot>`: a write never blocks; the reader receives the latest
+  entity state plus every event accumulated since its last read (state is coalesced, events are reliable, the newest
+  cooldown list wins). More than 4096 pending events completes the channel with an `InvalidOperationException`; the
+  edge closes the connection.
+- `IServerStatusReadModel` (`WorldStatusReadModel`) reads volatile counts without touching the tick.
+
+## How to
+
+Add a player command (tick-only, not durable):
+
+1. Add a public method on `WorldServer` that calls `EnqueueAsync(entityId, ...)` with the player's entity id so it
+   counts against the quota; validate the connection and field inside the closure; never await inside it.
+2. Put field-local logic on `FieldInstance` (or `FieldSkills`/`FieldCombat`) and emit results as events if other
+   players must see them; add a `CombatEventKindView`/`SkillEventPhaseView` value only together with its encoding.
+3. Map the packet in `Server/PristonTale.Server/Net/ClientSession.cs`, catch `WorldBusyException`, and document the
+   opcode in [protocol.md](protocol.md) and the edge in [server.md](server.md).
+4. Add a regression case in `tests/PristonTale.Tests` (e.g. `NetworkHardeningTests.cs` for quota behaviour) and
+   register it in `Program.cs` with `specifications.AddRange(X.Cases())`.
+
+Add a durable character operation:
+
+1. Command, outcome and applied-history types in Simulation with an `OperationId` and expected revision.
+2. A `*Transactions.Prepare` that returns a `PreparedCharacterOperation<T>` (replay check first, clone, apply,
+   record, capture snapshot), a `WorldServer.Prepare*Async` (player-owned) and `Commit*Async` (exempt, merges only
+   the operation's domain, throws on ownership change).
+3. A `SessionAppService` method built on `ApplyDurableAsync`; if it reserves world resources, release them in
+   `AbortCharacterOperationAsync`.
+4. Persist the new history in `CharacterRecordFactory.Capture`/`CharacterStateCodec` ([persistence.md](persistence.md)).
+
+Add an NPC service or action:
+
+1. `Shared/PristonTale.Simulation/World/Npcs/NpcServiceKind.cs` and `NpcServiceCommand.cs`: append enum values
+   (both are persisted; never renumber), add reply fields to `NpcServiceReply` and statuses to `NpcServiceStatus`.
+2. Turn it on in `NpcServiceAvailability.IsAvailable` (`TeleportRoutes.cs`) and put rules in Simulation.
+3. `World/NpcServiceTransactions.cs`: `Accepts`, the `Apply` switch for durable actions (non-durable ones in `Show`),
+   `Describe` for new statuses. Gold changes go through the candidate so `MoneyDelta` is computed.
+4. Edge and client: `Server/PristonTale.Server/Net/NpcWireMapping.cs`,
+   `Shared/PristonTale.Protocol/Packets/NpcPackets.cs`, `Client/PristonTale.Gameplay/UI/Npc/HudNpcServiceController.cs`;
+   if the authored data maps a new key, the importer ([world-import.md](world-import.md)).
+5. Tests in `tests/PristonTale.Tests/NpcServiceTests.cs`; update the service table above.
+
+## Pitfalls
+
+- `WorldBusyException` is thrown synchronously by the `WorldServer` call, not delivered through the returned task;
+  catch it at the call site (a fire-and-forget `_ = world.X(...)` still throws).
+- Commit commands must stay exempt (`NoOwner`, `waitForCapacity`): refusing a commit after a successful write would
+  leave storage ahead of memory.
+- Storage writes use `CancellationToken.None` on purpose; a cancelled admitted write is recovered by retrying the
+  same operation id.
+- `CommitInventoryOperation` does not copy money; gold changes are applied as deltas (`TryChangeMoney`). Copying the
+  whole candidate would erase tick-side changes made during storage IO.
+- Field clocks are per instance. Anything stored as an absolute field time (cooldowns) must be rebased when a
+  player changes field; `MoveToFieldAsync` does this, the NPC teleport path (`Arrive`) does not.
+- `FieldInstance` mutates only during its own step or in the command phase; never call into a field from another
+  field's step (they run in parallel).
+- `SessionRegistry.Remove` releases the character claim; a session that leaves the world is closing (state 4) and
+  cannot enter again.
+- `SubscriberPresence` is not the production diff; the server's `PresenceEncoder` has its own. Keep both consistent
+  when adding `EntityView` fields that need a full respawn.
+- `CharacterSummary` building throws on inconsistent persisted equipment so corruption is visible; do not swallow it.
+
+## Related
+
+- [architecture.md](architecture.md) - layering and the process/threading overview
+- [server.md](server.md) - host, TCP edge, configuration (`World:*` settings)
+- [protocol.md](protocol.md) - packets for inventory, progression, NPC services, skills, presence
+- [skills.md](skills.md) - skill data and `FieldSkills` resolution
+- [simulation.md](simulation.md) - characters, items, combat formulas, modifiers, regeneration
+- [world.md](world.md) - spawning, AI, loot rolls, NPC catalog, terrain
+- [persistence.md](persistence.md) - repositories, character and warehouse records
+- [testing.md](testing.md) - regression runner

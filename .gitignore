@@ -99,14 +99,12 @@ appsettings.*.local.json
 
 assets/*
 assets_n/
-original_references/
 /GameServer/
 3d/
-/docs/
 *.7z
 3d_glb/
 
-# MonoGame fork (monogame/, copied from WingSim): the native runtime build fetches SDL2/FAudio and writes premake files,
+# MonoGame fork (monogame/): the native runtime build fetches SDL2/FAudio and writes premake files,
 # objects and the build tree; the source (src/) is committed, the built libraries (bin/) never are.
 monogame/runtime/src/external/sdl2/
 monogame/runtime/src/external/faudio/

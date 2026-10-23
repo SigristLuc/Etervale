@@ -1,5 +1,5 @@
 # Local development PostgreSQL for the PristonTale server (accounts, characters, config data).
-# Hot world state stays in server memory; this DB is for persistence + config (see docs/mmo-migration.md).
+# Hot world state stays in server memory; this DB is for persistence + config (see docs/persistence.md).
 #   docker compose up -d        # start
 #   docker compose down         # stop (keeps the named volume / data)
 #   docker compose down -v      # stop and wipe the data volume

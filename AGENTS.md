@@ -5,8 +5,11 @@ documentation before editing.
 
 ## Working rules
 
-- Keep documentation current when changing behavior, contracts, formats, or commands. Use [README.md](README.md) for
-  setup and run instructions; keep this file limited to agent guidance.
+- Start at [docs/README.md](docs/README.md): it routes each task to the doc that maps the code involved. Read that doc
+  before searching the source.
+- Keep documentation current when changing behavior, contracts, formats, settings, or commands: update the matching
+  doc in `docs/` in the same change. Docs are in English and describe the current state only, never a changelog.
+  Use [README.md](README.md) only for setup and run instructions; keep this file limited to agent guidance.
 - Treat restore, build, and analyzer warnings as errors. Build in Release with `-warnaserror`; keep
   `TreatWarningsAsErrors=true`. Fix causes instead of suppressing diagnostics.
 - Write readable C#: lines at most 240 characters, one statement per line, clear names, and braces on separate lines for
@@ -24,11 +27,11 @@ documentation before editing.
 - Keep shared gameplay rules in `Shared/PristonTale.Simulation` and online authority in
   `Shared/PristonTale.Application`. Keep MonoGame in the client, transport mapping at the network edges, and SQL in
   persistence.
-- Treat `original_references/` as reference material. Check version and encoding before extracting behavior; use
-  `PristonFileResolver` for original asset paths.
+- Use `PristonFileResolver` for original asset paths. Check version and encoding before extracting behavior from
+  local reference material.
 - Never cite the original source in this repository: no file names, paths, line numbers, function or struct names
-  from `original_references/` in code, comments, identifiers, messages, tests or documentation. Describe behavior,
-  rules and binary formats in Etervale's own terms.
+  from it in code, comments, identifiers, messages, tests or documentation, and no mention of where local reference
+  material is kept. Describe behavior, rules and binary formats in Etervale's own terms.
 - Keep database migrations structural. Import authored world data through `tools/PristonTale.WorldImport`, preserving
   duplicate definitions and unresolved references. Check importer, repository, runtime catalog, and both providers when
   data contracts change.

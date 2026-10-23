@@ -1,0 +1,407 @@
+# Skills
+
+The class skill system end to end: the class skill data and rules (`Shared/PristonTale.Simulation/Skills`), learning at
+a skill master, server-side cast resolution (`Shared/PristonTale.Application/World/FieldSkills.*.cs`), the skill and
+status extension messages, and the client skill window, mouse sockets, cast flow, buff bar and skill VFX hooks.
+Monster skills are a separate system (see [world.md](world.md)); they share only the status-effect engine and messages.
+
+## Read this when
+
+- Changing a number of a class skill (damage, cost, cooldown, duration, range, area, motion, effect name).
+- Adding a skill mechanic the rule format cannot express yet, or a new `SkillKind`.
+- Debugging a refused cast (`SkillCastVerdict`), a wrong hit time, a missing impact or an effect that never ends.
+- Changing skill learning: prices, level requirements, skill points, the skill master.
+- Changing the skill window, mouse sockets, `F1`-`F8` keys, charge input, the buff bar or summon orders.
+- Wiring a skill to a cast, projectile, impact, aura or familiar VFX or sound.
+
+## Code map
+
+| Path | Responsibility |
+|---|---|
+| [ClassSkillCatalog.cs](../Shared/PristonTale.Simulation/Skills/ClassSkillCatalog.cs) | Loads the embedded class files; `ClassSkillEntry` (definition fields); `SkillJson` options (camel case, string enums, hex codes) |
+| `Shared/PristonTale.Simulation/Skills/Data/Classes/<Class>.json` | One file per `PlayerClass`: 16 skills in skill-window order, definition plus rule. Embedded resources of the Simulation assembly |
+| [SkillRules.cs](../Shared/PristonTale.Simulation/Skills/SkillRules.cs) | `SkillRule` and its sub-records (damage, buff, passive, summon, charge, companion, counter, burst); `SkillRuleCatalog` and its load-time validation |
+| `Shared/PristonTale.Simulation/Skills/SkillRuleMechanics.cs` | Second half of the rule records: range/damage modes, motion variants, allies, enchant, absorb, reflect, guard, pulse, charm, resurrect; `ForRank`, `HitFrames` |
+| `Shared/PristonTale.Simulation/Skills/Skill.cs` | `Skill` definition, `JobTier`, `SkillCategory`, `SkillMouseUse`; rank-indexed mana and stamina |
+| `Shared/PristonTale.Simulation/Skills/SkillFormulas.cs`, `SkillFormulas.Mechanics.cs` | Shared formulas: cost, cooldown, proficiency, caster checks, range, motion timing, charge timing, damage, heal, duration, chances |
+| `Shared/PristonTale.Simulation/Skills/SkillCastVerdict.cs` | `SkillCastVerdict` (wire status numbering), `SkillCastCommand`, `SkillCastRequest`, `SkillCastOutcome` |
+| `Shared/PristonTale.Simulation/Skills/LearnedSkills.cs` | Per-character ranks (1..10) and use counter (0..10000) |
+| `Shared/PristonTale.Simulation/Skills/PassiveSkills.cs`, `PassiveSkillEffects.cs` | Passives: `values` tables read by derived stats and combat; `modifiers` passives synced as permanent effects |
+| `Shared/PristonTale.Simulation/Skills/SkillProjectile.cs` | Projectile flight speed (900 units/s), shared by server damage time and client projectile VFX |
+| `Shared/PristonTale.Simulation/Progression/SkillLearning.cs` | Skill-master training: window order, tier gates, level rule, prices, which point pool pays |
+| `Shared/PristonTale.Simulation/Modifiers/` | Effect engine (`EffectContainer`, `StatKind`, `ControlFlags`, `EffectSourceKind`); only player skills apply effects through it, the other source kinds are declared but unused |
+| [FieldSkills.cs](../Shared/PristonTale.Application/World/FieldSkills.cs) | Server authority on one field: `Cast` validation, cast timeline, `Resolve` dispatch per `SkillKind`, event buffers |
+| `Shared/PristonTale.Application/World/FieldSkills.<Mechanic>.cs` | One partial per mechanic: `Damage`, `Areas`, `Buffs`, `Allies`, `Defense`, `Companions`, `Charge`, `Charm`, `Resurrection`, `Summons` |
+| `Shared/PristonTale.Application/World/PlayerSkillCooldowns.cs` | Per-player server cooldowns on the field clock; `Rebase` on field change; snapshot on change |
+| `Shared/PristonTale.Application/World/ProgressionTransactions.cs` | `LearnSkill` command: skill-master reach check, then `PlayerCharacter.ApplyProgression` |
+| `Shared/PristonTale.Protocol/Packets/SkillPackets.cs` | Wire records: `SkillCastPacket`, `SkillCastFlags`, `SkillCastStatus`, `SkillEventEntry`/`Flags`, `StatusEffectEntry`, `SkillCooldownsPacket` |
+| `Server/PristonTale.Server/Net/ClientSession.cs` (`CastSkillAsync`), `WireMapping.cs` | Wire edge: packet to `SkillCastRequest`, outcome to `SkillCastResultPacket`, views to entries |
+| `Client/PristonTale.Client.Net/Presence/SkillPresence.cs`, `Online/PresenceDecoder.cs` | Client-side decoded skill events, statuses, cooldowns, cast results |
+| [GameScene.Skills.cs](../Client/PristonTale.Gameplay/World/GameScene.Skills.cs) | Mouse-socket casts, walk into range, local pre-checks, charge release, summon mode toggle, refusal notices |
+| [SkillPresentation.cs](../Client/PristonTale.Gameplay/Effects/SkillPresentation.cs) | Server timeline to motions, VFX, sounds, floating text, auras; loads the VFX library |
+| `Client/PristonTale.Gameplay/Effects/SkillState.cs` | `SkillCooldownBook` (local cooldowns), `StatusBook`/`StatusEntry` (statuses of every visible entity) |
+| `Client/PristonTale.Gameplay/Effects/SkillSoundBank.cs` | Skill sounds by asset path, decoded on a worker, created on the game thread |
+| `Client/PristonTale.Gameplay/Effects/Vfx/Common.vfx.json`, `Vfx/Classes/<Class>.vfx.json` | Named skill effects (embedded); format in [effects.md](effects.md) |
+| `Client/PristonTale.Gameplay/UI/Widgets/HudSkillsPanel.cs`, `HudSkillTreeLayout.cs` | Skill window (`S`): 16 nodes, rank gauges, short-key marks, training clicks at a skill master |
+| `Client/PristonTale.Gameplay/UI/Widgets/HudSkillBindings.cs` | Left/right mouse sockets and the eight `F1`-`F8` short keys (in memory, not saved) |
+| `Client/PristonTale.Gameplay/UI/Widgets/HudSkillHud.cs` | Bottom-bar sockets with cooldown sweep; buff bar (keep icons, time left) |
+| `Client/PristonTale.Gameplay/UI/Widgets/HudSkillDetails.cs` | Tooltip numbers per rank, read from the same `SkillRule` |
+| `tests/PristonTale.Tests/Skill*Tests.cs`, `ClassSkillDataTests.cs`, `PassiveSkillTests.cs` | Regression cases; `SkillScenario`/`SkillFixtures` build a one-player field for server tests |
+
+## Skill identity and window order
+
+- Code: `group << 24 | tierBit << 16 | slot`, written as a hex string (`"0x01020001"`). `tierBit` is the `JobTier`
+  value (`Job1` 0x1, `Job2` 0x2, `Job3` 0x4, `Job4` 0x8) and must match `tier`; `slot` is 1..4.
+- Class groups: Mechanician 0x01, Fighter 0x02, Pikeman 0x03, Archer 0x04, Knight 0x05, Atalanta 0x06,
+  Priestess 0x07, Magician 0x08, Assassin 0x10, Shaman 0x50.
+- The file name is the `PlayerClass` enum name. The array order is the skill-window order (window index 0..15): it
+  drives learning order, price, tier gates, proficiency streaks and HUD placement. It is not always the slot order:
+  Mechanician lists `0x01010004` before `0x01010003`.
+- `CharacterClass` takes its skill list from `ClassSkillCatalog.For`, so `character.Class.Skills[index]` is the window
+  entry at `index`. A code is unique across all files (load fails otherwise).
+- The eight original classes have a rule for all 16 skills. Assassin and Shaman files hold window definitions only,
+  except Assassin's passive `0x10010003`.
+
+## Learning (skill master)
+
+Rules in `SkillLearning` and `PlayerCharacter.ApplyProgression`; the command is `ProgressionCommand` with
+`ProgressionAction.LearnSkill`, the skill code and the NPC entity id.
+
+- The NPC must offer `NpcServiceKind.SkillMaster` and be within reach (`NpcServiceTransactions.CanReach`); the player
+  must be alive. Opening the skill master opens the skill window in training mode
+  (`HudSkillsPanel.HandleTrainingClick`).
+- Class tier `t` (0..3) opens window indices `< 4 (t + 1)`. A skill needs rank >= 1 in the window entry before it.
+- Training from rank `r` to `r + 1` needs level `RequiredLevel + 2r`, rank < 10, ten mana entries, one point, money.
+- Price: `BasePrices[index] + RankPrices[index] x r`, both tables indexed by window position (500..40000 base).
+- Indices 0..11 spend skill points (one per even level from 10); indices 12..15 spend final-tier points
+  (`EliteSkillPoints`, one per even level from 60).
+- Ranks and use counters persist with the character (`CharacterStateCodec`); see [persistence.md](persistence.md).
+
+## Class skill file format
+
+A JSON array (comments and trailing commas allowed) of objects. Each object is parsed twice: as `ClassSkillEntry`
+(definition) and, when `kind` is present, as `SkillRule` from the same object. Names are camel case, enums are strings
+(flags enums take `"A, B"`), skill codes are hex strings or numbers. Unknown properties are ignored silently.
+
+Conventions: `[10]` is a per-rank table with exactly ten entries (rank 1..10; validation rejects other lengths, `[]`
+means absent); `SkillRule.At` clamps the rank into the table. Distances are world units (wire scales them by 256).
+`...Tenths` are tenths of a second, `...Ms` milliseconds, percents are integer percent unless noted.
+
+### Definition fields (`ClassSkillEntry`)
+
+| Field | Type | Meaning |
+|---|---|---|
+| `code` | hex | Skill code (see identity). Non-zero |
+| `name`, `description` | string | Display text; `name` required |
+| `icon` | string | Skill-window button art key (`Skill.IconKey`) |
+| `tier` | `Job1`..`Job4` | Must equal the code's tier bit |
+| `category` | `SkillCategory` | `ActiveAttack`, `AreaAttack`, `MultiHit`, `Buff`, `Passive`, `Heal`, `Summon`, `Debuff`; tests require `Passive` iff `kind` is `Passive` |
+| `requiredLevel` | int >= 1 | Level for rank 1 (rank r+1: `+2r`); casting also needs it |
+| `mouse` | `Left`/`Right`/`Both`/`None` | Socket the skill may occupy; `None` is not castable (passives) |
+| `mana` | int[10] or `[]` | Mana per rank before `SkillManaCost` modifiers. Without ten entries the skill cannot be trained |
+| `stamina` | `[base, perRank]` or `[]` | Stamina = base + perRank x (rank - 1) |
+| `weapons` | `ItemKind` names | Main hand or off hand must hold one (shield skills list `Shield`); `[]` allows any |
+| `kind` | `SkillKind` | Present: the entry also carries a rule. Absent: definition only, never castable |
+
+### Rule fields (`SkillRule`), by group
+
+- Resolution: `kind`: `Passive`, `WeaponAttack` (weapon swings, accuracy per hit), `MagicBolt` (never misses), `Area`,
+  `SelfBuff`, `Debuff`, `Heal`, `LifeToMana`, `Resurrect`, `Charm`, `Summon`. `target`: `None`, `Self`, `Enemy`, `Ally`
+  (caster or another player; no target = caster).
+- Cooldown: `masteryBase`, `masteryPerRank` (mastery units; both 0 = no cooldown).
+- Gates: `requiresSkill` (code that must be learned), `requiresClassArmor` (body armor made for the caster's class
+  only), `exclusive` (codes: cast refused while one runs on the caster, or on the ally for `Ally` rules; list the
+  skill's own code to forbid recasting while active), `replaces` (codes ended on cast, including a replaced summon).
+- Range: `range[10]`; `rangeMode`: `Table` (table, or weapon reach if empty), `AtLeastWeapon`, `AddWeapon`;
+  `reachPercent[10]`, `reachBonus[10]`: range = `r + (r - 50) x pct / 100 + bonus` from the weapon reach `r`.
+- Area: `areaShape`: `Circle`, `Box` (`boxWidth` wide; length from `radius`, or the reach range + `boxLengthPad`),
+  `Chain` (`radius` = link length, `maxTargetsByRank` = links); `areaCenter`: `Caster`/`Target`; `radius[10]`;
+  `radiusTargetPad` (radius = distance to the clicked target + pad); `maxTargets` (default 41, 1..64),
+  `maxTargetsByRank[10]` (a capped area strikes a random selection).
+- Area options: `mainInArea` (clicked target always added, beyond the cap, no roll), `areaIncludesTarget` (target
+  struck even outside the shape), `rollsAccuracy` (dodgers skipped), `areaAccuracy` (a miss keeps its slot),
+  `areaCritical`, `mainHit` (damage rule: an extra weapon hit on the clicked target), `pushBy` (knock-back distance and
+  flinch), `pushTo[10]` (push to this distance), `taunt` (targets lock on the caster for the buff duration). Bosses
+  are not pushed or taunted.
+- Accuracy and critical: `attackRating[10]`, `attackRatingPlusLevel`, `attackRatingPercent[10]`, `criticalAdd[10]`,
+  `criticalPercent[10]` (relative: crit + crit x pct / 100), `borrowedCritical` {`skill`, `values[10]` indexed by that
+  skill's rank, `divisor`}, `noAccuracy`, `stopAfterMiss`, `noCriticalHits` (1-based hit numbers), `forceFlinch`,
+  `volley[10]` (shots per strike, each rolls accuracy, damage adds up).
+- Damage: `damage` (damage rule, below); `burst` {`afterHit`, `radius`, `percent` (100), `element`}: a burst around the
+  caster after that weapon hit; `lifeCost[10]`: weapon skills pay tenths of a percent of max life per landed hit,
+  `LifeToMana` converts that percent of max life into the same percent of max mana.
+- Effects: `buff`, `casterBuff` (buff rules, below; `casterBuff` applies on the first hit, for areas only when a target
+  was hit); `healMin[10]`, `healMax[10]` (plus weapon item damage / 3 and spirit / 8 on the minimum, / 6 on the
+  maximum); `allies`, `passive`, `summon`, `charm`, `resurrect` (below).
+- Variants: `modes` (rule fragments, one drawn per cast, such as an element per cast; timing stays the parent's; at most
+  four fit the wire's two mode bits); `charge` (below).
+- Motion: `motion`: `Skill` (class skill clip `motionIndex`, `motionFrames`, `motionEvents` = hit frames) or `Attack`
+  (the weapon's attack clip, `loops[10]` repeats, one hit each); `hitFramesByRank[10][]` replaces the events per rank;
+  `extraEvents` (frames from clip start), `endHit` (a hit at the clip end), `maxHits` (first N events only);
+  `motionVariants` [{`fromRank`, `motion`, `motionSpeed`, `motionIndex`, `motionFrames`, `motionEvents`,
+  `extraEvents`}] replace the clip from a rank on.
+- Motion speed: `motionSpeed` (fixed frame step, 80 = rate 1; 0 follows the attack speed), `motionSpeedByRank[10]`,
+  `attackSpeedSteps[10]` and `motionSpeedSteps` (0..6; each step adds 0.125 to the rate), `motionRatePercent`,
+  `motionSpeedPercent` (1..400, default 100).
+- Presentation: `projectile` (hits land after the flight), `projectileArc` (lob height at mid flight), `castEffect`,
+  `impactEffect`, `projectileEffect`, `buffEffect` (aura while the status runs), `companionEffect` (familiar or counter
+  strike), `castSound`, `impactSound`, `companionSound` (game-data paths under `wav/`), `keepIcon` (buff-bar icon).
+
+### Damage rule (`damage`, `mainHit`, `damage.main`)
+
+| Field | Meaning |
+|---|---|
+| `percent[10]`, `percentAfter[10]` | Weapon hits: rolled attack gains `percent`, then `percentAfter` (each truncates) |
+| `min[10]`, `max[10]` | Weapon hits: added per hit. Bolts and areas: base range. Equal lengths required |
+| `levelDivisor`, `levelDivisorByRank[10]`, `levelOnMax` | Level / divisor added to both ends (max only with `levelOnMax`) |
+| `weaponDivisor`, `weaponFromAttack`, `spiritMinDivisor`, `spiritMaxDivisor` | Magic terms: weapon (or attack) damage / divisor, spirit / divisor |
+| `strengthMaxDivisor` | Weapon rolls: maximum gains strength / divisor |
+| `attackPower`, `spellPower` | Roll the caster's attack damage with `percent`; tables gain the spell-power percent |
+| `areaPercent` (100), `mainPercent`, `mainElement`, `main` | Area share per target; extra share and element of the main target; a separate main hit |
+| `randomHits[10]` | Power x a count rolled in `hits / 2 + 1 .. hits` |
+| `element` (`Bionic`), `flatElement`, `resistAddedOnly` | Element; `flatElement` makes `min..max` an add resisted by its own element |
+| `resistanceDivisor` (1) | Target resistance divided by this before it applies |
+| `noCritical`, `neverMiss` | No critical; weapon hits skip the accuracy roll |
+| `bonusBroods`, `bonusPercent`, `bonusPercentByRank[10]` | Extra percent vs broods (`Normal`, `Undead`, `Mutant`, `Demon`, `Mechanic`) |
+| `mode` | `Rolled` (default), `MaxLifeShare`, `CurrentLifeShare` (percent of each target's life) |
+| `share[10]`, `chance[10]`, `chanceLevelDivisor`, `shareResistedByBionic` | Share modes: percent, chance (+ level / divisor), bionic resistance |
+| `minLifePercent`, `onlyBroods`, `excludeBroods`, `lifeToCasterCapPercent` | Share filters; drained life returns to the caster up to a cap |
+
+### Buff rule (`buff`, `casterBuff`)
+
+| Field | Meaning |
+|---|---|
+| `durationTenths[10]` | Required, all > 0 |
+| `modifiers` [{`stat`, `op`, `values[10]`, `valuesMax[10]`}] | `StatKind`, `Flat`/`Percent`; `valuesMax` makes the value a roll per cast |
+| modifier `levelDivisor`, `rankOf`, `othersPercent` | Adds level / divisor; indexes by another skill's rank (0 if unlearned); -1 follows `allies` |
+| `control` | `ControlFlags`: `Stun`, `Root`, `Silence`, `Slow`, `Hidden`, `Charmed` |
+| `harmful`, `resistedByBionic`, `resistedBy` | Duration x (100 - resistance) / 100 on the target (bionic or the named element) |
+| `periodic` [{`resource`, `min[10]`, `max[10]`, `intervalMs`}] | `Life`/`Mana`/`Stamina` change per tick, rolled once per application; negative drains |
+| periodic `percentOfMax`, `nonLethal` | Amount is a percent of the maximum; life damage stops at 1 life and ends the effect |
+| `endsOnHit`, `endsOnAreaAttack`, `endsOnDamage` | Stealth consumed by the next single-target hit; ended by an area attack; stun broken by damage |
+| `weaponBound`, `requiresWeapon` | Modifiers count only with a listed main-hand weapon; effect ends when none is wielded |
+| `companion` | Familiar, see below |
+| `counter` {`borrowSkill`, `percent[10]`, `element`, `bonusBroods`, `bonusPercent`} | Strike back when the shield blocks a monster's normal attack |
+| `enchant` {`choices`, `basicOnly`} | Element added to hits; one choice drawn per cast |
+| enchant choice {`element`, `min[10]`, `max[10]`, `slowTenths[10]`, `slowPercent[10]`} | Added damage; ice slows the struck monster (ice resistance shortens it) |
+| `absorb` {`percent[10]`, `resource`} | Share of each monster hit paid by mana (default) or another resource |
+| `reflect` {`percent[10]`, `broods`} | Share of a matching monster's attack returned to it |
+| `guard` {`healPercent[10]`, `broods`, `onBlock`} | Life recovered from a matching monster's hits, or only from blocked ones |
+| `pulse` {`intervalMs`, `durationTenths`} | Short copies given to the allies around the holder while it lasts |
+
+`companion`: `intervalMs[10]` (strike interval), `flightSpeeds` (units/s there and back), `ownerTarget` (strike the
+owner's target while the owner fights) or `radius` (300, nearest enemy around the holder); damage from `min[10]` and
+`max[10]`, from `choices` (enchant choices, one drawn per cast, plus the `weaponDivisor`, `spiritMinDivisor` and
+`spiritMaxDivisor` terms) or from `borrowSkill`'s table at its rank x `percent[10]`; `element`, `bonusBroods`,
+`bonusPercent`. Strikes never miss and never crit.
+
+### Other blocks
+
+- `allies`: `radius[10]`, `includeCaster` (true), `othersPercent` (100; 0..100 strength on other players), `height`
+  (80), `excludeWith` (codes whose holders are skipped). No party system: allies are the other living players of the
+  field within the radius.
+- `passive`: `effect` with `values[10]`: `Resistance` (with `element`), `WeaponDamagePercent`, `MaxStaminaPercent`,
+  `CriticalChance`, `BlockChance` (`withoutShield`), `MaxLife`, `WeaponAttackRatingPercent`, `Evasion`; weapon effects
+  need a weapon the skill lists, or one made for the class with `classWeapon`. Or `modifiers` (permanent effect via
+  `PassiveSkillEffects`, optionally only while the main hand holds one of `weapons`).
+- `summon`: `monster` (world catalog display name: model, motions, sight, reach), `lifetimeMs` (> 0),
+  `damageMin[10]`/`damageMax[10]`, `attackRating[10]`, `defence[10]`, `life[10]` (empty keeps the catalog value),
+  `lifePerStrength`, `defencePerAgility` (owner attributes added at the call), `scaleBase`, `scalePerRank` (model
+  scale in 1/256; 0 keeps the catalog size), `aggressive`, `moveSpeedPercent` (100).
+- `charm`: `chance[10]` (lowered by bionic resistance), `lifePercent[10]` (life kept), `broods`; `buff` gives the
+  duration.
+- `resurrect`: `chance[10]`, `radius` (300), `lifePercent` (50), `guardTenths` (50; time the revived player cannot be
+  hurt).
+- `charge`: `startFrame` > 0, `fullFrame` > `startFrame`, `releaseSpeed` > 0 (frame step after release), `maxHits`,
+  `full` (rule fragment that resolves a full charge). Requires `motionSpeedByRank[10]` and a hit event >= `fullFrame`.
+
+### Load-time validation (`SkillRuleCatalog.Validate`)
+
+The catalog loads in a static initializer and throws `InvalidDataException` on the first bad entry, which fails both
+server and client start. Required per kind: `WeaponAttack`/`MagicBolt` need `damage`; `Area` needs a size
+(`radius[10]`, `radiusTargetPad`, or a box with `reachPercent`/`reachBonus`) and one of `damage`, `buff`, `taunt`,
+`casterBuff`; `SelfBuff`/`Debuff` need `buff`; `Heal` needs `healMin`/`healMax`; `Summon` a valid `summon`; `Charm`
+`charm` and `buff`; `Resurrect` `resurrect`; `Passive` a `passive` with `values[10]` or `modifiers`. Castable
+`Skill`-motion rules need `motionFrames` and `motionEvents`, and every event frame must lie within the clip.
+
+Example (real entry, Mechanician window index 1):
+
+```json
+{ "code": "0x01010002", "name": "Mechanic Bomb", "tier": "Job1", "category": "AreaAttack", "icon": "TM12 M_bomb",
+  "description": "...", "requiredLevel": 12, "mouse": "Right", "mana": [8, 10, 12, 14, 17, 20, 23, 26, 29, 33],
+  "stamina": [28, 2], "weapons": [], "kind": "Area", "target": "Enemy", "masteryBase": 73, "masteryPerRank": 3,
+  "range": [150, 159, 168, 177, 186, 192, 198, 204, 210, 216], "areaCenter": "Target",
+  "radius": [85, 90, 95, 100, 105, 110, 115, 120, 125, 130],
+  "damage": { "min": [5, 6, 7, 8, 9, 10, 11, 12, 13, 14], "max": [29, 33, 37, 42, 47, 53, 60, 68, 77, 87],
+    "areaPercent": 50, "mainPercent": 50, "noCritical": true, "bonusBroods": ["Mutant", "Mechanic"],
+    "bonusPercent": 50 },
+  "motionIndex": 61, "motionFrames": 40, "motionEvents": [19], "projectile": true, "projectileArc": 60,
+  "projectileEffect": "vfx.projectile.bomb", "impactEffect": "vfx.impact.bomb",
+  "castSound": "wav/Effects/Skill/Tempskron/Mechanic_Bomb 01.wav",
+  "impactSound": "wav/Effects/Skill/Tempskron/Mechanic_Bomb 02.wav" }
+```
+
+## Shared formulas
+
+- Cooldown (`SkillFormulas.CooldownMs`): proficiency `P = min(min(talent / 3 + itemMastery, 50) x 100 + uses, 10000)`
+  (final-tier skills always 10000); mastery `M = clamp(masteryBase + masteryPerRank x rank - P / 100, 1, 70)`;
+  cooldown = `35 x max(1, 35 / max(1, 70 / M)) x 14 ms`, from 0.49 s to 17.15 s.
+- Proficiency (`UsesAfterCast`): every `CastsPerStep[windowIndex] + (rank - 1) / 3` casts add 100 uses (max 10000).
+  The cast counter (`WorldPlayer.SkillCasts`) is per session; uses persist.
+- Mana: `mana[rank]` scaled by `SkillManaCost` percent plus flat, not below 0. Stamina has no modifiers.
+- Timing (`Timing`, `Plan`, `MotionRate`): skill clips play at the fixed frame step / 80, or at the caster's attack
+  rate + 0.125 per speed step, times the two percents; frames last 33 ms at rate 1 (`MotionTiming`). Weapon-clip
+  skills repeat the caster's swing `loops` times. `ChargeTiming` gives the window start, full time and full-charge hits.
+- The client uses the same functions for tooltips, cast range and motion playback, so client and server must ship the
+  same data.
+
+## Server cast pipeline
+
+Threading: `ClientSession.CastSkillAsync` maps the packet to `SkillCastRequest`; `WorldServer.CastSkillAsync` enqueues
+it on the world tick thread; `FieldInstance.CastSkill` checks the player is still on that field (`Stale`) and calls
+`FieldSkills.Cast`. `FieldSkills` touches only memory and uses the field's `CombatRng`. See
+[application.md](application.md) for the tick.
+
+`FieldSkills.Cast` checks, in order (first failure is the verdict): `Dead`; non-`Cast` commands go to `Release` or
+`SetSummonMode`; `Busy` (any non-idle action); `InVillage`; `NotCastable` (not in the caster's class or no rule);
+`SkillFormulas.CheckCaster`: `NotLearned` (rank 0 or level below `requiredLevel`), `NotCastable` (passive or
+`mouse: None`), `Busy` (stun or silence), `AlreadyActive` (`exclusive`, non-ally rules), `WeaponNotAllowed`,
+`NotEnoughMana`, `NotEnoughStamina`; `Cooldown` (with remaining ms); `ResolveTarget`: `requiresSkill`,
+`requiresClassArmor`, target kind, range + `RangeSlack` (24) and height difference <= 100, `AlreadyActive` on the
+ally. Then it ends `replaces` effects, spends mana and stamina, records uses, starts the cooldown, starts the cast
+motion, sets the combat target, draws a mode, stores an `ActiveCast` and queues a `Start` event for the next snapshot.
+
+`FieldSkills.Step` (each tick): fires the hits whose time has come (`HitsAtMs` from the cast start); a projectile hit
+resolves after `SkillProjectile.FlightMs` to the target's current position; a cast that stops before its motion ends
+(death, warp) emits `Cancel` and drops its remaining hits; a motion that completes fires any remaining hits. `Resolve`
+picks the rule (`charge.full` when fully charged, else the drawn mode, else the rule), dispatches on `kind`, applies
+`casterBuff` and emits an `Impact` event with the target count. Then familiars, pulses, every effect timer, periodic
+ticks, death and town clean-up, and natural regeneration (`Regeneration`) are stepped.
+
+| Mechanic | Partial | Notes |
+|---|---|---|
+| Weapon hits, volleys, element adds, bursts, bolts, push, taunt | `Damage` | Weapon hits roll accuracy per hit unless `noAccuracy`/`neverMiss` |
+| Areas and chains, life share, area-only effects | `Areas` | Area hits never miss or crit unless `areaAccuracy`/`areaCritical` |
+| Timed effects, periodic, stealth, damage-broken stuns, counter | `Buffs` | Player-skill buffs end in town and on death |
+| Self/ally buffs, group heals, weapon-bound effects, pulses | `Allies` | Effect keeps the skill's code even when a mode resolved it |
+| Enchants, evasion, reflect, absorb, guard in normal combat | `Defense` | `IPlayerSkillCombat`, called by `FieldCombat` |
+| Familiars | `Companions` | Owner-target familiars wait for the owner's next attack |
+| Held charges | `Charge` | Early release shifts the timeline; past `fullFrame` the server marks it full itself |
+| Charm, revive | `Charm`, `Resurrection` | Charmed monster becomes a summon for the buff duration |
+| Summons | `Summons` | One per owner; new call replaces; recall at 500 units (`SummonBrain.RecallDistance`); ends on expiry, death, owner leaving, or the owner's status ending |
+
+Cooldowns live in `WorldPlayer.Cooldowns` (not persisted); `Rebase` carries them across field changes.
+
+## Wire messages
+
+Etervale extension opcodes `SkillCast` (C→S), `SkillCastResult`, `SkillEvents`, `StatusEffects`, `SkillCooldowns`
+(S→C), plus `Skills` (learned ranks), `OwnerStatus` (final-tier points, class tier) and
+`ProgressionCommand`/`ProgressionResult`. Layouts, flags, phases and status ops are in [protocol.md](protocol.md).
+
+- The client sends only skill code, target serial, its position and a command flag; the server re-derives everything.
+- `SkillCastStatus` mirrors `SkillCastVerdict` numerically (0 accepted .. 14 `AlreadyActive`); keep them in sync.
+- `SkillEventFlagsView` (Application) and `SkillEventFlags` (Protocol) share bit values; `WireMapping` casts
+  numerically.
+- Statuses carry `SourceKind` (the enum also declares item, monster skill, consumable and aura, but every status
+  applied is `PlayerSkill`); the value is the main modifier,
+  or the drawn element (as an integer) for enchants and familiars.
+
+## Client
+
+Input and cast flow (`GameScene.Skills.cs`, `HudSkillBindings`, `GameplayHud`):
+
+- `S` toggles the skill window. Releasing the left or right button over a learned castable skill selects it into that
+  socket if its `mouse` allows it (otherwise a notice). Holding the button over a skill and pressing `F1`-`F8` binds
+  that key to the skill and side (one key per skill); pressing `F1`-`F8` elsewhere selects the bound skill. `Ctrl`
+  suppresses the keys. Sockets fall back to the basic attack (`0x11111111`) when a skill is lost.
+- A click with a skill in the clicked socket picks the entity under the cursor: `Enemy` needs a monster, `Ally` takes a
+  picked player or none, `Self`/`None` cast at once. Local pre-checks (rank, cooldown, unmodified mana/stamina) show a
+  notice instead of sending. The avatar walks until within the client's `CastRange - 8`, faces the target and sends.
+  An unanswered cast locks the avatar for at most 1500 ms. Refusals map to notices in `OnCastResolved`.
+- Charge: an accepted charge skill records its button; releasing it while casting sends `SkillCastFlags.Release`.
+- Summons: double-clicking (0.4 s) a summon's buff icon sends `SummonAggressive`/`SummonPassive`; a new call resets
+  to the rule's `aggressive`.
+
+Presentation (`SkillPresentation`):
+
+- Own events run at once; other entities' events wait `RemoteDelayMs` (150 ms) to match interpolated playback.
+- `Start`: plays the motion plan at a rate that fits the server's `DurationMs` (weapon clips: per loop), spawns
+  `castEffect`, plays `castSound`, launches `projectileEffect` at `HitAtMs` over the shared flight time and arc.
+- `Impact`: familiar/counter strikes fly `companionEffect` from above the caster; chain, familiar and ally impacts
+  play the secondary effect; otherwise `impactEffect` (the mode's or `charge.full`'s when set) at the target or caster,
+  skipped for entity-targeted rules that hit nothing. `Release` seeks the clip to `fullFrame`; `Cancel` stops effects.
+- Statuses: `StatusBook` keeps timers between messages; on add, `buffEffect` spawns as an aura (variant
+  `<name>.<element>` for multi-choice enchants or familiars when defined) and restarts while the status lasts.
+- Combat events add floating damage, heal and evade text and the revive effect (`ReviveEffect`).
+- VFX: embedded `Vfx/Common.vfx.json` then `Vfx/Classes/*.vfx.json`, then `assets/Vfx/*.vfx.json` overrides by name.
+  Sounds are asset paths loaded by `SkillSoundBank`.
+- HUD: `HudSkillHud` draws the socket icons with the cooldown sweep from `SkillCooldownBook` and the buff bar of the
+  local player's statuses with `keepIcon` and time left; `HudSkillDetails` builds tooltips from the rule.
+
+Smoke check against a running server (`tools/PristonTale.SmokeClient`, see [tools.md](tools.md)): without
+`--character` it creates a Mechanician in town and expects an answered (refused) cast; with `--character <name>
+--skill <hex>` (default `0x01010001`) the character must have learned the skill and stand outside a town, and the cast
+must be accepted with a `Start` and an `Impact` event; for buffs it also reports the added status.
+
+## How to
+
+Change a skill's numbers: edit its entry in `Shared/PristonTale.Simulation/Skills/Data/Classes/<Class>.json` only.
+Server resolution, client timing and tooltips follow; rebuild and ship server and client together. Run the regression
+runner (`SkillCatalogTests` pins some tables). Changes to name, description, icon, level, mouse, weapons, mana or
+stamina of an original skill fail `ClassSkillDataTests` against
+`tests/PristonTale.Tests/Fixtures/class-skill-source.json`; change it only on purpose.
+
+Add or change a skill with an existing mechanic:
+
+1. Data: the entry in `<Class>.json` at its window position, with a code matching tier and slot (each class keeps 16).
+2. Effects: define every effect name it references in `Client/PristonTale.Gameplay/Effects/Vfx/Classes/<Class>.vfx.json`
+   (or `Common.vfx.json` when shared; names unique across files). Format: [effects.md](effects.md).
+3. Sounds: `wav/...` asset paths that exist in the game data (`SkillPresentationTests` checks when assets are found).
+4. Motion: `motionIndex`/`motionFrames`/`motionEvents` must match the class motion table; check with
+   `--verify-skill-motions <assets>` and preview with `--capture-skills` ([testing.md](testing.md)).
+5. Tests: a case in the matching `tests/PristonTale.Tests/Skill<Mechanic>Tests.cs` using `SkillScenario`.
+
+Add a new mechanic or rule field:
+
+1. Record field in `SkillRules.cs` or `SkillRuleMechanics.cs` (keep `[10]` tables), validation in
+   `SkillRuleCatalog.Validate`/`WellFormed`/`MechanicsValid`/`Complete`.
+2. Formula in `SkillFormulas.cs` or `SkillFormulas.Mechanics.cs` when the client also needs it (tooltip, range, timing).
+3. Server resolution in the `FieldSkills.<Mechanic>.cs` partial named after the mechanic (new partial for a new
+   mechanic); a new `SkillKind` needs a case in `FieldSkills.Resolve` and in `Complete`. Combat-side hooks go through
+   `IPlayerSkillCombat` (`FieldSkills.Defense.cs`).
+4. Tooltip lines in `HudSkillDetails`; presentation in `SkillPresentation` if it needs a new visual cue.
+5. A new event flag or verdict: `SkillEventFlagsView`/`SkillCastVerdict`, `SkillEventFlags`/`SkillCastStatus` in
+   `SkillPackets.cs`, `WireMapping`, client notice in `OnCastResolved`, and [protocol.md](protocol.md).
+6. A new test file registered in `tests/PristonTale.Tests/Program.cs`; update this doc.
+
+Change learning rules: `SkillLearning` (prices, gates), `PlayerCharacter.LevelUp` (point grants),
+`PlayerCharacter.ApplyProgression`; tests in `ProgressionTransactionTests.cs` and `NpcServiceTests.cs`.
+
+## Pitfalls
+
+- Typos in property names, brood names (`bonusBroods`, `broods`, `onlyBroods`) or summon monster names are not errors:
+  unknown JSON properties are skipped, brood strings that parse to no `MonsterBrood` never match, and a summon whose
+  `monster` is missing from the world catalog is accepted, spends mana and resolves with 0 targets.
+- The lightning element is spelled `Lighting` (`Element.Lighting`).
+- A table with a length other than 0 or 10 fails the whole catalog load (server and client).
+- Array order is window order; moving an entry changes its price, gate, proficiency streak and HUD node.
+- `modes` beyond four cannot be reported to clients (two flag bits); client impact effects pick the mode's
+  `impactEffect`.
+- The client computes cast range with `Owner.AttackRange` while the server uses `PlayerAttackReach`; the server adds
+  24 units of slack. Keep `GameScene.CastRange` and `SkillFormulas.Range` in step when changing range rules.
+- The client mana check ignores `SkillManaCost` modifiers; the server's answer is authoritative.
+- `casterBuff` applies only on hit 0 and, for areas, only when a target was hit.
+- Player-skill buffs end on entering a town and on death; summons are not called in town.
+- Cooldown uses the uses count from before the current cast.
+- Debuffs never land on summons; charmed monsters are skipped by players' attacks.
+
+## Related
+
+- [simulation.md](simulation.md): combat profiles, modifiers and derived stats that skills feed.
+- [world.md](world.md): monster skills, AI and `SummonBrain`, monster broods.
+- [application.md](application.md): world tick, field instance, combat pipeline, NPC services.
+- [protocol.md](protocol.md): byte layouts of the skill and status messages.
+- [client.md](client.md): HUD windows, remote entities, input.
+- [effects.md](effects.md): VFX JSON format, legacy particle scripts, `LegacyVfxImporter`.
+- [testing.md](testing.md): regression runner, skill probes.
+- [persistence.md](persistence.md): saved ranks and uses.
