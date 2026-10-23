@@ -43,10 +43,16 @@ public sealed class GameplayScreen : GameScreen
         _scene.PresenceObserved += _hud.ObserveQuests;
         _hud.QuestFanfare += _scene.PlayQuestFanfare;
         _scene.NpcSelected += _hud.OpenNpc;
-        _scene.SkillNotice += _hud.ShowNotice;
+        _scene.SkillNotice += _hud.Chat.System;
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
         _hud.SummonAutomatic = _scene.SummonAutomatic;
         _hud.UseItem = _scene.UseItemAsync;
+        _hud.Chat.PlayerName = _scene.Player.Name;
+        _hud.Chat.Send = _scene.SendChatAsync;
+        _hud.Overhead = _scene.Overhead;
+        _scene.PresenceObserved += _hud.ObserveChat;
+        _hud.Chat.WhisperArrived += _scene.PlayWhisper;
+        _hud.Chat.CloseRequested += RequestExit;
 
         _scene.BeginRemotePresence(Context.Backend.OpenPlayChannel(), _entered);
 
@@ -103,8 +109,11 @@ public sealed class GameplayScreen : GameScreen
         _hud.World = new HudWorldView(field?.Id, field?.Underground == true, _scene.ActiveMapRectangle, _scene.PlayerPosition,
             _scene.PlayerForward, _scene.TimeOfDay, _scene.RunMode, mapHidden, neighbour, neighbourMap);
         _hud.PremiumTimers = _scene.PremiumTimers;
+        _hud.InCastleField = field?.State == Simulation.World.FieldState.Castle;
         _hud.Update(_scene.Owner);
         _scene.PointerCaptured = _hud.PointerCaptured;
+        _scene.KeyboardCaptured = _hud.KeyboardCaptured;
+        _hud.Chat.SelfId = _scene.SelfEntityId;
         _scene.CameraInputEnabled = Context.IsWindowActive && !Context.Presentation.AwaitingConfirmation;
         _scene.RightAttackEnabled = _hud.RightAttackEnabled;
         _scene.LeftSkill = _hud.Bindings.LeftSkillId;
@@ -113,7 +122,7 @@ public sealed class GameplayScreen : GameScreen
         _hud.Cooldowns = _scene.Skills?.Cooldowns;
         _hud.SkillClockMs = gameTime.TotalGameTime.TotalMilliseconds;
         _hud.SelfId = _scene.SelfEntityId;
-        if (!Context.Presentation.AwaitingConfirmation)
+        if (!Context.Presentation.AwaitingConfirmation && !_hud.KeyboardCaptured)
         {
             UpdateMotionKeys();
             UpdateDebugKeys();
@@ -130,6 +139,7 @@ public sealed class GameplayScreen : GameScreen
         _scene.Draw();
         Context.SpriteBatch.Begin();
         _scene.DrawGroundLabels(Context.SpriteBatch, Context.Font);
+        _scene.DrawSummonPlates(Context.SpriteBatch, Context.Font);
         Context.SpriteBatch.End();
         _scene.DrawCombatText(Context.SpriteBatch, Context.Font);
         _hud.Draw();
@@ -208,6 +218,9 @@ public sealed class GameplayScreen : GameScreen
 
     public override bool HandleEscape() => _hud?.ClosePanel() == true;
 
+    // The server's shutdown asks every client to save and quit: the game closes as from the window's close button.
+    private void RequestExit() => Context.ExitRequested = true;
+
     public override void Dispose()
     {
         if (_scene is not null && _hud is not null)
@@ -215,9 +228,12 @@ public sealed class GameplayScreen : GameScreen
             _scene.PresenceObserved -= _hud.Combat.Observe;
             _scene.PresenceObserved -= _hud.StringEffect.Observe;
             _scene.PresenceObserved -= _hud.ObserveQuests;
+            _scene.PresenceObserved -= _hud.ObserveChat;
+            _hud.Chat.WhisperArrived -= _scene.PlayWhisper;
+            _hud.Chat.CloseRequested -= RequestExit;
             _hud.QuestFanfare -= _scene.PlayQuestFanfare;
             _scene.NpcSelected -= _hud.OpenNpc;
-            _scene.SkillNotice -= _hud.ShowNotice;
+            _scene.SkillNotice -= _hud.Chat.System;
             _hud.SummonModeRequested -= _scene.ToggleSummonMode;
         }
 

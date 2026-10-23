@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using PristonTale.Simulation.Combat;
+using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Quests;
@@ -194,6 +195,7 @@ internal sealed class FieldCombat
             var damage = ModifierRules.ScaleDamage(result.Damage, attacker.Effects.Totals, target.Character.Effects.Totals);
             damage = ModifierRules.AgainstUndead(damage, attacker.Def.Brood == MonsterBrood.Undead, target.Character.Effects.Totals);
             damage = SkillCombat?.Defend(attacker, target, damage, false) ?? damage;
+            damage = CastleItems.Defend(attacker.Def.SoundCode, target.Character.Effects, damage);
             target.ApplyDamage(damage);
             _host.EmitCombatEvent(new CombatEventView(
                 attacker.EntityId, landed.TargetEntityId, CombatEventKindView.Hit,
@@ -275,6 +277,7 @@ internal sealed class FieldCombat
         var result = CombatResolver.ResolveMonsterSkill(_rng, attacker.Def.Skill.SkillDamage, defender);
         var damage = ModifierRules.AgainstUndead(result.Damage, attacker.Def.Brood == MonsterBrood.Undead, target.Character.Effects.Totals);
         damage = SkillCombat?.Defend(attacker, target, damage, true) ?? damage;
+        damage = CastleItems.Defend(attacker.Def.SoundCode, target.Character.Effects, damage);
         target.ApplyDamage(damage);
         _host.EmitCombatEvent(new CombatEventView(
             attacker.EntityId, targetId, CombatEventKindView.Hit, damage: damage, killed: target.IsDead));
@@ -309,13 +312,23 @@ internal sealed class FieldCombat
         // The monster's event item goes to the credited player before the drop rolls.
         var eventItem = monster.Def.EventItem != 0 && creditedTier >= 0 && QuestDrops.EventItemDrops(_rng, monster.Def.EventItem, creditedTier);
         var dropBonus = credited != 0 && _host.TryGetPlayer(credited, out var looter) ? PremiumRules.ExtraDropChance(looter.Character.Premium) : 0;
-        IReadOnlyList<RolledDrop> drops = DropRoller.Roll(_rng, monster.Def.Drops, eventItem, monster.Def.EventItem, dropBonus);
+        var level = credited != 0 && _host.TryGetPlayer(credited, out var eventPlayer) ? eventPlayer.Level : -1;
+        Func<RolledDrop?>? events = EventRates.Any && level >= 0 ? () => EventDrop(level, monster.Def.Combat.Level) : null;
+        IReadOnlyList<RolledDrop> drops = monster.DropsDisabled ? [] : DropRoller.Roll(_rng, monster.Def.Drops, eventItem, monster.Def.EventItem, dropBonus, events);
 
         _damageLogs.Remove(monster.EntityId);
         _corpseMsLeft[monster.EntityId] = CorpseDespawnMs;
 
         return new KillPayout(monster.EntityId, credited, exp, drops);
     }
+
+    // The server's item events (rice cakes, chocolates, puzzles, gift boxes); none run by default.
+    public ItemEventRates EventRates { get; set; } = ItemEventRates.None;
+
+    private RolledDrop? EventDrop(int playerLevel, int monsterLevel) =>
+        ItemEventDrops.Roll(_rng, EventRates, playerLevel, monsterLevel) is { } drop && LegacyItemCode.TryParse(drop.CatalogKey, out var code)
+            ? RolledDrop.Item(code) with { FromMainTable = true, Sealed = drop.Sealed }
+            : null;
 
     public void TickCorpses(float dtMs)
     {

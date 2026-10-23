@@ -35,7 +35,8 @@ public static class EquipmentVisuals
     public static CharacterVisualSet Apply(CharacterVisualSet defaults, string armor, string weapon, string offHand, bool village, uint jobMask)
     {
         string body = defaults.Body.InxExtensionPath;
-        if (!string.IsNullOrEmpty(armor))
+        // Premium costume bodies (CA) keep the class body; their wings are an effect (CostumeWings).
+        if (!string.IsNullOrEmpty(armor) && !armor.StartsWith("CA", StringComparison.OrdinalIgnoreCase))
         {
             if (armor.Length < 5 || !armor.StartsWith("DA", StringComparison.OrdinalIgnoreCase)
                 || !int.TryParse(armor.AsSpan(3), NumberStyles.None, CultureInfo.InvariantCulture, out int ordinal))

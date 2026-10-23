@@ -232,6 +232,13 @@ if (args.Length == 4 && args[0] == "--capture-item-hud")
     return 0;
 }
 
+if (args.Length is 4 or 5 && args[0] == "--capture-chat")
+{
+    using var probe = new ChatCaptureProbe(args[1], args[2], args[3], args.Length == 5 ? args[4] : null);
+    probe.Run();
+    return 0;
+}
+
 if (args.Length is 4 or 5 && args[0] == "--capture-hud")
 {
     using var probe = new HudCaptureProbe(args[1], args[2], args[3], args.Length == 5 ? args[4] : null);
@@ -268,6 +275,10 @@ for (var index = 0; index < args.Length; index++)
 
 var specifications = new List<(string Name, Func<Task> Run)>();
 specifications.AddRange(DomainTests.Cases());
+specifications.AddRange(ChatRoutingTests.Cases());
+specifications.AddRange(GameMasterCommandTests.Cases());
+specifications.AddRange(ChatClientTests.Cases());
+specifications.AddRange(GameMasterStorageTests.Cases());
 specifications.AddRange(ClientTests.Cases());
 specifications.AddRange(RemotePlaybackTests.Cases());
 specifications.AddRange(RenderTests.Cases());
@@ -330,6 +341,7 @@ specifications.AddRange(NpcServiceTests.Cases());
 specifications.AddRange(SkyTests.Cases());
 specifications.AddRange(SkillSystemTests.Cases());
 specifications.AddRange(SkillPresentationTests.Cases());
+specifications.AddRange(SkillLookTests.Cases());
 specifications.AddRange(VfxLayerTests.Cases());
 specifications.AddRange(VfxImportTests.Cases());
 specifications.AddRange(SkillCatalogTests.Cases());
@@ -346,6 +358,10 @@ specifications.AddRange(SkillStealthTests.Cases());
 specifications.AddRange(SkillChargeTests.Cases());
 specifications.AddRange(SkillCompanionTests.Cases());
 specifications.AddRange(SpecialItemTests.Cases());
+specifications.AddRange(MonsterCrystalTests.Cases());
+specifications.AddRange(CastleItemTests.Cases());
+specifications.AddRange(EventItemTests.Cases());
+specifications.AddRange(PuzzleTests.Cases());
 specifications.AddRange(QuestTests.Cases());
 specifications.AddRange(QuestServiceTests.Cases());
 specifications.AddRange(QuestHudTests.Cases());

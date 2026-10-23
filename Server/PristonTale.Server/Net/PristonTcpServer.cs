@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
+using PristonTale.Application.Chat;
 using PristonTale.Application.Services;
 using PristonTale.Application.Sessions;
 using PristonTale.Application.World;
@@ -19,6 +20,8 @@ public sealed class PristonTcpServer(
     NpcAppService npc,
     ItemUseAppService itemUse,
     QuestAppService quests,
+    ChatAppService chat,
+    GameServerControl control,
     IConfiguration configuration,
     ILogger<PristonTcpServer> logger) : BackgroundService
 {
@@ -45,8 +48,9 @@ public sealed class PristonTcpServer(
     {
         _perAddress = new ConnectionLimiter(_limits.MaxConnectionsPerIp);
         _loginThrottle = new LoginThrottle(_limits.LoginFailuresPerAccount, _limits.LoginFailuresPerIp, _limits.LoginFailureWindowMs);
+        control.Attach(() => _clients.Count, _loginThrottle);
         var services = new SessionServices(auth, characters, sessionsApp, sessions, world, worldData, logger, _limits, _loginThrottle, npc, itemUse,
-            quests);
+            quests, chat, control);
         using var listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp) { DualMode = true };
         var port = configuration.GetValue("Network:Port", HostingExtensions.DefaultGamePort);
         if (port is < 0 or > 65535)

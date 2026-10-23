@@ -12,10 +12,10 @@ internal sealed partial class PresenceEncoder
     private readonly List<ItemEffectEntry> _itemEffects = new();
     private long _premiumRevision = -1;
 
-    private void SendItemEffects(in WorldSnapshot snapshot, IPacketSink connection)
+    private void SendItemEffects(ReadOnlySpan<ItemEffectView> effects, IPacketSink connection)
     {
         _itemEffects.Clear();
-        foreach (var effect in snapshot.ItemEffects)
+        foreach (var effect in effects)
         {
             if (Relevant(effect.EntityId, 0))
             {

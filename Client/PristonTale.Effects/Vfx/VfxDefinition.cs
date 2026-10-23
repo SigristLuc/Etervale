@@ -125,8 +125,12 @@ public sealed record VfxSoundDefinition
 {
     // Path under the asset root, as the original sound tables give it (wav\Effects\...).
     public string Path { get; init; } = "";
+    // Further takes of the same sound: each play picks Path or one of these at random.
+    public string[] Variants { get; init; } = [];
     public float Delay { get; init; }
     public float Volume { get; init; } = 1f;
+
+    public IEnumerable<string> AllPaths => Variants.Prepend(Path);
 }
 
 // Another named effect started by this one at its anchor (the converted original scripts are used this way). Follow

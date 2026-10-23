@@ -4,7 +4,7 @@ using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Quests;
 
-// smoke [address] [account] [password] [--character NAME] [--skill CODE]
+// smoke [address] [account] [password] [--character NAME] [--skill CODE] [--chat TEXT]
 // Without --character a new Mechanician is created and its skill cast must be answered (refused: unlearned, in town).
 // With --character the existing character casts CODE on itself and the cast must be accepted, start on the
 // presence timeline and, for buffs, add its status.
@@ -91,6 +91,18 @@ await using (var play = conn.OpenPlayChannel())
         return 1;
     }
 
+    // A whisper to a player who is not online must be answered with a server line naming that player.
+    var whisper = await ChatAsync(play, "/:SmokeNobody hi", line => line.Text.StartsWith("SmokeNobody ", StringComparison.Ordinal));
+    if (whisper is null)
+    {
+        return 1;
+    }
+
+    if (Option("--chat") is { } command)
+    {
+        await ChatAsync(play, command, _ => true);
+    }
+
     await play.SendMovementAsync(new System.Numerics.Vector3(enter.SpawnX + 20, 0, enter.SpawnZ), 0f, false, false, 0, enter.FieldId);
     if (!await CastAsync(play, existing is not null))
     {
@@ -132,6 +144,30 @@ async Task<bool> CastAsync(IPlayChannel play, bool mustSucceed)
     Console.WriteLine($"Skill timeline   : start={(start is null ? "none" : $"{start.DurationMs:0} ms, hit at {start.HitAtMs:0} ms")}, "
         + $"impact={(impact is null ? "none" : $"{impact.TargetCount} target(s)")}, status={(status is null ? "none" : $"{status.RemainingMs} ms value {status.Value}")}");
     return mustSucceed ? result is { Accepted: true } && start is not null && impact is not null : result is not null;
+}
+
+async Task<ChatLineInfo?> ChatAsync(IPlayChannel play, string text, Func<ChatLineInfo, bool> expected)
+{
+    await play.SendChatAsync(text, false);
+    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+    ChatLineInfo? answer = null;
+    try
+    {
+        await foreach (var update in play.ReadAllAsync(timeout.Token))
+        {
+            foreach (var line in update.Chat)
+            {
+                Console.WriteLine($"Chat {line.Kind,-12}: {line.Text}");
+                answer ??= expected(line) ? line : null;
+            }
+        }
+    }
+    catch (OperationCanceledException)
+    {
+    }
+
+    Console.WriteLine($"Chat \"{text}\" -> {(answer is null ? "no answer" : "answered")}");
+    return answer;
 }
 
 string? Option(string option)

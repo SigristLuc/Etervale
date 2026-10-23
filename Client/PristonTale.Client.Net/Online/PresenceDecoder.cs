@@ -99,6 +99,8 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.ItemEffects => OnItemEffects(ItemEffectsPacket.Read(packet)),
             EtervaleOpcodes.QuestJournal => Update([], []) with { Quest = QuestWireReader.ToView(QuestJournalPacket.Read(packet)) },
             EtervaleOpcodes.QuestNotices => OnQuestNotices(QuestNoticesPacket.Read(packet)),
+            PristonOpcodes.WhisperMessage or PristonOpcodes.ChatMessage => OnChat(ChatMessagePacket.Read(packet)),
+            PristonOpcodes.CloseClient => Update([], []) with { CloseRequested = true },
             _ => null
         };
         return update is not null || code is PristonOpcodes.PlayDataGroup or PristonOpcodes.PlayerInfo or EtervaleOpcodes.RemoveObjects
@@ -106,8 +108,12 @@ internal sealed class PresenceDecoder
             or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills or EtervaleOpcodes.PresenceClock
             or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult
             or EtervaleOpcodes.ItemDetails or EtervaleOpcodes.OwnerItemStatus
-            or EtervaleOpcodes.PremiumTimers or EtervaleOpcodes.ItemEffects or EtervaleOpcodes.QuestJournal or EtervaleOpcodes.QuestNotices;
+            or EtervaleOpcodes.PremiumTimers or EtervaleOpcodes.ItemEffects or EtervaleOpcodes.QuestJournal or EtervaleOpcodes.QuestNotices
+            or PristonOpcodes.WhisperMessage or PristonOpcodes.ChatMessage or PristonOpcodes.CloseClient;
     }
+
+    private PresenceUpdate OnChat(ChatMessagePacket packet) =>
+        Update([], []) with { Chat = [new ChatLineInfo(packet.Ip, packet.ObjectSerial, packet.Message, packet.Code == PristonOpcodes.ChatMessage)] };
 
     private PresenceUpdate OnQuestNotices(QuestNoticesPacket packet) =>
         Update([], []) with { QuestNotices = QuestWireReader.ToNotices(packet.Notices), QuestPrompt = QuestWireReader.ToPrompt(packet.Prompt) };

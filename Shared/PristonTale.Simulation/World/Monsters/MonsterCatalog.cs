@@ -30,4 +30,11 @@ public sealed class MonsterCatalog
 
         return definition is not null;
     }
+
+    // The definition with this authored name, spaces included.
+    public bool TryFindKey(string key, out MonsterDefinition definition)
+    {
+        definition = All.FirstOrDefault(candidate => string.Equals(candidate.Key, key, StringComparison.Ordinal));
+        return definition is not null;
+    }
 }

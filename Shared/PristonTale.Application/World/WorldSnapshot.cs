@@ -82,6 +82,9 @@ public readonly struct EntityView
 
     public bool IsSelf { get; }
 
+    // A hidden game master: only the player itself receives its view.
+    public bool Hidden { get; init; }
+
     public Vector3 Position { get; }
     public float Facing { get; }
     public MoveStateView MoveState { get; }
@@ -219,6 +222,9 @@ public readonly struct CombatEventView
     public float Facing { get; }
 }
 
+// The number of each kind of event that belongs to one tick, in the order of the joined arrays.
+public readonly record struct EventSegment(uint Tick, int Combat, int Skills, int Statuses, int Items);
+
 public readonly struct WorldSnapshot
 {
     public WorldSnapshot(uint serverTick, EntityView[] entities, CombatEventView[]? events = null, int? fieldId = null, OwnerState? owner = null, GroundDropState[]? groundDrops = null)
@@ -247,6 +253,10 @@ public readonly struct WorldSnapshot
 
     // The receiver's running cooldowns; null when they did not change since the last snapshot it was sent.
     public SkillCooldownView[]? Cooldowns { get; init; }
+
+    // How the event arrays split by tick when a reader fell behind and several snapshots' events were joined (in order);
+    // null when every event belongs to ServerTick.
+    public EventSegment[]? EventSegments { get; init; }
 
     // The field's shared frame of this tick (views and grid) and its generation; null for snapshots built by hand.
     public PresenceFrame? Frame { get; init; }

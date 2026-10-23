@@ -169,8 +169,8 @@ quest variant, which the importer stores in `item_templates` under `<code>#Q` ([
   frame (right anchored), y = 155: five titles per page, page arrows, running/finished tabs, close; a title opens its
   description (`image/party/party_DATA/<file>`) on the panel to the left.
 - A running hunt shows the quest timer icon (`QuestTimer.tga`) after the effect icons, with a gauge for a timed hunt;
-  its tooltip shows the quest, the kills and the time left. Chat notices go to the combat log, events and messages to
-  the notice strip, the fanfare plays `drink2.wav`. A rank-up's redistribution offer is a yes/no box.
+  its tooltip shows the quest, the kills and the time left. Chat notices go to the chat's assistant tab, events and
+  messages to the notice strip, the fanfare plays `drink2.wav`. A rank-up's redistribution offer is a yes/no box.
 
 ## How to
 

@@ -20,8 +20,8 @@ JSON, UI font) and the Blender helper scripts in `3d_glb/blender/`. None of them
 | `tools/PristonTale.AssetDump/` | `ptdump`: headless asset inspector and field texture manifest export (`FieldTextureManifest.cs`) |
 | `tools/PristonTale.GltfExport/` | `ptgltf`: `.smd`/`.smb`/`.inx` to glTF 2.0 via SharpGLTF; also referenced by the regression runner |
 | `tools/PristonTale.WorldImport/` | `ptworld`: migrations plus import of the CP949 GameServer configuration; see [world-import.md](world-import.md) |
-| `tools/PristonTale.DevAccounts/` | `ptdevaccounts`: accounts, characters and load-test accounts through the real repositories |
-| `tools/PristonTale.SmokeClient/` | Protocol smoke test: login, character, world entry, presence, quest journal and request, one skill cast |
+| `tools/PristonTale.DevAccounts/` | `ptdevaccounts`: accounts, characters, load-test accounts, game-master levels and audit through the real repositories |
+| `tools/PristonTale.SmokeClient/` | Protocol smoke test: login, character, world entry, presence, quest journal and request, chat, one skill cast |
 | `tools/PristonTale.LoadTest/` | Headless bots that log in, enter the world and walk while reporting movement |
 | `tools/PristonTale.WorldJson/` | `ptworldjson`: dumps `WorldCatalog` fields, gates and warps to `world.json` |
 | `tools/PristonTale.VfxImport/` | `ptvfx`: converts the original effect scripts and installs the authored effect definitions into `<assetRoot>/Effect/Vfx` |
@@ -159,6 +159,8 @@ dotnet run --project tools/PristonTale.DevAccounts -c Release --no-build -- add-
 | `create-bots <prefix> <count> <password>` | Creates `<prefix>0001` to `<prefix><count:D4>` (1 to 100,000), skipping existing ones |
 | `add-char <user> <name> <class> [level]` | Starter in the first free slot (max 6), Ricarten (field 3); see below |
 | `list <user>` | Slots, names, classes, levels and attributes |
+| `set-gm <user> <level>` | Game-master level 0 (player) to 4 (Administrator); applies at the account's next login ([chat-and-gm.md](chat-and-gm.md)) |
+| `gm-audit [count]` | The newest game-master commands (default 20): time, account, character, level, command and result |
 
 | Option | Meaning |
 | --- | --- |
@@ -190,10 +192,12 @@ dotnet run --project tools/PristonTale.SmokeClient -c Release --no-build -- tcp:
 | positional 3 | `smoke-pw` | Password |
 | `--character <name>` | none | Use this existing character instead of creating one |
 | `--skill <hex>` | `0x01010001` | Skill code, parsed as hex with or without `0x` |
+| `--chat <text>` | none | A chat line or command to send after the whisper check; prints the answers for 3 s |
 
 Sequence: login, list characters, create a Mechanician named `Smoke<6 hex>` (without `--character`), list again, enter
 the world, read the world catalog, read presence for up to 10 s (requires at least one spawn, the owner status and the
-quest journal), send a quest talk without an NPC (it must be refused as out of reach), send one movement 20 units from
+quest journal), send a quest talk without an NPC (it must be refused as out of reach), whisper `SmokeNobody` (the
+server must answer that the player cannot be found), send the `--chat` line if any, send one movement 20 units from
 the spawn, cast the skill with no target and wait up to 8 s.
 
 - Without `--character` any cast result passes; a new character normally gets a refusal (skill not learned, in town).
@@ -258,7 +262,7 @@ dotnet run --project tools/PristonTale.VfxImport -c Release --no-build -- import
 - Converts every `Effect/NewEffect/*.lua` to `Effect/Vfx/Scripts/<File>.vfx.json` and every
   `Effect/Particle/Script/*.part` to `Effect/Vfx/Particles/<File>.vfx.json`, overwriting earlier output.
 - Validates and copies `tools/PristonTale.VfxImport/Authored/**/*.vfx.json` (copied next to the tool by the build) to
-  the same relative paths under `Effect/Vfx/` (`Common/`, `Classes/<Class>/`).
+  the same relative paths under `Effect/Vfx/` (`Common/`, `Classes/<Class>/`, `Costumes/`).
 - Prints one line per construct kept with a caveat (missing models or textures, unreadable values, scripts the original
   rejects) and a summary; exits 1 when a file could not be converted or installed. Mapping rules: docs/effects.md.
 

@@ -110,6 +110,11 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     public void Add(WorldPlayer player) => _players[player.EntityId] = player;
     public void Remove(uint entityId)
     {
+        if (_players.TryGetValue(entityId, out var leaving))
+        {
+            LeaveCastleItems(leaving);
+        }
+
         _players.Remove(entityId, out _);
         Statuses.Take(entityId);
         _skills.Forget(entityId);
@@ -154,7 +159,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     public long ExpFor(uint playerId) => _combat.ExpFor(playerId);
 
     // A used item's timed effect on a player of this field; it starts with the next step.
-    internal void QueueItemEffect(uint entityId, EffectSpec spec, float durationMs) => _skills.QueueItemEffect(entityId, spec, durationMs);
+    internal void QueueItemEffect(uint entityId, EffectSpec spec, float durationMs, int rank = 1) => _skills.QueueItemEffect(entityId, spec, durationMs, rank);
 
     // The field's combat resolution, for scenario tests that drive single monster attacks.
     internal FieldCombat Combat => _combat;
@@ -202,6 +207,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         }
 
         StepSummons(dtMs);
+        ExpireSoulMonsters();
 
         // Authoritative NPC movement keeps interaction range and presentation aligned.
         foreach (var npc in _npcs.Values)
@@ -211,6 +217,13 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
         foreach (var player in _players.Values)
         {
+            if (player.IsDead && HoldsForRestoration(player))
+            {
+                player.TickDeadHeld(dtMs);
+                _collisionIndex.Put(player.EntityId, player.Position);
+                continue;
+            }
+
             if (player.IsDead)
             {
                 player.TickRespawn(dtMs);

@@ -1,0 +1,225 @@
+using PristonTale.Application.Chat;
+using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
+using static PristonTale.Application.GameMasters.GmInformationCommands;
+
+namespace PristonTale.Application.GameMasters;
+
+// Commands that make items, gold and experience, and the overrides for the items they make.
+internal static class GmItemCommands
+{
+    public const int MaxGold = 1_000_000;
+
+    public static Task Specialization(GmCommandContext context)
+    {
+        var job = ChatCommandText.ToNumber(context.Rest);
+        context.Commands.ItemOverrides.SetSpecialization(job, context.Commands.NowMs());
+        context.Reply(Format(">Specific ({0}) 1 minute operation", job));
+        return Task.CompletedTask;
+    }
+
+    public static Task Performance(GmCommandContext context)
+    {
+        var value = ChatCommandText.ToNumber(context.Rest);
+        context.Commands.ItemOverrides.SetPerformance(value, context.Commands.NowMs());
+        context.Reply(Format(">Item Performance setting ({0}) effective 1 minutes", value));
+        return Task.CompletedTask;
+    }
+
+    // Ends one of the game master's premium timers: 1 Third Eyes to 13 Stamina Reduce Potion, in the timer numbering.
+    public static async Task EndPremium(GmCommandContext context)
+    {
+        var rest = context.Line[context.Start..];
+        if (rest.Length < 2 || !char.IsAsciiDigit(rest[1]))
+        {
+            return;
+        }
+
+        var kind = ChatCommandText.ToNumber(rest);
+        if (!Enum.IsDefined((PremiumEffectKind)kind) || kind == 0)
+        {
+            return;
+        }
+
+        if (await context.Commands.World.EndPremiumAsync(context.Issuer.EntityId, (PremiumEffectKind)kind))
+        {
+            context.Reply(Format("({0})Item Init Success", PremiumName((PremiumEffectKind)kind)));
+        }
+    }
+
+    // The best copy of an item code dropped at the game master, optionally for a class: a class name, a short name
+    // (MS FS PS AS KS ATA PRS MG), its number 1 to 8, or none.
+    public static async Task Perfect(GmCommandContext context)
+    {
+        var code = context.Word();
+        var specName = context.Word();
+        var job = SpecJobCode(specName);
+        if (job < 0)
+        {
+            context.Reply(Format("Unknown spec {0} (a class name, MS FS PS AS KS ATA PRS MG, 1-8 or none)", specName));
+            return;
+        }
+
+        var specBit = job == 0 ? 0u : ItemRoller.JobBitFor((PlayerClass)job);
+        var className = job == 0 ? "no spec" : ((PlayerClass)job).ToString();
+        if (FindByCode(context, code) is not { } definition)
+        {
+            context.Reply(Format("Unknown item code {0}", code));
+            return;
+        }
+
+        if (!ItemRoller.CanTakeSpec(definition, specBit))
+        {
+            context.Reply(Format("{0} cannot take the {1} spec", code, className));
+            return;
+        }
+
+        var dropped = await context.Commands.World.DropAsync(context.Issuer.EntityId, _ => ItemRoller.CreatePerfect(definition, 1, specBit), 0);
+        context.Reply(dropped ? Format("Perfect {0} created ({1})", code, className) : Format("No field to drop {0} on", code));
+    }
+
+    // An item copy by code, or by a double-quoted name (which also finds unique items), dropped at the game master.
+    public static async Task Create(GmCommandContext context)
+    {
+        var argument = context.Rest;
+        if (Find(context, argument) is not { } definition)
+        {
+            return;
+        }
+
+        var overrides = context.Commands.ItemOverrides.Current(context.Commands.NowMs());
+        if (await context.Commands.World.DropAsync(context.Issuer.EntityId, rng => ItemRoller.Create(definition, 1, rng, overrides), 0))
+        {
+            context.Reply(Format("{0} items have been created", argument));
+        }
+    }
+
+    // An item copy into another player's bag, written to storage before the player receives it.
+    public static async Task Gift(GmCommandContext context)
+    {
+        var name = context.Word();
+        var target = name.Length == 0 ? null : context.Commands.Directory.FindByName(name);
+        var argument = context.Rest;
+        if (target is null || Find(context, argument) is not { } definition)
+        {
+            return;
+        }
+
+        var overrides = context.Commands.ItemOverrides.Current(context.Commands.NowMs());
+        if (await GmGifts.GiveAsync(context.Commands, context.Issuer, target, rng => ItemRoller.Create(definition, 1, rng, overrides)))
+        {
+            context.Reply(Format("{0} items have been sent to {1}", argument, target.Name));
+        }
+    }
+
+    // Raises the game master to the experience that starts a level (2 to the level cap).
+    public static async Task Experience(GmCommandContext context)
+    {
+        var word = context.Word();
+        if (word.Length == 0)
+        {
+            return;
+        }
+
+        if (await context.Commands.World.RaiseExperienceAsync(context.Issuer.EntityId, ChatCommandText.ToNumber(word)) is { } experience)
+        {
+            context.Reply(Format(">Here you go~( {0} )", experience));
+        }
+    }
+
+    // Drops 1 to 1,000,000 gold at the game master.
+    public static async Task Gold(GmCommandContext context)
+    {
+        var word = context.Word();
+        var amount = ChatCommandText.ToNumber(word);
+        if (word.Length == 0 || amount is <= 0 or > MaxGold)
+        {
+            return;
+        }
+
+        if (await context.Commands.World.DropAsync(context.Issuer.EntityId, null, amount))
+        {
+            context.Reply(Format(">What the hell~!!( {0} )", amount));
+        }
+    }
+
+    // On a debug server, a slash and an item code drop that item at the game master.
+    public static async Task<bool> DebugDrop(GmCommandContext context)
+    {
+        if (FindByCode(context, context.Line[1..].Trim()) is not { } definition)
+        {
+            return false;
+        }
+
+        var overrides = context.Commands.ItemOverrides.Current(context.Commands.NowMs());
+        return await context.Commands.World.DropAsync(context.Issuer.EntityId, rng => ItemRoller.Create(definition, 1, rng, overrides), 0);
+    }
+
+    // 0 for none, a class number 1 to 8, else -1.
+    public static int SpecJobCode(string name)
+    {
+        if (name.Length == 0 || name.Equals("none", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        if (name.Length == 1 && name[0] is >= '1' and <= '8')
+        {
+            return name[0] - '0';
+        }
+
+        var shortNames = new[] { ("FS", 1), ("MS", 2), ("AS", 3), ("PS", 4), ("ATA", 5), ("KS", 6), ("MG", 7), ("PRS", 8) };
+        foreach (var (alias, code) in shortNames)
+        {
+            if (alias.Equals(name, StringComparison.OrdinalIgnoreCase))
+            {
+                return code;
+            }
+        }
+
+        foreach (var playerClass in Enum.GetValues<PlayerClass>())
+        {
+            if ((int)playerClass <= 8 && playerClass.ToString().Equals(name, StringComparison.OrdinalIgnoreCase))
+            {
+                return (int)playerClass;
+            }
+        }
+
+        return -1;
+    }
+
+    public static string PremiumName(PremiumEffectKind kind) => kind switch
+    {
+        PremiumEffectKind.ThirdEyes => "Third Eyes",
+        PremiumEffectKind.ExperienceUp => "EXP Increase Potion",
+        PremiumEffectKind.VampiricCuspid => "Vampiric Cuspid",
+        PremiumEffectKind.ManaRecharging => "Mana Recharging Potion",
+        PremiumEffectKind.MightOfAwell => "Might of Awell",
+        PremiumEffectKind.ManaReduce => "Mana Reduce Potion",
+        PremiumEffectKind.PhoenixPet => "Phoenix",
+        PremiumEffectKind.HelpPetTerry => "Terry",
+        PremiumEffectKind.HelpPetNepsys => "Nepsys",
+        PremiumEffectKind.HelpPetIo => "Io",
+        PremiumEffectKind.HelpPetMute => "Mute",
+        PremiumEffectKind.VampiricCuspidEx => "Super Vampiric Cuspid",
+        _ => "Stamina Reduce Potion"
+    };
+
+    // A code names a non-unique item; a double-quoted phrase names any item by its name.
+    private static ItemDefinition? Find(GmCommandContext context, string argument)
+    {
+        if (argument.StartsWith('"'))
+        {
+            var close = argument.IndexOf('"', 1);
+            var name = close < 0 ? argument[1..] : argument[1..close];
+            return context.Commands.WorldData.Current.Items.All.FirstOrDefault(item => item.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return FindByCode(context, argument.Split(' ', 2)[0]);
+    }
+
+    private static ItemDefinition? FindByCode(GmCommandContext context, string code) =>
+        code.Length == 0 ? null : context.Commands.WorldData.Current.Items.All.FirstOrDefault(item =>
+            item.UniqueItem == 0 && item.CatalogKey.Equals(code, StringComparison.OrdinalIgnoreCase));
+}

@@ -18,7 +18,8 @@ FluentMigrator migrations, the schema, and the SQLite and PostgreSQL providers. 
 | --- | --- |
 | `Persistence/PristonTale.Persistence.Abstractions/` | Provider-neutral contracts and records; references only Simulation |
 | `.../IDbConnectionFactory.cs`, `IDatabaseMigrator.cs` | Open a provider connection; apply pending migrations |
-| `.../Accounts/` | `AccountRecord`, `IAccountRepository` |
+| `.../Accounts/` | `AccountRecord` (with `GmLevel`), `IAccountRepository` |
+| `.../GameMasters/IGameMasterRepository.cs` | Set a game-master level, append and read the audit trail, move a character between accounts |
 | `.../Characters/CharacterRecord.cs` | One `characters` row; positional record, JSON columns as `JsonText` |
 | `.../Characters/CharacterJson.cs` | `JsonText` wrapper, shared JSON options, `DerivedStatsDto` |
 | `.../Characters/CharacterStateCodec.cs` | Owned-state JSON (`SavedItems`, `SavedSkills`): capture, strict restore |
@@ -27,7 +28,7 @@ FluentMigrator migrations, the schema, and the SQLite and PostgreSQL providers. 
 | `.../WorldData/` | Read-side catalog records and [WorldDataFactory](../Persistence/PristonTale.Persistence.Abstractions/WorldData/WorldDataFactory.cs) |
 | `.../Security/PasswordHasher.cs` | PBKDF2-SHA256 hashes: `pbkdf2-sha256$<iterations>$<salt b64>$<key b64>` |
 | `Persistence/PristonTale.Persistence/Repositories/` | `Dapper*Repository` implementations shared by both providers |
-| `Persistence/PristonTale.Persistence/Migrations/` | `M013Baseline`, `M014PortraitData`, `M015NpcServices`, `M016QuestData`, `FluentMigratorDatabaseMigrator` |
+| `Persistence/PristonTale.Persistence/Migrations/` | `M013Baseline`, `M014PortraitData`, `M015NpcServices`, `M016QuestData`, `M019GameMasters`, `FluentMigratorDatabaseMigrator` |
 | `Persistence/PristonTale.Persistence.Sqlite/` | `AddPristonSqlite`, connection factory (WAL), Dapper type handlers, path resolution |
 | `Persistence/PristonTale.Persistence.Postgres/` | `AddPristonPostgres`, `NpgsqlDataSource` factory, `jsonb` handler for `JsonText` |
 | `docker-compose.yml` | Local PostgreSQL 17 for development |
@@ -110,7 +111,7 @@ and its account warehouse are always written together, so a gold or item move be
 | `skills` | `SavedSkills` v1: points, elite points, `(Code, Rank, Uses)`, progression `Revision` and `Operations` | 128 skills, points >= 0 |
 | `warehouses.items` | `SavedItems` v1 with anchors in the warehouse grid | `WarehouseStorage.MaxItems` |
 | `derived_stats` | `DerivedStatsDto`, written on save; nothing reads it | - |
-| `premium` | `SavedPremium` v1 (`PremiumStateCodec.cs`): premium timers `(Kind, Value, DurationSeconds, ExpiresAtSeconds)` with Unix-second expiry, item-use `Operations`, `GravityScrolls`, big-head mode and expiry; `{}` is empty | 13 timers; expired timers and big head are dropped on restore |
+| `premium` | `SavedPremium` v1 (`PremiumStateCodec.cs`): premium timers `(Kind, Value, DurationSeconds, ExpiresAtSeconds)` with Unix-second expiry, item-use `Operations`, `GravityScrolls`, head mode (1-2 big head, 3 soccer ball) and expiry, `SavedAtSeconds` (the last tick's clock); `{}` is empty | 17 timers; expired timers and heads are dropped on restore; boosters and skill delay move their expiry by the time since `SavedAtSeconds` |
 | `quests` | `SavedQuests` v1: the running quest (`SavedQuest`), level and beginner logs, finished codes, `FinishedCount`, the redistribution offer, `Revision` and quest `Operations` (see [quests.md](quests.md)); `{}` reads as an idle journal | 32 finished codes, 64 operations, defined quest codes and timer kinds, non-negative counts |
 
 - Restore is strict: unknown JSON members are rejected, constructor parameters without defaults are required, max
@@ -138,6 +139,7 @@ FluentMigrator scans `PristonTale.Persistence` for `[Migration(n)]` classes. Ver
 | 14 | `M014PortraitData` | `monsters.portrait_offset_y/z`; `npcs.display_name` (128), `npcs.portrait_offset_y/z`. Columns append in record constructor order |
 | 15 | `M015NpcServices` | `npc_services` table and index; `warehouses.revision`; `npcs.display_name` only if missing |
 | 16 | `M016QuestData` | `monsters.quest_code`, `event_item` (item code key, empty when none), `potion_count`, `potion_percent` |
+| 19 | `M019GameMasters` | `accounts.gm_level` (default 0); `gm_audit` table and its `account_id` index |
 
 Legacy upgrade path: databases from the earlier migration set at version 12 upgrade in place. Databases at
 versions 1-11 make `M013Baseline` throw; bring them to 12 with the previous release or back up and recreate them.
@@ -155,7 +157,8 @@ The PostgreSQL `jsonb` columns are exactly `M013Baseline.JsonColumns`: `characte
 
 | Table | Columns and constraints |
 | --- | --- |
-| `accounts` | `id` int64 identity PK; `user_id` unique; `password_hash` (`PasswordHasher` format); `is_blocked`, `is_tester` bool; `created_at` UTC default; `last_login_at` nullable |
+| `accounts` | `id` int64 identity PK; `user_id` unique; `password_hash` (`PasswordHasher` format); `is_blocked`, `is_tester` bool; `created_at` UTC default; `last_login_at` nullable; `gm_level` 0 to 4 (default 0, player) |
+| `gm_audit` | `id` int64 identity PK; `account_id` int64 (indexed, no FK so the trail outlives the account); `user_id`, `character_name`, `gm_level`, `command`, `required_level`, `accepted` bool, `result`; `created_at` UTC default |
 
 ### Characters
 

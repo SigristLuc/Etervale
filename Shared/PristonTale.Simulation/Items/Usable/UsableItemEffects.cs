@@ -4,7 +4,7 @@ using PristonTale.Simulation.Skills;
 namespace PristonTale.Simulation.Items.Usable;
 
 // The part of an item use that changes the character's own saved state: premium timers, stat and skill resets,
-// skill mastery, aging mastery and the Gravity Scroll. The authority checks it on a copy, stores the copy, then applies
+// skill mastery, aging mastery, the Gravity Scroll and the head looks. The authority checks it on a copy, stores the copy, then applies
 // it again to the live character with the same clock, so both reach the same state.
 public static class UsableItemEffects
 {
@@ -74,6 +74,9 @@ public static class UsableItemEffects
                 break;
             case UsableItemAction.BigHead:
                 character.Premium.TryStartBigHead(argument, BigHeadSeconds, nowSeconds);
+                break;
+            case UsableItemAction.SoccerHead:
+                character.Premium.TryStartBigHead(PremiumTimers.SoccerHeadMode, EventFoods.SoccerHeadSeconds, nowSeconds);
                 break;
         }
 

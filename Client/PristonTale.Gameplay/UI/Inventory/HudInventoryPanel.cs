@@ -23,6 +23,9 @@ public sealed class HudInventoryPanel
     private OwnedItemView _hovered;
     private OwnedItemView _dragged;
 
+    // The HUD clock that sweeps the finished puzzle's scan lines.
+    public double ClockMs { get; set; }
+
     // An extra tooltip line for the hovered item, such as what an open shop pays for it.
     public Func<OwnedItemView, string> Note { get; set; }
 
@@ -39,6 +42,7 @@ public sealed class HudInventoryPanel
 
         Refresh(state);
         _state = state;
+        DrawPuzzleBoard(painter, origin, state);
         foreach (var item in state.Items)
         {
             if (item.Slot >= 0)
@@ -86,6 +90,32 @@ public sealed class HudInventoryPanel
         painter.TextCentered(_weight, weight.Left, weight.Right, weight.Y);
         _hovered = hovered;
         _dragged = dragged;
+    }
+
+    // While a puzzle piece or lucky bag is carried, the board backdrop covers the last four columns' top four rows; a
+    // finished puzzle glows yellow under two orange lines that sweep the board one pixel every three 70 Hz frames.
+    private void DrawPuzzleBoard(HudPainter painter, Point origin, OwnerState state)
+    {
+        var carried = state.Items.Where(static item => item.Slot < 0).ToList();
+        if (!carried.Any(static item => Puzzles.IsPiece(item.CatalogKey) || item.CatalogKey.Equals(Puzzles.LuckyBagIcon, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        var board = HudInventoryLayout.Cell(origin, Puzzles.BoardColumn, Puzzles.BoardSize, Puzzles.BoardSize);
+        painter.Sprite(HudArt.PuzzleBoard, board.X, board.Y);
+        if (!Puzzles.Complete(carried.Select(static item => (item.CatalogKey, item.Anchor)), HudInventoryLayout.Columns))
+        {
+            return;
+        }
+
+        painter.Fill(board, Color.FromNonPremultiplied(255, 255, 0, 30));
+        var travel = board.Height - 6;
+        var step = (int)(ClockMs / (3000d / 70d)) % (travel * 2);
+        var offset = step < travel ? step : travel * 2 - step;
+        var line = Color.FromNonPremultiplied(255, 123, 0, 180);
+        painter.Fill(new Rectangle(board.X, board.Y + offset, board.Width, 2), line);
+        painter.Fill(new Rectangle(board.X, board.Bottom - 2 - offset, board.Width, 2), line);
     }
 
     // Drawn after the bottom bar so the held item and the item box stay on top, as the original draws items after the interface.

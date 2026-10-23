@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using PristonTale.Gameplay.Screens.Framework;
+using PristonTale.Gameplay.UI.Chat;
 using PristonTale.Gameplay.UI.Inventory;
 using PristonTale.Gameplay.UI.Npc;
 using PristonTale.Gameplay.UI.Quests;
@@ -15,9 +16,10 @@ using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Gameplay.UI;
 
-// The original in-game interface in its draw order: status, skill, inventory and quest windows behind the
-// bottom bar, then item overlays, help boxes and message boxes. Party, chat input and the system menu
-// entries other than Settings have no server support and are drawn without behaviour.
+// The original in-game interface in its draw order: speech bubbles, the chat window, status, skill, inventory and quest
+// windows behind the bottom bar, then item overlays, help boxes and message boxes. Party and the system menu entries
+// other than Settings have no server support and are drawn without behaviour. Refusals show in the notice strip;
+// confirmations and server lines go to the chat.
 public sealed class GameplayHud : IDisposable
 {
     private readonly ScreenContext _context;
@@ -30,7 +32,6 @@ public sealed class GameplayHud : IDisposable
     private readonly HudSkillsPanel _skills;
     private readonly HudSkillHud _skillHud;
     private static readonly CharacterClassRegistry SkillClasses = new();
-    private static readonly Color QuestChatColor = new(255, 255, 128);
     private PlayerClass _class;
     private IReadOnlyList<OwnedSkillView> _syncedSkills;
     private readonly HudInventoryPanel _inventoryPanel = new();
@@ -53,11 +54,14 @@ public sealed class GameplayHud : IDisposable
     private readonly List<Vector3> _minimapNpcs = new(64);
     private readonly HudTargetPortrait _portrait;
     private readonly HudNotice _notice = new();
+    private readonly HudChat _chat = new();
     private readonly HudSlide _inventorySlide = new();
     private readonly HudSlide _statusSlide = new();
     private readonly HudSlide _skillSlide = new();
     private readonly HudItemUseController _itemUse;
     private readonly HudPremiumTimers _premium;
+    private readonly HudPremiumKeeps _premiumKeeps = new();
+    private readonly HudPuzzleExchange _puzzle = new();
     private int _itemUseCompletions;
     private int _shopsOpened;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
@@ -112,7 +116,22 @@ public sealed class GameplayHud : IDisposable
         _inventory.InterceptClick = InterceptInventoryClick;
         _inventory.ExternalDrop = DropFromInventory;
         _inventoryPanel.Note = InventoryNote;
+        _sprites.Request(HudChatWindow.Art);
+        _sprites.Request(HudChatBubbles.Art);
+        _chat.Lookup = id => (Combat.KindOf(id, out var owner), owner);
     }
+
+    // The chat window, its input line and the speech bubbles.
+    public HudChat Chat => _chat;
+
+    // The chat part of each presence update (server lines, whispers, notices, the close request).
+    public void ObserveChat(PristonTale.Client.Net.Presence.PresenceUpdate update) => _chat.Observe(update, _clock.Elapsed.TotalMilliseconds);
+
+    // The input line has the keyboard: game keys must not act on typed letters.
+    public bool KeyboardCaptured => _chat.KeyboardCaptured;
+
+    // Where a speaker's bubble hangs on screen, from the scene; null when the speaker is not drawn.
+    public Func<uint, HudOverheadPoint?> Overhead { get; set; } = static _ => null;
 
     public HudCombat Combat { get; } = new();
     public HudStringEffect StringEffect { get; } = new();
@@ -124,6 +143,9 @@ public sealed class GameplayHud : IDisposable
     public PristonTale.Client.Net.Presence.PremiumTimerSnapshot PremiumTimers { get; set; }
     public uint TargetId { get; set; }
     public HudWorldView World { get; set; }
+
+    // The player stands in a castle field, where a Restoration revives.
+    public bool InCastleField { get; set; }
     public IHudPortraitScene PortraitScene { get; set; }
     public bool PortraitReady => _portrait.Texture(TargetId) is not null;
     public float MinimapViewSize => _minimap.CurrentViewSize;
@@ -134,6 +156,7 @@ public sealed class GameplayHud : IDisposable
     public bool RightAttackEnabled => _bindings.RightSkillId == HudSkillBindings.BasicAttackId;
     internal uint LeftSkillId => _bindings.LeftSkillId;
     internal HudItemUseController ItemUse => _itemUse;
+    internal HudPuzzleExchange Puzzle => _puzzle;
     internal uint RightSkillId => _bindings.RightSkillId;
     public HudSkillBindings Bindings => _bindings;
 
@@ -199,13 +222,21 @@ public sealed class GameplayHud : IDisposable
 
     public bool ClosePanel()
     {
+        // As in the original, Escape first closes an open chat window and nothing else.
+        if (_chat.Window.Open && !_settingsOpen)
+        {
+            _chat.Window.Close();
+            return true;
+        }
+
         _npc.Dismiss();
         var closed = _npcOpen || _settingsOpen || _systemMenu || _skills.TrainingPending
             || _inventorySlide.Open || _statusSlide.Open || _skillSlide.Open || _shop.IsOpen || _warehouse.IsOpen
             || _questWindow.Open || _quests.Dialog is not null || _quests.SkillResetBox;
         CloseServices();
-        closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming;
+        closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming;
         _itemUse.Close();
+        _puzzle.Close();
         _quests.CloseDialog();
         _quests.AnswerSkillReset(false);
         _quests.LeaveNpc();
@@ -237,6 +268,7 @@ public sealed class GameplayHud : IDisposable
         _progression.Update();
         _services.Update();
         _itemUse.Update();
+        _itemUse.Restore(state, InCastleField, _clock.Elapsed.TotalMilliseconds);
         _premium.Apply(PremiumTimers, _clock.Elapsed.TotalMilliseconds);
         _quests.Update();
         _npc.Update(_context.Font);
@@ -303,7 +335,13 @@ public sealed class GameplayHud : IDisposable
         _hoveredButton = ButtonAt(design);
         _hoveredToggle = ToggleAt(design);
         var clicked = mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
-        UpdateKeys(keyboard);
+        _chat.Update(keyboard, _previousKeyboard, _context.TypedText.Drain(), _clock.Elapsed.TotalMilliseconds, _chat.Window.Log.Tab);
+        var typing = _chat.KeyboardCaptured;
+        if (!typing)
+        {
+            UpdateKeys(keyboard);
+        }
+
         var warehouseAction = _warehouse.Update(mouse, _previousMouse, pointer, InventoryCellAt, _services.Pending || _settingsOpen);
         if (warehouseAction.Kind != HudWarehouseActionKind.None)
         {
@@ -317,8 +355,8 @@ public sealed class GameplayHud : IDisposable
         var skillOrigin = PanelOrigin(layout, _skillSlide);
         _skills.RefreshRanks(_state);
         var hoveredSkill = _skillSlide.FullyOpen && _skillMaster == 0 ? _skills.HoveredSkill(skillOrigin, pointer) : 0;
-        _bindings.Update(keyboard, mouse, hoveredSkill);
-        PointerCaptured = Captures(layout, pointer, design) || _inventory.Dragging != Guid.Empty || _warehouse.Dragging != Guid.Empty;
+        _bindings.Update(typing ? default : keyboard, mouse, hoveredSkill);
+        PointerCaptured = Captures(layout, pointer, design) || _chat.Window.Contains(layout, pointer, SideWindowOpen) || _inventory.Dragging != Guid.Empty || _warehouse.Dragging != Guid.Empty;
         _inventory.Update(state, layout, _inventorySlide.FullyOpen && !_settingsOpen, keyboard, mouse);
         _previousKeyboard = keyboard;
         _previousMouse = mouse;
@@ -355,25 +393,25 @@ public sealed class GameplayHud : IDisposable
         if (_inventory.Completions != _inventoryCompletions)
         {
             _inventoryCompletions = _inventory.Completions;
-            _notice.Show(_inventory.Message);
+            Report(_inventory.LastOk, _inventory.Message);
         }
 
         if (_progression.Completions != _progressionCompletions)
         {
             _progressionCompletions = _progression.Completions;
-            _notice.Show(_progression.Message);
+            Report(_progression.LastOk, _progression.Message);
         }
 
         if (_services.Completions != _serviceCompletions)
         {
             _serviceCompletions = _services.Completions;
-            _notice.Show(_services.Message);
+            Report(_services.LastOk, _services.Message);
         }
 
         if (_itemUse.Completions != _itemUseCompletions)
         {
             _itemUseCompletions = _itemUse.Completions;
-            _notice.Show(_itemUse.Message);
+            Report(_itemUse.LastOutcome?.Ok == true, _itemUse.Message);
         }
 
         if (_itemUse.ShopsOpened != _shopsOpened)
@@ -392,9 +430,31 @@ public sealed class GameplayHud : IDisposable
         if (_bindings.Refusals != _bindingRefusals)
         {
             _bindingRefusals = _bindings.Refusals;
-            _notice.Show(_bindings.Refusal);
+            _chat.System(_bindings.Refusal);
         }
     }
+
+    // A refusal shows in the notice strip as the classic message box; a confirmation (which the classic client did not show)
+    // goes to the chat as a server line. The server's "committed" carries no information and is dropped.
+    private void Report(bool ok, string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        if (!ok)
+        {
+            _notice.Show(message);
+        }
+        else if (message != "committed")
+        {
+            _chat.System(message);
+        }
+    }
+
+    // A status, skill or inventory window shrinks the chat window above it.
+    private bool SideWindowOpen => _inventorySlide.Visible || _statusSlide.Visible || _skillSlide.Visible;
 
     private void UpdateKeys(KeyboardState keyboard)
     {
@@ -438,7 +498,7 @@ public sealed class GameplayHud : IDisposable
             switch (notice.Kind)
             {
                 case QuestNoticeKind.Chat:
-                    Combat.Add(notice.Text, QuestChatColor);
+                    _chat.Assist(notice.Text);
                     break;
                 case QuestNoticeKind.Fanfare:
                     QuestFanfare?.Invoke();
@@ -552,7 +612,12 @@ public sealed class GameplayHud : IDisposable
             return;
         }
 
-        if (_itemUse.Click(pointer, state))
+        if (_chat.Window.Click(layout, pointer, SideWindowOpen))
+        {
+            return;
+        }
+
+        if (_itemUse.Click(pointer, state) || _puzzle.Click(pointer, state, _services))
         {
             return;
         }
@@ -722,7 +787,7 @@ public sealed class GameplayHud : IDisposable
 
     private bool Captures(HudLayout layout, Point pointer, Point design)
     {
-        if (_itemUse.Captures(pointer) || _premium.Contains(pointer))
+        if (_itemUse.Captures(pointer) || _puzzle.Captures(pointer) || _premium.Contains(pointer))
         {
             return true;
         }
@@ -766,6 +831,8 @@ public sealed class GameplayHud : IDisposable
         var pointer = layout.ToLogical(_previousMouse.Position);
         var pressed = _previousMouse.LeftButton == ButtonState.Pressed;
         _painter.Begin(layout);
+        _chat.Bubbles.Draw(_painter, layout, _clock.Elapsed.TotalMilliseconds, Overhead, id => _chat.NameColor(id, TargetId), TargetId);
+        _painter.Flush();
         if (MinimapShown)
         {
             Combat.CollectNpcPositions(_minimapNpcs);
@@ -774,10 +841,7 @@ public sealed class GameplayHud : IDisposable
 
         Combat.DrawTarget(_painter, layout, TargetId, _context.Presentation.Requested.ClassicTargetHealthBar, _portrait.Texture(TargetId));
         _premium.Draw(_painter, _clock.Elapsed.TotalMilliseconds);
-        if (!_inventorySlide.Visible && !_statusSlide.Visible && !_skillSlide.Visible)
-        {
-            Combat.DrawLog(_painter, layout);
-        }
+        _chat.Window.Draw(_painter, layout, SideWindowOpen);
 
         if (_statusSlide.Visible)
         {
@@ -791,6 +855,7 @@ public sealed class GameplayHud : IDisposable
 
         if (_inventorySlide.Visible)
         {
+            _inventoryPanel.ClockMs = _clock.Elapsed.TotalMilliseconds;
             _inventoryPanel.Draw(_painter, PanelOrigin(layout, _inventorySlide), _state, _inventory, _icons, pointer, _inventorySlide.FullyOpen);
         }
 
@@ -817,7 +882,7 @@ public sealed class GameplayHud : IDisposable
         _skillHud.DrawSockets(_painter, layout.BottomOffset, _bindings.LeftSkillId, _bindings.RightSkillId, Cooldowns, SkillClockMs);
         if (Statuses is not null && SelfId != 0)
         {
-            _skillHud.DrawBuffs(_painter, Statuses.For(SelfId), SkillClockMs);
+            _skillHud.DrawBuffs(_painter, _premiumKeeps.With(Statuses.For(SelfId), PremiumTimers, SkillClockMs), SkillClockMs);
         }
         else
         {
@@ -855,6 +920,8 @@ public sealed class GameplayHud : IDisposable
             _itemUse.Draw(_painter, pointer);
         }
 
+        _puzzle.Draw(_painter, pointer);
+
         if (_settingsOpen)
         {
             _painter.Flush();
@@ -883,7 +950,8 @@ public sealed class GameplayHud : IDisposable
 
         if (Statuses is not null && SelfId != 0)
         {
-            _skillHud.DrawBuffTooltip(_painter, Statuses.For(SelfId), pointer, SkillClockMs, SummonAutomatic);
+            _skillHud.DrawBuffTooltip(_painter, _premiumKeeps.With(Statuses.For(SelfId), PremiumTimers, SkillClockMs), pointer, SkillClockMs,
+                SummonAutomatic);
         }
 
         _skillHud.DrawQuestTimerTooltip(_painter, _questView, QuestTimeLeftMs, pointer);
@@ -1020,6 +1088,19 @@ public sealed class GameplayHud : IDisposable
                 break;
             case NpcServiceKind.Teleporter:
                 _npc.ShowDestinations(_services.Destinations);
+                break;
+            case NpcServiceKind.QuestEvent:
+                if (_puzzle.Offer(_state, _services.NpcId, _services.NpcName) is { } help)
+                {
+                    _notice.Show(help);
+                }
+                else
+                {
+                    _npcOpen = false;
+                    _npc.Dismiss();
+                    _inventorySlide.Open = false;
+                }
+
                 break;
             case NpcServiceKind.SkillMaster:
                 _npcOpen = false;

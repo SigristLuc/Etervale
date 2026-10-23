@@ -11,10 +11,8 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
         FullMode = BoundedChannelFullMode.DropWrite,
         AllowSynchronousContinuations = false
     });
-    private readonly Queue<CombatEventView[]> _events = new();
-    private readonly List<SkillEventView> _skillEvents = new();
-    private readonly List<StatusEventView> _statusEvents = new();
-    private readonly List<ItemEffectView> _itemEffects = new();
+    // The event lists of every snapshot published since the last read, with their ticks.
+    private readonly List<EventBatch> _batches = new();
     private SkillCooldownView[]? _cooldowns;
     private readonly QuestUpdateBuffer _quest = new();
     private readonly int _eventCapacity;
@@ -50,17 +48,13 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
 
             _latest = snapshot;
             _hasState = true;
-            if (snapshot.Events.Length > 0)
+            // Skill, status and item events are as reliable as combat events; the newest cooldown list replaces older ones.
+            if (incoming > 0)
             {
-                _events.Enqueue(snapshot.Events);
-                _eventCount += snapshot.Events.Length;
+                _batches.Add(new EventBatch(snapshot.ServerTick, snapshot.Events, snapshot.SkillEvents, snapshot.StatusEvents, snapshot.ItemEffects));
+                _eventCount += incoming;
             }
 
-            // Skill and status changes are as reliable as combat events; the newest cooldown list replaces older ones.
-            _skillEvents.AddRange(snapshot.SkillEvents);
-            _statusEvents.AddRange(snapshot.StatusEvents);
-            _itemEffects.AddRange(snapshot.ItemEffects);
-            _eventCount += snapshot.SkillEvents.Length + snapshot.StatusEvents.Length + snapshot.ItemEffects.Length;
             if (snapshot.Cooldowns is not null)
             {
                 _cooldowns = snapshot.Cooldowns;
@@ -83,28 +77,6 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
                 return false;
             }
 
-            CombatEventView[] events;
-            if (_events.Count == 0)
-            {
-                events = Array.Empty<CombatEventView>();
-            }
-            else if (_events.Count == 1)
-            {
-                // Snapshot batches are immutable after publication. Normal-rate subscribers can share
-                // the field's one batch instead of allocating/copying it once per connection per tick.
-                events = _events.Dequeue();
-            }
-            else
-            {
-                events = new CombatEventView[_eventCount];
-                var offset = 0;
-                while (_events.TryDequeue(out var batch))
-                {
-                    batch.CopyTo(events, offset);
-                    offset += batch.Length;
-                }
-            }
-
             var latest = _latest;
             if (latest.Frame is { } frame)
             {
@@ -115,17 +87,12 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
                     : new WorldSnapshot(latest.ServerTick, [], latest.Events, latest.FieldId, latest.Owner, latest.GroundDrops);
             }
 
-            snapshot = latest.WithEvents(events) with
+            snapshot = WithBatches(latest) with
             {
-                SkillEvents = _skillEvents.Count == 0 ? [] : _skillEvents.ToArray(),
-                StatusEvents = _statusEvents.Count == 0 ? [] : _statusEvents.ToArray(),
-                ItemEffects = _itemEffects.Count == 0 ? [] : _itemEffects.ToArray(),
                 Cooldowns = _cooldowns,
                 Quest = _quest.Take()
             };
-            _skillEvents.Clear();
-            _statusEvents.Clear();
-            _itemEffects.Clear();
+            _batches.Clear();
             _cooldowns = null;
             _latest = default;
             _eventCount = 0;
@@ -134,6 +101,55 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
             return true;
         }
     }
+
+    // A reader that kept up gets the field's own immutable event arrays, shared by every receiver; one that fell behind
+    // gets the batches joined in order, with the tick each part belongs to.
+    private WorldSnapshot WithBatches(in WorldSnapshot latest)
+    {
+        if (_batches.Count == 0)
+        {
+            return latest.WithEvents([]) with { SkillEvents = [], StatusEvents = [], ItemEffects = [] };
+        }
+
+        if (_batches.Count == 1)
+        {
+            var only = _batches[0];
+            return latest.WithEvents(only.Combat) with
+            {
+                SkillEvents = only.Skills,
+                StatusEvents = only.Statuses,
+                ItemEffects = only.Items,
+                EventSegments = only.Tick == latest.ServerTick
+                    ? null
+                    : [new EventSegment(only.Tick, only.Combat.Length, only.Skills.Length, only.Statuses.Length, only.Items.Length)]
+            };
+        }
+
+        var segments = new EventSegment[_batches.Count];
+        var combat = new List<CombatEventView>();
+        var skills = new List<SkillEventView>();
+        var statuses = new List<StatusEventView>();
+        var items = new List<ItemEffectView>();
+        for (var index = 0; index < _batches.Count; index++)
+        {
+            var batch = _batches[index];
+            combat.AddRange(batch.Combat);
+            skills.AddRange(batch.Skills);
+            statuses.AddRange(batch.Statuses);
+            items.AddRange(batch.Items);
+            segments[index] = new EventSegment(batch.Tick, batch.Combat.Length, batch.Skills.Length, batch.Statuses.Length, batch.Items.Length);
+        }
+
+        return latest.WithEvents(combat.ToArray()) with
+        {
+            SkillEvents = skills.ToArray(),
+            StatusEvents = statuses.ToArray(),
+            ItemEffects = items.ToArray(),
+            EventSegments = segments
+        };
+    }
+
+    private readonly record struct EventBatch(uint Tick, CombatEventView[] Combat, SkillEventView[] Skills, StatusEventView[] Statuses, ItemEffectView[] Items);
 
     private bool Complete(Exception? exception)
     {

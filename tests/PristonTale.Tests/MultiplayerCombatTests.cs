@@ -137,12 +137,12 @@ internal static class MultiplayerCombatTests
             "the hunter's hits", 12000);
         await Task.Delay(500);
 
-        var attacksA = a.World.Read(world => Blows(world, hunter.Id, 0))!;
-        foreach (var viewer in new[] { b, c })
+        // Viewers met the hunter at different ticks: each one's attacks must run in step with the first viewer's from the
+        // first attack both saw.
+        var attacks = clients.Select(client => client.World.Read(world => world.Combat.Where(entry => entry.Event.AttackerId == hunter.Id).ToList())!).ToArray();
+        for (var index = 1; index < attacks.Length; index++)
         {
-            var attacks = viewer.World.Read(world => Blows(world, hunter.Id, 0))!;
-            var common = Math.Min(attacks.Count, attacksA.Count);
-            Assert.True(common >= 2 && attacks.Take(common).SequenceEqual(attacksA.Take(common)), $"{viewer.Name} saw other monster attacks");
+            Assert.True(InStep(attacks[0], attacks[index]) >= 2, $"{clients[index].Name} saw other monster attacks: {Dump(attacks[0])} vs {Dump(attacks[index])}");
         }
 
         var samples = clients.Select(client => client.World.Read(world => world.Entities[hunter.Id].Samples
@@ -168,6 +168,29 @@ internal static class MultiplayerCombatTests
 
         Assert.True(compared >= 6, $"only {compared} shared samples of the hunter");
     }
+
+    // The number of events two viewers share once aligned on the first event (and its server tick) they both saw; 0 when
+    // they disagree.
+    private static int InStep(List<(double? TimeMs, CombatEventInfo Event)> first, List<(double? TimeMs, CombatEventInfo Event)> second)
+    {
+        var (longer, shorter) = first.Count >= second.Count ? (first, second) : (second, first);
+        for (var skip = 0; skip < shorter.Count; skip++)
+        {
+            var start = longer.IndexOf(shorter[skip]);
+            if (start < 0)
+            {
+                continue;
+            }
+
+            var shared = Math.Min(shorter.Count - skip, longer.Count - start);
+            return shorter.Skip(skip).Take(shared).SequenceEqual(longer.Skip(start).Take(shared)) ? shared : 0;
+        }
+
+        return 0;
+    }
+
+    private static string Dump(List<(double? TimeMs, CombatEventInfo Event)> events) =>
+        string.Join(" ", events.Select(entry => $"{entry.TimeMs}:{entry.Event.Kind}>{entry.Event.TargetId}={entry.Event.Damage}"));
 
     // Blows of one attacker (on one target, or any target with 0), in server order, without the arrival time.
     private static List<CombatEventInfo> Blows(ObservedWorld world, uint attacker, uint target) => world.Combat

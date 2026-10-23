@@ -10,7 +10,7 @@ using NumVector3 = System.Numerics.Vector3;
 
 namespace PristonTale.Gameplay.World.Remote;
 
-public sealed class RemoteEntityManager
+public sealed partial class RemoteEntityManager
 {
     private readonly IActorScene _scene;
     private readonly IPlayerActorComposer _playerComposer;
@@ -289,6 +289,7 @@ public sealed class RemoteEntityManager
         if (spawn.OwnerId != 0)
         {
             _summonOwners[spawn.EntityId] = spawn.OwnerId;
+            TrackSummonPlate(spawn, info.Name);
         }
 
         var scale = spawn.ModelScale > 0f ? spawn.ModelScale : info.ModelScale;
@@ -325,6 +326,7 @@ public sealed class RemoteEntityManager
         {
             entity.SetRates(state.MoveSpeed, state.AttackRate);
             entity.SetTarget(_clock.Stamp(state.ServerTimeMs), ToXna(state.Position), state.Facing, state.MoveState, state.Hp);
+            UpdateSummonPlate(state.EntityId, state.Hp);
             if (!_preparingActors.ContainsKey(state.EntityId))
             {
                 return;
@@ -378,6 +380,7 @@ public sealed class RemoteEntityManager
     private void ApplyRemoved(uint entityId)
     {
         _summonOwners.Remove(entityId);
+        _summonPlates.Remove(entityId);
         _playerAppearances.Remove(entityId);
         _collisionRoster.Remove(entityId);
         _pendingModels.Remove(entityId);
@@ -510,6 +513,44 @@ public sealed class RemoteEntityManager
         return false;
     }
 
+    // Every other player's body item ("" while unknown), whether it is shown (alive, outside a village) and its model yaw.
+    public void ForEachWearer(Action<uint, string, bool, float> visit)
+    {
+        foreach (var (entityId, appearance) in _playerAppearances)
+        {
+            if (_entities.TryGetValue(entityId, out var entity) && entity is RemoteEntity)
+            {
+                visit(entityId, appearance.ArmorKey, !entity.IsDead && !appearance.InVillage, entity.RenderFacing);
+            }
+        }
+    }
+
+    // The actors a skill look paints: a player's body, head and held items, or a monster's model; and whether the
+    // player holds a shield.
+    public bool TryGetLookHandles(uint entityId, out PlayerActorHandles handles, out bool holdsShield)
+    {
+        handles = new PlayerActorHandles(ActorHandle.None, ActorHandle.None);
+        holdsShield = false;
+        if (!_entities.TryGetValue(entityId, out var entity))
+        {
+            return false;
+        }
+
+        switch (entity)
+        {
+            case RemoteEntity player:
+                handles = player.Handles;
+                holdsShield = _playerAppearances.TryGetValue(entityId, out var appearance)
+                    && appearance.OffHandKey.StartsWith("DS", StringComparison.OrdinalIgnoreCase);
+                return true;
+            case RemoteModelEntity model:
+                handles = new PlayerActorHandles(model.Actor, ActorHandle.None);
+                return true;
+            default:
+                return false;
+        }
+    }
+
     // The actor whose bones effects attach to: a player's body or a monster's model.
     public bool TryGetBodyActor(uint entityId, out ActorHandle handle)
     {
@@ -577,6 +618,7 @@ public sealed class RemoteEntityManager
         }
 
         _entities.Clear();
+        _summonPlates.Clear();
         _playerAppearances.Clear();
         _collisionRoster.Clear();
         _pendingModels.Clear();

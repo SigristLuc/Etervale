@@ -26,10 +26,17 @@ internal sealed class RenderQueueBuilder
         for (var i = 0; i < batches.Count; i++)
         {
             var batch = batches[i];
+            if (batch.Shade is { Hidden: true })
+            {
+                culled++;
+                continue;
+            }
+
             var sortKey = batch.Material.SortKey;
             var sortDepth = SortDepth(frame.CameraPosition, batch.Bounds);
             if (includeShadowCasters
                 && !batch.ShadowCoveredByAggregate
+                && batch.Shade is null or { Shadowed: true }
                 && (batch.Material.CastsShadow || batch.ForceCastsShadow))
             {
                 _queue.AddShadowCaster(batch, sortKey, sortDepth);
@@ -50,6 +57,11 @@ internal sealed class RenderQueueBuilder
             for (var i = 0; i < shadowBatches.Count; i++)
             {
                 var batch = shadowBatches[i];
+                if (batch.Shade is { Shadowed: false })
+                {
+                    continue;
+                }
+
                 _queue.AddShadowCaster(
                     batch,
                     batch.Material.SortKey,
@@ -63,7 +75,7 @@ internal sealed class RenderQueueBuilder
 
     private static PristonRenderPass RenderPass(RenderBatch batch)
     {
-        if (batch.Material.Transparent)
+        if (batch.Material.Transparent || batch.Shade is { Translucent: true })
             return PristonRenderPass.Transparent;
 
         return batch.Material.AlphaTest ? PristonRenderPass.AlphaTest : PristonRenderPass.Opaque;

@@ -65,6 +65,15 @@ public sealed class FieldAudioController : IDisposable
         }
     }
 
+    // The whisper chime plays at nine tenths of full volume, as the original's 360 of 400.
+    public void PlayWhisper()
+    {
+        if (_library.SoundEnabled)
+        {
+            _library.WhisperSound.Play(0.9f, 0f, 0f);
+        }
+    }
+
     public void PlayQuestFanfare()
     {
         if (_library.SoundEnabled)

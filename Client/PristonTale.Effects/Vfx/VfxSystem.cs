@@ -189,7 +189,7 @@ public sealed class VfxInstance
 
     public CompiledVfx Effect { get; private set; } = null!;
     // Counts the uses of this pooled instance, so a holder can tell its effect from a later one.
-    internal int Generation { get; private set; }
+    public int Generation { get; private set; }
     public VfxSpawn Spawn { get; private set; }
     public float Age { get; private set; }
     public bool Alive { get; private set; }
@@ -512,7 +512,9 @@ public sealed class VfxInstance
             if (!_soundsFired[index] && Age >= sound.Delay)
             {
                 _soundsFired[index] = true;
-                services.PlaySound(sound.Path, AnchorPosition(VfxAnchor.Caster, "", Vector3.Zero, anchors), sound.Volume);
+                var take = sound.Variants.Length == 0 ? 0 : (int)(NextUnit(ref _random) * (sound.Variants.Length + 1));
+                var path = take == 0 ? sound.Path : sound.Variants[Math.Min(take, sound.Variants.Length) - 1];
+                services.PlaySound(path, AnchorPosition(VfxAnchor.Caster, "", Vector3.Zero, anchors), sound.Volume);
             }
         }
     }

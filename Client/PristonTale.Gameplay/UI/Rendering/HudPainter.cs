@@ -175,6 +175,9 @@ public sealed class HudPainter : IDisposable
         }
     }
 
+    // The height of one line of HUD text.
+    public int TextHeight => (int)MathF.Ceiling(_font.LineSpacing * TextScale);
+
     public int Measure(string value) => string.IsNullOrEmpty(value) ? 0 : (int)MathF.Ceiling(_font.MeasureString(value).X * TextScale);
 
     public string Fit(string value, int width)

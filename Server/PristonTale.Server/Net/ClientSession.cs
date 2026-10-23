@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Net;
 using System.Numerics;
+using PristonTale.Application.Chat;
 using PristonTale.Application.Services;
 using PristonTale.Application.Sessions;
 using PristonTale.Application.World;
@@ -30,7 +31,9 @@ internal sealed record SessionServices(
     LoginThrottle LoginThrottle,
     NpcAppService Npc,
     ItemUseAppService ItemUse,
-    QuestAppService Quests)
+    QuestAppService Quests,
+    ChatAppService Chat,
+    GameServerControl Control)
 {
     // Shared by every connection so a flood from many peers still yields one warning per interval.
     public LogSampler RejectedPackets { get; } = new(5000);
@@ -38,7 +41,7 @@ internal sealed record SessionServices(
 
 // One client connection following the classic order: Version, IdGetUserInfo, IdSetUserInfo + ServerInfo,
 // character records, GetRecordData -> RecordData, PlayerInfo -> Connected, then play traffic.
-internal sealed class ClientSession
+internal sealed partial class ClientSession
 {
     // Default minimum client version of the original server; the client compares it with its own version.
     public const int LimitVersion = 167;
@@ -70,6 +73,7 @@ internal sealed class ClientSession
         LastReceivedMs = ConnectedMs;
         _packetRate = new PacketRateLimiter(services.Limits.PacketLimit, services.Limits.PacketWindowMs);
         _playerInfoRate = new TokenBucket(services.Limits.PlayerInfoBurst, services.Limits.PlayerInfoPerSecond);
+        _countingSink = new CountingSink(this);
     }
 
     public long ConnectedMs { get; }
@@ -82,7 +86,9 @@ internal sealed class ClientSession
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        Send(new TransCommand(PristonOpcodes.Version, 0, LimitVersion), encrypt: true);
+        // VERSION {WParam = minimum client version, LParam = players in the world when the server is full, else 0}.
+        var players = _services.World.PlayerCount;
+        Send(new TransCommand(PristonOpcodes.Version, _services.Control.Full(players) ? Math.Max(1, players) : 0, LimitVersion), encrypt: true);
         try
         {
             await _connection.RunAsync(HandleAsync, cancellationToken);
@@ -101,6 +107,7 @@ internal sealed class ClientSession
     {
         var now = Environment.TickCount64;
         LastReceivedMs = now;
+        Interlocked.Increment(ref _packetsReceived);
         var code = BinaryPrimitives.ReadUInt32LittleEndian(memory.Span[4..]);
         // GETPLAYERINFO has its own bucket: one is sent per newly seen entity, so a crowd can exceed the original's
         // 28-entity updates; every other packet counts toward the original flood limit.
@@ -123,8 +130,19 @@ internal sealed class ClientSession
                 {
                     var beat = TransCommand.Read(memory.Span);
                     Send(beat with { SParam = Environment.TickCount }, encrypt: true);
+                    if (_player is not null && _session is { } playing)
+                    {
+                        _services.Chat.Heartbeat(playing.EntityId);
+                    }
+
                     break;
                 }
+                case PristonOpcodes.ChatMessage:
+                    await SayAsync(ChatInputPacket.Read(memory.Span), party: false);
+                    break;
+                case PristonOpcodes.PartyChatMessage:
+                    await SayAsync(ChatInputPacket.Read(memory.Span), party: true);
+                    break;
                 case PristonOpcodes.IdGetUserInfo:
                     await LoginAsync(CharCommand2.Read(memory.Span));
                     break;
@@ -246,6 +264,14 @@ internal sealed class ClientSession
         }
 
         throttle.RecordSuccess(request.Id);
+        if (session.GmLevel == 0 && _services.Control.Full(_services.World.PlayerCount))
+        {
+            // Only game masters may join a full server.
+            _services.Registry.Remove(outcome.SessionToken);
+            Send(new TransCommand(PristonOpcodes.FailConnect, 0, TrafficBusy, 0, 2), encrypt: true);
+            return;
+        }
+
         Volatile.Write(ref _token, outcome.SessionToken);
         _account = request.Id;
         _session = session;
@@ -350,6 +376,7 @@ internal sealed class ClientSession
         // CONNECTED {LParam = server milliseconds, WParam = object serial}.
         Send(new TransCommand(PristonOpcodes.Connected, Environment.TickCount, (int)session.EntityId), encrypt: true);
         _pump = PumpAsync(outbox, _encoder);
+        JoinChat(session);
     }
 
     private async Task PumpAsync(WorldOutbox outbox, PresenceEncoder encoder)
@@ -360,7 +387,7 @@ internal sealed class ClientSession
             {
                 try
                 {
-                    encoder.Encode(snapshot, _connection);
+                    encoder.Encode(snapshot, _countingSink);
                 }
                 finally
                 {
@@ -678,6 +705,7 @@ internal sealed class ClientSession
         _outbox = null;
         _player = null;
         _pump = null;
+        LeaveChat(session);
         outbox.Writer.TryComplete();
         await _services.World.LeaveAsync(session.FieldId, session.EntityId, outbox.Writer);
         session.EndPlay();
@@ -743,6 +771,7 @@ internal sealed class ClientSession
 
     private void SendSpan(ReadOnlySpan<byte> packet, bool encrypt)
     {
+        Interlocked.Increment(ref _packetsSent);
         if (encrypt)
         {
             _connection.SendEncrypted(packet);

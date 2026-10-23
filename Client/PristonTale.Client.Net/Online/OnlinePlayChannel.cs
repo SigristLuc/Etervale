@@ -80,6 +80,12 @@ internal sealed class OnlinePlayChannel : IPlayChannel
         _connection.SendSkillCast(sequence, skillCode, targetEntityId, point);
     }
 
+    public async Task SendChatAsync(string text, bool party, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendChat(text, party);
+    }
+
     public async Task SendSkillCommandAsync(uint sequence, uint skillCode, ushort command, CancellationToken ct = default)
     {
         await _start.WaitAsync(ct);

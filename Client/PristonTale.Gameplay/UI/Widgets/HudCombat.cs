@@ -12,14 +12,13 @@ namespace PristonTale.Gameplay.UI.Widgets;
 public readonly record struct HudTargetFrame(Rectangle Box, Rectangle Portrait, Rectangle HealthBar, Rectangle Brood, int NameY, int StatsY);
 
 // Target inspection box (centred at 0.92/0.1 of the screen with cw.tga, the name 16 pixels above its bottom edge, the
-// monster race icon in its top right corner and the original life bar under it) and combat lines in the bottom-left chat
-// area (chat messages at x=16).
+// monster race icon in its top right corner and the original life bar under it). Hits are kept as history lines; the
+// original shows them as floating numbers only, so the chat window does not list them.
 public sealed class HudCombat
 {
     private const int StateBarWidth = 100;
     private const int StateBarSize = 92;
     private const int StateBarHeight = 16;
-    private const int LogLines = 6;
     private const int NameLift = 21;
     private static readonly Color LevelColor = new(220, 220, 220);
     private static readonly Color MonsterColor = new(255, 160, 120);
@@ -50,6 +49,19 @@ public sealed class HudCombat
     public int HistoryCount => _historyCount;
     public string LatestMessage => _historyCount > 0 ? _history[(_historyEnd + 63) % 64].Text : "";
     public void SetCatalog(WorldRenderCatalog catalog) => _catalog = catalog;
+
+    // What the client knows of an entity in view: its kind and a summon's owner (Unspecified when not in view).
+    public RemoteEntityKind KindOf(uint id, out uint ownerId)
+    {
+        ownerId = 0;
+        if (!_entities.TryGetValue(id, out var entity))
+        {
+            return RemoteEntityKind.Unspecified;
+        }
+
+        ownerId = entity.Spawn.OwnerId;
+        return entity.Spawn.Kind;
+    }
 
     // Fills the caller's list (cleared first) so the minimap reads the NPC positions without allocating.
     public void CollectNpcPositions(List<Vector3> positions)
@@ -300,16 +312,6 @@ public sealed class HudCombat
         }
 
         return _percentText;
-    }
-
-    public void DrawLog(HudPainter painter, HudLayout layout)
-    {
-        var count = Math.Min(LogLines, _historyCount);
-        for (var index = 0; index < count; index++)
-        {
-            var entry = _history[(_historyEnd - 1 - index + _history.Length) % _history.Length];
-            painter.Text(painter.Fit(entry.Text, 270), 16, layout.BottomOffset + 565 - (index + 1) * HudPainter.LineHeight, entry.Color);
-        }
     }
 
     private string Name(uint id)

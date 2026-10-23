@@ -41,6 +41,7 @@ public sealed class AuthAppService
 
         await _accounts.UpdateLastLoginAsync(record.Id, ct);
         var session = _sessions.Create(record.Id, record.UserId);
+        session.GmLevel = Math.Clamp(record.GmLevel, 0, GameMasters.GameMasterLevel.Highest);
 
         return LoginOutcome.Success(session.SessionToken, $"welcome, {record.UserId}");
     }

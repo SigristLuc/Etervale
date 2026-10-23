@@ -23,6 +23,9 @@ public sealed class PlayerSession
     public required string UserId { get; init; }
     public required uint EntityId { get; init; }
 
+    // The account's game-master level at login (0 for players).
+    public int GmLevel { get; set; }
+
     public string? CharacterName { get; set; }
     public int FieldId { get; set; }
     public Vector3 SpawnPosition { get; set; }

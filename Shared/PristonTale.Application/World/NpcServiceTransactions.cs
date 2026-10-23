@@ -149,6 +149,9 @@ internal static class NpcServiceTransactions
                 }
 
                 break;
+            case NpcServiceAction.Exchange:
+                status = Simulation.Items.Usable.PuzzleExchange.TryExchange(candidate, items, field.ItemRng, out _);
+                break;
             default:
                 status = NpcServiceStatus.Rejected;
                 break;
@@ -279,6 +282,7 @@ internal static class NpcServiceTransactions
         NpcServiceAction.Deposit or NpcServiceAction.Withdraw or NpcServiceAction.Move or NpcServiceAction.DepositGold
             or NpcServiceAction.WithdrawGold => service == NpcServiceKind.Warehouse,
         NpcServiceAction.Teleport => service == NpcServiceKind.Teleporter,
+        NpcServiceAction.Exchange => service == NpcServiceKind.QuestEvent,
         _ => false
     };
 
@@ -288,6 +292,7 @@ internal static class NpcServiceTransactions
         NpcServiceStatus.NoSpace => "not enough room",
         NpcServiceStatus.GoldLimit => "you cannot carry more gold",
         NpcServiceStatus.OverWeight => ItemRuleMessages.OverWeight,
+        NpcServiceStatus.WrongPuzzle => "The puzzle is wrong",
         _ => "the NPC refused"
     };
 

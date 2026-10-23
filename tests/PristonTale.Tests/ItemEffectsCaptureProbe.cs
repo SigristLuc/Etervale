@@ -20,12 +20,16 @@ using PristonTale.Simulation.World.Monsters;
 namespace PristonTale.Tests;
 
 // Item effects in Ricarten: firecracker bursts over the player, the skill-learn light of a hair tint, a force orb's
-// weapon glow and hit spark, a big head, and the premium pets beside their owners, idle and striking a monster.
+// weapon glow and hit spark, a big head and a soccer-ball head, the premium pets beside their owners, idle and striking a
+// monster, and crystal pets with their name plates called in the return sparkle.
 internal sealed class ItemEffectsCaptureProbe : Game
 {
     private const uint SelfId = 1;
     private const uint HopyId = 2;
     private const uint FriendId = 3;
+    private const uint KickerId = 4;
+    private const uint PetId = 5;
+    private const uint FriendPetId = 6;
 
     private sealed record Shot(string Name, double AtSeconds, Action<ItemEffectsCaptureProbe>? Begin = null);
 
@@ -40,7 +44,10 @@ internal sealed class ItemEffectsCaptureProbe : Game
         new("learn-ring", 10.35, probe => probe.Learn()),
         new("learn-ring-late", 10.75),
         new("force-orb", 12.5, probe => probe.ForceOrb()),
-        new("force-orb-hit", 12.75, probe => probe.ForceOrbHit())
+        new("force-orb-hit", 12.75, probe => probe.ForceOrbHit()),
+        new("crystal-summon", 14.25, probe => probe.CrystalPets()),
+        new("crystal-pets", 15.5),
+        new("soccer-head", 16.0)
     ];
 
     private readonly string _assetRoot;
@@ -63,6 +70,11 @@ internal sealed class ItemEffectsCaptureProbe : Game
     private int _shot;
     private double _seconds;
     private bool _begun;
+    private LegacyReturnEffect _return = null!;
+    private SpriteBatch _batch = null!;
+    private SpriteFont _font = null!;
+    private Texture2D _pixel = null!;
+    private PristonCollisionWorld _collision = null!;
 
     public ItemEffectsCaptureProbe(string assetRoot, string contentRoot, string output)
     {
@@ -94,6 +106,7 @@ internal sealed class ItemEffectsCaptureProbe : Game
         _renderer.PrepareStageTexturesAsync(stage, models).GetAwaiter().GetResult();
         _renderer.AddStage(stage, models);
         var collision = new PristonCollisionWorld(stage);
+        _collision = collision;
         var start = field.StartPoints[0];
         _focus = new Vector3(start.X, 0f, -start.Z);
         _focus.Y = collision.TryGetFloorHeight(_focus with { Y = 5000f }, out var floor) ? floor : 0f;
@@ -115,7 +128,9 @@ internal sealed class ItemEffectsCaptureProbe : Game
             new(HopyId, RemoteEntityKind.Monster, false, Numeric(Floor(collision, _focus + new Vector3(-90f, 0f, 30f))), 1.2f, RemoteMoveState.Idle, 31, 50,
                 null, 1, Name: "Hopy", Level: 3),
             new(FriendId, RemoteEntityKind.Player, false, Numeric(Floor(collision, _focus + new Vector3(110f, 0f, -40f))), 2.6f, RemoteMoveState.Idle, 900,
-                1000, new PlayerAppearanceInfo("Lyra", 8, 0, 1, 0, "", "", 37) { BigHead = 2 }, 0)
+                1000, new PlayerAppearanceInfo("Lyra", 8, 0, 1, 0, "", "", 37) { BigHead = 2 }, 0),
+            new(KickerId, RemoteEntityKind.Player, false, Numeric(Floor(collision, _focus + new Vector3(-40f, 0f, -70f))), 0.6f, RemoteMoveState.Idle, 900,
+                1000, new PlayerAppearanceInfo("Kicker", 1, 0, 0, 0, "", "", 52) { BigHead = CharacterHead.SoccerLook }, 0)
         ], [], [], []));
         _library = LegacyEffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assetRoot, ConsoleClientLog.Instance);
         _effects = new EffectsEngine(GraphicsDevice, Content);
@@ -126,6 +141,32 @@ internal sealed class ItemEffectsCaptureProbe : Game
         ItemVfx.Register(_skills.Library);
         _orbs = new ForceOrbPresentation(_skills, _library, _assetRoot, _effects, _renderer.TransientLights);
         _pets = new PremiumPetPresentation(actorScene, loader, _assetRoot, _library, _effects, _renderer.TransientLights, _sounds, ConsoleClientLog.Instance);
+        _return = new LegacyReturnEffect(GraphicsDevice, _library, _renderer.TransientLights);
+        _batch = new SpriteBatch(GraphicsDevice);
+        _font = Content.Load<SpriteFont>("Fonts/UI");
+        _pixel = new Texture2D(GraphicsDevice, 1, 1);
+        _pixel.SetData([Color.White]);
+    }
+
+    // Two crystal pets: the viewer's own with its life bar, and the friend's with the owner's name, each called in the
+    // return sparkle.
+    private void CrystalPets()
+    {
+        var own = Floor(_collision, _focus + new Vector3(-55f, 0f, 60f));
+        var theirs = Floor(_collision, _focus + new Vector3(80f, 0f, 10f));
+        _remote.Apply(new PresenceUpdate(5,
+        [
+            new(PetId, RemoteEntityKind.Monster, false, Numeric(own), 0.4f, RemoteMoveState.Idle, 120, 153, null, 1, Name: "Hopy", Level: 4)
+            {
+                OwnerId = SelfId
+            },
+            new(FriendPetId, RemoteEntityKind.Monster, false, Numeric(theirs), 2.4f, RemoteMoveState.Idle, 153, 153, null, 1, Name: "Hopy", Level: 4)
+            {
+                OwnerId = FriendId
+            }
+        ], [], [], []));
+        _return.Start(own);
+        _items.Play(ItemEffectKind.Return, SelfId, 0, own, _eye, _seconds * 1000d);
     }
 
     private void Pets()
@@ -188,7 +229,7 @@ internal sealed class ItemEffectsCaptureProbe : Game
         }
 
         const float step = 1f / 60f;
-        if (_remote.Count < 3)
+        if (_remote.Count < 4)
         {
             _remote.Update(step);
             return;
@@ -208,6 +249,7 @@ internal sealed class ItemEffectsCaptureProbe : Game
         _skills.Update(step, _seconds * 1000d);
         _effects.Update(new GameTime(TimeSpan.FromSeconds(_seconds), TimeSpan.FromSeconds(step)));
         _renderer.Update(new GameTime(TimeSpan.FromSeconds(_seconds), TimeSpan.FromSeconds(step)));
+        _return.Update(step);
     }
 
     protected override void Draw(GameTime gameTime)
@@ -221,11 +263,26 @@ internal sealed class ItemEffectsCaptureProbe : Game
         var shot = Shots[_shot];
         using var target = new RenderTarget2D(GraphicsDevice, 960, 540, false, SurfaceFormat.Color, DepthFormat.Depth24Stencil8);
         GraphicsDevice.SetRenderTarget(target);
-        _camera.SetScriptedView(GraphicsDevice, _eye, _focus + Vector3.Up * (shot.Name.StartsWith("firecracker", StringComparison.Ordinal) ? 90f : 30f));
+        if (shot.Name == "soccer-head" && Anchor(KickerId) is { } kicker)
+        {
+            _camera.SetScriptedView(GraphicsDevice, kicker + new Vector3(25f, 45f, 45f), kicker + Vector3.Up * 38f);
+        }
+        else
+        {
+            _camera.SetScriptedView(GraphicsDevice, _eye, _focus + Vector3.Up * (shot.Name.StartsWith("firecracker", StringComparison.Ordinal) ? 90f : 30f));
+        }
+
         _renderer.Draw(_camera);
         _effects.Draw(_camera.View, _camera.Projection, _camera.Position);
         _skills.Draw(_camera.View, _camera.Projection, _camera.Position, _renderer.SceneLinearDepth);
+        _return.Draw(_camera.View, _camera.Projection, _camera.Position);
         _renderer.ComposeScene();
+        if (shot.Name.StartsWith("crystal", StringComparison.Ordinal))
+        {
+            _batch.Begin();
+            SummonPlates.Draw(_batch, _font, _pixel, GraphicsDevice.Viewport, _camera.View, _camera.Projection, _remote, SelfId, _focus);
+            _batch.End();
+        }
         GraphicsDevice.SetRenderTarget(null);
         var pixels = new Color[960 * 540];
         target.GetData(pixels);
@@ -253,6 +310,9 @@ internal sealed class ItemEffectsCaptureProbe : Game
 
     protected override void UnloadContent()
     {
+        _return.Dispose();
+        _batch.Dispose();
+        _pixel.Dispose();
         _pets.Dispose();
         _remote.Dispose();
         _effects.Dispose();

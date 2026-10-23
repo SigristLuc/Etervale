@@ -68,6 +68,7 @@ public sealed partial class WorldServer
 
             operation.Original.CommitInventoryOperation(operation.Candidate);
             operation.Original.TryChangeMoney(operation.MoneyDelta);
+            RecordSpending(operation);
             if (operation.Warehouse is not null)
             {
                 session.Warehouse = operation.Warehouse;

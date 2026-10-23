@@ -98,6 +98,8 @@ public sealed partial class WorldServer
             items: data.Items,
             terrain: _terrain.Get(fieldId));
         ConfigureQuests(field);
+        field.State = _catalog.TryGetFieldByCode(fieldId, out var definition) ? definition.State : FieldState.Forest;
+        field.ItemEventRates = _options.ItemEvents;
         _fields.Add(fieldId, field);
         return field;
     }
@@ -275,11 +277,14 @@ public sealed partial class WorldServer
     {
         return EnqueueAsync(NoOwner, () =>
         {
+            var moneyBefore = operation.Original.Money;
             if (!ReferenceEquals(session.Character, operation.Original) || operation.Candidate is null
                 || !operation.Original.ApplyProgression(operation.Candidate.ProgressionOperations[^1].Command))
             {
                 throw new InvalidOperationException("Character ownership changed during progression commit.");
             }
+
+            Currency.Record(GameMasters.CurrencySink.SkillTraining, moneyBefore - operation.Original.Money);
 
             return true;
         }, waitForCapacity: true);
@@ -500,6 +505,8 @@ public sealed partial class WorldServer
         var frame = field.Frames.Rent(field.EntityCount);
         field.FillViews(frame.Views);
         frame.Grid.Rebuild(frame.Views);
+        // Open to readers before any outbox can hand it out.
+        field.Frames.Published(frame);
         var snapshot = new WorldSnapshot(serverTick, frame.Views, field.SnapshotEvents(), field.FieldId, groundDrops: field.GroundLoot.Snapshot())
         {
             Grid = frame.Grid,
@@ -527,8 +534,6 @@ public sealed partial class WorldServer
                 frame.Retained |= connection.Outbound is not WorldOutbox.OutboxWriter;
             }
         }
-
-        field.Frames.Published(frame);
     }
 
     // Moves a player between field instances on the command phase: its cooldowns and running statuses follow it onto the

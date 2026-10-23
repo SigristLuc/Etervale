@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
-using PristonTale.Effects;
+using PristonTale.Effects.Vfx;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.IO;
@@ -56,7 +56,8 @@ internal sealed class OpeningCinematic : IDisposable
 
     private readonly PristonRenderer _renderer;
     private readonly LegacyEffectLibrary _effectLibrary;
-    private readonly EffectsEngine _effects;
+    private readonly VfxRenderer _effects;
+    private VfxSystem _effectSystem;
     private readonly Random _particleRandom = new(0x5054);
     private LegacyMeteorEffects _terrainFire;
     private PristonCamera _camera;
@@ -83,7 +84,7 @@ internal sealed class OpeningCinematic : IDisposable
         _effectLibrary = effects;
         if (effects is not null)
         {
-            _effects = new EffectsEngine(graphicsDevice, content, 0x5054);
+            _effects = new VfxRenderer(graphicsDevice, content);
         }
         _renderer = new PristonRenderer(graphicsDevice, content, log, presentation)
         {
@@ -104,10 +105,10 @@ internal sealed class OpeningCinematic : IDisposable
         if (_effects is not null)
         {
             var collision = new PristonCollisionWorld(stage);
-            // The scripts are read here, while loading, so the flight never waits for the disk.
-            _effectLibrary.ParticleScript(_assetRoot, "TerrainFire");
-            _effectLibrary.ParticleScript(_assetRoot, "FireBigHit1");
-            _terrainFire = new LegacyMeteorEffects(new LegacyScriptEffects(_effectLibrary, _effects, _assetRoot), _renderer.TransientLights, collision);
+            // The converted scripts are registered here, while loading, so the flight never waits for them.
+            _effectLibrary.Vfx.CompileAll();
+            _effectSystem = new VfxSystem(new NoAnchors(), new SceneLights(_renderer), _effectLibrary.Vfx.Library);
+            _terrainFire = new LegacyMeteorEffects(new SystemScriptEffects(_effectSystem, _effectLibrary.Vfx.Library), _renderer.TransientLights, collision);
         }
         _renderer.ConfigureFieldLighting(intensity: 4f, rangeScale: 1f, overrideLights: null, glowIntensity: 1f, glowScale: 1f);
         _renderer.AddStage(stage, LoadScenery());
@@ -136,7 +137,7 @@ internal sealed class OpeningCinematic : IDisposable
         var seconds = (float)gameTime.ElapsedGameTime.TotalSeconds;
         UpdateCamera(seconds);
         _terrainFire?.Update(seconds);
-        _effects?.Update(gameTime);
+        _effectSystem?.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
         _renderer.Update(gameTime);
     }
 
@@ -210,7 +211,10 @@ internal sealed class OpeningCinematic : IDisposable
     {
         _graphicsDevice.Clear(_renderer.SkyColor);
         _renderer.Draw(_camera);
-        _effects?.Draw(_camera.View, _camera.Projection, _camera.Position);
+        if (_effectSystem is not null)
+        {
+            _effects.Draw(_effectSystem, _camera.View, _camera.Projection, _camera.Position, _renderer.SceneLinearDepth);
+        }
         _renderer.ComposeScene();
     }
 
@@ -265,5 +269,30 @@ internal sealed class OpeningCinematic : IDisposable
         _terrainFire?.Clear();
         _effects?.Dispose();
         _renderer?.Dispose();
+    }
+
+    // The flight has no entities to anchor effects to.
+    private sealed class NoAnchors : IVfxAnchors
+    {
+        public bool TryGetPosition(uint entityId, out Vector3 position)
+        {
+            position = default;
+            return false;
+        }
+
+        public bool TryGetBone(uint entityId, string bone, out Vector3 position)
+        {
+            position = default;
+            return false;
+        }
+    }
+
+    private sealed class SceneLights(PristonRenderer renderer) : IVfxServices
+    {
+        public void AddLight(Vector3 position, Color color, int power, int decay) => renderer.TransientLights.Add(position, color, power, decay);
+
+        public void PlaySound(string path, Vector3 position, float volume)
+        {
+        }
     }
 }

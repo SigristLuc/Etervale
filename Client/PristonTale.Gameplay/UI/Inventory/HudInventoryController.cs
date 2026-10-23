@@ -19,6 +19,9 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     private volatile InventoryOutcome _completedOperation;
 
     public string Message { get; private set; } = "";
+
+    // Whether the last completed operation succeeded (its message is a confirmation rather than a refusal).
+    public bool LastOk { get; private set; }
     public int Completions { get; private set; }
     public bool Pending => _pendingOperation;
     public Guid Dragging => _dragging;
@@ -46,6 +49,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             _completedOperation = null;
             _pendingOperation = false;
             Message = completed.Message;
+            LastOk = completed.Ok;
             Completions++;
         }
 

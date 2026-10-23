@@ -117,6 +117,9 @@ public sealed class Inventory
         return true;
     }
 
+    // True when an item of this footprint would fit somewhere.
+    public bool HasRoom(int width, int height) => FindSpace(new ItemDefinition(0, "", ItemKind.Misc, GridWidth: width, GridHeight: height), _rows) >= 0;
+
     public bool TryPlace(ItemInstance item, int anchor)
     {
         if (item is null || item.Count <= 0 || item.Count > item.Definition.MaxStack || Find(item.InstanceId) >= 0

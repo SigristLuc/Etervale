@@ -20,7 +20,15 @@ public enum ItemUseStatus : ushort
     StorageFailed = 10,
     Dead = 11,
     Delay = 12,
-    Conflict = 13
+    Conflict = 13,
+    ClanOnly = 14,
+    NoSpace = 15,
+    OverWeight = 16,
+    MaleCannotUse = 17,
+    FemaleCannotUse = 18,
+    NotEnoughGold = 19,
+    CrystalRefused = 20,
+    SummonLimit = 21
 }
 
 public sealed record ItemUseOutcome(bool Ok, long Revision, ItemUseStatus Status, uint ItemCode, string Message)

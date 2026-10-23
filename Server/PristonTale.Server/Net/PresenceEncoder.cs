@@ -148,6 +148,8 @@ internal sealed partial class PresenceEncoder
         var grid = snapshot.Grid ?? EntityGrid.Build(snapshot.Entities);
         if (!grid.TryGetIndex(_self, out var selfIndex))
         {
+            // No own entity (a snapshot whose frame the field already reused): its reliable events still go out.
+            SendEventsOnly(snapshot, connection);
             return;
         }
 
@@ -173,6 +175,30 @@ internal sealed partial class PresenceEncoder
         }
 
         var tick = snapshot.ServerTick;
+        var combat = snapshot.Events.AsSpan();
+        var skills = snapshot.SkillEvents.AsSpan();
+        var statuses = snapshot.StatusEvents.AsSpan();
+        var items = snapshot.ItemEffects.AsSpan();
+        // Events of earlier ticks this receiver fell behind on go first, each on its own tick of the timeline.
+        foreach (var segment in snapshot.EventSegments ?? [])
+        {
+            if (segment.Tick == tick)
+            {
+                break;
+            }
+
+            _clockTick = segment.Tick;
+            _clockPending = true;
+            SendEvents(combat[..segment.Combat], connection);
+            SendSkillEvents(skills[..segment.Skills], connection);
+            SendStatusEvents(statuses[..segment.Statuses], snapshot, connection, withSpawned: false);
+            SendItemEffects(items[..segment.Items], connection);
+            combat = combat[segment.Combat..];
+            skills = skills[segment.Skills..];
+            statuses = statuses[segment.Statuses..];
+            items = items[segment.Items..];
+        }
+
         _clockTick = tick;
         _clockPending = true;
         // Entries every receiver of this frame shares are encoded once by whichever encoder needs them first.
@@ -192,7 +218,7 @@ internal sealed partial class PresenceEncoder
         foreach (var index in _candidates)
         {
             ref readonly var view = ref snapshot.Entities[index];
-            if (view.EntityId == _self || HiddenInArena(field, view))
+            if (view.EntityId == _self || view.Hidden || HiddenInArena(field, view))
             {
                 continue;
             }
@@ -243,10 +269,10 @@ internal sealed partial class PresenceEncoder
         _wire = null;
         _entities = [];
         SendRemovals(connection);
-        SendEvents(snapshot, connection);
-        SendSkillEvents(snapshot, connection);
-        SendStatusEvents(snapshot, connection);
-        SendItemEffects(snapshot, connection);
+        SendEvents(combat, connection);
+        SendSkillEvents(skills, connection);
+        SendStatusEvents(statuses, snapshot, connection, withSpawned: true);
+        SendItemEffects(items, connection);
         SendDrops(snapshot, self.Position, connection);
         SendOwner(snapshot.Owner, connection);
         SendPremium(snapshot.Owner, connection);
@@ -260,6 +286,19 @@ internal sealed partial class PresenceEncoder
     // Its own method: a lambda capturing the connection in EncodeLocked would allocate a closure on every encode.
     private void SendQuest(QuestUpdate quest, IPacketSink connection) =>
         QuestWireMapping.Send(quest, (write, capacity) => SendSized(connection, write, capacity));
+
+    private void SendEventsOnly(in WorldSnapshot snapshot, IPacketSink connection)
+    {
+        _clockTick = snapshot.ServerTick;
+        _clockPending = true;
+        SendEvents(snapshot.Events, connection);
+        SendSkillEvents(snapshot.SkillEvents, connection);
+        SendStatusEvents(snapshot.StatusEvents, snapshot, connection, withSpawned: false);
+        SendItemEffects(snapshot.ItemEffects, connection);
+        SendOwner(snapshot.Owner, connection);
+        SendPremium(snapshot.Owner, connection);
+        SendCooldowns(snapshot, connection);
+    }
 
     // The duel arena is solo: a player sees only the opponent and helper of its own duel.
     private bool HiddenInArena(int field, in EntityView view) =>
@@ -426,10 +465,10 @@ internal sealed partial class PresenceEncoder
         _removed.Clear();
     }
 
-    private void SendEvents(in WorldSnapshot snapshot, IPacketSink connection)
+    private void SendEvents(ReadOnlySpan<CombatEventView> combat, IPacketSink connection)
     {
         _events.Clear();
-        foreach (var combatEvent in snapshot.Events)
+        foreach (var combatEvent in combat)
         {
             if (combatEvent.AttackerId == _self || combatEvent.TargetId == _self
                 || _known.ContainsKey(combatEvent.AttackerId) || _known.ContainsKey(combatEvent.TargetId))
@@ -454,10 +493,10 @@ internal sealed partial class PresenceEncoder
     private bool Relevant(uint first, uint second) =>
         first == _self || second == _self || _known.ContainsKey(first) || second != 0 && _known.ContainsKey(second);
 
-    private void SendSkillEvents(in WorldSnapshot snapshot, IPacketSink connection)
+    private void SendSkillEvents(ReadOnlySpan<SkillEventView> skills, IPacketSink connection)
     {
         _skillEvents.Clear();
-        foreach (var skillEvent in snapshot.SkillEvents)
+        foreach (var skillEvent in skills)
         {
             if (Relevant(skillEvent.CasterId, skillEvent.TargetId))
             {
@@ -479,10 +518,10 @@ internal sealed partial class PresenceEncoder
         }
     }
 
-    private void SendStatusEvents(in WorldSnapshot snapshot, IPacketSink connection)
+    private void SendStatusEvents(ReadOnlySpan<StatusEventView> statuses, in WorldSnapshot snapshot, IPacketSink connection, bool withSpawned)
     {
         _statusEvents.Clear();
-        foreach (var status in snapshot.StatusEvents)
+        foreach (var status in statuses)
         {
             if (Relevant(status.EntityId, 0))
             {
@@ -490,7 +529,7 @@ internal sealed partial class PresenceEncoder
             }
         }
 
-        foreach (var entity in _spawned)
+        foreach (var entity in withSpawned ? _spawned : [])
         {
             foreach (var running in snapshot.ActiveStatuses.For(entity))
             {

@@ -1,3 +1,5 @@
+using PristonTale.Simulation.World.Loot;
+
 namespace PristonTale.Application.World;
 
 public sealed record WorldServerOptions
@@ -16,6 +18,12 @@ public sealed record WorldServerOptions
 
     public int MaxPendingCommandsPerPlayer { get; init; } = DefaultMaxPendingCommandsPerPlayer;
 
+    // The crystal event: 0 off, 1 from 12:00 to 23:59 server time, 2 all day; crystals then call their event monsters.
+    public int CrystalEvent { get; init; }
+
+    // Item events that replace drop rolls with event items (rates per 10000); all off by default.
+    public ItemEventRates ItemEvents { get; init; } = ItemEventRates.None;
+
     public WorldServerOptions Validated()
     {
         if (ExperienceMultiplier < 1)
@@ -26,6 +34,11 @@ public sealed record WorldServerOptions
         if (MaxPendingCommandsPerPlayer < 1)
         {
             throw new InvalidOperationException("World:MaxPendingCommandsPerPlayer must be at least 1.");
+        }
+
+        if (CrystalEvent is < 0 or > 2)
+        {
+            throw new InvalidOperationException("World:CrystalEvent must be 0, 1 or 2.");
         }
 
         return this;

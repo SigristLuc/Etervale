@@ -35,5 +35,8 @@ public interface IPlayChannel : IAsyncDisposable
     // A command about a running skill (SkillCastFlags: the release of a held charge, an order to the summon).
     Task SendSkillCommandAsync(uint sequence, uint skillCode, ushort command, CancellationToken ct = default) => Task.CompletedTask;
 
+    // A line typed in the chat window (party: the party channel); replies arrive as PresenceUpdate.Chat.
+    Task SendChatAsync(string text, bool party, CancellationToken ct = default) => Task.CompletedTask;
+
     IAsyncEnumerable<PresenceUpdate> ReadAllAsync(CancellationToken ct = default);
 }

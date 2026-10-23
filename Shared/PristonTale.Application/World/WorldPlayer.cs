@@ -513,6 +513,7 @@ public sealed class WorldPlayer
             _attackTargetId = 0;
             _attackSustained = false;
             _respawnMsLeft = RespawnDelayMs;
+            DeadMs = 0f;
             MoveState = MoveStateView.Dead;
         }
         else
@@ -537,6 +538,21 @@ public sealed class WorldPlayer
         _character.Life = Math.Min(MaxHp, _character.Life + amount);
     }
 
+    // Real-clock milliseconds before which billing crystals and soul stones refuse (every crystal use restarts it).
+    public long CrystalDelayUntilMs { get; set; }
+
+    // Milliseconds since the player died.
+    public float DeadMs { get; private set; }
+
+    // Keeps a dead player down without counting the respawn delay (a Restoration may still revive it).
+    public void TickDeadHeld(float dtMs)
+    {
+        if (IsDead)
+        {
+            DeadMs += dtMs;
+        }
+    }
+
     public bool TickRespawn(float dtMs)
     {
         if (!IsDead)
@@ -544,6 +560,7 @@ public sealed class WorldPlayer
             return false;
         }
 
+        DeadMs += dtMs;
         _respawnMsLeft -= dtMs;
         if (_respawnMsLeft > 0f)
         {
@@ -598,5 +615,24 @@ public sealed class WorldPlayer
         Level, Hp, MaxHp, Appearance,
         moveSpeed: _character.Derived.MoveSpeed,
         attackRate: _character.AttackRate,
-        attackTargetId: AttackTargetId, attackSequence: AttackSequence);
+        attackTargetId: AttackTargetId, attackSequence: AttackSequence)
+    {
+        Hidden = Hidden
+    };
+
+    // A game master who hid is left out of every other player's view and out of monsters' sight.
+    public bool Hidden { get; set; }
+
+    // A game master's kill: the player dies at once, whatever guard is running.
+    public bool Kill()
+    {
+        if (IsDead)
+        {
+            return false;
+        }
+
+        GuardMsLeft = 0f;
+        ApplyDamage(Math.Max(1, _character.Life));
+        return IsDead;
+    }
 }

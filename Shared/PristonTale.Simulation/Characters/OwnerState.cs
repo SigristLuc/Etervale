@@ -138,6 +138,16 @@ public sealed record OwnerState(
     private static OwnedItemView Project(ItemInstance item, int anchor, int slot, PlayerCharacter owner)
     {
         var definition = item.Definition;
+        if (item.Sealed)
+        {
+            // A sealed puzzle piece shows as the lucky bag until it is revealed.
+            return new OwnedItemView(item.InstanceId, LegacyItemCode.Parse(Puzzles.LuckyBagIcon), Puzzles.LuckyBagName, definition.Kind, item.Count,
+                anchor, slot, definition.GridWidth, definition.GridHeight, Puzzles.LuckyBagIcon)
+            {
+                Details = ItemDetailView.Of(item, owner)
+            };
+        }
+
         return new OwnedItemView(item.InstanceId, definition.Code, item.DisplayName, definition.Kind, item.Count,
             anchor, slot, definition.GridWidth, definition.GridHeight, definition.CatalogKey)
         {
