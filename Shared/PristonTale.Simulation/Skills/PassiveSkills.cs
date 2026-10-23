@@ -122,14 +122,34 @@ public static class PassiveSkills
         return weapon;
     }
 
-    private static IEnumerable<(SkillRule Rule, int Value)> Learned(LearnedSkills skills)
+    // The derived stats and combat profiles ask for the passives many times per tick; the list is rebuilt only when the
+    // learned skills change.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<LearnedSkills, LearnedPassives> Cache = new();
+
+    private static (SkillRule Rule, int Value)[] Learned(LearnedSkills skills)
     {
-        foreach (var (code, rank) in skills.Ranks)
+        var cached = Cache.GetValue(skills, static _ => new LearnedPassives());
+        if (cached.Revision != skills.Revision || cached.Entries is null)
         {
-            if (rank > 0 && SkillRuleCatalog.TryGet(code, out var rule) && rule.Passive is { Values.Length: 10 })
+            var entries = new List<(SkillRule, int)>();
+            foreach (var (code, rank) in skills.Ranks)
             {
-                yield return (rule, rule.At(rule.Passive.Values, rank));
+                if (rank > 0 && SkillRuleCatalog.TryGet(code, out var rule) && rule.Passive is { Values.Length: 10 })
+                {
+                    entries.Add((rule, rule.At(rule.Passive.Values, rank)));
+                }
             }
+
+            cached.Entries = entries.ToArray();
+            cached.Revision = skills.Revision;
         }
+
+        return cached.Entries;
+    }
+
+    private sealed class LearnedPassives
+    {
+        public long Revision = -1;
+        public (SkillRule Rule, int Value)[] Entries;
     }
 }

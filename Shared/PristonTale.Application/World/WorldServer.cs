@@ -253,6 +253,8 @@ public sealed partial class WorldServer
     // Tick-thread state: callers must not run concurrently with Tick.
     internal long FieldNowMs(int fieldId) => _fields.TryGetValue(fieldId, out var field) ? field.NowMs : 0;
 
+    internal FieldInstance? FieldFor(int fieldId) => _fields.GetValueOrDefault(fieldId);
+
     public Task<PreparedCharacterOperation<ProgressionOutcome>?> PrepareProgressionAsync(
         PlayerSession session, ProgressionCommand command)
     {
@@ -495,10 +497,14 @@ public sealed partial class WorldServer
             return;
         }
 
-        var entities = field.BuildViews();
-        var snapshot = new WorldSnapshot(serverTick, entities, field.SnapshotEvents(), field.FieldId, groundDrops: field.GroundLoot.Snapshot())
+        var frame = field.Frames.Rent(field.EntityCount);
+        field.FillViews(frame.Views);
+        frame.Grid.Rebuild(frame.Views);
+        var snapshot = new WorldSnapshot(serverTick, frame.Views, field.SnapshotEvents(), field.FieldId, groundDrops: field.GroundLoot.Snapshot())
         {
-            Grid = EntityGrid.Build(entities),
+            Grid = frame.Grid,
+            Frame = frame,
+            FrameGeneration = frame.Generation,
             SkillEvents = field.SnapshotSkillEvents(),
             StatusEvents = field.SnapshotStatusEvents(),
             ItemEffects = field.ItemEvents.Snapshot(),
@@ -517,8 +523,12 @@ public sealed partial class WorldServer
                 {
                     Quest = connection.Player.QuestState.TakeUpdate(connection.Player.Character)
                 });
+                // Only an outbox pins and releases frames; any other writer may keep the snapshot forever.
+                frame.Retained |= connection.Outbound is not WorldOutbox.OutboxWriter;
             }
         }
+
+        field.Frames.Published(frame);
     }
 
     // Moves a player between field instances on the command phase: its cooldowns and running statuses follow it onto the

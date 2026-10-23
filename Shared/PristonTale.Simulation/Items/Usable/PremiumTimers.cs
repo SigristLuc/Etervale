@@ -128,7 +128,22 @@ public sealed class PremiumTimers
     // Drops the timers whose expiry passed; true when one ended.
     public bool Expire(long nowSeconds)
     {
-        var ended = _timers.RemoveAll(timer => timer.ExpiresAtSeconds <= nowSeconds) > 0;
+        // Checked every tick for every player: no closure unless a timer actually ended.
+        var ended = false;
+        foreach (var timer in _timers)
+        {
+            if (timer.ExpiresAtSeconds <= nowSeconds)
+            {
+                ended = true;
+                break;
+            }
+        }
+
+        if (ended)
+        {
+            _timers.RemoveAll(timer => timer.ExpiresAtSeconds <= nowSeconds);
+        }
+
         if (BigHeadMode != 0 && BigHeadExpiresAtSeconds <= nowSeconds)
         {
             BigHeadMode = 0;

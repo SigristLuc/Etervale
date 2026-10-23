@@ -45,6 +45,12 @@ internal sealed partial class PresenceEncoder
         }
 
         _premiumRevision = owner.PremiumRevision;
+        SendTimers(owner, connection);
+    }
+
+    // Its own method: the lambda captures the owner, and a capture in SendPremium would allocate on every call.
+    private void SendTimers(OwnerState owner, IPacketSink connection)
+    {
         var timers = owner.PremiumTimers.Take(PremiumTimersPacket.MaxTimers)
             .Select(timer => new PremiumTimerEntry((byte)timer.Kind, timer.Value, (uint)Math.Clamp(timer.ExpiresAtSeconds - owner.PremiumClockSeconds, 0, uint.MaxValue),
                 (uint)Math.Clamp(timer.DurationSeconds, 0, uint.MaxValue)))

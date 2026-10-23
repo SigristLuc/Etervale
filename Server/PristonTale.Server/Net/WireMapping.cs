@@ -53,6 +53,20 @@ internal static class WireMapping
         (byte)Math.Clamp(view.Level, 0, 255),
         [Buffer(view)]);
 
+    public static int WritePlayData(Span<byte> destination, in EntityView view, int fieldCode, byte revision) => TransPlayData.WriteSingle(
+        destination,
+        view.EntityId,
+        view.AttackTargetId,
+        unchecked((int)view.AttackSequence),
+        ClampShort(view.Hp),
+        ClampShort(view.MaxHp),
+        SharedTemplate(view),
+        (short)fieldCode,
+        -1,
+        revision,
+        (byte)Math.Clamp(view.Level, 0, 255),
+        Buffer(view));
+
     public static PlayDataCoarse Coarse(in EntityView view) => new(
         view.EntityId,
         PristonUnits.ToFixed(view.Position.X),

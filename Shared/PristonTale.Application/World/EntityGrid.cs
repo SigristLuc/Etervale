@@ -3,35 +3,47 @@ using System.Numerics;
 namespace PristonTale.Application.World;
 
 // Uniform planar buckets over one field snapshot. Entity indices are sorted by cell key so a query is a binary
-// search per overlapped cell; the original server instead scanned every connection and monster slot.
+// search per overlapped cell; the original server instead scanned every connection and monster slot. A field's
+// presence frames rebuild their grid in place every tick.
 public sealed class EntityGrid
 {
     public const float CellSize = 256f;
-    private readonly long[] _keys;
-    private readonly int[] _indices;
+    private long[] _keys;
+    private int[] _indices;
     private readonly Dictionary<uint, int> _byId;
 
-    private EntityGrid(long[] keys, int[] indices, Dictionary<uint, int> byId)
+    private EntityGrid(int capacity)
     {
-        _keys = keys;
-        _indices = indices;
-        _byId = byId;
+        _keys = new long[capacity];
+        _indices = new int[capacity];
+        _byId = new Dictionary<uint, int>(capacity);
     }
 
     public static EntityGrid Build(EntityView[] entities)
     {
-        var keys = new long[entities.Length];
-        var indices = new int[entities.Length];
-        var byId = new Dictionary<uint, int>(entities.Length);
-        for (var index = 0; index < entities.Length; index++)
+        var grid = new EntityGrid(entities.Length);
+        grid.Rebuild(entities);
+        return grid;
+    }
+
+    public void Rebuild(EntityView[] entities)
+    {
+        if (_keys.Length != entities.Length)
         {
-            keys[index] = KeyOf(entities[index].Position);
-            indices[index] = index;
-            byId[entities[index].EntityId] = index;
+            _keys = new long[entities.Length];
+            _indices = new int[entities.Length];
         }
 
-        Array.Sort(keys, indices);
-        return new EntityGrid(keys, indices, byId);
+        _byId.Clear();
+        _byId.EnsureCapacity(entities.Length);
+        for (var index = 0; index < entities.Length; index++)
+        {
+            _keys[index] = KeyOf(entities[index].Position);
+            _indices[index] = index;
+            _byId[entities[index].EntityId] = index;
+        }
+
+        Array.Sort(_keys, _indices);
     }
 
     public bool TryGetIndex(uint entityId, out int index) => _byId.TryGetValue(entityId, out index);
@@ -45,15 +57,13 @@ public sealed class EntityGrid
         var maxZ = Cell(center.Z + radius);
         for (var x = minX; x <= maxX; x++)
         {
-            for (var z = minZ; z <= maxZ; z++)
+            // Cells of one column are adjacent in key order: one search finds the column's first cell in range.
+            var position = LowerBound(Key(x, minZ));
+            var last = Key(x, maxZ);
+            while (position < _keys.Length && _keys[position] <= last)
             {
-                var key = Key(x, z);
-                var position = LowerBound(key);
-                while (position < _keys.Length && _keys[position] == key)
-                {
-                    results.Add(_indices[position]);
-                    position++;
-                }
+                results.Add(_indices[position]);
+                position++;
             }
         }
     }
@@ -80,7 +90,8 @@ public sealed class EntityGrid
 
     private static int Cell(float coordinate) => (int)MathF.Floor(coordinate / CellSize);
 
-    private static long Key(int x, int z) => (long)x << 32 | (uint)z;
+    // The sign flip keeps keys in coordinate order, so the cells of a column are contiguous across zero.
+    private static long Key(int x, int z) => (long)x << 32 | (uint)(z ^ int.MinValue);
 
     private static long KeyOf(Vector3 position) => Key(Cell(position.X), Cell(position.Z));
 }

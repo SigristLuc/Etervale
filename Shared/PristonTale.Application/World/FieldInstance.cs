@@ -96,6 +96,8 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     internal FieldPremium Premium { get; }
     internal FieldItemEvents ItemEvents { get; } = new();
     internal FieldStatusBook Statuses { get; } = new();
+    internal FieldPresenceFrames Frames { get; } = new();
+    private readonly FieldDescriptors _descriptors = new();
     public long NowMs => (long)_nowMs;
     public int PlayerCount => _players.Count;
     public int MonsterCount => _monsters.Count;
@@ -166,6 +168,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         _skills.BeginTick();
         ItemEvents.BeginTick();
         _prey.Rebuild(_players.Values);
+        _preyCurrent = true;
         foreach (var summon in _monsters.Values)
         {
             if (summon.IsSummon)
@@ -189,6 +192,8 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         {
             _spawner.SpawnScheduledBosses(hour, this, this);
         }
+
+        _preyCurrent = false;
         SnapshotLiveMonsters();
         RebuildCollisionIndex();
         for (int i = 0; i < _liveScratch.Count; i++)
@@ -591,12 +596,29 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
     void IFieldCombatHost.DespawnMonster(uint entityId) => _monsters.Remove(entityId, out _);
 
+    // Asked for every monster and spawn point each tick: during the spawner pass the prey index (players at the start of
+    // the step, which they keep until the players' own step) answers it without visiting every player.
+    private bool _preyCurrent;
+
     bool IPlayerProximity.AnyPlayerNear(Vector3 worldPosition)
     {
-        foreach (var p in _players.Values)
+        if (!_preyCurrent)
         {
-            float dx = p.Position.X - worldPosition.X;
-            float dz = p.Position.Z - worldPosition.Z;
+            foreach (var player in _players.Values)
+            {
+                if (player.DistanceSqTo(worldPosition) < PlayerNearRadiusSquared)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        foreach (var prey in _prey.Nearby(worldPosition, PlayerNearRadius))
+        {
+            float dx = prey.Position.X - worldPosition.X;
+            float dz = prey.Position.Z - worldPosition.Z;
             if ((dx * dx) + (dz * dz) < PlayerNearRadiusSquared)
             {
                 return true;
@@ -606,27 +628,39 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         return false;
     }
 
+    public int EntityCount => _players.Count + _monsters.Count + _npcs.Count;
+
     public EntityView[] BuildViews()
     {
-        var views = new EntityView[_players.Count + _monsters.Count + _npcs.Count];
+        var views = new EntityView[EntityCount];
+        FillViews(views);
+        return views;
+    }
+
+    // Writes every entity's view with its descriptor revision; views must hold exactly EntityCount entries.
+    public void FillViews(EntityView[] views)
+    {
+        _descriptors.BeginTick();
         var index = 0;
         foreach (var player in _players.Values)
         {
-            views[index++] = player.ToView();
+            views[index++] = WithRevision(player.ToView());
         }
 
         foreach (var monster in _monsters.Values)
         {
-            views[index++] = ToMonsterView(monster);
+            views[index++] = WithRevision(ToMonsterView(monster));
         }
 
         foreach (var npc in _npcs.Values)
         {
-            views[index++] = npc.ToView();
+            views[index++] = WithRevision(npc.ToView());
         }
 
-        return views;
+        _descriptors.Prune();
     }
+
+    private EntityView WithRevision(in EntityView view) => view with { Revision = _descriptors.RevisionOf(view) };
 
     private static EntityView ToMonsterView(MonsterInstance m) => new(
         m.EntityId,

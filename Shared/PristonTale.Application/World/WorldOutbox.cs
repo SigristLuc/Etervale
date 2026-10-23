@@ -105,7 +105,17 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
                 }
             }
 
-            snapshot = _latest.WithEvents(events) with
+            var latest = _latest;
+            if (latest.Frame is { } frame)
+            {
+                // A frame the field already reused (only possible for a connection that left its field long ago) carries
+                // no entity state any more.
+                latest = frame.TryPin(latest.FrameGeneration)
+                    ? latest.WithPin()
+                    : new WorldSnapshot(latest.ServerTick, [], latest.Events, latest.FieldId, latest.Owner, latest.GroundDrops);
+            }
+
+            snapshot = latest.WithEvents(events) with
             {
                 SkillEvents = _skillEvents.Count == 0 ? [] : _skillEvents.ToArray(),
                 StatusEvents = _statusEvents.Count == 0 ? [] : _statusEvents.ToArray(),
@@ -139,7 +149,7 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
         }
     }
 
-    private sealed class OutboxWriter(WorldOutbox owner) : ChannelWriter<WorldSnapshot>
+    internal sealed class OutboxWriter(WorldOutbox owner) : ChannelWriter<WorldSnapshot>
     {
         public override bool TryWrite(WorldSnapshot item) => owner.Publish(item);
         public override bool TryComplete(Exception? error = null) => owner.Complete(error);

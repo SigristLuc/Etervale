@@ -127,6 +127,29 @@ public sealed record TransPlayData(
         return writer.Finish();
     }
 
+    // The same layout with one play buffer, written without building the record (the server writes thousands per tick).
+    public static int WriteSingle(Span<byte> destination, uint objectSerial, uint target, int startPosi, short hp, short maxHp, uint autoCharCode,
+        short fieldCode, short secondFieldCode, byte descriptorRevision, byte level, in PlayBuffer buffer)
+    {
+        var writer = new PacketWriter(destination, PristonOpcodes.TransPlayData);
+        writer.UInt32(objectSerial);
+        writer.UInt32(target);
+        writer.Int32(1);
+        writer.Int32(startPosi);
+        writer.Int16(hp);
+        writer.Int16(maxHp);
+        writer.UInt32(autoCharCode);
+        writer.Int16(fieldCode);
+        writer.Int16(secondFieldCode);
+        writer.Byte(descriptorRevision);
+        writer.Zero(3);
+        writer.Byte(level);
+        writer.Zero(3);
+        writer.Int32(0);
+        buffer.Write(ref writer);
+        return writer.Finish();
+    }
+
     public static TransPlayData Read(ReadOnlySpan<byte> packet)
     {
         var reader = new PacketReader(packet, HeaderSize + EntrySize);

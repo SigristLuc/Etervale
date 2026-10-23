@@ -358,7 +358,14 @@ internal sealed class ClientSession
         {
             await foreach (var snapshot in outbox.Reader.ReadAllAsync(_connection.Closed))
             {
-                encoder.Encode(snapshot, _connection);
+                try
+                {
+                    encoder.Encode(snapshot, _connection);
+                }
+                finally
+                {
+                    snapshot.ReleaseFrame();
+                }
             }
         }
         catch (OperationCanceledException)
@@ -368,6 +375,10 @@ internal sealed class ClientSession
         {
             _services.Logger.LogWarning("Presence stream ended for {Remote}: {Message}", _connection.RemoteEndPoint, ex.Message);
             _connection.Close("presence overflow");
+        }
+        finally
+        {
+            encoder.Close();
         }
     }
 

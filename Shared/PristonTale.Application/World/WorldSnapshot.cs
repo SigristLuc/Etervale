@@ -77,6 +77,9 @@ public readonly struct EntityView
     // The player a quest duel opponent was opened for; only that player sees it in the arena.
     public uint DuelPlayerId { get; init; }
 
+    // The field's descriptor revision of the entity (1..255), the same for every viewer; 0 for a view built outside a field.
+    public byte Revision { get; init; }
+
     public bool IsSelf { get; }
 
     public Vector3 Position { get; }
@@ -245,6 +248,21 @@ public readonly struct WorldSnapshot
     // The receiver's running cooldowns; null when they did not change since the last snapshot it was sent.
     public SkillCooldownView[]? Cooldowns { get; init; }
 
+    // The field's shared frame of this tick (views and grid) and its generation; null for snapshots built by hand.
+    public PresenceFrame? Frame { get; init; }
+    public int FrameGeneration { get; init; }
+
+    // True once a reader pinned the frame; the reader releases it after encoding.
+    public bool Pinned { get; init; }
+
+    public void ReleaseFrame()
+    {
+        if (Pinned)
+        {
+            Frame!.Release();
+        }
+    }
+
     // The statuses running in the field and its clock, for entities a receiver starts seeing after their statuses began.
     public ActiveStatusSet ActiveStatuses { get; init; }
     public long FieldNowMs { get; init; }
@@ -260,8 +278,12 @@ public readonly struct WorldSnapshot
         ItemEffects = ItemEffects,
         ActiveStatuses = ActiveStatuses,
         FieldNowMs = FieldNowMs,
+        Frame = Frame,
+        FrameGeneration = FrameGeneration,
         Cooldowns = cooldowns
     };
+
+    internal WorldSnapshot WithPin() => this with { Pinned = true };
 
     public WorldSnapshot WithEvents(CombatEventView[] events) => new(ServerTick, Entities, events, FieldId, Owner, GroundDrops)
     {
@@ -271,7 +293,10 @@ public readonly struct WorldSnapshot
         ItemEffects = ItemEffects,
         ActiveStatuses = ActiveStatuses,
         FieldNowMs = FieldNowMs,
+        Frame = Frame,
+        FrameGeneration = FrameGeneration,
         Cooldowns = Cooldowns,
-        Quest = Quest
+        Quest = Quest,
+        Pinned = Pinned
     };
 }

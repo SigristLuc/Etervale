@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 using PristonTale.Application.World;
 using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
@@ -33,8 +34,7 @@ internal sealed partial class PresenceEncoder
     private readonly Dictionary<uint, Known> _known = new();
     private readonly Dictionary<uint, GroundDropView> _drops = new();
     private readonly List<int> _candidates = new();
-    private readonly List<(int Index, float Priority, bool Near)> _pending = new();
-    private readonly HashSet<uint> _seen = new();
+    private readonly MotionCandidates _pending = new(MovementBudgetBytes / PlayDataCoarse.Size);
     private readonly HashSet<uint> _visibleDrops = new();
     private readonly List<uint> _removed = new();
     // Entities this receiver started seeing in the snapshot being encoded; their running statuses follow.
@@ -52,6 +52,12 @@ internal sealed partial class PresenceEncoder
     private uint _groupCounter;
     private uint _clockTick;
     private bool _clockPending;
+    private uint _pass;
+    private SharedPresenceWire? _wire;
+    private PresenceFrame? _heldFrame;
+    private EntityView[] _describeViews = [];
+    private EntityGrid? _describeGrid;
+    private EntityView[] _entities = [];
 
     public PresenceEncoder(uint self, WorldDataHolder data)
     {
@@ -63,7 +69,7 @@ internal sealed partial class PresenceEncoder
     {
         lock (_gate)
         {
-            return _known.TryGetValue(serial, out var known) ? known.View.Kind : null;
+            return _known.TryGetValue(serial, out var known) ? known.Kind : null;
         }
     }
 
@@ -73,7 +79,7 @@ internal sealed partial class PresenceEncoder
         {
             lock (_gate)
             {
-                return _known.TryGetValue(_self, out var known) ? known.View.Position : null;
+                return _known.TryGetValue(_self, out var known) ? known.Position : null;
             }
         }
     }
@@ -89,32 +95,44 @@ internal sealed partial class PresenceEncoder
         }
     }
 
-    // PLAYERINFO answer for GETPLAYERINFO; null when the serial is not in this subscriber's view.
+    // PLAYERINFO answer for GETPLAYERINFO from the last encoded snapshot (its frame stays pinned until the next one);
+    // null when the serial is not in this subscriber's view.
     public PlayerInfoPacket? Describe(uint serial)
     {
         EntityView view;
+        byte revision;
         lock (_gate)
         {
-            if (!_known.TryGetValue(serial, out var known))
+            if (_describeGrid is null || !_known.TryGetValue(serial, out var known) || !_describeGrid.TryGetIndex(serial, out var index))
             {
                 return null;
             }
 
-            view = known.View;
+            view = _describeViews[index];
+            revision = known.Revision;
         }
 
         var character = WireMapping.Describe(view, _data.Current);
-        character.UpdateInfo[0] = Revision(serial);
+        character.UpdateInfo[0] = revision;
         return new PlayerInfoPacket(character, view.EntityId, PristonUnits.ToFixed(view.Position.X), PristonUnits.ToFixed(view.Position.Y),
             PristonUnits.ToFixed(view.Position.Z), 0, PristonUnits.ToAngle(view.Facing), 0, WireMapping.ActionCode(view.MoveState));
     }
 
-    private byte Revision(uint serial)
+    // The connection ended: the last snapshot's frame is no longer needed for descriptions.
+    public void Close()
     {
         lock (_gate)
         {
-            return _known.TryGetValue(serial, out var known) ? known.Revision : (byte)0;
+            HoldForDescriptions(null, [], null);
         }
+    }
+
+    private void HoldForDescriptions(PresenceFrame? frame, EntityView[] views, EntityGrid? grid)
+    {
+        _heldFrame?.Release();
+        _heldFrame = frame;
+        _describeViews = views;
+        _describeGrid = grid;
     }
 
     public void Encode(in WorldSnapshot snapshot, IPacketSink connection)
@@ -135,6 +153,12 @@ internal sealed partial class PresenceEncoder
 
         var self = snapshot.Entities[selfIndex];
         var field = snapshot.FieldId ?? 0;
+        // A frame is pinned again for the descriptions asked about this snapshot; a hand-built snapshot is kept as is.
+        if (snapshot.Frame is not { } described || described.TryPin(snapshot.FrameGeneration))
+        {
+            HoldForDescriptions(snapshot.Frame, snapshot.Entities, grid);
+        }
+
         if (_field != field)
         {
             if (_field is not null)
@@ -151,45 +175,46 @@ internal sealed partial class PresenceEncoder
         var tick = snapshot.ServerTick;
         _clockTick = tick;
         _clockPending = true;
+        // Entries every receiver of this frame shares are encoded once by whichever encoder needs them first.
+        _wire = snapshot.Frame is { } frame && ReferenceEquals(frame.Views, snapshot.Entities)
+            ? frame.Attachment(SharedPresenceWire.Create)
+            : null;
+        _entities = snapshot.Entities;
+        _pass++;
         var group = new PlayDataGroupWriter(_group, ++_groupCounter);
-        _seen.Clear();
         _removed.Clear();
         _spawned.Clear();
-        WriteEntity(ref group, connection, self, tick, field, near: true);
-        _seen.Add(_self);
+        WriteEntity(ref group, connection, selfIndex, tick, field, near: true);
 
         _candidates.Clear();
         _pending.Clear();
         grid.Query(self.Position, ForgetRadius, _candidates);
         foreach (var index in _candidates)
         {
-            var view = snapshot.Entities[index];
+            ref readonly var view = ref snapshot.Entities[index];
             if (view.EntityId == _self || HiddenInArena(field, view))
             {
                 continue;
             }
 
             var distanceSq = PlanarDistanceSq(view.Position, self.Position);
-            var known = _known.ContainsKey(view.EntityId);
-            if (distanceSq > ViewRadius * ViewRadius && !known || distanceSq > ForgetRadius * ForgetRadius)
+            if (distanceSq > ForgetRadius * ForgetRadius || distanceSq > ViewRadius * ViewRadius && !_known.ContainsKey(view.EntityId))
             {
                 continue;
             }
 
-            _seen.Add(view.EntityId);
             var near = distanceSq <= NearRadius * NearRadius;
-            if (WriteEntity(ref group, connection, view, tick, field, near) is { } age)
+            if (WriteEntity(ref group, connection, index, tick, field, near) is { } age)
             {
                 // Overdue ratio: the wanted interval grows with distance, and every waiting entity keeps gaining
                 // priority, so a crowd is served round-robin like the classic server's rotating send cursor.
                 var wanted = NearIntervalTicks + MathF.Sqrt(distanceSq) / 50f;
-                _pending.Add((index, age / wanted, near));
+                _pending.Add(index, age / wanted, near);
             }
         }
 
-        _pending.Sort(static (left, right) => right.Priority.CompareTo(left.Priority));
         var budget = MovementBudgetBytes;
-        foreach (var (index, _, near) in _pending)
+        foreach (var (index, _, near) in _pending.Ordered())
         {
             var size = near ? TransPlayData.SizeFor(1) : PlayDataCoarse.Size;
             if (budget < size)
@@ -198,12 +223,12 @@ internal sealed partial class PresenceEncoder
             }
 
             budget -= size;
-            WriteMotion(ref group, connection, snapshot.Entities[index], tick, field, near);
+            WriteMotion(ref group, connection, index, tick, field, near);
         }
 
-        foreach (var serial in _known.Keys)
+        foreach (var (serial, known) in _known)
         {
-            if (!_seen.Contains(serial))
+            if (known.Pass != _pass)
             {
                 _removed.Add(serial);
             }
@@ -215,6 +240,8 @@ internal sealed partial class PresenceEncoder
         }
 
         FlushGroup(ref group, connection);
+        _wire = null;
+        _entities = [];
         SendRemovals(connection);
         SendEvents(snapshot, connection);
         SendSkillEvents(snapshot, connection);
@@ -224,8 +251,15 @@ internal sealed partial class PresenceEncoder
         SendOwner(snapshot.Owner, connection);
         SendPremium(snapshot.Owner, connection);
         SendCooldowns(snapshot, connection);
-        QuestWireMapping.Send(snapshot.Quest, (write, capacity) => SendSized(connection, write, capacity));
+        if (snapshot.Quest is not null)
+        {
+            SendQuest(snapshot.Quest, connection);
+        }
     }
+
+    // Its own method: a lambda capturing the connection in EncodeLocked would allocate a closure on every encode.
+    private void SendQuest(QuestUpdate quest, IPacketSink connection) =>
+        QuestWireMapping.Send(quest, (write, capacity) => SendSized(connection, write, capacity));
 
     // The duel arena is solo: a player sees only the opponent and helper of its own duel.
     private bool HiddenInArena(int field, in EntityView view) =>
@@ -243,36 +277,50 @@ internal sealed partial class PresenceEncoder
 
     // Writes spawns and discrete changes immediately. Returns the age in ticks of a due position-only update, which the
     // caller schedules under the movement budget, or null when nothing else is due.
-    private uint? WriteEntity(ref PlayDataGroupWriter group, IPacketSink connection, in EntityView view, uint tick, int field, bool near)
+    private uint? WriteEntity(ref PlayDataGroupWriter group, IPacketSink connection, int index, uint tick, int field, bool near)
     {
-        var descriptor = DescriptorHash(view);
-        if (!_known.TryGetValue(view.EntityId, out var known))
+        ref readonly var view = ref _entities[index];
+        ref var known = ref CollectionsMarshal.GetValueRefOrAddDefault(_known, view.EntityId, out var exists);
+        if (!exists)
         {
-            known = new Known(view, 1, tick, descriptor);
-            _known[view.EntityId] = known;
+            var descriptor = view.Revision == 0 ? DescriptorHash(view) : 0;
+            known = new Known(view, view.Revision == 0 ? (byte)1 : view.Revision, tick, descriptor, _pass);
             _spawned.Add(view.EntityId);
-            AppendDetailed(ref group, connection, view, field, known.Revision);
+            AppendDetailed(ref group, connection, index, field, known.Revision);
             return null;
         }
 
-        var previous = known.View;
-        var discrete = previous.MoveState != view.MoveState || previous.Hp != view.Hp || previous.AttackTargetId != view.AttackTargetId
-            || previous.AttackSequence != view.AttackSequence;
-        var revision = known.Revision;
-        if (descriptor != known.Descriptor)
+        known.Pass = _pass;
+        var discrete = known.MoveState != view.MoveState || known.Hp != view.Hp || known.AttackTargetId != view.AttackTargetId
+            || known.AttackSequence != view.AttackSequence;
+        if (view.Revision != 0)
         {
-            revision = (byte)(revision == byte.MaxValue ? 1 : revision + 1);
-            discrete = true;
+            if (view.Revision != known.Revision)
+            {
+                known.Revision = view.Revision;
+                discrete = true;
+            }
+        }
+        else
+        {
+            // A view built outside a field carries no revision; the encoder numbers its descriptions itself.
+            var descriptor = DescriptorHash(view);
+            if (descriptor != known.Descriptor)
+            {
+                known.Descriptor = descriptor;
+                known.Revision = (byte)(known.Revision == byte.MaxValue ? 1 : known.Revision + 1);
+                discrete = true;
+            }
         }
 
         if (discrete)
         {
-            _known[view.EntityId] = new Known(view, revision, tick, descriptor);
-            AppendDetailed(ref group, connection, view, field, revision);
+            known.Sent(view, tick);
+            AppendDetailed(ref group, connection, index, field, known.Revision);
             return null;
         }
 
-        var moved = previous.Position != view.Position || previous.Facing != view.Facing;
+        var moved = known.Position != view.Position || known.Facing != view.Facing;
         var age = tick - known.LastSentTick;
         if (!moved || age < (near ? NearIntervalTicks : FarIntervalTicks))
         {
@@ -281,33 +329,55 @@ internal sealed partial class PresenceEncoder
 
         if (view.EntityId == _self)
         {
-            WriteMotion(ref group, connection, view, tick, field, near: true);
+            WriteMotion(ref group, connection, index, tick, field, near: true);
             return null;
         }
 
         return age;
     }
 
-    private void WriteMotion(ref PlayDataGroupWriter group, IPacketSink connection, in EntityView view, uint tick, int field, bool near)
+    private void WriteMotion(ref PlayDataGroupWriter group, IPacketSink connection, int index, uint tick, int field, bool near)
     {
-        var known = _known[view.EntityId];
-        _known[view.EntityId] = known with { View = view, LastSentTick = tick };
+        ref readonly var view = ref _entities[index];
+        ref var known = ref CollectionsMarshal.GetValueRefOrNullRef(_known, view.EntityId);
+        known.Sent(view, tick);
         if (near)
         {
-            AppendDetailed(ref group, connection, view, field, known.Revision);
+            AppendDetailed(ref group, connection, index, field, known.Revision);
             return;
         }
 
         var size = PlayDataCoarse.Size;
         EnsureSpace(ref group, connection, size);
-        group.Commit(WireMapping.Coarse(view).Write(group.Reserve(size)));
+        var entry = group.Reserve(size);
+        if (_wire is { } wire && view.Revision != 0)
+        {
+            wire.Coarse(index, view).CopyTo(entry);
+        }
+        else
+        {
+            WireMapping.Coarse(view).Write(entry);
+        }
+
+        group.Commit(size);
     }
 
-    private void AppendDetailed(ref PlayDataGroupWriter group, IPacketSink connection, in EntityView view, int field, byte revision)
+    private void AppendDetailed(ref PlayDataGroupWriter group, IPacketSink connection, int index, int field, byte revision)
     {
+        ref readonly var view = ref _entities[index];
         var size = TransPlayData.SizeFor(1);
         EnsureSpace(ref group, connection, size);
-        group.Commit(WireMapping.PlayData(view, field, revision).Write(group.Reserve(size)));
+        var entry = group.Reserve(size);
+        if (_wire is { } wire && view.Revision != 0)
+        {
+            wire.Detailed(index, view, field).CopyTo(entry);
+        }
+        else
+        {
+            WireMapping.WritePlayData(entry, view, field, revision);
+        }
+
+        group.Commit(size);
     }
 
     private void EnsureSpace(ref PlayDataGroupWriter group, IPacketSink connection, int size)
@@ -603,5 +673,40 @@ internal sealed partial class PresenceEncoder
         return dx * dx + dz * dz;
     }
 
-    private readonly record struct Known(EntityView View, byte Revision, uint LastSentTick, int Descriptor);
+    // What this receiver last got about an entity, only the fields its diff compares (a crowd keeps one per pair); Pass
+    // marks the entities seen in the snapshot being encoded.
+    private struct Known
+    {
+        public Vector3 Position;
+        public float Facing;
+        public int Hp;
+        public uint AttackTargetId;
+        public ulong AttackSequence;
+        public uint LastSentTick;
+        public uint Pass;
+        public int Descriptor;
+        public MoveStateView MoveState;
+        public EntityKindView Kind;
+        public byte Revision;
+
+        public Known(in EntityView view, byte revision, uint tick, int descriptor, uint pass)
+        {
+            Kind = view.Kind;
+            Revision = revision;
+            Descriptor = descriptor;
+            Pass = pass;
+            Sent(view, tick);
+        }
+
+        public void Sent(in EntityView view, uint tick)
+        {
+            Position = view.Position;
+            Facing = view.Facing;
+            Hp = view.Hp;
+            AttackTargetId = view.AttackTargetId;
+            AttackSequence = view.AttackSequence;
+            MoveState = view.MoveState;
+            LastSentTick = tick;
+        }
+    }
 }
