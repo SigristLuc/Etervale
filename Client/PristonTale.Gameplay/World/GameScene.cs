@@ -342,6 +342,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         }
 
         CreateSkillPresentation();
+        CreateItemEffects();
         var actorScene = new RendererActorScene(_renderer);
         _playerComposer = new PlayerActorComposer(actorScene, _actorLoader);
         _monsterComposer = new ModelActorComposer(actorScene, _actorLoader);
@@ -503,6 +504,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 _groundLoot.Apply(update);
                 ObserveEffects(update);
                 ObserveSkills(update);
+                ObserveItems(update);
                 PresenceObserved?.Invoke(update);
             }
 
@@ -1174,6 +1176,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _skillClockMs = gameTime.TotalGameTime.TotalMilliseconds;
         DrainPresence(frameDt);
         UpdateSkills(gameTime);
+        UpdateItemEffects();
         ApplyPositionCorrection(frameDt);
         UpdatePlayerInput(gameTime);
         UpdateTargetSelection(gameTime);

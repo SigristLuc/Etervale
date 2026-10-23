@@ -23,6 +23,7 @@ public sealed class LegacyEffectLibrary : IDisposable
     private readonly EffectDefinition[] _potions = new EffectDefinition[3];
     private readonly EffectDefinition[] _hulkHits = new EffectDefinition[3];
     private readonly Dictionary<string, EffectDefinition> _scripts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, LegacyBillboardAnimation> _animations = new(StringComparer.OrdinalIgnoreCase);
 
     private LegacyEffectLibrary(GraphicsDevice device, ContentManager content, IClientLog log)
     {
@@ -149,6 +150,28 @@ public sealed class LegacyEffectLibrary : IDisposable
 
         _scripts[name] = script;
         return script;
+    }
+
+    // An original billboard animation (Effect/AnimationData/<name>) by name, cached; null when it cannot be read.
+    public LegacyBillboardAnimation Animation(string root, string name)
+    {
+        if (_animations.TryGetValue(name, out var cached))
+        {
+            return cached;
+        }
+
+        LegacyBillboardAnimation animation = null;
+        try
+        {
+            var loaded = LoadAnimation(root, name);
+            animation = new LegacyBillboardAnimation(loaded.Textures, loaded.Animation);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or KeyNotFoundException or FormatException)
+        {
+        }
+
+        _animations[name] = animation;
+        return animation;
     }
 
     public static IReadOnlyList<LegacyParticleSequence> ReadParticleSequences(string root, string name)
