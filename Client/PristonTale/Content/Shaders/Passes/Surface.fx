@@ -254,7 +254,7 @@ float4 ShadeSurface(VSOut i, bool masked)
     float emission = (MaterialBlink > 0.5 ? BlinkPulse : 1.0) * EmissionScale;
     // Characters and monsters are not light sources: their self-illuminated parts show the texture at its display level
     // by day and by night, unlit, as the original drew them.
-    if (ActorDisplayEmission > 0.5)
+    if (ActorReceiver > 0.5)
     {
         emission = (MaterialBlink > 0.5 ? BlinkPulse : 1.0) / Exposure;
     }
@@ -286,7 +286,7 @@ float4 ShadeSurface(VSOut i, bool masked)
         // Transmission through leaves: diffuse through the blade, stronger looking toward the sun (forward scattering).
         float forward = pow(saturate(dot(-v, SunDirection)), 4.0);
         lighting.Diffuse += s.Albedo * SunColor * (shadow * Translucency * back * (0.35 + 0.65 * forward));
-        AddLocalLights(i.WorldPosition, s.Normal, v, s.Albedo, s.F0, s.Metallic, a, i.Position.xy, lighting);
+        AddLocalLights(i.WorldPosition, s.Normal, v, s.Albedo, s.F0, s.Metallic, a, i.Position.xy, ActorReceiver < 0.5, lighting);
         // The authored light (vertex colour) is the art's sky visibility: it occludes the sky's reflections too.
         float visibility = occlusion.x * saturate(Luminance(i.Color.rgb));
         AddAmbient(s.Normal, v, s.Albedo, s.F0, s.Metallic, s.Roughness, occlusion.x, visibility, lighting);

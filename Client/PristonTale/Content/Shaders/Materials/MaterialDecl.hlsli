@@ -21,7 +21,7 @@
     float3 RimColor;            /* selection highlight (gameplay colour add) as a view-dependent rim */ \
     float MaterialBlink;        /* 1 = multiply the emission by BlinkPulse */ \
     float Translucency;         /* share of the sun passing through a thin surface lit from behind (foliage) */ \
-    float ActorDisplayEmission; /* actors: 1 = self-illumination at the display level, never a night light source */ \
+    float ActorReceiver;        /* 1 = a character or monster: self-illumination at the display level, no lamp shadows */ \
     float2 MaterialReserved; \
     float4 ActorTint;          /* actors: rgb signed light added by gameplay (1 = a white light), a opacity after the alpha test */
 

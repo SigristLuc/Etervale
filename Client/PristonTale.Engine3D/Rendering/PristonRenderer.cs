@@ -1301,11 +1301,20 @@ public sealed partial class PristonRenderer : IDisposable
         // The moon's shadows move with the actors only: half the refresh rate is enough for its soft, dim light.
         var shadowRate = _sunElevation > -0.05f || _shadowUpdateRate == 0 ? _shadowUpdateRate : Math.Max(_shadowUpdateRate / 2, 30);
         var sunShadowUpdated = _sunShadowRefresh.ShouldRefresh(_renderTime, shadowRate, sunShadowsEnabled);
+        var sunShadowRedraw = sunShadowUpdated;
         if (sunShadowUpdated)
         {
             FitCascades(camera, lighting.Sun.Direction);
             _sunShadowFocus = camera.Target;
             _sunShadowFocusValid = true;
+        }
+        else if (sunShadowsEnabled && _sunShadowFocusValid)
+        {
+            // Between refreshes the near cascades, which hold the characters around the camera, still redraw on their
+            // current fit: a caster left a refresh behind would shadow the character that has moved or turned away from it
+            // (dark facets on a running character with the light at its back).
+            _cascadeMask = PristonShadowCascades.NearMask & ((1 << _cascades.Count) - 1);
+            sunShadowRedraw = true;
         }
 
         var lightViewProjection = Matrix.Identity;
@@ -1362,9 +1371,9 @@ public sealed partial class PristonRenderer : IDisposable
             _renderBatches,
             _shadowBatches,
             frame,
-            sunShadowUpdated || _lampShadowRedraw != 0);
+            sunShadowRedraw || _lampShadowRedraw != 0);
         Profiler.End(RenderSection.Queue);
-        if (sunShadowUpdated)
+        if (sunShadowRedraw)
         {
             Profiler.Begin(RenderSection.SunShadow);
             RenderShadowMap();

@@ -90,7 +90,7 @@ renderer through `PresentationSettings.ApplyRendering` and apply at once.
 | `shadowMapSize` | int, `4096` | 1024, 2048, 4096, 8192 | yes (Sun shadow) | Size of the sun's cascade atlas (R32F). If allocation fails the renderer halves the size down to 1024. |
 | `shadowCascades` | int, `4` | 1-4 | | Stabilized cascades over 9000 units of view depth; from 2 cascades on the atlas is a 2x2 grid. |
 | `shadowFilter` | `Pcss` (default), `Pcf` | defined enum | | PCSS widens the penumbra with the blocker distance; the moon always uses PCF. |
-| `shadowUpdateRate` | int Hz, `60` | 0, 30, 60, 120 | yes (Shadow animation: 30, 60, 120, every frame) | Sun cascade refresh rate; 0 every frame. Far cascades refresh less often; at night the rate is halved (at least 30 Hz). |
+| `shadowUpdateRate` | int Hz, `60` | 0, 30, 60, 120 | yes (Shadow animation: 30, 60, 120, every frame) | Sun cascade refit and refresh rate; 0 every frame. Far cascades refresh less often; at night the rate is halved (at least 30 Hz). The two near cascades redraw every frame regardless, so characters cast from their current pose. |
 | `lampShadowCount` | int, `4` | 0, 2, 4 | | Stage lamps nearest the focus whose cube shadows actors and animated props cast, while the lamps are lit (sun below about 4 degrees). |
 | `lampShadowTileSize` | int, `512` | 256, 512, 1024 | | Cube-face size of each lamp shadow. |
 | `ambientOcclusion` | bool, `true` | | | Half-resolution GTAO from the depth pre-pass (not with MSAA). |

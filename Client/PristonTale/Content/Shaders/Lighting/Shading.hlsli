@@ -252,7 +252,7 @@ uint LocalLightMask(float2 pixel)
 }
 
 void AddLocalLights(float3 worldPosition, float3 n, float3 v, float3 albedo, float3 f0, float metallic, float a,
-                    float2 pixel, inout Lighting lighting)
+                    float2 pixel, bool lampShadows, inout Lighting lighting)
 {
     uint transients = (uint)TransientLightCount;
     uint mask = LocalLightMask(pixel);
@@ -289,7 +289,7 @@ void AddLocalLights(float3 worldPosition, float3 n, float3 v, float3 albedo, flo
         float nl = saturate(dot(n, l));
         float row = LocalLightColor[i].w - 1.0;
         [branch]
-        if (row >= 0.0)
+        if (lampShadows && row >= 0.0)
         {
             light *= LampShadow((uint)row, -toLight, radius, nl);
         }

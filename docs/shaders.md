@@ -54,8 +54,8 @@ Both stages use one cbuffer at `b0`: vertex `SurfaceVertexConstants` (view-proje
 `DrawOpacity`, `DrawLight`, previous view-projection, `MotionParams` and `ActorParams`, then skinning or
 vertex-animation constants); pixel `SurfacePixelConstants` (`FRAME_CONSTANTS`, `FOG_CONSTANTS`, `LIGHTING_CONSTANTS`,
 `MATERIAL_CONSTANTS`, in that order). Actor looks: `ActorParams` (skinned only) holds the wobble amplitude and phase and
-whether the second layer is an overlay read on uv0, and in `w` whether the batch is a character or monster (its
-self-illumination stays at the display level); `ActorTint` (material constants) adds `albedo x rgb / Exposure` to
+whether the second layer is an overlay read on uv0; `ActorReceiver` (material constants) marks a character or monster,
+whose self-illumination stays at the display level and which takes no lamp shadows; `ActorTint` (material constants) adds `albedo x rgb / Exposure` to
 the radiance (clamped at 0) and multiplies the output alpha by `a` after the alpha test.
 
 | Slot | Resource |

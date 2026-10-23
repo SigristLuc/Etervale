@@ -195,7 +195,7 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
   adapts in 0.6 s toward brighter, 2.2 s toward darker; the light model's own change applies at once.
 - **Self-illumination and display-referred art** (sky, glows, particles, VFX) divide by the display scale; at night
   emissive albedo 1 is 40 cd/m^2 (`EmissiveLuminance`). Characters and monsters are not light sources: their
-  self-illuminated parts stay at the display level by day and by night (`RenderBatch.IsActor`).
+  self-illuminated parts stay at the display level by day and by night (`RenderBatch.IsActor`, `ActorReceiver`).
 - **Authored per-vertex light:** stage vertex colours carry the art's shading and tint the albedo in linear light.
   Scenery models (windmills, cranes, flags, static or animated) have no vertex light, so each surface takes the mean
   linear luminance of the stage's vertex light on faces with the same texture, or the stage mean
@@ -216,12 +216,16 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
   split (lambda 0.8), each slice enclosed in a sphere and snapped to whole texels (no shimmer), casters up to 4000 units
   beyond toward the light. Cascades 0-1 refresh every update, 2 every second, 3 every fourth; a new light direction or a
   focus jump over 350 units refreshes all. Refresh rate `shadowUpdateRate` (`FixedRateRefreshScheduler`), halved by
-  moonlight. PCSS by day (light radius tangent 0.01), PCF (1.5 texels) for the moon. Casters draw two-sided; the
+  moonlight. Between refreshes cascades 0-1 still redraw every frame on their current fit, so the characters near the
+  camera cast from their current pose (a caster a refresh old darkens a running character lit from behind). PCSS by
+  day (light radius tangent 0.01), PCF (1.5 texels) for the moon. Casters draw two-sided; the
   wind/water displacement matches the lit pass.
 - **Lamp shadows** (`Lighting/PristonLampShadows.cs`): the `lampShadowCount` lamps nearest the focus (after the
   transient lights) keep a row of six 90-degree cube faces storing distance / radius. A lamp keeps its row while it
   stays near; new rows draw at once, the others one every other frame. Only skinned batches (actors, animated props)
-  cast; the stage's own occlusion is in its authored light.
+  cast; the stage's own occlusion is in its authored light. Characters and monsters do not receive lamp shadows
+  (`ActorReceiver`): their smooth-shaded low-polygon bodies would be cut by the hard facets of their own and each
+  other's silhouettes; they still cast onto the stage.
 - `Ctrl+F5` toggles both in game; `PRISTON_SHADOW_DIAG=1` enables shadow diagnostics logging.
 
 ## Screen-space and image-based passes

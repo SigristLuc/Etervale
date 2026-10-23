@@ -356,8 +356,8 @@ internal sealed class PristonShaderLibrary : IDisposable
         private readonly EffectParameter _actorParams;
         private Vector4 _tint = new(0f, 0f, 0f, 1f);
         private Vector4 _actorParamsValue;
-        private readonly EffectParameter _actorDisplayEmission;
-        private bool _displayEmission;
+        private readonly EffectParameter _actorReceiver;
+        private bool _receiver;
         private Texture2D _overlay;
         private readonly EffectParameter _baseColorMap;
         private readonly EffectParameter _layerMap;
@@ -467,8 +467,8 @@ internal sealed class PristonShaderLibrary : IDisposable
             _actorParams = Parameter("ActorParams");
             _actorTint?.SetValue(_tint);
             _actorParams?.SetValue(Vector4.Zero);
-            _actorDisplayEmission = Parameter("ActorDisplayEmission");
-            _actorDisplayEmission?.SetValue(0f);
+            _actorReceiver = Parameter("ActorReceiver");
+            _actorReceiver?.SetValue(0f);
             _baseColorMap = Parameter("BaseColorMap");
             _layerMap = Parameter("LayerMap");
             _alphaCutoff?.SetValue(AlphaCutoff);
@@ -718,12 +718,12 @@ internal sealed class PristonShaderLibrary : IDisposable
             _description = description;
         }
 
-        public void ApplyActor(Vector4 tint, Vector4 parameters, bool displayEmission = false)
+        public void ApplyActor(Vector4 tint, Vector4 parameters, bool receiver = false)
         {
-            if (displayEmission != _displayEmission)
+            if (receiver != _receiver)
             {
-                _actorDisplayEmission?.SetValue(displayEmission ? 1f : 0f);
-                _displayEmission = displayEmission;
+                _actorReceiver?.SetValue(receiver ? 1f : 0f);
+                _receiver = receiver;
             }
 
             if (tint != _tint)
