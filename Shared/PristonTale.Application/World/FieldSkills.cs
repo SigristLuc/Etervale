@@ -137,7 +137,7 @@ internal sealed partial class FieldSkills
         var casts = player.SkillCasts.GetValueOrDefault(skill.Code) + 1;
         player.SkillCasts[skill.Code] = casts;
         character.Skills.RecordUses(skill.Code, SkillFormulas.UsesAfterCast(previousUses, casts, WindowIndex(character, skill.Code), rank));
-        var cooldown = SkillFormulas.CooldownMs(rule, rank, character.Attributes.Talent, previousUses);
+        var cooldown = PremiumRules.SkillCooldownMs(SkillFormulas.CooldownMs(rule, rank, character.Attributes.Talent, previousUses), character.Premium);
         player.Cooldowns.Start(skill.Code, cooldown, nowMs);
         player.BeginCast(aim, timing.DurationMs);
         if (targetId != player.EntityId && _host.TryGetMonster(targetId, out _))

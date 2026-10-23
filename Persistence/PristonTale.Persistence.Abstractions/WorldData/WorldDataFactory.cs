@@ -181,6 +181,7 @@ public static class WorldDataFactory
             ModelInxPath: ToInxModelPath(r.Model))
         {
             Skill = skill,
+            Key = r.Name,
             Ai = ai,
             Drops = ToDropTable(r, itemCodes),
             ExpReward = r.Exp,

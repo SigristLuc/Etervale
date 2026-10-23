@@ -140,6 +140,11 @@ internal sealed partial class FieldSkills
     // One tick of a summon: its end conditions, the recall to a far owner, the target its orders name and the brain.
     public MonsterAttackEvent? StepSummon(MonsterInstance summon, MonsterAiTuning tuning, float dtMs)
     {
+        if (_crystalPets.ContainsKey(summon.EntityId))
+        {
+            return StepCrystalPet(summon, tuning, dtMs);
+        }
+
         var ownerId = summon.OwnerId;
         var current = _summons.TryGetValue(ownerId, out var id) && id == summon.EntityId;
         if (!summon.IsAlive)
@@ -245,6 +250,7 @@ internal sealed partial class FieldSkills
         var damage = CombatResolver.ApplyAbsorbMonster(_rng.Range(range.Min, Math.Max(range.Min, range.Max)), target.Def.Combat.Absorption);
         Retaliate(target, summon);
         Pay(owner, target, damage, false, source: summon.EntityId);
+        SlowFromWeb(summon, target);
     }
 
     private void Retaliate(MonsterInstance target, MonsterInstance summon)
