@@ -305,13 +305,13 @@ public sealed class Importer
                     """
                     INSERT INTO motion_slots (
                         motion_table_key, slot, state, start_frame, end_frame,
-                        event_frame0, event_frame1, event_frame2, event_frame3, repeat)
-                    VALUES (@TableKey, @Slot, @State, @StartFrame, @EndFrame, @E0, @E1, @E2, @E3, @Repeat)
+                        event_frame0, event_frame1, event_frame2, event_frame3, repeat, key_code)
+                    VALUES (@TableKey, @Slot, @State, @StartFrame, @EndFrame, @E0, @E1, @E2, @E3, @Repeat, @KeyCode)
                     """,
                     new
                     {
                         TableKey = tableKey, s.Slot, s.State, s.StartFrame, s.EndFrame,
-                        E0 = s.Event0, E1 = s.Event1, E2 = s.Event2, E3 = s.Event3, s.Repeat,
+                        E0 = s.Event0, E1 = s.Event1, E2 = s.Event2, E3 = s.Event3, s.Repeat, s.KeyCode,
                     }, tx, cancellationToken: ct));
                 report.MotionSlotRows++;
             }
@@ -684,14 +684,14 @@ public sealed class Importer
                 skill_distance, skill_range, skill_rating_pct, skill_curse_code, move_speed, move_range,
                 iq, group_min, group_max, exp, active_hour, nature, brood, class,
                 res_bionic, res_earth, res_fire, res_ice, res_lighting, res_poison, res_water, res_wind,
-                stun_pct, display_name, sound_code, model_scale, portrait_offset_y, portrait_offset_z)
+                stun_pct, display_name, sound_code, model_scale, portrait_offset_y, portrait_offset_z, potion_count, potion_percent)
             VALUES (
                 @Name, @Model, @Level, @AtkMin, @AtkMax, @AtkSpeed, @AtkRange, @Accuracy,
                 @Defence, @Absorb, @Block, @Hp, @Sight, @SkDmgMin, @SkDmgMax,
                 @SkDist, @SkRange, @SkRating, @SkCurse, @MoveSpeed, @MoveRange,
                 @Iq, @GroupMin, @GroupMax, @Exp, @ActiveHour, @Nature, @Brood, @Class,
                 @R0, @R1, @R2, @R3, @R4, @R5, @R6, @R7,
-                @StunPct, @DisplayName, @SoundCode, @ModelScale, @PortraitOffsetY, @PortraitOffsetZ)
+                @StunPct, @DisplayName, @SoundCode, @ModelScale, @PortraitOffsetY, @PortraitOffsetZ, @PotionCount, @PotionPercent)
             ON CONFLICT (name) DO UPDATE SET
                 model=excluded.model, level=excluded.level, attack_min=excluded.attack_min, attack_max=excluded.attack_max,
                 attack_speed=excluded.attack_speed, attack_range=excluded.attack_range, accuracy=excluded.accuracy,
@@ -707,7 +707,8 @@ public sealed class Importer
                 res_water=excluded.res_water, res_wind=excluded.res_wind, stun_pct=excluded.stun_pct,
                 display_name=excluded.display_name, sound_code=excluded.sound_code,
                 model_scale=excluded.model_scale, portrait_offset_y=excluded.portrait_offset_y,
-                portrait_offset_z=excluded.portrait_offset_z;
+                portrait_offset_z=excluded.portrait_offset_z, potion_count=excluded.potion_count,
+                potion_percent=excluded.potion_percent;
             """;
 
         foreach (var m in monsters)
@@ -724,7 +725,7 @@ public sealed class Importer
                 Nature = m.Nature, Brood = m.Brood, Class = m.Class,
                 R0 = m.Resistances[0], R1 = m.Resistances[1], R2 = m.Resistances[2], R3 = m.Resistances[3],
                 R4 = m.Resistances[4], R5 = m.Resistances[5], R6 = m.Resistances[6], R7 = m.Resistances[7],
-                m.StunPct, m.DisplayName, m.SoundCode, m.ModelScale, m.PortraitOffsetY, m.PortraitOffsetZ,
+                m.StunPct, m.DisplayName, m.SoundCode, m.ModelScale, m.PortraitOffsetY, m.PortraitOffsetZ, m.PotionCount, m.PotionPercent,
             }, tx, cancellationToken: ct));
             report.MonsterRows++;
         }

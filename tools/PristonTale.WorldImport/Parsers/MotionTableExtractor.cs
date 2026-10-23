@@ -7,7 +7,7 @@ namespace PristonTale.WorldImport.Parsers;
 // One motion table's usable clip rows, ready for the motion_slots table.
 public sealed record ExtractedMotionSlot(
     int Slot, int State, int StartFrame, int EndFrame,
-    long Event0, long Event1, long Event2, long Event3, bool Repeat);
+    long Event0, long Event1, long Event2, long Event3, bool Repeat, int KeyCode);
 
 // The INX motion-timing pass: read each distinct model's INX from the
 // game assets and extract its motion table — the raw clip windows + ×160 event offsets the authoritative
@@ -147,7 +147,8 @@ public sealed class MotionTableExtractor
                 Event1: ev.Count > 1 ? ev[1] : 0,
                 Event2: ev.Count > 2 ? ev[2] : 0,
                 Event3: ev.Count > 3 ? ev[3] : 0,
-                Repeat: m.Repeat != 0));
+                Repeat: m.Repeat != 0,
+                KeyCode: m.KeyCode));
         }
 
         return slots;

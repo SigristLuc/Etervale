@@ -71,6 +71,13 @@ public sealed record MonsterSkillStats(
     public static readonly MonsterSkillStats None = new(MonsterRange.Zero, 0, 0, 0, 0);
 }
 
+// Potions a spawn may carry: Count is the maximum, Percent the chance it carries any. The three bosses with virtual
+// lives use Count as their number of lives instead.
+public sealed record MonsterPotions(int Count, int Percent)
+{
+    public static readonly MonsterPotions None = new(0, 0);
+}
+
 public sealed record MonsterAi(
     int Iq,
     MonsterNature Nature,
@@ -109,6 +116,8 @@ public sealed record MonsterDefinition(
     public int PortraitOffsetY { get; init; }
 
     public int PortraitOffsetZ { get; init; }
+
+    public MonsterPotions Potions { get; init; } = MonsterPotions.None;
 
     public bool IsBoss => Class == MonsterClass.Boss;
     public bool IsHostile => Faction == MonsterFaction.Enemy;

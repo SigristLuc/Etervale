@@ -156,7 +156,9 @@ public static class WorldDataFactory
             DamageStunPercent = r.StunPct,
         };
 
-        var skill = (r.SkillDamageMin == 0 && r.SkillDamageMax == 0 && r.SkillRange == 0)
+        // Curse skills deal no damage and have no area; they still carry a rating and a curse code.
+        var skill = (r.SkillDamageMin == 0 && r.SkillDamageMax == 0 && r.SkillRange == 0 && r.SkillDistance == 0 && r.SkillRatingPct == 0
+                && r.SkillCurseCode == 0)
             ? MonsterSkillStats.None
             : new MonsterSkillStats(
                 new MonsterRange(r.SkillDamageMin, r.SkillDamageMax),
@@ -188,6 +190,7 @@ public static class WorldDataFactory
             ModelScale = r.ModelScale,
             PortraitOffsetY = r.PortraitOffsetY,
             PortraitOffsetZ = r.PortraitOffsetZ,
+            Potions = new MonsterPotions(r.PotionCount, r.PotionPercent),
         };
     }
 
@@ -417,7 +420,11 @@ public static class WorldDataFactory
                     slot.StartFrame, slot.EndFrame,
                     unchecked((uint)slot.EventFrame0), unchecked((uint)slot.EventFrame1),
                     unchecked((uint)slot.EventFrame2), unchecked((uint)slot.EventFrame3),
-                    slot.Repeat)));
+                    slot.Repeat)
+                {
+                    Slot = slot.Slot,
+                    Key = (char)(slot.KeyCode & 0xFF),
+                }));
         }
 
         FlushTable();

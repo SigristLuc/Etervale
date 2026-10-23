@@ -14,4 +14,5 @@ public sealed record MotionSlotRecord(
     long EventFrame1,
     long EventFrame2,
     long EventFrame3,
-    bool Repeat);
+    bool Repeat,
+    int KeyCode = 0);

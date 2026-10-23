@@ -43,6 +43,8 @@ public sealed class ParsedMonster
     public short Brood { get; init; }
     public short Class { get; init; }
     public int StunPct { get; init; } = 100; // *스턴율/*스턴률 flinch chance, default 100
+    public int PotionCount { get; init; }
+    public int PotionPercent { get; init; }
 
     public int[] Resistances { get; } = new int[8]; // single value per element, ResistanceBlock order
 

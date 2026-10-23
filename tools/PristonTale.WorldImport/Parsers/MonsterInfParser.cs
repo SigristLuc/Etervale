@@ -30,6 +30,8 @@ public sealed class MonsterInfParser
         int skDmgMin = 0, skDmgMax = 0, skDist = 0, skRange = 0, skRating = 0, skCurse = 0;
         int moveSpeed = 0, moveRange = 0, iq = 0, groupMin = 0, groupMax = 0, exp = 0, activeHour = 0;
         int stun = 100; // Default flinch chance.
+        int potionCount = 0;
+        int potionPercent = 0;
         short nature = (short)MonsterNature.Natural;
         short brood = (short)MonsterBrood.Normal;
         short klass = (short)MonsterClass.Normal;
@@ -121,6 +123,8 @@ public sealed class MonsterInfParser
                 case KeyMaps.MonBrood: brood = (short)KeyMaps.ParseBrood(t.NextWord()); break;
                 // Flinch chance; BOTH spellings accepted.
                 case "*스턴율": case "*스턴률": stun = t.NextInt(); break;
+                case "*물약보유수": potionCount = t.NextInt(); break;
+                case "*물약보유률": potionPercent = t.NextInt(); break;
 
                 case KeyMaps.MonDropAllSee: allSee = true; break;
                 case KeyMaps.MonDropMax: maxItems = t.NextInt(); break;
@@ -156,6 +160,7 @@ public sealed class MonsterInfParser
             MoveSpeed = moveSpeed, MoveRange = moveRange, Iq = iq,
             GroupMin = groupMin, GroupMax = groupMax, Exp = exp, ActiveHour = activeHour,
             Nature = nature, Brood = brood, Class = klass, StunPct = stun,
+            PotionCount = potionCount, PotionPercent = potionPercent,
             AllPlayersSee = allSee, MaxItemsPerKill = maxItems,
         };
         Array.Copy(res, m.Resistances, 8);
