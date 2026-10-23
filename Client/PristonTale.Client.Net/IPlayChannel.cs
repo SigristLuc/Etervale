@@ -3,6 +3,7 @@ using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
+using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Client.Net;
@@ -14,6 +15,8 @@ public interface IPlayChannel : IAsyncDisposable
 
     // One typed NPC service request; the reply carries the shop, warehouse or teleport state the server sent with it.
     Task<NpcServiceReply> RequestNpcServiceAsync(NpcServiceCommand command, CancellationToken ct = default);
+    // One quest step at an NPC or from a quest dialog; the journal itself arrives in the presence stream.
+    Task<QuestOutcome> RequestQuestAsync(QuestCommand command, CancellationToken ct = default);
     Task<InventoryOutcome> ApplyInventoryAsync(InventoryCommand command, CancellationToken ct = default);
 
     // Uses one owned item (premium items, travel items, firecrackers); the server consumes it and applies the effect.

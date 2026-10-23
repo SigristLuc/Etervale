@@ -114,6 +114,16 @@ public sealed record MonsterDefinition(
 
     public int PortraitOffsetZ { get; init; }
 
+    // The monster's classification code, which quests hunt by (0 when no quest counts it).
+    public int QuestCode { get; init; }
+
+    // An item handed to the credited player on every kill, before the drop rolls (0 for none).
+    public uint EventItem { get; init; }
+
+    // Potions the monster carries and the percent chance it spawns with them.
+    public int PotionCount { get; init; }
+    public int PotionPercent { get; init; }
+
     public bool IsBoss => Class == MonsterClass.Boss;
     public bool IsHostile => Faction == MonsterFaction.Enemy;
 }

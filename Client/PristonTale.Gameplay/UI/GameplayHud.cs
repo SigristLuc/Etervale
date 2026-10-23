@@ -4,17 +4,19 @@ using Microsoft.Xna.Framework.Input;
 using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Gameplay.UI.Inventory;
 using PristonTale.Gameplay.UI.Npc;
+using PristonTale.Gameplay.UI.Quests;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Progression;
+using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Gameplay.UI;
 
-// The original in-game interface in its draw order: status, skill and inventory windows behind the
-// bottom bar, then item overlays, help boxes and message boxes. Party, quest, chat input and the system menu
+// The original in-game interface in its draw order: status, skill, inventory and quest windows behind the
+// bottom bar, then item overlays, help boxes and message boxes. Party, chat input and the system menu
 // entries other than Settings have no server support and are drawn without behaviour.
 public sealed class GameplayHud : IDisposable
 {
@@ -28,6 +30,7 @@ public sealed class GameplayHud : IDisposable
     private readonly HudSkillsPanel _skills;
     private readonly HudSkillHud _skillHud;
     private static readonly CharacterClassRegistry SkillClasses = new();
+    private static readonly Color QuestChatColor = new(255, 255, 128);
     private PlayerClass _class;
     private IReadOnlyList<OwnedSkillView> _syncedSkills;
     private readonly HudInventoryPanel _inventoryPanel = new();
@@ -37,6 +40,14 @@ public sealed class GameplayHud : IDisposable
     private readonly HudNpcServiceController _services;
     private readonly HudShopWindow _shop = new();
     private readonly HudWarehouseWindow _warehouse = new();
+    private readonly HudQuestController _quests;
+    private readonly HudQuestDocuments _questDocuments;
+    private readonly HudQuestDialog _questDialog = new();
+    private readonly HudQuestWindow _questWindow = new();
+    private QuestView _questView;
+    private double _questViewMs;
+    private int _questCompletions;
+    private int _questDialogs;
     private readonly HudSettingsPanel _settings;
     private readonly HudMinimap _minimap = new();
     private readonly List<Vector3> _minimapNpcs = new(64);
@@ -73,7 +84,8 @@ public sealed class GameplayHud : IDisposable
         Func<uint, Task<NpcInteraction>> interactNpc = null,
         Action<NpcInteraction> npcOpened = null,
         Action npcClosed = null,
-        Func<NpcServiceCommand, Task<NpcServiceReply>> requestNpcService = null)
+        Func<NpcServiceCommand, Task<NpcServiceReply>> requestNpcService = null,
+        Func<QuestCommand, Task<QuestOutcome>> requestQuest = null)
     {
         _context = context;
         _settings = new HudSettingsPanel(context.Presentation);
@@ -81,6 +93,7 @@ public sealed class GameplayHud : IDisposable
         _sprites.Request(HudArt.Static);
         _sprites.Request(HudNpcArt.All);
         _sprites.Request(HudArt.BlockText);
+        _sprites.Request(HudQuestArt.All);
         _painter = new HudPainter(context.SpriteBatch, context.Font, _sprites);
         _icons = new HudItemIcons(context.GraphicsDevice, context.AssetRoot, context.Log);
         _skills = new HudSkillsPanel(context.Font, _sprites);
@@ -94,6 +107,8 @@ public sealed class GameplayHud : IDisposable
         _premium = new HudPremiumTimers(_sprites);
         _sprites.Request(HudTeleportCore.Art);
         _inventory.UseRequested = item => _itemUse.Request(item, _state);
+        _quests = new HudQuestController(requestQuest, context.Log);
+        _questDocuments = new HudQuestDocuments(context.AssetRoot, context.Log);
         _inventory.InterceptClick = InterceptInventoryClick;
         _inventory.ExternalDrop = DropFromInventory;
         _inventoryPanel.Note = InventoryNote;
@@ -114,7 +129,7 @@ public sealed class GameplayHud : IDisposable
     public float MinimapViewSize => _minimap.CurrentViewSize;
     public bool PointerCaptured { get; private set; }
     public bool AssetsFailed => _sprites.Failed || _icons.Failed;
-    public bool IconsIdle => _icons.IsIdle && _sprites.IsIdle;
+    public bool IconsIdle => _icons.IsIdle && _sprites.IsIdle && !_questDocuments.IsLoading;
     public long TextureBytes => _sprites.TextureBytes;
     public bool RightAttackEnabled => _bindings.RightSkillId == HudSkillBindings.BasicAttackId;
     internal uint LeftSkillId => _bindings.LeftSkillId;
@@ -138,6 +153,15 @@ public sealed class GameplayHud : IDisposable
     private double _lastBuffClickSeconds;
 
     public void ShowNotice(string message) => _notice.Show(message);
+
+    // The quest fanfare: a quest started, moved on or ended.
+    public event Action QuestFanfare;
+
+    public HudQuestController Quests => _quests;
+    public HudQuestWindow QuestWindow => _questWindow;
+
+    // The quest part of each presence update (the journal, quest notices and dialogs the world opened).
+    public void ObserveQuests(PristonTale.Client.Net.Presence.PresenceUpdate update) => _quests.Observe(update);
 
     public bool IsReady
     {
@@ -177,10 +201,15 @@ public sealed class GameplayHud : IDisposable
     {
         _npc.Dismiss();
         var closed = _npcOpen || _settingsOpen || _systemMenu || _skills.TrainingPending
-            || _inventorySlide.Open || _statusSlide.Open || _skillSlide.Open || _shop.IsOpen || _warehouse.IsOpen;
+            || _inventorySlide.Open || _statusSlide.Open || _skillSlide.Open || _shop.IsOpen || _warehouse.IsOpen
+            || _questWindow.Open || _quests.Dialog is not null || _quests.SkillResetBox;
         CloseServices();
         closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming;
         _itemUse.Close();
+        _quests.CloseDialog();
+        _quests.AnswerSkillReset(false);
+        _quests.LeaveNpc();
+        _questWindow.Close();
         _npcOpen = false;
         _settingsOpen = false;
         _systemMenu = false;
@@ -209,6 +238,7 @@ public sealed class GameplayHud : IDisposable
         _services.Update();
         _itemUse.Update();
         _premium.Apply(PremiumTimers, _clock.Elapsed.TotalMilliseconds);
+        _quests.Update();
         _npc.Update(_context.Font);
         _minimap.Update(_sprites, World, elapsedSeconds);
         _notice.Update(elapsedSeconds);
@@ -218,7 +248,9 @@ public sealed class GameplayHud : IDisposable
         _skillSlide.Advance(elapsedSeconds);
         _shop.Advance(elapsedSeconds);
         _warehouse.Advance(elapsedSeconds);
+        _questWindow.Advance(elapsedSeconds);
         ForwardMessages();
+        ApplyQuests();
         ApplyServices(state);
         if (_npc.ReadyToOpen)
         {
@@ -229,12 +261,21 @@ public sealed class GameplayHud : IDisposable
             // While the previous window's close is still in flight the dialog shows, and its button opens the service.
             var direct = _npc.DirectService;
             _npcOpen = direct is null || !_services.Request(_npc.Current.EntityId, _npc.Current.Name, direct.Kind, NpcServiceAction.Open);
+            _quests.LeaveNpc();
+            if (_npc.TakesPartInQuests)
+            {
+                _quests.Talk(_npc.Current.EntityId);
+            }
         }
 
         var layout = Layout();
         var pointer = layout.ToLogical(mouse.Position);
         var design = new Point(pointer.X, pointer.Y - layout.BottomOffset);
-        if (_npcOpen && HudNpcPanel.Box.Contains(pointer))
+        if (_quests.Dialog is not null && HudQuestDialog.Box.Contains(pointer))
+        {
+            _questDialog.Scroll(mouse.ScrollWheelValue - _previousMouse.ScrollWheelValue);
+        }
+        else if (_npcOpen && HudNpcPanel.Box.Contains(pointer))
         {
             _npc.Scroll(mouse.ScrollWheelValue - _previousMouse.ScrollWheelValue);
         }
@@ -342,6 +383,12 @@ public sealed class GameplayHud : IDisposable
             _services.Request(0, "Mobile Shop", NpcServiceKind.Shop, NpcServiceAction.Open);
         }
 
+        if (_quests.Completions != _questCompletions)
+        {
+            _questCompletions = _quests.Completions;
+            _notice.Show(_quests.Message);
+        }
+
         if (_bindings.Refusals != _bindingRefusals)
         {
             _bindingRefusals = _bindings.Refusals;
@@ -375,6 +422,118 @@ public sealed class GameplayHud : IDisposable
         {
             _systemMenu = !_systemMenu;
         }
+
+        if (Pressed(keyboard, Keys.Q))
+        {
+            _questWindow.Toggle();
+        }
+    }
+
+    // Quest notices go to the combat log (chat lines), the notice strip (events and messages) or the fanfare; a new quest
+    // dialog takes the help box from the NPC dialog until it closes.
+    private void ApplyQuests()
+    {
+        while (_quests.TryTakeNotice(out var notice))
+        {
+            switch (notice.Kind)
+            {
+                case QuestNoticeKind.Chat:
+                    Combat.Add(notice.Text, QuestChatColor);
+                    break;
+                case QuestNoticeKind.Fanfare:
+                    QuestFanfare?.Invoke();
+                    break;
+                default:
+                    _notice.Show(notice.Text);
+                    break;
+            }
+        }
+
+        if (_quests.DialogsOpened != _questDialogs)
+        {
+            _questDialogs = _quests.DialogsOpened;
+            _skills.CancelTraining();
+            _settingsOpen = false;
+            foreach (var document in _quests.Dialog?.ChoiceDocuments ?? [])
+            {
+                _questDocuments.Lines(HudQuestDocuments.DialogPath(document));
+            }
+        }
+
+        // Quest texts load off the game thread; asking early has them ready when the dialog or window draws.
+        if (_quests.Dialog is not null)
+        {
+            _questDocuments.Lines(HudQuestDocuments.DialogPath(_quests.DialogDocument));
+        }
+
+        if (!ReferenceEquals(_quests.View, _questView))
+        {
+            _questView = _quests.View;
+            _questViewMs = _clock.Elapsed.TotalMilliseconds;
+            _questWindow.Refresh(_questView);
+            foreach (var entry in _questView is null ? [] : _questView.Progress.Concat(_questView.Finished))
+            {
+                _questDocuments.Lines(HudQuestDocuments.BoardPath(entry.Description));
+            }
+        }
+    }
+
+
+    private long QuestTimeLeftMs => _questView is null ? 0 : Math.Max(0, _questView.TimerMs - (long)(_clock.Elapsed.TotalMilliseconds - _questViewMs));
+
+    // The quest dialog, its yes/no box and the skill redistribution offer are modal: they take every click.
+    private bool ClickQuests(HudLayout layout, Point pointer)
+    {
+        if (_quests.SkillResetBox)
+        {
+            if (HudMessageBox.Accept.Contains(pointer) || HudMessageBox.Reject.Contains(pointer))
+            {
+                _quests.AnswerSkillReset(HudMessageBox.Accept.Contains(pointer));
+            }
+
+            return true;
+        }
+
+        if (_quests.Confirming)
+        {
+            if (HudMessageBox.Accept.Contains(pointer) || HudMessageBox.Reject.Contains(pointer))
+            {
+                _quests.Answer(HudMessageBox.Accept.Contains(pointer));
+            }
+
+            return true;
+        }
+
+        if (_quests.Dialog is { } dialog)
+        {
+            if (HudQuestDialog.OkButton.Contains(pointer))
+            {
+                _quests.Ok();
+            }
+            else if (HudQuestDialog.ChoiceAt(dialog, pointer) is var choice and >= 0)
+            {
+                _quests.Choose(choice);
+            }
+            else if (dialog.Followup == QuestFollowup.ConfirmChoice && HudQuestDialog.PreviousArrow.Contains(pointer))
+            {
+                _quests.BrowseBy(-1);
+            }
+            else if (dialog.Followup == QuestFollowup.ConfirmChoice && HudQuestDialog.NextArrow.Contains(pointer))
+            {
+                _quests.BrowseBy(1);
+            }
+
+            return HudQuestDialog.Box.Contains(pointer);
+        }
+
+        if (_npcOpen && _npc.CanTrain && _npc.Destinations.Count == 0 && HudNpcPanel.ClassChangeButton(layout).Contains(pointer)
+            && _quests.ClassChangeNpc == _npc.Current?.EntityId)
+        {
+            _quests.ChangeClass(_quests.ClassChangeNpc);
+            return true;
+        }
+
+        return _questWindow.Click(layout, pointer, _questView);
     }
 
     private void Click(OwnerState state, HudLayout layout, Point pointer, Point design, KeyboardState keyboard)
@@ -401,6 +560,11 @@ public sealed class GameplayHud : IDisposable
         if (_skills.TrainingPending)
         {
             _skills.HandleTrainingClick(PanelOrigin(layout, _skillSlide), pointer, state, _skillMaster, _progression);
+            return;
+        }
+
+        if (ClickQuests(layout, pointer))
+        {
             return;
         }
 
@@ -482,6 +646,7 @@ public sealed class GameplayHud : IDisposable
         {
             _npcOpen = false;
             _npc.Dismiss();
+            _quests.LeaveNpc();
             return true;
         }
 
@@ -503,6 +668,9 @@ public sealed class GameplayHud : IDisposable
                 break;
             case HudMenuButton.System:
                 _systemMenu = !_systemMenu;
+                break;
+            case HudMenuButton.Quest:
+                _questWindow.Toggle();
                 break;
         }
     }
@@ -570,6 +738,12 @@ public sealed class GameplayHud : IDisposable
             return true;
         }
 
+        if (_quests.SkillResetBox || _quests.Confirming || _quests.Dialog is not null && HudQuestDialog.Box.Contains(pointer)
+            || _questWindow.Contains(layout, pointer) || _skillHud.QuestTimerAt(pointer))
+        {
+            return true;
+        }
+
         return _systemMenu && HudSystemMenu.Bounds.Contains(design)
             || _settingsOpen && HudSettingsPanel.Box.Contains(pointer)
             || _npcOpen && (HudNpcPanel.Box.Contains(pointer) || _npc.CanTrain && HudNpcPanel.SkillMasterBox(layout).Contains(pointer))
@@ -620,6 +794,11 @@ public sealed class GameplayHud : IDisposable
             _inventoryPanel.Draw(_painter, PanelOrigin(layout, _inventorySlide), _state, _inventory, _icons, pointer, _inventorySlide.FullyOpen);
         }
 
+        if (_questWindow.Visible)
+        {
+            _questWindow.Draw(_painter, layout, _context.Font, _questView, _questDocuments, pointer);
+        }
+
         if (_shop.Visible)
         {
             _shop.Draw(_painter, _icons, _state, pointer, _shop.FullyOpen && !_settingsOpen);
@@ -640,6 +819,12 @@ public sealed class GameplayHud : IDisposable
         {
             _skillHud.DrawBuffs(_painter, Statuses.For(SelfId), SkillClockMs);
         }
+        else
+        {
+            _skillHud.ClearBuffs();
+        }
+
+        _skillHud.DrawQuestTimer(_painter, _questView, QuestTimeLeftMs);
 
         StringEffect.Draw(_painter, layout);
         _bar.DrawHoverText(_painter, layout, _state, pointer);
@@ -648,10 +833,20 @@ public sealed class GameplayHud : IDisposable
             HudSystemMenu.Draw(_painter, layout, pointer);
         }
 
-        if (_npcOpen)
+        // The quest dialog takes the help box from the NPC dialog; its yes/no box replaces both, as the classic client closed
+        // the help box before asking.
+        if (_quests.Dialog is not null)
+        {
+            if (!_quests.Confirming)
+            {
+                _painter.Flush();
+                _questDialog.Draw(_painter, _context.Font, _quests, _questDocuments, pointer);
+            }
+        }
+        else if (_npcOpen)
         {
             _painter.Flush();
-            _npc.Draw(_painter, layout, pointer, true);
+            _npc.Draw(_painter, layout, pointer, true, _quests.ClassChangeNpc != 0 && _quests.ClassChangeNpc == _npc.Current?.EntityId);
         }
 
         if (_itemUse.Teleport.IsOpen || _itemUse.Confirming)
@@ -689,6 +884,18 @@ public sealed class GameplayHud : IDisposable
         if (Statuses is not null && SelfId != 0)
         {
             _skillHud.DrawBuffTooltip(_painter, Statuses.For(SelfId), pointer, SkillClockMs, SummonAutomatic);
+        }
+
+        _skillHud.DrawQuestTimerTooltip(_painter, _questView, QuestTimeLeftMs, pointer);
+        if (_quests.Confirming)
+        {
+            _painter.Flush();
+            HudQuestDialog.DrawConfirm(_painter, _quests, pointer);
+        }
+        else if (_quests.SkillResetBox)
+        {
+            _painter.Flush();
+            HudQuestDialog.DrawBox(_painter, QuestTexts.SkillPointName, QuestTexts.Redistribute.Item1, QuestTexts.Redistribute.Item2, pointer);
         }
 
         _painter.Flush();

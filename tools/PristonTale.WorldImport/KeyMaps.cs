@@ -101,6 +101,10 @@ public static class KeyMaps
     public const string MonNature = "*품성";           // good/evil → Nature
     public const string MonBrood = "*몬스터종족";      // brood
     public const string MonExp = "*경험치";            // experience
+    public const string MonQuestCode = "*구별코드";    // classification code quests hunt by
+    public const string MonEventItem = "*이벤트아이템"; // item handed out on every kill
+    public const string MonPotionCount = "*물약보유수"; // potions carried
+    public const string MonPotionPercent = "*물약보유률"; // chance to spawn with them
 
     // Active-hour value tokens. 낮(day)=+1, 밤(night)=-1, else 0 (any).
     public const string ActiveHourDay = "낮";

@@ -57,7 +57,17 @@ public static class WorldDataFactory
     }
 
     public static IReadOnlyList<ItemDefinition> ToItemDefinitions(IEnumerable<ItemTemplateRecord> records) =>
-        records.Where(static record => record.ItemCodeMask != 0).Select(ToItemDefinition).ToList();
+        records.Where(static record => record.ItemCodeMask != 0 && !IsQuestVariantKey(record.Code)).Select(ToItemDefinition).ToList();
+
+    // Rows of the quest variant of a code are keyed "<code>#Q" by the importer; they load beside the regular catalog.
+    public const string QuestVariantSuffix = "#Q";
+
+    public static bool IsQuestVariantKey(string code) => code.EndsWith(QuestVariantSuffix, StringComparison.OrdinalIgnoreCase);
+
+    public static IReadOnlyList<ItemDefinition> ToQuestVariantDefinitions(IEnumerable<ItemTemplateRecord> records) =>
+        records.Where(static record => record.ItemCodeMask != 0 && IsQuestVariantKey(record.Code))
+            .Select(static record => ToItemDefinition(record with { Code = record.Code[..^QuestVariantSuffix.Length] }))
+            .ToList();
 
     // Special bonus codes as the importer stores them: 0 absorb, 1 defence, 2 move speed, 3 block, 4 attack speed,
     // 5 critical, 6 range, 7 magic mastery, 8 mana per level, 9 life per level, 10 attack rating per level, 11 damage per
@@ -189,6 +199,10 @@ public static class WorldDataFactory
             ModelScale = r.ModelScale,
             PortraitOffsetY = r.PortraitOffsetY,
             PortraitOffsetZ = r.PortraitOffsetZ,
+            QuestCode = r.QuestCode,
+            EventItem = TryResolveDrop(r.EventItem, itemCodes, out var eventItem) ? eventItem : 0,
+            PotionCount = r.PotionCount,
+            PotionPercent = r.PotionPercent,
         };
     }
 

@@ -7,6 +7,7 @@ using PristonTale.Application.World;
 using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World;
 
 namespace PristonTale.Application.Services;
@@ -91,6 +92,12 @@ public sealed class SessionAppService
             }
 
             var spawn = ResolveSpawn(record, field);
+            if (WorldServer.StartsAway(field.FieldCode) && _world.TryGetFieldByCode(QuestClasses.HomeField(character), out var home))
+            {
+                field = home;
+                spawn = WorldServer.HomeStart(_world, home.FieldCode);
+            }
+
             if (!_sessions.TryGet(sessionToken, out var current) || !ReferenceEquals(current, session))
             {
                 return EnterWorldOutcome.Denied(EnterWorldFailure.SessionClosed);

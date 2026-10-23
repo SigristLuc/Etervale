@@ -6,7 +6,7 @@ public enum NpcServiceKind : byte
 {
     Shop = 1,
 
-    // Value: class-change group passed to the skill menu (2 = Tempskron, 3 = Morion; 0 when absent).
+    // Value: class-change group of the master (0 when absent): 1 offers only the first rank-up quest, 2 and above all three.
     SkillMaster = 2,
     Warehouse = 3,
 
@@ -19,7 +19,7 @@ public enum NpcServiceKind : byte
     // Value: event quest number (default 2).
     QuestEvent = 6,
 
-    // Value: warp gate map mode (default 1).
+    // Value: warp gate map mode (default 1); modes 0 and 1 run the wing exchange of the wing quest.
     WarpGate = 7,
 
     // Value: teleport route (default 1).

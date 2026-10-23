@@ -86,7 +86,7 @@ public sealed class Importer
         await using var tx = await conn.BeginTransactionAsync(ct);
 
         await conn.ExecuteAsync(new CommandDefinition("DELETE FROM world_import_unresolved_refs", transaction: tx, cancellationToken: ct));
-        await WriteItemsAsync(conn, tx, items, report, ct);
+        await WriteItemsAsync(conn, tx, items, _questVariants, report, ct);
         await WriteMonstersAsync(conn, tx, monsters, itemCodes, report, ct);
         await WriteNpcsAsync(conn, tx, npcs, itemCodes, report, ct);
         await WriteFieldsAsync(conn, tx, fields, monsterNames, npcNames, report, ct);
@@ -380,8 +380,20 @@ public sealed class Importer
             result.Add(item);
         }
 
+        // The quest variant of a code (unique marker 2) is kept beside the regular definition under "<code>#Q".
+        _questVariants.Clear();
+        foreach (var group in parsed.Where(static entry => entry.Item.Code.Length > 0 && entry.Item.UniqueItem == QuestUnique)
+                     .GroupBy(static entry => entry.Item.Code, StringComparer.OrdinalIgnoreCase))
+        {
+            _questVariants.Add(group.OrderBy(static entry => entry.Path, StringComparer.Ordinal).First().Item);
+        }
+
         return result;
     }
+
+    private const long QuestUnique = 2;
+    private const string QuestVariantSuffix = "#Q";
+    private readonly List<ParsedItem> _questVariants = [];
 
     private IReadOnlyList<ParsedMonster> ParseMonsters(ImportReport report)
     {
@@ -548,8 +560,12 @@ public sealed class Importer
     // ---- Writes (idempotent) ------------------------------------------------------------------------
 
     private static async Task WriteItemsAsync(
-        DbConnection conn, DbTransaction tx, IReadOnlyList<ParsedItem> items, ImportReport report, CancellationToken ct)
+        DbConnection conn, DbTransaction tx, IReadOnlyList<ParsedItem> items, IReadOnlyList<ParsedItem> questVariants, ImportReport report,
+        CancellationToken ct)
     {
+        var rows = items.Select(static it => (Key: it.Code, Item: it))
+            .Concat(questVariants.Select(static it => (Key: it.Code + QuestVariantSuffix, Item: it)))
+            .ToList();
         const string upsert = """
             INSERT INTO item_templates (
                 code, item_code_mask, name, kind, durability_min, durability_max, weight, price,
@@ -614,11 +630,11 @@ public sealed class Importer
                 magic_mastery=excluded.magic_mastery;
             """;
 
-        foreach (var it in items)
+        foreach (var (key, it) in rows)
         {
             await conn.ExecuteAsync(new CommandDefinition(upsert, new
             {
-                it.Code, Mask = ItemCodeMask(it.Code), it.Name, Kind = (int)it.Kind,
+                Code = key, Mask = ItemCodeMask(it.Code), it.Name, Kind = (int)it.Kind,
                 DurMin = it.DurabilityMin, DurMax = it.DurabilityMax, it.Weight, it.Price,
                 DmgMinLow = it.DamageMinLow, DmgMinHigh = it.DamageMinHigh,
                 DmgMaxLow = it.DamageMaxLow, DmgMaxHigh = it.DamageMaxHigh,
@@ -648,18 +664,18 @@ public sealed class Importer
         }
 
         // Children: delete-reload per item.
-        foreach (var it in items)
+        foreach (var (key, it) in rows)
         {
             await conn.ExecuteAsync(new CommandDefinition(
-                "DELETE FROM item_template_special WHERE item_code = @Code", new { it.Code }, tx, cancellationToken: ct));
+                "DELETE FROM item_template_special WHERE item_code = @Code", new { Code = key }, tx, cancellationToken: ct));
             await conn.ExecuteAsync(new CommandDefinition(
-                "DELETE FROM item_template_job_random WHERE item_code = @Code", new { it.Code }, tx, cancellationToken: ct));
+                "DELETE FROM item_template_job_random WHERE item_code = @Code", new { Code = key }, tx, cancellationToken: ct));
 
             foreach (var (bonusCode, v0, v1) in it.Specials)
             {
                 await conn.ExecuteAsync(new CommandDefinition(
                     "INSERT INTO item_template_special (item_code, bonus_code, value0, value1) VALUES (@Code,@B,@V0,@V1)",
-                    new { it.Code, B = bonusCode, V0 = v0, V1 = v1 }, tx, cancellationToken: ct));
+                    new { Code = key, B = bonusCode, V0 = v0, V1 = v1 }, tx, cancellationToken: ct));
                 report.ItemSpecialRows++;
             }
             var ord = 0;
@@ -667,7 +683,7 @@ public sealed class Importer
             {
                 await conn.ExecuteAsync(new CommandDefinition(
                     "INSERT INTO item_template_job_random (item_code, ordinal, job_bit_code) VALUES (@Code,@O,@J)",
-                    new { it.Code, O = ord++, J = bit }, tx, cancellationToken: ct));
+                    new { Code = key, O = ord++, J = bit }, tx, cancellationToken: ct));
                 report.ItemJobRandomRows++;
             }
         }
@@ -684,14 +700,16 @@ public sealed class Importer
                 skill_distance, skill_range, skill_rating_pct, skill_curse_code, move_speed, move_range,
                 iq, group_min, group_max, exp, active_hour, nature, brood, class,
                 res_bionic, res_earth, res_fire, res_ice, res_lighting, res_poison, res_water, res_wind,
-                stun_pct, display_name, sound_code, model_scale, portrait_offset_y, portrait_offset_z)
+                stun_pct, display_name, sound_code, model_scale, portrait_offset_y, portrait_offset_z,
+                quest_code, event_item, potion_count, potion_percent)
             VALUES (
                 @Name, @Model, @Level, @AtkMin, @AtkMax, @AtkSpeed, @AtkRange, @Accuracy,
                 @Defence, @Absorb, @Block, @Hp, @Sight, @SkDmgMin, @SkDmgMax,
                 @SkDist, @SkRange, @SkRating, @SkCurse, @MoveSpeed, @MoveRange,
                 @Iq, @GroupMin, @GroupMax, @Exp, @ActiveHour, @Nature, @Brood, @Class,
                 @R0, @R1, @R2, @R3, @R4, @R5, @R6, @R7,
-                @StunPct, @DisplayName, @SoundCode, @ModelScale, @PortraitOffsetY, @PortraitOffsetZ)
+                @StunPct, @DisplayName, @SoundCode, @ModelScale, @PortraitOffsetY, @PortraitOffsetZ,
+                @QuestCode, @EventItem, @PotionCount, @PotionPercent)
             ON CONFLICT (name) DO UPDATE SET
                 model=excluded.model, level=excluded.level, attack_min=excluded.attack_min, attack_max=excluded.attack_max,
                 attack_speed=excluded.attack_speed, attack_range=excluded.attack_range, accuracy=excluded.accuracy,
@@ -707,7 +725,8 @@ public sealed class Importer
                 res_water=excluded.res_water, res_wind=excluded.res_wind, stun_pct=excluded.stun_pct,
                 display_name=excluded.display_name, sound_code=excluded.sound_code,
                 model_scale=excluded.model_scale, portrait_offset_y=excluded.portrait_offset_y,
-                portrait_offset_z=excluded.portrait_offset_z;
+                portrait_offset_z=excluded.portrait_offset_z, quest_code=excluded.quest_code, event_item=excluded.event_item,
+                potion_count=excluded.potion_count, potion_percent=excluded.potion_percent;
             """;
 
         foreach (var m in monsters)
@@ -725,6 +744,7 @@ public sealed class Importer
                 R0 = m.Resistances[0], R1 = m.Resistances[1], R2 = m.Resistances[2], R3 = m.Resistances[3],
                 R4 = m.Resistances[4], R5 = m.Resistances[5], R6 = m.Resistances[6], R7 = m.Resistances[7],
                 m.StunPct, m.DisplayName, m.SoundCode, m.ModelScale, m.PortraitOffsetY, m.PortraitOffsetZ,
+                m.QuestCode, EventItem = itemCodes.TryGetValue(m.EventItem, out var eventItem) ? eventItem : m.EventItem, m.PotionCount, m.PotionPercent,
             }, tx, cancellationToken: ct));
             report.MonsterRows++;
         }
