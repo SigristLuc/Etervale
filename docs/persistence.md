@@ -114,8 +114,12 @@ and `warehouses.items`.
 
 - Restore is strict: unknown JSON members are rejected, constructor parameters without defaults are required, max
   depth 16, max 65536 characters, `Version` must be 1, instance ids must be unique and non-empty, the item code must
-  exist in the runtime `ItemCatalog`, counts must fit `MaxStack`, `UpgradeLevel` must be 0. Any violation throws
-  `InvalidDataException`.
+  exist in the runtime `ItemCatalog`, counts must fit `MaxStack`, `UpgradeLevel` must not be negative. Any violation
+  throws `InvalidDataException`.
+- Each `SavedItem` carries the copy's `Roll` (`ItemRoll`: rolled stats, requirements, price, specialization and its
+  bonuses). An item saved without one (older rows) restores in its shop form with its saved `JobSpecMask`;
+  `RolledBonus` is read and ignored. Saved equipment only needs to fit its slot (`PlayerCharacter.CanHold`): a worn item
+  whose requirements are no longer met is restored worn.
 - `[]` (inventory, skills, warehouse) and `{}` (equipment) are the empty legacy values and restore as empty state.
 - An inventory item whose saved anchor no longer fits its footprint moves to the first free cell.
 - Enums serialize as strings (`JsonStringEnumConverter`).

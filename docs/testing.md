@@ -34,6 +34,7 @@ Default case files by area (all `tests/PristonTale.Tests/<Name>.cs`):
 | Domain | `DomainTests`, `ProgressionAndOwnershipTests`, `ProgressionDataTests`, `AuthTests`, `OutboxTests` | Attributes, ownership, mailbox, XP, login, outbox |
 | Transactions | `ProgressionTransactionTests`, `InventoryTransactionTests`, `GroundPickupTransactionTests`, `PotionTests` | Storage-first commit, replay |
 | Equipment | `EquipmentTests`, `RangedEquipmentTests` | Catalog rules, hands, class masks, bone attachments |
+| Item rules | `ItemRulesTests` | Wearable slots, requirements, two-handed swaps, drop and shop rolls, the item stat pipeline, block, carried weight, saved rolls, item details on the wire, item reader |
 | Protocol | `BinaryProtocolTests`, `ClientTests`, `NetworkHardeningTests` | Struct layouts, framing, cipher, presence, abuse limits |
 | World data | `WorldImportTests`, `NpcPlacementMigrationTests`, `MonsterNameTests`, `NpcServiceTests` | Import and migrations on temp SQLite |
 | Rewards, spawns | `WorldRewardsTests`, `SpawnGateTests`, `SpawnScheduleTests` | Loot, XP, spawn masks, boss hours |
@@ -185,7 +186,9 @@ Other probe details:
 - `--capture-login` draws before the first Update with a preloaded shared atlas, then covers a 1x1 viewport and its
   restoration, disabled credentials, keyboard navigation, masking and scaled mouse hit tests.
 - `--capture-hud` shows the typed NPC dialog, teleport destinations, the shop (buy and sell) and the warehouse in its
-  `npc-*` scenarios. It reads the Ricarten stage only for the authored minimap rectangle.
+  `npc-*` scenarios, the item box with rolled values, red requirements and a specialization (`inventory-item-hover-*`),
+  the carried weight and unusable-item tint (`inventory-*`), the resistance boxes (`status-*`) and the block word
+  (`block-800`). It reads the Ricarten stage only for the authored minimap rectangle.
 - `--capture-hud-target` spawns monsters of two races, an NPC and a player through the remote entity roster and captures
   the target frame's live portrait, the classic bar, 1280x720, 1920x1080, scale 2 and the minimap under the cursor.
 - `--verify-world-rewards` migrates the given database twice, then checks that every item drop code resolves, Hopy

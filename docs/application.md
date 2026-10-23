@@ -178,8 +178,10 @@ Durable entry points (`Prepare*Async`, `Commit*Async`, `CheckNpcServiceAsync`, `
 
 ### Players (`WorldPlayer`)
 
-- Movement is client-owned and validated: a distance budget refills at 1.35 x run speed (start 0.5 s, cap 2 s, +32
-  units slack); reports over 48 units must not cross a wall, shorter ones follow the wall slide within 8 units; the
+- Movement is client-owned and validated: a distance budget refills at 1.35 x run speed (village walk speed while the
+  character carries more than its weight limit; start 0.5 s, cap 2 s, +32 units slack); an overweight character's
+  running report counts as walking; reports over 48 units must not cross a wall, shorter ones follow the wall slide
+  within 8 units; the
   floor must be within 64 units of climb. Height is always the server's floor. Busy players (swing, flinch, eat,
   cast) ignore drift up to 192 units and reject larger. A move without an action target drops the attack lock.
 - Motion stops showing after 1.5 s without reports. Death clears actions and potion; respawn after 5000 ms at the
@@ -216,10 +218,12 @@ Player basic attack:
 6. Kill credit goes to the killer unless the first attacker (latched at full HP) dealt enough damage and hit within
    `KillReward.FirstAttackerDisengageMs` (15000). Experience is `KillReward.ExpForKill(..., ExperienceMultiplier)`
    awarded to the credited player; drops are rolled; the corpse despawns after `CorpseDespawnMs` (5710).
-7. `KillPayout` drops are placed at the corpse, settled on the floor (`FieldGroundLoot.Place`).
+7. `KillPayout` drops are placed at the corpse, settled on the floor (`FieldGroundLoot.Place`); each item copy is made
+   there with `ItemRoller.Create` from the field's stream (see [simulation.md](simulation.md#items)).
 
 Monster attacks (`ResolveMonsterHit`): basic hits check reach, reflection and evasion hooks, roll with
-`CombatResolver.ResolveMonsterAttack` (shield block), scale by modifiers and undead absorption, pass the skill
+`CombatResolver.ResolveMonsterAttack` (the player's block chance; a block emits `Block`), scale by modifiers and undead
+absorption, pass the skill
 `Defend` hook, then `WorldPlayer.ApplyDamage` (ignored during a revive guard). A monster's area skill hits every player
 inside its shape once per cast (`SkillImpactPending` is consumed before visiting victims). Monster hits on summons use
 accuracy versus the summon's defence and subtract its absorption.
@@ -253,6 +257,8 @@ summon status ends. Charmed wild monsters become summons for the charm duration.
 - Clients address drops by a 32-bit handle packed into a GUID (`GroundDropHandle`); `ResolveClientId` maps it back.
 - Pickup reserves a drop by operation id (`TryReserve`, reach 32 units); a reserved drop does not expire. `Resolve`
   removes it on commit or releases it on abort. Inventory-delivered drops (`ToInventory`) throw `NotSupportedException`.
+- The reserved copy keeps the rolled values of the drop under the drop's id. A pickup that would carry the character
+  over the weight limit is refused with `ItemRuleMessages.OverWeight`.
 
 ## Durable operations
 
@@ -270,7 +276,7 @@ A prepared operation with `Snapshot == null` is final (rejection or replay) and 
 
 | Operation | Prepare | Commit applies |
 | --- | --- | --- |
-| Inventory move/split/merge/equip/unequip | `WorldServer.PrepareInventoryAsync` -> `InventoryCommands.Apply` | inventory, equipment, histories |
+| Inventory move/split/merge/equip/unequip | `WorldServer.PrepareInventoryAsync` -> `InventoryCommands.Apply`; a refusal names the item rule (`InventoryCommands.Refusal`) | inventory, equipment, histories |
 | `ConsumePotion` | same; refused when dead or a potion is pending (`PreparedPotionOperation`) | inventory, then `QueuePotion`; the field starts the eat motion and restores at the clip event |
 | `Pickup` | `GroundPickupTransactions.Prepare` (`PreparedPickupOperation`) | inventory, gold via `TryChangeMoney`, drop removed |
 | Progression (attributes, learn skill) | `ProgressionTransactions.Prepare`; learning needs a reachable skill master | re-applies the command to the live character (`ApplyProgression`) |
@@ -307,8 +313,8 @@ Flow (`NpcAppService.RequestAsync`):
 
 | Service | Actions | Rules (Simulation) |
 | --- | --- | --- |
-| Shop | Open, Refresh, Buy, Sell, Repair, RepairAll, Close | `NpcShopRules`: buy own stock at catalog price (unrolled); sell at a fifth of worn value (no quest items); repair an eighth of lost value; gold cap `MoneyLimits.CarryLimit` |
-| Warehouse | Open, Refresh, Deposit, Withdraw, Move, DepositGold, WithdrawGold, Close | `WarehouseStorage`: per account, 9x9 grid, 100 items, weight 1000, 100,000,000 gold; quest items and materials stay on the character |
+| Shop | Open, Refresh, Buy, Sell, Repair, RepairAll, Close | `NpcShopRules`: buy own stock at catalog price in its shop form within the weight limit; sell at a fifth of the copy's worn value (no quest items); repair an eighth of lost value; gold cap `MoneyLimits.CarryLimit` |
+| Warehouse | Open, Refresh, Deposit, Withdraw, Move, DepositGold, WithdrawGold, Close | `WarehouseStorage`: per account, 9x9 grid, 100 items, weight 1000, 100,000,000 gold; quest items and materials stay on the character; no opening or withdrawing over the weight limit |
 | Teleporter | Open, Teleport, Close | `TeleportRoutes`: route 1 only (Mushroom Cave 100, Beehive Cave 100, Cursed Land 500, Forbidden Land 1000 gold); level must reach the destination field's `LimitLevel` |
 | Skill master | (dialog only here) | Learning goes through `ProgressionCommand.LearnSkill` with the NPC's entity id |
 

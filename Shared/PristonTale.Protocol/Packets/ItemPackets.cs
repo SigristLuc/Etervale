@@ -7,7 +7,7 @@ namespace PristonTale.Protocol.Packets;
 // owner's class may use the item.
 public sealed record ItemDetailEntry
 {
-    public const int Size = 16 + 4 * 34 + 4 * 15 + 2 * 8;
+    public const int Size = 16 + 4 * 33 + 4 * 14 + 2 * 8;
     public const int FlagTwoHanded = 1;
     public const int FlagClassAllowed = 2;
 
@@ -59,7 +59,6 @@ public sealed record ItemDetailEntry
     public float SpecLifeRegen { get; init; }
     public float SpecManaRegen { get; init; }
     public float SpecStaminaRegen { get; init; }
-    public float Reserved { get; init; }
 
     // Bionic, earth, fire, ice, lightning, poison, water, wind.
     public short[] Resistances { get; init; } = new short[8];
@@ -76,13 +75,13 @@ public sealed record ItemDetailEntry
 
         writer.UInt32(SpecJob);
         foreach (var value in (ReadOnlySpan<int>)[SpecDefence, SpecAttackSpeed, SpecCritical, SpecShootingRange, SpecLevelLife, SpecLevelMana,
-            SpecLevelAttackRating, SpecLevelDamage, 0])
+            SpecLevelAttackRating, SpecLevelDamage])
         {
             writer.Int32(value);
         }
 
         foreach (var value in (ReadOnlySpan<float>)[Absorb, Block, MoveSpeed, LifeRegen, ManaRegen, StaminaRegen, MagicMastery, SpecAbsorb,
-            SpecMoveSpeed, SpecBlock, SpecMagicMastery, SpecLifeRegen, SpecManaRegen, SpecStaminaRegen, Reserved])
+            SpecMoveSpeed, SpecBlock, SpecMagicMastery, SpecLifeRegen, SpecManaRegen, SpecStaminaRegen])
         {
             writer.Single(value);
         }
@@ -103,13 +102,13 @@ public sealed record ItemDetailEntry
         }
 
         var specJob = r.UInt32();
-        var spec = new int[9];
+        var spec = new int[8];
         for (var index = 0; index < spec.Length; index++)
         {
             spec[index] = r.Int32();
         }
 
-        var floats = new float[15];
+        var floats = new float[14];
         for (var index = 0; index < floats.Length; index++)
         {
             floats[index] = r.Single();
@@ -134,21 +133,24 @@ public sealed record ItemDetailEntry
             SpecLevelMana = spec[5], SpecLevelAttackRating = spec[6], SpecLevelDamage = spec[7],
             Absorb = floats[0], Block = floats[1], MoveSpeed = floats[2], LifeRegen = floats[3], ManaRegen = floats[4], StaminaRegen = floats[5],
             MagicMastery = floats[6], SpecAbsorb = floats[7], SpecMoveSpeed = floats[8], SpecBlock = floats[9], SpecMagicMastery = floats[10],
-            SpecLifeRegen = floats[11], SpecManaRegen = floats[12], SpecStaminaRegen = floats[13], Reserved = floats[14],
+            SpecLifeRegen = floats[11], SpecManaRegen = floats[12], SpecStaminaRegen = floats[13],
             Resistances = resistances
         };
     }
 }
 
-// {size, code, Revision, Part, Parts, Count, entries}. Sent before the inventory parts of the same revision.
+// {size, code, Version, Flags, Revision, Part, Parts, Count, entries}. Sent before the inventory parts of the same revision.
 public sealed record ItemDetailsPartPacket(long Revision, int Part, int Parts, IReadOnlyList<ItemDetailEntry> Items)
 {
-    public const int HeaderSize = 8 + 8 + 4 * 3;
+    public const ushort CurrentVersion = 1;
+    public const int HeaderSize = 8 + 4 + 8 + 4 * 3;
     public const int MaxItemsPerPart = 24;
 
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.ItemDetails);
+        writer.UInt16(CurrentVersion);
+        writer.UInt16(0);
         writer.Int64(Revision);
         writer.Int32(Part);
         writer.Int32(Parts);
@@ -164,6 +166,12 @@ public sealed record ItemDetailsPartPacket(long Revision, int Part, int Parts, I
     public static ItemDetailsPartPacket Read(ReadOnlySpan<byte> packet)
     {
         var reader = new PacketReader(packet, HeaderSize);
+        if (reader.UInt16() != CurrentVersion)
+        {
+            throw new InvalidDataException("Item details have an unknown version.");
+        }
+
+        reader.UInt16();
         var revision = reader.Int64();
         var part = reader.Int32();
         var parts = reader.Int32();
@@ -199,11 +207,14 @@ public sealed record OwnerItemStatusPacket(
     float MagicMastery,
     short[] Resistances)
 {
-    public const int Size = 8 + 4 * 7 + 4 * 4 + 2 * 8;
+    public const ushort CurrentVersion = 1;
+    public const int Size = 8 + 4 + 4 * 7 + 4 * 4 + 2 * 8;
 
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.OwnerItemStatus);
+        writer.UInt16(CurrentVersion);
+        writer.UInt16(0);
         writer.Int32(CarriedWeight);
         writer.Int32(MaxWeight);
         writer.Int32(CriticalChance);
@@ -226,10 +237,12 @@ public sealed record OwnerItemStatusPacket(
     public static OwnerItemStatusPacket Read(ReadOnlySpan<byte> packet)
     {
         var r = new PacketReader(packet, Size);
-        if (packet.Length != Size)
+        if (packet.Length != Size || r.UInt16() != CurrentVersion)
         {
-            throw new InvalidDataException("Owner item status has an invalid size.");
+            throw new InvalidDataException("Owner item status has an invalid size or version.");
         }
+
+        r.UInt16();
 
         var values = new int[7];
         for (var index = 0; index < values.Length; index++)

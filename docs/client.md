@@ -188,7 +188,9 @@ a pending buffer flushed by a single writer task (a backlog above 512 KiB closes
   (model path, scale, name, level, brood, NPC services, sound code, portrait offsets) and are shared by template code.
   A new description is re-published as a spawn of a known id (full refresh).
 - Owner state: `OwnerStatus`, multi-part `Inventory` and `Skills` are combined into one `OwnerState` only when the
-  status revisions match the received inventory and skills revisions.
+  status revisions match the received inventory and skills revisions. `OwnerItemDecoder` keeps the `ItemDetails` parts
+  of a revision (attached to the items as `OwnedItemView.Details`) and the latest `OwnerItemStatus` (weight, critical,
+  block, range, regeneration, resistances), folded into each published owner state.
 - Also decoded: `RemoveObjects`, `CombatEvents`, ground items (PLAYITEM/DELITEM), WARPFIELD, `PresenceClock` (sets the
   server time stamped on later updates), skill events, status effects, cooldowns and cast results
   ([skills.md](skills.md)).
@@ -291,9 +293,23 @@ consumer; there is no text-input routing besides `TextInputField` on the login a
 - Server results reach the HUD as counters: controllers increment `Completions` and set `Message`; `ForwardMessages`
   shows each new message once as a notice.
 - Inventory (`HudInventoryController`): left drag moves, Shift-drag splits, drop on another stack merges, drop on an
-  equipment slot equips, right click equips/unequips or drinks a potion. One command in flight; it carries the
-  `InventoryRevision` it was built from.
-- Status window: attribute buttons send `ProgressionCommand` with `ProgressionRevision`.
+  equipment slot equips, right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
+  slot first) or drinks a potion. One command in flight; it carries the `InventoryRevision` it was built from.
+- Inventory window (`HudInventoryPanel`): carried/maximum weight centred in x 326..406 at y 471 of the window; items the
+  character cannot use (level, attributes or class against `OwnedItemView.Details`, re-checked on every owner state)
+  get the original red cell tint, in the bag and in their equipment slot, and the slot under a dragged unusable item
+  turns red. The item box (`HudItemDetailTooltip`) lists, one centred label-and-value line each, the name (unique,
+  aged or normal colour), attack power, weapon speed, range, critical, defence, attack rating, absorb (with the catalog
+  correction, one decimal), block, speed, integrity, the eight resistances, regeneration, added pools, potion storage,
+  the requirements (orange when met, red when not), then the class specialization header and its bonuses in green, the
+  shop price and the action hint.
+- Status window: attribute buttons send `ProgressionCommand` with `ProgressionRevision`; the organic, poison, fire,
+  lightning and ice resistance boxes show the owner's resistances.
+- Block feedback (`HudStringEffect`): when the player blocks a blow, the original `block.tga` word shows at (354, 488)
+  of the 800x600 frame, opaque for 26 interface frames at 70 per second, then fades by 10 alpha per frame while it
+  grows 3 pixels and drifts up-left.
+- Overweight: while the owner state reports more carried weight than the limit, `GameScene` only walks (run toggles,
+  Shift and double clicks walk), matching the server.
 - NPC dialog (`HudNpcPanel`): name, the NPC's line, one button per offered service (grey when `Available` is false);
   skill masters get the skill master box; teleporter destinations replace the buttons. An NPC whose only working
   service is a shop or warehouse opens it directly (`DirectService`).

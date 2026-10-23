@@ -38,6 +38,10 @@ that explains it in depth.
 | JobBitCode | Class bit mask for item restrictions; differs from `MotionJobMask` (`1 << (JobCode-1)`) used by animation tables | simulation.md |
 | Catalog key | 5-character authored item key, 3-character category + 2 digits (`WA101`) | simulation.md |
 | Item code | 32-bit wire item code `category \| ordinal << 8`, built by `LegacyItemCode`; stored as `item_code_mask` | simulation.md |
+| Item roll | The values one item copy was made with (`ItemRoll`): stats, requirements, price, specialization | simulation.md |
+| Shop form | The lowest form of an item, as NPC shops sell it (`ItemRoller.Lower`) | simulation.md |
+| Specialization | A copy made for one class (`ItemRoll.SpecJob`); grants its bonuses only to that class | simulation.md |
+| Carried weight | Weight of every owned item (potions one per unit) against `MaxWeight`; over it a character walks only | simulation.md |
 | `item_code_mask = 0` | Imported item whose category has no verified numeric code; the runtime skips it | world-import.md |
 | Anchor | Inventory cell index (`y * Width + x`) of an item's top-left corner | simulation.md |
 | Rolled bonus | Per-instance `ItemStatBlock` added to the definition's base stats | simulation.md |

@@ -33,6 +33,7 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Packets/AttackDamagePacket.cs` | 92-byte `ATTACK_DAMAGE` with the damage checksum and damage cipher. |
 | `Packets/GroundItems.cs` | `PLAYITEM` list, `DELITEM`/`PUTITEM` action, chat message packet. |
 | `Packets/EtervalePackets.cs` | Owner status, inventory parts, skills, inventory/progression commands and results, combat events, removals, presence clock. |
+| `Packets/ItemPackets.cs` | Owner item details (`ItemDetailEntry`, `ItemDetailsPartPacket`) and the equipment status (`OwnerItemStatusPacket`). |
 | `Packets/SkillPackets.cs` | Skill cast, cast result, skill events, status effects, cooldowns. |
 | `Packets/NpcPackets.cs` | NPC result, service request/result, shop catalog and quotes, warehouse, teleport list. |
 | [Transport/PristonConnection.cs](../Shared/PristonTale.Protocol/Transport/PristonConnection.cs) | One TCP stream: receive loop, decryption, replay check, coalesced single-writer send. |
@@ -182,6 +183,8 @@ keep the `{size, code}` header and the 8192-byte frame limit.
 | `0x45540202` | `SkillEvents` | S→C | Skill starts, impacts, releases and cancels on the presence timeline. |
 | `0x45540203` | `StatusEffects` | S→C | Modifier effects added, refreshed, removed or ticking, on the presence timeline. |
 | `0x45540204` | `SkillCooldowns` | S→C | The owner's running cooldowns whenever the set changes. |
+| `0x45540300` | `ItemDetails` | S→C | The values of every owned item copy at an inventory revision, in parts sent before its `Inventory` parts. |
+| `0x45540301` | `OwnerItemStatus` | S→C | Carried and maximum weight, critical, block, range, attack speed, belt capacity, regeneration, magic mastery and the eight resistances; sent before every `OwnerStatus`. |
 
 ### Owner, inventory and combat layouts
 
@@ -196,11 +199,22 @@ These bodies have no version header.
 | `Skills` | `int64 Revision, int32 Count`, then `{uint Code, int32 Rank}` | 20 + 8n |
 | `CombatEvents` | `int32 Count`, then entries of 48 bytes | 12 + 48n |
 | `RemoveObjects` | `int32 Count`, then `uint Serial` | 12 + 4n |
+| `ItemDetails` | `uint16 Version (1), uint16 Flags, int64 Revision, int32 Part, Parts, Count`, then 220-byte entries (at most 24) | 32 + 220n |
+| `OwnerItemStatus` | `uint16 Version (1), uint16 Flags, int32 CarriedWeight, MaxWeight, CriticalChance, BlockChance, ShootingRange, AttackSpeed, PotionSpace, float LifeRegen, ManaRegen, StaminaRegen, MagicMastery, int16 Resistances[8]` | 72 |
+
+An item details entry is `{Guid InstanceId, int32 DurabilityCurrent, DurabilityMax, UpgradeLevel, DamageMin, DamageMax,
+AttackRating, Defence, AddLife, AddMana, AddStamina, RequiredLevel, RequiredStrength, RequiredSpirit, RequiredTalent,
+RequiredAgility, RequiredHealth, Price, Critical, AttackSpeed, ShootingRange, PotionSpace, Weight, UniqueItem, Flags
+(1 two-handed, 2 the owner's class may use it), uint SpecJob, int32 SpecDefence, SpecAttackSpeed, SpecCritical,
+SpecShootingRange, SpecLevelLife, SpecLevelMana, SpecLevelAttackRating, SpecLevelDamage, float Absorb, Block,
+MoveSpeed, LifeRegen, ManaRegen, StaminaRegen, MagicMastery, SpecAbsorb, SpecMoveSpeed, SpecBlock, SpecMagicMastery,
+SpecLifeRegen, SpecManaRegen, SpecStaminaRegen, int16 Resistances[8]}` (`ItemDetailEntry`). The client attaches the
+entries to the inventory of the same revision (`OwnedItemView.Details`) and folds the status into the owner state.
 
 A combat entry is `{uint Attacker, Target, byte Kind, byte Flags (1 critical, 2 killed), int16 0, float DurationMs,
 HitAtMs, int Damage, Resources, SoundCode, X, Y, Z, int16 Angle, int16 0}`. `Kind` is `CombatEventKindView`: 1 swing
 begin, 2 hit, 3 potion begin, 4 potion applied, 5 monster skill impact, 6 heal (amount in `Damage`), 7 evade, 8 revive
-(returned life in `Damage`).
+(returned life in `Damage`), 9 block (a player blocked a monster's normal attack).
 
 ### Skills and status effects
 
@@ -336,8 +350,9 @@ The server logs tick percentiles and bandwidth every 30 seconds.
 
 1. **Code.** Add a constant to `EtervaleOpcodes` in `Binary/PristonOpcodes.cs`, in the range of its area (`0x455401xx`
    owner state, `0x4554011x` inventory, `0x4554012x` progression, `0x4554013x` NPC, `0x4554014x` combat, `0x4554015x`
-   removals, `0x4554016x` leave, `0x4554017x` clock, `0x455402xx` skills). Never give an original `0x4847xxxx` or
-   `0x5032xxxx` code a new layout; reuse an original message only when its layout stays byte-identical.
+   removals, `0x4554016x` leave, `0x4554017x` clock, `0x455402xx` skills, `0x455403xx` item details). Never give an
+   original `0x4847xxxx` or `0x5032xxxx` code a new layout; reuse an original message only when its layout stays
+   byte-identical.
 2. **Packet type.** Add a record in `Packets/` with `Size` or `HeaderSize` constants, `int Write(Span<byte>)` built on
    `PacketWriter` (returning `Finish()`), and `static Read(ReadOnlySpan<byte>)` built on `PacketReader(packet,
    minimum)`. Start new bodies with `{uint16 Version, uint16 Flags}`, reject version 0, append fields only at the end,

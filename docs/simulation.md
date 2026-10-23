@@ -35,10 +35,16 @@ progression, regeneration and movement rates. `World/`, `Physics/` and `Skills/`
 | `Characters/CharacterHead*.cs`, `CharacterVisuals.cs` | Head/face/hair model path resolution per class and tier; `CharacterVisualSet` |
 | `Characters/CharacterSlots.cs` | Characters per account (6) |
 | `Items/Item.cs` | `ItemKind`, `ItemStatBlock`, `ItemDefinition`, `ItemInstance` |
+| `Items/ItemTemplate.cs`, `ItemRoll.cs` | Authored value ranges of a kind; the values of one copy (`ItemRoll`, `ItemSpecBonus`) |
+| `Items/ItemRoller.cs` | Shop (lowest) form and drop rolls, class specialization and its requirement shift |
+| `Items/EquipmentTotals.cs` | What the usable worn items and their specializations add (`EquipmentTotals.Sum`) |
+| `Items/ItemUsability.cs`, `CarriedWeight.cs` | Requirement and class checks; carried weight and the weight limit checks |
+| `Items/ItemAbsorbCorrection.cs` | Absorb added to armor, robes, boots, gloves and shields by catalog number |
+| `Items/ItemDetailView.cs`, `ItemRuleMessages.cs` | Owner view of one copy; the texts of item refusals |
 | `Items/Inventory.cs` | Bitmask grid with anchors, stacking, move/split/merge/exchange |
 | `Items/InventoryCommand.cs` | `InventoryCommand` and `InventoryCommands.Apply` |
 | `Items/LegacyItemCode.cs` | Catalog key (`WA101`) to 32-bit wire item code and back |
-| `Items/ItemEquipmentMetadata.cs` | Generated table: catalog key to kind, equipment slot, two-handed |
+| `Items/ItemEquipmentMetadata.cs` | Kind and slot by catalog family; the two-handed list taken from the item table |
 | `Items/ItemGridSizes.cs` | Generated table: catalog key to inventory cell size (default 1x1) |
 | `Items/ItemClassRestrictions.cs` | Class/gender restriction masks for armor, robes and orbs by catalog key |
 | `Items/ItemCatalog.cs`, `PotionDefinition.cs` | Definition lookup by code; potion restore ranges |
@@ -137,18 +143,26 @@ a transaction candidate) is the only writer.
 
 1. `PassiveSkillEffects.Sync` puts each learned passive with a modifier block into `Effects` as a permanent
    `PlayerSkill` effect keyed by skill code (only when its weapon kind matches).
-2. `Effects.SetHeld` records the item kinds in the weapon and off-hand slots (bit per `ItemKind`, broken items
-   excluded); effects with a `HeldMask` count only while a matching kind is held.
-3. `EquippedStats` sums `ItemInstance.TotalStats` of all equipped items (a broken item contributes zero).
-4. `ArmorDefence` percent: if non-zero and the worn armor's `JobSpecMask` includes the class bit, the armor's own
-   defence grows by that percent before it feeds defence and absorption.
-5. `DerivedStats.Compute(attributes, level, functionProfile, equipped)` (formulas below).
+2. `Effects.SetHeld` records the item kinds in the weapon and off-hand slots (bit per `ItemKind`); effects with a
+   `HeldMask` count only while a matching kind is held.
+3. `EquipmentTotals.Sum` walks the slots in `EquipmentSlot` order and adds every worn item the character can use
+   (`ItemUsability.CanUse`; see [Items](#items)). Per copy: attack rating, damage range, critical, defence, rated absorb
+   cut to one decimal (`(int)(absorb * 10.000001) / 10 + 0.000001`, absorb = copy + `ItemAbsorbCorrection`), block,
+   move speed, attack speed, shooting range, life/mana/stamina regeneration, added life/mana/stamina, resistances;
+   magic mastery and belt capacity (`PotionSpace`) are set by the last item that has one. A copy whose `SpecJob`
+   includes the class bit also adds its `ItemSpecBonus`: absorb (cut the same way), defence, speed, block, attack
+   speed, critical, range, magic mastery, `Level / divisor` life, mana, attack rating and maximum damage, and half of
+   its life, mana and stamina regeneration. `AbsorbItems` counts the copies (and specializations) with an absorb of
+   their own.
+4. `ArmorDefence` percent: if non-zero and the worn armor is specialized for the class, the armor's own defence
+   (specialization included) grows by that percent before it feeds defence and absorption.
+5. `DerivedStats.Compute(attributes, level, functionProfile, totals, carriedWeight)` (formulas below).
 6. `PassiveSkills.Apply` (table-driven passives, see [skills.md](skills.md)), then `ModifierRules.Apply` with
    `Effects.Totals`.
 7. Pools are clamped to the new maxima.
 
-Only `AttackRating`, `Defence` and `AttackSpeed` of the equipped `ItemStatBlock` feed `DerivedStats.Compute`; weapon
-damage is computed separately by `WeaponDamage`, and the attribute fields of `ItemStatBlock` are not applied.
+An inventory change marks the derived stats stale (carried weight feeds move speed), so the next `Derived` read
+recomputes. `PlayerCharacter.EquipmentTotals` returns the totals of the current recompute.
 
 ### Base formulas (`DerivedStats.Compute`)
 
@@ -156,26 +170,35 @@ Level `L`, attributes `Str Spi Tal Agi Hlt`; float arithmetic, truncated at the 
 
 | Stat | Formula |
 | --- | --- |
-| AttackRating | `items.AR + Agi*3.1 + L*1.9 + Tal*1.5` |
+| AttackRating | `trunc(items.AR + Agi*3.1 + L*1.9 + Tal*1.5) + items.LevelAttackRating` |
 | Defence | `Agi/2 + Tal/4 + L*1.4 + items.Defence` |
-| Absorption | `trunc(Defence/100 + L/10 + (Str+Tal)/40) + 1` (uses the truncated defence) |
-| MaxWeight | `Str*2 + Hlt*1.5 + L*3 + 60` |
-| MoveSpeed | `trunc((Tal + Hlt + L + 60) / 150) + 1` |
+| Absorption | `trunc(Defence/100 + L/10 + items.Absorb + (Str+Tal)/40) + 1 + min(2, items.AbsorbItems/2)` (truncated defence) |
+| MaxWeight | `(short)(Str*2 + Hlt*1.5 + L*3 + 60)` |
+| MoveSpeed | `trunc((Tal + Hlt + L + 60) / 150 - carried/MaxWeight + items.MoveSpeed) + 1` |
 | MaxLife fn 1 / 2 | `L*2.1 + Hlt*2.4 + Str*0.8 - 10` / `L*2.1 + Hlt*2.2 + Str*0.6 - 5` |
 | MaxLife fn 3 / 4 / 5 | `L*1.8 + Hlt*2.1 + Str*0.3` / `L*1.5 + Hlt*2.1` / `L*1.5 + Hlt*1.9` |
 | MaxMana fn 1 / 2 / 3 | `L*1.5+Spi*3.8` / `L*0.9+Spi*2.7` / `L*0.6+Spi*2.2` |
 | MaxStamina | `Hlt*1.4 + (Str+Tal)/2 + L*2.3 + 80 + Spi` |
 | Bare-hand damage (melee fn 1) | integer: min `2 + (Str+130)/130 + (Tal+Agi)/40`, max `3 + (Str+130)/130 + (Tal+Agi)/35` |
 | Bare-hand damage (other) | integer: min `2 + (Str+200)/200 + (Tal+Agi)/50`, max `3 + (Str+200)/200 + (Tal+Agi)/45` |
+| Bare-hand maximum | also `+ items.LevelDamage` |
 | AttackSpeed | `items.AttackSpeed` |
+| CriticalChance | `min(50, items.Critical)` |
+| BlockChance | `trunc(items.Block)` |
+| ShootingRange, Resistances | `items.ShootingRange`, `items.Resistances` |
+| LifeRegen, ManaRegen, StaminaRegen | item regeneration in points per second, added by `Regeneration` |
+| PotionSpace | the last worn item's belt capacity, else 2 |
 
-Life, mana and stamina are cast through `short`. `MaxWeight` is computed, but the carried weight is not tracked or
-enforced for the character; only `WarehouseStorage` enforces a weight cap (see [world.md](world.md)).
+Life, mana and stamina are cast through `short`, then gain `(short)(items.LevelLife + items.AddLife)`, the mana
+`(short)(items.AddMana)` for mana function 1 and `(short)(items.LevelMana + items.AddMana)` otherwise, and the stamina
+`(short)items.AddStamina`. `CarriedWeight` is `CarriedWeight.Of(character)`: every owned item, worn ones included; a
+potion weighs one per unit, other items their weight per unit, gold nothing.
 
 ### Weapon damage (`WeaponDamage.Compute`)
 
-With no weapon or a broken weapon it returns the derived bare-hand range (modifiers already applied). Otherwise, with
-weapon stats `wMin`/`wMax` (`BaseStats + RolledBonus`):
+With no weapon it returns the derived bare-hand range (modifiers already applied). Otherwise `wMin`/`wMax` are the
+damage of every usable worn item (`EquipmentTotals.DamageMin/DamageMax`; a held weapon the character cannot use adds
+nothing):
 
 | Weapon | Primary | Divisor | Secondary |
 | --- | --- | --- | --- |
@@ -184,7 +207,7 @@ weapon stats `wMin`/`wMax` (`BaseStats + RolledBonus`):
 | Anything else | Str | 130 / 150 / 190 (melee fn 1 / 2 / other) | `(Tal+Agi) / 40 / 45 / 50` |
 
 - `min = 2 + wMin*(primary+divisor)/divisor + secondary + job + (wMin+wMax)/16`
-- `max = 4 + wMax*(primary+divisor)/divisor + secondary + job`
+- `max = 4 + wMax*(primary+divisor)/divisor + secondary + job + items.LevelDamage`
 - `job = Level / 6` when the weapon is the class's favoured kind (Fighter axe, Archer bow, Pikeman pole, Knight sword,
   Atalanta javelin, Assassin dagger, Magician/Priestess staff, Shaman phantom; Mechanician: weapon specialized for
   Mechanician).
@@ -196,7 +219,7 @@ weapon stats `wMin`/`wMax` (`BaseStats + RolledBonus`):
 Every temporary or permanent stat change is an `EffectSpec` in an entity's `EffectContainer` (players and monsters
 each own one). Sources: player skills (buffs, debuffs, passives), monster skills, summons/companions, and the
 `Item`, `Consumable`, `Aura` and `System` source kinds reserved in `EffectSourceKind`. Equipped item stats do not go
-through the engine; they are summed by `EquippedStats`.
+through the engine; they are summed by `EquipmentTotals.Sum`.
 
 - `EffectSpec(code, source, harmful, modifiers, periodic, control, stacking, maxStacks, heldMask)` is immutable.
   `Code` identifies the effect for stacking and on the wire: skills use their skill code.
@@ -235,11 +258,13 @@ read directly from `Effects.Totals` by the combat profiles, `PlayerAttackReach`,
 Profiles decouple the formulas from entities. `CombatProfileFactory` builds them:
 
 - `ForPlayerBasicAttack(character, normalAttack)`: weapon damage range, derived attack rating, element Bionic,
-  critical chance from `CriticalChance` totals plus passives, `CritBonusPercent` from `CriticalDamage`. With
+  critical chance `CriticalChance(character)` (worn items, specializations and critical passives capped at 50 together,
+  then the `CriticalChance` totals), `CritBonusPercent` from `CriticalDamage`. With
   `normalAttack`, `NormalAttackWeaponDamage`/`NormalAttackWeaponMax` add a share of the weapon's own damage.
   `SkillFormulas.NormalAttack` wraps it and adds `HitDamage` as the flat add.
-- `ForPlayerDefender`: derived defence and absorption, block from totals plus passives, resistances from passives plus
-  totals. Item resistances (`ItemDefinition.Resistances`) are not applied.
+- `ForPlayerDefender`: derived defence and absorption; block from every worn item's block rating (weapons included)
+  and specialization plus totals and passives; `Resistances(character)`: worn items and specializations, the element
+  passives, then the resistance totals.
 - `ForMonsterBasicAttack` / `DefenderProfile.FromMonster`: from `MonsterCombatStats` (see [world.md](world.md));
   `FromMonster(MonsterInstance)` adds the monster's `CriticalChanceTaken`.
 
@@ -248,7 +273,8 @@ Profiles decouple the formulas from entities. `CombatProfileFactory` builds them
 1. Hit chance: `acR = trunc((AR - defence) * 1.4)`; below -190 gives 50, above 2100 gives 95, else the step table
    value of the highest threshold `<= acR`. Then `chance = trunc(acc - (defLevel - atkLevel) / 100 * 28)`, clamped
    30..95. Hit when `RollPercent() < chance` (skipped with `alwaysHit`).
-2. Block: `trunc(block + (defLevel - atkLevel) / 100 * 25)`, capped at 50 with a shield; blocked hits deal 0.
+2. Block (player defenders only; a monster's authored block rating never stops a hit):
+   `trunc(block + (defLevel - atkLevel) / 100 * 25)`, capped at 50 only while a shield is held; blocked hits deal 0.
 3. Damage: `Range(min, max)`, then `+ dmg * SkillMultiplierPercent / 100 + SkillFlatAdd`, then `+ ExtraPercent`.
 4. Critical: `chance = CritChance + (atkLevel - defLevel) * 25 / 100 (+ CritChanceTaken if CritChance > 0)`, capped
    at 70; damage `* (170 + CritBonusPercent) / 100`.
@@ -260,7 +286,8 @@ The Application then applies `ModifierRules.ScaleDamage` and skill hooks (`Field
 
 ### Monster attacking a player
 
-- `ResolveMonsterAttack`: block roll first, then hit with `MonsterHitChance` (difference `(AR - defence) * 2`, the
+- `ResolveMonsterAttack`: block roll first (the player's block chance, capped at 50 only with a shield; no cap
+  without one), then hit with `MonsterHitChance` (difference `(AR - defence) * 2`, the
   first table entry whose threshold is `>=` it, level term `* 50`, clamp 30..95, miss only when roll `>` chance),
   damage roll, element, then absorption subtracted as flat points (min 1).
 - `ResolveMonsterSkill`: no hit or block roll; `Range(min, max) - absorption`, min 1, Bionic.
@@ -272,32 +299,61 @@ The Application then applies `ModifierRules.ScaleDamage` and skill hooks (`Field
 Absorption is a percent against monsters but flat points against players; this asymmetry is intentional.
 
 `PlayerAttackReach.For`: 50 for melee or no weapon; for bows, javelins, staves held by Magician/Priestess and phantoms
-held by Shaman, the weapon's `ShootingRange` plus the `AttackRange` totals.
+held by Shaman, the worn items' and specialization shooting range (`Derived.ShootingRange`) plus the `AttackRange`
+totals.
 
 ## Items
 
 - `ItemDefinition` is immutable catalog data built by `WorldDataFactory.ToItemDefinition` in
   `Persistence/PristonTale.Persistence.Abstractions` from imported item templates (see
   [world-import.md](world-import.md) and [persistence.md](persistence.md)). That factory applies `ItemGridSizes.Of`,
-  `ItemClassRestrictions.AllowedJobs` and `ItemEquipmentMetadata.Apply`, and sets `BaseStats` to the midpoint of each
-  template range.
+  `ItemClassRestrictions.AllowedJobs` and `ItemEquipmentMetadata.Apply`, sets `BaseStats`, `Resistances` and
+  `MaxDurability` to the low end of each range and keeps every authored range in `Template` (`ItemTemplate`, with the
+  specialization bonuses in `ItemSpecTemplate`). `Critical`, `ShootingRange`, `PotionSpace`, `MagicMastery`,
+  `UniqueItem` and `BaseStats.AttackSpeed` are fixed per kind. A range whose upper value is 0 is a fixed value.
 - `Code` is the 32-bit wire item code; `CatalogKey` is the 5-character key (`WA101`). `LegacyItemCode.TryParse` maps a
   key to `category | ordinal << 8` (category from the 3-letter prefix, ordinal from the two digits);
   `TryFormat` is the inverse and rejects a non-zero low byte or ordinals above 99. Unknown prefixes fail.
 - `ItemKind` is persisted as an integer: append new values at the end only.
-- Equippable means `EquipSlot` is set, which only `ItemEquipmentMetadata` does. It covers axes, claws, hammers,
-  staves, poles, bows, swords, javelins (`WA1 WC1 WH1 WM1 WP1 WS1 WS2 WT1`), armor and robes (`DA1 DA2`) and shields
-  (`DS1`). Other families (gloves, boots, accessories, orbs, sheltoms, daggers, phantoms) have no entry and cannot be
-  equipped. The table also overrides the imported kind.
+- Equippable means `EquipSlot` is set, which only `ItemEquipmentMetadata` does by family, and it also overrides the
+  imported kind:
+
+  | Families | Kind | Slot |
+  | --- | --- | --- |
+  | `WA1 WC1 WH1 WM1 WP1 WS1 WS2 WT1` | axe, claw, hammer, staff, pole, bow, sword, javelin | Weapon |
+  | `WD1 WN1 WV1` | dagger, phantom, vambrace | Weapon (one-handed) |
+  | `DA1 DA2` | armor (robes are `DA2`) | Armor |
+  | `DB1`, `DG1` | boots, gloves | Boots, Gloves |
+  | `DS1`, `OM1` | shield, orb | OffHand |
+  | `OA1`, `OA2` | amulet, bracelet | Amulet, Bracelet |
+  | `OR1 OR2` | ring | either ring slot (`RingLeft` first) |
+  | `OS1` | sheltom | Sheltom |
+
+  Two-handed weapons are the listed keys of the item table (axes, hammers, staves, poles, bows and swords; claws,
+  javelins, daggers, phantoms and vambraces have none). Force orbs (`FO1`) and other families are not wearable.
 - `AllowedJobs` (0 = any class): `DA1` armor for non-casters, `DA2` robes and `OM1` for casters, with fixed key
-  numbers restricted to male-only or female-only classes. `SpecializationJobs` seeds `ItemInstance.JobSpecMask`.
+  numbers restricted to male-only or female-only classes. A specialization never restricts who may wear an item.
 - `ItemInstance`: `InstanceId` (Guid, preserved across moves and copies with `preserveId`), `Count`, `UpgradeLevel`,
-  durability, `JobSpecMask`, `RolledBonus`. `TotalStats = BaseStats + RolledBonus`, or zero when broken
-  (`DurabilityMax > 0 && DurabilityCurrent <= 0`).
-- Rolls: `RolledStatsMin`/`RolledStatsMax` hold the template ranges and `RolledBonus` is restored from saves; no code
-  in this project rolls a bonus. `JobRandomSpecMask` and `SpecialBonuses` are carried but not applied.
-- Prices: `Price`, `Weight` and durability feed `NpcShopRules` and `MoneyLimits.CarryLimit` in `World/Npcs`
-  (see [world.md](world.md)).
+  durability, and `Roll` (`ItemRoll`): damage range, attack rating, defence, absorb (one decimal), block (two
+  decimals), move speed, life/mana/stamina regeneration, added life/mana/stamina, resistances, requirements, price,
+  `SpecJob` and the `ItemSpecBonus`. `TotalStats` exposes the roll's damage, defence and rating with the kind's
+  attack speed; `JobSpecMask` is `Roll.SpecJob`. Durability never removes stats: a copy at 0 keeps every value and
+  only sells and repairs for less (`NpcShopRules`).
+- Shop form (`ItemRoller.Lower`, what `new ItemInstance(definition)` holds): the low end of every range, durability
+  current = maximum = the low durability; an authored fixed specialization stays, with the middle of each requirement
+  shift and the low end of each bonus range; the price is unchanged.
+- Drop roll (`ItemRoller.Create(definition, count, rng)`): maximum durability in its range, current durability between
+  half of it and it; every other range rolled inclusive (absorb, move speed and regeneration in tenths, block in
+  hundredths). A kind with a fixed or random specialization specializes four times in ten (`rng 0..9 <= 3`); then,
+  three times in ten when it has random classes, one random class replaces the fixed one. A specialized copy costs a
+  fifth more, its requirements shift by a random percent of its class's range (strength, spirit, talent, agility; see
+  `ItemRoller.RequirementShift`) and its bonus ranges are rolled in hundredths. Unspecialized copies carry no bonus.
+- `ItemUsability.CanUse`: level and the five attribute requirements of the copy, and `AllowedJobs`.
+- Weight: `CarriedWeight.CanTake(character, weight)` allows carried + weight up to `MaxWeight`; `IsOverweight` is
+  carried above it. See [Equipment rules](#equipment-rules-playercharactercanequip) and the NPC rules in
+  [world.md](world.md) for where it is enforced.
+- Prices: the copy's `Price` (`Roll.Price`), weight and durability feed `NpcShopRules` and `MoneyLimits.CarryLimit`
+  in `World/Npcs` (see [world.md](world.md)).
 - `PotionDefinition.Restore` adds `NextExclusive(min, max)` (upper bound excluded unless min == max) to each pool,
   clamped to the maximum; does nothing to a dead character.
 
@@ -308,16 +364,24 @@ held by Shaman, the weapon's `ShootingRange` plus the `AttackRange` totals.
   (`GridWidth x GridHeight`) is tracked in one `uint` bit row per grid row.
 - `TryAdd` first tops up compatible stacks, then places new stacks first-fit by anchor index; it plans everything
   before mutating and fails without change. Compatible stacks need a stackable, equal definition and identical
-  upgrade, durability, spec mask and rolled bonus.
+  upgrade, durability and roll.
 - `TryPlace`, `TryMove`, `TrySplit` (new instance id), `TryMerge`, `TryExchange` (put a replacement at the same anchor
   or first fit), `TakeAt`, `ConsumeAt`. Every change bumps `Version` and raises `Changed`.
 
 ### Equipment rules (`PlayerCharacter.CanEquip`)
 
-Count 1, `UpgradeLevel == 0`, matching slot (rings fit either ring slot), level and five attribute requirements met,
-`AllowedJobs` contains the class bit, no two-handed weapon together with an off-hand item, and the same instance not
-in another slot. `EquipmentSlot` has no helmet and keeps `Sheltom` separate (the persisted equipment order).
-`TryEquipFromInventory` swaps with the equipped item; `TryUnequip` needs inventory space.
+- `CanHold`: count 1, matching slot (rings fit either ring slot), the same instance not in another slot, and no
+  two-handed weapon together with an off-hand item. `Equip` (and save restore) needs only this: a worn item whose
+  requirements stop being met stays worn and adds nothing.
+- `CanEquip` adds `ItemUsability.CanUse`; `CanWear` is `CanEquip` without the hand rule. Aged copies
+  (`UpgradeLevel > 0`) equip like any other.
+- `TryEquipFromInventory(anchor, slot)`: the copy must pass `CanWear`. A two-handed weapon first sends the off-hand item
+  to the bag (first free place); an off-hand item first sends a held two-handed weapon there; then the item in the
+  slot takes the bag cell. Without room nothing changes. `InventoryCommands.Refusal` names an unusable item
+  (`ItemRuleMessages.CannotUse`).
+- `TryUnequip` needs inventory space and is refused while the character is overweight (`ItemRuleMessages.OverWeight`).
+- `ReceiveGroundLoot` refuses an item that would carry the character over the weight limit.
+- `EquipmentSlot` has no helmet and keeps `Sheltom` separate (the persisted equipment order).
 
 ## Commands, revisions and transactions
 
@@ -356,11 +420,11 @@ server steps it per player in `FieldSkills.StepEffects` and resets it on death. 
 
 | Pool | Per second |
 | --- | --- |
-| Life | `((L + Str/2 + Hlt) / 180 + LifeRegen/10) / 1.5` (`Str/2` integer) |
-| Mana | `(L + Spi*1.2 + Hlt/2) / 115 + ManaRegen/10` (`Hlt/2` integer) |
-| Stamina, standing | `base + L/7 + StaminaRegen/10`; base 3.8 / 3.3 / 2.9 for stamina fn 1 / 2 / other; `L/7` integer |
+| Life | `((L + Str/2 + Hlt) / 180 + LifeRegen/10 + items) / 1.5` (`Str/2` integer) |
+| Mana | `(L + Spi*1.2 + Hlt/2) / 115 + ManaRegen/10 + items` (`Hlt/2` integer) |
+| Stamina, standing | `base + L/7 + StaminaRegen/10 + items`; base 3.8 / 3.3 / 2.9 for stamina fn 1 / 2 / other; `L/7` integer |
 | Stamina, walking | 0.6 x standing |
-| Stamina, running | `-(1000 / max(1, MaxWeight + Str/2 + 500) + 0.4)` (integer division: -1.4 or -0.4) |
+| Stamina, running | `-((1000 + carried) / max(1, MaxWeight + Str/2 + 500) + 0.4)` (integer division) |
 | Stamina, acting | 0 (attacking, casting, flinching, eating) |
 
 ## Consumers
@@ -384,9 +448,13 @@ server steps it per player in `FieldSkills.StepEffects` and resets it on death. 
   points, then run the regression runner (`EquipmentTests`, `ProgressionAndOwnershipTests`, `PotionTests` cover them).
 - Change hit/crit/block math: edit `CombatResolver`; keep the roll order or expect seeded tests in
   `MonsterCombatTests` and the skill tests to change outcomes.
-- Add an item family: add its prefix to both maps in `LegacyItemCode`, grid sizes to `ItemGridSizes`, and equipment
-  metadata to `ItemEquipmentMetadata` if equippable; restrictions in `ItemClassRestrictions`. Check
-  `WorldDataFactory` and the importer ([world-import.md](world-import.md)).
+- Add an item family: add its prefix to both maps in `LegacyItemCode`, grid sizes to `ItemGridSizes`, and its kind and
+  slot to `ItemEquipmentMetadata` if wearable (two-handed keys to its list); restrictions in `ItemClassRestrictions`.
+  Check `WorldDataFactory` and the importer ([world-import.md](world-import.md)).
+- Add an item stat: carry its range in `ItemTemplate` (from `WorldDataFactory.ToItemTemplate`), its value in
+  `ItemRoll`, roll it in `ItemRoller`, sum it in `EquipmentTotals`, apply it in `DerivedStats.Compute`, persist it
+  (the roll is saved as JSON, see [persistence.md](persistence.md)), and add it to the item details packet and the
+  tooltip ([protocol.md](protocol.md), [client.md](client.md)).
 - Add an `ItemKind`: append it, update `ItemDefinition.IsWeapon`, `WeaponDamage` favoured kinds,
   `PlayerAttackReach` and the client item presentation.
 - Add a class: new `Classes/<Name>Class.cs`, register it in `CharacterClassRegistry`, add `PlayerClass`/`JobBitCode`,
@@ -404,14 +472,18 @@ server steps it per player in `FieldSkills.StepEffects` and resets it on death. 
 - `CloneForInventoryOperation` copies no timed effects; the clone's derived stats lack buffs. Do not read buffed
   values from a transaction candidate, and commit copies only inventory, equipment and histories.
 - `Equip` throws on an invalid item; use `CanEquip`/`TryEquipFromInventory` for client input.
-- Items with `UpgradeLevel > 0` cannot be equipped.
+- `TryPlace`, `TryAdd` and `TryExchange` store copies (same `InstanceId`): compare worn and carried items by
+  `InstanceId`, and change a worn copy through `GetEquipped`, not the instance that was placed.
+- Weight changes move speed: anything that adds items to a character outside `Inventory` methods must mark the
+  inventory changed (`TouchInventory`).
 - Player absorption is flat, monster absorption is percent; the monster hit check uses `>` while the player check
   uses `<`. Both match the original receivers.
 - `TrySplit` gives the split stack a new `InstanceId`; `TryAdd` keeps the id only for the first new stack.
 - `Compatible` stacking uses record equality of `ItemDefinition`; two catalogs with equal data compare equal.
 - `ItemEquipmentMetadata` and `ItemGridSizes` are generated data tables; edit entries, not structure.
 - `CombatAntiCheat` and `PlayerCompositionFactory` are not used by any project; do not assume they are enforced.
-- Item resistances, rolled-stat ranges, random job masks and special bonuses are loaded but have no effect.
+- Requirements and price live in the copy's roll (a specialization shifts them); read `ItemInstance.Roll`, not the
+  definition, for anything about a particular copy.
 
 ## Related
 
