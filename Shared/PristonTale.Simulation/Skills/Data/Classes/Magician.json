@@ -7,8 +7,7 @@
     "kind": "LifeToMana", "target": "Self", "masteryBase": 82, "masteryPerRank": 2,
     "lifeCost": [4, 8, 12, 16, 20, 24, 28, 32, 36, 40],
     "motionIndex": 63, "motionFrames": 50, "motionEvents": [20], "motionSpeed": 70,
-    "castEffect": "vfx.cast.arcane", "impactEffect": "vfx.agony", "castSound": "wav/Effects/Skill/Morion/Casting_M.wav",
-    "impactSound": "wav/Effects/Skill/Morion/Agony 1.wav"
+    "castEffect": "vfx.magician.agony.cast", "castSound": "wav/Effects/Skill/Morion/Casting_M.wav"
   },
   {
     "code": "0x08010002", "name": "Fire Bolt", "tier": "Job1", "category": "ActiveAttack", "icon": "MM12 FireBolt",
@@ -19,8 +18,8 @@
     "damage": { "min": [10, 13, 16, 19, 21, 24, 27, 30, 33, 36], "max": [20, 24, 28, 32, 36, 40, 44, 48, 52, 56], "weaponDivisor": 3,
       "spiritMinDivisor": 8, "spiritMaxDivisor": 6, "element": "Fire", "noCritical": true, "spellPower": true },
     "motionIndex": 65, "motionFrames": 50, "motionEvents": [29], "motionSpeed": 100, "projectile": true,
-    "castEffect": "vfx.cast.arcane", "projectileEffect": "vfx.projectile.fire", "impactEffect": "vfx.impact.fire",
-    "castSound": "wav/Effects/Skill/Morion/Casting_M.wav", "impactSound": "wav/Effects/Skill/Morion/Firebolt 1.wav"
+    "castEffect": "vfx.magician.castcircle", "projectileEffect": "vfx.magician.firebolt.shot", "impactEffect": "vfx.magician.firebolt.hit",
+    "castSound": "wav/Effects/Skill/Morion/Casting_M.wav"
   },
   {
     "code": "0x08010003", "name": "Zenith", "tier": "Job1", "category": "Buff", "icon": "MM14 Zenith",
@@ -36,7 +35,8 @@
         { "stat": "ResistPoison", "op": "Flat", "values": [2, 3, 4, 5, 6, 7, 8, 9, 10, 11] }] },
     "exclusive": ["0x08010003"],
     "motionIndex": 63, "motionFrames": 50, "motionEvents": [20], "motionSpeed": 70,
-    "castEffect": "vfx.cast.arcane", "buffEffect": "vfx.buff.zenith", "castSound": "wav/Effects/Skill/Morion/Zenith 1.wav", "keepIcon": "Mg1_ZENITH"
+    "castEffect": "vfx.magician.zenith.cast", "buffEffect": "vfx.magician.zenith.aura", "castSound": "wav/Effects/Skill/Morion/Zenith 1.wav",
+    "keepIcon": "Mg1_ZENITH"
   },
   {
     "code": "0x08010004", "name": "Fire Ball", "tier": "Job1", "category": "AreaAttack", "icon": "MM17 FireBall",
@@ -48,8 +48,8 @@
     "damage": { "min": [26, 30, 34, 38, 42, 46, 50, 54, 58, 62], "max": [50, 57, 64, 71, 78, 85, 92, 99, 106, 113], "levelDivisor": 2,
       "spiritMinDivisor": 6, "spiritMaxDivisor": 4, "areaPercent": 70, "mainPercent": 100, "element": "Fire", "noCritical": true, "spellPower": true },
     "motionIndex": 67, "motionFrames": 50, "motionEvents": [29], "motionSpeed": 100, "projectile": true,
-    "castEffect": "vfx.cast.arcane", "projectileEffect": "vfx.projectile.fireball", "impactEffect": "vfx.impact.explosion",
-    "castSound": "wav/Effects/Skill/Morion/Casting_M.wav", "impactSound": "wav/Effects/Skill/Morion/FireBall 1.wav"
+    "castEffect": "vfx.magician.castcircle", "projectileEffect": "vfx.magician.fireball.shot", "impactEffect": "vfx.magician.fireball.hit",
+    "castSound": "wav/Effects/Skill/Morion/Casting_M.wav", "impactSound": "wav/Effects/monster/Figon/impact 1.wav"
   },
   {
     "code": "0x08020001", "name": "Mental Mastery", "tier": "Job2", "category": "Passive", "icon": "MM20 M_Mastery",
@@ -69,7 +69,7 @@
       "spiritMinDivisor": 6, "spiritMaxDivisor": 3, "areaPercent": 70, "mainPercent": 100, "element": "Ice", "mainElement": "Bionic",
       "noCritical": true, "spellPower": true },
     "motionIndex": 67, "motionFrames": 50, "motionEvents": [29], "motionSpeed": 90,
-    "castEffect": "vfx.cast.arcane", "impactEffect": "vfx.magician.watornado.column", "castSound": "wav/Effects/Skill/Morion/Casting_M.wav",
+    "castEffect": "vfx.magician.castcircle", "impactEffect": "vfx.magician.watornado.column", "castSound": "wav/Effects/Skill/Morion/Casting_M.wav",
     "impactSound": "wav/Effects/Skill/Morion/Watornado 1.wav"
   },
   {
@@ -87,7 +87,7 @@
         { "element": "Fire", "min": [4, 8, 12, 16, 20, 24, 28, 32, 36, 40], "max": [10, 16, 22, 28, 34, 40, 46, 52, 58, 64] }] } },
     "exclusive": ["0x08020003"],
     "motionIndex": 69, "motionFrames": 50, "motionEvents": [36], "motionSpeed": 70,
-    "castEffect": "vfx.cast.arcane", "buffEffect": "vfx.magician.enchant.aura", "castSound": "wav/Effects/Skill/Morion/EnchantWpn_cast.wav",
+    "castEffect": "vfx.magician.enchant.cast", "buffEffect": "vfx.magician.enchant.aura", "castSound": "wav/Effects/Skill/Morion/EnchantWpn_cast.wav",
     "keepIcon": "Mg2_E_WEAPON"
   },
   {
@@ -99,8 +99,7 @@
     "damage": { "min": [65, 70, 75, 80, 85, 90, 95, 100, 105, 110], "max": [89, 95, 101, 107, 113, 119, 125, 131, 137, 143], "weaponDivisor": 1,
       "levelDivisor": 2, "spiritMinDivisor": 4, "spiritMaxDivisor": 2, "noCritical": true, "spellPower": true },
     "motionIndex": 65, "motionFrames": 50, "motionEvents": [29], "motionSpeed": 100,
-    "castEffect": "vfx.cast.arcane", "impactEffect": "vfx.magician.deadray.beam", "castSound": "wav/Effects/Skill/Morion/Casting_M.wav",
-    "impactSound": "wav/Effects/Skill/Morion/DeathRay 1.wav"
+    "castEffect": "vfx.magician.castcircle", "impactEffect": "vfx.magician.deadray.beam", "castSound": "wav/Effects/Skill/Morion/Casting_M.wav"
   },
   {
     "code": "0x08040001", "name": "Energy Shield", "tier": "Job3", "category": "Buff", "icon": "MM40 E_Shield",
@@ -110,8 +109,8 @@
     "buff": { "durationTenths": [900, 1100, 1300, 1500, 1700, 1900, 2100, 2300, 2500, 2700],
       "absorb": { "percent": [10, 13, 16, 19, 21, 24, 26, 28, 29, 30], "resource": "Mana" } },
     "motionIndex": 69, "motionFrames": 50, "motionEvents": [36], "motionSpeed": 80,
-    "castEffect": "vfx.cast.arcane", "buffEffect": "vfx.magician.energyshield.aura", "impactEffect": "vfx.magician.energyshield.absorb",
-    "castSound": "wav/Effects/Skill/Morion/EnergyShield 1.wav", "keepIcon": "Mg3_E_SHIELD"
+    "castEffect": "vfx.magician.energyshield.cast", "buffEffect": "vfx.magician.energyshield.aura",
+    "castSound": "wav/Effects/Skill/Morion/Casting_M.wav", "keepIcon": "Mg3_E_SHIELD"
   },
   {
     "code": "0x08040002", "name": "Diastrophism", "tier": "Job3", "category": "AreaAttack", "icon": "MM43 Diastrophism",
@@ -122,7 +121,7 @@
     "damage": { "min": [20, 27, 34, 41, 48, 55, 62, 69, 76, 83], "max": [56, 64, 72, 80, 88, 96, 104, 112, 120, 128], "levelDivisor": 2,
       "spiritMinDivisor": 6, "spiritMaxDivisor": 3, "noCritical": true, "spellPower": true },
     "motionIndex": 73, "motionFrames": 86, "motionEvents": [61], "endHit": true, "motionSpeed": 120,
-    "castEffect": "vfx.cast.arcane", "impactEffect": "vfx.magician.diastrophism.quake", "castSound": "wav/Effects/Skill/Morion/Casting_M.wav",
+    "castEffect": "vfx.magician.castcircle", "impactEffect": "vfx.magician.diastrophism.quake", "castSound": "wav/Effects/Skill/Morion/Casting_M.wav",
     "impactSound": "wav/Effects/Skill/Morion/Diastrophism 2.wav"
   },
   {
@@ -136,8 +135,8 @@
         { "stat": "SpellPower", "op": "Flat", "values": [2, 4, 6, 8, 10, 13, 16, 19, 22, 25] }] },
     "exclusive": ["0x08040003"],
     "motionIndex": 69, "motionFrames": 50, "motionEvents": [36], "motionSpeed": 80,
-    "castEffect": "vfx.cast.arcane", "buffEffect": "vfx.magician.spiritelemental.spirit",
-    "castSound": "wav/Effects/Skill/Morion/SpiritElemental 1.wav", "keepIcon": "Mg3_S_ELEMENTAL"
+    "castEffect": "vfx.magician.spiritelemental.cast", "buffEffect": "vfx.magician.spiritelemental.aura",
+    "castSound": "wav/Effects/Skill/Morion/Casting_M.wav", "keepIcon": "Mg3_S_ELEMENTAL"
   },
   {
     "code": "0x08040004", "name": "Dancing Sword", "tier": "Job3", "category": "Buff", "icon": "MM50 D_Sword",
@@ -152,8 +151,8 @@
           { "element": "Fire", "min": [20, 23, 26, 29, 32, 35, 38, 41, 44, 47], "max": [26, 30, 34, 38, 42, 46, 50, 54, 58, 62] }] } },
     "exclusive": ["0x08040004"],
     "motionIndex": 68, "motionFrames": 50, "motionEvents": [26], "motionSpeed": 80,
-    "castEffect": "vfx.cast.arcane", "buffEffect": "vfx.magician.dancingsword.blade", "impactEffect": "vfx.magician.dancingsword.strike",
-    "castSound": "wav/Effects/Skill/Morion/DancingSword 1.wav", "impactSound": "wav/Effects/Skill/Morion/DancingSword_atk_1.wav",
+    "castEffect": "vfx.magician.dancingsword.cast", "buffEffect": "vfx.magician.dancingsword.blade", "impactEffect": "vfx.magician.dancingsword.strike",
+    "castSound": "wav/Effects/Skill/Morion/Casting_M.wav", "impactSound": "wav/Effects/Skill/Morion/DancingSword_atk_1.wav",
     "keepIcon": "Mg3_D_SWORD"
   },
   {
@@ -165,7 +164,7 @@
       "damageMin": [80, 85, 90, 95, 100, 105, 110, 115, 120, 125], "damageMax": [95, 100, 105, 110, 115, 120, 125, 130, 135, 140],
       "attackRating": [500, 550, 600, 650, 700, 750, 800, 850, 900, 950], "life": [2000, 2200, 2400, 2600, 2800, 3000, 3200, 3400, 3600, 3800] },
     "motionIndex": 69, "motionFrames": 50, "motionEvents": [36], "motionSpeed": 80,
-    "castEffect": "vfx.magician.fireelemental.summon", "castSound": "wav/Effects/Skill/Morion/FireElemental 01.wav", "keepIcon": "Mg4_F_ELEMENTAL"
+    "castEffect": "vfx.magician.castcircle", "castSound": "wav/Effects/Skill/Morion/FireElemental 01.wav", "keepIcon": "Mg4_F_ELEMENTAL"
   },
   {
     "code": "0x08080002", "name": "Flame Wave", "tier": "Job4", "category": "AreaAttack", "icon": "MM63 F_Wave",
@@ -176,7 +175,7 @@
     "damage": { "min": [110, 120, 130, 140, 150, 160, 170, 180, 190, 200], "max": [126, 138, 150, 162, 174, 186, 198, 210, 222, 234],
       "levelDivisor": 2, "spiritMinDivisor": 6, "spiritMaxDivisor": 3, "element": "Fire", "noCritical": true, "spellPower": true },
     "motionIndex": 71, "motionFrames": 78, "motionEvents": [38],
-    "castEffect": "vfx.cast.arcane", "impactEffect": "vfx.magician.flamewave.wave", "castSound": "wav/Effects/Skill/Morion/FlameWaveA 01.wav",
+    "castEffect": "vfx.magician.castcircle", "impactEffect": "vfx.magician.flamewave.wave", "castSound": "wav/Effects/Skill/Morion/FlameWaveA 01.wav",
     "impactSound": "wav/Effects/Skill/Morion/FlameWave 01.wav"
   },
   {
@@ -188,8 +187,7 @@
     "buff": { "durationTenths": [40, 60, 80, 100, 120, 140, 160, 180, 200, 220], "control": "Slow", "harmful": true,
       "modifiers": [{ "stat": "MoveSpeed", "op": "Percent", "values": [-10, -12, -14, -16, -17, -19, -21, -23, -25, -27] }] },
     "motionIndex": 68, "motionFrames": 50, "motionEvents": [26], "motionSpeed": 80,
-    "castEffect": "vfx.cast.arcane", "impactEffect": "vfx.magician.distortion.wave", "buffEffect": "vfx.debuff.distortion",
-    "castSound": "wav/Effects/Skill/Morion/Distortion 01.wav", "keepIcon": "Mg4_DISTORTION"
+    "castEffect": "vfx.magician.castcircle", "castSound": "wav/Effects/Skill/Morion/Distortion 01.wav", "keepIcon": "Mg4_DISTORTION"
   },
   {
     "code": "0x08080004", "name": "Meteo", "tier": "Job4", "category": "AreaAttack", "icon": "MM70 Meteo",
@@ -201,7 +199,7 @@
       "levelDivisor": 3, "weaponDivisor": 3, "spiritMinDivisor": 6, "spiritMaxDivisor": 3, "element": "Fire", "resistanceDivisor": 2,
       "noCritical": true, "spellPower": true },
     "motionIndex": 72, "motionFrames": 66, "motionEvents": [42], "endHit": true,
-    "castEffect": "vfx.cast.arcane", "impactEffect": "vfx.magician.meteo.fall", "castSound": "wav/Effects/Skill/Morion/Casting_M.wav",
+    "castEffect": "vfx.magician.castcircle", "impactEffect": "vfx.magician.meteo.fall", "castSound": "wav/Effects/Skill/Morion/Casting_M.wav",
     "impactSound": "wav/Effects/Skill/Morion/Meteo 01.wav"
   }
 ]

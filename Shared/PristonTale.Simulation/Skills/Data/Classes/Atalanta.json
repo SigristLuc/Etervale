@@ -11,7 +11,7 @@
       "noCritical": true },
     "buff": { "durationTenths": [100, 100, 100, 100, 100, 100, 100, 100, 100, 100], "control": "Stun", "harmful": true, "resistedByBionic": true },
     "motionIndex": 76, "motionFrames": 54, "motionEvents": [34], "motionSpeed": 90,
-    "impactEffect": "vfx.impact.stun", "impactSound": "wav/Effects/Skill/Morion/ShieldSpake 1.wav"
+    "castEffect": "vfx.atalanta.shieldstrike.cast", "buffEffect": "vfx.debuff.stun", "impactSound": "wav/Effects/Skill/Morion/ShieldSpake 1.wav"
   },
   {
     "code": "0x06010002", "name": "Farina", "tier": "Job1", "category": "ActiveAttack", "icon": "MA12 Farina",
@@ -20,7 +20,7 @@
     "kind": "WeaponAttack", "target": "Enemy", "masteryBase": 82, "masteryPerRank": 2,
     "attackRating": [30, 40, 50, 60, 70, 80, 90, 100, 110, 120], "attackRatingPlusLevel": true, "damage": {},
     "motion": "Attack", "loops": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "attackSpeedSteps": [1, 1, 1, 1, 2, 2, 2, 2, 2, 2], "projectile": true,
-    "projectileEffect": "vfx.projectile.farina", "impactEffect": "vfx.impact.arrow", "castSound": "wav/Effects/Skill/Morion/Farina 1.wav"
+    "projectileEffect": "vfx.atalanta.farina.shot", "impactEffect": "vfx.atalanta.farina.hit", "castSound": "wav/Effects/Skill/Morion/Farina 1.wav"
   },
   {
     "code": "0x06010003", "name": "Throwing Mastery", "tier": "Job1", "category": "Passive", "icon": "MA14 T_Mastery",
@@ -36,7 +36,7 @@
     "kind": "WeaponAttack", "target": "Enemy", "masteryBase": 82, "masteryPerRank": 2,
     "damage": { "min": [4, 6, 8, 10, 11, 12, 13, 14, 15, 16], "max": [10, 15, 20, 25, 30, 35, 40, 45, 50, 55], "levelDivisor": 2 },
     "motion": "Attack", "loops": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "projectile": true,
-    "projectileEffect": "vfx.projectile.spear", "impactEffect": "vfx.impact.spear", "castSound": "wav/Effects/Skill/Morion/VigorSpear 1.wav"
+    "projectileEffect": "vfx.atalanta.biggerspear.shot", "impactEffect": "vfx.atalanta.biggerspear.hit", "castSound": "wav/Effects/Skill/Morion/VigorSpear 1.wav"
   },
   {
     "code": "0x06020001", "name": "Windy", "tier": "Job2", "category": "Buff", "icon": "MA20 Windy",
@@ -60,7 +60,7 @@
     "attackRatingPercent": [10, 22, 34, 46, 58, 70, 82, 94, 106, 118],
     "damage": { "percent": [10, 22, 34, 46, 58, 70, 82, 94, 106, 118], "bonusBroods": ["Demon"], "bonusPercent": 30 },
     "motion": "Attack", "loops": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "projectile": true,
-    "projectileEffect": "vfx.atalanta.twist.projectile", "impactEffect": "vfx.atalanta.twist.impact",
+    "projectileEffect": "vfx.atalanta.twist.shot", "impactEffect": "vfx.atalanta.twist.hit",
     "castSound": "wav/Effects/Skill/Morion/TwistJavelin.wav"
   },
   {
@@ -72,7 +72,7 @@
     "damage": { "mode": "MaxLifeShare", "share": [10, 13, 16, 19, 22, 25, 28, 31, 34, 37], "shareResistedByBionic": true, "minLifePercent": 50,
       "excludeBroods": ["Undead"], "lifeToCasterCapPercent": 40, "noCritical": true },
     "motionIndex": 78, "motionFrames": 45, "motionEvents": [25], "motionSpeed": 90,
-    "castEffect": "vfx.atalanta.soulsucker.cast", "impactEffect": "vfx.atalanta.soulsucker.drain",
+    "impactEffect": "vfx.atalanta.soulsucker.drain",
     "impactSound": "wav/Effects/Skill/Morion/SoulSucker 2.wav"
   },
   {
@@ -83,7 +83,7 @@
     "damage": { "min": [20, 25, 30, 35, 40, 45, 50, 55, 60, 65], "max": [30, 35, 40, 45, 50, 55, 60, 65, 70, 75], "levelDivisor": 3,
       "flatElement": "Fire", "bonusBroods": ["Mutant"], "bonusPercent": 50 },
     "motion": "Attack", "loops": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "projectile": true,
-    "projectileEffect": "vfx.atalanta.firejavelin.projectile", "impactEffect": "vfx.impact.fire",
+    "projectileEffect": "vfx.atalanta.firejavelin.shot", "impactEffect": "vfx.atalanta.firejavelin.hit",
     "castSound": "wav/Effects/Skill/Morion/FireJavelin 1.wav"
   },
   {
@@ -94,7 +94,7 @@
     "attackRating": [-10, -7, -4, -1, 2, 5, 8, 12, 16, 20], "volley": [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
     "damage": { "percent": [8, 14, 20, 26, 32, 38, 44, 50, 56, 62], "noCritical": true },
     "motionIndex": 83, "motionFrames": 50, "motionEvents": [26], "motionSpeedSteps": 1, "motionSpeedPercent": 80, "projectile": true,
-    "projectileEffect": "vfx.atalanta.split.projectile", "impactEffect": "vfx.atalanta.split.impact",
+    "castEffect": "vfx.atalanta.split.cast",
     "castSound": "wav/Effects/Skill/Morion/SplitJavelin 1.wav", "impactSound": "wav/Effects/Skill/Morion/SplitJavelin 2.wav"
   },
   {
@@ -109,7 +109,7 @@
       "modifiers": [{ "stat": "DamageMax", "op": "Flat", "values": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50], "levelDivisor": 4 }] },
     "exclusive": ["0x06040002", "0x06080001"],
     "motionIndex": 82, "motionFrames": 40, "motionEvents": [20],
-    "castEffect": "vfx.atalanta.triumph.cast", "buffEffect": "vfx.atalanta.triumph.aura",
+    "impactEffect": "vfx.atalanta.triumph.shot", "buffEffect": "vfx.atalanta.triumph.aura",
     "castSound": "wav/Effects/Skill/Morion/TriumphofValhalla 1.wav", "keepIcon": "At3_T_O_VALHALLA"
   },
   {
@@ -122,7 +122,7 @@
       "element": "Lighting", "bonusBroods": ["Undead"], "bonusPercent": 50, "noCritical": true,
       "main": { "attackPower": true, "levelDivisor": 3, "levelOnMax": true, "bonusBroods": ["Undead"], "bonusPercent": 50 } },
     "motionIndex": 83, "motionFrames": 50, "motionEvents": [26], "projectile": true,
-    "projectileEffect": "vfx.atalanta.lightning.projectile", "impactEffect": "vfx.atalanta.lightning.impact",
+    "projectileEffect": "vfx.atalanta.lightning.shot",
     "impactSound": "wav/Effects/Skill/Morion/LightningJavelin 1.wav"
   },
   {
@@ -134,7 +134,7 @@
     "damage": { "attackPower": true, "percent": [22, 28, 34, 40, 46, 52, 58, 64, 70, 76], "noCritical": true },
     "loops": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
     "motionIndex": 83, "motionFrames": 50, "motionEvents": [26],
-    "castEffect": "vfx.atalanta.storm.cast", "impactEffect": "vfx.atalanta.storm.tornado",
+    "impactEffect": "vfx.atalanta.storm.javelin",
     "impactSound": "wav/Effects/Skill/Morion/StormJavelin 1.wav"
   },
   {
@@ -161,7 +161,7 @@
     "areaCenter": "Target", "radius": [100, 105, 110, 115, 120, 125, 130, 135, 140, 145],
     "damage": { "attackPower": true, "percent": [70, 80, 90, 100, 110, 120, 130, 140, 150, 160], "noCritical": true },
     "motionIndex": 84, "motionFrames": 70, "motionEvents": [28, 38, 48], "maxHits": 1, "projectile": true,
-    "castEffect": "vfx.atalanta.xrage.leap", "projectileEffect": "vfx.atalanta.xrage.projectile", "impactEffect": "vfx.atalanta.xrage.impact",
+    "castEffect": "vfx.atalanta.xrage.cast",
     "impactSound": "wav/Effects/Skill/Morion/eXtremeRage 01.wav"
   },
   {
@@ -186,7 +186,7 @@
     "range": [10, 15, 20, 25, 30, 35, 40, 45, 50, 55], "rangeMode": "AddWeapon",
     "damage": { "percent": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100] },
     "motionIndex": 85, "motionFrames": 40, "motionEvents": [14, 30], "motionSpeed": 80, "projectile": true,
-    "projectileEffect": "vfx.atalanta.vengeance.projectile", "impactEffect": "vfx.impact.spear",
+    "castEffect": "vfx.atalanta.vengeance.cast",
     "castSound": "wav/Effects/Skill/Morion/Vengeance 01.wav", "impactSound": "wav/Effects/Skill/Morion/Vengeance 02.wav"
   }
 ]
