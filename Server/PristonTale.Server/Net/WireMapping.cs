@@ -20,6 +20,7 @@ internal static class WireMapping
         MoveStateView.Dead => MotionStateCode.Dead,
         MoveStateView.Skill => MotionStateCode.Skill,
         MoveStateView.Eat => MotionStateCode.Eat,
+        MoveStateView.Warp => MotionStateCode.Warp,
         _ => MotionStateCode.Stand
     };
 
@@ -217,9 +218,14 @@ internal static class WireMapping
             flags |= CombatEventFlags.Killed;
         }
 
+        if (view.Skill)
+        {
+            flags |= CombatEventFlags.Skill;
+        }
+
         return new CombatEventEntry(view.AttackerId, view.TargetId, (byte)view.Kind, flags, view.DurationMs, view.HitAtMs, view.Damage,
             view.Resources, view.SourceSoundCode, PristonUnits.ToFixed(view.Position.X), PristonUnits.ToFixed(view.Position.Y),
-            PristonUnits.ToFixed(view.Position.Z), PristonUnits.ToAngle(view.Facing));
+            PristonUnits.ToFixed(view.Position.Z), PristonUnits.ToAngle(view.Facing), (short)Math.Clamp(view.Clip, -1, short.MaxValue));
     }
 
     public static SkillEventEntry SkillEvent(in SkillEventView view) => new(

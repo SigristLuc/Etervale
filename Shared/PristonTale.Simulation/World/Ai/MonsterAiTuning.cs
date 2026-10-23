@@ -1,8 +1,13 @@
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Simulation.World.Motion;
 
 namespace PristonTale.Simulation.World.Ai;
+
+// One attack or skill clip a monster may play: its slot in the model's motion table (sent to clients), its key, its
+// duration and the time its blow lands.
+public readonly record struct MonsterActionClip(int Slot, char Key, float DurationMs, float HitAtMs);
 
 public sealed class MonsterAiTuning
 {
@@ -73,13 +78,25 @@ public sealed class MonsterAiTuning
         RunCycleMs = LocomotionCycleFallbackMs;
         if (timing != null)
         {
-            if (MonsterOffensiveSkill.IsSupported(def) && timing.TryGetClip(MotionStateCode.Skill, out MotionClip skill))
+            AttackClips = ActionClips(timing.ClipsForState(MotionStateCode.Attack), lateHit: false);
+            SkillClips = MonsterSkillRules.HasSkill(def)
+                ? ActionClips(timing.ClipsForState(MotionStateCode.Skill), MonsterSkillRules.HasLateSkillHit(def))
+                : [];
+            if (SkillClips.Count > 0)
             {
-                SkillDurationMs = MotionTiming.DurationMs(skill.Frames, 1f);
-                SkillWindupMs = skill.TryGetEventTicks(0, out uint skillEvent)
-                    ? MotionTiming.EventOffsetMs(skillEvent, 1f)
-                    : SkillDurationMs;
+                SkillDurationMs = SkillClips[0].DurationMs;
+                SkillWindupMs = SkillClips[0].HitAtMs;
                 CanCastOffensiveSkill = SkillDurationMs > 0f;
+            }
+
+            if (timing.TryGetClip(MotionStateCode.Eat, out MotionClip eat))
+            {
+                EatDurationMs = MotionTiming.DurationMs(eat.Frames, 1f);
+            }
+
+            if (timing.TryGetClip(MotionStateCode.Warp, out MotionClip warp))
+            {
+                WarpDurationMs = MotionTiming.DurationMs(warp.Frames, 1f);
             }
 
             if (timing.TryGetClip(MotionStateCode.Walk, out MotionClip walk))
@@ -118,6 +135,33 @@ public sealed class MonsterAiTuning
     public float RunCycleMs { get; }
 
     public bool CanCastOffensiveSkill { get; }
+
+    // Every attack and skill clip of the model in table order; a swing plays one drawn at random, as the original did.
+    public IReadOnlyList<MonsterActionClip> AttackClips { get; } = [];
+    public IReadOnlyList<MonsterActionClip> SkillClips { get; } = [];
+
+    // Drinking a potion and the transformation clip; a missing clip lasts one second.
+    public float EatDurationMs { get; } = LocomotionCycleFallbackMs;
+    public float WarpDurationMs { get; } = LocomotionCycleFallbackMs;
+
+    private static MonsterActionClip[] ActionClips(IReadOnlyList<MotionClip> clips, bool lateHit)
+    {
+        var result = new MonsterActionClip[clips.Count];
+        for (var index = 0; index < clips.Count; index++)
+        {
+            var clip = clips[index];
+            var duration = MotionTiming.DurationMs(clip.Frames, 1f);
+            var hit = clip.TryGetEventTicks(0, out var ticks) ? MotionTiming.EventOffsetMs(ticks, 1f) : duration;
+            if (lateHit)
+            {
+                hit = Math.Min(duration, MonsterSkillRules.LateSkillHitMs);
+            }
+
+            result[index] = new MonsterActionClip(clip.Slot, clip.Key, duration, hit);
+        }
+
+        return result;
+    }
     public float SkillDurationMs { get; }
     public float SkillWindupMs { get; }
 

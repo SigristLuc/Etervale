@@ -6,7 +6,7 @@ namespace PristonTale.Application.World;
 
 public enum EntityKindView { Player, Monster, Npc }
 
-public enum MoveStateView { Idle, Walking, Running, Attack, Damage, Dead, Skill, Eat }
+public enum MoveStateView { Idle, Walking, Running, Attack, Damage, Dead, Skill, Eat, Warp }
 
 public readonly struct PlayerAppearanceView
 {
@@ -214,6 +214,11 @@ public readonly struct CombatEventView
     public int SourceSoundCode { get; }
     public Vector3 Position { get; }
     public float Facing { get; }
+
+    // A monster's swing: the motion-table slot of the clip it plays (-1 for the first clip of the state) and whether it is
+    // its skill. A hit: whether a monster skill dealt it.
+    public int Clip { get; init; } = -1;
+    public bool Skill { get; init; }
 }
 
 public readonly struct WorldSnapshot

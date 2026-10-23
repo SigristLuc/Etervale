@@ -5,26 +5,7 @@ namespace PristonTale.Simulation.Combat;
 
 public static class MonsterOffensiveSkill
 {
-    // Original sound-family identifiers. Other families may have curses, summons or distinct impact rules.
-    private const int DarkPhalanx = 0x1840;
-    private const int DarkGuard = 0x1890;
-    private const int DarkMage = 0x18A0;
-    private const int KingSpider = 0x18E0;
-    private const int Hest = 0x19F0;
     private const double ConnectedDistanceSquared = 0x120000;
-
-    public static bool IsSupported(MonsterDefinition definition)
-    {
-        var skill = definition.Skill;
-        return definition.SoundCode is DarkPhalanx or DarkGuard or DarkMage or KingSpider or Hest
-            && skill.CurseSkillCode == 0
-            && skill.SkillRatingPercent > 0
-            && skill.SkillDamage.Min >= 0
-            && skill.SkillDamage.Max > 0
-            && skill.SkillDamage.Max >= skill.SkillDamage.Min
-            && skill.SkillRange >= 0
-            && skill.SkillDistance >= 0;
-    }
 
     public static Vector3 AreaCenter(Vector3 origin, float facing, MonsterSkillStats skill)
     {

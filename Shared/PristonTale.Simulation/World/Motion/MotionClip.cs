@@ -11,6 +11,7 @@ public static class MotionStateCode
     public const int Eat = 0x140;
     public const int Skill = 0x150;
     public const int Restart = 0x200;
+    public const int Warp = 0x210;
 }
 
 public readonly record struct MotionClip(

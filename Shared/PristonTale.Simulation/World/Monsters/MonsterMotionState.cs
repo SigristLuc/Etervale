@@ -14,13 +14,20 @@ public enum MonsterMotionState
 
     Dead = 5,
 
-    Skill = 6
+    Skill = 6,
+
+    // Drinking a potion.
+    Eat = 7,
+
+    // The transformation clip before the monster turns into another.
+    Warp = 8
 }
 
 public static class MonsterMotionStateExtensions
 {
     public static bool IsBusy(this MonsterMotionState state)
-        => state is MonsterMotionState.Attack or MonsterMotionState.Skill or MonsterMotionState.Damage or MonsterMotionState.Dead;
+        => state is MonsterMotionState.Attack or MonsterMotionState.Skill or MonsterMotionState.Damage or MonsterMotionState.Dead
+            or MonsterMotionState.Eat or MonsterMotionState.Warp;
 
     public static bool IsMoving(this MonsterMotionState state)
         => state is MonsterMotionState.Walk or MonsterMotionState.Run;

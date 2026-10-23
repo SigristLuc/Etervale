@@ -57,6 +57,7 @@ public sealed partial class GameScene : ISkillSceneHost
         _skillSounds = new SkillSoundBank(_assetRoot ?? "", _log);
         _skillFx = new SkillPresentation(_graphicsDevice, _content, _effectLibrary, _renderer.TransientLights, this, _skillSounds, _log);
         _skillFx.CastResolved += OnCastResolved;
+        CreateMonsterPresentation();
     }
 
     private void ObserveSkills(PresenceUpdate update) => _skillFx?.Observe(update, _skillClockMs);
@@ -183,7 +184,7 @@ public sealed partial class GameScene : ISkillSceneHost
     // Walks toward the pending target and casts once it is in range, like the original's approach before a skill.
     private void UpdatePendingCast()
     {
-        if (_pendingCast is not { } pending || _playerBody is null || SelfCasting || _playerController.LocomotionFrozen)
+        if (_pendingCast is not { } pending || _playerBody is null || SelfCasting || _playerController.LocomotionFrozen || SelfStunned)
         {
             return;
         }

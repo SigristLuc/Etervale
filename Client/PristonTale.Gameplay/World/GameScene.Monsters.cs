@@ -1,0 +1,89 @@
+using Microsoft.Xna.Framework;
+using PristonTale.Client.Net.Presence;
+using PristonTale.Engine3D.Formats;
+using PristonTale.Engine3D.Rendering;
+using PristonTale.Gameplay.Effects;
+
+namespace PristonTale.Gameplay.World;
+
+// Monster visuals: attack, skill, death and body effects that follow each monster's clips, and the statuses monster
+// skills put on players and monsters.
+public sealed partial class GameScene : IMonsterScene
+{
+    private readonly List<MonsterActorView> _monsterViews = new();
+    private MonsterPresentation _monsterFx;
+
+    public MonsterPresentation MonsterEffects => _monsterFx;
+
+    private void CreateMonsterPresentation()
+    {
+        if (_monsterFx is null && _skillFx is not null)
+        {
+            _monsterFx = new MonsterPresentation(new SkillEffectSink(_skillFx), this);
+        }
+    }
+
+    private void ObserveMonsterSwings(PresenceUpdate update)
+    {
+        if (_monsterFx is null)
+        {
+            return;
+        }
+
+        foreach (var combatEvent in update.Events)
+        {
+            if (combatEvent.Kind == RemoteCombatEventKind.SwingBegin)
+            {
+                _monsterFx.ObserveSwing(combatEvent.AttackerId, combatEvent.TargetId);
+            }
+        }
+    }
+
+    private void UpdateMonsterEffects(float seconds)
+    {
+        if (_monsterFx is null || _remote is null)
+        {
+            return;
+        }
+
+        _remote.CollectMonsters(_monsterViews);
+        _monsterFx.Update(_monsterViews, seconds);
+    }
+
+    // A monster's stun holds the player: no walking, attacking or casting until it ends.
+    private bool SelfStunned => _skillFx is not null && _remote is not null && MonsterPresentation.Stunned(_skillFx.Statuses.For(_remote.SelfEntityId));
+
+    bool IMonsterScene.TryGetActorMotion(ActorHandle actor, out PristonMotionInfo motion, out float ticks)
+    {
+        if (_renderer is null)
+        {
+            motion = null;
+            ticks = 0f;
+            return false;
+        }
+
+        return _renderer.TryGetActorMotion(actor, out motion, out ticks);
+    }
+
+    void IMonsterScene.SetEntityTint(uint entityId, Vector3 tint)
+    {
+        if (_renderer is null || _remote is null)
+        {
+            return;
+        }
+
+        if (entityId == _remote.SelfEntityId)
+        {
+            _renderer.SetActorColorAdd(_playerBodyActor, tint);
+            _renderer.SetActorColorAdd(_playerHeadActor, tint);
+            return;
+        }
+
+        Span<ActorHandle> handles = stackalloc ActorHandle[8];
+        var count = _remote.CopyActorHandles(entityId, handles);
+        for (var index = 0; index < count; index++)
+        {
+            _renderer.SetActorColorAdd(handles[index], tint);
+        }
+    }
+}

@@ -75,5 +75,10 @@ public sealed class RemoteModelEntity : RemoteEntityBase
 
     public ActorHandle Actor => _actor;
 
+    // A monster's level and model size, which select its effect family.
+    public int Level { get; init; }
+
+    public float Scale => _scale;
+
     public override void Dispose() => _scene.RemoveActor(_actor);
 }

@@ -255,6 +255,8 @@ public static class CombatEventFlags
 {
     public const byte Critical = 1;
     public const byte Killed = 2;
+    // A monster's swing or hit that belongs to its skill.
+    public const byte Skill = 4;
 }
 
 public readonly record struct CombatEventEntry(
@@ -270,7 +272,8 @@ public readonly record struct CombatEventEntry(
     int X,
     int Y,
     int Z,
-    short Angle)
+    short Angle,
+    short Clip = -1)
 {
     public const int Size = 48;
 
@@ -280,7 +283,7 @@ public readonly record struct CombatEventEntry(
         writer.UInt32(Target);
         writer.Byte(Kind);
         writer.Byte(Flags);
-        writer.Zero(2);
+        writer.Int16(Clip);
         writer.Single(DurationMs);
         writer.Single(HitAtMs);
         writer.Int32(Damage);
@@ -299,9 +302,9 @@ public readonly record struct CombatEventEntry(
         var target = reader.UInt32();
         var kind = reader.Byte();
         var flags = reader.Byte();
-        reader.Skip(2);
+        var clip = reader.Int16();
         var entry = new CombatEventEntry(attacker, target, kind, flags, reader.Single(), reader.Single(), reader.Int32(), reader.Int32(),
-            reader.Int32(), reader.Int32(), reader.Int32(), reader.Int32(), reader.Int16());
+            reader.Int32(), reader.Int32(), reader.Int32(), reader.Int32(), reader.Int16(), clip);
         reader.Skip(2);
         return entry;
     }

@@ -45,6 +45,9 @@ public abstract class RemoteEntityBase
     private bool _skillAttackClip;
     private float _skillRate = 1f;
 
+    // The motion-table slot of the clip a monster's swing plays, from the server's swing event (-1: the state's first clip).
+    private int _clipIndex = -1;
+
     private bool SkillOverride => _skillMotionIndex >= 0 || _skillAttackClip;
 
     protected RemoteEntityBase(RemoteEntityKind kind, double timeMs, Vector3 position, float facing, RemoteMoveState moveState, int hp,
@@ -114,6 +117,10 @@ public abstract class RemoteEntityBase
             {
                 ApplyMotionIndex(_skillMotionIndex);
             }
+            else if (command.Motion is PristonActorMotion.Attack or PristonActorMotion.Skill && _clipIndex >= 0 && !SkillOverride)
+            {
+                ApplyMotionIndex(_clipIndex);
+            }
             else if (command.Motion == PristonActorMotion.Skill && _skillAttackClip)
             {
                 ApplyMotionCommand(new MotionCommand(MotionCommandKind.Restart, PristonActorMotion.Attack));
@@ -172,6 +179,7 @@ public abstract class RemoteEntityBase
         RemoteMoveState.Dead => PristonActorMotion.Dead,
         RemoteMoveState.Skill => PristonActorMotion.Skill,
         RemoteMoveState.Eat => PristonActorMotion.Eat,
+        RemoteMoveState.Warp => PristonActorMotion.Warp,
         _ => PristonActorMotion.Stand,
     };
 
@@ -249,6 +257,7 @@ public abstract class RemoteEntityBase
         else if (combatEvent.Kind == RemoteCombatEventKind.SwingBegin && Motion is PristonActorMotion.Attack or PristonActorMotion.Skill)
         {
             QueueMotion(_controller.Retrigger(Motion), startsSound: true);
+            _clipIndex = combatEvent.Clip;
         }
         else if (combatEvent.Kind == RemoteCombatEventKind.Hit && !combatEvent.Killed && Motion == PristonActorMotion.Damage)
         {
@@ -289,6 +298,11 @@ public abstract class RemoteEntityBase
         {
             _skillMotionIndex = -1;
             _skillAttackClip = false;
+        }
+
+        if (command.Motion is not (PristonActorMotion.Attack or PristonActorMotion.Skill))
+        {
+            _clipIndex = -1;
         }
 
         if (command.Kind == MotionCommandKind.Set && command.Motion == _shownMotion)

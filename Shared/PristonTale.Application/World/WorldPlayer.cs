@@ -266,9 +266,9 @@ public sealed class WorldPlayer
         float dx = position.X - Position.X;
         float dz = position.Z - Position.Z;
         float distance = MathF.Sqrt(dx * dx + dz * dz);
-        if (IsBusy)
+        if (IsBusy || _character.Effects.Has(Simulation.Modifiers.ControlFlags.Stun))
         {
-            // Swings, flinches and potions own the avatar; small drift is tolerated, large drift is corrected.
+            // Swings, flinches, potions and stuns own the avatar; small drift is tolerated, large drift is corrected.
             return distance > BusyCorrectionDistance ? MovementVerdict.Rejected : MovementVerdict.Ignored;
         }
 
