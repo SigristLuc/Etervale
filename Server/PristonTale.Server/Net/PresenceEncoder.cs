@@ -119,7 +119,35 @@ internal sealed partial class PresenceEncoder
             revision = known.Revision;
         }
 
-        var character = WireMapping.Describe(view, _data.Current);
+        return DescriptionPacket(view, revision, _data.Current);
+    }
+
+    // Writes the PLAYERINFO answer into destination and returns its length, 0 when the serial is not in view. Every
+    // receiver asking about an entity of the same frame gets the same bytes, so they are encoded once per frame.
+    public int WriteDescription(uint serial, Span<byte> destination)
+    {
+        lock (_gate)
+        {
+            if (_describeGrid is null || !_known.TryGetValue(serial, out var known) || !_describeGrid.TryGetIndex(serial, out var index))
+            {
+                return 0;
+            }
+
+            ref readonly var view = ref _describeViews[index];
+            if (_heldFrame is { } frame && view.Revision != 0 && ReferenceEquals(frame.Views, _describeViews))
+            {
+                var shared = frame.Attachment(SharedPresenceWire.Create).Description(index, view, _data.Current);
+                shared.CopyTo(destination);
+                return shared.Length;
+            }
+
+            return DescriptionPacket(view, known.Revision, _data.Current).Write(destination);
+        }
+    }
+
+    internal static PlayerInfoPacket DescriptionPacket(in EntityView view, byte revision, WorldData data)
+    {
+        var character = WireMapping.Describe(view, data);
         character.UpdateInfo[0] = revision;
         return new PlayerInfoPacket(character, view.EntityId, PristonUnits.ToFixed(view.Position.X), PristonUnits.ToFixed(view.Position.Y),
             PristonUnits.ToFixed(view.Position.Z), 0, PristonUnits.ToAngle(view.Facing), 0, WireMapping.ActionCode(view.MoveState));

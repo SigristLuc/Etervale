@@ -92,22 +92,59 @@ async Task<int> CreateAccount(List<string> a)
 
 async Task<int> CreateBots(List<string> a)
 {
+    // Optional placed characters (one per account, named Lt<prefix><index>), for load tests that hunt in a field.
+    var classText = TakeOption(a, "--class");
+    var levelText = TakeOption(a, "--level");
+    var fieldText = TakeOption(a, "--field");
+    var atText = TakeOption(a, "--at");
+    var spacingText = TakeOption(a, "--spacing");
+    var skillText = TakeOption(a, "--skills");
     if (a.Count < 4 || !int.TryParse(a[2], out var count) || count is < 1 or > 100_000)
-        return Usage("usage: create-bots <prefix> <count> <password>");
+        return Usage("usage: create-bots <prefix> <count> <password> [--class <class> --field <code> --at <x,z> [--spacing <units>] [--level <n>] [--skills <hex:rank,...>]]");
     var (prefix, password) = (a[1], a[3]);
+    var placed = classText is not null;
+    var playerClass = PlayerClass.Fighter;
+    if (placed && (!TryParseClass(classText!, out playerClass) || fieldText is null || atText is null))
+        return Usage("placed bots need --class, --field and --at");
+    var level = int.TryParse(levelText, out var parsedLevel) ? Math.Max(1, parsedLevel) : 1;
+    var field = int.TryParse(fieldText, out var parsedField) ? parsedField : StartingFieldId;
+    var at = (atText ?? "0,0").Split(',').Select(value => float.Parse(value, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+    // Spacing 0 packs every bot into one 500-unit square (a crowd); otherwise a grid with that spacing.
+    var spacing = float.TryParse(spacingText, System.Globalization.CultureInfo.InvariantCulture, out var parsedSpacing) ? parsedSpacing : 0f;
+    var skills = (skillText ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
+        .Select(entry => entry.Split(':'))
+        .Select(pair => (Code: Convert.ToUInt32(pair[0], 16), Rank: int.Parse(pair[1], System.Globalization.CultureInfo.InvariantCulture)))
+        .ToArray();
     var hash = PasswordHasher.Hash(password);
+    var columns = (int)MathF.Ceiling(MathF.Sqrt(count));
+    var random = new Random(17);
     var created = 0;
+    var charactersCreated = 0;
     for (var index = 1; index <= count; index++)
     {
         var user = $"{prefix}{index:D4}";
-        if (await accounts.FindByUserIdAsync(user) is null)
+        var account = await accounts.FindByUserIdAsync(user);
+        if (account is null)
         {
-            await accounts.CreateAsync(user, hash);
+            account = await accounts.CreateAsync(user, hash);
             created++;
         }
+
+        var name = $"Lt{prefix}{index:D4}";
+        if (!placed || (await characters.ListByAccountAsync(account.Id)).Count > 0 || await characters.NameExistsAsync(name))
+            continue;
+        var position = spacing <= 0f
+            ? new System.Numerics.Vector3(at[0] + (float)(random.NextDouble() * 500 - 250), 0f, at[1] + (float)(random.NextDouble() * 500 - 250))
+            : new System.Numerics.Vector3(at[0] + ((index - 1) % columns - columns / 2) * spacing, 0f, at[1] + ((index - 1) / columns - columns / 2) * spacing);
+        var character = classes.CreatePlayer(playerClass, name, level);
+        foreach (var (code, rank) in skills)
+            character.Skills.Restore(code, rank);
+        var starter = CharacterRecordFactory.NewStarter(classes, account.Id, name, 0, playerClass, field, level: level);
+        await characters.CreateAsync(CharacterRecordFactory.FromLiveSession(starter, character, field, position));
+        charactersCreated++;
     }
 
-    Console.WriteLine($"created {created} of {count} load-test accounts '{prefix}0001'..'{prefix}{count:D4}'");
+    Console.WriteLine($"created {created} of {count} load-test accounts '{prefix}0001'..'{prefix}{count:D4}' and {charactersCreated} placed characters");
     return 0;
 }
 
@@ -218,6 +255,9 @@ static void PrintUsage()
         Commands:
           create-account <user> <password>            create a login account (hashed)
           create-bots <prefix> <count> <password>     create load-test accounts <prefix>0001..<prefix>NNNN
+              [--class C --field F --at x,z]            ... each with a character Lt<prefix>NNNN placed in field F around (x, z)
+              [--spacing S] [--level N]                 grid spacing (0: a 500-unit crowd) and level
+              [--skills hex:rank,...]                   learned skills
           add-char <user> <name> <class> [level]      seed a character on an account
           list <user>                                 list an account's characters
           set-gm <user> <level>                       set an account's game-master level (0 player .. 4 administrator)

@@ -1,3 +1,4 @@
+using System.Threading.Channels;
 using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
@@ -28,7 +29,12 @@ public sealed class PristonConnection : IPacketSink, IAsyncDisposable
     private readonly PristonConnectionOptions _options;
     private readonly PristonReplayWindow _replay = new();
     private readonly object _sendGate = new();
-    private readonly SemaphoreSlim _sendSignal = new(0, 1);
+    // Wakes the single writer; waiting on it allocates nothing, and closing completes it.
+    private readonly Channel<bool> _sendSignal = Channel.CreateBounded<bool>(new BoundedChannelOptions(1)
+    {
+        SingleReader = true,
+        FullMode = BoundedChannelFullMode.DropWrite
+    });
     private readonly CancellationTokenSource _lifetime = new();
     private readonly byte _keyHigh;
     private byte[] _pending;
@@ -101,7 +107,7 @@ public sealed class PristonConnection : IPacketSink, IAsyncDisposable
             var filled = 0;
             while (!IsClosed)
             {
-                var read = await _socket.ReceiveAsync(buffer.AsMemory(filled, ReceiveBufferSize - filled), SocketFlags.None, _lifetime.Token);
+                var read = await _socket.ReceiveAsync(buffer.AsMemory(filled, ReceiveBufferSize - filled), SocketFlags.None);
                 if (read == 0)
                 {
                     Close("peer closed");
@@ -217,7 +223,7 @@ public sealed class PristonConnection : IPacketSink, IAsyncDisposable
 
         if (signal)
         {
-            _sendSignal.Release();
+            _sendSignal.Writer.TryWrite(true);
         }
 
         return true;
@@ -243,14 +249,12 @@ public sealed class PristonConnection : IPacketSink, IAsyncDisposable
         {
             while (true)
             {
-                try
-                {
-                    await _sendSignal.WaitAsync(_lifetime.Token);
-                }
-                catch (OperationCanceledException)
+                if (!await _sendSignal.Reader.WaitToReadAsync() || IsClosed)
                 {
                     return;
                 }
+
+                _sendSignal.Reader.TryRead(out _);
 
                 int length;
                 lock (_sendGate)
@@ -270,7 +274,7 @@ public sealed class PristonConnection : IPacketSink, IAsyncDisposable
                 var offset = 0;
                 while (offset < length)
                 {
-                    var sent = await _socket.SendAsync(writing.AsMemory(offset, length - offset), SocketFlags.None, _lifetime.Token);
+                    var sent = await _socket.SendAsync(writing.AsMemory(offset, length - offset), SocketFlags.None);
                     if (sent <= 0)
                     {
                         Close("send failed");
@@ -339,6 +343,7 @@ public sealed class PristonConnection : IPacketSink, IAsyncDisposable
         }
 
         _socket.Close();
+        _sendSignal.Writer.TryComplete();
         _lifetime.Cancel();
     }
 
@@ -346,7 +351,6 @@ public sealed class PristonConnection : IPacketSink, IAsyncDisposable
     {
         Close("disposed");
         _lifetime.Dispose();
-        _sendSignal.Dispose();
         lock (_sendGate)
         {
             ArrayPool<byte>.Shared.Return(_pending);

@@ -383,15 +383,19 @@ internal sealed partial class ClientSession : IMovementVerdictSink
     {
         try
         {
-            await foreach (var snapshot in outbox.Reader.ReadAllAsync(_connection.Closed))
+            // The outbox completes when the session leaves the world or closes; waiting without a token allocates nothing.
+            while (await outbox.Reader.WaitToReadAsync())
             {
-                try
+                while (outbox.Reader.TryRead(out var snapshot))
                 {
-                    encoder.Encode(snapshot, _countingSink);
-                }
-                finally
-                {
-                    snapshot.ReleaseFrame();
+                    try
+                    {
+                        encoder.Encode(snapshot, _countingSink);
+                    }
+                    finally
+                    {
+                        snapshot.ReleaseFrame();
+                    }
                 }
             }
         }
@@ -600,9 +604,16 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         }
 
         // GETPLAYERINFO {WParam = object serial}; the reply is a plain 504-byte PLAYERINFO.
-        if (_encoder?.Describe((uint)request.WParam) is { } info)
+        if (_encoder is { } encoder)
         {
-            SendLarge(buffer => info.Write(buffer), PlayerInfoPacket.Size, encrypt: false);
+            lock (_sendGate)
+            {
+                var length = encoder.WriteDescription((uint)request.WParam, _scratch);
+                if (length > 0)
+                {
+                    SendSpan(_scratch.AsSpan(0, length), encrypt: false);
+                }
+            }
         }
     }
 

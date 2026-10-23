@@ -69,7 +69,7 @@ public sealed class PresenceFrame
     public void Release(uint receiver) => Interlocked.Decrement(ref _pins[(int)(receiver % Stripes) * StripeStride]);
 
     // Field tick only: claims an unpinned frame for a new tick, resizing the views when the entity count changed.
-    internal bool TryRebuild(int entityCount)
+    internal bool TryRebuild(int entityCount, ViewArrays arrays)
     {
         if (Retained)
         {
@@ -89,7 +89,8 @@ public sealed class PresenceFrame
         _generation++;
         if (Views.Length != entityCount)
         {
-            Views = new EntityView[entityCount];
+            arrays.Return(Views);
+            Views = arrays.Rent(entityCount);
         }
 
         _attachment?.Reset(entityCount);
@@ -105,13 +106,14 @@ internal sealed class FieldPresenceFrames
     // Beyond this many frames (encoders holding many ticks at once) new frames are not kept for reuse.
     private const int MaxFrames = 16;
     private readonly List<PresenceFrame> _frames = new();
+    private readonly ViewArrays _arrays = new();
     private PresenceFrame? _latest;
 
     public PresenceFrame Rent(int entityCount)
     {
         foreach (var frame in _frames)
         {
-            if (!ReferenceEquals(frame, _latest) && frame.TryRebuild(entityCount))
+            if (!ReferenceEquals(frame, _latest) && frame.TryRebuild(entityCount, _arrays))
             {
                 return frame;
             }
@@ -119,7 +121,7 @@ internal sealed class FieldPresenceFrames
 
         _frames.RemoveAll(frame => frame.Retained);
         var created = new PresenceFrame(entityCount);
-        created.TryRebuild(entityCount);
+        created.TryRebuild(entityCount, _arrays);
         if (_frames.Count < MaxFrames)
         {
             _frames.Add(created);
@@ -132,5 +134,40 @@ internal sealed class FieldPresenceFrames
     {
         frame.Publish();
         _latest = frame;
+    }
+}
+
+// View arrays of the exact lengths a field's entity count moves between (monsters spawn and die every few seconds), kept
+// for reuse: a large field's views would otherwise be a fresh large-object allocation at every change.
+internal sealed class ViewArrays
+{
+    private const int MaxKept = 32;
+    private readonly Dictionary<int, Stack<EntityView[]>> _byLength = new();
+    private int _kept;
+
+    public EntityView[] Rent(int length) =>
+        _byLength.TryGetValue(length, out var stack) && stack.TryPop(out var array) ? Taken(array) : new EntityView[length];
+
+    public void Return(EntityView[] array)
+    {
+        if (array.Length == 0 || _kept >= MaxKept)
+        {
+            return;
+        }
+
+        if (!_byLength.TryGetValue(array.Length, out var stack))
+        {
+            stack = new Stack<EntityView[]>();
+            _byLength.Add(array.Length, stack);
+        }
+
+        stack.Push(array);
+        _kept++;
+    }
+
+    private EntityView[] Taken(EntityView[] array)
+    {
+        _kept--;
+        return array;
     }
 }

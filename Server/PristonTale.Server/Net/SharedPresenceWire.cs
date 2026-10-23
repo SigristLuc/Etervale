@@ -14,8 +14,11 @@ internal sealed class SharedPresenceWire : IPresenceFrameAttachment
     private const int DetailedDone = 2;
     private const int CoarseBusy = 4;
     private const int CoarseDone = 8;
+    private const int DescriptionBusy = 16;
+    private const int DescriptionDone = 32;
     private byte[] _detailed = [];
     private byte[] _coarse = [];
+    private byte[]? _described;
     private int[] _state = [];
 
     private SharedPresenceWire(int entityCount) => Reset(entityCount);
@@ -23,17 +26,40 @@ internal sealed class SharedPresenceWire : IPresenceFrameAttachment
     public static SharedPresenceWire Create(int entityCount) => new(entityCount);
 
     // Field tick only, while no encoder holds the frame.
+    // Buffers keep their capacity (with slack) across ticks so a field whose entity count moves does not reallocate them.
     public void Reset(int entityCount)
     {
-        if (_state.Length != entityCount)
+        if (_state.Length < entityCount)
         {
-            _detailed = new byte[entityCount * DetailedSize];
-            _coarse = new byte[entityCount * CoarseSize];
-            _state = new int[entityCount];
+            var capacity = entityCount + entityCount / 4 + 16;
+            _detailed = new byte[capacity * DetailedSize];
+            _coarse = new byte[capacity * CoarseSize];
+            _described = null;
+            _state = new int[capacity];
             return;
         }
 
-        Array.Clear(_state);
+        Array.Clear(_state, 0, entityCount);
+    }
+
+    // The PLAYERINFO answer for the entity, built on the first request of the frame.
+    public ReadOnlySpan<byte> Description(int index, in EntityView view, WorldData data)
+    {
+        var described = Volatile.Read(ref _described);
+        if (described is null)
+        {
+            Interlocked.CompareExchange(ref _described, new byte[_state.Length * PlayerInfoPacket.Size], null);
+            described = Volatile.Read(ref _described)!;
+        }
+
+        var entry = described.AsSpan(index * PlayerInfoPacket.Size, PlayerInfoPacket.Size);
+        if (Claim(index, DescriptionBusy, DescriptionDone))
+        {
+            PresenceEncoder.DescriptionPacket(view, view.Revision, data).Write(entry);
+            Interlocked.Or(ref _state[index], DescriptionDone);
+        }
+
+        return entry;
     }
 
     public ReadOnlySpan<byte> Detailed(int index, in EntityView view, int field)

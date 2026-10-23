@@ -27,7 +27,7 @@ public sealed class PristonTcpServer(
 {
     // The client heartbeats every 4 s (CheckNetState); silence beyond this closes the connection.
     private static readonly TimeSpan IdleTimeout = TimeSpan.FromSeconds(60);
-    private static readonly TimeSpan ReportInterval = TimeSpan.FromSeconds(30);
+    private readonly TimeSpan _reportInterval = TimeSpan.FromSeconds(Math.Max(1, configuration.GetValue("Server:ReportSeconds", World.WorldTickService.DefaultReportSeconds)));
     private static readonly HashSet<string> NormalCloseReasons = ["peer closed", "receive ended", "cancelled", "server stopping", "disposed"];
     private readonly ConcurrentDictionary<ClientSession, Task> _clients = new();
     private readonly NetworkLimits _limits = NetworkLimits.From(configuration);
@@ -172,11 +172,11 @@ public sealed class PristonTcpServer(
                 }
 
                 var elapsed = DateTime.UtcNow - lastReport;
-                if (elapsed >= ReportInterval)
+                if (elapsed >= _reportInterval)
                 {
-                    logger.LogInformation("TCP: {Connections} connections, {Players} in world, out {OutKiB:F1} KiB/s, in {InKiB:F1} KiB/s",
-                        _clients.Count, world.PlayerCount, (sent - lastSent) / 1024.0 / elapsed.TotalSeconds,
-                        (received - lastReceived) / 1024.0 / elapsed.TotalSeconds);
+                    var outRate = (sent - lastSent) / 1024.0 / elapsed.TotalSeconds;
+                    logger.LogInformation("TCP: {Connections} connections, {Players} in world, out {OutKiB:F1} KiB/s ({PerConnection:F2} KiB/s per connection), in {InKiB:F1} KiB/s",
+                        _clients.Count, world.PlayerCount, outRate, outRate / Math.Max(1, _clients.Count), (received - lastReceived) / 1024.0 / elapsed.TotalSeconds);
                     lastReport = DateTime.UtcNow;
                     lastSent = sent;
                     lastReceived = received;
