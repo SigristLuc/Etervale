@@ -55,13 +55,14 @@ public readonly record struct DerivedStats(
         // Defence — float division
         int defence = (int)(fDex / 2f + fTal / 4f + fLevel * 1.4f + items.Defence);
 
-        // Absorption — uses the just-computed Defence as a float
-        int absorption = (int)(defence / 100f + fLevel / 10f + (fStr + fTal) / 40f) + 1;
+        // Absorption uses the truncated defence; every two items with an absorb of their own add one, at most two.
+        int absorption = (int)(defence / 100f + fLevel / 10f + items.Absorb + (fStr + fTal) / 40f) + 1 + Math.Min(2, items.AbsorbItems / 2);
 
-        int maxWeight = (int)(fStr * 2f + fHlt * 1.5f + fLevel * 3f + 60f);
+        int maxWeight = (short)(fStr * 2f + fHlt * 1.5f + fLevel * 3f + 60f);
 
-        // Move speed. Carried weight is not tracked, so the formula has no weight penalty.
-        int moveSpeed = (int)((fTal + fHlt + fLevel + 60f) / 150f) + 1;
+        // Move speed loses the carried share of the weight limit; boots and specializations add their speed.
+        float weightShare = maxWeight > 0 ? carriedWeight / (float)maxWeight : 0f;
+        int moveSpeed = (int)((fTal + fHlt + fLevel + 60f) / 150f - weightShare + items.MoveSpeed) + 1;
 
         // Max HP — branch on LifeFunction
         float life = fn.LifeFunction switch
