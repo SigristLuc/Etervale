@@ -38,6 +38,12 @@ internal static class NpcServiceTransactions
             return NpcServiceOutcome.Failed(NpcServiceStatus.NotAvailable, "this service is not available yet");
         }
 
+        // A character over the weight limit cannot open the warehouse.
+        if (command.Service == NpcServiceKind.Warehouse && command.Action == NpcServiceAction.Open && CarriedWeight.IsOverweight(player.Character))
+        {
+            return NpcServiceOutcome.Failed(NpcServiceStatus.OverWeight, ItemRuleMessages.OverWeight);
+        }
+
         return new NpcServiceOutcome(true, NpcServiceStatus.Ok, player.Character.InventoryRevision, 0, "");
     }
 
@@ -276,6 +282,7 @@ internal static class NpcServiceTransactions
         NpcServiceStatus.NotEnoughGold => "not enough gold",
         NpcServiceStatus.NoSpace => "not enough room",
         NpcServiceStatus.GoldLimit => "you cannot carry more gold",
+        NpcServiceStatus.OverWeight => ItemRuleMessages.OverWeight,
         _ => "the NPC refused"
     };
 

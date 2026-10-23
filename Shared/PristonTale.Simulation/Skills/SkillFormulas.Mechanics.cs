@@ -16,7 +16,7 @@ public static partial class SkillFormulas
     public static (int Min, int Max) WeaponItemDamage(PlayerCharacter caster)
     {
         var weapon = caster.GetEquipped(EquipmentSlot.Weapon);
-        if (weapon is null || weapon.IsBroken)
+        if (weapon is null)
         {
             return default;
         }

@@ -298,13 +298,17 @@ public sealed class WorldPlayer
         Position = new Vector3(reached.X, floor, reached.Z);
         Facing = facing;
 
-        MoveState = !moving ? MoveStateView.Idle : running ? MoveStateView.Running : MoveStateView.Walking;
+        // A character over the weight limit only walks, whatever the client reports.
+        var runs = running && !CarriedWeight.IsOverweight(_character);
+        MoveState = !moving ? MoveStateView.Idle : runs ? MoveStateView.Running : MoveStateView.Walking;
         return MovementVerdict.Accepted;
     }
 
     private float RefillMoveBudget(long nowMs)
     {
-        float rate = Locomotion.RunUnitsPerSecond(_character.Derived.MoveSpeed) * ReportSpeedTolerance;
+        var moveSpeed = _character.Derived.MoveSpeed;
+        float rate = (CarriedWeight.IsOverweight(_character) ? Locomotion.WalkUnitsPerSecond(moveSpeed, true) : Locomotion.RunUnitsPerSecond(moveSpeed))
+            * ReportSpeedTolerance;
         if (_budgetMs < 0)
         {
             _moveBudget = rate * FirstReportSeconds + ReportDistanceSlack;

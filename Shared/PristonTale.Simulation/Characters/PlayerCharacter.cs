@@ -96,7 +96,7 @@ public sealed class PlayerCharacter
 
         if (item is not null)
         {
-            return gold == 0 && Inventory.TryAdd(item);
+            return gold == 0 && Items.CarriedWeight.CanTake(this, Items.CarriedWeight.Of(item)) && Inventory.TryAdd(item);
         }
 
         if (gold <= 0 || !TryChangeMoney(gold))
@@ -136,12 +136,13 @@ public sealed class PlayerCharacter
 
     private DerivedStats _derived;
     private long _derivedEffectsRevision = -1;
+    private bool _derivedStale;
 
     public DerivedStats Derived
     {
         get
         {
-            if (_derivedEffectsRevision != Effects.Revision)
+            if (_derivedEffectsRevision != Effects.Revision || _derivedStale)
             {
                 Recompute();
             }
@@ -149,6 +150,20 @@ public sealed class PlayerCharacter
             return _derived;
         }
     }
+
+    private EquipmentTotals _equipmentTotals = EquipmentTotals.None;
+
+    // What the usable equipped items add; reading it brings the derived stats up to date first.
+    public EquipmentTotals EquipmentTotals
+    {
+        get
+        {
+            _ = Derived;
+            return _equipmentTotals;
+        }
+    }
+
+    public int CarriedWeight => Derived.CarriedWeight;
 
     // The attack animation rate: the attack speed and the attack-speed buffs.
     public float AttackRate => AnimationRate.AttackRate(Derived.AttackSpeed, Effects.Totals.Flat(StatKind.AttackMotionSpeed));
@@ -201,9 +216,9 @@ public sealed class PlayerCharacter
         }
         else
         {
-            if (!CanEquip(slot, item))
+            if (!CanHold(slot, item))
             {
-                throw new ArgumentException("Item requirements or equipment slot are invalid.", nameof(item));
+                throw new ArgumentException("Item equipment slot is invalid.", nameof(item));
             }
 
             _equipment[slot] = item;
@@ -217,9 +232,33 @@ public sealed class PlayerCharacter
         InventoryRevision++;
     }
 
-    public bool CanEquip(EquipmentSlot slot, ItemInstance item)
+    // A worn item must fit the slot, be usable by the character and leave the hands consistent: a two-handed weapon
+    // holds the off hand too.
+    public bool CanEquip(EquipmentSlot slot, ItemInstance item) => CanHold(slot, item) && ItemUsability.CanUse(this, item);
+
+    // Slot, usability and identity checks without the hand rules, which equipping from the bag resolves by swapping.
+    public bool CanWear(EquipmentSlot slot, ItemInstance item) => Fits(slot, item) && ItemUsability.CanUse(this, item);
+
+    // Whether the slot can hold the item at all, usable or not: a saved item whose requirements are no longer met stays
+    // worn without adding anything.
+    public bool CanHold(EquipmentSlot slot, ItemInstance item)
     {
-        if (item is null || item.Count != 1 || item.UpgradeLevel != 0 || !Enum.IsDefined(slot))
+        if (!Fits(slot, item))
+        {
+            return false;
+        }
+
+        if (slot == EquipmentSlot.Weapon && item.Definition.TwoHanded && GetEquipped(EquipmentSlot.OffHand) is not null)
+        {
+            return false;
+        }
+
+        return slot != EquipmentSlot.OffHand || GetEquipped(EquipmentSlot.Weapon)?.Definition.TwoHanded != true;
+    }
+
+    private bool Fits(EquipmentSlot slot, ItemInstance item)
+    {
+        if (item is null || item.Count != 1 || !Enum.IsDefined(slot))
         {
             return false;
         }
@@ -227,21 +266,7 @@ public sealed class PlayerCharacter
         var definition = item.Definition;
         var sameSlot = definition.EquipSlot == slot;
         var ringSlot = definition.Kind == ItemKind.Ring && slot is EquipmentSlot.RingLeft or EquipmentSlot.RingRight;
-        var requirements = definition.Requirements;
-        if ((!sameSlot && !ringSlot) || Level < definition.RequiredLevel
-            || definition.AllowedJobs != 0 && (definition.AllowedJobs & (uint)Definition.JobBitCode) == 0
-            || Attributes.Strength < requirements.Strength || Attributes.Spirit < requirements.Spirit
-            || Attributes.Talent < requirements.Talent || Attributes.Agility < requirements.Agility || Attributes.Health < requirements.Health)
-        {
-            return false;
-        }
-
-        if (slot == EquipmentSlot.Weapon && definition.TwoHanded && GetEquipped(EquipmentSlot.OffHand) is not null)
-        {
-            return false;
-        }
-
-        if (slot == EquipmentSlot.OffHand && GetEquipped(EquipmentSlot.Weapon)?.Definition.TwoHanded == true)
+        if (!sameSlot && !ringSlot)
         {
             return false;
         }
@@ -257,16 +282,45 @@ public sealed class PlayerCharacter
         return true;
     }
 
+    // The item replaced in the slot takes the bag cell; a two-handed weapon also sends the off-hand item to the bag, and
+    // an off-hand item sends a held two-handed weapon there.
     public bool TryEquipFromInventory(int anchor, EquipmentSlot slot)
     {
-        if (anchor < 0 || anchor >= Inventory.Capacity || !CanEquip(slot, Inventory[anchor]))
+        if (anchor < 0 || anchor >= Inventory.Capacity || !CanWear(slot, Inventory[anchor]))
         {
             return false;
         }
 
         var item = Inventory[anchor];
-        if (!Inventory.TryExchange(anchor, GetEquipped(slot)))
+        EquipmentSlot? otherHand = null;
+        if (slot == EquipmentSlot.Weapon && item.Definition.TwoHanded)
         {
+            otherHand = EquipmentSlot.OffHand;
+        }
+        else if (slot == EquipmentSlot.OffHand && GetEquipped(EquipmentSlot.Weapon)?.Definition.TwoHanded == true)
+        {
+            otherHand = EquipmentSlot.Weapon;
+        }
+
+        var displaced = otherHand.HasValue ? GetEquipped(otherHand.Value) : null;
+        if (displaced is not null)
+        {
+            if (!Inventory.TryAdd(displaced))
+            {
+                return false;
+            }
+
+            Equip(otherHand.Value, null);
+        }
+
+        if (!Inventory.TryExchange(Inventory.Find(item.InstanceId), GetEquipped(slot)))
+        {
+            if (displaced is not null)
+            {
+                Inventory.TakeAt(Inventory.Find(displaced.InstanceId));
+                Equip(otherHand.Value, displaced);
+            }
+
             return false;
         }
 
@@ -274,10 +328,11 @@ public sealed class PlayerCharacter
         return true;
     }
 
+    // An equipped item cannot be taken off while the character carries more than the weight limit.
     public bool TryUnequip(EquipmentSlot slot)
     {
         var item = GetEquipped(slot);
-        if (item is null || !Inventory.TryAdd(item))
+        if (item is null || Items.CarriedWeight.IsOverweight(this) || !Inventory.TryAdd(item))
         {
             return false;
         }
@@ -321,7 +376,7 @@ public sealed class PlayerCharacter
         var held = 0u;
         foreach (var slot in new[] { EquipmentSlot.Weapon, EquipmentSlot.OffHand })
         {
-            if (GetEquipped(slot) is { IsBroken: false } item && Enum.IsDefined(item.Definition.Kind))
+            if (GetEquipped(slot) is { } item && Enum.IsDefined(item.Definition.Kind))
             {
                 held |= 1u << (int)item.Definition.Kind;
             }
@@ -330,36 +385,24 @@ public sealed class PlayerCharacter
         return held;
     }
 
-    public ItemStatBlock EquippedStats()
-    {
-        var total = ItemStatBlock.Zero;
-        foreach (var item in _equipment.Values)
-        {
-            if (item is null)
-            {
-                continue;
-            }
-
-            total = total.Add(item.TotalStats);
-        }
-        return total;
-    }
-
-    // The single derived-stats path: attributes and level, equipment, passive skills, then every active modifier.
+    // The single derived-stats path: attributes and level, usable equipment with its class specialization, carried
+    // weight, passive skills, then every active modifier.
     private void Recompute()
     {
         PassiveSkillEffects.Sync(this);
         Effects.SetHeld(HeldKinds());
-        var equipped = EquippedStats();
+        _derivedStale = false;
+        var equipped = Items.EquipmentTotals.Sum(this);
         var armorPercent = Effects.Totals.Flat(StatKind.ArmorDefence);
-        if (armorPercent != 0 && GetEquipped(EquipmentSlot.Armor) is { IsBroken: false } armor
-            && (armor.JobSpecMask & (uint)Definition.JobBitCode) != 0)
+        if (armorPercent != 0 && GetEquipped(EquipmentSlot.Armor) is { } armor && armor.Roll.SpecializedFor(Definition.JobBitCode))
         {
-            // The class armor's own defence grows by the percent before defence feeds absorption.
-            equipped = equipped with { Defence = equipped.Defence + armor.TotalStats.Defence * armorPercent / 100 };
+            // The class armor's own defence, specialization included, grows by the percent before defence feeds absorption.
+            var armorDefence = armor.Roll.Defence + armor.Roll.Spec.Defence;
+            equipped = equipped with { Defence = equipped.Defence + armorDefence * armorPercent / 100 };
         }
 
-        var stats = DerivedStats.Compute(Attributes, Level, Definition.FunctionProfile, equipped);
+        _equipmentTotals = equipped;
+        var stats = DerivedStats.Compute(Attributes, Level, Definition.FunctionProfile, equipped, Items.CarriedWeight.Of(this));
         _derivedEffectsRevision = Effects.Revision;
         _derived = ModifierRules.Apply(PassiveSkills.Apply(stats, this), Effects.Totals);
         Life = Math.Min(Life, _derived.MaxLife);
@@ -370,6 +413,7 @@ public sealed class PlayerCharacter
     private void OnInventoryChanged()
     {
         InventoryRevision++;
+        _derivedStale = true;
     }
 
     public void RestoreInventoryHistory(long revision, IEnumerable<AppliedInventoryOperation> operations)

@@ -10,10 +10,15 @@ public sealed class HudInventoryPanel
 {
     private static readonly Color Placement = Color.FromNonPremultiplied(160, 235, 255, 128);
     private static readonly Color Selection = Color.FromNonPremultiplied(255, 200, 0, 128);
+    // Items the character cannot use, in the bag or worn (a worn one then adds nothing).
+    private static readonly Color NotUsable = Color.FromNonPremultiplied(255, 0, 0, 64);
     private readonly Dictionary<Guid, string> _counts = new();
     private long _revision = -1;
     private long _money = -1;
     private string _gold = "";
+    private (int Carried, int Max) _weightValue = (-1, -1);
+    private string _weight = "";
+    private OwnerState _state;
     private OwnedItemView _hovered;
     private OwnedItemView _dragged;
 
@@ -32,12 +37,18 @@ public sealed class HudInventoryPanel
         }
 
         Refresh(state);
+        _state = state;
         foreach (var item in state.Items)
         {
             if (item.Slot >= 0)
             {
                 var slot = HudInventoryLayout.Equipment(origin, item.Slot);
                 painter.Sprite(HudInventoryLayout.Cover(item.Slot), slot.X, slot.Y);
+            }
+
+            if (!Usable(item, state))
+            {
+                painter.Fill(Bounds(origin, item), NotUsable);
             }
         }
 
@@ -59,7 +70,7 @@ public sealed class HudInventoryPanel
 
         if (dragged is not null && interactive)
         {
-            DrawPlacement(painter, origin, dragged, pointer);
+            DrawPlacement(painter, origin, dragged, pointer, Usable(dragged, state));
         }
 
         foreach (var item in state.Items)
@@ -70,6 +81,8 @@ public sealed class HudInventoryPanel
 
         var money = HudInventoryLayout.Money(origin);
         painter.TextCentered(_gold, money.Left, money.Right, money.Y);
+        var weight = HudInventoryLayout.Weight(origin);
+        painter.TextCentered(_weight, weight.Left, weight.Right, weight.Y);
         _hovered = hovered;
         _dragged = dragged;
     }
@@ -88,7 +101,13 @@ public sealed class HudInventoryPanel
         }
     }
 
-    private static void DrawPlacement(HudPainter painter, Point origin, OwnedItemView dragged, Point pointer)
+    // Requirements are checked against the owner's current level and attributes, as the original re-checks them on every
+    // stat change; items without details count as usable.
+    public static bool Usable(OwnedItemView item, OwnerState state) =>
+        item.Details is null || state is null || item.Details.Usable(state.Level,
+            new CharacterAttributes(state.Strength, state.Spirit, state.Talent, state.Agility, state.Health));
+
+    private static void DrawPlacement(HudPainter painter, Point origin, OwnedItemView dragged, Point pointer, bool usable)
     {
         var cell = HudInventoryLayout.CellAt(origin, pointer);
         if (cell >= 0)
@@ -103,7 +122,7 @@ public sealed class HudInventoryPanel
             var bounds = HudInventoryLayout.Equipment(origin, slot);
             if (bounds.Contains(pointer))
             {
-                painter.Fill(bounds, Placement);
+                painter.Fill(bounds, usable ? Placement : NotUsable);
                 return;
             }
         }
@@ -115,22 +134,9 @@ public sealed class HudInventoryPanel
             : item.Kind == ItemKind.Potion ? "Right-click: drink one"
             : "Drag: move  Shift-drag: split  Right-click: equip";
         var count = _counts.GetValueOrDefault(item.InstanceId, "");
-        var name = count.Length > 0 ? $"{item.Name} ({count})" : item.Name;
+        var named = count.Length > 0 ? item with { Name = $"{item.Name} ({count})" } : item;
         var note = Note?.Invoke(item) ?? "";
-        if (note.Length > 0)
-        {
-            Npc.HudItemTooltip.Draw(painter, layout, pointer, name, note, action);
-            return;
-        }
-
-        var width = Math.Min(layout.Width - 8, Math.Max(painter.Measure(name), painter.Measure(action)) + 24);
-        var size = HudPainter.InfoBoxBounds(0, 0, width, 48);
-        var bounds = layout.PlaceOverlay(new Point(pointer.X - size.Width / 2, pointer.Y - size.Height - 8), size.Width, size.Height);
-        bounds = HudPainter.InfoBoxBounds(bounds.X, bounds.Y, bounds.Width, bounds.Height);
-        painter.Flush();
-        painter.InfoBox(bounds);
-        painter.TextCentered(painter.Fit(name, bounds.Width - 16), bounds.Left, bounds.Right, bounds.Y + 9, new Color(255, 255, 180));
-        painter.TextCentered(painter.Fit(action, bounds.Width - 16), bounds.Left, bounds.Right, bounds.Y + 26, new Color(200, 200, 200));
+        HudItemDetailTooltip.Draw(painter, layout, pointer, HudItemDetailTooltip.Lines(named, _state, note, action));
     }
 
     public static Rectangle Bounds(Point origin, OwnedItemView item) =>
@@ -174,6 +180,12 @@ public sealed class HudInventoryPanel
         {
             _money = state.Money;
             _gold = _money.ToString("N0");
+        }
+
+        if (_weightValue != (state.CarriedWeight, state.MaxWeight))
+        {
+            _weightValue = (state.CarriedWeight, state.MaxWeight);
+            _weight = $"{state.CarriedWeight}/{state.MaxWeight}";
         }
     }
 }

@@ -150,6 +150,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
     public PlayerCharacter Player => _player;
     public OwnerState Owner { get; private set; }
+
+    // Over the weight limit the character only walks.
+    private bool Overweight => Owner?.Overweight == true;
     public bool PointerCaptured { get; set; }
     public bool CameraInputEnabled { get; set; } = true;
     public bool RightAttackEnabled { get; set; }
@@ -1415,7 +1418,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 ClearAttackTarget();
                 _lootInteraction.Cancel();
                 _moveTargetRun = doubleClickRun || shiftRun;
-                _runMode = _moveTargetRun;
+                _runMode = _moveTargetRun && !Overweight;
                 _reportDue = true;
             }
         }
@@ -1434,7 +1437,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         {
             var current = _playerBody.PlanarPosition;
             var keyboard = Keyboard.GetState();
-            var running = _moveTargetRun || keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
+            var running = (_moveTargetRun || keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift)) && !Overweight;
             if (running != _runMode)
             {
                 _runMode = running;

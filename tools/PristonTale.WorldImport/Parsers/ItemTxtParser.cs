@@ -97,10 +97,19 @@ public sealed class ItemTxtParser
                 case KeyMaps.ItemReqDexterity: reqDex = t.NextInt(); break;
                 case KeyMaps.ItemReqHealth: reqHea = t.NextInt(); break;
                 case KeyMaps.ItemJobMask:
-                    jobMask = FoldJobNames(t.RemainingWords()); break; // overwrite (matches src assignment)
+                    jobMask = LastJob(t.RemainingWords(), jobMask);
+                    break;
                 case KeyMaps.ItemJobRandom:
                     foreach (var w in t.RemainingWords())
-                        jobRandom.Add((long)JobBitFor(w));
+                    {
+                        // Names of classes the game does not have are skipped rather than stored as an empty class.
+                        var job = JobBitFor(w);
+                        if (job != 0)
+                        {
+                            jobRandom.Add(job);
+                        }
+                    }
+
                     break;
                 default:
                     HandleAliasGroups(key, t,
@@ -212,14 +221,23 @@ public sealed class ItemTxtParser
         "**라이프추가" or "**생명력추가" => 9, "**명중력" => 10, "**공격력" => 11,
         "**마나재생" or "**기력재생" => 12, "**라이프재생" or "**생명력재생" => 13,
         "**스테미나재생" or "**근력재생" => 14,
+        "**LifeRegenRange" => 15,
         _ => -1,
     };
 
-    private static long FoldJobNames(IReadOnlyList<string> words)
+    // A fixed specialization names one class; when several are written the last known one wins.
+    private static long LastJob(IReadOnlyList<string> words, long current)
     {
-        long mask = 0;
+        var mask = current;
         foreach (var w in words)
-            mask |= JobBitFor(w);
+        {
+            var job = JobBitFor(w);
+            if (job != 0)
+            {
+                mask = job;
+            }
+        }
+
         return mask;
     }
 
@@ -235,6 +253,8 @@ public sealed class ItemTxtParser
         "knight" or "기사" => (uint)JobBitCode.Knight,
         "magician" or "magic" or "마법사" => (uint)JobBitCode.Magician,
         "priestess" or "priest" or "사제" => (uint)JobBitCode.Priestess,
+        "assassin" => (uint)JobBitCode.Assassin,
+        "shaman" => (uint)JobBitCode.Shaman,
         _ => 0u,
     };
 }

@@ -106,13 +106,13 @@ public static partial class SkillFormulas
     public static bool WeaponAllowed(PlayerCharacter caster, Skill skill)
     {
         var weapon = caster.GetEquipped(EquipmentSlot.Weapon);
-        if (weapon is not null && !weapon.IsBroken && skill.AllowsWeapon(weapon.Definition.Kind))
+        if (weapon is not null && skill.AllowsWeapon(weapon.Definition.Kind))
         {
             return true;
         }
 
         var offHand = caster.GetEquipped(EquipmentSlot.OffHand);
-        return offHand is not null && !offHand.IsBroken && skill.AllowsWeapon(offHand.Definition.Kind);
+        return offHand is not null && skill.AllowsWeapon(offHand.Definition.Kind);
     }
 
     // Cast range: the skill's table (at least the weapon's range, or added to it, per RangeMode), or the weapon's attack

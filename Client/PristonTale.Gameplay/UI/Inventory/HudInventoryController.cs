@@ -163,23 +163,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     public Rectangle ItemBounds(OwnedItemView item) =>
         item.Slot >= 0 ? EquipmentBounds(item.Slot) : HudInventoryLayout.Cell(_origin, item.Anchor, item.Width, item.Height);
 
-    private EquipmentSlot? SlotFor(ItemKind kind)
-    {
-        return kind switch
-        {
-            ItemKind.Sword or ItemKind.Axe or ItemKind.Hammer or ItemKind.Claw or ItemKind.Pole
-                or ItemKind.Bow or ItemKind.ThrowingWeapon or ItemKind.Staff or ItemKind.Dagger
-                or ItemKind.Phantom => EquipmentSlot.Weapon,
-            ItemKind.Armor => EquipmentSlot.Armor,
-            ItemKind.Shield => EquipmentSlot.OffHand,
-            ItemKind.Gloves => EquipmentSlot.Gloves,
-            ItemKind.Boots => EquipmentSlot.Boots,
-            ItemKind.Bracelet => EquipmentSlot.Bracelet,
-            ItemKind.Amulet => EquipmentSlot.Amulet,
-            ItemKind.Sheltom => EquipmentSlot.Sheltom,
-            ItemKind.Ring => _state.Items.Any(item => item.Slot == (int)EquipmentSlot.RingLeft) ? EquipmentSlot.RingRight : EquipmentSlot.RingLeft,
-            _ => null
-        };
-    }
+    private EquipmentSlot? SlotFor(ItemKind kind) =>
+        ItemEquipmentMetadata.DefaultSlot(kind, ItemEquipmentMetadata.SlotOf(kind), slot => _state.Items.Any(item => item.Slot == (int)slot));
 
 }

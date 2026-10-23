@@ -321,7 +321,8 @@ public sealed partial class WorldServer
             if (!InventoryCommands.Apply(candidate, command))
             {
                 return new PreparedCharacterOperation<InventoryOutcome>(original, null, null,
-                    new InventoryOutcome(false, original.InventoryRevision, "invalid operation or stale inventory revision"));
+                    new InventoryOutcome(false, original.InventoryRevision,
+                        InventoryCommands.Refusal(original, command) ?? "invalid operation or stale inventory revision"));
             }
 
             candidate.RecordInventoryOperation(command);

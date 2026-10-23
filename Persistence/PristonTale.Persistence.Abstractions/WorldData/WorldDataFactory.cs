@@ -14,19 +14,15 @@ public static class WorldDataFactory
 
     public static ItemDefinition ToItemDefinition(ItemTemplateRecord r)
     {
-        // Average of the min/max roll bounds for the equipped baseline (the per-copy roll lives elsewhere).
+        // The shop form: the low end of every authored range. Copies made by drops roll from the template.
+        var weapon = r.DamageMinHigh != 0 || r.DamageMaxHigh != 0;
         var baseStats = new ItemStatBlock(
-            DamageMin: Mid(r.DamageMinLow, r.DamageMinHigh),
-            DamageMax: Mid(r.DamageMaxLow, r.DamageMaxHigh),
-            Defence: Mid(r.DefenceMin, r.DefenceMax),
-            AttackRating: Mid(r.AttackRatingMin, r.AttackRatingMax),
+            DamageMin: weapon ? r.DamageMinLow : 0,
+            DamageMax: weapon ? r.DamageMaxLow : 0,
+            Defence: r.DefenceMin,
+            AttackRating: r.AttackRatingMin,
             AttackSpeed: r.AttackSpeed,
             Strength: 0, Spirit: 0, Talent: 0, Agility: 0, Health: 0);
-
-        var rolledMin = new ItemStatBlock(
-            r.DamageMinLow, r.DamageMaxLow, r.DefenceMin, r.AttackRatingMin, 0, 0, 0, 0, 0, 0);
-        var rolledMax = new ItemStatBlock(
-            r.DamageMinHigh, r.DamageMaxHigh, r.DefenceMax, r.AttackRatingMax, 0, 0, 0, 0, 0, 0);
 
         var (gridWidth, gridHeight) = ItemGridSizes.Of(r.Code);
         return ItemEquipmentMetadata.Apply(new ItemDefinition(
@@ -47,42 +43,81 @@ public static class WorldDataFactory
             SpecializationJobs = (uint)r.JobMask,
             ShootingRange = r.ShootingRange,
             BaseStats = baseStats,
-            MaxDurability = r.DurabilityMax,
+            MaxDurability = r.DurabilityMin,
             Weight = r.Weight,
             Price = r.Price,
-            RolledStatsMin = rolledMin,
-            RolledStatsMax = rolledMax,
-            Resistances = ToItemResistances(r),
-            SpecialBonuses = r.Specials
-                .Select(static s => new ItemSpecialBonus(s.BonusCode, (int)s.Value0))
-                .ToList(),
-            JobRandomSpecMask = FoldJobRandom(r.JobRandom),
+            Resistances = new ResistanceBlock((short)r.ResBionicMin, (short)r.ResEarthMin, (short)r.ResFireMin, (short)r.ResIceMin,
+                (short)r.ResLightingMin, (short)r.ResPoisonMin, (short)r.ResWaterMin, (short)r.ResWindMin),
+            Critical = r.CriticalHit,
+            PotionSpace = r.PotionSpace,
+            MagicMastery = r.MagicMastery,
+            UniqueItem = (int)r.UniqueItem,
+            Template = ToItemTemplate(r),
         });
     }
 
     public static IReadOnlyList<ItemDefinition> ToItemDefinitions(IEnumerable<ItemTemplateRecord> records) =>
         records.Where(static record => record.ItemCodeMask != 0).Select(ToItemDefinition).ToList();
 
-    // Item resistances are min/max ranges; the equipped baseline uses the midpoint of each element.
-    private static ResistanceBlock ToItemResistances(ItemTemplateRecord r) => new(
-        (short)Mid(r.ResBionicMin, r.ResBionicMax),
-        (short)Mid(r.ResEarthMin, r.ResEarthMax),
-        (short)Mid(r.ResFireMin, r.ResFireMax),
-        (short)Mid(r.ResIceMin, r.ResIceMax),
-        (short)Mid(r.ResLightingMin, r.ResLightingMax),
-        (short)Mid(r.ResPoisonMin, r.ResPoisonMax),
-        (short)Mid(r.ResWaterMin, r.ResWaterMax),
-        (short)Mid(r.ResWindMin, r.ResWindMax));
-
-    private static uint FoldJobRandom(IReadOnlyList<ItemTemplateJobRandomRecord> jobs)
+    // Special bonus codes as the importer stores them: 0 absorb, 1 defence, 2 move speed, 3 block, 4 attack speed,
+    // 5 critical, 6 range, 7 magic mastery, 8 mana per level, 9 life per level, 10 attack rating per level, 11 damage per
+    // level (second value), 12 mana regeneration, 13 life regeneration, 14 stamina regeneration, 15 life regeneration range.
+    public static ItemTemplate ToItemTemplate(ItemTemplateRecord r)
     {
-        var mask = 0u;
-        foreach (var j in jobs)
-            mask |= (uint)j.JobBitCode;
-        return mask;
-    }
+        var spec = new ItemSpecTemplate();
+        foreach (var special in r.Specials)
+        {
+            var range = new ItemFloatRange(special.Value0, special.Value1);
+            var whole = new ItemRange((int)special.Value0, (int)special.Value1);
+            spec = special.BonusCode switch
+            {
+                0 => spec with { Absorb = range },
+                1 => spec with { Defence = whole },
+                2 => spec with { MoveSpeed = range },
+                3 => spec with { Block = special.Value0 },
+                4 => spec with { AttackSpeed = (int)special.Value0 },
+                5 => spec with { Critical = (int)special.Value0 },
+                6 => spec with { ShootingRange = (int)special.Value0 },
+                7 => spec with { MagicMastery = range },
+                8 => spec with { LevelMana = (int)special.Value0 },
+                9 => spec with { LevelLife = (int)special.Value0 },
+                10 => spec with { LevelAttackRating = whole },
+                11 => spec with { LevelDamage = (int)special.Value1 },
+                12 => spec with { ManaRegen = range },
+                13 => spec with { LifeRegen = special.Value0, LifeRegenRange = ItemFloatRange.None },
+                14 => spec with { StaminaRegen = special.Value0 },
+                15 => spec with { LifeRegen = special.Value0, LifeRegenRange = range },
+                _ => spec
+            };
+        }
 
-    private static int Mid(int min, int max) => (min + max) / 2;
+        return new ItemTemplate
+        {
+            Durability = new ItemRange(r.DurabilityMin, r.DurabilityMax),
+            DamageMin = new ItemRange(r.DamageMinLow, r.DamageMinHigh),
+            DamageMax = new ItemRange(r.DamageMaxLow, r.DamageMaxHigh),
+            AttackRating = new ItemRange(r.AttackRatingMin, r.AttackRatingMax),
+            Defence = new ItemRange(r.DefenceMin, r.DefenceMax),
+            Absorb = new ItemFloatRange(r.AbsorbMin, r.AbsorbMax),
+            Block = new ItemFloatRange(r.BlockMin, r.BlockMax),
+            MoveSpeed = new ItemFloatRange(r.SpeedMin, r.SpeedMax),
+            LifeRegen = new ItemFloatRange(r.LifeRegenMin, r.LifeRegenMax),
+            ManaRegen = new ItemFloatRange(r.ManaRegenMin, r.ManaRegenMax),
+            StaminaRegen = new ItemFloatRange(r.StaminaRegenMin, r.StaminaRegenMax),
+            AddLife = new ItemRange(r.AddLifeMin, r.AddLifeMax),
+            AddMana = new ItemRange(r.AddManaMin, r.AddManaMax),
+            AddStamina = new ItemRange(r.AddStaminaMin, r.AddStaminaMax),
+            Resistances =
+            [
+                new(r.ResBionicMin, r.ResBionicMax), new(r.ResEarthMin, r.ResEarthMax), new(r.ResFireMin, r.ResFireMax),
+                new(r.ResIceMin, r.ResIceMax), new(r.ResLightingMin, r.ResLightingMax), new(r.ResPoisonMin, r.ResPoisonMax),
+                new(r.ResWaterMin, r.ResWaterMax), new(r.ResWindMin, r.ResWindMax)
+            ],
+            SpecJob = (uint)r.JobMask,
+            RandomSpecJobs = r.JobRandom.OrderBy(static job => job.Ordinal).Select(static job => (uint)job.JobBitCode).Where(static job => job != 0).ToList(),
+            Spec = spec
+        };
+    }
 
     // Source configs name authoring .ini files, while shipped model tables use .inx.
     // Keep the persisted value intact and normalize only the runtime definition.

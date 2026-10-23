@@ -20,6 +20,11 @@ internal static class GroundPickupTransactions
         try
         {
             var candidate = original.CloneForInventoryOperation();
+            if (item is not null && !CarriedWeight.CanTake(candidate, CarriedWeight.Of(item)))
+            {
+                return new(original, null, null, new(false, original.InventoryRevision, ItemRuleMessages.OverWeight));
+            }
+
             if (!candidate.ReceiveGroundLoot(item, drop!.Gold ? drop.Amount : 0))
             {
                 return new(original, null, null, new(false, original.InventoryRevision, "inventory full or money limit reached"));

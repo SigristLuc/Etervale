@@ -43,4 +43,21 @@ public static class InventoryCommands
             _ => false
         };
     }
+
+    // The item rule that refuses a command, for the player's message; null when the command fails for another reason.
+    public static string Refusal(PlayerCharacter character, InventoryCommand command)
+    {
+        switch (command.Action)
+        {
+            case InventoryAction.Equip:
+                var anchor = character.Inventory.Find(command.ItemId);
+                return anchor >= 0 && character.Inventory[anchor] is { } item && item.Definition.IsEquippable && !ItemUsability.CanUse(character, item)
+                    ? ItemRuleMessages.CannotUse
+                    : null;
+            case InventoryAction.Unequip:
+                return CarriedWeight.IsOverweight(character) ? ItemRuleMessages.OverWeight : null;
+            default:
+                return null;
+        }
+    }
 }

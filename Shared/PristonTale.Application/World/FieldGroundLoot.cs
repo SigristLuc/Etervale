@@ -1,5 +1,6 @@
 using System.Numerics;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Loot;
 
 namespace PristonTale.Application.World;
@@ -18,7 +19,8 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
 
     public int Count => _entries.Count;
 
-    public void Place(KillPayout payout, Vector3 position, bool publicDrop, long nowMs)
+    // Each dropped item is made when it falls: its values are rolled from the item's ranges with the field's stream.
+    public void Place(KillPayout payout, Vector3 position, bool publicDrop, long nowMs, ISimRng rng)
     {
         foreach (var drop in payout.Drops)
         {
@@ -48,7 +50,8 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
             bool shortLived = gold || definition?.CatalogKey.StartsWith("PL", StringComparison.OrdinalIgnoreCase) == true
                 || definition?.CatalogKey.StartsWith("PS", StringComparison.OrdinalIgnoreCase) == true;
             long lifetime = shortLived ? 90_000 : 180_000;
-            _entries.Add(id, new Entry(view, definition, payout.CreditedPlayerId, publicDrop ? nowMs : nowMs + 5000, nowMs + lifetime));
+            var item = gold ? null : ItemRoller.Create(definition!, drop.Amount, rng);
+            _entries.Add(id, new Entry(view, item, payout.CreditedPlayerId, publicDrop ? nowMs : nowMs + 5000, nowMs + lifetime));
             _dirty = true;
         }
     }
@@ -105,9 +108,15 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
 
         entry.Reservation = operation;
         view = entry.View;
-        if (entry.Definition is not null)
+        if (entry.Item is not null)
         {
-            item = new ItemInstance(entry.Definition, entry.View.Amount) { InstanceId = entry.View.Id };
+            item = new ItemInstance(entry.Item.Definition, entry.Item.Count)
+            {
+                InstanceId = entry.View.Id,
+                DurabilityCurrent = entry.Item.DurabilityCurrent,
+                DurabilityMax = entry.Item.DurabilityMax,
+                Roll = entry.Item.Roll
+            };
         }
 
         return true;
@@ -154,10 +163,10 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
         }
     }
 
-    private sealed class Entry(GroundDropView view, ItemDefinition? definition, uint ownerId, long publicAt, long expiresAt)
+    private sealed class Entry(GroundDropView view, ItemInstance? item, uint ownerId, long publicAt, long expiresAt)
     {
         public GroundDropView View { get; } = view;
-        public ItemDefinition? Definition { get; } = definition;
+        public ItemInstance? Item { get; } = item;
         public uint OwnerId { get; } = ownerId;
         public long PublicAt { get; } = publicAt;
         public long ExpiresAt { get; } = expiresAt;

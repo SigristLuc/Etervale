@@ -34,7 +34,8 @@ public enum NpcServiceStatus : ushort
     Busy = 8,
     StorageFailed = 9,
     Conflict = 10,
-    NotOpen = 11
+    NotOpen = 11,
+    OverWeight = 12
 }
 
 // ItemCode names a stock entry to buy; ItemId an owned item. Anchor is a destination cell (-1 = first free) or, for a

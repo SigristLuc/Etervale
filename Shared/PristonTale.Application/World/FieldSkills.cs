@@ -477,7 +477,7 @@ internal sealed partial class FieldSkills
 
     // Body armor made for the caster's class only (its specialization lists no other class).
     private static bool WearsClassArmor(PlayerCharacter character) =>
-        character.GetEquipped(Simulation.Characters.EquipmentSlot.Armor) is { IsBroken: false } armor && armor.JobSpecMask == (uint)character.Definition.JobBitCode;
+        character.GetEquipped(Simulation.Characters.EquipmentSlot.Armor) is { } armor && armor.JobSpecMask == (uint)character.Definition.JobBitCode;
 
     private static bool InRange(WorldPlayer player, Vector3 target, float range)
     {

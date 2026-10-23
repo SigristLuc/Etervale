@@ -173,6 +173,7 @@ internal sealed class FieldCombat
         HitResult result = CombatResolver.ResolveMonsterAttack(_rng, atk, def, CombatProfileFactory.HasShield(target.Character));
         if (result.Blocked)
         {
+            _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, landed.TargetEntityId, CombatEventKindView.Block));
             SkillCombat?.Blocked(attacker, target);
         }
 

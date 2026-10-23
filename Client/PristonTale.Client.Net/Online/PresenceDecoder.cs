@@ -24,6 +24,7 @@ internal sealed class PresenceDecoder
     private readonly WorldRenderCatalog _catalog;
     private readonly Action<uint> _requestDescription;
     private readonly Dictionary<int, InventoryItemEntry[]> _inventoryParts = new();
+    private readonly OwnerItemDecoder _ownerItems = new();
     private OwnerStatusPacket? _status;
     private long _inventoryRevision = -1;
     private long _partsRevision = -1;
@@ -64,12 +65,15 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.StatusEffects => OnStatusEffects(StatusEffectList.Read(packet)),
             EtervaleOpcodes.SkillCooldowns => OnSkillCooldowns(SkillCooldownsPacket.Read(packet)),
             EtervaleOpcodes.SkillCastResult => OnSkillCastResult(SkillCastResultPacket.Read(packet)),
+            EtervaleOpcodes.ItemDetails => OnItemDetails(ItemDetailsPartPacket.Read(packet)),
+            EtervaleOpcodes.OwnerItemStatus => OnOwnerItemStatus(OwnerItemStatusPacket.Read(packet)),
             _ => null
         };
         return update is not null || code is PristonOpcodes.PlayDataGroup or PristonOpcodes.PlayerInfo or EtervaleOpcodes.RemoveObjects
             or EtervaleOpcodes.CombatEvents or PristonOpcodes.PlayItem or PristonOpcodes.DelItem or PristonOpcodes.WarpField
             or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills or EtervaleOpcodes.PresenceClock
-            or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult;
+            or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult
+            or EtervaleOpcodes.ItemDetails or EtervaleOpcodes.OwnerItemStatus;
     }
 
     public PresenceUpdate OnSkillEvents(SkillEventEntry[] entries)
@@ -326,6 +330,18 @@ internal sealed class PresenceDecoder
         return OwnerUpdate();
     }
 
+    public PresenceUpdate? OnItemDetails(ItemDetailsPartPacket part)
+    {
+        _ownerItems.OnDetails(part);
+        return null;
+    }
+
+    public PresenceUpdate? OnOwnerItemStatus(OwnerItemStatusPacket status)
+    {
+        _ownerItems.OnStatus(status);
+        return null;
+    }
+
     public PresenceUpdate? OnInventory(InventoryPartPacket part)
     {
         if (part.Revision != _partsRevision)
@@ -340,7 +356,7 @@ internal sealed class PresenceDecoder
             return null;
         }
 
-        _items = _inventoryParts.OrderBy(pair => pair.Key).SelectMany(pair => pair.Value).Select(Item).ToArray();
+        _items = _ownerItems.Attach(part.Revision, _inventoryParts.OrderBy(pair => pair.Key).SelectMany(pair => pair.Value).Select(Item).ToArray());
         _inventoryRevision = part.Revision;
         _inventoryParts.Clear();
         return OwnerUpdate();
@@ -374,7 +390,7 @@ internal sealed class PresenceDecoder
             EliteSkillPoints = status.EliteSkillPoints,
             Skills = _skills
         };
-        return Update([], []) with { Owner = owner };
+        return Update([], []) with { Owner = _ownerItems.Apply(owner) };
     }
 
     private static OwnedItemView Item(InventoryItemEntry entry) => new(entry.InstanceId, entry.Code, entry.Name, (ItemKind)entry.Kind, entry.Count,

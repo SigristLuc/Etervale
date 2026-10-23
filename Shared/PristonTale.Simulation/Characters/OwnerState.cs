@@ -4,7 +4,11 @@ using PristonTale.Simulation.Progression;
 namespace PristonTale.Simulation.Characters;
 
 public sealed record OwnedItemView(
-    Guid InstanceId, uint Code, string Name, ItemKind Kind, int Count, int Anchor, int Slot, int Width, int Height, string CatalogKey = "");
+    Guid InstanceId, uint Code, string Name, ItemKind Kind, int Count, int Anchor, int Slot, int Width, int Height, string CatalogKey = "")
+{
+    // The copy's values for tooltips and equipment rules; null until the owner receives them.
+    public ItemDetailView Details { get; init; }
+}
 public sealed record OwnedSkillView(uint Code, int Rank);
 
 public sealed record OwnerState(
@@ -24,6 +28,22 @@ public sealed record OwnerState(
     public int EliteSkillPoints { get; init; }
     public IReadOnlyList<OwnedSkillView> Skills { get; init; } = Array.Empty<OwnedSkillView>();
 
+    // What the worn items add beyond the status values above.
+    public int CarriedWeight { get; init; }
+    public int MaxWeight { get; init; }
+    public int CriticalChance { get; init; }
+    public int BlockChance { get; init; }
+    public int ShootingRange { get; init; }
+    public int AttackSpeed { get; init; }
+    public int PotionSpace { get; init; } = DerivedStats.DefaultPotionSpace;
+    public float LifeRegen { get; init; }
+    public float ManaRegen { get; init; }
+    public float StaminaRegen { get; init; }
+    public float MagicMastery { get; init; }
+    public Combat.ResistanceBlock Resistances { get; init; }
+
+    public bool Overweight => CarriedWeight > MaxWeight;
+
     public static OwnerState Capture(PlayerCharacter character, OwnerState previous = null)
     {
         var attributes = character.Attributes;
@@ -38,7 +58,12 @@ public sealed record OwnerState(
             && previous.AttackRating == character.Derived.AttackRating && previous.MoveSpeed == character.Derived.MoveSpeed
             && previous.Defence == character.Derived.Defence && previous.Absorption == character.Derived.Absorption
             && previous.InventoryRevision == character.InventoryRevision
-            && previous.ProgressionRevision == character.ProgressionRevision && previous.SkillsRevision == character.Skills.Revision)
+            && previous.ProgressionRevision == character.ProgressionRevision && previous.SkillsRevision == character.Skills.Revision
+            && previous.CarriedWeight == character.Derived.CarriedWeight && previous.MaxWeight == character.Derived.MaxWeight
+            && previous.CriticalChance == Combat.CombatProfileFactory.CriticalChance(character)
+            && previous.BlockChance == Combat.CombatProfileFactory.ForPlayerDefender(character).BlockChance
+            && previous.AttackSpeed == character.Derived.AttackSpeed
+            && previous.Resistances == Combat.CombatProfileFactory.Resistances(character))
         {
             return previous;
         }
@@ -55,13 +80,13 @@ public sealed record OwnerState(
             {
                 if (character.Inventory[anchor] is { } item)
                 {
-                    captured.Add(Project(item, anchor, -1));
+                    captured.Add(Project(item, anchor, -1, character));
                 }
             }
 
             foreach (var pair in character.Equipment)
             {
-                captured.Add(Project(pair.Value, -1, (int)pair.Key));
+                captured.Add(Project(pair.Value, -1, (int)pair.Key, character));
             }
 
             items = captured.AsReadOnly();
@@ -83,14 +108,29 @@ public sealed record OwnerState(
             Tier = character.Tier,
             EliteSkillPoints = character.EliteSkillPoints,
             Skills = previous is not null && previous.SkillsRevision == character.Skills.Revision ? previous.Skills
-                : Array.AsReadOnly(character.Skills.Ranks.Select(pair => new OwnedSkillView(pair.Key, pair.Value)).ToArray())
+                : Array.AsReadOnly(character.Skills.Ranks.Select(pair => new OwnedSkillView(pair.Key, pair.Value)).ToArray()),
+            CarriedWeight = character.Derived.CarriedWeight,
+            MaxWeight = character.Derived.MaxWeight,
+            CriticalChance = Combat.CombatProfileFactory.CriticalChance(character),
+            BlockChance = Combat.CombatProfileFactory.ForPlayerDefender(character).BlockChance,
+            ShootingRange = character.Derived.ShootingRange,
+            AttackSpeed = character.Derived.AttackSpeed,
+            PotionSpace = character.Derived.PotionSpace,
+            LifeRegen = character.Derived.LifeRegen,
+            ManaRegen = character.Derived.ManaRegen,
+            StaminaRegen = character.Derived.StaminaRegen,
+            MagicMastery = character.Derived.MagicMastery,
+            Resistances = Combat.CombatProfileFactory.Resistances(character)
         };
     }
 
-    private static OwnedItemView Project(ItemInstance item, int anchor, int slot)
+    private static OwnedItemView Project(ItemInstance item, int anchor, int slot, PlayerCharacter owner)
     {
         var definition = item.Definition;
         return new OwnedItemView(item.InstanceId, definition.Code, item.DisplayName, definition.Kind, item.Count,
-            anchor, slot, definition.GridWidth, definition.GridHeight, definition.CatalogKey);
+            anchor, slot, definition.GridWidth, definition.GridHeight, definition.CatalogKey)
+        {
+            Details = ItemDetailView.Of(item, owner)
+        };
     }
 }

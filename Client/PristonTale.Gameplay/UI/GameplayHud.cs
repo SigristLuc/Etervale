@@ -91,6 +91,7 @@ public sealed class GameplayHud : IDisposable
     }
 
     public HudCombat Combat { get; } = new();
+    public HudStringEffect StringEffect { get; } = new();
     public uint TargetId { get; set; }
     public HudWorldView World { get; set; }
     public IHudPortraitScene PortraitScene { get; set; }
@@ -191,6 +192,7 @@ public sealed class GameplayHud : IDisposable
         _npc.Update(_context.Font);
         _minimap.Update(_sprites, World, elapsedSeconds);
         _notice.Update(elapsedSeconds);
+        StringEffect.Update((float)elapsedSeconds);
         _inventorySlide.Advance(elapsedSeconds);
         _statusSlide.Advance(elapsedSeconds);
         _skillSlide.Advance(elapsedSeconds);
@@ -595,6 +597,7 @@ public sealed class GameplayHud : IDisposable
             _skillHud.DrawBuffs(_painter, Statuses.For(SelfId), SkillClockMs);
         }
 
+        StringEffect.Draw(_painter, layout);
         _bar.DrawHoverText(_painter, layout, _state, pointer);
         if (_systemMenu)
         {

@@ -14,7 +14,7 @@ public static class CombatProfileFactory
         ArgumentNullException.ThrowIfNull(character);
         var damage = WeaponDamage.Compute(character);
         var totals = character.Effects.Totals;
-        if (normalAttack && character.GetEquipped(EquipmentSlot.Weapon) is { IsBroken: false } weapon)
+        if (normalAttack && character.GetEquipped(EquipmentSlot.Weapon) is { } weapon)
         {
             var stats = weapon.TotalStats;
             var both = totals.Flat(StatKind.NormalAttackWeaponDamage);
@@ -22,11 +22,17 @@ public static class CombatProfileFactory
             damage = (damage.Min + stats.DamageMin * both / 100, max);
         }
 
-        var critical = Math.Max(0, totals.Flat(StatKind.CriticalChance) + PassiveSkills.CriticalChance(character));
-        return new AttackProfile(character.Derived.AttackRating, damage.Min, damage.Max, character.Level, Element.Bionic, critical, 0, 0)
+        return new AttackProfile(character.Derived.AttackRating, damage.Min, damage.Max, character.Level, Element.Bionic, CriticalChance(character), 0, 0)
         {
             CritBonusPercent = totals.Flat(StatKind.CriticalDamage)
         };
+    }
+
+    // Items, specializations and the critical passives share one cap; buffs add beyond it.
+    public static int CriticalChance(PlayerCharacter character)
+    {
+        var worn = Math.Min(DerivedStats.MaxCriticalChance, character.Derived.CriticalChance + PassiveSkills.CriticalChance(character));
+        return Math.Max(0, worn + character.Effects.Totals.Flat(StatKind.CriticalChance));
     }
 
     public static AttackProfile ForMonsterBasicAttack(MonsterCombatStats stats)
@@ -43,8 +49,12 @@ public static class CombatProfileFactory
             SkillFlatAdd: 0);
     }
 
+    // Worn items and their specializations, the element passives, then resistance buffs.
+    public static ResistanceBlock Resistances(PlayerCharacter character) =>
+        ModifierRules.Resistances(character.Effects.Totals, PassiveSkills.Resistances(character.Skills).Add(character.Derived.Resistances));
+
     public static bool HasShield(PlayerCharacter character) =>
-        character.GetEquipped(EquipmentSlot.OffHand) is { IsBroken: false } offHand && offHand.Definition.Kind == ItemKind.Shield;
+        character.GetEquipped(EquipmentSlot.OffHand) is { } offHand && offHand.Definition.Kind == ItemKind.Shield;
 
     public static DefenderProfile ForPlayerDefender(PlayerCharacter character)
     {
@@ -53,10 +63,10 @@ public static class CombatProfileFactory
         return new DefenderProfile(
             Defence: stats.Defence,
             Absorption: stats.Absorption,
-            // Item block ratings are not applied; block comes from skills and other sources through the modifier engine.
-            BlockChance: Math.Max(0, character.Effects.Totals.Flat(StatKind.BlockChance) + PassiveSkills.BlockChance(character)),
+            // Every worn item's block rating (weapons included) and its specialization, plus skills and buffs.
+            BlockChance: Math.Max(0, stats.BlockChance + character.Effects.Totals.Flat(StatKind.BlockChance) + PassiveSkills.BlockChance(character)),
             Level: character.Level,
-            Resistances: ModifierRules.Resistances(character.Effects.Totals, PassiveSkills.Resistances(character.Skills)),
+            Resistances: Resistances(character),
             MaxLife: character.MaxLife,
             CurrentLife: character.Life,
             IsMonster: false);

@@ -38,6 +38,7 @@ public sealed class GameplayScreen : GameScreen
         _hud.CharacterClass = _scene.Player.Class.Class;
         _hud.PortraitScene = _scene;
         _scene.PresenceObserved += _hud.Combat.Observe;
+        _scene.PresenceObserved += _hud.StringEffect.Observe;
         _scene.NpcSelected += _hud.OpenNpc;
         _scene.SkillNotice += _hud.ShowNotice;
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
@@ -207,6 +208,7 @@ public sealed class GameplayScreen : GameScreen
         if (_scene is not null && _hud is not null)
         {
             _scene.PresenceObserved -= _hud.Combat.Observe;
+            _scene.PresenceObserved -= _hud.StringEffect.Observe;
             _scene.NpcSelected -= _hud.OpenNpc;
             _scene.SkillNotice -= _hud.ShowNotice;
             _hud.SummonModeRequested -= _scene.ToggleSummonMode;

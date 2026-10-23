@@ -490,10 +490,12 @@ internal sealed class PresenceEncoder
         }
 
         _owner = owner;
+        connection.Send(_scratch.AsSpan(0, ItemWireMapping.Status(owner).Write(_scratch)));
         connection.Send(_scratch.AsSpan(0, WireMapping.Status(owner).Write(_scratch)));
         if (owner.InventoryRevision != _inventoryRevision)
         {
             _inventoryRevision = owner.InventoryRevision;
+            ItemWireMapping.SendDetails(owner, connection, _scratch);
             var items = owner.Items.Select(WireMapping.Item).ToArray();
             var parts = Math.Max(1, (items.Length + InventoryPartPacket.MaxItemsPerPart - 1) / InventoryPartPacket.MaxItemsPerPart);
             for (var part = 0; part < parts; part++)

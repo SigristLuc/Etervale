@@ -336,6 +336,6 @@ public sealed class Inventory
     {
         return left.Definition.IsStackable && left.Definition == right.Definition
             && left.UpgradeLevel == right.UpgradeLevel && left.DurabilityCurrent == right.DurabilityCurrent
-            && left.DurabilityMax == right.DurabilityMax && left.JobSpecMask == right.JobSpecMask && left.RolledBonus == right.RolledBonus;
+            && left.DurabilityMax == right.DurabilityMax && left.Roll == right.Roll;
     }
 }
