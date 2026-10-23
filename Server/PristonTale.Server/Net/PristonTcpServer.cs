@@ -29,12 +29,16 @@ public sealed class PristonTcpServer(
     private readonly NetworkLimits _limits = NetworkLimits.From(configuration);
     private readonly LogSampler _refusedLog = new(5000);
     private readonly LogSampler _closedLog = new(1000);
+    private readonly TaskCompletionSource<int> _boundPort = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private ConnectionLimiter? _perAddress;
     private LoginThrottle? _loginThrottle;
     private long _closedBytesSent;
     private long _closedBytesReceived;
 
     public int ConnectionCount => _clients.Count;
+
+    // The port the listener bound; Network:Port 0 asks the operating system for a free one (in-process tests).
+    public Task<int> BoundPort => _boundPort.Task;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -43,13 +47,26 @@ public sealed class PristonTcpServer(
         var services = new SessionServices(auth, characters, sessionsApp, sessions, world, worldData, logger, _limits, _loginThrottle, npc, itemUse);
         using var listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp) { DualMode = true };
         var port = configuration.GetValue("Network:Port", HostingExtensions.DefaultGamePort);
-        if (port is < 1 or > 65535)
+        if (port is < 0 or > 65535)
         {
-            throw new InvalidOperationException("Network:Port must be between 1 and 65535.");
+            var error = new InvalidOperationException("Network:Port must be between 0 and 65535.");
+            _boundPort.TrySetException(error);
+            throw error;
         }
 
-        listener.Bind(new IPEndPoint(IPAddress.IPv6Any, port));
-        listener.Listen(512);
+        try
+        {
+            listener.Bind(new IPEndPoint(IPAddress.IPv6Any, port));
+            listener.Listen(512);
+        }
+        catch (Exception ex)
+        {
+            _boundPort.TrySetException(ex);
+            throw;
+        }
+
+        port = ((IPEndPoint)listener.LocalEndPoint!).Port;
+        _boundPort.TrySetResult(port);
         logger.LogInformation("Priston TCP listening on port {Port}", port);
         var housekeeping = HousekeepingAsync(stoppingToken);
         try

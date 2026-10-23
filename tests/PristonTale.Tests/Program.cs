@@ -283,6 +283,8 @@ specifications.AddRange(SpawnScheduleTests.Cases());
 specifications.AddRange(MonsterMovementTests.Cases());
 specifications.AddRange(MonsterNavigationTests.Cases());
 specifications.AddRange(NetworkHardeningTests.Cases());
+specifications.AddRange(MultiplayerMovementTests.Cases());
+specifications.AddRange(MultiplayerCombatTests.Cases());
 specifications.AddRange(MonsterSkillTests.Cases());
 specifications.AddRange(SpatialIndexTests.Cases());
 specifications.AddRange(HudInteractionTests.Cases());
