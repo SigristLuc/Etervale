@@ -43,6 +43,8 @@ public sealed class ParsedMonster
     public short Brood { get; init; }
     public short Class { get; init; }
     public int StunPct { get; init; } = 100; // *스턴율/*스턴률 flinch chance, default 100
+    public int QuestCode { get; init; }       // classification code quests hunt by
+    public string EventItem { get; init; } = ""; // raw item code handed out on every kill
     public int PotionCount { get; init; }
     public int PotionPercent { get; init; }
 

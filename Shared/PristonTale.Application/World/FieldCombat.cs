@@ -4,6 +4,7 @@ using System.Numerics;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
+using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.Skills;
@@ -116,7 +117,7 @@ internal sealed class FieldCombat
     public KillPayout? ApplyPlayerDamage(WorldPlayer player, MonsterInstance monster, int damage, bool crit, long nowMs, bool forceFlinch = false,
         uint sourceEntityId = 0)
     {
-        if (damage <= 0 || !monster.IsAlive)
+        if (damage <= 0 || !monster.IsAlive || monster.DuelPlayerId != 0 && monster.DuelPlayerId != player.EntityId)
         {
             return null;
         }
@@ -294,8 +295,10 @@ internal sealed class FieldCombat
         }
 
         int exp = 0;
+        var creditedTier = -1;
         if (credited != 0 && _host.TryGetPlayer(credited, out var creditedPlayer))
         {
+            creditedTier = creditedPlayer.Character.Tier;
             exp = KillReward.ExpForKill(monster.Def.ExpReward, monster.Def.Combat.Level, creditedPlayer.Level, _experienceMultiplier);
             exp = (int)Math.Min(int.MaxValue, PremiumRules.BoostExperience(exp, creditedPlayer.Character.Premium));
             _expByPlayer.TryGetValue(credited, out long total);
@@ -303,8 +306,10 @@ internal sealed class FieldCombat
             creditedPlayer.Character.AwardExperience(exp);
         }
 
+        // The monster's event item goes to the credited player before the drop rolls.
+        var eventItem = monster.Def.EventItem != 0 && creditedTier >= 0 && QuestDrops.EventItemDrops(_rng, monster.Def.EventItem, creditedTier);
         var dropBonus = credited != 0 && _host.TryGetPlayer(credited, out var looter) ? PremiumRules.ExtraDropChance(looter.Character.Premium) : 0;
-        IReadOnlyList<RolledDrop> drops = DropRoller.Roll(_rng, monster.Def.Drops, extraRollChance: dropBonus);
+        IReadOnlyList<RolledDrop> drops = DropRoller.Roll(_rng, monster.Def.Drops, eventItem, monster.Def.EventItem, dropBonus);
 
         _damageLogs.Remove(monster.EntityId);
         _corpseMsLeft[monster.EntityId] = CorpseDespawnMs;

@@ -44,6 +44,8 @@ public sealed record MonsterRecord(
     float ModelScale = 1,
     int PortraitOffsetY = 0,
     int PortraitOffsetZ = 0,
+    int QuestCode = 0,
+    string EventItem = "",
     int PotionCount = 0,
     int PotionPercent = 0)
 {

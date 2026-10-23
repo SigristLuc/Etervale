@@ -78,7 +78,7 @@ public sealed class WarehouseStorage
     public NpcServiceStatus TryDeposit(PlayerCharacter character, Guid itemId, int anchor)
     {
         var source = character.Inventory.Find(itemId);
-        if (source < 0 || character.Inventory[source] is not { } item || !CanStore(item))
+        if (source < 0 || character.Inventory[source] is not { } item || !CanStore(item) || Quests.RankUpByQuestWeapon.IsBound(character, item))
         {
             return NpcServiceStatus.Rejected;
         }

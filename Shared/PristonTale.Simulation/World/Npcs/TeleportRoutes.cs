@@ -45,7 +45,9 @@ public static class NpcServiceAvailability
     // Services Etervale runs; the others answer that they are not available yet.
     public static bool IsAvailable(NpcService service) => service.Kind switch
     {
-        NpcServiceKind.Shop or NpcServiceKind.Warehouse or NpcServiceKind.SkillMaster => true,
+        NpcServiceKind.Shop or NpcServiceKind.Warehouse or NpcServiceKind.SkillMaster or NpcServiceKind.QuestGiver or NpcServiceKind.QuestScript => true,
+        // The wing exchange (value 0 or 1) runs as a quest.
+        NpcServiceKind.WarpGate => service.Value <= 1,
         NpcServiceKind.Teleporter => TeleportRoutes.IsAvailable(service.Value),
         _ => false
     };
