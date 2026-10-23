@@ -182,6 +182,9 @@ keep the `{size, code}` header and the 8192-byte frame limit.
 | `0x45540202` | `SkillEvents` | S→C | Skill starts, impacts, releases and cancels on the presence timeline. |
 | `0x45540203` | `StatusEffects` | S→C | Modifier effects added, refreshed, removed or ticking, on the presence timeline. |
 | `0x45540204` | `SkillCooldowns` | S→C | The owner's running cooldowns whenever the set changes. |
+| `0x45540400` / `0x45540401` | `ItemUseCommand` / `ItemUseResult` | C→S / S→C | Use of one carried item, correlated by operation id; a travel item also sends a forced `WARPFIELD`. |
+| `0x45540402` | `PremiumTimers` | S→C | The owner's running premium timers whenever they change. |
+| `0x45540403` | `ItemEffects` | S→C | Item effects around players (firecrackers, learn ring, mastery, pet strikes), on the presence timeline. |
 
 ### Owner, inventory and combat layouts
 
@@ -243,6 +246,22 @@ server's rates; the hits resolve at the motion's event times (projectiles after 
 `Control` the control states (stun, root, silence, slow, hidden); a viewer that sees an entity only after a status
 started does not receive it. The original client sent damage, buffs and heals itself and the original server checked
 none of mana, stamina or cooldown. See [skills.md](skills.md) for the rules behind these messages.
+
+### Usable items
+
+Every body starts with `{uint16 Version = 1, uint16 Flags = 0}`; text is UTF-8 with a `uint16` byte length.
+
+| Message | Layout after the header | Size |
+| --- | --- | --- |
+| `ItemUseCommand` | `Guid OperationId, int64 ExpectedRevision, Guid ItemId, int32 Argument, text Text (64 B)` | 58 + text |
+| `ItemUseResult` | `Guid OperationId, int32 Ok, int64 Revision, uint16 Status, uint16 0, uint32 ItemCode, text Message (128 B)` | 50 + text |
+| `PremiumTimers` | `int64 Revision, int32 Count`, then `{uint8 Kind, uint8 0, uint16 0, int32 Value, uint32 RemainingSeconds, DurationSeconds}` (at most 32) | 24 + 16n |
+| `ItemEffects` | `int32 Count`, then `{uint32 Entity, ItemCode, uint8 Effect, uint8 0, uint16 0, int32 X, Y, Z, Variant}` (at most 64) | 16 + 28n |
+
+`Status` is `ItemUseStatus`; `Kind` is `PremiumEffectKind`; `Effect` is `ItemEffectKind` (1 firecracker with its roll
+in `Variant`, 2 mastery, 3 force orb, 4 learn, 5 pet strike with the pet kind in `ItemCode` and the target serial in
+`Variant`). Player descriptors carry the pets and the big head in `CharacterInfo.TempFlags` (bit 1 Phoenix, bits 8-11
+helper pet, bits 12-13 big head). Rules: [special-items.md](special-items.md).
 
 ### Presence clock and remote playback
 
@@ -336,8 +355,9 @@ The server logs tick percentiles and bandwidth every 30 seconds.
 
 1. **Code.** Add a constant to `EtervaleOpcodes` in `Binary/PristonOpcodes.cs`, in the range of its area (`0x455401xx`
    owner state, `0x4554011x` inventory, `0x4554012x` progression, `0x4554013x` NPC, `0x4554014x` combat, `0x4554015x`
-   removals, `0x4554016x` leave, `0x4554017x` clock, `0x455402xx` skills). Never give an original `0x4847xxxx` or
-   `0x5032xxxx` code a new layout; reuse an original message only when its layout stays byte-identical.
+   removals, `0x4554016x` leave, `0x4554017x` clock, `0x455402xx` skills, `0x455404xx` usable items). Never give an
+   original `0x4847xxxx` or `0x5032xxxx` code a new layout; reuse an original message only when its layout stays
+   byte-identical.
 2. **Packet type.** Add a record in `Packets/` with `Size` or `HeaderSize` constants, `int Write(Span<byte>)` built on
    `PacketWriter` (returning `Finish()`), and `static Read(ReadOnlySpan<byte>)` built on `PacketReader(packet,
    minimum)`. Start new bodies with `{uint16 Version, uint16 Flags}`, reject version 0, append fields only at the end,

@@ -17,7 +17,7 @@ using PristonTale.Simulation.Skills;
 
 namespace PristonTale.Application.World;
 
-public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHost, IFieldSkillHost
+public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHost, IFieldSkillHost
 {
     public const int PlayerNearRadiusSquared = 0x120000;
     public static readonly float PlayerNearRadius = MathF.Sqrt(PlayerNearRadiusSquared);
@@ -76,7 +76,7 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         _combat = new FieldCombat(this, rng, experienceMultiplier);
         _skills = new FieldSkills(this, rng);
         _combat.SkillCombat = _skills;
-        Premium = new FieldPremium(fieldId);
+        Premium = new FieldPremium(fieldId, this);
         _combat.PlayerHitLanded = Premium.RecordHit;
         foreach (var placement in spawnData.FixedNpcs)
         {
@@ -109,6 +109,7 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
     {
         _players.Remove(entityId, out _);
         _skills.Forget(entityId);
+        Premium.Forget(entityId);
     }
 
     // Validates a cast on the tick thread and starts its motion; the hits follow in Step.
@@ -242,7 +243,7 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
             PlaceLoot(reward, nowMs);
         }
 
-        Premium.Step(_players.Values, id => _players.TryGetValue(id, out var found) ? found : null);
+        Premium.Step(_players.Values);
 
         _combat.TickCorpses(dtMs);
         GroundLoot.Step(nowMs);

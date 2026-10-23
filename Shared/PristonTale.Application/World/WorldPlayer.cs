@@ -2,6 +2,7 @@ using System.Numerics;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.World;
@@ -227,7 +228,10 @@ public sealed class WorldPlayer
         WeaponKey = _character.GetEquipped(EquipmentSlot.Weapon)?.Definition.CatalogKey ?? "",
         ArmorKey = _character.GetEquipped(EquipmentSlot.Armor)?.Definition.CatalogKey ?? "",
         OffHandKey = _character.GetEquipped(EquipmentSlot.OffHand)?.Definition.CatalogKey ?? "",
-        InVillage = _inVillage
+        InVillage = _inVillage,
+        HelperPet = PremiumPets.HelperPet(_character.Premium) is { } pet ? pet - PremiumEffectKind.HelpPetTerry + 1 : 0,
+        Phoenix = _character.Premium.IsActive(PremiumEffectKind.PhoenixPet),
+        BigHead = _character.Premium.BigHeadMode
     };
 
     // A hair tint changes the head every viewer draws.

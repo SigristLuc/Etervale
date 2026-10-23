@@ -291,8 +291,11 @@ consumer; there is no text-input routing besides `TextInputField` on the login a
 - Server results reach the HUD as counters: controllers increment `Completions` and set `Message`; `ForwardMessages`
   shows each new message once as a notice.
 - Inventory (`HudInventoryController`): left drag moves, Shift-drag splits, drop on another stack merges, drop on an
-  equipment slot equips, right click equips/unequips or drinks a potion. One command in flight; it carries the
+  equipment slot equips, right click equips/unequips, drinks a potion or uses a usable item (`HudItemUseController`:
+  the Teleport Core window, confirmations, the item-use request). One command in flight; it carries the
   `InventoryRevision` it was built from.
+- Premium timers (`HudPremiumTimers`) form the column at x 8 under the running-effects bar; usable items have their
+  own tooltips (`HudUsableTooltip`). Details: [special-items.md](special-items.md).
 - Status window: attribute buttons send `ProgressionCommand` with `ProgressionRevision`.
 - NPC dialog (`HudNpcPanel`): name, the NPC's line, one button per offered service (grey when `Available` is false);
   skill masters get the skill master box; teleporter destinations replace the buttons. An NPC whose only working

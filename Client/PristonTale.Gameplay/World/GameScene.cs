@@ -1176,7 +1176,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _skillClockMs = gameTime.TotalGameTime.TotalMilliseconds;
         DrainPresence(frameDt);
         UpdateSkills(gameTime);
-        UpdateItemEffects();
+        UpdateItemEffects(frameDt);
         ApplyPositionCorrection(frameDt);
         UpdatePlayerInput(gameTime);
         UpdateTargetSelection(gameTime);

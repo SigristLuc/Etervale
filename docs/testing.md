@@ -33,6 +33,7 @@ Default case files by area (all `tests/PristonTale.Tests/<Name>.cs`):
 | --- | --- | --- |
 | Domain | `DomainTests`, `ProgressionAndOwnershipTests`, `ProgressionDataTests`, `AuthTests`, `OutboxTests` | Attributes, ownership, mailbox, XP, login, outbox |
 | Transactions | `ProgressionTransactionTests`, `InventoryTransactionTests`, `GroundPickupTransactionTests`, `PotionTests` | Storage-first commit, replay |
+| Usable items | `SpecialItemTests` | Item rules, premium timers and formulas, use flow, pets, persistence, wire |
 | Equipment | `EquipmentTests`, `RangedEquipmentTests` | Catalog rules, hands, class masks, bone attachments |
 | Protocol | `BinaryProtocolTests`, `ClientTests`, `NetworkHardeningTests` | Struct layouts, framing, cipher, presence, abuse limits |
 | World data | `WorldImportTests`, `NpcPlacementMigrationTests`, `MonsterNameTests`, `NpcServiceTests` | Import and migrations on temp SQLite |
@@ -125,6 +126,8 @@ when reading those assets is authorized. GPU probes:
 | `--profile-stream-baseline <assets> <content>` | yes | Same with an 8-step upload limit for comparison |
 | `--capture-hud <assets> <content> <output-dir> [<background.png>]` | yes | In-game HUD scenarios to PNG (scales 2 and 3, `npc-*` dialogs, `buffs-*` continuous-skill bar, `skill-right-select` prints the right socket after a right click) |
 | `--capture-hud-target <assets> <content> <output-dir>` | yes | Ricarten at 14:00 with remote-roster entities; target frame, bar, resolutions |
+| `--capture-item-hud <assets> <content> <output-dir>` | yes | Premium timer column, hover and blink, Teleport Core pages and confirmation, item tooltips, item effects in the effects bar |
+| `--capture-item-effects <assets> <content> <output-dir>` | yes | Ricarten at night: pets idle and striking, firecracker bursts, the skill-learn ring |
 | `--capture-login <assets> <content> <output-dir> <background.png>` | yes | Login screen edge cases (see below) |
 | `--capture-skills <assets> <content> <output-dir> [<hex,hex,...>]` | yes | Casts skills with the server timeline (see below) |
 | `--capture-sky <assets> <content> <output-dir>` | yes | One `sky-NN.png` per sky profile |

@@ -31,6 +31,7 @@ internal static class SpecialItemTests
         yield return ("scrolls and force orbs start item effects; Eternal Life guards and Fatal Edge excludes Avert", ScrollsAndOrbsAsync);
         yield return ("a firecracker publishes its effect to the field and the mobile shop sells without an NPC", FirecrackerAndShopAsync);
         yield return ("item use, result, premium timer and item effect messages round-trip", WireAsync);
+        yield return ("vampiric items heal per attack and helper pets and the Phoenix strike the owner's target", PetsAndLeechAsync);
     }
 
     private static Task CatalogAsync()
@@ -293,6 +294,38 @@ internal static class SpecialItemTests
         var effects = new ItemEffectsPacket([new ItemEffectEntry(5, 0x080B1700, 1, 256, 512, -768, 1234)]);
         var effectsRead = ItemEffectsPacket.Read(buffer.AsSpan(0, effects.Write(buffer)));
         Assert.True(effectsRead.Effects.SequenceEqual(effects.Effects), "item effects");
+        return Task.CompletedTask;
+    }
+
+    private static Task PetsAndLeechAsync()
+    {
+        var scenario = SkillScenario.Create(PlayerClass.Fighter, 50, null, null, SkillScenario.Enemy());
+        var monster = scenario.Spawn(SkillScenario.Enemy(), new Vector3(40f, 0f, 0f));
+        var character = scenario.Character;
+        character.Premium.Start(PremiumEffectKind.VampiricCuspid, 0, 3600, 0);
+        character.Premium.Start(PremiumEffectKind.HelpPetNepsys, 0, 3600, 0);
+        character.Premium.Start(PremiumEffectKind.PhoenixPet, 0, 3600, 0);
+        character.Life = 10;
+        var life = monster.Life;
+        scenario.Field.Combat.ApplyPlayerDamage(scenario.Player, monster, 300, false, scenario.Field.NowMs);
+        scenario.Run(1);
+        var heal = PremiumRules.VampiricLife(character.Attributes.Strength, 300, 1);
+        Assert.True(character.Life == 10 + heal, $"vampiric heal {character.Life - 10} instead of {heal}");
+        scenario.Run(1);
+        Assert.True(scenario.Field.ItemEvents.Snapshot().Count(effect => effect.Effect == ItemEffectKind.PetAttack) == 2, "pet strikes were not announced");
+        var afterOwner = monster.Life;
+        Assert.True(afterOwner == life - 300, "the owner's hit was not applied once");
+        scenario.Run((int)(PremiumPets.HelperHitMs / 50) + 1);
+        var nepsys = PremiumPets.DamageRange(PremiumEffectKind.HelpPetNepsys, 50);
+        Assert.True(afterOwner - monster.Life >= nepsys.Min && afterOwner - monster.Life <= nepsys.Max, $"helper strike dealt {afterOwner - monster.Life}");
+        Assert.True(monster.Effects.TryGet(PremiumPets.SlowStatusCode, out _), "Nepsys did not slow the monster");
+        var afterHelper = monster.Life;
+        scenario.Run((int)((PremiumPets.PhoenixHitMs - PremiumPets.HelperHitMs) / 50) + 2);
+        var phoenix = PremiumPets.DamageRange(PremiumEffectKind.PhoenixPet, 50);
+        Assert.True(afterHelper - monster.Life >= phoenix.Min && afterHelper - monster.Life <= phoenix.Max,
+            $"Phoenix strike dealt {afterHelper - monster.Life}");
+        Assert.True(character.Life == 10 + heal, "a pet strike healed through the vampiric item");
+        Assert.True(PremiumPets.HelperChance(3) == 21 && PremiumPets.HelperChance(8) == 24 && PremiumPets.HelperChance(121) == 0, "helper chance table");
         return Task.CompletedTask;
     }
 

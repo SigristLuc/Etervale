@@ -111,7 +111,7 @@ internal sealed class FieldCombat
     // Shared by swings and skills: credits the hit, emits it and pays out a kill.
     // A summon's or familiar's blow names its own entity as the attacker and still credits the owner.
     // A player's own hit on a wild monster (not a familiar's or a summon's), for the effects that answer each attack.
-    public Action<WorldPlayer, int>? PlayerHitLanded { get; set; }
+    public Action<WorldPlayer, MonsterInstance, int>? PlayerHitLanded { get; set; }
 
     public KillPayout? ApplyPlayerDamage(WorldPlayer player, MonsterInstance monster, int damage, bool crit, long nowMs, bool forceFlinch = false,
         uint sourceEntityId = 0)
@@ -125,7 +125,7 @@ internal sealed class FieldCombat
         Log(monster.EntityId).RecordHit(player.EntityId, damage, monsterAtFullHp, nowMs);
         if (sourceEntityId == 0 && !monster.IsSummon)
         {
-            PlayerHitLanded?.Invoke(player, damage);
+            PlayerHitLanded?.Invoke(player, monster, damage);
         }
 
         monster.ApplyDamage(damage);

@@ -1,0 +1,233 @@
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using PristonTale.Client.Net.Presence;
+using PristonTale.Client.Net.WorldCatalog;
+using PristonTale.Effects;
+using PristonTale.Engine3D.Diagnostics;
+using PristonTale.Engine3D.Formats;
+using PristonTale.Engine3D.IO;
+using PristonTale.Engine3D.Physics;
+using PristonTale.Engine3D.Rendering;
+using PristonTale.Gameplay.Effects;
+using PristonTale.Gameplay.World.Remote;
+using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Items.Usable;
+using PristonTale.Simulation.World;
+using PristonTale.Simulation.World.Monsters;
+
+namespace PristonTale.Tests;
+
+// Item effects in Ricarten: firecracker bursts over the player, the skill-learn ring of a hair tint, and the premium
+// pets beside their owners, idle and striking a monster with their projectiles.
+internal sealed class ItemEffectsCaptureProbe : Game
+{
+    private const uint SelfId = 1;
+    private const uint HopyId = 2;
+    private const uint FriendId = 3;
+
+    private sealed record Shot(string Name, double AtSeconds, Action<ItemEffectsCaptureProbe>? Begin = null);
+
+    private static readonly Shot[] Shots =
+    [
+        new("pets-idle", 4.0, probe => probe.Pets()),
+        new("pets-strike", 5.0, probe => probe.Strike()),
+        new("pets-hit", 5.55),
+        new("firecracker-1", 6.6, probe => probe.Firecracker()),
+        new("firecracker-2", 7.7),
+        new("firecracker-3", 8.7),
+        new("learn-ring", 10.5, probe => probe.Learn())
+    ];
+
+    private readonly string _assetRoot;
+    private readonly string _output;
+    private readonly PresentationSettings _presentation = new();
+    private readonly System.Diagnostics.Stopwatch _timeout = System.Diagnostics.Stopwatch.StartNew();
+    private PristonRenderer _renderer = null!;
+    private PristonSkyLibrary _sky = null!;
+    private PristonCamera _camera = null!;
+    private RemoteEntityManager _remote = null!;
+    private LegacyEffectLibrary _library = null!;
+    private EffectsEngine _effects = null!;
+    private LegacyItemEffects _items = null!;
+    private PremiumPetPresentation _pets = null!;
+    private SkillSoundBank _sounds = null!;
+    private Vector3 _focus;
+    private Vector3 _eye;
+    private int _shot;
+    private double _seconds;
+    private bool _begun;
+
+    public ItemEffectsCaptureProbe(string assetRoot, string contentRoot, string output)
+    {
+        _assetRoot = assetRoot;
+        _output = output;
+        _ = new GraphicsDeviceManager(this)
+        {
+            PreferredBackBufferWidth = 960,
+            PreferredBackBufferHeight = 540,
+            GraphicsProfile = GraphicsProfile.HiDef,
+            SynchronizeWithVerticalRetrace = false
+        };
+        Content = new AbsoluteContentManager(Services, contentRoot);
+        IsFixedTimeStep = false;
+    }
+
+    protected override void LoadContent()
+    {
+        Directory.CreateDirectory(_output);
+        var field = new WorldCatalog().AllFields.Single(candidate => candidate.Id == "village-2");
+        _sky = PristonSkyLibrary.LoadBootstrap(GraphicsDevice, _assetRoot);
+        _renderer = new PristonRenderer(GraphicsDevice, Content, presentation: _presentation) { Sky = _sky, DayLengthSeconds = 0 };
+        _renderer.SetTimeOfDay(21f);
+        _renderer.SkyProfiles = new PristonSkyProfiles(PristonSkyProfiles.Resolve(field.Backdrop.Day),
+            PristonSkyProfiles.Resolve(field.Backdrop.Glow), PristonSkyProfiles.Resolve(field.Backdrop.Night));
+        var reader = new PristonSmdReader();
+        var stage = reader.ReadStage(Resolve(field.StageSmd));
+        var models = field.StageObjectSmds.Select(path => reader.ReadModel(Resolve(path))).ToArray();
+        _renderer.PrepareStageTexturesAsync(stage, models).GetAwaiter().GetResult();
+        _renderer.AddStage(stage, models);
+        var collision = new PristonCollisionWorld(stage);
+        var start = field.StartPoints[0];
+        _focus = new Vector3(start.X, 0f, -start.Z);
+        _focus.Y = collision.TryGetFloorHeight(_focus with { Y = 5000f }, out var floor) ? floor : 0f;
+        _eye = _focus + new Vector3(60f, 120f, 260f);
+        _camera = new PristonCamera(_eye, Vector3.Normalize(_focus - _eye));
+
+        var loader = new PristonActorLoader();
+        var actorScene = new RendererActorScene(_renderer);
+        var catalog = new WorldRenderCatalog(new Dictionary<uint, MonsterRenderInfo>
+        {
+            [1] = new(1, "char/monster/Hopy/hopy.inx", 1f, "Hopy", 3, MonsterBrood.Normal, 8, 25)
+        });
+        _remote = new RemoteEntityManager(actorScene, new PlayerActorComposer(actorScene, loader), new ModelActorComposer(actorScene, loader),
+            new CharacterClassRegistry(), _assetRoot, catalog, ConsoleClientLog.Instance);
+        _remote.Apply(new PresenceUpdate(1,
+        [
+            new(SelfId, RemoteEntityKind.Player, false, Numeric(_focus), 0f, RemoteMoveState.Idle, 64, 64,
+                new PlayerAppearanceInfo("Panzer", 2, 0, 0, 0, "", "", 40), 0),
+            new(HopyId, RemoteEntityKind.Monster, false, Numeric(Floor(collision, _focus + new Vector3(-90f, 0f, 30f))), 1.2f, RemoteMoveState.Idle, 31, 50,
+                null, 1, Name: "Hopy", Level: 3),
+            new(FriendId, RemoteEntityKind.Player, false, Numeric(Floor(collision, _focus + new Vector3(110f, 0f, -40f))), 2.6f, RemoteMoveState.Idle, 900,
+                1000, new PlayerAppearanceInfo("Lyra", 8, 0, 1, 0, "", "", 37), 0)
+        ], [], [], []));
+        _library = LegacyEffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assetRoot, ConsoleClientLog.Instance);
+        _effects = new EffectsEngine(GraphicsDevice, Content);
+        _sounds = new SkillSoundBank(_assetRoot, ConsoleClientLog.Instance) { Enabled = false };
+        _items = new LegacyItemEffects(_library, _assetRoot, _effects, _renderer.TransientLights, _sounds);
+        _pets = new PremiumPetPresentation(actorScene, loader, _assetRoot, _library, _effects, _renderer.TransientLights, _sounds, ConsoleClientLog.Instance);
+    }
+
+    private void Pets()
+    {
+        _pets.SetPets(SelfId, 1, true);
+        _pets.SetPets(FriendId, 3, false);
+    }
+
+    private void Strike()
+    {
+        var update = new PresenceUpdate(2, [], [], [], [])
+        {
+            ItemEffects =
+            [
+                new ItemEffectInfo(SelfId, (uint)PremiumEffectKind.HelpPetTerry, ItemEffectKind.PetAttack, default, (int)HopyId),
+                new ItemEffectInfo(SelfId, (uint)PremiumEffectKind.PhoenixPet, ItemEffectKind.PetAttack, default, (int)HopyId),
+                new ItemEffectInfo(FriendId, (uint)PremiumEffectKind.HelpPetIo, ItemEffectKind.PetAttack, default, (int)HopyId)
+            ]
+        };
+        _pets.Observe(update, Anchor);
+    }
+
+    private void Firecracker() => _items.Play(ItemEffectKind.Firecracker, SelfId, 4321 * 2, _focus, _eye, _seconds * 1000d);
+
+    private void Learn() => _items.Play(ItemEffectKind.Learn, SelfId, 0, _focus, _eye, _seconds * 1000d);
+
+    private Vector3? Anchor(uint entityId) => _remote.TryGetDrawnPosition(entityId, out var position) ? position : null;
+
+    private (Vector3 Position, float Facing)? Pose(uint entityId) =>
+        _remote.TryGetDrawnPosition(entityId, out var position) && _remote.TryGetDrawnFacing(entityId, out var facing) ? (position, facing) : null;
+
+    protected override void Update(GameTime gameTime)
+    {
+        if (_timeout.Elapsed > TimeSpan.FromMinutes(3))
+        {
+            throw new TimeoutException("Item effect capture did not finish.");
+        }
+
+        if (_shot >= Shots.Length)
+        {
+            Exit();
+            return;
+        }
+
+        const float step = 1f / 60f;
+        if (_remote.Count < 3)
+        {
+            _remote.Update(step);
+            return;
+        }
+
+        _seconds += step;
+        if (!_begun && Shots[_shot].Begin is { } begin && _seconds >= Shots[_shot].AtSeconds - 1.0)
+        {
+            begin(this);
+            _begun = true;
+        }
+
+        _remote.Update(step);
+        _pets.Update(step, Pose, Anchor, _eye);
+        _items.Update(_seconds * 1000d, Anchor, _eye);
+        _effects.Update(new GameTime(TimeSpan.FromSeconds(_seconds), TimeSpan.FromSeconds(step)));
+        _renderer.Update(new GameTime(TimeSpan.FromSeconds(_seconds), TimeSpan.FromSeconds(step)));
+    }
+
+    protected override void Draw(GameTime gameTime)
+    {
+        if (_shot >= Shots.Length || _seconds < Shots[_shot].AtSeconds)
+        {
+            GraphicsDevice.Clear(Color.Black);
+            return;
+        }
+
+        var shot = Shots[_shot];
+        using var target = new RenderTarget2D(GraphicsDevice, 960, 540, false, SurfaceFormat.Color, DepthFormat.Depth24Stencil8);
+        GraphicsDevice.SetRenderTarget(target);
+        _camera.SetScriptedView(GraphicsDevice, _eye, _focus + Vector3.Up * (shot.Name.StartsWith("firecracker", StringComparison.Ordinal) ? 90f : 30f));
+        _renderer.Draw(_camera);
+        _effects.Draw(_camera.View, _camera.Projection, _camera.Position);
+        _renderer.ComposeScene();
+        GraphicsDevice.SetRenderTarget(null);
+        var pixels = new Color[960 * 540];
+        target.GetData(pixels);
+        for (var index = 0; index < pixels.Length; index++)
+        {
+            pixels[index].A = 255;
+        }
+
+        using var opaque = new Texture2D(GraphicsDevice, 960, 540);
+        opaque.SetData(pixels);
+        using (var stream = File.Create(Path.Combine(_output, shot.Name + ".png")))
+        {
+            opaque.SaveAsPng(stream, 960, 540);
+        }
+
+        Console.WriteLine($"Item effects {shot.Name}: captured; pets={_pets.OwnerCount}; effects={_effects.Instances.Count}; bursts={_items.PendingBursts}");
+        _shot++;
+        _begun = false;
+    }
+
+    protected override void UnloadContent()
+    {
+        _pets.Dispose();
+        _remote.Dispose();
+        _effects.Dispose();
+        _library.Dispose();
+        _sounds.Dispose();
+    }
+
+    private static Vector3 Floor(PristonCollisionWorld collision, Vector3 point) =>
+        collision.TryGetFloorHeight(point with { Y = point.Y + 500f }, out var height) ? point with { Y = height } : point;
+
+    private static System.Numerics.Vector3 Numeric(Vector3 value) => new(value.X, value.Y, value.Z);
+
+    private string Resolve(string relative) => PristonFileResolver.Resolve(Path.Combine(_assetRoot, relative.Replace('\\', '/')));
+}

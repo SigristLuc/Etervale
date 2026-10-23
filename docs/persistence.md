@@ -100,8 +100,8 @@ and its account warehouse are always written together, so a gold or item move be
 
 ## Owned-state JSON
 
-`CharacterStateCodec` and `WarehouseStateCodec` own the JSON stored in `characters.inventory`, `equipment`, `skills`
-and `warehouses.items`.
+`CharacterStateCodec`, `SavedPremium` and `WarehouseStateCodec` own the JSON stored in `characters.inventory`,
+`equipment`, `skills`, `premium` and `warehouses.items`.
 
 | Column | Shape | Limits on restore |
 | --- | --- | --- |
@@ -110,7 +110,8 @@ and `warehouses.items`.
 | `skills` | `SavedSkills` v1: points, elite points, `(Code, Rank, Uses)`, progression `Revision` and `Operations` | 128 skills, points >= 0 |
 | `warehouses.items` | `SavedItems` v1 with anchors in the warehouse grid | `WarehouseStorage.MaxItems` |
 | `derived_stats` | `DerivedStatsDto`, written on save; nothing reads it | - |
-| `quests`, `premium` | `{}` from the starter row, carried through updates unchanged | - |
+| `premium` | `SavedPremium` v1 (`PremiumStateCodec.cs`): premium timers `(Kind, Value, DurationSeconds, ExpiresAtSeconds)` with Unix-second expiry, item-use `Operations`, `GravityScrolls`, big-head mode and expiry; `{}` is empty | 13 timers; expired timers and big head are dropped on restore |
+| `quests` | `{}` from the starter row, carried through updates unchanged | - |
 
 - Restore is strict: unknown JSON members are rejected, constructor parameters without defaults are required, max
   depth 16, max 65536 characters, `Version` must be 1, instance ids must be unique and non-empty, the item code must

@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Gameplay.Effects;
+using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.Items.Usable;
 
 namespace PristonTale.Gameplay.World;
@@ -9,6 +10,7 @@ namespace PristonTale.Gameplay.World;
 public sealed partial class GameScene
 {
     private LegacyItemEffects _itemEffects;
+    private PremiumPetPresentation _pets;
 
     // The local player's running premium timers as last sent by the server.
     public PremiumTimerSnapshot PremiumTimers { get; private set; }
@@ -26,6 +28,12 @@ public sealed partial class GameScene
         {
             _itemEffects = new LegacyItemEffects(_effectLibrary, _assetRoot ?? "", _effects, _renderer.TransientLights, _skillSounds);
         }
+
+        if (_pets is null && _renderer is not null)
+        {
+            _pets = new PremiumPetPresentation(new RendererActorScene(_renderer), _actorLoader, _assetRoot ?? "", _effectLibrary, _effects,
+                _renderer.TransientLights, _skillSounds, _log);
+        }
     }
 
     private void ObserveItems(PresenceUpdate update)
@@ -34,6 +42,8 @@ public sealed partial class GameScene
         {
             PremiumTimers = timers;
         }
+
+        _pets?.Observe(update, ItemAnchor);
 
         foreach (var effect in update.ItemEffects)
         {
@@ -51,7 +61,23 @@ public sealed partial class GameScene
         }
     }
 
-    private void UpdateItemEffects() => _itemEffects?.Update(_skillClockMs, ItemAnchor, PlayerPosition);
+    private void UpdateItemEffects(float dt)
+    {
+        _itemEffects?.Update(_skillClockMs, ItemAnchor, PlayerPosition);
+        _pets?.Update(dt, PetOwnerPose, ItemAnchor, PlayerPosition);
+    }
+
+    private (Vector3 Position, float Facing)? PetOwnerPose(uint entityId)
+    {
+        if (_remote is not null && entityId == _remote.SelfEntityId && _playerBody is not null)
+        {
+            return (_playerBody.Position, MathF.Atan2(_playerForward.X, _playerForward.Z));
+        }
+
+        return _remote is not null && _remote.TryGetDrawnPosition(entityId, out var position) && _remote.TryGetDrawnFacing(entityId, out var facing)
+            ? (position, facing)
+            : null;
+    }
 
     private Vector3? ItemAnchor(uint entityId)
     {

@@ -424,7 +424,12 @@ internal sealed class PresenceDecoder
             player = new PlayerAppearanceInfo(character.Name, (int)character.JobCode, (int)character.ChangeJob, (int)(faceAndHair & 0xFF),
                 (int)(faceAndHair >> 8 & 0xFF), character.ModelName, character.ModelName2, character.Level, Key(character.Temp[CharacterInfo.TempWeaponCode]),
                 Key(character.Temp[CharacterInfo.TempArmorCode]), Key(character.Temp[CharacterInfo.TempOffHandCode]),
-                (character.Temp[CharacterInfo.TempFlags] & CharacterInfo.FlagInVillage) != 0);
+                (character.Temp[CharacterInfo.TempFlags] & CharacterInfo.FlagInVillage) != 0)
+            {
+                HelperPet = (int)(character.Temp[CharacterInfo.TempFlags] >> CharacterInfo.HelperPetShift & 0xF),
+                Phoenix = (character.Temp[CharacterInfo.TempFlags] & CharacterInfo.FlagPhoenix) != 0,
+                BigHead = (int)(character.Temp[CharacterInfo.TempFlags] >> CharacterInfo.BigHeadShift & 0x3)
+            };
         }
 
         var summon = description.Kind == RemoteEntityKind.Monster && character.Brood == (uint)MonsterBrood.User;

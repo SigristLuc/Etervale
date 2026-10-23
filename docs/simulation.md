@@ -42,6 +42,7 @@ progression, regeneration and movement rates. `World/`, `Physics/` and `Skills/`
 | `Items/ItemGridSizes.cs` | Generated table: catalog key to inventory cell size (default 1x1) |
 | `Items/ItemClassRestrictions.cs` | Class/gender restriction masks for armor, robes and orbs by catalog key |
 | `Items/ItemCatalog.cs`, `PotionDefinition.cs` | Definition lookup by code; potion restore ranges |
+| `Items/Usable/` | Usable item rules, premium timers and their effects, pets, scrolls, force orbs ([special-items.md](special-items.md)) |
 | [`Combat/CombatResolver.cs`](../Shared/PristonTale.Simulation/Combat/CombatResolver.cs) | Hit, block, damage, critical, element and absorption resolution |
 | `Combat/CombatProfiles.cs`, `CombatProfileFactory.cs` | `AttackProfile`/`DefenderProfile` and how they are built from characters and monsters |
 | `Combat/WeaponDamage.cs` | Weapon damage range of a player |
@@ -127,6 +128,7 @@ a transaction candidate) is the only writer.
 | `Derived` | Cached `DerivedStats`; reading it recomputes when `Effects.Revision` changed |
 | `Equipment`, `Inventory` | 10 equipment slots and the 12x6 carried grid |
 | `Effects` | `EffectContainer` with every timed and permanent modifier |
+| `Premium`, `ItemUses` | Running premium timers (persisted in `premium`) and the recent item uses; a change recomputes |
 | `Skills` | `LearnedSkills` (ranks and use counts); a change triggers a recompute |
 | `InventoryRevision`, `ProgressionRevision` | Optimistic-concurrency counters for client commands |
 
@@ -144,7 +146,8 @@ a transaction candidate) is the only writer.
    defence grows by that percent before it feeds defence and absorption.
 5. `DerivedStats.Compute(attributes, level, functionProfile, equipped)` (formulas below).
 6. `PassiveSkills.Apply` (table-driven passives, see [skills.md](skills.md)), then `ModifierRules.Apply` with
-   `Effects.Totals`.
+   `Effects.Totals`; `MaxWeight` gains the premium weight bonus (Might of Awell, Gravity Scrolls). `PremiumEffects.Sync`
+   runs with `PassiveSkillEffects.Sync` and keeps Mana Reduce, Terry and Mute as permanent system modifiers.
 7. Pools are clamped to the new maxima.
 
 Only `AttackRating`, `Defence` and `AttackSpeed` of the equipped `ItemStatBlock` feed `DerivedStats.Compute`; weapon

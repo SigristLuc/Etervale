@@ -7,5 +7,6 @@ public enum ItemEffectKind : byte
     Firecracker = 1,
     Mastery = 2,
     ForceOrb = 3,
-    Learn = 4
+    Learn = 4,
+    PetAttack = 5
 }

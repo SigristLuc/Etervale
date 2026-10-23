@@ -204,6 +204,13 @@ if (args.Length == 4 && args[0] == "--capture-hud-target")
     return 0;
 }
 
+if (args.Length == 4 && args[0] == "--capture-item-effects")
+{
+    using var probe = new ItemEffectsCaptureProbe(args[1], args[2], args[3]);
+    probe.Run();
+    return 0;
+}
+
 if (args.Length == 4 && args[0] == "--capture-item-hud")
 {
     using var probe = new ItemHudCaptureProbe(args[1], args[2], args[3]);

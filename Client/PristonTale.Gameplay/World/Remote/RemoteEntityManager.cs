@@ -498,6 +498,18 @@ public sealed class RemoteEntityManager
         return false;
     }
 
+    public bool TryGetDrawnFacing(uint entityId, out float facing)
+    {
+        if (_entities.TryGetValue(entityId, out var entity))
+        {
+            facing = entity.RenderFacing;
+            return true;
+        }
+
+        facing = 0f;
+        return false;
+    }
+
     // The actor whose bones effects attach to: a player's body or a monster's model.
     public bool TryGetBodyActor(uint entityId, out ActorHandle handle)
     {
