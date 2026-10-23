@@ -1,28 +1,27 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using PristonTale.Application.World;
-using PristonTale.Client.Net.Online;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.World.Ai;
-using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Simulation.World.Motion;
-using PristonTale.Simulation.World.Spawning;
 
 namespace PristonTale.Tests;
 
+// The generic monster skill: which monsters cast, the clip a swing plays, area shapes, damage, impact and presence.
 internal static class MonsterSkillTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("monster skill selection requires supported rules and a real skill clip", SelectionAsync);
+        yield return ("every monster with a skill rating and a skill clip casts, from any family", SelectionAsync);
+        yield return ("monster swings draw their clip among the model's clips and keep its timing", VariantsAsync);
         yield return ("monster skills preserve spherical and forward square boundaries", ShapesAsync);
         yield return ("ordinary monster skills bypass precision and block while preserving flat absorption", DamageAsync);
         yield return ("monster skill impact is single-use, interruptible and independent of target movement", ImpactAsync);
-        yield return ("field emits skill motion and repeated cast timing through presence", FieldAsync);
         yield return ("single-target monster skill cannot hit bystanders or escaping prey", SingleTargetAsync);
+        yield return ("field swings carry the clip slot and the skill flag through presence", PresenceAsync);
     }
 
     internal static MonsterDefinition Definition(int soundCode = 0x19F0) => new(
@@ -43,14 +42,51 @@ internal static class MonsterSkillTests
     {
         var definition = Definition();
         Assert.True(!new MonsterAiTuning(definition).CanCastOffensiveSkill, "missing skill clip fabricated a cast");
-        Assert.True(!new MonsterAiTuning(definition with { SoundCode = 0x1600 }, Timing()).CanCastOffensiveSkill, "unported Babel rules were enabled");
-        Assert.True(!new MonsterAiTuning(definition with { Skill = definition.Skill with { CurseSkillCode = 101 } }, Timing()).CanCastOffensiveSkill,
-            "curse was treated as ordinary damage");
+        Assert.True(!new MonsterAiTuning(definition with { Skill = definition.Skill with { SkillRatingPercent = 0 } }, Timing()).CanCastOffensiveSkill,
+            "a monster without a skill rating cast");
+        foreach (var sound in new[] { 0x0000, 0x1100, 0x1600, 0x1830, 0x2150, 0x5020 })
+        {
+            Assert.True(new MonsterAiTuning(definition with { SoundCode = sound }, Timing()).CanCastOffensiveSkill, $"family {sound:X} could not cast");
+        }
+
+        var curse = definition with { Skill = new MonsterSkillStats(MonsterRange.Zero, 0, 0, 10, 101) };
+        Assert.True(new MonsterAiTuning(curse, Timing()).CanCastOffensiveSkill, "a curse skill was not castable");
         var tuning = new MonsterAiTuning(definition, Timing());
-        Assert.True(tuning.CanCastOffensiveSkill, "verified skill remained unavailable");
         Assert.Near(330, tuning.SkillWindupMs);
         Assert.Near(990, tuning.SkillDurationMs);
         Assert.Near(990, new MonsterAiTuning(definition, Timing(uint.MaxValue)).SkillWindupMs);
+        foreach (var late in new[] { MonsterSounds.Babel, MonsterSounds.DeathKnight })
+        {
+            var lateTuning = new MonsterAiTuning(definition with { SoundCode = late },
+                MotionTimingSet.Build([new(MotionStateCode.Skill, new MotionClip(0, 165, 1600, 0, 0, 0, false))]));
+            Assert.Near(120f * 1000f / 70f, lateTuning.SkillWindupMs, .5f);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static Task VariantsAsync()
+    {
+        var definition = MonsterSkillField.Monster(0x1830, rating: 100);
+        var tuning = new MonsterAiTuning(definition, MonsterSkillField.Timing(twoSkills: true));
+        Assert.True(tuning.SkillClips.Count == 2 && tuning.SkillClips[1].Slot == 4 && tuning.SkillClips[1].Key == 'K', "skill clips lost their slot or key");
+        var brain = new MonsterAiBrain(new CombatRng(3));
+        var prey = new FieldPreyView();
+        var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Target", 100);
+        prey.Rebuild([new WorldPlayer(1, new Vector3(40, 0, 0), character, false, default)]);
+        var seen = new HashSet<int>();
+        for (var swing = 0; swing < 40; swing++)
+        {
+            var monster = new MonsterInstance(9, definition, Vector3.Zero, 0f, 0) { TargetId = 1, AiState = MonsterAiState.Chase };
+            brain.Tick(monster, tuning, prey, 60);
+            Assert.True(monster.AttackIsSkill && monster.ActionSlot is 3 or 4, "skill swing played no skill clip");
+            var clip = tuning.SkillClips.First(value => value.Slot == monster.ActionSlot);
+            Assert.True(monster.ActionDurationMs == clip.DurationMs && monster.ActionHitAtMs == clip.HitAtMs && monster.ActionKey == clip.Key,
+                "swing timing did not follow its clip");
+            seen.Add(monster.ActionSlot);
+        }
+
+        Assert.True(seen.Count == 2, "random clip choice always picked one clip");
         return Task.CompletedTask;
     }
 
@@ -89,151 +125,88 @@ internal static class MonsterSkillTests
 
     private static Task ImpactAsync()
     {
-        var host = new SkillHost();
-        var brain = new MonsterAiBrain(new CombatRng(1));
-        var combat = new FieldCombat(host, new CombatRng(2));
-        var monster = host.Monster;
-        brain.Tick(monster, host.Tuning, host.Prey, 60);
-        Assert.True(monster.Motion == MonsterMotionState.Skill && monster.Motion.IsBusy(), "skill did not acquire the busy motion");
-        var origin = monster.Position;
-        monster.TargetId = 2; // A retarget outside the brain must not rewrite an already prepared cast.
-        Assert.True(brain.Tick(monster, host.Tuning, host.Prey, 329) is null, "cast hit before its INX event");
-        host.Players[0].Teleport(new Vector3(500, 0, 0));
-        host.Prey.Rebuild(host.Players);
-        var hit = brain.Tick(monster, host.Tuning, host.Prey, 1);
-        Assert.True(hit is { IsSkill: true, TargetEntityId: 1 } && monster.Position == origin, "skill drifted or missed its impact event");
-        int outsideHp = host.Players[0].Hp;
-        int insideHp = host.Players[1].Hp;
-        combat.ResolveMonsterHit(monster, hit!.Value);
-        Assert.True(host.Players[0].Hp == outsideHp && host.Players[1].Hp < insideHp, "area followed escaping target or missed another player");
-        var effect = host.Events.Single(value => value.Kind == CombatEventKindView.MonsterSkillImpact);
-        Assert.True(effect.SourceSoundCode == monster.Def.SoundCode && effect.Position == origin && effect.TargetId == 1,
-            "skill effect lost its captured origin, family or target");
-        int remainingHp = host.Players[1].Hp;
-        combat.ResolveMonsterHit(monster, hit.Value);
-        Assert.True(host.Players[1].Hp == remainingHp, "replayed impact applied damage twice");
-        Assert.True(host.Events.Count(value => value.Kind == CombatEventKindView.MonsterSkillImpact) == 1, "replayed impact duplicated its VFX");
+        var definition = MonsterSkillField.Monster(0x1100, range: 100);
+        var world = new MonsterSkillField(definition);
+        var target = world.AddPlayer(1, new Vector3(50, 0, 0));
+        var bystander = world.AddPlayer(2, new Vector3(-50, 0, 0));
+        var monster = world.Spawn(definition, Vector3.Zero, target: 1);
+        world.StepUntil(() => monster.Motion == MonsterMotionState.Skill, 5, "skill never started");
+        var origin = monster.SkillOrigin;
+        target.Teleport(new Vector3(500, 0, 0));
+        var targetHp = target.Hp;
+        var bystanderHp = bystander.Hp;
+        world.StepUntil(() => world.Events.Any(value => value.Kind == CombatEventKindView.MonsterSkillImpact), 20, "skill never hit");
+        Assert.True(target.Hp == targetHp && bystander.Hp < bystanderHp, "area followed escaping target or missed another player");
+        var effect = world.Events.Single(value => value.Kind == CombatEventKindView.MonsterSkillImpact);
+        Assert.True(effect.SourceSoundCode == 0x1100 && effect.Position == origin && effect.TargetId == 1, "impact lost its origin, family or target");
+        Assert.True(world.HitsOn(2).All(value => value.Skill), "skill hits were not marked as skill");
+        world.Combat(monster, new MonsterAttackEvent(monster.EntityId, 1, true));
+        Assert.True(world.Events.Count(value => value.Kind == CombatEventKindView.MonsterSkillImpact) == 1, "replayed impact repeated");
 
-        var interrupted = new SkillHost();
-        brain.Tick(interrupted.Monster, interrupted.Tuning, interrupted.Prey, 60);
-        MonsterAiBrain.ApplyFlinchOnHit(interrupted.Monster, new CombatRng(1), 2000, false, 700);
-        Assert.True(brain.Tick(interrupted.Monster, interrupted.Tuning, interrupted.Prey, 500) is null
-            && !interrupted.Monster.SkillImpactPending, "flinched caster still emitted an impact");
-        interrupted.Monster.ApplyDamage(10000);
-        Assert.True(brain.Tick(interrupted.Monster, interrupted.Tuning, interrupted.Prey, 1000) is null, "dead caster continued skill");
+        var interrupted = new MonsterSkillField(definition);
+        interrupted.AddPlayer(1, new Vector3(50, 0, 0));
+        var caster = interrupted.Spawn(definition, Vector3.Zero, target: 1);
+        interrupted.StepUntil(() => caster.Motion == MonsterMotionState.Skill, 5, "skill never started");
+        MonsterAiBrain.ApplyFlinchOnHit(caster, new CombatRng(1), 5000, false, 700);
+        interrupted.Step(20);
+        Assert.True(!interrupted.Events.Any(value => value.Kind == CombatEventKindView.MonsterSkillImpact), "flinched caster still emitted an impact");
         return Task.CompletedTask;
     }
 
     private static Task SingleTargetAsync()
     {
-        var definition = Definition(0x1840);
-        definition = definition with { Skill = definition.Skill with { SkillRange = 0 } };
-        foreach (bool escape in new[] { false, true })
+        var definition = MonsterSkillField.Monster(0x1840);
+        foreach (var escape in new[] { false, true })
         {
-            var host = new SkillHost(definition);
-            var brain = new MonsterAiBrain(new CombatRng(1));
-            var combat = new FieldCombat(host, new CombatRng(2));
-            brain.Tick(host.Monster, host.Tuning, host.Prey, 60);
+            var world = new MonsterSkillField(definition);
+            var target = world.AddPlayer(1, new Vector3(50, 0, 0));
+            var neighbour = world.AddPlayer(2, new Vector3(60, 0, 10));
+            var monster = world.Spawn(definition, Vector3.Zero, target: 1);
+            world.StepUntil(() => monster.Motion == MonsterMotionState.Skill, 5, "skill never started");
             if (escape)
             {
-                host.Players[0].Teleport(new Vector3(500, 0, 0));
+                target.Teleport(new Vector3(600, 0, 0));
             }
 
-            int before = host.Players[0].Hp;
-            int neighbourHp = host.Players[1].Hp;
-            var hit = brain.Tick(host.Monster, host.Tuning, host.Prey, 330);
-            Assert.True(hit.HasValue, "single-target skill did not emit its impact");
-            combat.ResolveMonsterHit(host.Monster, hit!.Value);
-            Assert.True((host.Players[0].Hp < before) != escape, "single-target skill ignored escape/reach");
-            Assert.True(host.Players[1].Hp == neighbourHp, "single-target skill damaged a bystander");
-            Assert.True(host.Events.Count(value => value.Kind == CombatEventKindView.MonsterSkillImpact) == 1, "escaping all damage suppressed the skill VFX");
+            var before = target.Hp;
+            var neighbourHp = neighbour.Hp;
+            world.StepUntil(() => world.Events.Any(value => value.Kind == CombatEventKindView.MonsterSkillImpact), 20, "skill never hit");
+            Assert.True((target.Hp < before) != escape, "single-target skill ignored escape or reach");
+            Assert.True(neighbour.Hp == neighbourHp, "single-target skill damaged a bystander");
         }
 
         return Task.CompletedTask;
     }
 
-    private static Task FieldAsync()
+    private static Task PresenceAsync()
     {
-        var definition = Definition();
-        var timing = Timing();
-        var catalog = new MotionTimingCatalog(new Dictionary<string, MotionTimingSet> { ["fixture.inx"] = timing });
-        var field = new FieldInstance(3, FieldSpawnData.Empty, new MonsterCatalog([definition]), new EntityIdAllocator(), new CombatRng(1), catalog);
-        var player = CreatePlayer(1, new Vector3(50, 0, 0));
-        field.Add(player);
-        var monster = ((ISpawnSink)field).Spawn(definition, Vector3.Zero, 0, 0);
-        monster.TargetId = 1;
-        monster.AiState = MonsterAiState.Chase;
-        int entries = 0;
-        for (uint tick = 1; tick <= 60; tick++)
+        var definition = MonsterSkillField.Monster(0x1830, rating: 100);
+        var world = new MonsterSkillField(MonsterSkillField.Timing(twoSkills: true), definition);
+        var player = world.AddPlayer(1, new Vector3(50, 0, 0));
+        var monster = world.Spawn(definition, Vector3.Zero, target: 1);
+        var clips = new HashSet<int>();
+        var round = new WireRoundTrip(player.EntityId);
+        for (uint tick = 1; tick <= 200; tick++)
         {
-            field.Step(.05f);
-            var events = field.SnapshotEvents() ?? [];
-            foreach (var cast in events.Where(value => value.Kind == CombatEventKindView.SwingBegin && value.AttackerId == monster.EntityId))
+            world.Field.Step(MonsterSkillField.Tick);
+            var events = world.Field.SnapshotEvents() ?? [];
+            if (!events.Any(value => value.Kind == CombatEventKindView.SwingBegin && value.AttackerId == monster.EntityId))
             {
-                entries++;
-                Assert.Near(990, cast.DurationMs);
-                Assert.Near(330, cast.HitAtMs);
-                var snapshot = new WorldSnapshot(tick, field.BuildViews(), events, 3);
-                // Snapshots are sampled only at cast starts, so each one is checked as a fresh subscriber would see it.
-                var presence = new WireRoundTrip(player.EntityId).PushMerged(snapshot);
-                Assert.True(presence.Spawns.Any(entity => entity.EntityId == monster.EntityId && entity.MoveState == RemoteMoveState.Skill)
-                    || presence.States.Any(entity => entity.EntityId == monster.EntityId && entity.MoveState == RemoteMoveState.Skill),
-                    "presence collapsed skill into basic attack");
+                continue;
             }
+
+            var presence = round.PushMerged(new WorldSnapshot(tick, world.Field.BuildViews(), events, 7));
+            var swing = presence.Events.Single(value => value.Kind == RemoteCombatEventKind.SwingBegin && value.AttackerId == monster.EntityId);
+            Assert.True(swing.Skill && swing.Clip is 3 or 4, "presence lost the swing's clip or skill flag");
+            var clip = swing.Clip == 3 ? 990f : 1980f;
+            Assert.Near(clip, swing.DurationMs, 1f);
+            clips.Add(swing.Clip);
         }
 
-        Assert.True(entries >= 3, "repeated casts stopped after the first skill");
+        Assert.True(clips.Count == 2, "repeated casts played only one clip");
         return Task.CompletedTask;
     }
 
-    private static WorldPlayer CreatePlayer(uint id, Vector3 position)
-    {
-        var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Skill target", 100);
-        return new WorldPlayer(id, position, character, false, default);
-    }
-
-    private sealed class SkillHost : IFieldCombatHost
-    {
-        public WorldPlayer[] Players { get; } = [CreatePlayer(1, new Vector3(50, 0, 0)), CreatePlayer(2, new Vector3(-50, 0, 0))];
-        public MonsterInstance Monster { get; }
-        public MonsterAiTuning Tuning { get; }
-        public FieldPreyView Prey { get; } = new();
-
-        public SkillHost(MonsterDefinition? definition = null)
-        {
-            definition ??= Definition();
-            Monster = new MonsterInstance(3, definition, Vector3.Zero, 0, 0)
-            {
-                TargetId = 1,
-                AiState = MonsterAiState.Chase
-            };
-            Tuning = new MonsterAiTuning(definition, Timing());
-            Prey.Rebuild(Players);
-        }
-
-        public IEnumerable<MonsterInstance> Monsters => [Monster];
-        public IReadOnlyList<PreyCandidate> NearbyPlayers(Vector3 origin, float radius) => Prey.Nearby(origin, radius);
-        public MonsterAiTuning TuningFor(MonsterDefinition definition) => Tuning;
-        public (float DurationMs, float HitAtMs) PlayerSwingTiming(WorldPlayer player) => (990, 330);
-        public List<CombatEventView> Events { get; } = [];
-        public void EmitCombatEvent(in CombatEventView combatEvent)
-        {
-            Events.Add(combatEvent);
-        }
-        public void DespawnMonster(uint entityId)
-        {
-        }
-
-        public bool TryGetPlayer(uint entityId, [MaybeNullWhen(false)] out WorldPlayer player)
-        {
-            player = Players.FirstOrDefault(value => value.EntityId == entityId);
-            return player is not null;
-        }
-
-        public bool TryGetMonster(uint entityId, [MaybeNullWhen(false)] out MonsterInstance monster)
-        {
-            monster = Monster;
-            return entityId == monster.EntityId;
-        }
-    }
+    internal static void Combat(this MonsterSkillField world, MonsterInstance monster, MonsterAttackEvent landed) =>
+        world.Field.Combat.ResolveMonsterHit(monster, landed);
 }

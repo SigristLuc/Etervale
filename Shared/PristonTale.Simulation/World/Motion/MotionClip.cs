@@ -11,6 +11,7 @@ public static class MotionStateCode
     public const int Eat = 0x140;
     public const int Skill = 0x150;
     public const int Restart = 0x200;
+    public const int Warp = 0x210;
 }
 
 public readonly record struct MotionClip(
@@ -22,6 +23,12 @@ public readonly record struct MotionClip(
     uint Event3,
     bool Repeat)
 {
+    // The clip's position in the model's motion table (what the client plays) and its authored key character, which
+    // selects the skill some monsters perform with the clip.
+    public int Slot { get; init; } = -1;
+
+    public char Key { get; init; }
+
     public int Frames => EndFrame - StartFrame;
 
     public int SpanTicks => Frames * MotionTiming.TicksPerFrame;

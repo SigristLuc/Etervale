@@ -33,10 +33,6 @@ public sealed class LegacyEffectLibrary : IDisposable
 
     // The effect definitions under Effect/Vfx, prepared on a worker from the moment the library loads.
     public VfxContent Vfx { get; private set; }
-    public PristonMeshEffect HestMesh { get; private set; }
-    public PristonMeshEffect HestMesh2 { get; private set; }
-    public PristonMeshEffect PiercingMesh { get; private set; }
-    public PristonMeshEffect ArrowMesh { get; private set; }
     public LegacyBillboardAnimation ReturnParticle { get; private set; }
     public LegacyBillboardAnimation ReturnRay { get; private set; }
 
@@ -81,19 +77,6 @@ public sealed class LegacyEffectLibrary : IDisposable
                 };
             }
 
-            var reader = new PristonSmdReader();
-            PristonMeshEffect Mesh(string path, bool bones)
-            {
-                string full = Path.Combine(assetRoot, path);
-                var mesh = reader.ReadModel(full);
-                var skeleton = bones ? reader.ReadModel(Path.ChangeExtension(full, ".smb")) : mesh;
-                return new PristonMeshEffect(device, library._content, library._textures, mesh, skeleton, bones ? 30 : 1);
-            }
-
-            library.HestMesh = Mesh("Effect/AssaEffect/CaveMummy/b_m_CaveMummy.smd", true);
-            library.HestMesh2 = Mesh("Effect/AssaEffect/CaveMummy/b_m_CaveMummy1.smd", true);
-            library.PiercingMesh = Mesh("image/Sinimage/AssaEffect/Piercing/Piercing.smd", false);
-            library.ArrowMesh = Mesh("Effect/AssaEffect/Skill3Mesh/arrow.smd", false);
             var returnParticle = library.LoadAnimation(assetRoot, "ReturnParticle1.ini");
             library.ReturnParticle = new LegacyBillboardAnimation(returnParticle.Textures, returnParticle.Animation);
             var returnRay = library.LoadAnimation(assetRoot, "Return1.ini");
@@ -284,10 +267,6 @@ public sealed class LegacyEffectLibrary : IDisposable
     public void Dispose()
     {
         Vfx?.Dispose();
-        HestMesh?.Dispose();
-        HestMesh2?.Dispose();
-        PiercingMesh?.Dispose();
-        ArrowMesh?.Dispose();
         _textures.Dispose();
     }
 }

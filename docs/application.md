@@ -35,6 +35,7 @@ into it is described in [server.md](server.md); skill resolution details are in 
 | `World/WorldServerOptions.cs` | `ExperienceMultiplier`, `MaxPendingCommandsPerPlayer`; `WorldBusyException` |
 | [`World/FieldInstance.cs`](../Shared/PristonTale.Application/World/FieldInstance.cs) | One live field: players, monsters, NPCs, spawner, AI, collision index, step order, views |
 | `World/FieldCombat.cs` | Basic attack and monster attack resolution, damage log, kill payout, corpses |
+| `World/FieldMonsterSkills.cs`, `FieldInstance.MonsterSkills.cs`, `FieldSkills.MonsterStatuses.cs` | Monster skill authority: swing start rules and events, skill blows, statuses, curses, boss lives and reinforcements, potions, shape changes (see [world.md](world.md#monster-skills)) |
 | `World/FieldSkills*.cs` | Player skill authority, effect timers, regeneration, familiars, summons (see [skills.md](skills.md)) |
 | `World/WorldPlayer.cs` | Server-side avatar: movement validation, action state (swing, flinch, eat, cast), death, respawn |
 | `World/WorldNpc.cs` | Placed NPC with deterministic wander |
@@ -232,9 +233,11 @@ Player basic attack:
 Monster attacks (`ResolveMonsterHit`): basic hits check reach, reflection and evasion hooks, roll with
 `CombatResolver.ResolveMonsterAttack` (the player's block chance; a block emits `Block`), scale by modifiers and undead
 absorption, pass the skill
-`Defend` hook, then `WorldPlayer.ApplyDamage` (ignored during a revive guard). A monster's area skill hits every player
-inside its shape once per cast (`SkillImpactPending` is consumed before visiting victims). Monster hits on summons use
-accuracy versus the summon's defence and subtract its absorption.
+`Defend` hook, then `WorldPlayer.ApplyDamage` (ignored during a revive guard), then the family's riders
+(`FieldMonsterSkills.AfterBlow`). Skill blows go to `FieldMonsterSkills.ResolveSkill`: a monster's area skill hits every
+player inside its shape once per cast (`SkillImpactPending` is consumed before visiting victims). Monster hits on
+summons use accuracy versus the summon's defence, the great bosses' multiplier and the summon's absorption. A stunned
+player starts no swing and its movement reports are ignored.
 
 ### Player skills (`FieldSkills`)
 

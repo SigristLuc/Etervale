@@ -327,7 +327,7 @@ internal sealed class PresenceDecoder
         if (description.Kind == RemoteEntityKind.Monster)
         {
             _catalog.Register(new MonsterRenderInfo(template, character.ModelName, scale, character.Name, character.Level,
-                (MonsterBrood)character.Brood, character.ArrowPosiX, character.ArrowPosiY));
+                (MonsterBrood)character.Brood, character.ArrowPosiX, character.ArrowPosiY, (int)character.CharSoundCode));
         }
         else if (description.Kind == RemoteEntityKind.Npc)
         {
@@ -367,7 +367,11 @@ internal sealed class PresenceDecoder
         {
             events.Add(new CombatEventInfo(entry.Attacker, entry.Target, (RemoteCombatEventKind)entry.Kind, entry.DurationMs, entry.HitAtMs,
                 entry.Damage, (entry.Flags & CombatEventFlags.Critical) != 0, (entry.Flags & CombatEventFlags.Killed) != 0, entry.Resources,
-                entry.SoundCode, Position(entry.X, entry.Y, entry.Z), PristonUnits.FromAngle(entry.Angle)));
+                entry.SoundCode, Position(entry.X, entry.Y, entry.Z), PristonUnits.FromAngle(entry.Angle))
+            {
+                Clip = entry.Clip,
+                Skill = (entry.Flags & CombatEventFlags.Skill) != 0
+            });
         }
 
         return Update([], [], events: events) with { ServerTimeMs = _clockMs };
@@ -544,6 +548,7 @@ internal sealed class PresenceDecoder
         MotionStateCode.Dead => RemoteMoveState.Dead,
         MotionStateCode.Skill => RemoteMoveState.Skill,
         MotionStateCode.Eat => RemoteMoveState.Eat,
+        MotionStateCode.Warp => RemoteMoveState.Warp,
         _ => RemoteMoveState.Unspecified
     };
 

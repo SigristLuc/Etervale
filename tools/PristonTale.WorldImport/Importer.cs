@@ -305,13 +305,13 @@ public sealed class Importer
                     """
                     INSERT INTO motion_slots (
                         motion_table_key, slot, state, start_frame, end_frame,
-                        event_frame0, event_frame1, event_frame2, event_frame3, repeat)
-                    VALUES (@TableKey, @Slot, @State, @StartFrame, @EndFrame, @E0, @E1, @E2, @E3, @Repeat)
+                        event_frame0, event_frame1, event_frame2, event_frame3, repeat, key_code)
+                    VALUES (@TableKey, @Slot, @State, @StartFrame, @EndFrame, @E0, @E1, @E2, @E3, @Repeat, @KeyCode)
                     """,
                     new
                     {
                         TableKey = tableKey, s.Slot, s.State, s.StartFrame, s.EndFrame,
-                        E0 = s.Event0, E1 = s.Event1, E2 = s.Event2, E3 = s.Event3, s.Repeat,
+                        E0 = s.Event0, E1 = s.Event1, E2 = s.Event2, E3 = s.Event3, s.Repeat, s.KeyCode,
                     }, tx, cancellationToken: ct));
                 report.MotionSlotRows++;
             }

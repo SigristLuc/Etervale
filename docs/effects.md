@@ -31,13 +31,15 @@ writes that data, and the gameplay glue in `Client/PristonTale.Gameplay/Effects/
 | [`Client/PristonTale.Gameplay/Effects/VfxContent.cs`](../Client/PristonTale.Gameplay/Effects/VfxContent.cs) | Loads the catalog, models, animations and textures on a worker; registers them on the game thread in 2 ms slices |
 | [`Client/PristonTale.Gameplay/Effects/SkillPresentation.cs`](../Client/PristonTale.Gameplay/Effects/SkillPresentation.cs) | Implements `IVfxServices`, maps skill events and statuses to effects |
 | `Client/PristonTale.Gameplay/Effects/ScriptEffects.cs` | `IScriptEffects`: monster and meteor code start converted scripts (`particle.<name>`) through the skill presentation or a scene's own `VfxSystem` (the opening flight) |
+| [`Client/PristonTale.Gameplay/Effects/MonsterPresentation.cs`](../Client/PristonTale.Gameplay/Effects/MonsterPresentation.cs) | Monster effects: follows each monster's clip and starts `vfx.monster.*`; monster status effects and body tints |
+| `Client/PristonTale.Gameplay/Effects/MonsterVisualFamilies.cs` | Sound family (and level, size) to effect family |
 | `Client/PristonTale.Gameplay/Effects/ActorLooks.cs`, `World/Remote/ActorLookPresenter.cs` | `ActorLookBook`: skill looks per entity from statuses, casts and impacts; the presenter paints them on actors (tint, opacity, overlay, wobble, shield swap, weapon copy, afterimage echoes) |
 | `Client/PristonTale.Gameplay/Effects/CostumeWings.cs` | Wings of the premium costume body items |
 | `Shared/PristonTale.Simulation/Skills/SkillRulePresentation.cs` | Rule fields for per-hit sounds and effects and actor looks |
 | `Client/PristonTale.Engine3D/Rendering/PristonVfxEffect.cs`, `PristonMeshEffect.cs` | VFX shader wrapper (`Vfx.fx`, blend modes) and baked effect models |
 | [`tools/PristonTale.VfxImport/`](../tools/PristonTale.VfxImport) | `ptvfx import`: converts the original effect scripts and installs the hand-authored definitions |
-| `tools/PristonTale.VfxImport/Authored/` | Hand-authored definitions (source of `Effect/Vfx/Common` and `Effect/Vfx/Classes`) |
-| `tests/PristonTale.Tests/SkillPresentationTests.cs`, `SkillLookTests.cs`, `VfxLayerTests.cs`, `VfxImportTests.cs` | Regression cases; `VfxCaptureProbe.cs` and `SkillCaptureProbe.cs` are GPU capture probes |
+| `tools/PristonTale.VfxImport/Authored/` | Hand-authored definitions (source of `Effect/Vfx/Common`, `Classes`, `Costumes` and `Monsters`) |
+| `tests/PristonTale.Tests/SkillPresentationTests.cs`, `SkillLookTests.cs`, `VfxLayerTests.cs`, `VfxImportTests.cs`, `MonsterPresentationTests.cs` | Regression cases; `VfxCaptureProbe.cs`, `SkillCaptureProbe.cs` and `MonsterSkillCaptureProbe.cs` are GPU capture probes |
 
 ## Where effect data lives
 
@@ -51,7 +53,8 @@ the client. `assets/` is not in Git, so the data is produced by `ptvfx import <a
 | `Scripts/` | `script.<File>`: one per original effect group script (`Effect/NewEffect/*.lua`) | converted |
 | `Particles/` | `particle.<File>`: one per original particle script (`Effect/Particle/Script/*.part`) | converted |
 | `Costumes/` | Costume wings (`vfx.costume.wing.*`) | `tools/PristonTale.VfxImport/Authored/Costumes/` |
-| `Items/`, `Monsters/` | Reserved for item and monster effects authored the same way | `Authored/<Folder>/` |
+| `Monsters/<Group>/` | One file per monster family (`vfx.monster.<family>.*`), grouped by region: `Field`, `Iron`, `Ice`, `Temple`, `Revived` | `tools/PristonTale.VfxImport/Authored/Monsters/` |
+| `Items/` | Reserved for item effects authored the same way | `Authored/Items/` |
 
 Files load in ordinal order of their relative path. A name defined again replaces the earlier definition (reported as
 an error by the catalog, so shipped data keeps names unique). A file that cannot be read, parsed or validated is
@@ -111,15 +114,16 @@ one-shots never start, layers that run until stopped end, finite ones finish.
 | emitter | `texture`, `frameColumns`/`frameRows` (1), `blend`, `intensity` (1), `softness` (16), `anchor` (Point), `bone`, `offset`, `local`, `delay`, `emitTime` (0 = whole duration), `rate`, `burst`, `maxParticles` (64), `lifetime` [1,1], `speed`, `direction` [0,1,0], `spread` deg, `shape` (Point/Sphere/Ring/Disc), `radius`, `gravity`, `drag`, `size` keys (half extent), `color` keys (linear RGBA), `rotation`, `spin`, `align` (Camera/Ground/Velocity), `stretch` (0.02) |
 | trail | `texture`, `blend`, `intensity`, `anchor` (Caster), `bone`, `offset`, `width` (12, full), `lifetime` (0.25 per point), `delay`, `emitTime`, `color` keys head -> tail |
 | light | `anchor`, `offset` [0,30,0], `color` [r,g,b] 0..1, `power` (160), `decay` (4 per tick), `delay`; legacy light units (radius power/2, brightness power x colour / 256) |
-| sound | `path` (asset-relative wave), `variants` (further takes; each play picks one of `path` and these at random), `delay`, `volume` (1); played at the caster |
+| sound | `path` (asset-relative wave), `variants` (further takes; each play picks one of `path` and these at random), `delay`, `volume` (1), `pick`; played at the caster |
 
 A key is `{ "t": 0..1, "v": [..] }` with non-decreasing `t`, sampled linearly and clamped.
 
 ### Child (`VfxChildDefinition`)
 
 `effect` (name), `anchor`, `bone`, `offset`, `delay`, `follow` (keep the child's spawn point on the anchor), `turn`
-(give it this effect's facing), `stopWithParent` (true). The child is looked up by name on first use, so it may live in
-any file.
+(give it this effect's facing), `stopWithParent` (true), `pick`. The child is looked up by name on first use, so it may
+live in any file. Children (and sounds) that share a non-zero `pick` group start one member, drawn uniformly when the
+effect starts (one of three hit bursts, one of two cast sounds).
 
 ### Component (`VfxComponentDefinition`)
 
@@ -200,6 +204,40 @@ Skill rules (`Shared/PristonTale.Simulation/Skills/Data/Classes/<Class>.json`) n
 | Status added | `buffEffect` (or `<buffEffect>.<element>`) | On the entity while the status lasts |
 | Each frame | `statusLook`, `rageGlow`, `shieldModel`, `weaponGrowth`, `afterimages`, `castShieldBone` | Actor looks (`ActorLookBook`) |
 | Revive | `vfx.priestess.resurrection.rise` | On the revived entity |
+
+## Monster effects
+
+Monster visuals are data: `MonsterPresentation` follows each drawn monster's animation, as the original client did, and
+starts the family's named effects. The server only chooses the clip (`SwingBegin` carries its motion-table slot, the
+client plays it) and reports statuses.
+
+| Trigger | Starts when |
+|---|---|
+| `attack` | an attack clip starts |
+| `attack.hit` | the attack clip passes its first or second event frame |
+| `skill` | a skill clip starts |
+| `skill.hit` | the skill clip passes one of its four event frames |
+| `death` | the death clip starts (once) |
+| `aura` | the monster appears; stopped at death or when it leaves (hand flames, body glows, circles) |
+| `impact` | a skill hit lands on a player other than the swing's target |
+
+Name: `vfx.monster.<family>.<trigger>`; clip triggers look up `<trigger>.k<key>.e<n>`, `<trigger>.k<key>`,
+`<trigger>.e<n>`, then `<trigger>`, with the clip's authored key and the 1-based event number. Spawn:
+`VfxSpawn(monster, its swing target, monster position, -facing)`, so `Caster`/`Target` anchors and bones follow the
+actors. Families come from `MonsterVisualFamilies` by sound code, split where the original split by level (imp and
+mephit; witch, succubus, incubus and incubus summoner; evil plant and maple; doom guard from level 65, doom lord when
+larger; the level-50 scorpion's snail shot). An undefined name shows nothing. Shared helpers of a family use other
+roles (`vfx.monster.hulk.hit`, `vfx.monster.revived.fx.*`).
+
+Statuses that monster skills put on players and monsters (`MonsterStatuses`) show while they run: poison
+(`vfx.monster.status.poison` and a green tint), the bloody knight's stun (`vfx.monster.status.bloodyknightstun`), the
+lightning crystal's stun (`vfx.debuff.stun`), the defence and attack curses (`vfx.monster.status.cursedefence`,
+`curseattack`; the mystic's curse visual is part of its skill), ice slows as a blue tint. A Minig reddens with anger
+while it fights. Every family's choices and approximations are in the authored files; `--capture-monster-skills`
+plays representative clips on real models ([testing.md](testing.md)).
+
+To add or change a monster's visuals: edit its family file under `Authored/Monsters/<Group>/`, run `ptvfx import`, then
+`MonsterPresentationTests` (families and names) and the capture probe.
 
 ## Skill effect inventory
 
@@ -360,6 +398,8 @@ turns with the wearer and is hidden in a village and on the dead. Costume bodies
 
 ## Limitations
 
+- Monsters that fade out or darken as corpses keep their full colour; monster effects keep their authored size whatever
+  the model size.
 - Skill events carry no critical flag (Double Crash's critical flash), no block, reflect or absorb event (the Divine
   Inhalation and Godly Shield block flash, Holy Reflection's reflected blow, Energy Shield's absorb burst, enchanted
   weapon hits, the enchant flash on an ally) and only the primary target of an area (Divine Lightning, Extinction, Soul

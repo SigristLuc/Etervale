@@ -12,6 +12,13 @@ public interface IActorScene
     ActorHandle AddActor(PristonActorInstance instance);
     void SetActorWorld(ActorHandle handle, Matrix world);
     void SetActorColorAdd(ActorHandle handle, Vector3 colorAdd) { }
+    bool TryGetActorMotion(ActorHandle handle, out PristonMotionInfo motion, out float ticks)
+    {
+        motion = null;
+        ticks = 0f;
+        return false;
+    }
+
     void SetActorMotion(ActorHandle handle, PristonActorMotion motion);
     void SetActorMotionIndex(ActorHandle handle, int motionIndex);
     int ResolveSkillMotion(ActorHandle handle, int motionIndex) => motionIndex;

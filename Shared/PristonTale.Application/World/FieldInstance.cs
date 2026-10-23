@@ -46,6 +46,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     private readonly MonsterAiBrain _brain;
     private readonly FieldCombat _combat;
     private readonly FieldSkills _skills;
+    private readonly FieldMonsterSkills _monsterSkills;
     private readonly EntityIdAllocator _ids;
     private readonly CombatRng _rng;
     private readonly MonsterCatalog _catalog;
@@ -76,6 +77,8 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         _combat = new FieldCombat(this, rng, experienceMultiplier);
         _skills = new FieldSkills(this, rng);
         _combat.SkillCombat = _skills;
+        _monsterSkills = new FieldMonsterSkills(this, rng) { Combat = _combat };
+        _combat.MonsterSkills = _monsterSkills;
         Premium = new FieldPremium(fieldId, this);
         _combat.PlayerHitLanded = Premium.RecordHit;
         foreach (var placement in spawnData.FixedNpcs)
@@ -206,6 +209,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
             StepMonster(_liveScratch[i], dtMs);
         }
 
+        _monsterSkills.ApplyChanges();
         StepSummons(dtMs);
         ExpireSoulMonsters();
 
@@ -367,15 +371,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         Vector3 before = monster.Position;
         MonsterAttackEvent? attack = _brain.Tick(monster, tuning, DuelPrey(monster) ?? _prey, dtMs);
 
-        if (monster.SwingJustBegan)
-        {
-            monster.SwingJustBegan = false;
-            float durationMs = monster.AttackIsSkill ? tuning.SkillDurationMs : tuning.CooldownMs;
-            float hitAtMs = monster.AttackIsSkill ? tuning.SkillWindupMs : tuning.WindupMs;
-            _events.Add(new CombatEventView(
-                monster.EntityId, monster.TargetId, CombatEventKindView.SwingBegin, durationMs, hitAtMs));
-        }
-
+        _monsterSkills.AfterTick(monster, tuning, before, dtMs);
         MoveMonster(monster, before);
 
         if (attack is { } landed)
@@ -594,6 +590,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         uint id = _ids.NextMonsterId();
         var monster = new MonsterInstance(id, definition, Terrain.PlaceOnFloor(position), facing, spawnPointIndex);
         _monsters[id] = monster;
+        _monsterSkills.Prepare(monster);
         return monster;
     }
 
@@ -683,8 +680,8 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         m.Facing,
         ToMoveState(m.PresentedMotion),
         level: m.Def.Combat.Level,
-        hp: m.Life,
-        maxHp: m.Def.Combat.MaxLife,
+        hp: FieldMonsterSkills.ViewLife(m).Life,
+        maxHp: FieldMonsterSkills.ViewLife(m).Max,
         appearance: default,
         templateId: (uint)m.Def.Code,
         moveSpeed: m.Def.Ai.MoveSpeed,
@@ -704,6 +701,8 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         MonsterMotionState.Skill => MoveStateView.Skill,
         MonsterMotionState.Damage => MoveStateView.Damage,
         MonsterMotionState.Dead => MoveStateView.Dead,
+        MonsterMotionState.Eat => MoveStateView.Eat,
+        MonsterMotionState.Warp => MoveStateView.Warp,
         _ => MoveStateView.Idle,
     };
 }

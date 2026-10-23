@@ -1,6 +1,7 @@
 using System.Numerics;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Ai;
+using PristonTale.Simulation.World.Monsters.Skills;
 
 namespace PristonTale.Simulation.World.Monsters;
 
@@ -118,6 +119,25 @@ public sealed class MonsterInstance
     public int Potions { get; set; }
     public int MinimumLife { get; set; }
 
+    // Monster skills: the clip playing for the current swing (slot and key, -1 without a clip), the blow times of that
+    // clip, the lives of the bosses that carry them, the blows dealt so far (anger), the monster a power-lending skill aims
+    // at, a finished potion or transformation clip the host completes, and the time alive.
+    public int ActionSlot { get; set; } = -1;
+    public char ActionKey { get; set; }
+    public float ActionDurationMs { get; set; }
+    public float ActionHitAtMs { get; set; }
+    public float SecondHitAtMs { get; set; }
+    public MonsterActionClip AttackVariant { get; set; }
+    public int VirtualLives { get; set; }
+    public int VirtualLivesMax { get; set; }
+    public int LivesSpent { get; set; }
+    public int AttackAnger { get; set; }
+    public uint AllyTargetId { get; set; }
+    public float SpecialMsLeft { get; set; }
+    public MonsterMotionState CompletedSpecial { get; set; }
+    public bool DrinkHeals { get; set; }
+    public float AliveMs { get; set; }
+
     public void ApplyDamage(int amount)
     {
         if (amount <= 0)
@@ -129,6 +149,12 @@ public sealed class MonsterInstance
         if (MinimumLife > 0 && Life < MinimumLife)
         {
             Life = MinimumLife;
+        }
+
+        if (MonsterLifeRules.TrySpendVirtualLife(this))
+        {
+            LivesSpent++;
+            return;
         }
 
         if (Life <= 0)

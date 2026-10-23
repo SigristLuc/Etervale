@@ -49,8 +49,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private readonly PristonTale.Effects.EffectsEngine _effects;
     private readonly FieldAudioController _fieldAudio;
     private readonly NpcAudioController _npcAudio;
-    private PristonTale.Gameplay.Effects.LegacyMeteorEffects _meteors;
-    private PristonTale.Gameplay.Effects.LegacyMonsterMeshEffects _monsterMeshEffects;
     private PristonTale.Gameplay.Effects.LegacyReturnEffect _returnEffect;
     private readonly List<LoadedField> _fields = [];
     private readonly FieldCollisionQuery _fieldCollision;
@@ -356,9 +354,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _renderer = new PristonRenderer(_graphicsDevice, _content, _log, _presentation) { Sky = _sky };
         if (_effects is not null)
         {
-            var scriptEffects = new PristonTale.Gameplay.Effects.VfxScriptEffects(() => _skillFx);
-            _meteors = new PristonTale.Gameplay.Effects.LegacyMeteorEffects(scriptEffects, _renderer.TransientLights, _fieldCollision);
-            _monsterMeshEffects = new PristonTale.Gameplay.Effects.LegacyMonsterMeshEffects(_effectLibrary, scriptEffects, _renderer.TransientLights);
             _returnEffect = new PristonTale.Gameplay.Effects.LegacyReturnEffect(_graphicsDevice, _effectLibrary, _renderer.TransientLights);
         }
 
@@ -598,8 +593,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _selfAttacking = false;
         _attackInput.Cancel();
         _targetSelection.Clear();
-        _meteors?.Clear();
-        _monsterMeshEffects?.Clear();
+        _monsterFx?.Clear();
         _renderer?.TransientLights.Clear();
         _effects?.Clear();
         while (_presenceQueue.Reader.TryRead(out _))
@@ -1179,8 +1173,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             _playerBodyActor = _equipmentPresentation.Handles.Body;
             _playerHeadActor = _equipmentPresentation.Handles.Head;
         }
-        _meteors?.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
-        _monsterMeshEffects?.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
+        UpdateMonsterEffects((float)gameTime.ElapsedGameTime.TotalSeconds);
         _returnEffect?.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
         _effects?.Update(gameTime);
         var frameDt = (float)gameTime.ElapsedGameTime.TotalSeconds;
@@ -1276,14 +1269,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             return;
         }
 
+        ObserveMonsterSwings(update);
         foreach (var effect in update.Events)
         {
-            if (effect.Kind == RemoteCombatEventKind.MonsterSkillImpact)
-            {
-                ObserveMonsterSkillEffect(effect);
-                continue;
-            }
-
             if (effect.Kind != RemoteCombatEventKind.PotionApplied || _effects.Instances.Count >= 128)
             {
                 continue;
@@ -1310,62 +1298,11 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         }
     }
 
-    private void ObserveMonsterSkillEffect(CombatEventInfo effect)
-    {
-        if (!_remote.TryGetDrawnPosition(effect.AttackerId, out var caster))
-        {
-            return;
-        }
-
-        var origin = new Vector3(effect.Position.X, caster.Y, -effect.Position.Z);
-        if (effect.SourceSoundCode is 0x18A0 or 0x1890)
-        {
-            Vector3 target;
-            if (effect.TargetId == _remote.SelfEntityId && _playerBody is not null)
-            {
-                target = _playerBody.Position;
-            }
-            else if (!_remote.TryGetDrawnPosition(effect.TargetId, out target))
-            {
-                return;
-            }
-
-            if (effect.SourceSoundCode == 0x18A0)
-            {
-                _meteors.Spawn(target);
-            }
-            else
-            {
-                _monsterMeshEffects.Spawn(effect.SourceSoundCode, origin, effect.Facing, target);
-            }
-            return;
-        }
-
-        if (effect.SourceSoundCode is 0x19F0 or 0x1840)
-        {
-            _monsterMeshEffects.Spawn(effect.SourceSoundCode, origin, effect.Facing, Vector3.Zero);
-            return;
-        }
-
-        if (effect.SourceSoundCode != 0x18E0)
-        {
-            return;
-        }
-
-        var position = new Vector3(
-            effect.Position.X + MathF.Sin(effect.Facing) * 68f,
-            caster.Y + 22f,
-            -effect.Position.Z - MathF.Cos(effect.Facing) * 68f);
-        _skillFx?.SpawnAt($"{PristonTale.Gameplay.Effects.VfxScriptEffects.ParticlePrefix}HulkHit{Random.Shared.Next(3) + 1}", position, Matrix.Identity);
-        _renderer.TransientLights.Add(position, new Color(100, 255, 100), 100, 1);
-    }
-
     public void Draw()
     {
         if (_renderer != null && _camera != null)
         {
             _renderer.Draw(_camera);
-            _monsterMeshEffects?.Draw(_camera.View, _camera.Projection);
             _returnEffect?.Draw(_camera.View, _camera.Projection, _camera.Position);
             _effects?.Draw(_camera.View, _camera.Projection, _camera.Position);
             DrawSkillEffects();
@@ -1454,7 +1391,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         UpdateNpcApproach();
         _lootInteraction?.Update(_groundLoot, _playerBody.Position, _serverPlanarPosition, Owner);
         UpdateAttackPresentation(gameTime);
-        if (_hasMoveTarget && !_playerController.LocomotionFrozen && !_selfAttacking && !SelfCasting)
+        if (_hasMoveTarget && !_playerController.LocomotionFrozen && !_selfAttacking && !SelfCasting && !SelfStunned)
         {
             var current = _playerBody.PlanarPosition;
             var keyboard = Keyboard.GetState();
@@ -1727,7 +1664,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             return;
         }
 
-        if (_playerController.LocomotionFrozen || _selfAttacking)
+        if (_playerController.LocomotionFrozen || _selfAttacking || SelfStunned)
         {
             return;
         }
@@ -1915,8 +1852,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _looks?.Clear();
         _skillFx?.Dispose();
         _renderer?.Dispose();
-        _meteors?.Clear();
-        _monsterMeshEffects?.Clear();
+        _monsterFx?.Clear();
         _effects?.Dispose();
         _fieldAudio?.Dispose();
         _npcAudio?.Dispose();

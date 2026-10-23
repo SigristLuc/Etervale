@@ -25,7 +25,8 @@ How the tick calls these rules belongs to [application.md](application.md).
 | [`World/FieldTerrain.cs`](../Shared/PristonTale.Simulation/World/FieldTerrain.cs) | Ground queries for one field: place on floor, step, wall crossing, wall slide, body sweep |
 | `World/MonsterStepping.cs` | Server monster step: full step, then two side probes; `IStepOccupancy` |
 | `World/WorldPosition.cs` | `IsValid`: finite and within ±1,000,000 units on every axis |
-| `World/Monsters/` | `MonsterDefinition` (stats, AI block, skill block, drops), `MonsterCatalog`, `MonsterInstance` (live state), `MonsterMotionState` |
+| `World/Monsters/` | `MonsterDefinition` (stats, AI block, skill block, potions, drops), `MonsterCatalog`, `MonsterInstance` (live state), `MonsterMotionState` |
+| `World/Monsters/Skills/` | Monster skill rules: `MonsterSkillRules` (curses, blow and skill riders, timings), `MonsterStatuses` (codes and effect specs), `MonsterLifeRules` (potions, virtual lives, Babel's regeneration), `MonsterTransformRules`, `MonsterSounds` |
 | [`World/Ai/MonsterAiBrain.cs`](../Shared/PristonTale.Simulation/World/Ai/MonsterAiBrain.cs) | Wild monster state machine: target scan, chase, attack, leash and stuck manoeuvres, flinch, boss retarget |
 | `World/Ai/MonsterAiTuning.cs` | Per-definition derived constants and clip timings; global AI constants |
 | `World/Ai/SummonBrain.cs` | Owned summon behaviour (follow owner, attack ordered target) |
@@ -190,12 +191,16 @@ first `Order`; `Query` returns candidates sorted by `Order`, which keeps neighbo
   radius; `Ai.Iq` enables running; `Ai.GroupSize` the spawn group. `Ai.MoveSpeed` is only sent to clients for
   presentation; `Ai.MoveRange`, `Ai.Nature` and `Ai.ActiveHour` are imported but no rule reads them.
 - `SoundCode` is the original sound family code and doubles as a behaviour key (see Pitfalls).
+- `PotionCount`/`PotionPercent`: potions a spawn may carry (Valento, Kelvezu and Mokova use the count as lives, see
+  Monster skills). `Skill` keeps curse-only skills (no damage, no area, a rating and a curse code).
 - `MonsterCatalog.TryFind(name)` matches the display name case-insensitively and returns the lowest code.
 
 `MonsterInstance` holds live state: `Position`, `Facing`, `Life`, `AiState`, `Motion`, `HomeAnchor` (spawn position),
 `SpawnPointIndex` (-1 for summons), `TargetId`, timers, manoeuvre counters, `Effects` (modifier container stepped by the
-field) and summon fields (`OwnerId`, `ExpiresAtMs`, `Aggressive`, `ModelScale`). `ApplyDamage` clamps at 0 and enters
-`Dead`. `PresentedMotion` reports `Stand` instead of walk/run on ticks where the host did not actually move it.
+field), summon fields (`OwnerId`, `ExpiresAtMs`, `Aggressive`, `ModelScale`) and the swing and skill state
+(`ActionSlot`/`ActionKey` of the clip playing, its blow times, `Potions`, `VirtualLives`, `AttackAnger`, the ally a
+power-lending skill aims at). `ApplyDamage` spends a virtual life at 10 % life or less, otherwise clamps at 0 and
+enters `Dead`. `PresentedMotion` reports `Stand` instead of walk/run on ticks where the host did not actually move it.
 
 ## Monster AI
 
@@ -220,7 +225,8 @@ States (`MonsterAiState`): `Idle`, `Wander`, `Chase`, `Leash` (a fixed-heading m
 
 Behaviour, in tick order:
 
-1. Stun or charm: stand still; an attack in progress is cancelled without landing. Slow: `dtMs` is scaled by
+1. Drinking a potion (`Eat`) or changing shape (`Warp`) plays out its clip, even under a stun; the host completes it.
+   Stun or charm: stand still; an attack in progress is cancelled without landing. Slow: `dtMs` is scaled by
    `(100 + MoveSpeed%) / 100`, clamped 0.05-1, so movement, decisions and swings all slow down.
 2. Flinch (`Damage` motion) blocks everything until `FlinchMsLeft` drains, then chase (target alive) or idle.
 3. Attack state advances the swing (see below).
@@ -234,15 +240,20 @@ Behaviour, in tick order:
    `MeleeRange`, height difference at most 64), else walk or run to a point `StopDistance` short of the target.
    A target in reach is attacked even during a manoeuvre.
 
-Attacks: on entry the skill roll is `rand(100) < SkillRatingPercent` if the definition has a supported offensive skill
-and a skill clip. The hit fires at the windup time: a skill always fires (area placed at cast; the host filters
-victims); a basic attack lands only if the target is alive and `MonsterAttackReach.CanLandBasic` (vertical at most 64,
-planar distance squared below 48×256, or below 460² for ranged sound families). At clip end the monster swings again
-at once if the target is still in reach, else chases or idles.
+Attacks: on entry the attack clip is drawn uniformly among the model's attack clips, then the skill roll
+`rand(100) < SkillRatingPercent` (any definition with a rating and a skill clip, whatever its family) draws a skill clip
+the same way. The clip's slot, key, duration and blow time drive the swing (`MonsterAiTuning.AttackClips`/`SkillClips`).
+The hit fires at the blow time: a skill always fires (area placed at cast; the host filters victims); a basic attack
+lands only if the target is alive and `MonsterAttackReach.CanLandBasic` (vertical at most 64, planar distance squared
+below 48×256, or below 460² for ranged sound families). At clip end a hurt monster with potions drinks one and a
+shape-shifter starts changing (see Monster skills); otherwise it swings again at once if the target is still in reach,
+else chases or idles. Every blow (landed or not) adds one to `AttackAnger`.
 
 Timing: with an imported attack clip, cooldown is the clip duration at rate 1 and windup its first event; without one,
 `rate = 256 + 32 * clamp(AttackSpeed - 6, 0, 6)`, cooldown `1000 * 256 / rate` ms, windup `cooldown * 40 / 72`.
-Flinch duration is the damage clip at `DamageRateFactor`; walk and run cycles come from their clips.
+Babel's and Valento's skill blows land 120 frames (1714 ms) into the clip; Babel's normal attack strikes at its event
+and again 40 frames later. Flinch duration is the damage clip at `DamageRateFactor`; drinking and changing shape use
+their clips at rate 1 (one second without one); walk and run cycles come from their clips.
 
 Host-called rules:
 
@@ -255,6 +266,66 @@ Host-called rules:
 
 Speed (`MonsterLocomotion`): 70 units/s per step; a Dark Knight boss has 2 base steps; running adds one step (Greven 4,
 Wolverlin 2). The brain integrates toward its target at this speed; terrain then accepts or slides the step.
+
+### Monster skills
+
+`FieldMonsterSkills` (Application) completes what the brain starts, on the field tick: `AfterTick` after each wild
+monster's brain step (swing start rules, the `SwingBegin` event with the clip slot and skill flag, finished potions and
+shape changes, spent lives, Babel's regeneration), `ResolveSkill` for skill blows, `BeginBlow`/`AfterBlow` around normal
+blows on players. Rules live in `Simulation/World/Monsters/Skills/`. Statuses go through
+`FieldSkills.ApplyMonsterStatus` with `EffectSourceKind.MonsterSkill`, so they are reported, timed and cleared on death
+like skill statuses.
+
+Generic skill: `SkillRange == 0` strikes the swing's target only (within 460 units); otherwise a circle of radius
+`SkillRange` around the caster (3D distance, height below 140) or, with `SkillDistance`, a square of half-size
+`SkillRange` centred `SkillDistance` ahead. A skill blow never misses and is not blocked: the power roll less the
+player's absorption, at least 1 (a curse skill with no damage strikes for 1). The mystic's skill deals none.
+
+Statuses on struck players (durations in 70 Hz frames; a resisted one lasts `frames x (100 - resistance) / 100`, at
+least 4 frames):
+
+| Family | Trigger | Effect |
+|---|---|---|
+| Web | normal blow | `WebSlow` 2 s: movement and attack clips at 180/256 |
+| Cold Eye, Frozen / Frost, Valento | skill | `IceSlow` 4 s / 6 s at 200/256, ice resisted |
+| Stingray (skill), King Bat (every blow) | skill, blow | `Poison` 5 s, poison resisted: 1 life per 2 frames (paid 7 per 14 frames), never the last |
+| Bloody Knight, Chimera | skill | `Stun` 3 s: no walking (reports are ignored), swings or casts |
+| Chaos Cara | skill with a clip key other than J | mana loss equal to the power roll |
+| Succubus family above level 75 | every blow | 6 % of the maximum stamina (below level 80) or mana |
+| Fire, lightning, ice tower crystal | skill | power resisted by fire; `LightningStun` 3 s unless stunned; `IceSlow` 4 s |
+
+Curses (skill start, `CurseSkillCode`): 101 lowers the target's absorption by 2..6 (Mystic 10..16) for 10 s; 103
+lowers its damage dealt by 10..15 % for 10 s; 102 aims the skill at another live monster within 200 units (height 80)
+without `Power` and lends it 10..20 % damage dealt for 320 monster updates (18.3 s) when the clip ends; without one the
+swing stays a normal attack. A curse monster drops its player after each normal blow and finds it again on its next
+scan.
+
+Boss and special rules:
+
+- Babel: each normal blow has a 60 % chance to also strike the players within 100 units (height 60) of its target with
+  half its damage roll, and then a target farther than 200 units takes 70 %. While hunting a player it regenerates once
+  per clip that runs 120 frames: a table row per player within 260 units beyond six (at most nine), 1800..2800, or
+  2300..3300 below 20 % life.
+- Valento, Kelvezu, Mokova: `PotionCount` lives; at 10 % life or less one is spent and life refills (a lethal blow
+  included). On every even number of lives left after a spend, Kelvezu calls two Chaos Cara and Mokova two Dark Guards
+  within ±100 units, at most 8 monsters on the boss's spawn point. Views show one bar of `(lives + 1) x 100` points.
+  Reinforcements and bees are the family's ordinary definition of the lowest level.
+- Potions: a spawn carries `rand[1, PotionCount]` potions with `PotionPercent` chance; below 30 % life at a clip end it
+  drinks one (`Eat` clip) and heals half its life when the clip ends (`PotionApplied` event). Quest duel opponents keep
+  their own potion rules ([quests.md](quests.md)). The magic master drinks a mana potion instead of 20 % of its casts.
+- Shape-shifters (Hungky, undead hopy, chick): below 30 % (hopy 20 %) life or after 80 blows they play their `Warp`
+  clip, then the server replaces them with a full-life monster of the other form at the same place: Hungky a hulk below
+  level 80 (80 and more when angry), the hopy a king hopy of level 108 and more, the chick its parent.
+- Vampiric Machine: never moves; its blow sends a Vampiric Bee out instead of striking, and it waits while four
+  monsters stand on its spawn point.
+- Mystic: explodes when it dies, or by itself after 1920 updates (109.7 s): its skill damage on every player within
+  `SkillRange`, double on a summon it fought.
+- Ratoo's skill ends the stuns of the monsters within 200 units (height 80).
+- Against summons, Babel, Chaos Cara, Valento, Mokova and Kelvezu deal 8 times their roll and Kelvezu's blow kills; the
+  Guardian Saint's skill strikes every monster within its `SkillRange`. Valento drops a summon farther than 120 units.
+
+Clients play each swing's clip from the `SwingBegin` slot and draw its effects from the clip itself
+([effects.md](effects.md#monster-effects)).
 
 ### Summons
 
@@ -415,7 +486,10 @@ safe. Rules here run inside the tick and must not block: no I/O, no lock waits, 
   without the stage file. Check `tests/PristonTale.Tests/FieldAudioTests.cs` and `DomainTests.cs`.
 - **Tune monster AI**: edit `MonsterAiTuning` constants or `MonsterAiBrain`; keep decisions on `ISimRng` for
   determinism. Run `MonsterMovementTests`, `MonsterNavigationTests`, `MonsterCombatTests`, `MonsterSkillTests`. Clients
-  receive each swing's duration and hit time in `SwingBegin` combat events.
+  receive each swing's clip slot, duration and hit time in `SwingBegin` combat events.
+- **Change a monster skill rule**: the family's case in `MonsterSkillRules`, `MonsterLifeRules` or
+  `MonsterTransformRules` and its server side in `FieldMonsterSkills`; run `MonsterSkillTests`,
+  `MonsterSkillStatusTests` and `MonsterBossSkillTests`.
 - **Change terrain rules**: `FieldTerrain`/`MonsterStepping` and `TerrainTests`. If the stage subset changes, keep
   `StageCollisionReader` and the client SMD reader in parity (`TerrainTests` compares them).
 - **Change spawning**: `FieldSpawner`/`SpawnCadence`/`BossSpawnSchedule`; data knobs need the importer
@@ -436,8 +510,11 @@ safe. Rules here run inside the tick and must not block: no I/O, no lock waits, 
 
 ## Pitfalls
 
-- `SoundCode` selects behaviour: ranged basic reach (`MonsterAttackReach.HasRangedBasicAttack`), supported offensive
-  skills (`MonsterOffensiveSkill`), unyielding bosses, locomotion speed. Changing a sound mapping changes combat.
+- `SoundCode` selects behaviour: ranged basic reach (`MonsterAttackReach.HasRangedBasicAttack`), the monster skill rules
+  (`MonsterSkillRules`, `MonsterSounds`), unyielding bosses, locomotion speed and the client's effect family. Changing a
+  sound mapping changes combat and visuals.
+- Motion clip slots are the model's INX motion indices and keys their authored key characters (`motion_slots.slot`,
+  `key_code`); re-import after changing models so server swings and client clips agree.
 - Monster and NPC codes are load-order positions, not persistent ids. Persist names, never codes.
 - `PlaceOnFloor` takes the highest floor anywhere under a point, which can be a roof or bridge; use `SettleNear` or
   `TryFloorNear` when a reference height exists.

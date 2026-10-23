@@ -150,7 +150,7 @@ public sealed class DapperWorldDataRepository(IDbConnectionFactory connectionFac
         return (await connection.QueryAsync<MotionSlotRecord>(new CommandDefinition(
             """
             SELECT motion_table_key, slot, state, start_frame, end_frame,
-                   event_frame0, event_frame1, event_frame2, event_frame3, repeat
+                   event_frame0, event_frame1, event_frame2, event_frame3, repeat, key_code
             FROM motion_slots ORDER BY motion_table_key, slot
             """, cancellationToken: ct))).ToList();
     }

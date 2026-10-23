@@ -29,7 +29,7 @@ Monster skills are a separate system (see [world.md](world.md)); they share only
 | `Shared/PristonTale.Simulation/Skills/PassiveSkills.cs`, `PassiveSkillEffects.cs` | Passives: `values` tables read by derived stats and combat; `modifiers` passives synced as permanent effects |
 | `Shared/PristonTale.Simulation/Skills/SkillProjectile.cs` | Projectile flight speed (900 units/s), shared by server damage time and client projectile VFX |
 | `Shared/PristonTale.Simulation/Progression/SkillLearning.cs` | Skill-master training: window order, tier gates, level rule, prices, which point pool pays |
-| `Shared/PristonTale.Simulation/Modifiers/` | Effect engine (`EffectContainer`, `StatKind`, `ControlFlags`, `EffectSourceKind`); only player skills apply effects through it, the other source kinds are declared but unused |
+| `Shared/PristonTale.Simulation/Modifiers/` | Effect engine (`EffectContainer`, `StatKind`, `ControlFlags`, `EffectSourceKind`); player skills, items and monster skills apply effects through it |
 | [FieldSkills.cs](../Shared/PristonTale.Application/World/FieldSkills.cs) | Server authority on one field: `Cast` validation, cast timeline, `Resolve` dispatch per `SkillKind`, event buffers |
 | `Shared/PristonTale.Application/World/FieldSkills.<Mechanic>.cs` | One partial per mechanic: `Damage`, `Areas`, `Buffs`, `Allies`, `Defense`, `Companions`, `Charge`, `Charm`, `Resurrection`, `Summons` |
 | `Shared/PristonTale.Application/World/PlayerSkillCooldowns.cs` | Per-player server cooldowns on the field clock; `Rebase` on field change; snapshot on change |
@@ -312,9 +312,9 @@ Etervale extension opcodes `SkillCast` (C→S), `SkillCastResult`, `SkillEvents`
 - `SkillCastStatus` mirrors `SkillCastVerdict` numerically (0 accepted .. 14 `AlreadyActive`); keep them in sync.
 - `SkillEventFlagsView` (Application) and `SkillEventFlags` (Protocol) share bit values; `WireMapping` casts
   numerically.
-- Statuses carry `SourceKind` (the enum also declares item, monster skill, consumable and aura, but every status
-  applied is `PlayerSkill`); the value is the main modifier,
-  or the drawn element (as an integer) for enchants and familiars.
+- Statuses carry `SourceKind`: `PlayerSkill`, `Item`, or `MonsterSkill` for the slows, poison, stuns, curses and lent
+  power of monster skills ([world.md](world.md#monster-skills)); the value is the main modifier, or the drawn element
+  (as an integer) for enchants and familiars.
 
 ## Client
 

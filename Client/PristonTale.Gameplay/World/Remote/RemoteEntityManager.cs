@@ -306,9 +306,12 @@ public sealed partial class RemoteEntityManager
             spawn.MoveState,
             spawn.Hp,
             spawn.Kind,
-            spawn.Kind == RemoteEntityKind.Npc ? ((NpcRenderInfo)info).SoundCode : 0,
+            spawn.Kind == RemoteEntityKind.Npc ? ((NpcRenderInfo)info).SoundCode : ((MonsterRenderInfo)info).SoundCode,
             composed.Info,
-            spawn.EntityId);
+            spawn.EntityId)
+        {
+            Level = info is MonsterRenderInfo monsterInfo ? monsterInfo.Level : 0
+        };
         monster.SetRates(spawn.MoveSpeed, spawn.AttackRate);
         monster.MotionStarted += OnMotionStarted;
         _entities[spawn.EntityId] = monster;
@@ -365,6 +368,20 @@ public sealed partial class RemoteEntityManager
         }
 
         _log.Info($"[Remote] state for unknown entity {state.EntityId} dropped (spawn not yet seen).");
+    }
+
+    // The monsters drawn this frame, for the presentation that follows their clips.
+    public void CollectMonsters(List<PristonTale.Gameplay.Effects.MonsterActorView> into)
+    {
+        into.Clear();
+        foreach (var (id, entity) in _entities)
+        {
+            if (entity is RemoteModelEntity { Kind: RemoteEntityKind.Monster } monster && monster.Actor.IsValid)
+            {
+                into.Add(new PristonTale.Gameplay.Effects.MonsterActorView(id, monster.Actor, monster.SoundCode, monster.Level, monster.Scale,
+                    monster.DrawnPosition, monster.RenderFacing, monster.IsDead));
+            }
+        }
     }
 
     public bool TryGetSummonOwner(uint entityId, out uint ownerId) => _summonOwners.TryGetValue(entityId, out ownerId);

@@ -461,6 +461,21 @@ public sealed partial class PristonRenderer : IDisposable
         UpdateActor(next);
     }
 
+    // The clip a live actor plays and its frame in ticks (160 per frame), for presentation that follows the clip's events.
+    public bool TryGetActorMotion(ActorHandle handle, out PristonMotionInfo motion, out float ticks)
+    {
+        if (!TryResolveActor(handle, out var actor))
+        {
+            motion = null;
+            ticks = 0f;
+            return false;
+        }
+
+        motion = actor.Motion;
+        ticks = actor.Frame;
+        return true;
+    }
+
     // World transform of a named bone of a live actor at its current frame, for effects attached to hands and weapons.
     public bool TryGetActorBoneWorld(ActorHandle handle, string boneName, out Matrix world)
     {

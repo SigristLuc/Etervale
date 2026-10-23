@@ -37,6 +37,7 @@ public static class MotionStateCode
     public const short Dead = 0x120;
     public const short Eat = 0x140;
     public const short Skill = 0x150;
+    public const short Warp = 0x210;
 }
 
 // Play buffer: {x, y, z, frame, short angle[4], short heldItems[4], TargetSerial} = 36 bytes.

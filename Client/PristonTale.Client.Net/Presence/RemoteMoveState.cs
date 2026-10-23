@@ -11,4 +11,5 @@ public enum RemoteMoveState
     Dead = 6,
     Skill = 7,
     Eat = 8,
+    Warp = 9,
 }

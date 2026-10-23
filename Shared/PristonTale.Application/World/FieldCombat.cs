@@ -10,6 +10,7 @@ using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Simulation.World.Monsters.Skills;
 
 namespace PristonTale.Application.World;
 
@@ -70,7 +71,7 @@ internal sealed class FieldCombat
             return;
         }
 
-        if (player.IsBusy)
+        if (player.IsBusy || player.Character.Effects.Has(ControlFlags.Stun))
         {
             return;
         }
@@ -148,6 +149,9 @@ internal sealed class FieldCombat
         return null;
     }
 
+    // Monster skill rules (curses, statuses, splash, reinforcements); a field always sets them.
+    internal FieldMonsterSkills? MonsterSkills { get; set; }
+
     public void ResolveMonsterHit(MonsterInstance attacker, in MonsterAttackEvent landed)
     {
         if (!attacker.IsAlive || landed.AttackerEntityId != attacker.EntityId)
@@ -157,13 +161,18 @@ internal sealed class FieldCombat
 
         if (landed.IsSkill)
         {
-            ResolveMonsterSkill(attacker, landed.TargetEntityId);
+            MonsterSkills?.ResolveSkill(attacker, landed.TargetEntityId);
+            return;
+        }
+
+        if (MonsterSkills?.ReplacesBlow(attacker) == true)
+        {
             return;
         }
 
         if (_host.TryGetMonster(landed.TargetEntityId, out var summon) && summon.IsSummon)
         {
-            ResolveMonsterVersusSummon(attacker, summon, skill: false);
+            MonsterOnMonster(attacker, summon, skill: false);
             return;
         }
 
@@ -173,39 +182,55 @@ internal sealed class FieldCombat
             return;
         }
 
+        var (percent, splash) = MonsterSkills?.BeginBlow(attacker, target) ?? (100, false);
+        BlowOnPlayer(attacker, target, percent, splash);
+    }
+
+    // A monster's normal blow on a player with percent of its damage roll; splash spreads Babel's blow around the target.
+    internal void BlowOnPlayer(MonsterInstance attacker, WorldPlayer target, int percent, bool splash)
+    {
         SkillCombat?.Reflect(attacker, target);
         if (!attacker.IsAlive || SkillCombat?.Evades(attacker, target) == true)
         {
             return;
         }
 
-        AttackProfile atk = CombatProfileFactory.ForMonsterBasicAttack(attacker.Def.Combat);
+        var combat = attacker.Def.Combat;
+        if (percent != 100)
+        {
+            combat = combat with { AttackDamage = new MonsterRange(combat.AttackDamage.Min * percent / 100, combat.AttackDamage.Max * percent / 100) };
+        }
+
+        AttackProfile atk = CombatProfileFactory.ForMonsterBasicAttack(combat);
         DefenderProfile def = CombatProfileFactory.ForPlayerDefender(target.Character);
         HitResult result = CombatResolver.ResolveMonsterAttack(_rng, atk, def, CombatProfileFactory.HasShield(target.Character));
         if (result.Blocked)
         {
-            _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, landed.TargetEntityId, CombatEventKindView.Block));
+            _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, target.EntityId, CombatEventKindView.Block));
             SkillCombat?.Blocked(attacker, target);
         }
 
+        var damage = 0;
         if (result.Damage > 0)
         {
             // Debuffs on the monster (damage dealt) and the player's buffs (damage taken, undead absorption) apply to
             // its normal attacks, as the original applies them before the hit reaches the player.
-            var damage = ModifierRules.ScaleDamage(result.Damage, attacker.Effects.Totals, target.Character.Effects.Totals);
+            damage = ModifierRules.ScaleDamage(result.Damage, attacker.Effects.Totals, target.Character.Effects.Totals);
             damage = ModifierRules.AgainstUndead(damage, attacker.Def.Brood == MonsterBrood.Undead, target.Character.Effects.Totals);
             damage = SkillCombat?.Defend(attacker, target, damage, false) ?? damage;
             damage = CastleItems.Defend(attacker.Def.SoundCode, target.Character.Effects, damage);
             target.ApplyDamage(damage);
             _host.EmitCombatEvent(new CombatEventView(
-                attacker.EntityId, landed.TargetEntityId, CombatEventKindView.Hit,
+                attacker.EntityId, target.EntityId, CombatEventKindView.Hit,
                 damage: damage, crit: result.Crit, killed: target.IsDead));
         }
+
+        MonsterSkills?.AfterBlow(attacker, target, damage, splash);
     }
 
-    // A wild monster's blow on a summon: its accuracy against the summon's defence, its damage (or skill damage) less the
-    // summon's absorption percent.
-    private void ResolveMonsterVersusSummon(MonsterInstance attacker, MonsterInstance summon, bool skill)
+    // A wild monster's blow on a summon: its accuracy against the summon's defence, its damage (or skill damage), raised for
+    // the great bosses, less the summon's absorption percent.
+    internal void MonsterOnMonster(MonsterInstance attacker, MonsterInstance summon, bool skill)
     {
         if (!summon.IsAlive)
         {
@@ -220,9 +245,13 @@ internal sealed class FieldCombat
         }
 
         var range = skill ? attacker.Def.Skill.SkillDamage : combat.AttackDamage;
-        var damage = CombatResolver.ApplyAbsorbMonster(_rng.Range(range.Min, Math.Max(range.Min, range.Max)), summon.Def.Combat.Absorption);
+        var roll = FieldMonsterSkills.AgainstMonster(attacker, summon, _rng.Range(range.Min, Math.Max(range.Min, range.Max)));
+        var damage = MonsterSkillRules.KillsMonsters(attacker.Def) ? roll : CombatResolver.ApplyAbsorbMonster(roll, summon.Def.Combat.Absorption);
         summon.ApplyDamage(damage);
-        _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, summon.EntityId, CombatEventKindView.Hit, damage: damage, killed: !summon.IsAlive));
+        _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, summon.EntityId, CombatEventKindView.Hit, damage: damage, killed: !summon.IsAlive)
+        {
+            Skill = skill
+        });
         if (!summon.IsAlive)
         {
             BeginCorpse(summon.EntityId);
@@ -231,57 +260,6 @@ internal sealed class FieldCombat
 
     // A summon that died outside a player's kill (expiry, a monster's blow) leaves a corpse like any monster.
     public void BeginCorpse(uint monsterId) => _corpseMsLeft.TryAdd(monsterId, CorpseDespawnMs);
-
-    private void ResolveMonsterSkill(MonsterInstance attacker, uint targetId)
-    {
-        if (!attacker.AttackIsSkill || !attacker.SkillImpactPending || targetId != attacker.SkillTargetId
-            || !_host.TuningFor(attacker.Def).CanCastOffensiveSkill)
-        {
-            return;
-        }
-
-        // Consume once before visiting victims. Retried/stale events cannot apply another area hit.
-        attacker.SkillImpactPending = false;
-        _host.EmitCombatEvent(new CombatEventView(
-            attacker.EntityId, targetId, CombatEventKindView.MonsterSkillImpact,
-            sourceSoundCode: attacker.Def.SoundCode, position: attacker.SkillOrigin, facing: attacker.SkillFacing));
-
-        if (attacker.Def.Skill.SkillRange == 0)
-        {
-            if (_host.TryGetMonster(targetId, out var summon) && summon.IsSummon)
-            {
-                ResolveMonsterVersusSummon(attacker, summon, skill: true);
-                return;
-            }
-
-            ApplyMonsterSkillToPlayer(attacker, targetId);
-            return;
-        }
-
-        var candidates = _host.NearbyPlayers(attacker.SkillOrigin, MonsterOffensiveSkill.QueryRadius(attacker.Def.Skill));
-        for (int index = 0; index < candidates.Count; index++)
-        {
-            ApplyMonsterSkillToPlayer(attacker, candidates[index].EntityId);
-        }
-    }
-
-    private void ApplyMonsterSkillToPlayer(MonsterInstance attacker, uint targetId)
-    {
-        if (!_host.TryGetPlayer(targetId, out var target) || target.IsDead || target.Hp <= 0
-            || !MonsterOffensiveSkill.Contains(attacker.Def.Skill, attacker.SkillOrigin, attacker.SkillCenter, target.Position))
-        {
-            return;
-        }
-
-        var defender = CombatProfileFactory.ForPlayerDefender(target.Character);
-        var result = CombatResolver.ResolveMonsterSkill(_rng, attacker.Def.Skill.SkillDamage, defender);
-        var damage = ModifierRules.AgainstUndead(result.Damage, attacker.Def.Brood == MonsterBrood.Undead, target.Character.Effects.Totals);
-        damage = SkillCombat?.Defend(attacker, target, damage, true) ?? damage;
-        damage = CastleItems.Defend(attacker.Def.SoundCode, target.Character.Effects, damage);
-        target.ApplyDamage(damage);
-        _host.EmitCombatEvent(new CombatEventView(
-            attacker.EntityId, targetId, CombatEventKindView.Hit, damage: damage, killed: target.IsDead));
-    }
 
     private KillPayout OnMonsterDeath(MonsterInstance monster, long nowMs)
     {

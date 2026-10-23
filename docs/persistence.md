@@ -28,7 +28,7 @@ FluentMigrator migrations, the schema, and the SQLite and PostgreSQL providers. 
 | `.../WorldData/` | Read-side catalog records and [WorldDataFactory](../Persistence/PristonTale.Persistence.Abstractions/WorldData/WorldDataFactory.cs) |
 | `.../Security/PasswordHasher.cs` | PBKDF2-SHA256 hashes: `pbkdf2-sha256$<iterations>$<salt b64>$<key b64>` |
 | `Persistence/PristonTale.Persistence/Repositories/` | `Dapper*Repository` implementations shared by both providers |
-| `Persistence/PristonTale.Persistence/Migrations/` | `M013Baseline`, `M014PortraitData`, `M015NpcServices`, `M016QuestData`, `M019GameMasters`, `FluentMigratorDatabaseMigrator` |
+| `Persistence/PristonTale.Persistence/Migrations/` | `M013Baseline`, `M014PortraitData`, `M015NpcServices`, `M016QuestData`, `M019GameMasters`, `M021MonsterSkillData`, `FluentMigratorDatabaseMigrator` |
 | `Persistence/PristonTale.Persistence.Sqlite/` | `AddPristonSqlite`, connection factory (WAL), Dapper type handlers, path resolution |
 | `Persistence/PristonTale.Persistence.Postgres/` | `AddPristonPostgres`, `NpgsqlDataSource` factory, `jsonb` handler for `JsonText` |
 | `docker-compose.yml` | Local PostgreSQL 17 for development |
@@ -140,6 +140,7 @@ FluentMigrator scans `PristonTale.Persistence` for `[Migration(n)]` classes. Ver
 | 15 | `M015NpcServices` | `npc_services` table and index; `warehouses.revision`; `npcs.display_name` only if missing |
 | 16 | `M016QuestData` | `monsters.quest_code`, `event_item` (item code key, empty when none), `potion_count`, `potion_percent` |
 | 19 | `M019GameMasters` | `accounts.gm_level` (default 0); `gm_audit` table and its `account_id` index |
+| 21 | `M021MonsterSkillData` | `motion_slots.key_code` (the clip's authored key character, 0 when none) |
 
 Legacy upgrade path: databases from the earlier migration set at version 12 upgrade in place. Databases at
 versions 1-11 make `M013Baseline` throw; bring them to 12 with the previous release or back up and recreate them.
@@ -197,7 +198,7 @@ Written only by the importer. Natural keys are the authored identities, kept ver
 | `field_boss_spawns` | `id` PK; `field_code` FK; `boss_monster_name` FK `monsters`; `escort_monster_name` nullable, no FK; `escort_count`; `spawn_hours` CSV |
 | `field_fixed_npcs` | `id` PK; `field_code` FK; `npc_name` FK `npcs`; `x`, `y`, `z` in 1/256 world units; `angle` (4096 per turn) |
 | `motion_models` | `model_key` (256) PK, normalized model path; `motion_table_key` |
-| `motion_slots` | PK (`motion_table_key`, `slot`); `state`; `start_frame`, `end_frame`; `event_frame0..3` int64 holding unsigned 32-bit values; `repeat` |
+| `motion_slots` | PK (`motion_table_key`, `slot`); `state`; `start_frame`, `end_frame`; `event_frame0..3` int64 holding unsigned 32-bit values; `repeat`; `key_code` (M021) |
 
 Child tables with an identity key have an index on their parent key (`<table>_<parent>_idx`). `motion_models` and
 `motion_slots` have no foreign key between them.

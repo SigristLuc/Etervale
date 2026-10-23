@@ -2,6 +2,7 @@ using System.Numerics;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Simulation.World.Monsters.Skills;
 
 namespace PristonTale.Simulation.World.Ai;
 
@@ -27,6 +28,14 @@ public sealed class MonsterAiBrain
 
         if (monster.AiState == MonsterAiState.Dead || !monster.IsAlive)
         {
+            return null;
+        }
+
+        // Drinking and transforming play out even under a stun.
+        if (monster.Motion is MonsterMotionState.Eat or MonsterMotionState.Warp)
+        {
+            monster.SinceRetargetMs += dtMs;
+            AdvanceSpecial(monster, prey, dtMs);
             return null;
         }
 
@@ -76,6 +85,8 @@ public sealed class MonsterAiBrain
                 {
                     EnterIdle(monster);
                 }
+
+                TryBeginSpecial(monster, tuning);
             }
 
             return null;
@@ -94,6 +105,10 @@ public sealed class MonsterAiBrain
         }
 
         AdvanceClips(monster, tuning, dtMs);
+        if (monster.Motion is MonsterMotionState.Eat or MonsterMotionState.Warp)
+        {
+            return null;
+        }
 
         if (monster.SinceDecisionMs >= MonsterAiTuning.DecisionIntervalMs)
         {
@@ -159,6 +174,11 @@ public sealed class MonsterAiBrain
                 {
                     m.AiState = MonsterAiState.Chase;
                     return StepChase(m, t, live, decisionDt);
+                }
+
+                if (m.AiState == MonsterAiState.Idle && TryBeginSpecial(m, t))
+                {
+                    return null;
                 }
 
                 StepWander(m, t, decisionDt);
@@ -351,6 +371,11 @@ public sealed class MonsterAiBrain
 
     private void EndClip(MonsterInstance m, MonsterAiTuning t)
     {
+        if (m.Motion is MonsterMotionState.Eat or MonsterMotionState.Warp || TryBeginSpecial(m, t))
+        {
+            return;
+        }
+
         m.ProbeClips++;
         if (m.ProbeClips >= MonsterAiTuning.ProgressProbeClips)
         {
@@ -415,12 +440,19 @@ public sealed class MonsterAiBrain
         m.AttackHitFired = false;
         m.SwingJustBegan = true;
 
-        // Skill roll on attack entry: rand()%100 < the definition's skill rating percent.
+        // The attack clip is drawn among the model's attack clips, then the skill roll rand()%100 < the definition's skill
+        // rating percent picks a skill clip the same way.
+        var attack = Draw(tuning.AttackClips, new MonsterActionClip(-1, default(char), tuning.CooldownMs, tuning.WindupMs));
+        m.AttackVariant = attack;
+        SetAction(m, attack);
+        m.SecondHitAtMs = MonsterSkillRules.StrikesTwice(m.Def) ? attack.HitAtMs + MonsterSkillRules.BabelSecondHitMs : 0f;
         int rating = m.Def.Skill.SkillRatingPercent;
         m.AttackIsSkill = tuning.CanCastOffensiveSkill && _rng.NextExclusive(0, 100) < rating;
         m.SkillImpactPending = false;
         if (m.AttackIsSkill)
         {
+            SetAction(m, Draw(tuning.SkillClips, new MonsterActionClip(-1, default(char), tuning.SkillDurationMs, tuning.SkillWindupMs)));
+            m.SecondHitAtMs = 0f;
             m.Motion = MonsterMotionState.Skill;
             m.SkillTargetId = m.TargetId;
             m.SkillOrigin = m.Position;
@@ -435,13 +467,14 @@ public sealed class MonsterAiBrain
 
         MonsterAttackEvent? landed = null;
 
-        float hitAtMs = m.AttackIsSkill ? t.SkillWindupMs : t.WindupMs;
-        float durationMs = m.AttackIsSkill ? t.SkillDurationMs : t.CooldownMs;
+        float hitAtMs = m.ActionHitAtMs;
+        float durationMs = m.ActionDurationMs;
 
         // Area casts own their placement even if the original target dies; the host filters live victims at impact.
         if (!m.AttackHitFired && m.AttackTimerMs >= hitAtMs)
         {
             m.AttackHitFired = true;
+            m.AttackAnger++;
             if (m.AttackIsSkill)
             {
                 m.SkillImpactPending = true;
@@ -454,10 +487,34 @@ public sealed class MonsterAiBrain
             }
         }
 
+        // Babel's second blow lands like the first when its target is still in reach.
+        if (landed is null && m.SecondHitAtMs > 0f && m.AttackTimerMs >= m.SecondHitAtMs)
+        {
+            m.SecondHitAtMs = 0f;
+            if (m.TargetId != 0 && prey.TryGet(m.TargetId, out PreyCandidate second) && second.IsAlive
+                && MonsterAttackReach.CanLandBasic(m.Def, m.Position, second.Position))
+            {
+                landed = new MonsterAttackEvent(m.EntityId, m.TargetId, false);
+            }
+        }
+
         if (m.AttackTimerMs >= durationMs)
         {
+            if (!m.AttackIsSkill && MonsterSkillRules.DropsTargetAfterBlow(m.Def))
+            {
+                // A curse monster forgets its player after a normal blow and finds it again on its next scan.
+                m.TargetId = 0;
+            }
+
             PreyCandidate tgt2 = default;
             bool stillValid = m.TargetId != 0 && prey.TryGet(m.TargetId, out tgt2) && tgt2.IsAlive;
+            m.AiState = stillValid ? MonsterAiState.Chase : MonsterAiState.Idle;
+            m.Motion = MonsterMotionState.Stand;
+            if (TryBeginSpecial(m, t))
+            {
+                return landed;
+            }
+
             // The clip ends in the stand motion and the reach test swings again in the same update while the target stays in
             // reach, so consecutive attacks never pass through a walk. An impact on this tick is resolved first.
             if (stillValid && landed is null && MonsterAttackReach.CanBegin(m.Def, m.Position, tgt2.Position))
@@ -478,6 +535,84 @@ public sealed class MonsterAiBrain
         }
 
         return landed;
+    }
+
+    private MonsterActionClip Draw(IReadOnlyList<MonsterActionClip> clips, MonsterActionClip fallback)
+    {
+        if (clips.Count == 0)
+        {
+            return fallback;
+        }
+
+        return clips.Count == 1 ? clips[0] : clips[_rng.NextExclusive(0, clips.Count)];
+    }
+
+    private static void SetAction(MonsterInstance m, in MonsterActionClip clip)
+    {
+        m.ActionSlot = clip.Slot;
+        m.ActionKey = clip.Key;
+        m.ActionDurationMs = clip.DurationMs;
+        m.ActionHitAtMs = clip.HitAtMs;
+    }
+
+    // At the end of a clip a hurt monster drinks a potion, and the three shape-shifters start turning into their other
+    // form; the host completes both when their clip ends.
+    private static bool TryBeginSpecial(MonsterInstance m, MonsterAiTuning t)
+    {
+        if (!m.IsAlive || m.Motion is MonsterMotionState.Eat or MonsterMotionState.Warp)
+        {
+            return false;
+        }
+
+        MonsterMotionState special;
+        float durationMs;
+        if (MonsterTransformRules.Wants(m))
+        {
+            special = MonsterMotionState.Warp;
+            durationMs = t.WarpDurationMs;
+        }
+        else if (MonsterLifeRules.WantsPotion(m))
+        {
+            m.Potions--;
+            m.DrinkHeals = true;
+            special = MonsterMotionState.Eat;
+            durationMs = t.EatDurationMs;
+        }
+        else
+        {
+            return false;
+        }
+
+        m.Motion = special;
+        m.SpecialMsLeft = durationMs;
+        m.ManoeuvreClipsLeft = 0;
+        if (m.AiState is MonsterAiState.Leash or MonsterAiState.Attack)
+        {
+            m.AiState = m.TargetId != 0 ? MonsterAiState.Chase : MonsterAiState.Idle;
+        }
+
+        return true;
+    }
+
+    private static void AdvanceSpecial(MonsterInstance m, IPreyView prey, float dtMs)
+    {
+        m.SpecialMsLeft -= dtMs;
+        if (m.SpecialMsLeft > 0f)
+        {
+            return;
+        }
+
+        m.CompletedSpecial = m.Motion;
+        m.Motion = MonsterMotionState.Stand;
+        if (m.TargetId != 0 && prey.TryGet(m.TargetId, out PreyCandidate target) && target.IsAlive)
+        {
+            m.AiState = MonsterAiState.Chase;
+            m.SinceDecisionMs = MonsterAiTuning.DecisionIntervalMs;
+        }
+        else
+        {
+            EnterIdle(m);
+        }
     }
 
     public static void ApplyFlinchOnHit(MonsterInstance monster, ISimRng rng, int damage, bool crit, float durationMs)

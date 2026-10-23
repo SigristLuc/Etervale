@@ -221,10 +221,13 @@ MoveSpeed, LifeRegen, ManaRegen, StaminaRegen, MagicMastery, SpecAbsorb, SpecMov
 SpecLifeRegen, SpecManaRegen, SpecStaminaRegen, int16 Resistances[8]}` (`ItemDetailEntry`). The client attaches the
 entries to the inventory of the same revision (`OwnedItemView.Details`) and folds the status into the owner state.
 
-A combat entry is `{uint Attacker, Target, byte Kind, byte Flags (1 critical, 2 killed), int16 0, float DurationMs,
-HitAtMs, int Damage, Resources, SoundCode, X, Y, Z, int16 Angle, int16 0}`. `Kind` is `CombatEventKindView`: 1 swing
-begin, 2 hit, 3 potion begin, 4 potion applied, 5 monster skill impact, 6 heal (amount in `Damage`), 7 evade, 8 revive
-(returned life in `Damage`), 9 block (a player blocked a monster's normal attack).
+A combat entry is `{uint Attacker, Target, byte Kind, byte Flags (1 critical, 2 killed, 4 monster skill), int16 Clip,
+float DurationMs, HitAtMs, int Damage, Resources, SoundCode, X, Y, Z, int16 Angle, int16 0}`. `Kind` is
+`CombatEventKindView`: 1 swing begin, 2 hit, 3 potion begin, 4 potion applied, 5 monster skill impact, 6 heal (amount
+in `Damage`), 7 evade, 8 revive (returned life in `Damage`), 9 block (a player blocked a monster's normal attack).
+`Clip` is the motion-table slot of the clip a monster's swing plays (-1: the state's first clip); flag 4 marks a
+monster's skill swing and the hits of its skill. A monster drinking a potion or changing shape sends the original
+motion codes `0x140` and `0x210` in its play data.
 
 ### Skills and status effects
 

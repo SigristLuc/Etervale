@@ -41,6 +41,13 @@ internal static class LegacyParticleTests
         yield return ("legacy particle random channels remain stable without frame allocations", RandomAsync);
     }
 
+    // A basis whose forward is the direction, staying orthonormal near vertical directions.
+    private static Matrix DirectionRotation(Vector3 direction)
+    {
+        var up = MathF.Abs(Vector3.Dot(direction, Vector3.Up)) > .99f ? Vector3.Right : Vector3.Up;
+        return Matrix.CreateWorld(Vector3.Zero, direction, up);
+    }
+
     private static Task ExtendedAsync()
     {
         var sequence = Read(Script.Replace("loops = 1", "loops = 3\n            delay = 0.25\n            particletype = TYPE_TWO")
@@ -48,14 +55,14 @@ internal static class LegacyParticleTests
         Assert.True(sequence.TotalCount == 6 && sequence.GroundPlane
             && sequence.Blend == PristonTale.Effects.Rendering.ParticleBlendMode.InverseShadow, "extended directives lost");
         var particle = new Particle { Age = .5f };
-        var rotation = PristonTale.Gameplay.Effects.LegacyMonsterMeshEffects.DirectionRotation(Vector3.Right);
+        var rotation = DirectionRotation(Vector3.Right);
         sequence.Initialize(ref particle, Vector3.Zero, 12u, rotation);
         sequence.Evaluate(ref particle, rotation);
         Assert.Near(-2.5f, particle.Position.Y);
         Assert.Near(10f, particle.Position.X);
         foreach (var direction in new[] { Vector3.Right, Vector3.Left, Vector3.Up, Vector3.Down, Vector3.Forward, Vector3.Backward })
         {
-            var basis = PristonTale.Gameplay.Effects.LegacyMonsterMeshEffects.DirectionRotation(direction);
+            var basis = DirectionRotation(direction);
             var actual = Vector3.TransformNormal(Vector3.Forward, basis);
             Assert.Near(0, Vector3.Distance(actual, direction), .0001f);
             Assert.Near(1, basis.Right.Length(), .0001f);
