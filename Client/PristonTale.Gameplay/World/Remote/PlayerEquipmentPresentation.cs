@@ -20,6 +20,11 @@ public sealed class PlayerEquipmentPresentation
     private bool _appearanceVillage;
     public PlayerActorHandles Handles => _playerHandles;
 
+    // The body item worn now ("" for none).
+    public string ArmorKey { get; private set; } = "";
+
+    public bool HoldsShield => (_requestedPlayerVisuals ?? _basePlayerVisuals)?.OffHandKey?.StartsWith("DS", StringComparison.OrdinalIgnoreCase) == true;
+
     public PlayerEquipmentPresentation(PlayerActorComposer composer, IActorScene scene, IClientLog log, string root,
         CharacterVisualSet visuals, uint jobMask, PlayerActorHandles handles)
     {
@@ -97,6 +102,7 @@ public sealed class PlayerEquipmentPresentation
                 }
             }
 
+            ArmorKey = armor;
             var desired = EquipmentVisuals.Apply(_basePlayerVisuals, armor, weapon, offHand, village, _jobMask);
             if (desired != _requestedPlayerVisuals)
             {

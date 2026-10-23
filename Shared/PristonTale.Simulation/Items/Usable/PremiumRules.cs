@@ -10,6 +10,14 @@ public static class PremiumRules
     public const int TerryManaReducePercent = 20;
     public const int MuteDamagePercent = 10;
 
+    // Boosters add this percent to the maximum life, mana or stamina; the skill-delay item recharges every skill in
+    // half a second.
+    public const int BoosterPercent = 15;
+    public const int SkillDelayCooldownMs = 500;
+
+    public static int SkillCooldownMs(int cooldownMs, PremiumTimers timers) =>
+        timers.IsActive(PremiumEffectKind.SkillDelay) ? Math.Min(cooldownMs, SkillDelayCooldownMs) : cooldownMs;
+
     // Percent of extra experience on a kill: the EXP potion (or package) plus the Phoenix.
     public static int ExperiencePercent(PremiumTimers timers) =>
         timers.ValueOf(PremiumEffectKind.ExperienceUp) + (timers.IsActive(PremiumEffectKind.PhoenixPet) ? PhoenixExperiencePercent : 0);

@@ -18,6 +18,14 @@ public static class ItemUseMessages
         ItemUseStatus.Delay => "Wait a moment before using another one",
         ItemUseStatus.Conflict => "Operation identity conflict",
         ItemUseStatus.StorageFailed => "Storage rejected the operation; character unchanged",
+        ItemUseStatus.ClanOnly => "Only members of a regular clan can use this item",
+        ItemUseStatus.NoSpace => "Not enough space in inventory",
+        ItemUseStatus.OverWeight => "You have exceeded the inventory weight limit",
+        ItemUseStatus.MaleCannotUse => "The male character cannot use",
+        ItemUseStatus.FemaleCannotUse => "The female character cannot use",
+        ItemUseStatus.NotEnoughGold => "Not enough gold",
+        ItemUseStatus.CrystalRefused => "You cannot use this crystal",
+        ItemUseStatus.SummonLimit => "Summon limit exceeded",
         _ => "The item could not be used"
     };
 }

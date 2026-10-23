@@ -71,7 +71,15 @@ internal sealed class FieldPremium
         {
             foreach (var player in players)
             {
-                player.Character.Premium.Expire(NowSeconds);
+                var premium = player.Character.Premium;
+                var head = premium.BigHeadMode;
+                premium.Expire(NowSeconds);
+                if (head == PremiumTimers.SoccerHeadMode && premium.BigHeadMode == 0)
+                {
+                    // The soccer-ball head ends with the head-change burst and its short guard.
+                    player.Guard(EventFoods.HeadChangeGuardMs);
+                    _host.AddItemEvent(new ItemEffectView(player.EntityId, 0, ItemEffectKind.HeadChange, player.Position, 0));
+                }
             }
         }
 

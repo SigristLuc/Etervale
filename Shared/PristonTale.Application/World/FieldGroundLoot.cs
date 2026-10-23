@@ -1,5 +1,6 @@
 using System.Numerics;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Loot;
 
@@ -43,14 +44,27 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
             bool gold = drop.Kind == DropKind.Gold;
             var id = Guid.NewGuid();
             var handle = NextHandle();
-            var view = new GroundDropView(id, drop.ItemCode, gold ? "GG101" : definition!.CatalogKey,
-                gold ? "Gold" : definition!.Name, drop.Amount, gold, position) { Handle = handle };
+            // A sealed puzzle piece lies on the ground as the lucky bag.
+            var view = drop.Sealed
+                ? new GroundDropView(id, LegacyItemCode.Parse(Puzzles.LuckyBagIcon), Puzzles.LuckyBagIcon, Puzzles.LuckyBagName, drop.Amount, false, position)
+                {
+                    Handle = handle
+                }
+                : new GroundDropView(id, drop.ItemCode, gold ? "GG101" : definition!.CatalogKey, gold ? "Gold" : definition!.Name, drop.Amount, gold, position)
+                {
+                    Handle = handle
+                };
             _handles.Add(handle, id);
             // As on the original server, gold, life and stamina potions expire in 90s; mana and other items in 180s.
             bool shortLived = gold || definition?.CatalogKey.StartsWith("PL", StringComparison.OrdinalIgnoreCase) == true
                 || definition?.CatalogKey.StartsWith("PS", StringComparison.OrdinalIgnoreCase) == true;
             long lifetime = shortLived ? 90_000 : 180_000;
             var item = gold ? null : ItemRoller.Create(definition!, drop.Amount, rng);
+            if (item is not null)
+            {
+                item.Sealed = drop.Sealed;
+            }
+
             _entries.Add(id, new Entry(view, item, payout.CreditedPlayerId, publicDrop ? nowMs : nowMs + 5000, nowMs + lifetime));
             _dirty = true;
         }

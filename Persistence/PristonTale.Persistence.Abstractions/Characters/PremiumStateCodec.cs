@@ -8,8 +8,10 @@ public sealed record SavedPremiumTimer(PremiumEffectKind Kind, int Value, long D
 
 // The character's `premium` column: the running premium timers with their real-clock expiry (Unix seconds) and the
 // recent item uses kept for retries.
+// SavedAtSeconds is the real clock of the save: timers that pause offline move their expiry by the time between the
+// save and the next entry.
 public sealed record SavedPremium(int Version, SavedPremiumTimer[] Timers, AppliedItemUse[]? Operations = null, int GravityScrolls = 0,
-    int BigHeadMode = 0, long BigHeadExpiresAtSeconds = 0)
+    int BigHeadMode = 0, long BigHeadExpiresAtSeconds = 0, long SavedAtSeconds = 0)
 {
     public static SavedPremium Capture(PlayerCharacter character)
     {
@@ -18,7 +20,7 @@ public sealed record SavedPremium(int Version, SavedPremiumTimer[] Timers, Appli
             .ToArray();
         var premium = character.Premium;
         return new SavedPremium(1, timers, character.ItemUses.Applied.ToArray(), premium.GravityScrolls, premium.BigHeadMode,
-            premium.BigHeadExpiresAtSeconds);
+            premium.BigHeadExpiresAtSeconds, premium.ClockSeconds);
     }
 
     // Expired timers are dropped while loading; an unknown kind or version is corrupt data.
@@ -37,9 +39,12 @@ public sealed record SavedPremium(int Version, SavedPremiumTimer[] Timers, Appli
             throw new InvalidDataException("Unsupported premium-state version or size.");
         }
 
+        var offline = state.SavedAtSeconds > 0 ? Math.Max(0, nowSeconds - state.SavedAtSeconds) : 0;
         character.Premium.Restore(state.Timers
-            .Where(timer => timer is not null && timer.ExpiresAtSeconds > nowSeconds)
-            .Select(static timer => new PremiumTimer(timer.Kind, timer.Value, timer.DurationSeconds, timer.ExpiresAtSeconds)));
+            .Where(static timer => timer is not null)
+            .Select(timer => new PremiumTimer(timer.Kind, timer.Value, timer.DurationSeconds,
+                PremiumTimers.PausesOffline(timer.Kind) ? timer.ExpiresAtSeconds + offline : timer.ExpiresAtSeconds))
+            .Where(timer => timer.ExpiresAtSeconds > nowSeconds));
         character.ItemUses.Restore(state.Operations ?? []);
         var bigHead = state.BigHeadExpiresAtSeconds > nowSeconds ? state.BigHeadMode : 0;
         character.Premium.RestoreCounters(state.GravityScrolls, bigHead, state.BigHeadExpiresAtSeconds);

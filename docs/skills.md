@@ -146,6 +146,15 @@ means absent); `SkillRule.At` clamps the rank into the table. Distances are worl
 - Presentation: `projectile` (hits land after the flight), `projectileArc` (lob height at mid flight), `castEffect`,
   `impactEffect`, `projectileEffect`, `buffEffect` (aura while the status runs), `companionEffect` (familiar or counter
   strike), `castSound`, `impactSound`, `companionSound` (game-data paths under `wav/`), `keepIcon` (buff-bar icon).
+- Presentation per hit and on actors (`SkillRulePresentation.cs`, ignored by the server): `impactSounds` with
+  `impactSoundOrder` (`Sequence`: impact n of the cast plays entry n, wrapping; `Random`; `Final`: only the cast's last
+  impact, `SkillImpacts.Count`), played on landed hits instead of `impactSound`; `impactEffects` (impact n plays entry
+  n, the last entry after that); `-` in either list plays nothing at that impact. `statusLook` while the skill's
+  status is on an entity: `Frost`, `Poison`, `Distortion` (harmful statuses only), `Vanish`, `Vague`. `rageGlow`
+  (red light 0..255 at each impact, fading 70 a second), `shieldModel` (drawn instead of a held shield while the
+  status lasts, from the cast's hit on), `weaponGrowth[10]` (percent growth of a red translucent weapon copy during the
+  cast), `afterimages` (0..8, trailing copies through the cast), `castShieldBone` and `castShieldGlow[3]` (the held
+  shield moves to that body bone and glows during the cast).
 
 ### Damage rule (`damage`, `mainHit`, `damage.main`)
 
@@ -332,7 +341,15 @@ Presentation (`SkillPresentation`):
   play the secondary effect; otherwise `impactEffect` (the mode's or `charge.full`'s when set) at the target or caster,
   skipped for entity-targeted rules that hit nothing. `Release` seeks the clip to `fullFrame`; `Cancel` stops effects.
 - Statuses: `StatusBook` keeps timers between messages; on add, `buffEffect` spawns as an aura (variant
-  `<name>.<element>` for multi-choice enchants or familiars when defined) and restarts while the status lasts.
+  `<name>.<element>` for multi-choice enchants or familiars when defined) and restarts while the status lasts. A
+  familiar's strike takes the same element variant of `impactEffect`.
+- Looks: `ActorLookBook` turns statuses, casts and impacts into an `EntityLook` per entity each frame (the original's
+  70 Hz ramps: frost +1 a tick to 160 blue and -80 alpha, poison to 100 green, both counting back after the status;
+  vanish -160 alpha, vague -60 for the local player and -160 for others with a scrolling overlay; distortion +80
+  red and green with a wobble; rage red with half as much green taken). The host applies it
+  (`ISkillSceneHost.ApplyLook`); `ActorLookPresenter` paints body, head and held items, swaps or moves the shield, adds
+  the enlarged weapon copy and the afterimage echoes (six two frames apart from -140 by -20 for the local player, four
+  four frames apart at -160 for others) and reports Normal once a look ends.
 - Combat events add floating damage, heal and evade text and the revive effect (`ReviveEffect`).
 - VFX: every `<assetRoot>/Effect/Vfx/**/*.vfx.json`, read off the game thread in ordinal path order (docs/effects.md).
   Sounds are asset paths loaded by `SkillSoundBank`.

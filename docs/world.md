@@ -367,12 +367,13 @@ point with a player near (else the first active point), plus escorts scattered w
 Built by `WorldDataFactory.ToDropTable`: unresolved main drops stay as `Nothing` slots so probabilities keep their
 shape; unresolved bonus drops are omitted.
 
-`DropRoller.Roll(rng, table, hasEventItem, eventItemCode)`:
+`DropRoller.Roll(rng, table, hasEventItem, eventItemCode, extraRollChance, eventRoll)`:
 
 1. Optional event item first, flagged `ToInventory` (ground loot rejects it; it needs its own reward transaction).
 2. Each bonus entry rolls independently: `rand(10000) < Weight`.
 3. `MaxItemsPerKill` weighted picks from the main entries (`Nothing` picks add nothing). Gold amount is
-   `rand[GoldMin, GoldMax]` inclusive.
+   `rand[GoldMin, GoldMax]` inclusive. A running item event (`eventRoll`, `ItemEventDrops`) may replace each pick with
+   its item; a puzzle piece is flagged `Sealed` ([special-items.md](special-items.md)).
 
 Quest and ingredient items (`QuestItems.IsQuestDrop`) are flagged `ToInventory` with `FromMainTable` set for main-table
 picks; the field hands them to the credited player's quest upkeep instead of the ground ([quests.md](quests.md)).

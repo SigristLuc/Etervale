@@ -49,6 +49,7 @@ public static class NpcServiceAvailability
         // The wing exchange (value 0 or 1) runs as a quest.
         NpcServiceKind.WarpGate => service.Value <= 1,
         NpcServiceKind.Teleporter => TeleportRoutes.IsAvailable(service.Value),
+        NpcServiceKind.QuestEvent => service.Value == Items.Usable.Puzzles.CollectorEvent,
         _ => false
     };
 }

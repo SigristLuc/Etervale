@@ -98,6 +98,8 @@ public sealed partial class WorldServer
             items: data.Items,
             terrain: _terrain.Get(fieldId));
         ConfigureQuests(field);
+        field.State = _catalog.TryGetFieldByCode(fieldId, out var definition) ? definition.State : FieldState.Forest;
+        field.ItemEventRates = _options.ItemEvents;
         _fields.Add(fieldId, field);
         return field;
     }

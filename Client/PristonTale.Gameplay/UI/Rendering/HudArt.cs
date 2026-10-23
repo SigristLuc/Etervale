@@ -58,6 +58,7 @@ public static class HudArt
     public static readonly string[] ShortKeys = Enumerable.Range(1, 8).Select(index => $"{Sin}skill/ShortKey/f{index}.bmp").ToArray();
 
     public const string Inventory = Sin + "Inven/Inven.bmp";
+    public const string PuzzleBoard = Sin + "Inven/NYEAR_00.bmp";
     public const string CoverLarge = Sin + "Inven/CoverLarge.bmp";
     public const string CoverMiddle = Sin + "Inven/CoverMiddle.bmp";
     public const string CoverSmall = Sin + "Inven/CoverSmall.bmp";
@@ -120,7 +121,7 @@ public static class HudArt
         SystemMenu, SystemSettings, SystemHelp, SystemExit, SkillMasterBox, SkillMasterExit, SelectSkill, SelectSkillGray, SelectJobGray, SelectJob,
         .. MenuButtons, .. MenuButtonsDown, .. MenuInfo,
         SkillNormal, SkillWindow, SkillSelect, SkillGauge, SkillGaugeBack, SkillGaugePassive, .. ShortKeys,
-        Inventory, CoverLarge, CoverMiddle, CoverSmall, PotionBack, Status, StatusPoint, StatusArrow, StatusArrowDown,
+        Inventory, PuzzleBoard, CoverLarge, CoverMiddle, CoverSmall, PotionBack, Status, StatusPoint, StatusArrow, StatusArrowDown,
         .. InfoBox,
         HelpTopLeft, HelpTop, HelpTopRight, HelpLeft, HelpCenter, HelpRight, HelpBottomLeft, HelpBottom, HelpBottomRight, HelpLine,
         HelpTitle, HelpButton, ScrollBar, ScrollButton,

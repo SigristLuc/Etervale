@@ -4,6 +4,7 @@ using PristonTale.Gameplay.Effects;
 using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items.Usable;
+using PristonTale.Simulation.Physics;
 
 namespace PristonTale.Gameplay.World;
 
@@ -66,9 +67,14 @@ public sealed partial class GameScene
             {
                 _skillFx?.Spawn("vfx.agony", effect.Entity, effect.Entity, position);
             }
-            else if (effect.Effect is ItemEffectKind.Learn or ItemEffectKind.ForceOrb)
+            else if (effect.Effect is ItemEffectKind.Learn or ItemEffectKind.ForceOrb or ItemEffectKind.HeadChange)
             {
                 _skillFx?.Spawn(ItemVfx.Learn, effect.Entity, effect.Entity, position);
+            }
+            else if (effect.Effect == ItemEffectKind.Return)
+            {
+                // The sparkle stands where the server placed it: the user, the called monster or the revived player.
+                _returnEffect?.Start(effect.Position + Vector3.Up * GroundTraversal.VisualOffset);
             }
 
             _itemEffects?.Play(effect.Effect, effect.Entity, effect.Variant, position, PlayerPosition, _skillClockMs);

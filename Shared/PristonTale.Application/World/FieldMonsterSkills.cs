@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using PristonTale.Simulation.Combat;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
@@ -511,6 +512,7 @@ internal sealed class FieldMonsterSkills
         var damage = (int)Math.Clamp((long)power - defender.Absorption, 1, int.MaxValue);
         damage = ModifierRules.AgainstUndead(damage, attacker.Def.Brood == MonsterBrood.Undead, target.Character.Effects.Totals);
         damage = Combat?.SkillCombat?.Defend(attacker, target, damage, true) ?? damage;
+        damage = CastleItems.Defend(attacker.Def.SoundCode, target.Character.Effects, damage);
         target.ApplyDamage(damage);
         _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, target.EntityId, CombatEventKindView.Hit, damage: damage, killed: target.IsDead)
         {

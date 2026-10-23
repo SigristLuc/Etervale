@@ -94,6 +94,10 @@ public sealed record MonsterDefinition(
     string ModelInxPath)
 {
     public MonsterSkillStats Skill { get; init; } = MonsterSkillStats.None;
+
+    // The authored monster name exactly as the data files spell it (spaces included); items name monsters by it.
+    public string Key { get; init; } = "";
+
     public MonsterAi Ai { get; init; } = MonsterAi.Default;
     public DropTable Drops { get; init; } = DropTable.Empty;
 

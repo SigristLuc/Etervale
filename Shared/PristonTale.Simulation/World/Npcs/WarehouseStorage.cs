@@ -179,8 +179,10 @@ public sealed class WarehouseStorage
             if (Grid[anchor] is { } item)
             {
                 var definition = item.Definition;
-                items.Add(new OwnedItemView(item.InstanceId, definition.Code, item.DisplayName, definition.Kind, item.Count, anchor, -1,
-                    definition.GridWidth, definition.GridHeight, definition.CatalogKey));
+                var key = item.Sealed ? PristonTale.Simulation.Items.Usable.Puzzles.LuckyBagIcon : definition.CatalogKey;
+                items.Add(new OwnedItemView(item.InstanceId, item.Sealed ? LegacyItemCode.Parse(key) : definition.Code,
+                    item.Sealed ? PristonTale.Simulation.Items.Usable.Puzzles.LuckyBagName : item.DisplayName, definition.Kind, item.Count, anchor, -1,
+                    definition.GridWidth, definition.GridHeight, key));
             }
         }
 

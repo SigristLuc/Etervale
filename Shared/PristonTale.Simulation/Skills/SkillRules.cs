@@ -409,7 +409,7 @@ public static partial class SkillRuleCatalog
             && (rule.HitFramesByRank.Length == 0 || rule.HitFramesByRank.Length == 10 && rule.HitFramesByRank.All(row => row.Length > 0
                 && row.All(frame => frame > 0 && (rule.MotionFrames == 0 || frame <= rule.MotionFrames))))
             && rule.Modes.All(WellFormed) && (rule.Charge is null || ValidCharge(rule));
-        if (!ok || !MechanicsValid(rule))
+        if (!ok || !MechanicsValid(rule) || !PresentationValid(rule))
         {
             throw new InvalidDataException($"Skill rule {rule.Code:X8} ({rule.Name}) is malformed.");
         }
