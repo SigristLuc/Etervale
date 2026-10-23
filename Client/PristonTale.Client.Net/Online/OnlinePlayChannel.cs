@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Progression;
+using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Client.Net.Online;
@@ -40,6 +41,12 @@ internal sealed class OnlinePlayChannel : IPlayChannel
     {
         await _start.WaitAsync(ct);
         return await _connection.RequestNpcServiceAsync(command, ct);
+    }
+
+    public async Task<QuestOutcome> RequestQuestAsync(QuestCommand command, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        return await _connection.RequestQuestAsync(command, ct);
     }
 
     public async Task<InventoryOutcome> ApplyInventoryAsync(InventoryCommand command, CancellationToken ct = default)

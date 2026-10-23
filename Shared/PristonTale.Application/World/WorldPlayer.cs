@@ -79,6 +79,9 @@ public sealed class WorldPlayer
 
     public bool HasPendingPotion => _pendingPotion is not null || Action == PlayerActionState.Eat;
 
+    // Quest work waiting for the next upkeep, notices and dialogs for the owner, and duel bookkeeping.
+    public PlayerQuestState QuestState { get; } = new();
+
     public void QueuePotion(PotionDefinition potion)
     {
         if (!IsDead && !HasPendingPotion)
@@ -227,7 +230,8 @@ public sealed class WorldPlayer
         WeaponKey = _character.GetEquipped(EquipmentSlot.Weapon)?.Definition.CatalogKey ?? "",
         ArmorKey = _character.GetEquipped(EquipmentSlot.Armor)?.Definition.CatalogKey ?? "",
         OffHandKey = _character.GetEquipped(EquipmentSlot.OffHand)?.Definition.CatalogKey ?? "",
-        InVillage = _inVillage
+        InVillage = _inVillage,
+        Tier = _character.Tier
     };
 
     public int Level => _character.Level;

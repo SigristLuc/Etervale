@@ -75,6 +75,10 @@ public sealed record ItemDefinition(
 
     public IReadOnlyList<ItemSpecialBonus> SpecialBonuses { get; init; } = [];
 
+    // The authored unique marker; QuestUnique marks the quest variant of a code.
+    public const int QuestUnique = 2;
+    public int Unique { get; init; }
+
     public bool IsEquippable => EquipSlot.HasValue;
     public bool IsStackable => MaxStack > 1;
 

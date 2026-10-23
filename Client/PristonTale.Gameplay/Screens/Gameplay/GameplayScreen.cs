@@ -33,11 +33,14 @@ public sealed class GameplayScreen : GameScreen
             _scene.InteractNpcAsync,
             _scene.PlayNpcInteractionAudio,
             _scene.StopNpcTalk,
-            _scene.RequestNpcServiceAsync);
+            _scene.RequestNpcServiceAsync,
+            _scene.RequestQuestAsync);
         _hud.CharacterName = _scene.Player.Name;
         _hud.CharacterClass = _scene.Player.Class.Class;
         _hud.PortraitScene = _scene;
         _scene.PresenceObserved += _hud.Combat.Observe;
+        _scene.PresenceObserved += _hud.ObserveQuests;
+        _hud.QuestFanfare += _scene.PlayQuestFanfare;
         _scene.NpcSelected += _hud.OpenNpc;
         _scene.SkillNotice += _hud.ShowNotice;
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
@@ -207,6 +210,8 @@ public sealed class GameplayScreen : GameScreen
         if (_scene is not null && _hud is not null)
         {
             _scene.PresenceObserved -= _hud.Combat.Observe;
+            _scene.PresenceObserved -= _hud.ObserveQuests;
+            _hud.QuestFanfare -= _scene.PlayQuestFanfare;
             _scene.NpcSelected -= _hud.OpenNpc;
             _scene.SkillNotice -= _hud.ShowNotice;
             _hud.SummonModeRequested -= _scene.ToggleSummonMode;

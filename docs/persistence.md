@@ -27,7 +27,7 @@ FluentMigrator migrations, the schema, and the SQLite and PostgreSQL providers. 
 | `.../WorldData/` | Read-side catalog records and [WorldDataFactory](../Persistence/PristonTale.Persistence.Abstractions/WorldData/WorldDataFactory.cs) |
 | `.../Security/PasswordHasher.cs` | PBKDF2-SHA256 hashes: `pbkdf2-sha256$<iterations>$<salt b64>$<key b64>` |
 | `Persistence/PristonTale.Persistence/Repositories/` | `Dapper*Repository` implementations shared by both providers |
-| `Persistence/PristonTale.Persistence/Migrations/` | `M013Baseline`, `M014PortraitData`, `M015NpcServices`, `FluentMigratorDatabaseMigrator` |
+| `Persistence/PristonTale.Persistence/Migrations/` | `M013Baseline`, `M014PortraitData`, `M015NpcServices`, `M016QuestData`, `FluentMigratorDatabaseMigrator` |
 | `Persistence/PristonTale.Persistence.Sqlite/` | `AddPristonSqlite`, connection factory (WAL), Dapper type handlers, path resolution |
 | `Persistence/PristonTale.Persistence.Postgres/` | `AddPristonPostgres`, `NpgsqlDataSource` factory, `jsonb` handler for `JsonText` |
 | `docker-compose.yml` | Local PostgreSQL 17 for development |
@@ -100,8 +100,8 @@ and its account warehouse are always written together, so a gold or item move be
 
 ## Owned-state JSON
 
-`CharacterStateCodec` and `WarehouseStateCodec` own the JSON stored in `characters.inventory`, `equipment`, `skills`
-and `warehouses.items`.
+`CharacterStateCodec`, `QuestStateCodec` and `WarehouseStateCodec` own the JSON stored in `characters.inventory`,
+`equipment`, `skills`, `quests` and `warehouses.items`.
 
 | Column | Shape | Limits on restore |
 | --- | --- | --- |
@@ -110,7 +110,8 @@ and `warehouses.items`.
 | `skills` | `SavedSkills` v1: points, elite points, `(Code, Rank, Uses)`, progression `Revision` and `Operations` | 128 skills, points >= 0 |
 | `warehouses.items` | `SavedItems` v1 with anchors in the warehouse grid | `WarehouseStorage.MaxItems` |
 | `derived_stats` | `DerivedStatsDto`, written on save; nothing reads it | - |
-| `quests`, `premium` | `{}` from the starter row, carried through updates unchanged | - |
+| `quests` | `SavedQuests` v1: the running quest (`SavedQuest`), level and beginner logs, finished codes, `FinishedCount`, the redistribution offer, `Revision` and quest `Operations` (see [quests.md](quests.md)); `{}` reads as an idle journal | 32 finished codes, 64 operations, defined quest codes and timer kinds, non-negative counts |
+| `premium` | `{}` from the starter row, carried through updates unchanged | - |
 
 - Restore is strict: unknown JSON members are rejected, constructor parameters without defaults are required, max
   depth 16, max 65536 characters, `Version` must be 1, instance ids must be unique and non-empty, the item code must
@@ -118,6 +119,8 @@ and `warehouses.items`.
   `InvalidDataException`.
 - `[]` (inventory, skills, warehouse) and `{}` (equipment) are the empty legacy values and restore as empty state.
 - An inventory item whose saved anchor no longer fits its footprint moves to the first free cell.
+- `SavedItem.Unique` is 2 for the quest variant of a code (quest weapons, the rank-up ring, Fury rewards); such an item
+  restores as the code's quest variant, or as the regular definition when the catalog has no variant.
 - Enums serialize as strings (`JsonStringEnumConverter`).
 
 ## Migrations
@@ -130,6 +133,7 @@ FluentMigrator scans `PristonTale.Persistence` for `[Migration(n)]` classes. Ver
 | 13 | `M013Baseline` | Empty database: creates every table below except `npc_services`, then on PostgreSQL converts the JSON columns to `jsonb`. Database with an `accounts` table: requires `VersionInfo` to contain version 12, then adds `item_templates.max_stack/potion_space/magic_mastery`, `monsters.sound_code/model_scale`, `npcs.model_scale` and creates the three `world_*` source tables |
 | 14 | `M014PortraitData` | `monsters.portrait_offset_y/z`; `npcs.display_name` (128), `npcs.portrait_offset_y/z`. Columns append in record constructor order |
 | 15 | `M015NpcServices` | `npc_services` table and index; `warehouses.revision`; `npcs.display_name` only if missing |
+| 16 | `M016QuestData` | `monsters.quest_code`, `event_item` (item code key, empty when none), `potion_count`, `potion_percent` |
 
 Legacy upgrade path: databases from the earlier migration set at version 12 upgrade in place. Databases at
 versions 1-11 make `M013Baseline` throw; bring them to 12 with the previous release or back up and recreate them.
@@ -170,10 +174,10 @@ Written only by the importer. Natural keys are the authored identities, kept ver
 
 | Table | Columns and constraints |
 | --- | --- |
-| `item_templates` | `code` (16) PK, authored 5-character code; `item_code_mask` int64 (0 = category not mapped, excluded at runtime); `name`; `kind` (`ItemKind`); durability, weight, price; damage min/max low/high; attack rating, critical, defence, block, absorb, speed; mana/life/stamina regen (float) and add; requirements; potion restore min/max; `shooting_range`, `attack_speed`; `job_mask`, `unique_item` int64; `res_<element>_min/max` for bionic, earth, fire, ice, lighting, poison, water, wind; `max_stack`, `potion_space`, `magic_mastery` |
+| `item_templates` | `code` (16) PK, authored 5-character code; `item_code_mask` int64 (0 = category not mapped, excluded at runtime); `name`; `kind` (`ItemKind`); durability, weight, price; damage min/max low/high; attack rating, critical, defence, block, absorb, speed; mana/life/stamina regen (float) and add; requirements; potion restore min/max; `shooting_range`, `attack_speed`; `job_mask`, `unique_item` int64; `res_<element>_min/max` for bionic, earth, fire, ice, lighting, poison, water, wind; `max_stack`, `potion_space`, `magic_mastery`. A row keyed `<code>#Q` holds the code's quest variant (unique marker 2); it loads into `ItemCatalog.QuestVariants`, not the regular catalog |
 | `item_template_special` | `id` PK; `item_code` FK `item_templates`; `bonus_code`; `value0`, `value1` float |
 | `item_template_job_random` | `id` PK; `item_code` FK; `ordinal`; `job_bit_code` int64 |
-| `monsters` | `name` PK (identity, may contain leading or trailing spaces); `model`; combat stats; `sight` (raw authored reach); skill damage, distance, range, rating, curse; `move_speed`, `move_range`, `iq`, `group_min/max`, `exp`, `active_hour` (+1 day, -1 night, 0 any); `nature`, `brood`, `class` int16; `res_<element>`; `stun_pct` (default 100); `display_name` (128); `sound_code`; `model_scale`; `portrait_offset_y/z` |
+| `monsters` | `name` PK (identity, may contain leading or trailing spaces); `model`; combat stats; `sight` (raw authored reach); skill damage, distance, range, rating, curse; `move_speed`, `move_range`, `iq`, `group_min/max`, `exp`, `active_hour` (+1 day, -1 night, 0 any); `nature`, `brood`, `class` int16; `res_<element>`; `stun_pct` (default 100); `display_name` (128); `sound_code`; `model_scale`; `portrait_offset_y/z`; `quest_code`, `event_item`, `potion_count`, `potion_percent` (M016) |
 | `monster_drops` | `monster_name` PK and FK; `max_items_per_kill`; `all_players_see` |
 | `monster_drop_items` | `id` PK; `monster_name` FK; `kind` (`DropKind`); `weight`; `item_code` nullable FK `item_templates` (set null); `gold_min/max` |
 | `monster_drops_plus` | `id` PK; `monster_name` FK; `weight`; `item_code` nullable FK (set null) |

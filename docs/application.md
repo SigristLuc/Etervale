@@ -1,8 +1,9 @@
 # Application layer and authoritative world
 
-`Shared/PristonTale.Application`: transport-free use cases (auth, characters, sessions, NPC services), the session
-registry, and `WorldServer`, the single owner of live world state with its 20 Hz tick. The TCP edge that calls into
-it is described in [server.md](server.md); skill resolution details are in [skills.md](skills.md).
+`Shared/PristonTale.Application`: transport-free use cases (auth, characters, sessions, NPC services, quests), the
+session registry, and `WorldServer`, the single owner of live world state with its 20 Hz tick. The TCP edge that calls
+into it is described in [server.md](server.md); skill resolution details are in [skills.md](skills.md); quests in
+[quests.md](quests.md).
 
 ## Read this when
 
@@ -22,10 +23,12 @@ it is described in [server.md](server.md); skill resolution details are in [skil
 | `Services/CharacterAppService.cs` | List, name check, create, delete characters; builds `CharacterSummary` for the select screen |
 | [`Services/SessionAppService.cs`](../Shared/PristonTale.Application/Services/SessionAppService.cs) | World entry, saves, durable inventory and progression operations (`ApplyDurableAsync`) |
 | [`Services/NpcAppService.cs`](../Shared/PristonTale.Application/Services/NpcAppService.cs) | NPC click and NPC service requests; warehouse load and joint character+warehouse write |
+| [`Services/QuestAppService.cs`](../Shared/PristonTale.Application/Services/QuestAppService.cs) | Quest requests and the quest upkeep (see [quests.md](quests.md)) |
 | `Services/*Outcome.cs`, `CharacterSummary.cs` | Result records returned to the edge; failure enums carry stable codes |
 | `Sessions/` | `PlayerSession` (state machine, `SaveGate`, loaded record, open warehouse), `SessionRegistry` |
 | [`World/WorldServer.cs`](../Shared/PristonTale.Application/World/WorldServer.cs) | Command queue, tick, field registry, connections, prepare/commit entry points |
 | `World/WorldServer.Npc.cs` | NPC interaction, NPC service check/prepare/commit, teleport arrival |
+| `World/WorldServer.Quests.cs`, `World/FieldInstance.Quests.cs`, `World/QuestTransactions.cs`, `World/PlayerQuestState.cs` | Quest prepare/commit, upkeep requests, quest travel; kill credit, quest drops, timers and arena duels on the field |
 | `World/WorldServerOptions.cs` | `ExperienceMultiplier`, `MaxPendingCommandsPerPlayer`; `WorldBusyException` |
 | [`World/FieldInstance.cs`](../Shared/PristonTale.Application/World/FieldInstance.cs) | One live field: players, monsters, NPCs, spawner, AI, collision index, step order, views |
 | `World/FieldCombat.cs` | Basic attack and monster attack resolution, damage log, kill payout, corpses |
@@ -34,7 +37,7 @@ it is described in [server.md](server.md); skill resolution details are in [skil
 | `World/WorldNpc.cs` | Placed NPC with deterministic wander |
 | `World/FieldGroundLoot.cs` | Ground drops per field: ownership window, expiry, reservation for pickup, client handles |
 | `World/FieldTransition.cs` | Authorizes gate and warp field changes |
-| `World/*Transactions.cs`, `World/Prepared*Operation.cs` | Prepare side of durable operations (pickup, progression, NPC services) |
+| `World/*Transactions.cs`, `World/Prepared*Operation.cs` | Prepare side of durable operations (pickup, progression, NPC services, quests) |
 | `World/WorldSnapshot.cs` | Published view types: `EntityView`, `CombatEventView`, `SkillEventView`, `StatusEventView`, `WorldSnapshot` |
 | `World/WorldOutbox.cs` | Per-connection coalescing channel between the tick and the edge |
 | `World/SubscriberPresence.cs` | Spawn/state/remove diff of snapshots per subscriber (used by tests; the server encoder diffs itself) |
@@ -59,6 +62,7 @@ to `PristonTale.Tests`. No sockets, packets, SQL or MonoGame.
 | `SessionAppService.SaveCharacterAsync` | Waits for `SaveGate`; captures on the tick while playing, else from the session; writes through `ICharacterRepository.UpdateAsync`. |
 | `SessionAppService.ApplyInventoryAsync` / `ApplyProgressionAsync` | Durable operations, see [Durable operations](#durable-operations). |
 | `NpcAppService.InteractAsync` / `RequestAsync` | NPC dialog and services, see [NPC services](#npc-services). |
+| `QuestAppService.RequestAsync` / `RunUpkeepAsync` | Quest steps at an NPC and the quest upkeep the tick asks for, see [quests.md](quests.md#server-authority). |
 | `WorldDataAppService.BuildAsync` | Reads world-data repositories into `WorldData` (items, monsters, NPCs, field spawns, motion timings). |
 
 `CharacterAppService` throws `InvalidSessionException` for an unknown token; the other services return a rejected
@@ -275,13 +279,15 @@ A prepared operation with `Snapshot == null` is final (rejection or replay) and 
 | `Pickup` | `GroundPickupTransactions.Prepare` (`PreparedPickupOperation`) | inventory, gold via `TryChangeMoney`, drop removed |
 | Progression (attributes, learn skill) | `ProgressionTransactions.Prepare`; learning needs a reachable skill master | re-applies the command to the live character (`ApplyProgression`) |
 | NPC services | `NpcServiceTransactions.Prepare` (`PreparedNpcOperation`) | inventory, gold delta, open warehouse, teleport arrival |
+| Quest requests | `QuestTransactions.Prepare` (`PreparedQuestOperation`); follow-ups must answer a step the NPC still offers | inventory, equipment, quest journal (merging tick kills), tier, stat/skill point and gold deltas, travel, arena duel |
+| Quest upkeep | `QuestTransactions.PrepareUpkeep`, run by the server's `QuestUpkeepService` | quest drops into the pack, quest weapon growth and expiry, leftovers removed; drops return to the player on failure |
 
 Revisions and idempotency:
 
 - Commands carry a client GUID `OperationId` and an `ExpectedRevision` (`InventoryRevision` or `ProgressionRevision`;
   warehouse actions also `ExpectedStorageRevision`). A stale revision is refused without writing.
-- Applied operations are stored per character in three histories (inventory, service, progression), each capped at
-  the last 64, and persisted with the character. The same id with an identical command replays as success
+- Applied operations are stored per character in four histories (inventory, service, progression, quests), each
+  capped at the last 64, and persisted with the character. The same id with an identical command replays as success
   ("already committed") with the recorded revision; the same id with a different command is an "operation identity
   conflict". This makes a retry after a lost reply safe and never charges twice.
 - Commit merges only the transaction's domain into the live character (inventory, equipment, histories, money
@@ -310,7 +316,8 @@ Flow (`NpcAppService.RequestAsync`):
 | Shop | Open, Refresh, Buy, Sell, Repair, RepairAll, Close | `NpcShopRules`: buy own stock at catalog price (unrolled); sell at a fifth of worn value (no quest items); repair an eighth of lost value; gold cap `MoneyLimits.CarryLimit` |
 | Warehouse | Open, Refresh, Deposit, Withdraw, Move, DepositGold, WithdrawGold, Close | `WarehouseStorage`: per account, 9x9 grid, 100 items, weight 1000, 100,000,000 gold; quest items and materials stay on the character |
 | Teleporter | Open, Teleport, Close | `TeleportRoutes`: route 1 only (Mushroom Cave 100, Beehive Cave 100, Cursed Land 500, Forbidden Land 1000 gold); level must reach the destination field's `LimitLevel` |
-| Skill master | (dialog only here) | Learning goes through `ProgressionCommand.LearnSkill` with the NPC's entity id |
+| Skill master | (dialog only here) | Learning goes through `ProgressionCommand.LearnSkill` with the NPC's entity id; the class change goes through the quests |
+| Quest giver, quest script, wing exchange (warp gate 0 or 1) | (dialog only here) | Answered by `QuestAppService` talks, see [quests.md](quests.md) |
 
 Other `NpcServiceKind` values answer `NotAvailable`. Prices, stock, totals and destinations always come from the
 catalogs, never from the client. `InteractNpcAsync` returns all offers with their availability and one random line.
@@ -323,11 +330,12 @@ catalogs, never from the client. `InteractNpcAsync` returns all offers with thei
   (`SwingBegin`, `Hit`, `PotionBegin`, `PotionApplied`, `MonsterSkillImpact`, `Heal`, `Evade`, `Revive`),
   `SkillEventView[]` (start, impact, cancel, release), `StatusEventView[]` (add, refresh, remove, tick), ground drops
   with owner and visibility, and an `EntityGrid`. `WithOwner` stamps each copy with the receiver's `OwnerState` (only
-  when changed) and its cooldowns (null when unchanged since the last send).
+  when changed) and its cooldowns (null when unchanged since the last send); each copy also carries the receiver's
+  `QuestUpdate` (journal view when its revision moved, quest notices, a dialog the world opened).
 - `WorldOutbox` is the per-connection `Channel<WorldSnapshot>`: a write never blocks; the reader receives the latest
   entity state plus every event accumulated since its last read (state is coalesced, events are reliable, the newest
-  cooldown list wins). More than 4096 pending events completes the channel with an `InvalidOperationException`; the
-  edge closes the connection.
+  cooldown list wins; quest notices stay in order up to 256 and the newest journal view and dialog win). More than
+  4096 pending events completes the channel with an `InvalidOperationException`; the edge closes the connection.
 - `IServerStatusReadModel` (`WorldStatusReadModel`) reads volatile counts without touching the tick.
 
 ## How to

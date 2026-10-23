@@ -310,6 +310,9 @@ specifications.AddRange(SkillSummonTests.Cases());
 specifications.AddRange(SkillStealthTests.Cases());
 specifications.AddRange(SkillChargeTests.Cases());
 specifications.AddRange(SkillCompanionTests.Cases());
+specifications.AddRange(QuestTests.Cases());
+specifications.AddRange(QuestServiceTests.Cases());
+specifications.AddRange(QuestHudTests.Cases());
 // --filter <text> runs only the cases whose name contains the text.
 var filterIndex = Array.IndexOf(args, "--filter");
 if (filterIndex >= 0 && filterIndex + 1 < args.Length)

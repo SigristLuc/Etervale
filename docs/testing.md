@@ -44,6 +44,7 @@ Default case files by area (all `tests/PristonTale.Tests/<Name>.cs`):
 | Skill mechanics | `SkillAllyTests`, `SkillAreaTests`, `SkillChargeTests`, `SkillCompanionTests`, `SkillControlTests` | Server resolution |
 | Skill mechanics | `SkillDefenseTests`, `SkillEnchantTests`, `SkillResurrectionTests`, `SkillStealthTests`, `SkillSummonTests` | Server resolution |
 | Skill client | `SkillPresentationTests` | VFX definitions, legacy scripts, cooldown and status books |
+| Quests | `QuestTests` (with `QuestFixture`), `QuestServiceTests`, `QuestHudTests` | Every quest family's steps, rank-ups and the tier; journal storage, quest messages, durable requests, kill credit, upkeep, the arena duel; quest HUD flows and layout |
 | Client | `RemotePlaybackTests`, `AttackInputTests`, `FrameTimingTests`, `ClientSettingsTests`, `FieldAudioTests` | Playback, input, settings |
 | HUD and screens | `HudInteractionTests`, `CharacterHeadTests`, `CharacterSelectTests`, `GroundLootLabelTests` | 800x600 layout, hit tests |
 | Rendering | `RenderTests`, `RenderFidelityTests`, `PhotorealTests`, `MaterialAdapterTests`, `ShadowProjectionTests`, `SkyTests` | CPU-side renderer |
@@ -123,7 +124,7 @@ when reading those assets is authorized. GPU probes:
 | `--check-look <mode> <assets> <content> <output-dir>` | yes | Fails on look regressions; `mode` is `charselect`, `actor`, `opening`, `scenery` or `shade` |
 | `--profile-stream <assets> <content>` | yes | Incremental stage upload with the game's policy at a fixed 60 Hz |
 | `--profile-stream-baseline <assets> <content>` | yes | Same with an 8-step upload limit for comparison |
-| `--capture-hud <assets> <content> <output-dir> [<background.png>]` | yes | In-game HUD scenarios to PNG (scales 2 and 3, `npc-*` dialogs, `buffs-*` continuous-skill bar, `skill-right-select` prints the right socket after a right click) |
+| `--capture-hud <assets> <content> <output-dir> [<background.png>]` | yes | In-game HUD scenarios to PNG (scales 2 and 3, `npc-*` dialogs, `buffs-*` continuous-skill bar, `quest-*` quest dialog, boxes, window and timer, `skill-right-select` prints the right socket after a right click) |
 | `--capture-hud-target <assets> <content> <output-dir>` | yes | Ricarten at 14:00 with remote-roster entities; target frame, bar, resolutions |
 | `--capture-login <assets> <content> <output-dir> <background.png>` | yes | Login screen edge cases (see below) |
 | `--capture-skills <assets> <content> <output-dir> [<hex,hex,...>]` | yes | Casts skills with the server timeline (see below) |
@@ -185,7 +186,10 @@ Other probe details:
 - `--capture-login` draws before the first Update with a preloaded shared atlas, then covers a 1x1 viewport and its
   restoration, disabled credentials, keyboard navigation, masking and scaled mouse hit tests.
 - `--capture-hud` shows the typed NPC dialog, teleport destinations, the shop (buy and sell) and the warehouse in its
-  `npc-*` scenarios. It reads the Ricarten stage only for the authored minimap rectangle.
+  `npc-*` scenarios, and in its `quest-*` scenarios a quest dialog with its document text, the yes/no box, the Fury
+  reward list and reward view, the lit class-change button, the quest window with a description (800x600 and scale 2),
+  the quest timer icon with and without effect icons and the redistribution offer. It reads the Ricarten stage only for
+  the authored minimap rectangle.
 - `--capture-hud-target` spawns monsters of two races, an NPC and a player through the remote entity roster and captures
   the target frame's live portrait, the classic bar, 1280x720, 1920x1080, scale 2 and the minimap under the cursor.
 - `--verify-world-rewards` migrates the given database twice, then checks that every item drop code resolves, Hopy

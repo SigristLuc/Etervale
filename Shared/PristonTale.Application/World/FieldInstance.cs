@@ -16,7 +16,7 @@ using PristonTale.Simulation.Skills;
 
 namespace PristonTale.Application.World;
 
-public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHost, IFieldSkillHost
+public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHost, IFieldSkillHost
 {
     public const int PlayerNearRadiusSquared = 0x120000;
     public static readonly float PlayerNearRadius = MathF.Sqrt(PlayerNearRadiusSquared);
@@ -131,7 +131,7 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         }
 
         if (!_monsters.TryGetValue(targetEntityId, out var monster) || !monster.IsAlive || monster.IsSummon
-            || monster.Effects.Has(Simulation.Modifiers.ControlFlags.Charmed))
+            || monster.Effects.Has(Simulation.Modifiers.ControlFlags.Charmed) || monster.DuelPlayerId != 0 && monster.DuelPlayerId != attackerEntityId)
         {
             attacker.ClearAttackTarget();
             return false;
@@ -234,11 +234,13 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         }
 
         _combat.TickCorpses(dtMs);
+        StepQuests(dtMs, nowMs);
         GroundLoot.Step(nowMs);
     }
 
     private void PlaceLoot(KillPayout reward, long nowMs)
     {
+        reward = CreditQuests(reward);
         if (_monsters.TryGetValue(reward.MonsterEntityId, out var killed))
         {
             var dropPosition = Terrain.SettleNear(killed.Position, FieldTerrain.DropTolerance);
@@ -325,7 +327,7 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         MonsterAiTuning tuning = TuningFor(monster.Def);
 
         Vector3 before = monster.Position;
-        MonsterAttackEvent? attack = _brain.Tick(monster, tuning, _prey, dtMs);
+        MonsterAttackEvent? attack = _brain.Tick(monster, tuning, DuelPrey(monster) ?? _prey, dtMs);
 
         if (monster.SwingJustBegan)
         {
@@ -622,7 +624,8 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         attackRate: 1f) // monsters never scale their attack advance.
     {
         OwnerId = m.OwnerId,
-        ModelScale = m.ModelScale
+        ModelScale = m.ModelScale,
+        DuelPlayerId = m.DuelPlayerId
     };
 
     private static MoveStateView ToMoveState(MonsterMotionState motion) => motion switch

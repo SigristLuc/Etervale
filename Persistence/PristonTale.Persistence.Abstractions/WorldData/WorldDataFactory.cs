@@ -57,11 +57,22 @@ public static class WorldDataFactory
                 .Select(static s => new ItemSpecialBonus(s.BonusCode, (int)s.Value0))
                 .ToList(),
             JobRandomSpecMask = FoldJobRandom(r.JobRandom),
+            Unique = (int)r.UniqueItem,
         });
     }
 
     public static IReadOnlyList<ItemDefinition> ToItemDefinitions(IEnumerable<ItemTemplateRecord> records) =>
-        records.Where(static record => record.ItemCodeMask != 0).Select(ToItemDefinition).ToList();
+        records.Where(static record => record.ItemCodeMask != 0 && !IsQuestVariantKey(record.Code)).Select(ToItemDefinition).ToList();
+
+    // Rows of the quest variant of a code are keyed "<code>#Q" by the importer; they load beside the regular catalog.
+    public const string QuestVariantSuffix = "#Q";
+
+    public static bool IsQuestVariantKey(string code) => code.EndsWith(QuestVariantSuffix, StringComparison.OrdinalIgnoreCase);
+
+    public static IReadOnlyList<ItemDefinition> ToQuestVariantDefinitions(IEnumerable<ItemTemplateRecord> records) =>
+        records.Where(static record => record.ItemCodeMask != 0 && IsQuestVariantKey(record.Code))
+            .Select(static record => ToItemDefinition(record with { Code = record.Code[..^QuestVariantSuffix.Length] }))
+            .ToList();
 
     // Item resistances are min/max ranges; the equipped baseline uses the midpoint of each element.
     private static ResistanceBlock ToItemResistances(ItemTemplateRecord r) => new(
@@ -153,6 +164,10 @@ public static class WorldDataFactory
             ModelScale = r.ModelScale,
             PortraitOffsetY = r.PortraitOffsetY,
             PortraitOffsetZ = r.PortraitOffsetZ,
+            QuestCode = r.QuestCode,
+            EventItem = TryResolveDrop(r.EventItem, itemCodes, out var eventItem) ? eventItem : 0,
+            PotionCount = r.PotionCount,
+            PotionPercent = r.PotionPercent,
         };
     }
 

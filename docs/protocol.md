@@ -182,6 +182,9 @@ keep the `{size, code}` header and the 8192-byte frame limit.
 | `0x45540202` | `SkillEvents` | S→C | Skill starts, impacts, releases and cancels on the presence timeline. |
 | `0x45540203` | `StatusEffects` | S→C | Modifier effects added, refreshed, removed or ticking, on the presence timeline. |
 | `0x45540204` | `SkillCooldowns` | S→C | The owner's running cooldowns whenever the set changes. |
+| `0x45540500` / `0x45540501` | `QuestRequest` / `QuestResult` | C→S / S→C | One quest step (talk, proceed, accept, class change, reward choice, skill redistribution), correlated by operation id (see below). |
+| `0x45540502` | `QuestJournal` | S→C | The owner's quest journal view whenever its revision changes. |
+| `0x45540503` | `QuestNotices` | S→C | Quest notices of the world tick and a quest dialog the world opened. |
 
 ### Owner, inventory and combat layouts
 
@@ -289,6 +292,30 @@ The server checks every request against the NPC in the player's field (alive, wi
 writes durable changes before applying them and records the operation id with the character, so a retried request
 returns its first outcome without charging again.
 
+### Quests
+
+Quest bodies start with `{uint16 Version = 1, uint16 Flags = 0}`; text is UTF-8 with a `uint16` byte length (64 bytes,
+notices 128). A dialog is `{uint16 Code, uint8 Followup, uint8 0, int32 State, int32 Choice, text Document, Title,
+ConfirmLine1, ConfirmLine2, ConfirmDetail, int32 ChoiceCount, (text Choice, text ChoiceDocument)...}` (at most 16
+choices); a notice list is `{int32 Count, (uint8 Kind, uint8 0, text)...}` (at most 32). Codes and enums are
+`QuestCode`, `QuestAction`, `QuestStatus`, `QuestFollowup`, `QuestNoticeKind`, `QuestTimerKind` (see
+[quests.md](quests.md)).
+
+- `QuestRequest` (44 bytes): `{Guid OperationId, uint32 NpcSerial, uint8 Action, uint8 0, uint16 Code, int32 State,
+  int32 Choice}`. `NpcSerial` is 0 only for the redistribution offer and the victory dialog of a duel.
+- `QuestResult`: `{Guid OperationId, uint8 Status, uint8 Flags (1 ok, 2 class change offered, 4 redistribution
+  offered, 8 dialog follows), uint16 0, int64 Revision, text Message, [dialog], notices}`.
+- `QuestJournal`: `{int64 Revision, uint16 Code, uint8 Timer, uint8 RedistributionOffered, int32 State, text
+  TargetName, int32 Kills, KillsNeeded, int64 TimerMs, int32 WeaponStage, WeaponKillsLeft, int32 ProgressCount,
+  (text Title, text Description)..., int32 FinishedCount, lines}` (at most 16 running and 32 finished lines; a
+  description names a file under the client's quest board folder).
+- `QuestNotices`: `{uint8 Flags (1 dialog follows), uint8 0, uint16 0, notices, [dialog]}`; more than 32 notices
+  are sent as several messages, the dialog with the last.
+
+The server answers a request only after a changed character is stored; the presence stream carries the journal and
+notices of the tick (kill counts, timers, duel results) to the owner alone. A step that sends the player to or from the
+quest arena arrives as the usual field confirmation `WARPFIELD`.
+
 ## Server capacity
 
 The original server ran all game logic on one thread under one lock, scanned every connection and monster slot for
@@ -336,8 +363,8 @@ The server logs tick percentiles and bandwidth every 30 seconds.
 
 1. **Code.** Add a constant to `EtervaleOpcodes` in `Binary/PristonOpcodes.cs`, in the range of its area (`0x455401xx`
    owner state, `0x4554011x` inventory, `0x4554012x` progression, `0x4554013x` NPC, `0x4554014x` combat, `0x4554015x`
-   removals, `0x4554016x` leave, `0x4554017x` clock, `0x455402xx` skills). Never give an original `0x4847xxxx` or
-   `0x5032xxxx` code a new layout; reuse an original message only when its layout stays byte-identical.
+   removals, `0x4554016x` leave, `0x4554017x` clock, `0x455402xx` skills, `0x455405xx` quests). Never give an original
+   `0x4847xxxx` or `0x5032xxxx` code a new layout; reuse an original message only when its layout stays byte-identical.
 2. **Packet type.** Add a record in `Packets/` with `Size` or `HeaderSize` constants, `int Write(Span<byte>)` built on
    `PacketWriter` (returning `Finish()`), and `static Read(ReadOnlySpan<byte>)` built on `PacketReader(packet,
    minimum)`. Start new bodies with `{uint16 Version, uint16 Flags}`, reject version 0, append fields only at the end,

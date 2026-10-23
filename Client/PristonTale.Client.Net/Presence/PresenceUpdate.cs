@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Quests;
 
 namespace PristonTale.Client.Net.Presence;
 
@@ -24,6 +25,11 @@ public sealed record PresenceUpdate(
     public IReadOnlyList<StatusEffectInfo> StatusEffects { get; init; } = [];
     public SkillCooldownSnapshot? Cooldowns { get; init; }
     public SkillCastResultInfo? CastResult { get; init; }
+
+    // The quest journal when it changed, quest notices and a quest dialog the world opened on its own.
+    public QuestView? Quest { get; init; }
+    public IReadOnlyList<QuestNotice> QuestNotices { get; init; } = [];
+    public QuestPrompt? QuestPrompt { get; init; }
 }
 
 public sealed record WarpInfo(int FieldId, System.Numerics.Vector3 Position, bool Forced);

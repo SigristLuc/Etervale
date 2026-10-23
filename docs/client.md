@@ -37,6 +37,7 @@ rendering internals, skill presentation and VFX data have their own documents (s
 | `Client/PristonTale.Gameplay/UI/Widgets/` | Bottom bar, status window, skill tree and sockets, minimap, target frame and combat log (`HudCombat`), 3D target portrait, NPC dialog, settings panel, system menu, notices |
 | `Client/PristonTale.Gameplay/UI/Inventory/` | Inventory window layout, drag/drop and equip commands |
 | `Client/PristonTale.Gameplay/UI/Npc/` | NPC service controller, shop and warehouse windows, store layout, NPC art |
+| `Client/PristonTale.Gameplay/UI/Quests/` | Quest controller, quest dialog and yes/no boxes, quest window, quest texts and art (see [quests.md](quests.md#client)) |
 | `Client/PristonTale.Gameplay/UI/Rendering/` | `HudSprites` (original UI images), `HudIconCache` (item icons), `HudAtlas` (login atlas), `HudPainter`/`HudCanvas` |
 | `Client/PristonTale.Gameplay/Audio/` | `PristonAudioLibrary` (bootstrap sound load), `FieldAudioController` (music, field and positional ambience), `NpcAudioController`, `LegacyTalkSound` |
 | `Client/PristonTale.Gameplay/Effects/` | Effect glue: `LegacyEffectLibrary`, `SkillPresentation`, `SkillSoundBank`, `SkillState`, combat text, meteor, monster mesh and return effects; embedded `Vfx/*.vfx.json` ([effects.md](effects.md)) |
@@ -267,7 +268,7 @@ Renderer side of stage publication: [rendering.md](rendering.md).
 | Right click | same | Attack if the right socket holds the basic attack, otherwise cast the right socket skill |
 | Hold `A` | `GameScene.DrawGroundLabels`, `TryPickLoot` | Show and pick every ground item label |
 | Middle drag, cursor at screen edge, wheel | `PristonCamera.UpdateOrbit` (Engine3D) | Orbit, edge orbit, zoom; ignored while the HUD captures the pointer |
-| `I` or `V`, `C`, `S`, `X` | `GameplayHud.UpdateKeys` | Inventory, status, skills, system menu (ignored with Ctrl held) |
+| `I` or `V`, `C`, `S`, `X`, `Q` | `GameplayHud.UpdateKeys` | Inventory, status, skills, system menu, quest window (ignored with Ctrl held) |
 | `F1`-`F8` | `HudSkillBindings` | Select a skill shortcut; while pressing a skill in the tree, bind it ([skills.md](skills.md)) |
 | `Esc` | `Game1` | Close HUD panels, else quit |
 | `Ctrl+F3` / `Ctrl+F5` / `Ctrl+F10` | `GameplayScreen.UpdateDebugKeys` | Toggle render stats in the window title / toggle shadows / cycle `PristonDebugView` |
@@ -286,17 +287,20 @@ consumer; there is no text-input routing besides `TextInputField` on the login a
 - `HudPainter` draws original sprites at the integer scale with point sampling and queues text into a linear-filtered
   pass; call `Flush` before drawing a layer that must cover earlier text.
 - Draw order (`GameplayHud.Draw`): minimap, target frame, combat log (hidden while a side window is open), status /
-  skills / inventory windows (they share one screen area; opening one closes the others, `OpenOnly`), shop, warehouse,
-  bottom bar, skill sockets and buffs, hover text, system menu, NPC dialog, settings, item overlays, notices.
+  skills / inventory windows (they share one screen area; opening one closes the others, `OpenOnly`), quest window,
+  shop, warehouse, bottom bar, skill sockets, buffs and the quest timer icon, hover text, system menu, quest dialog or
+  NPC dialog, settings, item overlays, quest yes/no boxes, notices.
 - Server results reach the HUD as counters: controllers increment `Completions` and set `Message`; `ForwardMessages`
   shows each new message once as a notice.
 - Inventory (`HudInventoryController`): left drag moves, Shift-drag splits, drop on another stack merges, drop on an
   equipment slot equips, right click equips/unequips or drinks a potion. One command in flight; it carries the
   `InventoryRevision` it was built from.
 - Status window: attribute buttons send `ProgressionCommand` with `ProgressionRevision`.
-- NPC dialog (`HudNpcPanel`): name, the NPC's line, one button per offered service (grey when `Available` is false);
-  skill masters get the skill master box; teleporter destinations replace the buttons. An NPC whose only working
-  service is a shop or warehouse opens it directly (`DirectService`).
+- NPC dialog (`HudNpcPanel`): name, the NPC's line, one button per offered service (grey when `Available` is false;
+  quest roles get none); skill masters get the skill master box, whose class-change button works when the quests offer
+  a rank-up; teleporter destinations replace the buttons. An NPC whose only working service is a shop or warehouse opens
+  it directly (`DirectService`). An NPC with a quest role also gets a quest `Talk` (`HudQuestController`); a quest
+  dialog it answers with takes the help box, and its confirmation box is modal.
 - `HudNpcServiceController`: one request in flight; `Open` replies set the open service and its state; `OutOfReach`,
   `NotOpen` and `Conflict` close it. While the shop is open, an inventory revision change triggers a quote refresh.
 - Shop (`HudShopWindow`): buy, sell (click or drop an inventory item on the shop), repair, repair all; opens next to the
@@ -390,7 +394,8 @@ budget; never read files in `Update`/`Draw` after `BeginRemotePresence`. Resolve
   published, but spawns that arrived before `SetCatalog` reached the scene wait in `_pendingModels`.
 - `GameplayHud.Update` has an `internal` overload taking keyboard and mouse state for tests; the public one reads the
   devices.
-- HUD keys `I`, `V`, `C`, `S`, `X` act on any press without Ctrl; a future chat box must suppress them.
+- HUD keys `I`, `V`, `C`, `S`, `X`, `Q` act on any press without Ctrl; a future chat box must suppress them.
+- Quest texts load on the thread pool; `GameplayHud.IconsIdle` waits for them so captures show the text.
 - `IPlayChannel.SendSkillCommandAsync` has a default no-op implementation; test doubles inherit it silently.
 - `PresentationController.Pace`, called from `Game1.EndDraw`, sleeps on the game thread by design (frame limiter after
   present); do not move frame work after it.

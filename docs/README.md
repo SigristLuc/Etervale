@@ -22,6 +22,7 @@ where to look. Setup, build and run commands are in the root [README.md](../READ
 | [simulation.md](simulation.md) | `Shared/PristonTale.Simulation` core: characters, classes, items, combat, modifiers, progression |
 | [world.md](world.md) | Simulation world rules: fields, terrain, AI, spawning, loot, motion, NPCs, physics, `Shared/PristonTale.Geometry` |
 | [skills.md](skills.md) | Skill system end to end: class skill data, server resolution, opcodes, client skill UI and VFX hooks |
+| [quests.md](quests.md) | Quests end to end: quest families, rank-ups and the class tier, server authority, arena duels, quest UI |
 | [application.md](application.md) | `Shared/PristonTale.Application`: use cases, sessions, `WorldServer`, tick, transactions, NPC services |
 | [server.md](server.md) | `Server/PristonTale.Server`: startup, hosted services, TCP edge, settings |
 | [protocol.md](protocol.md) | Wire protocol: transport, cipher, login and world messages, Etervale extension opcodes, server capacity |
@@ -43,6 +44,7 @@ The MonoGame fork documents itself in [monogame/README.md](../monogame/README.md
 |---|---|---|
 | Change a damage, accuracy, stat or level formula | simulation.md | application.md (combat pipeline) |
 | Add or change a class skill | skills.md | effects.md, protocol.md |
+| Change a quest, a rank-up or the class tier | quests.md | application.md, client.md |
 | Change monster behavior, spawns or drops | world.md | application.md |
 | Add a player command or NPC service | application.md | protocol.md, server.md, client.md |
 | Add a packet or opcode | protocol.md | server.md, client.md |

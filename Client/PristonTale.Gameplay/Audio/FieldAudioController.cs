@@ -65,6 +65,14 @@ public sealed class FieldAudioController : IDisposable
         }
     }
 
+    public void PlayQuestFanfare()
+    {
+        if (_library.SoundEnabled)
+        {
+            _library.QuestFanfareSound.Play(1f, 0f, 0f);
+        }
+    }
+
     internal static int SelectFieldAmbientCode(FieldDef field, float timeOfDay)
     {
         ArgumentNullException.ThrowIfNull(field);

@@ -11,6 +11,7 @@ using PristonTale.Server.Hosting;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Progression;
+using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World.Npcs;
 
@@ -26,7 +27,8 @@ internal sealed record SessionServices(
     ILogger Logger,
     NetworkLimits Limits,
     LoginThrottle LoginThrottle,
-    NpcAppService Npc)
+    NpcAppService Npc,
+    QuestAppService Quests)
 {
     // Shared by every connection so a flood from many peers still yields one warning per interval.
     public LogSampler RejectedPackets { get; } = new(5000);
@@ -163,6 +165,9 @@ internal sealed class ClientSession
                     break;
                 case EtervaleOpcodes.NpcServiceRequest:
                     await RequestNpcServiceAsync(NpcServiceRequestPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.QuestRequest:
+                    await RequestQuestAsync(QuestRequestPacket.Read(memory.Span));
                     break;
                 case EtervaleOpcodes.SkillCast:
                     await CastSkillAsync(SkillCastPacket.Read(memory.Span));
@@ -528,6 +533,25 @@ internal sealed class ClientSession
             Send(new TransCommand(PristonOpcodes.WarpField, PristonUnits.ToFixed(arrival.Position.Z), arrival.FieldCode,
                 PristonUnits.ToFixed(arrival.Position.X), 1), encrypt: true);
         }
+    }
+
+    private async Task RequestQuestAsync(QuestRequestPacket request)
+    {
+        var session = _session;
+        QuestOutcome outcome;
+        try
+        {
+            outcome = session is null || _player is null
+                ? QuestOutcome.Failed(QuestStatus.Rejected, "enter the world first")
+                : await _services.Quests.RequestAsync(RequireToken(), QuestWireMapping.ToCommand(request));
+        }
+        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException or System.Data.Common.DbException)
+        {
+            outcome = QuestOutcome.Failed(QuestStatus.StorageFailed, ex.Message);
+        }
+
+        var result = QuestWireMapping.ToResult(request.OperationId, outcome);
+        SendLarge(result.Write, result.Capacity, encrypt: true);
     }
 
     private void DescribeObject(TransCommand request)

@@ -80,7 +80,7 @@ public static class NpcShopRules
     {
         proceeds = 0;
         var anchor = character.Inventory.Find(itemId);
-        if (anchor < 0 || character.Inventory[anchor] is not { } item || !CanSell(item))
+        if (anchor < 0 || character.Inventory[anchor] is not { } item || !CanSell(item) || Quests.RankUpByQuestWeapon.IsBound(character, item))
         {
             return NpcServiceStatus.Rejected;
         }

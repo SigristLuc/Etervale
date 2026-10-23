@@ -38,6 +38,7 @@ public static class HudArt
     public const string SelectSkill = Inter + "SkillIcon/Select_Skill.bmp";
     public const string SelectSkillGray = Inter + "SkillIcon/G_Select_Skill.bmp";
     public const string SelectJobGray = Inter + "SkillIcon/G_Select_ChangeJob.bmp";
+    public const string SelectJob = Inter + "SkillIcon/Select_ChangeJob.bmp";
 
     public static readonly string[] MenuButtons = Names("bStatus", "bInvenTory", "bSkill", "bParty", "bQuest", "bSystem", ".bmp");
     public static readonly string[] MenuButtonsDown = Names("bStatus", "bInvenTory", "bSkill", "bParty", "bQuest", "bSystem", "-1.bmp");
@@ -115,7 +116,7 @@ public static class HudArt
     [
         Menu1, Menu2, GrowLeft, GrowMiddle, GrowRight, Life, Mana, Stamina, Experience, Time, Sun, Moon,
         Walk, CameraAuto, CameraFixed, MapOn, RunInfo, WalkInfo, CameraHandInfo, MapOnInfo, MapOffInfo,
-        SystemMenu, SystemSettings, SystemHelp, SystemExit, SkillMasterBox, SkillMasterExit, SelectSkill, SelectSkillGray, SelectJobGray,
+        SystemMenu, SystemSettings, SystemHelp, SystemExit, SkillMasterBox, SkillMasterExit, SelectSkill, SelectSkillGray, SelectJobGray, SelectJob,
         .. MenuButtons, .. MenuButtonsDown, .. MenuInfo,
         SkillNormal, SkillWindow, SkillSelect, SkillGauge, SkillGaugeBack, SkillGaugePassive, .. ShortKeys,
         Inventory, CoverLarge, CoverMiddle, CoverSmall, PotionBack, Status, StatusPoint, StatusArrow, StatusArrowDown,

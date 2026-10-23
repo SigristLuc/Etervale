@@ -30,7 +30,7 @@ public readonly struct PlayerAppearanceView
 
     public string Name { get; }
     public int JobCode { get; }
-    public int Tier { get; }
+    public int Tier { get; init; }
     public int FaceIndex { get; }
     public int HairIndex { get; }
     public string ModelName { get; }
@@ -68,6 +68,9 @@ public readonly struct EntityView
     // A summon's owner and its own model size (0 keeps the catalog size).
     public uint OwnerId { get; init; }
     public float ModelScale { get; init; }
+
+    // The player a quest duel opponent was opened for; only that player sees it in the arena.
+    public uint DuelPlayerId { get; init; }
 
     public bool IsSelf { get; }
 
@@ -233,6 +236,9 @@ public readonly struct WorldSnapshot
 
     // The receiver's running cooldowns; null when they did not change since the last snapshot it was sent.
     public SkillCooldownView[]? Cooldowns { get; init; }
+
+    // The receiver's quest changes: the journal view when it changed, quest notices and a dialog the world opened.
+    public QuestUpdate? Quest { get; init; }
 
     public WorldSnapshot WithOwner(OwnerState? owner, SkillCooldownView[]? cooldowns = null) => new(ServerTick, Entities, Events, FieldId, owner, GroundDrops)
     {

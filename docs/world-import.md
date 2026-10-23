@@ -123,6 +123,11 @@ Item, monster, NPC and spawn-table files share one line format, decoded as CP949
 
 `kind` comes from the code prefix (`KeyMaps.ClassifyKind`); the files have no kind key.
 
+A file whose `*유니크` value is 2 is the quest variant of its code (the quest weapons, the rank-up rings, the Fury of
+Phantom rewards): besides the catalog entry, the first such file in path order is written to `item_templates` under
+the key `<code>#Q` with its own children. The runtime keeps it beside the regular catalog (`ItemCatalog.QuestVariants`)
+and the quests hand it out ([quests.md](quests.md)).
+
 ### Item code mapping
 
 An item code is a 3-character category plus two digits (`WA101`). `LegacyItemCode.TryParse`
@@ -147,6 +152,10 @@ Code lookups are case-insensitive: drop and shop references (often lower case) a
   the class number. `*스턴율`/`*스턴률`: flinch chance, default 100.
 - Sound keys resolve through `LegacyNpcSoundCode.Resolve`; `*모델크기` is the model scale; `*화면보정 <height>
   <distance>` is the target-frame portrait correction.
+- Quest keys: `*구별코드` is the classification code quest hunts count (`quest_code`); `*이벤트아이템 <code>` an item
+  every kill hands out (`event_item`, rewritten to the stored code casing; an unknown code keeps its authored text and
+  resolves to none at runtime); `*물약보유수` and `*물약보유률` the potions the monster carries and the chance to carry
+  them (`potion_count`, `potion_percent`; arena opponents drink the count).
 - Drops: `*아이템 <weight> 없음` (nothing), `*아이템 <weight> 돈 <min> <max>` (gold), or `*아이템 <weight> <code>...`,
   which becomes one row per code with `weight / count` (integer division). `*추가아이템 <weight> <code>` is an
   independent bonus drop. `*아이템모두` makes drops visible to all players; `*아이템카운터` caps items per kill.

@@ -97,6 +97,7 @@ public sealed partial class WorldServer
             experienceMultiplier: _options.ExperienceMultiplier,
             items: data.Items,
             terrain: _terrain.Get(fieldId));
+        ConfigureQuests(field);
         _fields.Add(fieldId, field);
         return field;
     }
@@ -465,6 +466,7 @@ public sealed partial class WorldServer
         _activeFields.AddRange(_fields.Values);
         // Fields share only immutable catalogs and the thread-safe id allocator, so they step in parallel.
         Parallel.ForEach(_activeFields, field => StepField(field, dt, serverTick, bossHour));
+        ApplyQuestTravels();
 
         if (!_membershipChanged)
         {
@@ -508,7 +510,10 @@ public sealed partial class WorldServer
                 connection.LastOwner = owner;
                 var cooldowns = connection.Player.Cooldowns.SnapshotIfChanged(connection.CooldownRevision, field.NowMs);
                 connection.CooldownRevision = connection.Player.Cooldowns.Revision;
-                connection.Outbound.TryWrite(snapshot.WithOwner(owner, cooldowns));
+                connection.Outbound.TryWrite(snapshot.WithOwner(owner, cooldowns) with
+                {
+                    Quest = connection.Player.QuestState.TakeUpdate(connection.Player.Character)
+                });
             }
         }
     }
