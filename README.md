@@ -13,7 +13,7 @@ How the code works is documented in [docs/](docs/README.md).
 ## Requirements
 
 - .NET 10 SDK.
-- [Game data archive](https://drive.google.com/file/d/1bddbUz2-mBAfdHeT22BRyxsiQ2oVdOxP/view?usp=sharing).
+- [Game data archive](https://drive.google.com/file/d/1kSwD86QY0MUoj3Z203lLICOZT5CwDZpG/view?usp=sharing).
   Download and extract it at the repository root. Place authored configuration in `assets/GameServer/`.
 - For the client: a GPU and driver with Vulkan 1.1 or later. The client uses MonoGame's Native platform on Vulkan
   through the fork in [monogame/](monogame/README.md); shaders compile with DXC on every platform (no Wine).
