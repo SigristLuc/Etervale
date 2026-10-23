@@ -35,7 +35,8 @@ result.
 | `Shared/PristonTale.Protocol/Packets/ItemUsePackets.cs` | `ItemUseCommand`, `ItemUseResult`, `PremiumTimers`, `ItemEffects` |
 | `Client/PristonTale.Gameplay/UI/Inventory/HudItemUseController.cs`, `HudTeleportCore.cs`, `HudUsableTooltip.cs` | Right-click use, Teleport Core window, confirmations, tooltips |
 | `Client/PristonTale.Gameplay/UI/Widgets/HudPremiumTimers.cs` | The premium timer column |
-| `Client/PristonTale.Gameplay/Effects/LegacyItemEffects.cs` | Firecrackers and the skill-learn ring |
+| `Client/PristonTale.Gameplay/Effects/LegacyItemEffects.cs` | Firecrackers and item sounds on the legacy particle engine |
+| `Client/PristonTale.Gameplay/Effects/ItemVfx.cs`, `ForceOrbPresentation.cs` | Skill-learn light, force orb weapon glow and hit spark |
 | `Client/PristonTale.Gameplay/World/Remote/PremiumPetPresentation.cs` | Pet actors, their animation and strikes |
 | `Client/PristonTale.Gameplay/World/GameScene.Items.cs` | Item use, timers and item effects in the scene |
 
@@ -75,7 +76,7 @@ running kind is refused, so timers never stack.
 | Mana Recharging BI121/122/182 | Mana per attack: `int((SPI + P/10)/13 * (1 + H/10) * H + 1)` |
 | Mana Reduce BI128/129/183/258, Stamina Reduce BI191/192/238/259 | Skill mana and stamina costs -30% |
 | Phoenix BI132-134/151/177 | EXP +20%, extra drop chance +50; strikes the owner's target within 300 units once a second for `L/2+1..L*3/2+1` |
-| Terry, Nepsys, Io, Mute BI152-155/165-172 | Join each owner attack (21% to level 5, 24% to 9, always to 120): Terry fire and Nepsys ice `L/2..L*95/100` (Nepsys slows 10 s), Io `L*4/5+1..L*9/5+2`, Mute `L/2..L*39/20`; Terry also cuts skill mana -20%, Mute adds 10% damage |
+| Terry, Nepsys, Io, Mute BI152-155/165-172 | Join owner attacks (21% to level 5, 24% to 9, 100% to 120): Terry fire, Nepsys ice `L/2..L*95/100` (slow 10 s), Io `L*4/5+1..L*9/5+2`, Mute `L/2..L*39/20`; Terry -20% skill mana, Mute +10% dmg |
 | Blue/Red/Green stones BI101-103, (E) stones BI319/320 | Stats back to the class start values, skill ranks refunded, or both |
 | Strength..Health stones BI145-149 | One attribute back to its start value |
 | Eternal Life BI105 | 30 s no damage taken, damage dealt -50% |
@@ -101,7 +102,12 @@ from the inventory. Items without a rule keep the generic tooltip.
 - Scrolls and force orbs are status effects (codes `0xF0000001..3`, `0xF0000200 + icon`) and show in the
   running-effects bar with their keep icons.
 - Item effects (`ItemEffects` message): firecracker bursts with the original particle scripts and sounds, the
-  skill-learn ring of hair tints and force orbs, the agony glow of skill masters, and pet strikes.
+  skill-learn light of hair tints and force orbs (`ItemVfx.Learn`, rising streaks registered in code), the agony glow
+  of skill masters, and pet strikes.
+- A running force orb keeps a flare glow in the orb's colour on the holder's weapon bone, renewed every 29 s until the
+  status ends, and each hit the holder lands bursts the weapon-hit spark on the target with a white light.
+- The big head replaces the head model with the oversized one of the class (tier-0 head prefix, hair 1..3, look `b`
+  or `t`); the descriptor carries it, so every client sees it.
 - Pets are client actors driven by the player's descriptor flags (`CharacterInfo.TempFlags`: Phoenix bit, helper pet
   in bits 8-11, big head in bits 12-13); they follow their owner and play the strike the server announces.
 

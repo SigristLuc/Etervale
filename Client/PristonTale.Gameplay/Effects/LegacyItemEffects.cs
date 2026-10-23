@@ -9,7 +9,8 @@ namespace PristonTale.Gameplay.Effects;
 
 // What other players and the user see when an item is used, with the original particle scripts and billboards:
 // firecrackers fire four rockets half a second apart, each bursting 150 units up into a scripted shape chosen from the
-// use's roll; hair tints and force orbs raise the skill-learn light ring; skill masters play the agony glow.
+// use's roll; hair tints and force orbs play the skill-learn sound (their light is ItemVfx.Learn) and skill masters the
+// mastery sound.
 public sealed class LegacyItemEffects
 {
     public const string LearnSound = "wav/Effects/Skill/Learn_Skill.wav";
@@ -27,7 +28,6 @@ public sealed class LegacyItemEffects
     private readonly Dictionary<string, EffectDefinition> _scripts = new(StringComparer.Ordinal);
     private readonly EffectDefinition _rocket;
     private readonly EffectDefinition _flash;
-    private readonly EffectDefinition _learn;
     private readonly List<Burst> _bursts = new();
     private readonly Random _random = new();
 
@@ -47,7 +47,6 @@ public sealed class LegacyItemEffects
         _rocket = Billboards(library.Animation(assetRoot, "FireParticle1.ini"), "FirecrackerRocket", 24, 5f, new FloatRange(20f, 45f), MathHelper.Pi,
             new Vector3(0f, -60f, 0f));
         _flash = Billboards(library.Animation(assetRoot, "Power1.ini"), "FirecrackerFlash", 1, 50f, FloatRange.Constant(0f), 0f, Vector3.Zero);
-        _learn = Learn(library.Animation(assetRoot, "SkillUp2.ini"), library.Animation(assetRoot, "SkillUp1.ini"));
         sounds?.Preload(FirecrackerSounds.Append(LearnSound).Append(DrinkSound));
     }
 
@@ -74,8 +73,6 @@ public sealed class LegacyItemEffects
                 break;
             case ItemEffectKind.Learn:
             case ItemEffectKind.ForceOrb:
-                Spawn(_learn, position);
-                _lights?.Add(position, new Color(200, 200, 200), 260, 1);
                 _sounds?.Play(LearnSound, position, listener);
                 break;
             case ItemEffectKind.Mastery:
@@ -157,43 +154,6 @@ public sealed class LegacyItemEffects
             ]
         };
     }
-
-    // The skill-learn ring: light streaks rise from a ring of twelve points around the player.
-    private static EffectDefinition Learn(LegacyBillboardAnimation inner, LegacyBillboardAnimation outer)
-    {
-        if (inner is null || outer is null)
-        {
-            return null;
-        }
-
-        const int Points = 12;
-        var emitters = new List<EmitterDefinition>();
-        var offsets = new List<Vector3>();
-        for (var point = 0; point < Points; point++)
-        {
-            var angle = point * MathHelper.TwoPi / Points;
-            var direction = new Vector3(MathF.Cos(angle), 0f, MathF.Sin(angle));
-            emitters.Add(Streaks(inner, 5, 6f, new FloatRange(8f, 12f)));
-            offsets.Add(direction * 11f);
-            emitters.Add(Streaks(outer, 4, 4f, new FloatRange(18f, 28f)));
-            offsets.Add(direction * 13f);
-        }
-
-        return new EffectDefinition { Name = "ItemLearn", Duration = 0.7f, Emitters = emitters, EmitterOffsets = offsets };
-    }
-
-    private static EmitterDefinition Streaks(LegacyBillboardAnimation animation, int count, float size, FloatRange speed) => new()
-    {
-        MaxParticles = count,
-        EmissionRate = count / 0.7f,
-        Frames = animation.Textures,
-        Animation = animation.Animation,
-        Lifetime = FloatRange.Constant(animation.Animation.Duration),
-        InitialSpeed = speed,
-        EmitDirection = Vector3.Up,
-        DirectionSpreadRadians = 0.15f,
-        Size = SizeOverLife.Constant(size)
-    };
 
     private readonly record struct Burst(uint Entity, double DueMs, int Shape);
 }

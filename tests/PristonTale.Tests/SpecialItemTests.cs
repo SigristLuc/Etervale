@@ -32,6 +32,7 @@ internal static class SpecialItemTests
         yield return ("a firecracker publishes its effect to the field and the mobile shop sells without an NPC", FirecrackerAndShopAsync);
         yield return ("item use, result, premium timer and item effect messages round-trip", WireAsync);
         yield return ("vampiric items heal per attack and helper pets and the Phoenix strike the owner's target", PetsAndLeechAsync);
+        yield return ("presence carries premium timers, item effects and the pets of a player's descriptor", PresenceAsync);
     }
 
     private static Task CatalogAsync()
@@ -326,6 +327,28 @@ internal static class SpecialItemTests
             $"Phoenix strike dealt {afterHelper - monster.Life}");
         Assert.True(character.Life == 10 + heal, "a pet strike healed through the vampiric item");
         Assert.True(PremiumPets.HelperChance(3) == 21 && PremiumPets.HelperChance(8) == 24 && PremiumPets.HelperChance(121) == 0, "helper chance table");
+        return Task.CompletedTask;
+    }
+
+    private static Task PresenceAsync()
+    {
+        var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Owner");
+        character.Premium.Start(PremiumEffectKind.ExperienceUp, 30, 3600, 1000);
+        var owner = OwnerState.Capture(character, null, 1600);
+        var appearance = new PlayerAppearanceView("Owner", 1, 0, 0, 0, "", "") { HelperPet = 2, Phoenix = true, BigHead = 1 };
+        var self = new EntityView(1, EntityKindView.Player, true, new Vector3(256, 0, 512), 0f, MoveStateView.Idle, 10, 100, 100, appearance);
+        var snapshot = new WorldSnapshot(4, [self], fieldId: 3, owner: owner)
+        {
+            ItemEffects = [new ItemEffectView(1, LegacyItemCode.Parse("BI123"), ItemEffectKind.Firecracker, new Vector3(256, 0, 512), 1234)]
+        };
+        var updates = new WireRoundTrip(1).Push(snapshot);
+        var timers = updates.Select(update => update.PremiumTimers).Single(timers => timers is not null)!;
+        Assert.True(timers.Timers.Single() is { Kind: PremiumEffectKind.ExperienceUp, Value: 30, RemainingSeconds: 3000, DurationSeconds: 3600 },
+            "premium timers lost their remaining time");
+        var effect = updates.SelectMany(update => update.ItemEffects).Single();
+        Assert.True(effect.Effect == ItemEffectKind.Firecracker && effect.Variant == 1234 && effect.Position.X == 256, "item effect lost its data");
+        var spawn = updates.SelectMany(update => update.Spawns).Single(candidate => candidate.EntityId == 1);
+        Assert.True(spawn.Player is { HelperPet: 2, Phoenix: true, BigHead: 1 }, "player descriptor lost the pets");
         return Task.CompletedTask;
     }
 

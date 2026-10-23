@@ -10,15 +10,17 @@ using PristonTale.Engine3D.Physics;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Gameplay.World.Remote;
+using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items.Usable;
+using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Monsters;
 
 namespace PristonTale.Tests;
 
-// Item effects in Ricarten: firecracker bursts over the player, the skill-learn ring of a hair tint, and the premium
-// pets beside their owners, idle and striking a monster with their projectiles.
+// Item effects in Ricarten: firecracker bursts over the player, the skill-learn light of a hair tint, a force orb's
+// weapon glow and hit spark, a big head, and the premium pets beside their owners, idle and striking a monster.
 internal sealed class ItemEffectsCaptureProbe : Game
 {
     private const uint SelfId = 1;
@@ -35,7 +37,10 @@ internal sealed class ItemEffectsCaptureProbe : Game
         new("firecracker-1", 6.6, probe => probe.Firecracker()),
         new("firecracker-2", 7.7),
         new("firecracker-3", 8.7),
-        new("learn-ring", 10.5, probe => probe.Learn())
+        new("learn-ring", 10.35, probe => probe.Learn()),
+        new("learn-ring-late", 10.75),
+        new("force-orb", 12.5, probe => probe.ForceOrb()),
+        new("force-orb-hit", 12.75, probe => probe.ForceOrbHit())
     ];
 
     private readonly string _assetRoot;
@@ -50,6 +55,8 @@ internal sealed class ItemEffectsCaptureProbe : Game
     private EffectsEngine _effects = null!;
     private LegacyItemEffects _items = null!;
     private PremiumPetPresentation _pets = null!;
+    private SkillPresentation _skills = null!;
+    private ForceOrbPresentation _orbs = null!;
     private SkillSoundBank _sounds = null!;
     private Vector3 _focus;
     private Vector3 _eye;
@@ -90,7 +97,7 @@ internal sealed class ItemEffectsCaptureProbe : Game
         var start = field.StartPoints[0];
         _focus = new Vector3(start.X, 0f, -start.Z);
         _focus.Y = collision.TryGetFloorHeight(_focus with { Y = 5000f }, out var floor) ? floor : 0f;
-        _eye = _focus + new Vector3(60f, 120f, 260f);
+        _eye = _focus + new Vector3(40f, 70f, 150f);
         _camera = new PristonCamera(_eye, Vector3.Normalize(_focus - _eye));
 
         var loader = new PristonActorLoader();
@@ -108,12 +115,16 @@ internal sealed class ItemEffectsCaptureProbe : Game
             new(HopyId, RemoteEntityKind.Monster, false, Numeric(Floor(collision, _focus + new Vector3(-90f, 0f, 30f))), 1.2f, RemoteMoveState.Idle, 31, 50,
                 null, 1, Name: "Hopy", Level: 3),
             new(FriendId, RemoteEntityKind.Player, false, Numeric(Floor(collision, _focus + new Vector3(110f, 0f, -40f))), 2.6f, RemoteMoveState.Idle, 900,
-                1000, new PlayerAppearanceInfo("Lyra", 8, 0, 1, 0, "", "", 37), 0)
+                1000, new PlayerAppearanceInfo("Lyra", 8, 0, 1, 0, "", "", 37) { BigHead = 2 }, 0)
         ], [], [], []));
         _library = LegacyEffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assetRoot, ConsoleClientLog.Instance);
         _effects = new EffectsEngine(GraphicsDevice, Content);
         _sounds = new SkillSoundBank(_assetRoot, ConsoleClientLog.Instance) { Enabled = false };
         _items = new LegacyItemEffects(_library, _assetRoot, _effects, _renderer.TransientLights, _sounds);
+        _skills = new SkillPresentation(GraphicsDevice, Content, _assetRoot, _library, _effects, _renderer.TransientLights, new SceneHost(this), _sounds,
+            ConsoleClientLog.Instance);
+        ItemVfx.Register(_skills.Library);
+        _orbs = new ForceOrbPresentation(_skills, _library, _assetRoot, _effects, _renderer.TransientLights);
         _pets = new PremiumPetPresentation(actorScene, loader, _assetRoot, _library, _effects, _renderer.TransientLights, _sounds, ConsoleClientLog.Instance);
     }
 
@@ -139,7 +150,24 @@ internal sealed class ItemEffectsCaptureProbe : Game
 
     private void Firecracker() => _items.Play(ItemEffectKind.Firecracker, SelfId, 4321 * 2, _focus, _eye, _seconds * 1000d);
 
-    private void Learn() => _items.Play(ItemEffectKind.Learn, SelfId, 0, _focus, _eye, _seconds * 1000d);
+    private void Learn()
+    {
+        _items.Play(ItemEffectKind.Learn, SelfId, 0, _focus, _eye, _seconds * 1000d);
+        _skills.Spawn(ItemVfx.Learn, SelfId, SelfId, _focus);
+    }
+
+    private void ForceOrb()
+    {
+        var orb = ForceOrbs.All.Select(entry => entry.Value).First(candidate => candidate.Index == 9 && !candidate.Magic);
+        var status = new StatusEffectInfo(SelfId, SelfId, orb.StatusCode, StatusEffectOp.Add, 1, 0, 0, 0, 60000, 60000, 0);
+        _orbs.Observe(new PresenceUpdate(3, [], [], [], []) { StatusEffects = [status] }, Anchor, _seconds * 1000d);
+    }
+
+    private void ForceOrbHit()
+    {
+        var hit = new CombatEventInfo(SelfId, HopyId, RemoteCombatEventKind.Hit, 500f, 250f, 120, false, false);
+        _orbs.Observe(new PresenceUpdate(4, [], [], [], [hit]), Anchor, _seconds * 1000d);
+    }
 
     private Vector3? Anchor(uint entityId) => _remote.TryGetDrawnPosition(entityId, out var position) ? position : null;
 
@@ -176,6 +204,8 @@ internal sealed class ItemEffectsCaptureProbe : Game
         _remote.Update(step);
         _pets.Update(step, Pose, Anchor, _eye);
         _items.Update(_seconds * 1000d, Anchor, _eye);
+        _orbs.Update(_seconds * 1000d, Anchor);
+        _skills.Update(step, _seconds * 1000d);
         _effects.Update(new GameTime(TimeSpan.FromSeconds(_seconds), TimeSpan.FromSeconds(step)));
         _renderer.Update(new GameTime(TimeSpan.FromSeconds(_seconds), TimeSpan.FromSeconds(step)));
     }
@@ -194,6 +224,7 @@ internal sealed class ItemEffectsCaptureProbe : Game
         _camera.SetScriptedView(GraphicsDevice, _eye, _focus + Vector3.Up * (shot.Name.StartsWith("firecracker", StringComparison.Ordinal) ? 90f : 30f));
         _renderer.Draw(_camera);
         _effects.Draw(_camera.View, _camera.Projection, _camera.Position);
+        _skills.Draw(_camera.View, _camera.Projection, _camera.Position, _renderer.SceneLinearDepth);
         _renderer.ComposeScene();
         GraphicsDevice.SetRenderTarget(null);
         var pixels = new Color[960 * 540];
@@ -210,7 +241,12 @@ internal sealed class ItemEffectsCaptureProbe : Game
             opaque.SaveAsPng(stream, 960, 540);
         }
 
-        Console.WriteLine($"Item effects {shot.Name}: captured; pets={_pets.OwnerCount}; effects={_effects.Instances.Count}; bursts={_items.PendingBursts}");
+        var vfx = $"{_skills.System.Instances.Count}/{_skills.System.ParticleCount}/{_skills.Renderer.LastQuadCount}";
+        Console.WriteLine($"Item effects {shot.Name}: captured; pets={_pets.OwnerCount}; effects={_effects.Instances.Count}; vfx={vfx}; bursts={_items.PendingBursts}");
+        foreach (var (owner, kind, position) in _pets.Pets)
+        {
+            Console.WriteLine($"  pet {kind} of {owner} at {position - (Anchor(owner) ?? Vector3.Zero)} from its owner");
+        }
         _shot++;
         _begun = false;
     }
@@ -222,6 +258,31 @@ internal sealed class ItemEffectsCaptureProbe : Game
         _effects.Dispose();
         _library.Dispose();
         _sounds.Dispose();
+    }
+
+    private sealed class SceneHost(ItemEffectsCaptureProbe probe) : ISkillSceneHost
+    {
+        public uint SelfId => ItemEffectsCaptureProbe.SelfId;
+
+        public Vector3 ListenerPosition => probe._eye;
+
+        public void PlaySkillMotion(uint entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)
+        {
+        }
+
+        public bool TryGetPosition(uint entityId, out Vector3 position) => probe._remote.TryGetDrawnPosition(entityId, out position);
+
+        public bool TryGetBone(uint entityId, string bone, out Vector3 position)
+        {
+            position = default;
+            if (!probe._remote.TryGetBodyActor(entityId, out var actor) || !probe._renderer.TryGetActorBoneWorld(actor, bone, out var world))
+            {
+                return false;
+            }
+
+            position = world.Translation;
+            return true;
+        }
     }
 
     private static Vector3 Floor(PristonCollisionWorld collision, Vector3 point) =>

@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Gameplay.World.Remote;
+using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items.Usable;
 
 namespace PristonTale.Gameplay.World;
@@ -11,6 +12,7 @@ public sealed partial class GameScene
 {
     private LegacyItemEffects _itemEffects;
     private PremiumPetPresentation _pets;
+    private ForceOrbPresentation _forceOrbs;
 
     // The local player's running premium timers as last sent by the server.
     public PremiumTimerSnapshot PremiumTimers { get; private set; }
@@ -29,6 +31,12 @@ public sealed partial class GameScene
             _itemEffects = new LegacyItemEffects(_effectLibrary, _assetRoot ?? "", _effects, _renderer.TransientLights, _skillSounds);
         }
 
+        if (_forceOrbs is null && _effects is not null && _skillFx is not null)
+        {
+            ItemVfx.Register(_skillFx.Library);
+            _forceOrbs = new ForceOrbPresentation(_skillFx, _effectLibrary, _assetRoot ?? "", _effects, _renderer?.TransientLights);
+        }
+
         if (_pets is null && _renderer is not null)
         {
             _pets = new PremiumPetPresentation(new RendererActorScene(_renderer), _actorLoader, _assetRoot ?? "", _effectLibrary, _effects,
@@ -44,6 +52,8 @@ public sealed partial class GameScene
         }
 
         _pets?.Observe(update, ItemAnchor);
+        ObserveOwnHead(update);
+        _forceOrbs?.Observe(update, ItemAnchor, _skillClockMs);
 
         foreach (var effect in update.ItemEffects)
         {
@@ -56,8 +66,33 @@ public sealed partial class GameScene
             {
                 _skillFx?.Spawn("vfx.agony", effect.Entity, effect.Entity, position);
             }
+            else if (effect.Effect is ItemEffectKind.Learn or ItemEffectKind.ForceOrb)
+            {
+                _skillFx?.Spawn(ItemVfx.Learn, effect.Entity, effect.Entity, position);
+            }
 
             _itemEffects?.Play(effect.Effect, effect.Entity, effect.Variant, position, PlayerPosition, _skillClockMs);
+        }
+    }
+
+    // A hair tint or a big-head potion changes the local player's head when the server describes the player again.
+    private void ObserveOwnHead(PresenceUpdate update)
+    {
+        if (_remote is null || _equipmentPresentation is null || _player is null)
+        {
+            return;
+        }
+
+        foreach (var spawn in update.Spawns)
+        {
+            if (spawn.EntityId != _remote.SelfEntityId || spawn.Player is not { } appearance)
+            {
+                continue;
+            }
+
+            var playerClass = _player.Class.Class;
+            var head = CharacterHead.Apply(_player.Definition.DefaultVisuals, playerClass, appearance.Tier, appearance.FaceIndex, appearance.HairIndex);
+            _equipmentPresentation.SetBaseVisuals(CharacterHead.ApplyBigHead(head, playerClass, appearance.BigHead));
         }
     }
 
@@ -65,6 +100,7 @@ public sealed partial class GameScene
     {
         _itemEffects?.Update(_skillClockMs, ItemAnchor, PlayerPosition);
         _pets?.Update(dt, PetOwnerPose, ItemAnchor, PlayerPosition);
+        _forceOrbs?.Update(_skillClockMs, ItemAnchor);
     }
 
     private (Vector3 Position, float Facing)? PetOwnerPose(uint entityId)

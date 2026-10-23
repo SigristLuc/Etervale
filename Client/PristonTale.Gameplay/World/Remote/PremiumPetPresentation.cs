@@ -20,7 +20,8 @@ public sealed class PremiumPetPresentation : IDisposable
     private const float FrameRate = 70f;
     private const float Scale = (256f + 80f) / 256f;
     private const float Near = 300f / 256f;
-    private const float OwnerHeight = 60f;
+    // About the height of a character's head above its feet.
+    private const float OwnerHeight = 36f;
     private const float ProjectileSpeed = 1800f / 256f * FrameRate;
     private static readonly string[] HelperMeshes = ["Pet_terry.smd", "Pet_nepsys.smd", "Pet_io.smd", "Pet_mute.smd"];
 
@@ -67,6 +68,11 @@ public sealed class PremiumPetPresentation : IDisposable
     }
 
     public int OwnerCount => _owners.Count;
+
+    // The pets drawn now, for diagnostics and captures.
+    internal IEnumerable<(uint Owner, PremiumEffectKind Kind, Vector3 Position)> Pets =>
+        _owners.SelectMany(pair => new[] { pair.Value.Helper, pair.Value.Phoenix }.Where(pet => pet is { HasActor: true })
+            .Select(pet => (pair.Key, pet.Kind, pet.Position)));
 
     // The pets each player shows, from the spawns of players, and the strikes the server reports.
     public void Observe(PresenceUpdate update, Func<uint, Vector3?> targetPosition)
@@ -220,6 +226,7 @@ public sealed class PremiumPetPresentation : IDisposable
             if (toTarget.Length() <= Math.Max(step, 5f))
             {
                 _projectiles.RemoveAt(index);
+                projectile.Trail?.Stop();
                 Spawn(projectile.Ice ? "IceHIt1" : "FireHIt1", projectile.Target);
                 _lights?.Add(projectile.Target, projectile.Ice ? new Color(150, 150, 255) : new Color(255, 200, 100), 120, 2);
                 continue;

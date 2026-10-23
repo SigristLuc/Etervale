@@ -604,7 +604,9 @@ public sealed class RemoteEntityManager
 
     private CharacterVisualSet ResolvePlayerHead(CharacterVisualSet defaults, PlayerAppearanceInfo appearance)
     {
-        var head = CharacterHead.Apply(defaults, (PlayerClass)appearance.JobCode, appearance.Tier, appearance.FaceIndex, appearance.HairIndex);
+        var head = CharacterHead.ApplyBigHead(
+            CharacterHead.Apply(defaults, (PlayerClass)appearance.JobCode, appearance.Tier, appearance.FaceIndex, appearance.HairIndex),
+            (PlayerClass)appearance.JobCode, appearance.BigHead);
         uint jobMask = _classRegistry.Get((PlayerClass)appearance.JobCode).Definition.MotionJobMask;
         return EquipmentVisuals.Apply(head, appearance.ArmorKey, appearance.WeaponKey, appearance.OffHandKey, appearance.InVillage, jobMask);
     }
