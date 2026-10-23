@@ -18,7 +18,7 @@
 [IgnoreCase] SamplerState -> @"sampler_state";
 [IgnoreCase] VertexShader -> @"VertexShader";
 [IgnoreCase] PixelShader -> @"PixelShader";
-// WingSim fork: compute passes (monogame/issues/007).
+// Etervale fork: compute passes (monogame/issues/007).
 [IgnoreCase] ComputeShader -> @"ComputeShader";
 [IgnoreCase] Register -> @"register";
 [IgnoreCase] Boolean -> @"true|false|0|1";
@@ -332,7 +332,7 @@ Pass_Declaration ->	Pass Identifier? OpenBracket (VertexShader_Pass_Expression |
    foreach (var node in Nodes)
       node.Eval(tree, pass);
 
-   // We need to have a pixel or vertex shader to keep this pass (WingSim fork: or a compute shader).
+   // We need to have a pixel or vertex shader to keep this pass (Etervale fork: or a compute shader).
    if (!string.IsNullOrEmpty(pass.psFunction) || !string.IsNullOrEmpty(pass.vsFunction) || !string.IsNullOrEmpty(pass.csFunction))
    {
       var technique = paramlist[0] as TechniqueInfo;
@@ -358,7 +358,7 @@ PixelShader_Pass_Expression -> PixelShader Equals Compile ShaderModel Identifier
    return null;
 };
 
-// WingSim fork: compute passes (monogame/issues/007).
+// Etervale fork: compute passes (monogame/issues/007).
 ComputeShader_Pass_Expression -> ComputeShader Equals Compile ShaderModel Identifier OpenParenthesis CloseParenthesis Semicolon
 {
    var pass = paramlist[0] as PassInfo;

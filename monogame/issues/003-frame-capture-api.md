@@ -1,14 +1,13 @@
 # 003. Asynchronous frame capture as public API
 
-Part: framework (the runtime side is change 17, `../upstream/16-async-frame-capture.md`). Phase R2.0.
+Part: framework (the runtime side is change 17, `../upstream/16-async-frame-capture.md`).
 
 ## Need
 
-`--check-glitches` reads the presented frames without synchronising, so the races between the CPU and frames still on
-the GPU show (research 12, "Corridas entre quadros em voo"). It reached the runtime's `MGG_FrameCapture_*` from
-WingSim's `AsyncFrameCapture`, which read the internal `GraphicsDevice.Handle` by reflection and bound the exports with
-`NativeLibrary`. Reading the presented frames is a generic GPU facility (the QTG latency measurement of spec D and the
-pilot-stimulus latency of spec E6 need it too), so it belongs to the framework.
+An application's glitch check reads the presented frames without synchronising, so the races between the CPU and
+frames still on the GPU show. It reached the runtime's `MGG_FrameCapture_*` through a helper of its own, which read the
+internal `GraphicsDevice.Handle` by reflection and bound the exports with `NativeLibrary`. Reading the presented frames
+is a generic GPU facility (latency measurements need it too), so it belongs to the framework.
 
 ## Cause
 
@@ -26,10 +25,9 @@ The framework was a NuGet package (issue 001).
 - `PresentedFrame`: `Width`, `Height`, `Number` (the device's frame counter), `Drawn` (false when nothing was drawn into
   the presented image), `ByteCount`.
 
-WingSim: `Engine/Graphics/AsyncFrameCapture.cs` is deleted; `Game/WingSimGame.GlitchCheck.cs` calls the device. What is
-WingSim's (the glitch criteria of `FrameGlitchCheck`, the dumps) stays in WingSim. No reflection is left.
+The application's reflection-based helper is deleted and its glitch check calls the device; what is the application's
+own (the glitch criteria, the dumps) stays in the application. No reflection is left.
 
 ## Test
 
-`tools/parity/glitches.sh` (the three regression scenes of `--check-glitches`) passes as before the change (numbers in
-research 12, "R2.0").
+The glitch check of the application (its three regression scenes) passes as before the change.

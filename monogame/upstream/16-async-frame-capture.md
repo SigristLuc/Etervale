@@ -12,9 +12,9 @@
 A test that reads every frame back therefore runs with one frame in flight.
 - Races between the CPU and earlier frames still on the GPU, such as buffers rewritten while being read or uploads out
   of order, cannot show up in such a test.
-- WingSim's capture-based checks passed while the game flickered in normal play.
+- Capture-based checks passed while the game flickered in normal play.
 
-### The addition in WingSim's fork (change 17)
+### The addition in the fork (change 17)
 
 | Export | What it does |
 |---|---|
@@ -30,4 +30,5 @@ How it works:
   capture adds no synchronisation.
 - `drawn` reports whether a render pass wrote the presented image that frame.
 
-WingSim calls the exports through `NativeLibrary`, as it does the timestamp pool (change 4).
+An application can call the exports through `NativeLibrary`, as it can the timestamp pool (change 4); the fork's
+framework wraps them as `GraphicsDevice.BeginFrameCapture`/`TryPopFrame` (`../issues/003-frame-capture-api.md`).

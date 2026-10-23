@@ -1,11 +1,11 @@
 # 011. A texture read only with `Load` is bound
 
-Part: effect processor (`../pipeline`). Phase N1.1 (research 14 N1).
+Part: effect processor (`../pipeline`).
 
 ## Symptom
 
-A pixel shader of WingSim's clouds summed 64 slices of an optical-depth texture with `Texture2D.Load`: it read zeros (the
-sun's disc behind a storm came out with transmittance 1). The same texture read with `SampleLevel` at the texel centres
+A pixel shader summed 64 slices of an optical-depth texture with `Texture2D.Load`: it read zeros (the sun's disc
+behind a dense volume came out with transmittance 1). The same texture read with `SampleLevel` at the texel centres
 gave the right values.
 
 ## Cause
@@ -30,4 +30,5 @@ names it), and the bindings are written for every slot `>= 0` (-1 is "no sampler
 `../runtime/repro/TextureLoadRepro`: a 7 × 5 RGBA32F texture copied by a pixel shader into a render target and read back
 exactly, (1) with `Load` at t0 and a `sampler_state` naming the texture, (2) with `Load` at t1 and no `sampler_state`, (3)
 with `SampleLevel` (control). Before the change (1) failed (no parameter for the texture); with only the skip removed it
-read zeros (no binding at slot 0); with both changes all three pass, exactly. WingSim's clouds read the optical-depth slices with `Load` again (`Atmosphere/BodyTransmittance.hlsli`).
+read zeros (no binding at slot 0); with both changes all three pass, exactly. The shader of the symptom reads its
+optical-depth slices with `Load` again and gets the right values.

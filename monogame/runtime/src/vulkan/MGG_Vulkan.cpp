@@ -14,7 +14,7 @@
 #include "SpriteEffect.vk.mgfxo.h"
 #include "mg_effect.h"
 
-// WingSim: the enum conversions return in every case and assert in the default; the compiler must also know the default
+// Etervale fork: the enum conversions return in every case and assert in the default; the compiler must also know the default
 // cannot fall off the end of the function (MSVC C4715, GCC/Clang -Wreturn-type), which would be undefined behaviour.
 #if defined(_MSC_VER)
 #define MGVK_UNREACHABLE() do { assert(0); __assume(0); } while (0)
@@ -155,7 +155,7 @@ struct MGVK_TargetSet
 struct MGVK_TargetSetCache
 {
 	MGVK_TargetSet set;
-	uint64_t uid = 0;	// WingSim fork: never reused, unlike the address (pipeline keys)
+	uint64_t uid = 0;	// Etervale fork: never reused, unlike the address (pipeline keys)
 
 	int width = 0;
 	int height = 0;
@@ -184,7 +184,7 @@ struct MGVK_PipelineCache
 	VkPipeline cache = VK_NULL_HANDLE;
 };
 
-// WingSim fork: the identity of a pipeline. The objects' ids are never reused, so a pipeline built for a destroyed
+// Etervale fork: the identity of a pipeline. The objects' ids are never reused, so a pipeline built for a destroyed
 // object can never be returned for a new one allocated at the same address, and the key is compared in full: a 32-bit
 // hash alone returned the wrong pipeline on a collision.
 struct MGVK_PipelineKey
@@ -211,7 +211,7 @@ struct MGVK_PipelineKeyHash
 
 struct MGVK_Program
 {
-	uint64_t uid;		// WingSim fork: the program id (vertex and pixel shader ids)
+	uint64_t uid;		// Etervale fork: the program id (vertex and pixel shader ids)
 	MGG_Shader* vertex;
 	MGG_Shader* pixel;
 	VkPipelineLayout layout;
@@ -227,7 +227,7 @@ struct MGVK_Frame
 	VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
 	VkSemaphore imageAcquiredSemaphore = VK_NULL_HANDLE;
 	VkFence completedFence = VK_NULL_HANDLE;
-	// WingSim fork: a submission of this frame's commands before Present (MGVK_FlushCommands) already waited for the
+	// Etervale fork: a submission of this frame's commands before Present (MGVK_FlushCommands) already waited for the
 	// image acquisition; Present must not wait for the semaphore again.
 	bool acquireWaited = false;
 };
@@ -270,10 +270,10 @@ struct MGG_Buffer
 
 	uint8_t* mapped = nullptr;
 
-	// WingSim fork: set once a draw has read the buffer; `frame` is then the last frame that did.
+	// Etervale fork: set once a draw has read the buffer; `frame` is then the last frame that did.
 	bool used = false;
 
-	// WingSim fork: the id of a storage buffer (MGBufferType::Storage), never reused, for the descriptor-set keys.
+	// Etervale fork: the id of a storage buffer (MGBufferType::Storage), never reused, for the descriptor-set keys.
 	uint64_t id = 0;
 };
 
@@ -288,7 +288,7 @@ struct MGVK_Transfer
 
 const int MAX_TEXTURE_SLOTS = 16;
 
-// WingSim fork: shader storage resources (monogame/issues/005, 006). The effect compiler shifts the HLSL registers into
+// Etervale fork: shader storage resources (monogame/issues/005, 006). The effect compiler shifts the HLSL registers into
 // one descriptor set per stage: b0 → binding 0, t/s → 32 + slot (textures, samplers and the read-only buffers,
 // StructuredBuffer and ByteAddressBuffer), u → 64 + slot (RWTexture2D, RWStructuredBuffer, RWByteAddressBuffer).
 const uint32_t MGVK_TEXTURE_BINDING = 32;
@@ -303,7 +303,7 @@ struct MGVK_UavBinding
 	mgint mip = 0;
 };
 
-// WingSim fork: asynchronous frame capture (MGG_FrameCapture_*). Each swapchain frame slot copies its presented image
+// Etervale fork: asynchronous frame capture (MGG_FrameCapture_*). Each swapchain frame slot copies its presented image
 // (downscaled by a blit) into its own host buffer inside the frame's command buffer; the copy is read when the slot's
 // fence has already been waited for reuse, so capturing adds no synchronisation of its own.
 struct MGVK_CaptureSlot
@@ -339,7 +339,7 @@ struct MGG_GraphicsDevice
 	VkPhysicalDeviceMemoryProperties deviceMemoryProperties;
 	bool customBorderColorSupported = false;
 
-	// WingSim fork (issue 012): VK_KHR_pipeline_executable_properties, enabled when MG_PIPELINE_STATISTICS=1 at device
+	// Etervale fork (issue 012): VK_KHR_pipeline_executable_properties, enabled when MG_PIPELINE_STATISTICS=1 at device
 	// creation and the driver has it: pipelines are then created with their statistics captured, and the last bound
 	// graphics and compute pipelines are kept for MGG_GraphicsDevice_GetPipelineStatistics.
 	bool pipelineStatistics = false;
@@ -380,7 +380,7 @@ struct MGG_GraphicsDevice
 	VkRect2D scissor = { 0 };
 	bool scissorDirty = false;
 
-	// WingSim: set when the application chose the viewport / scissor rectangle after the last SetRenderTargets. The
+	// Etervale fork: set when the application chose the viewport / scissor rectangle after the last SetRenderTargets. The
 	// render pass begins lazily at the next draw, and its full-target defaults must not replace what was chosen.
 	bool viewportSet = false;
 	bool scissorSet = false;
@@ -418,7 +418,7 @@ struct MGG_GraphicsDevice
 	std::vector<MGG_Shader*> all_shaders;
 
 	VkPipelineCache pipelineCache = VK_NULL_HANDLE;
-	// WingSim fork: exact-match caches (change 6). The hash only picks the bucket; entries are compared in full.
+	// Etervale fork: exact-match caches (change 6). The hash only picks the bucket; entries are compared in full.
 	std::unordered_map<MGVK_PipelineKey, MGVK_PipelineCache, MGVK_PipelineKeyHash> pipelines;
 
 	std::unordered_multimap<uint32_t, MGG_BlendState*> blendStates;
@@ -428,7 +428,7 @@ struct MGG_GraphicsDevice
 	MGVK_TargetSet targets;
 	std::unordered_multimap<uint32_t, MGVK_TargetSetCache*> targetCache;
 
-	// WingSim fork: ids of cached objects, never reused.
+	// Etervale fork: ids of cached objects, never reused.
 	uint64_t nextUid = 1;
 
 
@@ -436,10 +436,10 @@ struct MGG_GraphicsDevice
 	bool pipelineStateDirty = false;
 	MGVK_PipelineState pipelineState;
 
-	MGG_Buffer* uniforms[(mgint)MGShaderStage::Count] = { nullptr };	// WingSim fork: one per stage, compute included
+	MGG_Buffer* uniforms[(mgint)MGShaderStage::Count] = { nullptr };	// Etervale fork: one per stage, compute included
 	uint32_t uniformsDirty = 0;
 
-	// WingSim fork: storage resources per stage (issues 005, 006): read-only buffers by t-slot, UAVs by u-slot, and per
+	// Etervale fork: storage resources per stage (issues 005, 006): read-only buffers by t-slot, UAVs by u-slot, and per
 	// stage the slots changed since the shader's descriptor set was last chosen (bits 0-15 t-slots, 16-23 u-slots).
 	MGG_Buffer* readBuffers[(mgint)MGShaderStage::Count][MAX_TEXTURE_SLOTS] = { };
 	MGVK_UavBinding uavs[(mgint)MGShaderStage::Count][MGVK_MAX_UAV_SLOTS] = { };
@@ -469,11 +469,11 @@ struct MGG_GraphicsDevice
 
 	std::vector<MGG_OcclusionQuery*> deferredOcclusionQueries;
 
-	// WingSim fork: staging buffers of texture uploads recorded in a frame's command buffer, freed once that frame is done.
+	// Etervale fork: staging buffers of texture uploads recorded in a frame's command buffer, freed once that frame is done.
 	std::vector<std::pair<FrameCounter, MGG_Buffer>> frameStaging;
 	std::thread::id renderThread;
 
-	// WingSim fork: asynchronous frame capture.
+	// Etervale fork: asynchronous frame capture.
 	bool captureEnabled = false;
 	int captureDownscale = 1;
 	size_t captureMaxQueued = 0;
@@ -486,7 +486,7 @@ struct MGG_Texture
 {
 	FrameCounter writeFrame = -1;
 	FrameCounter frame = 0;
-	// WingSim fork: the frame whose command buffer holds an upload into this texture (MGG_Texture_SetData), -1 if none.
+	// Etervale fork: the frame whose command buffer holds an upload into this texture (MGG_Texture_SetData), -1 if none.
 	FrameCounter uploadFrame = -1;
 
 	MGTextureType type = MGTextureType::_2D;
@@ -523,7 +523,7 @@ struct MGG_Texture
 	MGDepthFormat depthFormat = MGDepthFormat::None;
 	MGG_Texture* depthTexture = nullptr;
 
-	// WingSim fork: a storage image (MGG_Texture_CreateStorage, issue 005): shaders write it through a view of one mip,
+	// Etervale fork: a storage image (MGG_Texture_CreateStorage, issue 005): shaders write it through a view of one mip,
 	// created when first bound.
 	bool isStorage = false;
 	VkImageView storage_views[MGVK_MAX_MIPS] = { };
@@ -531,7 +531,7 @@ struct MGG_Texture
 
 struct MGG_InputLayout
 {
-	uint64_t uid = 0;	// WingSim fork: never reused, unlike the address (pipeline keys)
+	uint64_t uid = 0;	// Etervale fork: never reused, unlike the address (pipeline keys)
 	std::vector<VkVertexInputAttributeDescription> attributes;
 	std::vector<VkVertexInputBindingDescription> bindings;
 };
@@ -540,7 +540,7 @@ struct MGVK_DescriptorInfo
 {
 	FrameCounter frame;
 	VkDescriptorSet set;
-	// WingSim fork: what the set was written for (frame index, slot masks, texture and sampler ids per used slot), so a
+	// Etervale fork: what the set was written for (frame index, slot masks, texture and sampler ids per used slot), so a
 	// lookup compares the full key and a 32-bit hash collision cannot hand back a set with another draw's textures.
 	std::vector<uint64_t> key;
 };
@@ -577,7 +577,7 @@ struct MGG_Shader
 	mguint textureSlots;
 	mguint samplerSlots;
 
-	// WingSim fork (issues 005, 006), derived from the bindings: t-slots holding a read-only storage buffer, u-slots, and
+	// Etervale fork (issues 005, 006), derived from the bindings: t-slots holding a read-only storage buffer, u-slots, and
 	// the u-slots holding a storage image. A compute shader also has its pipeline (it depends on nothing else).
 	uint32_t bufferSlots;
 	uint32_t uavSlots;
@@ -589,7 +589,7 @@ struct MGG_Shader
 	VkDescriptorPool pool;
 
 	std::queue<MGVK_DescriptorInfo*> freeSets;
-	std::multimap<uint32_t, MGVK_DescriptorInfo*> usedSets;   // WingSim fork: hash → sets, key compared in full
+	std::multimap<uint32_t, MGVK_DescriptorInfo*> usedSets;   // Etervale fork: hash → sets, key compared in full
 };
 
 struct MGVK_BindingInfo
@@ -605,8 +605,8 @@ struct MGG_BlendState
 	FrameCounter frame;
 	mguint hash;
 	mgint refs;
-	uint64_t uid;					// WingSim fork: never reused (pipeline keys)
-	MGG_BlendState_Info source[4];	// WingSim fork: what it was created from (exact cache match)
+	uint64_t uid;					// Etervale fork: never reused (pipeline keys)
+	MGG_BlendState_Info source[4];	// Etervale fork: what it was created from (exact cache match)
 	VkPipelineColorBlendStateCreateInfo info;
 	VkPipelineColorBlendAttachmentState attachments[4];
 };
@@ -1367,7 +1367,7 @@ static void MGVK_FlushCommands(MGG_GraphicsDevice* device, MGVK_Frame& frame)
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &frame.commandBuffer;
-	// WingSim fork: these commands may already draw into the frame's swapchain image (the UI before a read-back), which
+	// Etervale fork: these commands may already draw into the frame's swapchain image (the UI before a read-back), which
 	// is only usable once its acquisition has signalled: the first submission of the frame waits for it, and Present then
 	// does not wait again. Upstream submitted without the wait, drawing into an image the presentation engine still owned.
 	VkPipelineStageFlags acquireStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
@@ -1401,12 +1401,12 @@ static void MGVK_BufferCreate(MGG_GraphicsDevice* device, int sizeInBytes, VkBuf
 	VK_SET_OBJECT_NAME(device->device, buffer->buffer, VK_OBJECT_TYPE_BUFFER, "MGG_Buffer.buffer");
 }
 
-// WingSim fork (issue 006): a storage buffer is read and written by shaders, holds dispatch arguments, and is filled and
+// Etervale fork (issue 006): a storage buffer is read and written by shaders, holds dispatch arguments, and is filled and
 // read back by copies.
 static const VkBufferUsageFlags MGVK_StorageBufferUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
 	VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-// WingSim fork (issues 005, 006): every stage and access that can touch a storage resource (or anything a dispatch
+// Etervale fork (issues 005, 006): every stage and access that can touch a storage resource (or anything a dispatch
 // wrote) after a copy or a dispatch: the barriers around them use these as the far side, so whichever pass comes next
 // sees the writes.
 static const VkPipelineStageFlags MGVK_StorageStages = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT |
@@ -1495,7 +1495,7 @@ MGG_GraphicsDevice* MGG_GraphicsDevice_Create(MGG_GraphicsSystem* system, MGG_Gr
 	assert(adapter != nullptr);
 
 	auto device = new MGG_GraphicsDevice();
-	device->renderThread = std::this_thread::get_id(); // WingSim fork: in-frame texture uploads (MGG_Texture_SetData)
+	device->renderThread = std::this_thread::get_id(); // Etervale fork: in-frame texture uploads (MGG_Texture_SetData)
 
 	device->instance = system->instance;
 	device->physicalDevice = adapter->device;
@@ -1644,7 +1644,7 @@ MGG_GraphicsDevice* MGG_GraphicsDevice_Create(MGG_GraphicsSystem* system, MGG_Gr
 	if (userTypeSupported)
 		extensions.push_back(VK_GOOGLE_USER_TYPE_EXTENSION_NAME);
 
-	// WingSim fork (issue 012): the drivers' per-pipeline statistics (registers, instructions, spills...), on request:
+	// Etervale fork (issue 012): the drivers' per-pipeline statistics (registers, instructions, spills...), on request:
 	// capturing them may slow pipeline creation, so a game turns them on for a measurement run only.
 	VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR executableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR };
 	const char* statisticsRequest = getenv("MG_PIPELINE_STATISTICS");
@@ -1757,7 +1757,7 @@ MGG_GraphicsDevice* MGG_GraphicsDevice_Create(MGG_GraphicsSystem* system, MGG_Gr
 		device->nullTexture[(int)MGTextureType::Cube] = tex;
 	}
 
-	// WingSim fork: what an empty read-only storage buffer slot reads (issue 006).
+	// Etervale fork: what an empty read-only storage buffer slot reads (issue 006).
 	device->nullStorageBuffer = MGVK_Buffer_Create(device, MGBufferType::Storage, 16, true);
 
 	return device;
@@ -1872,7 +1872,7 @@ void MGG_GraphicsDevice_Destroy(MGG_GraphicsDevice* device)
 
 	MGVK_CleanupPendingTransfers(device);
 
-	// WingSim fork: staging buffers of in-frame uploads and the frame capture's copies.
+	// Etervale fork: staging buffers of in-frame uploads and the frame capture's copies.
 	for (auto& staged : device->frameStaging)
 		vmaDestroyBuffer(device->allocator, staged.second.buffer, staged.second.allocation);
 	device->frameStaging.clear();
@@ -2417,7 +2417,7 @@ mgbyte MGG_GraphicsDevice_ResizeSwapchain(
 	bool isSwapchainBound = device->targets.targets[0] != nullptr &&
 		device->targets.targets[0]->isSwapchain;
 
-	// WingSim fork: the window manager resizes the window in the middle of a frame (a window taller than the work area).
+	// Etervale fork: the window manager resizes the window in the middle of a frame (a window taller than the work area).
 	// The frame's command buffer was then begun again by MGVK_PrepareFrame while a render pass was open in it and the
 	// current target set had been destroyed with the swapchain: the next Clear found no render pass to begin
 	// (inRenderPass still set) and dereferenced a null target set (crash in vkCmdClearAttachments). The commands recorded
@@ -2554,7 +2554,7 @@ void MGVK_PrepareFrame(MGG_GraphicsDevice* device)
 	MGVK_ProcessDescriptorCaches(device, device->frame);
 	MGVK_RecycleDiscardedBuffers(device);
 
-	// WingSim fork: staging buffers of in-frame texture uploads, once their frame is complete.
+	// Etervale fork: staging buffers of in-frame texture uploads, once their frame is complete.
 	for (size_t i = 0; i < device->frameStaging.size();)
 	{
 		auto& staged = device->frameStaging[i];
@@ -2716,7 +2716,7 @@ static MGVK_PipelineKey MGVK_MakePipelineKey(const MGVK_PipelineState& state)
 	return key;
 }
 
-// The cached state created from exactly these bytes, or null (WingSim fork: the hash alone returned a different state
+// The cached state created from exactly these bytes, or null (Etervale fork: the hash alone returned a different state
 // on a collision; two everyday blend states collide, e.g. DestinationColor/Zero against Zero/InverseSourceAlpha).
 template <typename State>
 static State* MGVK_FindState(std::unordered_multimap<uint32_t, State*>& cache, uint32_t hash, const void* source, size_t size)
@@ -2846,7 +2846,7 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter 
 				vkDestroyImageView(device->device, texture->target_view, nullptr);
 			if (texture->view != VK_NULL_HANDLE)
 				vkDestroyImageView(device->device, texture->view, nullptr);
-			for (auto view : texture->storage_views)	// WingSim fork: the views of a storage image's mips
+			for (auto view : texture->storage_views)	// Etervale fork: the views of a storage image's mips
 			{
 				if (view != VK_NULL_HANDLE)
 					vkDestroyImageView(device->device, view, nullptr);
@@ -2876,7 +2876,7 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter 
 			device->destroyBlendStates.pop();
 
 			MGVK_DestroyPipelines(device, [state](const MGVK_PipelineState& s) { return s.blendState == state; });
-			// WingSim fork: the device must not keep pointing at freed memory (the next state can be allocated at the
+			// Etervale fork: the device must not keep pointing at freed memory (the next state can be allocated at the
 			// same address). MonoGame applies a state again before the next draw of a frame.
 			if (device->pipelineState.blendState == state)
 			{
@@ -2896,7 +2896,7 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter 
 			device->destroyRasterizerStates.pop();
 
 			MGVK_DestroyPipelines(device, [state](const MGVK_PipelineState& s) { return s.rasterizerState == state; });
-			// WingSim fork: the device must not keep pointing at freed memory (the next state can be allocated at the
+			// Etervale fork: the device must not keep pointing at freed memory (the next state can be allocated at the
 			// same address). MonoGame applies a state again before the next draw of a frame.
 			if (device->pipelineState.rasterizerState == state)
 			{
@@ -2916,7 +2916,7 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter 
 			device->destroyDepthStencilStates.pop();
 
 			MGVK_DestroyPipelines(device, [state](const MGVK_PipelineState& s) { return s.depthStencilState == state; });
-			// WingSim fork: the device must not keep pointing at freed memory (the next state can be allocated at the
+			// Etervale fork: the device must not keep pointing at freed memory (the next state can be allocated at the
 			// same address). MonoGame applies a state again before the next draw of a frame.
 			if (device->pipelineState.depthStencilState == state)
 			{
@@ -3070,7 +3070,7 @@ void MGG_GraphicsDevice_Present(MGG_GraphicsDevice* device, mgint currentFrame, 
 	frame.image_index = -1;
 	frame.is_rendering = true;
 
-	// WingSim fork: buffers discarded this frame wait in the pending list until no frame in flight can read them
+	// Etervale fork: buffers discarded this frame wait in the pending list until no frame in flight can read them
 	// (MGVK_RecycleDiscardedBuffers). Upstream moved them to the free list one Present later, while with three or more
 	// swapchain images the frame that discarded them could still be on the GPU: a later frame's SetData overwrote vertices
 	// it was drawing (UI quads and light sprites missing or misplaced for a frame).
@@ -3295,7 +3295,7 @@ void MGG_GraphicsDevice_SetShader(MGG_GraphicsDevice* device, MGShaderStage stag
 	assert(shader->stage == stage);
 
 	device->shaders[(mgint)stage] = shader;
-	// WingSim fork: a compute shader is not part of the graphics program (MGG_GraphicsDevice_Dispatch binds it).
+	// Etervale fork: a compute shader is not part of the graphics program (MGG_GraphicsDevice_Dispatch binds it).
 	if (stage != MGShaderStage::Compute)
 		device->shaderDirty = true;
 }
@@ -3335,7 +3335,7 @@ void MGVK_GetTransition(	VkImageLayout oldLayout,
 	}
 	else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 	{
-		// WingSim fork: vertex shaders read uploaded textures too (terrain heights); upstream waited for the fragment stage only.
+		// Etervale fork: vertex shaders read uploaded textures too (terrain heights); upstream waited for the fragment stage only.
 		srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 		sourceStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
@@ -3868,7 +3868,7 @@ static void MGVK_FillDescriptorSetCache(MGG_GraphicsDevice* device, MGG_Shader* 
 	}
 }
 
-// WingSim fork (issues 005, 006): the view of one mip of a storage image, made the first time it is bound.
+// Etervale fork (issues 005, 006): the view of one mip of a storage image, made the first time it is bound.
 static VkImageView MGVK_StorageView(MGG_GraphicsDevice* device, MGG_Texture* texture, mgint mip)
 {
 	assert(texture->isStorage);
@@ -3896,7 +3896,7 @@ static void MGVK_BindShaderResources(MGG_GraphicsDevice* device, FrameCounter cu
 
 static void MGVK_UpdateDescriptors(MGG_GraphicsDevice* device, FrameCounter currentFrame, MGG_Shader* shader, VkDescriptorSet* current, uint32_t* dynamicOffset)
 {
-	// If nothing is dirty then skip the update. (WingSim fork: uniformsDirty has one bit per shader stage, set by
+	// If nothing is dirty then skip the update. (Etervale fork: uniformsDirty has one bit per shader stage, set by
 	// MGG_GraphicsDevice_SetConstantBuffer, while uniformSlots is the shader's mask of constant-buffer slots. Masking one
 	// with the other matched only the vertex stage (bit 0, slot 0): a pixel shader's new constants were ignored whenever
 	// no texture or vertex-shader constant changed too, and the draw read the previous draw's values.)
@@ -3912,7 +3912,7 @@ static void MGVK_UpdateDescriptors(MGG_GraphicsDevice* device, FrameCounter curr
 }
 
 // The descriptor set of a shader for the resources bound now, found in the cache or written, and the shader's constants
-// appended to the frame's uniform buffer. (WingSim fork: split from MGVK_UpdateDescriptors, which calls it only when
+// appended to the frame's uniform buffer. (Etervale fork: split from MGVK_UpdateDescriptors, which calls it only when
 // something the shader reads changed, so a dispatch can call it every time; storage buffers and images included.)
 static void MGVK_BindShaderResources(MGG_GraphicsDevice* device, FrameCounter currentFrame, MGG_Shader* shader, VkDescriptorSet* current, uint32_t* dynamicOffset)
 {
@@ -3931,7 +3931,7 @@ static void MGVK_BindShaderResources(MGG_GraphicsDevice* device, FrameCounter cu
 
 	MGVK_DescriptorInfo* info;
 
-	// First generate a hash of the new state, and the full key it stands for (WingSim fork).
+	// First generate a hash of the new state, and the full key it stands for (Etervale fork).
 	uint64_t key[4 + 2 * MAX_TEXTURE_SLOTS + MAX_TEXTURE_SLOTS + MGVK_MAX_UAV_SLOTS];
 	int keyLength = 0;
 	key[keyLength++] = (uint64_t)device->frameIndex;
@@ -3967,7 +3967,7 @@ static void MGVK_BindShaderResources(MGG_GraphicsDevice* device, FrameCounter cu
 			break;
 	}
 
-	// WingSim fork: the storage buffers and images by slot (issues 005, 006). Every resource the shader reads or writes
+	// Etervale fork: the storage buffers and images by slot (issues 005, 006). Every resource the shader reads or writes
 	// is stamped with this frame, so it is neither recycled nor destroyed while a frame in flight uses it.
 	key[keyLength++] = (uint64_t)shader->bufferSlots | ((uint64_t)shader->uavSlots << 32);
 	for (int i = 0; i < MAX_TEXTURE_SLOTS; i++)
@@ -4015,7 +4015,7 @@ static void MGVK_BindShaderResources(MGG_GraphicsDevice* device, FrameCounter cu
 	// that we don't create twice as much descriptor due to this.
 	hash = MG_ComputeHash(device->frameIndex, hash);
 
-	// Do we have this same descriptor cached? (WingSim fork: the hash only narrows the search; the key decides.)
+	// Do we have this same descriptor cached? (Etervale fork: the hash only narrows the search; the key decides.)
 	info = nullptr;
 	auto range = shader->usedSets.equal_range(hash);
 	for (auto it = range.first; it != range.second; ++it)
@@ -4080,7 +4080,7 @@ static void MGVK_BindShaderResources(MGG_GraphicsDevice* device, FrameCounter cu
 			}
 			else if (w.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
 			{
-				// WingSim fork: a read-only buffer (t-slot) or a RW buffer (u-slot); an empty read slot reads zeros.
+				// Etervale fork: a read-only buffer (t-slot) or a RW buffer (u-slot); an empty read slot reads zeros.
 				MGG_Buffer* buffer = w.dstBinding >= MGVK_UAV_BINDING
 					? device->uavs[stage][w.dstBinding - MGVK_UAV_BINDING].buffer
 					: device->readBuffers[stage][w.dstBinding - MGVK_TEXTURE_BINDING];
@@ -4092,7 +4092,7 @@ static void MGVK_BindShaderResources(MGG_GraphicsDevice* device, FrameCounter cu
 			}
 			else if (w.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 			{
-				// WingSim fork: one mip of a storage image; a dispatch with an empty image slot is refused before here.
+				// Etervale fork: one mip of a storage image; a dispatch with an empty image slot is refused before here.
 				auto& uav = device->uavs[stage][w.dstBinding - MGVK_UAV_BINDING];
 				assert(uav.texture != nullptr);
 				((VkDescriptorImageInfo*)w.pImageInfo)->imageView = MGVK_StorageView(device, uav.texture, uav.mip);
@@ -4180,7 +4180,7 @@ static MGVK_Program* MGVK_ProgramGetOrCreate(MGG_GraphicsDevice* device, MGG_Sha
 
 static VkPipeline MGVK_CreatePipeline(MGG_GraphicsDevice* device)
 {
-	// First see if we've cached this state before (WingSim fork: by the full key of object ids, see MGVK_PipelineKey).
+	// First see if we've cached this state before (Etervale fork: by the full key of object ids, see MGVK_PipelineKey).
 	assert(device->pipelineState.blendState && device->pipelineState.rasterizerState && device->pipelineState.depthStencilState);
 	const MGVK_PipelineKey key = MGVK_MakePipelineKey(device->pipelineState);
 	const uint32_t hash = (uint32_t)MGVK_PipelineKeyHash()(key);
@@ -4192,7 +4192,7 @@ static VkPipeline MGVK_CreatePipeline(MGG_GraphicsDevice* device)
 	memset(&pipelineInfo, 0, sizeof(pipelineInfo));
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	if (device->pipelineStatistics)
-		pipelineInfo.flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;   // WingSim fork, issue 012
+		pipelineInfo.flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;   // Etervale fork, issue 012
 
 	// We set the viewport and scissor dynamically.
 	static const VkDynamicState dynamicStates[] = {
@@ -4312,7 +4312,7 @@ static void MGVK_UpdatePipeline(MGG_GraphicsDevice* device, VkCommandBuffer comm
 {
 	assert(device);
 
-	// Make sure we know when we last used these states. (WingSim fork: a state destroyed while current is cleared to
+	// Make sure we know when we last used these states. (Etervale fork: a state destroyed while current is cleared to
 	// null; MonoGame sets one again before the next draw.)
 	assert(device->pipelineState.blendState && device->pipelineState.depthStencilState && device->pipelineState.rasterizerState);
 	if (device->pipelineState.blendState)
@@ -4348,13 +4348,13 @@ static void MGVK_UpdatePipeline(MGG_GraphicsDevice* device, VkCommandBuffer comm
 
 		auto pipeline = MGVK_CreatePipeline(device);
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-		device->lastGraphicsPipeline = pipeline;   // WingSim fork, issue 012
+		device->lastGraphicsPipeline = pipeline;   // Etervale fork, issue 012
 
 		// Since the pipeline changed we need to update other states.
 		device->scissorDirty = true;
 		device->uniformsDirty = 0xFFFFFFFF;
 		device->textureSamplerDirty = 0xFFFFFFFF;
-		device->storageDirty[(int)MGShaderStage::Vertex] = 0xFFFFFFFF;	// WingSim fork: a shader whose only resources
+		device->storageDirty[(int)MGShaderStage::Vertex] = 0xFFFFFFFF;	// Etervale fork: a shader whose only resources
 		device->storageDirty[(int)MGShaderStage::Pixel] = 0xFFFFFFFF;	// are storage buffers still gets its set
 		device->descriptorSets[0] = nullptr;
 		device->descriptorSets[1] = nullptr;
@@ -4397,7 +4397,7 @@ static void MGVK_UpdatePipeline(MGG_GraphicsDevice* device, VkCommandBuffer comm
 		device->blendFactorDirty = false;
 	}
 
-	// Do we need to update the descriptors? (WingSim fork: also when a storage buffer of the vertex or pixel stage
+	// Do we need to update the descriptors? (Etervale fork: also when a storage buffer of the vertex or pixel stage
 	// changed.)
 	if (device->uniformsDirty || device->textureSamplerDirty ||
 		device->storageDirty[(int)MGShaderStage::Vertex] || device->storageDirty[(int)MGShaderStage::Pixel])
@@ -4484,7 +4484,7 @@ static int MGVK_GetIndexCount(MGPrimitiveType primitiveType, mgint primitiveCoun
 	}
 }
 
-// WingSim fork: every draw appends its constants to the frame's uniform buffer (32 MB), which only starts over at Present.
+// Etervale fork: every draw appends its constants to the frame's uniform buffer (32 MB), which only starts over at Present.
 // Rendering several frames' worth of draws before one Present (a capture that renders the scene repeatedly into an
 // off-screen target) ran past its end: the constants were not written and the dynamic offsets pointed beyond the buffer
 // (VUID-vkCmdBindDescriptorSets-pDescriptorSets-01979). When less than a draw's worth is left, the commands recorded so
@@ -4508,7 +4508,7 @@ static void MGVK_EnsureUniformSpace(MGG_GraphicsDevice* device, MGVK_Frame& fram
 	device->pipelineStateDirty = true;
 }
 
-// WingSim fork: every buffer a draw reads carries the frame number, so a later SetData can tell whether a frame still on
+// Etervale fork: every buffer a draw reads carries the frame number, so a later SetData can tell whether a frame still on
 // the GPU reads it (MGG_Buffer_SetData) and a discarded or destroyed buffer is reused or freed only after that frame.
 // Upstream stamped vertex buffers only when they were rebound and index buffers never.
 static void MGVK_StampDrawBuffers(MGG_GraphicsDevice* device, bool indexed)
@@ -5467,7 +5467,7 @@ void MGG_SamplerState_Destroy(MGG_GraphicsDevice* device, MGG_SamplerState* stat
 	device->destroySamplers.push(state);
 }
 
-// WingSim fork: moves the discarded buffers that no frame in flight reads any more to the free list. Called when a frame
+// Etervale fork: moves the discarded buffers that no frame in flight reads any more to the free list. Called when a frame
 // slot is about to record again, after its fence was waited: frame F's work is complete once frame F + swapchainCount
 // begins (in-order submission on one queue).
 static void MGVK_RecycleDiscardedBuffers(MGG_GraphicsDevice* device)
@@ -5554,7 +5554,7 @@ static MGG_Buffer* MGVK_Buffer_Create(MGG_GraphicsDevice* device, MGBufferType t
 
 	if (type == MGBufferType::Storage)
 	{
-		// WingSim fork (issue 006): device-local, never mapped; filled through staging copies
+		// Etervale fork (issue 006): device-local, never mapped; filled through staging copies
 		// (MGG_Buffer_SetStorageData) and cleared to zero once here, so a buffer read before its first write reads zeros.
 		MGVK_BufferCreate(device, sizeInBytes, MGVK_StorageBufferUsage, VMA_MEMORY_USAGE_GPU_ONLY, buffer);
 		buffer->id = device->nextUid++;
@@ -5723,7 +5723,7 @@ void MGG_Buffer_SetData(MGG_GraphicsDevice* device, MGG_Buffer*& buffer, mgint o
 		return;
 	}
 
-	// WingSim fork: a buffer that a frame still in flight (or a draw already recorded in this one) reads is not written in
+	// Etervale fork: a buffer that a frame still in flight (or a draw already recorded in this one) reads is not written in
 	// place: those draws must keep the old content, as in OpenGL, where SetData is ordered with the draws. The update goes
 	// to a renamed buffer that starts as a copy of the old one (a partial update keeps the rest). Upstream wrote the
 	// persistently mapped memory the GPU was reading.
@@ -5863,7 +5863,7 @@ MGG_Texture* MGG_Texture_Create(
 	return MGVK_Texture_Create(device, type, format, width, height, depth, mipmaps, slices, false);
 }
 
-// WingSim fork (issue 005): a texture shaders can also write (RWTexture2D): the image gets the storage usage. Null when
+// Etervale fork (issue 005): a texture shaders can also write (RWTexture2D): the image gets the storage usage. Null when
 // the device cannot use the format as a storage image (vkGetPhysicalDeviceFormatProperties).
 MG_EXPORT MGG_Texture* MGG_Texture_CreateStorage(
 	MGG_GraphicsDevice* device,
@@ -6216,7 +6216,7 @@ void MGG_Texture_SetData(MGG_GraphicsDevice* device, MGG_Texture* texture, mgint
 	memcpy(dest, data, dataBytes);
 	vmaUnmapMemory(device->allocator, buffer.allocation);
 
-	// WingSim fork: on the render thread, while a frame records, the upload goes into the frame's own command buffer, so
+	// Etervale fork: on the render thread, while a frame records, the upload goes into the frame's own command buffer, so
 	// it is ordered with the draws as in OpenGL: draws recorded before SetData read the old texels, draws after it the new
 	// ones. Upstream submitted it at once on its own, ahead of the whole frame being recorded: every draw of that frame
 	// read the last upload, so a texture updated twice in a frame (once per view) showed only the second content, and the
@@ -6297,7 +6297,7 @@ void MGG_Texture_GetData(MGG_GraphicsDevice* device, MGG_Texture* texture, mgint
 
 	if (texture->isTarget)
 	{
-		// WingSim fork: also when the target was only written this frame (writeFrame). texture->frame marks sampling;
+		// Etervale fork: also when the target was only written this frame (writeFrame). texture->frame marks sampling;
 		// a target drawn into and read back without being sampled was copied before its commands were submitted,
 		// and GetData returned the previous frame's pixels.
 		if (frame.is_recording && (texture->frame == device->frame || texture->writeFrame == device->frame))
@@ -6308,7 +6308,7 @@ void MGG_Texture_GetData(MGG_GraphicsDevice* device, MGG_Texture* texture, mgint
 	}
 	else if (frame.is_recording && (texture->uploadFrame == device->frame || (texture->isStorage && texture->writeFrame == device->frame)))
 	{
-		// WingSim fork: its upload, or a dispatch that wrote it (a storage image), is in the frame's command buffer, not
+		// Etervale fork: its upload, or a dispatch that wrote it (a storage image), is in the frame's command buffer, not
 		// submitted yet.
 		MGVK_FlushCommands(device, frame);
 		restart_frame = true;
@@ -6519,7 +6519,7 @@ void MGG_InputLayout_Destroy(MGG_GraphicsDevice* device, MGG_InputLayout* layout
 	if (layout == nullptr)
 		return;
 
-	// WingSim fork: not the current layout any more (its pipelines stay keyed by its id, which is never reused).
+	// Etervale fork: not the current layout any more (its pipelines stay keyed by its id, which is never reused).
 	if (device->pipelineState.layout == layout)
 	{
 		device->pipelineState.layout = nullptr;
@@ -6528,7 +6528,7 @@ void MGG_InputLayout_Destroy(MGG_GraphicsDevice* device, MGG_InputLayout* layout
 	delete layout;
 }
 
-// WingSim fork (issue 005): a compute shader's pipeline and its layout (one descriptor set, the shader's own). Unlike a
+// Etervale fork (issue 005): a compute shader's pipeline and its layout (one descriptor set, the shader's own). Unlike a
 // graphics pipeline it depends on no other state, so it is built once with the shader.
 static void MGVK_CreateComputePipeline(MGG_GraphicsDevice* device, MGG_Shader* shader)
 {
@@ -6549,7 +6549,7 @@ static void MGVK_CreateComputePipeline(MGG_GraphicsDevice* device, MGG_Shader* s
 	pipelineInfo.stage.pName = "main";
 	pipelineInfo.layout = shader->computeLayout;
 	if (device->pipelineStatistics)
-		pipelineInfo.flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;   // WingSim fork, issue 012
+		pipelineInfo.flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;   // Etervale fork, issue 012
 	res = vkCreateComputePipelines(device->device, device->pipelineCache, 1, &pipelineInfo, nullptr, &shader->computePipeline);
 	VK_CHECK_RESULT(res);
 	VK_SET_OBJECT_NAME(device->device, shader->computePipeline, VK_OBJECT_TYPE_PIPELINE, "MGG_Shader.computePipeline (id: %u)", shader->id);
@@ -6589,7 +6589,7 @@ MGG_Shader* MGG_Shader_Create(MGG_GraphicsDevice* device, MGShaderStage stage, m
 	if (stage == MGShaderStage::Vertex)
 		MGVK_ReflectInputLocations((const uint32_t*)bytecode, sizeInBytes / 4, shader->inputLocations);
 
-	// WingSim fork: the storage resources of the shader, by register (issues 005, 006).
+	// Etervale fork: the storage resources of the shader, by register (issues 005, 006).
 	for (auto& b : layoutBindings)
 	{
 		if (b.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER && b.binding >= MGVK_TEXTURE_BINDING && b.binding < MGVK_TEXTURE_BINDING + MAX_TEXTURE_SLOTS)
@@ -6633,7 +6633,7 @@ MGG_Shader* MGG_Shader_Create(MGG_GraphicsDevice* device, MGShaderStage stage, m
 		return shader;
 	}
 
-	// WingSim fork: two resources of one shader on the same register give a layout with a duplicated binding
+	// Etervale fork: two resources of one shader on the same register give a layout with a duplicated binding
 	// (VUID-VkDescriptorSetLayoutCreateInfo-binding-00279): only one of them is bound. Said once per shader.
 	for (size_t a = 0; a < layoutBindings.size(); a++)
 		for (size_t b = a + 1; b < layoutBindings.size(); b++)
@@ -6678,7 +6678,7 @@ MGG_Shader* MGG_Shader_Create(MGG_GraphicsDevice* device, MGShaderStage stage, m
 	// Pre-fill the free descriptor sets now.
 	MGVK_FillDescriptorSetCache(device, shader);
 
-	// Prepare the write descriptor set for updates at runtime. (WingSim fork: storage buffers take a buffer info too.)
+	// Prepare the write descriptor set for updates at runtime. (Etervale fork: storage buffers take a buffer info too.)
 	size_t bufferBindings = 0;
 	for (auto& b : layoutBindings)
 	{
@@ -6694,7 +6694,7 @@ MGG_Shader* MGG_Shader_Create(MGG_GraphicsDevice* device, MGShaderStage stage, m
 
 		if (b.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
 		{
-			// WingSim fork: a StructuredBuffer/ByteAddressBuffer (t) or their RW forms (u); the buffer is set per draw.
+			// Etervale fork: a StructuredBuffer/ByteAddressBuffer (t) or their RW forms (u); the buffer is set per draw.
 			bufferInfo->buffer = VK_NULL_HANDLE;
 			bufferInfo->offset = 0;
 			bufferInfo->range = VK_WHOLE_SIZE;
@@ -6714,7 +6714,7 @@ MGG_Shader* MGG_Shader_Create(MGG_GraphicsDevice* device, MGShaderStage stage, m
 		}
 		else if (b.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 		{
-			// WingSim fork: a RWTexture2D, written in the GENERAL layout during the dispatch.
+			// Etervale fork: a RWTexture2D, written in the GENERAL layout during the dispatch.
 			imageInfo->imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 			imageInfo->imageView = nullptr;
 			imageInfo->sampler = nullptr;
@@ -6807,7 +6807,7 @@ void MGG_Shader_Destroy(MGG_GraphicsDevice* device, MGG_Shader* shader)
 	if (!shader)
 		return;
 
-	// WingSim fork: a compute shader's pipeline may still run in a frame in flight; effects are disposed rarely, so the
+	// Etervale fork: a compute shader's pipeline may still run in a frame in flight; effects are disposed rarely, so the
 	// device is waited once rather than the pipeline queued for later destruction.
 	if (shader->computePipeline != VK_NULL_HANDLE)
 	{
@@ -7102,19 +7102,19 @@ MG_EXPORT void MGG_GraphicsDevice_GetNativeHandles(const MGG_GraphicsDevice* dev
 }
 
 
-// WingSim fork: the version of the runtime's exported interface, which the fork's framework (monogame/framework,
+// Etervale fork: the version of the runtime's exported interface, which the fork's framework (monogame/framework,
 // MGG.EnsureRuntimeVersion) checks before anything else: a library built from other sources (the official package, or
 // a stale build of the fork) would fail later at the first missing export, or worse, call an export whose arguments
 // changed. Bumped with every change of an exported function (monogame/issues/002-runtime-version.md).
-#define MGVK_WINGSIM_RUNTIME_VERSION 4
+#define MGVK_ETERVALE_RUNTIME_VERSION 4
 
-MG_EXPORT mgint MGG_WingSim_RuntimeVersion()
+MG_EXPORT mgint MGG_Etervale_RuntimeVersion()
 {
-	return MGVK_WINGSIM_RUNTIME_VERSION;
+	return MGVK_ETERVALE_RUNTIME_VERSION;
 }
 
 
-// WingSim fork (issue 012): the driver's statistics of the last bound graphics (compute = 0) or compute (compute = 1)
+// Etervale fork (issue 012): the driver's statistics of the last bound graphics (compute = 0) or compute (compute = 1)
 // pipeline (VK_KHR_pipeline_executable_properties), as UTF-8 text, one line per statistic of each executable (a stage
 // of the pipeline): "executable<TAB>statistic<TAB>value<LF>". Written into `buffer` (at most `capacity` bytes, NUL
 // terminated); returns the length written, 0 when no pipeline has been bound yet, or -1 when the statistics are off
@@ -7242,7 +7242,7 @@ MG_EXPORT mgfloat MGG_TimestampPool_GetPeriod(MGG_GraphicsDevice* device)
 }
 
 
-// WingSim fork: asynchronous frame capture. MGG_FrameCapture_Start makes every Present copy the image it presents,
+// Etervale fork: asynchronous frame capture. MGG_FrameCapture_Start makes every Present copy the image it presents,
 // downscaled by an integer factor, into a host buffer of its frame slot (commands recorded in the frame's own command
 // buffer). When the slot's fence is waited before the slot is reused (MGVK_TryAcquireSwap), the copy is moved to a
 // queue that MGG_FrameCapture_Pop drains. Nothing waits for the GPU beyond what the runtime already waits for, so the
@@ -7437,7 +7437,7 @@ MG_EXPORT mgulong MGG_FrameCapture_Dropped(MGG_GraphicsDevice* device)
 }
 
 
-// WingSim fork: compute dispatches, storage images and storage buffers in the frame's own command buffer
+// Etervale fork: compute dispatches, storage images and storage buffers in the frame's own command buffer
 // (monogame/issues/005-compute-and-uav.md, 006-structured-buffers.md).
 //
 // A dispatch ends the render pass (vkCmdDispatch is not allowed inside one; the next draw begins a new pass, which keeps
@@ -7589,7 +7589,7 @@ static bool MGVK_BeginDispatch(MGG_GraphicsDevice* device, MGVK_Frame*& frameOut
 	MGVK_BarrierBeforeDispatch(device, cmd, shader);
 
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, shader->computePipeline);
-	device->lastComputePipeline = shader->computePipeline;   // WingSim fork, issue 012
+	device->lastComputePipeline = shader->computePipeline;   // Etervale fork, issue 012
 	if (!shader->bindings.empty())
 	{
 		VkDescriptorSet set = VK_NULL_HANDLE;

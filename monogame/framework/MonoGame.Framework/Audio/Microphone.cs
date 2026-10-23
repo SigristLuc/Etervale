@@ -211,7 +211,7 @@ namespace Microsoft.Xna.Framework.Audio
         /// <summary>
         /// Event fired when the audio data are available.
         /// </summary>
-        // WingSim fork: XNA API that the Native platform never raises (Microphone.Native.cs captures nothing), so the
+        // Etervale fork: XNA API that the Native platform never raises (Microphone.Native.cs captures nothing), so the
         // compiler reports it unused (CS0067); the event stays for source compatibility.
 #pragma warning disable CS0067
         public event EventHandler<EventArgs> BufferReady;

@@ -13,7 +13,7 @@ internal enum StorageClass
     Input = 1,
     Uniform = 2,
     Output = 3,
-    // WingSim fork: the other storage classes, so compute shaders (Workgroup), statics (Private) and SPIR-V 1.4+
+    // Etervale fork: the other storage classes, so compute shaders (Workgroup), statics (Private) and SPIR-V 1.4+
     // storage buffers (StorageBuffer) parse too.
     Workgroup = 4,
     CrossWorkgroup = 5,

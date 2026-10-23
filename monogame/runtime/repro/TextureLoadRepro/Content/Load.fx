@@ -6,7 +6,7 @@ cbuffer Constants : register(b0)
     float4 Size;   // xy texture size
 };
 
-// Read only with Load, and named by a sampler_state that this shader never uses (the case WingSim's clouds hit).
+// Read only with Load, and named by a sampler_state that this shader never uses (the case cloud shaders hit).
 Texture2D<float4> Named : register(t0);
 SamplerState NamedSampler : register(s0) = sampler_state { Texture = (Named); MinFilter = Point; MagFilter = Point; MipFilter = None; AddressU = Clamp; AddressV = Clamp; };
 

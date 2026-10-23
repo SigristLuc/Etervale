@@ -1,16 +1,16 @@
 # monogame/framework: MonoGame.Framework (C#), Native platform, from source
 
-WingSim's MonoGame fork, C# half: `MonoGame.Framework.dll` for the Native platform (Vulkan through the runtime fork in
+Etervale's MonoGame fork, C# half: `MonoGame.Framework.dll` for the Native platform (Vulkan through the runtime fork in
 `monogame/runtime`), built from the source in this folder instead of the `MonoGame.Framework.Native` NuGet package.
-`src/WingSim.Engine` and `src/WingSim.Game` (and `tests/WingSim.Tests`) reference
-`MonoGame.Framework/MonoGame.Framework.Native.csproj` as a project. Nothing below the Engine may (`ArchitectureTests`).
+The client projects (`Client/PristonTale`, `Client/PristonTale.Engine3D`, `Client/PristonTale.Gameplay`,
+`Client/PristonTale.Effects`) reference `MonoGame.Framework/MonoGame.Framework.Native.csproj` as a project.
 
 | Path | Contents |
 |---|---|
 | `MonoGame.Framework/` | MonoGame v3.8.6's `MonoGame.Framework` folder, only the files its `MonoGame.Framework.Native.csproj` compiles (479 with the two ports below): the shared XNA API and `Platform/Native` (the `MGG_*`/`MGP_*` interop to `mgruntime`). The other platforms (DesktopGL, WindowsDX, Android, iOS) are left out. |
-| `MonoGame.Framework/MonoGame.Framework.Native.csproj` | WingSim's project file: upstream's settings (netstandard2.1, C# 12, `NATIVE;NETSTANDARD;XNADESIGNPROVIDED;STBSHARP_INTERNAL`, unsafe code, XML documentation), assembly `MonoGame.Framework` 3.8.6, without upstream's packaging and the `IsAotCompatible` flag a netstandard2.1 library cannot carry (NETSDK1210). |
+| `MonoGame.Framework/MonoGame.Framework.Native.csproj` | The fork's project file: upstream's settings (netstandard2.1, C# 12, `NATIVE;NETSTANDARD;XNADESIGNPROVIDED;STBSHARP_INTERNAL`, unsafe code, XML documentation), assembly `MonoGame.Framework` 3.8.6, without upstream's packaging and the `IsAotCompatible` flag a netstandard2.1 library cannot carry (NETSDK1210). |
 | `ThirdParty/StbImageSharp/src`, `ThirdParty/StbImageWriteSharp/src` | The C# ports of stb_image and stb_image_write, compiled into the assembly as upstream does (internal, `STBSHARP_INTERNAL`). |
-| `Directory.Build.props` | Keeps the repository's C# settings out (WingSim's analyzers, nullable, implicit usings: upstream code was not written against them) and keeps every warning an error. |
+| `Directory.Build.props` | Keeps the repository's C# settings out (its analyzers, nullable, implicit usings: upstream code was not written against them) and keeps every warning an error. |
 | `CREDITS.md` | Licences of the code here. |
 
 MonoGame's licence (MS-PL) is `../LICENSE-MonoGame.txt`.
@@ -28,12 +28,12 @@ MonoGame's licence (MS-PL) is `../LICENSE-MonoGame.txt`.
 4. Check: built unchanged, the assembly has the size of the NuGet package's `lib/netstandard2.1/MonoGame.Framework.dll`
    (762 880 bytes), so the compile set is the package's.
 
-Updating MonoGame is a deliberate change (`../README.md`): the same steps on the new tag, WingSim's changes reapplied
-(listed below and in `../issues`), and the parity captures (`tools/parity`) before and after.
+Updating MonoGame is a deliberate change (`../README.md`): the same steps on the new tag, the fork's changes reapplied
+(listed below and in `../issues`), and rendered frames compared before and after.
 
-## WingSim's changes
+## The fork's changes
 
-Every change is marked `WingSim fork` in the source and has a document in `../issues` when it adds behaviour.
+Every change is marked `Etervale fork` in the source and has a document in `../issues` when it adds behaviour.
 
 **Upstream warnings fixed at their cause** (the build treats warnings as errors):
 - `CS8500`: `PtrTo<T>` constrained to `unmanaged`; `Texture2D`/`VertexBuffer` `SetData` from spans through
@@ -50,8 +50,8 @@ Every change is marked `WingSim fork` in the source and has a document in `../is
   fields (`PresentationParameters.disposed`, `Shader._bytecode`).
 - `CS1591`: XML comments on the `Dispose` overrides and finalizers that lacked them.
 
-**WingSim's additions:**
-- `Platform/Native/Graphics.Interop.WingSim.cs`: the P/Invokes of the runtime fork's own exports, and the interface
+**The fork's additions:**
+- `Platform/Native/Graphics.Interop.Etervale.cs`: the P/Invokes of the runtime fork's own exports, and the interface
   version check that runs before anything else (`MGG.EnsureRuntimeVersion`, issue 002).
 - `GraphicsDevice.BeginFrameCapture`/`TryPopFrame`/`EndFrameCapture`, `PresentedFrame` (`Graphics/GraphicsDevice.FrameCapture.cs`,
   issue 003): the presented frames read back without synchronising.
@@ -66,4 +66,5 @@ Every change is marked `WingSim fork` in the source and has a document in `../is
   `EffectParameter.SetValue(StructuredBuffer)`, `GetValueStructuredBuffer`.
 - MGFX 12 (issues 007, 008): `Effect` reads versions 10 to 12; `Shader` reads the stage, the storage list
   (`StorageKind`, `StorageInfo`), the thread group size and the requirements (`ShaderRequirements`; a ray-query shader
-  is refused with `NotSupportedException` until phase R2.4); `EffectParameterType.AccelerationStructure`.
+  is refused with `NotSupportedException` until the runtime binds acceleration structures);
+  `EffectParameterType.AccelerationStructure`.

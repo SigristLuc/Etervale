@@ -32,7 +32,7 @@ class NativeGamePlatform : GamePlatform
 
     public unsafe NativeGamePlatform(Game game) : base(game)
     {
-        // WingSim fork: the runtime library must be the fork's, built from the same sources (issue 002).
+        // Etervale fork: the runtime library must be the fork's, built from the same sources (issue 002).
         MGG.EnsureRuntimeVersion();
 
         GameRunBehavior behavior;

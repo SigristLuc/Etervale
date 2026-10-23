@@ -1,5 +1,5 @@
 // A cs_6_5 ray query (SM 6.5 profile, SPIR-V 1.5 with SPV_KHR_ray_query): the processor compiles it and records the
-// requirement; the framework refuses to load it until acceleration structures exist (phase R2.4).
+// requirement; the framework refuses to load it until the runtime supports acceleration structures.
 RaytracingAccelerationStructure Scene : register(t0);
 [[vk::image_format("r32f")]] RWTexture2D<float> Hit : register(u0);
 

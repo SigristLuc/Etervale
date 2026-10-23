@@ -33,10 +33,10 @@ buffer that a frame in flight still reads.
 ### Symptom
 
 UI quads (a translucent top scrim), light sprites and other dynamic geometry vanished or appeared misplaced for single
-frames. It happened when the GPU was the bottleneck and the CPU ran two frames ahead. In WingSim that was the A320
-preview zoomed in on the setup screen; the lighter 737 never showed it.
+frames. It happened when the GPU was the bottleneck and the CPU ran two frames ahead: a heavy model zoomed in on a
+preview screen showed it, a lighter one never did.
 
-### The fix in WingSim's fork (change 14)
+### The fix in the fork (change 14)
 
 - Every draw stamps its vertex buffers and its index buffer with the frame number (`MGVK_StampDrawBuffers`).
 - Discarded buffers stay on the pending list until `frame ≥ last use + swapchainCount`. The check runs in
@@ -47,6 +47,6 @@ preview zoomed in on the setup screen; the lighter 737 never showed it.
 
 ### How it was found
 
-WingSim's `--check-glitches` reads the presented frames without synchronising (change 17). Zooming in on the A320
+A glitch check reads the presented frames without synchronising (change 17). Zooming in on the heavy model
 from 60 m to 12 m, the frames with a region jumping and coming back went from 9 (225 block excursions, up to 45
 levels) to 0.

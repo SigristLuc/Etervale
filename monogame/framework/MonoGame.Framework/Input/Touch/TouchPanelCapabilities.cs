@@ -56,7 +56,7 @@ namespace Microsoft.Xna.Framework.Input.Touch
 #else
                 //Touch isn't implemented in OpenTK, so no linux or mac https://github.com/opentk/opentk/issues/80
                 isConnected = false;
-                // WingSim fork: said explicitly (no touch panel); the field was otherwise never assigned (CS0649).
+                // Etervale fork: said explicitly (no touch panel); the field was otherwise never assigned (CS0649).
                 maximumTouchCount = 0;
 #endif
             }

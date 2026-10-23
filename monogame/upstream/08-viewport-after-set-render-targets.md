@@ -23,12 +23,11 @@ device.DrawPrimitives(...);                   // draws over the whole target
 On OpenGL and DirectX the draw covers only the viewport. On Vulkan the full-screen triangle of each tile or band
 covers the whole target, so the last one drawn overwrites the others.
 
-In WingSim the cloud shadow map is built a quarter at a time, one band per frame (`CloudRenderer.RenderShadowMap`).
-Every band overwrote the whole map with its own rows stretched over it, the map's front depths moved kilometres
-beyond the ground, and the cloud shadow disappeared from the scene: an overcast day was lit by the direct sun and
-metered 2 EV brighter than the OpenGL build.
+In a test scene a shadow map is built a quarter at a time, one band per frame. Every band overwrote the whole map
+with its own rows stretched over it, the map's front depths moved far beyond the ground, and the shadow disappeared
+from the scene: a shaded scene was lit by the direct sun and metered 2 EV brighter than the OpenGL build.
 
-### The fix in WingSim's fork (change 8)
+### The fix in the fork (change 8)
 
 `SetViewport` and `SetScissorRectangle` mark the value as chosen; `SetRenderTargets` clears the marks;
 `MGVK_UpdateRenderPass` applies the full-target defaults only where nothing was chosen:

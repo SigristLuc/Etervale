@@ -30,7 +30,7 @@ VSOut VS(VSIn i) { /* reads Position, Uv0 and Uv1 only */ }
 - Alpha-tested shadow casters that share their vertex struct with the lit pass hit this.
 - The same effect works on DesktopGL, which binds attributes by name.
 
-### The fix in WingSim's fork
+### The fix in the fork
 
 `MGG_Shader_Create` reads the location of every vertex input from the SPIR-V: each `OpVariable` with storage class
 `Input`, its `Location` decoration and its semantic.
@@ -49,5 +49,5 @@ changes the effect format and the interop struct.
 Repro: compile the shader above with the Vulkan profile. Draw it with a vertex buffer that holds all five elements,
 with `VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation`.
 - With the fix the error is gone.
-- The image is unchanged against a shader that declares only the inputs it reads (WingSim's aircraft scene: mean
-  difference 0.33 levels, p99 2, which is the TAA noise between runs).
+- The image is unchanged against a shader that declares only the inputs it reads (a test scene: mean difference
+  0.33 levels, p99 2, which is the TAA noise between runs).

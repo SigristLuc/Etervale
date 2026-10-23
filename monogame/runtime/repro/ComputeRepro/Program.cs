@@ -2,7 +2,7 @@ using System.Globalization;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-// Verification of the compute path of WingSim's MonoGame fork (monogame/issues/005 to 008), one check per extension:
+// Verification of the compute path of Etervale's MonoGame fork (monogame/issues/005 to 008), one check per extension:
 //  1. Image: a compute shader writes an RGBA32F storage image (RWTexture2D), a draw samples it into a render target in
 //     the same frame (compute → graphics); both read back exactly.
 //  2. Mip: the same into mip 1 of a mipmapped storage texture (SetValue(texture, 1)); mip 0 stays untouched.
@@ -14,7 +14,7 @@ using Microsoft.Xna.Framework.Graphics;
 //  6. Another thread: 16 MB uploaded from a worker while frames dispatch from another buffer, then read by a dispatch.
 //  7. Frames in flight: 300 frames, each a dispatch adding its frame number to a counter with no read-back in between:
 //     the sum of the frame numbers (each dispatch's constants reach it).
-//  8. Ray queries: an SM 6.5 effect with RayQuery is refused at load until phase R2.4 (NotSupportedException).
+//  8. Ray queries: an SM 6.5 effect with RayQuery is refused at load (NotSupportedException).
 // Exit code: the number of failed checks (0 = pass).
 using var game = new ComputeRepro.ReproGame();
 game.Run();
@@ -253,12 +253,12 @@ namespace ComputeRepro
             try
             {
                 Content.Load<Effect>("RayQuery");
-                Report("ray query", false, "the SM 6.5 effect loaded; it must be refused before phase R2.4");
+                Report("ray query", false, "the SM 6.5 effect loaded; it must be refused");
             }
             catch (Exception ex) when (ex is NotSupportedException || ex.InnerException is NotSupportedException)
             {
                 var message = (ex as NotSupportedException ?? (NotSupportedException)ex.InnerException!).Message;
-                Report("ray query", message.Contains("R2.4", StringComparison.Ordinal), "refused: " + message);
+                Report("ray query", message.Contains("VK_KHR_ray_query", StringComparison.Ordinal), "refused: " + message);
             }
         }
 

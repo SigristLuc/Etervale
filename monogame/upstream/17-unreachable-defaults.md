@@ -15,8 +15,8 @@ overloads), `ToVkPrimitiveTopology`, `ToVkImageViewType`, `ToVkImageType`, `ToUs
 the assert disappears and control falls off the end of a value-returning function. That is undefined behaviour.
 
 Compilers report it:
-- MSVC: C4715, "not all control paths return a value". It was an error in WingSim's Windows CI build (188 errors
-  together with the C# warning settings that leaked into the C++ project).
+- MSVC: C4715, "not all control paths return a value". It was an error in a Windows build (188 errors together
+  with the C# warning settings that leaked into the C++ project).
 - GCC/Clang: `-Wreturn-type`.
 
 **Fix:** after the assert, tell the compiler the default cannot be reached: `__assume(0)` on MSVC,

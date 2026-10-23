@@ -1,6 +1,6 @@
 # 007. The effect processor in the fork: compute passes, storage resources, MGFX 12
 
-Part: effect processor (`../pipeline`), framework (the reader). Phase R2.0 (research 14 R2 §3).
+Part: effect processor (`../pipeline`), framework (the reader).
 
 ## Need
 
@@ -21,8 +21,8 @@ The game's effects were compiled by `MonoGame.Framework.Content.Pipeline` of the
 
 **`../pipeline/MonoGame.Effect.Compiler`**: MonoGame v3.8.6's `Tools/MonoGame.Effect.Compiler/Effect` (the code MGCB
 and mgfxc compile), Vulkan profile only. Its DirectX, OpenGL/MojoShader, PSSL and Wine files are left out; CppNet, the C
-preprocessor, comes from `ThirdParty/CppNet` (the tag's `external/CppNet` submodule). WingSim's changes are marked
-`WingSim fork`:
+preprocessor, comes from `ThirdParty/CppNet` (the tag's `external/CppNet` submodule). The fork's changes are marked
+`Etervale fork`:
 - **parser** (`TPGParser/MGFX.tpg` and the generated `Scanner`/`Parser`/`ParseTree`, `PassInfo`): the `ComputeShader`
   pass state;
 - **profile** (`ShaderProfile.Vulkan.cs`):
@@ -51,22 +51,21 @@ preprocessor, comes from `ThirdParty/CppNet` (the tag's `external/CppNet` submod
 
 **`../pipeline/MonoGame.Effect.Processor`**: `SpirvEffectProcessor` (DesktopVK only), MonoGame's `EffectProcessor`
 over the compiler above. It is built into `monogame/pipeline/bin/` against the tool's own content-pipeline and framework
-assemblies (not copied), so the plugin binds to exactly what MGCB loaded. `src/WingSim.Game/Content/Content.mgcb` loads
-it with `/reference` and every effect uses `/processor:SpirvEffectProcessor`. The Game project builds it first through
-a project reference without an assembly reference.
+assemblies (not copied), so the plugin binds to exactly what MGCB loaded. The game's `Content.mgcb` loads it with
+`/reference` and every effect uses `/processor:SpirvEffectProcessor`. The game project builds it first through a
+project reference without an assembly reference.
 
 **Framework**: `Effect` reads MGFX 10 to 12; `Shader` reads the stage, the storage list (`StorageKind`, `StorageInfo`),
 the thread group size and the requirements (`ShaderRequirements`); `EffectPass` gets its compute shader.
 
 ## Test
 
-- **The game's 28 effects compile to the same shaders**: each built with upstream's processor and with the fork's, then
-  compared by `tools/parity/mgfx_compare.py`. All 142 shaders are identical:
+- **A game's 28 effects compile to the same shaders**: each built with upstream's processor and with the fork's, then
+  compared field by field. All 142 shaders are identical:
   SPIR-V, binding header, samplers, constant buffers, attributes, parameters, techniques. Only the version byte differs
   (MGFX 11 → 12). The `.xnb` total went from 5 247 750 to 2 628 787 bytes (the trailing zeros).
-- The parity captures before and after (`tools/parity`, numbers in research 12, "R2.0").
-- `tests/WingSim.Tests/EffectCompilerTests.cs` (11 tests): the game's `ComputeCheck.fx` (compute pass, storage, thread
-  group, MGFX 12 header); strides and registers of every buffer kind; SM 6.5 ray queries; the DXC arguments of
-  `vs_6_0`/`ps_6_0` equal to upstream's plus the u shift; each compile error above; the tool version against the
-  manifest.
-- `EffectConstantBufferTests` reads MGFX 12 (the storage records are skipped to reach the parameters).
+- Captures of the game's scenes before and after are equal within the run-to-run noise.
+- Effect compiler tests (11): a compute-check effect (compute pass, storage, thread group, MGFX 12 header); strides and
+  registers of every buffer kind; SM 6.5 ray queries; the DXC arguments of `vs_6_0`/`ps_6_0` equal to upstream's plus
+  the u shift; each compile error above; the tool version against the manifest.
+- A constant-buffer test reads MGFX 12 (the storage records are skipped to reach the parameters).

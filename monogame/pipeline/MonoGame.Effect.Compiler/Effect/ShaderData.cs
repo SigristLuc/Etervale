@@ -2,7 +2,7 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace MonoGame.Effect
 {
-	// WingSim fork: the stage of a shader in MGFX 12 (the values of the framework's ShaderStage), which also has compute
+	// Etervale fork: the stage of a shader in MGFX 12 (the values of the framework's ShaderStage), which also has compute
 	// shaders; MGFX 11 wrote a vertex-shader flag (monogame/issues/007).
 	internal enum MgfxShaderStage : byte
 	{
@@ -11,7 +11,7 @@ namespace MonoGame.Effect
 		Compute = 2,
 	}
 
-	// WingSim fork: the kinds of storage resources in MGFX 12 (the framework's StorageKind).
+	// Etervale fork: the kinds of storage resources in MGFX 12 (the framework's StorageKind).
 	internal enum MgfxStorageKind : byte
 	{
 		StructuredBuffer = 0,
@@ -22,7 +22,7 @@ namespace MonoGame.Effect
 		AccelerationStructure = 5,
 	}
 
-	// WingSim fork: what a shader needs from the device beyond SM 6.0 (the framework's ShaderRequirements).
+	// Etervale fork: what a shader needs from the device beyond SM 6.0 (the framework's ShaderRequirements).
 	[System.Flags]
 	internal enum MgfxShaderRequirements : uint
 	{
@@ -39,7 +39,7 @@ namespace MonoGame.Effect
 			Bytecode = (byte[])bytecode.Clone();
 		}
 
-		// WingSim fork: the stage, in place of upstream's IsVertexShader.
+		// Etervale fork: the stage, in place of upstream's IsVertexShader.
 		public MgfxShaderStage Stage { get; private set; }
 
 		public bool IsVertexShader => Stage == MgfxShaderStage.Vertex;
@@ -69,7 +69,7 @@ namespace MonoGame.Effect
 #pragma warning restore 649
         }
 
-		// WingSim fork: a storage buffer or image of the shader (monogame/issues/005, 006).
+		// Etervale fork: a storage buffer or image of the shader (monogame/issues/005, 006).
 		public struct Storage
 		{
 			public MgfxStorageKind kind;
@@ -93,7 +93,7 @@ namespace MonoGame.Effect
 
 		public Attribute[] _attributes = [];
 
-		// WingSim fork: MGFX 12.
+		// Etervale fork: MGFX 12.
 		public Storage[] _storage = [];
 		public int ThreadGroupX, ThreadGroupY, ThreadGroupZ;
 		public MgfxShaderRequirements Requirements;

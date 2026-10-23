@@ -19,14 +19,14 @@ VUID-vkCmdBindDescriptorSets-pDescriptorSets-01979: pDynamicOffsets[0] is 335539
 descriptor's range (4416) and offset (0) is greater than the size of the buffer (33554432)
 ```
 
-An ordinary frame stays well below 32 MB. Rendering the scene several times before one `Present` does not: WingSim's
-ColorChecker capture renders the frame 8 times per display transform into an off-screen target and reads it back.
+An ordinary frame stays well below 32 MB. Rendering the scene several times before one `Present` does not: a
+colour-chart capture renders the frame 8 times per display transform into an off-screen target and reads it back.
 Every measurement came back black (mean ΔE00 47.6 instead of 1.2).
 
 Repro: `monogame/runtime/repro/StateCacheRepro`, test 4: 80 000 draws with fresh constants into a render target,
 then `GetData`. The official runtime returns the wrong colour.
 
-### The fix in WingSim's fork (change 9)
+### The fix in the fork (change 9)
 
 Before each draw, `MGVK_EnsureUniformSpace` checks that at least 1 MB is left. If not, it submits the commands recorded
 so far and waits for them (as `GetData` already does for a target written this frame), restarts the command buffer,

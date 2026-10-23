@@ -2,7 +2,7 @@
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
-// WingSim fork: the public entry point of the effect compiler, for the content processor (SpirvEffectProcessor) and the
+// Etervale fork: the public entry point of the effect compiler, for the content processor (SpirvEffectProcessor) and the
 // effect tests (monogame/issues/007-mgcb-profiles.md).
 
 using System.IO;

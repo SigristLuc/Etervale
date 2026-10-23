@@ -186,7 +186,7 @@ namespace MonoGame.Framework.Utilities
         /// <summary>
         /// Fallback handler for Marshal.SizeOf(type)
         /// </summary>
-        // WingSim fork: upstream marked this obsolete because Marshal.SizeOf(Type) is not PublishAot-compliant. WingSim's
+        // Etervale fork: upstream marked this obsolete because Marshal.SizeOf(Type) is not PublishAot-compliant. This
         // build of the framework is not AOT (no IsAotCompatible), and IndexBuffer uses it on every platform, so the
         // attribute only produced a warning (CS0618) without a better alternative for an arbitrary index type.
         internal static int ManagedSizeOf(Type type)

@@ -1,6 +1,6 @@
 # Builds the MonoGame native Vulkan runtime (mgruntime.dll) for Windows x64 from the vendored source in src/ and writes it
-# to bin/win-x64/, where the client and the test runner pick it up. Etervale's addition to the fork copied from WingSim:
-# the same steps as WingSim's CI job (.github/workflows/mgruntime.yml, job "windows"), run locally.
+# to bin/win-x64/, where the client and the test runner pick it up. It runs the steps of the
+# fork's Windows CI build locally.
 #
 #   powershell -ExecutionPolicy Bypass -File monogame/runtime/build-windows.ps1
 #
@@ -126,7 +126,7 @@ Invoke-Checked $cmake (@('-S', $faudio, '-B', "$faudio\build\x64") + $common + @
     "-DCMAKE_C_STANDARD_INCLUDE_DIRECTORIES=$sdl\include"))
 Invoke-Checked $cmake @('--build', "$faudio\build\x64", '--config', 'Release', '--parallel', '2')
 
-# premake 5.0.0-beta8 (the version WingSim's CI uses). It writes Visual Studio 2022 projects; with Visual Studio 2026
+# premake 5.0.0-beta8 (the version the fork's CI build uses). It writes Visual Studio 2022 projects; with Visual Studio 2026
 # MSBuild builds them with its own toolset (PlatformToolset below).
 $premake = Join-Path $work 'premake\premake5.exe'
 if (-not (Test-Path $premake))

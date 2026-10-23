@@ -1,6 +1,6 @@
 
 #----------------------------- Global Properties ----------------------------#
-# The repro's one effect (test 5: pixel-shader constants), compiled with DXC like WingSim's Vulkan shaders.
+# The repro's one effect (test 5: pixel-shader constants), compiled with DXC like the client's Vulkan shaders.
 
 /outputDir:bin/$(Platform)
 /intermediateDir:obj/$(Platform)

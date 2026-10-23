@@ -13,7 +13,7 @@ using MonoGame.Effect.Compiler.Effect.Spirv;
 
 namespace MonoGame.Effect
 {
-    // WingSim fork (monogame/issues/005-008): besides vs_6_0/ps_6_0, compute shaders (cs_6_0), the SM 6.5 profiles
+    // Etervale fork (monogame/issues/005-008): besides vs_6_0/ps_6_0, compute shaders (cs_6_0), the SM 6.5 profiles
     // (vs_6_5, ps_6_5, cs_6_5: SPIR-V for Vulkan 1.2, so DXC can emit RayQuery with SPV_KHR_ray_query), and the storage
     // resources of SM 6: StructuredBuffer and ByteAddressBuffer (t registers), RWStructuredBuffer, RWByteAddressBuffer and
     // RWTexture2D (u registers), RaytracingAccelerationStructure (t, SM 6.5). A vs_6_0/ps_6_0 shader compiles exactly as
@@ -129,7 +129,7 @@ namespace MonoGame.Effect
             public nint pImmutableSamplers;
         };
 
-        // WingSim fork: the DXC arguments of a shader, without the reflection switch and the files. Kept apart so a test
+        // Etervale fork: the DXC arguments of a shader, without the reflection switch and the files. Kept apart so a test
         // can check that a vs_6_0/ps_6_0 shader is compiled with upstream's arguments.
         internal static string DxcArguments(MgfxShaderStage stage, string shaderModel)
         {
@@ -155,10 +155,10 @@ namespace MonoGame.Effect
             // Offset the texture/sampler slots?
             toolArgs += $"-fvk-t-shift {SlotOffset} all ";
             toolArgs += $"-fvk-s-shift {SlotOffset} all ";
-            // WingSim fork: the u registers (RW resources) after the textures.
+            // Etervale fork: the u registers (RW resources) after the textures.
             toolArgs += $"-fvk-u-shift {UavSlotOffset} all ";
 
-            // WingSim fork: SM 6.5 for ray queries, which need SPIR-V 1.4 or later: the Vulkan 1.2 environment (SPIR-V 1.5).
+            // Etervale fork: SM 6.5 for ray queries, which need SPIR-V 1.4 or later: the Vulkan 1.2 environment (SPIR-V 1.5).
             if (shaderModel.EndsWith("_6_5", StringComparison.Ordinal))
                 toolArgs += "-fspv-target-env=vulkan1.2 ";
 
@@ -276,7 +276,7 @@ namespace MonoGame.Effect
 
                 foreach (SpirvVariable variable in withDescriptorSet)
                 {
-                    // WingSim fork: storage buffers, storage images and acceleration structures (issues 005, 006, 008).
+                    // Etervale fork: storage buffers, storage images and acceleration structures (issues 005, 006, 008).
                     if (TryAddStorage(variable, storage, ref errorsAndWarnings))
                         continue;
 
@@ -373,7 +373,7 @@ namespace MonoGame.Effect
 
                         if (!sampledImages.Any())
                         {
-                            // This is for handling textures that are read via .Load and not a sampler. WingSim (issue 011):
+                            // This is for handling textures that are read via .Load and not a sampler. Fork (issue 011):
                             // registered even when a sampler_state names the texture. The upstream code skipped those, so
                             // a shader that only loads such a texture had no binding for it and read zeros.
                             var imageLoads = reflectionInfo.ImageLoads.Where(si => si.Variable == variable).DistinctBy(si => si.Variable);
@@ -518,7 +518,7 @@ namespace MonoGame.Effect
                     }
                 }
 
-                // WingSim fork: the RW resources of SM 6 are for compute shaders (a pixel shader writing a storage
+                // Etervale fork: the RW resources of SM 6 are for compute shaders (a pixel shader writing a storage
                 // image or buffer needs device features the runtime does not enable).
                 if (stage != MgfxShaderStage.Compute && storage.Any(s => IsWritable(s.kind)))
                 {
@@ -596,7 +596,7 @@ namespace MonoGame.Effect
                             continue;
                         }
 
-                        // WingSim (issue 011): slot 0 is a slot (a texture loaded at t0, a sampler at s0 sampling
+                        // Fork (issue 011): slot 0 is a slot (a texture loaded at t0, a sampler at s0 sampling
                         // another register); "> 0" left them without a binding. No sampler is -1.
                         if (s.samplerSlot >= 0)
                         {
@@ -617,7 +617,7 @@ namespace MonoGame.Effect
                         }
                     }
 
-                    // WingSim fork: the storage resources, at their register's binding (the runtime derives its slot
+                    // Etervale fork: the storage resources, at their register's binding (the runtime derives its slot
                     // masks from these bindings, monogame/runtime MGG_Shader_Create).
                     foreach (var s in storage)
                     {
@@ -678,7 +678,7 @@ namespace MonoGame.Effect
         static bool IsWritable(MgfxStorageKind kind) =>
             kind == MgfxStorageKind.RWStructuredBuffer || kind == MgfxStorageKind.RWByteAddressBuffer || kind == MgfxStorageKind.RWTexture2D;
 
-        // WingSim fork: a storage resource from its HLSL type (UserTypeGOOGLE): false for anything else (cbuffers,
+        // Etervale fork: a storage resource from its HLSL type (UserTypeGOOGLE): false for anything else (cbuffers,
         // textures, samplers), which the upstream code handles. Unsupported RW types and UAV counters are errors here,
         // rather than resources the runtime would bind wrongly.
         static bool TryAddStorage(SpirvVariable variable, List<ShaderData.Storage> storage, ref string errorsAndWarnings)
@@ -710,7 +710,7 @@ namespace MonoGame.Effect
                 case "appendstructuredbuffer":
                 case "consumestructuredbuffer":
                 case "rasterizerorderedtexture2d":
-                    errorsAndWarnings += $"'{name}' ({userType}): not supported by the WingSim fork's Vulkan profile; use RWTexture2D, StructuredBuffer, RWStructuredBuffer, ByteAddressBuffer or RWByteAddressBuffer.\n";
+                    errorsAndWarnings += $"'{name}' ({userType}): not supported by the Etervale fork's Vulkan profile; use RWTexture2D, StructuredBuffer, RWStructuredBuffer, ByteAddressBuffer or RWByteAddressBuffer.\n";
                     throw new ShaderCompilerException();
                 default:
                     if (variable.Pointer.PointerType is SpirvTypeAccelerationStructure)

@@ -126,7 +126,7 @@ namespace Microsoft.Xna.Framework.Content
                     if (existingInstance != null)
                         part = existingInstance.Meshes[i].MeshParts[(int)j];
                     else
-                        // WingSim fork: the reader is the internal user upstream keeps this constructor for; it is
+                        // Etervale fork: the reader is the internal user upstream keeps this constructor for; it is
                         // obsolete for applications only (CS0618).
 #pragma warning disable CS0618
                         part = new ModelMeshPart();

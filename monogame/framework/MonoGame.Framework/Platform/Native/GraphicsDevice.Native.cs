@@ -228,7 +228,7 @@ public partial class GraphicsDevice
         SamplerStates.Dirty();
         VertexTextures.Dirty();
         VertexSamplerStates.Dirty();
-        DirtyComputeState();   // WingSim fork (issue 005)
+        DirtyComputeState();   // Etervale fork (issue 005)
 
         MGG.GraphicsDevice_SetViewport(
             Handle,
@@ -456,7 +456,7 @@ public partial class GraphicsDevice
         Textures.SetTextures(this);
         SamplerStates.PlatformSetSamplers(this);
 
-        // WingSim fork: the storage buffers the vertex and pixel shaders read (issue 006).
+        // Etervale fork: the storage buffers the vertex and pixel shaders read (issue 006).
         PushStorage(ShaderStage.Vertex);
         PushStorage(ShaderStage.Pixel);
 

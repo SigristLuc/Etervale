@@ -13,7 +13,7 @@ namespace MonoGame.Effect
 	{
 
         private const string Header = "MGFX";
-        // WingSim fork: 12 adds compute shaders, each shader's storage resources, thread group size and requirements,
+        // Etervale fork: 12 adds compute shaders, each shader's storage resources, thread group size and requirements,
         // and a pass's compute shader index (monogame/issues/007). The framework reads 10 to 12.
         internal const int Version = 12;
         
@@ -101,7 +101,7 @@ namespace MonoGame.Effect
                         var pixelShader = GetShaderIndex(STATE_CLASS.PIXELSHADER, pass.states);
                         memWriter.Write(vertexShader);
                         memWriter.Write(pixelShader);
-                        // WingSim fork (MGFX 12): and the compute shader's.
+                        // Etervale fork (MGFX 12): and the compute shader's.
                         memWriter.Write(GetShaderIndex(STATE_CLASS.COMPUTESHADER, pass.states));
 
                         // Write the state objects too!

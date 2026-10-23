@@ -4,7 +4,7 @@
 
 namespace MonoGame.Effect.Compiler.Effect.Spirv;
 
-// WingSim fork: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpTypeAccelerationStructureKHR, the
+// Etervale fork: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpTypeAccelerationStructureKHR, the
 // type of a RaytracingAccelerationStructure in the SM 6.5 profiles (monogame/issues/008-shader-model-6.5.md).
 internal class SpirvTypeAccelerationStructure : SpirvTypeBase
 {

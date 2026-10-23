@@ -77,7 +77,7 @@ namespace Microsoft.Xna.Framework.Graphics
         }
     }
 
-    // WingSim fork (monogame/issues/005, 006, 007): the storage resources of a shader, as the effect compiler wrote
+    // Etervale fork (monogame/issues/005, 006, 007): the storage resources of a shader, as the effect compiler wrote
     // them (MGFX 12). The kinds match the effect compiler's MgfxStorageKind.
     internal enum StorageKind : byte
     {
@@ -105,27 +105,27 @@ namespace Microsoft.Xna.Framework.Graphics
         public bool IsWritable => kind == StorageKind.RWStructuredBuffer || kind == StorageKind.RWByteAddressBuffer || kind == StorageKind.RWTexture2D;
     }
 
-    /// <summary>WingSim fork: what a shader needs from the device beyond SM 6.0 (MGFX 12).</summary>
+    /// <summary>Etervale fork: what a shader needs from the device beyond SM 6.0 (MGFX 12).</summary>
     [Flags]
     internal enum ShaderRequirements : uint
     {
         None = 0,
-        /// <summary>Ray queries (SM 6.5 profiles, SPIR-V 1.5 with SPV_KHR_ray_query): phase R2.4.</summary>
+        /// <summary>Ray queries (SM 6.5 profiles, SPIR-V 1.5 with SPV_KHR_ray_query); the runtime does not support them yet.</summary>
         RayQuery = 1,
     }
 
     internal partial class Shader : GraphicsResource
 	{
-        /// <summary>WingSim fork: the storage buffers and images the shader reads or writes (MGFX 12).</summary>
+        /// <summary>Etervale fork: the storage buffers and images the shader reads or writes (MGFX 12).</summary>
         public StorageInfo[] Storage { get; private set; } = Array.Empty<StorageInfo>();
 
-        /// <summary>WingSim fork: a compute shader's thread group size (<c>[numthreads(x, y, z)]</c>), else zeros.</summary>
+        /// <summary>Etervale fork: a compute shader's thread group size (<c>[numthreads(x, y, z)]</c>), else zeros.</summary>
         public int ThreadGroupSizeX { get; private set; }
 
-        /// <summary>WingSim fork: see <see cref="ThreadGroupSizeX"/>.</summary>
+        /// <summary>Etervale fork: see <see cref="ThreadGroupSizeX"/>.</summary>
         public int ThreadGroupSizeY { get; private set; }
 
-        /// <summary>WingSim fork: see <see cref="ThreadGroupSizeX"/>.</summary>
+        /// <summary>Etervale fork: see <see cref="ThreadGroupSizeX"/>.</summary>
         public int ThreadGroupSizeZ { get; private set; }
 
         /// <summary>
@@ -154,7 +154,7 @@ namespace Microsoft.Xna.Framework.Graphics
         {
             GraphicsDevice = device;
 
-            // WingSim fork: MGFX 12 writes the stage (compute shaders); MGFX 10-11 a vertex-shader flag.
+            // Etervale fork: MGFX 12 writes the stage (compute shaders); MGFX 10-11 a vertex-shader flag.
             if (version >= 12)
                 Stage = (ShaderStage)reader.ReadByte();
             else
@@ -221,14 +221,14 @@ namespace Microsoft.Xna.Framework.Graphics
             }
 
             if (version >= 12)
-                ReadWingSimRecord(reader);
+                ReadEtervaleRecord(reader);
 
             PlatformConstruct(Stage, shaderBytecode);
         }
 
-        // WingSim fork: the MGFX 12 part of a shader record (the effect compiler's ShaderData.Write): storage resources,
+        // Etervale fork: the MGFX 12 part of a shader record (the effect compiler's ShaderData.Write): storage resources,
         // thread group size, requirements.
-        private void ReadWingSimRecord(BinaryReader reader)
+        private void ReadEtervaleRecord(BinaryReader reader)
         {
             var storageCount = (int)reader.ReadByte();
             Storage = new StorageInfo[storageCount];
@@ -252,7 +252,7 @@ namespace Microsoft.Xna.Framework.Graphics
             {
                 throw new NotSupportedException(
                     $"Shader {Entrypoint} ({SourceFile}) uses ray queries (an SM 6.5 profile): the runtime does not enable " +
-                    "VK_KHR_ray_query and acceleration structures before phase R2.4 (docs/research/14-specs/R2-ray-tracing.md).");
+                    "VK_KHR_ray_query and acceleration structures.");
             }
         }
 

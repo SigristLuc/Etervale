@@ -30,7 +30,7 @@ namespace Microsoft.Xna.Framework.Graphics
             /// as users should be rebuilding content when packaging their game.
             /// </remarks>
             /// <remarks>
-            /// WingSim fork: 12 adds compute shaders, the storage resources and thread group size of each shader, and a
+            /// Etervale fork: 12 adds compute shaders, the storage resources and thread group size of each shader, and a
             /// compute shader per pass (monogame/issues/007-mgcb-profiles.md). Versions 10 and 11 still load.
             /// </remarks>
             public const int MGFXVersion = 12;
@@ -366,7 +366,7 @@ namespace Microsoft.Xna.Framework.Graphics
                 shaderIndex = reader.ReadInt32();
                 Shader pixelShader = shaderIndex < 0 ? null : shaders[shaderIndex];
 
-                // WingSim fork: and the compute shader (MGFX 12).
+                // Etervale fork: and the compute shader (MGFX 12).
                 Shader computeShader = null;
                 if (version >= 12)
                 {

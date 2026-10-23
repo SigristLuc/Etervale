@@ -1,12 +1,12 @@
 # 009. A streaming voice's free buffers are reused one at a time
 
-Part: runtime. Workstream E2 (audio).
+Part: runtime (audio).
 
 ## Symptom
 
-WingSim's mixer (`src/WingSim.Audio`) streams the whole simulator's sound through one `DynamicSoundEffectInstance`: a
-block of 10 ms (1 920 bytes of 16-bit stereo) every 10 ms, three blocks queued, from an audio thread
-(`src/WingSim.Engine/Audio/AudioOutput.cs`). Every block goes through `MGA_Voice_AppendBuffer`
+An application's software mixer streams all of its sound through one `DynamicSoundEffectInstance`: a block of 10 ms
+(1 920 bytes of 16-bit stereo) every 10 ms, three blocks queued, from an audio thread. Every block goes through
+`MGA_Voice_AppendBuffer`
 (`runtime/src/faudio/MGA_faudio.cpp`), which takes a free copy buffer from the system's list (`freeRawBuffers`, filled
 by `OnBufferEnd`) or allocates one. When three or more free buffers fit, the function used one and **lost the
 others**: they left the free list and were never freed or used again (a native leak of one block per lost buffer, and
@@ -21,14 +21,12 @@ the next append, which an audio thread that sleeps a few milliseconds between ap
 
 ## Change
 
-`break` after the buffer is taken (`WingSim fork (issue 009)` marker). `regenpatch.sh` now also records
+`break` after the buffer is taken (`Etervale fork (issue 009)` marker). `regenpatch.sh` now also records
 `faudio/MGA_faudio.cpp` in `monogame-v3.8.6.patch`. No exported function changes: the interface version stays 2.
 
 ## Test
 
 - By reading: with the `break`, the buffer removed from the list is the one submitted, and `OnBufferEnd` returns it.
-- Correction (2026-10-16): this section said the game streamed its sound for minutes on the rebuilt runtime. That was
-  wrong: every E2 check then was offline (`--audio-capture` renders on the simulation clock, no device), and the real
-  device path crashed on ALSA (issue 010). Measured since, with the device open (`--check-audio-device`, issue 010):
-  10 s on SDL's default driver, PipeWire, PulseAudio and ALSA, 1000–1001 blocks of 10 ms each, 0 underruns, and three
-  minutes on PipeWire and on ALSA (`docs/research/14-specs/E2-audio.md`).
+- With the audio device open (issue 010): 10 s on SDL's default driver, PipeWire, PulseAudio and ALSA, 1000–1001
+  blocks of 10 ms each, 0 underruns, and three minutes on PipeWire and on ALSA. Offline renders (no device) do not
+  exercise this path.

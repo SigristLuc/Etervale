@@ -2808,7 +2808,7 @@ namespace MonoGame.Effect.TPGParser
             parent.Token.UpdateRange(node.Token);
         } // NonTerminalSymbol: PixelShader_Pass_Expression
 
-        // WingSim fork: compute passes (monogame/issues/007).
+        // Etervale fork: compute passes (monogame/issues/007).
         private void ParseComputeShader_Pass_Expression(ParseNode parent) // NonTerminalSymbol: ComputeShader_Pass_Expression
         {
             Token tok;

@@ -1,6 +1,6 @@
 
 #----------------------------- Global Properties ----------------------------#
-# TextureLoadRepro's effect, compiled by the effect processor of WingSim's MonoGame fork (monogame/pipeline) with the
+# TextureLoadRepro's effect, compiled by the effect processor of Etervale's MonoGame fork (monogame/pipeline) with the
 # DXC of the dotnet-mgcb tool.
 
 /outputDir:bin/$(Platform)

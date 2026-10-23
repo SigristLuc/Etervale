@@ -9,7 +9,7 @@ namespace MonoGame.Framework.Utilities
     {
         // This helper caches the Marshal.SizeOf result
         // as it generates an allocation on each call.
-        // WingSim fork: private, as upstream's Obsolete text asked; FastSizeOf<T>() is the way in (CS0618 was the
+        // Etervale fork: private, as upstream's Obsolete text asked; FastSizeOf<T>() is the way in (CS0618 was the
         // warning of that unfinished change).
         private static class SizeOf<T>
         {

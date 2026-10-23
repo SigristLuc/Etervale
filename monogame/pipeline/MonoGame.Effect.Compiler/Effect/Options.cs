@@ -14,7 +14,7 @@ namespace MonoGame.Effect
         public string OutputFile = string.Empty;
 
         [CommandLineParser.ProfileName]
-        public ShaderProfile Profile = ShaderProfile.Vulkan;   // WingSim fork: the only profile
+        public ShaderProfile Profile = ShaderProfile.Vulkan;   // Etervale fork: the only profile
 
         [CommandLineParser.Name("Debug", "\t\t - Include extra debug information in the compiled effect.")]
         public bool Debug;

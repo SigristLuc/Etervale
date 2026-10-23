@@ -6,7 +6,7 @@
 
 # [Vulkan] Enable independentBlend when the device supports it
 
-### Problem and the fix in WingSim's fork
+### Problem and the fix in the fork
 
 `MGG_GraphicsDevice_Create` enables only `sampleRateShading`, `occlusionQueryPrecise` and `samplerAnisotropy`. A
 `BlendState` with `IndependentBlendEnable = true` and different settings per render target gives a pipeline whose

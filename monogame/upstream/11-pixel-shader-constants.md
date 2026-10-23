@@ -27,15 +27,15 @@ uploaded only when a texture or sampler changed as well, or the vertex shader's 
 rebound. Otherwise the draw keeps the previous draw's dynamic offset and reads the previous draw's constants.
 
 Most draws change something else at the same time, which hides it. A sequence of draws with the same full-screen
-vertex shader (no constants), the same textures and only a different pixel-shader parameter shows it every time. In
-WingSim, the GGX prefilter of the environment map draws one roughness level per draw. On Vulkan every level after the
+vertex shader (no constants), the same textures and only a different pixel-shader parameter shows it every time. For
+example, a GGX prefilter of the environment map draws one roughness level per draw. On Vulkan every level after the
 first used the first level's roughness, read back from the target: 0.25, 0.25, 0.25, 0.25 instead of 0.25, 0.5, 0.75,
-1.0. The rough reflections at night lost most of the city glow (terrain 25 % darker than on OpenGL).
+1.0. The rough reflections lost most of the environment's glow (the ground 25 % darker than on OpenGL).
 
 Repro: `monogame/runtime/repro/StateCacheRepro`, test 5 (`Content/PixelConstants.fx`): two draws that change only a
 pixel-shader colour. The official runtime draws the first colour twice.
 
-### The fix in WingSim's fork (change 11)
+### The fix in the fork (change 11)
 
 The test uses the stage's bit:
 

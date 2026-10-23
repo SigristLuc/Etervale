@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-// Verification of issue 011 of WingSim's MonoGame fork (monogame/issues/011-texture-load-binding.md): a pixel shader
+// Verification of issue 011 of Etervale's MonoGame fork (monogame/issues/011-texture-load-binding.md): a pixel shader
 // copies a 7 × 5 RGBA32F texture into a render target, which is read back and compared exactly.
 //  1. Load, with a sampler_state naming the texture that this shader does not use (the effect processor dropped the
 //     texture's binding: the shader read zeros).

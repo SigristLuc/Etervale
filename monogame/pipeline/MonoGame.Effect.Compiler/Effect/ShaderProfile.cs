@@ -15,7 +15,7 @@ using MonoGame.Effect.TPGParser;
 
 namespace MonoGame.Effect
 {
-    // WingSim fork: the effect compiler of WingSim's MonoGame fork builds for Vulkan only (monogame/pipeline/README.md).
+    // Etervale fork: the effect compiler of Etervale's MonoGame fork builds for Vulkan only (monogame/pipeline/README.md).
     // Upstream found its profiles (OpenGL, DirectX 11 and 12, Vulkan) by scanning the loaded assemblies
     // (LoadedTypeCollection); here the one profile is a static instance, and the content processor maps the DesktopVK
     // platform to it (SpirvEffectProcessor).

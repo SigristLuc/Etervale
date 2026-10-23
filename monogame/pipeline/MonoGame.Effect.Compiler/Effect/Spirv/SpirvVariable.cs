@@ -26,7 +26,7 @@ namespace MonoGame.Effect.Compiler.Effect.Spirv
 
         public string? HlslSemantic { get; private set; }
 
-        // WingSim fork: the HLSL resource type (UserTypeGOOGLE), lower case: "cbuffer", "structuredbuffer:<Node>",
+        // Etervale fork: the HLSL resource type (UserTypeGOOGLE), lower case: "cbuffer", "structuredbuffer:<Node>",
         // "rwstructuredbuffer:<uint>", "byteaddressbuffer", "rwbyteaddressbuffer", "texture2d:<float4>",
         // "rwtexture2d:<float4>", "raytracingaccelerationstructure".
         public string? HlslUserType { get; private set; }

@@ -90,13 +90,13 @@ namespace Microsoft.Xna.Framework.Graphics
         }
 
         /// <summary>
-        /// WingSim fork: the mip of the texture a <see cref="EffectParameterType.RWTexture2D"/> parameter writes
+        /// Etervale fork: the mip of the texture a <see cref="EffectParameterType.RWTexture2D"/> parameter writes
         /// (<see cref="SetValue(Texture2D, int)"/>).
         /// </summary>
         internal int StorageMipLevel { get; private set; }
 
         /// <summary>
-        /// WingSim fork: binds a buffer to a <c>StructuredBuffer</c>, <c>RWStructuredBuffer</c>,
+        /// Etervale fork: binds a buffer to a <c>StructuredBuffer</c>, <c>RWStructuredBuffer</c>,
         /// <c>ByteAddressBuffer</c> or <c>RWByteAddressBuffer</c> parameter (null unbinds it).
         /// </summary>
         /// <exception cref="InvalidCastException">The parameter is not a buffer.</exception>
@@ -114,7 +114,7 @@ namespace Microsoft.Xna.Framework.Graphics
         }
 
         /// <summary>
-        /// WingSim fork: binds mip <paramref name="mipLevel"/> of a texture to a <c>RWTexture2D</c> parameter (null
+        /// Etervale fork: binds mip <paramref name="mipLevel"/> of a texture to a <c>RWTexture2D</c> parameter (null
         /// unbinds it). The texture must have been created with <see cref="TextureShaderAccess.ReadWrite"/>, in the
         /// format the shader declares (its <c>[[vk::image_format]]</c>, checked when the pass is applied).
         /// </summary>
@@ -134,7 +134,7 @@ namespace Microsoft.Xna.Framework.Graphics
             StateKey = unchecked(NextStateKey++);
         }
 
-        /// <summary>WingSim fork: the buffer bound to a buffer parameter (null if none).</summary>
+        /// <summary>Etervale fork: the buffer bound to a buffer parameter (null if none).</summary>
         /// <exception cref="InvalidCastException">The parameter is not a buffer.</exception>
         public StructuredBuffer GetValueStructuredBuffer()
         {
@@ -1130,7 +1130,7 @@ namespace Microsoft.Xna.Framework.Graphics
         /// <inheritdoc cref="SetValue(bool)"/>
         public void SetValue (Texture value)
 		{
-            // WingSim fork: a RWTexture2D parameter takes mip 0 of a writable texture (SetValue(Texture2D, int)).
+            // Etervale fork: a RWTexture2D parameter takes mip 0 of a writable texture (SetValue(Texture2D, int)).
             if (this.ParameterType == EffectParameterType.RWTexture2D)
             {
                 if (value != null && value is not Texture2D)

@@ -23,7 +23,7 @@ namespace MonoGame.Effect.Compiler.Effect.Spirv
         Struct,
         Pointer,
         Function,
-        AccelerationStructure   // WingSim fork: OpTypeAccelerationStructureKHR (SM 6.5 ray queries)
+        AccelerationStructure   // Etervale fork: OpTypeAccelerationStructureKHR (SM 6.5 ray queries)
     }
 
     // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_type_declaration_instructions

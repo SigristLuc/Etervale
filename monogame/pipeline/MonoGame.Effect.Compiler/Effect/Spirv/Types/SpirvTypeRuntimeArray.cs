@@ -13,7 +13,7 @@ internal class SpirvTypeRuntimeArray : SpirvTypeBase
 
     public required SpirvTypeBase ElementType { get; init; }
 
-    // WingSim fork: the element stride of a structured buffer.
+    // Etervale fork: the element stride of a structured buffer.
     public uint ArrayStride { get; private set; }
 
     public override void ApplyDecoration(SpirvDecoration spirvDecoration)

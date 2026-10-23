@@ -88,7 +88,7 @@ namespace MonoGame.Effect.TPGParser
             Patterns.Add(TokenType.PixelShader, regex);
             Tokens.Add(TokenType.PixelShader);
 
-            // WingSim fork: compute passes (monogame/issues/007).
+            // Etervale fork: compute passes (monogame/issues/007).
             regex = new Regex(@"ComputeShader", RegexOptions.Compiled | RegexOptions.IgnoreCase);
             Patterns.Add(TokenType.ComputeShader, regex);
             Tokens.Add(TokenType.ComputeShader);
@@ -904,7 +904,7 @@ namespace MonoGame.Effect.TPGParser
             BlendFactor= 224,
             InvBlendFactor= 225,
 
-            // WingSim fork: compute passes (monogame/issues/007).
+            // Etervale fork: compute passes (monogame/issues/007).
             ComputeShader_Pass_Expression= 226,
             ComputeShader= 227
     }

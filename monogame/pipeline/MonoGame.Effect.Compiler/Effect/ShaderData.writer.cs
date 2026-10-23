@@ -7,7 +7,7 @@ namespace MonoGame.Effect
     {
         public void Write(BinaryWriter writer, Options options)
         {
-            // WingSim fork: MGFX 12 writes the stage (0 vertex, 1 pixel, 2 compute) where MGFX 11 wrote a vertex flag.
+            // Etervale fork: MGFX 12 writes the stage (0 vertex, 1 pixel, 2 compute) where MGFX 11 wrote a vertex flag.
             writer.Write((byte)Stage);
 
             writer.Write(SourceFile ?? "<unknown>");
@@ -59,8 +59,8 @@ namespace MonoGame.Effect
                 writer.Write((short)attrib.location);
             }
 
-            // WingSim fork (MGFX 12, monogame/issues/007): the storage resources, the thread group size of a compute
-            // shader, and the requirements beyond SM 6.0. Read by the framework's Shader.ReadWingSimRecord.
+            // Etervale fork (MGFX 12, monogame/issues/007): the storage resources, the thread group size of a compute
+            // shader, and the requirements beyond SM 6.0. Read by the framework's Shader.ReadEtervaleRecord.
             writer.Write((byte)_storage.Length);
             foreach (var storage in _storage)
             {

@@ -17,9 +17,9 @@ Repro: `SetRenderTarget(rt); Clear(c); draw; SetRenderTarget(null); rt.GetData(p
 those of the previous frame's draw (`monogame/runtime/repro/StateCacheRepro`: every stress frame read the expected
 value of the frame before).
 
-### The fix in WingSim's fork (change 7)
+### The fix in the fork (change 7)
 
-The flush also happens when the target was written this frame (`writeFrame`, the frame stamp WingSim's change 2 keeps
+The flush also happens when the target was written this frame (`writeFrame`, the frame stamp the fork's change 2 keeps
 for render targets):
 
 ```cpp

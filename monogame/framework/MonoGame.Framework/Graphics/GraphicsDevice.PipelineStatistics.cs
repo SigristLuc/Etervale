@@ -2,7 +2,7 @@
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
-// WingSim fork: the driver's statistics of a pipeline (monogame/issues/012-pipeline-statistics.md).
+// Etervale fork: the driver's statistics of a pipeline (monogame/issues/012-pipeline-statistics.md).
 
 using System;
 using System.Collections.Generic;

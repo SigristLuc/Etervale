@@ -1,4 +1,4 @@
-WingSim fork, monogame/issues/010: SDL2's ALSA backend writes the default device's name through a NULL pointer.
+Etervale fork, monogame/issues/010: SDL2's ALSA backend writes the default device's name through a NULL pointer.
 SDL_GetDefaultAudioInfo documents `name` as optional ("can be NULL"); the PulseAudio and PipeWire backends check it,
 ALSA_GetDefaultAudioInfo does not. FAudio (FAudio_platform_sdl2.c, FAudio_PlatformGetDeviceDetails) passes NULL when
 it creates the mastering voice, so the first sound on the ALSA backend segfaults. Also frees the card name, which
@@ -9,7 +9,7 @@ snd_card_get_name allocates for the caller. Applied by build.sh to the pinned SD
      card_index = ALSA_snd_pcm_info_get_card(pcm_info);
      dev_name = ALSA_snd_pcm_info_get_name(pcm_info);
 
-+    /* WingSim fork (monogame/issues/010): `name` may be NULL (SDL_GetDefaultAudioInfo's contract; FAudio passes NULL),
++    /* Etervale fork (monogame/issues/010): `name` may be NULL (SDL_GetDefaultAudioInfo's contract; FAudio passes NULL),
 +       and the card name from snd_card_get_name is the caller's to free. */
      if (card_index >= 0 && ALSA_snd_card_get_name(card_index, &card_name) >= 0) {
 -        SDL_snprintf(final_name, sizeof(final_name), "%s, %s", card_name, dev_name);

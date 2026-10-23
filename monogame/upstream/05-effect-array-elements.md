@@ -21,11 +21,11 @@ if (param.StateKey < _stateKey)
 - It shows up only when the whole array is written again, for example on the first update or after a `SetValue` of
   the array itself.
 
-The code is in the shared C#, not in a backend. WingSim found it on Native/Vulkan:
+The code is in the shared C#, not in a backend. It was found on Native/Vulkan:
 - a material's six UV transforms, a `float4 UvU[6]` array, were set per element;
 - they stayed at zero, so every texture was sampled at UV 0.
 
-### Workaround in WingSim (the C# framework is not forked)
+### Workaround in application code
 
 The whole array is set with `parameter.SetValue(Vector4[])` from a preallocated array. That moves the parent's
 `StateKey`.

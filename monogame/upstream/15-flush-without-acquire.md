@@ -19,7 +19,7 @@ the semaphore as usual.
 The window-resize path (fork change 12) also submits with that wait. When a flush had already consumed it, the wait was
 made a second time on a semaphore with no pending signal: `VUID-vkQueueSubmit-pWaitSemaphores-03238`.
 
-### The fix in WingSim's fork (change 16)
+### The fix in the fork (change 16)
 
 `MGVK_Frame::acquireWaited` is cleared when the image is acquired. The first submission of the frame that has an image
 waits on the semaphore and sets the flag:
@@ -29,5 +29,5 @@ waits on the semaphore and sets the flag:
 
 Later submissions of the frame do not wait again.
 
-With the fix, the Khronos validation layer reports nothing in a zoom run of WingSim's setup screen. Before it reported
-`03238` twice (and `00279`, which was a WingSim shader bug).
+With the fix, the Khronos validation layer reports nothing in a zoom run of a test scene. Before it reported `03238`
+twice (and `00279`, which was a bug in the application's shader).

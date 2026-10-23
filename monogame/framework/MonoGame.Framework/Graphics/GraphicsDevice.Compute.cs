@@ -2,7 +2,7 @@
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
-// WingSim fork: compute dispatches and the storage resources of every stage (monogame/issues/005-compute-and-uav.md,
+// Etervale fork: compute dispatches and the storage resources of every stage (monogame/issues/005-compute-and-uav.md,
 // 006-structured-buffers.md).
 
 using System;

@@ -2,7 +2,7 @@
   <!--
     Verification program of the fork's compute path (monogame/issues/005 to 008): compute dispatches, storage images and
     buffers, indirect dispatch, the ordering of uploads and dispatches in the frame, uploads from another thread, constants
-    of dispatches across frames in flight, and the refusal of SM 6.5 ray queries before phase R2.4. Program.cs lists the
+    of dispatches across frames in flight, and the refusal of SM 6.5 ray queries. Program.cs lists the
     checks; the exit code is the number that failed. Not part of the solution; needs the runtime fork built
     (monogame/runtime/build.sh).
 
@@ -23,18 +23,18 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <WingSimRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Linux')) And '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64'">linux-x64</WingSimRuntimeRid>
-    <WingSimRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Linux')) And '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64'">linux-arm64</WingSimRuntimeRid>
-    <WingSimRuntimeRid Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx</WingSimRuntimeRid>
-    <WingSimRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</WingSimRuntimeRid>
-    <WingSimRuntimeDir>$(MSBuildThisFileDirectory)../../bin/$(WingSimRuntimeRid)/</WingSimRuntimeDir>
+    <EtervaleRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Linux')) And '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64'">linux-x64</EtervaleRuntimeRid>
+    <EtervaleRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Linux')) And '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64'">linux-arm64</EtervaleRuntimeRid>
+    <EtervaleRuntimeRid Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx</EtervaleRuntimeRid>
+    <EtervaleRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</EtervaleRuntimeRid>
+    <EtervaleRuntimeDir>$(MSBuildThisFileDirectory)../../bin/$(EtervaleRuntimeRid)/</EtervaleRuntimeDir>
   </PropertyGroup>
   <!-- The fork's native library next to the executable. -->
-  <Target Name="WingSimForkedRuntime" AfterTargets="Build" Condition="'$(WingSimRuntimeRid)' != ''">
-    <Error Condition="!Exists('$(WingSimRuntimeDir)')" Text="Build the runtime fork first: monogame/runtime/build.sh." />
+  <Target Name="EtervaleForkedRuntime" AfterTargets="Build" Condition="'$(EtervaleRuntimeRid)' != ''">
+    <Error Condition="!Exists('$(EtervaleRuntimeDir)')" Text="Build the runtime fork first: monogame/runtime/build.sh." />
     <ItemGroup>
-      <WingSimRuntimeFile Include="$(WingSimRuntimeDir)*mgruntime*" />
+      <EtervaleRuntimeFile Include="$(EtervaleRuntimeDir)*mgruntime*" />
     </ItemGroup>
-    <Copy SourceFiles="@(WingSimRuntimeFile)" DestinationFolder="$(OutDir)" />
+    <Copy SourceFiles="@(EtervaleRuntimeFile)" DestinationFolder="$(OutDir)" />
   </Target>
 </Project>

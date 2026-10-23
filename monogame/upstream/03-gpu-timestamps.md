@@ -6,7 +6,7 @@
 
 # [Vulkan] GPU timestamp queries in the frame command buffer
 
-### Problem and the fix in WingSim's fork
+### Problem and the fix in the fork
 
 There is no way to measure GPU time per pass on the native backends. `GetNativeHandles()` exposes the device and the
 queue, but not the frame's command buffer, so an application cannot place `vkCmdWriteTimestamp` between MonoGame's

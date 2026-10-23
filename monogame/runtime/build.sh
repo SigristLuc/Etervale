@@ -1,22 +1,20 @@
 #!/bin/bash
-# Builds WingSim's MonoGame native Vulkan runtime (libmgruntime) from the vendored source in src/ (MonoGame v3.8.6's
-# native/monogame with WingSim's changes, see README.md) and writes it to bin/<rid>/, where the Vulkan game picks it up.
+# Builds Etervale's MonoGame native Vulkan runtime (libmgruntime) from the vendored source in src/ (MonoGame v3.8.6's
+# native/monogame with the fork's changes, see README.md) and writes it to bin/<rid>/, where the Vulkan game picks it up.
 #
-#   monogame/runtime/build.sh            # Linux x64/arm64 or macOS; Windows builds in CI (.github/workflows/mgruntime.yml)
+#   monogame/runtime/build.sh            # Linux x64/arm64 or macOS; on Windows use build-windows.ps1
 #
 # SDL2 and FAudio are fetched at the commits of externals.txt into src/external (git-ignored), patched with
-# patches/<name>/*.patch (WingSim's fixes to them, one issue document each in ../issues) and built statically; the
-# rest is committed. Low parallelism on purpose (the owner's PC freezes under full load); set JOBS to change.
+# patches/<name>/*.patch (the fork's fixes to them, one issue document each in ../issues) and built statically; the
+# rest is committed. Low parallelism by default; set JOBS to change.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
-# Serialise with the other heavy builds on the owner's machine (CLAUDE.md, machine load).
-if [ -d /tmp/claude-1000 ]; then exec 9>/tmp/claude-1000/wingsim-build.lock; flock 9; fi
 JOBS="${JOBS:-2}"
 case "$(uname -s)-$(uname -m)" in
   Linux-x86_64) rid=linux-x64; arch=x64; lib=libmgruntime.so ;;
   Linux-aarch64) rid=linux-arm64; arch=arm64; lib=libmgruntime.so ;;
   Darwin-*) rid=osx; arch=$( [ "$(uname -m)" = arm64 ] && echo arm64 || echo x64 ); lib=libmgruntime.dylib ;;
-  *) echo "unsupported host $(uname -s)-$(uname -m); Windows builds in CI" >&2; exit 2 ;;
+  *) echo "unsupported host $(uname -s)-$(uname -m); on Windows use build-windows.ps1" >&2; exit 2 ;;
 esac
 src="$here/src"
 nice_() { if command -v nice > /dev/null; then nice -n 10 "$@"; else "$@"; fi; }
@@ -37,7 +35,7 @@ if [ "${rid%%-*}" = linux ]; then
   fi
 fi
 
-# Fetched dependencies, at the pinned commits, with WingSim's patches.
+# Fetched dependencies, at the pinned commits, with the fork's patches.
 grep -v '^#' "$here/externals.txt" | while read -r name mode path commit _licence url; do
   [ "$mode" = fetched ] || continue
   dir="$src/$path"
@@ -70,12 +68,12 @@ if [ "${rid%%-*}" = linux ]; then
   sdl_options="$sdl_options -DSDL_PIPEWIRE=ON -DSDL_PIPEWIRE_SHARED=ON"
 fi
 sdl_stamp=$(stamp_of sdl2 "$sdl_options")
-if [ ! -f "$S/build/libSDL2.a" ] || [ "$(cat "$S/build/wingsim.stamp" 2> /dev/null)" != "$sdl_stamp" ]; then
+if [ ! -f "$S/build/libSDL2.a" ] || [ "$(cat "$S/build/etervale.stamp" 2> /dev/null)" != "$sdl_stamp" ]; then
   rm -rf "$S/build"
   # shellcheck disable=SC2086 # the options are words
   cmake -S "$S" -B "$S/build" $sdl_options > /dev/null
   nice_ cmake --build "$S/build" --config Release -j "$JOBS" > /dev/null
-  echo "$sdl_stamp" > "$S/build/wingsim.stamp"
+  echo "$sdl_stamp" > "$S/build/etervale.stamp"
   rm -rf "$src/external/faudio/build" # FAudio links this SDL2
 fi
 # The audio backends SDL2 compiled in (SDL_config.h); on Linux the three sound servers are required.
@@ -90,13 +88,13 @@ fi
 
 F="$src/external/faudio"
 faudio_stamp=$(stamp_of faudio "")
-if [ ! -f "$F/build/libFAudio.a" ] || [ "$(cat "$F/build/wingsim.stamp" 2> /dev/null)" != "$faudio_stamp" ]; then
+if [ ! -f "$F/build/libFAudio.a" ] || [ "$(cat "$F/build/etervale.stamp" 2> /dev/null)" != "$faudio_stamp" ]; then
   rm -rf "$F/build"
   cmake -S "$F" -B "$F/build" -DBUILD_SHARED_LIBS=OFF -DBUILD_SDL3=OFF \
     -DCMAKE_C_STANDARD_INCLUDE_DIRECTORIES="$S/include" -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON > /dev/null
   nice_ cmake --build "$F/build" --config Release -j "$JOBS" > /dev/null
-  echo "$faudio_stamp" > "$F/build/wingsim.stamp"
+  echo "$faudio_stamp" > "$F/build/etervale.stamp"
 fi
 
 # The runtime. The Vulkan headers are vendored (premake adds $VULKAN_SDK/include, so point it there: a system volk or

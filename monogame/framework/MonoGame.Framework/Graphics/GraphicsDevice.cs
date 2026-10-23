@@ -158,7 +158,7 @@ namespace Microsoft.Xna.Framework.Graphics
         private readonly HashSet<WeakReference> _resources = new HashSet<WeakReference>();
 
         // TODO Graphics Device events need implementing
-        // WingSim fork: DeviceLost, ResourceCreated and ResourceDestroyed are XNA API that the Native platform never
+        // Etervale fork: DeviceLost, ResourceCreated and ResourceDestroyed are XNA API that the Native platform never
         // raises (a Vulkan device is not lost and reset like a D3D9 one), so the compiler reports them unused (CS0067).
 #pragma warning disable CS0067
         /// <summary>
@@ -358,7 +358,7 @@ namespace Microsoft.Xna.Framework.Graphics
             Textures = new TextureCollection(this, MaxTextureSlots, ShaderStage.Pixel);
             SamplerStates = new SamplerStateCollection(this, MaxTextureSlots, ShaderStage.Pixel);
 
-            // WingSim fork: the compute stage's (issue 005).
+            // Etervale fork: the compute stage's (issue 005).
             ComputeTextures = new TextureCollection(this, MaxTextureSlots, ShaderStage.Compute);
             ComputeSamplerStates = new SamplerStateCollection(this, MaxTextureSlots, ShaderStage.Compute);
 
@@ -1215,7 +1215,7 @@ namespace Microsoft.Xna.Framework.Graphics
         {
             if (stage == ShaderStage.Vertex)
                 _vertexConstantBuffers[slot] = buffer;
-            else if (stage == ShaderStage.Compute)   // WingSim fork
+            else if (stage == ShaderStage.Compute)   // Etervale fork
                 _computeConstantBuffers[slot] = buffer;
             else
                 _pixelConstantBuffers[slot] = buffer;

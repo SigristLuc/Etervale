@@ -49,7 +49,7 @@ namespace Microsoft.Xna.Framework.Graphics
         /// Cubic texture type.
         /// </summary>
 		TextureCube,
-        // WingSim fork: the storage resources of SM 6 shaders (monogame/issues/005, 006). Set with
+        // Etervale fork: the storage resources of SM 6 shaders (monogame/issues/005, 006). Set with
         // EffectParameter.SetValue(StructuredBuffer) or SetValue(Texture2D, int).
         /// <summary>
         /// A read-only structured buffer (<c>StructuredBuffer&lt;T&gt;</c>), bound to a <see cref="Graphics.StructuredBuffer"/>.
@@ -76,7 +76,7 @@ namespace Microsoft.Xna.Framework.Graphics
         RWTexture2D,
         /// <summary>
         /// A ray-tracing acceleration structure (<c>RaytracingAccelerationStructure</c>, SM 6.5 profiles only); the
-        /// runtime binds none before phase R2.4 (monogame/issues/008).
+        /// runtime binds none yet (monogame/issues/008).
         /// </summary>
         AccelerationStructure
 	}

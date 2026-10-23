@@ -200,7 +200,7 @@ namespace Microsoft.Xna.Framework
         {
             resetEvent.Reset();
 
-            // WingSim fork: the event always goes back to the pool; upstream's Dispose after the lock was unreachable (CS0162).
+            // Etervale fork: the event always goes back to the pool; upstream's Dispose after the lock was unreachable (CS0162).
             lock (_resetEventPool)
                 _resetEventPool.Push(resetEvent);
         }

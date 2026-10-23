@@ -613,7 +613,7 @@ void MGA_Voice_AppendBuffer(MGA_Voice* voice, mgbyte* buffer, mguint size)
 
 			raw = r;
 			freeRawBuffers.erase(freeRawBuffers.begin() + i);
-			break; // WingSim fork (issue 009): take one buffer; continuing lost every earlier match
+			break; // Etervale fork (issue 009): take one buffer; continuing lost every earlier match
 		}
 	}
 

@@ -2,7 +2,7 @@
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
-// WingSim fork: the exports WingSim's runtime fork (monogame/runtime) adds to the native runtime. Each group has a
+// Etervale fork: the exports the runtime fork (monogame/runtime) adds to the native runtime. Each group has a
 // change document in monogame/issues. Etervale fork: the in-place uploads of issue 013 and this message's build commands.
 
 using System;
@@ -16,13 +16,13 @@ internal static unsafe partial class MGG
     #region Runtime version (issue 002)
 
     /// <summary>
-    /// The interface version of monogame/runtime this framework is written for (MGVK_WINGSIM_RUNTIME_VERSION in
+    /// The interface version of monogame/runtime this framework is written for (MGVK_ETERVALE_RUNTIME_VERSION in
     /// MGG_Vulkan.cpp). Both change together, with every change of an exported function.
     /// </summary>
-    internal const int WingSimRuntimeVersion = 4;
+    internal const int EtervaleRuntimeVersion = 4;
 
-    [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_WingSim_RuntimeVersion", ExactSpelling = true)]
-    private static extern int WingSim_RuntimeVersion();
+    [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_Etervale_RuntimeVersion", ExactSpelling = true)]
+    private static extern int Etervale_RuntimeVersion();
 
     /// <summary>
     /// Stops with instructions when the runtime library is not the fork built from the same sources: the official
@@ -33,18 +33,18 @@ internal static unsafe partial class MGG
         int version;
         try
         {
-            version = WingSim_RuntimeVersion();
+            version = Etervale_RuntimeVersion();
         }
         catch (EntryPointNotFoundException)
         {
             version = 0;
         }
 
-        if (version != WingSimRuntimeVersion)
+        if (version != EtervaleRuntimeVersion)
         {
             throw new InvalidOperationException(
                 $"The native runtime library (mgruntime) has interface version {version}, but this MonoGame.Framework needs " +
-                $"version {WingSimRuntimeVersion}: it is not the runtime fork built from the same sources. Rebuild it " +
+                $"version {EtervaleRuntimeVersion}: it is not the runtime fork built from the same sources. Rebuild it " +
                 "with monogame/runtime/build-windows.ps1 (Windows) or monogame/runtime/build.sh (Linux, macOS); " +
                 "see monogame/runtime/README.md.");
         }

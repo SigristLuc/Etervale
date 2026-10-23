@@ -14,10 +14,10 @@ sampler in every used slot. Nothing compares the ids themselves. Two bindings wh
 descriptor set, so a draw samples another draw's textures for as long as the set stays cached.
 
 This is the same defect as the state caches (note 06). A collision is rare per frame, but a scene with thousands of
-textures (terrain tiles, imagery, aircraft materials) produces many distinct bindings per shader, and the cache keeps
+textures (terrain tiles, imagery, model materials) produces many distinct bindings per shader, and the cache keeps
 them for several frames. The result is a texture briefly showing the wrong image, which cannot be reproduced on demand.
 
-### The fix in WingSim's fork (change 10)
+### The fix in the fork (change 10)
 
 `MGVK_DescriptorInfo` keeps the key it was written for (frame index, slot masks, texture and sampler id per used
 slot). `usedSets` becomes a `std::multimap`; the hash narrows the search and the full key decides. The key is built on

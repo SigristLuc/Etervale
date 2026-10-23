@@ -128,7 +128,7 @@ public partial class VertexBuffer
         //
         // For now we always discard as it is a pretty safe default.
         //
-        // WingSim fork: through the bytes of the span (a pointer to an unconstrained struct was CS8500).
+        // Etervale fork: through the bytes of the span (a pointer to an unconstrained struct was CS8500).
         fixed (byte* ptr = MemoryMarshal.AsBytes(data))
         {
             var discard = _isDynamic && options != SetDataOptions.NoOverwrite;

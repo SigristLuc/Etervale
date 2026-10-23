@@ -13,7 +13,7 @@ namespace Microsoft.Xna.Framework.Graphics
 
 		private readonly Shader _pixelShader;
         private readonly Shader _vertexShader;
-        private readonly Shader _computeShader;   // WingSim fork (monogame/issues/005)
+        private readonly Shader _computeShader;   // Etervale fork (monogame/issues/005)
 
         private readonly BlendState _blendState;
         private readonly DepthStencilState _depthStencilState;
@@ -76,21 +76,21 @@ namespace Microsoft.Xna.Framework.Graphics
         }
 
         /// <summary>
-        /// WingSim fork: true for a compute pass (<c>ComputeShader = compile cs_6_0 F();</c>), which
+        /// Etervale fork: true for a compute pass (<c>ComputeShader = compile cs_6_0 F();</c>), which
         /// <see cref="Apply"/> prepares for <see cref="GraphicsDevice.Dispatch"/> instead of a draw.
         /// </summary>
         public bool IsCompute => _computeShader != null;
 
         /// <summary>
-        /// WingSim fork: the thread group size of a compute pass (<c>[numthreads(x, y, z)]</c>): a dispatch of
+        /// Etervale fork: the thread group size of a compute pass (<c>[numthreads(x, y, z)]</c>): a dispatch of
         /// ⌈width / x⌉ × ⌈height / y⌉ groups covers a width × height image. Zeros for a graphics pass.
         /// </summary>
         public int ThreadGroupSizeX => _computeShader?.ThreadGroupSizeX ?? 0;
 
-        /// <summary>WingSim fork: see <see cref="ThreadGroupSizeX"/>.</summary>
+        /// <summary>Etervale fork: see <see cref="ThreadGroupSizeX"/>.</summary>
         public int ThreadGroupSizeY => _computeShader?.ThreadGroupSizeY ?? 0;
 
-        /// <summary>WingSim fork: see <see cref="ThreadGroupSizeX"/>.</summary>
+        /// <summary>Etervale fork: see <see cref="ThreadGroupSizeX"/>.</summary>
         public int ThreadGroupSizeZ => _computeShader?.ThreadGroupSizeZ ?? 0;
 
         /// <summary>
@@ -110,7 +110,7 @@ namespace Microsoft.Xna.Framework.Graphics
 
             var device = _effect.GraphicsDevice;
 
-            // WingSim fork: a compute pass sets the compute stage only; the dispatch follows (issue 005).
+            // Etervale fork: a compute pass sets the compute stage only; the dispatch follows (issue 005).
             if (_computeShader != null)
             {
                 device.ComputeShader = _computeShader;
@@ -168,7 +168,7 @@ namespace Microsoft.Xna.Framework.Graphics
                 device.DepthStencilState = _depthStencilState;
         }
 
-        // WingSim fork (issues 005, 006): the storage buffers and images of a shader from their parameters, checked
+        // Etervale fork (issues 005, 006): the storage buffers and images of a shader from their parameters, checked
         // against what the shader declares, so a mistake is an exception here and not a device error in a frame.
         private void SetShaderStorage(Shader shader, GraphicsDevice device)
         {

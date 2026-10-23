@@ -2,7 +2,7 @@
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
-// WingSim fork: runs the DXC that ships with the dotnet-mgcb tool, in place of upstream's MonoGame.Tool.Dxc package
+// Etervale fork: runs the DXC that ships with the dotnet-mgcb tool, in place of upstream's MonoGame.Tool.Dxc package
 // (monogame/pipeline/README.md).
 
 using System.Diagnostics;

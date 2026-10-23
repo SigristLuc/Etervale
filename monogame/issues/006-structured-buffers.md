@@ -1,13 +1,13 @@
 # 006. Structured buffers and their asynchronous upload
 
-Parts: runtime, framework, effect processor (`007`). Phase R2.0 (research 14 R2 §3).
+Parts: runtime, framework, effect processor (`007`).
 
 ## Need
 
-The BVH of R2.1 (nodes, triangles, instances), the light lists of ReSTIR and the compute passes' intermediate data live
-in GPU buffers that shaders index: `StructuredBuffer<T>`, `ByteAddressBuffer` and their RW forms. A BVH is tens of
-megabytes, built on the CPU when an aircraft loads and rebuilt when the scenery streams: its upload must not hold the
-frame (acceptance of R2.0: "a 64 MB structured buffer uploads without stalling the frame").
+A BVH (nodes, triangles, instances), the light lists of ReSTIR and the compute passes' intermediate data live in GPU
+buffers that shaders index: `StructuredBuffer<T>`, `ByteAddressBuffer` and their RW forms. A BVH is tens of megabytes,
+built on the CPU when a model loads and rebuilt when the world streams: its upload must not hold the frame (acceptance:
+"a 64 MB structured buffer uploads without stalling the frame").
 
 ## Cause
 
@@ -36,7 +36,7 @@ off the render thread.
 - `MGG_Buffer_GetStorageData`: read-back for tests and tools (submits the frame being recorded if it used the buffer).
 
 **The stall found and removed.** The first version used the pooled staging allocation (`MGVK_BufferCreate`, as
-texture uploads do) on the worker too. `--check-compute` measured one frame of 45 ms during the upload (median 17 ms at
+texture uploads do) on the worker too. The compute check measured one frame of 45 ms during the upload (median 17 ms at
 60 Hz). Instrumenting `SetStorageData` showed the cause: 35–40 ms in `vmaCreateBuffer` and 5 ms in the copy.
 - 64 MB does not fit the existing host-visible blocks, so VMA creates a new block with `vkAllocateMemory`.
 - VMA does this inside `VmaBlockVector::Allocate`'s write lock on the memory type's block list.
@@ -61,7 +61,7 @@ buffer, offsets multiple of 4.
 
 ## Test
 
-- `--check-compute` (GTX 1050 Ti, 1600 × 900, High, SBGL with the 737, vsync on):
+- The compute check in a game scene (GTX 1050 Ti, 1600 × 900, high settings, vsync on):
   - a dispatch reads 1 166 400 elements of a 64 MB `StructuredBuffer<uint>` per frame; every value matches the uploaded
     pattern, and the whole buffer read back matches element by element (16 777 216);
   - then 16 uploads of 64 MB in a row from a worker thread while the frames read the other buffer: 33 ms mean, 45 ms
@@ -72,8 +72,8 @@ buffer, offsets multiple of 4.
 - `repro/ComputeRepro`: *buffers* (`RWStructuredBuffer<uint2>`, `RWByteAddressBuffer` written and read back), *ordering*
   (upload A, dispatch, upload B, dispatch in one frame: first copy A, second B), *another thread* (16 MB from a worker
   during 300 frames, then read by a dispatch and read back). Validation and synchronisation validation clean.
-- `tests/WingSim.Tests/EffectCompilerTests.cs`: strides (a 16-byte struct, `uint2`), registers and kinds.
+- An effect compiler test checks strides (a 16-byte struct, `uint2`), registers and kinds.
 
 Open: the copy runs on the graphics queue, between the frames' work. Sixteen back-to-back uploads lengthened single
 frames to 31 ms (`Present` up to 23.9 ms, GPU time per frame unchanged) without crossing the stall limit; a transfer queue (the
-GPU's copy engine) would overlap the copies with rendering (backlog 08, R2).
+GPU's copy engine) would overlap the copies with rendering.

@@ -21,7 +21,7 @@ namespace MonoGame.Effect
         public string psModel;
         public string psFunction;
 
-        // WingSim fork: a compute pass (monogame/issues/007).
+        // Etervale fork: a compute pass (monogame/issues/007).
         public string csModel;
         public string csFunction;
 

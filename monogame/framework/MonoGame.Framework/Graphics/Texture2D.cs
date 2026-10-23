@@ -221,7 +221,7 @@ namespace Microsoft.Xna.Framework.Graphics
         }
 
         /// <summary>
-        /// WingSim fork: creates a texture that shaders can also write as <c>RWTexture2D&lt;T&gt;</c>
+        /// Etervale fork: creates a texture that shaders can also write as <c>RWTexture2D&lt;T&gt;</c>
         /// (<see cref="TextureShaderAccess.ReadWrite"/>; monogame/issues/005-compute-and-uav.md), one mip at a time
         /// (<see cref="EffectParameter.SetValue(Texture2D, int)"/>). It is sampled like any other texture.
         /// </summary>
@@ -242,7 +242,7 @@ namespace Microsoft.Xna.Framework.Graphics
         {
         }
 
-        /// <summary>WingSim fork: whether shaders may write the texture (<c>RWTexture2D</c>).</summary>
+        /// <summary>Etervale fork: whether shaders may write the texture (<c>RWTexture2D</c>).</summary>
         public TextureShaderAccess ShaderAccess { get; }
 
         private protected Texture2D(GraphicsDevice graphicsDevice, int width, int height, bool mipmap, SurfaceFormat format, SurfaceType type, bool shared, int arraySize, TextureShaderAccess shaderAccess)

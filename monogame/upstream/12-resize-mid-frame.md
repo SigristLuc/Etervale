@@ -21,7 +21,7 @@ not dirty, and then reads the null target set: a segmentation fault in `vkCmdCle
 layers the first message is `VUID-vkCmdEndRenderPass-renderpass` (ending a render pass the new command buffer never
 began).
 
-### The fix in WingSim's fork (change 12)
+### The fix in the fork (change 12)
 
 `ResizeSwapchain`, when the frame is recording, ends the open render pass and submits the commands recorded so far
 (waiting on the image-acquired semaphore if a swapchain image was acquired), waits for them, and marks the render

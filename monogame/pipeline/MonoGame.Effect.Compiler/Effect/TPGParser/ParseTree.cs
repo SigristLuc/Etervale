@@ -950,7 +950,7 @@ namespace MonoGame.Effect.TPGParser
            foreach (var node in Nodes)
               node.Eval(tree, pass);
         
-           // We need to have a pixel or vertex shader to keep this pass (WingSim fork: or a compute shader).
+           // We need to have a pixel or vertex shader to keep this pass (Etervale fork: or a compute shader).
            if (!string.IsNullOrEmpty(pass.psFunction) || !string.IsNullOrEmpty(pass.vsFunction) || !string.IsNullOrEmpty(pass.csFunction))
            {
               var technique = paramlist[0] as TechniqueInfo;
@@ -976,7 +976,7 @@ namespace MonoGame.Effect.TPGParser
            return null;
         }
 
-        // WingSim fork: compute passes (monogame/issues/007).
+        // Etervale fork: compute passes (monogame/issues/007).
         protected virtual object EvalComputeShader_Pass_Expression(ParseTree tree, params object[] paramlist)
         {
             var pass = paramlist[0] as PassInfo;

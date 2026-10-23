@@ -22,12 +22,12 @@ sample uploaded textures too (height maps).
 
 ### Symptom
 
-With WingSim's A320 on the setup screen, the lit pavement under the aircraft and the UI icons alternated between two
-states in single frames, by up to 85 levels. The A320 rewrites small textures every frame: batched node palettes (one
-per instance and part, rewritten when the pose changes) and the lamp table. The 737, which has neither, did not show
-it. Changes 14 and 15 together removed it; this note does not separate their shares.
+With a model on a preview screen, the lit ground under the model and the UI icons alternated between two states in
+single frames, by up to 85 levels. That model rewrites small textures every frame: batched node palettes (one per
+instance and part, rewritten when the pose changes) and a lamp table. A model with neither did not show it. Changes 14
+and 15 together removed it; this note does not separate their shares.
 
-### The fix in WingSim's fork (change 15)
+### The fix in the fork (change 15)
 
 - On the thread that created the device, while a frame is recording, the upload goes into the frame's own command
   buffer. The sequence is: end the render pass, barrier, copy, barrier. The next draw begins a new render pass, which

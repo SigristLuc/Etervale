@@ -19,7 +19,7 @@ namespace MonoGame.Effect.Compiler.Effect.Spirv
         public required ReadOnlyCollection<SpirvSampledImage> SampledImages { get; init; }
         public required ReadOnlyCollection<SpirvLoad> ImageLoads { get; init; }
 
-        // WingSim fork: a compute shader's [numthreads] (OpExecutionMode LocalSize), else zeros, and the declared
+        // Etervale fork: a compute shader's [numthreads] (OpExecutionMode LocalSize), else zeros, and the declared
         // capabilities (RayQueryKHR marks an SM 6.5 ray-query shader).
         public uint[] LocalSize { get; init; } = [0, 0, 0];
         public required ReadOnlyCollection<string> Capabilities { get; init; }
@@ -133,7 +133,7 @@ namespace MonoGame.Effect.Compiler.Effect.Spirv
                 }
                 else if (parts[0] == "OpExecutionMode" && parts.Length >= 6 && parts[2] == "LocalSize")
                 {
-                    // WingSim fork: [numthreads(x, y, z)] of a compute shader.
+                    // Etervale fork: [numthreads(x, y, z)] of a compute shader.
                     for (int i = 0; i < 3; i++)
                         context.LocalSize[i] = uint.Parse(parts[3 + i], CultureInfo.InvariantCulture);
                 }
@@ -170,7 +170,7 @@ namespace MonoGame.Effect.Compiler.Effect.Spirv
 
             foreach (string id in entryPointInputOutput)
             {
-                // WingSim fork: from SPIR-V 1.4 the interface lists every global, some of them of types this reader
+                // Etervale fork: from SPIR-V 1.4 the interface lists every global, some of them of types this reader
                 // does not parse (they are not inputs or outputs anyway).
                 if (!context.Variables.TryGetValue(id, out SpirvVariable? variable))
                     continue;

@@ -1,5 +1,5 @@
 -- MonoGame - Copyright (C) MonoGame Foundation, Inc
--- WingSim fork (native/mgruntime): the Vulkan runtime only (desktopvk), vendored stb, output in ../build.
+-- Etervale fork (native/mgruntime): the Vulkan runtime only (desktopvk), vendored stb, output in ../build.
 -- This file is subject to the terms and conditions defined in
 -- file 'LICENSE.txt', which is part of this source code package.
 

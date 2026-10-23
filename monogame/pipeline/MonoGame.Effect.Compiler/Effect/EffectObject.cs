@@ -197,7 +197,7 @@ namespace MonoGame.Effect
 			PIXELFRAGMENT,
 			VERTEXFRAGMENT,
 			UNSUPPORTED,
-			// WingSim fork: the storage resources of SM 6 shaders (monogame/issues/005, 006, 008).
+			// Etervale fork: the storage resources of SM 6 shaders (monogame/issues/005, 006, 008).
 			STRUCTUREDBUFFER = 100,
 			RWSTRUCTUREDBUFFER,
 			BYTEADDRESSBUFFER,
@@ -243,7 +243,7 @@ namespace MonoGame.Effect
 		    VERTEXSHADER,
 		    SHADERCONST,
 		    UNKNOWN,
-		    COMPUTESHADER,   // WingSim fork (monogame/issues/007)
+		    COMPUTESHADER,   // Etervale fork (monogame/issues/007)
 		};
 
 		public enum MATERIAL_TYPE
@@ -301,7 +301,7 @@ namespace MonoGame.Effect
 			public uint columns;
 			public uint element_count;
 			public uint annotation_count = 0;
-			// WingSim fork: struct parameters came from the DirectX and OpenGL profiles (removed); the Vulkan reflection makes
+			// Etervale fork: struct parameters came from the DirectX and OpenGL profiles (removed); the Vulkan reflection makes
 			// none, so the count is said here (it was never assigned in this build: CS0649).
 			public uint member_count = 0;
 			public uint flags = 0;
@@ -572,11 +572,11 @@ namespace MonoGame.Effect
 			new state_info(STATE_CLASS.SAMPLERSTATE, (uint)D3DSAMPLERSTATETYPE.DMAPOFFSET, "DMAPOffset"),
 			/* Set sampler */
 			new state_info(STATE_CLASS.SETSAMPLER, 0, "Sampler"),
-			/* WingSim fork: the compute shader of a pass (ComputeShaderStateIndex) */
+			/* Etervale fork: the compute shader of a pass (ComputeShaderStateIndex) */
 			new state_info(STATE_CLASS.COMPUTESHADER, 0, "Computeshader"),
 		};
 
-		// WingSim fork: the state_table entries of a pass's shaders by stage (upstream used 146 and 147 inline).
+		// Etervale fork: the state_table entries of a pass's shaders by stage (upstream used 146 and 147 inline).
 		internal const uint VertexShaderStateIndex = 146;
 		internal const uint PixelShaderStateIndex = 147;
 		internal static readonly uint ComputeShaderStateIndex = (uint)(state_table.Length - 1);
@@ -623,7 +623,7 @@ namespace MonoGame.Effect
 				    return EffectParameterType.Texture3D;
 			    case D3DXPARAMETER_TYPE.TEXTURECUBE:
 				    return  EffectParameterType.TextureCube;
-                // WingSim fork: storage resources (the framework's EffectParameterType has them since MGFX 12).
+                // Etervale fork: storage resources (the framework's EffectParameterType has them since MGFX 12).
                 case D3DXPARAMETER_TYPE.STRUCTUREDBUFFER:
                     return EffectParameterType.StructuredBuffer;
                 case D3DXPARAMETER_TYPE.RWSTRUCTUREDBUFFER:
@@ -732,7 +732,7 @@ namespace MonoGame.Effect
                         tempstate[pass.state_count - 1] = effect.CreateShader(shaderResult, pinfo.vsFunction, pinfo.vsModel!, MgfxShaderStage.Vertex, ref errorsAndWarnings);
                     }
 
-                    // WingSim fork: a compute pass (monogame/issues/007).
+                    // Etervale fork: a compute pass (monogame/issues/007).
                     if (!string.IsNullOrEmpty(pinfo.csFunction))
                     {
                         pass.state_count += 1;
@@ -826,7 +826,7 @@ namespace MonoGame.Effect
                 }
             }
 
-            // WingSim fork: the parameters of the storage resources (monogame/issues/005, 006): one per name, shared
+            // Etervale fork: the parameters of the storage resources (monogame/issues/005, 006): one per name, shared
             // by the shaders of the effect that declare it, with its kind as the parameter type.
             foreach (var shader in effect.Shaders)
             {
@@ -865,7 +865,7 @@ namespace MonoGame.Effect
         }
 
 
-        // WingSim fork: the parameter type of a storage resource.
+        // Etervale fork: the parameter type of a storage resource.
         private static D3DXPARAMETER_TYPE ToParameterType(MgfxStorageKind kind) => kind switch
         {
             MgfxStorageKind.StructuredBuffer => D3DXPARAMETER_TYPE.STRUCTUREDBUFFER,

@@ -39,7 +39,7 @@ public sealed partial class Video : IDisposable
     private int _state;
     private Thread _thread;
 
-    // WingSim fork: created here; upstream never assigned it (CS0649), so the first decoded frame threw.
+    // Etervale fork: created here; upstream never assigned it (CS0649), so the first decoded frame threw.
     private readonly ConcurrentQueue<Texture2D> _frames = new ConcurrentQueue<Texture2D>();
 
     private bool _muted = false;

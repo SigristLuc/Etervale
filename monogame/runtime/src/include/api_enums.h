@@ -90,7 +90,7 @@ enum class MGClearOptions : mgint
     Stencil = 4,
 };
 
-// WingSim fork: Compute (monogame/issues/005-compute-and-uav.md).
+// Etervale fork: Compute (monogame/issues/005-compute-and-uav.md).
 enum class MGShaderStage : mgint
 {
     Vertex = 0,
@@ -214,7 +214,7 @@ enum class MGTextureFilterMode : mgint
     Comparison = 1,
 };
 
-// WingSim fork: Storage, the buffers shaders read and write (monogame/issues/006-structured-buffers.md).
+// Etervale fork: Storage, the buffers shaders read and write (monogame/issues/006-structured-buffers.md).
 enum class MGBufferType : mgint
 {
     Index = 0,

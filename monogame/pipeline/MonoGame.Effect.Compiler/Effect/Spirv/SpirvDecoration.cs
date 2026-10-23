@@ -55,7 +55,7 @@ namespace MonoGame.Effect.Compiler.Effect.Spirv
         AlignmentId = 46,
         MaxByteOffsetId = 47,
         UserSemantic = 5635,
-        // WingSim fork: the HLSL type of a resource ("structuredbuffer:<Node>", "rwtexture2d:<float4>"), -fspv-reflect.
+        // Etervale fork: the HLSL type of a resource ("structuredbuffer:<Node>", "rwtexture2d:<float4>"), -fspv-reflect.
         UserTypeGOOGLE = 5636
     }
 

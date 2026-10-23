@@ -1079,7 +1079,7 @@ void MGP_Window_Show(MGP_Window* window, mgbyte show)
 {
 	assert(window != nullptr);
 
-	// WingSim fork: automation runs (captures, checks, benchmarks) keep their window hidden with MG_HIDDEN_WINDOW=1, so
+	// Etervale fork: automation runs (captures, checks, benchmarks) keep their window hidden with MG_HIDDEN_WINDOW=1, so
 	// they never open over the user's desktop; they render to off-screen targets and present to the hidden window.
 	const char* hidden = getenv("MG_HIDDEN_WINDOW");
 	if (show && hidden != nullptr && hidden[0] == '1')

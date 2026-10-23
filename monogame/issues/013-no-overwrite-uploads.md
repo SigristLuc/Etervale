@@ -1,6 +1,6 @@
-# 013. NoOverwrite uploads write in place (Etervale)
+# 013. NoOverwrite uploads write in place
 
-Parts: runtime, framework. Made in Etervale's copy of the fork (2026-10-18); not yet in WingSim's.
+Parts: runtime, framework.
 
 ## Symptom
 
@@ -24,10 +24,10 @@ guarantees: the rename was never needed.
 
 **Runtime** (`src/vulkan/MGG_Vulkan.cpp`, `src/include/api_MGG.h`): `MGG_Buffer_SetDataNoOverwrite(device, buffer,
 offset, data, elementCount, vertexStride, elementSizeInBytes)` copies into the buffer in place (push buffers by
-`memcpy`, others through the persistent mapping and a flush). Interface version 4 (`MGG_WingSim_RuntimeVersion`,
+`memcpy`, others through the persistent mapping and a flush). Interface version 4 (`MGG_Etervale_RuntimeVersion`,
 issue 002).
 
-**Framework** (`Platform/Native/VertexBuffer.Native.cs`, `IndexBuffer.Native.cs`, `Graphics.Interop.WingSim.cs`): a
+**Framework** (`Platform/Native/VertexBuffer.Native.cs`, `IndexBuffer.Native.cs`, `Graphics.Interop.Etervale.cs`): a
 dynamic buffer's `SetData` with `SetDataOptions.NoOverwrite` calls the new export; `Discard` and `None` are unchanged.
 
 ## Test
@@ -36,8 +36,3 @@ A SpriteBatch of 400 sprites (scratch benchmark, GTX 1050 Ti, Vulkan): one textu
 sprite over 10, 50, 200 and 400 textures 0.34, 0.33, 0.37 and 0.47 ms (before: 610 to 1050 ms). Etervale's render
 benchmark (Ricarten at noon, HUD drawn): HUD section 31 ms → 0.04 ms of CPU. The shader probe (`--verify-shaders`),
 the HUD, login and actor captures draw the same images.
-
-## Porting
-
-WingSim's copy needs the same three edits and the same interface version; until then the two copies' runtimes are not
-interchangeable (each framework refuses the other's library by version).

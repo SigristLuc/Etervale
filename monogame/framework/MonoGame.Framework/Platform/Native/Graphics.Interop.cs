@@ -185,7 +185,7 @@ internal enum BufferType
     Index,
     Vertex,
     Constant,
-    Storage,    // WingSim fork: MGBufferType::Storage (monogame/issues/006-structured-buffers.md)
+    Storage,    // Etervale fork: MGBufferType::Storage (monogame/issues/006-structured-buffers.md)
 }
 
 

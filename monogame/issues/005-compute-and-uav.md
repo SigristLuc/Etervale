@@ -1,11 +1,11 @@
 # 005. Compute pipelines and storage images (UAV)
 
-Parts: runtime, framework, effect processor (`007`). Phase R2.0 (research 14 R2 §3).
+Parts: runtime, framework, effect processor (`007`).
 
 ## Need
 
-The ray-traced effects of R2 run as compute shaders in the frame:
-- the software traversal of the BVH (R2.2), ReSTIR and the denoisers;
+Ray-traced effects run as compute shaders in the frame:
+- the software traversal of a BVH, ReSTIR and the denoisers;
 - each pass writes an image the next pass or the composite reads (`RWTexture2D`);
 - some passes size the next dispatch on the GPU (`DispatchIndirect`).
 
@@ -44,7 +44,7 @@ sampled textures only:
   empty storage-image slot is skipped with a message, not recorded invalid.
 - `MGG_Texture_GetData` of a storage image written this frame submits the frame first (as change 7 does for targets).
 - `MGG_Shader_Destroy` of a compute shader waits for the device before destroying its pipeline.
-- Interface version 2 (`MGG_WingSim_RuntimeVersion`, issue 002).
+- Interface version 2 (`MGG_Etervale_RuntimeVersion`, issue 002).
 
 **Framework:**
 - `ShaderStage.Compute`; `Shader` reads MGFX 12's stage, storage list, thread group size and requirements.
@@ -75,8 +75,7 @@ sampled textures only:
   constants summed by atomics without read-back in between). All pass; with `VK_LAYER_KHRONOS_validation` and
   synchronisation validation (`VK_KHRONOS_VALIDATION_VALIDATE_SYNC=true`, confirmed active by the layer's status
   message) no message.
-- `--check-compute` in the game (`src/WingSim.Game/WingSimGame.ComputeCheck.cs`): after the opaque scene of SBGL with the
-  737, a raster copy of the linear depth, a dispatch that reads the depth and writes a storage image, and a draw that
-  samples the image; 1 166 400 pixels compared bit for bit, 0 mismatches, three times; validation and synchronisation
-  validation clean.
-- `tests/WingSim.Tests/EffectCompilerTests.cs`: the records the framework reads (stage, storage, thread group).
+- A compute check in a game scene: after the opaque scene, a raster copy of the linear depth, a dispatch that reads the
+  depth and writes a storage image, and a draw that samples the image; 1 166 400 pixels compared bit for bit,
+  0 mismatches, three times; validation and synchronisation validation clean.
+- An effect compiler test checks the records the framework reads (stage, storage, thread group).

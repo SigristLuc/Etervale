@@ -18,7 +18,7 @@ namespace Microsoft.Xna.Framework.Graphics
         /// </summary>
         Pixel,
         /// <summary>
-        /// Compute shader resources (WingSim fork, monogame/issues/005-compute-and-uav.md).
+        /// Compute shader resources (Etervale fork, monogame/issues/005-compute-and-uav.md).
         /// </summary>
         Compute,
         /// <summary>

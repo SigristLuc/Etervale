@@ -32,7 +32,7 @@ description itself:
    into freed memory rather than a visible error in normal use.)
 4. `std::map::operator[]` on a miss inserts a null entry in every cache.
 
-### The fix in WingSim's fork (change 6)
+### The fix in the fork (change 6)
 
 - Each cached object gets a 64-bit id that is never reused. The pipeline key is the ids (program, input layout,
   target set, blend, rasterizer, depth-stencil) plus the topology, compared in full (`std::unordered_map` with the
@@ -54,4 +54,4 @@ rasterizer states, each disposed while still current. With the validation layers
 |---|---|
 | official 3.8.6 | the second colliding state draws as a multiply; every stress frame reads the previous frame (note 07) |
 | official + the read-back fix only | 1 failure: the collision |
-| WingSim fork (changes 6 and 7) | 0 failures in 1500 frames, no validation errors |
+| Etervale fork (changes 6 and 7) | 0 failures in 1500 frames, no validation errors |

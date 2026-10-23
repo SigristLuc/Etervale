@@ -58,7 +58,7 @@ namespace Microsoft.Xna.Framework.Graphics
         /// This event is never called.  It is included for XNA compatibility.
         /// </remarks>
         [Obsolete("This is provided for XNA compatibility is never called by MonoGame")]
-        // WingSim fork: never raised, as the Obsolete text says, so the compiler reports it unused (CS0067).
+        // Etervale fork: never raised, as the Obsolete text says, so the compiler reports it unused (CS0067).
 #pragma warning disable CS0067
 		public event EventHandler<EventArgs> ContentLost;
 #pragma warning restore CS0067

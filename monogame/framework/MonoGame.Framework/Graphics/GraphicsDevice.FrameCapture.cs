@@ -2,7 +2,7 @@
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
-// WingSim fork (monogame/issues/003-frame-capture-api.md).
+// Etervale fork (monogame/issues/003-frame-capture-api.md).
 
 using System;
 using MonoGame.Interop;

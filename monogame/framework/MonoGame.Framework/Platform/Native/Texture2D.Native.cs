@@ -181,7 +181,7 @@ public partial class Texture2D : Texture
         if (type != SurfaceType.Texture)
             return;
 
-        // WingSim fork: a texture shaders write is a storage image (issue 005).
+        // Etervale fork: a texture shaders write is a storage image (issue 005).
         if (ShaderAccess == TextureShaderAccess.ReadWrite)
         {
             Handle = MGG.Texture_CreateStorage(GraphicsDevice.Handle, TextureType._2D, format, width, height, 1, _levelCount, ArraySize);
@@ -252,7 +252,7 @@ public partial class Texture2D : Texture
         var elementSizeInByte = ReflectionHelpers.FastSizeOf<T>();
         var dataBytes = data.Length * elementSizeInByte;
 
-        // WingSim fork: through the bytes of the span (a T* of an unconstrained struct was CS8500).
+        // Etervale fork: through the bytes of the span (a T* of an unconstrained struct was CS8500).
         fixed (byte* dataPtr = MemoryMarshal.AsBytes(data))
         {
             MGG.Texture_SetData(

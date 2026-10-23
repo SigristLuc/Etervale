@@ -47,7 +47,7 @@ public sealed class ShaderCompilerException : Exception
             case ShaderStage.Pixel:
                 return $"Failed to compile pixel shader {entrypoint}. See {sourceFile}.";
 
-            case ShaderStage.Compute:   // WingSim fork
+            case ShaderStage.Compute:   // Etervale fork
                 return $"Failed to compile compute shader {entrypoint}. See {sourceFile}.";
 
             default:

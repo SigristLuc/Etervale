@@ -6,7 +6,7 @@
 
 # [Vulkan] Keep render target contents across frames (fixes #9459)
 
-### Problem and the fix in WingSim's fork
+### Problem and the fix in the fork
 
 `MGVK_UpdateRenderPass` marks a target as "first use" when it is bound for the first time in a frame
 (`target->writeFrame != currentFrame`). It then begins the render pass with:

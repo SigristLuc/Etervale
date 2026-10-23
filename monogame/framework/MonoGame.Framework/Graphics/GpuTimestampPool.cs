@@ -2,7 +2,7 @@
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
-// WingSim fork (monogame/issues/004-gpu-timestamps-api.md).
+// Etervale fork (monogame/issues/004-gpu-timestamps-api.md).
 
 using System;
 using MonoGame.Interop;
@@ -17,7 +17,7 @@ namespace Microsoft.Xna.Framework.Graphics
     /// A frame resets the range it will use (<see cref="Reset"/>, outside any render pass), writes timestamps between
     /// draws (<see cref="Write"/>) and reads them back some frames later, without waiting (<see cref="TryGetNanoseconds"/>),
     /// once the frame that wrote them has completed on the GPU. Measured against frame intervals the timestamps agree
-    /// to 0.1 % (docs/research/12-monogame-backend.md §6).
+    /// to 0.1 %.
     /// </remarks>
     public sealed class GpuTimestampPool : GraphicsResource
     {

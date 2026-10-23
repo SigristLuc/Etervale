@@ -2,7 +2,7 @@
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
-// WingSim fork: MonoGame's EffectProcessor (MonoGame.Framework.Content.Pipeline/Processors/EffectProcessor.cs, v3.8.6)
+// Etervale fork: MonoGame's EffectProcessor (MonoGame.Framework.Content.Pipeline/Processors/EffectProcessor.cs, v3.8.6)
 // over the fork's effect compiler (monogame/issues/007-mgcb-profiles.md). The content builder's own effect compiler is
 // compiled into its MonoGame.Framework.Content.Pipeline assembly and cannot be extended, so the fork's runs as this
 // processor, loaded by MGCB from Content.mgcb (/reference).
@@ -17,11 +17,11 @@ using ContentPipeline::Microsoft.Xna.Framework.Content.Pipeline.Processors;
 namespace MonoGame.Effect.Processor;
 
 /// <summary>
-/// Processes an effect into the MGFX 12 format of WingSim's MonoGame fork: SM 6 shaders compiled by DXC to SPIR-V for
+/// Processes an effect into the MGFX 12 format of Etervale's MonoGame fork: SM 6 shaders compiled by DXC to SPIR-V for
 /// the DesktopVK platform, with compute passes (<c>ComputeShader = compile cs_6_0 F();</c>), storage buffers and images,
 /// and the SM 6.5 profiles.
 /// </summary>
-[ContentProcessor(DisplayName = "Effect - WingSim fork (SPIR-V, MGFX 12)")]
+[ContentProcessor(DisplayName = "Effect - Etervale fork (SPIR-V, MGFX 12)")]
 public class SpirvEffectProcessor : ContentProcessor<EffectContent, CompiledEffectContent>
 {
     private static readonly Regex errorOrWarning = new(@"(.*)\((\d*,\d*(?>,\d*,\d*)?)\):\s*(.*)", RegexOptions.Compiled);
@@ -53,7 +53,7 @@ public class SpirvEffectProcessor : ContentProcessor<EffectContent, CompiledEffe
 
         if (context.TargetPlatform != TargetPlatform.DesktopVK)
         {
-            throw new InvalidContentException($"The WingSim fork's effect processor builds for DesktopVK (Vulkan) only, not {context.TargetPlatform}.", input.Identity);
+            throw new InvalidContentException($"The Etervale fork's effect processor builds for DesktopVK (Vulkan) only, not {context.TargetPlatform}.", input.Identity);
         }
 
         var options = EffectCompiler.VulkanOptions(input.Identity.SourceFilename, context.OutputFilename,
