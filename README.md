@@ -370,6 +370,16 @@ over the protocol. `tools/PristonTale.LoadTest` drives headless bots; create the
 with `--Network:MaxConnectionsPerIp=0`, since every bot connects from one address. See
 the [server capacity notes](Shared/PristonTale.Protocol/README.md#server-capacity).
 
+## AI-assisted development
+
+From commit
+[4ec9359](https://github.com/bencz-games/Etervale/commit/4ec935952be896286425ba3de01ff9b454a20472) onward (every class
+skill for tiers 1-4, NPC services and the night lighting, dusk haze and HUD fixes), Etervale is developed with the help
+of AI tools. The earlier commits were written without them. This note describes how Etervale is developed only, not
+MonoGame or the other projects it builds on.
+
+Opinions on AI-assisted development differ, and every one of them is respected.
+
 ## License
 
 The project's original source code is licensed under the GNU General Public License, version 3 only
