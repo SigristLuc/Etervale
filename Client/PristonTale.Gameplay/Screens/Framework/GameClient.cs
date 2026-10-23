@@ -87,6 +87,12 @@ public sealed class GameClient : IDisposable
 
     public bool HandleEscape() => _screen?.HandleEscape() == true;
 
+    // A character from the window's text input (the chat line reads it).
+    public void TypeCharacter(char value) => _context?.TypedText.Push(value);
+
+    // The server asked the client to save and quit.
+    public bool ExitRequested => _context?.ExitRequested == true;
+
     public void Update(GameTime gameTime, bool isWindowActive = true)
     {
         _audio?.ApplySettings(_presentation.Requested);

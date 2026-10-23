@@ -262,6 +262,8 @@ for (var index = 0; index < args.Length; index++)
 
 var specifications = new List<(string Name, Func<Task> Run)>();
 specifications.AddRange(DomainTests.Cases());
+specifications.AddRange(ChatRoutingTests.Cases());
+specifications.AddRange(GameMasterCommandTests.Cases());
 specifications.AddRange(ClientTests.Cases());
 specifications.AddRange(RemotePlaybackTests.Cases());
 specifications.AddRange(RenderTests.Cases());

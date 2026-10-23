@@ -245,6 +245,11 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _fieldAudio?.PlayQuestFanfare();
     }
 
+    public void PlayWhisper()
+    {
+        _fieldAudio?.PlayWhisper();
+    }
+
     public void PlayNpcInteractionAudio(PristonTale.Simulation.World.Npcs.NpcInteraction interaction)
     {
         if (_npcAudio is null || _remote is null || _playerBody is null
@@ -1501,7 +1506,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             return;
         }
 
-        bool showAll = !PointerCaptured && Keyboard.GetState().IsKeyDown(Keys.A);
+        bool showAll = !PointerCaptured && !KeyboardCaptured && Keyboard.GetState().IsKeyDown(Keys.A);
         Guid hovered = Guid.Empty;
         var mouse = Mouse.GetState();
         if (!PointerCaptured && TryCursorRay(mouse, out var ray))
@@ -1521,7 +1526,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private bool TryPickLoot(MouseState mouse)
     {
         if (_groundLoot is null || _lootInteraction.Busy || !TryCursorRay(mouse, out var ray)
-            || !_groundLoot.Pick(mouse.Position, ray, out var id, out var position, Keyboard.GetState().IsKeyDown(Keys.A)))
+            || !_groundLoot.Pick(mouse.Position, ray, out var id, out var position, !KeyboardCaptured && Keyboard.GetState().IsKeyDown(Keys.A)))
         {
             return false;
         }

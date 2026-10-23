@@ -59,6 +59,13 @@ public sealed class ScreenContext
 
     public IGameBackend Backend { get; private set; }
 
+    // Characters typed into the window (the operating system's text input, with its layout and repeat), drained by the
+    // chat input each frame.
+    public TypedText TypedText { get; } = new();
+
+    // Set when the server asked the client to save and quit; the game closes like the window's close button.
+    public bool ExitRequested { get; set; }
+
     public void RequestScreen(GameScreen next) => _requestScreen(next);
 
     // Replaces a backend that already logged in or lost its connection; the old one is disposed off the game thread.

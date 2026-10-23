@@ -20,6 +20,8 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
     public IReadOnlyList<TeleportOffer> Destinations { get; private set; } = [];
     public bool Pending => _pending is not null;
     public string Message { get; private set; } = "";
+
+    public bool LastOk { get; private set; }
     public int Completions { get; private set; }
     public int Opened { get; private set; }
 
@@ -81,6 +83,7 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
         }
 
         Message = outcome.Ok ? Describe(command, outcome) : outcome.Message;
+        LastOk = outcome.Ok;
         Completions++;
         if (!outcome.Ok)
         {

@@ -154,6 +154,40 @@ internal sealed class LoginThrottle(int perAccount, int perAddress, long windowM
         }
     }
 
+    // Accounts whose logins are refused now, with the time left until their window ends.
+    public IReadOnlyList<(string Account, long RemainingMs)> BlockedAccounts(long nowMs)
+    {
+        lock (_gate)
+        {
+            return _accounts.Where(pair => Exceeded(_accounts, pair.Key, perAccount, nowMs))
+                .Select(pair => (pair.Key, windowMs - (nowMs - pair.Value.StartMs)))
+                .ToArray();
+        }
+    }
+
+    // Forgets every failure, of accounts and addresses; returns how many accounts were blocked.
+    public int Clear(long nowMs)
+    {
+        lock (_gate)
+        {
+            var blocked = _accounts.Keys.Count(key => Exceeded(_accounts, key, perAccount, nowMs));
+            _accounts.Clear();
+            _addresses.Clear();
+            return blocked;
+        }
+    }
+
+    // Forgets an account's failures; true when it was blocked.
+    public bool Release(string account, long nowMs)
+    {
+        lock (_gate)
+        {
+            var blocked = Exceeded(_accounts, account, perAccount, nowMs);
+            _accounts.Remove(account);
+            return blocked;
+        }
+    }
+
     public void Prune(long nowMs)
     {
         lock (_gate)
