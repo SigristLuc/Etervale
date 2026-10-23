@@ -91,7 +91,6 @@ public static class MonsterVisualFamilies
         0x1990 => "gorgon",
         0x19A0 => "hobogolem",
         0x19B0 => "niken",
-        0x19D0 => "kingbat",
         0x19E0 => "goblinshaman",
         0x19F0 => "hest",
         0x1A00 => "worldcup",
