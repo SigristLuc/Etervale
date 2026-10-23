@@ -27,6 +27,7 @@ internal static class SkillLookTests
     private const uint GrandCross = 0x05040004;
     private const uint DivinePiercing = 0x05080004;
     private const uint ShieldStrike = 0x06010001;
+    private const uint Meteo = 0x08080004;
 
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
@@ -204,6 +205,11 @@ internal static class SkillLookTests
         Assert.True(SkillPresentation.ImpactEffectOf(cross, start, 0) == "vfx.knight.grandcross.hit"
             && SkillPresentation.ImpactEffectOf(cross, start, 1) == "vfx.knight.grandcross.hit2"
             && SkillPresentation.ImpactEffectOf(cross, start, 5) == "vfx.knight.grandcross.hit2", "grand cross per-hit effects");
+        // Meteo's closing impact at the end of the motion shows and sounds nothing.
+        var meteo = Rule(Meteo);
+        Assert.True(SkillPresentation.ImpactEffectOf(meteo, start, 0).Length > 0 && SkillPresentation.ImpactEffectOf(meteo, start, 1).Length == 0
+            && SkillPresentation.ImpactSoundFor(meteo, 0, 1, 5, random).Length > 0 && SkillPresentation.ImpactSoundFor(meteo, 1, 1, 5, random).Length == 0,
+            "meteo's closing impact was not silent");
         return Task.CompletedTask;
     }
 

@@ -307,7 +307,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     {
         if (rule.ImpactEffects.Length > 0 && rule.ImpactEffects[Math.Min(impact, rule.ImpactEffects.Length - 1)] is { Length: > 0 } perHit)
         {
-            return perHit;
+            return perHit == SkillRule.Silent ? "" : perHit;
         }
 
         var mode = (skillEvent.Flags & SkillEventFlags.ModeMask) >> SkillEventFlags.ModeShift;
@@ -373,12 +373,13 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
             return "";
         }
 
-        return rule.ImpactSoundOrder switch
+        var sound = rule.ImpactSoundOrder switch
         {
             SkillSoundOrder.Random => sounds[random.Next(sounds.Length)],
             SkillSoundOrder.Final => impact + 1 >= SkillImpacts.Count(rule, rank) ? sounds[0] : "",
             _ => sounds[impact % sounds.Length]
         };
+        return sound == SkillRule.Silent ? "" : sound;
     }
 
     // A chain link (an arc from the previous link to its target), a companion's strike or a support effect on an ally.
@@ -398,14 +399,14 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
                 link.Travel(from, target, ChainLinkSeconds);
             }
 
-            _sounds.Play(rule.ImpactSound, target, _host.ListenerPosition);
+            _sounds.Play(ImpactSoundFor(rule, 0, 1, skillEvent.Rank, _soundRandom), target, _host.ListenerPosition);
             return;
         }
 
-        Spawn(rule.ImpactEffect, skillEvent.CasterId, skillEvent.TargetId, target, -skillEvent.Facing);
+        Spawn(ElementVariant(rule, rule.ImpactEffect, skillEvent.CasterId), skillEvent.CasterId, skillEvent.TargetId, target, -skillEvent.Facing);
         if ((skillEvent.Flags & SkillEventFlags.Companion) != 0)
         {
-            _sounds.Play(rule.ImpactSound, target, _host.ListenerPosition);
+            _sounds.Play(ImpactSoundFor(rule, 0, 1, skillEvent.Rank, _soundRandom), target, _host.ListenerPosition);
         }
     }
 
@@ -535,6 +536,27 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         }
 
         return Spawn(name, entityId, entityId, position);
+    }
+
+    // A familiar's strike in the element its status drew ("<effect>.ice"), when that variant is defined.
+    private string ElementVariant(SkillRule rule, string name, uint casterId)
+    {
+        if (rule.Buff?.Companion?.Choices is not { Length: > 1 })
+        {
+            return name;
+        }
+
+        foreach (var entry in Statuses.For(casterId))
+        {
+            var element = (Simulation.Combat.Element)entry.Value;
+            if (entry.Code == rule.Code && Enum.IsDefined(element))
+            {
+                var variant = name + "." + element.ToString().ToLowerInvariant();
+                return Library.TryGet(variant, out _) ? variant : name;
+            }
+        }
+
+        return name;
     }
 
     private Vector3 Position(uint entityId, Vector3 fallbackTransport)

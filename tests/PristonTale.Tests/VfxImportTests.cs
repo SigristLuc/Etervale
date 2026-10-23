@@ -91,7 +91,7 @@ internal static class VfxImportTests
         Assert.True(started.Length == 0, "effects start undefined effects: " + string.Join(", ", started));
         var missing = SkillRuleCatalog.All
             .SelectMany(static rule => new[] { rule }.Concat(rule.Modes).Concat(rule.Charge?.Full is { } full ? [full] : Array.Empty<SkillRule>()))
-            .SelectMany(static rule => new[] { rule.CastEffect, rule.ImpactEffect, rule.ProjectileEffect, rule.BuffEffect, rule.CompanionEffect }.Concat(rule.ImpactEffects))
+            .SelectMany(static rule => new[] { rule.CastEffect, rule.ImpactEffect, rule.ProjectileEffect, rule.BuffEffect, rule.CompanionEffect }.Concat(rule.ImpactEffects).Where(static name => name != SkillRule.Silent))
             .Where(name => name.Length > 0 && !Converted(name) && !names.Contains(name))
             .Distinct()
             .ToArray();

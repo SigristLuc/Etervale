@@ -33,7 +33,8 @@ public sealed partial record SkillRule
     public string[] ImpactSounds { get; init; } = [];
     public SkillSoundOrder ImpactSoundOrder { get; init; }
     // Impact effects by impact of the cast (the n-th impact plays entry n, the last entry after that); an empty entry or
-    // list plays ImpactEffect.
+    // list plays ImpactEffect. Silent ("-") in either list plays nothing at that impact.
+    public const string Silent = "-";
     public string[] ImpactEffects { get; init; } = [];
     public SkillLook StatusLook { get; init; }
     // Red glow (0..255 of light) on the caster at each impact, fading by 70 a second.

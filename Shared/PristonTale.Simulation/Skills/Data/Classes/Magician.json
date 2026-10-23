@@ -121,8 +121,7 @@
       "spiritMinDivisor": 6, "spiritMaxDivisor": 3, "noCritical": true, "spellPower": true },
     "motionIndex": 73, "motionFrames": 86, "motionEvents": [61], "endHit": true, "motionSpeed": 120,
     "castEffect": "vfx.magician.castcircle", "impactEffect": "vfx.magician.diastrophism.quake", "castSound": "wav/Effects/Skill/Morion/Casting_M.wav",
-    "impactSound": "wav/Effects/Skill/Morion/Diastrophism 2.wav"
-  },
+      "impactEffects": ["vfx.magician.diastrophism.quake", "-"], "impactSounds": ["wav/Effects/Skill/Morion/Diastrophism 2.wav", "-"] },
   {
     "code": "0x08040003", "name": "Spirit Elemental", "tier": "Job3", "category": "Buff", "icon": "MM46 S_Elemental",
     "description": "Summons a ghost to increase magical damage", "requiredLevel": 46, "mouse": "Right",
@@ -198,6 +197,5 @@
       "noCritical": true, "spellPower": true },
     "motionIndex": 72, "motionFrames": 66, "motionEvents": [42], "endHit": true,
     "castEffect": "vfx.magician.castcircle", "impactEffect": "vfx.magician.meteo.fall", "castSound": "wav/Effects/Skill/Morion/Casting_M.wav",
-    "impactSound": "wav/Effects/Skill/Morion/Meteo 01.wav"
-  }
+      "impactEffects": ["vfx.magician.meteo.fall", "-"], "impactSounds": ["wav/Effects/Skill/Morion/Meteo 01.wav", "-"] }
 ]
