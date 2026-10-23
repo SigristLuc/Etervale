@@ -56,8 +56,8 @@ dotnet run --project tools/PristonTale.WorldImport -c Release --no-build -- veri
 | `export-npc-placements` | no | Fixed NPC placements of every `WorldCatalog` field (field code, identity, position, angle, source file) |
 | `export-npc-motions` | no | `{FormatVersion: 1, Models, Slots}` motion rows of NPC models; requires an assets root |
 
-The usage text lists only `import`, `verify`, `export-monster-names` and `export-npc-motions`. Exit code 0 on success,
-1 on any exception (message and stack trace on stderr) or an unknown command.
+The usage text lists every command. Exit code 0 on success, 1 on any exception (message and stack trace on stderr)
+or an unknown command.
 
 | Option | Default | Notes |
 | --- | --- | --- |
@@ -329,9 +329,8 @@ migrates before running a command.
 - Missing linked files produce no warning and no unresolved row.
 - Monster drop weights for multi-code lines are split with integer division, as the original does; the remainder
   is lost.
-- `world_entity_variants.data_json` serializes the DTOs with default `System.Text.Json` options, which skip fields:
-  value-tuple lists (item specials, NPC shop stock) appear as empty objects. `world_source_files` holds the
-  complete source.
+- `world_entity_variants.data_json` serializes the DTOs with `IncludeFields`, so value-tuple lists (item specials,
+  NPC shop stock) appear as `Item1`, `Item2`... objects. `world_source_files` holds the complete source.
 - Adding a category to `LegacyItemCode` changes `item_code_mask` for existing rows on the next import; the
   `TryParse` switch and the `Prefixes` table must change together.
 - `--assets` is not required inside the repository: the default finds the repository `assets/` from the executable

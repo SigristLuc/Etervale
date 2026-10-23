@@ -13,8 +13,8 @@ internal static class BinaryProtocolTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("Priston TCP header handles partial reads and rejects invalid lengths", HeaderAsync);
-        yield return ("Priston packet cipher matches the default C++ English build", CipherAsync);
-        yield return ("Priston server list preserves the C++ field layout and counts", ServerListAsync);
+        yield return ("Priston packet cipher matches the default English client build", CipherAsync);
+        yield return ("Priston server list preserves the classic field layout and counts", ServerListAsync);
         yield return ("character info and PLAYERINFO keep the 32-bit x86 layout", CharacterInfoAsync);
         yield return ("character list is 1484 bytes with 240-byte character slots", CharacterListAsync);
         yield return ("ATTACK_DAMAGE uses the damage checksum and damage cipher keyed by the sender serial", AttackDamageAsync);
@@ -55,7 +55,7 @@ internal static class BinaryProtocolTests
         ];
         Span<byte> encoded = stackalloc byte[32];
         var written = PristonPacketCipher.Encode(plain, encoded, 0x1234, 0x0010, 0xED);
-        Assert.True(written == expected.Length && encoded.SequenceEqual(expected), "encoded command differs from the C++ algorithm");
+        Assert.True(written == expected.Length && encoded.SequenceEqual(expected), "encoded command differs from the reference cipher output");
         Span<byte> decoded = stackalloc byte[24];
         Assert.True(PristonPacketCipher.TryDecode(expected, decoded, 0xED, out var sequence, out var length)
             && sequence == 0x0010 && length == plain.Length && decoded.SequenceEqual(plain), "Priston command did not decode");

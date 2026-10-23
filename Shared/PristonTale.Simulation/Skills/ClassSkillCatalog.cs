@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 
@@ -32,6 +34,7 @@ public sealed record ClassSkillEntry
 public static class ClassSkillCatalog
 {
     private const string ResourcePrefix = "PristonTale.Simulation.Skills.Data.Classes.";
+    private static readonly Type[] EntryTypes = [typeof(ClassSkillEntry), typeof(SkillRule)];
 
     private static readonly Catalog Loaded = Load();
 
@@ -57,6 +60,7 @@ public static class ClassSkillCatalog
         var parsedRules = new List<SkillRule>();
         foreach (var element in document.RootElement.EnumerateArray())
         {
+            SkillJson.RequireKnownProperties(element, EntryTypes, element.TryGetProperty("name", out var name) ? name.ToString() : "skill");
             var entry = element.Deserialize<ClassSkillEntry>(SkillJson.Options)
                 ?? throw new InvalidDataException("A class skill entry is empty.");
             skills.Add(ToSkill(entry));
@@ -165,8 +169,92 @@ internal static class SkillJson
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
-        Converters = { new JsonStringEnumConverter(), new HexCodeConverter() }
+        Converters = { new JsonStringEnumConverter(), new HexCodeConverter() },
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver()
     };
+
+    // The serializer skips unknown properties, so a misspelled name would silently drop its value. Every property of a
+    // skill object, at any depth, must belong to one of the types it is read into; brood lists must name MonsterBrood
+    // values.
+    public static void RequireKnownProperties(JsonElement element, IReadOnlyList<Type> types, string path)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        var infos = types.Select(type => Options.GetTypeInfo(type)).Where(static info => info.Kind == JsonTypeInfoKind.Object).ToArray();
+        if (infos.Length == 0)
+        {
+            return;
+        }
+
+        foreach (var property in element.EnumerateObject())
+        {
+            var matches = infos.SelectMany(static info => info.Properties).Where(info => info.Name == property.Name).ToArray();
+            if (matches.Length == 0)
+            {
+                throw new InvalidDataException($"{path}: unknown property '{property.Name}'.");
+            }
+
+            var propertyPath = path + "." + property.Name;
+            if (property.Name.EndsWith("roods", StringComparison.Ordinal) && property.Value.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var brood in property.Value.EnumerateArray())
+                {
+                    if (!Enum.TryParse<MonsterBrood>(brood.GetString(), ignoreCase: true, out var parsed) || !Enum.IsDefined(parsed))
+                    {
+                        throw new InvalidDataException($"{propertyPath}: unknown brood '{brood}'.");
+                    }
+                }
+            }
+
+            var nested = matches.Select(static info => ObjectType(info.PropertyType)).OfType<Type>().Distinct().ToArray();
+            if (nested.Length > 0)
+            {
+                CheckNested(property.Value, nested, propertyPath);
+            }
+        }
+    }
+
+    private static void CheckNested(JsonElement value, Type[] types, string path)
+    {
+        if (value.ValueKind == JsonValueKind.Array)
+        {
+            var index = 0;
+            foreach (var item in value.EnumerateArray())
+            {
+                CheckNested(item, types, $"{path}[{index++}]");
+            }
+
+            return;
+        }
+
+        RequireKnownProperties(value, types, path);
+    }
+
+    // The object type a property holds, through arrays, lists and nullable wrappers; null for scalars.
+    private static Type ObjectType(Type type)
+    {
+        while (true)
+        {
+            type = Nullable.GetUnderlyingType(type) ?? type;
+            if (type.IsArray)
+            {
+                type = type.GetElementType()!;
+                continue;
+            }
+
+            if (type.IsGenericType && type.GetGenericArguments() is [var element]
+                && typeof(System.Collections.IEnumerable).IsAssignableFrom(type))
+            {
+                type = element;
+                continue;
+            }
+
+            return type == typeof(string) || type.IsPrimitive || type.IsEnum || type == typeof(decimal) ? null : type;
+        }
+    }
 
     // Skill codes are written as hex strings ("0x01010001") in the data files.
     private sealed class HexCodeConverter : JsonConverter<uint>

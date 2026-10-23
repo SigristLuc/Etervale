@@ -16,6 +16,7 @@ internal static class SkillSummonTests
         yield return ("a summon skill calls one owned monster with its rank values, fights for its owner and is never a target", CallAsync);
         yield return ("a summon follows its owner, is recalled from afar, obeys its mode and ends on death, expiry or its owner leaving", LifecycleAsync);
         yield return ("fire elemental calls a faster summon and a charmed undead fights for its knight until the charm ends", MorionSummonsAsync);
+        yield return ("a summon whose monster is missing from the catalog is refused before it spends mana", MissingMonsterAsync);
     }
 
     // Monsters far from every player are despawned, so the enemy is placed only when the scenario needs it.
@@ -54,6 +55,17 @@ internal static class SkillSummonTests
         Assert.True(life - enemy.Life is >= 1 and <= 125, $"golem blow {life - enemy.Life} outside its damage range");
         Assert.True(enemy.TargetId == golem.EntityId, "the struck enemy did not turn on the golem");
         Assert.True(scenario.Combat.Any(value => value.AttackerId == golem.EntityId && value.TargetId == enemy.EntityId), "the golem's blow was not shown");
+        return Task.CompletedTask;
+    }
+
+    private static Task MissingMonsterAsync()
+    {
+        var scenario = SkillScenario.Create(PlayerClass.Mechanician, 80, catalog: [SkillScenario.Enemy()]);
+        scenario.Learn(MetalGolem, 3);
+        var mana = scenario.Character.Mana;
+        var outcome = scenario.Cast(MetalGolem);
+        Assert.True(outcome.Verdict == SkillCastVerdict.NotCastable, $"a summon without its monster was {outcome.Verdict}");
+        Assert.True(scenario.Character.Mana == mana && !scenario.Summons.Any(), "the refused summon spent mana or called a monster");
         return Task.CompletedTask;
     }
 

@@ -19,8 +19,8 @@ public static class MonsterAttackReach
 
     public static bool CanLandBasic(MonsterDefinition monster, Vector3 position, Vector3 target)
     {
-        // The packet carries AttackSize=48*fONE and PlayAttack compares it to a SQUARED distance.
-        // Preserve that effective reach, rather than treating 48 as a radius or adding a guessed pad.
+        // The attack packet carries a reach of 48 in 8.8 fixed point (48 * 256), and the client compares it with a
+        // squared distance. Preserve that effective reach, rather than treating 48 as a radius or adding a guessed pad.
         var limit = HasRangedBasicAttack(monster.SoundCode) ? RangedImpactDistanceSquared : BasicImpactDistanceSquared;
         return MathF.Abs(position.Y - target.Y) <= VerticalEntryLimit
             && PlanarDistanceSquared(position, target) < limit;
@@ -33,43 +33,43 @@ public static class MonsterAttackReach
         return x * x + z * z;
     }
 
-    // Sound families the original attack playback treats as ranged; IDs are the original sound codes, not model filename guesses.
+    // Sound families whose basic attack plays as ranged; IDs are the game data's sound codes, not model filename guesses.
     public static bool HasRangedBasicAttack(int soundCode) => soundCode switch
     {
-        0x1020 => true, // IMP
-        0x10D0 => true, // SCORPION
-        0x1120 => true, // WEB
-        0x1180 => true, // FIGON
-        0x11C0 => true, // SKELETONRANGE
-        0x1240 => true, // BEEDOG
-        0x1270 => true, // MUTANTTREE
-        0x1290 => true, // NAZ
-        0x12C0 => true, // SUCCUBUS
-        0x12E0 => true, // SHADOW
-        0x12F0 => true, // BERSERKER
-        0x1350 => true, // STYGIANLORD
-        0x1370 => true, // DMACHINE
-        0x1530 => true, // HYPERMACHINE
-        0x1580 => true, // RUNICGUARDIAN
-        0x1590 => true, // SADNESS
-        0x15E0 => true, // AVELIN_ARCHER
-        0x15F0 => true, // AVELIN_QUEEN
-        0x1600 => true, // BABEL
-        0x1630 => true, // COLDEYE
-        0x1640 => true, // FROZEN
-        0x1670 => true, // CHAOSCARA
-        0x1720 => true, // M_LORD
-        0x1800 => true, // TURTLE_CANNON
-        0x1830 => true, // KELVEZU
-        0x1870 => true, // FIREWORM
-        0x1890 => true, // DARKGUARD
-        0x18A0 => true, // DARKMAGE
-        0x18D0 => true, // SETO
-        0x19E0 => true, // GOBLINSHAMAN
-        0x2020 => true, // NPC_SKILLMASTER
-        0x2030 => true, // NPC_MAGICMASTER
-        0x2110 => true, // NAZSENIOR
-        0x5020 or 0x5021 or 0x5022 => true, // CASTLE_CRYSTAL R/G/B
+        0x1020 => true, // Imp
+        0x10D0 => true, // Scorpion
+        0x1120 => true, // Web
+        0x1180 => true, // Figon
+        0x11C0 => true, // Skeleton Ranger
+        0x1240 => true, // Beedog
+        0x1270 => true, // Mutant Tree
+        0x1290 => true, // Naz
+        0x12C0 => true, // Succubus
+        0x12E0 => true, // Shadow
+        0x12F0 => true, // Berserker
+        0x1350 => true, // Stygian Lord
+        0x1370 => true, // D-Machine
+        0x1530 => true, // Hyper Machine
+        0x1580 => true, // Runic Guardian
+        0x1590 => true, // Sadness
+        0x15E0 => true, // Avelin Archer
+        0x15F0 => true, // Avelin Queen
+        0x1600 => true, // Babel
+        0x1630 => true, // Cold Eye
+        0x1640 => true, // Frozen
+        0x1670 => true, // Chaos Cara
+        0x1720 => true, // M-Lord
+        0x1800 => true, // Turtle Cannon
+        0x1830 => true, // Kelvezu
+        0x1870 => true, // Fire Worm
+        0x1890 => true, // Dark Guard
+        0x18A0 => true, // Dark Mage
+        0x18D0 => true, // Seto
+        0x19E0 => true, // Goblin Shaman
+        0x2020 => true, // skill master NPC
+        0x2030 => true, // magic master NPC
+        0x2110 => true, // Naz Senior
+        0x5020 or 0x5021 or 0x5022 => true, // castle crystals R/G/B
         _ => false
     };
 }

@@ -2,15 +2,13 @@ using System.Buffers.Binary;
 
 namespace PristonTale.WorldImport.Parsers;
 
-/// <summary>
-/// Reads one field <c>.spp</c> binary spawn-point file into the supplied <see cref="ParsedField"/>.
-/// Layout: a fixed array of 200 spawn-point records <c>{ int state; int x; int z; }</c> (12 bytes each, no
-/// header) = 2400 bytes total.
-/// Confirmed against real assets (every <c>*.spp</c> on disk is exactly 2400 bytes).
-///
-/// A point is "live" when its <c>state != 0</c>; we import every record (state carried) and let the
-/// factory map <c>state != 0</c> → <c>SpawnPoint.Active</c>. Coords are RAW field coords (fixed-point).
-/// </summary>
+// Reads one field .spp binary spawn-point file into the supplied ParsedField.
+// Layout: a fixed array of 200 spawn-point records { int state; int x; int z; } (12 bytes each, no
+// header) = 2400 bytes total.
+// Confirmed against real assets (every *.spp on disk is exactly 2400 bytes).
+//
+// A point is "live" when its state != 0; we import every record (state carried) and let the
+// factory map state != 0 → SpawnPoint.Active. Coords are RAW field coords (fixed-point).
 public sealed class SppReader
 {
     private const int RecordSize = 12;   // 3 × int32

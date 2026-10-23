@@ -86,12 +86,14 @@ OpeningScreen --login ok--> CharacterSelectScreen --enter world ok--> GameplaySc
   the current `Update` returns: `Dispose` old, then `Enter` new. Never swap from `Draw`.
 - `OpeningScreen`: cinematic (`StartImage/Opening/Map/stage.smd` and its camera path); any key or the end of the
   cinematic reveals the login form. `OpeningLoginController` starts `IGameBackend.LoginAsync` and polls the task each
-  frame.
+  frame. The server accepts one login per connection, so when `IGameBackend.RequiresNewConnection` is set (a login
+  succeeded or the connection closed) the controller first calls `ScreenContext.RenewBackend`: `GameClient` installs a
+  new `GameServerConnection` and disposes the old one off the game thread.
 - `CharacterSelectScreen`: sub-states `CharacterSelect`, `RaceSelect`, `JobSelect`, `FaceSelect`, `Name`. While a
   `Busy` operation (roster load, roster/job actor preparation, enter, delete, create) runs, input is ignored and
   `PollBusy` checks the task. A successful `EnterWorldAsync` builds an `EnteredCharacter` (class, name, level, face,
-  field code, spawn x/z, tier, hair) and requests `GameplayScreen`. The Exit button returns to `OpeningScreen` on the
-  same `GameServerConnection`.
+  field code, spawn x/z, tier, hair) and requests `GameplayScreen`. The Exit button returns to `OpeningScreen`; the next
+  login opens a new connection.
 - `GameplayScreen` has no transition out; leaving it means quitting.
 - Escape: `Game1` calls `GameClient.HandleEscape` -> `GameScreen.HandleEscape`. `GameplayScreen` closes the open HUD
   panels (`GameplayHud.ClosePanel`) and returns true if anything was open; every other case exits the game. While a

@@ -3,7 +3,7 @@ using PristonTale.WorldImport.Parsers;
 
 namespace PristonTale.WorldImport;
 
-/// <summary>Reproducible migration data, decoded by the same parser as normal imports.</summary>
+// Reproducible migration data, decoded by the same parser as normal imports.
 internal static class MonsterNameExport
 {
     public static void Write(string sourceRoot, string outputPath)

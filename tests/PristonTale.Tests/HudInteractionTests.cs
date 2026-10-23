@@ -103,7 +103,7 @@ internal static class HudInteractionTests
         Assert.True(HudInventoryLayout.CellAt(origin, new Point(22, 436)) == -1, "pointer outside bag picked a cell");
         Assert.True(window.Contains(HudInventoryLayout.Close(origin)) && !HudInventoryLayout.Close(origin).Intersects(bag), "inventory close misplaced");
 
-        // sSkillBox rectangles overlap at their transparent hexagon corners; every centre must hit only its own node.
+        // Skill node rectangles overlap at their transparent hexagon corners; every centre must hit only its own node.
         var nodes = Enumerable.Range(0, HudSkillTreeLayout.NodeCount).Select(index => HudSkillTreeLayout.Node(origin, index))
             .Append(HudSkillTreeLayout.BasicAttack(origin)).ToArray();
         foreach (var node in nodes)

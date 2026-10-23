@@ -14,7 +14,7 @@ public static class AnimationRate
     public static float MoveRate(int perTickTranslation)
     {
         int moveSpeed = Math.Min(perTickTranslation, MoveSpeedCap);
-        // Match the original integer math: FrameStep = (80*moveSpeed)/300 (int), then / 80.0 to normalize.
+        // Integer math as the classic client: frameStep = (80*moveSpeed)/300 (int), then / 80.0 to normalize.
         int frameStep = (80 * moveSpeed) / MoveDivisor;
         return frameStep / Baseline;
     }
@@ -32,7 +32,7 @@ public static class AnimationRate
     {
         int attackSpeed = AttackSpeedMainFrame(attackSpeedStat);
         attackSpeed += attackSpeed * motionPercent / 100;
-        // FrameStep = (80*attackSpeed)>>8 (int), then / 80.0 to normalize against the baseline.
+        // frameStep = (80*attackSpeed)>>8 (int), then / 80.0 to normalize against the baseline.
         int frameStep = (80 * attackSpeed) >> 8;
         return frameStep / Baseline;
     }

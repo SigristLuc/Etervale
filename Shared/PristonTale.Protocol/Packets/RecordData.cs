@@ -4,8 +4,9 @@ using PristonTale.Protocol.Binary;
 namespace PristonTale.Protocol.Packets;
 
 // Character record: header "RC 1.50", character info record at 16, game save block (512 bytes)
-// at 480, 64 thrown-item records at 992, then ThrowItemCount, ItemCount, ItemSubStart, DataSize and the item blob at 1776.
-// Etervale keeps inventory server-side and sends it with EtervaleOpcodes.Inventory, so ItemCount and DataSize are zero.
+// at 480, 64 thrown-item records at 992, then the thrown-item count, item count, sub-item start, item data size and the
+// item blob at 1776. Etervale keeps inventory server-side and sends it with EtervaleOpcodes.Inventory, so the item count
+// and item data size are zero.
 public sealed record RecordDataPacket(CharacterInfo Character, int FieldCode, int PosX, int PosZ)
 {
     public const int FixedSize = 1776;
@@ -51,7 +52,7 @@ public sealed record RecordDataPacket(CharacterInfo Character, int FieldCode, in
     }
 }
 
-// Record chunk packet: {size, code, Count, Total, TransSize, szData[8160]}. Each chunk declares TransSize + 32 bytes
+// Record chunk packet: {size, code, index, Total, length, data[8160]}. Each chunk declares length + 32 bytes
 // (12 bytes past the data are padding). Total is size/8160 plus one for a remainder only when size > 8160, so a
 // record that fits one chunk declares Total = 0.
 public static class RecordDataChunks

@@ -2,15 +2,13 @@ using PristonTale.Simulation.Items;
 
 namespace PristonTale.WorldImport.Parsers;
 
-/// <summary>
-/// The importer DTO produced by <see cref="ItemTxtParser"/> for one OpenItem <c>.txt</c>. It carries the
-/// parsed scalar fields plus the variadic <c>**특화랜덤</c> job list and <c>**</c> special bonuses. The
-/// <see cref="Importer"/> turns this into an <c>item_templates</c> row (+ child rows), deriving the
-/// <c>item_code_mask</c> from <see cref="Code"/> using the original category codes.
-/// </summary>
+// The importer DTO produced by ItemTxtParser for one OpenItem .txt. It carries the
+// parsed scalar fields plus the variadic **특화랜덤 job list and ** special bonuses. The
+// Importer turns this into an item_templates row (+ child rows), deriving the
+// item_code_mask from Code using the original category codes.
 public sealed class ParsedItem
 {
-    public required string Code { get; init; }     // 5-char LastCategory, the natural PK
+    public required string Code { get; init; }     // 5-char item code, the natural PK
     public required string Name { get; init; }
     public ItemKind Kind { get; init; }
     public long UniqueItem { get; init; }

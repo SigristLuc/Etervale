@@ -135,12 +135,12 @@ internal sealed class PristonMaterialRuntime
             // These follow the legacy blend table (PristonBlendType); several modes are not alpha blends.
             return BlendType switch
             {
-                1 => BlendState.NonPremultiplied, // ALPHA:     SrcAlpha, InvSrcAlpha
-                2 => BlendColor,                  // COLOR:     SrcColor, InvSrcColor
-                3 => BlendShadow,                 // SHADOW:    Zero, SrcColor      (darken)
-                4 => BlendState.Additive,         // LAMP:      SrcAlpha, One       (== MG Additive)
-                5 => BlendAddColor,               // ADDCOLOR:  SrcColor, One       (additive)
-                6 => BlendInvShadow,              // INVSHADOW: Zero, InvSrcColor
+                1 => BlendState.NonPremultiplied, // Alpha:     SrcAlpha, InvSrcAlpha
+                2 => BlendColor,                  // Color:     SrcColor, InvSrcColor
+                3 => BlendShadow,                 // Shadow:    Zero, SrcColor      (darken)
+                4 => BlendState.Additive,         // Lamp:      SrcAlpha, One       (== MG Additive)
+                5 => BlendAddColor,               // AddColor:  SrcColor, One       (additive)
+                6 => BlendInvShadow,              // InverseShadow: Zero, InvSrcColor
                 _ => Transparent ? BlendState.NonPremultiplied : BlendState.Opaque,
             };
         }

@@ -63,7 +63,7 @@ public sealed class PlayerCharacter
             return 0;
         }
 
-        // English AddExp stops accepting XP at table[CHAR_LEVEL_MAX - 2].
+        // As in the English release, experience stops accumulating at the threshold of the level below the cap.
         var ceiling = ExperienceTable.ForLevel(ExperienceTable.MaximumLevel - 1);
         if (Experience >= ceiling)
         {

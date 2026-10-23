@@ -132,8 +132,8 @@ dotnet run --project tools/PristonTale.WorldImport -c Release --no-build -- veri
 | `verify` | `[--sqlite <path> \| --postgres <conn>]`: row counts and persisted cross-reference check |
 | `export-monster-names` | `--source <dir> --output <path>`; no database |
 | `export-npc-motions` | `--source <dir> --assets <dir> --output <path>`; no database |
-| `export-item-names` | `--source <dir> --output <path>`; no database; not listed in the usage text |
-| `export-npc-placements` | `--source <dir> --output <path>`; no database; not listed in the usage text |
+| `export-item-names` | `--source <dir> --output <path>`; no database |
+| `export-npc-placements` | `--source <dir> --output <path>`; no database |
 
 Defaults: without `--sqlite` and `--postgres` the database is `<temp>/pristontale-world.db`, not
 `data/pristontale.db`. `--source` defaults to `assets/GameServer/` or `GameServer/` in the working directory or an
@@ -295,7 +295,6 @@ Run from Blender's Scripting tab after importing GLBs produced by `ptgltf`.
   An unknown option name is ignored.
 - SmokeClient treats every argument that is not an option or an option value as positional; order matters.
 - `ptgltf --recenter` has no effect on `.inx` actors; `--scale` does.
-- WorldJson's csproj does not set `TreatWarningsAsErrors`, unlike the other tools.
 
 ## Related
 

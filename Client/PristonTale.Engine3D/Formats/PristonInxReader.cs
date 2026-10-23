@@ -5,10 +5,10 @@ namespace PristonTale.Engine3D.Formats;
 
 public sealed class PristonInxReader
 {
-    // INX variants differ only in ItemCodeList width: modern uses short[52], legacy uses byte[52].
+    // INX variants differ only in the item code list width: modern uses short[52], legacy uses byte[52].
     // The remaining container layout is identical.
-    private const int ModelInfoSizeModern = 95268; // 172-byte motion record (ItemCodeList = short[52])
-    private const int ModelInfoSizeLegacy = 67084; // 120-byte motion record (ItemCodeList = byte[52])
+    private const int ModelInfoSizeModern = 95268; // 172-byte motion record (item code list = short[52])
+    private const int ModelInfoSizeLegacy = 67084; // 120-byte motion record (item code list = byte[52])
     private const int ItemCodeListSizeModern = 104;
     private const int ItemCodeListSizeLegacy = 52;
     private const int ModelGroupSize = 68;
@@ -342,8 +342,8 @@ public sealed class PristonInxReader
         };
     }
 
-    // Motion keywords embed GetSpeedSum of the path the INX was encoded under. Some shipped INX files
-    // were copied to another folder, which MotionKeyWordDecode rejects; when every protected frame
+    // Motion keywords embed the path hash (GetSpeedSum) of the path the INX was encoded under. Some shipped INX
+    // files were copied to another folder, so a strict per-path check rejects them; when every protected frame
     // carries one identical keyword the frames are intact and that keyword is accepted instead.
     private static uint ResolveMotionKeywordCode(List<PristonMotionInfo> motions, uint motionCount, uint fileCode)
     {

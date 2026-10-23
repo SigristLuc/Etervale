@@ -252,6 +252,9 @@ public sealed partial class WorldServer
 
     public int PlayerCount => Volatile.Read(ref _playerCount);
 
+    // Tick-thread state: callers must not run concurrently with Tick.
+    internal long FieldNowMs(int fieldId) => _fields.TryGetValue(fieldId, out var field) ? field.NowMs : 0;
+
     public Task<PreparedCharacterOperation<ProgressionOutcome>?> PrepareProgressionAsync(
         PlayerSession session, ProgressionCommand command)
     {

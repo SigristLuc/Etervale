@@ -1,4 +1,4 @@
-// Shared constants and helpers of the SM 6.0 library (Content/Shaders, README.md there). Conventions of every shader:
+// Shared constants and helpers of the SM 6.0 library (Content/Shaders, see docs/shaders.md). Conventions of every shader:
 //  - world space is Y-up, in Priston units; matrices are row-vector XNA matrices (mul(v, M));
 //  - colours are linear Rec.709. Scene passes write pre-exposed HDR radiance into the HalfVector4 scene target and never tonemap:
 //    exposure, the display transform and the sRGB encoding happen once, in Passes/PostFinal.fx;

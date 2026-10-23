@@ -1,6 +1,6 @@
 namespace PristonTale.Simulation.World.Npcs;
 
-// Persisted in npc_services.kind, carried in the NPC dialog message and as bit (1 << kind) of the PLAYERINFO service
+// Persisted in npc_services.kind, carried in the NPC dialog message and as bit (1 << kind) of the PlayerInfo service
 // word; append new kinds and never renumber. A kind's Value is the integer argument of its authored key, if any.
 public enum NpcServiceKind : byte
 {
@@ -10,7 +10,7 @@ public enum NpcServiceKind : byte
     SkillMaster = 2,
     Warehouse = 3,
 
-    // Value: quest trigger code tested by the client on click (1001 and above).
+    // Value: quest trigger code tested by the client on click (1000 and above).
     QuestGiver = 4,
 
     // Value, Value2: server quest code and parameter.
@@ -55,7 +55,7 @@ public enum NpcServiceKind : byte
     // Value, Value2: event code and event information of an event creature.
     EventMonster = 24,
 
-    // Text: label of a key present in the supplied data that no client of the original handles.
+    // Text: label of a key present in the supplied data that no classic client handles.
     Unported = 25
 }
 

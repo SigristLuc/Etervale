@@ -9,6 +9,7 @@ namespace PristonTale.Gameplay.Screens.Framework;
 public sealed class ScreenContext
 {
     private readonly Action<GameScreen> _requestScreen;
+    private readonly Action _renewBackend;
 
     public ScreenContext(
         GraphicsDevice graphicsDevice,
@@ -23,7 +24,8 @@ public sealed class ScreenContext
         PristonTale.Gameplay.UI.Rendering.HudAtlas uiAtlas = null,
         PristonTale.Engine3D.Rendering.PristonSkyLibrary sky = null,
         PristonTale.Gameplay.Effects.LegacyEffectLibrary effects = null,
-        PristonAudioLibrary audio = null)
+        PristonAudioLibrary audio = null,
+        Action renewBackend = null)
     {
         GraphicsDevice = graphicsDevice;
         Content = content;
@@ -38,6 +40,7 @@ public sealed class ScreenContext
         Sky = sky;
         Effects = effects;
         Audio = audio;
+        _renewBackend = renewBackend;
     }
 
     public PristonTale.Engine3D.Rendering.PristonSkyLibrary Sky { get; }
@@ -54,7 +57,12 @@ public sealed class ScreenContext
 
     public IClientLog Log { get; }
 
-    public IGameBackend Backend { get; }
+    public IGameBackend Backend { get; private set; }
 
     public void RequestScreen(GameScreen next) => _requestScreen(next);
+
+    // Replaces a backend that already logged in or lost its connection; the old one is disposed off the game thread.
+    public void RenewBackend() => _renewBackend?.Invoke();
+
+    internal void ReplaceBackend(IGameBackend backend) => Backend = backend;
 }

@@ -82,6 +82,10 @@ internal static class WorldImportTests
             Assert.True(await connection.ExecuteScalarAsync<int>(
                 "SELECT COUNT(*) FROM world_entity_variants WHERE kind = 'item' AND is_catalog_entry = 0") == 1,
                 "the duplicate item definition was lost");
+            var merchantJson = await connection.ExecuteScalarAsync<string>(
+                "SELECT data_json FROM world_entity_variants WHERE kind = 'npc' AND source_path LIKE '%Merchant.npc'");
+            Assert.True(merchantJson is not null && merchantJson.Contains("\"Item3\":\"WA101\"", StringComparison.Ordinal),
+                "the preserved NPC definition lost its shop stock");
             Assert.True(await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM pragma_foreign_key_check") == 0,
                 "world import broke foreign keys");
 

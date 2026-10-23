@@ -48,7 +48,7 @@ public sealed class CharacterAppService
         return summaries;
     }
 
-    // ISRECORDDATA: whether any account already uses the name.
+    // IsRecordData request: whether any account already uses the name.
     public async Task<bool> NameExistsAsync(string sessionToken, string name, CancellationToken ct = default)
     {
         Authenticate(sessionToken);

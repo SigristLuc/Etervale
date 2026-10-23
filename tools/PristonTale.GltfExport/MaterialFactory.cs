@@ -144,7 +144,7 @@ internal sealed class MaterialFactory
         }
 
         // Model vertices are drawn with alpha 255 and stage transparency is already baked into the
-        // stage vertex alpha, so BLEND_ALPHA and plain transparent materials keep an opaque texture.
+        // stage vertex alpha, so alpha-blend and plain transparent materials keep an opaque texture.
         return material.BlendType switch
         {
             2 or 4 or 5 => BlendAlpha.Luminance,
@@ -339,7 +339,7 @@ internal sealed class MaterialFactory
         }
     }
 
-    // SHADOW multiplies the destination by the source colour and INVSHADOW by its complement; both
+    // Shadow multiplies the destination by the source colour and inverse shadow by its complement; both
     // are expressed as black coverage over the destination.
     private static void SetShadowAlpha(DecodedImage image, bool inverse)
     {

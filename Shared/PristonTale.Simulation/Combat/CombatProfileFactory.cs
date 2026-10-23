@@ -53,7 +53,7 @@ public static class CombatProfileFactory
         return new DefenderProfile(
             Defence: stats.Defence,
             Absorption: stats.Absorption,
-            // Item block lands with the item modifiers; skills and other sources add through the modifier engine.
+            // Item block ratings are not applied; block comes from skills and other sources through the modifier engine.
             BlockChance: Math.Max(0, character.Effects.Totals.Flat(StatKind.BlockChance) + PassiveSkills.BlockChance(character)),
             Level: character.Level,
             Resistances: ModifierRules.Resistances(character.Effects.Totals, PassiveSkills.Resistances(character.Skills)),

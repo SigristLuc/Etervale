@@ -2,14 +2,11 @@ using PristonTale.Simulation.Characters;
 
 namespace PristonTale.WorldImport.Parsers;
 
-/// <summary>
-/// Parses one OpenItem <c>.txt</c> → <see cref="ParsedItem"/> with the original item-definition rules.
-/// Each line's leading word is matched exactly (case-sensitive, ordinal) against
-/// the <see cref="KeyMaps"/> item tokens. The remake uses the supplied <c>*Name</c> alias for display,
-/// falling back to <c>*E_NAME</c>, the original name, and then the item code.
-/// Item identity and foreign keys remain the original item code.
-///
-/// </summary>
+// Parses one OpenItem .txt → ParsedItem with the original item-definition rules.
+// Each line's leading word is matched exactly (case-sensitive, ordinal) against
+// the KeyMaps item tokens. The remake uses the supplied *Name alias for display,
+// falling back to *E_NAME, the original name, and then the item code.
+// Item identity and foreign keys remain the original item code.
 public sealed class ItemTxtParser
 {
     public ParsedItem Parse(string path)
@@ -207,7 +204,7 @@ public sealed class ItemTxtParser
 
     private static bool Match(string key, string[] aliases) => Array.IndexOf(aliases, key) >= 0;
 
-    // Stable code for each ** special-bonus token (order = first appearance in DecodeItemInfo). -1 = unknown.
+    // Stable code for each ** special-bonus token (order = first appearance in the classic item decoder). -1 = unknown.
     private static int SpecialBonusCode(string key) => key switch
     {
         "**흡수력" => 0, "**방어력" => 1, "**이동속도" => 2, "**블럭율" => 3, "**공격속도" => 4,

@@ -7,6 +7,10 @@ public interface IGameBackend : IAsyncDisposable
 {
     string? SessionToken { get; }
 
+    // The protocol allows one login per connection: after a successful login or a closed connection, log in again
+    // through a new backend.
+    bool RequiresNewConnection { get; }
+
     Task<LoginOutcome> LoginAsync(string account, string password, int clientVersion, CancellationToken ct = default);
 
     Task<IReadOnlyList<CharacterSummary>> ListCharactersAsync(CancellationToken ct = default);

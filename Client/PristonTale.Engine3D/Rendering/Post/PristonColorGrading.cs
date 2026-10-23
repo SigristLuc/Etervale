@@ -17,7 +17,8 @@ internal static class PristonColorGrading
     private const float Saturation = 1.06f;
     private const float SplitTone = 0.012f;
 
-    public static Texture2D CreateLut(GraphicsDevice device, string cubePath, IClientLog log)
+    // Reads and samples the grade off the render thread; the pixels are uploaded with Upload.
+    public static Color[] BuildPixels(string cubePath, IClientLog log)
     {
         Func<Vector3, Vector3> grade = BuiltInLook;
         if (!string.IsNullOrWhiteSpace(cubePath))
@@ -48,6 +49,11 @@ internal static class PristonColorGrading
             }
         }
 
+        return pixels;
+    }
+
+    public static Texture2D Upload(GraphicsDevice device, Color[] pixels)
+    {
         var texture = new Texture2D(device, Size * Size, Size, false, SurfaceFormat.Color) { Name = "Colour grade LUT" };
         texture.SetData(pixels);
         return texture;

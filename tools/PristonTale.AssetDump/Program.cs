@@ -22,9 +22,10 @@ if (args.Length == 4 && args[0] == "--export-field-textures")
 // instead of assumption (see docs/rendering.md for the material and render conventions and docs/tools.md for
 // the options). Reuses the real Engine3D readers — no GraphicsDevice, no wine prefix.
 //
-// Usage:  ptdump <asset-path> [--materials] [--lights] [--objects] [--normals] [--motions] [--matbounds] [--full]
+// Usage:  ptdump <asset-path> [--materials] [--lights] [--objects] [--normals] [--motions] [--matbounds] [--physique] [--full]
 //   A .bmp/.tga path instead decodes the texture and prints content stats (size/bitcount/alpha/grayscale%).
 //   --matbounds : per-material face count + XYZ bounds (locate geometry by material).
+//   --physique  : distinct skinning bone names referenced by vertices.
 //   default          summary + aggregates (counts, bounds, blend-type histogram)
 //   --materials      one line per material (blend / transparency / flags / textures)
 //   --lights         every stage light (type / position / range / colour)
@@ -36,7 +37,7 @@ if (args.Length == 4 && args[0] == "--export-field-textures")
 if (args.Length == 0 || args[0] is "-h" or "--help")
 {
     Console.WriteLine(
-        "ptdump <asset-path> [--materials] [--lights] [--objects] [--normals] [--motions] [--matbounds] [--full]\n" +
+        "ptdump <asset-path> [--materials] [--lights] [--objects] [--normals] [--motions] [--matbounds] [--physique] [--full]\n" +
         "ptdump --export-field-textures <asset-root> <field-id> <output-directory>\n" +
         "  Inspects a PristonTale .smd (stage or model), .smb (model) or .inx (index).\n" +
         "  A .bmp/.tga path decodes the texture and prints content stats (size/alpha/grayscale%).");
@@ -122,8 +123,8 @@ void DumpStage(PristonStage stage)
     }
     Console.WriteLine($"  lights    : {stage.Lights.Count}  (night={lNight} lens={lLens} dynamic={lDyn})");
     int chained = 0; foreach (var tl in stage.TexLinks) if (tl.NextPointer != 0) chained++;
-    Console.WriteLine($"  texlink pNext (2nd UV set) : {chained} of {stage.TexLinks.Count}");
-    // Per MULTIMIX material: do ITS faces' texlinks carry pNext (genuine 2nd UV set) or not?
+    Console.WriteLine($"  chained texture links (2nd UV set): {chained} of {stage.TexLinks.Count}");
+    // Per MULTIMIX material: do ITS faces' texlinks carry a next pointer (genuine 2nd UV set) or not?
     for (var mi = 0; mi < stage.Materials.Count; mi++)
     {
         if (!stage.Materials[mi].HasSecondTexture) continue;
@@ -134,7 +135,7 @@ void DumpStage(PristonStage stage)
             faces++;
             if (f.TexLinkIndex >= 0 && f.TexLinkIndex < stage.TexLinks.Count && stage.TexLinks[f.TexLinkIndex].NextPointer != 0) withNext++;
         }
-        // MULTIMIX slot1 uses a 2nd UV set via the texlink pNext chain (D3DTSS_TEXCOORDINDEX=1). For
+        // MULTIMIX slot1 uses a 2nd UV set via the texlink NextPointer chain (D3DTSS_TEXCOORDINDEX=1). For
         // cSelect/Login.smd this 2nd set is a verbatim copy of UV0 — the slot1 effect comes from its
         // scroll (TextureFormStates[1]), not a different static mapping — so the renderer reuses UV0.
         Console.WriteLine($"  MULTIMIX mat {mi} ({stage.Materials[mi].TextureName}+{stage.Materials[mi].SecondTextureName}): faces={faces} faceTexlinks-with-pNext={withNext}");

@@ -96,7 +96,9 @@ internal sealed partial class FieldSkills
 
         var character = player.Character;
         var skill = FindSkill(character, request.SkillCode);
-        if (skill is null || !SkillRuleCatalog.TryGet(request.SkillCode, out var rule))
+        // A summon whose monster the imported catalog lacks would spend its costs and call nothing.
+        if (skill is null || !SkillRuleCatalog.TryGet(request.SkillCode, out var rule)
+            || rule.Summon is { } summon && !_host.TryFindMonsterDefinition(summon.Monster, out _))
         {
             return SkillCastOutcome.Refused(request, SkillCastVerdict.NotCastable);
         }

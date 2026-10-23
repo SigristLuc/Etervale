@@ -16,7 +16,7 @@
 
 #---------------------------------- Content ---------------------------------#
 
-# The SM 6.0 shader library (Shaders/, README.md there), compiled for Vulkan (vs_6_0/ps_6_0). Surface.fx is built for
+# The SM 6.0 shader library (Shaders/, see docs/shaders.md), compiled for Vulkan (vs_6_0/ps_6_0). Surface.fx is built for
 # the static and the skinned vertex factories (SKINNED); each effect selects its pass by technique.
 #begin Shaders/Passes/Surface.fx
 /importer:EffectImporter

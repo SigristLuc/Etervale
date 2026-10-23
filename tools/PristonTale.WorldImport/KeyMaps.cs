@@ -61,7 +61,7 @@ public static class KeyMaps
         ("*대자연", 1),  // EARTH
         ("*불", 2),      // FIRE
         ("*냉기", 3),    // ICE
-        ("*번개", 4),    // LIGHTING
+        ("*번개", 4),    // LIGHTNING
         ("*독", 5),      // POISON
         ("*물", 6),      // WATER
         ("*바람", 7),    // WIND
@@ -88,7 +88,7 @@ public static class KeyMaps
     public const string MonDefence = "*방어력";        // defence
     public const string MonAbsorb = "*흡수율";         // absorption
     public const string MonBlock = "*블럭율";          // block chance
-    public const string MonSight = "*시야";            // sight (raw squared distance)
+    public const string MonSight = "*시야";            // sight (raw reach, squared at runtime)
     public const string MonSkillDamage = "*기술공격력"; // skill damage min/max
     public const string MonSkillDistance = "*기술공격거리"; // skill distance
     public const string MonSkillRange = "*기술공격범위";    // skill area
@@ -130,7 +130,7 @@ public static class KeyMaps
     [
         ("*생체", 0),    // BIONIC
         ("*물", 6),      // WATER
-        ("*번개", 4),    // LIGHTING
+        ("*번개", 4),    // LIGHTNING
         ("*얼음", 3),    // ICE
         ("*바람", 7),    // WIND
         ("*지동력", 1),  // EARTH
@@ -252,11 +252,11 @@ public static class KeyMaps
         };
     }
 
-    /// <summary>The eight-element ResistanceBlock order, for documentation/iteration.</summary>
+    // The eight-element ResistanceBlock order, for documentation/iteration.
     public static readonly string[] ElementOrder =
         ["bionic", "earth", "fire", "ice", "lighting", "poison", "water", "wind"];
 
-    /// <summary>Drop-kind classification of a main <c>*아이템</c> line keyword.</summary>
+    // Drop-kind classification of a main *아이템 line keyword.
     public static DropKind ClassifyDropKeyword(string keyword) => keyword switch
     {
         DropNone => DropKind.Nothing,

@@ -63,7 +63,7 @@ search finds; they are not part of the build.
 
 | Item | Value |
 | --- | --- |
-| Port | TCP 10009 (English build) |
+| Port | TCP 10009 (English build); the server's `Network:Port` can change it |
 | Frame | `int32 size` (including the header), `uint32 code`, 8 to 8192 bytes; anything else closes the connection |
 | Cipher | Encrypted envelope: code `0x8001xxxx` (low word = 16-bit byte-sum checksum), XOR `0xED`, running key, 8 bytes of overhead |
 | Key seed | High byte = first octet of the peer's IPv4 address, low byte random; counter in the envelope |
@@ -97,7 +97,7 @@ login, character commands, heartbeats, `ATTACK_DAMAGE`, `SkillCast` and operatio
 | --- | --- | --- |
 | Connect | S→C `VERSION` | `WParam` = minimum client version (167). The client reports its own version (3122) in `GETRECORDDATA`. |
 | Log in | C→S `ID_GETUSERINFO` (account command packet, 84 B) | `szId` = account, `szName` = password, as in the original. |
-| Success | S→C `ID_SETUSERINFO` (1484 B) and `SERVER_INFO` (152 B) | Character list and the one game server: name `Etervale`, the login socket's local IPv4 address, port 10009. |
+| Success | S→C `ID_SETUSERINFO` (1484 B) and `SERVER_INFO` (152 B) | Character list and the one game server: name `Etervale`, the login socket's local IPv4 address and port. |
 | Failure | S→C `FAILCONNECT`, `EParam` = 2 | `WParam` uses the original codes: -2 bad credentials, -4 already logged in on this connection, -16 busy (throttled or storage failure), -24 account blocked. |
 | Name check | `ISRECORDDATA` echo | `WParam` = 1 when the name exists. |
 | Create | `INSRECORDDATA` echo | Request `LParam` = class code, `SParam` = face (unset in the original). Echo `WParam` = 1/0, `LParam` = `CreateCharacterFailure`. |

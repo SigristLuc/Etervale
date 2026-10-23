@@ -178,14 +178,15 @@ no `sounds` layers: skill sounds come from the skill rules (`castSound`, `impact
 3. `Register` keys by name (case-insensitive); a later registration replaces the whole definition. There is no
    field-level merge. Overrides therefore win over shipped effects, and among overrides the last file wins.
 
-`<assetRoot>` is the client's asset directory (`assets/` by default, see docs/client.md). Parse or validation errors
-throw `InvalidDataException` / `JsonException` out of the `SkillPresentation` constructor; nothing catches them.
+`<assetRoot>` is the client's asset directory (`assets/` by default, see docs/client.md). An embedded file that fails
+to parse or validate throws out of the `SkillPresentation` constructor (a build defect); an `assets/Vfx` file that
+cannot be read, parsed or validated is skipped as a whole and logged as `[Effects] skipped effect file ...`.
 
-Compilation (`VfxLibrary.Register`) validates, resolves textures and precomputes per layer: `CompiledEmitter`
-(offset, normalized direction, gravity, `VfxCurve` size and colour, cosine of the spread) and `CompiledTrail`.
-`CompiledVfx` is shared by every instance. Texture resolution: empty path -> fallback (white); `builtin:<name>` ->
-`VfxBuiltinTextures`, unknown builtin -> fallback; otherwise `LegacyEffectLibrary.LoadTexture` (null when the file is
-missing) -> fallback. A missing texture therefore draws a tinted white quad instead of hiding the effect.
+Compilation (`VfxLibrary.Register`) validates, resolves textures and precomputes per layer: `CompiledEmitter` (offset,
+normalized direction, gravity, `VfxCurve` size and colour, cosine of the spread) and `CompiledTrail`. `CompiledVfx` is
+shared by every instance. Texture resolution: empty path -> fallback (white); `builtin:<name>` -> `VfxBuiltinTextures`
+(validation rejects a name outside `VfxBuiltinTextures.Names`); otherwise `LegacyEffectLibrary.LoadTexture` (null when
+the file is missing) -> fallback. A missing texture therefore draws a tinted white quad instead of hiding the effect.
 
 ## Runtime: `VfxSystem`
 
@@ -334,8 +335,8 @@ Element variant suffixes are the lowercase `Element` names: `bionic`, `earth`, `
 after edits. `assets/` is not in Git, so overrides stay local; move them into the shipped files to keep them.
 
 **Add a builtin texture**: add `Add(device, "<name>", (x, y) => alpha)` in the `VfxBuiltinTextures` constructor
-(x, y in -1..1, return 0..1). Update the builtin table here and the README paragraph that lists builtins. The asset
-check in `SkillPresentationTests.AssetsAsync` skips every `builtin:` path, so test the name by capture.
+(x, y in -1..1, return 0..1) and the name to `VfxBuiltinTextures.Names`, which validation checks. Update the builtin
+table here. Check the look by capture.
 
 **Add a property to the schema**
 1. `VfxDefinition.cs`: add an `init` property with its default to the layer record; extend `Validate`.
@@ -351,7 +352,8 @@ check in `SkillPresentationTests.AssetsAsync` skips every `builtin:` path, so te
 
 - Property names are case-sensitive camelCase and unknown properties are ignored: a typo (`"Rate"`, `"lifeTime"`)
   silently falls back to the default.
-- A misspelled `builtin:` name or a missing texture renders a white square (fallback), not nothing.
+- A misspelled `builtin:` name fails validation; a missing asset texture renders a white square (fallback), not
+  nothing.
 - `spread` 0 with a `Ring`, `Disc` or `Sphere` shape emits radially and ignores `direction`; set `spread` >= 1 to aim.
 - `size` is the half-extent of the quad; trail `width` is the full width. Legacy and importer sizes are halved.
 - `drag` (VFX) is linear per second; `Damping` (legacy emitter) is exponential. They are not interchangeable.
@@ -363,8 +365,6 @@ check in `SkillPresentationTests.AssetsAsync` skips every `builtin:` path, so te
   read` at spawn time. Legacy layers are skipped when the legacy engine has 128 instances.
 - Shipped effect names must be unique across files (asserted); duplicates are only legal as `assets/Vfx` overrides.
 - The `LegacyParticleScript` Z axis is negated relative to the scene; keep that when converting coordinates by hand.
-- Comments in `VfxDefinition.cs` mention `Content/Vfx/*.vfx.json` and `VfxLibrary.cs` mentions importer-fed
-  definitions; the real sources are the embedded files and `assets/Vfx`.
 
 ## Related
 

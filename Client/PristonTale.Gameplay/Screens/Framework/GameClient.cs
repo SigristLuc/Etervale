@@ -78,7 +78,8 @@ public sealed class GameClient : IDisposable
             _uiAtlas,
             _sky,
             _effects,
-            _audio);
+            _audio,
+            RenewBackend);
         _displayConfirmation = new DisplayConfirmation(_context);
         // First screen: the opening / authentication scene (the login form overlays it next).
         SetScreen(new OpeningScreen(_context));
@@ -126,6 +127,14 @@ public sealed class GameClient : IDisposable
         _screen?.Dispose();
         _screen = next;
         _screen.Enter();
+    }
+
+    private void RenewBackend()
+    {
+        var previous = _backend;
+        _backend = new GameServerConnection(_serverAddress);
+        _context.ReplaceBackend(_backend);
+        _ = Task.Run(() => DisposeBackendAsync(previous));
     }
 
     private static async Task DisposeBackendAsync(IGameBackend backend)

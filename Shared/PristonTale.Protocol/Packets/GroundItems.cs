@@ -2,8 +2,8 @@ using PristonTale.Protocol.Binary;
 
 namespace PristonTale.Protocol.Packets;
 
-// Ground item record: {state, type, ItemCode, x, y, z, szName[64], lpStgArea} = 92 bytes on the 32-bit wire.
-// lpStgArea is an opaque server handle the client echoes back; Etervale stores the drop handle there and the
+// Ground item record: {state, type, ItemCode, x, y, z, char Name[64], Handle} = 92 bytes on the 32-bit wire.
+// Handle is an opaque server value the client echoes back; Etervale stores the drop handle there and the
 // quantity in the otherwise unused type field.
 public readonly record struct GroundItemEntry(uint Handle, uint ItemCode, int Amount, int X, int Y, int Z, string Name)
 {
@@ -80,7 +80,7 @@ public static class GroundItemList
     }
 }
 
-// Item action packet (DELITEM, PUTITEM request): {size, code, state, x, y, z, lpStgArea} = 28 bytes.
+// Item action packet (DelItem, PutItem request): {size, code, state, x, y, z, Handle} = 28 bytes.
 public readonly record struct GroundItemAction(uint Code, int State, int X, int Y, int Z, uint Handle)
 {
     public const int Size = 28;
@@ -103,7 +103,7 @@ public readonly record struct GroundItemAction(uint Code, int State, int X, int 
     }
 }
 
-// Chat message packet: {size, code, dwIP, dwObjectSerial, szMessage[256]}; senders use size = 32 + strlen(szMessage).
+// Chat message packet: {size, code, Ip, ObjectSerial, char Message[256]}; senders use size = 32 + the message length.
 public readonly record struct ChatMessagePacket(uint Code, uint Ip, uint ObjectSerial, string Message)
 {
     public const int HeaderSize = 16;

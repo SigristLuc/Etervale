@@ -39,7 +39,7 @@ public sealed class WorldPlayer
     private bool _inVillage;
     private Vector3 _respawnPoint;
 
-    // The client owns locomotion as in the original TRANSPLAYDATA flow. Reports spend a distance budget that refills at
+    // The client owns locomotion and reports it with TransPlayData. Reports spend a distance budget that refills at
     // 1.35 x run speed and holds at most two seconds of it plus 32 units, so many small reports in one tick cannot add
     // up to more than one long report could.
     private const float ReportSpeedTolerance = 1.35f;
@@ -259,7 +259,7 @@ public sealed class WorldPlayer
             return MovementVerdict.Rejected;
         }
 
-        // The original rsCheckPlayField only reported players off the floor; Etervale rejects the report instead.
+        // The classic server only flagged players found off the floor; Etervale rejects the report instead.
         terrain ??= FieldTerrain.None;
         var planar = new Vector3(position.X, Position.Y, position.Z);
         var reached = planar;

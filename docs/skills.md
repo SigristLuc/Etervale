@@ -263,13 +263,14 @@ it on the world tick thread; `FieldInstance.CastSkill` checks the player is stil
 [application.md](application.md) for the tick.
 
 `FieldSkills.Cast` checks, in order (first failure is the verdict): `Dead`; non-`Cast` commands go to `Release` or
-`SetSummonMode`; `Busy` (any non-idle action); `InVillage`; `NotCastable` (not in the caster's class or no rule);
-`SkillFormulas.CheckCaster`: `NotLearned` (rank 0 or level below `requiredLevel`), `NotCastable` (passive or
-`mouse: None`), `Busy` (stun or silence), `AlreadyActive` (`exclusive`, non-ally rules), `WeaponNotAllowed`,
-`NotEnoughMana`, `NotEnoughStamina`; `Cooldown` (with remaining ms); `ResolveTarget`: `requiresSkill`,
-`requiresClassArmor`, target kind, range + `RangeSlack` (24) and height difference <= 100, `AlreadyActive` on the
-ally. Then it ends `replaces` effects, spends mana and stamina, records uses, starts the cooldown, starts the cast
-motion, sets the combat target, draws a mode, stores an `ActiveCast` and queues a `Start` event for the next snapshot.
+`SetSummonMode`; `Busy` (any non-idle action); `InVillage`; `NotCastable` (not in the caster's class, no rule, or a
+summon whose monster the catalog lacks); `SkillFormulas.CheckCaster`: `NotLearned` (rank 0 or level below
+`requiredLevel`), `NotCastable` (passive or `mouse: None`), `Busy` (stun or silence), `AlreadyActive` (`exclusive`,
+non-ally rules), `WeaponNotAllowed`, `NotEnoughMana`, `NotEnoughStamina`; `Cooldown` (with remaining ms);
+`ResolveTarget`: `requiresSkill`, `requiresClassArmor`, target kind, range + `RangeSlack` (24) and height difference <=
+100, `AlreadyActive` on the ally. Then it ends `replaces` effects, spends mana and stamina, records uses, starts the
+cooldown, starts the cast motion, sets the combat target, draws a mode, stores an `ActiveCast` and queues a `Start`
+event for the next snapshot.
 
 `FieldSkills.Step` (each tick): fires the hits whose time has come (`HitsAtMs` from the cast start); a projectile hit
 resolves after `SkillProjectile.FlightMs` to the target's current position; a cast that stops before its motion ends
@@ -379,9 +380,10 @@ Change learning rules: `SkillLearning` (prices, gates), `PlayerCharacter.LevelUp
 
 ## Pitfalls
 
-- Typos in property names, brood names (`bonusBroods`, `broods`, `onlyBroods`) or summon monster names are not errors:
-  unknown JSON properties are skipped, brood strings that parse to no `MonsterBrood` never match, and a summon whose
-  `monster` is missing from the world catalog is accepted, spends mana and resolves with 0 targets.
+- Loading is strict: `SkillJson.RequireKnownProperties` rejects any property, at any depth, that neither
+  `ClassSkillEntry` nor `SkillRule` (or the nested type) declares, and any brood entry that is not a `MonsterBrood`.
+  Add the C# property before using a new JSON field. Summon monster names depend on imported data, so they are checked
+  at cast time: a summon whose `monster` is missing from the world catalog is refused as `NotCastable` before costs.
 - The lightning element is spelled `Lighting` (`Element.Lighting`).
 - A table with a length other than 0 or 10 fails the whole catalog load (server and client).
 - Array order is window order; moving an entry changes its price, gate, proficiency streak and HUD node.

@@ -5,7 +5,7 @@ using PristonTale.Simulation.Characters;
 namespace PristonTale.Gameplay.UI.Widgets;
 
 // Original status window: Status.bmp with its text columns and the attribute point arrows.
-// The element resistances (RegiBox) are not part of the authoritative owner state and stay empty.
+// The element resistance boxes are not part of the authoritative owner state and stay empty.
 public sealed class HudStatusPanel
 {
     private const int TextShift = 2;

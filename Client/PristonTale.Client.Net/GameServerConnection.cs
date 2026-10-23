@@ -76,6 +76,8 @@ public sealed class GameServerConnection : IGameBackend
 
     public string? SessionToken { get; private set; }
 
+    public bool RequiresNewConnection => SessionToken is not null || Volatile.Read(ref _terminalError) is not null;
+
     public long BytesReceived => _connection?.BytesReceived ?? 0;
 
     public long BytesSent => _connection?.BytesSent ?? 0;
@@ -175,7 +177,7 @@ public sealed class GameServerConnection : IGameBackend
         {
             var pending = new TaskCompletionSource<EnterWorldOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
             _enter = pending;
-            // GETRECORDDATA {SParam = Client_Version, szName}; the original sends it as plain Send.
+            // GetRecordData {SParam = client version, Name}; the classic client sends it unencrypted.
             Send(new CharCommand(PristonOpcodes.GetRecordData, 0, 0, _clientVersion, characterName), encrypt: false);
             return await pending.Task.WaitAsync(ct);
         }
@@ -331,7 +333,7 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
-    // ATTACK_DAMAGE {AttackState bit 0 = held attack, AttackCount = request sequence}; Power is ignored by the server.
+    // AttackDamage {AttackState bit 0 = held attack, AttackCount = request sequence}; Power is ignored by the server.
     internal void SendAttackPacket(uint target, int attackState, ulong sequence)
     {
         var attack = new AttackDamagePacket(_presence.SelfSerial, target, 0, 0, 0, attackState, 48 * 256, 0, 0, 0, (uint)Environment.TickCount,
@@ -449,7 +451,7 @@ public sealed class GameServerConnection : IGameBackend
         {
             while (await timer.WaitForNextTickAsync(connection.Closed))
             {
-                // CHECK_NETSTATE {LParam = counter, WParam = client time}.
+                // CheckNetState {LParam = counter, WParam = client time}.
                 Send(new TransCommand(PristonOpcodes.CheckNetState, ++counter, Environment.TickCount), encrypt: true);
             }
         }

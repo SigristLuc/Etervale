@@ -17,7 +17,7 @@ public readonly record struct TransCommand(uint Code, int LParam = 0, int WParam
         return writer.Finish();
     }
 
-    // CHECK_NETSTATE5 replies keep the 24-byte body but declare the attack data size; readers accept trailing bytes.
+    // CheckNetState5 replies keep the 24-byte body but declare the attack data size; readers accept trailing bytes.
     public static TransCommand Read(ReadOnlySpan<byte> packet)
     {
         var reader = new PacketReader(packet, Size);
@@ -52,7 +52,7 @@ public readonly record struct TransCommandEx(uint Code, int LParam, int WParam, 
     }
 }
 
-// Character command packet: {size, code, LParam, WParam, SParam, char szName[32]} = 52 bytes.
+// Character command packet: {size, code, LParam, WParam, SParam, char Name[32]} = 52 bytes.
 public readonly record struct CharCommand(uint Code, int LParam, int WParam, int SParam, string Name)
 {
     public const int Size = 52;
@@ -75,8 +75,8 @@ public readonly record struct CharCommand(uint Code, int LParam, int WParam, int
     }
 }
 
-// Account command packet: character command packet with szId[32] before szName[32] = 84 bytes.
-// ID_GETUSERINFO carries the password in szName; INSRECORDDATA leaves LParam/SParam uninitialised in the original,
+// Account command packet: character command packet with char Id[32] before Name[32] = 84 bytes.
+// IdGetUserInfo carries the password in Name; InsRecordData leaves LParam/SParam uninitialised in the classic client,
 // so Etervale uses them for the class code and face index.
 public readonly record struct CharCommand2(uint Code, int LParam, int WParam, int SParam, string Id, string Name)
 {

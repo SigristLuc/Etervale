@@ -34,6 +34,8 @@ internal sealed class PristonPostProcessor : IDisposable
     private RenderTarget2D _ldrTarget;
     private Texture2D _lutTexture;
     private string _lutSource;
+    private string _pendingLutSource;
+    private Task<Color[]> _pendingLut;
     private uint _frame;
 
     public PristonPostProcessor(GraphicsDevice device, ContentManager content, IClientLog log, PristonFullscreenTriangle triangle)
@@ -154,17 +156,45 @@ internal sealed class PristonPostProcessor : IDisposable
         _ => 0f
     };
 
+    // A .cube file is read on the thread pool; the previous grade (or the built-in one) stays bound until it is ready.
     private void EnsureLut(PristonPostSettings settings)
     {
         var source = settings.ColorGradingLut ?? string.Empty;
-        if (_lutTexture is not null && _lutSource == source)
+        if (_lutTexture is null)
+        {
+            _lutTexture = PristonColorGrading.Upload(_device, PristonColorGrading.BuildPixels(string.Empty, _log));
+            _lutSource = string.Empty;
+        }
+
+        if (_pendingLut is { IsCompleted: true } finished)
+        {
+            _pendingLut = null;
+            if (finished.IsCompletedSuccessfully)
+            {
+                _lutTexture.Dispose();
+                _lutTexture = PristonColorGrading.Upload(_device, finished.Result);
+                _lutSource = _pendingLutSource;
+            }
+            else
+            {
+                _log.Warn($"[Rendering] colour grade '{_pendingLutSource}' failed: {finished.Exception?.GetBaseException().Message}");
+                _lutSource = _pendingLutSource;
+            }
+        }
+
+        if (_lutSource == source || _pendingLut is not null && _pendingLutSource == source)
         {
             return;
         }
 
-        _lutTexture?.Dispose();
-        _lutTexture = PristonColorGrading.CreateLut(_device, source, _log);
-        _lutSource = source;
+        if (_pendingLut is not null)
+        {
+            return;
+        }
+
+        var log = _log;
+        _pendingLutSource = source;
+        _pendingLut = Task.Run(() => PristonColorGrading.BuildPixels(source, log));
     }
 
     private void EnsureLdr(int width, int height)

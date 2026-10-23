@@ -27,7 +27,7 @@ public sealed class LegacyMeteorEffects
 
     public static (Vector3 Start, Vector3 Velocity) Trajectory(Vector3 target)
     {
-        // ParkAssaParticle_FireWorm(target, 1): fixed-point offsets, converted once to scene coordinates.
+        // Fire Worm meteor launch: fixed-point offsets, converted once to scene coordinates.
         var destination = target + new Vector3(0, 0, -1000f / 256f);
         var offset = new Vector3(0, 130000f / 256f, -50000f / 256f);
         return (destination + offset, Vector3.Normalize(-offset) * Speed);

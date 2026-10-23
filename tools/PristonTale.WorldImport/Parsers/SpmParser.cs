@@ -1,14 +1,12 @@
 namespace PristonTale.WorldImport.Parsers;
 
-/// <summary>
-/// Parses one field <c>.spm</c> text file (the monster-spawn config) with the original spawn-table rules.
-/// Populates the budget knobs + the weighted monster table + boss spawns of the
-/// supplied <see cref="ParsedField"/>. Each token accepts a Korean and an ASCII alias.
-///
-/// <c>*출현간격</c> (interval) is a tick mask: the interval is <c>1&lt;&lt;n</c>, decremented when above 1
-/// (so n yields a <c>(1&lt;&lt;n)-1</c> mask), with an optional 2nd word giving a cooldown that the original
-/// multiplies by 1000. We store the raw shift result and the ms value separately.
-/// </summary>
+// Parses one field .spm text file (the monster-spawn config) with the original spawn-table rules.
+// Populates the budget knobs + the weighted monster table + boss spawns of the
+// supplied ParsedField. Each token accepts a Korean and an ASCII alias.
+//
+// *출현간격 (interval) is a tick mask: the interval is 1<<n, decremented when above 1
+// (so n yields a (1<<n)-1 mask), with an optional 2nd word giving a cooldown that the original
+// multiplies by 1000. We store the raw shift result and the ms value separately.
 public sealed class SpmParser
 {
     public void Parse(string path, ParsedField field)

@@ -215,7 +215,7 @@ public sealed record PristonMaterial(
     public uint StageFormState(int stage) => stage < TextureFormStates.Count ? TextureFormStates[stage] : 0u;
 
     // MULTIMIX stages above 0 combined in the same pass. The chain stops at a disabled stage (code 1), a missing
-    // texture, or a stage with its own opacity mask, which the original drew in a separate pass (MapDualRend).
+    // texture, or a stage with its own opacity mask, which the classic renderer drew in a separate pass.
     public int CombinedLayerCount
     {
         get

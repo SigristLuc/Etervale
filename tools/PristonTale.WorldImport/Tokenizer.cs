@@ -1,20 +1,18 @@
 namespace PristonTale.WorldImport;
 
-/// <summary>
-/// The shared line/token reader for the <c>*token value...</c> text format of the authored config files.
-/// Mirrors the original tokenizer faithfully:
-/// <list type="bullet">
-///   <item>Words: skip leading SPACE(0x20)/TAB(0x09), copy bytes until the next SPACE/TAB or CR/LF — i.e.
-///   <b>whitespace-split, no comment character</b>.</item>
-///   <item>Quoted strings: scan to the first <c>"</c>, copy until the closing <c>"</c>. The universal name idiom is: read one word; <b>if it began with <c>"</c></b>,
-///   re-parse from the saved start as a quoted string (so names with spaces survive).</item>
-/// </list>
-/// There is no comment marker in the format: a <c>//</c> line simply has a leading token that matches
-/// nothing and is ignored. We reproduce that by only acting on recognised <c>*</c>/<c>**</c> keys.
-///
-/// A <see cref="Tokenizer"/> wraps a single line; <see cref="NextWord"/> walks words left-to-right and
-/// <see cref="QuotedFrom"/> re-reads a quoted string spanning embedded spaces.
-/// </summary>
+// The shared line/token reader for the *token value... text format of the authored config files.
+// Format rules:
+//
+// - Words: skip leading space (0x20) and tab (0x09), copy bytes until the next space, tab or CR/LF, i.e.
+//   whitespace-split with no comment character.
+// - Quoted strings: scan to the first ", copy until the closing ". Names are read as one word; if it began
+//   with ", it is re-parsed from the saved start as a quoted string (so names with spaces survive).
+//
+// There is no comment marker in the format: a // line simply has a leading token that matches
+// nothing and is ignored. We reproduce that by only acting on recognised */** keys.
+//
+// A Tokenizer wraps a single line; NextWord walks words left-to-right and
+// QuotedFrom re-reads a quoted string spanning embedded spaces.
 public sealed class Tokenizer
 {
     private readonly string _line;
@@ -26,7 +24,7 @@ public sealed class Tokenizer
         _pos = 0;
     }
 
-    /// <summary>True once the cursor has consumed the whole line.</summary>
+    // True once the cursor has consumed the whole line.
     public bool AtEnd
     {
         get
@@ -38,16 +36,14 @@ public sealed class Tokenizer
         }
     }
 
-    /// <summary>The leading word (the <c>*</c>/<c>**</c> key) without disturbing the cursor for re-reads.</summary>
+    // The leading word (the */** key) without disturbing the cursor for re-reads.
     public static string LeadingKey(string line)
     {
         var t = new Tokenizer(line);
         return t.NextWord();
     }
 
-    /// <summary>
-    /// Read the next whitespace-delimited word (GetWord). Returns the empty string at end of line.
-    /// </summary>
+    // Read the next whitespace-delimited word. Returns the empty string at end of line.
     public string NextWord()
     {
         while (_pos < _line.Length && IsSpace(_line[_pos]))
@@ -58,11 +54,8 @@ public sealed class Tokenizer
         return _line[start.._pos];
     }
 
-    /// <summary>
-    /// Read a value that may be a quoted string: peek the next word; if it starts with <c>"</c>, re-read
-    /// the quoted span (which may contain spaces). Otherwise return the plain word. Mirrors the C++
-    /// <c>p=GetWord(buf,p); if(buf[0]=='"') p=GetString(buf,pb);</c> idiom.
-    /// </summary>
+    // Read a value that may be a quoted string: peek the next word; if it starts with ", re-read
+    // the quoted span (which may contain spaces). Otherwise return the plain word.
     public string NextValueOrQuoted()
     {
         // Skip leading whitespace, remember the start so a quoted re-read sees the opening quote.
@@ -80,7 +73,7 @@ public sealed class Tokenizer
         return _line[start.._pos];
     }
 
-    /// <summary>Read a quoted string from the cursor (cursor must be at the opening quote or whitespace).</summary>
+    // Read a quoted string from the cursor (cursor must be at the opening quote or whitespace).
     private string ReadQuoted()
     {
         // Find opening quote.
@@ -98,13 +91,13 @@ public sealed class Tokenizer
         return value;
     }
 
-    /// <summary>Read the next word as an integer (atoi semantics: empty/invalid → 0).</summary>
+    // Read the next word as an integer (atoi semantics: empty/invalid → 0).
     public int NextInt() => Atoi(NextWord());
 
-    /// <summary>Read the next word as a float (atof semantics: empty/invalid → 0).</summary>
+    // Read the next word as a float (atof semantics: empty/invalid → 0).
     public float NextFloat() => Atof(NextWord());
 
-    /// <summary>Collect every remaining whitespace-delimited word (used for code lists, job names).</summary>
+    // Collect every remaining whitespace-delimited word (used for code lists, job names).
     public IReadOnlyList<string> RemainingWords()
     {
         var words = new List<string>();

@@ -44,8 +44,8 @@ public sealed record ClientSettings
     public bool ShadowsEnabled { get; init; } = true;
     // Classic: the target HP bar appears only after you attack a monster at full HP, without numbers.
     public bool ClassicTargetHealthBar { get; init; }
-    // Atmospheric fades distant geometry toward the captured sky up to a capped opacity; Classic is the original colour
-    // clip (flat sky colour from 2208 to 2718 units); Off disables it.
+    // Atmospheric fades distant geometry toward the captured sky up to a capped opacity; Classic is still accepted but
+    // is drawn as Atmospheric; Off disables it.
     public DistanceFogMode DistanceFog { get; init; } = DistanceFogMode.Atmospheric;
     // Development view of the surface shader; also cycled in game with Ctrl+F10.
     public PristonDebugView DebugView { get; init; }
@@ -114,8 +114,8 @@ public sealed record ClientSettings
         return valid;
     }
 
-    // The rendering options of a preset; display, audio and gameplay options are kept. The budgets at 1920x1080 on a
-    // GTX 1050 Ti (README.md, Client settings): Low about 4 ms of GPU time per frame, High about 8 ms.
+    // The rendering options of a preset; display, audio and gameplay options are kept. Measured GPU frame times per
+    // preset are listed in docs/client-settings.md.
     public ClientSettings WithQuality(GraphicsQuality quality) => quality switch
     {
         GraphicsQuality.Low => this with

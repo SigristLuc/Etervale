@@ -79,8 +79,8 @@ public static class CombatResolver
         return result;
     }
 
-    // Walk the ascending step table to the bracket the threshold falls in. The original takes the hit%
-    // of the entry whose threshold AC_R has reached; below the first threshold it is the table floor (50).
+    // Walk the ascending step table to the bracket the threshold falls in. The hit% is that of the last entry
+    // whose threshold acR has reached; below the first threshold it is the table floor (50).
     private static int LookupAccuracy(int acR)
     {
         int hit = AccuracyTable[0].Hit;

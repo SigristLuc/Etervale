@@ -297,10 +297,20 @@ internal static class NpcServiceTests
         var gated = new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Teleporter, NpcServiceAction.Teleport, character.InventoryRevision, Anchor: 4);
         Assert.True(!(await Advance(world, service.RequestAsync(session.SessionToken, gated))).Outcome.Ok && character.Money == 1000,
             "the field level limit was ignored");
+        // Run the source field's clock well ahead of the destination's, which starts at zero.
+        for (uint tick = 0; tick < 100; tick++)
+        {
+            world.Tick(0.05f, tick);
+        }
+
+        const uint skill = 0x01010001;
+        fixture.Player.Cooldowns.Start(skill, 60_000, world.FieldNowMs(3));
         var trip = gated with { OperationId = Guid.NewGuid(), Anchor = 1 };
         var moved = await Advance(world, service.RequestAsync(session.SessionToken, trip));
         Assert.True(moved.Outcome.Ok && moved.Arrival?.FieldCode == 0 && session.FieldId == 0 && character.Money == 900
             && fixture.Characters.Record.FieldId == 0 && fixture.Characters.Record.Money == 900, "teleport did not charge and move durably");
+        var remaining = fixture.Player.Cooldowns.RemainingMs(skill, world.FieldNowMs(0));
+        Assert.True(remaining is > 59_000 and <= 60_000, $"teleport did not carry the cooldown to the new field clock ({remaining} ms left)");
     }
 
     private static async Task RepositoryAsync()

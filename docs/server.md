@@ -18,7 +18,7 @@ layouts live in [protocol.md](protocol.md).
 | Path | Responsibility |
 | --- | --- |
 | [Program.cs](../Server/PristonTale.Server/Program.cs) | Generic host: `Host.CreateApplicationBuilder(args)`, `AddPristonServer()`, `Run()`. No HTTP endpoints. |
-| [Hosting/HostingExtensions.cs](../Server/PristonTale.Server/Hosting/HostingExtensions.cs) | `AddPristonServer`: every DI registration, provider selection, `WorldServerOptions`, `DefaultGamePort` (10009). |
+| [Hosting/HostingExtensions.cs](../Server/PristonTale.Server/Hosting/HostingExtensions.cs) | `AddPristonServer`: every DI registration, provider selection, `WorldServerOptions`, `DefaultGamePort` (10009, the default of `Network:Port`). |
 | `Hosting/DatabaseMigrationService.cs` | Hosted service: `IDatabaseMigrator.MigrateAsync` on start. |
 | `Hosting/WorldDataLoadService.cs` | Hosted service: `WorldDataAppService.BuildAsync` into `WorldDataHolder.Current`; logs catalog counts. |
 | `Hosting/FieldTerrainLoadService.cs` | Hosted service: reads every field's stage `.smd` collision in parallel into `FieldTerrainCatalog`. |
@@ -46,7 +46,7 @@ registration order. An exception from any `StartAsync` stops the host before the
 | 2 | `WorldDataLoadService` | Loads items, monsters, NPCs, field spawns and motion timings from the database. | Repository errors only. An empty, un-imported database loads zero rows and starts an empty world. |
 | 3 | `FieldTerrainLoadService` | Loads the collision of all 42 fields of `WorldCatalog.AllFields` (`FieldDef.StageSmd`). | No assets directory, or any stage missing or unreadable, unless `Assets:AllowMissingTerrain=true`. |
 | 4 | `WorldTickService` | Starts the 20 Hz tick loop. | Never; a throwing tick is logged and the loop continues. |
-| 5 | `PristonTcpServer` | Binds `[::]:10009` dual-stack, backlog 512, and accepts. | The port is in use (the host stops). |
+| 5 | `PristonTcpServer` | Binds `[::]:<Network:Port>` (10009) dual-stack, backlog 512, and accepts. | The port is in use (the host stops). |
 
 Terrain details:
 
@@ -101,7 +101,7 @@ Hosted services are registered in the order of the startup table.
 
 Sources, later ones winning: `appsettings.json`, `appsettings.{Environment}.json` (none exist), environment variables
 (`__` for `:`, e.g. `World__ExperienceMultiplier=1`), command line (`--World:ExperienceMultiplier=1`). A `Network:*`
-value of `0` disables that limit; negative values stop startup.
+limit of `0` disables that limit; negative values stop startup.
 
 | Key | Default | Read by | Meaning |
 | --- | --- | --- | --- |
@@ -112,6 +112,7 @@ value of `0` disables that limit; negative values stop startup.
 | `Assets:AllowMissingTerrain` | `false` | `FieldTerrainLoadService` | Start without an assets directory or with missing/unreadable stages. |
 | `World:ExperienceMultiplier` | 5 | `WorldServerOptions` | Server-wide bonus on monster experience; must be at least 1. |
 | `World:MaxPendingCommandsPerPlayer` | 64 | `WorldServerOptions` | Commands one player may have waiting for the tick; at least 1. |
+| `Network:Port` | 10009 | `PristonTcpServer` | TCP game port, 1 to 65535; the client always connects to 10009. |
 | `Network:PacketLimit` | 251 | `NetworkLimits` | Packets per window before the connection closes (`GETPLAYERINFO` excluded). |
 | `Network:PacketWindowSeconds` | 5 | `NetworkLimits` | Fixed window of the packet limit. |
 | `Network:MaxConnectionsPerIp` | 8 | `NetworkLimits` | Open connections per remote address; extra sockets are closed on accept. |
@@ -123,7 +124,7 @@ value of `0` disables that limit; negative values stop startup.
 | `Network:PlayerInfoPerSecond` | 128 | `NetworkLimits` | Token refill rate for `GETPLAYERINFO`. |
 | `Logging:LogLevel:Default` | `Information` | host | Standard .NET logging filter. |
 
-Fixed values that are not settings: game port 10009, idle timeout 60 s, housekeeping period 5 s, report period 30 s,
+Fixed values that are not settings: idle timeout 60 s, housekeeping period 5 s, report period 30 s,
 tick rate 20 Hz, send backlog limit 512 KiB per connection (`PristonConnectionOptions.MaxPendingSendBytes`).
 
 ## TCP edge

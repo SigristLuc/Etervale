@@ -10,6 +10,13 @@ public sealed class VfxBuiltinTextures : IDisposable
     public const string Prefix = "builtin:";
     private const int Size = 128;
 
+    public static readonly IReadOnlySet<string> Names =
+        new HashSet<string>(["glow", "soft", "spark", "beam", "ring", "star", "smoke", "flame"], StringComparer.OrdinalIgnoreCase);
+
+    // A "builtin:" path must name one of the textures above; other paths are asset paths.
+    public static bool IsKnownOrAsset(string path) =>
+        !path.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase) || Names.Contains(path[Prefix.Length..]);
+
     private readonly Dictionary<string, Texture2D> _textures = new(StringComparer.OrdinalIgnoreCase);
 
     public VfxBuiltinTextures(GraphicsDevice device)

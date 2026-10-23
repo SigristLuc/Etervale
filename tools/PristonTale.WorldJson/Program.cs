@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using PristonTale.Simulation.World;
 
-// Dump the shared WorldCatalog to world.json for the Godot field-streaming prototype. The geometry GLBs
+// Dump the shared WorldCatalog to world.json for external field-streaming tools. The geometry GLBs
 // are exported at RAW world coordinates × a uniform scale, so two co-resident fields align automatically;
 // the only thing the runtime needs is, per field, WHERE the walk-through gates are (to know WHEN to stream
 // a neighbour and WHICH one). Coordinates are PT global units (same space as the stage geometry, pre-scale).

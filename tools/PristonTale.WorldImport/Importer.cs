@@ -11,21 +11,19 @@ using PristonTale.WorldImport.Parsers;
 
 namespace PristonTale.WorldImport;
 
-/// <summary>
-/// Orchestrates the idempotent world-data import. Reads the original CP949 config files, resolves
-/// cross-references (drop/shop item codes → item_templates; spawn monster/NPC names → FK rows), and writes
-/// the baseline tables in dependency order:
-/// <c>item_templates → monsters(+drops) → npcs(+shop) → fields(+spawn children)</c>.
-///
-/// Idempotency contract: parents upsert by their natural PK via <c>INSERT … ON CONFLICT … DO UPDATE</c>
-/// (valid on Postgres and SQLite ≥ 3.35); variadic children are <b>delete-then-reinsert</b> per parent, so
-/// a 2nd run produces zero net row changes. The whole import runs in one transaction.
-///
-/// The production <see cref="IWorldDataRepository"/> is read-only by design, so the WRITE SQL lives here
-/// (mirroring DapperCharacterRepository's explicit-column, provider-agnostic style).
-///
-/// Item DWORDs use the original category and ordinal bits of the binary item code, shared with runtime catalog mapping.
-/// </summary>
+// Orchestrates the idempotent world-data import. Reads the original CP949 config files, resolves
+// cross-references (drop/shop item codes → item_templates; spawn monster/NPC names → FK rows), and writes
+// the baseline tables in dependency order:
+// item_templates → monsters(+drops) → npcs(+shop) → fields(+spawn children).
+//
+// Idempotency contract: parents upsert by their natural PK via INSERT … ON CONFLICT … DO UPDATE
+// (valid on Postgres and SQLite ≥ 3.35); variadic children are delete-then-reinsert per parent, so
+// a 2nd run produces zero net row changes. The whole import runs in one transaction.
+//
+// The production IWorldDataRepository is read-only by design, so the WRITE SQL lives here
+// (mirroring DapperCharacterRepository's explicit-column, provider-agnostic style).
+//
+// Item DWORDs use the original category and ordinal bits of the binary item code, shared with runtime catalog mapping.
 public sealed class Importer
 {
     private readonly IDbConnectionFactory _connections;
@@ -33,11 +31,8 @@ public sealed class Importer
     private readonly string? _assetRoot;
     private readonly List<EntityVariant> _entityVariants = [];
 
-    /// <param name="assetRoot">
-    /// Game assets root (the directory containing <c>assets/…</c>-relative INX paths) for the motion-timing
-    /// pass (combat-fidelity F2). Null = skip the pass (the motion tables stay empty; the world host keeps
-    /// its fallback timing constants).
-    /// </param>
+    // assetRoot: game assets root (the directory containing assets/…-relative INX paths) for the motion-timing
+    // pass. Null = skip the pass (the motion tables stay empty; the world host keeps its fallback timing constants).
     public Importer(IDbConnectionFactory connections, string gameServerRoot, string? assetRoot = null)
     {
         _connections = connections;
@@ -125,10 +120,13 @@ public sealed class Importer
         }
     }
 
+    // Definitions hold value-tuple lists (item specials, shop stock); tuples keep their values only as fields.
+    private static readonly JsonSerializerOptions VariantJson = new() { IncludeFields = true };
+
     private EntityVariant CreateVariant(string path, string kind, string identity, bool selected, object value)
     {
         var relativePath = Path.GetRelativePath(_root, path).Replace('\\', '/');
-        return new EntityVariant(relativePath, kind, identity, selected, JsonSerializer.Serialize(value));
+        return new EntityVariant(relativePath, kind, identity, selected, JsonSerializer.Serialize(value, VariantJson));
     }
 
     private sealed record EntityVariant(
@@ -234,15 +232,11 @@ public sealed class Importer
 
     private sealed record SourceField(int Line, string Key, IReadOnlyList<string> Values);
 
-    // ---- Motion timing (the INX pass; combat-fidelity F2) ---------------------------------------------
-
-    /// <summary>
-    /// Extract each distinct monster and NPC model's INX motion table + the player class body tables (via the
-    /// shared <see cref="CharacterClassRegistry"/> visuals) and write <c>motion_models</c> /
-    /// <c>motion_slots</c>. Idempotent: models upsert; each table's slots are delete-reinserted. Skipped
-    /// (with a warning) when no assets root was supplied. Unresolvable models are reported, not fatal —
-    /// the world host falls back to its F1 timing constants for them.
-    /// </summary>
+    // Extract each distinct monster and NPC model's INX motion table + the player class body tables (via the
+    // shared CharacterClassRegistry visuals) and write motion_models /
+    // motion_slots. Idempotent: models upsert; each table's slots are delete-reinserted. Skipped
+    // (with a warning) when no assets root was supplied. Unresolvable models are reported, not fatal —
+    // the world host falls back to its default timing constants for them.
     private async Task WriteMotionTimingAsync(
         DbConnection conn,
         DbTransaction tx,

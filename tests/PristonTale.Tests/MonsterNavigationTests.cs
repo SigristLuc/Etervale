@@ -16,8 +16,8 @@ internal static class MonsterNavigationTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("monster leashed home behind a wall re-acquires and attacks an adjacent player (audit 5.1)", LeashBehindWallAsync);
-        yield return ("monster chasing a player behind a wall slides around it instead of oscillating (audit 5.2)", SlideAroundWallAsync);
+        yield return ("monster leashed home behind a wall re-acquires and attacks an adjacent player", LeashBehindWallAsync);
+        yield return ("monster chasing a player behind a wall slides around it instead of oscillating", SlideAroundWallAsync);
         yield return ("monster beside a still player chains attacks without walk blips or moonwalking", AttackStandAsync);
         yield return ("five monsters converging on one player never moonwalk or flee as stuck", JamAsync);
         yield return ("monsters without attack range hold position and never swing", ZeroRangeAsync);

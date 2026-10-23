@@ -189,10 +189,9 @@ In the gameplay screen (`GameplayScreen.UpdateDebugKeys`): `Ctrl+F3` toggles the
   confirmation because it belongs to `HasSameDisplay`.
 - MSAA disables the depth pre-pass, so ambient occlusion, contact shadows, screen-space reflections, volumetric light,
   soft particles and light-tile depth bounds are all off with `Msaa`.
-- `Classic` distance fog is not a separate look; the comment on `ClientSettings.DistanceFog` that calls it the original
-  colour clip is stale: `PristonDistanceFog.For` maps it to `Atmospheric`.
-- `colorGradingLut` is read synchronously on the render thread when the value changes
-  (`PristonPostProcessor.EnsureLut`).
+- `Classic` distance fog is not a separate look: `PristonDistanceFog.For` maps it to `Atmospheric`.
+- A changed `colorGradingLut` is read and sampled on the thread pool (`PristonPostProcessor.EnsureLut`); the previous
+  grade stays on screen until the new LUT is uploaded, a frame or more later.
 - `ClientSettings` lives in Engine3D but holds gameplay (`classicTargetHealthBar`) and audio fields; keep the record
   free of Gameplay types so Engine3D does not depend on Gameplay.
 

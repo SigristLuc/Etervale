@@ -47,6 +47,11 @@ internal sealed class OpeningLoginController : IDisposable
         _login.InputEnabled = false;
         _phase = Phase.Authenticating;
         _loginCts = new CancellationTokenSource();
+        if (_context.Backend.RequiresNewConnection)
+        {
+            _context.RenewBackend();
+        }
+
         _loginTask = _context.Backend.LoginAsync(_login.Account.Text, _login.Password.Text, ClientVersion, _loginCts.Token);
     }
 

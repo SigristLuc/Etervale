@@ -14,7 +14,7 @@ public sealed class PristonTextureLoader : IDisposable
     private readonly ConcurrentDictionary<string, Texture2D> _cache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, Lazy<Task<PreparedTexture>>> _preparing = new(StringComparer.OrdinalIgnoreCase);
     private static readonly SemaphoreSlim DecodeSlots = new(2, 2);
-    // The original alpha-test reference (AlphaTestDepth = 60).
+    // The classic alpha-test reference value.
     internal const byte AlphaCutoffByte = 60;
     private Texture2D _white;
     private sealed record PreparedTexture(int Width, int Height, Color[][] Levels);

@@ -239,8 +239,8 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
 ## Diagnostics
 
 - `LastFrameStats` (`PristonRenderStats`): batches total/visible/culled, draw calls, triangles, state and texture
-  changes, dynamic upload bytes, sun shadow update, shadow draw calls. Shown in the window title (`Ctrl+F3`).
-  `LampShadowMapsUpdated` is always 0.
+  changes, dynamic upload bytes, sun shadow update, lamp shadow cube maps redrawn (`L` in the title), shadow draw
+  calls. Shown in the window title (`Ctrl+F3`).
 - `Profiler` (`PristonFrameProfiler`): CPU time per `RenderSection`; GPU time from Vulkan timestamps after
   `EnableGpuTimers` (benchmark only), read back 4 frames later without waiting.
 - `LastStreamingStats`: per `StreamingStep` count, total and worst main-thread milliseconds and bytes of the last stage

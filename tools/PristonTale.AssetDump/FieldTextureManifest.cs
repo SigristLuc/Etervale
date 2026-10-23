@@ -9,7 +9,7 @@ using PristonTale.Simulation.World.Fields;
 
 namespace PristonTale.AssetDump;
 
-/// <summary>Exports the exact field texture dependency set using the production readers, selection and resolution rules.</summary>
+// Exports the exact field texture dependency set using the production readers, selection and resolution rules.
 internal static class FieldTextureManifest
 {
     private sealed record TextureEntry(

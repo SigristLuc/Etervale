@@ -269,6 +269,10 @@ static void PrintUsage()
                               export authored *Name labels for migration; no database access
           export-npc-motions --source <dir> --assets <dir> --output <path>
                               export exact NPC INX clips for existing-database repair
+          export-item-names --source <dir> --output <path>
+                              export item codes and names; no database access
+          export-npc-placements --source <dir> --output <path>
+                              export the fixed NPC placements of every field; no database access
 
         Options:
           --sqlite <path>     use a SQLite DB at <path> (default: %TEMP%/pristontale-world.db)

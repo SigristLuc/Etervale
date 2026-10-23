@@ -3,11 +3,9 @@ using PristonTale.Simulation.World.Monsters;
 
 namespace PristonTale.WorldImport.Parsers;
 
-/// <summary>
-/// Importer DTO for one monster <c>.inf</c> (<see cref="MonsterInfParser"/>). Mirrors the <c>monsters</c>
-/// row plus the drop child rows. Drop item references are kept as RAW 5-char code strings (resolved to
-/// item_templates.code by the <see cref="Importer"/>).
-/// </summary>
+// Importer DTO for one monster .inf (MonsterInfParser). Mirrors the monsters
+// row plus the drop child rows. Drop item references are kept as RAW 5-char code strings (resolved to
+// item_templates.code by the Importer).
 public sealed class ParsedMonster
 {
     public required string Name { get; init; }
@@ -55,10 +53,10 @@ public sealed class ParsedMonster
     public List<ParsedDropPlus> DropsPlus { get; } = [];
 }
 
-/// <summary>One main <c>*아이템</c> weighted slot. Item drops keep one row per code (the source divides the
-/// percentage across the code list). Gold uses <see cref="GoldMin"/>/<see cref="GoldMax"/>; nothing/gold
-/// carry no item code.</summary>
+// One main *아이템 weighted slot. Item drops keep one row per code (the source divides the
+// percentage across the code list). Gold uses GoldMin/GoldMax; nothing/gold
+// carry no item code.
 public sealed record ParsedDropMain(DropKind Kind, int Weight, string? ItemCode, int GoldMin, int GoldMax);
 
-/// <summary>One <c>*추가아이템</c> independently-rolled bonus drop (percent + one item code).</summary>
+// One *추가아이템 independently-rolled bonus drop (percent + one item code).
 public sealed record ParsedDropPlus(int Weight, string? ItemCode);

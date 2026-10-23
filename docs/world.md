@@ -370,7 +370,9 @@ items and materials are refused. Every change increments `Revision`; `Clone` sup
 
 Teleport routes (`TeleportRoutes`): route 0 means route 1. Route 1: index 1 field 0 "Mushroom Cave" 100 gold, 2 field 18
 "Beehive Cave" 100, 3 field 7 "Cursed Land" 500, 4 field 12 "Forbidden Land" 1000. The destination field's
-`LimitLevel` applies; arrival is its first start point (or `Center`) placed on the floor.
+`LimitLevel` applies; arrival is its first start point (or `Center`) placed on the floor. The cave destinations are the
+fields that hold the cave entrances: field 0 (`fore-3`) has the warp gate to `Tcave`, field 18 (`forever-fall-03`) the
+one to `Mcave`.
 
 `LegacyNpcSoundCode.Resolve(key)` maps the authored sound keyword of a monster or NPC to its sound family code. The
 importer stores it; the client audio library and the AI rules key on it.

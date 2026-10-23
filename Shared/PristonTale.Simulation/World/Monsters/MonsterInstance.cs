@@ -65,12 +65,12 @@ public sealed class MonsterInstance
 
     public Vector3 ProgressProbePosition { get; set; }
 
-    // Locomotion clip ends since the last progress probe (PosBeginCount) and the running fraction of the current clip.
+    // Locomotion clip ends since the last progress probe and the running fraction of the current clip.
     public int ProbeClips { get; set; }
 
     public float ClipProgress { get; set; }
 
-    // Clips left on a fixed-heading leash or stuck manoeuvre (TargetMoveCount); the target is kept meanwhile.
+    // Clips left on a fixed-heading leash or stuck manoeuvre; the target is kept meanwhile.
     public int ManoeuvreClipsLeft { get; set; }
 
     public float ManoeuvreHeading { get; set; }

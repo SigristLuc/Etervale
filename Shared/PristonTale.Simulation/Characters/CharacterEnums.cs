@@ -47,7 +47,7 @@ public enum CharacterMotionName
     Skill
 }
 
-// Persisted sInven order has no helmet slot and keeps Sheltom separate.
+// Persisted equipment slot order of the classic save layout: no helmet slot, and Sheltom kept separate.
 public enum EquipmentSlot
 {
     Weapon,

@@ -39,7 +39,7 @@ public static class MotionStateCode
     public const short Skill = 0x150;
 }
 
-// Play buffer: {x, y, z, frame, short angle[4], short wStickItems[4], dwTargetSerial} = 36 bytes.
+// Play buffer: {x, y, z, frame, short angle[4], short heldItems[4], TargetSerial} = 36 bytes.
 public readonly record struct PlayBuffer(int X, int Y, int Z, uint Frame, short AngleY, short Action, uint TargetSerial)
 {
     public const int Size = 36;
@@ -76,7 +76,7 @@ public readonly record struct PlayBuffer(int X, int Y, int Z, uint Frame, short 
     }
 }
 
-// Play data packet: 44-byte header, PlayBuffCnt x {int BuffCount, play buffer}, then bEventInfo[3] effects.
+// Play data packet: 44-byte header, buffer count x {int buffer index, play buffer}, then three event-info effect bytes.
 // StartPosi is a ring index in the original; Etervale stores the low 32 bits of the attack request sequence there.
 public sealed record TransPlayData(
     uint ObjectSerial,
@@ -159,7 +159,7 @@ public sealed record TransPlayData(
     }
 }
 
-// Coarse play data (PLAYDATA1): {size, code, dwObjectSerial, x, y, z, short angle[4], frame, dwAutoCharCode} = 40 bytes.
+// Coarse play data (PlayData1): {size, code, ObjectSerial, x, y, z, short angle[4], frame, AutoCharCode} = 40 bytes.
 public readonly record struct PlayDataCoarse(uint ObjectSerial, int X, int Y, int Z, short AngleY, short Action, uint AutoCharCode)
 {
     public const int Size = 40;
@@ -196,7 +196,7 @@ public readonly record struct PlayDataCoarse(uint ObjectSerial, int X, int Y, in
     }
 }
 
-// Play data group: {size, code, PlayDataCnt, dwSendCode} followed by self-sized entries.
+// Play data group: {size, code, entry count, send code} followed by self-sized entries.
 public ref struct PlayDataGroupWriter
 {
     public const int HeaderSize = 16;

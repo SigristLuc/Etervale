@@ -20,7 +20,7 @@ public sealed partial class PristonRenderer : IDisposable
 
     private static readonly bool ShadowDiagnostics =
         Environment.GetEnvironmentVariable("PRISTON_SHADOW_DIAG") == "1";
-    // PlaybackRate supplies the rules-layer FrameStep/80 ratio for speed-scaled motions.
+    // PlaybackRate supplies the rules-layer frame step / 80 ratio for speed-scaled motions.
     private const float ReferenceTicksPerSecond = 160000f / 33f;
     private const float DamageEatRateFactor = 92f / 80f;
     private const int MinimumShadowMapSize = 1024;
@@ -145,6 +145,7 @@ public sealed partial class PristonRenderer : IDisposable
     private bool _sunShadowFocusValid;
     private int _shadowUpdateRate;
     private int _shadowDrawCalls;
+    private int _lampShadowMapsUpdated;
 
     private readonly GlowRenderer _glowRenderer;
     private readonly PristonSkyCapture _skyCapture;
@@ -1274,6 +1275,7 @@ public sealed partial class PristonRenderer : IDisposable
         _batchUploader.BeginFrame();
         _shaders.BeginFrame();
         _shadowDrawCalls = 0;
+        _lampShadowMapsUpdated = 0;
         var skyBatchCount = 0;
         Profiler.Begin(RenderSection.Lighting);
         var lighting = BuildFrameLighting(camera.Target);
@@ -1538,7 +1540,7 @@ public sealed partial class PristonRenderer : IDisposable
             _batchUploader.UploadedBytes,
             visibleStaticMeshDiagnostics,
             sunShadowUpdated,
-            0,
+            _lampShadowMapsUpdated,
             _shadowDrawCalls);
         var dayMetering = MathHelper.Clamp((_exposure.IncidentEv100 - 4f) / 4f, 0f, 1f);
         _exposureInputs = new PristonExposureInputs(
@@ -2024,6 +2026,7 @@ public sealed partial class PristonRenderer : IDisposable
                 continue;
             }
 
+            _lampShadowMapsUpdated++;
             var position = _lampShadows.RowPosition(row);
             var radius = _lampShadows.RowRadius(row);
             var casterLight = new Vector4(position, 1f / MathF.Max(radius, 1f));

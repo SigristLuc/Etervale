@@ -20,7 +20,7 @@ public sealed class PristonTcpServer(
     IConfiguration configuration,
     ILogger<PristonTcpServer> logger) : BackgroundService
 {
-    // The client heartbeats every 4 s (TransCheckNetwork); silence beyond this closes the connection.
+    // The client heartbeats every 4 s (CheckNetState); silence beyond this closes the connection.
     private static readonly TimeSpan IdleTimeout = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan ReportInterval = TimeSpan.FromSeconds(30);
     private static readonly HashSet<string> NormalCloseReasons = ["peer closed", "receive ended", "cancelled", "server stopping", "disposed"];
@@ -41,9 +41,15 @@ public sealed class PristonTcpServer(
         _loginThrottle = new LoginThrottle(_limits.LoginFailuresPerAccount, _limits.LoginFailuresPerIp, _limits.LoginFailureWindowMs);
         var services = new SessionServices(auth, characters, sessionsApp, sessions, world, worldData, logger, _limits, _loginThrottle, npc);
         using var listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp) { DualMode = true };
-        listener.Bind(new IPEndPoint(IPAddress.IPv6Any, HostingExtensions.DefaultGamePort));
+        var port = configuration.GetValue("Network:Port", HostingExtensions.DefaultGamePort);
+        if (port is < 1 or > 65535)
+        {
+            throw new InvalidOperationException("Network:Port must be between 1 and 65535.");
+        }
+
+        listener.Bind(new IPEndPoint(IPAddress.IPv6Any, port));
         listener.Listen(512);
-        logger.LogInformation("Priston TCP listening on port {Port}", HostingExtensions.DefaultGamePort);
+        logger.LogInformation("Priston TCP listening on port {Port}", port);
         var housekeeping = HousekeepingAsync(stoppingToken);
         try
         {

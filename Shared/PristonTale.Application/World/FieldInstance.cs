@@ -344,7 +344,8 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         }
     }
 
-    // Re-resolve AI movement against the stage and the other monsters only, sliding like CheckNextMove.
+    // Re-resolve AI movement against the stage and the other monsters only, sliding along blockers as the client's
+    // step check does.
     private void MoveMonster(MonsterInstance monster, Vector3 before)
     {
         Vector3 desired = monster.Position;
@@ -502,7 +503,7 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         }
     }
 
-    // Live monsters around a mover, for the original's monster-only overlap test (Serv_CheckOtherPlayPosi).
+    // Live monsters around a mover, for the server's monster-only overlap test (players are not blockers).
     private void BuildMonsterNeighbours(uint selfId, Vector3 origin, float distance)
     {
         _neighbourScratch.Clear();

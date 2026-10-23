@@ -3,7 +3,7 @@ using PristonTale.WorldImport.Parsers;
 
 namespace PristonTale.WorldImport;
 
-/// <summary>Exports the exact NPC INX motion rows used to repair already-imported installations.</summary>
+// Exports the exact NPC INX motion rows used to repair already-imported installations.
 internal static class NpcMotionExport
 {
     private const int FormatVersion = 1;

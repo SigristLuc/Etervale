@@ -1,9 +1,10 @@
+using System.Text.Json;
 using Microsoft.Xna.Framework.Graphics;
 
 namespace PristonTale.Effects.Vfx;
 
-// Named effects compiled against their textures. Definitions come from authored .vfx.json files and from original
-// particle scripts converted by LegacyVfxImporter; a name registered twice keeps the later definition.
+// Named effects compiled against their textures. Definitions come from authored .vfx.json files; a name registered
+// twice keeps the later definition.
 public sealed class VfxLibrary
 {
     private readonly Dictionary<string, CompiledVfx> _effects = new(StringComparer.OrdinalIgnoreCase);
@@ -34,7 +35,8 @@ public sealed class VfxLibrary
         return compiled;
     }
 
-    public int LoadDirectory(string directory)
+    // Authored files are optional: a file that cannot be read or parsed is reported and skipped as a whole.
+    public int LoadDirectory(string directory, Action<string> reportError)
     {
         if (!Directory.Exists(directory))
         {
@@ -44,7 +46,18 @@ public sealed class VfxLibrary
         var count = 0;
         foreach (var path in Directory.EnumerateFiles(directory, "*.vfx.json").Order(StringComparer.Ordinal))
         {
-            foreach (var definition in VfxDefinition.ParseFile(File.ReadAllText(path)))
+            VfxDefinition[] definitions;
+            try
+            {
+                definitions = VfxDefinition.ParseFile(File.ReadAllText(path));
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
+            {
+                reportError($"{path}: {exception.Message}");
+                continue;
+            }
+
+            foreach (var definition in definitions)
             {
                 Register(definition);
                 count++;

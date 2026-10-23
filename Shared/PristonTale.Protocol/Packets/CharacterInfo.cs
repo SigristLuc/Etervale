@@ -9,13 +9,13 @@ public static class CharacterState
     public const int User = 0x80;
 }
 
-// Character info record with the 32-bit layout: 464 bytes, lpMonInfo kept as a zero 4-byte slot at offset 328.
+// Character info record with the 32-bit layout: 464 bytes, the monster-info pointer kept as a zero 4-byte slot at offset 328.
 public sealed class CharacterInfo
 {
     public const int Size = 464;
     public const int TempCount = 11;
 
-    // Etervale descriptor slots inside dwTemp[11], which the original leaves zero.
+    // Etervale descriptor slots inside the record's TempCount reserved words, which classic clients leave zero.
     public const int TempTemplateCode = 0;
     public const int TempModelScale = 1;
     public const int TempNpcServices = 2;
@@ -316,7 +316,7 @@ public sealed class CharacterInfo
     }
 }
 
-// PLAYERINFO packet: {size, code, character info, dwObjectSerial, x, y, z, ax, ay, az, state} = 504 bytes.
+// PlayerInfo packet: {size, code, character info, ObjectSerial, x, y, z, ax, ay, az, state} = 504 bytes.
 public sealed record PlayerInfoPacket(CharacterInfo Character, uint ObjectSerial, int X, int Y, int Z, int AngleX = 0, int AngleY = 0, int AngleZ = 0, int State = 0)
 {
     public const int Size = 504;

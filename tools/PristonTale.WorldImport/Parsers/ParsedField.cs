@@ -1,12 +1,10 @@
 namespace PristonTale.WorldImport.Parsers;
 
-/// <summary>
-/// Importer DTO aggregating the three field spawn files for one ASE base: the <c>.spm</c> text config
-/// (budget knobs + weighted monster table + boss spawns), the <c>.spp</c> binary spawn points, and the
-/// <c>.spc</c> binary fixed NPCs. Monster/NPC references are RAW names (resolved to FK rows by the
-/// <see cref="Importer"/>). The <see cref="Importer"/> attaches a <see cref="FieldCode"/> + <see cref="AseBase"/>
-/// from the Simulation WorldCatalog by joining on the ASE base name.
-/// </summary>
+// Importer DTO aggregating the three field spawn files for one ASE base: the .spm text config
+// (budget knobs + weighted monster table + boss spawns), the .spp binary spawn points, and the
+// .spc binary fixed NPCs. Monster/NPC references are RAW names (resolved to FK rows by the
+// Importer). The Importer attaches a FieldCode + AseBase
+// from the Simulation WorldCatalog by joining on the ASE base name.
 public sealed class ParsedField
 {
     public required string AseBase { get; init; }
@@ -29,5 +27,5 @@ public sealed class ParsedField
 
 public sealed record ParsedNpcPlacement(string NpcName, int X, int Z, int Angle, int Y, string SourceFile);
 
-/// <summary>A <c>*출연자두목</c> boss spawn: master + optional escort/slave + slave count + spawn hours.</summary>
+// A *출연자두목 boss spawn: master + optional escort/slave + slave count + spawn hours.
 public sealed record ParsedBoss(string MasterName, string? SlaveName, int SlaveCount, IReadOnlyList<int> Hours);

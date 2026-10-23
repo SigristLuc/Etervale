@@ -4,18 +4,16 @@ using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.WorldImport.Parsers;
 
-/// <summary>
-/// Parses one monster <c>.inf</c> → <see cref="ParsedMonster"/> with the original character-definition
-/// rules for monsters. Tokens via <see cref="KeyMaps"/>. The monster resistance
-/// tokens are DISTINCT from the item ones and are NOT in elemental order (mapped through
-/// <see cref="KeyMaps.MonsterResistances"/>). <c>*시야</c> sight is stored RAW (the original squares it at
-/// runtime; the schema/Simulation expect the raw reach).
-///
-/// The name is preserved VERBATIM (including the original's leading/trailing spaces inside the quotes,
-/// e.g. <c>" 산타고블린 "</c>) because field <c>.spm</c> spawn tables cross-reference monsters by this exact
-/// string — trimming would break the join; quoted strings are copied verbatim between the quotes.
-/// The separate <c>*Name</c> label supplied by these files is trimmed into <c>DisplayName</c> for the HUD.
-/// </summary>
+// Parses one monster .inf → ParsedMonster with the original character-definition
+// rules for monsters. Tokens via KeyMaps. The monster resistance
+// tokens are DISTINCT from the item ones and are NOT in elemental order (mapped through
+// KeyMaps.MonsterResistances). *시야 sight is stored RAW (the runtime squares it;
+// the schema/Simulation expect the raw reach).
+//
+// The name is preserved VERBATIM (including the original's leading/trailing spaces inside the quotes,
+// e.g. " 산타고블린 ") because field .spm spawn tables cross-reference monsters by this exact
+// string — trimming would break the join; quoted strings are copied verbatim between the quotes.
+// The separate *Name label supplied by these files is trimmed into DisplayName for the HUD.
 public sealed class MonsterInfParser
 {
     public ParsedMonster Parse(string path)

@@ -1,6 +1,6 @@
 namespace PristonTale.Application.Services;
 
-// Values are the FAILCONNECT WParam codes the original login screen understands.
+// Values are the FailConnect reason codes (TransCommand.WParam) that the classic login screen understands.
 // Unknown accounts report a bad password so the reply does not reveal which accounts exist.
 public enum LoginFailure
 {

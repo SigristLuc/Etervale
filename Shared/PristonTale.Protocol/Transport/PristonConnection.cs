@@ -293,7 +293,7 @@ public sealed class PristonConnection : IPacketSink, IAsyncDisposable
         }
     }
 
-    // Lets already-queued packets (for example a FAILCONNECT reply) reach the socket before closing.
+    // Lets already-queued packets (for example a FailConnect reply) reach the socket before closing.
     public async Task FlushAndCloseAsync(string reason, TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow + timeout;

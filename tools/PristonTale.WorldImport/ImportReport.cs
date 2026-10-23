@@ -1,6 +1,6 @@
 namespace PristonTale.WorldImport;
 
-/// <summary>Reconciliation counts produced by an import/verify run — printed at the end.</summary>
+// Reconciliation counts produced by an import/verify run — printed at the end.
 public sealed class ImportReport
 {
     public int SourceFiles { get; set; }

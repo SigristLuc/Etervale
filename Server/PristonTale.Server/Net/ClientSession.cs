@@ -32,8 +32,8 @@ internal sealed record SessionServices(
     public LogSampler RejectedPackets { get; } = new(5000);
 }
 
-// One client connection following the original order: VERSION, ID_GETUSERINFO, ID_SETUSERINFO + SERVER_INFO,
-// character records, GETRECORDDATA -> RECORDDATA, PLAYERINFO -> CONNECTED, then play traffic.
+// One client connection following the classic order: Version, IdGetUserInfo, IdSetUserInfo + ServerInfo,
+// character records, GetRecordData -> RecordData, PlayerInfo -> Connected, then play traffic.
 internal sealed class ClientSession
 {
     // Default minimum client version of the original server; the client compares it with its own version.
@@ -172,7 +172,7 @@ internal sealed class ClientSession
                     Send(new TransCommand(EtervaleOpcodes.LeaveWorld, 0, 1), encrypt: true);
                     break;
                 default:
-                    // The original dispatcher also ignores codes it does not handle (PLAYERINFO2, NETWORK_QUALITY, ...).
+                    // The original dispatcher also ignores codes it does not handle (PlayerInfo2, network-quality reports, ...).
                     break;
             }
         }
@@ -254,7 +254,8 @@ internal sealed class ClientSession
     {
         // The original client opens its game socket from this entry and reuses the login socket when it matches.
         var address = LocalAddress() ?? "127.0.0.1";
-        var entry = new PristonServerEntry("Etervale", address, "", "", HostingExtensions.DefaultGamePort, HostingExtensions.DefaultGamePort, 0, 0);
+        var port = _connection.LocalEndPoint is IPEndPoint local ? (uint)local.Port : HostingExtensions.DefaultGamePort;
+        var entry = new PristonServerEntry("Etervale", address, "", "", port, port, 0, 0);
         var list = new PristonServerList("Etervale", (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds(), 0, 0, 1, [entry]);
         var size = PristonServerListCodec.HeaderSize + PristonServerListCodec.EntrySize;
         SendLarge(buffer => PristonServerListCodec.Write(buffer, list, PristonText.Strict), size, encrypt: true);

@@ -3,7 +3,7 @@ namespace PristonTale.Simulation.Characters;
 public static class Locomotion
 {
     private const int TicksPerSecond = 70;   // original fixed tick rate
-    private const float FixedOne = 256f;     // fONE
+    private const float FixedOne = 256f;     // 1.0 in 8.8 fixed point
     private const int WalkFieldFactor = 180; // >>8  ≈ 0.703x outside villages
     private const int RunFactor = 460;       // >>8  ≈ 1.797x
 

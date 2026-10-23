@@ -21,7 +21,7 @@ internal enum PristonStageOperation
 // A texture layer above the base texture of a multi-texture material: its texture, how it combines with the colour so far, and its UV form state.
 internal sealed record PristonMaterialLayer(Texture2D Texture, PristonStageOperation Operation, uint FormState)
 {
-    // Asset TextureStageState values are Direct3D 7 D3DTOP codes (DecodeAssetTextureOperation); 0 and 4 modulate.
+    // Asset texture stage operation values are Direct3D 7 D3DTOP codes; 0 and 4 modulate.
     public static PristonStageOperation Decode(uint code) => code switch
     {
         2 => PristonStageOperation.SelectTexture,

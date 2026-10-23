@@ -24,6 +24,45 @@ internal static class SkillPresentationTests
         yield return ("cooldown and status books follow the server's messages", BooksAsync);
         yield return ("skill sockets offer learned active skills and drop lost ones", BindingsAsync);
         yield return ("floating combat text keeps a bounded ring", FloatingTextAsync);
+        yield return ("unknown builtin textures are rejected and a broken authored effect file is skipped", AuthoredFilesAsync);
+    }
+
+    private static Task AuthoredFilesAsync()
+    {
+        const string effect = """
+            [{ "name": "vfx.test", "duration": 1, "emitters": [{ "texture": "builtin:glw", "burst": 1, "lifetime": [0.1, 0.2] }] }]
+            """;
+        var threw = false;
+        try
+        {
+            VfxDefinition.ParseFile(effect);
+        }
+        catch (InvalidDataException)
+        {
+            threw = true;
+        }
+
+        Assert.True(threw, "a misspelled builtin texture was accepted");
+        Assert.True(VfxDefinition.ParseFile(effect.Replace("builtin:glw", "builtin:glow", StringComparison.Ordinal)).Length == 1,
+            "a valid builtin texture was refused");
+
+        var directory = Path.Combine(Path.GetTempPath(), $"priston-vfx-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "broken.vfx.json"), "[{ \"name\": ");
+            File.WriteAllText(Path.Combine(directory, "typo.vfx.json"), effect);
+            var errors = new List<string>();
+            var library = new VfxLibrary(_ => null, null!);
+            Assert.True(library.LoadDirectory(directory, errors.Add) == 0 && library.Count == 0 && errors.Count == 2,
+                "broken authored effect files were not skipped and reported");
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+
+        return Task.CompletedTask;
     }
 
     private static VfxDefinition[] Shipped() => SkillPresentation.EmbeddedDefinitions().SelectMany(VfxDefinition.ParseFile).ToArray();

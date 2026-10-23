@@ -140,7 +140,7 @@ public sealed class MonsterAiBrain
         switch (m.AiState)
         {
             case MonsterAiState.Leash:
-                // PlayAttackFromPosi runs on every call, so a target in reach is attacked even mid-manoeuvre.
+                // The reach test runs on every update, so a target in reach is attacked even mid-manoeuvre.
                 if (hasTarget && MonsterAttackReach.CanBegin(m.Def, m.Position, live.Position))
                 {
                     FaceToward(m, live.Position);
@@ -415,7 +415,7 @@ public sealed class MonsterAiBrain
         m.AttackHitFired = false;
         m.SwingJustBegan = true;
 
-        // Skill roll on attack entry: rand()%100 < SkillRating.
+        // Skill roll on attack entry: rand()%100 < the definition's skill rating percent.
         int rating = m.Def.Skill.SkillRatingPercent;
         m.AttackIsSkill = tuning.CanCastOffensiveSkill && _rng.NextExclusive(0, 100) < rating;
         m.SkillImpactPending = false;
@@ -458,7 +458,7 @@ public sealed class MonsterAiBrain
         {
             PreyCandidate tgt2 = default;
             bool stillValid = m.TargetId != 0 && prey.TryGet(m.TargetId, out tgt2) && tgt2.IsAlive;
-            // The clip ends in STAND and PlayAttackFromPosi swings again in the same call while the target stays in
+            // The clip ends in the stand motion and the reach test swings again in the same update while the target stays in
             // reach, so consecutive attacks never pass through a walk. An impact on this tick is resolved first.
             if (stillValid && landed is null && MonsterAttackReach.CanBegin(m.Def, m.Position, tgt2.Position))
             {
@@ -578,7 +578,7 @@ public sealed class MonsterAiBrain
         m.Position = new Vector3(nx, m.Position.Y, nz);
     }
 
-    // Manoeuvres keep the heading chosen when they began (MoveAngle along Angle.y); walls are slid by the host.
+    // Manoeuvres keep the yaw heading chosen when they began; walls are slid by the host.
     private static void IntegrateHeading(MonsterInstance m, float heading, bool run, float dtMs)
     {
         float step = MonsterLocomotion.UnitsPerSecond(m.Def, run) * (dtMs / 1000f);

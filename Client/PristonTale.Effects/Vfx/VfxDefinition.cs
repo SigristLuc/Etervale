@@ -4,9 +4,9 @@ using Microsoft.Xna.Framework;
 
 namespace PristonTale.Effects.Vfx;
 
-// Authoring format of Etervale's skill and combat effects (Content/Vfx/*.vfx.json). An effect is a set of layers that
-// share one clock: sprite emitters, ribbon trails, transient lights, sounds and, for the original effects, legacy
-// particle scripts played unchanged. Colours are linear Rec.709; Intensity scales them into the HDR scene relative to
+// Authoring format of Etervale's skill and combat effects (*.vfx.json, embedded resources from
+// Client/PristonTale.Gameplay/Effects/Vfx/). An effect is a set of layers that share one clock: sprite emitters, ribbon
+// trails, transient lights, sounds and, for the original effects, legacy particle scripts played unchanged. Colours are linear Rec.709; Intensity scales them into the HDR scene relative to
 // the current exposure, so 1 displays the colour as authored and higher values bloom.
 public enum VfxAnchor
 {
@@ -177,7 +177,8 @@ public sealed record VfxDefinition
                 || emitter.Lifetime[0] <= 0f || emitter.Lifetime[1] < emitter.Lifetime[0] || emitter.Size.Length == 0 || emitter.Color.Length == 0
                 || emitter.FrameColumns < 1 || emitter.FrameRows < 1 || !Vec3Ok(emitter.Offset) || !Vec3Ok(emitter.Direction)
                 || !Vec3Ok(emitter.Gravity) || !RangeOk(emitter.Speed) || !RangeOk(emitter.Radius) || !RangeOk(emitter.Rotation)
-                || !RangeOk(emitter.Spin) || !KeysOk(emitter.Size, 1) || !KeysOk(emitter.Color, 4))
+                || !RangeOk(emitter.Spin) || !KeysOk(emitter.Size, 1) || !KeysOk(emitter.Color, 4)
+                || !VfxBuiltinTextures.IsKnownOrAsset(emitter.Texture))
             {
                 throw new InvalidDataException($"Effect '{Name}' has an invalid emitter.");
             }
@@ -185,7 +186,8 @@ public sealed record VfxDefinition
 
         foreach (var trail in Trails)
         {
-            if (trail.Width <= 0f || trail.Lifetime <= 0f || !Vec3Ok(trail.Offset) || !KeysOk(trail.Color, 4))
+            if (trail.Width <= 0f || trail.Lifetime <= 0f || !Vec3Ok(trail.Offset) || !KeysOk(trail.Color, 4)
+                || !VfxBuiltinTextures.IsKnownOrAsset(trail.Texture))
             {
                 throw new InvalidDataException($"Effect '{Name}' has an invalid trail.");
             }

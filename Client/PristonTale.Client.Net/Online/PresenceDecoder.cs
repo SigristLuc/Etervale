@@ -13,8 +13,8 @@ using PristonTale.Simulation.World.Npcs;
 namespace PristonTale.Client.Net.Online;
 
 // Rebuilds the neutral presence model from original packets. Like the original client, an unknown
-// serial in PLAYDATAGROUP triggers GETPLAYERINFO; the object is published once its PLAYERINFO description arrives,
-// and a changed bUpdateInfo[0] revision requests a fresh description.
+// serial in PlayDataGroup triggers GetPlayerInfo; the object is published once its PlayerInfo description arrives,
+// and a changed descriptor revision (TransPlayData.DescriptorRevision) requests a fresh description.
 internal sealed class PresenceDecoder
 {
     private const uint GoldCode = 0x05010100;

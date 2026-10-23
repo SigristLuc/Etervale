@@ -3,7 +3,7 @@ using PristonTale.Protocol.Binary;
 
 namespace PristonTale.Protocol.Packets;
 
-// Attack data packet sent as ATTACK_DAMAGE (92 bytes). The client computes dwChkSum with the damage checksum below,
+// Attack data packet sent as AttackDamage (92 bytes). The client computes its checksum field with the damage checksum below,
 // XOR-chains dwords 2..22 with the damage cipher keyed by its own object serial, then sends it through the encrypted
 // envelope. Clicking an NPC uses the same packet with the NPC as target. Etervale ignores Power and computes damage.
 public sealed record AttackDamagePacket(

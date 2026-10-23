@@ -40,6 +40,39 @@ internal static class ClassSkillDataTests
     {
         yield return ("class skill data keeps the original codes, window order, levels, mouse sides, weapons and ten-rank costs", MetadataAsync);
         yield return ("every skill of the eight original classes has ten-rank costs and a complete rule on every rank", PortedRulesAsync);
+        yield return ("class skill files reject unknown properties and brood names at any depth", StrictDataAsync);
+    }
+
+    private static Task StrictDataAsync()
+    {
+        var assembly = typeof(ClassSkillCatalog).Assembly;
+        using var stream = assembly.GetManifestResourceStream("PristonTale.Simulation.Skills.Data.Classes.Archer.json")!;
+        var json = new StreamReader(stream).ReadToEnd();
+        Assert.True(ClassSkillCatalog.Parse(json, out _).Count == 16, "the shipped Archer file did not parse");
+        const string brood = "\"bonusBroods\": [\"Normal\"]";
+        const string percent = "\"bonusPercent\": 30}";
+        Assert.True(json.Contains(brood, StringComparison.Ordinal) && json.Contains(percent, StringComparison.Ordinal), "the Archer sample changed");
+        foreach (var broken in new[]
+        {
+            json.Replace(brood, "\"bonusBroods\": [\"Normall\"]", StringComparison.Ordinal),
+            json.Replace(percent, "\"bonusPercent\": 30, \"bonusPercnt\": 30}", StringComparison.Ordinal),
+            json.Replace("\"code\":", "\"cdoe\": \"0x0\", \"code\":", StringComparison.Ordinal)
+        })
+        {
+            var threw = false;
+            try
+            {
+                ClassSkillCatalog.Parse(broken, out _);
+            }
+            catch (InvalidDataException)
+            {
+                threw = true;
+            }
+
+            Assert.True(threw, "a misspelled skill property or brood was accepted");
+        }
+
+        return Task.CompletedTask;
     }
 
     private static Task MetadataAsync()

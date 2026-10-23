@@ -91,7 +91,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         }
 
         // Authored replacements under assets/Vfx take precedence over the shipped definitions.
-        var overrides = library.LoadDirectory(Path.Combine(assetRoot, "Vfx"));
+        var overrides = library.LoadDirectory(Path.Combine(assetRoot, "Vfx"), error => log.Warn($"[Effects] skipped effect file {error}"));
         log.Info($"[Effects] {library.Count} skill effects ({overrides} from assets/Vfx).");
         return library;
     }

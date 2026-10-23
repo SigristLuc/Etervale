@@ -130,7 +130,7 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
         }
     }
 
-    // Clients address drops by the 32-bit handle carried in the ground item record's lpStgArea; stored item ids stay random GUIDs.
+    // Clients address drops by the 32-bit handle carried in the ground item record's handle field; stored item ids stay random GUIDs.
     public Guid ResolveClientId(Guid clientId) =>
         GroundDropHandle.TryParse(clientId, out var handle) && _handles.TryGetValue(handle, out var id) ? id : clientId;
 

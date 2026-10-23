@@ -50,13 +50,13 @@ public sealed class MonsterAiTuning
 
         RunDistanceSq = (long)RunDistance * RunDistance;
 
-        // Player targets use Shooting_Range without the summon branch's padding.
+        // Player targets use the definition's attack range without the summon branch's padding.
         AttackRange = Math.Max(0, def.Combat.MeleeRange);
         AttackRangeSq = (long)AttackRange * AttackRange;
         StopDistance = Math.Max(0, AttackRange - StopMargin);
 
-        // Shooting_Range 0 never passes PlayAttackFromPosi (dist < 0), and the five such definitions (doors and maple
-        // event objects) have no walk or run clip, so SetMotionFromCode(WALK) fails and they never move either.
+        // An attack range of 0 never passes the reach test (dist < 0), and the five such definitions (doors and maple
+        // event objects) have no walk or run clip, so a walk motion cannot start and they never move either.
         IsImmobile = AttackRange == 0;
 
         StuckDistanceSq = (long)StuckDistance * StuckDistance;
@@ -144,7 +144,7 @@ public sealed class MonsterAiTuning
 
     private static (float windup, float cooldown) DeriveAttackTiming(int attackSpeed)
     {
-        // Verified play-rate factor: rate = fONE(256) + 32*clamp(AtkSpeed-6,0,6). Higher rate => faster anim.
+        // Verified play-rate factor: rate = 256 (1.0 in 8.8 fixed point) + 32*clamp(AtkSpeed-6,0,6). Higher rate => faster anim.
         int clamped = Math.Clamp(attackSpeed - 6, 0, 6);
         float rate = 256f + (32f * clamped);
         const float baseDurationMs = 1000f; // Chosen slow-end fallback.

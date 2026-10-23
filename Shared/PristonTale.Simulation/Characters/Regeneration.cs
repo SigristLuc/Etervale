@@ -40,7 +40,7 @@ public static class Regeneration
         switch (posture)
         {
             case RegenerationPosture.Running:
-                // Integer division as the original: 0.4 per second, or 1.4 when the carried weight is high.
+                // Integer division: 1.4 per second while MaxWeight + Str/2 + 500 is at most 1000, otherwise 0.4.
                 var drain = 1000 / Math.Max(1, character.Derived.MaxWeight + character.Attributes.Strength / 2 + 500) + 0.4f;
                 return -drain;
             case RegenerationPosture.Acting:

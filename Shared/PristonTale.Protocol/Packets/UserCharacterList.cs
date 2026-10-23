@@ -3,7 +3,7 @@ using PristonTale.Protocol.Binary;
 namespace PristonTale.Protocol.Packets;
 
 // Character slot record: 240 bytes per character slot. PosX/PosZ are fixed-point (x256) like saved positions.
-// dwArmorCode carries the equipped armour item code; dwTemp[13] holds Etervale appearance fields.
+// ArmorCode carries the equipped armour item code; the 13 reserved words at the end hold Etervale appearance fields.
 public sealed record UserCharacterEntry(
     string Name,
     string ModelName,
@@ -67,7 +67,7 @@ public sealed record UserCharacterEntry(
     }
 }
 
-// Character list packet: {size, code, szID[32], PlayUserCount, character slot[6]}; always the full 1484 bytes.
+// Character list packet: {size, code, char AccountId[32], slot count, character slot[6]}; always the full 1484 bytes.
 public sealed record UserCharacterList(string AccountId, IReadOnlyList<UserCharacterEntry> Characters)
 {
     public const int MaxCharacters = 6;

@@ -4,22 +4,20 @@ using PristonTale.Simulation.World.Motion;
 
 namespace PristonTale.WorldImport.Parsers;
 
-/// <summary>One motion table's usable clip rows, ready for the <c>motion_slots</c> table.</summary>
+// One motion table's usable clip rows, ready for the motion_slots table.
 public sealed record ExtractedMotionSlot(
     int Slot, int State, int StartFrame, int EndFrame,
     long Event0, long Event1, long Event2, long Event3, bool Repeat);
 
-/// <summary>
-/// The <c>ptworld</c> INX motion-timing pass (combat-fidelity F2): read each distinct model's INX from the
-/// game assets and extract its motion table — the raw clip windows + ×160 event offsets the authoritative
-/// world host schedules combat from. Mirrors the client's resolution EXACTLY: read via
-/// <see cref="PristonInxReader"/> (all file access through <see cref="PristonFileResolver"/> — the data
-/// uses Windows casing + <c>\</c>); a model whose INX carries no usable motions (player class bodies)
-/// borrows its <c>MotionFile</c> → <c>.inx</c> table (the <c>PristonActorLoader.ResolveMotionInfo</c>
-/// convention); usable slot = <c>State != 0 &amp;&amp; EndFrame &gt; StartFrame</c>, scanning from the
-/// character motion base — slot order is preserved (first slot per state is the clip the client plays).
-/// Keys are <see cref="MotionTimingCatalog.NormalizeKey"/>-normalized so the runtime lookup matches.
-/// </summary>
+// The INX motion-timing pass: read each distinct model's INX from the
+// game assets and extract its motion table — the raw clip windows + ×160 event offsets the authoritative
+// world host schedules combat from. Mirrors the client's resolution EXACTLY: read via
+// PristonInxReader (all file access through PristonFileResolver — the data
+// uses Windows casing + \); a model whose INX carries no usable motions (player class bodies)
+// borrows its MotionFile → .inx table (the PristonActorLoader.ResolveMotionInfo
+// convention); usable slot = State != 0 && EndFrame > StartFrame, scanning from the
+// character motion base — slot order is preserved (first slot per state is the clip the client plays).
+// Keys are MotionTimingCatalog.NormalizeKey-normalized so the runtime lookup matches.
 public sealed class MotionTableExtractor
 {
     private readonly string _assetRoot;
@@ -35,11 +33,9 @@ public sealed class MotionTableExtractor
     public IReadOnlyDictionary<string, string> Models => _models;
     public IReadOnlyDictionary<string, IReadOnlyList<ExtractedMotionSlot>> Tables => _tables;
 
-    /// <summary>
-    /// Extract one model's motion table (idempotent per model). <paramref name="modelPath"/> is the raw
-    /// config value (monster <c>.inf *모델</c> / player class body path — any extension/casing). Returns
-    /// false (and reports why) when the INX cannot be resolved — the runtime falls back to F1 constants.
-    /// </summary>
+    // Extract one model's motion table (idempotent per model). modelPath is the raw
+    // config value (monster .inf *모델 / player class body path — any extension/casing). Returns
+    // false (and reports why) when the INX cannot be resolved — the runtime falls back to default timing constants.
     public bool TryExtract(string modelPath, out string failure)
     {
         failure = null!;

@@ -64,7 +64,7 @@ public sealed class HudNpcPanel(
 
     public static Rectangle DestinationButton(int index, int count) => ServiceButton(index, count, 1);
 
-    // SkillMasterMainXY is centred on the window; the original showed no help box beside it, so it moves right of the dialog.
+    // The skill master box is centred on the window; the original showed no help box beside it, so it moves right of the dialog.
     public static Point SkillMasterOrigin(HudLayout layout)
     {
         var origin = new Point(layout.Width / 2 - 93 - 30, layout.Height / 2 - 63 - 100);

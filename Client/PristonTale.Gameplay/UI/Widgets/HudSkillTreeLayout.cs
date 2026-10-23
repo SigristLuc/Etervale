@@ -20,7 +20,7 @@ public static class HudSkillTreeLayout
     public static Rectangle Node(Point origin, int index) => new(origin.X + Nodes[index].X, origin.Y + Nodes[index].Y, 49, 46);
     public static Rectangle BasicAttack(Point origin) => new(origin.X + 142, origin.Y + 537, 49, 46);
 
-    // GageRect: the mastery slot sits at +47, the rank gauge one pixel right of its 5-pixel width.
+    // Gauges: the mastery slot sits at +47, the rank gauge one pixel right of its 5-pixel width.
     public static Rectangle MasteryGauge(Point origin, int index) => new(origin.X + Nodes[index].X + 47, origin.Y + Nodes[index].Y + 5, 5, 35);
     public static Rectangle RankGauge(Point origin, int index) => new(origin.X + Nodes[index].X + 53, origin.Y + Nodes[index].Y + 5, 5, 35);
 

@@ -224,6 +224,20 @@ if (args.Length == 3 && args[0] is "--profile-stream" or "--profile-stream-basel
     return 0;
 }
 
+// Every probe above matches its exact argument count; anything else left here is a mistyped probe, not the suite.
+for (var index = 0; index < args.Length; index++)
+{
+    if (args[index] == "--filter" && index + 1 < args.Length)
+    {
+        index++;
+    }
+    else if (args[index] != "--benchmark")
+    {
+        Console.Error.WriteLine($"Unknown option or wrong argument count: {string.Join(' ', args)} (see docs/testing.md).");
+        return 2;
+    }
+}
+
 var specifications = new List<(string Name, Func<Task> Run)>();
 specifications.AddRange(DomainTests.Cases());
 specifications.AddRange(ClientTests.Cases());

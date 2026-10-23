@@ -177,7 +177,7 @@ internal sealed class PresenceEncoder
             if (WriteEntity(ref group, connection, view, tick, field, near) is { } age)
             {
                 // Overdue ratio: the wanted interval grows with distance, and every waiting entity keeps gaining
-                // priority, so a crowd is served round-robin like the original's LastTransAutoPlayCount cursor.
+                // priority, so a crowd is served round-robin like the classic server's rotating send cursor.
                 var wanted = NearIntervalTicks + MathF.Sqrt(distanceSq) / 50f;
                 _pending.Add((index, age / wanted, near));
             }

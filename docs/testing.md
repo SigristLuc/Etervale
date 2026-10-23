@@ -61,7 +61,8 @@ git diff --check
 
 - The runner is a console program, not a `dotnet test` suite; `dotnet test` discovers nothing.
 - Each case prints `PASS <name>` or `FAIL <name>: <exception>` (stderr); the last line is `<passed>/<total> passed`.
-- Exit code is 0 when every case passes, 1 otherwise.
+- Exit code is 0 when every case passes, 1 when a case fails, 2 for an unknown option or a probe flag with the wrong
+  argument count.
 - `--filter <text>` keeps only cases whose name contains the text (ordinal, case-insensitive).
 - Probes run through `dotnet run ... -- <flag> ...` or directly as
   `dotnet tests/PristonTale.Tests/bin/Release/net10.0/PristonTale.Tests.dll <flag> ...` (used below for GPU probes).
@@ -269,8 +270,8 @@ this is not a readback of write-only GPU buffers or a visual comparison.
 
 ## Pitfalls
 
-- Probe dispatch matches the flag and the exact argument count. A wrong count (or an unknown `--check-look` mode) falls
-  through and silently runs the whole default suite instead.
+- Probe dispatch matches the flag and the exact argument count. A wrong count, an unknown `--check-look` mode or any
+  other unknown argument stops the runner with exit code 2 instead of running the suite.
 - `--benchmark` runs after the suite (and honors `--filter`); `--benchmark-world` skips the suite.
 - `--no-build` runs the last build: rebuild after editing tests or production code.
 - `--export-equipment-timings` overwrites a generated source file; review the diff before keeping it.

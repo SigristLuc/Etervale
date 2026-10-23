@@ -24,24 +24,24 @@ public readonly record struct DerivedStats(
         float fStr = attrs.Strength;
         float fSpi = attrs.Spirit;
         float fTal = attrs.Talent;
-        float fDex = attrs.Agility; // code 'Dexterity' == our Agility
+        float fDex = attrs.Agility; // the classic Dexterity stat
         float fHlt = attrs.Health;
         float fLevel = level;
 
         int attackRating = (int)(items.AttackRating + fDex * 3.1f + fLevel * 1.9f + fTal * 1.5f);
 
-        // Defence (:6121) — float division
+        // Defence — float division
         int defence = (int)(fDex / 2f + fTal / 4f + fLevel * 1.4f + items.Defence);
 
-        // Absorption (:6125-6127) — uses the just-computed Defence as a float
+        // Absorption — uses the just-computed Defence as a float
         int absorption = (int)(defence / 100f + fLevel / 10f + (fStr + fTal) / 40f) + 1;
 
         int maxWeight = (int)(fStr * 2f + fHlt * 1.5f + fLevel * 3f + 60f);
 
-        // Move Speed (:6186-6187). NowWeight = 0 until carried-weight tracking lands.
+        // Move speed. Carried weight is not tracked, so the formula has no weight penalty.
         int moveSpeed = (int)((fTal + fHlt + fLevel + 60f) / 150f) + 1;
 
-        // Max HP (:6196-6218) — branch on LifeFunction
+        // Max HP — branch on LifeFunction
         float life = fn.LifeFunction switch
         {
             1 => fLevel * 2.1f + fHlt * 2.4f + fStr * 0.8f - 10f,
@@ -52,7 +52,7 @@ public readonly record struct DerivedStats(
         };
         int maxLife = (short)life;
 
-        // Max MP (:6275-6289) — branch on ManaFunction
+        // Max MP — branch on ManaFunction
         float mana = fn.ManaFunction switch
         {
             1 => fLevel * 1.5f + fSpi * 3.8f,
@@ -61,11 +61,11 @@ public readonly record struct DerivedStats(
         };
         int maxMana = (short)mana;
 
-        // Max SP (:6310) — universal; (Str+Tal)/2 is float division here
+        // Max SP — universal; (Str+Tal)/2 is float division here
         int maxStamina = (short)(fHlt * 1.4f + (fStr + fTal) / 2f + fLevel * 2.3f + 80f + fSpi);
 
-        // Bare-hand melee damage (:6031-6037) — INTEGER division on the raw int stats. The
-        // weapon-equipped path (str-scaled by the weapon damage) lands with the item track.
+        // Bare-hand melee damage — integer division on the raw int stats. WeaponDamage replaces it when a
+        // weapon is equipped.
         int str = attrs.Strength, tal = attrs.Talent, dex = attrs.Agility;
         int dmgMin, dmgMax;
         if (fn.MeleeDamageFunction == 1)
