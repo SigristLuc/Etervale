@@ -166,9 +166,7 @@ public sealed partial class WorldServer
             }
 
             // The request's placement never becomes authoritative. Gates retain position; warps use catalog exits.
-            var oldNowMs = _fields[oldFieldId].NowMs;
-            _fields[oldFieldId].Remove(player.EntityId);
-            player.Cooldowns.Rebase(oldNowMs, GetField(newFieldId).NowMs);
+            TransferPlayer(player, _fields[oldFieldId], GetField(newFieldId));
             var inVillage = destination.State == FieldState.Village;
             var terrain = GetField(newFieldId).Terrain;
             var respawnPoint = terrain.PlaceOnFloor(RespawnPoint(destination, arrival.Position));
@@ -181,7 +179,6 @@ public sealed partial class WorldServer
             {
                 player.CrossGate(inVillage, respawnPoint);
             }
-            GetField(newFieldId).Add(player);
             _membershipChanged = true;
             _connections[player.EntityId] = connection with
             {
@@ -504,7 +501,9 @@ public sealed partial class WorldServer
             Grid = EntityGrid.Build(entities),
             SkillEvents = field.SnapshotSkillEvents(),
             StatusEvents = field.SnapshotStatusEvents(),
-            ItemEffects = field.ItemEvents.Snapshot()
+            ItemEffects = field.ItemEvents.Snapshot(),
+            ActiveStatuses = field.Statuses.Snapshot,
+            FieldNowMs = field.NowMs
         };
         foreach (var entityId in field.PlayerIds)
         {
@@ -520,6 +519,17 @@ public sealed partial class WorldServer
                 });
             }
         }
+    }
+
+    // Moves a player between field instances on the command phase: its cooldowns and running statuses follow it onto the
+    // destination's clock.
+    private static void TransferPlayer(WorldPlayer player, FieldInstance from, FieldInstance to)
+    {
+        var statuses = from.Statuses.Take(player.EntityId);
+        from.Remove(player.EntityId);
+        player.Cooldowns.Rebase(from.NowMs, to.NowMs);
+        to.Add(player);
+        to.Statuses.Carry(player.EntityId, statuses, from.NowMs, to.NowMs);
     }
 
     private static Vector3 RespawnPoint(FieldDef field, Vector3 fallback)

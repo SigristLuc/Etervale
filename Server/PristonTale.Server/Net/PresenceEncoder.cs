@@ -37,6 +37,8 @@ internal sealed partial class PresenceEncoder
     private readonly HashSet<uint> _seen = new();
     private readonly HashSet<uint> _visibleDrops = new();
     private readonly List<uint> _removed = new();
+    // Entities this receiver started seeing in the snapshot being encoded; their running statuses follow.
+    private readonly List<uint> _spawned = new();
     private readonly List<CombatEventEntry> _events = new();
     private readonly List<SkillEventEntry> _skillEvents = new();
     private readonly List<StatusEffectEntry> _statusEvents = new();
@@ -152,6 +154,7 @@ internal sealed partial class PresenceEncoder
         var group = new PlayDataGroupWriter(_group, ++_groupCounter);
         _seen.Clear();
         _removed.Clear();
+        _spawned.Clear();
         WriteEntity(ref group, connection, self, tick, field, near: true);
         _seen.Add(_self);
 
@@ -247,6 +250,7 @@ internal sealed partial class PresenceEncoder
         {
             known = new Known(view, 1, tick, descriptor);
             _known[view.EntityId] = known;
+            _spawned.Add(view.EntityId);
             AppendDetailed(ref group, connection, view, field, known.Revision);
             return null;
         }
@@ -416,6 +420,17 @@ internal sealed partial class PresenceEncoder
             }
         }
 
+        foreach (var entity in _spawned)
+        {
+            foreach (var running in snapshot.ActiveStatuses.For(entity))
+            {
+                if (running.RemainingAt(snapshot.FieldNowMs) > 0 && !PublishedWith(snapshot.StatusEvents, running.Status))
+                {
+                    _statusEvents.Add(WireMapping.Status(running.At(snapshot.FieldNowMs)));
+                }
+            }
+        }
+
         if (_statusEvents.Count == 0)
         {
             return;
@@ -428,6 +443,20 @@ internal sealed partial class PresenceEncoder
             var batch = entries.Slice(offset, Math.Min(StatusEffectList.MaxEntries, entries.Length - offset));
             connection.Send(_scratch.AsSpan(0, StatusEffectList.Write(_scratch, batch)));
         }
+    }
+
+    // A status that changed in the snapshot itself already reaches the receiver through the snapshot's own events.
+    private static bool PublishedWith(StatusEventView[] events, in StatusEventView status)
+    {
+        foreach (var published in events)
+        {
+            if (published.EntityId == status.EntityId && published.StatusCode == status.StatusCode && published.SourceId == status.SourceId)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void SendCooldowns(in WorldSnapshot snapshot, IPacketSink connection)

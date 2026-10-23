@@ -27,6 +27,10 @@ internal static class WireMapping
 
     public static uint ItemCode(string? catalogKey) => !string.IsNullOrEmpty(catalogKey) && LegacyItemCode.TryParse(catalogKey, out var code) ? code : 0;
 
+    // The template code clients use to share one description among monsters and NPCs of a kind. Players and owned
+    // summons describe themselves (a summon's owner and size are its own), so they carry none.
+    public static uint SharedTemplate(in EntityView view) => view.Kind == EntityKindView.Player || view.OwnerId != 0 ? 0u : view.TemplateId;
+
     public static PlayBuffer Buffer(in EntityView view) => new(
         PristonUnits.ToFixed(view.Position.X),
         PristonUnits.ToFixed(view.Position.Y),
@@ -42,7 +46,7 @@ internal static class WireMapping
         unchecked((int)view.AttackSequence),
         ClampShort(view.Hp),
         ClampShort(view.MaxHp),
-        view.Kind == EntityKindView.Player ? 0u : view.TemplateId,
+        SharedTemplate(view),
         (short)fieldCode,
         -1,
         revision,
@@ -56,7 +60,7 @@ internal static class WireMapping
         PristonUnits.ToFixed(view.Position.Z),
         PristonUnits.ToAngle(view.Facing),
         ActionCode(view.MoveState),
-        view.Kind == EntityKindView.Player ? 0u : view.TemplateId);
+        SharedTemplate(view));
 
     // Character info record for an object description (PLAYERINFO reply to GETPLAYERINFO).
     public static CharacterInfo Describe(in EntityView view, WorldData data)

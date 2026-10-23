@@ -19,6 +19,9 @@ namespace PristonTale.Client.Net.Online;
 internal sealed class PresenceDecoder
 {
     private const uint GoldCode = 0x05010100;
+    private const long DescriptionRetryMs = 1000;
+    // The receive loop decodes; the connection's timer retries descriptions.
+    private readonly object _gate = new();
     private readonly Dictionary<uint, Tracked> _objects = new();
     // Monster and NPC descriptions are shared by template, like the original client's enemy cache.
     private readonly Dictionary<uint, Description> _templates = new();
@@ -47,6 +50,30 @@ internal sealed class PresenceDecoder
 
     // Decodes one presence packet; returns false for opcodes that are not part of presence.
     public bool TryHandle(ReadOnlySpan<byte> packet, out PresenceUpdate? update)
+    {
+        lock (_gate)
+        {
+            return TryHandleLocked(packet, out update);
+        }
+    }
+
+    // Asks again for the descriptions whose answer did not come within a second. The connection calls it about once a
+    // second: an object that stands still sends no entries that would trigger the request again.
+    public void RetryDescriptions()
+    {
+        lock (_gate)
+        {
+            foreach (var (serial, tracked) in _objects)
+            {
+                if (tracked.HasState && (tracked.Description is null || tracked.Description.Revision != tracked.Revision))
+                {
+                    RequestDescription(serial, tracked, tracked.Revision);
+                }
+            }
+        }
+    }
+
+    private bool TryHandleLocked(ReadOnlySpan<byte> packet, out PresenceUpdate? update)
     {
         var code = BinaryPrimitives.ReadUInt32LittleEndian(packet[4..]);
         update = code switch
@@ -213,13 +240,10 @@ internal sealed class PresenceDecoder
             tracked.Description = shared;
         }
 
+        tracked.Revision = data.DescriptorRevision;
         if (tracked.Description is null || tracked.Description.Revision != data.DescriptorRevision)
         {
-            if (tracked.RequestedRevision != data.DescriptorRevision)
-            {
-                tracked.RequestedRevision = data.DescriptorRevision;
-                _requestDescription(data.ObjectSerial);
-            }
+            RequestDescription(data.ObjectSerial, tracked, data.DescriptorRevision);
         }
 
         Publish(data.ObjectSerial, tracked, spawns, states);
@@ -241,6 +265,21 @@ internal sealed class PresenceDecoder
         {
             states.Add(State(data.ObjectSerial, tracked));
         }
+    }
+
+    // One GETPLAYERINFO per revision, repeated after a second when its answer does not come: the server drops requests
+    // beyond its rate bucket (a crowd entering view at once), and an object without a description is never shown.
+    private void RequestDescription(uint serial, Tracked tracked, int revision)
+    {
+        var now = Environment.TickCount64;
+        if (tracked.RequestedRevision == revision && now - tracked.RequestedAtMs < DescriptionRetryMs)
+        {
+            return;
+        }
+
+        tracked.RequestedRevision = revision;
+        tracked.RequestedAtMs = now;
+        _requestDescription(serial);
     }
 
     private void Publish(uint serial, Tracked tracked, List<EntitySpawnInfo> spawns, List<EntityStateInfo> states)
@@ -274,7 +313,8 @@ internal sealed class PresenceDecoder
         tracked.Description = description;
         var template = character.Temp[CharacterInfo.TempTemplateCode];
         var scale = BitConverter.UInt32BitsToSingle(character.Temp[CharacterInfo.TempModelScale]);
-        if (description.Kind is RemoteEntityKind.Monster or RemoteEntityKind.Npc && template != 0)
+        // A summon's description names its owner, so it never stands for the wild monsters of its template.
+        if (description.Kind is RemoteEntityKind.Monster or RemoteEntityKind.Npc && template != 0 && character.Brood != (uint)MonsterBrood.User)
         {
             _templates[template] = description;
         }
@@ -507,6 +547,8 @@ internal sealed class PresenceDecoder
     {
         public Description? Description { get; set; }
         public int RequestedRevision { get; set; } = -1;
+        public long RequestedAtMs { get; set; }
+        public byte Revision { get; set; }
         public bool HasState { get; set; }
         public bool Published { get; set; }
         public Vector3 Position { get; set; }

@@ -72,7 +72,7 @@ internal static class MultiplayerMovementTests
         var camp = MultiplayerServer.Camp;
         await using var a = await Enter(server, "Local", camp);
         // Just beyond the forget range (1.15 x the connect range of about 1086 units).
-        var outside = camp + new Vector3(1300f, 0f, 0f);
+        var outside = camp + new Vector3(1270f, 0f, 0f);
         await using var far = await Enter(server, "Faraway", outside);
         await using var town = await Enter(server, "Townsman", camp, MultiplayerServer.Village);
 
@@ -82,13 +82,13 @@ internal static class MultiplayerMovementTests
         Assert.True(!town.World.Read(world => world.Mentions(a.Serial)), "a viewer in another field heard of the player");
         Assert.True(!a.World.Read(world => world.Mentions(far.Serial) || world.Mentions(town.Serial)), "the player heard of viewers it cannot see");
 
-        var inside = camp + new Vector3(850f, 0f, 0f);
-        await far.WalkAsync(outside, inside, running: true, unitsPerSecond: 200f);
+        var inside = camp + new Vector3(1050f, 0f, 0f);
+        await far.WalkAsync(outside, inside, running: true);
         await a.WaitUntilAsync(world => world.Entities.ContainsKey(far.Serial), "the approaching player");
         await far.WaitUntilAsync(world => world.Entities.ContainsKey(a.Serial), "the player it approached");
 
-        var gone = camp + new Vector3(1400f, 0f, 0f);
-        await far.WalkAsync(inside, gone, running: true, unitsPerSecond: 200f);
+        var gone = camp + new Vector3(1300f, 0f, 0f);
+        await far.WalkAsync(inside, gone, running: true);
         await a.WaitUntilAsync(world => world.Removed.Contains(far.Serial) && !world.Entities.ContainsKey(far.Serial), "the leaving player removed");
         await far.WaitUntilAsync(world => world.Removed.Contains(a.Serial), "the player it left removed");
         Assert.True(!town.World.Read(world => world.Mentions(a.Serial) || world.Mentions(far.Serial)), "the other field heard of the hunters");

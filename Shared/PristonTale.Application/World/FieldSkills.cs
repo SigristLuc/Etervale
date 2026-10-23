@@ -71,6 +71,8 @@ internal sealed partial class FieldSkills
 
     public SkillEventView[] SnapshotSkillEvents() => _skillEvents.Count == 0 ? [] : _skillEvents.ToArray();
 
+    public IReadOnlyList<StatusEventView> StatusEvents => _statusEvents;
+
     public StatusEventView[] SnapshotStatusEvents() => _statusEvents.Count == 0 ? [] : _statusEvents.ToArray();
 
     public SkillCastOutcome Cast(WorldPlayer player, in SkillCastRequest request)

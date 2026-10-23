@@ -245,6 +245,10 @@ public readonly struct WorldSnapshot
     // The receiver's running cooldowns; null when they did not change since the last snapshot it was sent.
     public SkillCooldownView[]? Cooldowns { get; init; }
 
+    // The statuses running in the field and its clock, for entities a receiver starts seeing after their statuses began.
+    public ActiveStatusSet ActiveStatuses { get; init; }
+    public long FieldNowMs { get; init; }
+
     // The receiver's quest changes: the journal view when it changed, quest notices and a dialog the world opened.
     public QuestUpdate? Quest { get; init; }
 
@@ -254,6 +258,8 @@ public readonly struct WorldSnapshot
         SkillEvents = SkillEvents,
         StatusEvents = StatusEvents,
         ItemEffects = ItemEffects,
+        ActiveStatuses = ActiveStatuses,
+        FieldNowMs = FieldNowMs,
         Cooldowns = cooldowns
     };
 
@@ -263,6 +269,9 @@ public readonly struct WorldSnapshot
         SkillEvents = SkillEvents,
         StatusEvents = StatusEvents,
         ItemEffects = ItemEffects,
-        Cooldowns = Cooldowns
+        ActiveStatuses = ActiveStatuses,
+        FieldNowMs = FieldNowMs,
+        Cooldowns = Cooldowns,
+        Quest = Quest
     };
 }

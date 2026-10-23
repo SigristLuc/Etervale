@@ -27,6 +27,7 @@ public sealed class GameServerConnection : IGameBackend
     // Client version of the English retail build; the server's VERSION reply sets the minimum.
     public const int EnglishClientVersion = 3122;
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan DescriptionRetryInterval = TimeSpan.FromSeconds(1);
 
     private readonly string _host;
     private readonly int _port;
@@ -510,12 +511,21 @@ public sealed class GameServerConnection : IGameBackend
 
     private async Task HeartbeatAsync(PristonConnection connection)
     {
-        using var timer = new PeriodicTimer(HeartbeatInterval);
+        using var timer = new PeriodicTimer(DescriptionRetryInterval);
         var counter = 0;
+        var elapsed = TimeSpan.Zero;
         try
         {
             while (await timer.WaitForNextTickAsync(connection.Closed))
             {
+                _presence.RetryDescriptions();
+                elapsed += DescriptionRetryInterval;
+                if (elapsed < HeartbeatInterval)
+                {
+                    continue;
+                }
+
+                elapsed = TimeSpan.Zero;
                 // CheckNetState {LParam = counter, WParam = client time}.
                 Send(new TransCommand(PristonOpcodes.CheckNetState, ++counter, Environment.TickCount), encrypt: true);
             }

@@ -95,6 +95,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     public FieldTerrain Terrain { get; }
     internal FieldPremium Premium { get; }
     internal FieldItemEvents ItemEvents { get; } = new();
+    internal FieldStatusBook Statuses { get; } = new();
     public long NowMs => (long)_nowMs;
     public int PlayerCount => _players.Count;
     public int MonsterCount => _monsters.Count;
@@ -108,6 +109,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     public void Remove(uint entityId)
     {
         _players.Remove(entityId, out _);
+        Statuses.Take(entityId);
         _skills.Forget(entityId);
         Premium.Forget(entityId);
     }
@@ -248,7 +250,13 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         _combat.TickCorpses(dtMs);
         StepQuests(dtMs, nowMs);
         GroundLoot.Step(nowMs);
+        Statuses.Apply(_skills.StatusEvents, nowMs);
+        Statuses.Prune(nowMs, _isPresent ??= IsPresent);
     }
+
+    private Func<uint, bool>? _isPresent;
+
+    private bool IsPresent(uint entityId) => _players.ContainsKey(entityId) || _monsters.ContainsKey(entityId) || _npcs.ContainsKey(entityId);
 
     private void PlaceLoot(KillPayout reward, long nowMs)
     {

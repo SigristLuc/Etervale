@@ -183,10 +183,7 @@ public sealed partial class WorldServer
         var inVillage = destination.State == FieldState.Village;
         if (connection.FieldId != travel.FieldCode)
         {
-            var oldNowMs = _fields[connection.FieldId].NowMs;
-            _fields[connection.FieldId].Remove(player.EntityId);
-            player.Cooldowns.Rebase(oldNowMs, target.NowMs);
-            target.Add(player);
+            TransferPlayer(player, _fields[connection.FieldId], target);
             _membershipChanged = true;
             _connections[player.EntityId] = connection with
             {

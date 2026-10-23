@@ -80,6 +80,7 @@ internal static class MultiplayerCombatTests
             "the striker's level up");
         Assert.True(a.World.Read(world => world.Owner?.Level) == promoted.Level, "the striker's own level differs from what others see");
 
+        await a.WaitUntilAsync(world => world.Entities[a.Serial].Motion != RemoteMoveState.Attack, "the striker's last swing ending");
         await a.WalkAsync(a.World.Read(world => world.Entities[a.Serial].Position), drop.Position);
         var revision = a.World.Read(world => world.Owner!.InventoryRevision);
         var money = a.World.Read(world => world.Owner!.Money);
@@ -92,7 +93,7 @@ internal static class MultiplayerCombatTests
 
     private static async Task SkillAsync()
     {
-        var world = MultiplayerServer.WorldWith(MultiplayerServer.SpawnBeside(DummyCode, Spot), Dummy(life: 100_000));
+        var world = MultiplayerServer.WorldWith(MultiplayerServer.SpawnBeside(DummyCode, Spot), Dummy(life: 20_000));
         await using var server = await MultiplayerServer.StartAsync(world);
         var casterSpot = Spot + new Vector3(150f, 0f, 0f);
         await using var a = await Enter(server, "Caster", casterSpot, playerClass: PlayerClass.Magician, level: 20,
@@ -117,8 +118,8 @@ internal static class MultiplayerCombatTests
         var hitA = a.World.Read(world => Blows(world, a.Serial, dummy.Id))!;
         var hitB = b.World.Read(world => Blows(world, a.Serial, dummy.Id))!;
         Assert.True(hitA.Count == 1 && hitA.SequenceEqual(hitB) && hitA[0].Damage > 0, "the bolt's damage differs between the players");
-        await b.WaitUntilAsync(world => world.Entities[dummy.Id].Hp == 100_000 - hitA[0].Damage, "the dummy's life after the bolt");
-        await a.WaitUntilAsync(world => world.Entities[dummy.Id].Hp == 100_000 - hitA[0].Damage, "the caster's view of the dummy's life");
+        await b.WaitUntilAsync(world => world.Entities[dummy.Id].Hp == 20_000 - hitA[0].Damage, "the dummy's life after the bolt");
+        await a.WaitUntilAsync(world => world.Entities[dummy.Id].Hp == 20_000 - hitA[0].Damage, "the caster's view of the dummy's life");
         await b.WaitUntilAsync(world => world.Entities[a.Serial].Motion == RemoteMoveState.Skill
             || world.Entities[a.Serial].Samples.Any(sample => sample.Motion == RemoteMoveState.Skill), "the caster's skill motion");
     }

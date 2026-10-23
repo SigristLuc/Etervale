@@ -92,6 +92,12 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
             _pending.Add(new Pending(due, PendingKind.Event, skillEvent, 0));
         }
 
+        // Statuses of an entity that left the view are forgotten; the server sends the running ones when it returns.
+        foreach (var removed in update.Removed)
+        {
+            Statuses.Forget(removed);
+        }
+
         foreach (var status in update.StatusEffects)
         {
             if (status.Op != StatusEffectOp.Tick)
@@ -454,12 +460,13 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         entry.Presentation = null;
     }
 
-    // Aura effects are finite; one that ran out while its status is still active starts again.
+    // Aura effects are finite; one that ran out while its status is still active starts again. A status that arrived before
+    // its entity was shown (a viewer meeting a buffed player) starts its aura once the entity is there.
     private void KeepAuras(double nowMs)
     {
         foreach (var (entity, entry) in Statuses.All())
         {
-            if (entry.Presentation is VfxInstance { Alive: false } && entry.RemainingMs(nowMs) > 500d)
+            if (entry.Presentation is null or VfxInstance { Alive: false } && entry.RemainingMs(nowMs) > 500d)
             {
                 entry.Presentation = SpawnAura(entity, entry);
             }

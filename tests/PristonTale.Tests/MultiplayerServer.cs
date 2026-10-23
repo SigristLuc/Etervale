@@ -102,6 +102,11 @@ internal sealed class MultiplayerServer : IAsyncDisposable
             character.Equip(EquipmentSlot.Weapon, new ItemInstance(weapon));
         }
 
+        foreach (var item in setup.Items)
+        {
+            Assert.True(character.Inventory.TryAdd(new ItemInstance(item)), $"{item.CatalogKey} does not fit the inventory");
+        }
+
         var starter = CharacterRecordFactory.NewStarter(Classes, account.Id, setup.Name, 0, setup.Class, setup.FieldId, level: setup.Level);
         await characters.CreateAsync(CharacterRecordFactory.FromLiveSession(starter, character, setup.FieldId, setup.Position));
         return userId;
@@ -139,7 +144,7 @@ internal sealed class MultiplayerServer : IAsyncDisposable
     }
 
     public static WorldData WorldWith(IReadOnlyDictionary<int, FieldSpawnData>? spawns = null, params MonsterDefinition[] monsters) =>
-        new(new ItemCatalog([Staff]), new MonsterCatalog(monsters), new NpcCatalog([]), spawns ?? new Dictionary<int, FieldSpawnData>(),
+        new(new ItemCatalog([Staff, Firecracker, BigHead, Invulnerability]), new MonsterCatalog(monsters), new NpcCatalog([]), spawns ?? new Dictionary<int, FieldSpawnData>(),
             MotionTimingCatalog.Empty);
 
     // A spawn table that keeps one group of the given monster at a point beside the camp while players are near.
@@ -153,6 +158,12 @@ internal sealed class MultiplayerServer : IAsyncDisposable
         }
     };
 
+    public static readonly ItemDefinition Firecracker = Usable("BI123");
+    public static readonly ItemDefinition BigHead = Usable("BI109");
+    public static readonly ItemDefinition Invulnerability = Usable("BI105");
+
+    private static ItemDefinition Usable(string key) => new(LegacyItemCode.Parse(key), key, ItemKind.Misc, MaxStack: 1) { CatalogKey = key, Price = 100 };
+
     public static readonly ItemDefinition Staff = new(LegacyItemCode.Parse("WM101"), "Test staff", ItemKind.Staff, EquipmentSlot.Weapon)
     {
         CatalogKey = "WM101",
@@ -164,4 +175,5 @@ internal sealed record PlayerSetup(string Name, PlayerClass Class, int Level, in
 {
     public (uint Code, int Rank)[] Skills { get; init; } = [];
     public ItemDefinition? Weapon { get; init; }
+    public ItemDefinition[] Items { get; init; } = [];
 }

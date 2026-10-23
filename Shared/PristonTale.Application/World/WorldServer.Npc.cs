@@ -93,14 +93,11 @@ public sealed partial class WorldServer
         }
 
         var player = connection.Player;
-        var oldNowMs = _fields[connection.FieldId].NowMs;
-        _fields[connection.FieldId].Remove(player.EntityId);
         var target = GetField(arrival.FieldCode);
-        player.Cooldowns.Rebase(oldNowMs, target.NowMs);
+        TransferPlayer(player, _fields[connection.FieldId], target);
         var position = target.Terrain.PlaceOnFloor(arrival.Position);
         var inVillage = destination.State == FieldState.Village;
         player.EnterField(position, inVillage, position);
-        target.Add(player);
         _membershipChanged = true;
         _connections[player.EntityId] = connection with
         {

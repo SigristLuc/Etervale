@@ -103,10 +103,17 @@ internal sealed class MultiplayerClient : IAsyncDisposable
         return await WaitAsync(world => world.CastResults.LastOrDefault(result => result.Sequence == sequence), $"{Name}: cast result {sequence}");
     }
 
+    public Task<Simulation.Items.Usable.ItemUseOutcome> UseItemAsync(string key)
+    {
+        var (revision, item) = World.Read(world => (world.Owner!.InventoryRevision, world.Owner.Items.First(value => value.CatalogKey == key).InstanceId));
+        return Play.UseItemAsync(new Simulation.Items.Usable.ItemUseCommand(Guid.NewGuid(), revision, item), _lifetime.Token);
+    }
+
     public Task<Simulation.Items.InventoryOutcome> InventoryAsync(Simulation.Items.InventoryCommand command) => Play.ApplyInventoryAsync(command, _lifetime.Token);
 
-    // Walks in report-sized steps (5 Hz at run speed) so the server's movement budget accepts every report.
-    public async Task WalkAsync(Vector3 from, Vector3 to, bool running = false, float unitsPerSecond = 120f)
+    // Walks in report-sized steps at 5 Hz, below the run speed of the slowest character (about 123 units per second), so the
+    // server's movement budget accepts every report.
+    public async Task WalkAsync(Vector3 from, Vector3 to, bool running = false, float unitsPerSecond = 115f)
     {
         var distance = Vector3.Distance(from, to);
         var facing = MathF.Atan2(to.X - from.X, to.Z - from.Z);
@@ -219,6 +226,7 @@ internal sealed class ObservedWorld
     public List<SkillEventInfo> Skills { get; } = new();
     public List<StatusEffectInfo> Statuses { get; } = new();
     public List<SkillCastResultInfo> CastResults { get; } = new();
+    public List<ItemEffectInfo> ItemEffects { get; } = new();
     public Dictionary<Guid, GroundDropView> Ground { get; } = new();
     public List<Guid> GroundRemoved { get; } = new();
     public List<WarpInfo> Warps { get; } = new();
@@ -285,6 +293,7 @@ internal sealed class ObservedWorld
 
             Skills.AddRange(update.SkillEvents);
             Statuses.AddRange(update.StatusEffects);
+            ItemEffects.AddRange(update.ItemEffects);
             if (update.CastResult is { } result)
             {
                 CastResults.Add(result);
