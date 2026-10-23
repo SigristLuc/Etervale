@@ -41,7 +41,7 @@ Monster skills are a separate system (see [world.md](world.md)); they share only
 | [SkillPresentation.cs](../Client/PristonTale.Gameplay/Effects/SkillPresentation.cs) | Server timeline to motions, VFX, sounds, floating text, auras; loads the VFX library |
 | `Client/PristonTale.Gameplay/Effects/SkillState.cs` | `SkillCooldownBook` (local cooldowns), `StatusBook`/`StatusEntry` (statuses of every visible entity) |
 | `Client/PristonTale.Gameplay/Effects/SkillSoundBank.cs` | Skill sounds by asset path, decoded on a worker, created on the game thread |
-| `Client/PristonTale.Gameplay/Effects/Vfx/Common.vfx.json`, `Vfx/Classes/<Class>.vfx.json` | Named skill effects (embedded); format in [effects.md](effects.md) |
+| `tools/PristonTale.VfxImport/Authored/Common/`, `Authored/Classes/<Class>/` | Named skill effects, installed into `<assetRoot>/Effect/Vfx` by `ptvfx import`; format in [effects.md](effects.md) |
 | `Client/PristonTale.Gameplay/UI/Widgets/HudSkillsPanel.cs`, `HudSkillTreeLayout.cs` | Skill window (`S`): 16 nodes, rank gauges, short-key marks, training clicks at a skill master |
 | `Client/PristonTale.Gameplay/UI/Widgets/HudSkillBindings.cs` | Left/right mouse sockets and the eight `F1`-`F8` short keys (in memory, not saved) |
 | `Client/PristonTale.Gameplay/UI/Widgets/HudSkillHud.cs` | Bottom-bar sockets with cooldown sweep; continuous-skill bar (keep icons, duration gauge, summon mode tooltip) |
@@ -334,7 +334,7 @@ Presentation (`SkillPresentation`):
 - Statuses: `StatusBook` keeps timers between messages; on add, `buffEffect` spawns as an aura (variant
   `<name>.<element>` for multi-choice enchants or familiars when defined) and restarts while the status lasts.
 - Combat events add floating damage, heal and evade text and the revive effect (`ReviveEffect`).
-- VFX: embedded `Vfx/Common.vfx.json` then `Vfx/Classes/*.vfx.json`, then `assets/Vfx/*.vfx.json` overrides by name.
+- VFX: every `<assetRoot>/Effect/Vfx/**/*.vfx.json`, read off the game thread in ordinal path order (docs/effects.md).
   Sounds are asset paths loaded by `SkillSoundBank`.
 - HUD: `HudSkillHud` draws the socket icons with the cooldown sweep from `SkillCooldownBook` and, from (10, 10), the
   continuous-skill bar: one 32 px icon per status that has a `keepIcon` (or a skill button), longest running first,
@@ -360,8 +360,9 @@ stamina of an original skill fail `ClassSkillDataTests` against
 Add or change a skill with an existing mechanic:
 
 1. Data: the entry in `<Class>.json` at its window position, with a code matching tier and slot (each class keeps 16).
-2. Effects: define every effect name it references in `Client/PristonTale.Gameplay/Effects/Vfx/Classes/<Class>.vfx.json`
-   (or `Common.vfx.json` when shared; names unique across files). Format: [effects.md](effects.md).
+2. Effects: define every effect name it references in
+   `tools/PristonTale.VfxImport/Authored/Classes/<Class>/<Class>.vfx.json` (or `Authored/Common/` when shared; names
+   unique across files) and run `ptvfx import <assetRoot>`. Format: [effects.md](effects.md).
 3. Sounds: `wav/...` asset paths that exist in the game data (`SkillPresentationTests` checks when assets are found).
 4. Motion: `motionIndex`/`motionFrames`/`motionEvents` must match the class motion table; check with
    `--verify-skill-motions <assets>` and preview with `--capture-skills` ([testing.md](testing.md)).
@@ -409,6 +410,6 @@ Change learning rules: `SkillLearning` (prices, gates), `PlayerCharacter.LevelUp
 - [application.md](application.md): world tick, field instance, combat pipeline, NPC services.
 - [protocol.md](protocol.md): byte layouts of the skill and status messages.
 - [client.md](client.md): HUD windows, remote entities, input.
-- [effects.md](effects.md): VFX JSON format, legacy particle scripts, `LegacyVfxImporter`.
+- [effects.md](effects.md): VFX JSON format, effect data layout, the `ptvfx` converter, per-skill effect inventory.
 - [testing.md](testing.md): regression runner, skill probes.
 - [persistence.md](persistence.md): saved ranks and uses.

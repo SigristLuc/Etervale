@@ -13,11 +13,11 @@ public sealed class LegacyMonsterMeshEffects
     public const float PhalanxSpeed = (128f + 2000f / 256f) / 20f * 70f;
     private readonly Entry[] _entries = new Entry[Capacity];
     private readonly LegacyEffectLibrary _library;
-    private readonly EffectsEngine _effects;
+    private readonly IScriptEffects _effects;
     private readonly PristonTransientLights _lights;
     public int Count { get; private set; }
 
-    public LegacyMonsterMeshEffects(LegacyEffectLibrary library, EffectsEngine effects, PristonTransientLights lights)
+    public LegacyMonsterMeshEffects(LegacyEffectLibrary library, IScriptEffects effects, PristonTransientLights lights)
     {
         _library = library;
         _effects = effects;
@@ -27,7 +27,7 @@ public sealed class LegacyMonsterMeshEffects
     // Facing is the authoritative simulation yaw; positions have already been converted to scene Z.
     public bool Spawn(int soundCode, Vector3 caster, float facing, Vector3 target)
     {
-        if (Count == Capacity || _effects.Instances.Count >= 128)
+        if (Count == Capacity)
         {
             return false;
         }
@@ -39,14 +39,14 @@ public sealed class LegacyMonsterMeshEffects
         {
             case 0x19F0:
                 entry = new Entry(soundCode, caster, Vector3.Zero, rotation, 60f / 70f, null);
-                _effects.Spawn(_library.CaveMummy, caster + forward * 50f + Vector3.Up * (10000f / 256f - 20f));
+                _effects.Spawn("CaveMummy", caster + forward * 50f + Vector3.Up * (10000f / 256f - 20f), Matrix.Identity);
                 break;
 
             case 0x1840:
                 var side = new Vector3(MathF.Cos(facing), 0, MathF.Sin(facing));
                 var start = caster + side * 12f + Vector3.Up * (15500f / 256f - 24f);
                 entry = new Entry(soundCode, start, forward * PhalanxSpeed, rotation, 30f / 70f,
-                    _effects.Spawn(_library.IcePiercing, start));
+                    _effects.Spawn("IceValentoPiercing", start, Matrix.Identity));
                 _lights.Add(caster, new Color(0, 150, 255), 130, 1);
                 break;
 
@@ -59,7 +59,7 @@ public sealed class LegacyMonsterMeshEffects
                 rotation = DirectionRotation(direction);
                 entry = new Entry(soundCode, origin, direction * GuardSpeed, rotation,
                     MathF.Min(200f / 70f, MathF.Max(0, distance - 5f) / GuardSpeed),
-                    _effects.Spawn(_library.JavelinTrail, origin, rotation));
+                    _effects.Spawn("twistJavelin1", origin, rotation));
                 entry.Hit = distance <= GuardSpeed * (200f / 70f) + 5f;
                 break;
 
@@ -89,7 +89,7 @@ public sealed class LegacyMonsterMeshEffects
             var position = entry.Origin + entry.Velocity * MathF.Min(entry.Age, entry.Duration);
             if (entry.Trail is not null)
             {
-                entry.Trail.Position = position;
+                entry.Trail.MoveTo(position);
                 if (entry.Code == 0x1840 && entry.Age >= 19f / 70f)
                 {
                     entry.Trail.Stop();
@@ -103,9 +103,9 @@ public sealed class LegacyMonsterMeshEffects
             }
 
             entry.Trail?.Stop();
-            if (entry.Code == 0x1890 && entry.Hit && _effects.Instances.Count < 128)
+            if (entry.Code == 0x1890 && entry.Hit)
             {
-                _effects.Spawn(_library.JavelinHit, position, entry.Rotation);
+                _effects.Spawn("TwistJavelin2", position, entry.Rotation);
             }
 
             _entries[index] = _entries[--Count];
@@ -165,14 +165,14 @@ public sealed class LegacyMonsterMeshEffects
         Count = 0;
     }
 
-    private struct Entry(int code, Vector3 origin, Vector3 velocity, Matrix rotation, float duration, EffectInstance trail)
+    private struct Entry(int code, Vector3 origin, Vector3 velocity, Matrix rotation, float duration, IScriptEffect trail)
     {
         public int Code = code;
         public Vector3 Origin = origin;
         public Vector3 Velocity = velocity;
         public Matrix Rotation = rotation;
         public float Duration = duration;
-        public EffectInstance Trail = trail;
+        public IScriptEffect Trail = trail;
         public float Age;
         public bool Hit;
     }

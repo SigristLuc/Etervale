@@ -1,6 +1,5 @@
 using System.Buffers;
 using Microsoft.Xna.Framework;
-using PristonTale.Effects.Effects;
 
 namespace PristonTale.Effects.Vfx;
 
@@ -10,16 +9,22 @@ public interface IVfxAnchors
     bool TryGetPosition(uint entityId, out Vector3 position);
 
     bool TryGetBone(uint entityId, string bone, out Vector3 position);
+
+    // The bone's full world transform, for models attached to a hand or a shield; by default a translation only.
+    bool TryGetBoneWorld(uint entityId, string bone, out Matrix world)
+    {
+        var found = TryGetBone(entityId, bone, out var position);
+        world = Matrix.CreateTranslation(position);
+        return found;
+    }
 }
 
-// Side effects of a layer that live outside the particle system: scene lights, sounds and legacy scripts.
+// Side effects of a layer that live outside the particle system: scene lights and sounds.
 public interface IVfxServices
 {
     void AddLight(Vector3 position, Color color, int power, int decay);
 
     void PlaySound(string path, Vector3 position, float volume);
-
-    EffectInstance? SpawnLegacy(string script, Vector3 position, Matrix orientation);
 }
 
 public struct VfxParticle
@@ -38,19 +43,22 @@ public readonly record struct VfxSpawn(uint CasterId, uint TargetId, Vector3 Poi
 // nothing once the pools have warmed up; the budget caps live instances so a crowd of casters cannot run away.
 public sealed class VfxSystem
 {
-    public const int MaxInstances = 256;
+    public const int MaxInstances = 1024;
     internal const int TrailPoints = 32;
 
     private readonly List<VfxInstance> _live = new(64);
     private readonly Stack<VfxInstance> _free = new();
     private readonly IVfxAnchors _anchors;
     private readonly IVfxServices? _services;
+    private readonly VfxLibrary? _library;
     private uint _seed = 0x9E3779B9;
 
-    public VfxSystem(IVfxAnchors anchors, IVfxServices? services = null)
+    // library resolves child effects; without one, child layers are skipped.
+    public VfxSystem(IVfxAnchors anchors, IVfxServices? services = null, VfxLibrary? library = null)
     {
         _anchors = anchors;
         _services = services;
+        _library = library;
     }
 
     public IReadOnlyList<VfxInstance> Instances => _live;
@@ -65,6 +73,16 @@ public sealed class VfxSystem
                 foreach (var emitter in instance.EmitterStates)
                 {
                     count += emitter.Count;
+                }
+
+                foreach (var sequence in instance.SequenceStates)
+                {
+                    count += sequence.LiveCount;
+                }
+
+                foreach (var part in instance.PartStates)
+                {
+                    count += part.LiveCount;
                 }
             }
 
@@ -98,7 +116,7 @@ public sealed class VfxSystem
         for (var index = _live.Count - 1; index >= 0; index--)
         {
             var instance = _live[index];
-            instance.Update(seconds, _anchors, _services);
+            instance.Update(seconds, _anchors, _services, this);
             if (!instance.Alive)
             {
                 instance.Release();
@@ -107,6 +125,35 @@ public sealed class VfxSystem
             }
         }
     }
+
+    internal VfxInstance? SpawnChild(VfxInstance parent, int index, Vector3 point)
+    {
+        var child = _library?.Child(parent.Effect, index);
+        if (child is null)
+        {
+            return null;
+        }
+
+        var layer = parent.Effect.Definition.Children[index];
+        var facing = layer.Turn ? parent.Spawn.Facing : 0f;
+        return Spawn(child, new VfxSpawn(parent.Spawn.CasterId, parent.Spawn.TargetId, point, facing));
+    }
+
+    // A named effect looked up once and cached by the caller.
+    internal CompiledVfx? Resolve(string name, ref CompiledVfx? cached, ref bool resolved)
+    {
+        if (!resolved)
+        {
+            resolved = true;
+            cached = _library is not null && _library.TryGet(name, out var effect) ? effect : null;
+        }
+
+        return cached;
+    }
+
+    // An effect started by a part of another (an impact where a part lands, dust behind it), with its facing.
+    internal VfxInstance? SpawnFrom(VfxInstance parent, CompiledVfx effect, Vector3 point) =>
+        Spawn(effect, new VfxSpawn(parent.Spawn.CasterId, parent.Spawn.TargetId, point, parent.Spawn.Facing));
 
     public void Clear()
     {
@@ -124,10 +171,13 @@ public sealed class VfxInstance
 {
     internal EmitterState[] EmitterStates = [];
     internal TrailState[] TrailStates = [];
-    private EffectInstance?[] _legacy = [];
+    internal ComponentState[] ComponentStates = [];
+    internal SequenceState[] SequenceStates = [];
+    internal PartState[] PartStates = [];
+    private VfxInstance?[] _children = [];
     private bool[] _lightsFired = [];
     private bool[] _soundsFired = [];
-    private bool[] _legacyFired = [];
+    private bool[] _childrenFired = [];
     private uint _random;
     private bool _stopped;
     private bool _travelling;
@@ -138,6 +188,8 @@ public sealed class VfxInstance
     private float _arc;
 
     public CompiledVfx Effect { get; private set; } = null!;
+    // Counts the uses of this pooled instance, so a holder can tell its effect from a later one.
+    internal int Generation { get; private set; }
     public VfxSpawn Spawn { get; private set; }
     public float Age { get; private set; }
     public bool Alive { get; private set; }
@@ -163,9 +215,16 @@ public sealed class VfxInstance
 
     public bool Travelling => _travelling;
 
+    // Moves the spawn point (a source carried by something else); particles already born stay where they are.
+    public void MoveTo(Vector3 point) => Spawn = Spawn with { Point = point };
+
+    // A full orientation instead of the facing yaw (a shot along its flight direction).
+    public void SetOrientation(Matrix orientation) => Orientation = orientation;
+
     internal void Begin(CompiledVfx effect, in VfxSpawn spawn, uint seed)
     {
         Effect = effect;
+        Generation++;
         Spawn = spawn;
         Age = 0f;
         Alive = true;
@@ -189,17 +248,38 @@ public sealed class VfxInstance
             TrailStates[index].Begin(effect.Trails[index]);
         }
 
+        ComponentStates = Resize(ComponentStates, effect.Components.Length);
+        for (var index = 0; index < effect.Components.Length; index++)
+        {
+            ComponentStates[index] ??= new ComponentState();
+            ComponentStates[index].Begin(effect.Components[index]);
+        }
+
+        SequenceStates = Resize(SequenceStates, effect.Sequences.Length);
+        for (var index = 0; index < effect.Sequences.Length; index++)
+        {
+            SequenceStates[index] ??= new SequenceState();
+            SequenceStates[index].Begin(effect.Sequences[index]);
+        }
+
+        PartStates = Resize(PartStates, effect.Parts.Length);
+        for (var index = 0; index < effect.Parts.Length; index++)
+        {
+            PartStates[index] ??= new PartState();
+            PartStates[index].Begin(effect.Parts[index], ref _random);
+        }
+
         var definition = effect.Definition;
         _lightsFired = ResizeCleared(_lightsFired, definition.Lights.Length);
         _soundsFired = ResizeCleared(_soundsFired, definition.Sounds.Length);
-        _legacyFired = ResizeCleared(_legacyFired, definition.Legacy.Length);
-        if (_legacy.Length != definition.Legacy.Length)
+        _childrenFired = ResizeCleared(_childrenFired, definition.Children.Length);
+        if (_children.Length != definition.Children.Length)
         {
-            _legacy = new EffectInstance?[definition.Legacy.Length];
+            _children = new VfxInstance?[definition.Children.Length];
         }
         else
         {
-            Array.Clear(_legacy);
+            Array.Clear(_children);
         }
     }
 
@@ -210,12 +290,34 @@ public sealed class VfxInstance
             emitter?.Release();
         }
 
-        for (var index = 0; index < _legacy.Length; index++)
+        foreach (var sequence in SequenceStates)
         {
-            _legacy[index]?.Stop();
-            _legacy[index] = null;
+            sequence?.Release();
+        }
+
+        foreach (var part in PartStates)
+        {
+            part?.Release();
+        }
+
+        var children = Effect.Definition.Children;
+        for (var index = 0; index < _children.Length; index++)
+        {
+            if (_children[index] is { } child && children[index].StopWithParent)
+            {
+                child.Stop();
+            }
+
+            _children[index] = null;
         }
     }
+
+    internal uint EntityOf(VfxAnchor anchor) => anchor switch
+    {
+        VfxAnchor.Caster => Spawn.CasterId,
+        VfxAnchor.Target => Spawn.TargetId,
+        _ => 0u
+    };
 
     internal Vector3 AnchorPosition(VfxAnchor anchor, string bone, Vector3 offset, IVfxAnchors anchors)
     {
@@ -239,7 +341,7 @@ public sealed class VfxInstance
         return basis + Vector3.TransformNormal(offset, Orientation);
     }
 
-    internal void Update(float dt, IVfxAnchors anchors, IVfxServices? services)
+    internal void Update(float dt, IVfxAnchors anchors, IVfxServices? services, VfxSystem system)
     {
         Age += dt;
         if (_travelling)
@@ -268,7 +370,9 @@ public sealed class VfxInstance
 
         var definition = Effect.Definition;
         var emitting = !_stopped && Age <= definition.Duration;
-        var any = emitting;
+        // Alive while a layer still runs or a one-shot is still due; an effect whose layers all ended does not wait
+        // for its duration.
+        var any = emitting && PendingOneShots(definition);
         for (var index = 0; index < EmitterStates.Length; index++)
         {
             any |= EmitterStates[index].Update(this, dt, emitting, anchors, ref _random);
@@ -279,42 +383,114 @@ public sealed class VfxInstance
             any |= TrailStates[index].Update(this, dt, emitting, anchors);
         }
 
-        FireOneShots(definition, anchors, services);
-        for (var index = 0; index < _legacy.Length; index++)
+        for (var index = 0; index < ComponentStates.Length; index++)
         {
-            var legacy = _legacy[index];
-            if (legacy is null)
+            var state = ComponentStates[index];
+            var source = state.Component.Source;
+            if (source.Follow || !state.Anchored)
+            {
+                state.Anchor = AnchorPosition(source.Anchor, source.Bone, Vector3.Zero, anchors);
+                state.Anchored = true;
+            }
+
+            any |= state.Update(this, dt, emitting, state.Anchor, ref _random);
+        }
+
+        for (var index = 0; index < SequenceStates.Length; index++)
+        {
+            var state = SequenceStates[index];
+            var source = state.Sequence.Source;
+            var origin = AnchorPosition(source.Anchor, source.Bone, state.Sequence.Offset, anchors);
+            any |= state.Update(dt, emitting, origin, ref _random);
+        }
+
+        for (var index = 0; index < PartStates.Length; index++)
+        {
+            any |= PartStates[index].Update(this, dt, emitting, anchors, system, ref _random);
+        }
+
+        FireOneShots(definition, anchors, services, system);
+        var children = definition.Children;
+        for (var index = 0; index < _children.Length; index++)
+        {
+            var child = _children[index];
+            if (child is null)
             {
                 continue;
             }
 
-            var layer = definition.Legacy[index];
+            if (!child.Alive)
+            {
+                _children[index] = null;
+                continue;
+            }
+
+            var layer = children[index];
             if (layer.Follow)
             {
-                legacy.Position = AnchorPosition(layer.Anchor, layer.Bone, VfxDefinition.Vec3(layer.Offset), anchors);
+                child.Spawn = child.Spawn with { Point = AnchorPosition(layer.Anchor, layer.Bone, VfxDefinition.Vec3(layer.Offset), anchors) };
             }
 
-            if (_stopped)
+            if (_stopped && layer.StopWithParent)
             {
-                legacy.Stop();
+                child.Stop();
             }
 
-            if (legacy.IsAlive)
-            {
-                any = true;
-            }
-            else
-            {
-                _legacy[index] = null;
-            }
+            any = true;
         }
 
         Alive = any;
     }
 
-    private void FireOneShots(VfxDefinition definition, IVfxAnchors anchors, IVfxServices? services)
+    private bool PendingOneShots(VfxDefinition definition)
     {
-        if (services is null || _stopped)
+        for (var index = 0; index < _lightsFired.Length; index++)
+        {
+            if (!_lightsFired[index])
+            {
+                return true;
+            }
+        }
+
+        for (var index = 0; index < _soundsFired.Length; index++)
+        {
+            if (!_soundsFired[index])
+            {
+                return true;
+            }
+        }
+
+        for (var index = 0; index < _childrenFired.Length; index++)
+        {
+            if (!_childrenFired[index])
+            {
+                return true;
+            }
+        }
+
+        return definition.Emitters.Length == 0 && definition.Trails.Length == 0 && definition.Components.Length == 0 && definition.Sequences.Length == 0
+            && definition.Children.Length == 0 && definition.Parts.Length == 0 && Age <= definition.Duration;
+    }
+
+    private void FireOneShots(VfxDefinition definition, IVfxAnchors anchors, IVfxServices? services, VfxSystem system)
+    {
+        if (_stopped)
+        {
+            return;
+        }
+
+        for (var index = 0; index < definition.Children.Length; index++)
+        {
+            var layer = definition.Children[index];
+            if (!_childrenFired[index] && Age >= layer.Delay)
+            {
+                _childrenFired[index] = true;
+                var point = AnchorPosition(layer.Anchor, layer.Bone, VfxDefinition.Vec3(layer.Offset), anchors);
+                _children[index] = system.SpawnChild(this, index, point);
+            }
+        }
+
+        if (services is null)
         {
             return;
         }
@@ -337,17 +513,6 @@ public sealed class VfxInstance
             {
                 _soundsFired[index] = true;
                 services.PlaySound(sound.Path, AnchorPosition(VfxAnchor.Caster, "", Vector3.Zero, anchors), sound.Volume);
-            }
-        }
-
-        for (var index = 0; index < definition.Legacy.Length; index++)
-        {
-            var layer = definition.Legacy[index];
-            if (!_legacyFired[index] && Age >= layer.Delay)
-            {
-                _legacyFired[index] = true;
-                var position = AnchorPosition(layer.Anchor, layer.Bone, VfxDefinition.Vec3(layer.Offset), anchors);
-                _legacy[index] = services.SpawnLegacy(layer.Script, position, Orientation);
             }
         }
     }

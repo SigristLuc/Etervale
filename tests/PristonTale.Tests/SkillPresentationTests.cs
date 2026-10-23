@@ -1,8 +1,5 @@
-using System.Text;
 using Microsoft.Xna.Framework;
 using PristonTale.Client.Net.Presence;
-using PristonTale.Effects.Effects;
-using PristonTale.Effects.Legacy;
 using PristonTale.Effects.Vfx;
 using PristonTale.Engine3D.IO;
 using PristonTale.Gameplay.Effects;
@@ -17,55 +14,92 @@ internal static class SkillPresentationTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("skill effect definitions parse, validate and cover every effect the skill rules reference", DefinitionsAsync);
-        yield return ("skill effect assets exist and every legacy layer's original script compiles", AssetsAsync);
+        yield return ("effect definitions validate every layer and reject unknown builtin textures", DefinitionsAsync);
+        yield return ("the effect catalog reads Effect/Vfx recursively, skips broken files and reports replaced names", CatalogAsync);
+        yield return ("game data effects cover every effect, child, texture, model and sound the skill rules use", GameDataAsync);
         yield return ("vfx system emits, travels, pools instances and keeps its budget", SystemAsync);
-        yield return ("legacy particle scripts convert to the native effect format", ImporterAsync);
         yield return ("cooldown and status books follow the server's messages", BooksAsync);
         yield return ("skill sockets offer learned active skills and drop lost ones", BindingsAsync);
         yield return ("floating combat text keeps a bounded ring", FloatingTextAsync);
-        yield return ("unknown builtin textures are rejected and a broken authored effect file is skipped", AuthoredFilesAsync);
     }
 
-    private static Task AuthoredFilesAsync()
+    private static Task DefinitionsAsync()
     {
         const string effect = """
             [{ "name": "vfx.test", "duration": 1, "emitters": [{ "texture": "builtin:glw", "burst": 1, "lifetime": [0.1, 0.2] }] }]
             """;
+        Rejected(effect);
+        Assert.True(VfxDefinition.ParseFile(effect.Replace("builtin:glw", "builtin:glow", StringComparison.Ordinal)).Length == 1,
+            "a valid builtin texture was refused");
+        Rejected("""[{ "name": "bad", "duration": 0 }]""");
+        Rejected("""[{ "name": "bad", "duration": 601 }]""");
+        Rejected("""[{ "name": "bad", "emitters": [{ "size": [{ "t": 0.5, "v": [1] }, { "t": 0.2, "v": [2] }] }] }]""");
+        Rejected("""[{ "name": "bad", "components": [{ "kind": "Model" }] }]""");
+        Rejected("""[{ "name": "bad", "components": [{ "kind": "Billboard", "texture": "a.tga", "events": [{ "t": 0, "kind": "Color", "value": [1, 2] }] }] }]""");
+        Rejected("""[{ "name": "bad", "sequences": [{ "texture": "a.tga", "count": 0, "rate": [1, 1], "lifetime": [1, 1] }] }]""");
+        Rejected("""[{ "name": "bad", "sequences": [{ "texture": "a.tga", "rate": [2, 1], "lifetime": [1, 1] }] }]""");
+        Rejected("""[{ "name": "bad", "children": [{ "effect": "bad" }] }]""");
+        var parsed = VfxDefinition.ParseFile("""
+            [{ "name": "good", "duration": 2,
+               "components": [{ "kind": "Ground", "texture": "Effect/x.bmp", "events": [{ "t": 0.2, "kind": "Size", "ramp": true, "value": [3, 3, 0] }] }],
+               "sequences": [{ "texture": "Effect/Particle/x.bmp", "count": 4, "loops": 1, "rate": [10, 10], "lifetime": [0.5, 0.5],
+                 "events": [{ "t": 0, "set": "Color", "min": [255, 255, 255, 255], "max": [255, 255, 255, 255] }] }],
+               "children": [{ "effect": "other", "follow": true }] }]
+            """).Single();
+        Assert.True(parsed.Components.Single().Kind == VfxComponentKind.Ground && parsed.Sequences.Single().Count == 4
+            && parsed.Children.Single().Follow, "component, sequence or child layer lost");
+        return Task.CompletedTask;
+    }
+
+    private static void Rejected(string json)
+    {
         var threw = false;
         try
         {
-            VfxDefinition.ParseFile(effect);
+            VfxDefinition.ParseFile(json);
         }
         catch (InvalidDataException)
         {
             threw = true;
         }
 
-        Assert.True(threw, "a misspelled builtin texture was accepted");
-        Assert.True(VfxDefinition.ParseFile(effect.Replace("builtin:glw", "builtin:glow", StringComparison.Ordinal)).Length == 1,
-            "a valid builtin texture was refused");
+        Assert.True(threw, $"an invalid definition was accepted: {json}");
+    }
 
-        var directory = Path.Combine(Path.GetTempPath(), $"priston-vfx-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(directory);
+    private static Task CatalogAsync()
+    {
+        const string effect = """[{ "name": "vfx.test", "duration": 1, "emitters": [{ "texture": "builtin:glow", "burst": 1, "lifetime": [0.1, 0.2] }] }]""";
+        var root = Path.Combine(Path.GetTempPath(), $"priston-vfx-{Guid.NewGuid():N}");
+        var folder = Path.Combine(root, "Effect", "Vfx");
+        Directory.CreateDirectory(Path.Combine(folder, "Classes", "Knight"));
         try
         {
-            File.WriteAllText(Path.Combine(directory, "broken.vfx.json"), "[{ \"name\": ");
-            File.WriteAllText(Path.Combine(directory, "typo.vfx.json"), effect);
-            var errors = new List<string>();
+            File.WriteAllText(Path.Combine(folder, "a.vfx.json"), effect);
+            File.WriteAllText(Path.Combine(folder, "broken.vfx.json"), "[{ \"name\": ");
+            File.WriteAllText(Path.Combine(folder, "Classes", "Knight", "Knight.vfx.json"),
+                effect.Replace("\"duration\": 1", "\"duration\": 2", StringComparison.Ordinal));
+            File.WriteAllText(Path.Combine(folder, "notes.json"), effect);
+            var catalog = VfxCatalog.Load(root);
+            Assert.True(catalog.Files == 3 && catalog.Definitions.Count == 2, $"catalog read {catalog.Files} files, {catalog.Definitions.Count} definitions");
+            Assert.True(catalog.Errors.Count == 2 && catalog.Errors.Any(error => error.Contains("broken", StringComparison.Ordinal))
+                && catalog.Errors.Any(error => error.Contains("replaces", StringComparison.Ordinal)), string.Join("; ", catalog.Errors));
+            // Files load in ordinal order of their relative path, so "a.vfx.json" (after "Classes/...") wins.
             var library = new VfxLibrary(_ => null, null!);
-            Assert.True(library.LoadDirectory(directory, errors.Add) == 0 && library.Count == 0 && errors.Count == 2,
-                "broken authored effect files were not skipped and reported");
+            foreach (var definition in catalog.Definitions)
+            {
+                library.Register(definition);
+            }
+
+            Assert.True(library.TryGet("VFX.TEST", out var compiled) && compiled.Definition.Duration == 1f, "the later file did not win");
+            Assert.True(VfxCatalog.Load(Path.Combine(root, "missing")).Files == 0, "a missing folder did not read as empty");
         }
         finally
         {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(root, recursive: true);
         }
 
         return Task.CompletedTask;
     }
-
-    private static VfxDefinition[] Shipped() => SkillPresentation.EmbeddedDefinitions().SelectMany(VfxDefinition.ParseFile).ToArray();
 
     // Every effect a rule, its modes or its charged resolution names.
     private static IEnumerable<string> Effects(SkillRule rule)
@@ -74,72 +108,97 @@ internal static class SkillPresentationTests
         return rules.SelectMany(static item => new[] { item.CastEffect, item.ImpactEffect, item.ProjectileEffect, item.BuffEffect, item.CompanionEffect });
     }
 
-    private static Task DefinitionsAsync()
+    private static Task GameDataAsync()
     {
-        var shipped = Shipped();
-        var names = shipped.Select(definition => definition.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        Assert.True(names.Count == shipped.Length, "two effect files define the same effect");
-        Assert.True(names.Count >= 120 && names.Contains(SkillPresentation.ReviveEffect), "shipped effect library is incomplete");
+        var root = FindAssets();
+        if (root is null || !Directory.Exists(Path.Combine(root, "Effect", "Vfx")))
+        {
+            Console.WriteLine("  (skipped: no assets/Effect/Vfx next to the repository)");
+            return Task.CompletedTask;
+        }
+
+        var catalog = VfxCatalog.Load(root);
+        Assert.True(catalog.Errors.Count == 0, string.Join("; ", catalog.Errors.Take(10)));
+        var names = catalog.Definitions.Select(definition => definition.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        Assert.True(names.Contains(SkillPresentation.ReviveEffect), "the revive effect is missing");
+        var problems = new List<string>();
         foreach (var rule in SkillRuleCatalog.All)
         {
             foreach (var effect in Effects(rule))
             {
-                Assert.True(effect.Length == 0 || names.Contains(effect), $"{rule.Name} references missing effect {effect}");
+                if (effect.Length > 0 && !names.Contains(effect))
+                {
+                    problems.Add($"{rule.Name} references missing effect {effect}");
+                }
+            }
+
+            foreach (var sound in new[] { rule.CastSound, rule.ImpactSound, rule.CompanionSound })
+            {
+                if (sound.Length > 0 && !PristonFileResolver.Exists(Path.Combine(root, sound)))
+                {
+                    problems.Add($"{rule.Name} sound {sound} is missing");
+                }
             }
         }
 
-        Assert.ThrowsAsync(() => Task.Run(() => VfxDefinition.ParseFile("""[{ "name": "bad", "duration": 0 }]"""))).Wait();
-        Assert.ThrowsAsync(() => Task.Run(() => VfxDefinition.ParseFile(
-            """[{ "name": "bad", "emitters": [{ "size": [{ "t": 0.5, "v": [1] }, { "t": 0.2, "v": [2] }] }] }]"""))).Wait();
-        return Task.CompletedTask;
-    }
-
-    private static Task AssetsAsync()
-    {
-        var root = FindAssets();
-        if (root is null)
+        foreach (var definition in catalog.Definitions)
         {
-            Console.WriteLine("  (skipped: no assets/ directory next to the repository)");
-            return Task.CompletedTask;
-        }
-
-        var problems = new List<string>();
-        foreach (var definition in Shipped())
-        {
-            foreach (var texture in definition.Emitters.Select(emitter => emitter.Texture).Concat(definition.Trails.Select(trail => trail.Texture)))
+            foreach (var child in definition.Children)
             {
-                if (!texture.StartsWith(VfxBuiltinTextures.Prefix, StringComparison.Ordinal) && !PristonFileResolver.Exists(Path.Combine(root, texture)))
+                if (!names.Contains(child.Effect))
+                {
+                    problems.Add($"{definition.Name} starts missing effect {child.Effect}");
+                }
+            }
+
+            foreach (var texture in VfxCatalog.Textures(definition))
+            {
+                if (texture.Length > 0 && !texture.StartsWith(VfxBuiltinTextures.Prefix, StringComparison.Ordinal)
+                    && !PristonFileResolver.Exists(Path.Combine(root, texture)))
                 {
                     problems.Add($"{definition.Name} texture {texture} is missing");
                 }
             }
 
-            foreach (var layer in definition.Legacy)
+            foreach (var part in definition.Parts)
             {
-                try
+                if (part.Animation.Length > 0 && !PristonFileResolver.Exists(Path.Combine(root, "Effect", "AnimationData", part.Animation)))
                 {
-                    if (LegacyEffectLibrary.ReadParticleSequences(root, layer.Script).Count == 0)
+                    problems.Add($"{definition.Name} animation {part.Animation} is missing");
+                }
+
+                if (part.Model.Length > 0 && !PristonFileResolver.Exists(Path.Combine(root, part.Model)))
+                {
+                    problems.Add($"{definition.Name} model {part.Model} is missing");
+                }
+
+                foreach (var started in new[] { part.EndEffect, part.EveryEffect, part.CarryEffect })
+                {
+                    if (started.Length > 0 && !names.Contains(started))
                     {
-                        problems.Add($"{definition.Name} legacy script {layer.Script} is empty");
+                        problems.Add($"{definition.Name} starts missing effect {started}");
                     }
                 }
-                catch (Exception ex) when (ex is InvalidDataException or KeyNotFoundException or FormatException or FileNotFoundException or ArgumentException)
+            }
+
+            foreach (var sound in definition.Sounds)
+            {
+                if (!PristonFileResolver.Exists(Path.Combine(root, sound.Path)))
                 {
-                    problems.Add($"{definition.Name} legacy script {layer.Script}: {ex.Message}");
+                    problems.Add($"{definition.Name} sound {sound.Path} is missing");
+                }
+            }
+
+            foreach (var component in definition.Components.Where(static component => component.Kind == VfxComponentKind.Model))
+            {
+                if (!PristonFileResolver.Exists(Path.Combine(root, component.Model)))
+                {
+                    problems.Add($"{definition.Name} model {component.Model} is missing");
                 }
             }
         }
 
-        Assert.True(problems.Count == 0, string.Join("; ", problems));
-
-        foreach (var rule in SkillRuleCatalog.All)
-        {
-            foreach (var sound in new[] { rule.CastSound, rule.ImpactSound, rule.CompanionSound })
-            {
-                Assert.True(sound.Length == 0 || PristonFileResolver.Exists(Path.Combine(root, sound)), $"{rule.Name} sound {sound} is missing");
-            }
-        }
-
+        Assert.True(problems.Count == 0, string.Join("; ", problems.Distinct().Take(20)));
         return Task.CompletedTask;
     }
 
@@ -200,40 +259,6 @@ internal static class SkillPresentationTests
         }
 
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 4096, "vfx update allocated per frame");
-        return Task.CompletedTask;
-    }
-
-    private static Task ImporterAsync()
-    {
-        const string script = """
-            particlesystem "Hit" 1.00 {
-              position = XYZ(0,0,0)
-              eventsequence "spark" {
-                sourceblendmode = BLEND_LAMP
-                loops = 1
-                numparticles = 12
-                gravity = XYZ(0,-100,0)
-                emitrate = 40
-                emitradius = xyz(5,5,5)
-                lifetime = 0.5
-                texture = "effect\\particle\\flare.tga"
-                initial size = 20
-                initial color = rgba(255,200,100,255)
-                initial velocity = xyz(random(-50,50),random(20,80),random(-50,50))
-                fade so final color = rgba(0,0,0,0)
-                fade so final size = 4
-              }
-            }
-            """;
-        var sequences = LegacyParticleScript.Read(new StringReader(script));
-        var converted = LegacyVfxImporter.Convert("legacy.hit", sequences, 2f);
-        converted.Validate();
-        var emitter = converted.Emitters.Single();
-        Assert.True(emitter.Burst == 12 && emitter.Blend == VfxBlend.Additive && emitter.Shape == VfxShape.Sphere, "burst, blend or shape lost");
-        Assert.True(emitter.Size.First().V[0] == 10f && emitter.Size.Last().V[0] == 2f, "size keys not halved like the legacy billboard");
-        Assert.True(emitter.Color.Last().V[3] == 0f && emitter.Gravity[1] == -100f && emitter.Spread == 180f, "colour fade, gravity or spread lost");
-        var json = System.Text.Json.JsonSerializer.Serialize(new[] { converted }, VfxDefinition.Json);
-        Assert.True(VfxDefinition.ParseFile(json).Single().Name == "legacy.hit", "converted definition does not round-trip");
         return Task.CompletedTask;
     }
 

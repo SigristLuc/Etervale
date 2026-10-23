@@ -1,10 +1,12 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Gameplay.Effects;
+using PristonTale.Gameplay.UI.Quests;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
+using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.Skills;
 
 namespace PristonTale.Gameplay.UI.Widgets;
@@ -37,6 +39,7 @@ public sealed class HudSkillHud : IDisposable
     private readonly Dictionary<uint, float> _buffX = new();
     private Texture2D[] _gauge;
     private double _lastBuffDrawMs = -1;
+    private Rectangle _questTimer;
     private PlayerClass _class;
 
     public HudSkillHud(HudSprites sprites, GraphicsDevice device)
@@ -135,6 +138,67 @@ public sealed class HudSkillHud : IDisposable
         foreach (var code in _buffX.Keys.Where(code => !_visibleCodes.Contains(code)).ToArray())
         {
             _buffX.Remove(code);
+        }
+    }
+
+    // Without a status book there are no effect icons to hit or to follow.
+    public void ClearBuffs()
+    {
+        _drawnBuffs.Clear();
+        _buffX.Clear();
+    }
+
+    // A running hunt adds the quest timer icon after the effects; a hunt against the clock fills its gauge as time runs out.
+    public void DrawQuestTimer(HudPainter painter, QuestView quest, long remainingMs)
+    {
+        _questTimer = Rectangle.Empty;
+        if (quest is null || quest.Timer == QuestTimerKind.None)
+        {
+            return;
+        }
+
+        var bounds = new Rectangle(BuffOrigin + _drawnBuffs.Count * BuffStep, BuffOrigin, BuffIcon, BuffIcon);
+        _questTimer = bounds;
+        painter.Stretch(GaugeBackground, bounds);
+        if (quest.Timer == QuestTimerKind.Expiring && _gauge is not null)
+        {
+            var fraction = Math.Clamp(1d - (double)remainingMs / RankUpByMasterTrial.HuntTimeMs, 0d, 1d);
+            painter.Image(_gauge[Math.Clamp((int)(fraction * GaugeSteps), 0, GaugeSteps)], bounds, new Color(0, 255, 200));
+        }
+
+        if (painter.Texture(HudQuestArt.Timer) is { } texture)
+        {
+            painter.Image(texture, bounds);
+        }
+    }
+
+    public bool QuestTimerAt(Point pointer) => _questTimer.Contains(pointer);
+
+    // The running quest, its hunt count and, for a hunt against the clock, the time left.
+    public void DrawQuestTimerTooltip(HudPainter painter, QuestView quest, long remainingMs, Point pointer)
+    {
+        if (quest is null || !_questTimer.Contains(pointer))
+        {
+            return;
+        }
+
+        var lines = new List<string> { quest.Progress.Count > 0 ? quest.Progress[0].Title : "Quest" };
+        if (quest.KillsNeeded > 0)
+        {
+            lines.Add($"{quest.TargetName}  {Math.Min(quest.Kills, quest.KillsNeeded)}/{quest.KillsNeeded}");
+        }
+
+        if (quest.Timer == QuestTimerKind.Expiring)
+        {
+            var left = TimeSpan.FromMilliseconds(Math.Max(0, remainingMs));
+            lines.Add($"Time left: {(int)left.TotalHours}:{left.Minutes:00}:{left.Seconds:00}");
+        }
+
+        var bounds = new Rectangle(_questTimer.X, _questTimer.Bottom + 2, lines.Max(painter.Measure) + 16, lines.Count * HudPainter.LineHeight + 8);
+        painter.InfoBox(bounds);
+        for (var line = 0; line < lines.Count; line++)
+        {
+            painter.Text(lines[line], bounds.X + 8, bounds.Y + 4 + line * HudPainter.LineHeight, line == 0 ? new Color(255, 230, 150) : Color.White);
         }
     }
 

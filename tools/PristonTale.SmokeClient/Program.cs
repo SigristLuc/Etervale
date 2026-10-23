@@ -2,6 +2,7 @@ using PristonTale.Client.Net;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Quests;
 
 // smoke [address] [account] [password] [--character NAME] [--skill CODE]
 // Without --character a new Mechanician is created and its skill cast must be answered (refused: unlearned, in town).
@@ -58,13 +59,15 @@ await using (var play = conn.OpenPlayChannel())
     using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
     var spawns = 0;
     var owner = false;
+    QuestView? journal = null;
     try
     {
         await foreach (var update in play.ReadAllAsync(timeout.Token))
         {
             spawns += update.Spawns.Count;
             owner |= update.Owner is not null;
-            if (spawns > 1 && owner)
+            journal ??= update.Quest;
+            if (spawns > 1 && owner && journal is not null)
             {
                 break;
             }
@@ -76,6 +79,14 @@ await using (var play = conn.OpenPlayChannel())
 
     Console.WriteLine($"Presence         : {spawns} spawn(s), owner status={owner}, catalog {catalog.Monsters.Count} monsters / {catalog.Npcs.Count} NPCs");
     if (spawns == 0 || !owner)
+    {
+        return 1;
+    }
+
+    // The journal arrives with the first snapshots; a quest talk without an NPC must be refused as out of reach.
+    var talk = await play.RequestQuestAsync(new QuestCommand(Guid.NewGuid(), 0, QuestAction.Talk, QuestCode.None, 0, 0));
+    Console.WriteLine($"Quest            : journal revision {journal?.Revision.ToString() ?? "none"} ({journal?.Code}), talk without NPC -> {talk.Status}");
+    if (journal is null || talk.Ok || talk.Status != QuestStatus.OutOfReach)
     {
         return 1;
     }

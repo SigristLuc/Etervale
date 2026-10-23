@@ -4,10 +4,11 @@ using Microsoft.Xna.Framework;
 
 namespace PristonTale.Effects.Vfx;
 
-// Authoring format of Etervale's skill and combat effects (*.vfx.json, embedded resources from
-// Client/PristonTale.Gameplay/Effects/Vfx/). An effect is a set of layers that share one clock: sprite emitters, ribbon
-// trails, transient lights, sounds and, for the original effects, legacy particle scripts played unchanged. Colours are linear Rec.709; Intensity scales them into the HDR scene relative to
-// the current exposure, so 1 displays the colour as authored and higher values bloom.
+// Authoring format of Etervale's effects (*.vfx.json under <assetRoot>/Effect/Vfx). An effect is a set of layers that
+// share one clock: sprite emitters, ribbon trails, transient lights, sounds, components (models, quads and particle
+// pools with keyed events), particle sequences and child effects. Emitter and trail colours are linear Rec.709;
+// Intensity scales them into the HDR scene relative to the current exposure, so 1 displays the colour as authored and
+// higher values bloom. Component and sequence colours are the original 0..255 display values.
 public enum VfxAnchor
 {
     // The position the effect was spawned at (an impact point, a ground target).
@@ -16,10 +17,16 @@ public enum VfxAnchor
     Target
 }
 
+// Additive: source x alpha + destination. Alpha: over. Color: source x source + destination x (1 - source). AddColor:
+// source x source + destination. Shadow: destination x source. InvShadow: destination x (1 - source).
 public enum VfxBlend
 {
     Additive,
-    Alpha
+    Alpha,
+    Color,
+    AddColor,
+    Shadow,
+    InvShadow
 }
 
 public enum VfxShape
@@ -122,19 +129,26 @@ public sealed record VfxSoundDefinition
     public float Volume { get; init; } = 1f;
 }
 
-// An original particle script played by the legacy engine, attached like any other layer.
-public sealed record VfxLegacyDefinition
+// Another named effect started by this one at its anchor (the converted original scripts are used this way). Follow
+// keeps the child's spawn point on the anchor; Turn gives it this effect's facing (otherwise it keeps world axes).
+public sealed record VfxChildDefinition
 {
-    public string Script { get; init; } = "";
+    public string Effect { get; init; } = "";
     public VfxAnchor Anchor { get; init; } = VfxAnchor.Point;
     public string Bone { get; init; } = "";
     public float[] Offset { get; init; } = [0f, 0f, 0f];
     public float Delay { get; init; }
     public bool Follow { get; init; }
+    public bool Turn { get; init; }
+    // Stops the child when this effect stops (auras, casts); otherwise the child plays out.
+    public bool StopWithParent { get; init; } = true;
 }
 
 public sealed record VfxDefinition
 {
+    // Longest effect in seconds (long auras); effects normally end earlier, when their layers have played out.
+    public const float MaxDuration = 600f;
+
     public required string Name { get; init; }
     // Lifetime of the effect in seconds; layers stop emitting then and the effect ends when every particle has died.
     public float Duration { get; init; } = 1f;
@@ -142,7 +156,10 @@ public sealed record VfxDefinition
     public VfxTrailDefinition[] Trails { get; init; } = [];
     public VfxLightDefinition[] Lights { get; init; } = [];
     public VfxSoundDefinition[] Sounds { get; init; } = [];
-    public VfxLegacyDefinition[] Legacy { get; init; } = [];
+    public VfxComponentDefinition[] Components { get; init; } = [];
+    public VfxSequenceDefinition[] Sequences { get; init; } = [];
+    public VfxChildDefinition[] Children { get; init; } = [];
+    public VfxPartDefinition[] Parts { get; init; } = [];
 
     public static readonly JsonSerializerOptions Json = new()
     {
@@ -166,9 +183,9 @@ public sealed record VfxDefinition
 
     public void Validate()
     {
-        if (string.IsNullOrWhiteSpace(Name) || !float.IsFinite(Duration) || Duration <= 0f || Duration > 60f)
+        if (string.IsNullOrWhiteSpace(Name) || !float.IsFinite(Duration) || Duration <= 0f || Duration > MaxDuration)
         {
-            throw new InvalidDataException($"Effect '{Name}' needs a name and a duration between 0 and 60 seconds.");
+            throw new InvalidDataException($"Effect '{Name}' needs a name and a duration between 0 and {MaxDuration} seconds.");
         }
 
         foreach (var emitter in Emitters)
@@ -200,9 +217,87 @@ public sealed record VfxDefinition
                 throw new InvalidDataException($"Effect '{Name}' has an invalid light.");
             }
         }
+
+        foreach (var component in Components)
+        {
+            if (!ComponentOk(component))
+            {
+                throw new InvalidDataException($"Effect '{Name}' has an invalid {component.Kind} component.");
+            }
+        }
+
+        foreach (var sequence in Sequences)
+        {
+            if (!SequenceOk(sequence))
+            {
+                throw new InvalidDataException($"Effect '{Name}' has an invalid particle sequence.");
+            }
+        }
+
+        foreach (var part in Parts)
+        {
+            if (!PartOk(part))
+            {
+                throw new InvalidDataException($"Effect '{Name}' has an invalid {part.Shape} part.");
+            }
+        }
+
+        foreach (var child in Children)
+        {
+            if (string.IsNullOrWhiteSpace(child.Effect) || child.Effect.Equals(Name, StringComparison.OrdinalIgnoreCase) || !Vec3Ok(child.Offset)
+                || !float.IsFinite(child.Delay) || child.Delay < 0f)
+            {
+                throw new InvalidDataException($"Effect '{Name}' has an invalid child effect.");
+            }
+        }
     }
 
     private static bool Vec3Ok(float[] value) => value.Length == 3 && value.All(float.IsFinite);
+
+    private static bool ComponentOk(VfxComponentDefinition component)
+    {
+        var textured = component.Kind != VfxComponentKind.Model;
+        return Vec3Ok(component.Offset) && Vec3Ok(component.BeamFrom) && Vec3Ok(component.BeamTo) && Vec3Ok(component.SpawnMin)
+            && Vec3Ok(component.SpawnMax) && Vec3Ok(component.VelocityMin) && Vec3Ok(component.VelocityMax) && component.Color.Length == 4
+            && component.Color.All(float.IsFinite) && component.SizeMin.Length == 2 && component.SizeMax.Length == 2 && component.EndTime.Length == 2
+            && component.SizeMin.Concat(component.SizeMax).Concat(component.EndTime).All(float.IsFinite) && component.Loop >= 0
+            && float.IsFinite(component.Delay) && component.Delay >= 0f && component.Frames >= 0 && float.IsFinite(component.FrameTime)
+            && float.IsFinite(component.ModelFrames) && component.ModelFrames >= 0f && float.IsFinite(component.Count) && float.IsFinite(component.Rate)
+            && (textured ? component.Texture.Length > 0 : component.Model.Length > 0)
+            && component.Events.All(static e => float.IsFinite(e.T) && e.Value.All(float.IsFinite)
+                && e.Value.Length == (e.Kind == VfxComponentEventKind.Color ? 4 : 3));
+    }
+
+    private static bool SequenceOk(VfxSequenceDefinition sequence)
+    {
+        return sequence.Texture.Length > 0 && sequence.Count is >= 1 and <= 4096 && sequence.Loops >= 0 && (long)sequence.Count * sequence.Loops <= 1 << 20
+            && RangeOk(sequence.Rate) && RangeOk(sequence.Lifetime) && sequence.Lifetime[1] <= 1e6f && Vec3Ok(sequence.RadiusMin)
+            && Vec3Ok(sequence.RadiusMax) && Vec3Ok(sequence.GravityMin) && Vec3Ok(sequence.GravityMax) && Vec3Ok(sequence.Offset)
+            && float.IsFinite(sequence.Delay) && sequence.Delay is >= 0f and <= 60f
+            && sequence.Events.All(static e => float.IsFinite(e.T) && e.Min.Length == e.Max.Length && e.Min.Length is >= 1 and <= 4
+                && e.Min.Concat(e.Max).All(float.IsFinite));
+    }
+
+    private static bool PartOk(VfxPartDefinition part)
+    {
+        var vectors = new[]
+        {
+            part.Offset, part.JitterMin, part.JitterMax, part.Shell, part.VelocityMin, part.VelocityMax, part.GoalOffset, part.Angles, part.Tumble, part.BeamTo
+        };
+        var ranges = new[] { part.Lifetime, part.Size, part.Height, part.Rotation, part.Width, part.Scale, part.Pulse, part.Ring, part.Radial, part.Rise, part.Burst,
+            part.Gravity };
+        var scalars = new[] { part.Delay, part.DelayStep, part.DelayRandom, part.FrameTime, part.ModelFrames, part.ModelSpeed, part.ModelStart, part.Growth,
+            part.Spin, part.FadeIn, part.FadeOut, part.PulsePeriod, part.BladeLength, part.LineSeconds, part.TrailFade, part.RingStart, part.RingStep, part.Swirl,
+            part.Speed, part.Reach, part.Lift, part.OrbitRadius, part.OrbitSpeed, part.OrbitTilt, part.OrbitRise, part.OrbitGrowth, part.OrbitPhase,
+            part.OrbitPhaseStep, part.Every, part.MoveTime, part.LoopFrom };
+        var drawn = part.Shape != VfxPartShape.Model || part.Model.Length > 0;
+        return part.Count is >= 1 and <= 1024 && part.Delay >= 0f && part.DelayStep >= 0f && part.DelayRandom >= 0f && part.Frames >= 0 && part.FrameTime > 0f
+            && part.TrailPoints is >= 2 and <= CompiledPart.MaxTrailPoints && part.Color.Length == 4 && part.Color.All(float.IsFinite)
+            && vectors.All(Vec3Ok) && ranges.All(static range => range.Length == 2 && range.All(float.IsFinite) && range[1] >= range[0])
+            && part.Lifetime[0] >= 0f && part.Lifetime[1] <= MaxDuration && scalars.All(float.IsFinite) && part.Speed >= 0f && part.Every >= 0f
+            && (part.Goal == VfxPartGoal.None || part.Speed > 0f || part.Shape == VfxPartShape.Beam || part.OrbitRadius > 0f) && drawn
+            && part.LoopFrom >= 0f && (part.LoopFrom < part.ModelFrames || part.LoopFrom == 0f) && (part.Shape != VfxPartShape.Blade || part.Bone.Length > 0);
+    }
 
     private static bool RangeOk(float[] value) => value.Length == 2 && value.All(float.IsFinite) && value[1] >= value[0];
 

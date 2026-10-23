@@ -1,0 +1,44 @@
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+
+namespace PristonTale.Effects.Vfx;
+
+// Effect models of the component layers, drawn as baked frames (30 per second) with their tint and blend.
+public sealed partial class VfxRenderer
+{
+    private const float ModelFramesPerTick = 1f / 160f;
+
+    public int LastModelCount { get; private set; }
+
+    private void DrawModels(VfxSystem system, Matrix view, Matrix projection)
+    {
+        LastModelCount = 0;
+        foreach (var instance in system.Instances)
+        {
+            DrawPartModels(instance, view, projection);
+            foreach (var state in instance.ComponentStates)
+            {
+                var source = state.Component.Source;
+                var model = state.Component.Model;
+                if (source.Kind != VfxComponentKind.Model || model is null || !state.Drawn)
+                {
+                    continue;
+                }
+
+                ref readonly var element = ref state.Element;
+                // Effect models face the opposite way of effect space (their front is +Z).
+                var world = Matrix.CreateRotationY(MathHelper.Pi) * instance.Orientation * Matrix.CreateTranslation(element.Position);
+                var frame = (int)(element.Frame * ModelFramesPerTick) % Math.Max(1, model.FrameCount);
+                var blend = source.Blend switch
+                {
+                    VfxBlend.Alpha => BlendState.NonPremultiplied,
+                    VfxBlend.Shadow => _shadow,
+                    VfxBlend.InvShadow => _inverseShadow,
+                    _ => BlendState.Additive
+                };
+                model.Draw(frame, world, view, projection, Decode(element.Color), blend);
+                LastModelCount++;
+            }
+        }
+    }
+}

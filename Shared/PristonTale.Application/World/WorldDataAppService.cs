@@ -30,7 +30,7 @@ public sealed class WorldDataAppService
         var motions = WorldDataFactory.ToMotionTimings(motionModels, motionSlots);
 
         return new WorldData(
-            new ItemCatalog(itemDefs),
+            new ItemCatalog(itemDefs, WorldDataFactory.ToQuestVariantDefinitions(itemRecords)),
             new MonsterCatalog(monsterDefs),
             new NpcCatalog(npcDefs),
             fieldSpawns,

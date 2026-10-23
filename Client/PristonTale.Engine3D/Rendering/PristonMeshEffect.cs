@@ -7,6 +7,9 @@ namespace PristonTale.Engine3D.Rendering;
 
 public sealed class PristonMeshEffect : IDisposable
 {
+    // Frames of a baked effect model (30 per second).
+    public const int MaxFrames = 256;
+
     private readonly GraphicsDevice _device;
     private readonly PristonUnlitEffect _effect;
     private readonly List<Batch>[] _frames;
@@ -21,7 +24,7 @@ public sealed class PristonMeshEffect : IDisposable
         int frameCount)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(frameCount, 1);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(frameCount, 60);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(frameCount, MaxFrames);
         _device = device;
         _effect = new PristonUnlitEffect(content) { Sampler = SamplerState.LinearWrap };
         _frames = new List<Batch>[frameCount];
@@ -69,13 +72,20 @@ public sealed class PristonMeshEffect : IDisposable
 
     public void Draw(int frame, Matrix world, Matrix view, Matrix projection, float opacity)
     {
+        var alpha = MathHelper.Clamp(opacity, 0, 1);
+        // Additive: the opacity fades the added light itself.
+        Draw(frame, world, view, projection, new Vector4(alpha, alpha, alpha, alpha), BlendState.Additive);
+    }
+
+    // Draws one baked frame with a linear tint (rgb) and opacity (w) under the given blend.
+    public void Draw(int frame, Matrix world, Matrix view, Matrix projection, Vector4 tint, BlendState blend)
+    {
         _effect.World = world;
         _effect.View = view;
         _effect.Projection = projection;
-        _effect.Alpha = MathHelper.Clamp(opacity, 0, 1);
-        // Additive: the opacity fades the added light itself.
-        _effect.DiffuseColor = new Vector3(_effect.Alpha);
-        _device.BlendState = BlendState.Additive;
+        _effect.Alpha = MathHelper.Clamp(tint.W, 0, 1);
+        _effect.DiffuseColor = new Vector3(Math.Max(0, tint.X), Math.Max(0, tint.Y), Math.Max(0, tint.Z));
+        _device.BlendState = blend;
         _device.DepthStencilState = DepthStencilState.DepthRead;
         _device.RasterizerState = RasterizerState.CullNone;
         foreach (var batch in _frames[Math.Clamp(frame, 0, FrameCount - 1)])

@@ -121,8 +121,8 @@ internal sealed class ItemEffectsCaptureProbe : Game
         _effects = new EffectsEngine(GraphicsDevice, Content);
         _sounds = new SkillSoundBank(_assetRoot, ConsoleClientLog.Instance) { Enabled = false };
         _items = new LegacyItemEffects(_library, _assetRoot, _effects, _renderer.TransientLights, _sounds);
-        _skills = new SkillPresentation(GraphicsDevice, Content, _assetRoot, _library, _effects, _renderer.TransientLights, new SceneHost(this), _sounds,
-            ConsoleClientLog.Instance);
+        _skills = new SkillPresentation(GraphicsDevice, Content, _library, _renderer.TransientLights, new SceneHost(this), _sounds, ConsoleClientLog.Instance);
+        _library.Vfx.CompileAll();
         ItemVfx.Register(_skills.Library);
         _orbs = new ForceOrbPresentation(_skills, _library, _assetRoot, _effects, _renderer.TransientLights);
         _pets = new PremiumPetPresentation(actorScene, loader, _assetRoot, _library, _effects, _renderer.TransientLights, _sounds, ConsoleClientLog.Instance);

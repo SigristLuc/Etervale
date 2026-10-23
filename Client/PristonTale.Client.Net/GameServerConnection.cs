@@ -14,6 +14,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
+using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Client.Net;
@@ -41,6 +42,7 @@ public sealed class GameServerConnection : IGameBackend
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<ItemUseResultPacket>> _itemUses = new();
     private readonly ConcurrentDictionary<uint, NpcRequest> _npcRequests = new();
     private readonly ConcurrentDictionary<Guid, ServiceRequest> _serviceRequests = new();
+    private readonly ConcurrentDictionary<Guid, TaskCompletionSource<QuestOutcome>> _questRequests = new();
     private readonly Channel<PresenceUpdate> _presenceUpdates = Channel.CreateBounded<PresenceUpdate>(new BoundedChannelOptions(4096)
     {
         SingleReader = true,
@@ -348,6 +350,31 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
+    internal async Task<QuestOutcome> RequestQuestAsync(QuestCommand command, CancellationToken ct)
+    {
+        ThrowIfDisconnected();
+        var pending = new TaskCompletionSource<QuestOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_questRequests.TryAdd(command.OperationId, pending))
+        {
+            throw new InvalidOperationException("A quest request with this id is already in flight.");
+        }
+
+        try
+        {
+            var packet = QuestWireReader.ToPacket(command);
+            lock (_sendGate)
+            {
+                Connection.SendEncrypted(_scratch.AsSpan(0, packet.Write(_scratch)));
+            }
+
+            return await pending.Task.WaitAsync(ct);
+        }
+        finally
+        {
+            _questRequests.TryRemove(command.OperationId, out _);
+        }
+    }
+
     internal void SendMovement(Vector3 position, float facing, bool moving, bool running, uint actionTarget, int fieldCode)
     {
         var serial = _presence.SelfSerial;
@@ -472,6 +499,11 @@ public sealed class GameServerConnection : IGameBackend
                 pending.Completion.TrySetException(error);
             }
 
+            foreach (var pending in _questRequests.Values)
+            {
+                pending.TrySetException(error);
+            }
+
             _presenceUpdates.Writer.TryComplete(error);
         }
     }
@@ -574,6 +606,16 @@ public sealed class GameServerConnection : IGameBackend
             case EtervaleOpcodes.NpcServiceResult:
                 OnServiceMessage(code, packet);
                 break;
+            case EtervaleOpcodes.QuestResult:
+            {
+                var result = QuestResultPacket.Read(packet);
+                if (_questRequests.TryGetValue(result.OperationId, out var pending))
+                {
+                    pending.TrySetResult(QuestWireReader.ToOutcome(result));
+                }
+
+                break;
+            }
         }
 
         return ValueTask.CompletedTask;

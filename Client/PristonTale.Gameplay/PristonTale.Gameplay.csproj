@@ -22,8 +22,4 @@
   <ItemGroup>
     <InternalsVisibleTo Include="PristonTale.Tests" />
   </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Effects/Vfx/Common.vfx.json" LogicalName="PristonTale.Gameplay.Effects.Vfx.Common.vfx.json" />
-    <EmbeddedResource Include="Effects/Vfx/Classes/*.vfx.json" LogicalName="PristonTale.Gameplay.Effects.Vfx.Classes.%(Filename)%(Extension)" />
-  </ItemGroup>
 </Project>

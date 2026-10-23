@@ -1,375 +1,338 @@
 # Effects and VFX
 
 Particle and skill-effect runtime of the client: `Client/PristonTale.Effects/` (native VFX system, legacy particle
-engine, legacy particle script reader) and the VFX data in `Client/PristonTale.Gameplay/Effects/Vfx/`, plus the
-gameplay glue in `Client/PristonTale.Gameplay/Effects/SkillPresentation.cs` that turns skill events into effects.
+engine), the effect data under `<assetRoot>/Effect/Vfx/`, the converter `tools/PristonTale.VfxImport` (`ptvfx`) that
+writes that data, and the gameplay glue in `Client/PristonTale.Gameplay/Effects/` that turns skill events into effects.
 
 ## Read this when
 
-- Adding or tuning the visual effect of a skill (cast, projectile, impact, aura, weapon trail).
-- Overriding an effect locally with a file under `assets/Vfx/` without rebuilding.
-- Adding a field to the `.vfx.json` format, a builtin texture, or a new emitter behaviour.
+- Adding or tuning the visual effect of a skill (cast, projectile, impact, aura, weapon band).
+- Porting the effects of a class, an item or a monster from the original game data.
+- Adding a field to the `.vfx.json` format, a builtin texture, or a new layer behaviour.
 - Debugging an effect that is invisible, a white square, stuck alive, at the wrong position or on the wrong bone.
 - Working on potion, meteor, character-select or opening effects that use the legacy `EffectsEngine`.
-- Reading or converting an original particle script (`.part`).
 
 ## Code map
 
 | Path | Responsibility |
 |---|---|
-| [`Client/PristonTale.Effects/Vfx/VfxDefinition.cs`](../Client/PristonTale.Effects/Vfx/VfxDefinition.cs) | Authoring schema, `VfxDefinition.Json` options, `ParseFile`, `Validate` |
-| `Client/PristonTale.Effects/Vfx/VfxLibrary.cs` | Name -> `CompiledVfx` registry; texture resolution; `LoadDirectory` for overrides |
-| `Client/PristonTale.Effects/Vfx/VfxCompiled.cs` | `VfxCurve` (keyed curve sampler), `CompiledEmitter`, `CompiledTrail`, `CompiledVfx` |
-| [`Client/PristonTale.Effects/Vfx/VfxSystem.cs`](../Client/PristonTale.Effects/Vfx/VfxSystem.cs) | `VfxSystem`, `VfxInstance`, emitter/trail simulation, `IVfxAnchors`, `IVfxServices` |
-| `Client/PristonTale.Effects/Vfx/VfxRenderer.cs` | Builds quads for all instances, one dynamic vertex buffer, draws runs by (blend, texture) |
+| [`Client/PristonTale.Effects/Vfx/VfxDefinition.cs`](../Client/PristonTale.Effects/Vfx/VfxDefinition.cs) | Effect schema (emitters, trails, lights, sounds, children), JSON options, `ParseFile`, `Validate` |
+| `Client/PristonTale.Effects/Vfx/VfxComponentDefinition.cs`, `VfxComponents.cs` | Component layer: models, quads and particle pools with keyed events |
+| `Client/PristonTale.Effects/Vfx/VfxSequenceDefinition.cs`, `VfxSequences.cs` | Sequence layer: keyed particle streams |
+| `Client/PristonTale.Effects/Vfx/VfxPartDefinition.cs`, `VfxParts.cs` | Part layer: animated billboards, streaks, ribbons, weapon bands, beams and models that move, orbit and fly to goals |
+| `Client/PristonTale.Effects/Vfx/VfxCatalog.cs` | Reads every `*.vfx.json` under `<assetRoot>/Effect/Vfx` and lists the textures they use |
+| `Client/PristonTale.Effects/Vfx/VfxLibrary.cs`, `VfxCompiled.cs` | Name -> `CompiledVfx` registry; `IVfxResources` (textures, models, animated billboards) |
+| [`Client/PristonTale.Effects/Vfx/VfxSystem.cs`](../Client/PristonTale.Effects/Vfx/VfxSystem.cs) | `VfxSystem`, `VfxInstance`, emitter and trail simulation, `IVfxAnchors`, `IVfxServices` |
+| `Client/PristonTale.Effects/Vfx/VfxRenderer*.cs` | Quads of every layer in one dynamic vertex buffer; effect models through their own draws |
 | `Client/PristonTale.Effects/Vfx/VfxBuiltinTextures.cs` | Procedural `builtin:` sprite textures |
-| `Client/PristonTale.Effects/Vfx/LegacyVfxImporter.cs` | Converts parsed legacy particle sequences into a `VfxDefinition` |
-| `Client/PristonTale.Effects/Legacy/` | `.part` script parser (`LegacyParticleScript`) and per-particle evaluation (`LegacyParticleSequence`) |
-| `Client/PristonTale.Effects/EffectsEngine.cs`, `Effects/` | Legacy effect engine: `EffectCatalog`, `EffectDefinition`, `EffectInstance` |
-| `Client/PristonTale.Effects/Particles/` | Legacy emitter model: `ParticleEmitter`, `Particle`, ranges, over-life curves, `ParticleAnimation`, `PotionParticleMotion` |
-| `Client/PristonTale.Effects/Rendering/` | Legacy `ParticleRenderer`, `ParticleBlendMode` + `ParticleBlendStates`, `ParticleVertex` |
-| `Client/PristonTale.Gameplay/Effects/Vfx/Common.vfx.json` | Shared effects (generic trails, casts, impacts, buffs, projectiles) |
-| `Client/PristonTale.Gameplay/Effects/Vfx/Classes/<Class>.vfx.json` | Per-class effects (Archer, Atalanta, Fighter, Knight, Magician, Mechanician, Pikeman, Priestess) |
-| [`Client/PristonTale.Gameplay/Effects/SkillPresentation.cs`](../Client/PristonTale.Gameplay/Effects/SkillPresentation.cs) | Loads the library, implements `IVfxServices`, maps events to effects |
-| `Client/PristonTale.Gameplay/Effects/LegacyEffectLibrary.cs` | Loads original textures, particle scripts (cached), potion/hit/meteor legacy effects |
-| `Client/PristonTale.Engine3D/Rendering/PristonVfxEffect.cs` | Wrapper of the VFX shader (`Effects/Vfx`, source `Client/PristonTale/Content/Shaders/Passes/Vfx.fx`) |
-| `tests/PristonTale.Tests/SkillPresentationTests.cs` | Regression cases for definitions, assets, system, importer |
+| `Client/PristonTale.Effects/Legacy/BillboardSequence.cs` | Original animated billboards (`Effect/AnimationData/*.ini`) and their tick-exact player |
+| `Client/PristonTale.Effects/Legacy/`, `EffectsEngine.cs`, `Effects/`, `Particles/`, `Rendering/` | Legacy particle engine used by potions, meteors, character select and the opening |
+| [`Client/PristonTale.Gameplay/Effects/VfxContent.cs`](../Client/PristonTale.Gameplay/Effects/VfxContent.cs) | Loads the catalog, models, animations and textures on a worker; registers them on the game thread in 2 ms slices |
+| [`Client/PristonTale.Gameplay/Effects/SkillPresentation.cs`](../Client/PristonTale.Gameplay/Effects/SkillPresentation.cs) | Implements `IVfxServices`, maps skill events and statuses to effects |
+| `Client/PristonTale.Gameplay/Effects/ScriptEffects.cs` | `IScriptEffects`: monster and meteor code start converted scripts (`particle.<name>`) through the VFX system |
+| `Client/PristonTale.Engine3D/Rendering/PristonVfxEffect.cs`, `PristonMeshEffect.cs` | VFX shader wrapper (`Vfx.fx`, blend modes) and baked effect models |
+| [`tools/PristonTale.VfxImport/`](../tools/PristonTale.VfxImport) | `ptvfx import`: converts the original effect scripts and installs the hand-authored definitions |
+| `tools/PristonTale.VfxImport/Authored/` | Hand-authored definitions (source of `Effect/Vfx/Common` and `Effect/Vfx/Classes`) |
+| `tests/PristonTale.Tests/SkillPresentationTests.cs`, `VfxLayerTests.cs`, `VfxImportTests.cs` | Regression cases; `VfxCaptureProbe.cs` and `SkillCaptureProbe.cs` are GPU capture probes |
 
-## Two engines
+## Where effect data lives
 
-| | Native VFX (`Vfx/`) | Legacy (`EffectsEngine`) |
+Effect definitions are game data: the client reads `<assetRoot>/Effect/Vfx/**/*.vfx.json` and nothing is embedded in
+the client. `assets/` is not in Git, so the data is produced by `ptvfx import <assetRoot>` (docs/tools.md):
+
+| Folder under `Effect/Vfx/` | Content | Source |
 |---|---|---|
-| Data | `.vfx.json` definitions | Original `.part` scripts and hard-coded legacy definitions |
-| Used by | Skill casts, projectiles, impacts, auras, revive | Potions, hulk hits, meteors, monster mesh effects, character select, opening cinematic, legacy layers of VFX |
-| Shader | `PristonVfxEffect` (soft particles) | `PristonUnlitEffect` (no soft fade) |
-| Blends | Additive, Alpha | Additive, AlphaBlend, InverseShadow, ColorBlend |
-| Budget | `VfxSystem.MaxInstances` = 256 live instances | None inside the engine; callers stop spawning at 128 instances |
+| `Common/` | Shared skill building blocks: hit flashes, impact bursts, weapon bands, stun stars | `tools/PristonTale.VfxImport/Authored/Common/` |
+| `Classes/<Class>/` | One file per class with every effect its skill rules name | `tools/PristonTale.VfxImport/Authored/Classes/<Class>/` |
+| `Scripts/` | `script.<File>`: one per original effect group script (`Effect/NewEffect/*.lua`) | converted |
+| `Particles/` | `particle.<File>`: one per original particle script (`Effect/Particle/Script/*.part`) | converted |
+| `Items/`, `Monsters/`, `Costumes/` | Reserved for item, monster and costume effects authored the same way | `Authored/<Folder>/` |
 
-A VFX `legacy` layer bridges the two: `VfxSystem` asks `IVfxServices.SpawnLegacy`, and `SkillPresentation` spawns the
-script into the scene's `EffectsEngine`.
+Files load in ordinal order of their relative path. A name defined again replaces the earlier definition (reported as
+an error by the catalog, so shipped data keeps names unique). A file that cannot be read, parsed or validated is
+reported (`[Effects] <file>: <reason>`) and skipped as a whole; the other files still load.
 
-## VFX file format
+Loading: `LegacyEffectLibrary.LoadBootstrap` creates `VfxContent`, whose worker reads the catalog, parses effect models
+(with their sibling `.smb` skeleton), reads animated billboards and decodes every texture. `SkillPresentation.Update`
+then registers prepared definitions on the game thread for at most 2 ms per frame and never waits for the worker;
+effects requested before their registration are skipped. Probes and tools call `VfxContent.CompileAll()`.
 
-A `.vfx.json` file is a JSON array of effect objects. `VfxDefinition.Json` controls parsing: camelCase property names
-(matching is case-sensitive), `//` and `/* */` comments allowed, trailing commas allowed, enums as strings via
-`JsonStringEnumConverter` (written PascalCase). Unknown properties are ignored. `name` is `required`.
+## Units, colours and blends
 
-Units: positions, sizes, speeds in world units (Y up); times in seconds; angles in degrees; colours linear Rec.709
-floats. `Offset`, emitter shape offsets and directions are rotated by the spawn facing (`VfxInstance.Orientation`, a
-Y rotation); the shipped files treat effect-local -Z as the caster's forward. Ranges are `[min, max]` with
-`max >= min`; each particle picks a uniform value inside.
+- Positions and sizes in world units, Y up; effect space has -Z forward. Offsets, directions and orbits turn with the
+  spawn facing (`VfxInstance.Orientation`) unless a layer says otherwise. Times in seconds, angles in degrees.
+- Emitter and trail colours are linear Rec.709 floats scaled by `intensity`. Component, sequence and part colours are
+  the original 0..255 display values; they are decoded from sRGB to linear when drawn, alpha stays linear.
+- Original rates per 1/70 s tick convert by x70 (speeds) and x4900 (accelerations); 1/256-unit fixed values divide by
+  256 first. Animated billboards and part motion advance in 70 Hz ticks.
+- Sizes of components, sequences and parts are full extents; emitter `size` is a half extent.
 
-### Effect (`VfxDefinition`)
+| `blend` | Draw | Shader mode |
+|---|---|---|
+| `Additive` | source x alpha + destination (lamp) | radiance |
+| `Alpha` | over, non-premultiplied | radiance |
+| `Color`, `AddColor` | source + destination (approximates source x source) | squared radiance |
+| `Shadow` | destination x source | multiplier |
+| `InvShadow` | destination x (1 - source) | inverse multiplier |
 
-| JSON | Type | Default | Meaning |
-|---|---|---|---|
-| `name` | string | required | Unique key (case-insensitive lookup). Convention `vfx.<class>.<skill>.<role>` or `vfx.<role>.<variant>` |
-| `duration` | float s | 1 | Emission window, `0 < duration <= 60`. Layers stop emitting after it; the instance ends when every layer is dead |
-| `emitters` | emitter[] | [] | Sprite particle emitters |
-| `trails` | trail[] | [] | Ribbon trails following an anchor |
-| `lights` | light[] | [] | One-shot transient point lights |
-| `sounds` | sound[] | [] | One-shot sounds |
-| `legacy` | legacy[] | [] | Original particle scripts played unchanged |
+The renderer draws alpha layers first (instances back to front), then the darkening layers, then the light layers.
+Effect models draw before the quads with their own blend.
 
-### Emitter (`VfxEmitterDefinition`)
-
-| JSON | Type | Default | Meaning |
-|---|---|---|---|
-| `texture` | string | "" | Asset path under the asset root (`Effect/Particle/x.tga`) or `builtin:<name>`; empty -> white |
-| `frameColumns`, `frameRows` | int >= 1 | 1, 1 | Sprite sheet grid; frame = floor(life x frames), row-major from top-left |
-| `blend` | `Additive` \| `Alpha` | Additive | Additive = src-alpha + dest; Alpha = non-premultiplied over |
-| `intensity` | float | 1 | Multiplies RGB (not alpha); 1 = authored colour at the current exposure, higher blooms |
-| `softness` | float units | 16 | Soft-particle fade distance against scene depth; 0 disables (use for ground-aligned decals) |
-| `anchor` | `Point` \| `Caster` \| `Target` | Point | Spawn point (impact or ground target), caster entity or target entity |
-| `bone` | string | "" | Bone of the anchor actor (`Bip weapon01`, `Bip01 R Hand`); ignored for `Point` or when not found |
-| `offset` | float[3] | [0,0,0] | From the anchor (or bone), rotated by facing |
-| `local` | bool | false | Live particles move with the anchor instead of staying where born |
-| `delay` | float s | 0 | Start of this emitter after spawn |
-| `emitTime` | float s | 0 | Length of continuous emission at `rate`; 0 = until `duration` |
-| `rate` | float /s | 0 | Continuous emission, >= 0 |
-| `burst` | int | 0 | Particles emitted once on the first active frame, >= 0 |
-| `maxParticles` | int | 64 | Pool size, 1..4096; emission beyond it is dropped |
-| `lifetime` | range s | [1,1] | Per particle; min > 0 |
-| `speed` | range units/s | [0,0] | Launch speed |
-| `direction` | float[3] | [0,1,0] | Cone axis (normalized; all zeros = up) |
-| `spread` | float deg | 0 | Cone half-angle, clamped 0..180 (180 = every direction) |
-| `shape` | `Point` \| `Sphere` \| `Ring` \| `Disc` | Point | Spawn shape: sphere surface, XZ circle, or XZ filled disc |
-| `radius` | range units | [0,0] | Shape radius, sampled per particle |
-| `gravity` | float[3] units/s^2 | [0,0,0] | Constant acceleration |
-| `drag` | float /s | 0 | Fraction of velocity lost per second (`v *= max(0, 1 - drag*dt)`) |
-| `size` | key[] width 1 | `[{t:0,v:[10]}]` | Half-extent of the quad over normalized life |
-| `color` | key[] width 4 | `[{t:0,v:[1,1,1,1]}]` | Linear RGBA over normalized life |
-| `rotation` | range deg | [0,0] | Initial sprite rotation (ignored by `Velocity` alignment) |
-| `spin` | range deg/s | [0,0] | Rotation speed |
-| `align` | `Camera` \| `Ground` \| `Velocity` | Camera | Billboard, flat on XZ (world axes, not facing), or stretched along velocity |
-| `stretch` | float | 0.02 | `Velocity` alignment: quad length x (1 + speed x stretch) |
-
-A key is `{ "t": <0..1>, "v": [..] }`; `t` must be non-decreasing; sampling is linear between keys and clamped at the
-ends (`VfxCurve`).
-
-### Trail (`VfxTrailDefinition`)
+## Effect (`VfxDefinition`)
 
 | JSON | Type | Default | Meaning |
 |---|---|---|---|
-| `texture`, `blend`, `intensity` | as emitter | "", Additive, 1 | U runs head (0) to tail (1), V across the width |
-| `anchor`, `bone`, `offset` | as emitter | **Caster**, "", [0,0,0] | Point the ribbon follows (usually `Bip weapon01`) |
-| `width` | float units | 12 | Full ribbon width, > 0 |
-| `lifetime` | float s | 0.25 | Life of each trail point, > 0; points are sampled every `lifetime / 32` s |
-| `delay`, `emitTime` | float s | 0, 0 | As emitter |
-| `color` | key[] width 4 | white -> transparent | Colour from head (t = 0) to tail (t = 1) |
+| `name` | string | required | Unique key (case-insensitive). `vfx.<class>.<skill>.<role>`, `vfx.common.<name>`, `script.<File>`, `particle.<File>` |
+| `duration` | float s | 1 | `0 < duration <= 600`: layers that run until stopped stop then; the instance ends when every layer has ended |
+| `emitters`, `trails` | arrays | [] | Sprite emitters and anchor ribbons (tables below) |
+| `lights`, `sounds` | arrays | [] | One-shot transient lights and sounds |
+| `components`, `sequences` | arrays | [] | Layers of the converted original scripts |
+| `parts` | array | [] | Original-style effect objects (the skill ports use them) |
+| `children` | array | [] | Other named effects started at an anchor |
 
-Trails use a fixed soft-particle distance of 8 units and keep at most 32 points (`VfxSystem.TrailPoints`).
+An instance stays alive while any layer runs or a one-shot is still due. `Stop()` ends emission: waiting parts and
+one-shots never start, layers that run until stopped end, finite ones finish.
 
-### Light (`VfxLightDefinition`)
+### Emitter, trail, light, sound
 
-| JSON | Type | Default | Meaning |
-|---|---|---|---|
-| `anchor`, `offset` | as emitter | Point, [0,30,0] | No `bone`; position fixed when fired |
-| `color` | float[3] | [1,1,1] | Converted to an 8-bit `Color`: channels clamp to 0..1 |
-| `power` | int > 0 | 160 | Legacy light units: radius `max(64, power/2)`, brightness `power x colour / 256` |
-| `decay` | int > 0 | 4 | Power lost per 1/70 s tick; lifetime `ceil(power/decay)/70` s |
-| `delay` | float s | 0 | Fire time |
+| Layer | Fields (default) |
+|---|---|
+| emitter | `texture`, `frameColumns`/`frameRows` (1), `blend`, `intensity` (1), `softness` (16), `anchor` (Point), `bone`, `offset`, `local`, `delay`, `emitTime` (0 = whole duration), `rate`, `burst`, `maxParticles` (64), `lifetime` [1,1], `speed`, `direction` [0,1,0], `spread` deg, `shape` (Point/Sphere/Ring/Disc), `radius`, `gravity`, `drag`, `size` keys (half extent), `color` keys (linear RGBA), `rotation`, `spin`, `align` (Camera/Ground/Velocity), `stretch` (0.02) |
+| trail | `texture`, `blend`, `intensity`, `anchor` (Caster), `bone`, `offset`, `width` (12, full), `lifetime` (0.25 per point), `delay`, `emitTime`, `color` keys head -> tail |
+| light | `anchor`, `offset` [0,30,0], `color` [r,g,b] 0..1, `power` (160), `decay` (4 per tick), `delay`; legacy light units (radius power/2, brightness power x colour / 256) |
+| sound | `path` (asset-relative wave), `delay`, `volume` (1); played at the caster |
 
-Lights go to `PristonTransientLights.Add` through `IVfxServices.AddLight`; see docs/rendering.md for lighting.
+A key is `{ "t": 0..1, "v": [..] }` with non-decreasing `t`, sampled linearly and clamped.
 
-### Sound (`VfxSoundDefinition`) and legacy layer (`VfxLegacyDefinition`)
+### Child (`VfxChildDefinition`)
 
-| JSON | Type | Default | Meaning |
-|---|---|---|---|
-| sound `path` | string | "" | Asset-relative wave path (`wav/Effects/...`), played at the caster anchor |
-| sound `delay`, `volume` | float | 0, 1 | Fire time; volume scale |
-| legacy `script` | string | "" | Script name; file `<assetRoot>/Effect/Particle/Script/<script>.part` |
-| legacy `anchor`, `bone`, `offset`, `delay` | as emitter | Point, "", [0,0,0], 0 | Spawn position and time |
-| legacy `follow` | bool | false | Move the script's origin with the anchor every frame |
+`effect` (name), `anchor`, `bone`, `offset`, `delay`, `follow` (keep the child's spawn point on the anchor), `turn`
+(give it this effect's facing), `stopWithParent` (true). The child is looked up by name on first use, so it may live in
+any file.
 
-`Validate` checks effect, emitter, trail and light fields; sound and legacy layers are not validated. Shipped data uses
-no `sounds` layers: skill sounds come from the skill rules (`castSound`, `impactSound`, `companionSound`).
+### Component (`VfxComponentDefinition`)
 
-### Example (from `Classes/Knight.vfx.json`)
+One element of a converted effect group with its own clock, loops and keyed events: `kind` (`Model`, `Billboard`,
+`Ground`, `Beam`, `Particles`), `anchor`, `bone`, `follow`, `offset`, `offsetTurn` (None/Facing/Reverse), `texture`,
+`frames` + `frameTime` (numbered textures `<stem>1.<ext>`..), `model`, `skeleton`, `modelFrames` (30 per second),
+`loop` (0 = until stopped), `delay`, `endTime` (quads: seconds per loop; particles: lifetime range), `color` (0..255),
+`sizeMin`/`sizeMax`, `blend`, `beamFrom`/`beamTo`, particle `spawn` (Point/Box/Sphere/Doughnut) with
+`spawnMin`/`spawnMax`, `count`, `rate`, `velocityMin`/`velocityMax`, `outward`, `beams`, and `events`
+`[t, kind Color|Size, ramp, value]`. A set event replaces the value; a ramp event is a target that the event before
+it moves towards, and the last step keeps going after the last ramp. Every loop restarts the events at 0 without
+resetting values. Particle pools hold at most 100 live particles.
 
-```json
-{
-  "name": "vfx.knight.piercing.thrust", "duration": 0.9,
-  "legacy": [{ "script": "Piercing1", "anchor": "Caster", "offset": [0, 30, -20], "delay": 0.35 }],
-  "trails": [{ "texture": "builtin:beam", "anchor": "Caster", "bone": "Bip weapon01", "width": 12, "lifetime": 0.2,
-    "intensity": 3, "color": [{ "t": 0, "v": [1, 0.95, 0.75, 0.9] }, { "t": 1, "v": [1, 0.6, 0.2, 0] }] }],
-  "emitters": [
-    { "texture": "builtin:spark", "anchor": "Caster", "offset": [0, 30, -30], "delay": 0.38, "burst": 30,
-      "maxParticles": 30, "lifetime": [0.2, 0.35], "speed": [260, 420], "direction": [0, 0, -1], "spread": 8,
-      "drag": 1.5, "align": "Velocity", "stretch": 0.05, "intensity": 5,
-      "size": [{ "t": 0, "v": [3] }, { "t": 1, "v": [0.5] }],
-      "color": [{ "t": 0, "v": [1, 0.95, 0.8, 1] }, { "t": 1, "v": [1, 0.55, 0.2, 0] }] }
-  ],
-  "lights": [{ "anchor": "Caster", "offset": [0, 30, -40], "color": [1, 0.85, 0.6], "power": 160, "decay": 7,
-    "delay": 0.38 }]
-}
-```
+### Sequence (`VfxSequenceDefinition`)
 
-## Loading and override semantics
+A converted particle stream: `texture`, `blend`, `shape` (Billboard, Ground, Upright, Trail), `count` live at most,
+`loops` (0 = until stopped), `rate` range drawn each frame, `delay`, `lifetime`, offset box `radiusMin`/`radiusMax`,
+gravity box (drawn every frame), `anchor`, `bone`, `offset`, `follow`, and `events` (`t`, `ramp`, `set`, `min`, `max`,
+`mode`). Properties: `Size`, `Stretch`, `Color`, `Red`..`Alpha`, `Velocity` (Vector, Outward, Inward) and its axes,
+`Angle` and axes, `Orbit` and axes (turn the particle's offset), `Clock` (restart the event clock at a time).
 
-`SkillPresentation.LoadLibrary` runs when `GameScene` creates its renderer (`EnsureRenderer` ->
-`CreateSkillPresentation`), on the game thread:
+### Part (`VfxPartDefinition`)
 
-1. `EmbeddedDefinitions()` reads the manifest resources `PristonTale.Gameplay.Effects.Vfx.*.vfx.json`
-   (`PristonTale.Gameplay.csproj` embeds `Common.vfx.json` and `Classes/*.vfx.json`); `Common` first, then class files
-   in ordinal order. Missing resources throw.
-2. `VfxLibrary.LoadDirectory(<assetRoot>/Vfx)` loads `*.vfx.json` from that directory only (not recursive), in ordinal
-   file-name order. A missing directory loads nothing.
-3. `Register` keys by name (case-insensitive); a later registration replaces the whole definition. There is no
-   field-level merge. Overrides therefore win over shipped effects, and among overrides the last file wins.
+A group of `count` objects that start at `delay + delayStep x index + random(delayRandom)` and live for `lifetime`
+seconds; a zero lifetime lives as long as its animation, model clip or flight, or until the effect stops.
 
-`<assetRoot>` is the client's asset directory (`assets/` by default, see docs/client.md). An embedded file that fails
-to parse or validate throws out of the `SkillPresentation` constructor (a build defect); an `assets/Vfx` file that
-cannot be read, parsed or validated is skipped as a whole and logged as `[Effects] skipped effect file ...`.
+| Group | Fields |
+|---|---|
+| Look | `shape`: `Billboard`, `Ground`, `Streak` (from where it started to where it is), `Line` (behind it along its velocity, `lineSeconds` long), `Ribbon` (through its last `trailPoints`, `trailFade` alpha off per point), `Blade` (band swept by a bone over `bladeLength` along its Y axis), `Beam` (to its goal, or to `beamTo`), `Model` |
+| Image | `animation` (an `Effect/AnimationData` file: images, hold ticks, opacity, size, angle and blend come from it), `loop`, `sized` (start from `size` instead of the file's sizes), or `texture` with `frames`, `frameTime`, `pingPong`; `blend`, `color` (0..255), `size`, `height`, `growth`, `rotation`, `spin`, `width` (half width of strips) |
+| Model | `model`, `skeleton`, `modelStart`, `modelFrames`, `modelSpeed` (clip frames per second), `loopFrom`, `angles`, `tumble`, `scale`, `pulse` + `pulsePeriod`, `faceGoal` (face the velocity) |
+| Fade | `fade`: `Rise` (up over 25.5 % of the life, down at the same rate), `Fall` (down over the last 25.5 %), `InOut` (`fadeIn`, `fadeOut` seconds); `fadeOut` also times the fade after arriving |
+| Place | `anchor`, `bone`, `boneWorld` (full bone transform, offset in bone space), `offset`, `follow`, `turn` (true), `jitterMin`/`jitterMax`, `ring` radius with `ringStart` + `ringStep` x index or `ringRandom`, `shell` (ellipsoid radii) |
+| Motion | `radial` (outward along the ring angle), `rise`, `velocityMin`/`velocityMax`, `burst` (along the shell direction), `gravity`, `swirl` (deg/s about the vertical), `moveTime` (stop after) |
+| Goal | `goal` (Caster, Target, Point) + `goalOffset`, `speed`, `reach`, `lift` (lob under `gravity`), `end`: `Vanish`, `LastFrame` (keep flying through the last frame or `fadeOut`), `Hold` (stop and fade out) |
+| Orbit | `orbitRadius`, `orbitSpeed`, `orbitTilt`, `orbitRise`, `orbitGrowth`, `orbitPhase` + `orbitPhaseStep`, `orbitAlternate`; with a goal the orbit starts at the goal's bearing and distance |
+| Effects | `endEffect` (where a part arrives or its life ends), `everyEffect` every `every` seconds at each part, `carryEffect` (started at birth, moved with the part, stopped when it ends) |
 
-Compilation (`VfxLibrary.Register`) validates, resolves textures and precomputes per layer: `CompiledEmitter` (offset,
-normalized direction, gravity, `VfxCurve` size and colour, cosine of the spread) and `CompiledTrail`. `CompiledVfx` is
-shared by every instance. Texture resolution: empty path -> fallback (white); `builtin:<name>` -> `VfxBuiltinTextures`
-(validation rejects a name outside `VfxBuiltinTextures.Names`); otherwise `LegacyEffectLibrary.LoadTexture` (null when
-the file is missing) -> fallback. A missing texture therefore draws a tinted white quad instead of hiding the effect.
+Use `carryEffect` for converted particle scripts that stream until stopped; `everyEffect` only for finite effects.
 
 ## Runtime: `VfxSystem`
 
-- `Spawn(CompiledVfx, VfxSpawn)` returns a pooled `VfxInstance`, or null when 256 instances are live.
-  `VfxSpawn(CasterId, TargetId, Point, Facing)`: entity ids are server serials (0 = none), `Point` is client world
-  space, `Facing` radians for the Y rotation.
-- `Update(seconds)` ignores non-positive or non-finite steps and clamps to 0.1 s. Per instance: advance age, move a
-  travelling spawn point, refresh caster/target positions through `IVfxAnchors.TryGetPosition` (both start at
-  `Point`), update emitters and trails, fire one-shots (lights, sounds, legacy layers) once their delay is reached,
-  follow or stop legacy instances. `emitting = !stopped && age <= duration`; an instance is alive while emitting or
-  while any particle, trail point or legacy instance lives. Dead instances return to the pool.
-- `VfxInstance.Stop()` ends emission; unfired lights, sounds and legacy layers never fire; legacy instances stop.
-- `VfxInstance.Travel(from, to, seconds, arc)` moves `Point` linearly with a parabolic lift peaking at `arc` units
-  mid-flight, then stops the instance on arrival (projectiles, chain links, companion strikes).
-- Anchor resolution (`AnchorPosition`): `Point` -> spawn point; `Caster`/`Target` -> last known entity position;
-  with a `bone` and a non-zero entity id, `IVfxAnchors.TryGetBone` replaces it when it succeeds. The offset is then
-  added after rotation by facing. `GameScene` implements bones through `PristonRenderer.TryGetActorBoneWorld`.
-- Emitters: burst on the first active frame, then `rate` through a fractional accumulator during
-  `[delay, delay + emitTime]`. Integration per frame: `v = (v + gravity*dt) * drag; p += v*dt`. With `spread`
-  below about 0.8 degrees, `Ring`, `Disc` and `Sphere` shapes emit radially outward from the centre and ignore
-  `direction`.
-- Randomness: per-instance xorshift seeded by an LCG in the system; repeatable only for an identical spawn sequence
-  and unrelated to the server. Effects are presentation only.
-- Memory: instances pooled on a stack, particle arrays rented from `ArrayPool`, trail buffers fixed; after warm-up an
-  update allocates nothing (asserted by the regression case).
+- `Spawn(CompiledVfx, VfxSpawn(CasterId, TargetId, Point, Facing))` returns a pooled instance, or null at 1024 live
+  instances. `Update(seconds)` clamps the step to 0.1 s, refreshes caster and target positions, updates every layer,
+  fires one-shots and children, and returns dead instances to the pool.
+- `Travel(from, to, seconds, arc)` moves `Point` (projectiles, chain links, companion strikes) and stops the instance on
+  arrival; parts with `follow` ride it, parts with a `goal` fly on their own and finish their flight after a stop.
+- Anchors: `Point` is the spawn point; `Caster`/`Target` the entity position, replaced by a bone through
+  `IVfxAnchors.TryGetBone` / `TryGetBoneWorld`. `GameScene` and the probes implement them from the actor bones.
+- Memory: instances, parts, trails and pools are reused; after warm-up an update allocates nothing (asserted).
+- Threading: `SkillPresentation.Update` and `Draw` run on the game thread; the system has no locks.
 
-Threading: `SkillPresentation.Update` (calls `VfxSystem.Update`) and `SkillPresentation.Draw` both run on the
-MonoGame game thread from `GameScene`; the system has no locks and must not be touched from other threads.
+## Converting the original scripts (`ptvfx`)
 
-## Drawing: `VfxRenderer`
-
-`GameScene.Draw` order: `PristonRenderer.Draw` (opaque scene, depth pre-pass) -> monster mesh effects -> return
-effect -> legacy `EffectsEngine.Draw` -> `DrawSkillEffects` (VFX) -> `PristonRenderer.ComposeScene` (post). VFX
-therefore draw into the bound HDR scene target before bloom and tone mapping.
-
-- Quads for all instances go into one `VfxVertex` array (position, linear RGBA x intensity, UV, `Params.x` =
-  softness), uploaded once to a `DynamicVertexBuffer` with a shared 32-bit quad index buffer; at most 16384 quads
-  per frame, the rest are dropped.
-- Pass 1 draws `Alpha` layers of all instances, instances sorted back to front by caster position distance to the
-  camera (particles inside an instance are not sorted). Pass 2 draws `Additive` layers. Consecutive quads with the
-  same (blend, texture) form one draw call (`LastQuadCount`, `LastDrawCalls` for diagnostics).
-- State: `DepthStencilState.DepthRead` (test, no write), `CullNone`, `BlendState.Additive` or `NonPremultiplied`.
-- Shader (`Vfx.fx` via `PristonVfxEffect`): texture RGB decoded from sRGB to linear, multiplied by the vertex colour,
-  divided by the scene exposure (`PristonUnlitEffect.SceneExposure`, set by the renderer each frame) and capped.
-  Soft particles: when `PristonRenderer.SceneLinearDepth` is non-null (the pre-pass ran), alpha is multiplied by
-  `saturate((sceneDepth - particleDepth) / softness)`; a null depth disables the fade. `DisplayOutput = true` encodes
-  display sRGB for 8-bit targets (probes, tools). Shader details: docs/shaders.md.
-
-## Builtin textures
-
-`VfxBuiltinTextures` generates 128x128 textures per `GraphicsDevice`: white RGB with the shape in alpha, so the vertex
-colour sets the hue. Coordinates span -1..1 with V downwards. `SkillPresentation` owns and disposes the instance.
-
-| Name | Shape |
-|---|---|
-| `builtin:glow` | Gaussian blob (sigma 0.32) |
-| `builtin:soft` | Smooth-edged disc |
-| `builtin:spark` | Gaussian narrow in X, long in Y (pairs with `Velocity` alignment) |
-| `builtin:beam` | Gaussian that varies only along V: a bright centre line along U (ribbon core for trails) |
-| `builtin:ring` | Thin ring at radius 0.78 |
-| `builtin:star` | Small core plus horizontal and vertical flares |
-| `builtin:smoke` | Soft disc modulated by value noise |
-| `builtin:flame` | Soft disc shifted upward, modulated by value noise |
-
-## Legacy particle scripts and `EffectsEngine`
-
-Script files live at `<assetRoot>/Effect/Particle/Script/<name>.part`, read as Latin-1 through `PristonFileResolver`
-by `LegacyEffectLibrary` (`ParticleScript` caches the compiled `EffectDefinition`, including a null for a failed
-script; `ReadParticleSequences` returns raw sequences). `LegacyParticleScript.Read` accepts:
-
-- Header `particlesystem "<name>" 1.00 {`, an optional constant `position = xyz(...)` (ignored), then 1..32
-  `eventsequence "<name>" {` blocks and a closing `}`. `//` comments.
-- Sequence properties: `sourceblendmode` (`BLEND_LAMP` -> Additive, `BLEND_INVSHADOW` -> InverseShadow,
-  `BLEND_COLOR` -> ColorBlend), `loops` (integer 1..256), `numparticles` (1..4096, count x loops <= 65536),
-  `gravity` (constant xyz), `emitrate` (> 0 per second), `emitradius` (xyz range), `lifetime` (<= 60 s),
-  `texture` (must stay under `effect/particle/`), `delay` (0..60 s), `particletype` (`TYPE_ONE` billboard,
-  `TYPE_TWO` ground plane).
-- Up to 128 events: `initial <p>`, `at <seconds> <p>`, `final <p>` (time = max lifetime), optionally prefixed
-  `fade so` to interpolate from the previous event instead of stepping. Properties: `size`, `sizeext`, `color`
-  (`rgba` 0..255), `velocity` (xyz, no fade), `partanglez` (4096 units per turn; X/Y angles must be zero),
-  `localanglez` (zero only). Components are numbers or `random(a,b)`.
-- Anything else throws `InvalidDataException`.
-
-`LegacyParticleSequence` evaluates particles statelessly from a per-particle seed (hashed channel sampling, no RNG
-stream): size and extension halved for the billboard, colour / 255, position = origin + piecewise-constant velocity
-plus gravity, with the script Z axis negated and rotated by the spawn orientation. `ParticleEmitter` in script mode
-timestamps births at `delay + n / emitrate` up to count x loops, so playback is independent of frame rate and a
-hitch never builds an emission backlog; its pool holds `numparticles` live particles.
-
-`ParticleEmitter` in generic mode (hard-coded legacy definitions) supports rate, burst, cone direction, spherical
-spawn radius, gravity, damping (`pow(1 - damping, dt)`), start/end colour and size, flipbook frames (by lifetime or
-frames per second), `ParticleAnimation` keyframes and `PotionParticleMotion` (fixed 70 Hz integer motion with an
-orbit). `EffectsEngine` derives a deterministic seed per spawn from its constructor seed and a counter;
-`EffectInstance` stops its emitters after `Duration` unless `Loop` (0 = run to completion). `ParticleRenderer`
-batches by (texture, blend) with `PristonUnlitEffect`; `TYPE_TWO` sequences draw flat on XZ.
-
-## `LegacyVfxImporter`
-
-`LegacyVfxImporter.Convert(name, sequences, intensity)` maps each sequence to one emitter: `numparticles` -> `burst`,
-loops > 1 -> `rate = emitrate x count` and `emitTime = loops / emitrate`, emit radius -> `Sphere` with
-`radius [0, max component]`, first velocity event -> speed range, mean direction and spread (180 when the velocity
-range is wide, else 25), gravity (Z negated), size and colour events -> keys over the mean lifetime (size halved,
-colour / 255, steps duplicated as hold keys), `TYPE_TWO` -> `Ground` alignment with softness 0. Duration covers the
-longest sequence, capped at 60 s.
-
-No runtime path or tool calls it; the only caller is the regression case `ImporterAsync`. To use it, read the
-sequences with `LegacyEffectLibrary.ReadParticleSequences(assetRoot, name)`, convert, and serialize with
-`JsonSerializer.Serialize(new[] { definition }, VfxDefinition.Json)` from a scratch program or test, then hand-edit the
-result. For exact original playback use a `legacy` layer instead.
+`ptvfx import <assetRoot>` converts every effect group script to `Effect/Vfx/Scripts/<File>.vfx.json` (`script.<File>`)
+and every particle script to `Effect/Vfx/Particles/<File>.vfx.json` (`particle.<File>`), installs `Authored/**`, and
+prints every construct it kept with a caveat. Effect group scripts become components (Mesh -> `Model`, Billboard ->
+`Billboard`, CreateMesh -> `Ground`, BillboardAxial -> `Beam`, ParticleSystem -> `Particles`, Parent -> offset) with
+the original defaults (particles: loop 1, 50 per loop, 30 per second, life 1..2 s, size 5..10). Particle scripts keep
+the original tokenizer: a value glued to `=` reads as 0, a script the original rejects plays nothing. Axes: Z is
+negated and rotations about X and Y are mirrored. Remaining caveats of the shipped data (reported, not mapped): models
+and animated textures the game data lacks (those components are left out), a particle system's start delay, and
+values the original also fails to read.
 
 ## Skill events to effects (`SkillPresentation`)
 
-Skill rules (`Shared/PristonTale.Simulation/Skills/Data/Classes/<Class>.json`, `SkillRule`) name effects in
-`castEffect`, `impactEffect`, `projectileEffect`, `buffEffect`, `companionEffect`, `modes[i].impactEffect` and
-`charge.full.impactEffect`; `projectileArc` feeds `Travel`. Events of other entities run 150 ms late
-(`RemoteDelayMs`) to match interpolated motion. Spawns pass `-skillEvent.Facing` as facing.
+Skill rules (`Shared/PristonTale.Simulation/Skills/Data/Classes/<Class>.json`) name effects in `castEffect`,
+`impactEffect`, `projectileEffect`, `buffEffect`, `companionEffect`, `modes[i].impactEffect` and
+`charge.full.impactEffect`.
 
 | Trigger | Effect | Spawn |
 |---|---|---|
-| `Start` phase | `castEffect` | At the caster, kept for `Cancel` (stops it) |
-| `hitAtMs` after Start/Release, projectile rules | `projectileEffect` | Travels caster -> target over `SkillProjectile.FlightMs` |
-| `Impact` phase | impact of the charged full rule, the cast's mode, or `impactEffect` | At target (or caster for caster-centred areas); stops the projectile |
-| Impact with Companion/Counter flag | `companionEffect` | Travels from 50 units above the caster to the target, arc 12 |
-| Impact with Chain flag | `impactEffect` | Travels from the previous link to the target in 0.08 s |
-| Status added | `buffEffect`, or `<buffEffect>.<element>` when defined for enchant/companion choices | On the entity; respawned while the status has > 500 ms left; stopped on removal |
-| Revive combat event | `vfx.priestess.resurrection.rise` | On the revived entity |
+| `Start` phase | `castEffect` | At the caster; stopped on `Cancel` |
+| `hitAtMs` after Start/Release, projectile rules | `projectileEffect` | Travels caster -> target |
+| `Impact` phase | charged, mode or plain `impactEffect` | Point at the target (or caster for caster-centred areas), target id set |
+| Companion/Counter impact | `companionEffect` | Travels from above the caster to the target |
+| Chain impact | `impactEffect` | Travels from the previous link to the target |
+| Status added | `buffEffect` (or `<buffEffect>.<element>`) | On the entity while the status lasts |
+| Revive | `vfx.priestess.resurrection.rise` | On the revived entity |
 
-Element variant suffixes are the lowercase `Element` names: `bionic`, `earth`, `fire`, `ice`, `lighting`, `poison`,
-`water`, `wind`.
+## Skill effect inventory
 
-## How to
+What each active skill shows in the original and the effect names that carry it. "Hit" is the weapon point (socket plus
+half the weapon length) unless noted; impacts are drawn at the target's chest. Tempskron skills are ported with parts;
+the Morion classes still use their earlier definitions plus converted scripts and are next to port (see below).
 
-**Add an effect for a skill**
-1. Add a definition to `Client/PristonTale.Gameplay/Effects/Vfx/Classes/<Class>.vfx.json` (or `Common.vfx.json` when
-   shared). Use a name unique across all shipped files.
-2. Reference it from the skill in `Shared/PristonTale.Simulation/Skills/Data/Classes/<Class>.json` (fields above;
-   see docs/skills.md).
-3. A new class file is embedded by the `Classes/*.vfx.json` wildcard; no csproj change. Rebuild the client: the data
-   is an embedded resource, so edits need a build.
-4. Run the regression runner (docs/testing.md): `SkillPresentationTests` checks parsing, unique names, that every
-   rule's effect exists and, with `assets/` present, that textures and legacy scripts load. Inspect visually with the
-   `--capture-skills <assets> <content> <output> [codes]` probe.
+### Mechanician
 
-**Override an effect locally**: put an array of definitions in `<assetRoot>/Vfx/<any>.vfx.json` using the shipped
-`name`. The whole definition is replaced. It loads when the game scene builds its renderer, so restart the client
-after edits. `assets/` is not in Git, so overrides stay local; move them into the shipped files to keep them.
+| Skill | Original | Effects |
+|---|---|---|
+| Extreme Shield | Flash, two shield bursts, sparks and two small bursts at the shield; a pulsing glow model on the shield hand while active | `vfx.cast.shield`, `vfx.buff.shield` |
+| Mechanic Bomb | Tumbling bomb lobbed with dust behind it; fire burst of shards, rays, two flashes and a red light | `vfx.projectile.bomb`, `vfx.impact.bomb` |
+| Physical Absorption | Rising spiral, falling sparks, outward streaks, burst ring, a shell model; two shields orbiting with trails while active | `vfx.cast.absorb`, `vfx.buff.absorb` |
+| Great Smash | Blue band; round impact (flash, 20 rays, sparks, blue light) | `vfx.trail.blue`, `vfx.mech.greatsmash.hit` |
+| Maximize, Automation | Gathering burst and six pairs of weapon emblems; rising streaks around the caster while active | `vfx.mech.maximize.*`, `vfx.mech.automation.*` |
+| Spark | Unseen bolt dropping spark clusters; spark ball and spark streaks at the target | `vfx.mech.spark.*` |
+| Metal Armor | Gathering burst; armour model and particle aura while active | `vfx.mech.metalarmor.*` |
+| Grand Smash | Bone band; hit particles, rays, green light | `vfx.trail.bone`, `vfx.mech.grandsmash.hit` |
+| Spark Shield | Four lightning bolts rising, shield particles, hand glow while active; lightning to the attacker on block | `vfx.mech.sparkshield.*` |
+| Impulsion | Weapon glow; rays and hit particles; lightning arcs between chained targets | `vfx.mech.impulsion.*` |
+| Compulsion, Metal Golem | Converted effect groups at the caster | `vfx.mech.compulsion.cast`, `vfx.mech.metalgolem.cast` |
+| Magnetic Sphere | Orb machine hovering by the caster; lightning and shots to what it strikes | `vfx.mech.magneticsphere.*` |
 
-**Add a builtin texture**: add `Add(device, "<name>", (x, y) => alpha)` in the `VfxBuiltinTextures` constructor
-(x, y in -1..1, return 0..1) and the name to `VfxBuiltinTextures.Names`, which validation checks. Update the builtin
-table here. Check the look by capture.
+### Fighter
 
-**Add a property to the schema**
-1. `VfxDefinition.cs`: add an `init` property with its default to the layer record; extend `Validate`.
-2. Precompute in `CompiledEmitter`/`CompiledTrail` (`VfxCompiled.cs`) when it is derived per definition.
-3. Simulation in `VfxSystem.cs` (`EmitterState`, `TrailState`, `VfxInstance`) or vertex output in `VfxRenderer.cs`.
-   A new per-vertex value can use the unused `Params.y`; a shader change touches `Vfx.fx` and `PristonVfxEffect`
-   (docs/shaders.md).
-4. Map it in `LegacyVfxImporter` if the original scripts have an equivalent.
-5. Add cases to `tests/PristonTale.Tests/SkillPresentationTests.cs` (`DefinitionsAsync` for rejection,
-   `SystemAsync` for behaviour) and update the schema tables in this file.
+| Skill | Original | Effects |
+|---|---|---|
+| Raving, Impact | Coloured band (red, gold); critical flash per hit | `vfx.trail.rage`, `vfx.trail.golden`, `vfx.impact.critical` |
+| Triple Impact, Brutal Swing | Violet / green band; triple impact burst | `vfx.trail.violet`, `vfx.trail.green`, `vfx.fighter.tripleimpact.hit`, `vfx.fighter.brutalswing.hit` |
+| Roar | Lights, five expanding roar models, dust; stun stars on targets | `vfx.fighter.roar.cast`, `vfx.debuff.stun` |
+| Rage of Zecram | Marks and flashes at the cast; fire hit, then an eruption of models, rays and fire trails | `vfx.fighter.zecram.*` |
+| Concentration, Swift Axe | Streaks gathering then flying out; particle aura while active | `vfx.fighter.concentration.*`, `vfx.fighter.swiftaxe.*` |
+| Avenging Crash, Bone Crash | Hit particles and lights; Bone Crash adds the bone band and a ground smash | `vfx.fighter.avengingcrash.hit`, `vfx.fighter.bonecrash.hit` |
+| Destroyer | Long bone band; converted hit group per hit | `vfx.trail.bone.long`, `vfx.fighter.destroyer.hit` |
+| Berserker | Converted group and particles on the caster while active | `vfx.fighter.berserker.aura` |
+| Cyclone Strike | Long bone band; normal hit on each target | `vfx.fighter.cyclone.*` |
+
+### Pikeman
+
+| Skill | Original | Effects |
+|---|---|---|
+| Pike Wind | Ring of pikes bursting from the ground and swirling dust | `vfx.area.pikewind` |
+| Critical Hit, Jumping Crash | Band; critical flash | `vfx.trail.violet`, `vfx.impact.critical`, `vfx.impact.crash` |
+| Ground Pike | Ice pikes racing out in ten directions with sparkles | `vfx.pike.groundpike.hit` |
+| Tornado | Two bands sweeping a full turn through the target, two round impacts there | `vfx.pike.tornado.hit` |
+| Expansion | Enlarged red weapon (approximated by a wide band); round impact per hit | `vfx.pike.expansion.*` |
+| Venom Spear | Particles ahead of the caster; venom model and three particle bursts at each target | `vfx.pike.venomspear.*` |
+| Vanish | Flares rushing through the caster and particles | `vfx.pike.vanish.cast` |
+| Chain Lance | Red band; hit particles per hit | `vfx.trail.red`, `vfx.pike.chainlance.hit` |
+| Assassin Eye | Converted eye group above the marked target | `vfx.pike.assassineye.mark` |
+| Charging Strike, Shadow Master | Charge group; triple impact per hit | `vfx.pike.charging.*`, `vfx.pike.shadowmaster.hit` |
+| Vague | Body translucency only | (sound only) |
+
+### Archer
+
+| Skill | Original | Effects |
+|---|---|---|
+| Scout Hawk | Flash and gate; the hawk flying its baked path around the caster | `vfx.cast.hawk`, `vfx.buff.hawk` |
+| Wind Arrow, Perfect Aim | Arrow with dust puffs (Perfect Aim adds a streak); critical flash on arrival | `vfx.projectile.wind`, `vfx.projectile.aim`, `vfx.impact.arrow`, `vfx.archer.aim.hit` |
+| Falcon, Golden Falcon | Gate of embers and pillars; the falcon hovering above; strike flight and triple impact | `vfx.archer.falcon.*`, `vfx.archer.goldenfalcon.*` |
+| Arrow of Rage | Arrow rising over the target and bursting; rain of arrows with dust | `vfx.archer.rage.*` |
+| Avalanche | Arrows leaving afterimages; triple impact | `vfx.archer.avalanche.*` |
+| Elemental Shot | Arrow carrying fire; fire hit or lightning strike by element | `vfx.archer.elemental.*` |
+| Bomb Shot | Javelin carrying sparks; explosion and three flying bursts | `vfx.archer.bombshot.*` |
+| Perforation | Spinning shot with two ribbons through the line; twist particles at each victim | `vfx.archer.perforation.*` |
+| Recall Wolverine | Fire particles | `vfx.archer.wolverine.cast` |
+| Phoenix Shot | Phoenix model flying through the target carrying fire | `vfx.archer.phoenix.shot` |
+| Force of Nature | Converted group on the caster while active | `vfx.archer.nature.aura` |
+
+### Knight
+
+| Skill | Original |
+|---|---|
+| Sword Blast | Blade model flying past the target with sparks |
+| Holy Body | Two counter-rotating body models, flash, spiral sparks; two orbiting comets while active |
+| Double Crash | Normal or critical hit flashes |
+| Holy Valor, Drastic Spirit | Gathering and outgoing streaks; particle aura while active |
+| Brandish | Slash model ahead twice; burst of lines, plates and sparks |
+| Piercing | Weapon glow and sparkles; piercing model flying forward with particles |
+| Divine Inhalation, Godly Shield | Hand burst, outgoing streaks, hand glow; shield model swap |
+| Holy Incantation | Hand particles; particles on the target and above a charmed monster |
+| Grand Cross | Hit particles per hit and a cross model |
+| Sword of Justice | Converted group, ice particles and three models |
+| God Bless | Shield particles, streaks and a converted group on the caster while active |
+| Divine Piercing | Hit particles per hit |
+
+### Atalanta
+
+| Skill | Original |
+|---|---|
+| Shield Strike | Shield glow and ground quads; stun stars |
+| Farina, Bigger Spear | Javelin with trail faces; burst of lines and flashes on arrival |
+| Windy, Frost Javelin | Light, gathering ribbons; aura on the javelin while active (frost shots replace attacks) |
+| Twist Javelin, Fire Javelin, Storm Javelin | Rolling javelin model with particle trail; hit particles |
+| Soul Sucker | Rising souls streaming to the caster |
+| Split Javelin | Several javelins hovering then flying |
+| Triumph / Hall of Valhalla | Hand aura; converted group |
+| Lightning Javelin | Lightning strip projectile; homing sparks and lightning particles |
+| X-Rage, Vengeance | Shot model with ribbon; converted hit group |
+
+### Priestess and Magician
+
+Every cast draws a cast circle at the feet (circle model plus two ground quads; the Magician has its own textures).
+
+| Class | Skills |
+|---|---|
+| Priestess | Healing (spiral model and particles), Holy Bolt (tracking particle stream, line burst), Multi Spark (fanning sparks), Holy Mind, Divine Lightning (lightning strike per target), Holy Reflection (petals, net models), Grand Healing (wing models, orbiting ribbons), Vigor Ball (homing balls), Resurrection, Extinction, Virtual Life, Glacial Spike, Regeneration Field, Chain Lightning (beams between targets), Summon Muspell |
+| Magician | Agony (spiral), Fire Bolt and Fire Ball (tracking stream, meteor shards), Zenith (orbiting upright quads), Watornado (water column model), Enchant Weapon (weapon particles by element), Dead Ray (beam ribbon), Energy Shield (model and particles), Diastrophism (darkening light, model), Spirit Elemental, Dancing Sword, Fire Elemental, Flame Wave, Distortion, Meteo (four falling meteors) |
+
+### Porting the Morion classes
+
+The machinery is complete for these classes; a port is data only:
+
+1. Read the class's skills above and the original behaviour; express each element as parts in
+   `tools/PristonTale.VfxImport/Authored/Classes/<Class>/<Class>.vfx.json`, reusing `vfx.common.*` for hit flashes and
+   bursts and `script.*` / `particle.*` children (or `carryEffect`) for the original scripts.
+2. Map elements: animated billboards -> `animation`; streaks and rays -> `Streak`/`Line` with `burst`/`radial`;
+   orbiting comets -> `Ribbon` + billboard parts with `orbit*`; projectiles -> parts with a `goal` and `endEffect`;
+   javelins and meteors -> `Model` parts with `faceGoal`; weapon glows -> children on `Bip weapon01`; cast circles ->
+   `Model` + `Ground` parts; beams between targets -> `Beam` parts with a goal.
+3. Keep the effect names the rules use or update the rule fields; run `ptvfx import`, the regression runner and the
+   capture probes, and look at the frames.
+
+## Limitations
+
+- Actor appearance changes are not drawn: body tints (anger, poison, frost), translucency (Vague, Vanish), afterimages
+  (Shadow Master), shield model swaps (Spark Shield, Divine Inhalation, Godly Shield) and the enlarged weapon of
+  Expansion (approximated by a wide band).
+- Weapon bands use a fixed blade length per effect, not the equipped weapon's length.
+- Per-hit sound variants (Chain Lance, Shadow Master) play the rule's single impact sound.
+- `Color`/`AddColor` blends draw additively with squared colour; `Shadow`/`InvShadow` darken in the HDR scene.
 
 ## Pitfalls
 
-- Property names are case-sensitive camelCase and unknown properties are ignored: a typo (`"Rate"`, `"lifeTime"`)
-  silently falls back to the default.
-- A misspelled `builtin:` name fails validation; a missing asset texture renders a white square (fallback), not
-  nothing.
-- `spread` 0 with a `Ring`, `Disc` or `Sphere` shape emits radially and ignores `direction`; set `spread` >= 1 to aim.
-- `size` is the half-extent of the quad; trail `width` is the full width. Legacy and importer sizes are halved.
-- `drag` (VFX) is linear per second; `Damping` (legacy emitter) is exponential. They are not interchangeable.
-- `Ground` alignment uses world axes and ignores facing; rotate it with `rotation`/`spin`.
-- Alpha sorting is per instance by caster position; overlapping alpha layers inside one effect draw in emission order.
-- Light colours above 1 clamp (8-bit `Color`); use `power` for brighter lights. Lights do not follow anchors or bones.
-- `Stop()` before a layer's delay cancels that light, sound or legacy layer for good.
-- Sound and legacy layers are not validated; a wrong script name only logs `[Effects] legacy script ... could not be
-  read` at spawn time. Legacy layers are skipped when the legacy engine has 128 instances.
-- Shipped effect names must be unique across files (asserted); duplicates are only legal as `assets/Vfx` overrides.
-- The `LegacyParticleScript` Z axis is negated relative to the scene; keep that when converting coordinates by hand.
+- Property names are camelCase and unknown properties are ignored: a typo silently falls back to the default.
+- A missing texture draws the white fallback; a missing animated billboard or model draws nothing.
+- Parts that run until the effect stops keep a buff alive; give one-shot parts a lifetime, an animation or a goal.
+- `everyEffect` with a converted particle script that streams until stopped leaks for ten minutes; use `carryEffect`.
+- Shipped names must be unique across files; the catalog reports a replaced name as an error.
 
 ## Related
 
-- [rendering.md](rendering.md) — frame graph, depth pre-pass, HDR scene target, transient lights.
-- [shaders.md](shaders.md) — `Vfx.fx`, unlit shader, colour encoding.
-- [skills.md](skills.md) — skill rules, events and timing that trigger effects.
-- [client.md](client.md) — `GameScene`, asset root discovery, client update/draw loop.
-- [testing.md](testing.md) — regression runner, `--capture-skills` and other capture probes.
+- [rendering.md](rendering.md) - frame graph, HDR scene target, transient lights.
+- [shaders.md](shaders.md) - `Vfx.fx` modes, colour encoding.
+- [skills.md](skills.md) - skill rules and events that trigger effects.
+- [tools.md](tools.md) - `ptvfx`.
+- [testing.md](testing.md) - regression runner, `--capture-vfx` and `--capture-skills`.

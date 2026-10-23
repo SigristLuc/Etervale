@@ -65,9 +65,10 @@ internal sealed class CombatEffectsCaptureProbe : Game
              new(new Vector3(400, 0, 400), new Color(80, 80, 80)), new(new Vector3(400, 0, -400), new Color(80, 80, 80))],
             [new(0, 1, 2, 0, -1), new(0, 2, 3, 0, -1)], [], [], new BoundingBox(new Vector3(-400, 0, -400), new Vector3(400, 0, 400)));
         _renderer.AddStage(stage, Array.Empty<PristonModel>());
-        _meteors = new LegacyMeteorEffects(_library, _effects, _renderer.TransientLights, new PristonCollisionWorld(stage));
+        var scripts = new LegacyScriptEffects(_library, _effects, _assets);
+        _meteors = new LegacyMeteorEffects(scripts, _renderer.TransientLights, new PristonCollisionWorld(stage));
         _camera = new PristonCamera(Vector3.Zero, Vector3.Forward);
-        _meshes = new LegacyMonsterMeshEffects(_library, _effects, _renderer.TransientLights);
+        _meshes = new LegacyMonsterMeshEffects(_library, scripts, _renderer.TransientLights);
         _return = new LegacyReturnEffect(GraphicsDevice, _library, _renderer.TransientLights);
         for (int index = 0; index < LegacyMonsterMeshEffects.Capacity; index++)
         {

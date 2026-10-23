@@ -23,10 +23,11 @@ layouts live in [protocol.md](protocol.md).
 | `Hosting/WorldDataLoadService.cs` | Hosted service: `WorldDataAppService.BuildAsync` into `WorldDataHolder.Current`; logs catalog counts. |
 | `Hosting/FieldTerrainLoadService.cs` | Hosted service: reads every field's stage `.smd` collision in parallel into `FieldTerrainCatalog`. |
 | `World/WorldTickService.cs` | `BackgroundService` calling `WorldServer.Tick(1/20 s, tick)` on a `PeriodicTimer`; logs tick percentiles. |
+| `World/QuestUpkeepService.cs` | `BackgroundService` reading `WorldServer.QuestUpkeepRequests` and running `QuestAppService.RunUpkeepAsync`, at most 8 players at a time ([quests.md](quests.md)). |
 | [Net/PristonTcpServer.cs](../Server/PristonTale.Server/Net/PristonTcpServer.cs) | Listener, per-address limit, one `ClientSession` per socket, housekeeping (idle/login timeouts, bandwidth log). |
 | [Net/ClientSession.cs](../Server/PristonTale.Server/Net/ClientSession.cs) | Per-connection state machine: packet dispatch to application services and replies. |
 | `Net/PresenceEncoder.cs` | Turns the receiver's `WorldSnapshot` into presence packets (play data, events, drops, owner state). |
-| `Net/WireMapping.cs`, `Net/NpcWireMapping.cs` | Authoritative views to wire structs (`CharacterInfo`, play data, events, NPC service state). |
+| `Net/WireMapping.cs`, `Net/NpcWireMapping.cs`, `Net/QuestWireMapping.cs` | Authoritative views to wire structs (`CharacterInfo`, play data, events, NPC service state, quest messages). |
 | `Net/NetworkLimits.cs` | `Network:*` settings with defaults and validation; IPv4-mapped address normalisation. |
 | `Net/ConnectionGuards.cs` | `PacketRateLimiter`, `TokenBucket`, `ConnectionLimiter`, `LoginThrottle`, `LogSampler`. |
 | `Application/README.md` | Placeholder rule: server-only orchestration goes here; use cases stay in `Shared/PristonTale.Application`. |
@@ -44,9 +45,10 @@ registration order. An exception from any `StartAsync` stops the host before the
 | --- | --- | --- | --- |
 | 1 | `DatabaseMigrationService` | Applies pending FluentMigrator migrations of the chosen provider. | The database cannot be opened or migrated. |
 | 2 | `WorldDataLoadService` | Loads items, monsters, NPCs, field spawns and motion timings from the database. | Repository errors only. An empty, un-imported database loads zero rows and starts an empty world. |
-| 3 | `FieldTerrainLoadService` | Loads the collision of all 42 fields of `WorldCatalog.AllFields` (`FieldDef.StageSmd`). | No assets directory, or any stage missing or unreadable, unless `Assets:AllowMissingTerrain=true`. |
+| 3 | `FieldTerrainLoadService` | Loads the collision of all 43 fields of `WorldCatalog.AllFields` (the quest arena included) (`FieldDef.StageSmd`). | No assets directory, or any stage missing or unreadable, unless `Assets:AllowMissingTerrain=true`. |
 | 4 | `WorldTickService` | Starts the 20 Hz tick loop. | Never; a throwing tick is logged and the loop continues. |
 | 5 | `PristonTcpServer` | Binds `[::]:<Network:Port>` (10009) dual-stack, backlog 512, and accepts. | The port is in use (the host stops). |
+| 6 | `QuestUpkeepService` | Stores the quest work the tick queues (quest drops, quest weapon growth and expiry). | Never; a failed upkeep is logged and retried on the field's next check. |
 
 Terrain details:
 
@@ -56,7 +58,7 @@ Terrain details:
   `StageCollisionReader.Read` and published once with `FieldTerrainCatalog.Publish`, keyed by field code.
 - With `Assets:AllowMissingTerrain=true`, failures become a warning and those fields use `FieldTerrain.None` (no floor
   or wall checks). Use it only for tests and development.
-- A full load logs `Field terrain loaded: 42/42 stages, ...` with about 1.93 million collision triangles and 179 MiB,
+- A full load logs `Field terrain loaded: 43/43 stages, ...` with about 1.93 million collision triangles and 179 MiB,
   well under a second.
 
 `WorldServer` creates `FieldInstance`s lazily on first use and reads `WorldDataHolder.Current` and the terrain catalog
@@ -70,7 +72,7 @@ All registrations are singletons in `HostingExtensions.AddPristonServer`.
 | --- | --- | --- |
 | `ISessionRegistry` | `SessionRegistry` | In-memory login sessions keyed by token; allocates player entity serials. |
 | `CharacterClassRegistry` | type | Class definitions (`PristonTale.Simulation.Characters`). |
-| `AuthAppService`, `CharacterAppService`, `SessionAppService`, `NpcAppService` | types | Use cases called by `ClientSession`. |
+| `AuthAppService`, `CharacterAppService`, `SessionAppService`, `NpcAppService`, `QuestAppService` | types | Use cases called by `ClientSession` (and `QuestUpkeepService`). |
 | `WorldCatalog` (`PristonTale.Simulation.World`) | `_ => new WorldCatalog()` | Factory so DI does not pick the collection constructor with an empty field set. |
 | Persistence | `AddPristonSqlite(path)` or `AddPristonPostgres(connectionString)` | Repositories, `IDbConnectionFactory`, `IDatabaseMigrator`, FluentMigrator runner. See [persistence.md](persistence.md). |
 | `WorldDataAppService`, `WorldDataHolder` | types | Catalog build and the swap-in holder read by the world and the encoders. |
@@ -164,6 +166,7 @@ the same switch.
 | `InventoryCommand` | `ApplyInventoryAsync` | `SessionAppService.ApplyInventoryAsync` | `InventoryResult`. |
 | `ProgressionCommand` | `ApplyProgressionAsync` | `SessionAppService.ApplyProgressionAsync` | `ProgressionResult`. |
 | `NpcServiceRequest` | `RequestNpcServiceAsync` | `NpcAppService.RequestAsync` | State messages, `NpcServiceResult`, and `WARPFIELD` (`EParam` 1) for a teleport. |
+| `QuestRequest` | `RequestQuestAsync` | `QuestAppService.RequestAsync` | `QuestResult`; travel to or from the arena arrives as the encoder's `WARPFIELD`. |
 | `SkillCast` | `CastSkillAsync` | `WorldServer.CastSkillAsync` | `SkillCastResult`. |
 | `LeaveWorld` | inline | `ClosePlayAsync` (leave, save) | `LeaveWorld` echo, `WParam` 1. |
 | anything else | ignored | none | none |
@@ -177,8 +180,8 @@ Error handling inside `HandleAsync`:
 | `InvalidDataException` (malformed packet from a `Read`) | Escapes to `PristonConnection`, which closes with `protocol: ...`. `ATTACK_DAMAGE` decoding errors are caught and only logged. |
 | anything else | Ends the session; logged as `Client session ... failed`. |
 
-Inventory, progression and NPC service handlers convert session, operation and storage exceptions into a failed result
-packet instead, so the client's pending operation always completes.
+Inventory, progression, NPC service and quest handlers convert session, operation and storage exceptions into a failed
+result packet instead, so the client's pending operation always completes.
 
 ### Outbound presence
 
@@ -186,9 +189,10 @@ After `CONNECTED`, `PumpAsync` reads the player's `WorldOutbox` and calls `Prese
 thread-pool task, separate from the receive loop. Per snapshot, in order: `WARPFIELD` on a field change (after removing
 everything known), `PresenceClock` before the first timeline packet, `PLAYDATAGROUP` (one or more), `RemoveObjects`,
 `CombatEvents`, `SkillEvents`, `StatusEffects`, `PLAYITEM`/`DELITEM`, `OwnerStatus` with `Inventory` parts and `Skills`
-when their revisions changed, `SkillCooldowns`. View ranges, rates and the movement budget are in
-[protocol.md](protocol.md#server-capacity). A reliable-event overflow in the outbox (4096 queued events) ends the pump
-and closes the connection with `presence overflow`; the client must reconnect.
+when their revisions changed, `SkillCooldowns`, then `QuestJournal` and `QuestNotices` from the snapshot's quest update.
+In the quest arena (field 32) the encoder leaves out other players and monsters of other players' duels. View ranges,
+rates and the movement budget are in [protocol.md](protocol.md#server-capacity). A reliable-event overflow in the outbox
+(4096 queued events) ends the pump and closes the connection with `presence overflow`; the client must reconnect.
 
 ### Movement and corrections
 

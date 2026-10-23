@@ -11,15 +11,13 @@ public sealed class LegacyMeteorEffects
     public const int Capacity = 16;
     public const float Speed = 8f * 70f;
     private readonly Projectile[] _projectiles = new Projectile[Capacity];
-    private readonly LegacyEffectLibrary _library;
-    private readonly EffectsEngine _effects;
+    private readonly IScriptEffects _effects;
     private readonly PristonTransientLights _lights;
     private readonly IPristonCollisionQuery _collision;
     public int Count { get; private set; }
 
-    public LegacyMeteorEffects(LegacyEffectLibrary library, EffectsEngine effects, PristonTransientLights lights, IPristonCollisionQuery collision)
+    public LegacyMeteorEffects(IScriptEffects effects, PristonTransientLights lights, IPristonCollisionQuery collision)
     {
-        _library = library;
         _effects = effects;
         _lights = lights;
         _collision = collision;
@@ -52,12 +50,12 @@ public sealed class LegacyMeteorEffects
 
     private bool SpawnVelocity(Vector3 start, Vector3 velocity)
     {
-        if (Count == Capacity || _effects.Instances.Count >= 128)
+        if (Count == Capacity)
         {
             return false;
         }
 
-        var effect = _effects.Spawn(_library.TerrainFire, start);
+        var effect = _effects.Spawn("TerrainFire", start, Matrix.Identity);
         _projectiles[Count++] = new Projectile(effect, start, velocity, 0);
         return true;
     }
@@ -79,17 +77,14 @@ public sealed class LegacyMeteorEffects
             bool hit = _collision.TryTraceSegment(projectile.Position, next, out var contact, out _);
             if (hit || seconds >= remaining)
             {
-                projectile.Effect.Stop();
+                projectile.Effect?.Stop();
                 _projectiles[index] = _projectiles[--Count];
                 _projectiles[Count] = default;
                 if (hit)
                 {
                     // A small lift keeps the TYPE_TWO ground rings above the depth-tested surface.
                     contact.Y += .1f;
-                    if (_effects.Instances.Count < 128)
-                    {
-                        _effects.Spawn(_library.FireBigHit, contact);
-                    }
+                    _effects.Spawn("FireBigHit1", contact, Matrix.Identity);
 
                     _lights.Add(contact, new Color(255, 200, 100), 250, 2);
                 }
@@ -97,7 +92,7 @@ public sealed class LegacyMeteorEffects
                 continue;
             }
 
-            projectile.Effect.Position = next;
+            projectile.Effect?.MoveTo(next);
             _projectiles[index++] = projectile with { Position = next, Age = projectile.Age + seconds };
         }
     }
@@ -106,12 +101,12 @@ public sealed class LegacyMeteorEffects
     {
         for (int index = 0; index < Count; index++)
         {
-            _projectiles[index].Effect.Stop();
+            _projectiles[index].Effect?.Stop();
             _projectiles[index] = default;
         }
 
         Count = 0;
     }
 
-    private readonly record struct Projectile(EffectInstance Effect, Vector3 Position, Vector3 Velocity, float Age);
+    private readonly record struct Projectile(IScriptEffect Effect, Vector3 Position, Vector3 Velocity, float Age);
 }
