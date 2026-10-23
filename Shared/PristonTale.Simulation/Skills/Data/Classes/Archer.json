@@ -127,7 +127,7 @@
           "radius": [260, 260, 260, 260, 260, 260, 260, 260, 260, 260],
           "damage": {"percent": [50, 62, 74, 86, 98, 110, 122, 134, 146, 158], "weaponDivisor": 1, "weaponFromAttack": true, "noCritical": true} } },
       "motionSpeedByRank": [78, 96, 114, 132, 150, 168, 186, 204, 222, 240], "motionIndex": 89, "motionFrames": 142, "motionEvents": [29, 125],
-      "castEffect": "vfx.archer.phoenix.charge", "impactEffect": "vfx.archer.phoenix.shot",
+      "impactEffect": "vfx.archer.phoenix.shot",
       "castSound": "wav/Effects/Skill/Tempskron/Charging 01.wav", "impactSound": "wav/Effects/Skill/Tempskron/PhoenixShot 01.wav" },
     { "code": "0x04080004", "name": "Force of Nature", "tier": "Job4", "category": "Buff", "icon": "TA70 F_O_Nature",
       "description": "It improves your ability by natural assimilation perfectly.", "requiredLevel": 70, "mouse": "Right",

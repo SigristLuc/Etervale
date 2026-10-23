@@ -492,8 +492,7 @@
         "loopFrom": 1,
         "loop": true,
         "modelSpeed": 17.5,
-        "every": 0.0143,
-        "everyEffect": "particle.FireJavelinFire"
+        "carryEffect": "particle.FireJavelinFire"
       }
     ]
   },
@@ -842,8 +841,7 @@
         "end": "Hold",
         "fadeOut": 0.1571,
         "reach": 8,
-        "every": 0.0143,
-        "everyEffect": "particle.Skill3ArcherBombShot1"
+        "carryEffect": "particle.Skill3ArcherBombShot1"
       }
     ]
   },
@@ -937,8 +935,7 @@
           0.45,
           0.45
         ],
-        "every": 0.0286,
-        "everyEffect": "particle.twistJavelin1"
+        "carryEffect": "particle.twistJavelin1"
       },
       {
         "shape": "Ribbon",
@@ -1063,96 +1060,6 @@
     ]
   },
   {
-    "name": "vfx.archer.phoenix.charge",
-    "duration": 3.0,
-    "emitters": [
-      {
-        "texture": "builtin:flame",
-        "anchor": "Caster",
-        "offset": [
-          0,
-          40,
-          0
-        ],
-        "bone": "Bip01 L Hand",
-        "local": true,
-        "rate": 60,
-        "emitTime": 2.8,
-        "maxParticles": 120,
-        "lifetime": [
-          0.3,
-          0.5
-        ],
-        "speed": [
-          10,
-          40
-        ],
-        "spread": 180,
-        "intensity": 4,
-        "size": [
-          {
-            "t": 0,
-            "v": [
-              8
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              2
-            ]
-          }
-        ],
-        "color": [
-          {
-            "t": 0,
-            "v": [
-              1.0,
-              0.55,
-              0.2,
-              0
-            ]
-          },
-          {
-            "t": 0.15,
-            "v": [
-              1.0,
-              0.55,
-              0.2,
-              1.0
-            ]
-          },
-          {
-            "t": 1,
-            "v": [
-              0.6,
-              0.33,
-              0.12,
-              0
-            ]
-          }
-        ]
-      }
-    ],
-    "lights": [
-      {
-        "anchor": "Caster",
-        "offset": [
-          0,
-          40,
-          0
-        ],
-        "color": [
-          1.0,
-          0.5,
-          0.2
-        ],
-        "power": 180,
-        "decay": 1
-      }
-    ]
-  },
-  {
     "name": "vfx.archer.phoenix.shot",
     "duration": 3.0,
     "parts": [
@@ -1176,8 +1083,7 @@
         "faceGoal": true,
         "end": "LastFrame",
         "fadeOut": 0.3714,
-        "every": 0.0286,
-        "everyEffect": "particle.Skill4PhoenixShot"
+        "carryEffect": "particle.Skill4PhoenixShot"
       }
     ]
   },

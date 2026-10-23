@@ -84,7 +84,7 @@ internal static class VfxImportTests
         static bool Converted(string name) => name.StartsWith("script.", StringComparison.Ordinal) || name.StartsWith("particle.", StringComparison.Ordinal);
         var started = definitions
             .SelectMany(static definition => definition.Children.Select(static child => child.Effect)
-                .Concat(definition.Parts.SelectMany(static part => new[] { part.EndEffect, part.EveryEffect })))
+                .Concat(definition.Parts.SelectMany(static part => new[] { part.EndEffect, part.EveryEffect, part.CarryEffect })))
             .Where(name => name.Length > 0 && !Converted(name) && !names.Contains(name))
             .Distinct()
             .ToArray();

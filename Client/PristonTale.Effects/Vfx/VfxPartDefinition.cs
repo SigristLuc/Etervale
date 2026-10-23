@@ -175,6 +175,8 @@ public sealed record VfxPartDefinition
     // Orbit speed alternates direction by index.
     public bool OrbitAlternate { get; init; }
 
+    // Effect carried by each part: started at its birth, moved with it and stopped when it ends (a fire on a shot).
+    public string CarryEffect { get; init; } = "";
     // Effect started every Every seconds at each live part (dust behind a bomb).
     public string EveryEffect { get; init; } = "";
     public float Every { get; init; }

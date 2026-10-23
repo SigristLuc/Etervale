@@ -113,8 +113,9 @@ public sealed partial class VfxRenderer
         }
     }
 
-    // The band a bone swept: quads between consecutive (base, tip) samples, V from the newest (0) to the oldest (1). Each
-    // older sample is TrailFade (of 255) dimmer, colour and opacity alike, so additive bands fade too.
+    // The band a bone swept: quads between consecutive (base, tip) samples, U from base (0) to tip (1), V from the newest
+    // (0) to the oldest (1). Each older sample is TrailFade (of 255) dimmer, colour and opacity alike, so additive bands
+    // fade too.
     private void AppendBlade(PartState state, int index, Texture2D texture, VfxBlend blend, Vector4 tint)
     {
         ref readonly var part = ref state.Parts[index];
@@ -130,7 +131,7 @@ public sealed partial class VfxRenderer
             var older = at + (part.TrailHead - segment - 1 + points) % points * 2;
             var v0 = segment / (float)(part.TrailCount - 1);
             var v1 = (segment + 1) / (float)(part.TrailCount - 1);
-            AppendGradient(texture, blend, state.Trail[newer + 1], state.Trail[newer], state.Trail[older], state.Trail[older + 1], first, second, v0, v1);
+            AppendGradient(texture, blend, state.Trail[newer], state.Trail[newer + 1], state.Trail[older + 1], state.Trail[older], first, second, v0, v1);
         }
     }
 

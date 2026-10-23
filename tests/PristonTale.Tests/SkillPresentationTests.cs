@@ -172,7 +172,7 @@ internal static class SkillPresentationTests
                     problems.Add($"{definition.Name} model {part.Model} is missing");
                 }
 
-                foreach (var started in new[] { part.EndEffect, part.EveryEffect })
+                foreach (var started in new[] { part.EndEffect, part.EveryEffect, part.CarryEffect })
                 {
                     if (started.Length > 0 && !names.Contains(started))
                     {

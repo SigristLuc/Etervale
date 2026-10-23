@@ -188,6 +188,8 @@ public sealed class VfxInstance
     private float _arc;
 
     public CompiledVfx Effect { get; private set; } = null!;
+    // Counts the uses of this pooled instance, so a holder can tell its effect from a later one.
+    internal int Generation { get; private set; }
     public VfxSpawn Spawn { get; private set; }
     public float Age { get; private set; }
     public bool Alive { get; private set; }
@@ -222,6 +224,7 @@ public sealed class VfxInstance
     internal void Begin(CompiledVfx effect, in VfxSpawn spawn, uint seed)
     {
         Effect = effect;
+        Generation++;
         Spawn = spawn;
         Age = 0f;
         Alive = true;
@@ -290,6 +293,11 @@ public sealed class VfxInstance
         foreach (var sequence in SequenceStates)
         {
             sequence?.Release();
+        }
+
+        foreach (var part in PartStates)
+        {
+            part?.Release();
         }
 
         var children = Effect.Definition.Children;

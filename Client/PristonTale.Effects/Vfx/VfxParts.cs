@@ -63,6 +63,8 @@ internal sealed class CompiledPart
     public bool EndResolved;
     public CompiledVfx? EveryEffect;
     public bool EveryResolved;
+    public CompiledVfx? CarryEffect;
+    public bool CarryResolved;
 }
 
 internal enum PartPhase : byte
@@ -117,6 +119,9 @@ internal sealed class PartState
     public Vector3[] Trail = [];
     public float Timer;
     private Matrix _turn;
+    // The carried effect of each part and the generation it was started at (instances are pooled and reused).
+    private VfxInstance?[] _carried = [];
+    private int[] _carriedGeneration = [];
 
     public void Begin(CompiledPart part, ref uint random)
     {
@@ -131,6 +136,16 @@ internal sealed class PartState
         else
         {
             Array.Clear(Parts);
+        }
+
+        if (_carried.Length != count)
+        {
+            _carried = new VfxInstance?[count];
+            _carriedGeneration = new int[count];
+        }
+        else
+        {
+            Array.Clear(_carried);
         }
 
         var trail = count * part.TrailStride;
@@ -194,10 +209,59 @@ internal sealed class PartState
             }
 
             Step(ref part, index, instance, dt, emitting, anchors, system);
+            if (source.CarryEffect.Length > 0)
+            {
+                Carry(ref part, index, instance, system);
+            }
+
             any |= part.Phase == PartPhase.Live;
         }
 
         return any;
+    }
+
+    private void Carry(ref VfxPart part, int index, VfxInstance instance, VfxSystem system)
+    {
+        var carried = _carried[index];
+        if (carried is not null && (carried.Generation != _carriedGeneration[index] || !carried.Alive))
+        {
+            _carried[index] = null;
+            carried = null;
+        }
+
+        if (part.Phase != PartPhase.Live)
+        {
+            carried?.Stop();
+            _carried[index] = null;
+            return;
+        }
+
+        if (carried is not null)
+        {
+            carried.MoveTo(part.Position);
+            return;
+        }
+
+        if (part.Age <= 0.1f && system.Resolve(Part.Source.CarryEffect, ref Part.CarryEffect, ref Part.CarryResolved) is { } effect
+            && system.SpawnFrom(instance, effect, part.Position) is { } started)
+        {
+            _carried[index] = started;
+            _carriedGeneration[index] = started.Generation;
+        }
+    }
+
+    // The effect ends: carried effects stop with it.
+    public void Release()
+    {
+        for (var index = 0; index < _carried.Length; index++)
+        {
+            if (_carried[index] is { } carried && carried.Generation == _carriedGeneration[index])
+            {
+                carried.Stop();
+            }
+
+            _carried[index] = null;
+        }
     }
 
     public Matrix Turn => _turn;
