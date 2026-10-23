@@ -6,7 +6,7 @@ public sealed class ItemCatalog
     private readonly Dictionary<uint, ItemDefinition> _questVariants;
 
     // Quest variants share the code of a regular item but carry their own name and stats (the unique quest marker of the
-    // authored data); quests hand them out and saved items name them by their Unique value.
+    // authored data); quests hand them out and saved items name them by their unique marker.
     public ItemCatalog(IEnumerable<ItemDefinition> definitions, IEnumerable<ItemDefinition> questVariants = null)
     {
         _byCode = definitions.ToDictionary(static d => d.Code);

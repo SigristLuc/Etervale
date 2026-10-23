@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Npcs;
@@ -53,6 +54,12 @@ internal sealed class OnlinePlayChannel : IPlayChannel
     {
         await _start.WaitAsync(ct);
         return await _connection.ApplyInventoryAsync(command, ct);
+    }
+
+    public async Task<ItemUseOutcome> UseItemAsync(ItemUseCommand command, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        return await _connection.UseItemAsync(command, ct);
     }
 
     public async Task SendMovementAsync(Vector3 position, float facing, bool moving, bool running, uint actionTarget, int fieldCode, CancellationToken ct = default)

@@ -4,8 +4,8 @@ using PristonTale.Simulation.Characters;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
-// Original status window: Status.bmp with its text columns and the attribute point arrows.
-// The element resistance boxes are not part of the authoritative owner state and stay empty.
+// Original status window: Status.bmp with its text columns, the attribute point arrows and the organic, poison, fire,
+// lightning and ice resistance boxes.
 public sealed class HudStatusPanel
 {
     private const int TextShift = 2;
@@ -16,7 +16,8 @@ public sealed class HudStatusPanel
         (391, 482, 429 + TextShift), (391, 482, 454 + TextShift), (391, 482, 479 + TextShift),
         (585, 632, 433 + TextShift), (585, 632, 454 + TextShift), (585, 632, 473 + TextShift), (585, 632, 493 + TextShift), (585, 632, 513 + TextShift),
         (710, 769, 455 + TextShift - 1), (710, 769, 474 + TextShift - 1), (710, 769, 495 + TextShift - 1), (710, 769, 515 + TextShift - 1),
-        (710, 769, 534 + TextShift - 1), (585, 632, 533 + TextShift - 1)
+        (710, 769, 534 + TextShift - 1), (585, 632, 533 + TextShift - 1),
+        (220, 248, 457 + TextShift), (289, 315, 456 + TextShift), (220, 248, 494 + TextShift), (289, 315, 494 + TextShift), (220, 248, 531 + TextShift)
     ];
 
     private readonly string[] _text = new string[Values.Length];
@@ -86,6 +87,12 @@ public sealed class HudStatusPanel
         _text[16] = state.Absorption.ToString();
         _text[17] = state.MoveSpeed.ToString();
         _text[18] = state.StatPoints > 0 ? state.StatPoints.ToString() : "";
+        var resistances = state.Resistances;
+        _text[19] = resistances.Bionic.ToString();
+        _text[20] = resistances.Poison.ToString();
+        _text[21] = resistances.Fire.ToString();
+        _text[22] = resistances.Lighting.ToString();
+        _text[23] = resistances.Ice.ToString();
     }
 
     public void Invalidate() => _state = null;

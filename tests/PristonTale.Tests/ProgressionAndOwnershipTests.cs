@@ -69,15 +69,13 @@ internal static class ProgressionAndOwnershipTests
         var axe = new ItemInstance(new ItemDefinition(1, "Axe", ItemKind.Axe, EquipmentSlot.Weapon, TwoHanded: true)
         {
             BaseStats = new ItemStatBlock(10, 20, 0, 3, 0, 0, 0, 0, 0, 0)
-        })
-        {
-            JobSpecMask = (uint)JobBitCode.Archer
-        };
+        });
+        axe.Roll = axe.Roll with { SpecJob = (uint)JobBitCode.Archer };
         var shield = new ItemInstance(new ItemDefinition(2, "Shield", ItemKind.Shield, EquipmentSlot.OffHand));
         Assert.True(character.Inventory.TryPlace(axe, 0) && character.TryEquipFromInventory(0, EquipmentSlot.Weapon), "weapon equip failed");
         Assert.True(!character.CanEquip(EquipmentSlot.OffHand, shield), "two-handed weapon allowed a shield");
         Assert.True(!character.CanEquip(EquipmentSlot.Armor, axe), "weapon accepted in armor slot");
-        Assert.True(character.EquippedStats().AttackRating == 3, "off-class specialization removed base stats");
+        Assert.True(character.EquipmentTotals.AttackRating == 3, "off-class specialization removed base stats");
         var attributes = character.Attributes;
         var expectedMin = 2 + 10 * (attributes.Strength + 130) / 130 + (attributes.Talent + attributes.Agility) / 40 + 1 + 30 / 16;
         var expectedMax = 4 + 20 * (attributes.Strength + 130) / 130 + (attributes.Talent + attributes.Agility) / 40 + 1;

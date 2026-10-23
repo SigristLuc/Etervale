@@ -115,9 +115,9 @@ Item, monster, NPC and spawn-table files share one line format, decoded as CP949
 | `*내구력`, `*무게`, `*가격`, `*공격력` (4 values), `*명중력`, `*방어력`, `*흡수력`, `*블럭율`, `*이동속도`, ... | Stat ranges |
 | Element keys (8) | `res_<element>_min/max` in bionic, earth, fire, ice, lighting, poison, water, wind order |
 | Regen, add and restore keys | Each has two spellings (`KeyMaps.ItemManaRegen` and siblings) |
-| `**특화` class names | `job_mask` (OR of `JobBitCode`; English or Korean class names) |
-| `**특화랜덤` class names | `item_template_job_random` rows in order |
-| Other `**` stat keys | `item_template_special` with a stable bonus code (`ItemTxtParser.SpecialBonusCode`) |
+| `**특화` class names | `job_mask`: the `JobBitCode` of the last known class name (English or Korean; Assassin and Shaman included) |
+| `**특화랜덤` class names | `item_template_job_random` rows in order; names of classes the game does not have (`MartialArtist`, misspellings) are skipped |
+| Other `**` stat keys | `item_template_special` with a stable bonus code (`ItemTxtParser.SpecialBonusCode`, value 0 and value 1): 0 absorb, 1 defence, 2 move speed, 3 block, 4 attack speed, 5 critical, 6 range, 7 magic mastery, 8 mana per level, 9 life per level, 10 attack rating per level, 11 damage per level (second value), 12 mana regeneration, 13 life regeneration, 14 stamina regeneration, 15 life regeneration range (`**LifeRegenRange`) |
 | `*최대수량`, `*보유공간`, magic mastery keys | `max_stack` (min 1), `potion_space`, `magic_mastery` |
 | `*유니크` | `unique_item` (1 when the key has no value) |
 
@@ -135,7 +135,11 @@ An item code is a 3-character category plus two digits (`WA101`). `LegacyItemCod
 and returns `base | ordinal << 8`; the importer stores it as `item_code_mask`. Codes whose category is not in that
 table (the supplied data has several) are imported with `item_code_mask = 0`, listed in one report warning, kept in
 `item_templates`, and skipped by the runtime catalog. Giving them invented numbers would create conflicting item
-identities on the wire.
+identities on the wire. Daggers (`WD1`), phantoms (`WN1`) and vambraces (`WV1`) take the free weapon categories after
+the javelins: `0x01090000` phantoms, `0x010A0000` daggers, `0x010B0000` vambraces.
+
+`WorldDataFactory.ToItemDefinition` turns each row into the shop form plus an `ItemTemplate` with every range and the
+specialization bonuses (`ToItemTemplate`); see [simulation.md](simulation.md#items).
 
 Code lookups are case-insensitive: drop and shop references (often lower case) are rewritten to the casing stored in
 `item_templates.code`.

@@ -18,6 +18,8 @@ public enum RemoteCombatEventKind
     Evade = 7,
     // A dead player rose again (a revive skill); Damage carries the life it returns with.
     Revive = 8,
+    // A player blocked a monster's normal attack; no damage reaches them.
+    Block = 9,
 }
 
 public sealed record CombatEventInfo(

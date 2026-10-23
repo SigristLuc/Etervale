@@ -75,7 +75,9 @@ public enum StatKind : byte
     ArmorDefence = 47,
     // Damage added to every strike of the holder's familiar.
     CompanionDamage = 48,
-    Count = 49
+    // Damage added to the power roll of every spell (magic force orbs).
+    SpellDamage = 49,
+    Count = 50
 }
 
 public enum ModifierOp : byte

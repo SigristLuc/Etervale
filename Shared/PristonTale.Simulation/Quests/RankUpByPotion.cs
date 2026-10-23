@@ -151,7 +151,7 @@ public static class RankUpByPotion
         QuestInventory.Remove(character, ingredient, needed);
         if (!QuestInventory.TryGrant(context, [new QuestGrant(code == QuestCode.RankUpHoney ? QuestItems.RoyalJelly : QuestItems.HairTonic)]))
         {
-            return context.Fail(QuestStatus.NoSpace, QuestTexts.NotEnoughSpace);
+            return QuestInventory.Refused(context);
         }
 
         return true;

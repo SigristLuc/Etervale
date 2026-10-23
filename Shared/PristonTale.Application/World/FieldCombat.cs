@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using PristonTale.Simulation.Combat;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Ai;
@@ -110,6 +111,9 @@ internal sealed class FieldCombat
 
     // Shared by swings and skills: credits the hit, emits it and pays out a kill.
     // A summon's or familiar's blow names its own entity as the attacker and still credits the owner.
+    // A player's own hit on a wild monster (not a familiar's or a summon's), for the effects that answer each attack.
+    public Action<WorldPlayer, MonsterInstance, int>? PlayerHitLanded { get; set; }
+
     public KillPayout? ApplyPlayerDamage(WorldPlayer player, MonsterInstance monster, int damage, bool crit, long nowMs, bool forceFlinch = false,
         uint sourceEntityId = 0)
     {
@@ -120,6 +124,11 @@ internal sealed class FieldCombat
 
         bool monsterAtFullHp = monster.Life >= monster.Def.Combat.MaxLife;
         Log(monster.EntityId).RecordHit(player.EntityId, damage, monsterAtFullHp, nowMs);
+        if (sourceEntityId == 0 && !monster.IsSummon)
+        {
+            PlayerHitLanded?.Invoke(player, monster, damage);
+        }
+
         monster.ApplyDamage(damage);
         SkillCombat?.MonsterDamaged(monster);
 
@@ -174,6 +183,7 @@ internal sealed class FieldCombat
         HitResult result = CombatResolver.ResolveMonsterAttack(_rng, atk, def, CombatProfileFactory.HasShield(target.Character));
         if (result.Blocked)
         {
+            _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, landed.TargetEntityId, CombatEventKindView.Block));
             SkillCombat?.Blocked(attacker, target);
         }
 
@@ -290,6 +300,7 @@ internal sealed class FieldCombat
         {
             creditedTier = creditedPlayer.Character.Tier;
             exp = KillReward.ExpForKill(monster.Def.ExpReward, monster.Def.Combat.Level, creditedPlayer.Level, _experienceMultiplier);
+            exp = (int)Math.Min(int.MaxValue, PremiumRules.BoostExperience(exp, creditedPlayer.Character.Premium));
             _expByPlayer.TryGetValue(credited, out long total);
             _expByPlayer[credited] = total + exp;
             creditedPlayer.Character.AwardExperience(exp);
@@ -297,7 +308,8 @@ internal sealed class FieldCombat
 
         // The monster's event item goes to the credited player before the drop rolls.
         var eventItem = monster.Def.EventItem != 0 && creditedTier >= 0 && QuestDrops.EventItemDrops(_rng, monster.Def.EventItem, creditedTier);
-        IReadOnlyList<RolledDrop> drops = DropRoller.Roll(_rng, monster.Def.Drops, eventItem, monster.Def.EventItem);
+        var dropBonus = credited != 0 && _host.TryGetPlayer(credited, out var looter) ? PremiumRules.ExtraDropChance(looter.Character.Premium) : 0;
+        IReadOnlyList<RolledDrop> drops = DropRoller.Roll(_rng, monster.Def.Drops, eventItem, monster.Def.EventItem, dropBonus);
 
         _damageLogs.Remove(monster.EntityId);
         _corpseMsLeft[monster.EntityId] = CorpseDespawnMs;

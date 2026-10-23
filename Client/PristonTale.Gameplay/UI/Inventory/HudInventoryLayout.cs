@@ -56,6 +56,7 @@ public static class HudInventoryLayout
 
     public static Rectangle Close(Point origin) => new(origin.X + 266, origin.Y + 572, 22, 19);
     public static Rectangle Money(Point origin) => new(origin.X + 147, origin.Y + 574, 110, 18);
+    public static Rectangle Weight(Point origin) => new(origin.X + 326, origin.Y + 471, 80, 15);
     public static Rectangle Window(Point origin) => new(origin.X, origin.Y + 400, HudLayout.DesignWidth, 200);
 
     private static Rectangle Edges(int left, int top, int right, int bottom) => new(left, top, right - left, bottom - top);

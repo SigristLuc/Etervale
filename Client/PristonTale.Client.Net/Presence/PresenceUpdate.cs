@@ -26,6 +26,9 @@ public sealed record PresenceUpdate(
     public SkillCooldownSnapshot? Cooldowns { get; init; }
     public SkillCastResultInfo? CastResult { get; init; }
 
+    public PremiumTimerSnapshot? PremiumTimers { get; init; }
+    public IReadOnlyList<ItemEffectInfo> ItemEffects { get; init; } = [];
+
     // The quest journal when it changed, quest notices and a quest dialog the world opened on its own.
     public QuestView? Quest { get; init; }
     public IReadOnlyList<QuestNotice> QuestNotices { get; init; } = [];

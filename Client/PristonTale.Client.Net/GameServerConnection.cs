@@ -12,6 +12,7 @@ using PristonTale.Protocol.Packets;
 using PristonTale.Protocol.Transport;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Npcs;
@@ -38,6 +39,7 @@ public sealed class GameServerConnection : IGameBackend
     private readonly PresenceDecoder _presence;
     private readonly RecordDataAssembler _record = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<OperationResultPacket>> _operations = new();
+    private readonly ConcurrentDictionary<Guid, TaskCompletionSource<ItemUseResultPacket>> _itemUses = new();
     private readonly ConcurrentDictionary<uint, NpcRequest> _npcRequests = new();
     private readonly ConcurrentDictionary<Guid, ServiceRequest> _serviceRequests = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<QuestOutcome>> _questRequests = new();
@@ -242,6 +244,32 @@ public sealed class GameServerConnection : IGameBackend
             command.Count, (int)command.Slot);
         var result = await OperationAsync(command.OperationId, buffer => packet.Write(buffer), ct);
         return new InventoryOutcome(result.Ok, result.Revision, result.Message);
+    }
+
+    internal async Task<ItemUseOutcome> UseItemAsync(ItemUseCommand command, CancellationToken ct)
+    {
+        ThrowIfDisconnected();
+        var pending = new TaskCompletionSource<ItemUseResultPacket>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_itemUses.TryAdd(command.OperationId, pending))
+        {
+            throw new InvalidOperationException("An item use with this id is already in flight.");
+        }
+
+        try
+        {
+            var packet = new ItemUseCommandPacket(command.OperationId, command.ExpectedRevision, command.ItemId, command.Argument, command.Text);
+            lock (_sendGate)
+            {
+                Connection.SendEncrypted(_scratch.AsSpan(0, packet.Write(_scratch)));
+            }
+
+            var result = await pending.Task.WaitAsync(ct);
+            return new ItemUseOutcome(result.Ok, result.Revision, (ItemUseStatus)result.Status, result.ItemCode, result.Message);
+        }
+        finally
+        {
+            _itemUses.TryRemove(command.OperationId, out _);
+        }
     }
 
     internal async Task<ProgressionOutcome> ApplyProgressionAsync(ProgressionCommand command, CancellationToken ct)
@@ -456,6 +484,11 @@ public sealed class GameServerConnection : IGameBackend
                 pending.TrySetException(error);
             }
 
+            foreach (var pending in _itemUses.Values)
+            {
+                pending.TrySetException(error);
+            }
+
             foreach (var pending in _npcRequests.Values)
             {
                 pending.Completion.TrySetException(error);
@@ -539,6 +572,16 @@ public sealed class GameServerConnection : IGameBackend
             {
                 var result = OperationResultPacket.Read(packet);
                 if (_operations.TryGetValue(result.OperationId, out var pending))
+                {
+                    pending.TrySetResult(result);
+                }
+
+                break;
+            }
+            case EtervaleOpcodes.ItemUseResult:
+            {
+                var result = ItemUseResultPacket.Read(packet);
+                if (_itemUses.TryGetValue(result.OperationId, out var pending))
                 {
                     pending.TrySetResult(result);
                 }

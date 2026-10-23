@@ -22,7 +22,7 @@ public static class Regeneration
     {
         var attributes = character.Attributes;
         var natural = (character.Level + attributes.Strength / 2 + attributes.Health) / 180f;
-        var bonus = character.Effects.Totals.Flat(StatKind.LifeRegen) / 10f;
+        var bonus = character.Effects.Totals.Flat(StatKind.LifeRegen) / 10f + character.Derived.LifeRegen;
         return (natural + bonus) / 1.5f * AppliedRate;
     }
 
@@ -30,7 +30,7 @@ public static class Regeneration
     {
         var attributes = character.Attributes;
         var natural = (character.Level + attributes.Spirit * 1.2f + attributes.Health / 2) / 115f;
-        var bonus = character.Effects.Totals.Flat(StatKind.ManaRegen) / 10f;
+        var bonus = character.Effects.Totals.Flat(StatKind.ManaRegen) / 10f + character.Derived.ManaRegen;
         return (natural + bonus) * AppliedRate;
     }
 
@@ -40,8 +40,8 @@ public static class Regeneration
         switch (posture)
         {
             case RegenerationPosture.Running:
-                // Integer division: 1.4 per second while MaxWeight + Str/2 + 500 is at most 1000, otherwise 0.4.
-                var drain = 1000 / Math.Max(1, character.Derived.MaxWeight + character.Attributes.Strength / 2 + 500) + 0.4f;
+                // Integer division of the carried weight against the limit: 1.4 per second while light, more when heavily loaded.
+                var drain = (1000 + character.CarriedWeight) / Math.Max(1, character.Derived.MaxWeight + character.Attributes.Strength / 2 + 500) + 0.4f;
                 return -drain;
             case RegenerationPosture.Acting:
                 return 0f;
@@ -53,7 +53,7 @@ public static class Regeneration
             2 => 3.3f,
             _ => 2.9f
         };
-        var perSecond = (natural + character.Level / 7 + character.Effects.Totals.Flat(StatKind.StaminaRegen) / 10f) * AppliedRate;
+        var perSecond = (natural + character.Level / 7 + character.Effects.Totals.Flat(StatKind.StaminaRegen) / 10f + character.Derived.StaminaRegen) * AppliedRate;
         return posture == RegenerationPosture.Walking ? perSecond * 0.6f : perSecond;
     }
 }

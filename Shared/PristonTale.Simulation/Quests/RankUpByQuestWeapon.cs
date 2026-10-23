@@ -97,9 +97,9 @@ public static class RankUpByQuestWeapon
         var ringId = Guid.Empty;
         if (!QuestInventory.Has(context.Character, ringCode))
         {
-            if (!context.Items.TryCreateQuestVariant(ringCode, 0, out var ring) || !QuestInventory.TryGiveAll(context.Character, [ring]))
+            if (!context.Items.TryCreateQuestVariant(ringCode, 0, out var ring) || !QuestInventory.TryGiveAll(context, [ring]))
             {
-                return context.Fail(QuestStatus.NoSpace, QuestTexts.NotEnoughSpace);
+                return QuestInventory.Refused(context);
             }
 
             ringId = ring.InstanceId;
@@ -146,10 +146,10 @@ public static class RankUpByQuestWeapon
         }
 
         QuestInventory.Remove(character, QuestItems.Vamp, VampsNeeded);
-        if (!QuestInventory.TryGiveAll(character, [weapon]))
+        if (!QuestInventory.TryGiveAll(context, [weapon]))
         {
             journal.Active = active with { State = Collecting };
-            return context.Fail(QuestStatus.NoSpace, QuestTexts.NotEnoughSpace);
+            return QuestInventory.Refused(context);
         }
 
         var hunt = QuestClasses.WeaponHunt(QuestClasses.ClassOf(character));
@@ -202,7 +202,7 @@ public static class RankUpByQuestWeapon
         }
 
         var damage = context.Rng.NextInclusive(1, 2);
-        var bonus = weapon.RolledBonus with { DamageMin = weapon.RolledBonus.DamageMin + damage, DamageMax = weapon.RolledBonus.DamageMax + damage };
+        var roll = weapon.Roll with { DamageMin = weapon.Roll.DamageMin + damage, DamageMax = weapon.Roll.DamageMax + damage };
         var manaRegen = 0;
         if ((weapon.Definition.Code & 0xFFFF0000u) == StaffCategory)
         {
@@ -210,10 +210,10 @@ public static class RankUpByQuestWeapon
         }
         else
         {
-            bonus = bonus with { AttackRating = bonus.AttackRating + context.Rng.NextInclusive(10, 15) };
+            roll = roll with { AttackRating = roll.AttackRating + context.Rng.NextInclusive(10, 15) };
         }
 
-        weapon.RolledBonus = bonus;
+        weapon.Roll = roll;
         character.TouchInventory();
         var stage = active.WeaponStage + 1;
         var hunt = QuestClasses.WeaponHunt(QuestClasses.ClassOf(character));

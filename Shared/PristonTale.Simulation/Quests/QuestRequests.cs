@@ -34,7 +34,8 @@ public enum QuestStatus : byte
     StorageFailed = 7,
     Conflict = 8,
     NotAvailable = 9,
-    NotEnoughGold = 10
+    NotEnoughGold = 10,
+    OverWeight = 11
 }
 
 // What the dialog's OK button does.

@@ -9,6 +9,7 @@ public static class HudArt
     private const string Inter = Sin + "Inter/";
 
     public const string Menu1 = Inter + "Menu-1.tga";
+    public const string BlockText = Inter + "block.tga";
     public const string Menu2 = Inter + "Menu-2.tga";
     public const string GrowLeft = Inter + "inter_01.bmp";
     public const string GrowMiddle = Inter + "inter_02.bmp";

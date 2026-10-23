@@ -100,8 +100,8 @@ and its account warehouse are always written together, so a gold or item move be
 
 ## Owned-state JSON
 
-`CharacterStateCodec`, `QuestStateCodec` and `WarehouseStateCodec` own the JSON stored in `characters.inventory`,
-`equipment`, `skills`, `quests` and `warehouses.items`.
+`CharacterStateCodec`, `SavedPremium`, `QuestStateCodec` and `WarehouseStateCodec` own the JSON stored in
+`characters.inventory`, `equipment`, `skills`, `premium`, `quests` and `warehouses.items`.
 
 | Column | Shape | Limits on restore |
 | --- | --- | --- |
@@ -110,13 +110,17 @@ and its account warehouse are always written together, so a gold or item move be
 | `skills` | `SavedSkills` v1: points, elite points, `(Code, Rank, Uses)`, progression `Revision` and `Operations` | 128 skills, points >= 0 |
 | `warehouses.items` | `SavedItems` v1 with anchors in the warehouse grid | `WarehouseStorage.MaxItems` |
 | `derived_stats` | `DerivedStatsDto`, written on save; nothing reads it | - |
+| `premium` | `SavedPremium` v1 (`PremiumStateCodec.cs`): premium timers `(Kind, Value, DurationSeconds, ExpiresAtSeconds)` with Unix-second expiry, item-use `Operations`, `GravityScrolls`, big-head mode and expiry; `{}` is empty | 13 timers; expired timers and big head are dropped on restore |
 | `quests` | `SavedQuests` v1: the running quest (`SavedQuest`), level and beginner logs, finished codes, `FinishedCount`, the redistribution offer, `Revision` and quest `Operations` (see [quests.md](quests.md)); `{}` reads as an idle journal | 32 finished codes, 64 operations, defined quest codes and timer kinds, non-negative counts |
-| `premium` | `{}` from the starter row, carried through updates unchanged | - |
 
 - Restore is strict: unknown JSON members are rejected, constructor parameters without defaults are required, max
   depth 16, max 65536 characters, `Version` must be 1, instance ids must be unique and non-empty, the item code must
-  exist in the runtime `ItemCatalog`, counts must fit `MaxStack`, `UpgradeLevel` must be 0. Any violation throws
-  `InvalidDataException`.
+  exist in the runtime `ItemCatalog`, counts must fit `MaxStack`, `UpgradeLevel` must not be negative. Any violation
+  throws `InvalidDataException`.
+- Each `SavedItem` carries the copy's `Roll` (`ItemRoll`: rolled stats, requirements, price, specialization and its
+  bonuses). An item saved without one (older rows) restores in its shop form with its saved `JobSpecMask`;
+  `RolledBonus` is read and ignored. Saved equipment only needs to fit its slot (`PlayerCharacter.CanHold`): a worn item
+  whose requirements are no longer met is restored worn.
 - `[]` (inventory, skills, warehouse) and `{}` (equipment) are the empty legacy values and restore as empty state.
 - An inventory item whose saved anchor no longer fits its footprint moves to the first free cell.
 - `SavedItem.Unique` is 2 for the quest variant of a code (quest weapons, the rank-up ring, Fury rewards); such an item

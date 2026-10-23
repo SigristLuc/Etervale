@@ -122,6 +122,13 @@ internal static class QuestFixture
             definitions.Add(new ItemDefinition(Code(key), key, ItemKind.Axe, EquipmentSlot.Weapon, GridWidth: 2, GridHeight: 3) { CatalogKey = key });
         }
 
+        // Heavier than any character can carry.
+        definitions.Add(new ItemDefinition(Code("WA197"), "Anvil", ItemKind.Axe, EquipmentSlot.Weapon, GridWidth: 2, GridHeight: 3)
+        {
+            CatalogKey = "WA197",
+            Weight = 100_000
+        });
+
         // A weapon strong enough to bring an arena master down quickly.
         definitions.Add(new ItemDefinition(Code("WA199"), "Trial Axe", ItemKind.Axe, EquipmentSlot.Weapon, GridWidth: 2, GridHeight: 3)
         {
@@ -138,12 +145,12 @@ internal static class QuestFixture
         {
             new ItemDefinition(Code("WA108"), "Quest Axe", ItemKind.Axe, EquipmentSlot.Weapon, GridWidth: 2, GridHeight: 3)
             {
-                CatalogKey = "WA108", Unique = ItemDefinition.QuestUnique
+                CatalogKey = "WA108", UniqueItem = ItemDefinition.QuestUnique
             },
-            new ItemDefinition(Code("OR203"), "Emperor Ring", ItemKind.Ring, EquipmentSlot.RingLeft) { CatalogKey = "OR203", Unique = ItemDefinition.QuestUnique },
+            new ItemDefinition(Code("OR203"), "Emperor Ring", ItemKind.Ring, EquipmentSlot.RingLeft) { CatalogKey = "OR203", UniqueItem = ItemDefinition.QuestUnique },
             new ItemDefinition(Code("WA120"), "Minotaur Axe", ItemKind.Axe, EquipmentSlot.Weapon, GridWidth: 2, GridHeight: 3)
             {
-                CatalogKey = "WA120", Unique = ItemDefinition.QuestUnique
+                CatalogKey = "WA120", UniqueItem = ItemDefinition.QuestUnique
             }
         };
         return new ItemCatalog(definitions, variants);

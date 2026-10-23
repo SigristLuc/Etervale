@@ -9,8 +9,8 @@ public enum ItemKind
     Armor, Shield, Gloves, Boots,
     Amulet, Bracelet, Ring, ForceOrb, Sheltom,
     Potion, Material, Quest, Misc,
-    // Keep new weapon values appended: ItemKind is persisted as an integer in world-data rows.
-    Dagger, Phantom
+    // Keep new values appended: ItemKind is persisted as an integer in world-data rows.
+    Dagger, Phantom, Orb, Vambrace
 }
 
 public readonly record struct ItemStatBlock(
@@ -59,45 +59,48 @@ public sealed record ItemDefinition(
 
     public uint AllowedJobs { get; init; }
 
+    // The stats of the item as a shop sells it; dropped copies roll their own values from Template.
     public ItemStatBlock BaseStats { get; init; } = ItemStatBlock.Zero;
 
     public int MaxDurability { get; init; }
     public int Weight { get; init; }
     public int Price { get; init; }
 
-    public ItemStatBlock RolledStatsMin { get; init; } = ItemStatBlock.Zero;
-
-    public ItemStatBlock RolledStatsMax { get; init; } = ItemStatBlock.Zero;
-
     public ResistanceBlock Resistances { get; init; } = ResistanceBlock.Zero;
 
-    public uint JobRandomSpecMask { get; init; }
+    public int Critical { get; init; }
+    public int PotionSpace { get; init; }
+    public float MagicMastery { get; init; }
 
-    public IReadOnlyList<ItemSpecialBonus> SpecialBonuses { get; init; } = [];
+    // 1 marks a unique item; 2 also makes the weapon count as the Mechanician's own weapon.
+    public int UniqueItem { get; init; }
 
-    // The authored unique marker; QuestUnique marks the quest variant of a code.
+    // Authored value ranges; null for definitions built without authored data (every range then collapses to the base).
+    public ItemTemplate Template { get; init; }
+
+    // The unique marker of a code's quest variant (UniqueItem), kept apart from the regular definition.
     public const int QuestUnique = 2;
-    public int Unique { get; init; }
 
     public bool IsEquippable => EquipSlot.HasValue;
     public bool IsStackable => MaxStack > 1;
 
     public bool IsWeapon => Kind is ItemKind.Sword or ItemKind.Axe or ItemKind.Hammer
         or ItemKind.Claw or ItemKind.Pole or ItemKind.Bow or ItemKind.ThrowingWeapon or ItemKind.Staff
-        or ItemKind.Dagger or ItemKind.Phantom;
+        or ItemKind.Dagger or ItemKind.Phantom or ItemKind.Vambrace;
 }
-
-public sealed record ItemSpecialBonus(int BonusCode, int Value);
 
 public sealed class ItemInstance
 {
+    private ItemRoll _roll;
+
     public ItemInstance(ItemDefinition definition, int count = 1)
     {
         Definition = definition;
         Count = count;
-        JobSpecMask = definition.SpecializationJobs;
-        DurabilityMax = definition.MaxDurability;
-        DurabilityCurrent = definition.MaxDurability;
+        _roll = ItemRoller.Lower(definition);
+        var durability = ItemRoller.LowerDurability(definition);
+        DurabilityMax = durability;
+        DurabilityCurrent = durability;
     }
 
     public Guid InstanceId { get; init; } = Guid.NewGuid();
@@ -111,24 +114,29 @@ public sealed class ItemInstance
             UpgradeLevel = UpgradeLevel,
             DurabilityCurrent = DurabilityCurrent,
             DurabilityMax = DurabilityMax,
-            JobSpecMask = JobSpecMask,
-            RolledBonus = RolledBonus
+            Roll = Roll
         };
     }
+
     public int Count { get; set; }
 
     public int UpgradeLevel { get; set; }
     public int DurabilityCurrent { get; set; }
     public int DurabilityMax { get; set; }
 
-    public uint JobSpecMask { get; set; }
+    // Every value decided when the item was made: rolled stats, requirements, price and class specialization.
+    public ItemRoll Roll
+    {
+        get => _roll;
+        set => _roll = value ?? throw new ArgumentNullException(nameof(value));
+    }
 
-    public ItemStatBlock RolledBonus { get; set; } = ItemStatBlock.Zero;
+    public uint JobSpecMask => _roll.SpecJob;
 
     public string DisplayName => UpgradeLevel > 0 ? $"+{UpgradeLevel} {Definition.Name}" : Definition.Name;
 
-    public bool IsBroken => DurabilityMax > 0 && DurabilityCurrent <= 0;
-
     public ItemStatBlock TotalStats =>
-        IsBroken ? ItemStatBlock.Zero : Definition.BaseStats.Add(RolledBonus);
+        new(_roll.DamageMin, _roll.DamageMax, _roll.Defence, _roll.AttackRating, Definition.BaseStats.AttackSpeed, 0, 0, 0, 0, 0);
+
+    public int Price => _roll.Price;
 }

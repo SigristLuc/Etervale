@@ -2,6 +2,7 @@ using System.Numerics;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.World;
@@ -224,15 +225,28 @@ public sealed class WorldPlayer
 
     public bool IsBusy => Action != PlayerActionState.Idle;
 
-    private readonly PlayerAppearanceView _appearance;
+    private PlayerAppearanceView _appearance;
     public PlayerAppearanceView Appearance => _appearance with
     {
         WeaponKey = _character.GetEquipped(EquipmentSlot.Weapon)?.Definition.CatalogKey ?? "",
         ArmorKey = _character.GetEquipped(EquipmentSlot.Armor)?.Definition.CatalogKey ?? "",
         OffHandKey = _character.GetEquipped(EquipmentSlot.OffHand)?.Definition.CatalogKey ?? "",
         InVillage = _inVillage,
-        Tier = _character.Tier
+        Tier = _character.Tier,
+        HelperPet = PremiumPets.HelperPet(_character.Premium) is { } pet ? pet - PremiumEffectKind.HelpPetTerry + 1 : 0,
+        Phoenix = _character.Premium.IsActive(PremiumEffectKind.PhoenixPet),
+        BigHead = _character.Premium.BigHeadMode
     };
+
+    // A hair tint changes the head every viewer draws.
+    public void ChangeHair(int hairIndex)
+    {
+        var current = _appearance;
+        _appearance = new PlayerAppearanceView(current.Name, current.JobCode, current.Tier, current.FaceIndex, hairIndex, current.ModelName, current.ModelName2);
+    }
+
+    // Damage is ignored while the guard runs (revives, invulnerability items).
+    public void Guard(float durationMs) => GuardMsLeft = MathF.Max(GuardMsLeft, durationMs);
 
     public int Level => _character.Level;
     public int Hp => _character.Life;
@@ -302,13 +316,17 @@ public sealed class WorldPlayer
         Position = new Vector3(reached.X, floor, reached.Z);
         Facing = facing;
 
-        MoveState = !moving ? MoveStateView.Idle : running ? MoveStateView.Running : MoveStateView.Walking;
+        // A character over the weight limit only walks, whatever the client reports.
+        var runs = running && !CarriedWeight.IsOverweight(_character);
+        MoveState = !moving ? MoveStateView.Idle : runs ? MoveStateView.Running : MoveStateView.Walking;
         return MovementVerdict.Accepted;
     }
 
     private float RefillMoveBudget(long nowMs)
     {
-        float rate = Locomotion.RunUnitsPerSecond(_character.Derived.MoveSpeed) * ReportSpeedTolerance;
+        var moveSpeed = _character.Derived.MoveSpeed;
+        float rate = (CarriedWeight.IsOverweight(_character) ? Locomotion.WalkUnitsPerSecond(moveSpeed, true) : Locomotion.RunUnitsPerSecond(moveSpeed))
+            * ReportSpeedTolerance;
         if (_budgetMs < 0)
         {
             _moveBudget = rate * FirstReportSeconds + ReportDistanceSlack;

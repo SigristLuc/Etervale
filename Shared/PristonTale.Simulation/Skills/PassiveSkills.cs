@@ -52,7 +52,7 @@ public static class PassiveSkills
 
     public static (int Min, int Max) WeaponBonus(PlayerCharacter character, ItemInstance weapon)
     {
-        if (weapon is null || weapon.IsBroken)
+        if (weapon is null)
         {
             return default;
         }
@@ -119,7 +119,7 @@ public static class PassiveSkills
     private static ItemInstance Weapon(PlayerCharacter character)
     {
         var weapon = character.GetEquipped(EquipmentSlot.Weapon);
-        return weapon is null || weapon.IsBroken ? null : weapon;
+        return weapon;
     }
 
     private static IEnumerable<(SkillRule Rule, int Value)> Learned(LearnedSkills skills)

@@ -139,9 +139,9 @@ public static class CombatResolver
         if (!alwaysHit && !RollHit(rng, hitChance))
             return new HitResult(Hit: false, Blocked: false, Crit: false, Damage: 0, Element: a.Element);
 
-        // Block negates the landed hit (receiver-side). Roll it before computing damage so a blocked
-        // hit consumes no damage rolls beyond the hit (matches the original early-out).
-        if (RollBlock(rng, d, a.AttackerLevel, defenderHasShield))
+        // Block negates the landed hit (receiver-side) before any damage roll. Only players block: a monster's
+        // authored block rating never stops a player's hit.
+        if (!d.IsMonster && RollBlock(rng, d, a.AttackerLevel, defenderHasShield))
             return new HitResult(Hit: true, Blocked: true, Crit: false, Damage: 0, Element: a.Element);
 
         int dmg = RollBaseDamage(rng, a);

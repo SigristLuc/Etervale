@@ -73,6 +73,12 @@ public static class EtervaleOpcodes
     public const uint StatusEffects = 0x45540203;
     public const uint SkillCooldowns = 0x45540204;
 
+    public const uint ItemDetails = 0x45540300;
+    public const uint OwnerItemStatus = 0x45540301;
+    public const uint ItemUseCommand = 0x45540400;
+    public const uint ItemUseResult = 0x45540401;
+    public const uint PremiumTimers = 0x45540402;
+    public const uint ItemEffects = 0x45540403;
     public const uint QuestRequest = 0x45540500;
     public const uint QuestResult = 0x45540501;
     public const uint QuestJournal = 0x45540502;

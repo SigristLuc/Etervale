@@ -87,7 +87,7 @@ public static class WingQuest
 
         if (!context.Character.TryChangeMoney(-recipe.Gold) || !QuestInventory.TryGrant(context, [new QuestGrant(recipe.Result)]))
         {
-            return context.Fail(QuestStatus.NoSpace, QuestTexts.NotEnoughSpace);
+            return QuestInventory.Refused(context);
         }
 
         context.Notice(QuestNoticeKind.Fanfare, "");

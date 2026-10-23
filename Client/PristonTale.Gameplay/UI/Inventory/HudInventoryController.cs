@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Input;
 using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 
 namespace PristonTale.Gameplay.UI.Inventory;
 
@@ -26,6 +27,9 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     // Shop and warehouse windows take clicks on owned items and drops outside the inventory while they are open.
     public Func<OwnedItemView, bool> InterceptClick { get; set; }
     public Func<Guid, Point, bool> ExternalDrop { get; set; }
+
+    // A right click on a carried usable item (premium, travel and effect items).
+    public Action<OwnedItemView> UseRequested { get; set; }
 
     public void CancelDrag()
     {
@@ -84,6 +88,13 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         var rightClicked = mouse.RightButton == ButtonState.Pressed && _previousMouse.RightButton == ButtonState.Released;
         if (rightClicked && selected is not null)
         {
+            if (selected.Slot < 0 && UsableItemCatalog.IsUsable(selected.CatalogKey))
+            {
+                CancelDrag();
+                UseRequested?.Invoke(selected);
+                return;
+            }
+
             if (selected.Slot < 0 && selected.Kind == ItemKind.Potion)
             {
                 CancelDrag();
@@ -163,23 +174,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     public Rectangle ItemBounds(OwnedItemView item) =>
         item.Slot >= 0 ? EquipmentBounds(item.Slot) : HudInventoryLayout.Cell(_origin, item.Anchor, item.Width, item.Height);
 
-    private EquipmentSlot? SlotFor(ItemKind kind)
-    {
-        return kind switch
-        {
-            ItemKind.Sword or ItemKind.Axe or ItemKind.Hammer or ItemKind.Claw or ItemKind.Pole
-                or ItemKind.Bow or ItemKind.ThrowingWeapon or ItemKind.Staff or ItemKind.Dagger
-                or ItemKind.Phantom => EquipmentSlot.Weapon,
-            ItemKind.Armor => EquipmentSlot.Armor,
-            ItemKind.Shield => EquipmentSlot.OffHand,
-            ItemKind.Gloves => EquipmentSlot.Gloves,
-            ItemKind.Boots => EquipmentSlot.Boots,
-            ItemKind.Bracelet => EquipmentSlot.Bracelet,
-            ItemKind.Amulet => EquipmentSlot.Amulet,
-            ItemKind.Sheltom => EquipmentSlot.Sheltom,
-            ItemKind.Ring => _state.Items.Any(item => item.Slot == (int)EquipmentSlot.RingLeft) ? EquipmentSlot.RingRight : EquipmentSlot.RingLeft,
-            _ => null
-        };
-    }
+    private EquipmentSlot? SlotFor(ItemKind kind) =>
+        ItemEquipmentMetadata.DefaultSlot(kind, ItemEquipmentMetadata.SlotOf(kind), slot => _state.Items.Any(item => item.Slot == (int)slot));
 
 }

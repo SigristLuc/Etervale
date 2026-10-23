@@ -39,12 +39,14 @@ public sealed class GameplayScreen : GameScreen
         _hud.CharacterClass = _scene.Player.Class.Class;
         _hud.PortraitScene = _scene;
         _scene.PresenceObserved += _hud.Combat.Observe;
+        _scene.PresenceObserved += _hud.StringEffect.Observe;
         _scene.PresenceObserved += _hud.ObserveQuests;
         _hud.QuestFanfare += _scene.PlayQuestFanfare;
         _scene.NpcSelected += _hud.OpenNpc;
         _scene.SkillNotice += _hud.ShowNotice;
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
         _hud.SummonAutomatic = _scene.SummonAutomatic;
+        _hud.UseItem = _scene.UseItemAsync;
 
         _scene.BeginRemotePresence(Context.Backend.OpenPlayChannel(), _entered);
 
@@ -100,6 +102,7 @@ public sealed class GameplayScreen : GameScreen
         var mapHidden = field is not null && HudMinimap.HiddenOn(field.FieldCode, field.State);
         _hud.World = new HudWorldView(field?.Id, field?.Underground == true, _scene.ActiveMapRectangle, _scene.PlayerPosition,
             _scene.PlayerForward, _scene.TimeOfDay, _scene.RunMode, mapHidden, neighbour, neighbourMap);
+        _hud.PremiumTimers = _scene.PremiumTimers;
         _hud.Update(_scene.Owner);
         _scene.PointerCaptured = _hud.PointerCaptured;
         _scene.CameraInputEnabled = Context.IsWindowActive && !Context.Presentation.AwaitingConfirmation;
@@ -210,6 +213,7 @@ public sealed class GameplayScreen : GameScreen
         if (_scene is not null && _hud is not null)
         {
             _scene.PresenceObserved -= _hud.Combat.Observe;
+            _scene.PresenceObserved -= _hud.StringEffect.Observe;
             _scene.PresenceObserved -= _hud.ObserveQuests;
             _hud.QuestFanfare -= _scene.PlayQuestFanfare;
             _scene.NpcSelected -= _hud.OpenNpc;

@@ -11,7 +11,7 @@ public sealed class PlayerEquipmentPresentation
     private readonly IActorScene _scene;
     private readonly IClientLog _log;
     private readonly string _assetRoot;
-    private readonly CharacterVisualSet _basePlayerVisuals;
+    private CharacterVisualSet _basePlayerVisuals;
     private readonly uint _jobMask;
     private PlayerActorHandles _playerHandles;
     private CharacterVisualSet _requestedPlayerVisuals;
@@ -30,6 +30,20 @@ public sealed class PlayerEquipmentPresentation
         _basePlayerVisuals = visuals;
         _jobMask = jobMask;
         _playerHandles = handles;
+    }
+
+    public CharacterVisualSet BaseVisuals => _basePlayerVisuals;
+
+    // A new head (hair tint, big head) re-composes the player on the next update.
+    public void SetBaseVisuals(CharacterVisualSet visuals)
+    {
+        if (visuals is null || visuals == _basePlayerVisuals)
+        {
+            return;
+        }
+
+        _basePlayerVisuals = visuals;
+        _appearanceInventoryRevision = -1;
     }
 
     public void Stop()

@@ -89,21 +89,36 @@ public static class QuestInventory
         return false;
     }
 
-    // Places every item or none: the placement is tried on a copy of the pack first.
-    public static bool TryGiveAll(PlayerCharacter character, IReadOnlyList<ItemInstance> items)
+    // Whether every item fits: the placement is tried on a copy of the pack, and the items together must stay within the
+    // carried-weight limit like any other item the character takes.
+    public static QuestGrantCheck Check(PlayerCharacter character, IReadOnlyList<ItemInstance> items)
     {
         if (items.Count == 0)
         {
-            return true;
+            return QuestGrantCheck.Fits;
         }
 
+        var weight = 0;
         var trial = character.CloneForInventoryOperation();
         foreach (var item in items)
         {
             if (item is null || !trial.Inventory.TryAdd(item.Copy(item.Count, preserveId: true)))
             {
-                return false;
+                return QuestGrantCheck.NoSpace;
             }
+
+            weight += CarriedWeight.Of(item);
+        }
+
+        return CarriedWeight.CanTake(character, weight) ? QuestGrantCheck.Fits : QuestGrantCheck.OverWeight;
+    }
+
+    // Places every item or none.
+    public static bool TryGiveAll(PlayerCharacter character, IReadOnlyList<ItemInstance> items)
+    {
+        if (Check(character, items) != QuestGrantCheck.Fits)
+        {
+            return false;
         }
 
         foreach (var item in items)
@@ -113,6 +128,18 @@ public static class QuestInventory
 
         return true;
     }
+
+    // Places every item or none, keeping the reason of a refusal for Refused.
+    public static bool TryGiveAll(QuestContext context, IReadOnlyList<ItemInstance> items)
+    {
+        context.GrantRefusal = Check(context.Character, items);
+        return context.GrantRefusal == QuestGrantCheck.Fits && TryGiveAll(context.Character, items);
+    }
+
+    // Fails the request with the reason the last grant did not fit.
+    public static bool Refused(QuestContext context) => context.GrantRefusal == QuestGrantCheck.OverWeight
+        ? context.Fail(QuestStatus.OverWeight, ItemRuleMessages.OverWeight)
+        : context.Fail(QuestStatus.NoSpace, QuestTexts.NotEnoughSpace);
 
     // Creates and places the items of a reward list; the codes missing from the catalog are skipped.
     public static bool TryGrant(QuestContext context, IReadOnlyList<QuestGrant> grants)
@@ -150,8 +177,15 @@ public static class QuestInventory
             }
         }
 
-        return TryGiveAll(context.Character, created);
+        return TryGiveAll(context, created);
     }
+}
+
+public enum QuestGrantCheck : byte
+{
+    Fits = 0,
+    NoSpace = 1,
+    OverWeight = 2
 }
 
 // One reward line: Count units in each of Copies items, optionally specialised for the class or of the quest variant.

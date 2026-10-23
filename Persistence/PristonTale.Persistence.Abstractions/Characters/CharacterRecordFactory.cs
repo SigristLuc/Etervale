@@ -101,6 +101,7 @@ public static class CharacterRecordFactory
             CharacterStateCodec.CaptureEquipment(character),
             CharacterStateCodec.CaptureSkills(character),
             DerivedStatsDto.From(character.Derived),
+            SavedPremium.Capture(character),
             QuestStateCodec.Capture(character.Quests));
     }
 }

@@ -12,8 +12,10 @@ using PristonTale.Gameplay.UI;
 using PristonTale.Gameplay.UI.Inventory;
 using PristonTale.Gameplay.UI.Npc;
 using PristonTale.Gameplay.UI.Quests;
+using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Npcs;
@@ -66,7 +68,8 @@ internal sealed class HudCaptureProbe : Game
     private sealed record Scenario(string Name, int Width, int Height, Keys Panel = Keys.None, Hover Hover = Hover.None, int HealthPercent = 100,
         PlayerClass Class = PlayerClass.Mechanician, bool Npc = false, bool Settings = false, bool SystemMenu = false, bool Learned = false,
         bool Training = false, bool LowHealth = false, float Hour = 13, bool ClassicTarget = false, uint Target = 2, uint NpcId = SkillMasterNpc,
-        int ServiceButton = -1, bool SellMode = false, int ServiceCount = 2, int RightSelect = -1, bool Buffs = false, ProbeQuest Quest = ProbeQuest.None);
+        int ServiceButton = -1, bool SellMode = false, int ServiceCount = 2, int RightSelect = -1, bool Buffs = false, bool Block = false,
+        ProbeQuest Quest = ProbeQuest.None);
 
     private static readonly Scenario[] Scenarios =
     [
@@ -89,6 +92,7 @@ internal sealed class HudCaptureProbe : Game
         new("menu-button-hover-800", 800, 600, Hover: Hover.InventoryButton),
         new("map-toggle-hover-800", 800, 600, Hover: Hover.MapToggle),
         new("low-resources-800", 800, 600, LowHealth: true),
+        new("block-800", 800, 600, Block: true),
         new("inventory-800", 800, 600, Keys.I),
         new("inventory-item-hover-800", 800, 600, Keys.I, Hover.Item),
         new("inventory-1600x1200-scale2", 1600, 1200, Keys.I),
@@ -182,13 +186,30 @@ internal sealed class HudCaptureProbe : Game
         {
             Money = 12750,
             StatPoints = 5,
+            CarriedWeight = 132,
+            MaxWeight = 196,
+            Resistances = new ResistanceBlock(12, 0, 8, 5, 3, 15, 0, 0),
             Items = new OwnedItemView[]
             {
-                new(Guid.NewGuid(), 1, "Axe", ItemKind.Axe, 1, 0, -1, 2, 3, "WA101"),
-                new(Guid.NewGuid(), 2, "Battle armor with a deliberately long localized display name", ItemKind.Armor, 1, 3, -1, 2, 3, "DA102"),
+                new(Guid.NewGuid(), 1, "Axe", ItemKind.Axe, 1, 0, -1, 2, 3, "WA101")
+                {
+                    Details = Detail(new ItemRoll(5, 9, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ResistanceBlock.Zero, 1, new CharacterAttributes(18, 0, 0, 0, 0), 120, 0,
+                        ItemSpecBonus.None), critical: 5, attackSpeed: 6)
+                },
+                new(Guid.NewGuid(), 2, "Battle armor with a deliberately long localized display name", ItemKind.Armor, 1, 3, -1, 2, 3, "DA102")
+                {
+                    Details = Detail(new ItemRoll(0, 0, 0, 24, 1.4f, 0, 0, 0.8f, 0, 0, 0, 0, 0, new ResistanceBlock(6, 0, 4, 0, 0, 0, 0, 0), 4,
+                        new CharacterAttributes(60, 0, 0, 0, 0), 1440, (uint)JobBitCode.Mechanician,
+                        ItemSpecBonus.None with { Defence = 6, Absorb = 0.6f, LevelLife = 5 }))
+                },
                 new(Guid.NewGuid(), 3, "Small mana potion", ItemKind.Potion, 20, 8, -1, 1, 1, "PM101"),
                 new(Guid.NewGuid(), 4, "Small healing potion", ItemKind.Potion, 7, 9, -1, 1, 1, "PL101"),
-                new(Guid.NewGuid(), 5, "Equipped axe", ItemKind.Axe, 1, -1, 0, 2, 3, "WA101")
+                new(Guid.NewGuid(), 5, "Equipped axe", ItemKind.Axe, 1, -1, 0, 2, 3, "WA101"),
+                new(Guid.NewGuid(), 6, "Ring of Strength", ItemKind.Ring, 1, -1, (int)EquipmentSlot.RingLeft, 1, 1, "OR105")
+                {
+                    Details = Detail(new ItemRoll(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, ResistanceBlock.Zero, 30, CharacterAttributes.Empty, 900, 0,
+                        ItemSpecBonus.None))
+                }
             }
         };
 
@@ -321,6 +342,10 @@ internal sealed class HudCaptureProbe : Game
         {
             GraphicsDevice.SetRenderTarget(_target);
             _hud.Update(ScenarioState(scenario), default, Pointer(scenario));
+            if (scenario.Block)
+            {
+                _hud.StringEffect.Show(HudArt.BlockText);
+            }
         }
     }
 
@@ -515,6 +540,9 @@ internal sealed class HudCaptureProbe : Game
 
     private static ShopOffer Stock(string key, int tab, int ordinal, string name, ItemKind kind, long price, int width, int height) =>
         new(LegacyItemCode.Parse(key), tab, ordinal, name, kind, price, width, height, 1, key);
+
+    private static ItemDetailView Detail(ItemRoll roll, int critical = 0, int attackSpeed = 0) =>
+        new(54, 70, 0, roll, critical, attackSpeed, 0, 0, 0, 30, 0, false, true);
 
     private OwnerState ScenarioState(Scenario scenario)
     {

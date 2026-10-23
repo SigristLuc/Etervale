@@ -107,6 +107,11 @@ public sealed class WarehouseStorage
             return NpcServiceStatus.Rejected;
         }
 
+        if (!CarriedWeight.CanTake(character, CarriedWeight.Of(item)))
+        {
+            return NpcServiceStatus.OverWeight;
+        }
+
         var placed = anchor >= 0 ? character.Inventory.TryPlace(item, anchor) : character.Inventory.TryAdd(item);
         if (!placed)
         {

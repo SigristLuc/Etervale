@@ -10,6 +10,7 @@ using PristonTale.Protocol.Transport;
 using PristonTale.Server.Hosting;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.Skills;
@@ -28,6 +29,7 @@ internal sealed record SessionServices(
     NetworkLimits Limits,
     LoginThrottle LoginThrottle,
     NpcAppService Npc,
+    ItemUseAppService ItemUse,
     QuestAppService Quests)
 {
     // Shared by every connection so a flood from many peers still yields one warning per interval.
@@ -165,6 +167,9 @@ internal sealed class ClientSession
                     break;
                 case EtervaleOpcodes.NpcServiceRequest:
                     await RequestNpcServiceAsync(NpcServiceRequestPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.ItemUseCommand:
+                    await UseItemAsync(ItemUseCommandPacket.Read(memory.Span));
                     break;
                 case EtervaleOpcodes.QuestRequest:
                     await RequestQuestAsync(QuestRequestPacket.Read(memory.Span));
@@ -598,6 +603,36 @@ internal sealed class ClientSession
 
         var result = new OperationResultPacket(EtervaleOpcodes.InventoryResult, request.OperationId, outcome.Ok, outcome.Revision, outcome.Message);
         SendLarge(result.Write, OperationResultPacket.Size, encrypt: true);
+    }
+
+    // The item use answers with ItemUseResult; a use that moved the player to another field also sends a forced WARPFIELD.
+    private async Task UseItemAsync(ItemUseCommandPacket request)
+    {
+        var command = new ItemUseCommand(request.OperationId, request.ExpectedRevision, request.ItemId, request.Argument, request.Text);
+        ItemUseReply reply;
+        try
+        {
+            reply = _session is null || _player is null
+                ? new ItemUseReply(ItemUseOutcome.Refused(request.ExpectedRevision, ItemUseStatus.Rejected))
+                : await _services.ItemUse.UseAsync(RequireToken(), command);
+        }
+        catch (WorldBusyException)
+        {
+            reply = new ItemUseReply(ItemUseOutcome.Refused(request.ExpectedRevision, ItemUseStatus.Busy));
+        }
+        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException or System.Data.Common.DbException)
+        {
+            reply = new ItemUseReply(ItemUseOutcome.Refused(request.ExpectedRevision, ItemUseStatus.StorageFailed));
+        }
+
+        var outcome = reply.Outcome;
+        var result = new ItemUseResultPacket(request.OperationId, outcome.Ok, outcome.Revision, (ushort)outcome.Status, outcome.ItemCode, outcome.Message);
+        SendLarge(result.Write, ItemUseResultPacket.MaximumSize, encrypt: true);
+        if (reply.Arrival is { } arrival)
+        {
+            Send(new TransCommand(PristonOpcodes.WarpField, PristonUnits.ToFixed(arrival.Position.Z), arrival.FieldCode,
+                PristonUnits.ToFixed(arrival.Position.X), 1), encrypt: true);
+        }
     }
 
     private async Task ApplyProgressionAsync(ProgressionCommandPacket request)

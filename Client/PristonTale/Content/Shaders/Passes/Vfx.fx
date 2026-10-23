@@ -15,7 +15,7 @@ cbuffer VfxPixelConstants : register(b0)
     float Exposure;           // the scene's exposure
     float DisplayOutput;      // 1: write display-referred sRGB into an 8-bit target; 0: HDR radiance
     float SoftParticles;      // 1 while DepthMap holds this frame's linear view depth
-    float VfxPadding;
+    float Mode;               // 0 radiance; 1 multiplier (darkening); 2 inverse multiplier; 3 radiance x colour
 };
 
 Texture2D<float4> Texture : register(t0);
@@ -59,7 +59,28 @@ float4 PS_Vfx(VSOut i) : SV_Target0
         alpha *= saturate((scene - i.Depth.x) / i.Depth.y);
     }
 
+    float3 factor = saturate(SrgbToLinear(texel.rgb) * i.Color.rgb);
+    if (Mode > 0.5 && Mode < 1.5)
+    {
+        // Destination x source: the soft-particle fade blends towards no change.
+        float fade = alpha / max(texel.a * i.Color.a, 1e-4);
+        return float4(lerp(float3(1.0, 1.0, 1.0), factor, saturate(fade)), 1.0);
+    }
+
+    if (Mode > 1.5 && Mode < 2.5)
+    {
+        float fade = alpha / max(texel.a * i.Color.a, 1e-4);
+        return float4(factor * saturate(fade), 1.0);
+    }
+
     float3 radiance = min(SrgbToLinear(texel.rgb) * i.Color.rgb / Exposure, HdrCap);
+    if (Mode > 2.5)
+    {
+        // Source-colour weighted light: the colour factor scales the added radiance; opacity is not used.
+        radiance *= factor;
+        alpha = 1.0;
+    }
+
     if (DisplayOutput > 0.5)
     {
         return float4(DisplayEncode(radiance, Exposure), alpha);

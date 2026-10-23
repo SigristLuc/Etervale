@@ -194,7 +194,9 @@ lines in `QuestBoard`, and kill credit in `QuestTick.OnKill` when it hunts.
 - Quest items queued by a kill are not in the pack until the upkeep commits; checks that need them must run in the
   upkeep or a request, not on the tick.
 - The level 85 death-penalty reward has no consumer while Etervale has no death experience penalty.
-- Weight limits are not enforced by Etervale, so quest grants check only pack space.
+- A quest grant places all its items or none: they must fit the pack and, together, the carried-weight limit
+  (`QuestInventory.Check`). A refusal answers `NoSpace` or `OverWeight` and leaves the quest where it was; a quest
+  drop that does not fit is lost. Class rewards are made out for the receiver's class (`ItemRoll.SpecJob`).
 - Dagger and phantom quest weapons need their item codes; until the item categories exist they resolve to none and the
   second rank-up refuses to forge for those classes.
 

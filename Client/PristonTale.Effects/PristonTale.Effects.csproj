@@ -12,4 +12,8 @@
         <!-- PristonUnlitEffect: the HDR unlit shader shared with the renderer's glows and mesh effects. -->
         <ProjectReference Include="../PristonTale.Engine3D/PristonTale.Engine3D.csproj" />
     </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="PristonTale.Tests" />
+    </ItemGroup>
 </Project>

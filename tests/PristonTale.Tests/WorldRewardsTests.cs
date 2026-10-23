@@ -77,7 +77,7 @@ internal static class WorldRewardsTests
     {
         var definition = new ItemDefinition(55, "Stone Axe", ItemKind.Axe) { CatalogKey = "WA101" };
         var ground = new FieldGroundLoot(new ItemCatalog([definition]));
-        ground.Place(new KillPayout(2, 1, 0, [RolledDrop.Item(55)]), Vector3.Zero, false, 0);
+        ground.Place(new KillPayout(2, 1, 0, [RolledDrop.Item(55)]), Vector3.Zero, false, 0, new CombatRng(1));
         var drop = ground.Snapshot().Single().View;
         var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Owner");
         var owner = new WorldPlayer(1, Vector3.Zero, character, false, default);
@@ -92,7 +92,7 @@ internal static class WorldRewardsTests
         Assert.True(ground.TryReserve(drop.Id, operation, stranger, out _, out _), "rollback did not release now-public item");
         ground.Resolve(drop.Id, operation, true);
         Assert.True(ground.Count == 0, "successful pickup left a duplicate on the ground");
-        ground.Place(new KillPayout(2, 1, 0, [RolledDrop.Item(55)]), Vector3.Zero, false, 5001);
+        ground.Place(new KillPayout(2, 1, 0, [RolledDrop.Item(55)]), Vector3.Zero, false, 5001, new CombatRng(1));
         var expired = ground.Snapshot().Single().View;
         Assert.True(ground.TryReserve(expired.Id, operation, owner, out _, out _), "expiry fixture reservation rejected");
         ground.Step(185_002);
@@ -100,7 +100,7 @@ internal static class WorldRewardsTests
         ground.Resolve(expired.Id, operation, false);
         Assert.True(!ground.TryReserve(expired.Id, operation, stranger, out _, out _), "expired rollback could be picked up again");
         ground.Step(185_003);
-        ground.Place(new KillPayout(2, 1, 0, [RolledDrop.Gold(8)]), Vector3.Zero, true, 185_003);
+        ground.Place(new KillPayout(2, 1, 0, [RolledDrop.Gold(8)]), Vector3.Zero, true, 185_003, new CombatRng(1));
         ground.Step(275_004);
         Assert.True(ground.Count == 0, "gold did not expire after 90 seconds");
         return Task.CompletedTask;

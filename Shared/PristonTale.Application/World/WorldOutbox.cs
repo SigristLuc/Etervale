@@ -14,6 +14,7 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
     private readonly Queue<CombatEventView[]> _events = new();
     private readonly List<SkillEventView> _skillEvents = new();
     private readonly List<StatusEventView> _statusEvents = new();
+    private readonly List<ItemEffectView> _itemEffects = new();
     private SkillCooldownView[]? _cooldowns;
     private readonly QuestUpdateBuffer _quest = new();
     private readonly int _eventCapacity;
@@ -39,7 +40,7 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
                 return false;
             }
 
-            var incoming = snapshot.Events.Length + snapshot.SkillEvents.Length + snapshot.StatusEvents.Length;
+            var incoming = snapshot.Events.Length + snapshot.SkillEvents.Length + snapshot.StatusEvents.Length + snapshot.ItemEffects.Length;
             if (incoming > _eventCapacity - _eventCount)
             {
                 _completed = true;
@@ -58,7 +59,8 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
             // Skill and status changes are as reliable as combat events; the newest cooldown list replaces older ones.
             _skillEvents.AddRange(snapshot.SkillEvents);
             _statusEvents.AddRange(snapshot.StatusEvents);
-            _eventCount += snapshot.SkillEvents.Length + snapshot.StatusEvents.Length;
+            _itemEffects.AddRange(snapshot.ItemEffects);
+            _eventCount += snapshot.SkillEvents.Length + snapshot.StatusEvents.Length + snapshot.ItemEffects.Length;
             if (snapshot.Cooldowns is not null)
             {
                 _cooldowns = snapshot.Cooldowns;
@@ -107,11 +109,13 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
             {
                 SkillEvents = _skillEvents.Count == 0 ? [] : _skillEvents.ToArray(),
                 StatusEvents = _statusEvents.Count == 0 ? [] : _statusEvents.ToArray(),
+                ItemEffects = _itemEffects.Count == 0 ? [] : _itemEffects.ToArray(),
                 Cooldowns = _cooldowns,
                 Quest = _quest.Take()
             };
             _skillEvents.Clear();
             _statusEvents.Clear();
+            _itemEffects.Clear();
             _cooldowns = null;
             _latest = default;
             _eventCount = 0;

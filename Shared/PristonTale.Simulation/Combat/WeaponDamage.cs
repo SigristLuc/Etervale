@@ -10,7 +10,7 @@ public static class WeaponDamage
     public static (int Min, int Max) Compute(PlayerCharacter character)
     {
         var weapon = character.GetEquipped(EquipmentSlot.Weapon);
-        if (weapon is null || weapon.IsBroken)
+        if (weapon is null)
         {
             // Bare-hand damage already includes the modifiers through the derived stats.
             return (character.Derived.AttackDamageMin, character.Derived.AttackDamageMax);
@@ -18,7 +18,9 @@ public static class WeaponDamage
 
         var attributes = character.Attributes;
         var function = character.Definition.FunctionProfile;
-        var stats = weapon.TotalStats;
+        // Every usable worn item adds its damage range; a held weapon the character cannot use adds nothing.
+        var items = character.EquipmentTotals;
+        var stats = (DamageMin: items.DamageMin, DamageMax: items.DamageMax);
         int primary;
         int divisor;
         int secondary;
@@ -55,7 +57,7 @@ public static class WeaponDamage
         var favoured = character.Definition.Class switch
         {
             PlayerClass.Fighter => weapon.Definition.Kind == ItemKind.Axe,
-            PlayerClass.Mechanician => (weapon.JobSpecMask & (uint)JobBitCode.Mechanician) != 0,
+            PlayerClass.Mechanician => (weapon.JobSpecMask & (uint)JobBitCode.Mechanician) != 0 || weapon.Definition.UniqueItem == 2,
             PlayerClass.Archer => weapon.Definition.Kind == ItemKind.Bow,
             PlayerClass.Pikeman => weapon.Definition.Kind == ItemKind.Pole,
             PlayerClass.Knight => weapon.Definition.Kind == ItemKind.Sword,
@@ -70,7 +72,7 @@ public static class WeaponDamage
         var passive = PassiveSkillEffects.WeaponBonus(character, weapon);
         mastery = (mastery.Min + passive.Min, mastery.Max + passive.Max);
         var minimum = 2 + stats.DamageMin * (primary + divisor) / divisor + secondary + jobDamage + (stats.DamageMin + stats.DamageMax) / 16;
-        var maximum = 4 + stats.DamageMax * (primary + divisor) / divisor + secondary + jobDamage;
+        var maximum = 4 + stats.DamageMax * (primary + divisor) / divisor + secondary + jobDamage + items.LevelDamage;
         return ModifierRules.ApplyDamage(character.Effects.Totals, minimum + mastery.Min, maximum + mastery.Max);
     }
 }

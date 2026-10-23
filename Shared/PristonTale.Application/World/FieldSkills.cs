@@ -66,6 +66,7 @@ internal sealed partial class FieldSkills
         _pendingStarts.Clear();
         _statusEvents.Clear();
         _payouts.Clear();
+        StartItemEffects();
     }
 
     public SkillEventView[] SnapshotSkillEvents() => _skillEvents.Count == 0 ? [] : _skillEvents.ToArray();
@@ -131,7 +132,7 @@ internal sealed partial class FieldSkills
 
         RemoveReplaced(player, rule);
         character.Mana -= SkillFormulas.ManaCost(skill, rank, character.Effects.Totals);
-        character.Stamina -= SkillFormulas.StaminaCost(skill, rank);
+        character.Stamina -= SkillFormulas.StaminaCost(skill, rank, character.Premium);
         var previousUses = character.Skills.UsesOf(skill.Code);
         var casts = player.SkillCasts.GetValueOrDefault(skill.Code) + 1;
         player.SkillCasts[skill.Code] = casts;
@@ -477,7 +478,7 @@ internal sealed partial class FieldSkills
 
     // Body armor made for the caster's class only (its specialization lists no other class).
     private static bool WearsClassArmor(PlayerCharacter character) =>
-        character.GetEquipped(Simulation.Characters.EquipmentSlot.Armor) is { IsBroken: false } armor && armor.JobSpecMask == (uint)character.Definition.JobBitCode;
+        character.GetEquipped(Simulation.Characters.EquipmentSlot.Armor) is { } armor && armor.JobSpecMask == (uint)character.Definition.JobBitCode;
 
     private static bool InRange(WorldPlayer player, Vector3 target, float range)
     {

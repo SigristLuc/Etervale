@@ -3,9 +3,10 @@ using PristonTale.Simulation.Items;
 
 namespace PristonTale.Simulation.World.Npcs;
 
-// Shop prices of the original: an item is bought at its catalog price as its minimum (unrolled) form; it sells for a
-// fifth of its value after wear, where the worn share of the price keeps a quarter of its value; a repair costs an
-// eighth of the value lost to wear. A durability of zero counts as one. Stackable goods sell per unit at a fifth.
+// Shop prices of the original: an item is bought at its catalog price as its lowest form; a copy sells for a fifth of
+// its own value (a specialized drop costs a fifth more) after wear, where the worn share of the price keeps a quarter of
+// its value; a repair costs an eighth of the value lost to wear. A durability of zero counts as one. Stackable goods
+// sell per unit at a fifth. A purchase that would carry the character over the weight limit is refused.
 public static class NpcShopRules
 {
     public const int SellDivisor = 5;
@@ -24,7 +25,7 @@ public static class NpcShopRules
 
     public static long SellPrice(ItemInstance item)
     {
-        var price = Math.Max(0, item.Definition.Price);
+        var price = Math.Max(0, item.Price);
         if (item.Definition.IsStackable)
         {
             return (long)(price / SellDivisor) * item.Count;
@@ -41,7 +42,7 @@ public static class NpcShopRules
             return 0;
         }
 
-        var price = Math.Max(0, item.Definition.Price);
+        var price = Math.Max(0, item.Price);
         return Math.Max(0, price - WornValue(price, item.DurabilityCurrent, item.DurabilityMax)) / RepairDivisor;
     }
 
@@ -64,6 +65,11 @@ public static class NpcShopRules
         if (character.Money < cost)
         {
             return NpcServiceStatus.NotEnoughGold;
+        }
+
+        if (!CarriedWeight.CanTake(character, CarriedWeight.Of(definition, count)))
+        {
+            return NpcServiceStatus.OverWeight;
         }
 
         var item = new ItemInstance(definition, count);

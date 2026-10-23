@@ -16,6 +16,7 @@ internal static class QuestTests
     {
         yield return ("level quests follow level and log, count their hunt, pay points and keep one quest at a time", LevelQuestsAsync);
         yield return ("the level 85 tear goes back on death and returns with the restarted hunt", KhaliaTearAsync);
+        yield return ("quest grants respect the carried-weight limit and leave the quest unchanged when refused", WeightAsync);
         yield return ("beginner quests run in order with deliveries, hunts, tribe finishers and class rewards", ElementaryAsync);
         yield return ("the first Tempskron rank-up needs the home master, level and skills and gathers one trophy of each", TrophiesAsync);
         yield return ("the first Morion rank-up follows the name branch, brews at the aging master and promotes after delivery", PotionAsync);
@@ -96,6 +97,19 @@ internal static class QuestTests
         Kill(character, QuestMonsters.Grotesque, 10);
         Expect(character, npc, QuestAction.Proceed, QuestCode.Level85, 3, "level 85 completion failed");
         Assert.True((character.Quests.LevelLog & LevelQuestLog.Level85) != 0 && QuestRewards.ReducedDeathPenalty(character), "level 85 reward missing");
+        return Task.CompletedTask;
+    }
+
+    private static Task WeightAsync()
+    {
+        var npc = new QuestNpc(GiverCode: 1005);
+        var loaded = Character(PlayerClass.Fighter, "Loaded", 85);
+        loaded.Quests.LevelLog = LevelQuestLog.Level30 | LevelQuestLog.Level55 | LevelQuestLog.Level70 | LevelQuestLog.Level80;
+        Assert.True(Items.TryGet(Code("WA197"), out var anvil) && loaded.Inventory.TryAdd(new ItemInstance(anvil)), "fixture anvil did not fit");
+        var refused = Run(loaded, npc, QuestAction.Accept, QuestCode.Level85, 0);
+        Assert.True(refused.Status == QuestStatus.OverWeight && refused.Message == ItemRuleMessages.OverWeight && loaded.Quests.Active.IsIdle
+            && !QuestInventory.Has(loaded, QuestItems.KhaliaTear), "an overweight character received a quest item");
+        Assert.True(QuestInventory.Check(loaded, [new ItemInstance(anvil)]) == QuestGrantCheck.OverWeight, "the weight check differs");
         return Task.CompletedTask;
     }
 
@@ -255,9 +269,9 @@ internal static class QuestTests
         }
 
         Assert.True(grows && fighter.Quests.Active.WeaponKillsLeft == 0 && QuestDrops.UpkeepDue(fighter, 0), "the first stage did not finish");
-        var damage = weapon.RolledBonus.DamageMax;
+        var damage = weapon.Roll.DamageMax;
         Drop(fighter, QuestItems.Vamp);
-        Assert.True(fighter.Quests.Active is { WeaponStage: 2, WeaponKillsLeft: 40, WeaponLifeBonus: 4 } && weapon.RolledBonus.DamageMax > damage,
+        Assert.True(fighter.Quests.Active is { WeaponStage: 2, WeaponKillsLeft: 40, WeaponLifeBonus: 4 } && weapon.Roll.DamageMax > damage,
             "the weapon did not grow");
         Kill(fighter, QuestMonsters.SkeletonWarrior, 40);
         Drop(fighter, QuestItems.Vamp);

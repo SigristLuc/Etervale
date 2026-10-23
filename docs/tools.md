@@ -24,10 +24,12 @@ JSON, UI font) and the Blender helper scripts in `3d_glb/blender/`. None of them
 | `tools/PristonTale.SmokeClient/` | Protocol smoke test: login, character, world entry, presence, quest journal and request, one skill cast |
 | `tools/PristonTale.LoadTest/` | Headless bots that log in, enter the world and walk while reporting movement |
 | `tools/PristonTale.WorldJson/` | `ptworldjson`: dumps `WorldCatalog` fields, gates and warps to `world.json` |
+| `tools/PristonTale.VfxImport/` | `ptvfx`: converts the original effect scripts and installs the authored effect definitions into `<assetRoot>/Effect/Vfx` |
 | `tools/ui/build_font.py` | Builds the UI font subset and its MonoGame `.spritefont` description |
 | `3d_glb/blender/` | Blender scripts for viewing exported GLBs (`frame_map.py`, `play_animation.py`) |
 
-Solution membership: SmokeClient, GltfExport and LoadTest are in `PristonTale.sln` and are built by the solution build.
+Solution membership: SmokeClient, GltfExport, LoadTest and VfxImport are in `PristonTale.sln` and are built by the
+solution build.
 AssetDump, WorldImport, DevAccounts and WorldJson are not; build them explicitly. The rest of `3d_glb/` is git-ignored
 local export output (`chars/<class>/_animations.glb`, `bodies/`, `heads/`, `fields/`, `monsters/`, `npcs/` and others).
 
@@ -242,6 +244,23 @@ dotnet run --project tools/PristonTale.WorldJson -c Release --no-build -- /tmp/w
   per field `id`, `name`, `code`, `glb` (stage path relative to `Field/` without extension, e.g. `Ricarten/village-2`),
   `center`, `start` points, `gates` (`dest`, `x`, `z`, `angle`) and `warps` (box, destination, `limitLevel`,
   `special`). Coordinates are world units before any export scale.
+
+## VfxImport (`ptvfx`)
+
+Produces the client's effect data. `assets/` is not in Git, so run it after restoring or updating the game data and
+after editing an authored definition.
+
+```bash
+dotnet build tools/PristonTale.VfxImport/PristonTale.VfxImport.csproj -c Release -m:1 -warnaserror
+dotnet run --project tools/PristonTale.VfxImport -c Release --no-build -- import assets
+```
+
+- Converts every `Effect/NewEffect/*.lua` to `Effect/Vfx/Scripts/<File>.vfx.json` and every
+  `Effect/Particle/Script/*.part` to `Effect/Vfx/Particles/<File>.vfx.json`, overwriting earlier output.
+- Validates and copies `tools/PristonTale.VfxImport/Authored/**/*.vfx.json` (copied next to the tool by the build) to
+  the same relative paths under `Effect/Vfx/` (`Common/`, `Classes/<Class>/`).
+- Prints one line per construct kept with a caveat (missing models or textures, unreadable values, scripts the original
+  rejects) and a summary; exits 1 when a file could not be converted or installed. Mapping rules: docs/effects.md.
 
 ## UI font (`tools/ui/build_font.py`)
 

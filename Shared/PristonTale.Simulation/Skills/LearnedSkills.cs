@@ -60,14 +60,9 @@ public sealed class LearnedSkills
         _uses[code] = Math.Clamp(uses, 0, MaxUses);
     }
 
-    // Forgets every learned rank and its proficiency (a skill redistribution).
+    // Forgets every learned skill and its proficiency (a skill reset).
     public void Clear()
     {
-        if (_ranks.Count == 0 && _uses.Count == 0)
-        {
-            return;
-        }
-
         _ranks.Clear();
         _uses.Clear();
         Revision++;

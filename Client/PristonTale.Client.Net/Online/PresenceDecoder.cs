@@ -6,6 +6,7 @@ using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
@@ -24,6 +25,7 @@ internal sealed class PresenceDecoder
     private readonly WorldRenderCatalog _catalog;
     private readonly Action<uint> _requestDescription;
     private readonly Dictionary<int, InventoryItemEntry[]> _inventoryParts = new();
+    private readonly OwnerItemDecoder _ownerItems = new();
     private OwnerStatusPacket? _status;
     private long _inventoryRevision = -1;
     private long _partsRevision = -1;
@@ -64,6 +66,10 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.StatusEffects => OnStatusEffects(StatusEffectList.Read(packet)),
             EtervaleOpcodes.SkillCooldowns => OnSkillCooldowns(SkillCooldownsPacket.Read(packet)),
             EtervaleOpcodes.SkillCastResult => OnSkillCastResult(SkillCastResultPacket.Read(packet)),
+            EtervaleOpcodes.ItemDetails => OnItemDetails(ItemDetailsPartPacket.Read(packet)),
+            EtervaleOpcodes.OwnerItemStatus => OnOwnerItemStatus(OwnerItemStatusPacket.Read(packet)),
+            EtervaleOpcodes.PremiumTimers => OnPremiumTimers(PremiumTimersPacket.Read(packet)),
+            EtervaleOpcodes.ItemEffects => OnItemEffects(ItemEffectsPacket.Read(packet)),
             EtervaleOpcodes.QuestJournal => Update([], []) with { Quest = QuestWireReader.ToView(QuestJournalPacket.Read(packet)) },
             EtervaleOpcodes.QuestNotices => OnQuestNotices(QuestNoticesPacket.Read(packet)),
             _ => null
@@ -72,7 +78,8 @@ internal sealed class PresenceDecoder
             or EtervaleOpcodes.CombatEvents or PristonOpcodes.PlayItem or PristonOpcodes.DelItem or PristonOpcodes.WarpField
             or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills or EtervaleOpcodes.PresenceClock
             or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult
-            or EtervaleOpcodes.QuestJournal or EtervaleOpcodes.QuestNotices;
+            or EtervaleOpcodes.ItemDetails or EtervaleOpcodes.OwnerItemStatus
+            or EtervaleOpcodes.PremiumTimers or EtervaleOpcodes.ItemEffects or EtervaleOpcodes.QuestJournal or EtervaleOpcodes.QuestNotices;
     }
 
     private PresenceUpdate OnQuestNotices(QuestNoticesPacket packet) =>
@@ -121,6 +128,32 @@ internal sealed class PresenceDecoder
         CastResult = new SkillCastResultInfo(result.Sequence, result.SkillCode, result.Status, result.Rank, (int)result.CooldownMs, (int)result.RemainingMs,
             result.Mana, result.Stamina)
     };
+
+    public PresenceUpdate OnPremiumTimers(PremiumTimersPacket packet)
+    {
+        var timers = new List<PremiumTimerInfo>(packet.Timers.Count);
+        foreach (var entry in packet.Timers)
+        {
+            if (Enum.IsDefined((PremiumEffectKind)entry.Kind))
+            {
+                timers.Add(new PremiumTimerInfo((PremiumEffectKind)entry.Kind, entry.Value, entry.RemainingSeconds, entry.DurationSeconds));
+            }
+        }
+
+        return Update([], []) with { PremiumTimers = new PremiumTimerSnapshot(packet.Revision, timers) };
+    }
+
+    public PresenceUpdate OnItemEffects(ItemEffectsPacket packet)
+    {
+        var effects = new ItemEffectInfo[packet.Effects.Count];
+        for (var index = 0; index < effects.Length; index++)
+        {
+            var entry = packet.Effects[index];
+            effects[index] = new ItemEffectInfo(entry.Entity, entry.ItemCode, (ItemEffectKind)entry.Effect, Position(entry.X, entry.Y, entry.Z), entry.Variant);
+        }
+
+        return Update([], []) with { ItemEffects = effects, ServerTimeMs = _clockMs };
+    }
 
     public double? ServerTimeMs => _clockMs;
 
@@ -332,6 +365,18 @@ internal sealed class PresenceDecoder
         return OwnerUpdate();
     }
 
+    public PresenceUpdate? OnItemDetails(ItemDetailsPartPacket part)
+    {
+        _ownerItems.OnDetails(part);
+        return null;
+    }
+
+    public PresenceUpdate? OnOwnerItemStatus(OwnerItemStatusPacket status)
+    {
+        _ownerItems.OnStatus(status);
+        return null;
+    }
+
     public PresenceUpdate? OnInventory(InventoryPartPacket part)
     {
         if (part.Revision != _partsRevision)
@@ -346,7 +391,7 @@ internal sealed class PresenceDecoder
             return null;
         }
 
-        _items = _inventoryParts.OrderBy(pair => pair.Key).SelectMany(pair => pair.Value).Select(Item).ToArray();
+        _items = _ownerItems.Attach(part.Revision, _inventoryParts.OrderBy(pair => pair.Key).SelectMany(pair => pair.Value).Select(Item).ToArray());
         _inventoryRevision = part.Revision;
         _inventoryParts.Clear();
         return OwnerUpdate();
@@ -380,7 +425,7 @@ internal sealed class PresenceDecoder
             EliteSkillPoints = status.EliteSkillPoints,
             Skills = _skills
         };
-        return Update([], []) with { Owner = owner };
+        return Update([], []) with { Owner = _ownerItems.Apply(owner) };
     }
 
     private static OwnedItemView Item(InventoryItemEntry entry) => new(entry.InstanceId, entry.Code, entry.Name, (ItemKind)entry.Kind, entry.Count,
@@ -400,7 +445,12 @@ internal sealed class PresenceDecoder
             player = new PlayerAppearanceInfo(character.Name, (int)character.JobCode, (int)character.ChangeJob, (int)(faceAndHair & 0xFF),
                 (int)(faceAndHair >> 8 & 0xFF), character.ModelName, character.ModelName2, character.Level, Key(character.Temp[CharacterInfo.TempWeaponCode]),
                 Key(character.Temp[CharacterInfo.TempArmorCode]), Key(character.Temp[CharacterInfo.TempOffHandCode]),
-                (character.Temp[CharacterInfo.TempFlags] & CharacterInfo.FlagInVillage) != 0);
+                (character.Temp[CharacterInfo.TempFlags] & CharacterInfo.FlagInVillage) != 0)
+            {
+                HelperPet = (int)(character.Temp[CharacterInfo.TempFlags] >> CharacterInfo.HelperPetShift & 0xF),
+                Phoenix = (character.Temp[CharacterInfo.TempFlags] & CharacterInfo.FlagPhoenix) != 0,
+                BigHead = (int)(character.Temp[CharacterInfo.TempFlags] >> CharacterInfo.BigHeadShift & 0x3)
+            };
         }
 
         var summon = description.Kind == RemoteEntityKind.Monster && character.Brood == (uint)MonsterBrood.User;

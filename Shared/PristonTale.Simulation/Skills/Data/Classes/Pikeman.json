@@ -97,7 +97,7 @@
         "modifiers": [{"stat": "CriticalChanceTaken", "op": "Flat", "values": [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]}], "harmful": true },
       "casterBuff": { "durationTenths": [120, 130, 140, 150, 160, 170, 180, 190, 200, 210],
         "modifiers": [{"stat": "CriticalDamage", "op": "Flat", "values": [10, 14, 18, 22, 26, 30, 34, 38, 42, 46]}] },
-      "motionIndex": 82, "motionFrames": 70, "motionEvents": [33], "castEffect": "vfx.pike.assassineye.cast",
+      "motionIndex": 82, "motionFrames": 70, "motionEvents": [33],
       "buffEffect": "vfx.pike.assassineye.mark", "castSound": "wav/Effects/Skill/Tempskron/AssassinEye 01.wav", "keepIcon": "Pk4_A_EYE" },
     { "code": "0x03080002", "name": "Charging Strike", "tier": "Job4", "category": "MultiHit", "icon": "TP63 C_Strike",
       "description": "Gathers a power and Continuous ATK.", "requiredLevel": 63, "mouse": "Right", "mana": [48, 51, 54, 57, 60, 63, 66, 69, 72, 75],
@@ -113,7 +113,7 @@
       "stamina": [71, 2], "weapons": ["Pole"], "kind": "SelfBuff", "target": "Self", "masteryBase": 650, "masteryPerRank": 0, "exclusive": ["0x03080003"],
       "buff": { "durationTenths": [1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000],
         "modifiers": [{"stat": "Evasion", "op": "Flat", "values": [6, 8, 10, 12, 14, 17, 20, 23, 26, 29]}] },
-      "motionIndex": 87, "motionFrames": 60, "motionEvents": [22], "motionSpeed": 80, "castEffect": "vfx.pike.vague.cast",
+      "motionIndex": 87, "motionFrames": 60, "motionEvents": [22], "motionSpeed": 80,
       "buffEffect": "vfx.pike.vague.aura", "castSound": "wav/Effects/Skill/Tempskron/vague 01.wav", "keepIcon": "Pk4_VAGUE" },
     { "code": "0x03080004", "name": "Shadow Master", "tier": "Job4", "category": "MultiHit", "icon": "TP70 S_Master",
       "description": "Some afterimages make a powerful damage to a monster in turn.", "requiredLevel": 70, "mouse": "Right",
@@ -130,6 +130,6 @@
         [1, 4, 21, 39, 57, 84],
         [1, 4, 21, 39, 57, 83, 84],
         [1, 4, 21, 39, 57, 83, 84] ],
-      "motionIndex": 88, "motionFrames": 118, "motionEvents": [4, 21, 39, 57], "motionSpeed": 90, "castEffect": "vfx.pike.shadowmaster.cast",
+      "motionIndex": 88, "motionFrames": 118, "motionEvents": [4, 21, 39, 57], "motionSpeed": 90,
       "impactEffect": "vfx.pike.shadowmaster.hit", "impactSound": "wav/Effects/Skill/Tempskron/ShadowStrike 01.wav" }
 ]

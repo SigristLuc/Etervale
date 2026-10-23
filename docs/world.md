@@ -355,13 +355,16 @@ only with `MoveRange > 0` and a walk clip, with a 25% chance at the end of each 
 | `NpcInteraction` | Dialog reply; `Reach = 96` planar units for NPC service requests |
 | `NpcServiceCommand` | `OperationId` (idempotency), NPC, service, action, expected revisions, item, `Anchor`, `Count`, `Amount` |
 | `NpcServiceAction` | Persisted in the operation history and sent on the wire; append only. `IsDurable` is false for Open, Close, Refresh. |
-| `NpcServiceStatus` | Outcome codes on the wire (`Ok` ... `NotOpen`) |
+| `NpcServiceStatus` | Outcome codes on the wire (`Ok` ... `NotOpen`, `OverWeight`); append only |
 | `NpcServiceReply` | Outcome plus the view after it: shop catalog, quotes, warehouse, teleport destinations, arrival |
 
 Shop rules (`NpcShopRules`):
 
-- Buy: catalog price times count (count 1, or 1 to `MaxStack` for stackables); needs gold and a free cell.
-- Worn value: `intact = price * dur / maxDur` (0 counts as 1), `worn = intact + (price - intact) / 4`.
+- Buy: catalog price times count (count 1, or 1 to `MaxStack` for stackables); needs gold, a free cell and room under
+  the weight limit (`OverWeight`; a potion weighs one per unit). The bought copy is the shop form of the item
+  (`ItemRoller.Lower`, see [simulation.md](simulation.md#items)).
+- Worn value: `intact = price * dur / maxDur` (0 counts as 1), `worn = intact + (price - intact) / 4`, where price is
+  the copy's own price (a specialized drop costs a fifth more than its kind).
 - Sell: `min(price / 5, worn / 5)`; stackables `(price / 5) * count`; quest items and the quest weapon and ring a
   running rank-up holds cannot be sold; refused with `GoldLimit` when gold would exceed
   `MoneyLimits.CarryLimit(level, tier)`.
@@ -370,7 +373,9 @@ Shop rules (`NpcShopRules`):
   higher 100M.
 
 Warehouse (`WarehouseStorage`, one per account): 9×9 grid, at most 100 items, weight 1000, gold 100,000,000; quest
-items, materials and the quest weapon and ring a running rank-up holds are refused. Every change increments `Revision`; `Clone` supports prepare-then-commit.
+items, materials and the quest weapon and ring a running rank-up holds are refused. Every change increments `Revision`;
+`Clone` supports prepare-then-commit. A withdrawal that would carry the character over its weight limit is refused
+(`OverWeight`), and an overweight character cannot open the warehouse (`NpcServiceTransactions.Check`).
 
 Teleport routes (`TeleportRoutes`): route 0 means route 1. Route 1: index 1 field 0 "Mushroom Cave" 100 gold, 2 field 18
 "Beehive Cave" 100, 3 field 7 "Cursed Land" 500, 4 field 12 "Forbidden Land" 1000. The destination field's

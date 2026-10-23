@@ -189,7 +189,7 @@ public static class FuryOfPhantomQuest
         if (!QuestInventory.TryGrant(context, [new QuestGrant(RewardWeapons[choice - 1], ClassSpecific: true, QuestVariant: true)]))
         {
             context.Journal.Active = active with { State = 12, Variant = 0 };
-            return context.Fail(QuestStatus.NoSpace, QuestTexts.NotEnoughSpace);
+            return QuestInventory.Refused(context);
         }
 
         context.Journal.ElementaryLog |= ElementaryQuestLog.FuryOfPhantom;

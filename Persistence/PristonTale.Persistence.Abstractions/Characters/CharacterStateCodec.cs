@@ -16,8 +16,9 @@ public sealed record SavedItem(
     int UpgradeLevel,
     int DurabilityCurrent,
     int DurabilityMax,
-    uint JobSpecMask,
-    ItemStatBlock RolledBonus,
+    uint JobSpecMask = 0,
+    ItemStatBlock RolledBonus = default,
+    ItemRoll? Roll = null,
     int Unique = 0);
 
 public sealed record SavedItems(int Version, SavedItem[] Items, long Revision = 0, AppliedInventoryOperation[]? Operations = null,
@@ -58,7 +59,7 @@ public static class CharacterStateCodec
         {
             var item = RestoreItem(saved, catalog, identities);
             if (!saved.Slot.HasValue || saved.Anchor != -1 || character.GetEquipped(saved.Slot.Value) is not null
-                || !character.CanEquip(saved.Slot.Value, item))
+                || !character.CanHold(saved.Slot.Value, item))
             {
                 throw new InvalidDataException("Invalid saved equipment.");
             }
@@ -137,28 +138,30 @@ public static class CharacterStateCodec
     internal static SavedItem CaptureItem(ItemInstance item, int anchor, EquipmentSlot? slot)
     {
         return new SavedItem(item.InstanceId, item.Definition.Code, item.Count, anchor, slot, item.UpgradeLevel,
-            item.DurabilityCurrent, item.DurabilityMax, item.JobSpecMask, item.RolledBonus,
-            item.Definition.Unique == ItemDefinition.QuestUnique ? ItemDefinition.QuestUnique : 0);
+            item.DurabilityCurrent, item.DurabilityMax, item.JobSpecMask, default, item.Roll,
+            item.Definition.UniqueItem == ItemDefinition.QuestUnique ? ItemDefinition.QuestUnique : 0);
     }
 
     internal static ItemInstance RestoreItem(SavedItem saved, ItemCatalog catalog, HashSet<Guid> identities)
     {
         if (saved is null || saved.InstanceId == Guid.Empty || !identities.Add(saved.InstanceId)
             || !catalog.TryGet(saved.Code, saved.Unique, out var definition) || saved.Count < 1 || saved.Count > definition.MaxStack
-            || saved.UpgradeLevel != 0 || saved.DurabilityCurrent < 0 || saved.DurabilityMax < saved.DurabilityCurrent)
+            || saved.UpgradeLevel < 0 || saved.DurabilityCurrent < 0 || saved.DurabilityMax < saved.DurabilityCurrent)
         {
             throw new InvalidDataException("Invalid or unsupported saved item.");
         }
 
-        return new ItemInstance(definition, saved.Count)
+        var item = new ItemInstance(definition, saved.Count)
         {
             InstanceId = saved.InstanceId,
             UpgradeLevel = saved.UpgradeLevel,
             DurabilityCurrent = saved.DurabilityCurrent,
-            DurabilityMax = saved.DurabilityMax,
-            JobSpecMask = saved.JobSpecMask,
-            RolledBonus = saved.RolledBonus
+            DurabilityMax = saved.DurabilityMax
         };
+
+        // Copies saved before per-copy values existed take the shop form of their item with the saved specialization.
+        item.Roll = saved.Roll is { Requirements: not null, Spec: not null } roll ? roll : item.Roll with { SpecJob = saved.JobSpecMask };
+        return item;
     }
 
     private static SavedItems ReadItems(JsonText json, JsonValueKind legacyKind)

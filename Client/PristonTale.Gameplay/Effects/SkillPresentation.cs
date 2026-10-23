@@ -34,40 +34,34 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
 {
     public const double RemoteDelayMs = 150d;
     public const string ReviveEffect = "vfx.priestess.resurrection.rise";
-    // The shared effects and one file per class (Effects/Vfx/Common.vfx.json and Effects/Vfx/Classes/<Class>.vfx.json).
-    private const string EmbeddedEffects = "PristonTale.Gameplay.Effects.Vfx.";
     private const float ChainLinkSeconds = 0.08f;
+    // Game-thread time per frame spent registering effect definitions until all are ready.
+    private static readonly TimeSpan CompileBudget = TimeSpan.FromMilliseconds(2);
 
     private readonly ISkillSceneHost _host;
-    private readonly string _assetRoot;
     private readonly LegacyEffectLibrary _legacy;
-    private readonly EffectsEngine _legacyEngine;
     private readonly PristonTransientLights _lights;
     private readonly SkillSoundBank _sounds;
     private readonly IClientLog _log;
     private readonly List<Pending> _pending = new(32);
     private readonly Dictionary<uint, VfxInstance> _projectiles = new();
     private readonly List<VfxInstance> _castEffects = new();
-    private readonly VfxBuiltinTextures _builtins;
+    private bool _effectSoundsLoaded;
 
-    public SkillPresentation(GraphicsDevice device, ContentManager content, string assetRoot, LegacyEffectLibrary legacy, EffectsEngine legacyEngine,
-        PristonTransientLights lights, ISkillSceneHost host, SkillSoundBank sounds, IClientLog log)
+    public SkillPresentation(GraphicsDevice device, ContentManager content, LegacyEffectLibrary legacy, PristonTransientLights lights, ISkillSceneHost host,
+        SkillSoundBank sounds, IClientLog log)
     {
         _host = host;
-        _assetRoot = assetRoot;
         _legacy = legacy;
-        _legacyEngine = legacyEngine;
         _lights = lights;
         _sounds = sounds;
         _log = log;
-        _builtins = new VfxBuiltinTextures(device);
-        Library = LoadLibrary(legacy, assetRoot, log, _builtins);
-        System = new VfxSystem(host, this);
+        Library = legacy.Vfx.Library;
+        System = new VfxSystem(host, this, Library);
         Renderer = new VfxRenderer(device, content);
         Statuses.Added += OnStatusAdded;
         Statuses.Removed += OnStatusRemoved;
-        sounds.Preload(SkillRuleCatalog.All.SelectMany(rule => new[] { rule.CastSound, rule.ImpactSound, rule.CompanionSound })
-            .Concat(Library.Names.SelectMany(name => Library.TryGet(name, out var effect) ? effect.Definition.Sounds.Select(sound => sound.Path) : [])));
+        sounds.Preload(SkillRuleCatalog.All.SelectMany(rule => new[] { rule.CastSound, rule.ImpactSound, rule.CompanionSound }));
     }
 
     public VfxLibrary Library { get; }
@@ -78,45 +72,6 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     public FloatingCombatText Text { get; } = new();
 
     public event Action<SkillCastResultInfo> CastResolved;
-
-    public static VfxLibrary LoadLibrary(LegacyEffectLibrary legacy, string assetRoot, IClientLog log, VfxBuiltinTextures builtins)
-    {
-        var library = new VfxLibrary(path => legacy.LoadTexture(assetRoot, path), legacy.White, builtins);
-        foreach (var json in EmbeddedDefinitions())
-        {
-            foreach (var definition in VfxDefinition.ParseFile(json))
-            {
-                library.Register(definition);
-            }
-        }
-
-        // Authored replacements under assets/Vfx take precedence over the shipped definitions.
-        var overrides = library.LoadDirectory(Path.Combine(assetRoot, "Vfx"), error => log.Warn($"[Effects] skipped effect file {error}"));
-        log.Info($"[Effects] {library.Count} skill effects ({overrides} from assets/Vfx).");
-        return library;
-    }
-
-    // The text of every embedded effect file, shared ones first.
-    public static IEnumerable<string> EmbeddedDefinitions()
-    {
-        var assembly = typeof(SkillPresentation).Assembly;
-        var names = assembly.GetManifestResourceNames()
-            .Where(static name => name.StartsWith(EmbeddedEffects, StringComparison.Ordinal) && name.EndsWith(".vfx.json", StringComparison.Ordinal))
-            .OrderBy(static name => name.Contains(".Classes.", StringComparison.Ordinal))
-            .ThenBy(static name => name, StringComparer.Ordinal)
-            .ToArray();
-        if (names.Length == 0)
-        {
-            throw new InvalidDataException("The skill effect definitions are missing from the gameplay assembly.");
-        }
-
-        foreach (var name in names)
-        {
-            using var stream = assembly.GetManifestResourceStream(name)!;
-            using var reader = new StreamReader(stream);
-            yield return reader.ReadToEnd();
-        }
-    }
 
     public void Observe(PresenceUpdate update, double nowMs)
     {
@@ -153,6 +108,12 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
 
     public void Update(float seconds, double nowMs)
     {
+        if (!_legacy.Vfx.Ready && _legacy.Vfx.Compile(CompileBudget) || _legacy.Vfx.Ready && !_effectSoundsLoaded)
+        {
+            _effectSoundsLoaded = true;
+            _sounds.Preload(Library.Names.SelectMany(name => Library.TryGet(name, out var effect) ? effect.Definition.Sounds.Select(sound => sound.Path) : []));
+        }
+
         _sounds.Update();
         for (var index = 0; index < _pending.Count; index++)
         {
@@ -183,6 +144,18 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         System.Clear();
     }
 
+    // Starts a named effect at a point with a full orientation (scripts carried by other effects, monster skills).
+    public VfxInstance SpawnAt(string name, Vector3 point, Matrix orientation)
+    {
+        if (!Library.TryGet(name, out var effect) || System.Spawn(effect, new VfxSpawn(0, 0, point, 0f)) is not { } instance)
+        {
+            return null;
+        }
+
+        instance.SetOrientation(orientation);
+        return instance;
+    }
+
     // Spawns a named effect directly (probes, previews).
     public VfxInstance Spawn(string name, uint casterId, uint targetId, Vector3 point, float facing = 0f)
     {
@@ -192,23 +165,6 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     void IVfxServices.AddLight(Vector3 position, Color color, int power, int decay) => _lights?.Add(position, color, power, decay);
 
     void IVfxServices.PlaySound(string path, Vector3 position, float volume) => _sounds.Play(path, position, _host.ListenerPosition, volume);
-
-    EffectInstance IVfxServices.SpawnLegacy(string script, Vector3 position, Matrix orientation)
-    {
-        if (_legacyEngine is null || _legacyEngine.Instances.Count >= 128)
-        {
-            return null;
-        }
-
-        var definition = _legacy.ParticleScript(_assetRoot, script);
-        if (definition is null)
-        {
-            _log.Warn($"[Effects] legacy script {script} could not be read.");
-            return null;
-        }
-
-        return _legacyEngine.Spawn(definition, position, orientation);
-    }
 
     private void Run(in Pending pending, double nowMs)
     {
@@ -565,7 +521,6 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     {
         Renderer.Dispose();
         _sounds.Dispose();
-        _builtins.Dispose();
     }
 
     private enum PendingKind : byte

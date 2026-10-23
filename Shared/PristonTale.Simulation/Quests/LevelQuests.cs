@@ -141,7 +141,7 @@ public static class LevelQuests
         {
             if (!QuestInventory.Has(context.Character, QuestItems.KhaliaTear) && !QuestInventory.TryGrant(context, [new QuestGrant(QuestItems.KhaliaTear)]))
             {
-                return context.Fail(QuestStatus.NoSpace, QuestTexts.NotEnoughSpace);
+                return QuestInventory.Refused(context);
             }
 
             context.Journal.Active = new ActiveQuest { Code = code, State = 2 }.Hunting(spec.Prey, spec.Count);
@@ -166,7 +166,7 @@ public static class LevelQuests
             // After a death the Tear of Khalia comes back and the hunt starts again.
             if (!QuestInventory.Has(context.Character, QuestItems.KhaliaTear) && !QuestInventory.TryGrant(context, [new QuestGrant(QuestItems.KhaliaTear)]))
             {
-                return context.Fail(QuestStatus.NoSpace, QuestTexts.NotEnoughSpace);
+                return QuestInventory.Refused(context);
             }
 
             context.Journal.Active = (active with { State = 2 }).Hunting(spec.Prey, spec.Count);
@@ -183,7 +183,7 @@ public static class LevelQuests
         if (code == QuestCode.Level90 && !QuestInventory.Has(context.Character, QuestItems.Level90Token)
             && !QuestInventory.TryGrant(context, [new QuestGrant(QuestItems.Level90Token)]))
         {
-            return context.Fail(QuestStatus.NoSpace, QuestTexts.NotEnoughSpace);
+            return QuestInventory.Refused(context);
         }
 
         Complete(context, spec);

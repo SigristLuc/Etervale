@@ -28,6 +28,11 @@ public readonly struct PlayerAppearanceView
     public string OffHandKey { get; init; } = "";
     public bool InVillage { get; init; }
 
+    // Premium looks: the helper pet (1 Terry, 2 Nepsys, 3 Io, 4 Mute), the Phoenix and the big head (1 or 2).
+    public int HelperPet { get; init; }
+    public bool Phoenix { get; init; }
+    public int BigHead { get; init; }
+
     public string Name { get; }
     public int JobCode { get; }
     public int Tier { get; init; }
@@ -106,6 +111,8 @@ public enum CombatEventKindView
     Evade = 7,
     // A dead player rose again (a revive skill); Damage carries the life it returns with.
     Revive = 8,
+    // A player blocked a monster's normal attack; no damage reaches them.
+    Block = 9,
 }
 
 public enum SkillEventPhaseView : byte
@@ -233,6 +240,7 @@ public readonly struct WorldSnapshot
 
     public SkillEventView[] SkillEvents { get; init; } = [];
     public StatusEventView[] StatusEvents { get; init; } = [];
+    public ItemEffectView[] ItemEffects { get; init; } = [];
 
     // The receiver's running cooldowns; null when they did not change since the last snapshot it was sent.
     public SkillCooldownView[]? Cooldowns { get; init; }
@@ -245,6 +253,7 @@ public readonly struct WorldSnapshot
         Grid = Grid,
         SkillEvents = SkillEvents,
         StatusEvents = StatusEvents,
+        ItemEffects = ItemEffects,
         Cooldowns = cooldowns
     };
 
@@ -253,6 +262,7 @@ public readonly struct WorldSnapshot
         Grid = Grid,
         SkillEvents = SkillEvents,
         StatusEvents = StatusEvents,
+        ItemEffects = ItemEffects,
         Cooldowns = Cooldowns
     };
 }

@@ -150,6 +150,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
     public PlayerCharacter Player => _player;
     public OwnerState Owner { get; private set; }
+
+    // Over the weight limit the character only walks.
+    private bool Overweight => Owner?.Overweight == true;
     public bool PointerCaptured { get; set; }
     public bool CameraInputEnabled { get; set; } = true;
     public bool RightAttackEnabled { get; set; }
@@ -348,12 +351,14 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _renderer = new PristonRenderer(_graphicsDevice, _content, _log, _presentation) { Sky = _sky };
         if (_effects is not null)
         {
-            _meteors = new PristonTale.Gameplay.Effects.LegacyMeteorEffects(_effectLibrary, _effects, _renderer.TransientLights, _fieldCollision);
-            _monsterMeshEffects = new PristonTale.Gameplay.Effects.LegacyMonsterMeshEffects(_effectLibrary, _effects, _renderer.TransientLights);
+            var scriptEffects = new PristonTale.Gameplay.Effects.VfxScriptEffects(() => _skillFx);
+            _meteors = new PristonTale.Gameplay.Effects.LegacyMeteorEffects(scriptEffects, _renderer.TransientLights, _fieldCollision);
+            _monsterMeshEffects = new PristonTale.Gameplay.Effects.LegacyMonsterMeshEffects(_effectLibrary, scriptEffects, _renderer.TransientLights);
             _returnEffect = new PristonTale.Gameplay.Effects.LegacyReturnEffect(_graphicsDevice, _effectLibrary, _renderer.TransientLights);
         }
 
         CreateSkillPresentation();
+        CreateItemEffects();
         var actorScene = new RendererActorScene(_renderer);
         _playerComposer = new PlayerActorComposer(actorScene, _actorLoader);
         _monsterComposer = new ModelActorComposer(actorScene, _actorLoader);
@@ -515,6 +520,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 _groundLoot.Apply(update);
                 ObserveEffects(update);
                 ObserveSkills(update);
+                ObserveItems(update);
                 PresenceObserved?.Invoke(update);
             }
 
@@ -1186,6 +1192,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _skillClockMs = gameTime.TotalGameTime.TotalMilliseconds;
         DrainPresence(frameDt);
         UpdateSkills(gameTime);
+        UpdateItemEffects(frameDt);
         ApplyPositionCorrection(frameDt);
         UpdatePlayerInput(gameTime);
         UpdateTargetSelection(gameTime);
@@ -1335,7 +1342,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             return;
         }
 
-        if (effect.SourceSoundCode != 0x18E0 || _effects.Instances.Count >= 128)
+        if (effect.SourceSoundCode != 0x18E0)
         {
             return;
         }
@@ -1344,7 +1351,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             effect.Position.X + MathF.Sin(effect.Facing) * 68f,
             caster.Y + 22f,
             -effect.Position.Z - MathF.Cos(effect.Facing) * 68f);
-        _effects.Spawn(_effectLibrary.HulkHit(Random.Shared.Next(3)), position);
+        _skillFx?.SpawnAt($"{PristonTale.Gameplay.Effects.VfxScriptEffects.ParticlePrefix}HulkHit{Random.Shared.Next(3) + 1}", position, Matrix.Identity);
         _renderer.TransientLights.Add(position, new Color(100, 255, 100), 100, 1);
     }
 
@@ -1427,7 +1434,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 ClearAttackTarget();
                 _lootInteraction.Cancel();
                 _moveTargetRun = doubleClickRun || shiftRun;
-                _runMode = _moveTargetRun;
+                _runMode = _moveTargetRun && !Overweight;
                 _reportDue = true;
             }
         }
@@ -1446,7 +1453,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         {
             var current = _playerBody.PlanarPosition;
             var keyboard = Keyboard.GetState();
-            var running = _moveTargetRun || keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
+            var running = (_moveTargetRun || keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift)) && !Overweight;
             if (running != _runMode)
             {
                 _runMode = running;

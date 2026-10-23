@@ -53,7 +53,7 @@ public static class PassiveSkillEffects
     // A weapon passive's share of the wielded weapon's own damage, truncated per endpoint like the original masteries.
     public static (int Min, int Max) WeaponBonus(PlayerCharacter character, ItemInstance weapon)
     {
-        if (weapon is null || weapon.IsBroken)
+        if (weapon is null)
         {
             return default;
         }
@@ -76,6 +76,6 @@ public static class PassiveSkillEffects
         }
 
         var weapon = character.GetEquipped(EquipmentSlot.Weapon);
-        return weapon is { IsBroken: false } && passive.Weapons.Contains(weapon.Definition.Kind);
+        return weapon is not null && passive.Weapons.Contains(weapon.Definition.Kind);
     }
 }

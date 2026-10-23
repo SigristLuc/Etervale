@@ -264,14 +264,14 @@ public static class ElementaryQuests
             case QuestCode.ElementaryA:
                 if (!QuestInventory.Has(context.Character, QuestItems.Cake) && !QuestInventory.TryGrant(context, [new QuestGrant(QuestItems.Cake)]))
                 {
-                    return context.Fail(QuestStatus.NoSpace, QuestTexts.NotEnoughSpace);
+                    return QuestInventory.Refused(context);
                 }
 
                 break;
             case QuestCode.ElementaryC:
                 if (!QuestInventory.Has(context.Character, QuestItems.Candy) && !QuestInventory.TryGrant(context, [new QuestGrant(QuestItems.Candy)]))
                 {
-                    return context.Fail(QuestStatus.NoSpace, QuestTexts.NotEnoughSpace);
+                    return QuestInventory.Refused(context);
                 }
 
                 break;
@@ -322,7 +322,7 @@ public static class ElementaryQuests
 
         if (!QuestInventory.TryGrant(context, Rewards(context, code)))
         {
-            return context.Fail(QuestStatus.NoSpace, QuestTexts.NotEnoughSpace);
+            return QuestInventory.Refused(context);
         }
 
         context.Journal.ElementaryLog |= QuestCodes.ElementaryBit(QuestCodes.ElementaryIndex(code));

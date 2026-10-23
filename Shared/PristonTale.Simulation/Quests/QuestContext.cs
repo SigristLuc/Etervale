@@ -39,11 +39,7 @@ public sealed class CatalogQuestItemSource(ItemCatalog catalog) : IQuestItemSour
         }
 
         item = new ItemInstance(definition, count);
-        if (jobSpecMask != 0)
-        {
-            item.JobSpecMask = jobSpecMask;
-        }
-
+        Specialize(item, jobSpecMask);
         return true;
     }
 
@@ -55,12 +51,17 @@ public sealed class CatalogQuestItemSource(ItemCatalog catalog) : IQuestItemSour
         }
 
         item = new ItemInstance(definition);
+        Specialize(item, jobSpecMask);
+        return true;
+    }
+
+    // A class reward is made out for the receiver's class.
+    private static void Specialize(ItemInstance item, uint jobSpecMask)
+    {
         if (jobSpecMask != 0)
         {
-            item.JobSpecMask = jobSpecMask;
+            item.Roll = item.Roll with { SpecJob = jobSpecMask };
         }
-
-        return true;
     }
 }
 
@@ -110,4 +111,7 @@ public sealed class QuestContext(PlayerCharacter character, QuestNpc npc, IQuest
 
     // Another quest blocks an explicit request.
     public bool Busy() => Fail(QuestStatus.InProgress, QuestTexts.QuestInProgress);
+
+    // Why the last grant of this request did not fit.
+    public QuestGrantCheck GrantRefusal { get; set; }
 }

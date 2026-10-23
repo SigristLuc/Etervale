@@ -172,7 +172,7 @@ public static class LevelBonusQuests
                     QuestInventory.Remove(character, QuestItems.BonusVampThree, 1);
                     if (!QuestInventory.TryGrant(context, [new QuestGrant(QuestItems.Recommendation)]))
                     {
-                        return context.Fail(QuestStatus.NoSpace, QuestTexts.NotEnoughSpace);
+                        return QuestInventory.Refused(context);
                     }
 
                     journal.Active = active with { State = 4 };

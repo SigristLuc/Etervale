@@ -1,6 +1,7 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Motion;
@@ -62,7 +63,8 @@ public static partial class SkillFormulas
         return Math.Max(0, cost + cost * percent / 100 + modifiers.Flat(StatKind.SkillManaCost));
     }
 
-    public static int StaminaCost(Skill skill, int rank) => skill.StaminaForRank(rank);
+    public static int StaminaCost(Skill skill, int rank, PremiumTimers premium = null) =>
+        premium is null ? skill.StaminaForRank(rank) : PremiumRules.StaminaCost(skill.StaminaForRank(rank), premium);
 
     // Checks that need no world state: learned, castable, control states, weapon and resources.
     public static SkillCastVerdict CheckCaster(PlayerCharacter caster, Skill skill, SkillRule rule, out int rank)
@@ -99,20 +101,20 @@ public static partial class SkillFormulas
             return SkillCastVerdict.NotEnoughMana;
         }
 
-        return caster.Stamina < StaminaCost(skill, rank) ? SkillCastVerdict.NotEnoughStamina : SkillCastVerdict.Accepted;
+        return caster.Stamina < StaminaCost(skill, rank, caster.Premium) ? SkillCastVerdict.NotEnoughStamina : SkillCastVerdict.Accepted;
     }
 
     // The skill's weapon list names main-hand kinds and, for shield skills, the off-hand shield.
     public static bool WeaponAllowed(PlayerCharacter caster, Skill skill)
     {
         var weapon = caster.GetEquipped(EquipmentSlot.Weapon);
-        if (weapon is not null && !weapon.IsBroken && skill.AllowsWeapon(weapon.Definition.Kind))
+        if (weapon is not null && skill.AllowsWeapon(weapon.Definition.Kind))
         {
             return true;
         }
 
         var offHand = caster.GetEquipped(EquipmentSlot.OffHand);
-        return offHand is not null && !offHand.IsBroken && skill.AllowsWeapon(offHand.Definition.Kind);
+        return offHand is not null && skill.AllowsWeapon(offHand.Definition.Kind);
     }
 
     // Cast range: the skill's table (at least the weapon's range, or added to it, per RangeMode), or the weapon's attack
@@ -310,8 +312,9 @@ public static partial class SkillFormulas
 
     public static int RollPower(PlayerCharacter caster, SkillRule rule, SkillDamageRule damage, int rank, CombatRng rng)
     {
-        var low = rule.At(damage.Min, rank);
-        var high = rule.At(damage.Max, rank);
+        var spell = caster.Effects.Totals.Flat(StatKind.SpellDamage);
+        var low = rule.At(damage.Min, rank) + spell;
+        var high = rule.At(damage.Max, rank) + spell;
         if (damage.SpellPower)
         {
             var boost = caster.Effects.Totals.Flat(StatKind.SpellPower);

@@ -1,3 +1,4 @@
+using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.Items;
 using System.Collections.Generic;
@@ -75,6 +76,8 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         _combat = new FieldCombat(this, rng, experienceMultiplier);
         _skills = new FieldSkills(this, rng);
         _combat.SkillCombat = _skills;
+        Premium = new FieldPremium(fieldId, this);
+        _combat.PlayerHitLanded = Premium.RecordHit;
         foreach (var placement in spawnData.FixedNpcs)
         {
             if (npcs is null || !npcs.TryGet(placement.NpcCode, out var definition))
@@ -90,6 +93,8 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
     public int FieldId { get; }
     public FieldTerrain Terrain { get; }
+    internal FieldPremium Premium { get; }
+    internal FieldItemEvents ItemEvents { get; } = new();
     public long NowMs => (long)_nowMs;
     public int PlayerCount => _players.Count;
     public int MonsterCount => _monsters.Count;
@@ -104,6 +109,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     {
         _players.Remove(entityId, out _);
         _skills.Forget(entityId);
+        Premium.Forget(entityId);
     }
 
     // Validates a cast on the tick thread and starts its motion; the hits follow in Step.
@@ -143,6 +149,9 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
     public long ExpFor(uint playerId) => _combat.ExpFor(playerId);
 
+    // A used item's timed effect on a player of this field; it starts with the next step.
+    internal void QueueItemEffect(uint entityId, EffectSpec spec, float durationMs) => _skills.QueueItemEffect(entityId, spec, durationMs);
+
     // The field's combat resolution, for scenario tests that drive single monster attacks.
     internal FieldCombat Combat => _combat;
 
@@ -153,6 +162,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         long nowMs = (long)_nowMs;
         _events.Clear();
         _skills.BeginTick();
+        ItemEvents.BeginTick();
         _prey.Rebuild(_players.Values);
         foreach (var summon in _monsters.Values)
         {
@@ -233,6 +243,8 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
             PlaceLoot(reward, nowMs);
         }
 
+        Premium.Step(_players.Values);
+
         _combat.TickCorpses(dtMs);
         StepQuests(dtMs, nowMs);
         GroundLoot.Step(nowMs);
@@ -244,7 +256,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         if (_monsters.TryGetValue(reward.MonsterEntityId, out var killed))
         {
             var dropPosition = Terrain.SettleNear(killed.Position, FieldTerrain.DropTolerance);
-            GroundLoot.Place(reward, dropPosition, killed.Def.Drops.AllPlayersSeeDrops, nowMs);
+            GroundLoot.Place(reward, dropPosition, killed.Def.Drops.AllPlayersSeeDrops, nowMs, _rng);
         }
     }
 

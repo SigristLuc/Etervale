@@ -46,7 +46,6 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
     private PristonRenderer _renderer = null!;
     private PlayerActorComposer _composer = null!;
     private LegacyEffectLibrary _library = null!;
-    private EffectsEngine _legacy = null!;
     private SkillPresentation _presentation = null!;
     private PristonCamera _camera = null!;
     private RenderTarget2D _target = null!;
@@ -88,10 +87,9 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
         Directory.CreateDirectory(_output);
         _target = new RenderTarget2D(GraphicsDevice, 960, 540, false, SurfaceFormat.Color, DepthFormat.Depth24);
         _library = LegacyEffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assets, ConsoleClientLog.Instance);
-        _legacy = new EffectsEngine(GraphicsDevice, Content, 77);
         _renderer = new PristonRenderer(GraphicsDevice, Content) { ShadowsEnabled = true, DayLengthSeconds = 0 };
         _renderer.SetTimeOfDay(17.5f);
-        var material = new PristonMaterial(true, 1, 0, 1, true, Vector3.One, 0, 1, PristonMaterialSurfaceFlags.None, "", "", [], [], 0, 0, 0);
+        var material = new PristonMaterial(true, 1, 0, 1, true, new Vector3(0.08f, 0.08f, 0.09f), 0, 1, PristonMaterialSurfaceFlags.None, "", "", [], [], 0, 0, 0);
         var floor = new Color(26, 25, 23);
         var stage = new PristonStage("skill-fixture.smd", [material],
             [new(new Vector3(-600, 0, -600), floor), new(new Vector3(-600, 0, 600), floor), new(new Vector3(600, 0, 600), floor),
@@ -100,8 +98,9 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
         _renderer.AddStage(stage, Array.Empty<PristonModel>());
         _composer = new PlayerActorComposer(new RendererActorScene(_renderer), new PristonActorLoader());
         _camera = new PristonCamera(Vector3.Zero, Vector3.Forward, new PristonCameraSettings { FieldOfViewDegrees = 42 });
-        _presentation = new SkillPresentation(GraphicsDevice, Content, _assets, _library, _legacy, _renderer.TransientLights, this,
+        _presentation = new SkillPresentation(GraphicsDevice, Content, _library, _renderer.TransientLights, this,
             new SkillSoundBank(_assets, ConsoleClientLog.Instance) { Enabled = false }, ConsoleClientLog.Instance);
+        _library.Vfx.CompileAll();
         var registry = new CharacterClassRegistry();
         var pending = new List<Task>();
         foreach (var cast in Casts)
@@ -170,7 +169,6 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
             _clockMs += Step * 1000d;
             DispatchScheduled();
             _presentation.Update(Step, _clockMs);
-            _legacy.Update(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(Step)));
             _renderer.Update(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(Step)));
         }
 
@@ -188,7 +186,6 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
         // Captures jump between moments; snap the exposure and drop the temporal history each time.
         _renderer.ResetTemporalState();
         _renderer.Draw(_camera);
-        _legacy.Draw(_camera.View, _camera.Projection, _camera.Position);
         _presentation.Draw(_camera.View, _camera.Projection, _camera.Position, _renderer.SceneLinearDepth);
         _renderer.ComposeScene();
         GraphicsDevice.SetRenderTarget(null);
@@ -221,6 +218,19 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
         using (var stream = File.Create(path))
         {
             _target.SaveAsPng(stream, 960, 540);
+        }
+
+        if (_frame > 0)
+        {
+            // The effects alone on a dark backdrop: the exposed stage hides additive light.
+            GraphicsDevice.SetRenderTarget(_target);
+            GraphicsDevice.Clear(new Color(18, 18, 22));
+            Renderer().DisplayOutput = true;
+            _presentation.Draw(_camera.View, _camera.Projection, _camera.Position, null!);
+            Renderer().DisplayOutput = false;
+            GraphicsDevice.SetRenderTarget(null);
+            using var dark = File.Create(Path.Combine(_output, name + ".dark.png"));
+            _target.SaveAsPng(dark, 960, 540);
         }
 
         Console.WriteLine(path);
@@ -268,7 +278,6 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
         }
 
         _presentation.Clear();
-        _legacy.Clear();
         _renderer.TransientLights.Clear();
         _cast = index;
         _frame = 0;
@@ -327,15 +336,15 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
 
     public bool TryGetBone(uint entityId, string bone, out Vector3 position)
     {
-        var actor = entityId == CasterId ? _caster.Body : _dummy.Body;
-        if (_renderer.TryGetActorBoneWorld(actor, bone, out var world))
-        {
-            position = world.Translation;
-            return true;
-        }
+        var found = TryGetBoneWorld(entityId, bone, out var world);
+        position = world.Translation;
+        return found;
+    }
 
-        position = default;
-        return false;
+    public bool TryGetBoneWorld(uint entityId, string bone, out Matrix world)
+    {
+        var actor = entityId == CasterId ? _caster.Body : _dummy.Body;
+        return _renderer.TryGetActorBoneWorld(actor, bone, out world);
     }
 
     public void PlaySkillMotion(uint entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)
@@ -364,7 +373,6 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
     protected override void UnloadContent()
     {
         _presentation.Dispose();
-        _legacy.Dispose();
         _renderer.Dispose();
         _library.Dispose();
         _target.Dispose();

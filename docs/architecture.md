@@ -88,7 +88,7 @@ Consequences:
 | SQL, schema change | `Persistence/` (migration + repository + both providers) |
 | Parsing authored `GameServer` files into the catalog tables | `tools/PristonTale.WorldImport` |
 | Legacy model, stage and animation formats, GPU work | `Client/PristonTale.Engine3D` |
-| Particle scripts and VFX data | `Client/PristonTale.Effects`, `Client/PristonTale.Gameplay/Effects/Vfx` |
+| Particle scripts and VFX data | `Client/PristonTale.Effects`, `<assetRoot>/Effect/Vfx` written by `tools/PristonTale.VfxImport` |
 | HUD, windows, input, presentation of server events | `Client/PristonTale.Gameplay` |
 
 Original asset paths are resolved with `PristonFileResolver`; do not build legacy paths by hand.

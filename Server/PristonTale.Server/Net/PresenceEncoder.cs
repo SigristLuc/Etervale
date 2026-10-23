@@ -12,7 +12,7 @@ namespace PristonTale.Server.Net;
 // Turns one subscriber's share of a field snapshot into original Priston packets. It keeps the original's view
 // ranges and distance-weighted detail, but queries the field grid instead of scanning
 // every slot, sends an entity only when it changed, and lets the near ring update faster than the far ring.
-internal sealed class PresenceEncoder
+internal sealed partial class PresenceEncoder
 {
     // Squared view ranges in world units: connect 0x120000, high detail 0x48000, ground items 0xC8000.
     public static readonly float ViewRadius = MathF.Sqrt(0x120000);
@@ -216,8 +216,10 @@ internal sealed class PresenceEncoder
         SendEvents(snapshot, connection);
         SendSkillEvents(snapshot, connection);
         SendStatusEvents(snapshot, connection);
+        SendItemEffects(snapshot, connection);
         SendDrops(snapshot, self.Position, connection);
         SendOwner(snapshot.Owner, connection);
+        SendPremium(snapshot.Owner, connection);
         SendCooldowns(snapshot, connection);
         QuestWireMapping.Send(snapshot.Quest, (write, capacity) => SendSized(connection, write, capacity));
     }
@@ -506,10 +508,12 @@ internal sealed class PresenceEncoder
         }
 
         _owner = owner;
+        connection.Send(_scratch.AsSpan(0, ItemWireMapping.Status(owner).Write(_scratch)));
         connection.Send(_scratch.AsSpan(0, WireMapping.Status(owner).Write(_scratch)));
         if (owner.InventoryRevision != _inventoryRevision)
         {
             _inventoryRevision = owner.InventoryRevision;
+            ItemWireMapping.SendDetails(owner, connection, _scratch);
             var items = owner.Items.Select(WireMapping.Item).ToArray();
             var parts = Math.Max(1, (items.Length + InventoryPartPacket.MaxItemsPerPart - 1) / InventoryPartPacket.MaxItemsPerPart);
             for (var part = 0; part < parts; part++)
@@ -558,7 +562,8 @@ internal sealed class PresenceEncoder
     {
         var appearance = view.Appearance;
         return HashCode.Combine(view.MaxHp, view.Level, view.TemplateId, view.MoveSpeed, view.AttackRate,
-            HashCode.Combine(appearance.WeaponKey, appearance.ArmorKey, appearance.OffHandKey, appearance.InVillage, appearance.Tier), view.OwnerId,
+            HashCode.Combine(appearance.WeaponKey, appearance.ArmorKey, appearance.OffHandKey, appearance.InVillage, appearance.Tier, appearance.HairIndex,
+                HashCode.Combine(appearance.HelperPet, appearance.Phoenix, appearance.BigHead)), view.OwnerId,
             view.ModelScale);
     }
 

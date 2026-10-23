@@ -498,6 +498,18 @@ public sealed class RemoteEntityManager
         return false;
     }
 
+    public bool TryGetDrawnFacing(uint entityId, out float facing)
+    {
+        if (_entities.TryGetValue(entityId, out var entity))
+        {
+            facing = entity.RenderFacing;
+            return true;
+        }
+
+        facing = 0f;
+        return false;
+    }
+
     // The actor whose bones effects attach to: a player's body or a monster's model.
     public bool TryGetBodyActor(uint entityId, out ActorHandle handle)
     {
@@ -592,7 +604,9 @@ public sealed class RemoteEntityManager
 
     private CharacterVisualSet ResolvePlayerHead(CharacterVisualSet defaults, PlayerAppearanceInfo appearance)
     {
-        var head = CharacterHead.Apply(defaults, (PlayerClass)appearance.JobCode, appearance.Tier, appearance.FaceIndex, appearance.HairIndex);
+        var head = CharacterHead.ApplyBigHead(
+            CharacterHead.Apply(defaults, (PlayerClass)appearance.JobCode, appearance.Tier, appearance.FaceIndex, appearance.HairIndex),
+            (PlayerClass)appearance.JobCode, appearance.BigHead);
         uint jobMask = _classRegistry.Get((PlayerClass)appearance.JobCode).Definition.MotionJobMask;
         return EquipmentVisuals.Apply(head, appearance.ArmorKey, appearance.WeaponKey, appearance.OffHandKey, appearance.InVillage, jobMask);
     }
