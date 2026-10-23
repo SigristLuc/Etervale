@@ -34,7 +34,8 @@ rendering internals, skill presentation and VFX data have their own documents (s
 | `Client/PristonTale.Gameplay/Combat/` | `ActorMotionController` (local motion state machine), `AttackInputController` (attack press/release and server reconcile) |
 | [`Client/PristonTale.Gameplay/UI/GameplayHud.cs`](../Client/PristonTale.Gameplay/UI/GameplayHud.cs) | In-game HUD root: windows, input routing, draw order, NPC service windows |
 | `Client/PristonTale.Gameplay/UI/` (root) | `HudLayout` (800x600 design space), `LoginPanel`/`LoginLayout`/`TextInputField`, `DisplayConfirmation` |
-| `Client/PristonTale.Gameplay/UI/Widgets/` | Bottom bar, status window, skill tree and sockets, minimap, target frame and combat log (`HudCombat`), 3D target portrait, NPC dialog, settings panel, system menu, notices |
+| `Client/PristonTale.Gameplay/UI/Widgets/` | Bottom bar, status window, skill tree and sockets, minimap, target frame and combat history (`HudCombat`), 3D target portrait, NPC dialog, settings panel, system menu, notices |
+| `Client/PristonTale.Gameplay/UI/Chat/` | Chat window, tabs, input line and speech bubbles (see [chat-and-gm.md](chat-and-gm.md)) |
 | `Client/PristonTale.Gameplay/UI/Inventory/` | Inventory window layout, drag/drop and equip commands |
 | `Client/PristonTale.Gameplay/UI/Npc/` | NPC service controller, shop and warehouse windows, store layout, NPC art |
 | `Client/PristonTale.Gameplay/UI/Quests/` | Quest controller, quest dialog and yes/no boxes, quest window, quest texts and art (see [quests.md](quests.md#client)) |
@@ -201,7 +202,8 @@ a pending buffer flushed by a single writer task (a backlog above 512 KiB closes
 ### Presence on the game thread
 
 `GameScene.DrainPresence`, per update: record field id, replace `Owner`, `RemapToWorld`, `RemoteEntityManager.Apply`,
-apply a warp, ground loot, effects, skills, then raise `PresenceObserved` (the HUD combat log and target frame).
+apply a warp, ground loot, effects, skills, then raise `PresenceObserved` (the HUD target frame, combat history and chat lines;
+a `CloseRequested` update ends the game).
 
 Coordinates: the wire uses PT-global `(x, z)` in fixed point (`PristonUnits.FixedScale` = 256) and angles of 4096 per
 turn; the client world uses `(x, -z)`. `RemapToWorld` flips only spawns, states and the warp position (and facing).
@@ -272,14 +274,16 @@ Renderer side of stage publication: [rendering.md](rendering.md).
 | Middle drag, cursor at screen edge, wheel | `PristonCamera.UpdateOrbit` (Engine3D) | Orbit, edge orbit, zoom; ignored while the HUD captures the pointer |
 | `I` or `V`, `C`, `S`, `X`, `Q` | `GameplayHud.UpdateKeys` | Inventory, status, skills, system menu, quest window (ignored with Ctrl held) |
 | `F1`-`F8` | `HudSkillBindings` | Select a skill shortcut; while pressing a skill in the tree, bind it ([skills.md](skills.md)) |
-| `Esc` | `Game1` | Close HUD panels, else quit |
+| `Enter`, `Page Up`/`Page Down`, `Up`/`Down` | `HudChat.Update` | Open the chat input or send its line, scroll the chat, recall commands; while typing, HUD, binding, debug and motion keys and the `A` labels are suppressed |
+| `Esc` | `Game1` | Close the chat window first, then HUD panels, else quit |
 | `Ctrl+F3` / `Ctrl+F5` / `Ctrl+F10` | `GameplayScreen.UpdateDebugKeys` | Toggle render stats in the window title / toggle shadows / cycle `PristonDebugView` |
 | `,` / `.` / `P` | same | Time of day -1 h / +1 h / toggle the day cycle (150 s) and frozen time |
 | `Ctrl+1`..`Ctrl+7` | `GameplayScreen.UpdateMotionKeys` | Force Stand, Walk, Run, Attack, Damage, Dead, Skill on the local avatar |
 
 `GameplayHud.PointerCaptured` (pointer over a HUD element or dragging) disables world clicks, hover picking and camera
 mouse input for that frame. Keys are polled with `Keyboard.GetState()` and edge-detected against the previous frame per
-consumer; there is no text-input routing besides `TextInputField` on the login and name forms.
+consumer. Typed characters come from the window's text input (`Game1` to `GameClient.TypeCharacter` to
+`ScreenContext.TypedText`) and reach `TextInputField` on the login and name forms and the chat input line.
 
 ## HUD and windows
 
@@ -288,12 +292,13 @@ consumer; there is no text-input routing besides `TextInputField` on the login a
   with `HudLayout.ToLogical`.
 - `HudPainter` draws original sprites at the integer scale with point sampling and queues text into a linear-filtered
   pass; call `Flush` before drawing a layer that must cover earlier text.
-- Draw order (`GameplayHud.Draw`): minimap, target frame, combat log (hidden while a side window is open), status /
-  skills / inventory windows (they share one screen area; opening one closes the others, `OpenOnly`), quest window,
-  shop, warehouse, bottom bar, skill sockets, buffs and the quest timer icon, hover text, system menu, quest dialog or
-  NPC dialog, settings, item overlays, quest yes/no boxes, notices.
-- Server results reach the HUD as counters: controllers increment `Completions` and set `Message`; `ForwardMessages`
-  shows each new message once as a notice.
+- Draw order (`GameplayHud.Draw`): speech bubbles, minimap, target frame, chat window (shrunk while a side window is
+  open), status / skills / inventory windows (they share one screen area; opening one closes the others, `OpenOnly`),
+  quest window, shop, warehouse, bottom bar, skill sockets, buffs and the quest timer icon, hover text, system menu,
+  quest dialog or NPC dialog, settings, item overlays, quest yes/no boxes, notices.
+- Server results reach the HUD as counters: controllers increment `Completions` and set `Message` and `LastOk`;
+  `ForwardMessages` shows each new refusal once as a notice and each confirmation as a chat server line; skill notices
+  go to the chat, quest hints to its assistant tab ([chat-and-gm.md](chat-and-gm.md#client-chat-window)).
 - Inventory (`HudInventoryController`): left drag moves, Shift-drag splits, drop on another stack merges, drop on an
   equipment slot equips, right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
   slot first), drinks a potion or uses a usable item (`HudItemUseController`: the Teleport Core window, confirmations,
@@ -336,7 +341,7 @@ consumer; there is no text-input routing besides `TextInputField` on the login a
 - Settings (`HudSettingsPanel`, system menu entry Settings) edits `PresentationSettings.Requested`;
   `PresentationController` applies it at the next frame boundary. Display changes require confirmation within 15 s
   (`DisplayConfirmation`), otherwise they revert.
-- Party, quest, chat input and system menu entries other than Settings are drawn without behaviour.
+- Party, quest and system menu entries other than Settings are drawn without behaviour.
 
 ## Audio
 
@@ -413,7 +418,8 @@ budget; never read files in `Update`/`Draw` after `BeginRemotePresence`. Resolve
   published, but spawns that arrived before `SetCatalog` reached the scene wait in `_pendingModels`.
 - `GameplayHud.Update` has an `internal` overload taking keyboard and mouse state for tests; the public one reads the
   devices.
-- HUD keys `I`, `V`, `C`, `S`, `X`, `Q` act on any press without Ctrl; a future chat box must suppress them.
+- HUD keys `I`, `V`, `C`, `S`, `X`, `Q` act on any press without Ctrl unless the chat input has focus
+  (`GameplayHud.KeyboardCaptured`); a new key handler must check it too.
 - Quest texts load on the thread pool; `GameplayHud.IconsIdle` waits for them so captures show the text.
 - `IPlayChannel.SendSkillCommandAsync` has a default no-op implementation; test doubles inherit it silently.
 - `PresentationController.Pace`, called from `Game1.EndDraw`, sleeps on the game thread by design (frame limiter after

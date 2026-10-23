@@ -32,6 +32,7 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Packets/UserCharacterList.cs` | `ID_SETUSERINFO` character list (1484 B, six 240-byte slots). |
 | `Packets/AttackDamagePacket.cs` | 92-byte `ATTACK_DAMAGE` with the damage checksum and damage cipher. |
 | `Packets/GroundItems.cs` | `PLAYITEM` list, `DELITEM`/`PUTITEM` action, chat message packet. |
+| `Packets/ChatInputPacket.cs`, `ChatChannelCode.cs` | The typed chat line the client sends; chat kinds on the wire. |
 | `Packets/EtervalePackets.cs` | Owner status, inventory parts, skills, inventory/progression commands and results, combat events, removals, presence clock. |
 | `Packets/ItemPackets.cs` | Owner item details (`ItemDetailEntry`, `ItemDetailsPartPacket`) and the equipment status (`OwnerItemStatusPacket`). |
 | `Packets/SkillPackets.cs` | Skill cast, cast result, skill events, status effects, cooldowns. |
@@ -96,7 +97,7 @@ login, character commands, heartbeats, `ATTACK_DAMAGE`, `SkillCast` and operatio
 
 | Step | Packet | Notes |
 | --- | --- | --- |
-| Connect | S→C `VERSION` | `WParam` = minimum client version (167). The client reports its own version (3122) in `GETRECORDDATA`. |
+| Connect | S→C `VERSION` | `WParam` = minimum client version (167); `LParam` = players in the world when a game master's `/user_limit` is reached, else 0 (then only game masters may log in). The client reports its own version (3122) in `GETRECORDDATA`. |
 | Log in | C→S `ID_GETUSERINFO` (account command packet, 84 B) | `szId` = account, `szName` = password, as in the original. |
 | Success | S→C `ID_SETUSERINFO` (1484 B) and `SERVER_INFO` (152 B) | Character list and the one game server: name `Etervale`, the login socket's local IPv4 address and port. |
 | Failure | S→C `FAILCONNECT`, `EParam` = 2 | `WParam` uses the original codes: -2 bad credentials, -4 already logged in on this connection, -16 busy (throttled or storage failure), -24 account blocked. |
@@ -124,6 +125,9 @@ request (`FAILCONNECT` -16, a record echo with `WParam` 0, or entry failure `Rej
 | `WARPFIELD` | S→C | `{WParam field, SParam x, LParam z}` confirms a field change; `EParam` = 1 marks a correction after a rejected report or a teleport. |
 | `ATTACK_DAMAGE` | C→S | Attack data packet with the original damage checksum and damage cipher keyed by the sender's serial. Monster: attack lock (`AttackState` bit 0 held, `AttackCount` = sequence). NPC: opens it. |
 | `PLAYITEM` / `DELITEM` | S→C | Ground items within the ground-item range (squared `0xC8000` units, about 905 units); up to 16 records per `PLAYITEM`. `lpStgArea` carries the drop handle and `type` the quantity. Private drops go only to their owner. |
+| `CHATMESSAGE` / `PARTY_CHATMSG` | C→S | A typed line `{size, code, text}` (size 9 + length; `ChatInputPacket`): spoken line or command, or a party line. |
+| `CHATMESSAGE` / `WHISPERMESSAGE` | S→C | `{size, code, kind, speaker serial, text}` (size 32 + length): a line over a character, or a line for the log only. Kinds and routing: [chat-and-gm.md](chat-and-gm.md#wire). |
+| `CLOSECLIENT` | S→C | Asks the client to quit (the end of a game master's shutdown countdown). |
 
 `Power` in `ATTACK_DAMAGE` is ignored. Field values that differ from the original:
 

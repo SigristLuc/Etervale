@@ -47,6 +47,7 @@ Default case files by area (all `tests/PristonTale.Tests/<Name>.cs`):
 | Skill mechanics | `SkillDefenseTests`, `SkillEnchantTests`, `SkillResurrectionTests`, `SkillStealthTests`, `SkillSummonTests` | Server resolution |
 | Skill client | `SkillPresentationTests`, `VfxLayerTests`, `VfxImportTests` | VFX definitions, catalog, layers, converter, authored data, cooldown and status books |
 | Quests | `QuestTests` (with `QuestFixture`), `QuestServiceTests`, `QuestHudTests` | Every quest family's steps, rank-ups and the tier; journal storage, quest messages, durable requests, kill credit, upkeep, the arena duel; quest HUD flows and layout |
+| Chat, game masters | `ChatRoutingTests`, `GameMasterCommandTests` (with `ChatFixture`), `ChatClientTests`, `GameMasterStorageTests` | Spoken range, whispers, channels, notices, shutdown; every command and the level table; window, input, flood and bubbles; `gm_level`, audit and character moves on SQLite |
 | Client | `RemotePlaybackTests`, `AttackInputTests`, `FrameTimingTests`, `ClientSettingsTests`, `FieldAudioTests` | Playback, input, settings |
 | HUD and screens | `HudInteractionTests`, `CharacterHeadTests`, `CharacterSelectTests`, `GroundLootLabelTests` | 800x600 layout, hit tests |
 | Rendering | `RenderTests`, `RenderFidelityTests`, `PhotorealTests`, `MaterialAdapterTests`, `ShadowProjectionTests`, `SkyTests` | CPU-side renderer |
@@ -129,6 +130,7 @@ when reading those assets is authorized. GPU probes:
 | `--profile-stream-baseline <assets> <content>` | yes | Same with an 8-step upload limit for comparison |
 | `--capture-hud <assets> <content> <output-dir> [<background.png>]` | yes | In-game HUD scenarios to PNG (scales 2 and 3, `npc-*` dialogs, `buffs-*` continuous-skill bar, `quest-*` quest dialog, boxes, window and timer, `skill-right-select` prints the right socket after a right click) |
 | `--capture-hud-target <assets> <content> <output-dir>` | yes | Ricarten at 14:00 with remote-roster entities; target frame, bar, resolutions |
+| `--capture-chat <assets> <content> <output-dir> [<background.png>]` | yes | Chat window open, closed, unfocused, per tab, assistant split and page, shrunk beside the inventory, at 1280x720 and scale 2; speech bubbles over players, an NPC and a monster |
 | `--capture-item-hud <assets> <content> <output-dir>` | yes | Premium timer column, hover and blink, Teleport Core pages and confirmation, item tooltips, item effects in the effects bar |
 | `--capture-item-effects <assets> <content> <output-dir>` | yes | Ricarten at night: pets idle and striking, firecracker bursts, the skill-learn light, force orb glow and hit, a big head |
 | `--capture-login <assets> <content> <output-dir> <background.png>` | yes | Login screen edge cases (see below) |

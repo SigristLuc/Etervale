@@ -1,0 +1,166 @@
+# Chat and game masters
+
+The chat end to end: the chat window and speech bubbles on the client, the original chat messages on the wire, the
+server's routing of spoken lines, whispers, trade, clan and party lines and notices, and the game-master commands with
+their account levels and audit trail. The server decides who hears a line and who may run a command; the client only
+composes, shows and limits what the player types.
+
+## Read this when
+
+- You change who hears a line, a channel prefix, a chat limit, a chat colour or the chat window layout.
+- You add, remove or change a game-master command or the level it needs.
+- You route a new system message (a refusal, a confirmation, a quest hint) to the chat or the notice strip.
+- You touch the `gm_level` account column, the `gm_audit` table, `DevAccounts set-gm` or the shutdown countdown.
+
+## Code map
+
+| Path | Responsibility |
+| --- | --- |
+| `Shared/PristonTale.Simulation/Social/ChatRules.cs` | Limits (78 typed, 70 relayed, 255 per message), spoken range, bubble and flood timings, `Compose`, `Shorten` |
+| `Shared/PristonTale.Application/Chat/ChatAppService.cs` | Spoken and party lines, player commands, whispers, the standing notice on heartbeat |
+| `Shared/PristonTale.Application/Chat/ChatDirectory.cs` | Players in the world by entity, name and account; level, whisper refusal, notice state |
+| `Shared/PristonTale.Application/Chat/ChatLine.cs`, `IChatLink.cs` | `ChatKind`, the line a player receives, the session-side delivery port |
+| `Shared/PristonTale.Application/Chat/SocialRosters.cs` | `IPartyRoster`, `IClanRoster` and their empty defaults |
+| `Shared/PristonTale.Application/Chat/ChatCommandText.cs` | Word, quoted phrase and number parsing; case-sensitive prefix matching |
+| `Shared/PristonTale.Application/GameMasters/GameMasterLevel.cs` | Levels 0 to 4 |
+| `Shared/PristonTale.Application/GameMasters/GameMasterCommands.cs` | The command table, `HandleAsync`, the audit entry of every matched command |
+| `.../GameMasters/Gm*Commands.cs` | Information, player, item, monster, server and account commands |
+| `.../GameMasters/GameMasterServices.cs` | `GameMasterOptions`, `IServerOperations`, item-creation overrides |
+| `.../GameMasters/ShutdownCountdown.cs`, `CurrencyLedger.cs`, `GmGifts.cs` | Shutdown notices; gold that left the economy; durable item gifts |
+| `Shared/PristonTale.Application/World/WorldServer.Chat.cs`, `WorldServer.GameMasters.cs` | Tick-side reads and changes |
+| `Shared/PristonTale.Protocol/Packets/ChatInputPacket.cs`, `ChatChannelCode.cs` | The typed line the client sends; chat kinds on the wire |
+| `Server/PristonTale.Server/Net/ClientSession.Chat.cs` | `IChatLink` over the session: chat lines, forced warps, close requests |
+| `Server/PristonTale.Server/Net/GameServerControl.cs` | `IServerOperations` for the host: user limit, blocked logins, shutdown |
+| `Persistence/.../GameMasters/IGameMasterRepository.cs`, `Repositories/DapperGameMasterRepository.cs` | Level, audit, character moves |
+| `Client/PristonTale.Gameplay/UI/Chat/HudChat.cs` | Receiving lines, keys, bubble or log, whisper sound, close request |
+| `Client/PristonTale.Gameplay/UI/Chat/HudChatWindow.cs`, `HudChatLog.cs` | Window layout, tabs, notice modes, scrolling, colours |
+| `Client/PristonTale.Gameplay/UI/Chat/HudChatInput.cs`, `HudChatText.cs` | Input line, history, flood rules, channel prefixes; word wrap |
+| `Client/PristonTale.Gameplay/UI/Chat/HudChatBubbles.cs` | Speech bubbles over characters |
+| `Client/PristonTale.Gameplay/World/GameScene.Chat.cs` | Sending lines; the head point of an entity for its bubble |
+
+## Wire
+
+Original messages only; no extension opcode is used.
+
+| Direction | Message | Body |
+| --- | --- | --- |
+| Client to server | Chat message `0x48471001` | Size, code, NUL-terminated text (size 9 + length) |
+| Client to server | Party chat `0x48471015` | Same body; the text goes to the party |
+| Server to client | Chat message `0x48471001` | Size, code, kind, speaker serial, text (size 32 + length): a line over a character |
+| Server to client | Whisper message `0x48471005` | Same body: a line for the log only |
+| Server to client | Close client `0x484700E6` | The client saves nothing more and quits (the shutdown) |
+
+Kinds: 0 server, 1 whisper, 2 system, 3 notice, 4 party, 5 clan, 6 trade, 9 assistant; a player's spoken line carries
+`0x80`. Text uses the classic single-byte code page; the input refuses characters it cannot encode.
+
+## Server routing
+
+| Line | Who receives it | Text |
+| --- | --- | --- |
+| Spoken | Players within 543 units (squared distance under `0x48000`), not the speaker | `Name: text`, cut to 68 characters and `...` over 70 |
+| `/:name text`, `/;name text` | Sender and receiver | `To> name: text` and `From> sender: text` |
+| `/TRADE> text` | Everybody, the sender included | `Name: text` in the trade kind |
+| `/CLAN> text` | Members of the sender's clan | `Name> text` |
+| Party chat | The other members of the sender's party | `Name: text` in the party kind |
+| `/>text` (Moderator) | Everybody at once | `Notice> text` |
+| `/>>text` (Moderator) | Each player in the world, once, with the next heartbeat | `Notice> text`; players who enter later skip it |
+
+- Lines starting with `/` (or `` ` `` and `/`) are commands: never spoken, answered only when a command matches.
+- Whisper answers: an empty whisper reports `name is currently online`; a missing player
+  `name is currently offline, or cannot be found`; a receiver with `/disable_whisper` gets the sender
+  `Unable to send private messages` (`/enable_whisper` undoes it).
+- `/bosstime` answers `Boss Time: XX:mm` with the minute bosses appear.
+- Party and clan lines go through `IPartyRoster` and `IClanRoster`. Etervale has no party or clan system yet; the
+  default rosters are empty, so these lines reach nobody until those systems register real rosters.
+- English builds had no chat profanity filter, so none is applied.
+
+## Client chat window
+
+- Default window at (0,408), 305x210 logical pixels, 12 lines; with the status, skill or inventory window open it
+  shrinks to (0,294), 300x116, 8 lines. Lines wrap at 264 pixels; the newest sits at the bottom. The UI font is taller than the
+  classic 12-pixel line, so each block shows as many lines as fit its classic area.
+- Tabs at the bottom: All, Clan, Party, Trade, Whisper; each holds 64 lines and scrolls back 32 (Page Up, Page Down).
+  The notice button cycles the assistant lines: off, a 3-line split above the chat, the assistant page.
+- Colours: server (255,128,96), whisper (150,190,255), notice (230,160,255), party (200,255,0), clan (255,255,80),
+  trade (200,255,255), assistant (200,128,128), players (255,255,192).
+- Enter opens the input or sends; Escape closes the window before anything else; Up and Down recall the last 16
+  commands (by first word). The input holds 78 characters. Typing suppresses the HUD and movement keys.
+- On the All tab a line is spoken; on the Clan and Trade tabs it is prefixed `/CLAN> ` or `/TRADE> `; on the Party tab,
+  or with a leading `@`, it goes as party chat. After a whisper the input keeps `/:name ` for the next line.
+- Flood rules: more than 10 lines less than 2 s apart freeze the chat for 7 s with an overhead complaint; the same
+  spoken line again within 5 s is not sent.
+- The first whisper or notice while the window is closed opens it and plays the whisper chime.
+- Refusals from inventory, skill training, NPC services and item use show in the notice strip; their confirmations and
+  skill notices go to the chat as server lines; quest hints and key-binding refusals go to the assistant tab.
+
+## Speech bubbles
+
+A chat message over a character in view (players, NPCs, monsters) becomes a bubble over its head for 5 s (7 s for the
+local player) when within 768 units of the camera; a player's line also enters the log. Bubbles wrap at 264 pixels and
+12 lines, use the classic chat-box frame with a tail, and colour the speaker's name by kind (players, party and owned
+summons, monsters, NPCs); the hovered or selected speaker draws brighter.
+
+## Game masters
+
+The account's `gm_level` (0 Player, 1 Guide, 2 Moderator, 3 Operator, 4 Administrator) is loaded at login into the
+session and the chat directory; a higher level may use every command of the levels below. Set it with
+`DevAccounts set-gm <user> <level>`; it applies at the next login. Every line that matches a command is written to
+`gm_audit` (account, character, level, line, required level, accepted, result), denied ones included; read it with
+`DevAccounts gm-audit [count]`. A player below the level gets no answer.
+
+Commands match by exact, case-sensitive prefix in table order. Levels:
+
+| Level | Commands |
+| --- | --- |
+| Guide | `/localtime`, `/get_bosstime`, `/get_forceorb`, `/get_primitem`, `/get_currency`, `/get_potion`, `/netlog`, `//netlog` |
+| Guide | `/usercode`, `/userid`, `/username`, `/user`, `/sockets`, `/area_users`, `/dm_info`, `/get_guid` |
+| Guide | `/specific`, `/Performance`, `/talk`, `/monster`, `/mymonster`, `/event_monster`, `/area_monster` |
+| Guide | `/show_blackuser`, `/reset_blackuser`, `/free_blackuser`, `/hide`, `/show`, `/grant` |
+| Moderator | `/>`, `/>>`, `/user_limit`, `/kick`, `/kill`, `/open_warehouse`, `/shutdown`, `/insert`, `/near`, `/call`, `/where` |
+| Operator | `/get_money` |
+| Administrator | `/init_premiumitem`, `/@get_perf`, `/@get`, `/@put`, `/GiveMeExp!`, `/GiveMeMoney!` |
+
+- Information: local time, boss minute, the issuer's force orb and premium timers, gold spent per sink, carried potions,
+  connection packet counts, players and monsters, a player by serial, account or name, damage range, session.
+- Players: `/kick` disconnects, `/kill` kills, `/near` goes to a player, `/call` brings one, `/where` reports a
+  position, `/hide` and `/show` make the issuer invisible to other players' presence, `/grant` lends the issuer's level to a
+  player until that player leaves the world.
+- Items: `/@get code` or `/@get "name"` drops an item, `/@get_perf code [class]` its best copy, `/@put name code` writes
+  a copy into a player's bag before delivering it; `/specific job` and `/Performance value` force the class and middle
+  roll of items made in the next minute; `/init_premiumitem n` ends a premium timer.
+- Monsters: `/monster name [count]` spawns up to 21 (only the highest level drops items), `/mymonster name` a pet for
+  four minutes, `/event_monster name minutes permille` replaces spawns by chance, `/set_absorb serial value`, `/talk
+  serial text` makes an entity speak in a bubble.
+- Server: `/user_limit [n]`, the blocked-login list, `/shutdown` (8 minutes: five notices, reminders every 30 s and
+  every 5 s in the last minute, then every client is asked to close and the server stops).
+- Accounts: `/insert account character` moves an offline character to the account's first free slot;
+  `/open_warehouse [account]` lists the stored warehouse in the chat.
+- `GameMasters:TestServer` or `GameMasters:DebugServer` lower `/GiveMeExp!` and `/GiveMeMoney!` to Guide; on a debug
+  server `/` and an item code drops that item; `GameMasters:PotionMonitor` (default on) enables `/get_potion`.
+- Hidden game masters are left out of other players' presence. Game masters have no special name colour.
+
+## How to
+
+- Add a game-master command: add a row to `GameMasterCommands.Table` (order matters for shared prefixes), write the
+  handler in the matching `Gm*Commands` class, add a case to `GameMasterCommandTests` and the level table above.
+- Route a new chat kind: add it to `ChatKind`, `ChatChannelCode`, `HudChatLog` (tab and colour) and the tables above.
+- Check live: `DevAccounts set-gm`, start the server on a spare port, then
+  `SmokeClient tcp://localhost:<port> <user> <pw> --chat "/localtime"` and `DevAccounts gm-audit`.
+
+## Pitfalls
+
+- Command matching is a prefix match: `/show` must come after `/show_blackuser`, `/@get` after `/@get_perf`.
+- The client shows its own spoken and party lines at once; the server never echoes them back.
+- The standing notice is delivered on the heartbeat, not on the command.
+- Not ported because Etervale has no such system: siege and castle commands, billing and PC-room time, event levels,
+  client checksum commands, party management commands, aging settings, item-age revision, couple rings and only one game
+  master pet at a time. The classic password elevation is replaced by the stored level.
+
+## Related
+
+- [protocol.md](protocol.md): message framing and opcodes.
+- [server.md](server.md): `GameMasters:*` settings and the session.
+- [client.md](client.md): HUD structure and input.
+- [persistence.md](persistence.md): `gm_level`, `gm_audit`.
+- [tools.md](tools.md): `DevAccounts set-gm`, `gm-audit`, SmokeClient `--chat`.
+- [testing.md](testing.md): chat tests and `--capture-chat`.

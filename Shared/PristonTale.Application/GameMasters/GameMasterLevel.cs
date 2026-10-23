@@ -12,10 +12,10 @@ public static class GameMasterLevel
     // Notices, kicks, warps, account moves and the shutdown.
     public const int Moderator = 2;
 
-    // Item gifts and the server's view of gold.
+    // The server's view of a character's gold.
     public const int Operator = 3;
 
-    // Item creation, premium resets, monster absorption, experience and gold.
+    // Item creation and gifts, premium resets, monster absorption, experience and gold.
     public const int Administrator = 4;
 
     public const int Highest = Administrator;
