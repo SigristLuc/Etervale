@@ -95,6 +95,18 @@ public sealed class MonsterPresentation
     // The target of a monster's latest swing, from the server's swing event.
     public void ObserveSwing(uint attackerId, uint targetId) => _targets[attackerId] = targetId;
 
+    // A monster skill struck someone besides its swing's target: the family's impact effect plays on that victim.
+    public void ObserveSkillHit(uint attackerId, uint victimId, Vector3 victimPosition)
+    {
+        if (victimId == Target(attackerId) || !_tracked.TryGetValue(attackerId, out var tracked) || tracked.Family.Length == 0
+            || Resolve(tracked.Family, "impact", '\0', 0) is not { } name)
+        {
+            return;
+        }
+
+        _effects.Spawn(name, attackerId, victimId, victimPosition, 0f);
+    }
+
     public void Update(IReadOnlyList<MonsterActorView> monsters, float seconds)
     {
         _seen.Clear();

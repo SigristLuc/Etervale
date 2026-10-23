@@ -121,6 +121,14 @@ if (args.Length is 4 or 5 && args[0] == "--capture-skills")
     return 0;
 }
 
+if (args.Length is 4 or 5 && args[0] == "--capture-monster-skills")
+{
+    var names = args.Length == 5 ? args[4].Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) : null;
+    using var probe = new MonsterSkillCaptureProbe(args[1], args[2], args[3], names);
+    probe.Run();
+    return 0;
+}
+
 if (args.Length is 4 or 5 && args[0] == "--capture-vfx")
 {
     var names = args.Length == 5 ? args[4].Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) : null;

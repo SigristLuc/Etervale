@@ -36,6 +36,12 @@ public sealed partial class GameScene : IMonsterScene
             {
                 _monsterFx.ObserveSwing(combatEvent.AttackerId, combatEvent.TargetId);
             }
+            else if (combatEvent.Kind == RemoteCombatEventKind.Hit && combatEvent.Skill)
+            {
+                var position = combatEvent.TargetId == _remote?.SelfEntityId && _playerBody is not null ? _playerBody.Position
+                    : _remote is not null && _remote.TryGetDrawnPosition(combatEvent.TargetId, out var drawn) ? drawn : Vector3.Zero;
+                _monsterFx.ObserveSkillHit(combatEvent.AttackerId, combatEvent.TargetId, position);
+            }
         }
     }
 
