@@ -48,6 +48,7 @@ public sealed class MonsterAiTuning
     public MonsterAiTuning(MonsterDefinition def, MotionTimingSet timing = null)
     {
         SeesStealth = IsUnyielding(def);
+        _clever = def.Ai.Iq >= RunIqThreshold;
         int sight = Math.Max(0, def.Ai.SightRadius);
         SightSq = (long)sight * sight;
 
@@ -67,13 +68,15 @@ public sealed class MonsterAiTuning
         StuckDistanceSq = (long)StuckDistance * StuckDistance;
         VerticalAggroGateF = VerticalAggroGate;
 
-        CanRun = def.Ai.Iq >= RunIqThreshold;
 
         // Imported clips replace the fallback duration and authored hit offset.
         (WindupMs, CooldownMs) = DeriveAttackTiming(def.Combat.AttackSpeed);
         FlinchDurationMs = FlinchFallbackMs;
         DieDurationMs = 0f;
 
+        // A model without a run clip walks wherever it would run, at walking speed; without imported clips the
+        // model is taken to have one.
+        HasRunClip = timing == null;
         WalkCycleMs = LocomotionCycleFallbackMs;
         RunCycleMs = LocomotionCycleFallbackMs;
         if (timing != null)
@@ -106,6 +109,7 @@ public sealed class MonsterAiTuning
 
             if (timing.TryGetClip(MotionStateCode.Run, out MotionClip run))
             {
+                HasRunClip = true;
                 RunCycleMs = MotionTiming.DurationMs(run.Frames, 1f);
             }
 
@@ -174,7 +178,12 @@ public sealed class MonsterAiTuning
     public bool IsImmobile { get; }
     public long StuckDistanceSq { get; }
     public float VerticalAggroGateF { get; }
-    public bool CanRun { get; }
+    public bool HasRunClip { get; }
+
+    // Clever monsters (IQ 6 and up) run while chasing, given a run clip.
+    public bool CanRun => HasRunClip && _clever;
+
+    private readonly bool _clever;
 
     public float WindupMs { get; }
 

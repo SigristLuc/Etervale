@@ -280,7 +280,7 @@ internal sealed class ItemEffectsCaptureProbe : Game
         if (shot.Name.StartsWith("crystal", StringComparison.Ordinal))
         {
             _batch.Begin();
-            SummonPlates.Draw(_batch, _font, _pixel, GraphicsDevice.Viewport, _camera.View, _camera.Projection, _remote, SelfId, _focus);
+            SummonPlates.Draw(_batch, _font, _pixel, GraphicsDevice.Viewport, _camera.View, _camera.Projection, _remote, _renderer, SelfId, _focus);
             _batch.End();
         }
         GraphicsDevice.SetRenderTarget(null);

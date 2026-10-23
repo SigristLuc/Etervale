@@ -18,7 +18,8 @@ internal sealed record RenderBatch(
     int SkinnedVertexCount = 0,
     int SkinnedIndexCount = 0,
     BoundingBox SkinnedBounds = default,
-    int BoneCount = 0)
+    int BoneCount = 0,
+    bool IsActor = false)
 {
     // For non-skinned batches use the static mesh bounds or compute from vertices.
     // For skinned batches use SkinnedBounds (bind-pose AABB — may be slightly off

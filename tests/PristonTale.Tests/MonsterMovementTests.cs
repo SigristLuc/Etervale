@@ -16,6 +16,7 @@ internal static class MonsterMovementTests
         yield return ("monster stuck detection measures five clips, then turns off the way home for ten keeping its target", StuckAsync);
         yield return ("monster leaving its leash heads home for six clips and may resume the chase", SoftLeashAsync);
         yield return ("monster perception includes height and population leash is independent of NPC movement range", PerceptionAsync);
+        yield return ("summons and clever monsters without a run clip walk at walking speed", NoRunClipAsync);
     }
 
     private static MonsterDefinition Definition() => new(
@@ -36,6 +37,34 @@ internal static class MonsterMovementTests
         var darkKnight = definition with { Class = MonsterClass.Boss, SoundCode = 0x1460 };
         Assert.Near(140, MonsterLocomotion.UnitsPerSecond(darkKnight, false));
         Assert.Near(210, MonsterLocomotion.UnitsPerSecond(darkKnight, true));
+        return Task.CompletedTask;
+    }
+
+    private static Task NoRunClipAsync()
+    {
+        var definition = Definition();
+        var walkOnly = new MonsterAiTuning(definition, MotionTimingSet.Build([new(MotionStateCode.Walk, new MotionClip(10, 30, 0, 0, 0, 0, true))]));
+        var both = new MonsterAiTuning(definition, MotionTimingSet.Build([
+            new(MotionStateCode.Walk, new MotionClip(10, 30, 0, 0, 0, 0, true)),
+            new(MotionStateCode.Run, new MotionClip(40, 60, 0, 0, 0, 0, true))
+        ]));
+        Assert.True(!walkOnly.HasRunClip && !walkOnly.CanRun, "a model without a run clip may run");
+        Assert.True(both.HasRunClip && both.CanRun, "a clever model with a run clip may not run");
+        Assert.True(!new MonsterAiTuning(definition with { Ai = definition.Ai with { Iq = 5 } }, MotionTimingSet.Build([
+            new(MotionStateCode.Run, new MotionClip(40, 60, 0, 0, 0, 0, true))
+        ])).CanRun, "a dull monster runs");
+
+        var brain = new SummonBrain(new CombatRng(1));
+        var orders = new SummonOrders(new Vector3(1000, 0, 0), default, false);
+        var walker = new MonsterInstance(2, definition, Vector3.Zero, 0, 0);
+        brain.Tick(walker, walkOnly, orders, 1000);
+        Assert.True(walker.Motion == MonsterMotionState.Walk, "a summon without a run clip did not walk to its owner");
+        Assert.Near(MonsterLocomotion.UnitsPerSecond(definition, false), walker.Position.X);
+
+        var runner = new MonsterInstance(3, definition, Vector3.Zero, 0, 0);
+        brain.Tick(runner, both, orders, 1000);
+        Assert.True(runner.Motion == MonsterMotionState.Run, "a summon with a run clip did not run to its owner");
+        Assert.Near(MonsterLocomotion.UnitsPerSecond(definition, true), runner.Position.X);
         return Task.CompletedTask;
     }
 

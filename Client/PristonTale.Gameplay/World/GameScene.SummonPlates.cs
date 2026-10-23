@@ -11,7 +11,7 @@ public sealed partial class GameScene
 
     public void DrawSummonPlates(SpriteBatch batch, SpriteFont font)
     {
-        if (_remote is null || _camera is null || _playerBody is null)
+        if (_remote is null || _camera is null || _playerBody is null || _renderer is null)
         {
             return;
         }
@@ -22,7 +22,7 @@ public sealed partial class GameScene
             _platePixel.SetData([Color.White]);
         }
 
-        SummonPlates.Draw(batch, font, _platePixel, _graphicsDevice.Viewport, _camera.View, _camera.Projection, _remote, _remote.SelfEntityId,
+        SummonPlates.Draw(batch, font, _platePixel, _graphicsDevice.Viewport, _camera.View, _camera.Projection, _remote, _renderer, _remote.SelfEntityId,
             _playerBody.Position);
     }
 }

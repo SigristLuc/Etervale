@@ -215,7 +215,7 @@ States (`MonsterAiState`): `Idle`, `Wander`, `Chase`, `Leash` (a fixed-heading m
 | `DecisionIntervalMs` | 60 | Decision cadence; between decisions the monster keeps moving |
 | `RetargetIntervalMs` | 900 | Target scan cadence (suspended only while a boss target lock runs) |
 | `VerticalAggroGate` | 140 | Prey this far above or below is ignored |
-| `RunDistance`, `RunIqThreshold` | 512, 6 | Runs if `Iq >= 6`, not engaged and target closer than 512 |
+| `RunDistance`, `RunIqThreshold` | 512, 6 | Runs if `Iq >= 6`, not engaged and target closer than 512; a model without a run clip (`HasRunClip`) walks instead, at walking speed. Summons run to their owner and prey under the same clip rule |
 | `StopMargin`, `ChaseHysteresis` | 8, 24 | Approach to `MeleeRange - 8`; engaged flag clears beyond reach + 24 |
 | `DefaultLeashRadius` | 1280 | Planar distance from `HomeAnchor` that starts a leash manoeuvre |
 | `ProgressProbeClips`, `StuckDistance` | 5, 32 | Every 5 locomotion clips, less than 32 units of progress means stuck |

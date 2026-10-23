@@ -252,6 +252,12 @@ float4 ShadeSurface(VSOut i, bool masked)
     // Emission: the legacy display-referred colour at its authored level by day (EmissionScale >= 1 / Exposure), a
     // brighter light source at night.
     float emission = (MaterialBlink > 0.5 ? BlinkPulse : 1.0) * EmissionScale;
+    // Characters and monsters are not light sources: their self-illuminated parts show the texture at its display level
+    // by day and by night, unlit, as the original drew them.
+    if (ActorDisplayEmission > 0.5)
+    {
+        emission = (MaterialBlink > 0.5 ? BlinkPulse : 1.0) / Exposure;
+    }
     float rim = pow(1.0 - saturate(dot(s.Normal, v)), 3.0);
     float3 radiance;
     Lighting lighting;

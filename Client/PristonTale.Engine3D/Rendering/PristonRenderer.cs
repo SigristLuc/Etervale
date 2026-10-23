@@ -2385,7 +2385,8 @@ public sealed partial class PristonRenderer : IDisposable
                 _neutralActorPass ? 1f : batch.FloorLight,
                 _neutralActorPass ? null : batch.Shade,
                 batch.Shade is { Overlay: not null } overlaid ? TextureUOffset(overlaid.OverlayForm) : 0f,
-                WobblePhase);
+                WobblePhase,
+                batch.IsActor);
             effect.CurrentTechnique.Passes[0].Apply();
             _stateCache.SetVertexBuffer(batch.SkinnedBuffer);
             _stateCache.SetIndexBuffer(batch.SkinnedIndexBuffer);
@@ -2932,7 +2933,8 @@ public sealed partial class PristonRenderer : IDisposable
                     SkinnedVertexCount: item.VertexCount,
                     SkinnedIndexCount: item.IndexCount,
                     SkinnedBounds: item.Bounds,
-                    BoneCount: prepared.BoneMap.Length);
+                    BoneCount: prepared.BoneMap.Length,
+                    IsActor: true);
                 batch.UseSkinPalette(runtime.Palette);
                 runtime.AddBatch(batch);
             }
@@ -2953,7 +2955,8 @@ public sealed partial class PristonRenderer : IDisposable
                     SkinnedVertexCount: item.VertexCount,
                     SkinnedIndexCount: item.IndexCount,
                     SkinnedBounds: item.Bounds,
-                    BoneCount: prepared.BoneMap.Length);
+                    BoneCount: prepared.BoneMap.Length,
+                    IsActor: true);
                 shadowBatch.UseSkinPalette(runtime.Palette);
                 runtime.AddShadowBatch(shadowBatch);
             }

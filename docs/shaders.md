@@ -54,7 +54,8 @@ Both stages use one cbuffer at `b0`: vertex `SurfaceVertexConstants` (view-proje
 `DrawOpacity`, `DrawLight`, previous view-projection, `MotionParams` and `ActorParams`, then skinning or
 vertex-animation constants); pixel `SurfacePixelConstants` (`FRAME_CONSTANTS`, `FOG_CONSTANTS`, `LIGHTING_CONSTANTS`,
 `MATERIAL_CONSTANTS`, in that order). Actor looks: `ActorParams` (skinned only) holds the wobble amplitude and phase and
-whether the second layer is an overlay read on uv0; `ActorTint` (material constants) adds `albedo x rgb / Exposure` to
+whether the second layer is an overlay read on uv0, and in `w` whether the batch is a character or monster (its
+self-illumination stays at the display level); `ActorTint` (material constants) adds `albedo x rgb / Exposure` to
 the radiance (clamped at 0) and multiplies the output alpha by `a` after the alpha test.
 
 | Slot | Resource |
@@ -92,7 +93,7 @@ Material codes (`MaterialDecl.hlsli`, mirrored by `PristonMaterialDescription.cs
 - Display-referred inputs (sky dome, self-illumination by day, particles, glows, VFX) are divided by the frame's
   nominal display scale (`PristonFrameContext.Exposure`), so they show at their authored level when the automatic
   exposure sits at the light model's reading. Self-illumination at night is a light source of fixed luminance
-  (`EmissionScale`).
+  (`EmissionScale`), except on characters and monsters, which stay at the display level.
 - Legacy textures and vertex colours are sRGB-encoded 8-bit values and are decoded exactly in the shader. VFX vertex
   colours are the exception: already linear.
 - The vertex colour scales the albedo in linear light on both paths: stage geometry carries its authored light; scenery
@@ -189,7 +190,8 @@ transmittance + in-scatter with the exact optical depth). Sources: `tests/Pristo
 - The sky layers are display-referred art blended with legacy modes into an 8-bit target and decoded by
   `SkyComposite.fx`; do not move them into the HDR target or their additive glows change.
 - Self-illuminated and additive materials take shading model 1; their brightness is display-referred by day and a fixed
-  luminance at night. Changing `EmissiveLuminance` (`PristonRenderer`) changes night glows, not day ones.
+  luminance at night. Changing `EmissiveLuminance` (`PristonRenderer`) changes night glows, not day ones, and never
+  characters or monsters.
 - The transient-light falloff (radial, legacy (1 - d/r)^2 range) differs from the stage-lamp inverse square on purpose.
 - Skinned meshes are drawn two-sided (their winding is opposite to the stage); `VisibleFaceNormal` in `Material.hlsli`
   shades the side being seen, so do not reintroduce back-face culling for actors.

@@ -194,7 +194,8 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
   (K = 12.5) from a 128-bin histogram, blends it with the incident reading by day (weight 0.6, night: image only) and
   adapts in 0.6 s toward brighter, 2.2 s toward darker; the light model's own change applies at once.
 - **Self-illumination and display-referred art** (sky, glows, particles, VFX) divide by the display scale; at night
-  emissive albedo 1 is 40 cd/m^2 (`EmissiveLuminance`).
+  emissive albedo 1 is 40 cd/m^2 (`EmissiveLuminance`). Characters and monsters are not light sources: their
+  self-illuminated parts stay at the display level by day and by night (`RenderBatch.IsActor`).
 - **Authored per-vertex light:** stage vertex colours carry the art's shading and tint the albedo in linear light.
   Scenery models (windmills, cranes, flags, static or animated) have no vertex light, so each surface takes the mean
   linear luminance of the stage's vertex light on faces with the same texture, or the stage mean

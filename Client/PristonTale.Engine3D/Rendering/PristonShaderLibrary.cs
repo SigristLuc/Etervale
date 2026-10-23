@@ -175,14 +175,15 @@ internal sealed class PristonShaderLibrary : IDisposable
         float floorLight = 1f,
         ActorShade shade = null,
         float overlayOffset = 0f,
-        float wobblePhase = 0f)
+        float wobblePhase = 0f,
+        bool actor = false)
     {
         _skinned.SetBonePalette(palette);
         _skinned.SetDrawLight(floorLight);
         var overlay = shade?.Overlay;
         _skinned.ApplyMaterial(material, texture, uvScrollOffset, overlay is null ? layerOffset : new Vector2(overlayOffset, 0f), 1f, rimColor, overlay);
         _skinned.ApplyActor(shade is null ? new Vector4(0f, 0f, 0f, 1f) : new Vector4(shade.Tint, shade.Opacity),
-            new Vector4(shade is { Wobble: true } ? ActorShade.WobbleAmplitude : 0f, wobblePhase, overlay is null ? 0f : 1f, 0f));
+            new Vector4(shade is { Wobble: true } ? ActorShade.WobbleAmplitude : 0f, wobblePhase, overlay is null ? 0f : 1f, 0f), actor);
         return _skinned.Select(_skinned.SurfaceTechnique(material.AlphaTest, prepass));
     }
 
@@ -355,6 +356,8 @@ internal sealed class PristonShaderLibrary : IDisposable
         private readonly EffectParameter _actorParams;
         private Vector4 _tint = new(0f, 0f, 0f, 1f);
         private Vector4 _actorParamsValue;
+        private readonly EffectParameter _actorDisplayEmission;
+        private bool _displayEmission;
         private Texture2D _overlay;
         private readonly EffectParameter _baseColorMap;
         private readonly EffectParameter _layerMap;
@@ -464,6 +467,8 @@ internal sealed class PristonShaderLibrary : IDisposable
             _actorParams = Parameter("ActorParams");
             _actorTint?.SetValue(_tint);
             _actorParams?.SetValue(Vector4.Zero);
+            _actorDisplayEmission = Parameter("ActorDisplayEmission");
+            _actorDisplayEmission?.SetValue(0f);
             _baseColorMap = Parameter("BaseColorMap");
             _layerMap = Parameter("LayerMap");
             _alphaCutoff?.SetValue(AlphaCutoff);
@@ -713,8 +718,14 @@ internal sealed class PristonShaderLibrary : IDisposable
             _description = description;
         }
 
-        public void ApplyActor(Vector4 tint, Vector4 parameters)
+        public void ApplyActor(Vector4 tint, Vector4 parameters, bool displayEmission = false)
         {
+            if (displayEmission != _displayEmission)
+            {
+                _actorDisplayEmission?.SetValue(displayEmission ? 1f : 0f);
+                _displayEmission = displayEmission;
+            }
+
             if (tint != _tint)
             {
                 _actorTint?.SetValue(tint);

@@ -72,6 +72,27 @@ public sealed partial class PristonRenderer
         return true;
     }
 
+    // The model's authored height above its origin (the animated bounds' top while the file records none); false until
+    // the actor's geometry is resident.
+    public bool TryGetActorHeight(ActorHandle handle, out float height)
+    {
+        height = 0f;
+        if (!TryResolveActor(handle, out var runtime) || runtime.Batches.Count == 0)
+        {
+            return false;
+        }
+
+        var top = runtime.Batches[0].Bounds.Max.Y;
+        for (var index = 1; index < runtime.Batches.Count; index++)
+        {
+            top = MathF.Max(top, runtime.Batches[index].Bounds.Max.Y);
+        }
+
+        var authored = AuthoredHeight(runtime.Instance.Actor.Mesh, 0f);
+        height = authored > 0f ? authored * runtime.World.Up.Length() : top - runtime.World.Translation.Y;
+        return true;
+    }
+
     private static float AuthoredHeight(PristonModel mesh, float fallback)
     {
         var height = 0;

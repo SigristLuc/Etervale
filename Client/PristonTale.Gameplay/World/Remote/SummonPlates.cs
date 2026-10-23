@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using PristonTale.Engine3D.Rendering;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -9,13 +10,14 @@ public static class SummonPlates
 {
     private static readonly Color PlateName = new(220, 255, 160);
     private static readonly Color PlateOwner = new(255, 255, 200);
-    private const float PlateHeight = 60f;
+    // The plate sits over the model's own height (this one while its geometry is still loading).
+    private const float LoadingHeight = 60f;
     private const float PlateRange = 900f;
     private const int BarWidth = 40;
     private const int BarHeight = 4;
 
     public static void Draw(SpriteBatch batch, SpriteFont font, Texture2D pixel, Viewport viewport, Matrix view, Matrix projection, RemoteEntityManager remote,
-        uint viewerId, Vector3 viewer)
+        PristonRenderer renderer, uint viewerId, Vector3 viewer)
     {
         foreach (var (entityId, ownerId, plate) in remote.SummonPlates)
         {
@@ -25,7 +27,10 @@ public static class SummonPlates
                 continue;
             }
 
-            var point = viewport.Project(position + Vector3.Up * PlateHeight, projection, view, Matrix.Identity);
+            var height = remote.TryGetBodyActor(entityId, out var actor) && renderer.TryGetActorHeight(actor, out var modelHeight)
+                ? modelHeight
+                : LoadingHeight;
+            var point = viewport.Project(position + Vector3.Up * height, projection, view, Matrix.Identity);
             if (point.Z is < 0f or > 1f)
             {
                 continue;

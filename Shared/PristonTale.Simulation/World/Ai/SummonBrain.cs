@@ -59,7 +59,7 @@ public sealed class SummonBrain
             // Running back to the owner drops the target until the summon is close again.
             summon.TargetId = 0;
             summon.AiState = MonsterAiState.Leash;
-            summon.Motion = MonsterMotionState.Run;
+            summon.Motion = Locomotion(tuning);
             MoveToward(summon, orders.OwnerPosition, FollowStopDistance, dtMs);
             return null;
         }
@@ -84,7 +84,7 @@ public sealed class SummonBrain
             return null;
         }
 
-        summon.Motion = MonsterMotionState.Run;
+        summon.Motion = Locomotion(tuning);
         MoveToward(summon, target.Position, reach - 8f, dtMs);
         return null;
     }
@@ -126,6 +126,9 @@ public sealed class SummonBrain
         return landed;
     }
 
+    // Summons run to their owner and their prey; a model without a run clip walks there instead, at walking speed.
+    private static MonsterMotionState Locomotion(MonsterAiTuning tuning) => tuning.HasRunClip ? MonsterMotionState.Run : MonsterMotionState.Walk;
+
     private static void MoveToward(MonsterInstance summon, Vector3 point, float stopDistance, float dtMs)
     {
         var dx = point.X - summon.Position.X;
@@ -143,7 +146,7 @@ public sealed class SummonBrain
         }
 
         summon.Facing = MathF.Atan2(dx, dz);
-        var step = MathF.Min(distance - MathF.Max(0f, stopDistance), MonsterLocomotion.UnitsPerSecond(summon.Def, running: true) * dtMs / 1000f);
+        var step = MathF.Min(distance - MathF.Max(0f, stopDistance), MonsterLocomotion.UnitsPerSecond(summon.Def, running: summon.Motion == MonsterMotionState.Run) * dtMs / 1000f);
         summon.MoveTarget = point;
         summon.Position = new Vector3(summon.Position.X + dx / distance * step, summon.Position.Y, summon.Position.Z + dz / distance * step);
     }

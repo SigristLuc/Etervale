@@ -548,11 +548,12 @@ internal sealed class CharacterSelectScene
             summary.Tier,
             summary.FaceIndex,
             summary.HairIndex);
+        // The roster shows the character in its armour, empty-handed.
         visuals = EquipmentVisuals.Apply(
             visuals,
             summary.ArmorKey,
-            summary.WeaponKey,
-            summary.OffHandKey,
+            weapon: "",
+            offHand: "",
             summary.InVillage,
             definition.MotionJobMask);
         return true;

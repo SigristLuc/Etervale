@@ -91,7 +91,8 @@ OpeningScreen --login ok--> CharacterSelectScreen --enter world ok--> GameplaySc
   frame. The server accepts one login per connection, so when `IGameBackend.RequiresNewConnection` is set (a login
   succeeded or the connection closed) the controller first calls `ScreenContext.RenewBackend`: `GameClient` installs a
   new `GameServerConnection` and disposes the old one off the game thread.
-- `CharacterSelectScreen`: sub-states `CharacterSelect`, `RaceSelect`, `JobSelect`, `FaceSelect`, `Name`. While a
+- `CharacterSelectScreen`: sub-states `CharacterSelect`, `RaceSelect`, `JobSelect`, `FaceSelect`, `Name`. The roster
+  shows each character in its armour, empty-handed. While a
   `Busy` operation (roster load, roster/job actor preparation, enter, delete, create) runs, input is ignored and
   `PollBusy` checks the task. A successful `EnterWorldAsync` builds an `EnteredCharacter` (class, name, level, face,
   field code, spawn x/z, tier, hair) and requests `GameplayScreen`. The Exit button returns to `OpeningScreen`; the next
@@ -229,7 +230,7 @@ flip Z themselves.
   or NPC whose template is not in the catalog yet is held in `_pendingModels` until `SetCatalog`; a spawn whose models
   are loading waits in `_preparingActors` and keeps receiving the latest state. A player appearance change re-composes
   the actor from the drawn pose. Summons record their owner and are not pickable; summons and crystal pets carry
-  a name plate (`SummonPlates`, drawn after the ground labels).
+  a name plate (`SummonPlates`, drawn after the ground labels) at the model's authored height.
 
 ## Local player: prediction and authority
 
