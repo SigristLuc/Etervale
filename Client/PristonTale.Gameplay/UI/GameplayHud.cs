@@ -139,6 +139,7 @@ public sealed class GameplayHud : IDisposable
     public bool RightAttackEnabled => _bindings.RightSkillId == HudSkillBindings.BasicAttackId;
     internal uint LeftSkillId => _bindings.LeftSkillId;
     internal HudItemUseController ItemUse => _itemUse;
+    internal HudPuzzleExchange Puzzle => _puzzle;
     internal uint RightSkillId => _bindings.RightSkillId;
     public HudSkillBindings Bindings => _bindings;
 
