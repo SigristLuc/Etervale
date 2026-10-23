@@ -51,6 +51,33 @@ internal static class GmPlayerCommands
         await Move(context, target, place);
     }
 
+    // The game master goes to a field by its number: the field's start point (a random one in the castle).
+    public static async Task Field(GmCommandContext context)
+    {
+        var word = context.Word();
+        if (word.Length == 0 || context.Commands.World.FieldArrival(ChatCommandText.ToNumber(word), Random.Shared) is not { } place)
+        {
+            return;
+        }
+
+        await Move(context, context.Issuer, place);
+    }
+
+    // The game master moves to a position of the current field: x, y (the height) and z.
+    public static async Task Location(GmCommandContext context)
+    {
+        var x = context.Word();
+        var y = context.Word();
+        var z = context.Word();
+        if (z.Length == 0 || await context.Commands.World.LocateAsync(context.Issuer.EntityId, context.Issuer.EntityId) is not { } here)
+        {
+            return;
+        }
+
+        var position = new System.Numerics.Vector3(ChatCommandText.ToNumber(x), ChatCommandText.ToNumber(y), ChatCommandText.ToNumber(z));
+        await Move(context, context.Issuer, new GmPlacement(here.FieldId, position));
+    }
+
     public static async Task Where(GmCommandContext context)
     {
         var target = Target(context);

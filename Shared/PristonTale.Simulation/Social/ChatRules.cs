@@ -36,6 +36,11 @@ public static class ChatRules
         return line.Length > RelayLimit ? string.Concat(line.AsSpan(0, RelayKeep), "...") : line;
     }
 
+    // A '~' (every server) or '`' (the data server) before a slash command is the classic routing mark; one server
+    // answers every command here, so the mark is dropped and the command goes as typed after it.
+    public static string WithoutRoute(string text) =>
+        text.Length > 1 && text[1] == '/' && text[0] is '~' or '`' ? text[1..] : text;
+
     // Whispers and every slash command travel unchanged; other lines are spoken.
     public static bool IsCommand(string text) => text.Length > 0 && (text[0] == '/' || text[0] == '`');
 

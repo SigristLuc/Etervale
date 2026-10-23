@@ -19,7 +19,8 @@ internal static class GameMasterCommandTests
         ("/localtime", 1), ("/get_bosstime", 1), ("/get_forceorb", 1), ("/get_primitem", 1), ("/get_currency", 1), ("/init_premiumitem", 4),
         ("/specific", 1), ("/Performance", 1), ("/@get_perf", 4), ("/@get", 4), ("/@put", 4), ("/get_potion", 1), ("/>", 2), ("/netlog", 1),
         ("//netlog", 1), ("/user_limit", 2), ("/kick", 2), ("/kill", 2), ("/open_warehouse", 2), ("/shutdown", 2), ("/insert", 2),
-        ("/usercode", 1), ("/userid", 1), ("/username", 1), ("/near", 2), ("/call", 2), ("/where", 2), ("/GiveMeExp!", 4), ("/GiveMeMoney!", 4),
+        ("/usercode", 1), ("/userid", 1), ("/username", 1), ("/near", 2), ("/call", 2), ("/where", 2), ("/field", 2),
+        ("/player_location", 2), ("/expup", 4), ("/GiveMeExp!", 4), ("/GiveMeMoney!", 4),
         ("/user", 1), ("/sockets", 1), ("/talk", 1), ("/set_absorb", 4), ("/area_users", 1), ("/monster", 1), ("/mymonster", 1),
         ("/event_monster", 1), ("/area_monster", 1), ("/show_blackuser", 1), ("/reset_blackuser", 1), ("/free_blackuser", 1), ("/hide", 1),
         ("/show", 1), ("/get_money", 3), ("/dm_info", 1), ("/get_guid", 1), ("/grant", 1)
@@ -132,6 +133,15 @@ internal static class GameMasterCommandTests
         await fixture.RunAsync(fixture.World.RelocateAsync(gm.Id, gm.Id, new GmPlacement(ChatFixture.Field, new Vector3(-500, 0, 700))));
         await fixture.SayAsync(gm, "/call Ann");
         Assert.True(ann.Link.Warps.Single() == (ChatFixture.Field, new Vector3(-500, 0, 700)), "the player was not called to the game master");
+        await fixture.SayAsync(gm, "~/where Ann");
+        Assert.True(gm.Link.Last == "Position of Ann ( Fixture Field ) x=-500 / z=700 ", "a command with the classic '~' mark: " + gm.Link.Last);
+        await fixture.SayAsync(gm, "/player_location 1200 0 -300");
+        Assert.True(gm.Link.Warps[^1] == (ChatFixture.Field, new Vector3(1200, 0, -300)), "the game master did not move within the field");
+        await fixture.SayAsync(gm, "/field " + ChatFixture.Field);
+        Assert.True(gm.Link.Warps[^1] == (ChatFixture.Field, Vector3.Zero), "the field warp did not land on the field's start");
+        var warps = gm.Link.Warps.Count;
+        await fixture.SayAsync(gm, "/field 99");
+        Assert.True(gm.Link.Warps.Count == warps, "an unknown field moved the game master");
         await fixture.SayAsync(gm, "/kill Ann");
         Assert.True(gm.Link.Last == "> Killed ( Ann )", gm.Link.Last);
         fixture.Tick(1);
@@ -284,6 +294,11 @@ internal static class GameMasterCommandTests
         Assert.True(gm.Link.Lines.Count == 1, "level 1 is out of range");
         await fixture.SayAsync(gm, "/get_primitem");
         Assert.True(gm.Link.Lines.Count == 1, "the premium report spoke without a running premium item");
+        var before = gm.Session.Character.Experience;
+        await fixture.SayAsync(gm, "/expup 50");
+        Assert.True(gm.Session.Character.Experience == before + 50 && gm.Link.Last == ">( 50 )", "experience up: " + gm.Link.Last);
+        await fixture.SayAsync(gm, "/expup -5");
+        Assert.True(gm.Session.Character.Experience == before + 50 && gm.Link.Lines.Count == 2, "a negative amount changed experience");
         var nowSeconds = fixture.World.UnixSeconds;
         gm.Session.Character.Premium.Start(PremiumEffectKind.ThirdEyes, 50, 3600, nowSeconds);
         gm.Session.Character.Premium.Start(PremiumEffectKind.ExperienceUp, 30, 7200, nowSeconds);
@@ -294,7 +309,7 @@ internal static class GameMasterCommandTests
         Assert.True(gm.Link.Last == "(Third Eyes)Item Init Success" && !gm.Session.Character.Premium.IsActive(PremiumEffectKind.ThirdEyes)
             && gm.Session.Character.Premium.IsActive(PremiumEffectKind.ExperienceUp), "the premium reset did not end exactly Third Eyes");
         await fixture.SayAsync(gm, "/init_premiumitem 1");
-        Assert.True(gm.Link.Last == "(Third Eyes)Item Init Success" && gm.Link.Lines.Count == 3, "resetting a timer that does not run must answer nothing");
+        Assert.True(gm.Link.Last == "(Third Eyes)Item Init Success" && gm.Link.Lines.Count == 4, "resetting a timer that does not run must answer nothing");
         Assert.True(ForceOrbs.TryGet("FO101", out var orb), "fixture force orb");
         gm.Session.Character.Effects.Apply(orb.Spec(10), gm.Id, 30_000f, gm.Id);
         await fixture.SayAsync(gm, "/get_forceorb");

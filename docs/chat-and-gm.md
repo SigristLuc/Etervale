@@ -86,7 +86,9 @@ Kinds: 0 server, 1 whisper, 2 system, 3 notice, 4 party, 5 clan, 6 trade, 9 assi
 - Enter opens the input or sends; Escape closes the window before anything else; Up and Down recall the last 16
   commands (by first word). The input holds 78 characters. Typing suppresses the HUD and movement keys.
 - On the All tab a line is spoken; on the Clan and Trade tabs it is prefixed `/CLAN> ` or `/TRADE> `; on the Party tab,
-  or with a leading `@`, it goes as party chat. After a whisper the input keeps `/:name ` for the next line.
+  or with a leading `@`, it goes as party chat. After a whisper the input keeps `/:name ` for the next line. The classic
+  routing marks `~/` (every server) and `` `/ `` (the data server) are dropped before a command is sent, and the server
+  drops them too (`ChatRules.WithoutRoute`): one server answers every command.
 - Flood rules: more than 10 lines less than 2 s apart freeze the chat for 7 s with an overhead complaint; the same
   spoken line again within 5 s is not sent.
 - The first whisper or notice while the window is closed opens it and plays the whisper chime.
@@ -117,13 +119,15 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
 | Guide | `/specific`, `/Performance`, `/talk`, `/monster`, `/mymonster`, `/event_monster`, `/area_monster` |
 | Guide | `/show_blackuser`, `/reset_blackuser`, `/free_blackuser`, `/hide`, `/show`, `/grant` |
 | Moderator | `/>`, `/>>`, `/user_limit`, `/kick`, `/kill`, `/open_warehouse`, `/shutdown`, `/insert`, `/near`, `/call`, `/where` |
+| Moderator | `/field`, `/player_location` |
 | Operator | `/get_money` |
-| Administrator | `/init_premiumitem`, `/@get_perf`, `/@get`, `/@put`, `/GiveMeExp!`, `/GiveMeMoney!` |
+| Administrator | `/init_premiumitem`, `/@get_perf`, `/@get`, `/@put`, `/GiveMeExp!`, `/expup`, `/GiveMeMoney!` |
 
 - Information: local time, boss minute, the issuer's force orb and premium timers, gold spent per sink, carried potions,
   connection packet counts, players and monsters, a player by serial, account or name, damage range, session.
 - Players: `/kick` disconnects, `/kill` kills, `/near` goes to a player, `/call` brings one, `/where` reports a
-  position, `/hide` and `/show` make the issuer invisible to other players' presence, `/grant` lends the issuer's level to a
+  position, `/field n` goes to field n's start point (a random one in the castle), `/player_location x y z` moves within
+  the field (each move carries the running statuses), `/hide` and `/show` make the issuer invisible to other players' presence, `/grant` lends the issuer's level to a
   player until that player leaves the world.
 - Items: `/@get code` or `/@get "name"` drops an item, `/@get_perf code [class]` its best copy, `/@put name code` writes
   a copy into a player's bag before delivering it; `/specific job` and `/Performance value` force the class and middle
@@ -135,7 +139,8 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
   every 5 s in the last minute, then every client is asked to close and the server stops).
 - Accounts: `/insert account character` moves an offline character to the account's first free slot;
   `/open_warehouse [account]` lists the stored warehouse in the chat.
-- `GameMasters:TestServer` or `GameMasters:DebugServer` lower `/GiveMeExp!` and `/GiveMeMoney!` to Guide; on a debug
+- Experience: `/GiveMeExp! level` raises to a level, `/expup n` adds n points as a monster's award would.
+- `GameMasters:TestServer` or `GameMasters:DebugServer` lower `/GiveMeExp!`, `/expup` and `/GiveMeMoney!` to Guide; on a debug
   server `/` and an item code drops that item; `GameMasters:PotionMonitor` (default on) enables `/get_potion`.
 - Hidden game masters are left out of other players' presence. Game masters have no special name colour.
 
@@ -153,8 +158,13 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
 - The client shows its own spoken and party lines at once; the server never echoes them back.
 - The standing notice is delivered on the heartbeat, not on the command.
 - Not ported because Etervale has no such system: siege and castle commands, billing and PC-room time, event levels,
-  client checksum commands, party management commands, aging settings, item-age revision, couple rings and only one game
-  master pet at a time. The classic password elevation is replaced by the stored level.
+  client checksum commands, party management commands, aging settings (`/AgingSetting`: Etervale has no aging yet),
+  item-age revision, the wishing fountain, Bellatra (`/sod_view`, `/sod_enter`), billing time (`/time`), couple rings and
+  only one game master pet at a time. The classic password elevation is replaced by the stored level.
+- The classic client's own commands: `/field` and `/player_location` (and `/expup`) are server commands here, since the
+  server owns position and experience; `/save` has no counterpart (every change is stored as it happens); the lighting
+  and model debug commands (`/dark`, `/color`, `/time_offset`, `/load`, `/body`, `/mymodel`, ...) and `/latency` are
+  not ported, nor is `/camera_wave_on|off`, whose camera wave the client does not have yet.
 
 ## Related
 

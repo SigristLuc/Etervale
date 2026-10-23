@@ -107,7 +107,7 @@ public sealed class HudChatInput
     public HudChatSend? Submit(string playerName, HudChatTab tab, double nowMs, out string complaint)
     {
         complaint = null;
-        var typed = Text.TrimEnd(' ');
+        var typed = ChatRules.WithoutRoute(Text.TrimEnd(' '));
         var continued = _whisperName.Length > 0 && Text.Length > _whisperPrefix;
         if (!continued)
         {

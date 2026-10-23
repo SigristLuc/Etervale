@@ -126,6 +126,9 @@ internal static class ChatClientTests
         Assert.True(input.Text == "/where ", "a command is remembered by its first word");
         input.Recall(older: false);
         Assert.True(input.Text == "", "recalling past the newest empties the line");
+        Assert.True(Send("~/call Bob") == new HudChatSend(HudChatSendKind.Command, "/call Bob", "/call Bob")
+            && Send("`/where Bob") == new HudChatSend(HudChatSendKind.Command, "/where Bob", "/where Bob"), "the classic routing marks are dropped");
+        Assert.True(Send("~hello") == new HudChatSend(HudChatSendKind.Spoken, "~hello", "Ann: ~hello"), "a tilde without a slash is spoken");
         input.WhisperTo("Bob");
         Assert.True(input.Text == "/:Bob ", "a whisper conversation starts with the name");
         input.Type('h');

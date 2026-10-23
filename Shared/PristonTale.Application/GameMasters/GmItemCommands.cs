@@ -128,6 +128,22 @@ internal static class GmItemCommands
         }
     }
 
+    // Adds experience points to the game master, as a monster's award would.
+    public static async Task ExperienceUp(GmCommandContext context)
+    {
+        var word = context.Word();
+        var amount = ChatCommandText.ToNumber(word);
+        if (word.Length == 0 || amount <= 0)
+        {
+            return;
+        }
+
+        if (await context.Commands.World.AddExperienceAsync(context.Issuer.EntityId, amount) is not null)
+        {
+            context.Reply(Format(">( {0} )", amount));
+        }
+    }
+
     // Drops 1 to 1,000,000 gold at the game master.
     public static async Task Gold(GmCommandContext context)
     {

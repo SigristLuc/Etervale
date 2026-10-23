@@ -35,7 +35,7 @@ public sealed class ChatAppService
             return;
         }
 
-        text = ChatRules.ClipToCapacity(ChatCommandText.Clean(text));
+        text = ChatRules.WithoutRoute(ChatRules.ClipToCapacity(ChatCommandText.Clean(text)));
         if (text.Length == 0)
         {
             return;

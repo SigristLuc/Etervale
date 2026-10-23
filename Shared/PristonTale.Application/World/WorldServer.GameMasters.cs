@@ -85,26 +85,43 @@ public sealed partial class WorldServer
         });
     }
 
-    // Places a player at a position of a field, as a game master's summon or approach. The caller sends the forced warp.
+    // Where a field warp puts a game master: a random start point of a castle, the first start point elsewhere, else the
+    // field's centre, on the highest floor there. Null for a field code the catalog does not know.
+    public GmPlacement? FieldArrival(int fieldCode, Random random)
+    {
+        ArgumentNullException.ThrowIfNull(random);
+        if (!_catalog.TryGetFieldByCode(fieldCode, out var definition))
+        {
+            return null;
+        }
+
+        var points = definition.StartPoints;
+        var point = points.Count == 0 ? definition.Center
+            : definition.State == FieldState.Castle ? points[random.Next(points.Count)]
+            : points[0];
+        return new GmPlacement(fieldCode, new Vector3(point.X, float.NaN, point.Z));
+    }
+
+    // Places a player at a position of a field, as a game master's summon or approach. A position without a height
+    // (NaN) stands on the highest floor there. The caller sends the forced warp.
     public Task<GmPlacement?> RelocateAsync(uint requesterId, uint entityId, GmPlacement destination)
     {
         return EnqueueAsync<GmPlacement?>(requesterId, () =>
         {
+            var onFloor = float.IsNaN(destination.Position.Y);
+            var requested = onFloor ? destination.Position with { Y = 0f } : destination.Position;
             if (!_connections.TryGetValue(entityId, out var connection) || connection.Player.IsDead
-                || !_catalog.TryGetFieldByCode(destination.FieldId, out var definition) || !WorldPosition.IsValid(destination.Position))
+                || !_catalog.TryGetFieldByCode(destination.FieldId, out var definition) || !WorldPosition.IsValid(requested))
             {
                 return null;
             }
 
             var player = connection.Player;
-            var source = _fields[connection.FieldId];
             var target = GetField(destination.FieldId);
-            source.Remove(player.EntityId);
-            player.Cooldowns.Rebase(source.NowMs, target.NowMs);
-            var position = target.Terrain.SettleNear(destination.Position, FieldTerrain.DropTolerance * 2f);
+            TransferPlayer(player, _fields[connection.FieldId], target);
+            var position = onFloor ? target.Terrain.PlaceOnFloor(requested) : target.Terrain.SettleNear(requested, FieldTerrain.DropTolerance * 2f);
             var inVillage = definition.State == FieldState.Village;
             player.EnterField(position, inVillage, target.Terrain.PlaceOnFloor(RespawnPoint(definition, position)));
-            target.Add(player);
             _membershipChanged = true;
             _connections[player.EntityId] = connection with { FieldId = destination.FieldId };
             UpdatePlacement(connection.Session, destination.FieldId, position, inVillage);
@@ -282,6 +299,22 @@ public sealed partial class WorldServer
             }
 
             return character.Experience;
+        });
+    }
+
+    // Adds experience to a character as monsters award it (levels included); the new total, or null when the amount is
+    // not positive.
+    public Task<long?> AddExperienceAsync(uint entityId, int amount)
+    {
+        return EnqueueAsync<long?>(entityId, () =>
+        {
+            if (!_connections.TryGetValue(entityId, out var connection) || amount <= 0)
+            {
+                return null;
+            }
+
+            connection.Player.Character.AwardExperience(amount);
+            return connection.Player.Character.Experience;
         });
     }
 
