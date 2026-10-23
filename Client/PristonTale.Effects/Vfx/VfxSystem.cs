@@ -189,7 +189,7 @@ public sealed class VfxInstance
 
     public CompiledVfx Effect { get; private set; } = null!;
     // Counts the uses of this pooled instance, so a holder can tell its effect from a later one.
-    internal int Generation { get; private set; }
+    public int Generation { get; private set; }
     public VfxSpawn Spawn { get; private set; }
     public float Age { get; private set; }
     public bool Alive { get; private set; }

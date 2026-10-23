@@ -510,6 +510,18 @@ public sealed class RemoteEntityManager
         return false;
     }
 
+    // Every other player's body item ("" while unknown), whether it is shown (alive, outside a village) and its model yaw.
+    public void ForEachWearer(Action<uint, string, bool, float> visit)
+    {
+        foreach (var (entityId, appearance) in _playerAppearances)
+        {
+            if (_entities.TryGetValue(entityId, out var entity) && entity is RemoteEntity)
+            {
+                visit(entityId, appearance.ArmorKey, !entity.IsDead && !appearance.InVillage, entity.RenderFacing);
+            }
+        }
+    }
+
     // The actors a skill look paints: a player's body, head and held items, or a monster's model; and whether the
     // player holds a shield.
     public bool TryGetLookHandles(uint entityId, out PlayerActorHandles handles, out bool holdsShield)

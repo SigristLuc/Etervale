@@ -22,6 +22,7 @@ public sealed partial class GameScene : ISkillSceneHost
 
     private SkillPresentation _skillFx;
     private ActorLookPresenter _looks;
+    private readonly CostumeWings _wings = new();
     private SkillSoundBank _skillSounds;
     private double _skillClockMs;
     private uint _castSequence;
@@ -85,6 +86,35 @@ public sealed partial class GameScene : ISkillSceneHost
     private void UpdateSkills(GameTime gameTime)
     {
         _skillFx?.Update((float)gameTime.ElapsedGameTime.TotalSeconds, _skillClockMs);
+        UpdateCostumeWings();
+    }
+
+    private void UpdateCostumeWings()
+    {
+        if (_skillFx is null || _remote is null)
+        {
+            return;
+        }
+
+        if (_playerBody is not null && _equipmentPresentation is not null)
+        {
+            var village = _activeField?.Definition.State == Simulation.World.FieldState.Village;
+            _wings.Wear(_skillFx, _remote.SelfEntityId, _equipmentPresentation.ArmorKey, !village && !_playerController.IsDead, _playerBody.Position,
+                MathF.Atan2(_playerForward.X, _playerForward.Z));
+        }
+
+        _remote.ForEachWearer(_wearRemote ??= WearRemote);
+        _wings.EndFrame();
+    }
+
+    private Action<uint, string, bool, float> _wearRemote;
+
+    private void WearRemote(uint entityId, string armorKey, bool shown, float yaw)
+    {
+        if (_remote.TryGetDrawnPosition(entityId, out var position))
+        {
+            _wings.Wear(_skillFx, entityId, armorKey, shown, position, yaw);
+        }
     }
 
     private void DrawSkillEffects()
