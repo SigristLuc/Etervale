@@ -300,7 +300,8 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
         DrawLines(painter, layout, pointer, entry.Skill.Name, lines.ToArray());
     }
 
-    private void RefreshRanks(OwnerState state)
+    // Ranks drive both the hover test of Update and the drawing, so the HUD refreshes them before either.
+    public void RefreshRanks(OwnerState state)
     {
         if (state is null || ReferenceEquals(state.Skills, _displayedSkills))
         {

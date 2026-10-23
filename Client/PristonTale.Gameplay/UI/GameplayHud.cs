@@ -79,7 +79,7 @@ public sealed class GameplayHud : IDisposable
         _painter = new HudPainter(context.SpriteBatch, context.Font, _sprites);
         _icons = new HudItemIcons(context.GraphicsDevice, context.AssetRoot, context.Log);
         _skills = new HudSkillsPanel(context.Font, _sprites);
-        _skillHud = new HudSkillHud(_sprites);
+        _skillHud = new HudSkillHud(_sprites, context.GraphicsDevice);
         _inventory = new HudInventoryController(context, applyInventory);
         _progression = new HudProgressionController(applyProgression, context.Log);
         _npc = new HudNpcPanel(interactNpc, context.Log, npcOpened, npcClosed);
@@ -106,12 +106,17 @@ public sealed class GameplayHud : IDisposable
     public HudSkillBindings Bindings => _bindings;
 
     // Cooldowns and active effects of the local player, and the clock they are kept on (GameScene.Skills).
-    public PristonTale.Gameplay.Effects.SkillPresentation SkillState { get; set; }
+    // The client's view of statuses and cooldowns from the server's skill messages.
+    public PristonTale.Gameplay.Effects.StatusBook Statuses { get; set; }
+    public PristonTale.Gameplay.Effects.SkillCooldownBook Cooldowns { get; set; }
     public double SkillClockMs { get; set; }
     public uint SelfId { get; set; }
 
     // A double click on a summon's buff icon asks to switch the summon's fighting mode.
     public event Action<uint> SummonModeRequested;
+
+    // The fighting mode the player chose for a running summon skill (true: automatic), or null for other skills.
+    public Func<uint, bool?> SummonAutomatic { get; set; }
     private uint _lastBuffClicked;
     private double _lastBuffClickSeconds;
 
@@ -247,6 +252,7 @@ public sealed class GameplayHud : IDisposable
         }
 
         var skillOrigin = PanelOrigin(layout, _skillSlide);
+        _skills.RefreshRanks(_state);
         var hoveredSkill = _skillSlide.FullyOpen && _skillMaster == 0 ? _skills.HoveredSkill(skillOrigin, pointer) : 0;
         _bindings.Update(keyboard, mouse, hoveredSkill);
         PointerCaptured = Captures(layout, pointer, design) || _inventory.Dragging != Guid.Empty || _warehouse.Dragging != Guid.Empty;
@@ -257,12 +263,12 @@ public sealed class GameplayHud : IDisposable
 
     private bool ClickBuff(Point pointer)
     {
-        if (SkillState is null || SelfId == 0)
+        if (Statuses is null || SelfId == 0)
         {
             return false;
         }
 
-        var code = HudSkillHud.BuffAt(SkillState.Statuses.For(SelfId), pointer);
+        var code = _skillHud.BuffAt(pointer);
         if (code == 0)
         {
             return false;
@@ -508,7 +514,7 @@ public sealed class GameplayHud : IDisposable
 
     private bool Captures(HudLayout layout, Point pointer, Point design)
     {
-        if (HudBar.Captures(design) || MinimapShown && HudMinimap.Box(layout).Contains(pointer)
+        if (HudBar.Captures(design) || MinimapShown && HudMinimap.Box(layout).Contains(pointer) || _skillHud.BuffAt(pointer) != 0
             || WindowContains(layout, _inventorySlide, pointer) || WindowContains(layout, _statusSlide, pointer) || WindowContains(layout, _skillSlide, pointer))
         {
             return true;
@@ -583,10 +589,10 @@ public sealed class GameplayHud : IDisposable
         var left = _bindings.LeftSkillId == HudSkillBindings.BasicAttackId;
         _bar.Draw(_painter, layout, _state, new HudBarView(World.TimeOfDay, World.Running, _mapVisible, left, RightAttackEnabled,
             _hoveredButton, pressed && _hoveredButton is not null, _hoveredToggle));
-        _skillHud.DrawSockets(_painter, layout.BottomOffset, _bindings.LeftSkillId, _bindings.RightSkillId, SkillState?.Cooldowns, SkillClockMs);
-        if (SkillState is not null && SelfId != 0)
+        _skillHud.DrawSockets(_painter, layout.BottomOffset, _bindings.LeftSkillId, _bindings.RightSkillId, Cooldowns, SkillClockMs);
+        if (Statuses is not null && SelfId != 0)
         {
-            _skillHud.DrawBuffs(_painter, SkillState.Statuses.For(SelfId), SkillClockMs);
+            _skillHud.DrawBuffs(_painter, Statuses.For(SelfId), SkillClockMs);
         }
 
         _bar.DrawHoverText(_painter, layout, _state, pointer);
@@ -625,6 +631,11 @@ public sealed class GameplayHud : IDisposable
         if (_skillSlide.FullyOpen)
         {
             _skills.DrawOverlay(_painter, layout, pointer, _skillMaster, _progression.Message);
+        }
+
+        if (Statuses is not null && SelfId != 0)
+        {
+            _skillHud.DrawBuffTooltip(_painter, Statuses.For(SelfId), pointer, SkillClockMs, SummonAutomatic);
         }
 
         _painter.Flush();
@@ -870,6 +881,7 @@ public sealed class GameplayHud : IDisposable
     public void Dispose()
     {
         _portrait.Dispose();
+        _skillHud.Dispose();
         _icons.Dispose();
         _painter.Dispose();
         _sprites.Dispose();

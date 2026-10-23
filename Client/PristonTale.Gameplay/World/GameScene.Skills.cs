@@ -295,6 +295,13 @@ public sealed partial class GameScene : ISkillSceneHost
         SkillNotice?.Invoke(aggressive ? $"{rule.Name}: attacks any enemy nearby." : $"{rule.Name}: attacks only your target.");
     }
 
+    // True when the summon skill's monster picks its own enemies, false when it fights only the owner's target; null
+    // for skills that summon nothing.
+    public bool? SummonAutomatic(uint skillCode) =>
+        SkillRuleCatalog.TryGet(skillCode, out var rule) && rule.Summon is not null
+            ? _summonAggressive.GetValueOrDefault(skillCode, rule.Summon.Aggressive)
+            : null;
+
     // The summon of a new cast starts in its skill's own mode.
     private void ResetSummonMode(uint skillCode) => _summonAggressive.Remove(skillCode);
     private int Rank(uint code)

@@ -34,7 +34,8 @@ internal sealed class HudCaptureProbe : Game
         SettingsRow,
         AllocateArrow,
         ShopItem,
-        WarehouseItem
+        WarehouseItem,
+        Buff
     }
 
     private const uint SkillMasterNpc = 7;
@@ -45,11 +46,14 @@ internal sealed class HudCaptureProbe : Game
     private sealed record Scenario(string Name, int Width, int Height, Keys Panel = Keys.None, Hover Hover = Hover.None, int HealthPercent = 100,
         PlayerClass Class = PlayerClass.Mechanician, bool Npc = false, bool Settings = false, bool SystemMenu = false, bool Learned = false,
         bool Training = false, bool LowHealth = false, float Hour = 13, bool ClassicTarget = false, uint Target = 2, uint NpcId = SkillMasterNpc,
-        int ServiceButton = -1, bool SellMode = false, int ServiceCount = 2);
+        int ServiceButton = -1, bool SellMode = false, int ServiceCount = 2, int RightSelect = -1, bool Buffs = false);
 
     private static readonly Scenario[] Scenarios =
     [
         new("bar-800", 800, 600),
+        new("buffs-800", 800, 600, Buffs: true),
+        new("buffs-summon-tooltip-800", 800, 600, Hover: Hover.Buff, Buffs: true),
+        new("buffs-1600x1200-scale2", 1600, 1200, Buffs: true),
         new("bar-1024", 1024, 768),
         new("bar-1280", 1280, 720),
         new("bar-1600x1200-scale2", 1600, 1200),
@@ -76,6 +80,7 @@ internal sealed class HudCaptureProbe : Game
         new("skills-learned-800", 800, 600, Keys.S, Learned: true),
         new("skill-details-800", 800, 600, Keys.S, Hover.SkillNode),
         new("skill-basic-800", 800, 600, Keys.S, Hover.SkillBasic),
+        new("skill-right-select-800", 800, 600, Keys.S, Learned: true, RightSelect: 1),
         new("skills-fighter-800", 800, 600, Keys.S, Class: PlayerClass.Fighter),
         new("skills-knight-800", 800, 600, Keys.S, Class: PlayerClass.Knight),
         new("skills-priestess-800", 800, 600, Keys.S, Class: PlayerClass.Priestess),
@@ -212,6 +217,10 @@ internal sealed class HudCaptureProbe : Game
             _hud.CharacterClass = scenario.Class;
             _hud.World = _world with { TimeOfDay = scenario.Hour };
             _hud.TargetId = scenario.Target;
+            _hud.Statuses = scenario.Buffs ? BuffBook() : null;
+            _hud.SelfId = 1;
+            _hud.SkillClockMs = BuffClockMs;
+            _hud.SummonAutomatic = code => code == MetalGolem ? true : null;
             _presentation.Requested = _presentation.Requested with { ClassicTargetHealthBar = scenario.ClassicTarget };
             var state = ScenarioState(scenario);
             var layout = HudLayout.Create(scenario.Width, scenario.Height);
@@ -242,6 +251,18 @@ internal sealed class HudCaptureProbe : Game
             if (scenario.SellMode)
             {
                 Click(state, layout, HudStoreLayout.Sell(HudStoreLayout.Origin(0)).Center);
+            }
+
+            if (scenario.RightSelect >= 0)
+            {
+                _hud.Update(state, default, default);
+                var row = HudSkillsPanel.ClassRow(HudInventoryLayout.Origin(layout), scenario.RightSelect).Center;
+                var (x, y) = (row.X * layout.Scale, row.Y * layout.Scale);
+                _hud.Update(state, default, new MouseState(x, y, 0, ButtonState.Released, ButtonState.Released, ButtonState.Pressed,
+                    ButtonState.Released, ButtonState.Released));
+                _hud.Update(state, default, new MouseState(x, y, 0, ButtonState.Released, ButtonState.Released, ButtonState.Released,
+                    ButtonState.Released, ButtonState.Released));
+                Console.WriteLine($"HUD {scenario.Name}: right socket {_hud.Bindings.RightSkillId:X8}");
             }
 
             if (scenario.Training)
@@ -322,10 +343,28 @@ internal sealed class HudCaptureProbe : Game
             Hover.AllocateArrow => HudStatusPanel.AllocateButton(origin, 0).Center,
             Hover.ShopItem => HudStoreLayout.Cell(HudStoreLayout.Origin(0), 0, 2, 3).Center,
             Hover.WarehouseItem => HudStoreLayout.Cell(HudStoreLayout.Origin(0), 2, 2, 3).Center,
+            Hover.Buff => new Point(10 + 16, 26),
             _ => new Point(layout.Width - 200, layout.Height / 2)
         };
         return new MouseState(point.X * layout.Scale, point.Y * layout.Scale, 0,
             ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released);
+    }
+
+    private const double BuffClockMs = 100_000;
+    private const uint MetalGolem = 0x01080004;
+
+    // A long-running shield, a fresh summon, a nearly spent absorption and a debuff, oldest first after sorting.
+    private static PristonTale.Gameplay.Effects.StatusBook BuffBook()
+    {
+        var book = new PristonTale.Gameplay.Effects.StatusBook();
+        void Add(uint code, int duration, int remaining, ushort flags = 0) => book.Apply(new StatusEffectInfo(1, 1, code, PristonTale.Protocol.Packets.StatusEffectOp.Add, 1, 1, 0,
+            flags, duration, remaining, 0), BuffClockMs);
+        Add(0x01010001, 60_000, 20_000);
+        Add(MetalGolem, 360_000, 300_000);
+        Add(0x01020002, 60_000, 45_000);
+        Add(0x01010003, 30_000, 1_500);
+        Add(0x01010001 + 0x00100000, 10_000, 6_000, PristonTale.Protocol.Packets.StatusEffectFlags.Harmful);
+        return book;
     }
 
     private static NpcInteraction Interaction(uint id)

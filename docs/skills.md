@@ -44,7 +44,7 @@ Monster skills are a separate system (see [world.md](world.md)); they share only
 | `Client/PristonTale.Gameplay/Effects/Vfx/Common.vfx.json`, `Vfx/Classes/<Class>.vfx.json` | Named skill effects (embedded); format in [effects.md](effects.md) |
 | `Client/PristonTale.Gameplay/UI/Widgets/HudSkillsPanel.cs`, `HudSkillTreeLayout.cs` | Skill window (`S`): 16 nodes, rank gauges, short-key marks, training clicks at a skill master |
 | `Client/PristonTale.Gameplay/UI/Widgets/HudSkillBindings.cs` | Left/right mouse sockets and the eight `F1`-`F8` short keys (in memory, not saved) |
-| `Client/PristonTale.Gameplay/UI/Widgets/HudSkillHud.cs` | Bottom-bar sockets with cooldown sweep; buff bar (keep icons, time left) |
+| `Client/PristonTale.Gameplay/UI/Widgets/HudSkillHud.cs` | Bottom-bar sockets with cooldown sweep; continuous-skill bar (keep icons, duration gauge, summon mode tooltip) |
 | `Client/PristonTale.Gameplay/UI/Widgets/HudSkillDetails.cs` | Tooltip numbers per rank, read from the same `SkillRule` |
 | `tests/PristonTale.Tests/Skill*Tests.cs`, `ClassSkillDataTests.cs`, `PassiveSkillTests.cs` | Regression cases; `SkillScenario`/`SkillFixtures` build a one-player field for server tests |
 
@@ -336,8 +336,13 @@ Presentation (`SkillPresentation`):
 - Combat events add floating damage, heal and evade text and the revive effect (`ReviveEffect`).
 - VFX: embedded `Vfx/Common.vfx.json` then `Vfx/Classes/*.vfx.json`, then `assets/Vfx/*.vfx.json` overrides by name.
   Sounds are asset paths loaded by `SkillSoundBank`.
-- HUD: `HudSkillHud` draws the socket icons with the cooldown sweep from `SkillCooldownBook` and the buff bar of the
-  local player's statuses with `keepIcon` and time left; `HudSkillDetails` builds tooltips from the rule.
+- HUD: `HudSkillHud` draws the socket icons with the cooldown sweep from `SkillCooldownBook` and, from (10, 10), the
+  continuous-skill bar: one 32 px icon per status that has a `keepIcon` (or a skill button), longest running first,
+  each the `keep/GA_.tga` ring, a 72-step fan filling clockwise as the time runs out (cyan, red for harmful) and the
+  keep icon. Icons fade in over 255 and out over the last 180 frames, blink every 31 frames in the last 4 s and slide
+  2 px per frame (70 Hz frames). Hovering shows name, time left and, for summons, `Attack type: Auto/Manual`
+  (`GameScene.SummonAutomatic`); a double-click toggles the summon's mode, and every new summon starts automatic.
+  `HudSkillDetails` builds the skill window tooltips from the rule.
 
 Smoke check against a running server (`tools/PristonTale.SmokeClient`, see [tools.md](tools.md)): without
 `--character` it creates a Mechanician in town and expects an answered (refused) cast; with `--character <name>

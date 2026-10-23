@@ -41,6 +41,7 @@ public sealed class GameplayScreen : GameScreen
         _scene.NpcSelected += _hud.OpenNpc;
         _scene.SkillNotice += _hud.ShowNotice;
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
+        _hud.SummonAutomatic = _scene.SummonAutomatic;
 
         _scene.BeginRemotePresence(Context.Backend.OpenPlayChannel(), _entered);
 
@@ -102,7 +103,8 @@ public sealed class GameplayScreen : GameScreen
         _scene.RightAttackEnabled = _hud.RightAttackEnabled;
         _scene.LeftSkill = _hud.Bindings.LeftSkillId;
         _scene.RightSkill = _hud.Bindings.RightSkillId;
-        _hud.SkillState = _scene.Skills;
+        _hud.Statuses = _scene.Skills?.Statuses;
+        _hud.Cooldowns = _scene.Skills?.Cooldowns;
         _hud.SkillClockMs = gameTime.TotalGameTime.TotalMilliseconds;
         _hud.SelfId = _scene.SelfEntityId;
         if (!Context.Presentation.AwaitingConfirmation)
