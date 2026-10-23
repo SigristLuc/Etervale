@@ -12,6 +12,7 @@ using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Loot;
+using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Tests;
@@ -352,7 +353,7 @@ internal static class SpecialItemTests
         return Task.CompletedTask;
     }
 
-    private sealed class NoWarehouses : Persistence.Abstractions.Warehouses.IWarehouseRepository
+    internal sealed class NoWarehouses : Persistence.Abstractions.Warehouses.IWarehouseRepository
     {
         public Task<Persistence.Abstractions.Warehouses.WarehouseRecord?> FindAsync(long accountId, CancellationToken ct = default) =>
             Task.FromResult<Persistence.Abstractions.Warehouses.WarehouseRecord?>(null);
@@ -361,13 +362,13 @@ internal static class SpecialItemTests
             CancellationToken ct = default) => Task.FromResult(false);
     }
 
-    private sealed class ManualClock : TimeProvider
+    internal sealed class ManualClock : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = new(2026, 10, 23, 12, 0, 0, TimeSpan.Zero);
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
-    private sealed class Harness
+    internal sealed class Harness
     {
         public required WorldServer World { get; init; }
         public required ItemUseAppService Service { get; init; }
@@ -384,7 +385,11 @@ internal static class SpecialItemTests
 
         public long NowSeconds => Clock.Now.ToUnixTimeSeconds();
 
-        public static async Task<Harness> CreateAsync(int fieldId, params string[] keys)
+        public static Task<Harness> CreateAsync(int fieldId, params string[] keys) => CreateAsync(fieldId, [], [], keys);
+
+        // Monsters join the world catalog; given definitions replace the plain ones built for their keys and join the
+        // item catalog even when not carried.
+        public static async Task<Harness> CreateAsync(int fieldId, MonsterDefinition[] monsters, ItemDefinition[] given, params string[] keys)
         {
             var classes = new CharacterClassRegistry();
             var definitions = new Dictionary<string, ItemDefinition>(StringComparer.OrdinalIgnoreCase);
@@ -393,6 +398,11 @@ internal static class SpecialItemTests
                 definitions[key] = new ItemDefinition(LegacyItemCode.Parse(key), key, key.StartsWith("PL", StringComparison.Ordinal) ? ItemKind.Potion : ItemKind.Misc,
                     MaxStack: 1)
                 { CatalogKey = key, Price = 100 };
+            }
+
+            foreach (var definition in given)
+            {
+                definitions[definition.CatalogKey] = definition;
             }
 
             var starter = CharacterRecordFactory.NewStarter(classes, 1, "Premium" + fieldId, 0, PlayerClass.Fighter, fieldId) with { Id = 1 };
@@ -406,7 +416,8 @@ internal static class SpecialItemTests
             var data = WorldData.Empty;
             var holder = new WorldDataHolder
             {
-                Current = new WorldData(new ItemCatalog(definitions.Values), data.Monsters, data.Npcs, data.FieldSpawns, data.Motions)
+                Current = new WorldData(new ItemCatalog(definitions.Values), monsters.Length > 0 ? new MonsterCatalog(monsters) : data.Monsters, data.Npcs,
+                    data.FieldSpawns, data.Motions)
             };
             var clock = new ManualClock();
             var catalog = new WorldCatalog();

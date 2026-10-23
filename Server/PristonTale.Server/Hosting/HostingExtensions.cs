@@ -12,6 +12,7 @@ using PristonTale.Server.World;
 using PristonTale.Persistence.Postgres;
 using PristonTale.Persistence.Sqlite;
 using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.World.Loot;
 
 namespace PristonTale.Server.Hosting;
 
@@ -59,6 +60,18 @@ public static class HostingExtensions
 
         var worldOptions = new WorldServerOptions
         {
+            CrystalEvent = builder.Configuration.GetValue("World:CrystalEvent", 0),
+            ItemEvents = new ItemEventRates
+            {
+                Mandoo = builder.Configuration.GetValue("World:ItemEvents:Mandoo", false),
+                ValentineDay = builder.Configuration.GetValue("World:ItemEvents:ValentineDay", 0),
+                Watermelon = builder.Configuration.GetValue("World:ItemEvents:Watermelon", 0),
+                Valentine = builder.Configuration.GetValue("World:ItemEvents:Valentine", 0),
+                CandyDays = builder.Configuration.GetValue("World:ItemEvents:CandyDays", 0),
+                WhiteDay = builder.Configuration.GetValue("World:ItemEvents:WhiteDay", 0),
+                Puzzle = builder.Configuration.GetValue("World:ItemEvents:Puzzle", 0),
+                GiftBox = builder.Configuration.GetValue("World:ItemEvents:GiftBox", 0)
+            },
             ExperienceMultiplier = builder.Configuration.GetValue("World:ExperienceMultiplier", WorldServerOptions.DefaultExperienceMultiplier),
             MaxPendingCommandsPerPlayer = builder.Configuration.GetValue("World:MaxPendingCommandsPerPlayer",
                 WorldServerOptions.DefaultMaxPendingCommandsPerPlayer)

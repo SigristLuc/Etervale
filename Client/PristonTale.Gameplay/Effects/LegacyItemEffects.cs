@@ -9,12 +9,14 @@ namespace PristonTale.Gameplay.Effects;
 
 // What other players and the user see when an item is used, with the original particle scripts and billboards:
 // firecrackers fire four rockets half a second apart, each bursting 150 units up into a scripted shape chosen from the
-// use's roll; hair tints and force orbs play the skill-learn sound (their light is ItemVfx.Learn) and skill masters the
-// mastery sound.
+// use's roll; hair tints, force orbs, ether cores, crystal summons and head changes play the skill-learn sound (their
+// light is ItemVfx.Learn or the return sparkle), skill masters, boosters and puzzle reveals the drink sound, and an
+// opened gift box the eat sound under an orange light.
 public sealed class LegacyItemEffects
 {
     public const string LearnSound = "wav/Effects/Skill/Learn_Skill.wav";
     public const string DrinkSound = "Image/SinImage/Sound/drink2.wav";
+    public const string EatSound = "Image/SinImage/Sound/drink1.wav";
     public static readonly string[] FirecrackerSounds = ["wav/Effects/event/firecracker01.wav", "wav/Effects/event/firecracker02.wav",
         "wav/Effects/event/firecracker03.wav"];
     private static readonly string[] Crackers = ["FireCrackerAll", "FireCrackerHeart", "FireCrackerMoon", "FireCrackerStar", "FireCrackerNormal"];
@@ -47,7 +49,7 @@ public sealed class LegacyItemEffects
         _rocket = Billboards(library.Animation(assetRoot, "FireParticle1.ini"), "FirecrackerRocket", 24, 5f, new FloatRange(20f, 45f), MathHelper.Pi,
             new Vector3(0f, -60f, 0f));
         _flash = Billboards(library.Animation(assetRoot, "Power1.ini"), "FirecrackerFlash", 1, 50f, FloatRange.Constant(0f), 0f, Vector3.Zero);
-        sounds?.Preload(FirecrackerSounds.Append(LearnSound).Append(DrinkSound));
+        sounds?.Preload(FirecrackerSounds.Append(LearnSound).Append(DrinkSound).Append(EatSound));
     }
 
     public int PendingBursts => _bursts.Count;
@@ -76,7 +78,17 @@ public sealed class LegacyItemEffects
                 _sounds?.Play(LearnSound, position, listener);
                 break;
             case ItemEffectKind.Mastery:
+            case ItemEffectKind.Drink:
                 _sounds?.Play(DrinkSound, position, listener);
+                break;
+            case ItemEffectKind.Return:
+            case ItemEffectKind.HeadChange:
+                _sounds?.Play(LearnSound, position, listener);
+                break;
+            case ItemEffectKind.GiftBox:
+                // The eat event's orange light at chest height.
+                _lights?.Add(position + Vector3.Up * 48f, new Color(100, 70, 0), 250, 1);
+                _sounds?.Play(EatSound, position, listener);
                 break;
         }
     }

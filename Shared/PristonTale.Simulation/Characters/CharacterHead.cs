@@ -60,8 +60,29 @@ public static class CharacterHead
             $"char/tmABCD/{prefix}{Math.Abs(hairIndex) % 3 + 1:D2}{suffix}.inx");
     }
 
-    public static CharacterVisualSet ApplyBigHead(CharacterVisualSet visuals, PlayerClass playerClass, int look) =>
-        look is 1 or 2 ? visuals with { Head = new CharacterAssetRef(BigHead(playerClass, look, visuals.HairIndex)) } : visuals;
+    public static CharacterVisualSet ApplyBigHead(CharacterVisualSet visuals, PlayerClass playerClass, int look) => look switch
+    {
+        1 or 2 => visuals with { Head = new CharacterAssetRef(BigHead(playerClass, look, visuals.HairIndex)) },
+        SoccerLook => visuals with { Head = new CharacterAssetRef(SoccerHead(playerClass)) },
+        _ => visuals
+    };
+
+    // Look 3: the soccer-ball potion's head, one model per class whatever the hair.
+    public const int SoccerLook = 3;
+
+    public static string SoccerHead(PlayerClass playerClass) => "char/tmABCD/" + playerClass switch
+    {
+        PlayerClass.Fighter => "TmhB-18t.inx",
+        PlayerClass.Mechanician => "TmhA-18t.inx",
+        PlayerClass.Archer => "TfhD-18t.inx",
+        PlayerClass.Pikeman => "TmhC-18t.inx",
+        PlayerClass.Knight => "MmhA-18t.inx",
+        PlayerClass.Atalanta => "MfhB-18t.inx",
+        PlayerClass.Priestess => "MfhC-18t.inx",
+        PlayerClass.Magician => "MmhD-18t.inx",
+        PlayerClass.Assassin => "Tfh-E18t.inx",
+        _ => "Mmh-E18t.inx"
+    };
 
     private static void ValidateTier(int tier)
     {

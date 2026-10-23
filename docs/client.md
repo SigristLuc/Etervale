@@ -224,7 +224,8 @@ flip Z themselves.
 - `RemoteEntityManager`: the self entity's spawn/state/combat events go to `GameScene` sinks, not to an actor. A monster
   or NPC whose template is not in the catalog yet is held in `_pendingModels` until `SetCatalog`; a spawn whose models
   are loading waits in `_preparingActors` and keeps receiving the latest state. A player appearance change re-composes
-  the actor from the drawn pose. Summons record their owner and are not pickable.
+  the actor from the drawn pose. Summons record their owner and are not pickable; summons and crystal pets carry
+  a name plate (`SummonPlates`, drawn after the ground labels).
 
 ## Local player: prediction and authority
 

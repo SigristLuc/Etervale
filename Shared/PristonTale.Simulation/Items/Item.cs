@@ -114,13 +114,18 @@ public sealed class ItemInstance
             UpgradeLevel = UpgradeLevel,
             DurabilityCurrent = DurabilityCurrent,
             DurabilityMax = DurabilityMax,
-            Roll = Roll
+            Roll = Roll,
+            Sealed = Sealed
         };
     }
 
     public int Count { get; set; }
 
     public int UpgradeLevel { get; set; }
+
+    // A dropped puzzle piece stays sealed as a lucky bag until its owner pays to reveal it.
+    public bool Sealed { get; set; }
+
     public int DurabilityCurrent { get; set; }
     public int DurabilityMax { get; set; }
 

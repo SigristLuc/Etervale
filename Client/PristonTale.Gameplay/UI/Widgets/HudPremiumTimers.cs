@@ -31,7 +31,7 @@ public sealed class HudPremiumTimers
     {
         _sprites = sprites;
         var paths = new List<string>();
-        foreach (var kind in Enum.GetValues<PremiumEffectKind>())
+        foreach (var kind in Enum.GetValues<PremiumEffectKind>().Where(static kind => !PremiumTimers.PausesOffline(kind)))
         {
             paths.Add(IconPath(kind));
             if (BackPath(kind) is { } back)
@@ -57,6 +57,12 @@ public sealed class HudPremiumTimers
         var next = new List<Entry>();
         foreach (var timer in snapshot.Timers)
         {
+            // Boosters and the skill-delay item show in the running-effects bar instead.
+            if (PremiumTimers.PausesOffline(timer.Kind))
+            {
+                continue;
+            }
+
             var existing = _entries.FirstOrDefault(entry => entry.Kind == timer.Kind);
             var entry = existing ?? new Entry { Kind = timer.Kind, Y = Top + Step * next.Count };
             entry.Value = timer.Value;
@@ -150,7 +156,8 @@ public sealed class HudPremiumTimers
         PremiumEffectKind.HelpPetIo => "Io",
         PremiumEffectKind.HelpPetMute => "Mute",
         PremiumEffectKind.VampiricCuspidEx => "Super Vampiric Cuspid",
-        _ => "Stamina Reduce Potion"
+        PremiumEffectKind.StaminaReduce => "Stamina Reduce Potion",
+        _ => ItemStatuses.Name(ItemStatuses.PremiumKeepCode(kind)) ?? ""
     };
 
     public static string Describe(PremiumEffectKind kind, int value) => kind switch
@@ -165,7 +172,8 @@ public sealed class HudPremiumTimers
         PremiumEffectKind.HelpPetTerry => "Reduce on usage of MP by 20%",
         PremiumEffectKind.HelpPetMute => "Attack power +10%",
         PremiumEffectKind.HelpPetNepsys or PremiumEffectKind.HelpPetIo => "Fights at your side",
-        _ => $"Reduce on usage of STM by {value}%"
+        PremiumEffectKind.StaminaReduce => $"Reduce on usage of STM by {value}%",
+        _ => ItemStatuses.Effect(ItemStatuses.PremiumKeepCode(kind)) ?? ""
     };
 
     public static string IconPath(PremiumEffectKind kind) => Folder + kind switch

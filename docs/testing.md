@@ -34,6 +34,10 @@ Default case files by area (all `tests/PristonTale.Tests/<Name>.cs`):
 | Domain | `DomainTests`, `ProgressionAndOwnershipTests`, `ProgressionDataTests`, `AuthTests`, `OutboxTests` | Attributes, ownership, mailbox, XP, login, outbox |
 | Transactions | `ProgressionTransactionTests`, `InventoryTransactionTests`, `GroundPickupTransactionTests`, `PotionTests` | Storage-first commit, replay |
 | Usable items | `SpecialItemTests` | Item rules, premium timers and formulas, use flow, pets, persistence, wire |
+| Crystals | `MonsterCrystalTests` | Crystal tables, pet summon and hunt, the shared delay, clan, mercenary, soul and town refusals |
+| Castle items | `CastleItemTests` | Castle-only scrolls and stones, scroll exclusions and replacement, leaving the castle, Restoration |
+| Event items | `EventItemTests` | Foods, gift boxes, chocolates, the soccer-ball head, boosters (offline pause), skill delay, item events |
+| Puzzles | `PuzzleTests` | Lucky bag seal and reveal, board completion and exchange, sealed ground drops |
 | Equipment | `EquipmentTests`, `RangedEquipmentTests` | Catalog rules, hands, class masks, bone attachments |
 | Item rules | `ItemRulesTests` | Wearable slots, requirements, two-handed swaps, drop and shop rolls, the item stat pipeline, block, carried weight, saved rolls, item details on the wire, item reader |
 | Protocol | `BinaryProtocolTests`, `ClientTests`, `NetworkHardeningTests` | Struct layouts, framing, cipher, presence, abuse limits |
@@ -131,8 +135,8 @@ when reading those assets is authorized. GPU probes:
 | `--capture-hud <assets> <content> <output-dir> [<background.png>]` | yes | In-game HUD scenarios to PNG (scales 2 and 3, `npc-*` dialogs, `buffs-*` continuous-skill bar, `quest-*` quest dialog, boxes, window and timer, `skill-right-select` prints the right socket after a right click) |
 | `--capture-hud-target <assets> <content> <output-dir>` | yes | Ricarten at 14:00 with remote-roster entities; target frame, bar, resolutions |
 | `--capture-chat <assets> <content> <output-dir> [<background.png>]` | yes | Chat window open, closed, unfocused, per tab, assistant split and page, shrunk beside the inventory, at 1280x720 and scale 2; speech bubbles over players, an NPC and a monster |
-| `--capture-item-hud <assets> <content> <output-dir>` | yes | Premium timer column, hover and blink, Teleport Core pages and confirmation, item tooltips, item effects in the effects bar |
-| `--capture-item-effects <assets> <content> <output-dir>` | yes | Ricarten at night: pets idle and striking, firecracker bursts, the skill-learn light, force orb glow and hit, a big head |
+| `--capture-item-hud <assets> <content> <output-dir>` | yes | Premium timer column, hover and blink, Teleport Core pages and confirmation, item tooltips (orb, package, crystal, gift box, chocolate, castle stone, lucky bag), item effects, castle items and boosters in the effects bar, the puzzle board, finished puzzle and collector question |
+| `--capture-item-effects <assets> <content> <output-dir>` | yes | Ricarten at night: pets idle and striking, firecracker bursts, the skill-learn light, force orb glow and hit, a big head, crystal pets with their plates in the return sparkle, the soccer-ball head |
 | `--capture-login <assets> <content> <output-dir> <background.png>` | yes | Login screen edge cases (see below) |
 | `--capture-skills <assets> <content> <output-dir> [<hex,hex,...>]` | yes | Casts skills with the server timeline (see below) |
 | `--capture-sky <assets> <content> <output-dir>` | yes | One `sky-NN.png` per sky profile |

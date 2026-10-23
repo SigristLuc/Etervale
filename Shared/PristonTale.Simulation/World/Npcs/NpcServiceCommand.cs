@@ -18,7 +18,9 @@ public enum NpcServiceAction : byte
     Move = 22,
     DepositGold = 23,
     WithdrawGold = 24,
-    Teleport = 30
+    Teleport = 30,
+    // The puzzle collector takes a finished puzzle for a reward.
+    Exchange = 40
 }
 
 public enum NpcServiceStatus : ushort
@@ -35,7 +37,8 @@ public enum NpcServiceStatus : ushort
     StorageFailed = 9,
     Conflict = 10,
     NotOpen = 11,
-    OverWeight = 12
+    OverWeight = 12,
+    WrongPuzzle = 13
 }
 
 // ItemCode names a stock entry to buy; ItemId an owned item. Anchor is a destination cell (-1 = first free) or, for a

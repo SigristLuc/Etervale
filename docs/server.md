@@ -116,6 +116,9 @@ limit of `0` disables that limit; negative values stop startup.
 | `Assets:AllowMissingTerrain` | `false` | `FieldTerrainLoadService` | Start without an assets directory or with missing/unreadable stages. |
 | `World:ExperienceMultiplier` | 5 | `WorldServerOptions` | Server-wide bonus on monster experience; must be at least 1. |
 | `World:MaxPendingCommandsPerPlayer` | 64 | `WorldServerOptions` | Commands one player may have waiting for the tick; at least 1. |
+| `World:CrystalEvent` | 0 | `WorldServerOptions` | Crystal event: 0 off, 1 from 12:00 to 23:59 server time, 2 all day ([special-items.md](special-items.md)). |
+| `World:ItemEvents:Mandoo` | false | `ItemEventRates` | Rice cakes replace drop rolls (SP101 4%, SP102 2%). |
+| `World:ItemEvents:ValentineDay`, `Watermelon`, `Valentine`, `CandyDays`, `WhiteDay`, `Puzzle`, `GiftBox` | 0 | `ItemEventRates` | Rate per 10000 drop rolls of each item event; 0 is off. |
 | `Network:Port` | 10009 | `PristonTcpServer` | TCP game port, 1 to 65535; the client always connects to 10009. |
 | `Network:PacketLimit` | 251 | `NetworkLimits` | Packets per window before the connection closes (`GETPLAYERINFO` excluded). |
 | `Network:PacketWindowSeconds` | 5 | `NetworkLimits` | Fixed window of the packet limit. |

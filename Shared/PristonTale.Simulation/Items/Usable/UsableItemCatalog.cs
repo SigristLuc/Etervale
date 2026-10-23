@@ -17,7 +17,16 @@ public enum UsableItemAction : byte
     GravityScroll,
     MobileShop,
     ReturnToTown,
-    ForceOrb
+    ForceOrb,
+    MonsterCrystal,
+    CastleItem,
+    Restoration,
+    Food,
+    GiftBox,
+    SoccerHead,
+    Chocolate,
+    PuzzleBag,
+    UnionCore
 }
 
 // The three scroll effects; a scroll refuses while another scroll of the same effect, or the opposite offensive or
@@ -32,7 +41,8 @@ public enum ScrollEffectKind : byte
 public sealed record PremiumGrant(PremiumEffectKind Kind, int Value, long DurationSeconds);
 
 // Argument: the attribute of a single-attribute stone (1..5), the hair model, the class tier of a skill master, the
-// equipment group of an aging master, the field of a return core, the scroll effect or the force orb.
+// equipment group of an aging master, the field of a return core (-1: none), the scroll effect, the castle item, the
+// gift box grade or the Virtual Life level of a chocolate.
 public sealed record UsableItemRule(UsableItemAction Action, int Argument = 0)
 {
     public IReadOnlyList<PremiumGrant> Grants { get; init; } = [];
@@ -86,8 +96,46 @@ public static class UsableItemCatalog
             ["BI184"] = new(UsableItemAction.GravityScroll),
             ["EC101"] = new(UsableItemAction.ReturnToTown, 3),
             ["EC102"] = new(UsableItemAction.ReturnToTown, 9),
-            ["EC104"] = new(UsableItemAction.ReturnToTown, 21)
+            ["EC104"] = new(UsableItemAction.ReturnToTown, 21),
+            ["EC103"] = new(UsableItemAction.ReturnToTown, -1),
+            ["EC105"] = new(UsableItemAction.UnionCore),
+            ["BC105"] = new(UsableItemAction.Restoration),
+            ["SP140"] = new(UsableItemAction.SoccerHead),
+            ["SP134"] = new(UsableItemAction.GiftBox, GiftBoxes.TigerCapsule)
         };
+
+        foreach (var crystal in MonsterCrystals.All)
+        {
+            rules[crystal.CatalogKey] = new UsableItemRule(UsableItemAction.MonsterCrystal);
+        }
+
+        foreach (var castle in CastleItems.All)
+        {
+            rules[castle.CatalogKey] = new UsableItemRule(UsableItemAction.CastleItem, castle.Index);
+        }
+
+        foreach (var key in EventFoods.Keys)
+        {
+            rules[key] = new UsableItemRule(UsableItemAction.Food);
+        }
+
+        for (var grade = 1; grade <= 6; grade++)
+        {
+            rules[$"SP1{grade + 4:00}"] = new UsableItemRule(UsableItemAction.GiftBox, grade);
+        }
+
+        foreach (var chocolate in Chocolates.All)
+        {
+            rules[chocolate.CatalogKey] = new UsableItemRule(UsableItemAction.Chocolate, chocolate.Level);
+        }
+
+        foreach (var piece in Puzzles.Pieces)
+        {
+            rules[piece] = new UsableItemRule(UsableItemAction.PuzzleBag);
+        }
+
+        // A sealed piece reaches its owner as the lucky bag.
+        rules[Puzzles.LuckyBagIcon] = new UsableItemRule(UsableItemAction.PuzzleBag);
 
         foreach (var (key, _) in ForceOrbs.All)
         {
@@ -140,6 +188,13 @@ public static class UsableItemCatalog
         Single(rules, "BI151", PremiumEffectKind.PhoenixPet, 0, 30 * Day);
         Single(rules, "BI177", PremiumEffectKind.PhoenixPet, 0, Hour);
 
+        Booster(rules, PremiumEffectKind.LifeBooster, "BC121", "BC122", "BC123");
+        Booster(rules, PremiumEffectKind.ManaBooster, "BC124", "BC125", "BC126");
+        Booster(rules, PremiumEffectKind.StaminaBooster, "BC127", "BC128", "BC129");
+        rules["BC130"] = new UsableItemRule(UsableItemAction.PremiumTimers) { Grants = [new PremiumGrant(PremiumEffectKind.SkillDelay, 0, 300)] };
+        rules["BC131"] = new UsableItemRule(UsableItemAction.PremiumTimers) { Grants = [new PremiumGrant(PremiumEffectKind.SkillDelay, 0, 3 * Hour)] };
+        rules["BC132"] = new UsableItemRule(UsableItemAction.PremiumTimers) { Grants = [new PremiumGrant(PremiumEffectKind.SkillDelay, 0, Day)] };
+
         Pets(rules, 30 * Day, "BI152", "BI153", "BI154", "BI155");
         Pets(rules, 7 * Day, "BI165", "BI166", "BI167", "BI168");
         Pets(rules, Day, "BI169", "BI170", "BI171", "BI172");
@@ -156,6 +211,18 @@ public static class UsableItemCatalog
     private static void Single(Dictionary<string, UsableItemRule> rules, string key, PremiumEffectKind kind, int value, long seconds)
     {
         rules[key] = new UsableItemRule(UsableItemAction.PremiumTimers) { Grants = [new PremiumGrant(kind, value, seconds)] };
+    }
+
+    // Boosters raise the maximum by 15% for 1 h, 3 h or 1 day; refused in towns; each kind runs once.
+    private static void Booster(Dictionary<string, UsableItemRule> rules, PremiumEffectKind kind, string hour, string threeHours, string day)
+    {
+        rules[hour] = new UsableItemRule(UsableItemAction.PremiumTimers) { Grants = [new PremiumGrant(kind, PremiumRules.BoosterPercent, Hour)], ForbiddenInVillage = true };
+        rules[threeHours] = new UsableItemRule(UsableItemAction.PremiumTimers)
+        {
+            Grants = [new PremiumGrant(kind, PremiumRules.BoosterPercent, 3 * Hour)],
+            ForbiddenInVillage = true
+        };
+        rules[day] = new UsableItemRule(UsableItemAction.PremiumTimers) { Grants = [new PremiumGrant(kind, PremiumRules.BoosterPercent, Day)], ForbiddenInVillage = true };
     }
 
     private static void Pets(Dictionary<string, UsableItemRule> rules, long seconds, params string[] keys)

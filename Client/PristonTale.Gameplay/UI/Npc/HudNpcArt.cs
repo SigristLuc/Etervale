@@ -49,7 +49,7 @@ public static class HudNpcArt
         NpcServiceKind.SkillMaster => "Skill training",
         NpcServiceKind.Warehouse => "Warehouse",
         NpcServiceKind.QuestGiver or NpcServiceKind.QuestScript => "Quest",
-        NpcServiceKind.QuestEvent => "Event quest",
+        NpcServiceKind.QuestEvent => value == Simulation.Items.Usable.Puzzles.CollectorEvent ? "Puzzle exchange" : "Event quest",
         NpcServiceKind.WarpGate => "Warp gate",
         NpcServiceKind.Teleporter => "Teleport",
         NpcServiceKind.ItemAging => "Aging",

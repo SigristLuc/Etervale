@@ -281,8 +281,11 @@ Every body starts with `{uint16 Version = 1, uint16 Flags = 0}`; text is UTF-8 w
 
 `Status` is `ItemUseStatus`; `Kind` is `PremiumEffectKind`; `Effect` is `ItemEffectKind` (1 firecracker with its roll
 in `Variant`, 2 mastery, 3 force orb, 4 learn, 5 pet strike with the pet kind in `ItemCode` and the target serial in
-`Variant`). Player descriptors carry the pets and the big head in `CharacterInfo.TempFlags` (bit 1 Phoenix, bits 8-11
-helper pet, bits 12-13 big head). Rules: [special-items.md](special-items.md).
+`Variant`, 6 return sparkle at the given position, 7 head change, 8 drink, 9 gift box). Player descriptors carry the
+pets and the head look in `CharacterInfo.TempFlags` (bit 1 Phoenix, bits 8-11 helper pet, bits 12-13 head look: 1-2
+big head, 3 soccer ball). A sealed puzzle piece travels as the PZ100 code with the name "Lucky Bag". The puzzle
+collector's exchange is the NPC service action `Exchange` (40) on `QuestEvent`.
+Rules: [special-items.md](special-items.md).
 
 ### Presence clock and remote playback
 

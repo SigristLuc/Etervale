@@ -15,7 +15,11 @@ public enum PremiumEffectKind : byte
     HelpPetIo = 10,
     HelpPetMute = 11,
     VampiricCuspidEx = 12,
-    StaminaReduce = 13
+    StaminaReduce = 13,
+    LifeBooster = 14,
+    ManaBooster = 15,
+    StaminaBooster = 16,
+    SkillDelay = 17
 }
 
 // How a new timer conflicts with the running ones: a single item refuses its own kind, a package refuses either of its
@@ -45,16 +49,21 @@ public enum PremiumStartResult
 // is offline, and end when their expiry passes.
 public sealed class PremiumTimers
 {
-    public const int MaxTimers = 13;
+    public const int MaxTimers = 17;
+    public const int SoccerHeadMode = 3;
+    private const int MaxHeadMode = 3;
 
     private readonly List<PremiumTimer> _timers = new();
 
     public long Revision { get; private set; }
 
+    // The real clock (Unix seconds) of the last expiry pass; a save records it so offline time can be measured.
+    public long ClockSeconds { get; private set; }
+
     // Gravity Scrolls used, each adding carrying capacity for good.
     public int GravityScrolls { get; private set; }
 
-    // The big-head look of the big-head potion (mode 1 or 2) and its real-clock end.
+    // The head look of the big-head potion (mode 1 or 2) or the soccer-ball potion (mode 3) and its real-clock end.
     public int BigHeadMode { get; private set; }
     public long BigHeadExpiresAtSeconds { get; private set; }
 
@@ -64,6 +73,11 @@ public sealed class PremiumTimers
 
     public static bool IsHelperPet(PremiumEffectKind kind) => kind is PremiumEffectKind.HelpPetTerry or PremiumEffectKind.HelpPetNepsys
         or PremiumEffectKind.HelpPetIo or PremiumEffectKind.HelpPetMute;
+
+    // Boosters and the skill-delay item keep their remaining time while the character is offline and show in the
+    // running-effects bar instead of the premium column.
+    public static bool PausesOffline(PremiumEffectKind kind) => kind is PremiumEffectKind.LifeBooster or PremiumEffectKind.ManaBooster
+        or PremiumEffectKind.StaminaBooster or PremiumEffectKind.SkillDelay;
 
     public static bool IsVampiric(PremiumEffectKind kind) => kind is PremiumEffectKind.VampiricCuspid or PremiumEffectKind.VampiricCuspidEx;
 
@@ -128,6 +142,7 @@ public sealed class PremiumTimers
     // Drops the timers whose expiry passed; true when one ended.
     public bool Expire(long nowSeconds)
     {
+        ClockSeconds = Math.Max(ClockSeconds, nowSeconds);
         var ended = _timers.RemoveAll(timer => timer.ExpiresAtSeconds <= nowSeconds) > 0;
         if (BigHeadMode != 0 && BigHeadExpiresAtSeconds <= nowSeconds)
         {
@@ -158,7 +173,7 @@ public sealed class PremiumTimers
 
     public bool TryStartBigHead(int mode, long durationSeconds, long nowSeconds)
     {
-        if (BigHeadMode != 0 && BigHeadExpiresAtSeconds > nowSeconds || mode is < 1 or > 2)
+        if (BigHeadMode != 0 && BigHeadExpiresAtSeconds > nowSeconds || mode is < 1 or > MaxHeadMode)
         {
             return false;
         }
@@ -171,7 +186,7 @@ public sealed class PremiumTimers
 
     public void RestoreCounters(int gravityScrolls, int bigHeadMode, long bigHeadExpiresAtSeconds)
     {
-        if (gravityScrolls < 0 || bigHeadMode is < 0 or > 2)
+        if (gravityScrolls < 0 || bigHeadMode is < 0 or > MaxHeadMode)
         {
             throw new ArgumentException("Invalid premium counters.");
         }
@@ -202,6 +217,7 @@ public sealed class PremiumTimers
     {
         _timers.Clear();
         _timers.AddRange(other._timers);
+        ClockSeconds = other.ClockSeconds;
         GravityScrolls = other.GravityScrolls;
         BigHeadMode = other.BigHeadMode;
         BigHeadExpiresAtSeconds = other.BigHeadExpiresAtSeconds;

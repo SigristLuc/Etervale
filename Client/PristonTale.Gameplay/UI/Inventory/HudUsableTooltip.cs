@@ -67,7 +67,7 @@ public static class HudUsableTooltip
             case UsableItemAction.TeleportCore:
                 lines.Add("Teleports you to a field of your choice.");
                 break;
-            case UsableItemAction.ReturnToTown:
+            case UsableItemAction.ReturnToTown when rule.Argument >= 0:
                 lines.Add($"Recall to {Towns[Math.Clamp(rule.Argument, 0, Towns.Length - 1)]}");
                 break;
             case UsableItemAction.HairTint:
@@ -92,6 +92,42 @@ public static class HudUsableTooltip
             case UsableItemAction.MobileShop:
                 lines.Add("Opens a shop that buys and repairs.");
                 break;
+            case UsableItemAction.MonsterCrystal when MonsterCrystals.TryGet(catalogKey, out var crystal):
+                lines.AddRange(CrystalLines(crystal));
+                break;
+            case UsableItemAction.CastleItem when CastleItems.TryGetByIndex(rule.Argument, out var castle):
+                lines.Add(castle.Effect);
+                lines.Add($"Duration: {castle.DurationSeconds}sec");
+                lines.Add("Bless Castle only");
+                break;
+            case UsableItemAction.Restoration:
+                lines.Add("Revives you where you fell");
+                lines.Add("ten seconds after death in the castle.");
+                break;
+            case UsableItemAction.Food:
+                lines.Add("Restores life, mana and stamina.");
+                break;
+            case UsableItemAction.GiftBox:
+                lines.Add("Open it to receive a gift.");
+                break;
+            case UsableItemAction.SoccerHead:
+                lines.Add("Gives you a soccer-ball head for 3 hours.");
+                break;
+            case UsableItemAction.Chocolate when Chocolates.TryGet(catalogKey, out var chocolate):
+                lines.Add($"Virtual Life Lv {chocolate.Level}");
+                lines.Add($"Duration: {(int)(Chocolates.DurationMs(chocolate.Level) / 1000f)}sec");
+                lines.Add(chocolate.ForFemales ? "Female characters only" : "Male characters only");
+                break;
+            case UsableItemAction.PuzzleBag when catalogKey.Equals(Puzzles.LuckyBagIcon, StringComparison.OrdinalIgnoreCase):
+                lines.Add($"Reveal the puzzle piece inside for {Puzzles.RevealCost} gold.");
+                break;
+            case UsableItemAction.PuzzleBag:
+                lines.Add($"Puzzle piece {Puzzles.Number(catalogKey)} of 8");
+                lines.Add("Lay the set out on the puzzle board.");
+                break;
+            case UsableItemAction.UnionCore:
+                lines.Add("Teleport to a clan member");
+                break;
             case UsableItemAction.ForceOrb when ForceOrbs.TryGet(catalogKey, out var orb):
                 lines.Add(orb.MinimumLevel <= 1 && orb.MaximumLevel < 200 ? $"Req. Level: {orb.MinimumLevel}-{orb.MaximumLevel}" : $"Req. Level: {orb.MinimumLevel}+");
                 lines.Add($"AddedATKPOWER: {orb.Damage}");
@@ -106,6 +142,14 @@ public static class HudUsableTooltip
 
         return lines;
     }
+
+    private static IEnumerable<string> CrystalLines(MonsterCrystalDefinition crystal) => crystal.Kind switch
+    {
+        CrystalKind.ClanPet => [$"Summons a {crystal.Name} for your clan.", "Clan members only"],
+        CrystalKind.CastleMercenary => [$"Summons a {crystal.Name} to guard", "the castle during a siege."],
+        CrystalKind.SoulStone => ["Releases a hostile soul for 4 minutes."],
+        _ => [$"Summons a {crystal.Name} to fight for you", "for 4 minutes, longer at higher levels."]
+    };
 
     public static string Duration(long seconds) => seconds switch
     {
