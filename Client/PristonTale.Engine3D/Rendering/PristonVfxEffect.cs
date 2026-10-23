@@ -10,6 +10,12 @@ namespace PristonTale.Engine3D.Rendering;
 public sealed class PristonVfxEffect : IDisposable
 {
     public const string AssetName = "Effects/Vfx";
+    // Mode: radiance with opacity; a multiplier for darkening blends (1 = no change); its inverse; radiance squared
+    // (the colour-weighted additive blends).
+    public const float RadianceMode = 0f;
+    public const float MultiplyMode = 1f;
+    public const float InverseMultiplyMode = 2f;
+    public const float SquaredMode = 3f;
 
     private readonly Effect _effect;
     private readonly EffectParameter _viewProjection;
@@ -18,6 +24,7 @@ public sealed class PristonVfxEffect : IDisposable
     private readonly EffectParameter _exposure;
     private readonly EffectParameter _displayOutput;
     private readonly EffectParameter _softParticles;
+    private readonly EffectParameter _mode;
 
     public PristonVfxEffect(ContentManager content, IClientLog log = null)
     {
@@ -29,6 +36,7 @@ public sealed class PristonVfxEffect : IDisposable
         _exposure = _effect.Parameters["Exposure"];
         _displayOutput = _effect.Parameters["DisplayOutput"];
         _softParticles = _effect.Parameters["SoftParticles"];
+        _mode = _effect.Parameters["Mode"];
     }
 
     public Matrix ViewProjection { get; set; } = Matrix.Identity;
@@ -42,6 +50,8 @@ public sealed class PristonVfxEffect : IDisposable
 
     public bool DisplayOutput { get; set; }
 
+    public float Mode { get; set; }
+
     public void Apply()
     {
         _viewProjection.SetValue(ViewProjection);
@@ -50,6 +60,7 @@ public sealed class PristonVfxEffect : IDisposable
         _softParticles?.SetValue(Depth is null ? 0f : 1f);
         _exposure?.SetValue(Exposure ?? PristonUnlitEffect.SceneExposure);
         _displayOutput?.SetValue(DisplayOutput ? 1f : 0f);
+        _mode?.SetValue(Mode);
         _effect.CurrentTechnique.Passes[0].Apply();
         _effect.GraphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
         _effect.GraphicsDevice.SamplerStates[1] = SamplerState.PointClamp;

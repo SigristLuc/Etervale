@@ -56,6 +56,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonoGame.Effect.Compiler", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonoGame.Effect.Processor", "monogame\pipeline\MonoGame.Effect.Processor\MonoGame.Effect.Processor.csproj", "{4602BCFE-457B-4182-8991-6F10BAB7769D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PristonTale.VfxImport", "tools\PristonTale.VfxImport\PristonTale.VfxImport.csproj", "{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -318,6 +320,18 @@ Global
 		{4602BCFE-457B-4182-8991-6F10BAB7769D}.Release|x64.Build.0 = Release|Any CPU
 		{4602BCFE-457B-4182-8991-6F10BAB7769D}.Release|x86.ActiveCfg = Release|Any CPU
 		{4602BCFE-457B-4182-8991-6F10BAB7769D}.Release|x86.Build.0 = Release|Any CPU
+		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Debug|x64.Build.0 = Debug|Any CPU
+		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Debug|x86.Build.0 = Debug|Any CPU
+		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Release|x64.ActiveCfg = Release|Any CPU
+		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Release|x64.Build.0 = Release|Any CPU
+		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Release|x86.ActiveCfg = Release|Any CPU
+		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -344,5 +358,6 @@ Global
 		{F8A7A2F2-0B3C-4B4F-9DBB-D3A5BC01EB64} = {45BB4F10-548B-779B-1B10-C91C292B9D7C}
 		{50CCAA28-DCA8-4914-802E-0436A8800D2C} = {45BB4F10-548B-779B-1B10-C91C292B9D7C}
 		{4602BCFE-457B-4182-8991-6F10BAB7769D} = {45BB4F10-548B-779B-1B10-C91C292B9D7C}
+		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 	EndGlobalSection
 EndGlobal

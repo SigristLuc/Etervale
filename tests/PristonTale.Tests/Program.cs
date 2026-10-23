@@ -121,6 +121,14 @@ if (args.Length is 4 or 5 && args[0] == "--capture-skills")
     return 0;
 }
 
+if (args.Length is 4 or 5 && args[0] == "--capture-vfx")
+{
+    var names = args.Length == 5 ? args[4].Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) : null;
+    using var probe = new VfxCaptureProbe(args[1], args[2], args[3], names);
+    probe.Run();
+    return 0;
+}
+
 if (args.Length == 2 && args[0] == "--verify-skill-motions")
 {
     SkillMotionProbe.Run(args[1]);
@@ -134,9 +142,9 @@ if (args.Length == 2 && args[0] == "--verify-player-timing")
 }
 
 
-if (args.Length == 4 && args[0] is "--capture-potions" or "--capture-hulk-hits")
+if (args.Length == 4 && args[0] == "--capture-potions")
 {
-    using var probe = new PotionCaptureProbe(args[1], args[2], args[3], args[0] == "--capture-hulk-hits");
+    using var probe = new PotionCaptureProbe(args[1], args[2], args[3]);
     probe.Run();
     return 0;
 }
@@ -312,6 +320,8 @@ specifications.AddRange(NpcServiceTests.Cases());
 specifications.AddRange(SkyTests.Cases());
 specifications.AddRange(SkillSystemTests.Cases());
 specifications.AddRange(SkillPresentationTests.Cases());
+specifications.AddRange(VfxLayerTests.Cases());
+specifications.AddRange(VfxImportTests.Cases());
 specifications.AddRange(SkillCatalogTests.Cases());
 specifications.AddRange(SkillAllyTests.Cases());
 specifications.AddRange(SkillDefenseTests.Cases());

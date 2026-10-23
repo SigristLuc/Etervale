@@ -45,7 +45,7 @@ Default case files by area (all `tests/PristonTale.Tests/<Name>.cs`):
 | Skill data | `ClassSkillDataTests`, `SkillCatalogTests`, `SkillSystemTests`, `PassiveSkillTests`, `SkillWireTests` | Catalog, formulas, wire |
 | Skill mechanics | `SkillAllyTests`, `SkillAreaTests`, `SkillChargeTests`, `SkillCompanionTests`, `SkillControlTests` | Server resolution |
 | Skill mechanics | `SkillDefenseTests`, `SkillEnchantTests`, `SkillResurrectionTests`, `SkillStealthTests`, `SkillSummonTests` | Server resolution |
-| Skill client | `SkillPresentationTests` | VFX definitions, legacy scripts, cooldown and status books |
+| Skill client | `SkillPresentationTests`, `VfxLayerTests`, `VfxImportTests` | VFX definitions, catalog, layers, converter, authored data, cooldown and status books |
 | Client | `RemotePlaybackTests`, `AttackInputTests`, `FrameTimingTests`, `ClientSettingsTests`, `FieldAudioTests` | Playback, input, settings |
 | HUD and screens | `HudInteractionTests`, `CharacterHeadTests`, `CharacterSelectTests`, `GroundLootLabelTests` | 800x600 layout, hit tests |
 | Rendering | `RenderTests`, `RenderFidelityTests`, `PhotorealTests`, `MaterialAdapterTests`, `ShadowProjectionTests`, `SkyTests` | CPU-side renderer |
@@ -85,9 +85,10 @@ git diff --check
 - Synthetic data built in code, embedded `Fixtures/`, original-protocol byte arrays, a loopback TCP exchange, and files
   and SQLite databases created and deleted under `Path.GetTempPath()`.
 - Never game assets, a production database, `data/pristontale.db`, or reference directories.
-- One exception: the `SkillPresentationTests` case "skill effect assets exist ..." walks up from the runner for an
-  `assets/` directory containing `Effect/`, checks VFX textures and legacy scripts there, and prints
-  `(skipped: no assets/ directory next to the repository)` when none is found.
+- One exception: the `SkillPresentationTests` case "game data effects cover every effect ..." walks up from the runner
+  for an `assets/` directory with `Effect/Vfx`, checks that every effect, child, texture, animation, model and sound the
+  rules and definitions use exists there, and prints `(skipped: no assets/Effect/Vfx next to the repository)` when none
+  is found. The authored definitions are checked without assets from `tools/PristonTale.VfxImport/Authored/`.
 
 ## Benchmarks
 
@@ -139,7 +140,7 @@ when reading those assets is authorized. GPU probes:
 | `--capture-ground-loot <assets> <content> <output-dir>` | yes | Ground drop elevation, coordinate remapping and distinct label click targets |
 | `--capture-combat-effects <assets> <content> <output-dir>` | yes | Combat mesh-effect pool budget, lifetimes and captures |
 | `--capture-potions <assets> <content> <output-dir>` | yes | Potion particle captures over time |
-| `--capture-hulk-hits <assets> <content> <output-dir>` | yes | Same probe with the Hulk hit effects |
+| `--capture-vfx <assets> <content> <output-dir> [<name,name,...>]` | yes | Plays named effects of `assets/Effect/Vfx` (see below) |
 | `--verify-skill-motions <assets>` | no | Every skill rule's motions (index, length, events, class tag) against the class motion tables |
 | `--verify-monster-skills <assets>` | no | Monster skill windup and duration from real models |
 | `--verify-player-timing <assets>` | no | Per-class attack, damage and EAT timing against actor files |
@@ -185,7 +186,11 @@ Other probe details:
 
 - `--capture-skills` casts Fire Ball, Healing, Pike Wind, Extreme Shield and Impact, or the comma-separated hex codes
   given (for example `0x05040004,0x07080003`), through the client's skill presentation with the server's timeline; it
-  fails when a cast starts no motion or shows no effect light.
+  fails when a cast starts no motion or shows no effect light. Besides `<class>-<skill>-<time>.png` (the lit stage) it
+  saves `<...>.dark.png`, the effects alone on a dark backdrop, because the exposed stage hides additive light.
+- `--capture-vfx` plays each named effect (default: a representative set of converted scripts) with a caster at the
+  origin and a target 85 units away, saves the scene and a `.dark.png` at 0.15, 0.45, 0.9 and 1.5 s, and fails when an
+  effect draws nothing at all four moments. Run `ptvfx import assets` first (docs/tools.md).
 - `--capture-login` draws before the first Update with a preloaded shared atlas, then covers a 1x1 viewport and its
   restoration, disabled credentials, keyboard navigation, masking and scaled mouse hit tests.
 - `--capture-hud` shows the typed NPC dialog, teleport destinations, the shop (buy and sell) and the warehouse in its

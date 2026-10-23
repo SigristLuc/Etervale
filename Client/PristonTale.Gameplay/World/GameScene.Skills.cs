@@ -55,8 +55,7 @@ public sealed partial class GameScene : ISkillSceneHost
         }
 
         _skillSounds = new SkillSoundBank(_assetRoot ?? "", _log);
-        _skillFx = new SkillPresentation(_graphicsDevice, _content, _assetRoot ?? "", _effectLibrary, _effects, _renderer.TransientLights, this,
-            _skillSounds, _log);
+        _skillFx = new SkillPresentation(_graphicsDevice, _content, _effectLibrary, _renderer.TransientLights, this, _skillSounds, _log);
         _skillFx.CastResolved += OnCastResolved;
     }
 
@@ -354,7 +353,14 @@ public sealed partial class GameScene : ISkillSceneHost
 
     bool PristonTale.Effects.Vfx.IVfxAnchors.TryGetBone(uint entityId, string bone, out Vector3 position)
     {
-        position = default;
+        var found = ((PristonTale.Effects.Vfx.IVfxAnchors)this).TryGetBoneWorld(entityId, bone, out var world);
+        position = world.Translation;
+        return found;
+    }
+
+    bool PristonTale.Effects.Vfx.IVfxAnchors.TryGetBoneWorld(uint entityId, string bone, out Matrix world)
+    {
+        world = Matrix.Identity;
         if (_renderer is null || _remote is null)
         {
             return false;
@@ -370,13 +376,7 @@ public sealed partial class GameScene : ISkillSceneHost
             return false;
         }
 
-        if (!_renderer.TryGetActorBoneWorld(actor, bone, out var world))
-        {
-            return false;
-        }
-
-        position = world.Translation;
-        return true;
+        return _renderer.TryGetActorBoneWorld(actor, bone, out world);
     }
 
     void ISkillSceneHost.SeekSkillMotion(uint entityId, int framesFromStart, float rate)

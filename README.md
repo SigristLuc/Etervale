@@ -34,6 +34,7 @@ Etervale/
 │   ├── char/
 │   ├── Field/
 │   ├── Effect/
+│   │   └── Vfx/          (written by ptvfx import)
 │   ├── image/
 │   ├── sky/
 │   ├── wav/
@@ -108,6 +109,12 @@ dotnet run --project tools/PristonTale.WorldImport -c Release --no-build -- veri
 
 dotnet run --project tools/PristonTale.DevAccounts -c Release --no-build -- create-account demo change-me
 dotnet run --project Server/PristonTale.Server -c Release --no-build
+```
+
+Write the client's effect data into `assets/Effect/Vfx/` (again after updating the game data or an authored effect):
+
+```bash
+dotnet run --project tools/PristonTale.VfxImport -c Release --no-build -- import assets
 ```
 
 Run the client in another terminal and log in with the account you created:

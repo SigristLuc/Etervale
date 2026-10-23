@@ -15,13 +15,11 @@ internal sealed class PotionCaptureProbe : Game
     private RenderTarget2D _target = null!;
     private readonly float[] _times = [0.15f, 0.45f, 0.8f, 1.2f];
     private int _sample;
-    private readonly bool _hulkHits;
 
-    public PotionCaptureProbe(string assets, string content, string output, bool hulkHits = false)
+    public PotionCaptureProbe(string assets, string content, string output)
     {
         _assets = assets;
         Content = new AbsoluteContentManager(Services, content);
-        _hulkHits = hulkHits;
         _output = output;
         _ = new GraphicsDeviceManager(this)
         {
@@ -47,26 +45,18 @@ internal sealed class PotionCaptureProbe : Game
         _effects.Clear();
         for (var resource = 0; resource < 3; resource++)
         {
-            var definition = _hulkHits ? _library.HulkHit(resource) : _library.Potion(resource);
-            if (_hulkHits)
-            {
-                Assert.True(definition.Emitters.Count == 5 && definition.Emitters.Sum(emitter => emitter.LegacySequence!.Count) == 44,
-                    "real HulkHit script lost an emitter or particle budget");
-            }
-
-            float spacing = _hulkHits ? 185f : 95f;
-            _effects.Spawn(definition, new Vector3((resource - 1) * spacing, 48f, 0));
+            _effects.Spawn(_library.Potion(resource), new Vector3((resource - 1) * 95f, 48f, 0));
         }
 
         var elapsed = new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(_times[_sample]));
         _effects.Update(elapsed);
         GraphicsDevice.SetRenderTarget(_target);
         GraphicsDevice.Clear(new Color(18, 22, 25));
-        var camera = new Vector3(0, 95, _hulkHits ? 440 : 240);
+        var camera = new Vector3(0, 95, 240);
         _effects.Draw(Matrix.CreateLookAt(camera, new Vector3(0, 35, 0), Vector3.Up),
             Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, 960f / 540f, 1, 1000), camera);
         GraphicsDevice.SetRenderTarget(null);
-        string name = _hulkHits ? "hulk-hits" : "potions";
+        const string name = "potions";
         var path = Path.Combine(_output, $"{name}-{_sample}.png");
         using (var stream = File.Create(path))
         {
