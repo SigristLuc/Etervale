@@ -6,7 +6,7 @@ namespace PristonTale.Simulation.Items;
 
 // How item copies are made from their authored ranges. A shop sells the lowest form of an item; a monster drop rolls
 // every range, and may specialize the copy for a class.
-public static class ItemRoller
+public static partial class ItemRoller
 {
     // Percent ranges a specialization moves the requirements by: strength, spirit, talent, agility. A zero lower
     // bound leaves the requirement unchanged.

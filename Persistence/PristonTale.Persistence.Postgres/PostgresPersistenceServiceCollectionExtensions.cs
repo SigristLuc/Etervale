@@ -5,6 +5,7 @@ using Npgsql;
 using PristonTale.Persistence.Abstractions;
 using PristonTale.Persistence.Abstractions.Accounts;
 using PristonTale.Persistence.Abstractions.Characters;
+using PristonTale.Persistence.Abstractions.GameMasters;
 using PristonTale.Persistence.Abstractions.Warehouses;
 using PristonTale.Persistence.Abstractions.WorldData;
 using PristonTale.Persistence.Migrations;
@@ -28,6 +29,7 @@ public static class PostgresPersistenceServiceCollectionExtensions
         services.AddSingleton<ICharacterRepository, DapperCharacterRepository>();
         services.AddSingleton<IWorldDataRepository, DapperWorldDataRepository>();
         services.AddSingleton<IWarehouseRepository, DapperWarehouseRepository>();
+        services.AddSingleton<IGameMasterRepository, DapperGameMasterRepository>();
         services.AddSingleton<IDatabaseMigrator, FluentMigratorDatabaseMigrator>();
 
         services.AddFluentMigratorCore()

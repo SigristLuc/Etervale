@@ -47,6 +47,17 @@ public sealed class FieldSpawner
 
     public static Vector3 PointToWorld(SpawnPoint point) => new(point.X, 0f, point.Z);
 
+    // A game master's event: until UntilMs, each regular spawn becomes one of this monster with Permille/1000 chance.
+    public SpawnEvent EventMonster { get; set; }
+
+    public int SpawnPointCount => _data.SpawnPoints.Count;
+
+    public int ActiveSpawnPointCount => _data.SpawnPoints.Count(static point => point.Active);
+
+    public int MaxConcurrentMonsters => _data.MaxConcurrentMonsters;
+
+    public int SpawnPassIntervalMs => _data.SpawnPassIntervalMs;
+
     public void MaintainPopulation(float dtMs, IReadOnlyList<MonsterInstance> live, IPlayerProximity proximity, long nowMs, ISpawnSink sink)
     {
         ArgumentNullException.ThrowIfNull(live);
@@ -90,6 +101,12 @@ public sealed class FieldSpawner
         Vector3 leaderPos = PointToWorld(point);
 
         int groupSize = Math.Max(1, _rng.NextInclusive(leaderDef.Ai.GroupSize.Min, leaderDef.Ai.GroupSize.Max));
+        if (EventMonster is { } evented && nowMs < evented.UntilMs && evented.Permille > 0 && _rng.NextExclusive(0, 1000) < evented.Permille)
+        {
+            leaderDef = evented.Definition;
+            groupSize = 1;
+        }
+
         groupSize = Math.Min(groupSize, _data.MaxConcurrentMonsters - aliveCount);
         int pointRoom = _data.MaxPerSpawnPoint - CountAliveAtPoint(live, pointIndex);
         groupSize = Math.Min(groupSize, Math.Max(1, pointRoom));
@@ -317,3 +334,5 @@ public sealed class FieldSpawner
         return n;
     }
 }
+
+public sealed record SpawnEvent(MonsterDefinition Definition, long UntilMs, int Permille);

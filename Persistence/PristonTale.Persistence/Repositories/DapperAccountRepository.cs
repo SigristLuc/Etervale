@@ -10,7 +10,7 @@ public sealed class DapperAccountRepository(IDbConnectionFactory connectionFacto
     {
         await using var connection = await connectionFactory.OpenAsync(ct);
         return await connection.QuerySingleOrDefaultAsync<AccountRecord>(new CommandDefinition(
-            "SELECT id, user_id, password_hash, is_blocked, is_tester FROM accounts WHERE user_id = @userId",
+            "SELECT id, user_id, password_hash, is_blocked, is_tester, gm_level FROM accounts WHERE user_id = @userId",
             new { userId }, cancellationToken: ct));
     }
 
@@ -21,7 +21,7 @@ public sealed class DapperAccountRepository(IDbConnectionFactory connectionFacto
             """
             INSERT INTO accounts (user_id, password_hash)
             VALUES (@userId, @passwordHash)
-            RETURNING id, user_id, password_hash, is_blocked, is_tester
+            RETURNING id, user_id, password_hash, is_blocked, is_tester, gm_level
             """,
             new { userId, passwordHash }, cancellationToken: ct));
     }

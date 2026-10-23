@@ -108,6 +108,9 @@ public sealed class MonsterInstance
     public float ModelScale { get; set; }
     public bool IsSummon => OwnerId != 0;
 
+    // A monster a game master called up drops nothing when it dies.
+    public bool DropsDisabled { get; set; }
+
     public void ApplyDamage(int amount)
     {
         if (amount <= 0)
