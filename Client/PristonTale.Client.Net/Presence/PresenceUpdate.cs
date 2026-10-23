@@ -19,6 +19,11 @@ public sealed record PresenceUpdate(
 
     // Server simulation time of a freshly received group or event list (PresenceClock extension); null otherwise.
     public double? ServerTimeMs { get; init; }
+
+    public IReadOnlyList<SkillEventInfo> SkillEvents { get; init; } = [];
+    public IReadOnlyList<StatusEffectInfo> StatusEffects { get; init; } = [];
+    public SkillCooldownSnapshot? Cooldowns { get; init; }
+    public SkillCastResultInfo? CastResult { get; init; }
 }
 
 public sealed record WarpInfo(int FieldId, System.Numerics.Vector3 Position, bool Forced);

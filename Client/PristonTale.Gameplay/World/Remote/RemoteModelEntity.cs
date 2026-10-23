@@ -60,5 +60,20 @@ public sealed class RemoteModelEntity : RemoteEntityBase
 
     protected override void ApplyPlaybackRate(float rate) => _scene.SetActorPlaybackRate(_actor, rate);
 
+    public override int CopyActorHandles(Span<ActorHandle> destination)
+    {
+        if (!_actor.IsValid || destination.Length == 0)
+        {
+            return 0;
+        }
+
+        destination[0] = _actor;
+        return 1;
+    }
+
+    protected override void ApplyMotionIndex(int motionIndex) => _scene.SetActorMotionIndex(_actor, motionIndex);
+
+    public ActorHandle Actor => _actor;
+
     public override void Dispose() => _scene.RemoveActor(_actor);
 }

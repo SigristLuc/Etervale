@@ -32,11 +32,15 @@ public sealed class GameplayScreen : GameScreen
             _scene.ApplyProgressionAsync,
             _scene.InteractNpcAsync,
             _scene.PlayNpcInteractionAudio,
-            _scene.StopNpcTalk);
+            _scene.StopNpcTalk,
+            _scene.RequestNpcServiceAsync);
         _hud.CharacterName = _scene.Player.Name;
         _hud.CharacterClass = _scene.Player.Class.Class;
+        _hud.PortraitScene = _scene;
         _scene.PresenceObserved += _hud.Combat.Observe;
         _scene.NpcSelected += _hud.OpenNpc;
+        _scene.SkillNotice += _hud.ShowNotice;
+        _hud.SummonModeRequested += _scene.ToggleSummonMode;
 
         _scene.BeginRemotePresence(Context.Backend.OpenPlayChannel(), _entered);
 
@@ -88,12 +92,19 @@ public sealed class GameplayScreen : GameScreen
         }
 
         var field = _scene.ActiveFieldDefinition;
+        _ = _scene.TryGetNeighbourMap(out var neighbour, out var neighbourMap);
+        var mapHidden = field is not null && HudMinimap.HiddenOn(field.FieldCode, field.State);
         _hud.World = new HudWorldView(field?.Id, field?.Underground == true, _scene.ActiveMapRectangle, _scene.PlayerPosition,
-            _scene.PlayerForward, _scene.TimeOfDay, _scene.RunMode);
+            _scene.PlayerForward, _scene.TimeOfDay, _scene.RunMode, mapHidden, neighbour, neighbourMap);
         _hud.Update(_scene.Owner);
         _scene.PointerCaptured = _hud.PointerCaptured;
         _scene.CameraInputEnabled = Context.IsWindowActive && !Context.Presentation.AwaitingConfirmation;
         _scene.RightAttackEnabled = _hud.RightAttackEnabled;
+        _scene.LeftSkill = _hud.Bindings.LeftSkillId;
+        _scene.RightSkill = _hud.Bindings.RightSkillId;
+        _hud.SkillState = _scene.Skills;
+        _hud.SkillClockMs = gameTime.TotalGameTime.TotalMilliseconds;
+        _hud.SelfId = _scene.SelfEntityId;
         if (!Context.Presentation.AwaitingConfirmation)
         {
             UpdateMotionKeys();
@@ -106,11 +117,13 @@ public sealed class GameplayScreen : GameScreen
 
     public override void Draw()
     {
+        _hud.RenderPortrait();
         Context.GraphicsDevice.Clear(_scene.SkyColor);
         _scene.Draw();
         Context.SpriteBatch.Begin();
         _scene.DrawGroundLabels(Context.SpriteBatch, Context.Font);
         Context.SpriteBatch.End();
+        _scene.DrawCombatText(Context.SpriteBatch, Context.Font);
         _hud.Draw();
     }
 
@@ -193,6 +206,8 @@ public sealed class GameplayScreen : GameScreen
         {
             _scene.PresenceObserved -= _hud.Combat.Observe;
             _scene.NpcSelected -= _hud.OpenNpc;
+            _scene.SkillNotice -= _hud.ShowNotice;
+            _hud.SummonModeRequested -= _scene.ToggleSummonMode;
         }
 
         _hud?.Dispose();

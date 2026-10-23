@@ -10,6 +10,7 @@ using PristonTale.Client.Net.WorldCatalog;
 using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
 using PristonTale.Protocol.Transport;
+using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.World.Npcs;
@@ -18,7 +19,7 @@ namespace PristonTale.Client.Net;
 
 // Client side of the original Priston flow over one TCP connection. The original protocol has no request ids, so
 // login, character and world-entry requests run one at a time and complete on their reply opcodes; inventory and
-// progression commands correlate by operation id and NPC clicks by NPC serial.
+// progression commands and NPC service requests correlate by operation id and NPC clicks by NPC serial.
 public sealed class GameServerConnection : IGameBackend
 {
     // Client version of the English retail build; the server's VERSION reply sets the minimum.
@@ -37,6 +38,7 @@ public sealed class GameServerConnection : IGameBackend
     private readonly RecordDataAssembler _record = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<OperationResultPacket>> _operations = new();
     private readonly ConcurrentDictionary<uint, NpcRequest> _npcRequests = new();
+    private readonly ConcurrentDictionary<Guid, ServiceRequest> _serviceRequests = new();
     private readonly Channel<PresenceUpdate> _presenceUpdates = Channel.CreateBounded<PresenceUpdate>(new BoundedChannelOptions(4096)
     {
         SingleReader = true,
@@ -290,6 +292,32 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
+    internal async Task<NpcServiceReply> RequestNpcServiceAsync(NpcServiceCommand command, CancellationToken ct)
+    {
+        ThrowIfDisconnected();
+        var request = new ServiceRequest();
+        if (!_serviceRequests.TryAdd(command.OperationId, request))
+        {
+            throw new InvalidOperationException("A service request with this id is already in flight.");
+        }
+
+        try
+        {
+            var packet = new NpcServiceRequestPacket(command.OperationId, command.NpcEntityId, (byte)command.Service, (byte)command.Action,
+                command.ExpectedRevision, command.ExpectedStorageRevision, command.ItemCode, command.ItemId, command.Anchor, command.Count, command.Amount);
+            lock (_sendGate)
+            {
+                Connection.SendEncrypted(_scratch.AsSpan(0, packet.Write(_scratch)));
+            }
+
+            return await request.Completion.Task.WaitAsync(ct);
+        }
+        finally
+        {
+            _serviceRequests.TryRemove(command.OperationId, out _);
+        }
+    }
+
     internal void SendMovement(Vector3 position, float facing, bool moving, bool running, uint actionTarget, int fieldCode)
     {
         var serial = _presence.SelfSerial;
@@ -311,6 +339,17 @@ public sealed class GameServerConnection : IGameBackend
         lock (_sendGate)
         {
             Connection.SendEncrypted(_scratch.AsSpan(0, attack.Write(_scratch)));
+        }
+    }
+
+    internal void SendSkillCast(uint sequence, uint skillCode, uint target, Vector3? point, ushort command = SkillCastFlags.Cast)
+    {
+        var aimed = point ?? Vector3.Zero;
+        var cast = new SkillCastPacket(sequence, skillCode, target, PristonUnits.ToFixed(aimed.X), PristonUnits.ToFixed(aimed.Y), PristonUnits.ToFixed(aimed.Z),
+            0, (uint)Environment.TickCount, command);
+        lock (_sendGate)
+        {
+            Connection.SendEncrypted(_scratch.AsSpan(0, cast.Write(_scratch)));
         }
     }
 
@@ -393,6 +432,11 @@ public sealed class GameServerConnection : IGameBackend
                 pending.Completion.TrySetException(error);
             }
 
+            foreach (var pending in _serviceRequests.Values)
+            {
+                pending.Completion.TrySetException(error);
+            }
+
             _presenceUpdates.Writer.TryComplete(error);
         }
     }
@@ -467,30 +511,97 @@ public sealed class GameServerConnection : IGameBackend
 
                 break;
             }
-            case PristonOpcodes.WhisperMessage:
+            case EtervaleOpcodes.NpcResult:
             {
-                var whisper = ChatMessagePacket.Read(packet);
-                if (_npcRequests.TryGetValue(whisper.ObjectSerial, out var request))
+                var dialog = NpcDialogPacket.Read(packet);
+                if (_npcRequests.TryGetValue(dialog.NpcSerial, out var request))
                 {
-                    request.Lines.Add(whisper.Message);
+                    var offers = dialog.Services.Select(entry => new NpcServiceOffer((NpcServiceKind)entry.Kind, entry.Value, entry.Available)).ToArray();
+                    request.Completion.TrySetResult(new NpcInteraction(dialog.Ok, dialog.NpcSerial, dialog.Name, offers, dialog.Lines, dialog.Message));
                 }
 
                 break;
             }
-            case EtervaleOpcodes.NpcResult:
+            case EtervaleOpcodes.ShopCatalog:
+            case EtervaleOpcodes.ShopQuotes:
+            case EtervaleOpcodes.Warehouse:
+            case EtervaleOpcodes.TeleportList:
+            case EtervaleOpcodes.NpcServiceResult:
+                OnServiceMessage(code, packet);
+                break;
+        }
+
+        return ValueTask.CompletedTask;
+    }
+
+    private void OnServiceMessage(uint code, ReadOnlySpan<byte> packet)
+    {
+        switch (code)
+        {
+            case EtervaleOpcodes.ShopCatalog:
             {
-                var result = NpcResultPacket.Read(packet);
-                if (_npcRequests.TryGetValue(result.NpcSerial, out var request))
+                var catalog = ShopCatalogPacket.Read(packet);
+                if (_serviceRequests.TryGetValue(catalog.OperationId, out var request))
                 {
-                    request.Completion.TrySetResult(new NpcInteraction(result.Ok, result.NpcSerial, result.Name, (NpcServices)result.Services,
-                        request.Lines.ToArray(), result.Message));
+                    request.Catalog = catalog.Items.Select(entry => new ShopOffer(entry.Code, entry.Tab, entry.Ordinal, entry.Name, (ItemKind)entry.Kind,
+                        entry.Price, entry.Width, entry.Height, entry.MaxStack, ItemKey(entry.Code))).ToArray();
+                }
+
+                break;
+            }
+            case EtervaleOpcodes.ShopQuotes:
+            {
+                var quotes = ShopQuotesPacket.Read(packet);
+                if (_serviceRequests.TryGetValue(quotes.OperationId, out var request))
+                {
+                    request.Quotes = new ShopQuotes(quotes.InventoryRevision, quotes.Items
+                        .Select(entry => new ShopQuote(entry.ItemId, entry.SellPrice, entry.RepairCost, entry.Durability, entry.MaxDurability)).ToArray());
+                }
+
+                break;
+            }
+            case EtervaleOpcodes.Warehouse:
+            {
+                var warehouse = WarehousePacket.Read(packet);
+                if (_serviceRequests.TryGetValue(warehouse.OperationId, out var request))
+                {
+                    var items = warehouse.Items.Select(entry => new OwnedItemView(entry.InstanceId, entry.Code, entry.Name, (ItemKind)entry.Kind, entry.Count,
+                        entry.Anchor, -1, entry.Width, entry.Height, ItemKey(entry.Code))).ToArray();
+                    request.Warehouse = new WarehouseView(warehouse.Revision, warehouse.Money, warehouse.Weight, warehouse.MaxWeight, warehouse.Columns,
+                        warehouse.Rows, items);
+                }
+
+                break;
+            }
+            case EtervaleOpcodes.TeleportList:
+            {
+                var list = TeleportListPacket.Read(packet);
+                if (_serviceRequests.TryGetValue(list.OperationId, out var request))
+                {
+                    request.Destinations = list.Destinations
+                        .Select(entry => new TeleportOffer(entry.Index, entry.FieldCode, entry.Name, entry.Price, entry.MinimumLevel)).ToArray();
+                }
+
+                break;
+            }
+            case EtervaleOpcodes.NpcServiceResult:
+            {
+                var result = NpcServiceResultPacket.Read(packet);
+                if (_serviceRequests.TryGetValue(result.OperationId, out var request))
+                {
+                    var outcome = new NpcServiceOutcome(result.Ok, (NpcServiceStatus)result.Status, result.Revision, result.StorageRevision, result.Message);
+                    request.Completion.TrySetResult(new NpcServiceReply(outcome)
+                    {
+                        Catalog = request.Catalog,
+                        Quotes = request.Quotes,
+                        Warehouse = request.Warehouse,
+                        Destinations = request.Destinations
+                    });
                 }
 
                 break;
             }
         }
-
-        return ValueTask.CompletedTask;
     }
 
     private void OnFailConnect(TransCommand failure)
@@ -653,6 +764,15 @@ public sealed class GameServerConnection : IGameBackend
     private sealed class NpcRequest
     {
         public TaskCompletionSource<NpcInteraction> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public List<string> Lines { get; } = new();
+    }
+
+    // State messages precede the result of their request on the same connection, so they are collected until it arrives.
+    private sealed class ServiceRequest
+    {
+        public TaskCompletionSource<NpcServiceReply> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public IReadOnlyList<ShopOffer>? Catalog { get; set; }
+        public ShopQuotes? Quotes { get; set; }
+        public WarehouseView? Warehouse { get; set; }
+        public IReadOnlyList<TeleportOffer>? Destinations { get; set; }
     }
 }

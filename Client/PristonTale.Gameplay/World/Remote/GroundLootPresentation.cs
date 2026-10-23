@@ -8,7 +8,8 @@ using PristonTale.Simulation.World.Loot;
 
 namespace PristonTale.Gameplay.World.Remote;
 
-public delegate bool FloorHeightQuery(float x, float z, out float y);
+// The server settles drops on its copy of the stage collision; its height selects the surface among stacked floors.
+public delegate bool FloorHeightQuery(float x, float referenceHeight, float z, out float y);
 
 public sealed class GroundLootPresentation(IActorScene scene, PristonActorLoader loader, string root, IClientLog log) : IDisposable
 {
@@ -75,7 +76,7 @@ public sealed class GroundLootPresentation(IActorScene scene, PristonActorLoader
             if (entry.FloorRevision != _floorRevision)
             {
                 var source = entry.Drop.Position;
-                entry.FloorFound = floor(source.X, -source.Z, out float height);
+                entry.FloorFound = floor(source.X, source.Y, -source.Z, out float height);
                 entry.Position = new Vector3(source.X, height, -source.Z);
                 entry.FloorRevision = _floorRevision;
             }

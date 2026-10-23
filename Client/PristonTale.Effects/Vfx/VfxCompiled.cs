@@ -1,0 +1,101 @@
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+
+namespace PristonTale.Effects.Vfx;
+
+// A keyed curve over normalized life, sampled without allocation (linear between keys, clamped at the ends).
+public sealed class VfxCurve
+{
+    private readonly float[] _times;
+    private readonly Vector4[] _values;
+
+    public VfxCurve(VfxKey[] keys)
+    {
+        _times = new float[keys.Length];
+        _values = new Vector4[keys.Length];
+        for (var index = 0; index < keys.Length; index++)
+        {
+            _times[index] = keys[index].T;
+            var v = keys[index].V;
+            _values[index] = new Vector4(v[0], v.Length > 1 ? v[1] : 0f, v.Length > 2 ? v[2] : 0f, v.Length > 3 ? v[3] : 0f);
+        }
+    }
+
+    public static VfxCurve Constant(Vector4 value) => new([new VfxKey(0f, [value.X, value.Y, value.Z, value.W])]);
+
+    public Vector4 Sample(float t)
+    {
+        if (t <= _times[0] || _times.Length == 1)
+        {
+            return _values[0];
+        }
+
+        for (var index = 1; index < _times.Length; index++)
+        {
+            if (t <= _times[index])
+            {
+                var span = _times[index] - _times[index - 1];
+                var f = span > 0f ? (t - _times[index - 1]) / span : 1f;
+                return Vector4.Lerp(_values[index - 1], _values[index], f);
+            }
+        }
+
+        return _values[^1];
+    }
+}
+
+internal sealed class CompiledEmitter
+{
+    public CompiledEmitter(VfxEmitterDefinition source, Texture2D texture)
+    {
+        Source = source;
+        Texture = texture;
+        Offset = VfxDefinition.Vec3(source.Offset);
+        Direction = source.Direction.All(value => value == 0f) ? Vector3.Up : Vector3.Normalize(VfxDefinition.Vec3(source.Direction));
+        Gravity = VfxDefinition.Vec3(source.Gravity);
+        Size = new VfxCurve(source.Size);
+        Color = new VfxCurve(source.Color);
+        SpreadCos = MathF.Cos(MathHelper.ToRadians(Math.Clamp(source.Spread, 0f, 180f)));
+    }
+
+    public VfxEmitterDefinition Source { get; }
+    public Texture2D Texture { get; }
+    public Vector3 Offset { get; }
+    public Vector3 Direction { get; }
+    public Vector3 Gravity { get; }
+    public VfxCurve Size { get; }
+    public VfxCurve Color { get; }
+    public float SpreadCos { get; }
+}
+
+internal sealed class CompiledTrail
+{
+    public CompiledTrail(VfxTrailDefinition source, Texture2D texture)
+    {
+        Source = source;
+        Texture = texture;
+        Offset = VfxDefinition.Vec3(source.Offset);
+        Color = new VfxCurve(source.Color);
+    }
+
+    public VfxTrailDefinition Source { get; }
+    public Texture2D Texture { get; }
+    public Vector3 Offset { get; }
+    public VfxCurve Color { get; }
+}
+
+// A definition with its textures and curves resolved, shared by every instance.
+public sealed class CompiledVfx
+{
+    internal CompiledVfx(VfxDefinition definition, CompiledEmitter[] emitters, CompiledTrail[] trails)
+    {
+        Definition = definition;
+        Emitters = emitters;
+        Trails = trails;
+    }
+
+    public VfxDefinition Definition { get; }
+    public string Name => Definition.Name;
+    internal CompiledEmitter[] Emitters { get; }
+    internal CompiledTrail[] Trails { get; }
+}

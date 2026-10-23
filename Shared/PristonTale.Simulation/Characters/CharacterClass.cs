@@ -1,4 +1,3 @@
-using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Skills;
 
 namespace PristonTale.Simulation.Characters;
@@ -10,7 +9,7 @@ public abstract class CharacterClass
     protected CharacterClass(CharacterClassDef definition)
     {
         Definition = definition;
-        DefineSkills(_skills);
+        _skills.AddRange(ClassSkillCatalog.For(definition.Class));
     }
 
     public CharacterClassDef Definition { get; }
@@ -18,8 +17,6 @@ public abstract class CharacterClass
     public string Name => Definition.Name;
     public CharacterBrood Brood => Definition.Brood;
     public IReadOnlyList<Skill> Skills => _skills;
-
-    protected abstract void DefineSkills(IList<Skill> skills);
 
     protected static CharacterClassDef BuildDefinition(
         PlayerClass playerClass,

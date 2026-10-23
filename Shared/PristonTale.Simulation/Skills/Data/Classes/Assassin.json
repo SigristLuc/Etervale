@@ -1,0 +1,28 @@
+// Assassin skills, tiers 1 to 4 in skill-window order. Format: Shared/PristonTale.Simulation/Skills/ClassSkillCatalog.cs.
+[
+    { "code": "0x10010001", "name": "Stinger", "tier": "Job1", "category": "ActiveAttack", "icon": "TA10 Stingger",
+      "description": "Dash straight into the enemy and deal damage.", "requiredLevel": 10, "mouse": "Both",
+      "mana": [8, 10, 12, 15, 18, 21, 25, 29, 33, 38], "stamina": [22, 2], "weapons": ["Dagger"] },
+    { "code": "0x10010002", "name": "Running Hit", "tier": "Job1", "category": "MultiHit", "icon": "TA12 R_Hit",
+      "description": "Deals continuous damage to the enemy while spinning", "requiredLevel": 12, "mouse": "Both",
+      "mana": [14, 16, 18, 20, 23, 26, 29, 32, 35, 39], "stamina": [27, 2], "weapons": ["Dagger"] },
+    { "code": "0x10010003", "name": "Dual Wield Mastery", "tier": "Job1", "category": "Passive", "icon": "TA14 D_Mastery",
+      "description": "Permanently raises the base attack power of dagger-type weapons", "requiredLevel": 14, "mouse": "None",
+      "mana": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "stamina": [0, 0], "weapons": ["Dagger"], "kind": "Passive", "target": "None",
+      "passive": { "effect": "WeaponDamagePercent", "values": [5, 7, 9, 11, 14, 17, 20, 23, 27, 31] } },
+    { "code": "0x10010004", "name": "Wisp", "tier": "Job1", "category": "Debuff", "icon": "TA17 Wisp",
+      "description": "Reduces targeted enemy damage for a period of time", "requiredLevel": 17, "mouse": "Both",
+      "mana": [18, 20, 22, 24, 26, 29, 33, 37, 41, 45], "stamina": [37, 2], "weapons": ["Dagger"] },
+    { "code": "0x10020001", "name": "Venom Thorn", "tier": "Job2", "category": "MultiHit", "icon": "TA20 V_Throne", "requiredLevel": 19 },
+    { "code": "0x10020002", "name": "Alas", "tier": "Job2", "category": "Buff", "icon": "TA23 Alas", "requiredLevel": 19 },
+    { "code": "0x10020003", "name": "Soul Shock", "tier": "Job2", "category": "Debuff", "icon": "TA26 S_Shock", "requiredLevel": 19 },
+    { "code": "0x10020004", "name": "Attack Mastery", "tier": "Job2", "category": "Passive", "icon": "TA30 A_Mastery", "requiredLevel": 19 },
+    { "code": "0x10040001", "name": "Sore Blade", "tier": "Job3", "category": "ActiveAttack", "icon": "TA40 S_Sword", "requiredLevel": 39 },
+    { "code": "0x10040002", "name": "Gust Slash", "tier": "Job3", "category": "ActiveAttack", "icon": "TA43 B_Up", "requiredLevel": 39 },
+    { "code": "0x10040003", "name": "Inpes", "tier": "Job3", "category": "Buff", "icon": "TA46 Inpes", "requiredLevel": 39 },
+    { "code": "0x10040004", "name": "Blind", "tier": "Job3", "category": "Debuff", "icon": "TA50 Blind", "requiredLevel": 39 },
+    { "code": "0x10080001", "name": "Cripple", "tier": "Job4", "category": "Debuff", "icon": "TA60 F_Wind", "requiredLevel": 59 },
+    { "code": "0x10080002", "name": "Assassin Mastery", "tier": "Job4", "category": "Passive", "icon": "TA63 F_Mastery", "requiredLevel": 59 },
+    { "code": "0x10080003", "name": "Polluted", "tier": "Job4", "category": "Debuff", "icon": "TA66 Polluted", "requiredLevel": 59 },
+    { "code": "0x10080004", "name": "Ninja Shadow", "tier": "Job4", "category": "Buff", "icon": "TA70 P_Shadow", "requiredLevel": 59 }
+]

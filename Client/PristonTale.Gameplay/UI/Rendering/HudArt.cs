@@ -105,6 +105,11 @@ public static class HudArt
     public const string TargetBox = "image/cw.tga";
     public const string EnergyBack = "image/Energy_Red.tga";
     public const string EnergyFill = "image/Energy_Blue.tga";
+    public const string BroodNormal = "image/M_Nm.tga";
+    public const string BroodMutant = "image/M_Mt.tga";
+    public const string BroodUndead = "image/M_Un.tga";
+    public const string BroodDemon = "image/M_D.tga";
+    public const string BroodMechanic = "image/M_mc.tga";
 
     public static readonly string[] Static =
     [
@@ -118,7 +123,8 @@ public static class HudArt
         HelpTopLeft, HelpTop, HelpTopRight, HelpLeft, HelpCenter, HelpRight, HelpBottomLeft, HelpBottom, HelpBottomRight, HelpLine,
         HelpTitle, HelpButton, ScrollBar, ScrollButton,
         MessageBox, NoticeLeft, NoticeCenter, NoticeRight, OkGray, OkYellow, YesGray, YesYellow, NoGray, NoYellow,
-        MapBox, MapArrow, MapNpc, TargetBox, EnergyBack, EnergyFill
+        MapBox, MapArrow, MapNpc, TargetBox, EnergyBack, EnergyFill,
+        BroodNormal, BroodMutant, BroodUndead, BroodDemon, BroodMechanic
     ];
 
     public static string ClassDirectory(PlayerClass characterClass) => characterClass switch

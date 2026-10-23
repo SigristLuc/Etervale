@@ -75,6 +75,7 @@ public static class KeyMaps
     public const string CharDialog = "*대화";          // dialog line (at most 20)
     public const string CharAttribute = "*속성";       // 적 = enemy, otherwise NPC
     public const string CharSize = "*크기";            // size level
+    public const string CharPortrait = "*화면보정";    // target-frame portrait camera: height, distance
     public static readonly string[] CharSound = ["*소리", "*효과음"]; // sound family code
     public const string MonLevel = "*레벨";            // level
     public const string MonBoss = "*두목";             // marks a boss class
@@ -164,6 +165,34 @@ public static class KeyMaps
     public const string NpcBlessCastle = "*블레스캐슬";   // +code
     public const string NpcQuestCode = "*퀘스트코드";     // code + param
     public const string NpcLinkedFile = "*연결파일";      // reopen
+    public const string NpcEventGift = "*경품추첨";       // prize lottery
+    public const string NpcGiftExpress = "*경품배달";     // prize delivery
+    public const string NpcWingQuest = "*윙퀘스트";       // warp gate, optional value (default 1)
+    public const string NpcQuestEvent = "*퀘스트이벤트";  // event quest, optional value (default 2)
+    public const string NpcStarPoint = "*별포인트적립";   // star points, optional minimum level (default 20)
+    public const string NpcPolling = "*설문조사";         // survey, optional value (default 1)
+    public const string NpcMediaTitle = "*동영상제목";    // quoted stream title
+    public const string NpcMediaPath = "*동영상경로";     // quoted stream path
+    public const string NpcEventCode = "*이벤트코드";     // event creature code
+    public const string NpcEventInfo = "*이벤트정보";     // event creature information
+
+    // Localized name and dialog keys of the linked name files, by preference: English, then the Brazilian build's
+    // English text. The original compares them case-sensitively; some files spell them in mixed case.
+    public static readonly string[] NpcNameLocales = ["*E_NAME", "*B_NAME"];
+    public static readonly string[] NpcDialogLocales = ["*E_CHAT", "*B_CHAT"];
+
+    // Keys present in the supplied NPC files that no original client handles, with the label kept for them.
+    public static readonly (string Token, string Label)[] NpcUnportedServices =
+    [
+        ("*소켓", "Socket"),
+        ("*룬스톤", "Runestone"),
+        ("*룬스톤조합", "Runestone mixing"),
+        ("*크리스탈강화", "Crystal enhancement"),
+        ("*아이템언락", "Item unlock"),
+        ("*각인", "Engraving"),
+        ("*벨라트라", "Bellatra"),
+        ("*보부상", "Peddler"),
+    ];
 
     // Sell lists (each a ≤32 item-code list).
     public const string NpcSellWeapon = "*무기판매";      // → tab 0

@@ -15,7 +15,7 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
     private const int TooltipWidth = 260;
 
     private sealed record Entry(Skill Skill, string Level, string[] Description, string[] Weapons, string Cost, string Mouse,
-        int Rank = 0, string Status = "Unlearned");
+        int Rank = 0, string Status = "Unlearned", IReadOnlyList<string> Details = null);
 
     private static readonly CharacterClassRegistry Classes = new();
     private readonly List<string> _classSprites = [];
@@ -23,6 +23,8 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
     private PlayerClass _class;
     private int _points = -1;
     private string _pointsText = "";
+    private int _finalPoints = -1;
+    private string _finalPointsText = "";
     private int _trainingIndex = -1;
     private string _trainingName = "";
     private string _trainingPrice = "";
@@ -68,7 +70,8 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
                 SkillMouseUse.Both => "Left or right mouse",
                 _ => "Passive skill"
             };
-            var cost = skill.MouseUse == SkillMouseUse.None ? "No activation cost" : $"Rank 1: MP {skill.ManaForRank(1)} | SP {skill.StaminaForRank(1)}";
+            var cost = skill.MouseUse == SkillMouseUse.None || skill.ManaByRank.Count < 10 ? "No activation cost"
+                : $"Rank 1: MP {skill.ManaForRank(1)} | SP {skill.StaminaForRank(1)}";
             _entries[index] = new Entry(skill, $"Lv {skill.RequiredLevel}",
                 HudTextLayout.Wrap(font, skill.Description, TooltipWidth - 20, HudPainter.TextScale),
                 HudTextLayout.Wrap(font, "Equipment: " + weapons, TooltipWidth - 20, HudPainter.TextScale), cost, mouse);
@@ -82,8 +85,25 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
         sprites.Request(_classSprites);
     }
 
-    public uint HoveredSkill(Point origin, Point pointer) =>
-        HudSkillTreeLayout.BasicAttack(origin).Contains(pointer) ? HudSkillBindings.BasicAttackId : 0;
+    // The basic attack or a learned active skill under the pointer, for selecting it into a mouse socket or a short key.
+    public uint HoveredSkill(Point origin, Point pointer)
+    {
+        if (HudSkillTreeLayout.BasicAttack(origin).Contains(pointer))
+        {
+            return HudSkillBindings.BasicAttackId;
+        }
+
+        for (var index = 0; index < Math.Min(_entries.Length, HudSkillTreeLayout.NodeCount); index++)
+        {
+            var entry = _entries[index];
+            if (entry.Skill.Code != 0 && entry.Rank > 0 && entry.Skill.MouseUse != SkillMouseUse.None && ClassRow(origin, index).Contains(pointer))
+            {
+                return entry.Skill.Code;
+            }
+        }
+
+        return 0;
+    }
 
     public void HandleTrainingClick(Point origin, Point pointer, OwnerState state, uint npcId, HudProgressionController controller)
     {
@@ -108,7 +128,7 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
             return;
         }
 
-        for (var index = 0; index < Math.Min(4, _entries.Length); index++)
+        for (var index = 0; index < Math.Min(_entries.Length, HudSkillTreeLayout.NodeCount); index++)
         {
             if (!ClassRow(origin, index).Contains(pointer))
             {
@@ -149,9 +169,9 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
             {
                 var usable = entry.Rank > 0 || skillMaster != 0 && CanTrain(index, state);
                 painter.Sprite(HudArt.SkillButton(_class, entry.Skill.IconKey, !usable), node.X, node.Y);
-                if (index < 4)
+                if (index < SkillLearning.OpenedBy(state?.Tier ?? 0))
                 {
-                    // Only the first job tier is available (no class change), as the original draws gauges for flagged skills.
+                    // The original draws the mastery slot of the skills the class tier has opened.
                     var mastery = HudSkillTreeLayout.MasteryGauge(origin, index);
                     painter.Sprite(entry.Skill.MouseUse == SkillMouseUse.None ? HudArt.SkillGaugePassive : HudArt.SkillGaugeBack, mastery.X, mastery.Y);
                 }
@@ -185,7 +205,14 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
                 _pointsText = _points.ToString();
             }
 
+            if (_finalPoints != state.EliteSkillPoints)
+            {
+                _finalPoints = state.EliteSkillPoints;
+                _finalPointsText = _finalPoints.ToString();
+            }
+
             painter.TextCentered(_pointsText, origin.X + 165, origin.X + 253, origin.Y + 578);
+            painter.TextCentered(_finalPointsText, origin.X + 250, origin.X + 253, origin.Y + 578);
         }
     }
 
@@ -215,16 +242,14 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
 
     private bool CanTrain(int index, OwnerState state)
     {
-        if (state is null || index >= 4 || index >= _entries.Length)
+        if (state is null || index >= _entries.Length)
         {
             return false;
         }
 
-        var skill = _entries[index].Skill;
-        var rank = Rank(state, skill.Code);
-        return rank < 10 && state.SkillPoints > 0 && state.Level >= skill.RequiredLevel + rank * 2
-            && (index == 0 || Rank(state, _entries[index - 1].Skill.Code) > 0)
-            && state.Money >= SkillLearning.Price(index, rank);
+        var skills = Classes.Get(_class).Skills;
+        return SkillLearning.CanTrain(skills, index, code => Rank(state, code), state.Level, state.Tier, state.SkillPoints, state.EliteSkillPoints)
+            && state.Money >= SkillLearning.Price(index, Rank(state, skills[index].Code));
     }
 
     private static int Rank(OwnerState state, uint code)
@@ -269,6 +294,7 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
             $"{entry.Level}   {entry.Mouse}",
             entry.Cost
         };
+        lines.AddRange(entry.Details ?? []);
         lines.AddRange(entry.Weapons);
         lines.Add(entry.Status);
         DrawLines(painter, layout, pointer, entry.Skill.Name, lines.ToArray());
@@ -292,8 +318,7 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
 
             var rank = Rank(state, entry.Skill.Code);
             var shownRank = Math.Max(1, rank);
-            var cost = entry.Skill.Category == SkillCategory.Passive
-                ? "No activation cost"
+            var cost = entry.Skill.Category == SkillCategory.Passive || entry.Skill.ManaByRank.Count < 10 ? "No activation cost"
                 : $"Rank {shownRank}: MP {entry.Skill.ManaForRank(shownRank)} | SP {entry.Skill.StaminaForRank(shownRank)}";
             var status = rank == 0 ? "Unlearned | Rank 1 preview" : $"Learned rank {rank} / 10";
             if (rank > 0 && entry.Skill.Category == SkillCategory.Passive)
@@ -301,12 +326,18 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
                 status += " | Passive";
             }
 
-            if (entry.Skill.MouseUse != SkillMouseUse.None)
+            if (entry.Skill.MouseUse != SkillMouseUse.None && SkillRuleCatalog.TryGet(entry.Skill.Code, out var rule))
             {
-                status += " | Casting unavailable";
+                var cooldown = SkillFormulas.CooldownMs(rule, shownRank, state.Talent, 0) / 1000f;
+                cost += $" | Recharge {cooldown:0.#} s";
+                if (rank > 0)
+                {
+                    status += " | Click to place in a mouse socket, F1-F8 while held to bind";
+                }
             }
 
-            _entries[index] = entry with { Rank = rank, Cost = cost, Status = status };
+            var details = SkillRuleCatalog.TryGet(entry.Skill.Code, out var detailRule) ? HudSkillDetails.Lines(detailRule, shownRank) : [];
+            _entries[index] = entry with { Rank = rank, Cost = cost, Status = status, Details = details };
         }
     }
 

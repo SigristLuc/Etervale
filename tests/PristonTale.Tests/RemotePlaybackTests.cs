@@ -5,11 +5,13 @@ using PristonTale.Client.Net.WorldCatalog;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.UI;
+using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Gameplay.World;
 using PristonTale.Gameplay.World.Remote;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.World.Monsters;
 
 namespace PristonTale.Tests;
 
@@ -266,7 +268,7 @@ internal static class RemotePlaybackTests
             new(1, RemoteEntityKind.Player, true, default, 0, RemoteMoveState.Idle, 64, 64, appearance, 0),
             new(2, RemoteEntityKind.Monster, false, default, 0, RemoteMoveState.Idle, 50, 50, null, 1, Name: "Hopy", Level: 3),
             new(3, RemoteEntityKind.Monster, false, default, 0, RemoteMoveState.Idle, 20, 50, null, 1),
-            new(4, RemoteEntityKind.Npc, false, default, 0, RemoteMoveState.Idle, 0, 0, null, 7)
+            new(4, RemoteEntityKind.Npc, false, default, 0, RemoteMoveState.Idle, 100, 100, null, 7)
         ], [], [],
         [
             new(1, 2, RemoteCombatEventKind.SwingBegin, 800, 400, 0, false, false),
@@ -275,7 +277,7 @@ internal static class RemotePlaybackTests
         Assert.True(combat.ShowsHealthBar(2, classic: false) && combat.ShowsHealthBar(3, classic: false), "modern mode hid a monster bar");
         Assert.True(combat.ShowsHealthBar(2, classic: true), "classic mode hid the bar after a full-life attack");
         Assert.True(!combat.ShowsHealthBar(3, classic: true), "classic mode showed a bar for a monster someone else engaged");
-        Assert.True(!combat.ShowsHealthBar(4, classic: false), "an NPC without life showed a bar");
+        Assert.True(!combat.ShowsHealthBar(4, classic: false), "an NPC showed a life bar although the server sends its life");
         Assert.True(HudCombat.HealthPercent(1, 1000) == 1 && HudCombat.HealthPercent(0, 10) == 0, "percentage hid a living target or showed a dead one");
         Assert.True(HudCombat.HealthPercent(500, 1000) == 50 && HudCombat.HealthPercent(1000, 1000) == 100, "percentage formula drifted");
         foreach (var size in new[] { new Point(800, 600), new Point(1920, 1080), new Point(3840, 2160) })
@@ -284,8 +286,36 @@ internal static class RemotePlaybackTests
             var frame = HudCombat.TargetFrame(layout);
             var viewport = new Rectangle(0, 0, layout.Width, layout.Height);
             Assert.True(frame.Box.Contains(frame.Portrait) && viewport.Contains(frame.HealthBar), "target frame regions escaped their bounds");
-            Assert.True(frame.LevelY >= frame.HealthBar.Bottom && frame.NameY < frame.Box.Bottom, "target frame lines overlap the bar");
+            Assert.True(frame.StatsY >= frame.HealthBar.Bottom && frame.NameY < frame.Box.Bottom, "target frame lines overlap the bar");
+            Assert.True(frame.Box.Contains(frame.Brood) && Math.Abs(frame.Box.Right - 8 - frame.Brood.Right) <= 1 && frame.Brood.Y == frame.Box.Y + 8,
+                "the race icon left the frame's top right corner");
         }
+
+        // The portrait camera: level with the head bone plus the correction and three units, 100 units plus that height away.
+        var world = Matrix.CreateTranslation(100f, 5f, 0f);
+        var portrait = new Rectangle(0, 0, 102, 102);
+        var camera = HudTargetPortrait.Camera(new PristonPortraitAnchor(new Vector3(0f, 40f, 2f), true, 50f, default, world), world,
+            new HudPortraitSubject(2, 8, 25), portrait, 600);
+        Assert.True(Vector3.Distance(camera.Target, new Vector3(100f, 56f, 2f)) < 1e-3f
+            && Vector3.Distance(camera.Position, new Vector3(100f, 56f, 175f)) < 1e-3f, "the portrait camera left the head");
+        var focal = 300f / MathF.Tan(HudTargetPortrait.ScreenFieldOfView * 0.5f);
+        Assert.True(MathF.Abs(camera.FieldOfView - 2f * MathF.Atan(51f / (focal * HudTargetPortrait.CloseUp))) < 1e-5f && camera.AspectRatio == 1f,
+            "the portrait projection is not the screen's actor projection cropped to the frame and narrowed to the close-up");
+        var boneless = HudTargetPortrait.Camera(new PristonPortraitAnchor(Vector3.Zero, false, 24f, default, Matrix.Identity), Matrix.Identity,
+            new HudPortraitSubject(2, 0, 0), portrait, 600);
+        Assert.True(MathF.Abs(boneless.Target.Y - 17f) < 1e-3f && MathF.Abs(boneless.Position.Z - 114f) < 1e-3f,
+            "a model without a head bone was not framed ten units below its authored height");
+        var scaled = HudTargetPortrait.Camera(new PristonPortraitAnchor(new Vector3(0f, 40f, 0f), true, 50f, default, Matrix.Identity),
+            Matrix.CreateScale(2f), new HudPortraitSubject(2, 0, 0), portrait, 600);
+        Assert.True(MathF.Abs(scaled.Position.Z - 280f) < 1e-3f && MathF.Abs(scaled.FieldOfView - camera.FieldOfView) < 1e-6f,
+            "a scaled model was not framed like its natural size");
+        Assert.True(combat.TryGetPortraitSubject(2, out var subject) && subject.EntityId == 2 && !combat.TryGetPortraitSubject(99, out _),
+            "the portrait subject did not follow the roster");
+        Assert.True(HudCombat.BroodIcon(MonsterBrood.Undead) == HudArt.BroodUndead && HudCombat.BroodIcon(MonsterBrood.User) is null,
+            "the race icons drifted");
+        var npcs = new List<Vector3>();
+        combat.CollectNpcPositions(npcs);
+        Assert.True(npcs.Count == 1, "the minimap NPC list did not hold the NPC alone");
 
         return Task.CompletedTask;
     }

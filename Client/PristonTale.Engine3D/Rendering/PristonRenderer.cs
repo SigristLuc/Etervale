@@ -11,7 +11,7 @@ using PristonTale.Engine3D.Rendering.Post;
 
 namespace PristonTale.Engine3D.Rendering;
 
-public sealed class PristonRenderer : IDisposable
+public sealed partial class PristonRenderer : IDisposable
 {
     private static readonly ConditionalWeakTable<PristonActor, PreparedActorGeometry> PreparedActorGeometries = new();
 
@@ -326,6 +326,11 @@ public sealed class PristonRenderer : IDisposable
         UpdateActor(runtime);
     }
 
+    // The weapon variant of a skill clip for the actor's equipment (see PristonMotionSelection.SkillVariant).
+    public int ResolveSkillMotion(ActorHandle handle, int motionIndex) =>
+        TryResolveActor(handle, out var runtime) ? PristonMotionSelection.SkillVariant(runtime.Instance.Actor.Info, motionIndex, runtime.Instance.MotionContext)
+            : motionIndex;
+
     public void SetActorMotionIndex(ActorHandle handle, int motionIndex)
     {
         if (!TryResolveActor(handle, out var runtime))
@@ -343,6 +348,17 @@ public sealed class PristonRenderer : IDisposable
             return;
 
         runtime.ForceMotion(motion);
+        UpdateActor(runtime);
+    }
+
+    public void SeekActorMotion(ActorHandle handle, int framesFromStart)
+    {
+        if (!TryResolveActor(handle, out var runtime))
+        {
+            return;
+        }
+
+        runtime.SeekMotion(framesFromStart);
         UpdateActor(runtime);
     }
 
@@ -407,18 +423,7 @@ public sealed class PristonRenderer : IDisposable
         Vector3 cameraPosition,
         Vector3 focusPoint)
     {
-        _portraitBatches.Clear();
-        for (var handleIndex = 0; handleIndex < handles.Length; handleIndex++)
-        {
-            if (!TryResolveActor(handles[handleIndex], out var runtime))
-            {
-                continue;
-            }
-
-            _portraitBatches.AddRange(runtime.Batches);
-        }
-
-        if (_portraitBatches.Count == 0)
+        if (!CollectPortraitBatches(handles))
         {
             return;
         }
@@ -437,35 +442,7 @@ public sealed class PristonRenderer : IDisposable
             Exposure: _exposure.DisplayScale,
             DisplayOutput: true,
             EmissionScale: _exposure.EmissionScale);
-        _portraitQueueBuilder.Build(_portraitBatches, [], frame, includeShadowCasters: false);
-
-        _stateCache.BeginFrame();
-        _stateCache.InvalidateDeviceState();
-        _stateCache.SetDepthStencilState(DepthStencilState.Default);
-        _stateCache.SetSamplerState0(PristonSamplerStates.AnisotropicWrap);
-        _shaders.ApplyFrame(frame);
-
-        var staticBatches = 0;
-        var dynamicBatches = 0;
-        var drawCalls = 0;
-        var triangles = 0;
-        var staticVertices = 0;
-        var staticIndices = 0;
-        var normalBatches = 0;
-        var twoSidedBatches = 0;
-        var diagnostics = new PristonMeshDiagnostics();
-        DrawQueue(
-            _portraitQueueBuilder.Queue,
-            ref staticBatches,
-            ref dynamicBatches,
-            ref drawCalls,
-            ref triangles,
-            ref staticVertices,
-            ref staticIndices,
-            ref normalBatches,
-            ref twoSidedBatches,
-            ref diagnostics,
-            intoScene: false);
+        DrawPortraitBatches(frame);
     }
 
     public void CopyActorPlayback(ActorHandle source, ActorHandle destination)
@@ -482,6 +459,38 @@ public sealed class PristonRenderer : IDisposable
         next.SetFrame((next.Motion.StartFrame + phase * (next.Motion.EndFrame - next.Motion.StartFrame)) * 160f);
         UpdateActor(next);
     }
+
+    // World transform of a named bone of a live actor at its current frame, for effects attached to hands and weapons.
+    public bool TryGetActorBoneWorld(ActorHandle handle, string boneName, out Matrix world)
+    {
+        world = Matrix.Identity;
+        if (string.IsNullOrEmpty(boneName) || !TryResolveActor(handle, out var actor))
+        {
+            return false;
+        }
+
+        var objects = actor.Instance.Actor.Skeleton.Objects;
+        for (int index = 0; index < objects.Count; index++)
+        {
+            if (objects[index].Name.Equals(boneName, StringComparison.OrdinalIgnoreCase))
+            {
+                var bones = actor.SampleSkeleton();
+                if (index >= bones.Length)
+                {
+                    return false;
+                }
+
+                world = bones[index] * actor.World;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // This frame's linear view depth of the opaque scene while the depth pre-pass ran (no MSAA); null otherwise.
+    // Effects drawn between Draw and ComposeScene may sample it for soft particles.
+    public Texture2D SceneLinearDepth => _prepassDrawn ? _sceneTargets.LinearDepth : null;
 
     public void AttachActor(ActorHandle child, ActorHandle parent, string boneName)
     {
@@ -1493,17 +1502,19 @@ public sealed class PristonRenderer : IDisposable
         if (_prepassDrawn && _volumetricLight && sunShadowsEnabled && _sunElevation > -0.05f)
         {
             Profiler.Begin(RenderSection.Volumetric);
+            // The march stops where the distance fog starts, which covers the medium beyond.
             _volumetric.Run(
                 _sceneTargets.LinearDepth,
                 _shadowMap,
                 _cascades,
-                frame.View,
-                frame.Projection,
+                camera.View,
+                camera.Projection,
                 camera.Position,
                 camera.Target,
                 -Vector3.Normalize(lighting.Sun.Direction),
                 lighting.Sun.DiffuseColor,
-                frame.Shadows.NoiseOffset,
+                DistanceFog.Enabled ? MathF.Min(DistanceFog.StartDistance, PristonVolumetricLight.MaxDistance) : PristonVolumetricLight.MaxDistance,
+                _motionFrame,
                 _sceneTargets.Bind);
             Profiler.End(RenderSection.Volumetric);
             _stateCache.InvalidateDeviceState();
@@ -1535,7 +1546,8 @@ public sealed class PristonRenderer : IDisposable
             _exposure.IncidentEv100,
             Underground ? 0f : PristonAutoExposure.DayIncidentWeight * dayMetering,
             ExposureCompensation,
-            Underground);
+            Underground,
+            _dayNight.NightHue);
         _previousView = camera.View;
         _previousProjection = camera.Projection;
         _previousRenderTime = _renderTime;
@@ -2345,10 +2357,10 @@ public sealed class PristonRenderer : IDisposable
                 texture,
                 uvScrollOffset,
                 batch.SkinPalette,
-                batch.ActorColorAdd * SelectionRimScale,
+                _neutralActorPass ? Vector3.Zero : batch.ActorColorAdd * SelectionRimScale,
                 LayerOffset(batch.Material),
                 _prepassMode,
-                batch.FloorLight);
+                _neutralActorPass ? 1f : batch.FloorLight);
             effect.CurrentTechnique.Passes[0].Apply();
             _stateCache.SetVertexBuffer(batch.SkinnedBuffer);
             _stateCache.SetIndexBuffer(batch.SkinnedIndexBuffer);
@@ -3718,6 +3730,14 @@ public sealed class PristonRenderer : IDisposable
 
             return _sampledTransforms;
         }
+
+        // Shares the animator's buffer with SampleSkeleton, so the next SampleSkeleton evaluates again.
+        public Matrix[] SampleSkeletonAt(float frame)
+        {
+            _sampledFrame = float.NaN;
+            return Animator.Evaluate(frame);
+        }
+
         public PristonSkinPalette Palette { get; private set; }
         public int[] BoneMap { get; private set; }
         public Matrix World { get; set; }
@@ -3802,6 +3822,14 @@ public sealed class PristonRenderer : IDisposable
 
             Motion = ApplyMotionFrameOffset(Instance.Actor, motion);
             Frame = StartTicks(Motion);
+        }
+
+        // Jumps within the current motion to a frame counted from its start (a released charge skips ahead).
+        public void SeekMotion(int framesFromStart)
+        {
+            var start = StartTicks(Motion);
+            var end = EndTicks(Motion, Instance.Actor.Skeleton.LastFrame);
+            Frame = Math.Clamp(start + framesFromStart * 160f, start, Math.Max(start, end));
         }
 
         public void Advance(float deltaSeconds)

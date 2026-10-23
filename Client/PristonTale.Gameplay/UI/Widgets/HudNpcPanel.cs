@@ -1,13 +1,16 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Diagnostics;
+using PristonTale.Gameplay.UI.Npc;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
-// NPC dialog in the original help box (at 50,45, 9x10 tiles); skill masters also get the
-// skill master box (ReStartMain.bmp) with the skill, class-change (inert) and exit buttons.
+// NPC dialog in the original help box (at 50,45, 9x10 tiles): the NPC's name, the line it says and one button per typed
+// service in the title plate, grey when Etervale does not run that service yet. Skill masters also get the skill
+// master box (ReStartMain.bmp) with the skill, class-change (inert) and exit buttons. A teleporter's destinations
+// replace the service buttons once its service is opened.
 public sealed class HudNpcPanel(
     Func<uint, Task<NpcInteraction>> interact,
     IClientLog log,
@@ -19,19 +22,47 @@ public sealed class HudNpcPanel(
     public const int SizeW = 9;
     public const int SizeH = 10;
     public const int VisibleLines = 16;
+    public const int ButtonWidth = 152;
+    public const int ButtonHeight = 28;
     private const int TextWidth = SizeW * 32 + 64 - 64;
+    private const int ButtonColumns = 2;
+    private const int MaxButtonRows = 3;
+    private const int MaxDestinations = 4;
+    private static readonly Color Unavailable = new(130, 130, 130);
+    private static readonly Color Highlight = new(255, 220, 90);
 
     private Task<NpcInteraction> _pending;
     private string[] _dialog = [];
+    private NpcServiceOffer[] _services = [];
     private bool _dismissed;
     private int _firstLine;
     public NpcInteraction Current { get; private set; }
     public bool ReadyToOpen { get; private set; }
-    public bool CanTrain => Current?.Ok == true && (Current.Services & NpcServices.SkillMaster) != 0;
+    public bool CanTrain => Current?.Offers(NpcServiceKind.SkillMaster) == true;
+
+    // As in the original, an NPC whose only working service is a shop or a warehouse opens that window at once; the
+    // dialog appears when there is a choice to make, such as a quest beside the shop.
+    public NpcServiceOffer DirectService =>
+        Current is { Ok: true } && !CanTrain && _services.Length == 1 && _services[0].Kind is NpcServiceKind.Shop or NpcServiceKind.Warehouse
+            ? _services[0]
+            : null;
+    public IReadOnlyList<TeleportOffer> Destinations { get; private set; } = [];
+    public IReadOnlyList<NpcServiceOffer> Services => _services;
 
     public static Rectangle Box => HudPainter.HelpBoxBounds(BoxX, BoxY, SizeW, SizeH);
     public static Rectangle Title => new(BoxX + (SizeW * 32 + 64) / 2 - 76, BoxY + 14, 152, 28);
     public static Rectangle OkButton => new(BoxX + (SizeW * 32 + 64) / 2 - 24 + 9, BoxY + SizeH * 32 - 2 + 4, 32, 16);
+
+    // Service buttons fill two columns upward from the OK button, at most three rows; destinations take one wide row each.
+    public static Rectangle ServiceButton(int index, int count, int columns = ButtonColumns)
+    {
+        var rows = (count + columns - 1) / columns;
+        var top = OkButton.Y - 10 - rows * (ButtonHeight + 4);
+        var width = columns == 1 ? ButtonWidth * 2 + 8 : ButtonWidth;
+        return new Rectangle(BoxX + 20 + index % columns * (ButtonWidth + 8), top + index / columns * (ButtonHeight + 4), width, ButtonHeight);
+    }
+
+    public static Rectangle DestinationButton(int index, int count) => ServiceButton(index, count, 1);
 
     // SkillMasterMainXY is centred on the window; the original showed no help box beside it, so it moves right of the dialog.
     public static Point SkillMasterOrigin(HudLayout layout)
@@ -39,6 +70,7 @@ public sealed class HudNpcPanel(
         var origin = new Point(layout.Width / 2 - 93 - 30, layout.Height / 2 - 63 - 100);
         return new Rectangle(origin, new Point(188, 128)).Intersects(Box) ? new Point(Box.Right + 8, origin.Y) : origin;
     }
+
     public static Rectangle SkillMasterBox(HudLayout layout) => new(SkillMasterOrigin(layout), new Point(188, 128));
     public static Rectangle TrainingButton(HudLayout layout) => SkillMasterButton(layout, 0);
     public static Rectangle ExitButton(HudLayout layout) => SkillMasterButton(layout, 2);
@@ -56,6 +88,7 @@ public sealed class HudNpcPanel(
             Current = null;
             _dismissed = false;
             _firstLine = 0;
+            Destinations = [];
             _pending = InteractAsync(entityId);
         }
     }
@@ -92,9 +125,26 @@ public sealed class HudNpcPanel(
         _dialog = Current.Ok
             ? Current.Dialog.SelectMany(line => HudTextLayout.Wrap(font, line, TextWidth, HudPainter.TextScale)).ToArray()
             : HudTextLayout.Wrap(font, Current.Message, TextWidth, HudPainter.TextScale);
+        _services = Current.Ok ? Buttons(Current) : [];
         _firstLine = 0;
         ReadyToOpen = true;
         opened?.Invoke(Current);
+    }
+
+    // The skill master keeps its own box; services that share a label show one button, and only working services show.
+    private static NpcServiceOffer[] Buttons(NpcInteraction interaction)
+    {
+        return interaction.Services
+            .Where(offer => offer.Kind != NpcServiceKind.SkillMaster && offer.Available)
+            .GroupBy(offer => HudNpcArt.Label(offer.Kind, offer.Value))
+            .Select(group => group.First())
+            .Take(ButtonColumns * MaxButtonRows)
+            .ToArray();
+    }
+
+    public void ShowDestinations(IReadOnlyList<TeleportOffer> destinations)
+    {
+        Destinations = destinations.Take(MaxDestinations).ToArray();
     }
 
     public void Dismiss()
@@ -106,11 +156,55 @@ public sealed class HudNpcPanel(
 
         _dismissed = true;
         ReadyToOpen = false;
+        Destinations = [];
     }
 
     public void Scroll(int wheelDelta)
     {
-        _firstLine = Math.Clamp(_firstLine - Math.Sign(wheelDelta) * 3, 0, Math.Max(0, _dialog.Length - VisibleLines));
+        _firstLine = Math.Clamp(_firstLine - Math.Sign(wheelDelta) * 3, 0, Math.Max(0, _dialog.Length - LineCapacity));
+    }
+
+    public NpcServiceOffer ServiceAt(Point pointer)
+    {
+        if (Destinations.Count > 0)
+        {
+            return null;
+        }
+
+        for (var index = 0; index < _services.Length; index++)
+        {
+            if (ServiceButton(index, _services.Length).Contains(pointer))
+            {
+                return _services[index];
+            }
+        }
+
+        return null;
+    }
+
+    public TeleportOffer DestinationAt(Point pointer)
+    {
+        for (var index = 0; index < Destinations.Count; index++)
+        {
+            if (DestinationButton(index, Destinations.Count).Contains(pointer))
+            {
+                return Destinations[index];
+            }
+        }
+
+        return null;
+    }
+
+    private int ButtonCount => Destinations.Count > 0 ? Destinations.Count : _services.Length;
+
+    private int LineCapacity
+    {
+        get
+        {
+            var top = ButtonCount == 0 ? OkButton.Y
+                : Destinations.Count > 0 ? DestinationButton(0, ButtonCount).Y : ServiceButton(0, ButtonCount).Y;
+            return Math.Clamp((top - 8 - (BoxY + 66)) / 15, 1, VisibleLines);
+        }
     }
 
     public void Draw(HudPainter painter, HudLayout layout, Point pointer, bool showSkillMaster)
@@ -124,26 +218,77 @@ public sealed class HudNpcPanel(
         var title = Title;
         painter.Sprite(HudArt.HelpTitle, title.X, title.Y);
         painter.TextCentered(painter.Fit(Current.Name, title.Width - 20), title.Left, title.Right, title.Y + 7, new Color(255, 255, 180));
-        for (var line = 0; line < VisibleLines && _firstLine + line < _dialog.Length; line++)
+        var capacity = LineCapacity;
+        string[] lines = Destinations.Count > 0 ? ["Where do you want to go?"] : _dialog;
+        for (var line = 0; line < capacity && _firstLine + line < lines.Length; line++)
         {
-            painter.Text(_dialog[_firstLine + line], BoxX + 30, BoxY + 66 + 15 * line);
+            painter.Text(lines[_firstLine + line], BoxX + 30, BoxY + 66 + 15 * line);
         }
 
-        if (_dialog.Length > VisibleLines)
+        if (lines.Length > capacity)
         {
             var barX = BoxX + (SizeW - 1) * 32 + 80 - 6;
-            painter.Stretch(HudArt.ScrollBar, new Rectangle(barX, BoxY + 53, 8, 256));
-            var travel = 236 * _firstLine / Math.Max(1, _dialog.Length - VisibleLines);
-            painter.Sprite(HudArt.ScrollButton, barX - 4, BoxY + 53 + 7 + travel - 7);
+            var height = capacity * 15 + 16;
+            painter.Stretch(HudArt.ScrollBar, new Rectangle(barX, BoxY + 53, 8, height));
+            var travel = (height - 20) * _firstLine / Math.Max(1, lines.Length - capacity);
+            painter.Sprite(HudArt.ScrollButton, barX - 4, BoxY + 53 + travel);
         }
 
+        DrawButtons(painter, pointer);
         var ok = OkButton;
         painter.Sprite(HudArt.HelpButton, ok.X - 9, ok.Y - 4);
         painter.Sprite(ok.Contains(pointer) ? HudArt.OkYellow : HudArt.OkGray, ok.X, ok.Y);
-        if (showSkillMaster && CanTrain)
+        if (showSkillMaster && CanTrain && Destinations.Count == 0)
         {
             DrawSkillMaster(painter, layout, pointer);
         }
+    }
+
+    private void DrawButtons(HudPainter painter, Point pointer)
+    {
+        var count = ButtonCount;
+        for (var index = 0; index < count; index++)
+        {
+            var bounds = Destinations.Count > 0 ? DestinationButton(index, count) : ServiceButton(index, count);
+            string label;
+            var available = true;
+            if (Destinations.Count > 0)
+            {
+                var destination = Destinations[index];
+                label = destination.MinimumLevel > 0
+                    ? $"{destination.Name}  {destination.Price:N0} gold  (Lv {destination.MinimumLevel})"
+                    : $"{destination.Name}  {destination.Price:N0} gold";
+            }
+            else
+            {
+                var service = _services[index];
+                label = HudNpcArt.Label(service.Kind, service.Value);
+                available = service.Available;
+            }
+
+            var color = !available ? Unavailable : bounds.Contains(pointer) ? Highlight : Color.White;
+            var tint = available ? Color.White : Color.Gray;
+            if (bounds.Width == ButtonWidth)
+            {
+                painter.Sprite(HudArt.HelpTitle, bounds.X, bounds.Y, tint);
+            }
+            else
+            {
+                DrawWidePlate(painter, bounds, tint);
+            }
+
+            painter.TextCentered(painter.Fit(label, bounds.Width - 20), bounds.Left, bounds.Right, bounds.Y + 7, color);
+        }
+    }
+
+    // The title plate's ends stay unscaled; only its middle stretches to the button width.
+    private static void DrawWidePlate(HudPainter painter, Rectangle bounds, Color tint)
+    {
+        const int End = 40;
+        painter.Sprite(HudArt.HelpTitle, bounds.X, bounds.Y, new Rectangle(0, 0, End, ButtonHeight), tint);
+        painter.Stretch(HudArt.HelpTitle, new Rectangle(bounds.X + End, bounds.Y, bounds.Width - End * 2, ButtonHeight),
+            new Rectangle(End, 0, ButtonWidth - End * 2, ButtonHeight), tint);
+        painter.Sprite(HudArt.HelpTitle, bounds.Right - End, bounds.Y, new Rectangle(ButtonWidth - End, 0, End, ButtonHeight), tint);
     }
 
     private static void DrawSkillMaster(HudPainter painter, HudLayout layout, Point pointer)

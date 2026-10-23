@@ -41,7 +41,9 @@ public sealed record MonsterRecord(
     int StunPct,
     string DisplayName = "Monster",
     int SoundCode = 0,
-    float ModelScale = 1)
+    float ModelScale = 1,
+    int PortraitOffsetY = 0,
+    int PortraitOffsetZ = 0)
 {
     public MonsterDropConfigRecord? DropConfig { get; init; }
 

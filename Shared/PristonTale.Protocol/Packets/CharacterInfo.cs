@@ -25,6 +25,9 @@ public sealed class CharacterInfo
     public const int TempOffHandCode = 6;
     public const int TempFlags = 7;
     public const int TempAttackRate = 8;
+    // Summons: the owner's object serial and the summon's own model scale (float bits, 0 keeps the catalog's).
+    public const int TempOwnerSerial = 9;
+    public const int TempInstanceScale = 10;
     public const uint FlagInVillage = 1;
 
     public string Name { get; set; } = "";

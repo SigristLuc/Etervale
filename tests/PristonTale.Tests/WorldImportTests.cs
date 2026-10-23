@@ -26,7 +26,7 @@ internal static class WorldImportTests
         var npcDirectory = Path.Combine(source, "NPC");
         Directory.CreateDirectory(nameDirectory);
         Directory.CreateDirectory(monsterDirectory);
-        Directory.CreateDirectory(npcDirectory);
+        Directory.CreateDirectory(Path.Combine(npcDirectory, "name"));
 
         await WriteCp949Async(Path.Combine(itemDirectory, "2_WA101.txt"), "*코드 WA101\n*이름 \"Variant Axe\"\n");
         await WriteCp949Async(Path.Combine(itemDirectory, "WA101.txt"), "*코드 WA101\n*이름 \"Original Axe\"\n*연결파일 name\\WA101.zhoon\n");
@@ -34,9 +34,13 @@ internal static class WorldImportTests
         await WriteCp949Async(Path.Combine(nameDirectory, "wa101.ZHOON"),
             "*NAME \"Linked Axe\"\n*최대수량 20\n*보유공간 3\n*마법기술숙련도 1.5\n");
         await WriteCp949Async(Path.Combine(monsterDirectory, "Wolf.inf"),
-            "*이름 \"Wolf\"\n*Name \"WOLF\"\n*모델 \"wolf.ini\"\n*효과음 WOLVERLIN\n*모델크기 1.4\n*이동속도 12\n*아이템 100 ZZ999\n*아이템 100 BI319\n");
+            "*이름 \"Wolf\"\n*Name \"WOLF\"\n*화면보정 -3 30\n*모델 \"wolf.ini\"\n*효과음 WOLVERLIN\n*모델크기 1.4\n*이동속도 12\n*아이템 100 ZZ999\n*아이템 100 BI319\n");
         await WriteCp949Async(Path.Combine(npcDirectory, "Merchant.npc"),
-            "*이름 \"Merchant\"\n*모델 \"merchant.ini\"\n*효과음 WOLVERLIN\n*무기판매 WA101 BI319 ZZ999\n");
+            "*이름 \"상인\"\n*모델 \"merchant.ini\"\n*화면보정 0 70\n*효과음 WOLVERLIN\n*무기판매 WA101 BI319 ZZ999\n*연결파일 name\\missing.zhoon\n");
+        // A variant with the same authored name whose linked text supplies the localized name.
+        await WriteCp949Async(Path.Combine(npcDirectory, "Merchant2.npc"),
+            "*이름 \"상인\"\n*모델 \"merchant.ini\"\n*Name \"Mr Lim\"\n*연결파일 name\\merchant.zhoon\n");
+        await WriteCp949Async(Path.Combine(npcDirectory, "name", "merchant.zhoon"), "*B_NAME \"Travelling Merchant\"\n");
 
         var services = new ServiceCollection();
         services.AddLogging();
@@ -52,7 +56,7 @@ internal static class WorldImportTests
             var second = await importer.RunAsync();
 
             Assert.True(first.ItemRows == 2 && second.ItemRows == 2, "the base items were not selected consistently");
-            Assert.True(first.SourceFiles == 6 && first.EntityVariants == 5, "an authored file or variant was omitted");
+            Assert.True(first.SourceFiles == 8 && first.EntityVariants == 6, "an authored file or variant was omitted");
             Assert.True(first.UnresolvedReferenceRows == 2 && second.UnresolvedReferenceRows == 2,
                 "unresolved references were dropped or duplicated");
 
@@ -97,6 +101,10 @@ internal static class WorldImportTests
                 "unmapped authored item leaked into the runtime drop table");
             Assert.True(npcs.Single().Shop.WeaponItemCodes.Single() == LegacyItemCode.Parse("WA101"),
                 "runtime NPC shop uses a different item identity from the catalog");
+            Assert.True(npcs.Single().Label == "Travelling Merchant" && npcs.Single().PortraitOffsetZ == 70,
+                "the NPC lost the localized name of its variant or its portrait correction");
+            Assert.True(monsters.Single().PortraitOffsetY == -3 && monsters.Single().PortraitOffsetZ == 30,
+                "the monster portrait correction was not imported");
         }
         finally
         {

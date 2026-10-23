@@ -12,7 +12,7 @@ public sealed class HudPainter : IDisposable
     public const int LineHeight = 16;
     private const float CapTop = 2f;
 
-    private readonly record struct TextRun(string Value, Vector2 Position, Color Color, bool Shadow);
+    private readonly record struct TextRun(string Value, Vector2 Position, Color Color, bool Shadow, Vector2 ShadowOffset);
 
     private readonly SpriteBatch _batch;
     private readonly SpriteFont _font;
@@ -68,7 +68,7 @@ public sealed class HudPainter : IDisposable
         {
             if (run.Shadow)
             {
-                _batch.DrawString(_font, run.Value, run.Position + Vector2.One, Color.Black, 0f, Vector2.Zero, TextScale, SpriteEffects.None, 0f);
+                _batch.DrawString(_font, run.Value, run.Position + run.ShadowOffset, Color.Black, 0f, Vector2.Zero, TextScale, SpriteEffects.None, 0f);
             }
 
             _batch.DrawString(_font, run.Value, run.Position, run.Color, 0f, Vector2.Zero, TextScale, SpriteEffects.None, 0f);
@@ -124,6 +124,15 @@ public sealed class HudPainter : IDisposable
         }
     }
 
+    // Premultiplied alpha blending with a zero alpha tint adds the sprite's colour: the original specular highlight.
+    public void Highlight(string path, Rectangle destination, int amount)
+    {
+        if (amount > 0)
+        {
+            Stretch(path, destination, null, new Color(amount, amount, amount, 0));
+        }
+    }
+
     public void Image(Texture2D texture, Rectangle destination, Color? tint = null)
     {
         if (texture is not null && destination.Width > 0 && destination.Height > 0)
@@ -143,19 +152,26 @@ public sealed class HudPainter : IDisposable
     // Original colour box fills are straight RGBA.
     public void ColorBox(Rectangle bounds, int r, int g, int b, int a) => Fill(bounds, Color.FromNonPremultiplied(r, g, b, a));
 
-    public void Text(string value, int x, int y, Color? color = null, bool shadow = true)
+    public void Text(string value, int x, int y, Color? color = null, bool shadow = true) => Text(value, x, y, color ?? Color.White, shadow, Point.Zero);
+
+    // A zero shadow offset is the usual one pixel down and right.
+    public void Text(string value, int x, int y, Color color, bool shadow, Point shadowOffset)
     {
         if (!string.IsNullOrEmpty(value))
         {
-            _text.Add(new TextRun(value, new Vector2(x, y + _textShift), color ?? Color.White, shadow));
+            var offset = shadowOffset == Point.Zero ? Vector2.One : shadowOffset.ToVector2();
+            _text.Add(new TextRun(value, new Vector2(x, y + _textShift), color, shadow, offset));
         }
     }
 
-    public void TextCentered(string value, int left, int right, int y, Color? color = null, bool shadow = true)
+    public void TextCentered(string value, int left, int right, int y, Color? color = null, bool shadow = true) =>
+        TextCentered(value, left, right, y, color ?? Color.White, shadow, Point.Zero);
+
+    public void TextCentered(string value, int left, int right, int y, Color color, bool shadow, Point shadowOffset)
     {
         if (!string.IsNullOrEmpty(value))
         {
-            Text(value, left + (right - left - Measure(value)) / 2, y, color, shadow);
+            Text(value, left + (right - left - Measure(value)) / 2, y, color, shadow, shadowOffset);
         }
     }
 

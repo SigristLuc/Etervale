@@ -13,6 +13,18 @@ internal static class PristonDisplayTransform
         _ => Vector3.Clamp(PbrNeutral(Vector3.Max(colour, Vector3.Zero)), Vector3.Zero, Vector3.One)
     };
 
+    // Mesopic vision of the final pass, before the exposure: pre-exposed radiance blended toward its scotopic luminance in
+    // the night's hue (unit luminance) by 0.04 / (0.04 + Y) of its absolute luminance Y (cd/m^2).
+    public static Vector3 Mesopic(Vector3 c, float inversePreExposure, Vector3 nightHue)
+    {
+        var x = 0.4124f * c.X + 0.3576f * c.Y + 0.1805f * c.Z;
+        var y = 0.2126f * c.X + 0.7152f * c.Y + 0.0722f * c.Z;
+        var z = 0.0193f * c.X + 0.1192f * c.Y + 0.9505f * c.Z;
+        var scotopic = MathF.Max(y * (1.33f * (1f + (y + z) / MathF.Max(x, 1e-6f)) - 1.68f), 0f) / 2.5731f;
+        var rods = 0.04f / (0.04f + y * inversePreExposure);
+        return Vector3.Lerp(c, nightHue * scotopic, rods);
+    }
+
     // Khronos PBR Neutral (2024).
     public static Vector3 PbrNeutral(Vector3 c)
     {

@@ -60,19 +60,19 @@ internal sealed class GroundLootCaptureProbe : Game
     private static GroundDropView Drop(string key, string name, int amount, float x) =>
         new(Guid.NewGuid(), 0, key, name, amount, key == "GG101", new System.Numerics.Vector3(x, 0, -20));
 
-    private static bool MissingFloor(float x, float z, out float height)
+    private static bool MissingFloor(float x, float reference, float z, out float height)
     {
         height = 0;
         return false;
     }
 
-    private static bool Floor(float x, float z, out float height)
+    private static bool Floor(float x, float reference, float z, out float height)
     {
         height = 50;
         return true;
     }
 
-    private static bool TraversalFloor(Vector3 point, float reference, out float height) => Floor(point.X, point.Z, out height);
+    private static bool TraversalFloor(Vector3 point, float reference, out float height) => Floor(point.X, reference, point.Z, out height);
 
     protected override void Update(GameTime gameTime)
     {

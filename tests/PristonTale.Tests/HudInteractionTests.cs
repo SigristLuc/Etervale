@@ -1,6 +1,7 @@
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.World;
 using PristonTale.Gameplay.UI.Inventory;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
@@ -238,6 +239,14 @@ internal static class HudInteractionTests
         var north = HudMinimap.MapPoint(rectangle, new Vector3(0, 0, -100)).Y;
         Assert.True(north < HudMinimap.MapPoint(rectangle, Vector3.Zero).Y, "map vertical axis is mirrored");
         Assert.True(MathF.Abs(HudMinimap.ArrowRotation(-Vector3.UnitZ) - MathF.PI) < 1e-5f, "north heading does not flip the arrow bitmap");
+        // The view radius eases by 8 units per 70 Hz frame toward 16 (dungeon) or 24 cells of 64 units.
+        Assert.True(MathF.Abs(HudMinimap.EaseViewSize(512f, HudMinimap.ViewSize(false), 1d / 70d) - 520f) < 1e-3f
+            && HudMinimap.EaseViewSize(1530f, HudMinimap.ViewSize(false), 1d) == 1536f
+            && HudMinimap.EaseViewSize(1536f, HudMinimap.ViewSize(true), 1d) == 1024f, "the minimap zoom does not ease to the field size");
+        var marker = HudMinimap.MarkerOffset(new Vector3(100f, 0f, 100f), new Vector3(100f + 768f, 0f, 100f - 384f), 1536f);
+        Assert.True(marker == new Vector2(32f, -16f), "an NPC marker left its map position (east right, north up)");
+        Assert.True(HudMinimap.HiddenOn(30, FieldState.Forest) && HudMinimap.HiddenOn(32, FieldState.Forest) && HudMinimap.HiddenOn(36, FieldState.Dungeon)
+            && HudMinimap.HiddenOn(1, FieldState.QuestArena) && !HudMinimap.HiddenOn(3, FieldState.Village), "the minimap shows in the wrong fields");
         return Task.CompletedTask;
     }
 

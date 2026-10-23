@@ -1,21 +1,25 @@
 using System.Collections.ObjectModel;
-using PristonTale.Simulation.Characters;
 
 namespace PristonTale.Simulation.Skills;
 
 public sealed class LearnedSkills
 {
+    // The use counter adds proficiency to a skill; it stops at 10000, a fully trained skill.
+    public const int MaxUses = 10000;
+
     private readonly Dictionary<uint, int> _ranks = new();
+    private readonly Dictionary<uint, int> _uses = new();
     private readonly IReadOnlyList<Skill> _available;
 
-    public LearnedSkills(PlayerClass characterClass)
+    public LearnedSkills(IReadOnlyList<Skill> classSkills)
     {
-        _available = FirstTierSkills.For(characterClass);
+        _available = classSkills;
         Ranks = new ReadOnlyDictionary<uint, int>(_ranks);
     }
 
     public IReadOnlyDictionary<uint, int> Ranks { get; }
     public int RankOf(uint code) => _ranks.GetValueOrDefault(code);
+    public int UsesOf(uint code) => _uses.GetValueOrDefault(code);
     public long Revision { get; private set; }
     public event Action Changed;
 
@@ -23,7 +27,7 @@ public sealed class LearnedSkills
     {
         foreach (var skill in _available)
         {
-            if (skill.Code == code)
+            if (skill.Code == code && code != 0)
             {
                 return true;
             }
@@ -45,11 +49,27 @@ public sealed class LearnedSkills
         Changed?.Invoke();
     }
 
-    public void Restore(uint code, int rank)
+    // Proficiency changes no derived stat, so it does not announce a change; it is saved with the ranks.
+    public void RecordUses(uint code, int uses)
     {
-        if (!IsAvailable(code) || rank < 1 || rank > 10 || !_ranks.TryAdd(code, rank))
+        if (RankOf(code) == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(code));
+        }
+
+        _uses[code] = Math.Clamp(uses, 0, MaxUses);
+    }
+
+    public void Restore(uint code, int rank, int uses = 0)
+    {
+        if (!IsAvailable(code) || rank < 1 || rank > 10 || uses < 0 || uses > MaxUses || !_ranks.TryAdd(code, rank))
         {
             throw new ArgumentException("Invalid or duplicate learned skill.");
+        }
+
+        if (uses > 0)
+        {
+            _uses[code] = uses;
         }
 
         Revision++;

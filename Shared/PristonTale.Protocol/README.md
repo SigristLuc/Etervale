@@ -58,7 +58,6 @@ Successful creation and deletion send a fresh `ID_SETUSERINFO` before the echo.
 | `GETPLAYERINFO` / `PLAYERINFO` | C→S / S→C | Describes an unknown object or one whose `bUpdateInfo[0]` revision changed. Monsters and NPCs are cached by `dwAutoCharCode`, as in the original client. |
 | `WARPFIELD` | S→C | `{WParam field, SParam x, LParam z}` confirms a field change; `EParam` = 1 marks a correction after a rejected report. |
 | `ATTACK_DAMAGE` | C→S | Attack data packet with the original damage checksum and damage cipher. Monster: attack lock (`AttackState` bit 0 held, `AttackCount` = sequence). NPC: opens it. |
-| `WHISPERMESSAGE` | S→C | NPC dialogue lines, sent before the NPC result. |
 | `PLAYITEM` / `DELITEM` | S→C | Ground items within the monster view range (`0xC8000` squared units); `lpStgArea` carries the drop handle and `type` the quantity. |
 
 `Power` in `ATTACK_DAMAGE` is ignored. Field values that differ from the original:
@@ -66,9 +65,10 @@ Successful creation and deletion send a fresh `ID_SETUSERINFO` before the echo.
 - `angle[3]` holds motion state codes instead of a model motion index; the server has no per-model motion table.
   The original server already sends state codes in far `PLAYDATA1` entries.
 - `StartPosi` of the play data packet carries the low 32 bits of the attack request sequence.
-- `dwTemp[11]` of the character info record holds the template code, model scale, NPC services, face and hair, equipped
+- `dwTemp[11]` of the character info record holds the template code, model scale, NPC services (bit `1 << NpcServiceKind`), face and hair, equipped
   weapon, armour and off-hand item codes, the village flag and the attack animation rate (`CharacterInfo.Temp*`
-  constants).
+  constants). A summon is described with the user brood, its owner's serial in `dwTemp[9]` and its own model scale
+  (float bits, 0 keeps the template's) in `dwTemp[10]`.
   The character slot record uses `dwArmorCode` and `dwTemp[13]` for the same appearance data.
 - Item identities on the wire are the original category | ordinal codes (`LegacyItemCode`).
 
@@ -89,16 +89,66 @@ The high word `0x4554` ("ET") is unused by the original protocol, so an original
 
 | Code | Name | Direction | Content |
 | --- | --- | --- | --- |
-| `0x45540100` | `OwnerStatus` | S→C | Level, 64-bit experience, money, resources, attributes, combat values and revisions. |
+| `0x45540100` | `OwnerStatus` | S→C | Level, 64-bit experience, money, resources, attributes, combat values and revisions, then the final-tier skill points and the class tier (0..3). |
 | `0x45540101` | `Skills` | S→C | Skill revision and (code, rank) pairs. |
 | `0x45540102` | `Inventory` | S→C | Inventory revision split into parts of up to 100 items. |
 | `0x45540110` / `0x45540111` | `InventoryCommand` / `InventoryResult` | C→S / S→C | Transactional inventory operation, correlated by operation id. Ground pickups address drops by handle. |
 | `0x45540120` / `0x45540121` | `ProgressionCommand` / `ProgressionResult` | C→S / S→C | Attribute allocation and skill learning. |
-| `0x45540130` | `NpcResult` | S→C | Completes an NPC click with services and a message. |
+| `0x45540130` | `NpcResult` | S→C | Completes an NPC click: name, typed services with availability and the line the NPC says. |
+| `0x45540131` / `0x45540132` | `NpcServiceRequest` / `NpcServiceResult` | C→S / S→C | One typed NPC service request (open, close, refresh, buy, sell, repair, warehouse moves and gold, teleport), correlated by operation id. |
+| `0x45540133` | `ShopCatalog` | S→C | The NPC's stock with server prices, sent before the result of a shop open. |
+| `0x45540134` | `ShopQuotes` | S→C | Sell price and repair cost of every owned item at the inventory revision. |
+| `0x45540135` | `Warehouse` | S→C | The account warehouse: revision, gold, weight and items by grid cell. |
+| `0x45540136` | `TeleportList` | S→C | A teleporter's destinations with price and minimum level. |
 | `0x45540140` | `CombatEvents` | S→C | Resolved swings, hits, potions and monster skill impacts. The original lets each client roll its own hits. |
 | `0x45540150` | `RemoveObjects` | S→C | Serials leaving the receiver's view. The original client times objects out after 4–30 seconds. |
 | `0x45540160` | `LeaveWorld` | C→S, echo | Leave the world after the server saves the character. |
 | `0x45540170` | `PresenceClock` | S→C | Server tick of the presence entries that follow (see below). |
+| `0x45540200` | `SkillCast` | C→S | Cast request (see below). |
+| `0x45540201` | `SkillCastResult` | S→C | Answer to the caster's own cast, by sequence. |
+| `0x45540202` | `SkillEvents` | S→C | Skill starts, impacts, releases and cancels on the presence timeline. |
+| `0x45540203` | `StatusEffects` | S→C | Modifier effects added, refreshed, removed or ticking, on the presence timeline. |
+| `0x45540204` | `SkillCooldowns` | S→C | The owner's running cooldowns whenever the set changes. |
+
+### Skills and status effects
+
+Every skill message body starts with `{uint16 Version, uint16 Flags}` (version 1, flags 0, unless stated); readers
+accept newer versions that append fields. Positions are play-data fixed point (×256) and angles 4096 per turn, as in `PLAYDATAGROUP`.
+
+| Message | Layout after the header | Size |
+| --- | --- | --- |
+| `SkillCast` (version 2) | `uint Sequence, uint SkillCode, uint TargetSerial, int X, Y, Z, int16 Angle, int16 0, uint ClientTimeMs` | 44 |
+| `SkillCastResult` | `uint Sequence, uint SkillCode, byte Status, byte Rank, int16 0, uint CooldownMs, uint RemainingMs, int Mana, int Stamina, uint ServerTick` | 40 |
+| `SkillEvents` | `int Count`, then `Count` skill entries of 48 bytes | 16 + 48n |
+| `StatusEffects` | `int Count`, then `Count` status entries of 32 bytes | 16 + 32n |
+| `SkillCooldowns` | `uint ServerTick, int Count`, then `{uint SkillCode, uint RemainingMs, uint DurationMs}` | 20 + 12n |
+
+`SkillCast` flags carry the command (`SkillCastFlags`): 0 a new cast, 1 the release of the held charge of that skill,
+2 and 3 order the caster's summon of that skill to fight only the caster's target or to pick the nearest enemy; a
+version 1 cast is always a new cast. `SkillEvents` is version 2.
+
+A skill entry is `{uint Caster, Target, SkillCode, byte Phase (1 start, 2 impact, 3 cancel, 4 release), byte Rank,
+uint16 Flags (1 area, 2 projectile, 4 self, 8 chain link from `X, Y, Z` to `Target`, 16 familiar strike, 32 support
+reaching another player, 64 counter strike, 128 full charge, bits 8-9 the resolution mode drawn for the cast), float
+DurationMs, HitAtMs, int X, Y, Z, int16 Angle, uint16 TargetCount, int Radius, int 0}`. A release entry gives the
+shortened remaining motion in `DurationMs` and the time to its next hit in `HitAtMs`.
+A status entry is `{uint Entity, Source, StatusCode, byte Op (1 add, 2 refresh, 3 remove, 4 tick), byte Stacks,
+byte SourceKind, byte Control, uint16 Flags (1 harmful, 2 permanent), int16 0, int DurationMs, RemainingMs, Value}`.
+
+The client sends only the skill, the target and its own position. The server takes rank, costs, range, facing and timing
+from its own state and the class skill files (`Shared/PristonTale.Simulation/Skills/Data/Classes/<Class>.json`) and refuses a cast
+that is unlearned, of another class, cooling down, short of mana or stamina, without the required weapon or shield,
+out of range (rule range plus 24 units), aimed at a missing or dead target, cast in a village, or sent while the
+player is dead, busy or stunned; `AlreadyActive` (14) refuses a buff whose effect, or one it cannot combine with, is
+already running on its holder. `Status` is the refusal reason (`SkillCastStatus`). An accepted cast spends mana and
+stamina, starts the cooldown, puts the caster in the skill motion and emits a `Start` event whose `DurationMs` and
+`HitAtMs` are the motion's length and first event at the server's rates; the hits resolve at the motion's event times
+(projectiles after their flight at 900 units per second) and emit an `Impact` event with the number of targets hit, then
+the usual `CombatEvents` (`Hit`, `Heal` = 6 with the amount in `Damage`, `Evade` = 7 when the target evades a monster's
+attack, `Revive` = 8 with the returned life in `Damage`). Statuses are source-agnostic: `SourceKind`
+is item, player skill, monster skill, consumable or aura, `Control` the control states (stun, root, silence, slow,
+hidden); a viewer that sees an entity only after a status started does not receive it. The original client sent
+damage, buffs and heals itself and the original server checked none of mana, stamina or cooldown.
 
 `PresenceClock` is 20 bytes: `{int32 size, uint32 code, uint16 Version = 1, uint16 Flags = 0, uint32 ServerTick,
 uint32 TickIntervalMs = 50}`. The server sends it once per tick, before the first `PLAYDATAGROUP` or `CombatEvents` of that
@@ -112,6 +162,32 @@ object's samples arrive at the 2 Hz far-ring cadence. Motion states and combat e
 time reaches them. A walking or running object may be extrapolated for 250 ms when samples are late, and a jump above 256
 units snaps. Walk and run clips play at a rate proportional to the interpolated ground speed, and a walk or run state
 without ground motion is shown as standing.
+
+### NPC services
+
+Every NPC message body starts with `{uint16 Version = 1, uint16 Flags = 0}`; readers accept newer versions that append
+fields. Text is UTF-8 with a `uint16` byte length (names up to 64 bytes, item names 40, messages 128, dialog lines 256),
+and counts are 32-bit. The click itself stays the original `ATTACK_DAMAGE` on the NPC serial; the server answers with
+`NpcResult` instead of the original whisper and service-window commands.
+
+- `NpcResult`: `{uint32 NpcSerial, int32 Ok, text Name, text Message, int32 ServiceCount, services {uint8 Kind,
+  uint8 Available, uint16 0, int32 Value}, int32 LineCount, text lines}`. `Kind` is `NpcServiceKind`, `Value` the authored
+  argument (class-change group, teleport route, mix mode, quest code...). One dialog line is sent, chosen at random as the
+  original does.
+- `NpcServiceRequest` (88 bytes): `{Guid OperationId, uint32 NpcSerial, uint8 Service, uint8 Action, uint16 0,
+  int64 ExpectedRevision, int64 ExpectedStorageRevision, uint32 ItemCode, Guid ItemId, int32 Anchor, int32 Count,
+  int64 Amount}`. The client names a stock entry, an owned item, a grid cell or a destination index; it never sends an
+  item, a price or a total. The original buy and warehouse layouts, which carry a whole client-built item or warehouse,
+  are not used.
+- `NpcServiceResult`: `{Guid OperationId, uint32 NpcSerial, uint8 Service, uint8 Action, uint16 Status, int32 Ok,
+  int64 Revision, int64 StorageRevision, text Message}`. `Status` is `NpcServiceStatus` (`NotAvailable` for services
+  Etervale does not run yet, `OutOfReach`, `Stale`, `NotEnoughGold`, `NoSpace`, `GoldLimit`, `Conflict`, ...). The state
+  messages a request produces (`ShopCatalog`, `ShopQuotes`, `Warehouse`, `TeleportList`) carry the same operation id
+  and precede the result. A teleport also sends `WARPFIELD` with `EParam` = 1.
+
+The server checks every request against the NPC in the player's field (alive, within 96 units, offering the service),
+writes durable changes before applying them and records the operation id with the character, so a retried request
+returns its first outcome without charging again.
 
 ## Server capacity
 

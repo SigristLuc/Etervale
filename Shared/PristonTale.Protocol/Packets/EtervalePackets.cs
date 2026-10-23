@@ -32,9 +32,11 @@ public sealed record OwnerStatusPacket(
     float AttackRange,
     long InventoryRevision,
     long ProgressionRevision,
-    long SkillsRevision)
+    long SkillsRevision,
+    int EliteSkillPoints = 0,
+    int Tier = 0)
 {
-    public const int Size = 8 + 4 + 8 * 4 + 4 * 19 + 4 + 8 * 3;
+    public const int Size = 8 + 4 + 8 * 4 + 4 * 19 + 4 + 8 * 3 + 4 * 2;
 
     public int Write(Span<byte> destination)
     {
@@ -67,6 +69,8 @@ public sealed record OwnerStatusPacket(
         writer.Int64(InventoryRevision);
         writer.Int64(ProgressionRevision);
         writer.Int64(SkillsRevision);
+        writer.Int32(EliteSkillPoints);
+        writer.Int32(Tier);
         return writer.Finish();
     }
 
@@ -75,7 +79,7 @@ public sealed record OwnerStatusPacket(
         var r = new PacketReader(packet, Size);
         return new OwnerStatusPacket(r.Int32(), r.Int64(), r.Int64(), r.Int64(), r.Int64(), r.Int32(), r.Int32(), r.Int32(), r.Int32(),
             r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Int32(),
-            r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Single(), r.Int64(), r.Int64(), r.Int64());
+            r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Single(), r.Int64(), r.Int64(), r.Int64(), r.Int32(), r.Int32());
     }
 }
 
@@ -244,29 +248,6 @@ public sealed record OperationResultPacket(uint Code, Guid OperationId, bool Ok,
     {
         var r = new PacketReader(packet, Size);
         return new OperationResultPacket(r.Code, r.Guid(), r.Int32() != 0, r.Int64(), r.Text(64));
-    }
-}
-
-// Completes an NPC click. Dialogue lines arrive first as WHISPERMESSAGE packets from the same NPC serial.
-public sealed record NpcResultPacket(uint NpcSerial, bool Ok, uint Services, string Name, string Message)
-{
-    public const int Size = 8 + 4 * 3 + 32 + 64;
-
-    public int Write(Span<byte> destination)
-    {
-        var writer = new PacketWriter(destination, EtervaleOpcodes.NpcResult);
-        writer.UInt32(NpcSerial);
-        writer.Int32(Ok ? 1 : 0);
-        writer.UInt32(Services);
-        writer.Text(Name, 32);
-        writer.Text(Message, 64);
-        return writer.Finish();
-    }
-
-    public static NpcResultPacket Read(ReadOnlySpan<byte> packet)
-    {
-        var r = new PacketReader(packet, Size);
-        return new NpcResultPacket(r.UInt32(), r.Int32() != 0, r.UInt32(), r.Text(32), r.Text(64));
     }
 }
 

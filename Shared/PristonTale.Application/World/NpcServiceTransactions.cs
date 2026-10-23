@@ -1,0 +1,287 @@
+using System.Numerics;
+using PristonTale.Application.Sessions;
+using PristonTale.Persistence.Abstractions.Characters;
+using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Items;
+using PristonTale.Simulation.World;
+using PristonTale.Simulation.World.Npcs;
+
+namespace PristonTale.Application.World;
+
+// Runs on the world tick. Every request is checked against the NPC in the player's field: alive, within reach, offering
+// the service and the service running in Etervale. Prices, stock and totals come from the catalogs, never the client.
+internal static class NpcServiceTransactions
+{
+    public static bool CanReach(WorldPlayer player, WorldNpc npc)
+    {
+        var delta = player.Position - npc.Position;
+        return !player.IsDead && delta.X * delta.X + delta.Z * delta.Z <= NpcInteraction.Reach * NpcInteraction.Reach;
+    }
+
+    public static NpcServiceOutcome Check(WorldPlayer player, FieldInstance field, NpcServiceCommand command, out WorldNpc? npc,
+        out NpcService? service)
+    {
+        service = null;
+        if (!field.TryGetNpc(command.NpcEntityId, out npc) || !CanReach(player, npc))
+        {
+            return NpcServiceOutcome.Failed(NpcServiceStatus.OutOfReach, "approach this NPC while alive");
+        }
+
+        service = npc.Definition.Find(command.Service);
+        if (service is null || !Enum.IsDefined(command.Action) || !Accepts(command.Service, command.Action))
+        {
+            return NpcServiceOutcome.Failed(NpcServiceStatus.Rejected, "this NPC does not offer that");
+        }
+
+        if (!NpcServiceAvailability.IsAvailable(service))
+        {
+            return NpcServiceOutcome.Failed(NpcServiceStatus.NotAvailable, "this service is not available yet");
+        }
+
+        return new NpcServiceOutcome(true, NpcServiceStatus.Ok, player.Character.InventoryRevision, 0, "");
+    }
+
+    public static PreparedNpcOperation Prepare(PlayerSession session, WorldPlayer player, FieldInstance field, NpcServiceCommand command,
+        ItemCatalog items, WorldCatalog world)
+    {
+        var original = player.Character;
+        var storage = session.Warehouse;
+        var check = Check(player, field, command, out var npc, out var service);
+        if (!check.Ok)
+        {
+            return Final(original, check with { Revision = original.InventoryRevision });
+        }
+
+        if (command.Service == NpcServiceKind.Warehouse && storage is null && command.Action != NpcServiceAction.Close)
+        {
+            return Final(original, NpcServiceOutcome.Failed(NpcServiceStatus.NotOpen, "open the warehouse first", original.InventoryRevision));
+        }
+
+        if (!NpcServiceActions.IsDurable(command.Action))
+        {
+            var shown = Show(command, npc!, service!, original, storage, items, world, Done(original, storage, ""));
+            return new PreparedNpcOperation(original, null, null, shown);
+        }
+
+        foreach (var applied in original.ServiceOperations)
+        {
+            if (applied.Command.OperationId == command.OperationId)
+            {
+                if (applied.Command != command)
+                {
+                    return Final(original, NpcServiceOutcome.Failed(NpcServiceStatus.Conflict, "operation identity conflict", original.InventoryRevision));
+                }
+
+                var replayed = State(command, original, storage, Done(original, storage, "already committed"));
+                return new PreparedNpcOperation(original, null, null, replayed);
+            }
+        }
+
+        if (command.OperationId == Guid.Empty || command.ExpectedRevision != original.InventoryRevision
+            || storage is not null && command.Service == NpcServiceKind.Warehouse && command.ExpectedStorageRevision != storage.Revision)
+        {
+            return Final(original, NpcServiceOutcome.Failed(NpcServiceStatus.Stale, "stale inventory or warehouse revision",
+                original.InventoryRevision, storage?.Revision ?? 0));
+        }
+
+        return Apply(session, player, field, command, npc!, service!, items, world);
+    }
+
+    private static PreparedNpcOperation Apply(PlayerSession session, WorldPlayer player, FieldInstance field, NpcServiceCommand command,
+        WorldNpc npc, NpcService service, ItemCatalog items, WorldCatalog world)
+    {
+        var original = player.Character;
+        var candidate = original.CloneForInventoryOperation();
+        var storage = command.Service == NpcServiceKind.Warehouse ? session.Warehouse!.Clone() : null;
+        var fieldId = field.FieldId;
+        var position = player.Position;
+        TeleportArrival? arrival = null;
+        var carryLimit = MoneyLimits.CarryLimit(candidate.Level, candidate.Tier);
+        NpcServiceStatus status;
+        switch (command.Action)
+        {
+            case NpcServiceAction.Buy:
+                status = npc.Definition.Shop.Contains(command.ItemCode) && items.TryGet(command.ItemCode, out var definition)
+                    ? NpcShopRules.TryBuy(candidate, definition, command.Count, command.Anchor, out _)
+                    : NpcServiceStatus.Rejected;
+                break;
+            case NpcServiceAction.Sell:
+                status = NpcShopRules.TrySell(candidate, command.ItemId, carryLimit, out _);
+                break;
+            case NpcServiceAction.Repair:
+                status = NpcShopRules.TryRepair(candidate, command.ItemId, out _);
+                break;
+            case NpcServiceAction.RepairAll:
+                status = NpcShopRules.TryRepairAll(candidate, out _);
+                break;
+            case NpcServiceAction.Deposit:
+                status = storage!.TryDeposit(candidate, command.ItemId, command.Anchor);
+                break;
+            case NpcServiceAction.Withdraw:
+                status = storage!.TryWithdraw(candidate, command.ItemId, command.Anchor);
+                break;
+            case NpcServiceAction.Move:
+                status = storage!.TryMove(command.ItemId, command.Anchor);
+                break;
+            case NpcServiceAction.DepositGold:
+                status = storage!.TryDepositGold(candidate, command.Amount);
+                break;
+            case NpcServiceAction.WithdrawGold:
+                status = storage!.TryWithdrawGold(candidate, command.Amount, carryLimit);
+                break;
+            case NpcServiceAction.Teleport:
+                status = TryTeleport(candidate, service, command.Anchor, world, out arrival);
+                if (arrival is not null)
+                {
+                    fieldId = arrival.FieldCode;
+                    position = arrival.Position;
+                }
+
+                break;
+            default:
+                status = NpcServiceStatus.Rejected;
+                break;
+        }
+
+        if (status != NpcServiceStatus.Ok)
+        {
+            return Final(original, NpcServiceOutcome.Failed(status, Describe(status), original.InventoryRevision, session.Warehouse?.Revision ?? 0));
+        }
+
+        candidate.RecordServiceOperation(command);
+        var snapshot = CharacterRecordFactory.Capture(session.Loaded!, candidate, fieldId, position);
+        var outcome = Done(candidate, storage ?? session.Warehouse, "committed");
+        var reply = State(command, candidate, storage, outcome) with { Arrival = arrival };
+        return new PreparedNpcOperation(original, candidate, snapshot, reply, candidate.Money - original.Money, storage,
+            session.Warehouse?.Revision ?? 0);
+    }
+
+    private static NpcServiceStatus TryTeleport(PlayerCharacter candidate, NpcService service, int index, WorldCatalog world, out TeleportArrival? arrival)
+    {
+        arrival = null;
+        if (!TeleportRoutes.TryGet(service.Value, index, out var destination) || !world.TryGetFieldByCode(destination.FieldCode, out var target))
+        {
+            return NpcServiceStatus.Rejected;
+        }
+
+        if (candidate.Level < target.LimitLevel)
+        {
+            return NpcServiceStatus.Rejected;
+        }
+
+        if (!candidate.TryChangeMoney(-destination.Price))
+        {
+            return NpcServiceStatus.NotEnoughGold;
+        }
+
+        var start = target.StartPoints.Count > 0 ? target.StartPoints[0] : target.Center;
+        arrival = new TeleportArrival(target.FieldCode, new Vector3(start.X, 0f, start.Z));
+        return NpcServiceStatus.Ok;
+    }
+
+    private static NpcServiceReply Show(NpcServiceCommand command, WorldNpc npc, NpcService service, PlayerCharacter character,
+        WarehouseStorage? storage, ItemCatalog items, WorldCatalog world, NpcServiceOutcome outcome)
+    {
+        if (command.Action == NpcServiceAction.Close)
+        {
+            return new NpcServiceReply(outcome);
+        }
+
+        return command.Service switch
+        {
+            NpcServiceKind.Shop => new NpcServiceReply(outcome)
+            {
+                Catalog = command.Action == NpcServiceAction.Open ? Catalog(npc.Definition.Shop, items) : null,
+                Quotes = Quotes(character)
+            },
+            NpcServiceKind.Warehouse => new NpcServiceReply(outcome) { Warehouse = storage!.View() },
+            NpcServiceKind.Teleporter => new NpcServiceReply(outcome) { Destinations = Destinations(service, world) },
+            _ => new NpcServiceReply(outcome)
+        };
+    }
+
+    private static NpcServiceReply State(NpcServiceCommand command, PlayerCharacter character, WarehouseStorage? storage, NpcServiceOutcome outcome) =>
+        command.Service switch
+        {
+            NpcServiceKind.Shop => new NpcServiceReply(outcome) { Quotes = Quotes(character) },
+            NpcServiceKind.Warehouse when storage is not null => new NpcServiceReply(outcome) { Warehouse = storage.View() },
+            _ => new NpcServiceReply(outcome)
+        };
+
+    public static IReadOnlyList<ShopOffer> Catalog(NpcShopStock stock, ItemCatalog items)
+    {
+        var offers = new List<ShopOffer>();
+        for (var tab = 0; tab < 3; tab++)
+        {
+            var codes = stock.Tab(tab);
+            for (var ordinal = 0; ordinal < codes.Count; ordinal++)
+            {
+                if (items.TryGet(codes[ordinal], out var definition))
+                {
+                    offers.Add(new ShopOffer(definition.Code, tab, ordinal, definition.Name, definition.Kind, NpcShopRules.BuyPrice(definition, 1),
+                        definition.GridWidth, definition.GridHeight, definition.MaxStack, definition.CatalogKey));
+                }
+            }
+        }
+
+        return offers;
+    }
+
+    // Equipped items are quoted for repair only; a sell price of -1 marks an item the shop does not buy.
+    public static ShopQuotes Quotes(PlayerCharacter character)
+    {
+        var quotes = new List<ShopQuote>();
+        for (var anchor = 0; anchor < character.Inventory.Capacity; anchor++)
+        {
+            if (character.Inventory[anchor] is { } item)
+            {
+                var sell = NpcShopRules.CanSell(item) ? NpcShopRules.SellPrice(item) : -1;
+                quotes.Add(new ShopQuote(item.InstanceId, sell, NpcShopRules.RepairCost(item), item.DurabilityCurrent, item.DurabilityMax));
+            }
+        }
+
+        foreach (var equipped in character.Equipment.Values)
+        {
+            quotes.Add(new ShopQuote(equipped.InstanceId, -1, NpcShopRules.RepairCost(equipped), equipped.DurabilityCurrent, equipped.DurabilityMax));
+        }
+
+        return new ShopQuotes(character.InventoryRevision, quotes);
+    }
+
+    private static IReadOnlyList<TeleportOffer> Destinations(NpcService service, WorldCatalog world)
+    {
+        var offers = new List<TeleportOffer>();
+        foreach (var destination in TeleportRoutes.For(service.Value))
+        {
+            var level = world.TryGetFieldByCode(destination.FieldCode, out var field) ? field.LimitLevel : 0;
+            offers.Add(new TeleportOffer(destination.Index, destination.FieldCode, destination.Name, destination.Price, level));
+        }
+
+        return offers;
+    }
+
+    private static bool Accepts(NpcServiceKind service, NpcServiceAction action) => action switch
+    {
+        NpcServiceAction.Open or NpcServiceAction.Close => true,
+        NpcServiceAction.Refresh => service is NpcServiceKind.Shop or NpcServiceKind.Warehouse,
+        NpcServiceAction.Buy or NpcServiceAction.Sell or NpcServiceAction.Repair or NpcServiceAction.RepairAll => service == NpcServiceKind.Shop,
+        NpcServiceAction.Deposit or NpcServiceAction.Withdraw or NpcServiceAction.Move or NpcServiceAction.DepositGold
+            or NpcServiceAction.WithdrawGold => service == NpcServiceKind.Warehouse,
+        NpcServiceAction.Teleport => service == NpcServiceKind.Teleporter,
+        _ => false
+    };
+
+    private static string Describe(NpcServiceStatus status) => status switch
+    {
+        NpcServiceStatus.NotEnoughGold => "not enough gold",
+        NpcServiceStatus.NoSpace => "not enough room",
+        NpcServiceStatus.GoldLimit => "you cannot carry more gold",
+        _ => "the NPC refused"
+    };
+
+    private static NpcServiceOutcome Done(PlayerCharacter character, WarehouseStorage? storage, string message) =>
+        new(true, NpcServiceStatus.Ok, character.InventoryRevision, storage?.Revision ?? 0, message);
+
+    private static PreparedNpcOperation Final(PlayerCharacter original, NpcServiceOutcome outcome) =>
+        new(original, null, null, new NpcServiceReply(outcome));
+}

@@ -1,5 +1,6 @@
 using System.Numerics;
 using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.Combat;
@@ -24,6 +25,8 @@ public enum PlayerActionState
     Flinch = 2,
 
     Eat = 3,
+
+    Cast = 4,
 }
 
 public sealed class WorldPlayer
@@ -126,6 +129,54 @@ public sealed class WorldPlayer
     }
 
     private float _flinchMsLeft;
+
+    // A skill motion owns the avatar like a swing; FieldSkills fires its hits from the elapsed time.
+    private float _castElapsedMs;
+    private float _castDurationMs;
+
+    public PlayerSkillCooldowns Cooldowns { get; } = new();
+    public RegenerationState Regeneration { get; } = new();
+    public float CastElapsedMs => _castElapsedMs;
+    public bool CastCompleted { get; private set; }
+    public bool IsCasting => Action == PlayerActionState.Cast;
+
+    // Casts of each skill this session; every fifth adds proficiency to the skill's saved use counter.
+    public Dictionary<uint, int> SkillCasts { get; } = new();
+
+    // The monster this player last attacked or cast at (its familiar and passive summon fight it).
+    public uint CombatTargetId { get; set; }
+
+    // A released charge ends the cast motion earlier.
+    public void ShortenCast(float durationMs)
+    {
+        if (IsCasting)
+        {
+            _castDurationMs = MathF.Max(_castElapsedMs, MathF.Max(1f, durationMs));
+        }
+    }
+
+    public void BeginCast(Vector3 facingTarget, float durationMs)
+    {
+        if (facingTarget != Position)
+        {
+            Facing = MathF.Atan2(facingTarget.X - Position.X, facingTarget.Z - Position.Z);
+        }
+
+        Action = PlayerActionState.Cast;
+        MoveState = MoveStateView.Skill;
+        CastCompleted = false;
+        _castElapsedMs = 0f;
+        _castDurationMs = MathF.Max(1f, durationMs);
+        ClearAttackTarget();
+    }
+
+    public RegenerationPosture Posture => IsDead ? RegenerationPosture.Acting : MoveState switch
+    {
+        MoveStateView.Idle => RegenerationPosture.Standing,
+        MoveStateView.Walking => RegenerationPosture.Walking,
+        MoveStateView.Running => RegenerationPosture.Running,
+        _ => RegenerationPosture.Acting
+    };
 
     public WorldPlayer(uint entityId, Vector3 position, PlayerCharacter character, bool inVillage, PlayerAppearanceView appearance)
     {
@@ -356,6 +407,7 @@ public sealed class WorldPlayer
         _swingHitFired = false;
         _swingTargetId = targetId;
         _swingAttackSequence = AttackSequence;
+        CombatTargetId = targetId;
     }
 
     public bool TickAction(float dtMs, out uint hitTargetId)
@@ -368,6 +420,17 @@ public sealed class WorldPlayer
                 _flinchMsLeft -= dtMs;
                 if (_flinchMsLeft <= 0f)
                 {
+                    Action = PlayerActionState.Idle;
+                    MoveState = MoveStateView.Idle;
+                }
+
+                return false;
+
+            case PlayerActionState.Cast:
+                _castElapsedMs += dtMs;
+                if (_castElapsedMs >= _castDurationMs)
+                {
+                    CastCompleted = true;
                     Action = PlayerActionState.Idle;
                     MoveState = MoveStateView.Idle;
                 }
@@ -413,7 +476,7 @@ public sealed class WorldPlayer
 
     public void ApplyDamage(int amount)
     {
-        if (amount <= 0 || IsDead)
+        if (amount <= 0 || IsDead || GuardMsLeft > 0f)
         {
             return;
         }
@@ -479,6 +542,28 @@ public sealed class WorldPlayer
 
     public const float RespawnDelayMs = 5000f;
 
+    // Time after a revive in which no damage lands, as the original's restart grace.
+    public float GuardMsLeft { get; private set; }
+
+    public void TickGuard(float dtMs) => GuardMsLeft = MathF.Max(0f, GuardMsLeft - dtMs);
+
+    // Brings a dead player back where it fell with this much life (a revive skill), guarded for a while.
+    public void Revive(int life, float guardMs)
+    {
+        if (!IsDead)
+        {
+            return;
+        }
+
+        _character.Life = Math.Clamp(life, 1, MaxHp);
+        IsDead = false;
+        _respawnMsLeft = 0f;
+        _attackTargetId = 0;
+        MoveState = MoveStateView.Idle;
+        Action = PlayerActionState.Idle;
+        GuardMsLeft = MathF.Max(0f, guardMs);
+    }
+
     internal static (float DurationMs, float HitAtMs) SwingTimingFallback(int attackSpeed)
     {
         float rate = AnimationRate.AttackRate(attackSpeed);
@@ -490,6 +575,6 @@ public sealed class WorldPlayer
         EntityId, EntityKindView.Player, isSelf: false, Position, Facing, MoveState,
         Level, Hp, MaxHp, Appearance,
         moveSpeed: _character.Derived.MoveSpeed,
-        attackRate: AnimationRate.AttackRate(_character.Derived.AttackSpeed),
+        attackRate: _character.AttackRate,
         attackTargetId: AttackTargetId, attackSequence: AttackSequence);
 }

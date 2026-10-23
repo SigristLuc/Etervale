@@ -19,7 +19,87 @@ internal static class ProgressionTransactionTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("all 40 first-tier skills enforce ten ranks, predecessor and original gold costs", LearningAsync);
+        yield return ("later skills open by class tier, need the skill before them, cost the window price and spend final-tier points last",
+            LaterTierLearningAsync);
         yield return ("NPC learning is durable, rejects remote service access and replays after reconnect", DurabilityAsync);
+    }
+
+    private static Task LaterTierLearningAsync()
+    {
+        var registry = new CharacterClassRegistry();
+        int[] basePrices = [500, 1000, 1500, 2000, 3000, 5000, 7000, 9000, 10000, 12000, 15000, 20000, 25000, 30000, 35000, 40000];
+        int[] rankPrices = [500, 600, 700, 800, 1000, 1200, 1400, 1600, 2000, 2500, 3000, 4000, 5000, 6000, 7000, 8000];
+        foreach (var playerClass in new[] { PlayerClass.Mechanician, PlayerClass.Fighter, PlayerClass.Pikeman, PlayerClass.Archer })
+        {
+            var skills = ClassSkillCatalog.For(playerClass);
+            var player = registry.CreatePlayer(playerClass, "Tiers", 100);
+            foreach (var skill in skills.Take(4))
+            {
+                player.Skills.Restore(skill.Code, 1);
+            }
+
+            player.RestoreProgress(ExperienceTable.ForLevel(100), 10000000, tier: 0, skillPoints: 200, eliteSkillPoints: 20);
+            Assert.True(!SkillLearning.TryQuote(player, skills[4].Code, out _, out _), "a second-tier skill was taught before the class rose a tier");
+            for (var tier = 1; tier <= 3; tier++)
+            {
+                player.RestoreProgress(player.Experience, player.Money, tier: (short)tier, skillPoints: player.SkillPoints,
+                    eliteSkillPoints: player.EliteSkillPoints);
+                var next = 4 * tier + 4;
+                Assert.True(next == 16 || !SkillLearning.CanTrain(skills, next, code => code == skills[next].Code ? 0 : 1, 200, tier, 10, 10),
+                    "a later tier opened early");
+                for (var index = 4 * tier + 1; index < 4 * tier + 4; index++)
+                {
+                    Assert.True(!SkillLearning.TryQuote(player, skills[index].Code, out _, out _), $"{skills[index].Name} skipped the skill before it");
+                }
+
+                for (var index = 4 * tier; index < 4 * tier + 4; index++)
+                {
+                    var skill = skills[index];
+                    var points = player.SkillPoints;
+                    var finalPoints = player.EliteSkillPoints;
+                    Assert.True(SkillLearning.TryQuote(player, skill.Code, out var price, out var finalTier) && price == basePrices[index]
+                        && finalTier == (index >= 12), $"{skill.Name} first rank price {price} differs from the window price");
+                    var money = player.Money;
+                    Assert.True(player.ApplyProgression(new ProgressionCommand(Guid.NewGuid(), player.ProgressionRevision, ProgressionAction.LearnSkill,
+                        SkillCode: skill.Code, NpcEntityId: 1)), $"{skill.Name} was not taught");
+                    Assert.True(player.Money == money - price && player.Skills.RankOf(skill.Code) == 1, $"{skill.Name} rank or gold wrong");
+                    Assert.True(index >= 12
+                        ? player.EliteSkillPoints == finalPoints - 1 && player.SkillPoints == points
+                        : player.SkillPoints == points - 1 && player.EliteSkillPoints == finalPoints, $"{skill.Name} spent the wrong points");
+                    Assert.True(SkillLearning.TryQuote(player, skill.Code, out var second, out _) && second == basePrices[index] + rankPrices[index],
+                        $"{skill.Name} second rank price differs");
+                }
+            }
+
+            var golem = skills[15];
+            var poor = registry.CreatePlayer(playerClass, "Poor", 100);
+            foreach (var skill in skills.Take(15))
+            {
+                poor.Skills.Restore(skill.Code, 1);
+            }
+
+            poor.RestoreProgress(ExperienceTable.ForLevel(100), 10000000, tier: 3, skillPoints: 10, eliteSkillPoints: 0);
+            Assert.True(!SkillLearning.TryQuote(poor, golem.Code, out _, out _), "a final-tier skill was taught without final-tier points");
+            var young = registry.CreatePlayer(playerClass, "Young", golem.RequiredLevel - 1);
+            foreach (var skill in skills.Take(15))
+            {
+                young.Skills.Restore(skill.Code, 1);
+            }
+
+            young.RestoreProgress(ExperienceTable.ForLevel(golem.RequiredLevel - 1), 10000000, tier: 3, skillPoints: 10, eliteSkillPoints: 5);
+            Assert.True(!SkillLearning.TryQuote(young, golem.Code, out _, out _), "a final-tier skill was taught below its level");
+        }
+
+        var morion = registry.CreatePlayer(PlayerClass.Shaman, "Uncosted", 100);
+        var shaman = ClassSkillCatalog.For(PlayerClass.Shaman);
+        foreach (var skill in shaman.Take(4))
+        {
+            morion.Skills.Restore(skill.Code, 1);
+        }
+
+        morion.RestoreProgress(ExperienceTable.ForLevel(100), 10000000, tier: 3, skillPoints: 50, eliteSkillPoints: 5);
+        Assert.True(shaman[4].ManaByRank.Count == 10 || !SkillLearning.TryQuote(morion, shaman[4].Code, out _, out _), "a skill without rank costs was taught");
+        return Task.CompletedTask;
     }
 
     private static Task LearningAsync()
@@ -27,17 +107,17 @@ internal static class ProgressionTransactionTests
         var registry = new CharacterClassRegistry();
         foreach (var playerClass in Enum.GetValues<PlayerClass>())
         {
-            var skills = FirstTierSkills.For(playerClass);
+            var skills = ClassSkillCatalog.For(playerClass).Where(static skill => skill.Tier == JobTier.Job1).ToArray();
             var player = registry.CreatePlayer(playerClass, "Learning", 40);
             player.RestoreProgress(ExperienceTable.ForLevel(40), 1000000, skillPoints: 40);
-            Assert.True(!SkillLearning.TryQuote(player, skills[1].Code, out _), "predecessor requirement bypassed");
+            Assert.True(!SkillLearning.TryQuote(player, skills[1].Code, out _, out _), "predecessor requirement bypassed");
             var spent = 0;
             for (var rank = 0; rank < 10; rank++)
             {
                 for (var index = 0; index < 4; index++)
                 {
                     var expectedPrice = (index + 1) * 500 + rank * (500 + index * 100);
-                    Assert.True(SkillLearning.TryQuote(player, skills[index].Code, out var price) && price == expectedPrice, "original learning price differs");
+                    Assert.True(SkillLearning.TryQuote(player, skills[index].Code, out var price, out _) && price == expectedPrice, "original learning price differs");
                     var command = new ProgressionCommand(Guid.NewGuid(), player.ProgressionRevision, ProgressionAction.LearnSkill,
                         SkillCode: skills[index].Code, NpcEntityId: 1);
                     Assert.True(player.ApplyProgression(command) && player.Skills.RankOf(skills[index].Code) == rank + 1, "rank did not advance once");
@@ -47,12 +127,12 @@ internal static class ProgressionTransactionTests
             }
 
             Assert.True(player.SkillPoints == 0 && player.Money == 1000000 - spent && player.ProgressionRevision == 40, "gold or point conservation failed");
-            Assert.True(!SkillLearning.TryQuote(player, skills[0].Code, out _), "rank 11 accepted");
+            Assert.True(!SkillLearning.TryQuote(player, skills[0].Code, out _, out _), "rank 11 accepted");
             var low = registry.CreatePlayer(playerClass, "Level", 10);
             low.RestoreProgress(ExperienceTable.ForLevel(10), 10000, skillPoints: 10);
             Assert.True(low.ApplyProgression(new ProgressionCommand(Guid.NewGuid(), 0, ProgressionAction.LearnSkill,
                 SkillCode: skills[0].Code, NpcEntityId: 1)), "initial skill rejected at level 10");
-            Assert.True(!SkillLearning.TryQuote(low, skills[0].Code, out _), "rank 2 accepted below level 12");
+            Assert.True(!SkillLearning.TryQuote(low, skills[0].Code, out _, out _), "rank 2 accepted below level 12");
         }
 
         return Task.CompletedTask;
@@ -65,7 +145,7 @@ internal static class ProgressionTransactionTests
         var character = classes.CreatePlayer(PlayerClass.Mechanician, starter.Name, 40);
         character.RestoreProgress(ExperienceTable.ForLevel(40), 10000, 5, skillPoints: 40);
         var repository = new MemoryCharacters(CharacterRecordFactory.FromLiveSession(starter, character, 3, new Vector3(100, 0, 100)));
-        var npc = new NpcDefinition(1, "Trainer", "trainer.inx", NpcServices.SkillMaster) { Dialog = ["Welcome"] };
+        var npc = new NpcDefinition(1, "Trainer", "trainer.inx", [new NpcService(NpcServiceKind.SkillMaster)]) { Dialog = ["Welcome"] };
         var empty = WorldData.Empty;
         var holder = new WorldDataHolder
         {
@@ -85,7 +165,7 @@ internal static class ProgressionTransactionTests
         var placed = snapshot.Entities.Single(entity => entity.Kind == EntityKindView.Npc);
         Assert.True(placed.Position == new Vector3(100, 0, 100) && Math.Abs(placed.Facing - MathF.PI / 2) < 0.001, "SPC fixed-point placement is wrong");
         Assert.True((await AdvanceAsync(world, world.InteractNpcAsync(session, placed.EntityId))).Ok, "nearby NPC interaction rejected");
-        var skill = FirstTierSkills.For(PlayerClass.Mechanician)[0];
+        var skill = ClassSkillCatalog.For(PlayerClass.Mechanician).Where(static skill => skill.Tier == JobTier.Job1).ToArray()[0];
         var command = new ProgressionCommand(Guid.NewGuid(), 0, ProgressionAction.LearnSkill, SkillCode: skill.Code, NpcEntityId: placed.EntityId);
         player.Teleport(new Vector3(1000, 0, 1000));
         Assert.True(!(await AdvanceAsync(world, service.ApplyProgressionAsync(session.SessionToken, command))).Ok, "remote learning accepted");

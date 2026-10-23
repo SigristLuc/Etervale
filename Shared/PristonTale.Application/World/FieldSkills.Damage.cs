@@ -1,0 +1,287 @@
+using System.Numerics;
+using PristonTale.Simulation.Combat;
+using PristonTale.Simulation.Modifiers;
+using PristonTale.Simulation.Skills;
+using PristonTale.Simulation.World;
+using PristonTale.Simulation.World.Ai;
+using PristonTale.Simulation.World.Monsters;
+
+namespace PristonTale.Application.World;
+
+// Damage of single-target skills: weapon hits (volleys, element adds, enchants) and bolts, the burst that follows a
+// weapon hit, and the knock-backs, pushes and taunts that areas apply (see FieldSkills.Areas).
+internal sealed partial class FieldSkills
+{
+    private static bool Immovable(MonsterInstance monster) => MonsterAiTuning.IsUnyielding(monster.Def);
+
+    private bool WeaponHit(WorldPlayer caster, ActiveCast cast, SkillRule rule, int hit, long nowMs)
+    {
+        if (cast.Missed && cast.Rule.StopAfterMiss)
+        {
+            return false;
+        }
+
+        var rank = cast.Rank;
+        if (!_host.TryGetMonster(cast.TargetId, out var monster) || !Strikeable(monster)
+            || !InRange(caster, monster.Position, SkillFormulas.Range(cast.Rule, rank, caster.Character)))
+        {
+            return false;
+        }
+
+        var character = caster.Character;
+        var damageRule = rule.Damage ?? new SkillDamageRule();
+        var attack = SkillFormulas.WeaponAttack(character, rule, rank, monster.Def, _rng, hit);
+        attack = attack with { ExtraPercent = attack.ExtraPercent + NextHitPercent(character) };
+        var defence = DefenderProfile.FromMonster(monster);
+        if (rule.At(rule.Volley, rank) > 0)
+        {
+            return VolleyHit(caster, cast, rule, monster, attack, defence);
+        }
+
+        // Element damage added to the hit (a fire javelin): rolled apart so its own resistance and brood bonus apply to it.
+        var elemental = 0;
+        if (damageRule.FlatElement is not null && damageRule.Min.Length > 0)
+        {
+            elemental = SkillFormulas.WithBroodBonus(_rng.Range(rule.At(damageRule.Min, rank), rule.At(damageRule.Max, rank)), damageRule, monster.Def, rank);
+            attack = attack with { SkillFlatAdd = attack.SkillFlatAdd + elemental };
+        }
+
+        var result = CombatResolver.Resolve(_rng, attack, defence, alwaysHit: damageRule.NeverMiss || rule.NoAccuracy);
+        if (result.Damage <= 0)
+        {
+            cast.Missed = true;
+            return false;
+        }
+
+        ConsumeNextHit(caster);
+        var damage = result.Damage;
+        if (damageRule.FlatElement is { } flatElement)
+        {
+            var resisted = elemental * Math.Clamp((int)monster.Def.Combat.Resistances[flatElement], -100, 100) / 100;
+            damage = Math.Max(1, damage - resisted);
+        }
+        else
+        {
+            damage = SkillFormulas.WithBroodBonus(damage, damageRule, monster.Def, rank);
+        }
+
+        damage = SkillFormulas.WithUndeadBonus(damage, character.Effects.Totals, monster.Def);
+        if (damageRule.Element == Element.Bionic && damageRule.FlatElement is null)
+        {
+            damage += EnchantStrike(caster, monster, basicAttack: false);
+        }
+
+        damage = ModifierRules.ScaleDamage(damage, character.Effects.Totals, monster.Effects.Totals);
+        var lifeCost = SkillFormulas.LifeCostPerHit(cast.Rule, cast.Rank, character.MaxLife);
+        if (lifeCost > 0)
+        {
+            character.Life = Math.Max(1, character.Life - lifeCost);
+        }
+
+        var burst = cast.Rule.Burst;
+        var origin = caster.Position;
+        Pay(caster, monster, damage, result.Crit, cast.Rule.ForceFlinch);
+        if (burst is not null && burst.AfterHit == hit)
+        {
+            Burst(caster, cast, rule, origin);
+        }
+
+        return true;
+    }
+
+    // Several shots in one strike: each rolls accuracy with the skill's rating, the hits add up their own damage rolls.
+    private bool VolleyHit(WorldPlayer caster, ActiveCast cast, SkillRule rule, MonsterInstance monster, AttackProfile attack, DefenderProfile defence)
+    {
+        var shots = rule.At(rule.Volley, cast.Rank);
+        var chance = CombatResolver.HitChance(attack, defence);
+        var damage = 0;
+        for (var shot = 0; shot < shots; shot++)
+        {
+            if (CombatResolver.RollHit(_rng, chance))
+            {
+                damage += CombatResolver.ApplySkill(CombatResolver.RollBaseDamage(_rng, attack), attack with { SkillFlatAdd = 0 });
+            }
+        }
+
+        if (damage <= 0)
+        {
+            cast.Missed = true;
+            return false;
+        }
+
+        var character = caster.Character;
+        damage = CombatResolver.ApplyElement(damage, attack.Element, defence.Resistances);
+        damage = CombatResolver.ApplyAbsorbMonster(damage, defence.Absorption);
+        damage = SkillFormulas.WithBroodBonus(damage, rule.Damage, monster.Def, cast.Rank);
+        damage = SkillFormulas.WithUndeadBonus(damage, character.Effects.Totals, monster.Def);
+        Pay(caster, monster, ModifierRules.ScaleDamage(damage, character.Effects.Totals, monster.Effects.Totals), false);
+        return true;
+    }
+
+    // The fire burst of a weapon hit: the caster's rolled attack damage with the skill's percent, scaled by the burst's
+    // percent, to every enemy around the caster.
+    private void Burst(WorldPlayer caster, ActiveCast cast, SkillRule rule, Vector3 origin)
+    {
+        var burst = cast.Rule.Burst;
+        var character = caster.Character;
+        var weapon = WeaponDamage.Compute(character);
+        var power = _rng.Range(weapon.Min, Math.Max(weapon.Min, weapon.Max));
+        power += power * SkillFormulas.At(rule.Damage?.Percent, cast.Rank) / 100;
+        power = power * burst.Percent / 100;
+        var damage = new SkillDamageRule { Element = burst.Element };
+        _targets.Clear();
+        CollectCircle(origin, burst.Radius, rule.MaxTargets);
+        foreach (var monster in _targets)
+        {
+            if (monster is null)
+            {
+                continue;
+            }
+
+            var dealt = SkillFormulas.PowerAgainst(Math.Max(1, power), damage, monster.Def, character.Effects.Totals, monster.Effects.Totals, cast.Rank);
+            Pay(caster, monster, dealt, false);
+        }
+    }
+
+    private bool MagicHit(WorldPlayer caster, ActiveCast cast, SkillRule rule)
+    {
+        if (!_host.TryGetMonster(cast.TargetId, out var monster) || !Strikeable(monster))
+        {
+            return false;
+        }
+
+        var character = caster.Character;
+        var power = SkillFormulas.RollPower(character, rule, rule.Damage, cast.Rank, _rng);
+        var damage = SkillFormulas.PowerAgainst(power, rule.Damage, monster.Def, character.Effects.Totals, monster.Effects.Totals, cast.Rank);
+        Pay(caster, monster, SkillFormulas.WithUndeadBonus(damage, character.Effects.Totals, monster.Def), false);
+        return true;
+    }
+
+    // The radius the area of this rank covers: the table, or the distance to the clicked target plus a pad.
+    private float AreaRadius(SkillRule rule, int rank, WorldPlayer caster, Vector3 aim)
+    {
+        if (rule.RadiusTargetPad > 0)
+        {
+            var dx = aim.X - caster.Position.X;
+            var dz = aim.Z - caster.Position.Z;
+            return MathF.Sqrt(dx * dx + dz * dz) + rule.RadiusTargetPad;
+        }
+
+        if (rule.AreaShape == SkillAreaShape.Box && rule.Radius.Length == 0)
+        {
+            return SkillFormulas.Range(rule, rank, caster.Character) + rule.BoxLengthPad;
+        }
+
+        return rule.At(rule.Radius, rank);
+    }
+
+    private void CollectCircle(Vector3 center, float radius, int limit)
+    {
+        foreach (var monster in _host.Monsters)
+        {
+            if (!Strikeable(monster) || MathF.Abs(monster.Position.Y - center.Y) > HeightTolerance)
+            {
+                continue;
+            }
+
+            var dx = monster.Position.X - center.X;
+            var dz = monster.Position.Z - center.Z;
+            if (dx * dx + dz * dz <= radius * radius)
+            {
+                _targets.Add(monster);
+                if (_targets.Count >= limit)
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    private static bool InBox(Vector2 offset, Vector2 forward, float halfWidth, float length)
+    {
+        var along = Vector2.Dot(offset, forward);
+        var side = forward.X * offset.Y - forward.Y * offset.X;
+        return along >= 0f && along <= length && MathF.Abs(side) <= halfWidth;
+    }
+
+    // Moves the monster straight away from the caster to the given distance, unless a wall is in the way; it drops its
+    // target and stands, as the original push does.
+    private void Push(WorldPlayer caster, MonsterInstance monster, int pushTo)
+    {
+        if (pushTo <= 0 || !monster.IsAlive || Immovable(monster))
+        {
+            return;
+        }
+
+        var away = new Vector2(monster.Position.X - caster.Position.X, monster.Position.Z - caster.Position.Z);
+        var distance = away.Length();
+        if (distance >= pushTo)
+        {
+            return;
+        }
+
+        away = distance > 1e-3f ? away / distance : new Vector2(MathF.Sin(caster.Facing), MathF.Cos(caster.Facing));
+        var destination = new Vector3(caster.Position.X + away.X * pushTo, monster.Position.Y, caster.Position.Z + away.Y * pushTo);
+        var terrain = _host.Terrain;
+        if (terrain.CrossesWall(monster.Position, destination))
+        {
+            return;
+        }
+
+        monster.Position = terrain.SettleNear(destination, FieldTerrain.DropTolerance);
+        monster.TargetId = 0;
+        monster.Motion = MonsterMotionState.Stand;
+        monster.AiState = MonsterAiState.Idle;
+    }
+
+    // A short knock-back away from the caster with the flinch motion (bosses only flinch).
+    private void KnockBack(WorldPlayer caster, MonsterInstance monster, int distance)
+    {
+        if (distance <= 0 || !monster.IsAlive)
+        {
+            return;
+        }
+
+        if (!Immovable(monster))
+        {
+            var away = new Vector2(monster.Position.X - caster.Position.X, monster.Position.Z - caster.Position.Z);
+            away = away.LengthSquared() > 1e-4f ? Vector2.Normalize(away) : new Vector2(MathF.Sin(caster.Facing), MathF.Cos(caster.Facing));
+            var destination = new Vector3(monster.Position.X + away.X * distance, monster.Position.Y, monster.Position.Z + away.Y * distance);
+            if (!_host.Terrain.CrossesWall(monster.Position, destination))
+            {
+                monster.Position = _host.Terrain.SettleNear(destination, FieldTerrain.DropTolerance);
+            }
+        }
+
+        if (monster.Motion != MonsterMotionState.Dead)
+        {
+            MonsterAiBrain.ApplyFlinchOnHit(monster, _rng, monster.Def.Combat.MaxLife, crit: true, _host.TuningFor(monster.Def).FlinchDurationMs);
+        }
+    }
+
+    // The monster drops its prey and targets the caster for the duration; the target lock keeps it from retargeting.
+    private static void Taunt(WorldPlayer caster, MonsterInstance monster, float durationMs)
+    {
+        monster.TargetId = caster.EntityId;
+        monster.TargetLockMsLeft = durationMs;
+        monster.Facing = MathF.Atan2(caster.Position.X - monster.Position.X, caster.Position.Z - monster.Position.Z);
+        if (monster.AiState is MonsterAiState.Idle or MonsterAiState.Wander or MonsterAiState.Leash)
+        {
+            monster.AiState = MonsterAiState.Chase;
+            monster.ManoeuvreClipsLeft = 0;
+            monster.SinceDecisionMs = MonsterAiTuning.DecisionIntervalMs;
+        }
+    }
+
+    // The resistance that shortens a debuff on a monster.
+    private static int ResistanceOf(SkillBuffRule buff, MonsterInstance monster)
+    {
+        if (buff is null)
+        {
+            return 0;
+        }
+
+        var resistances = ModifierRules.Resistances(monster.Effects.Totals, monster.Def.Combat.Resistances);
+        return buff.ResistedBy is { } element ? resistances[element] : buff.ResistedByBionic ? resistances.Bionic : 0;
+    }
+}

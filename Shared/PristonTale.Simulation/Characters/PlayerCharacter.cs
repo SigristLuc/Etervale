@@ -1,7 +1,9 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Skills;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Simulation.Characters;
 
@@ -10,6 +12,7 @@ public sealed class PlayerCharacter
     private readonly Dictionary<EquipmentSlot, ItemInstance> _equipment = new();
     private readonly List<AppliedInventoryOperation> _inventoryOperations = new();
     private readonly List<AppliedProgressionOperation> _progressionOperations = new();
+    private readonly List<AppliedServiceOperation> _serviceOperations = new();
 
     public PlayerCharacter(CharacterClass characterClass, string name, int level = 1, CharacterAttributes attributes = null)
     {
@@ -17,7 +20,7 @@ public sealed class PlayerCharacter
         Name = name;
         Level = Math.Max(1, level);
         Attributes = attributes ?? Definition.AttributesAtLevel(Level);
-        Skills = new LearnedSkills(Definition.Class);
+        Skills = new LearnedSkills(characterClass.Skills);
         Skills.Changed += Recompute;
         Recompute();
         Life = MaxLife;
@@ -105,9 +108,11 @@ public sealed class PlayerCharacter
         return true;
     }
 
+    public bool CanChangeMoney(long delta) => delta != long.MinValue && (delta >= 0 || Money >= -delta) && (delta <= 0 || Money <= long.MaxValue - delta);
+
     public bool TryChangeMoney(long delta)
     {
-        if (delta == long.MinValue || delta < 0 && Money < -delta || delta > 0 && Money > long.MaxValue - delta)
+        if (!CanChangeMoney(delta))
         {
             return false;
         }
@@ -120,12 +125,33 @@ public sealed class PlayerCharacter
     public Inventory Inventory { get; private set; } = new();
     public long InventoryRevision { get; private set; }
     public IReadOnlyList<AppliedInventoryOperation> InventoryOperations => _inventoryOperations;
+    public IReadOnlyList<AppliedServiceOperation> ServiceOperations => _serviceOperations;
     public long ProgressionRevision { get; private set; }
     public IReadOnlyList<AppliedProgressionOperation> ProgressionOperations => _progressionOperations;
     public LearnedSkills Skills { get; }
     public IReadOnlyDictionary<EquipmentSlot, ItemInstance> Equipment => _equipment;
 
-    public DerivedStats Derived { get; private set; }
+    // Timed and permanent modifiers from every source; the derived stats follow its revision.
+    public EffectContainer Effects { get; } = new();
+
+    private DerivedStats _derived;
+    private long _derivedEffectsRevision = -1;
+
+    public DerivedStats Derived
+    {
+        get
+        {
+            if (_derivedEffectsRevision != Effects.Revision)
+            {
+                Recompute();
+            }
+
+            return _derived;
+        }
+    }
+
+    // The attack animation rate: the attack speed and the attack-speed buffs.
+    public float AttackRate => AnimationRate.AttackRate(Derived.AttackSpeed, Effects.Totals.Flat(StatKind.AttackMotionSpeed));
 
     public int Life { get; set; }
     public int Mana { get; set; }
@@ -156,7 +182,7 @@ public sealed class PlayerCharacter
             EliteSkillPoints++;
         }
         Recompute();
-        // The original restores HP/MP/SP to full on level-up (CheckLevel).
+        // The original restores HP/MP/SP to full on level-up.
         Life = MaxLife;
         Mana = MaxMana;
         Stamina = MaxStamina;
@@ -289,6 +315,21 @@ public sealed class PlayerCharacter
         return true;
     }
 
+    // Item kinds in the main and the off hand (bit per kind), for effects bound to a weapon or a shield.
+    private uint HeldKinds()
+    {
+        var held = 0u;
+        foreach (var slot in new[] { EquipmentSlot.Weapon, EquipmentSlot.OffHand })
+        {
+            if (GetEquipped(slot) is { IsBroken: false } item && Enum.IsDefined(item.Definition.Kind))
+            {
+                held |= 1u << (int)item.Definition.Kind;
+            }
+        }
+
+        return held;
+    }
+
     public ItemStatBlock EquippedStats()
     {
         var total = ItemStatBlock.Zero;
@@ -304,10 +345,26 @@ public sealed class PlayerCharacter
         return total;
     }
 
+    // The single derived-stats path: attributes and level, equipment, passive skills, then every active modifier.
     private void Recompute()
     {
-        var stats = DerivedStats.Compute(Attributes, Level, Definition.FunctionProfile, EquippedStats());
-        Derived = FirstTierPassives.Apply(stats, Skills);
+        PassiveSkillEffects.Sync(this);
+        Effects.SetHeld(HeldKinds());
+        var equipped = EquippedStats();
+        var armorPercent = Effects.Totals.Flat(StatKind.ArmorDefence);
+        if (armorPercent != 0 && GetEquipped(EquipmentSlot.Armor) is { IsBroken: false } armor
+            && (armor.JobSpecMask & (uint)Definition.JobBitCode) != 0)
+        {
+            // The class armor's own defence grows by the percent before defence feeds absorption.
+            equipped = equipped with { Defence = equipped.Defence + armor.TotalStats.Defence * armorPercent / 100 };
+        }
+
+        var stats = DerivedStats.Compute(Attributes, Level, Definition.FunctionProfile, equipped);
+        _derivedEffectsRevision = Effects.Revision;
+        _derived = ModifierRules.Apply(PassiveSkills.Apply(stats, this), Effects.Totals);
+        Life = Math.Min(Life, _derived.MaxLife);
+        Mana = Math.Min(Mana, _derived.MaxMana);
+        Stamina = Math.Min(Stamina, _derived.MaxStamina);
     }
 
     private void OnInventoryChanged()
@@ -348,6 +405,87 @@ public sealed class PlayerCharacter
         _inventoryOperations.Add(new AppliedInventoryOperation(command, InventoryRevision));
     }
 
+    public void RestoreServiceHistory(IEnumerable<AppliedServiceOperation> operations)
+    {
+        _serviceOperations.Clear();
+        foreach (var operation in operations)
+        {
+            if (_serviceOperations.Count >= 64 || operation?.Command is null || operation.Command.OperationId == Guid.Empty
+                || operation.Revision < 0 || operation.Revision > InventoryRevision
+                || _serviceOperations.Any(existing => existing.Command.OperationId == operation.Command.OperationId))
+            {
+                throw new ArgumentException("Invalid NPC service operation history.");
+            }
+
+            _serviceOperations.Add(operation);
+        }
+    }
+
+    public void RecordServiceOperation(NpcServiceCommand command)
+    {
+        if (_serviceOperations.Count == 64)
+        {
+            _serviceOperations.RemoveAt(0);
+        }
+
+        _serviceOperations.Add(new AppliedServiceOperation(command, InventoryRevision));
+    }
+
+    public ItemInstance FindOwnedItem(Guid instanceId)
+    {
+        var anchor = Inventory.Find(instanceId);
+        if (anchor >= 0)
+        {
+            return Inventory[anchor];
+        }
+
+        foreach (var equipped in _equipment.Values)
+        {
+            if (equipped.InstanceId == instanceId)
+            {
+                return equipped;
+            }
+        }
+
+        return null;
+    }
+
+    public IEnumerable<ItemInstance> OwnedItems()
+    {
+        for (var anchor = 0; anchor < Inventory.Capacity; anchor++)
+        {
+            if (Inventory[anchor] is { } item)
+            {
+                yield return item;
+            }
+        }
+
+        foreach (var equipped in _equipment.Values)
+        {
+            yield return equipped;
+        }
+    }
+
+    public bool RestoreDurability(Guid instanceId)
+    {
+        var item = FindOwnedItem(instanceId);
+        if (item is null || item.DurabilityMax <= 0 || item.DurabilityCurrent >= item.DurabilityMax)
+        {
+            return false;
+        }
+
+        item.DurabilityCurrent = item.DurabilityMax;
+        Recompute();
+        OnInventoryChanged();
+        return true;
+    }
+
+    // Marks a change of the carried state that moves no item, such as gold handed to storage.
+    public void TouchInventory()
+    {
+        OnInventoryChanged();
+    }
+
     public PlayerCharacter CloneForInventoryOperation()
     {
         var clone = new PlayerCharacter(Class, Name, Level, Attributes);
@@ -367,10 +505,11 @@ public sealed class PlayerCharacter
 
         foreach (var skill in Skills.Ranks)
         {
-            clone.Skills.Restore(skill.Key, skill.Value);
+            clone.Skills.Restore(skill.Key, skill.Value, Skills.UsesOf(skill.Key));
         }
 
         clone.RestoreInventoryHistory(InventoryRevision, _inventoryOperations);
+        clone.RestoreServiceHistory(_serviceOperations);
         clone.RestoreProgressionHistory(ProgressionRevision, _progressionOperations);
         clone.Life = Life;
         clone.Mana = Mana;
@@ -396,13 +535,21 @@ public sealed class PlayerCharacter
                 break;
             case ProgressionAction.LearnSkill:
                 if (command.Amount != 0 || command.Attribute != CharacterAttribute.Strength || command.NpcEntityId == 0
-                    || !SkillLearning.TryQuote(this, command.SkillCode, out var price))
+                    || !SkillLearning.TryQuote(this, command.SkillCode, out var price, out var finalTier))
                 {
                     return false;
                 }
 
                 Money -= price;
-                SkillPoints--;
+                if (finalTier)
+                {
+                    EliteSkillPoints--;
+                }
+                else
+                {
+                    SkillPoints--;
+                }
+
                 Skills.Increase(command.SkillCode);
                 break;
             default:
@@ -455,6 +602,7 @@ public sealed class PlayerCharacter
         }
 
         RestoreInventoryHistory(candidate.InventoryRevision, candidate._inventoryOperations);
+        RestoreServiceHistory(candidate._serviceOperations);
         Recompute();
         Life = Math.Min(Life, MaxLife);
         Mana = Math.Min(Mana, MaxMana);

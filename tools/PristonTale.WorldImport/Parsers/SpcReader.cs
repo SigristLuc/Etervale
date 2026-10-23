@@ -32,6 +32,24 @@ public sealed class SpcReader
     private const int OffZ = 484;
     private const int OffAngleY = 492; // ay — the usual heading
 
+    // Configuration paths of the live records, in file order.
+    public static IReadOnlyList<string> Sources(string path)
+    {
+        var bytes = File.ReadAllBytes(path);
+        var count = Math.Min(bytes.Length / RecordSize, RecordCount);
+        var sources = new List<string>();
+        for (var i = 0; i < count; i++)
+        {
+            var off = i * RecordSize;
+            if (BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(off + OffCode, 4)) != 0)
+            {
+                sources.Add(Cp949.GetNullTerminated(bytes.AsSpan(off + 104, 60)));
+            }
+        }
+
+        return sources;
+    }
+
     public void Read(string path, ParsedField field)
     {
         var bytes = File.ReadAllBytes(path);

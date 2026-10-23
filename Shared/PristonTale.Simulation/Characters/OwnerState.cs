@@ -19,6 +19,9 @@ public sealed record OwnerState(
     public int MoveSpeed { get; init; }
     public long ProgressionRevision { get; init; }
     public long SkillsRevision { get; init; }
+    // Class tier 0..3 and the points the final tier's skills spend.
+    public int Tier { get; init; }
+    public int EliteSkillPoints { get; init; }
     public IReadOnlyList<OwnedSkillView> Skills { get; init; } = Array.Empty<OwnedSkillView>();
 
     public static OwnerState Capture(PlayerCharacter character, OwnerState previous = null)
@@ -29,6 +32,7 @@ public sealed record OwnerState(
             && previous.Mp == character.Mana && previous.MaxMp == character.MaxMana
             && previous.Sp == character.Stamina && previous.MaxSp == character.MaxStamina
             && previous.StatPoints == character.StatPoints && previous.SkillPoints == character.SkillPoints
+            && previous.Tier == character.Tier && previous.EliteSkillPoints == character.EliteSkillPoints
             && previous.Strength == attributes.Strength && previous.Spirit == attributes.Spirit && previous.Talent == attributes.Talent
             && previous.Agility == attributes.Agility && previous.Health == attributes.Health
             && previous.AttackRating == character.Derived.AttackRating && previous.MoveSpeed == character.Derived.MoveSpeed
@@ -76,6 +80,8 @@ public sealed record OwnerState(
             MoveSpeed = character.Derived.MoveSpeed,
             ProgressionRevision = character.ProgressionRevision,
             SkillsRevision = character.Skills.Revision,
+            Tier = character.Tier,
+            EliteSkillPoints = character.EliteSkillPoints,
             Skills = previous is not null && previous.SkillsRevision == character.Skills.Revision ? previous.Skills
                 : Array.AsReadOnly(character.Skills.Ranks.Select(pair => new OwnedSkillView(pair.Key, pair.Value)).ToArray())
         };

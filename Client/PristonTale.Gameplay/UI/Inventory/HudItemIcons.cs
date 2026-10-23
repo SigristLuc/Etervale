@@ -18,6 +18,7 @@ public sealed class HudItemIcons : IDisposable
     public bool IsIdle => _cache.IsIdle;
     public bool Failed => _cache.Failed;
     public void Request(IReadOnlyList<OwnedItemView> items) => _cache.Request(items.Select(item => item.CatalogKey));
+    public void Request(IEnumerable<string> catalogKeys) => _cache.Request(catalogKeys);
     public void Update() => _cache.Update();
     public void Dispose() => _cache.Dispose();
 }

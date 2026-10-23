@@ -1,9 +1,11 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Gameplay.UI.Rendering;
+using PristonTale.Simulation.World;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
+// NeighbourFieldId is another loaded field whose map is drawn under the active one where the two meet.
 public readonly record struct HudWorldView(
     string FieldId,
     bool Underground,
@@ -11,37 +13,64 @@ public readonly record struct HudWorldView(
     Vector3 PlayerPosition,
     Vector3 PlayerForward,
     float TimeOfDay,
-    bool Running);
+    bool Running,
+    bool MapHidden = false,
+    string NeighbourFieldId = null,
+    PristonIntRectangle NeighbourMapRectangle = default);
 
 // Original field minimap: 128x128 box at (656,426), right and bottom anchored, black 50% backdrop, the
-// field\map\<id>.tga region around the player, NPC dots, the heading arrow, MapBox.tga and the field title.
+// field\map\<id>.tga region around the player (the neighbouring field's map first), NPC dots, the heading arrow,
+// MapBox.tga and the field title. North is up; the map does not rotate.
 public sealed class HudMinimap
 {
     private const float FixedScale = 256f;
+    // The view radius starts at 8 cells and eases toward the field's size by 8 units per 70 Hz frame.
+    private const float InitialViewSize = 8 * 64f;
+    private const float ZoomSpeed = 8f * 70f;
+    // The original adds a specular 96 to the frame (a quarter of it to the title) under the cursor; adding the sprite's own
+    // colour once (a quarter for the title) gives the same brightening on the grey frame art.
+    private const int HoverHighlight = 255;
+    private const int SodField = 30;
+    private const int QuestArenaField = 32;
+    private const int BossField = 36;
+
     private string _field;
+    private string _neighbour;
+    private string _fieldMap;
+    private string _fieldTitle;
+    private string _neighbourMap;
+    private float _viewSize = InitialViewSize;
 
     public static Rectangle Box(HudLayout layout) => layout.BottomRight(new Rectangle(656, 426, 128, 128));
 
-    // FieldMapDrawSize 16 (dungeon) or 24 (other fields) times 64 world units from the centre to the box edge.
+    // 16 (dungeon) or 24 (other fields) cells of 64 world units from the centre to the box edge.
     public static float ViewSize(bool underground) => (underground ? 16 : 24) * 64f;
+
+    public float CurrentViewSize => _viewSize;
+
+    // The original shows no minimap in the Bellatra arena, the quest arena and the boss field.
+    public static bool HiddenOn(int fieldCode, FieldState state) =>
+        fieldCode is SodField or QuestArenaField or BossField || state == FieldState.QuestArena;
 
     // Original stage coordinates are fixed point with Z mirrored relative to the engine (stage vertex Z = -z).
     public static Vector2 MapPoint(PristonIntRectangle rectangle, Vector3 position) =>
         new(position.X - rectangle.Left / FixedScale, rectangle.Bottom / FixedScale + position.Z);
 
     // Returns the texture source (normalized) and destination (relative to the 126x126 interior) after the original clipping.
-    public static bool MapRegion(PristonIntRectangle rectangle, Vector3 position, bool underground, out Vector4 source, out Vector4 destination)
+    public static bool MapRegion(PristonIntRectangle rectangle, Vector3 position, bool underground, out Vector4 source, out Vector4 destination) =>
+        MapRegion(rectangle, position, ViewSize(underground), out source, out destination);
+
+    public static bool MapRegion(PristonIntRectangle rectangle, Vector3 position, float size, out Vector4 source, out Vector4 destination)
     {
         source = default;
         destination = default;
         var width = (rectangle.Right - rectangle.Left) / FixedScale;
         var height = (rectangle.Bottom - rectangle.Top) / FixedScale;
-        if (width <= 0 || height <= 0)
+        if (width <= 0 || height <= 0 || size <= 0)
         {
             return false;
         }
 
-        var size = ViewSize(underground);
         var point = MapPoint(rectangle, position);
         var fpx = size / width;
         var fpy = size / height;
@@ -95,62 +124,111 @@ public sealed class HudMinimap
     public static float ArrowRotation(Vector3 forward) =>
         forward.X == 0 && forward.Z == 0 ? MathF.PI : MathF.Atan2(forward.X, -forward.Z) + MathF.PI;
 
-    public void Update(HudSprites sprites, string fieldId)
+    // A world offset from the player to the box centre: x east, y south (engine z), 64 pixels per view radius.
+    public static Vector2 MarkerOffset(Vector3 player, Vector3 marker, float size) =>
+        new((marker.X - player.X) * 64 / size, (marker.Z - player.Z) * 64 / size);
+
+    public static float EaseViewSize(float current, float target, double elapsedSeconds)
     {
-        if (string.Equals(fieldId, _field, StringComparison.OrdinalIgnoreCase))
+        var step = (float)(ZoomSpeed * Math.Max(0, elapsedSeconds));
+        return current < target ? MathF.Min(target, current + step) : MathF.Max(target, current - step);
+    }
+
+    public void Update(HudSprites sprites, HudWorldView world, double elapsedSeconds)
+    {
+        var neighbour = string.Equals(world.NeighbourFieldId, world.FieldId, StringComparison.OrdinalIgnoreCase) ? null : world.NeighbourFieldId;
+        if (!string.Equals(world.FieldId, _field, StringComparison.OrdinalIgnoreCase) || !string.Equals(neighbour, _neighbour, StringComparison.OrdinalIgnoreCase))
         {
-            return;
+            // Field art is not reference counted: when the two fields swap, keep what stays in use.
+            var fieldMap = world.FieldId is null ? null : HudArt.FieldMap(world.FieldId);
+            var fieldTitle = world.FieldId is null ? null : HudArt.FieldTitle(world.FieldId);
+            var neighbourMap = neighbour is null ? null : HudArt.FieldMap(neighbour);
+            ReleaseUnless(sprites, _fieldMap, fieldMap, neighbourMap);
+            ReleaseUnless(sprites, _fieldTitle, fieldTitle, null);
+            ReleaseUnless(sprites, _neighbourMap, fieldMap, neighbourMap);
+            _field = world.FieldId;
+            _neighbour = neighbour;
+            _fieldMap = fieldMap;
+            _fieldTitle = fieldTitle;
+            _neighbourMap = neighbourMap;
+            Request(sprites, _fieldMap);
+            Request(sprites, _fieldTitle);
+            Request(sprites, _neighbourMap);
+        }
+
+        _viewSize = EaseViewSize(_viewSize, ViewSize(world.Underground), elapsedSeconds);
+    }
+
+    public void Draw(HudPainter painter, HudLayout layout, HudWorldView world, IReadOnlyList<Vector3> npcs, bool hovered)
+    {
+        var box = Box(layout);
+        painter.ColorBox(box, 0, 0, 0, 128);
+        if (_neighbour is not null)
+        {
+            DrawMap(painter, box, _neighbourMap, world.NeighbourMapRectangle, world.PlayerPosition);
         }
 
         if (_field is not null)
         {
-            sprites.Release(HudArt.FieldMap(_field));
-            sprites.Release(HudArt.FieldTitle(_field));
+            DrawMap(painter, box, _fieldMap, world.MapRectangle, world.PlayerPosition);
         }
 
-        _field = fieldId;
-        if (fieldId is not null)
-        {
-            sprites.Request(HudArt.FieldMap(fieldId));
-            sprites.Request(HudArt.FieldTitle(fieldId));
-        }
-    }
-
-    public void Draw(HudPainter painter, HudLayout layout, HudWorldView world, IEnumerable<Vector3> npcs)
-    {
-        var box = Box(layout);
-        painter.ColorBox(box, 0, 0, 0, 128);
-        if (world.FieldId is not null)
-        {
-            var map = painter.Texture(HudArt.FieldMap(world.FieldId));
-            if (map is not null && MapRegion(world.MapRectangle, world.PlayerPosition, world.Underground, out var source, out var destination))
-            {
-                var from = new Rectangle((int)(source.X * map.Width), (int)(source.Y * map.Height),
-                    Math.Max(1, (int)(source.Z * map.Width)), Math.Max(1, (int)(source.W * map.Height)));
-                var to = new Rectangle(box.X + 1 + (int)destination.X, box.Y + 1 + (int)destination.Y, (int)destination.Z, (int)destination.W);
-                painter.Stretch(HudArt.FieldMap(world.FieldId), to, from);
-            }
-        }
-
-        var size = ViewSize(world.Underground);
         var center = new Vector2(box.X + 64, box.Y + 64);
-        foreach (var npc in npcs)
+        for (var index = 0; index < npcs.Count; index++)
         {
-            var dx = npc.X - world.PlayerPosition.X;
-            var dz = npc.Z - world.PlayerPosition.Z;
-            if (MathF.Abs(dx) < size && MathF.Abs(dz) < size)
+            var npc = npcs[index];
+            if (MathF.Abs(npc.X - world.PlayerPosition.X) < _viewSize && MathF.Abs(npc.Z - world.PlayerPosition.Z) < _viewSize)
             {
-                var x = center.X + dx * 64 / size;
-                var y = center.Y + dz * 64 / size;
-                painter.Sprite(HudArt.MapNpc, (int)x - 3, (int)y - 3);
+                var offset = MarkerOffset(world.PlayerPosition, npc, _viewSize);
+                painter.Sprite(HudArt.MapNpc, (int)(center.X + offset.X) - 3, (int)(center.Y + offset.Y) - 3);
             }
         }
 
         painter.Rotated(HudArt.MapArrow, center, ArrowRotation(world.PlayerForward));
         painter.Sprite(HudArt.MapBox, box.X, box.Y);
-        if (world.FieldId is not null)
+        if (hovered)
         {
-            painter.Stretch(HudArt.FieldTitle(world.FieldId), new Rectangle(box.X, box.Y - 16, 128, 16));
+            painter.Highlight(HudArt.MapBox, box, HoverHighlight);
+        }
+
+        if (_field is not null)
+        {
+            var title = new Rectangle(box.X, box.Y - 16, 128, 16);
+            painter.Stretch(_fieldTitle, title);
+            if (hovered)
+            {
+                painter.Highlight(_fieldTitle, title, HoverHighlight >> 2);
+            }
+        }
+    }
+
+    private void DrawMap(HudPainter painter, Rectangle box, string path, PristonIntRectangle rectangle, Vector3 player)
+    {
+        var map = painter.Texture(path);
+        if (map is null || !MapRegion(rectangle, player, _viewSize, out var source, out var destination))
+        {
+            return;
+        }
+
+        var from = new Rectangle((int)(source.X * map.Width), (int)(source.Y * map.Height),
+            Math.Max(1, (int)(source.Z * map.Width)), Math.Max(1, (int)(source.W * map.Height)));
+        var to = new Rectangle(box.X + 1 + (int)destination.X, box.Y + 1 + (int)destination.Y, (int)destination.Z, (int)destination.W);
+        painter.Stretch(path, to, from);
+    }
+
+    private static void Request(HudSprites sprites, string path)
+    {
+        if (path is not null)
+        {
+            sprites.Request(path);
+        }
+    }
+
+    private static void ReleaseUnless(HudSprites sprites, string path, string keep, string keepToo)
+    {
+        if (path is not null && !string.Equals(path, keep, StringComparison.OrdinalIgnoreCase) && !string.Equals(path, keepToo, StringComparison.OrdinalIgnoreCase))
+        {
+            sprites.Release(path);
         }
     }
 }

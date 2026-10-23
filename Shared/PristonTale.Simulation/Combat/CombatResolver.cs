@@ -103,12 +103,12 @@ public static class CombatResolver
 
     public static bool RollCrit(CombatRng rng, in AttackProfile a, in DefenderProfile d)
     {
-        int chance = a.CritChance + ((a.AttackerLevel - d.Level) * 25) / 100;
+        int chance = a.CritChance + ((a.AttackerLevel - d.Level) * 25) / 100 + (a.CritChance > 0 ? d.CritChanceTaken : 0);
         if (chance > 70) chance = 70;
         return rng.RollPercent() < chance;
     }
 
-    public static int ApplyCrit(int dmg) => (dmg * AttackProfile.CritMultiplierPercent) / 100;
+    public static int ApplyCrit(int dmg, int bonusPercent = 0) => (dmg * (AttackProfile.CritMultiplierPercent + bonusPercent)) / 100;
 
     public static int ApplyElement(int dmg, Element e, in ResistanceBlock r)
     {
@@ -133,10 +133,10 @@ public static class CombatResolver
         return dmg;
     }
 
-    public static HitResult Resolve(CombatRng rng, in AttackProfile a, in DefenderProfile d, bool defenderHasShield = false)
+    public static HitResult Resolve(CombatRng rng, in AttackProfile a, in DefenderProfile d, bool defenderHasShield = false, bool alwaysHit = false)
     {
         int hitChance = HitChance(a, d);
-        if (!RollHit(rng, hitChance))
+        if (!alwaysHit && !RollHit(rng, hitChance))
             return new HitResult(Hit: false, Blocked: false, Crit: false, Damage: 0, Element: a.Element);
 
         // Block negates the landed hit (receiver-side). Roll it before computing damage so a blocked
@@ -147,12 +147,16 @@ public static class CombatResolver
         int dmg = RollBaseDamage(rng, a);
 
         dmg = ApplySkill(dmg, a);
+        dmg += dmg * a.ExtraPercent / 100;
 
         bool crit = RollCrit(rng, a, d);
         if (crit)
-            dmg = ApplyCrit(dmg);
+            dmg = ApplyCrit(dmg, a.CritBonusPercent);
 
-        dmg = ApplyElement(dmg, a.Element, d.Resistances);
+        if (a.ResistedPart >= 0)
+            dmg -= a.ResistedPart - ApplyElement(a.ResistedPart, a.Element, d.Resistances);
+        else
+            dmg = ApplyElement(dmg, a.Element, d.Resistances);
 
         dmg = ApplyAbsorbMonster(dmg, d.Absorption);
 

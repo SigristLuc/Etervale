@@ -10,6 +10,21 @@ public readonly record struct PlayerActorHandles(ActorHandle Body, ActorHandle H
     public ActorHandle Weapon { get; init; } = ActorHandle.None;
     public ActorHandle OffHand { get; init; } = ActorHandle.None;
 
+    // The body first: it carries the skeleton the others follow.
+    public int CopyTo(Span<ActorHandle> destination)
+    {
+        var count = 0;
+        foreach (var handle in (ReadOnlySpan<ActorHandle>)[Body, Head, Weapon, OffHand])
+        {
+            if (handle.IsValid && count < destination.Length)
+            {
+                destination[count++] = handle;
+            }
+        }
+
+        return count;
+    }
+
     public void Remove(IActorScene scene)
     {
         if (Weapon.IsValid)

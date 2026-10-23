@@ -22,6 +22,8 @@ public sealed class RemoteEntityManager
     private WorldRenderCatalog _catalog;
 
     private readonly Dictionary<uint, RemoteEntityBase> _entities = new();
+    // Summons and their owners: allies that cannot be picked as targets.
+    private readonly Dictionary<uint, uint> _summonOwners = new();
     private readonly RemoteCollisionRoster _collisionRoster = new();
 
     private readonly Dictionary<uint, EntitySpawnInfo> _pendingModels = new();
@@ -284,13 +286,19 @@ public sealed class RemoteEntityManager
         }
 
         var position = ToXna(spawn.Position);
-        var world = Microsoft.Xna.Framework.Matrix.CreateScale(info.ModelScale) * Microsoft.Xna.Framework.Matrix.CreateRotationY(spawn.Facing) * Microsoft.Xna.Framework.Matrix.CreateTranslation(position);
+        if (spawn.OwnerId != 0)
+        {
+            _summonOwners[spawn.EntityId] = spawn.OwnerId;
+        }
+
+        var scale = spawn.ModelScale > 0f ? spawn.ModelScale : info.ModelScale;
+        var world = Microsoft.Xna.Framework.Matrix.CreateScale(scale) * Microsoft.Xna.Framework.Matrix.CreateRotationY(spawn.Facing) * Microsoft.Xna.Framework.Matrix.CreateTranslation(position);
         var motion = RemoteEntityBase.ToActorMotion(spawn.MoveState);
         var composed = _monsterComposer.Compose(_assetRoot, info.ModelInxPath, world, motion);
         var monster = new RemoteModelEntity(
             _scene,
             composed.Handle,
-            info.ModelScale,
+            scale,
             _clock.Stamp(spawn.ServerTimeMs),
             position,
             spawn.Facing,
@@ -357,8 +365,19 @@ public sealed class RemoteEntityManager
         _log.Info($"[Remote] state for unknown entity {state.EntityId} dropped (spawn not yet seen).");
     }
 
+    public bool TryGetSummonOwner(uint entityId, out uint ownerId) => _summonOwners.TryGetValue(entityId, out ownerId);
+
+    public void SeekSkillMotion(uint entityId, int framesFromStart, float rate)
+    {
+        if (_entities.TryGetValue(entityId, out var entity) && entity is RemoteEntity player)
+        {
+            player.SeekSkill(framesFromStart, rate);
+        }
+    }
+
     private void ApplyRemoved(uint entityId)
     {
+        _summonOwners.Remove(entityId);
         _playerAppearances.Remove(entityId);
         _collisionRoster.Remove(entityId);
         _pendingModels.Remove(entityId);
@@ -445,7 +464,7 @@ public sealed class RemoteEntityManager
         {
             if (id == selfId)
                 continue;
-            if (entity.IsDead)
+            if (entity.IsDead || _summonOwners.ContainsKey(id))
                 continue;
             var radius = PickRadius(entity.Kind);
             if (radius <= 0f)
@@ -463,6 +482,10 @@ public sealed class RemoteEntityManager
         return entityId != 0;
     }
 
+    // Entities still loading their models are not in the roster and have no actors yet.
+    public int CopyActorHandles(uint entityId, Span<ActorHandle> destination) =>
+        _entities.TryGetValue(entityId, out var entity) ? entity.CopyActorHandles(destination) : 0;
+
     public bool TryGetDrawnPosition(uint entityId, out XnaVector3 position)
     {
         if (_entities.TryGetValue(entityId, out var entity))
@@ -473,6 +496,35 @@ public sealed class RemoteEntityManager
 
         position = default;
         return false;
+    }
+
+    // The actor whose bones effects attach to: a player's body or a monster's model.
+    public bool TryGetBodyActor(uint entityId, out ActorHandle handle)
+    {
+        handle = default;
+        if (!_entities.TryGetValue(entityId, out var entity))
+        {
+            return false;
+        }
+
+        handle = entity switch
+        {
+            RemoteEntity player => player.Body,
+            RemoteModelEntity model => model.Actor,
+            _ => default
+        };
+        return handle.IsValid;
+    }
+
+    public bool PlaySkillMotion(uint entityId, int motionIndex, float rate, bool attackClip)
+    {
+        if (!_entities.TryGetValue(entityId, out var entity) || entity.IsDead)
+        {
+            return false;
+        }
+
+        entity.PlaySkill(motionIndex, rate, attackClip);
+        return true;
     }
 
     public bool TryGetNpcAudioSource(uint entityId, out int soundCode, out XnaVector3 position)

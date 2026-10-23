@@ -1,0 +1,141 @@
+using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Combat;
+using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Modifiers;
+using PristonTale.Simulation.World.Monsters;
+
+namespace PristonTale.Simulation.Skills;
+
+// Formulas of the support, defence and multi-target mechanics shared by the server and the client tooltips.
+public static partial class SkillFormulas
+{
+    // Interval of the original's per-second slow and charm counters.
+    private const float TenthMs = 100f;
+
+    // The wielded weapon's own damage range (the item's, not the attribute-scaled attack); zero bare-handed.
+    public static (int Min, int Max) WeaponItemDamage(PlayerCharacter caster)
+    {
+        var weapon = caster.GetEquipped(EquipmentSlot.Weapon);
+        if (weapon is null || weapon.IsBroken)
+        {
+            return default;
+        }
+
+        var stats = weapon.TotalStats;
+        return (stats.DamageMin, stats.DamageMax);
+    }
+
+    // True while one of the skill's exclusive effects is on the caster.
+    public static bool BlockedByActiveEffect(PlayerCharacter caster, SkillRule rule)
+    {
+        foreach (var code in rule.Exclusive)
+        {
+            if (caster.Effects.TryGet(code, out _))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static bool MatchesBrood(string[] broods, MonsterDefinition target)
+    {
+        if (target is null)
+        {
+            return false;
+        }
+
+        foreach (var name in broods)
+        {
+            if (Enum.TryParse<MonsterBrood>(name, ignoreCase: true, out var brood) && target.Brood == brood)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static int BroodBonusPercent(SkillDamageRule damage, int rank, MonsterDefinition target)
+    {
+        var percent = damage.BonusPercentByRank.Length == 10 ? damage.BonusPercentByRank[Math.Clamp(rank, 1, 10) - 1] : damage.BonusPercent;
+        return percent != 0 && MatchesBrood(damage.BonusBroods, target) ? percent : 0;
+    }
+
+    // What a resolved power deals to a monster: brood bonus, element resistance (divided by the rule's divisor), the
+    // monster's absorption in percent and the damage-dealt and damage-taken modifiers.
+    public static int PowerAgainst(int power, SkillDamageRule damage, int rank, MonsterDefinition target, ModifierTotals attacker, ModifierTotals defender,
+        Element? element = null)
+    {
+        var value = WithBroodBonus(power, damage, rank, target);
+        var resistances = ModifierRules.Resistances(defender, target.Combat.Resistances);
+        var resistance = resistances[element ?? damage.Element] / Math.Max(1, damage.ResistanceDivisor);
+        value -= value * Math.Clamp(resistance, -100, 100) / 100;
+        value = CombatResolver.ApplyAbsorbMonster(value, target.Combat.Absorption + defender.Flat(StatKind.Absorption));
+        return ModifierRules.ScaleDamage(value, attacker, defender);
+    }
+
+    // The holder's extra damage against undead monsters (a percent of the hit).
+    public static int WithUndeadBonus(int damage, ModifierTotals attacker, MonsterDefinition target)
+    {
+        var percent = attacker.Flat(StatKind.DamageVsUndead) + attacker.Percent(StatKind.DamageVsUndead);
+        return percent <= 0 || damage <= 0 || target?.Brood != MonsterBrood.Undead ? damage : damage + damage * percent / 100;
+    }
+
+    // The buff's duration on a target: bionic or the rule's element resistance shortens resisted effects.
+    public static float BuffDurationMs(SkillRule rule, int rank, in ResistanceBlock resistances)
+    {
+        var buff = rule.Buff;
+        var ms = rule.At(buff.DurationTenths, rank) * TenthMs;
+        var resistance = buff.ResistedBy is { } element ? resistances[element] : buff.ResistedByBionic ? resistances.Bionic : 0;
+        return ms * (100 - Math.Clamp((int)resistance, 0, 100)) / 100f;
+    }
+
+    // The table value of a rank-indexed array, 0 outside 1..10.
+    public static int RankValue(int[] table, int rank) => table is { Length: 10 } && rank is >= 1 and <= 10 ? table[rank - 1] : 0;
+
+    // A share skill's chance (with the level term, lowered by bionic resistance) and its percent of life.
+    public static int ShareChance(SkillDamageRule damage, int rank, int casterLevel, int bionicResistance)
+    {
+        if (damage.Chance.Length != 10)
+        {
+            return 100;
+        }
+
+        var chance = RankValue(damage.Chance, rank) + (damage.ChanceLevelDivisor > 0 ? casterLevel / damage.ChanceLevelDivisor : 0);
+        return chance - chance * Math.Clamp(bionicResistance, -100, 100) / 100;
+    }
+
+    public static int SharePercent(SkillDamageRule damage, int rank, int bionicResistance)
+    {
+        var share = RankValue(damage.Share, rank);
+        return damage.ShareResistedByBionic ? share - share * Math.Clamp(bionicResistance, -100, 100) / 100 : share;
+    }
+
+    // The charm's success chance on a monster: the table lowered by its bionic resistance.
+    public static int CharmChance(SkillRule rule, int rank, int bionicResistance) =>
+        RankValue(rule.Charm.Chance, rank) * (100 - Math.Clamp(bionicResistance, 0, 100)) / 100;
+
+    // A companion strike's damage range at this rank for the drawn choice, with the weapon and spirit terms.
+    public static (int Min, int Max) CompanionDamage(SkillCompanionRule companion, SkillEnchantChoice choice, int rank, PlayerCharacter caster)
+    {
+        var low = RankValue(choice.Min, rank);
+        var high = RankValue(choice.Max, rank);
+        if (companion.WeaponDivisor > 0)
+        {
+            var weapon = WeaponItemDamage(caster);
+            low += weapon.Min / companion.WeaponDivisor;
+            high += weapon.Max / companion.WeaponDivisor;
+        }
+
+        var spirit = caster.Attributes.Spirit;
+        low += companion.SpiritMinDivisor > 0 ? spirit / companion.SpiritMinDivisor : 0;
+        high += companion.SpiritMaxDivisor > 0 ? spirit / companion.SpiritMaxDivisor : 0;
+        return (low, Math.Max(low, high));
+    }
+
+    // Duration of an enchant's or a companion's slow on a monster: ice resistance shortens it.
+    public static float SlowDurationMs(SkillEnchantChoice choice, int rank, int iceResistance) =>
+        RankValue(choice.SlowTenths, rank) * TenthMs * (100 - Math.Clamp(iceResistance, 0, 100)) / 100f;
+}

@@ -22,6 +22,7 @@ public sealed class LegacyEffectLibrary : IDisposable
     private readonly ContentManager _content;
     private readonly EffectDefinition[] _potions = new EffectDefinition[3];
     private readonly EffectDefinition[] _hulkHits = new EffectDefinition[3];
+    private readonly Dictionary<string, EffectDefinition> _scripts = new(StringComparer.OrdinalIgnoreCase);
 
     private LegacyEffectLibrary(GraphicsDevice device, ContentManager content, IClientLog log)
     {
@@ -119,6 +120,42 @@ public sealed class LegacyEffectLibrary : IDisposable
             library.Dispose();
             throw;
         }
+    }
+
+    public Texture2D White => _textures.White;
+
+    // An effect texture under the asset root, or null when the file is missing.
+    public Texture2D LoadTexture(string root, string path)
+    {
+        return PristonFileResolver.Exists(Path.Combine(root, path)) ? _textures.LoadTexture(root, path) : null;
+    }
+
+    // An original particle script by name, cached; null when the script is missing or uses unsupported constructs.
+    public EffectDefinition ParticleScript(string root, string name)
+    {
+        if (_scripts.TryGetValue(name, out var cached))
+        {
+            return cached;
+        }
+
+        EffectDefinition script = null;
+        try
+        {
+            script = LoadParticleScript(root, name);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException)
+        {
+        }
+
+        _scripts[name] = script;
+        return script;
+    }
+
+    public static IReadOnlyList<LegacyParticleSequence> ReadParticleSequences(string root, string name)
+    {
+        using var stream = PristonFileResolver.OpenRead(Path.Combine(root, "Effect", "Particle", "Script", name + ".part"));
+        using var reader = new StreamReader(stream, Encoding.Latin1);
+        return LegacyParticleScript.Read(reader);
     }
 
     private EffectDefinition LoadParticleScript(string root, string name)

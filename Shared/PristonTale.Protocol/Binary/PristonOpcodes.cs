@@ -56,8 +56,20 @@ public static class EtervaleOpcodes
     public const uint ProgressionCommand = 0x45540120;
     public const uint ProgressionResult = 0x45540121;
     public const uint NpcResult = 0x45540130;
+    public const uint NpcServiceRequest = 0x45540131;
+    public const uint NpcServiceResult = 0x45540132;
+    public const uint ShopCatalog = 0x45540133;
+    public const uint ShopQuotes = 0x45540134;
+    public const uint Warehouse = 0x45540135;
+    public const uint TeleportList = 0x45540136;
     public const uint CombatEvents = 0x45540140;
     public const uint RemoveObjects = 0x45540150;
     public const uint LeaveWorld = 0x45540160;
     public const uint PresenceClock = 0x45540170;
+
+    public const uint SkillCast = 0x45540200;
+    public const uint SkillCastResult = 0x45540201;
+    public const uint SkillEvents = 0x45540202;
+    public const uint StatusEffects = 0x45540203;
+    public const uint SkillCooldowns = 0x45540204;
 }

@@ -17,6 +17,7 @@ public static class PlayerAttackReach
         bool ranged = definition.Kind is ItemKind.Bow or ItemKind.ThrowingWeapon
             || definition.Kind == ItemKind.Staff && character.Definition.Class is PlayerClass.Magician or PlayerClass.Priestess
             || definition.Kind == ItemKind.Phantom && character.Definition.Class == PlayerClass.Shaman;
-        return ranged ? Math.Max(0, definition.ShootingRange) : MeleeReach.PlayerBaseRange;
+        // Shooting range from skill effects (a wind's longer javelin throw) extends ranged weapons only.
+        return ranged ? Math.Max(0, definition.ShootingRange + character.Effects.Totals.Flat(Modifiers.StatKind.AttackRange)) : MeleeReach.PlayerBaseRange;
     }
 }

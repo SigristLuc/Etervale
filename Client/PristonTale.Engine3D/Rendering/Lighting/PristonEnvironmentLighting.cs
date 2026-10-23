@@ -41,7 +41,7 @@ internal sealed class PristonEnvironmentLighting : IDisposable
     private readonly EffectParameter _groundTarget;
     private readonly EffectParameter _faceAtlas;
     private readonly EffectParameter _octahedralMap;
-    private readonly EffectParameter _previousSh;
+    private readonly EffectParameter _lightSh;
     private readonly EffectParameter _sh;
     private readonly RenderTarget2D _faces;
     private readonly RenderTarget2D _base;
@@ -65,7 +65,7 @@ internal sealed class PristonEnvironmentLighting : IDisposable
         _groundTarget = parameters["GroundAmbientTarget"];
         _faceAtlas = parameters["FaceAtlas"];
         _octahedralMap = parameters["Octahedral"];
-        _previousSh = parameters["PreviousSh"];
+        _lightSh = parameters["LightSh"];
         _sh = parameters["Sh"];
         _faces = new RenderTarget2D(device, FaceSize * 6, FaceSize, false, SurfaceFormat.Color, DepthFormat.None, 0, RenderTargetUsage.PreserveContents);
         _base = new RenderTarget2D(device, BaseSize, BaseSize, false, SurfaceFormat.HalfVector4, DepthFormat.None, 0, RenderTargetUsage.PreserveContents);
@@ -112,17 +112,22 @@ internal sealed class PristonEnvironmentLighting : IDisposable
 
     public static Viewport FaceViewport(int face) => new(face * FaceSize, 0, FaceSize, FaceSize);
 
-    // Builds the octahedral map, the prefiltered atlas and the irradiance from the faces just drawn.
+    // Builds the irradiance, the octahedral map and the prefiltered atlas from the faces just drawn.
     public void Build(uint renderTime, float displayScale, Vector3 skyAmbient, Vector3 groundAmbient)
     {
-        var previous = _current;
         _current ^= 1;
         _device.BlendState = BlendState.Opaque;
         _faceAtlas.SetValue(_faces);
-        _previousSh.SetValue(_shBuffers[previous]);
         _skyTarget.SetValue(skyAmbient);
         _groundTarget.SetValue(groundAmbient);
         _params.SetValue(new Vector4(displayScale, 0f, BaseSize, PrefilterSamples));
+        // The irradiance first (from the faces): the octahedral map takes its scale and fill.
+        _sh.SetValue(_shBuffers[_current]);
+        _effect.CurrentTechnique = _irradiance;
+        _irradiance.Passes[0].Apply();
+        _device.Dispatch(1, 1, 1);
+
+        _lightSh.SetValue(_shBuffers[_current]);
         _device.SetRenderTarget(_base);
         _effect.CurrentTechnique = _octahedral;
         _triangle.Draw(_effect);
@@ -140,10 +145,6 @@ internal sealed class PristonEnvironmentLighting : IDisposable
             offset += size;
         }
 
-        _sh.SetValue(_shBuffers[_current]);
-        _effect.CurrentTechnique = _irradiance;
-        _irradiance.Passes[0].Apply();
-        _device.Dispatch(1, 1, 1);
         _refreshTime = renderTime;
         _valid = true;
     }

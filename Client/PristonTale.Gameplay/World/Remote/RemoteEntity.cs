@@ -23,6 +23,8 @@ public sealed class RemoteEntity : RemoteEntityBase
 
     public PlayerActorHandles Handles => _handles;
 
+    public override int CopyActorHandles(Span<ActorHandle> destination) => _handles.CopyTo(destination);
+
     protected override void ApplyWorld(Matrix world)
     {
         _scene.SetActorWorld(_body, world);
@@ -41,6 +43,24 @@ public sealed class RemoteEntity : RemoteEntityBase
             _scene.SetActorMotion(_body, command.Motion);
             _scene.SetActorMotion(_head, command.Motion);
         }
+    }
+
+    protected override void ApplyMotionIndex(int motionIndex)
+    {
+        // The body's equipment picks the weapon variant of a skill clip; the head follows the same clip.
+        var resolved = _scene.ResolveSkillMotion(_body, motionIndex);
+        _scene.SetActorMotionIndex(_body, resolved);
+        _scene.SetActorMotionIndex(_head, resolved);
+    }
+
+    public ActorHandle Body => _body;
+
+    // A released charge: the skill clip jumps ahead and plays the rest at the new rate.
+    public void SeekSkill(int framesFromStart, float rate)
+    {
+        _scene.SeekActorMotion(_body, framesFromStart);
+        _scene.SeekActorMotion(_head, framesFromStart);
+        ApplyPlaybackRate(rate);
     }
 
     protected override void ApplyPlaybackRate(float rate)

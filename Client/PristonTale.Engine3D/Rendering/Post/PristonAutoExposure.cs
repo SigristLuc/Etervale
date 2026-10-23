@@ -110,10 +110,12 @@ internal sealed class PristonAutoExposure : IDisposable
 }
 
 // The light model's side of the exposure: the pre-exposure of the scene's values, the incident reading of the light
-// model, its weight in the target, the user's compensation and whether the night curve applies.
+// model, its weight in the target, the user's compensation, whether the night curve applies and the hue the eye gives
+// the night (the final pass's mesopic vision; zero is neutral grey).
 internal readonly record struct PristonExposureInputs(
     float PreExposure,
     float IncidentEv100,
     float IncidentWeight,
     float CompensationStops,
-    bool Underground);
+    bool Underground,
+    Vector3 NightHue = default);

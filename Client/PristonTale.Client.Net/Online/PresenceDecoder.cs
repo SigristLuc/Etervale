@@ -7,6 +7,7 @@ using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Loot;
+using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Client.Net.Online;
@@ -59,12 +60,61 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.Inventory => OnInventory(InventoryPartPacket.Read(packet)),
             EtervaleOpcodes.Skills => OnSkills(SkillsPacket.Read(packet)),
             EtervaleOpcodes.PresenceClock => OnPresenceClock(PresenceClockPacket.Read(packet)),
+            EtervaleOpcodes.SkillEvents => OnSkillEvents(SkillEventList.Read(packet)),
+            EtervaleOpcodes.StatusEffects => OnStatusEffects(StatusEffectList.Read(packet)),
+            EtervaleOpcodes.SkillCooldowns => OnSkillCooldowns(SkillCooldownsPacket.Read(packet)),
+            EtervaleOpcodes.SkillCastResult => OnSkillCastResult(SkillCastResultPacket.Read(packet)),
             _ => null
         };
         return update is not null || code is PristonOpcodes.PlayDataGroup or PristonOpcodes.PlayerInfo or EtervaleOpcodes.RemoveObjects
             or EtervaleOpcodes.CombatEvents or PristonOpcodes.PlayItem or PristonOpcodes.DelItem or PristonOpcodes.WarpField
-            or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills or EtervaleOpcodes.PresenceClock;
+            or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills or EtervaleOpcodes.PresenceClock
+            or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult;
     }
+
+    public PresenceUpdate OnSkillEvents(SkillEventEntry[] entries)
+    {
+        var events = new SkillEventInfo[entries.Length];
+        for (var index = 0; index < entries.Length; index++)
+        {
+            var entry = entries[index];
+            events[index] = new SkillEventInfo(entry.Caster, entry.Target, entry.SkillCode, entry.Phase, entry.Rank, entry.Flags, entry.DurationMs,
+                entry.HitAtMs, Position(entry.X, entry.Y, entry.Z), PristonUnits.FromAngle(entry.Angle), entry.TargetCount, entry.Radius);
+        }
+
+        return Update([], []) with { SkillEvents = events, ServerTimeMs = _clockMs };
+    }
+
+    public PresenceUpdate OnStatusEffects(StatusEffectEntry[] entries)
+    {
+        var statuses = new StatusEffectInfo[entries.Length];
+        for (var index = 0; index < entries.Length; index++)
+        {
+            var entry = entries[index];
+            statuses[index] = new StatusEffectInfo(entry.Entity, entry.Source, entry.StatusCode, entry.Op, entry.Stacks, entry.SourceKind,
+                entry.Control, entry.Flags, entry.DurationMs, entry.RemainingMs, entry.Value);
+        }
+
+        return Update([], []) with { StatusEffects = statuses, ServerTimeMs = _clockMs };
+    }
+
+    public PresenceUpdate OnSkillCooldowns(SkillCooldownsPacket packet)
+    {
+        var cooldowns = new SkillCooldownInfo[packet.Cooldowns.Count];
+        for (var index = 0; index < cooldowns.Length; index++)
+        {
+            var entry = packet.Cooldowns[index];
+            cooldowns[index] = new SkillCooldownInfo(entry.SkillCode, (int)entry.RemainingMs, (int)entry.DurationMs);
+        }
+
+        return Update([], []) with { Cooldowns = new SkillCooldownSnapshot(_clockMs, cooldowns) };
+    }
+
+    public PresenceUpdate OnSkillCastResult(SkillCastResultPacket result) => Update([], []) with
+    {
+        CastResult = new SkillCastResultInfo(result.Sequence, result.SkillCode, result.Status, result.Rank, (int)result.CooldownMs, (int)result.RemainingMs,
+            result.Mana, result.Stamina)
+    };
 
     public double? ServerTimeMs => _clockMs;
 
@@ -191,12 +241,14 @@ internal sealed class PresenceDecoder
         }
         if (description.Kind == RemoteEntityKind.Monster)
         {
-            _catalog.Register(new MonsterRenderInfo(template, character.ModelName, scale, character.Name, character.Level));
+            _catalog.Register(new MonsterRenderInfo(template, character.ModelName, scale, character.Name, character.Level,
+                (MonsterBrood)character.Brood, character.ArrowPosiX, character.ArrowPosiY));
         }
         else if (description.Kind == RemoteEntityKind.Npc)
         {
             _catalog.Register(new NpcRenderInfo(template, character.ModelName, scale, character.Name,
-                (NpcServices)character.Temp[CharacterInfo.TempNpcServices], (int)character.CharSoundCode));
+                new NpcServiceSet(character.Temp[CharacterInfo.TempNpcServices]), (int)character.CharSoundCode, character.ArrowPosiX,
+                character.ArrowPosiY));
         }
 
         if (!tracked.HasState)
@@ -318,6 +370,8 @@ internal sealed class PresenceDecoder
             MoveSpeed = status.MoveSpeed,
             ProgressionRevision = status.ProgressionRevision,
             SkillsRevision = status.SkillsRevision,
+            Tier = status.Tier,
+            EliteSkillPoints = status.EliteSkillPoints,
             Skills = _skills
         };
         return Update([], []) with { Owner = owner };
@@ -343,9 +397,14 @@ internal sealed class PresenceDecoder
                 (character.Temp[CharacterInfo.TempFlags] & CharacterInfo.FlagInVillage) != 0);
         }
 
+        var summon = description.Kind == RemoteEntityKind.Monster && character.Brood == (uint)MonsterBrood.User;
         return new EntitySpawnInfo(serial, description.Kind, serial == SelfSerial, tracked.Position, tracked.Facing, tracked.Motion, tracked.Hp,
             tracked.MaxHp, player, description.Kind == RemoteEntityKind.Player ? 0 : character.Temp[CharacterInfo.TempTemplateCode], character.MoveSpeed,
-            AttackRate(character), tracked.Target, tracked.Sequence, tracked.SampleTimeMs, character.Name ?? "", character.Level);
+            AttackRate(character), tracked.Target, tracked.Sequence, tracked.SampleTimeMs, character.Name ?? "", character.Level)
+        {
+            OwnerId = summon ? character.Temp[CharacterInfo.TempOwnerSerial] : 0,
+            ModelScale = summon ? BitConverter.UInt32BitsToSingle(character.Temp[CharacterInfo.TempInstanceScale]) : 0f
+        };
     }
 
     private static EntityStateInfo State(uint serial, Tracked tracked)

@@ -12,10 +12,11 @@ using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Motion;
 using PristonTale.Simulation.World.Spawning;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Simulation.Skills;
 
 namespace PristonTale.Application.World;
 
-public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHost
+public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHost, IFieldSkillHost
 {
     public const int PlayerNearRadiusSquared = 0x120000;
     public static readonly float PlayerNearRadius = MathF.Sqrt(PlayerNearRadiusSquared);
@@ -26,6 +27,7 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
 
     // Reused scratch (tick thread only) so Step allocates no per-tick garbage on the hot path.
     private readonly List<MonsterInstance> _liveScratch = new();
+    private readonly List<MonsterInstance> _summonScratch = new();
     private readonly List<EntityNeighbour> _neighbourScratch = new();
     private readonly FieldPreyView _prey = new();
     private readonly MonsterOccupancy _occupancy;
@@ -42,8 +44,10 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
     private readonly FieldSpawner _spawner;
     private readonly MonsterAiBrain _brain;
     private readonly FieldCombat _combat;
+    private readonly FieldSkills _skills;
     private readonly EntityIdAllocator _ids;
     private readonly CombatRng _rng;
+    private readonly MonsterCatalog _catalog;
     private readonly MotionTimingCatalog _motions;
     private double _nowMs;
 
@@ -62,12 +66,15 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         GroundLoot = new FieldGroundLoot(items ?? new ItemCatalog([]));
         _ids = ids;
         _rng = rng;
+        _catalog = catalog;
         _motions = motions ?? MotionTimingCatalog.Empty;
         _ = PlayerEquipmentTiming.Count;
         _occupancy = new MonsterOccupancy(_neighbourScratch);
         _spawner = new FieldSpawner(spawnData, catalog, rng);
         _brain = new MonsterAiBrain(rng);
         _combat = new FieldCombat(this, rng, experienceMultiplier);
+        _skills = new FieldSkills(this, rng);
+        _combat.SkillCombat = _skills;
         foreach (var placement in spawnData.FixedNpcs)
         {
             if (npcs is null || !npcs.TryGet(placement.NpcCode, out var definition))
@@ -93,7 +100,22 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
     public IEnumerable<uint> PlayerIds => _players.Keys;
 
     public void Add(WorldPlayer player) => _players[player.EntityId] = player;
-    public void Remove(uint entityId) => _players.Remove(entityId, out _);
+    public void Remove(uint entityId)
+    {
+        _players.Remove(entityId, out _);
+        _skills.Forget(entityId);
+    }
+
+    // Validates a cast on the tick thread and starts its motion; the hits follow in Step.
+    public SkillCastOutcome CastSkill(WorldPlayer player, in SkillCastRequest request)
+    {
+        if (!_players.TryGetValue(player.EntityId, out var present) || !ReferenceEquals(present, player))
+        {
+            return SkillCastOutcome.Refused(request, SkillCastVerdict.Stale);
+        }
+
+        return _skills.Cast(player, request);
+    }
     public bool TryGet(uint entityId, [MaybeNullWhen(false)] out WorldPlayer player) => _players.TryGetValue(entityId, out player);
 
     public bool SetAttackTarget(uint attackerEntityId, uint targetEntityId, bool sustained, ulong sequence = 0)
@@ -108,7 +130,8 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
             return false;
         }
 
-        if (!_monsters.TryGetValue(targetEntityId, out var monster) || !monster.IsAlive)
+        if (!_monsters.TryGetValue(targetEntityId, out var monster) || !monster.IsAlive || monster.IsSummon
+            || monster.Effects.Has(Simulation.Modifiers.ControlFlags.Charmed))
         {
             attacker.ClearAttackTarget();
             return false;
@@ -120,13 +143,26 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
 
     public long ExpFor(uint playerId) => _combat.ExpFor(playerId);
 
+    // The field's combat resolution, for scenario tests that drive single monster attacks.
+    internal FieldCombat Combat => _combat;
+
     public void Step(float dt, int? scheduledBossHour = null)
     {
         float dtMs = dt * 1000f;
         _nowMs += dtMs;
         long nowMs = (long)_nowMs;
         _events.Clear();
+        _skills.BeginTick();
         _prey.Rebuild(_players.Values);
+        foreach (var summon in _monsters.Values)
+        {
+            if (summon.IsSummon)
+            {
+                // Wild monsters fight a summon only when it hits them; they never pick it by sight.
+                _prey.AddTargetOnly(summon.EntityId, summon.Position, summon.IsAlive);
+            }
+        }
+
         SnapshotLiveMonsters();
         _spawner.MaintainPopulation(dtMs, _liveScratch, this, nowMs, this);
         IReadOnlyList<MonsterInstance> expired = _spawner.MaintainDespawns(dtMs, _liveScratch, this);
@@ -148,6 +184,8 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
             StepMonster(_liveScratch[i], dtMs);
         }
 
+        StepSummons(dtMs);
+
         // Authoritative NPC movement keeps interaction range and presentation aligned.
         foreach (var npc in _npcs.Values)
         {
@@ -165,11 +203,9 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
 
             if (player.TickAction(dtMs, out uint hitTargetId))
             {
-                var payout = _combat.ResolvePlayerSwingHit(player, hitTargetId, nowMs);
-                if (payout is { } reward && _monsters.TryGetValue(hitTargetId, out var killed))
+                if (_combat.ResolvePlayerSwingHit(player, hitTargetId, nowMs) is { } reward)
                 {
-                    var dropPosition = Terrain.SettleNear(killed.Position, FieldTerrain.DropTolerance);
-                    GroundLoot.Place(reward, dropPosition, killed.Def.Drops.AllPlayersSeeDrops, nowMs);
+                    PlaceLoot(reward, nowMs);
                 }
             }
 
@@ -191,8 +227,91 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
             StepPlayer(player, nowMs);
         }
 
+        _skills.Step(dtMs);
+        foreach (var reward in _skills.Payouts)
+        {
+            PlaceLoot(reward, nowMs);
+        }
+
         _combat.TickCorpses(dtMs);
         GroundLoot.Step(nowMs);
+    }
+
+    private void PlaceLoot(KillPayout reward, long nowMs)
+    {
+        if (_monsters.TryGetValue(reward.MonsterEntityId, out var killed))
+        {
+            var dropPosition = Terrain.SettleNear(killed.Position, FieldTerrain.DropTolerance);
+            GroundLoot.Place(reward, dropPosition, killed.Def.Drops.AllPlayersSeeDrops, nowMs);
+        }
+    }
+
+    internal SkillEventView[] SnapshotSkillEvents() => _skills.SnapshotSkillEvents();
+
+    internal StatusEventView[] SnapshotStatusEvents() => _skills.SnapshotStatusEvents();
+
+    bool IFieldSkillHost.TryGetPlayer(uint entityId, [MaybeNullWhen(false)] out WorldPlayer player) => _players.TryGetValue(entityId, out player);
+
+    bool IFieldSkillHost.TryGetMonster(uint entityId, [MaybeNullWhen(false)] out MonsterInstance monster) => _monsters.TryGetValue(entityId, out monster);
+
+    IEnumerable<MonsterInstance> IFieldSkillHost.Monsters => _monsters.Values;
+
+    IEnumerable<WorldPlayer> IFieldSkillHost.Players => _players.Values;
+
+    KillPayout? IFieldSkillHost.ApplyPlayerDamage(WorldPlayer player, MonsterInstance monster, int damage, bool crit, bool forceFlinch, uint sourceEntityId) =>
+        _combat.ApplyPlayerDamage(player, monster, damage, crit, NowMs, forceFlinch, sourceEntityId);
+
+    bool IFieldSkillHost.TryFindMonsterDefinition(string name, [MaybeNullWhen(false)] out MonsterDefinition definition) =>
+        _catalog.TryFind(name, out definition);
+
+    MonsterInstance IFieldSkillHost.AddSummon(MonsterDefinition definition, Vector3 position, float facing)
+    {
+        var summon = new MonsterInstance(_ids.NextMonsterId(), definition, Terrain.PlaceOnFloor(position), facing, spawnPointIndex: -1);
+        _monsters[summon.EntityId] = summon;
+        return summon;
+    }
+
+    // Summons move with the same collision as wild monsters; their brain takes its orders from their owner.
+    private void StepSummons(float dtMs)
+    {
+        _summonScratch.Clear();
+        foreach (var monster in _monsters.Values)
+        {
+            if (monster.IsSummon)
+            {
+                _summonScratch.Add(monster);
+            }
+        }
+
+        foreach (var summon in _summonScratch)
+        {
+            if (!summon.IsAlive)
+            {
+                _skills.StepSummon(summon, TuningFor(summon.Def), dtMs);
+                _combat.BeginCorpse(summon.EntityId);
+                continue;
+            }
+
+            var before = summon.Position;
+            var attack = _skills.StepSummon(summon, TuningFor(summon.Def), dtMs);
+            if (summon.SwingJustBegan)
+            {
+                summon.SwingJustBegan = false;
+                var tuning = TuningFor(summon.Def);
+                _events.Add(new CombatEventView(summon.EntityId, summon.TargetId, CombatEventKindView.SwingBegin,
+                    summon.AttackIsSkill ? tuning.SkillDurationMs : tuning.CooldownMs, summon.AttackIsSkill ? tuning.SkillWindupMs : tuning.WindupMs));
+            }
+
+            MoveMonster(summon, before);
+            if (!summon.IsAlive)
+            {
+                _combat.BeginCorpse(summon.EntityId);
+            }
+            else if (attack is { } landed)
+            {
+                _skills.ResolveSummonHit(summon, landed);
+            }
+        }
     }
 
     private void StepPlayer(WorldPlayer player, long nowMs)
@@ -217,7 +336,17 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
                 monster.EntityId, monster.TargetId, CombatEventKindView.SwingBegin, durationMs, hitAtMs));
         }
 
-        // Re-resolve AI movement against the stage and the other monsters only, sliding like CheckNextMove.
+        MoveMonster(monster, before);
+
+        if (attack is { } landed)
+        {
+            _combat.ResolveMonsterHit(monster, landed);
+        }
+    }
+
+    // Re-resolve AI movement against the stage and the other monsters only, sliding like CheckNextMove.
+    private void MoveMonster(MonsterInstance monster, Vector3 before)
+    {
         Vector3 desired = monster.Position;
         float dx = desired.X - before.X;
         float dz = desired.Z - before.Z;
@@ -240,11 +369,6 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
 
         monster.MovedThisTick = moved;
         monster.Crowded = crowded;
-
-        if (attack is { } landed)
-        {
-            _combat.ResolveMonsterHit(monster, landed);
-        }
     }
 
     private void StepNpc(WorldNpc npc, float dt)
@@ -277,7 +401,7 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
 
     public (float DurationMs, float HitAtMs) PlayerSwingTiming(WorldPlayer player)
     {
-        var rate = AnimationRate.AttackRate(player.Character.Derived.AttackSpeed);
+        var rate = player.Character.AttackRate;
         return PlayerActionTiming(player, MotionStateCode.Attack, rate);
     }
 
@@ -411,11 +535,17 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         }
     }
 
+    // Wild monsters only: summons have their own step and do not count toward the field's population.
     private void SnapshotLiveMonsters()
     {
         _liveScratch.Clear();
         foreach (var m in _monsters.Values)
-            _liveScratch.Add(m);
+        {
+            if (!m.IsSummon)
+            {
+                _liveScratch.Add(m);
+            }
+        }
     }
 
     MonsterInstance ISpawnSink.Spawn(MonsterDefinition definition, Vector3 position, int spawnPointIndex, float facing)
@@ -488,7 +618,11 @@ public sealed class FieldInstance : ISpawnSink, IPlayerProximity, IFieldCombatHo
         appearance: default,
         templateId: (uint)m.Def.Code,
         moveSpeed: m.Def.Ai.MoveSpeed,
-        attackRate: 1f); // monsters never scale their attack advance.
+        attackRate: 1f) // monsters never scale their attack advance.
+    {
+        OwnerId = m.OwnerId,
+        ModelScale = m.ModelScale
+    };
 
     private static MoveStateView ToMoveState(MonsterMotionState motion) => motion switch
     {

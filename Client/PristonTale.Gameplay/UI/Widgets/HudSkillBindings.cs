@@ -25,6 +25,41 @@ public sealed class HudSkillBindings
     public HudSkillChoice Right => _choices.GetValueOrDefault(RightSkillId);
     public HudSkillShortcut Shortcut(int index) => _shortcuts[index];
 
+    // Set when a click asked for a socket the skill cannot use; Refusals counts them so the HUD shows each once.
+    public string Refusal { get; private set; } = "";
+    public int Refusals { get; private set; }
+
+    // Offers the learned active skills to the sockets and short keys; an unlearned or lost skill falls back to the
+    // basic attack.
+    public void SyncLearned(IReadOnlyList<Skill> classSkills, IReadOnlyList<PristonTale.Simulation.Characters.OwnedSkillView> learned)
+    {
+        foreach (var code in _choices.Keys.Where(code => code != BasicAttackId).ToArray())
+        {
+            _choices.Remove(code);
+        }
+
+        foreach (var owned in learned)
+        {
+            foreach (var skill in classSkills)
+            {
+                if (skill.Code == owned.Code && owned.Rank > 0 && skill.MouseUse != SkillMouseUse.None)
+                {
+                    _choices[skill.Code] = new HudSkillChoice(skill.Code, skill.Name, owned.Rank, skill.MouseUse);
+                }
+            }
+        }
+
+        if (!_choices.ContainsKey(LeftSkillId))
+        {
+            LeftSkillId = BasicAttackId;
+        }
+
+        if (!_choices.ContainsKey(RightSkillId))
+        {
+            RightSkillId = BasicAttackId;
+        }
+    }
+
     public bool Assign(int index, uint skillId, SkillMouseUse side)
     {
         if (index < 0 || index >= _shortcuts.Length || !CanSelect(skillId, side))
@@ -102,9 +137,12 @@ public sealed class HudSkillBindings
         var released = _pressedSide == SkillMouseUse.Left ? mouse.LeftButton == ButtonState.Released : mouse.RightButton == ButtonState.Released;
         if (_pressedSkill != 0 && released)
         {
-            if (!_boundDuringPress && hoveredSkill == _pressedSkill)
+            if (!_boundDuringPress && hoveredSkill == _pressedSkill && !Select(_pressedSkill, _pressedSide)
+                && _choices.TryGetValue(_pressedSkill, out var refused))
             {
-                Select(_pressedSkill, _pressedSide);
+                var allowed = refused.MouseUse == SkillMouseUse.Left ? "left" : "right";
+                Refusal = $"{refused.Name} can only be used with the {allowed} mouse button.";
+                Refusals++;
             }
 
             _pressedSkill = 0;

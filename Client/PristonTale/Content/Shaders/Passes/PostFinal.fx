@@ -1,7 +1,8 @@
 // The display transform of the frame (PristonPostProcessor) and the anti-aliasing filters on the display image.
-//  Tonemap: [contrast-adaptive sharpening] -> (scene + bloom) x the exposure multiplier (the automatic exposure's
-//           State[0].y, Passes/PostExposure.fx, or the fixed multiplier) -> display transform (Khronos PBR Neutral,
-//           AgX or ACES) -> exact sRGB -> colour grade (3D LUT) -> +-1 LSB triangular dither; luma in alpha for FXAA.
+//  Tonemap: [contrast-adaptive sharpening] -> (scene + bloom) -> mesopic vision -> x the exposure multiplier (the
+//           automatic exposure's State[0].y, Passes/PostExposure.fx, or the fixed multiplier) -> display transform
+//           (Khronos PBR Neutral, AgX or ACES) -> exact sRGB -> colour grade (3D LUT) -> +-1 LSB triangular dither; luma
+//           in alpha for FXAA.
 //           The scene is pre-exposed radiance (Core/Frame.hlsli); the CPU reference of the display transforms is
 //           PristonDisplayTransform.cs.
 //  Fxaa:    FXAA 3.11-style edge search on the 8-bit image (SMAA: Passes/PostSmaa.fx).
@@ -16,6 +17,7 @@ cbuffer PostFinalConstants : register(b0)
     float4 ScreenParams;     // xy scene size (px), z frame index (dither), w sharpness 0..1
     float4 ToneParams;       // x tonemapper (0 PBR Neutral, 1 AgX, 2 ACES), y grade strength, z bloom strength, w fixed multiplier (> 0)
     float4 DebugParams;      // x 1 = EV100 false colour, y 1 / pre-exposure
+    float4 MesopicParams;    // xyz the hue of the scotopic grey (unit luminance)
 };
 
 Texture2D<float4> Scene : register(t0);
@@ -102,6 +104,26 @@ float3 DisplayTransform(float3 c)
     }
 
     return saturate(PbrNeutral(max(c, 0.0)));
+}
+
+// ---- Mesopic vision -----------------------------------------------------------------------------------------------
+// Below a few cd/m^2 the rods take over: they see no colour and favour blue (the Purkinje shift). Each pixel blends
+// toward its scotopic luminance (Larson, Rushmeier and Piatko 1997, normalised to 1 for D65 white) in a blue-shifted
+// grey, by 0.04 / (0.04 + Y) of its absolute luminance Y in cd/m^2 (Krawczyk, Myszkowski and Seidel 2005). The grey takes
+// the hue of the night light the game was authored with (PristonDayNightCycle.NightHue): the night's blue is seen here
+// rather than lit, so the diffuse and the specular light of a surface keep the colour of the light that makes them.
+// CPU reference: PristonDisplayTransform.Mesopic.
+static const float ScotopicWhite = 2.5731;
+static const float MesopicHalf = 0.04;
+
+float3 MesopicVision(float3 c, float inversePreExposure, float3 tint)
+{
+    float x = dot(c, float3(0.4124, 0.3576, 0.1805));
+    float y = dot(c, float3(0.2126, 0.7152, 0.0722));
+    float z = dot(c, float3(0.0193, 0.1192, 0.9505));
+    float scotopic = max(y * (1.33 * (1.0 + (y + z) / max(x, 1.0e-6)) - 1.68), 0.0) / ScotopicWhite;
+    float rods = MesopicHalf / (MesopicHalf + y * inversePreExposure);
+    return lerp(c, tint * scotopic, rods);
 }
 
 // ---- Colour grade -------------------------------------------------------------------------------------------------
@@ -193,7 +215,7 @@ float4 PS_Tonemap(FullscreenOut i) : SV_Target0
     }
     else
     {
-        display = Grade(LinearToSrgb(DisplayTransform(hdr * exposure)));
+        display = Grade(LinearToSrgb(DisplayTransform(MesopicVision(hdr, DebugParams.y, MesopicParams.xyz) * exposure)));
     }
 
     display = Dither8(display, i.Uv * ScreenParams.xy);

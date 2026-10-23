@@ -23,6 +23,10 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     public Guid Dragging => _dragging;
     public Point Origin => _origin;
 
+    // Shop and warehouse windows take clicks on owned items and drops outside the inventory while they are open.
+    public Func<OwnedItemView, bool> InterceptClick { get; set; }
+    public Func<Guid, Point, bool> ExternalDrop { get; set; }
+
     public void CancelDrag()
     {
         _dragging = Guid.Empty;
@@ -65,6 +69,11 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                 selected = item;
                 break;
             }
+        }
+
+        if (clicked && selected is not null && InterceptClick?.Invoke(selected) == true)
+        {
+            return;
         }
 
         if (clicked && selected is { Slot: < 0 })
@@ -115,7 +124,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                         selected is not null && action == InventoryAction.Merge ? selected.Anchor : destination, source.Count / 2, default));
                 }
             }
-            else
+            else if (ExternalDrop?.Invoke(identity, pointer) != true)
             {
                 for (var slot = 0; slot < 10; slot++)
                 {

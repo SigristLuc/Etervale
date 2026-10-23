@@ -10,6 +10,7 @@ using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Gameplay.UI;
 using PristonTale.Gameplay.UI.Inventory;
+using PristonTale.Gameplay.UI.Npc;
 using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
@@ -31,12 +32,20 @@ internal sealed class HudCaptureProbe : Game
         SkillNode,
         SkillBasic,
         SettingsRow,
-        AllocateArrow
+        AllocateArrow,
+        ShopItem,
+        WarehouseItem
     }
+
+    private const uint SkillMasterNpc = 7;
+    private const uint MerchantNpc = 8;
+    private const uint WarehouseNpc = 9;
+    private const uint TeleporterNpc = 10;
 
     private sealed record Scenario(string Name, int Width, int Height, Keys Panel = Keys.None, Hover Hover = Hover.None, int HealthPercent = 100,
         PlayerClass Class = PlayerClass.Mechanician, bool Npc = false, bool Settings = false, bool SystemMenu = false, bool Learned = false,
-        bool Training = false, bool LowHealth = false, float Hour = 13, bool ClassicTarget = false, uint Target = 2);
+        bool Training = false, bool LowHealth = false, float Hour = 13, bool ClassicTarget = false, uint Target = 2, uint NpcId = SkillMasterNpc,
+        int ServiceButton = -1, bool SellMode = false, int ServiceCount = 2);
 
     private static readonly Scenario[] Scenarios =
     [
@@ -74,6 +83,14 @@ internal sealed class HudCaptureProbe : Game
         new("npc-unicode-800", 800, 600, Npc: true),
         new("npc-unicode-1280", 1280, 720, Npc: true),
         new("skill-training-800", 800, 600, Npc: true, Learned: true, Training: true),
+        new("npc-merchant-dialog-800", 800, 600, Npc: true, NpcId: MerchantNpc),
+        new("npc-teleporter-dialog-800", 800, 600, Npc: true, NpcId: TeleporterNpc),
+        new("npc-teleport-destinations-800", 800, 600, Npc: true, NpcId: TeleporterNpc, ServiceButton: 1, ServiceCount: 4),
+        new("npc-shop-800", 800, 600, Hover: Hover.ShopItem, Npc: true, NpcId: MerchantNpc, ServiceButton: 1),
+        new("npc-shop-sell-800", 800, 600, Hover: Hover.Item, Npc: true, NpcId: MerchantNpc, ServiceButton: 1, SellMode: true),
+        new("npc-shop-1280", 1280, 720, Npc: true, NpcId: MerchantNpc, ServiceButton: 1),
+        new("npc-warehouse-800", 800, 600, Hover: Hover.WarehouseItem, Npc: true, NpcId: WarehouseNpc, ServiceButton: 1),
+        new("npc-warehouse-1600x1200-scale2", 1600, 1200, Npc: true, NpcId: WarehouseNpc, ServiceButton: 1),
         new("system-menu-800", 800, 600, SystemMenu: true),
         new("settings-800", 800, 600, Hover: Hover.SettingsRow, Settings: true),
         new("settings-1600x1200-scale2", 1600, 1200, Settings: true)
@@ -119,8 +136,8 @@ internal sealed class HudCaptureProbe : Game
             _assetRoot, null!, ConsoleClientLog.Instance, _ => { }, _presentation);
         _hud = new GameplayHud(context,
             _ => Task.FromResult(new InventoryOutcome(false, 0, "Capture fixture: commands disabled")),
-            interactNpc: id => Task.FromResult(new NpcInteraction(true, id, "스킬마스터 베르칸", NpcServices.SkillMaster,
-                new[] { "Bem-vindo à escola de habilidades. Escolha uma habilidade para aprender ou melhorar.", "안녕하세요. 스킬을 선택하세요." }, "")));
+            interactNpc: id => Task.FromResult(Interaction(id)),
+            requestNpcService: command => Task.FromResult(Reply(command)));
         _hud.CharacterName = "Panzer";
         _hud.CharacterClass = PlayerClass.Mechanician;
         var player = new CharacterClassRegistry().CreatePlayer(PlayerClass.Mechanician, "Panzer");
@@ -200,7 +217,7 @@ internal sealed class HudCaptureProbe : Game
             var layout = HudLayout.Create(scenario.Width, scenario.Height);
             if (scenario.Npc)
             {
-                _hud.OpenNpc(7);
+                _hud.OpenNpc(scenario.NpcId);
             }
 
             _hud.Update(state, default, default);
@@ -213,6 +230,18 @@ internal sealed class HudCaptureProbe : Game
             if (scenario.Settings)
             {
                 Click(state, layout, layout.Bottom(HudSystemMenu.Entry(HudSystemEntry.Settings)).Center);
+            }
+
+            if (scenario.ServiceButton >= 0)
+            {
+                Click(state, layout, HudNpcPanel.ServiceButton(scenario.ServiceButton, scenario.ServiceCount).Center);
+                _hud.Update(state, default, default);
+                _hud.Update(state, default, default);
+            }
+
+            if (scenario.SellMode)
+            {
+                Click(state, layout, HudStoreLayout.Sell(HudStoreLayout.Origin(0)).Center);
             }
 
             if (scenario.Training)
@@ -291,11 +320,75 @@ internal sealed class HudCaptureProbe : Game
             Hover.SkillBasic => HudSkillTreeLayout.BasicAttack(origin).Center,
             Hover.SettingsRow => HudSettingsPanel.Row(4).Center,
             Hover.AllocateArrow => HudStatusPanel.AllocateButton(origin, 0).Center,
+            Hover.ShopItem => HudStoreLayout.Cell(HudStoreLayout.Origin(0), 0, 2, 3).Center,
+            Hover.WarehouseItem => HudStoreLayout.Cell(HudStoreLayout.Origin(0), 2, 2, 3).Center,
             _ => new Point(layout.Width - 200, layout.Height / 2)
         };
         return new MouseState(point.X * layout.Scale, point.Y * layout.Scale, 0,
             ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released);
     }
+
+    private static NpcInteraction Interaction(uint id)
+    {
+        NpcServiceOffer Offer(NpcServiceKind kind, int value, bool available) => new(kind, value, available);
+        return id switch
+        {
+            MerchantNpc => new NpcInteraction(true, id, "Blacksmith Goden",
+                [Offer(NpcServiceKind.QuestGiver, 1018, false), Offer(NpcServiceKind.Shop, 0, true)],
+                ["Welcome to Goden's. We deal with equipment for warriors of every level, so take your time."], ""),
+            WarehouseNpc => new NpcInteraction(true, id, "Warehouse keeper, Arent",
+                [Offer(NpcServiceKind.QuestGiver, 1015, false), Offer(NpcServiceKind.Warehouse, 0, true)],
+                ["Here is the key. Just take it and do not touch my things."], ""),
+            TeleporterNpc => new NpcInteraction(true, id, "Clever Newter",
+                [Offer(NpcServiceKind.QuestGiver, 2201, false), Offer(NpcServiceKind.Teleporter, 1, true), Offer(NpcServiceKind.ItemAging, 0, false),
+                    Offer(NpcServiceKind.ItemMix, 200, false)],
+                ["I have researched and studied for the prosperity of Pillai all my life. Teleporting is not free, though."], ""),
+            _ => new NpcInteraction(true, id, "스킬마스터 베르칸", [Offer(NpcServiceKind.QuestGiver, 1003, false), Offer(NpcServiceKind.SkillMaster, 4, true)],
+                ["Bem-vindo à escola de habilidades. Escolha uma habilidade para aprender ou melhorar.", "안녕하세요. 스킬을 선택하세요."], "")
+        };
+    }
+
+    private NpcServiceReply Reply(NpcServiceCommand command)
+    {
+        var ok = new NpcServiceOutcome(true, NpcServiceStatus.Ok, _owner.InventoryRevision, 1, "");
+        if (command.Action != NpcServiceAction.Open)
+        {
+            return new NpcServiceReply(ok);
+        }
+
+        return command.Service switch
+        {
+            NpcServiceKind.Shop => new NpcServiceReply(ok)
+            {
+                Catalog =
+                [
+                    Stock("WA101", 0, 0, "Stone Axe", ItemKind.Axe, 60, 2, 3), Stock("WA102", 0, 1, "Bronze Axe", ItemKind.Axe, 320, 2, 3),
+                    Stock("WC101", 0, 2, "Iron Claw", ItemKind.Claw, 150, 2, 2), Stock("WP101", 0, 3, "Spear", ItemKind.Pole, 280, 2, 4),
+                    Stock("WS201", 0, 4, "Short Sword", ItemKind.Sword, 110, 1, 3), Stock("DA102", 1, 0, "Battle Suit", ItemKind.Armor, 400, 2, 3)
+                ],
+                Quotes = new ShopQuotes(_owner.InventoryRevision, _owner.Items.Select(item => new ShopQuote(item.InstanceId,
+                    item.Slot >= 0 ? -1 : 12 * (int)item.Code, item.Slot >= 0 ? 8 : 0, 30, 36)).ToArray())
+            },
+            NpcServiceKind.Warehouse => new NpcServiceReply(ok)
+            {
+                Warehouse = new WarehouseView(1, 125000, 37, WarehouseStorage.MaxWeight, WarehouseStorage.Columns, WarehouseStorage.Rows,
+                [
+                    new(Guid.NewGuid(), LegacyItemCode.Parse("WA101"), "Stone Axe", ItemKind.Axe, 1, 2, -1, 2, 3, "WA101"),
+                    new(Guid.NewGuid(), LegacyItemCode.Parse("DA102"), "Battle Suit", ItemKind.Armor, 1, 5, -1, 2, 3, "DA102"),
+                    new(Guid.NewGuid(), LegacyItemCode.Parse("PL101"), "Mini Life Potion", ItemKind.Potion, 1, 27, -1, 1, 1, "PL101")
+                ])
+            },
+            NpcServiceKind.Teleporter => new NpcServiceReply(ok)
+            {
+                Destinations = TeleportRoutes.For(1).Select(destination => new TeleportOffer(destination.Index, destination.FieldCode,
+                    destination.Name, destination.Price, destination.Index == 4 ? 70 : 0)).ToArray()
+            },
+            _ => new NpcServiceReply(ok)
+        };
+    }
+
+    private static ShopOffer Stock(string key, int tab, int ordinal, string name, ItemKind kind, long price, int width, int height) =>
+        new(LegacyItemCode.Parse(key), tab, ordinal, name, kind, price, width, height, 1, key);
 
     private OwnerState ScenarioState(Scenario scenario)
     {

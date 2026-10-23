@@ -29,6 +29,9 @@ public sealed class FieldPreyView : IPreyView
 
     public bool TryGet(uint entityId, out PreyCandidate prey) => _byId.TryGetValue(entityId, out prey);
 
+    // An entity monsters can keep as their target but never acquire by sight (a summon that hit them).
+    public void AddTargetOnly(uint entityId, Vector3 position, bool alive) => _byId[entityId] = new PreyCandidate(entityId, position, alive);
+
     public void Rebuild(IEnumerable<WorldPlayer> players)
     {
         _candidates.Clear();
@@ -36,7 +39,8 @@ public sealed class FieldPreyView : IPreyView
         _index.Clear();
         foreach (var p in players)
         {
-            var candidate = new PreyCandidate(p.EntityId, p.Position, p.Hp > 0);
+            var sight = 100 + p.Character.Effects.Totals.Flat(Simulation.Modifiers.StatKind.MonsterSight);
+            var candidate = new PreyCandidate(p.EntityId, p.Position, p.Hp > 0, Math.Max(0, sight));
             _candidates.Add(candidate);
             _index.Put(p.EntityId, p.Position, _candidates.Count - 1);
             _byId[p.EntityId] = candidate;

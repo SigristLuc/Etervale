@@ -1,0 +1,275 @@
+using PristonTale.Simulation.Combat;
+using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Modifiers;
+
+namespace PristonTale.Simulation.Skills;
+
+public enum SkillRangeMode
+{
+    // The Range table, or the weapon's attack range when the table is empty.
+    Table,
+    // The larger of the table and the weapon's attack range.
+    AtLeastWeapon,
+    // The weapon's attack range plus the table.
+    AddWeapon
+}
+
+public enum SkillDamageMode
+{
+    // Damage rolled from the tables (and the attack power for AttackPower skills).
+    Rolled,
+    // Share percent of each target's maximum life.
+    MaxLifeShare,
+    // Share percent of each target's current life.
+    CurrentLifeShare
+}
+
+// A rank range that plays another clip (more hits at higher ranks): a skill motion, or the weapon's attack clip.
+public sealed record SkillMotionVariant
+{
+    public int FromRank { get; init; }
+    public SkillMotion Motion { get; init; }
+    public int MotionSpeed { get; init; }
+    public int MotionIndex { get; init; }
+    public int MotionFrames { get; init; }
+    public int[] MotionEvents { get; init; } = [];
+    public int[] ExtraEvents { get; init; } = [];
+}
+
+// Which players a support skill reaches besides its target. There is no party system yet: allies are the other living
+// players of the field within Radius of the caster (and within Height vertically).
+public sealed record SkillAllyRule
+{
+    public int[] Radius { get; init; } = [];
+    public bool IncludeCaster { get; init; } = true;
+    // Strength of the effect on players other than the caster, in percent.
+    public int OthersPercent { get; init; } = 100;
+    public int Height { get; init; } = 80;
+    // Players already holding one of these effects are skipped (the original refuses to stack them).
+    public uint[] ExcludeWith { get; init; } = [];
+}
+
+// One element a weapon enchant can carry: damage added to hits and, for ice, a slow of the struck monster.
+public sealed record SkillEnchantChoice
+{
+    public Element Element { get; init; }
+    public int[] Min { get; init; } = [];
+    public int[] Max { get; init; } = [];
+    // Duration of the slow per rank in tenths of a second (shortened by ice resistance).
+    public int[] SlowTenths { get; init; } = [];
+    // Move and action speed change of the struck monster in percent (negative).
+    public int[] SlowPercent { get; init; } = [];
+}
+
+// Element damage carried by the holder's hits while the effect lasts; one choice is drawn per cast.
+public sealed record SkillEnchantRule
+{
+    public SkillEnchantChoice[] Choices { get; init; } = [];
+    // Only basic attacks carry it; otherwise basic attacks and single-target weapon skills without an element.
+    public bool BasicOnly { get; init; }
+}
+
+// Percent of each monster hit taken by the holder that a resource pays instead of life.
+public sealed record SkillAbsorbRule
+{
+    public int[] Percent { get; init; } = [];
+    public ResourceKind Resource { get; init; } = ResourceKind.Mana;
+}
+
+// Percent of a matching monster's rolled attack damage returned to it when it attacks the holder.
+public sealed record SkillReflectRule
+{
+    public int[] Percent { get; init; } = [];
+    public string[] Broods { get; init; } = [];
+}
+
+// Life the holder recovers from the attacks of matching monsters: a percent of the hit, on a block or on every hit.
+public sealed record SkillGuardRule
+{
+    public int[] HealPercent { get; init; } = [];
+    public string[] Broods { get; init; } = [];
+    public bool OnBlock { get; init; }
+}
+
+// Repeated short buffs given to the allies around the holder while the holder's effect lasts.
+public sealed record SkillPulseRule
+{
+    public int IntervalMs { get; init; }
+    public int DurationTenths { get; init; }
+}
+
+// Turns a monster of the listed broods to the caster's side: success percent per rank (lowered by bionic resistance)
+// and the monster's life after the charm in percent of its current life. The duration is the buff's.
+public sealed record SkillCharmRule
+{
+    public int[] Chance { get; init; } = [];
+    public int[] LifePercent { get; init; } = [];
+    public string[] Broods { get; init; } = [];
+}
+
+// Revives the nearest dead player within Radius: success percent per rank, the life it returns with and the time it
+// cannot be hurt.
+public sealed record SkillResurrectRule
+{
+    public int[] Chance { get; init; } = [];
+    public int Radius { get; init; } = 300;
+    public int LifePercent { get; init; } = 50;
+    public int GuardTenths { get; init; } = 50;
+}
+
+public sealed partial record SkillModifierRule
+{
+    // The caster's level / LevelDivisor is added to the value.
+    public int LevelDivisor { get; init; }
+    // The table is indexed by the caster's rank in this skill instead of the cast skill's rank (0 when unlearned).
+    public uint RankOf { get; init; }
+    // Strength on players other than the caster in percent; -1 follows the ally rule.
+    public int OthersPercent { get; init; } = -1;
+}
+
+public sealed partial record SkillBuffRule
+{
+    // Resistance of this element shortens the duration (instead of bionic).
+    public Element? ResistedBy { get; init; }
+    // The effect ends when the holder no longer wields one of the skill's weapons.
+    public bool RequiresWeapon { get; init; }
+    public SkillEnchantRule Enchant { get; init; }
+    public SkillAbsorbRule Absorb { get; init; }
+    public SkillReflectRule Reflect { get; init; }
+    public SkillGuardRule Guard { get; init; }
+    public SkillPulseRule Pulse { get; init; }
+}
+
+public sealed partial record SkillDamageRule
+{
+    public SkillDamageMode Mode { get; init; } = SkillDamageMode.Rolled;
+    // The caster's attack damage (weapon, attributes and modifiers) is rolled and gains Percent.
+    public bool AttackPower { get; init; }
+    // The tables gain the caster's spell power percent (an elemental spirit's boost).
+    public bool SpellPower { get; init; }
+    // Brood bonus per rank, applied after BonusPercent.
+    public int[] BonusPercentByRank { get; init; } = [];
+    // The resistance of the element is divided by this before it applies (lightning of holy bolts, meteorites).
+    public int ResistanceDivisor { get; init; } = 1;
+    // Element of the main target's share when it differs from the area's.
+    public Element? MainElement { get; init; }
+    // A separate hit on the main target, resolved with its own damage rule.
+    public SkillDamageRule Main { get; init; }
+    // Element damage added to a weapon hit (Min..Max of the rule), resisted by its own element.
+    public Element? FlatElement { get; init; }
+    // Share modes: percent of life per rank; Chance per rank plus level / ChanceLevelDivisor.
+    public int[] Share { get; init; } = [];
+    public int[] Chance { get; init; } = [];
+    public int ChanceLevelDivisor { get; init; }
+    public bool ShareResistedByBionic { get; init; }
+    public int MinLifePercent { get; init; }
+    public string[] OnlyBroods { get; init; } = [];
+    public string[] ExcludeBroods { get; init; } = [];
+    // The life taken is returned to the caster, at most this percent of the caster's maximum life.
+    public int LifeToCasterCapPercent { get; init; }
+}
+
+public sealed partial record SkillRule
+{
+    public SkillRangeMode RangeMode { get; init; }
+    // Area targets each roll the caster's accuracy (with the AttackRating table) before they are hit.
+    public bool RollsAccuracy { get; init; }
+    // Weapon skills that never miss (the original sends them without an accuracy roll).
+    public bool NoAccuracy { get; init; }
+    // Weapon skills that throw this many shots per rank: each rolls accuracy, the hits add up into one strike.
+    public int[] Volley { get; init; } = [];
+    // Attack-speed-driven clips: speed steps added to the caster's attack speed, then scaled by this percent.
+    public int MotionSpeedSteps { get; init; }
+    public int MotionSpeedPercent { get; init; } = 100;
+    // Hits beyond the clip's own events (frames from the clip start) and a last hit at the clip's end.
+    public int[] ExtraEvents { get; init; } = [];
+    public bool EndHit { get; init; }
+    // Only the first MaxHits events strike; 0 uses every event.
+    public int MaxHits { get; init; }
+    public SkillMotionVariant[] MotionVariants { get; init; } = [];
+    // The cast is refused while one of these effects is on the caster (its own code: no recast while active).
+    public uint[] Exclusive { get; init; } = [];
+    // These effects end on the caster when the skill is cast.
+    public uint[] Replaces { get; init; } = [];
+    public SkillAllyRule Allies { get; init; }
+    public SkillCharmRule Charm { get; init; }
+    public SkillResurrectRule Resurrect { get; init; }
+    // Area skills that always strike their target, even outside the area's shape.
+    public bool AreaIncludesTarget { get; init; }
+
+    // The rule as it plays at this rank: the motion variant of the rank replaces the clip.
+    public SkillRule ForRank(int rank)
+    {
+        SkillMotionVariant chosen = null;
+        foreach (var variant in MotionVariants)
+        {
+            if (rank >= variant.FromRank && (chosen is null || variant.FromRank > chosen.FromRank))
+            {
+                chosen = variant;
+            }
+        }
+
+        return chosen is null
+            ? this
+            : this with
+            {
+                Motion = chosen.Motion, MotionSpeed = chosen.MotionSpeed > 0 ? chosen.MotionSpeed : MotionSpeed, MotionIndex = chosen.MotionIndex,
+                MotionFrames = chosen.MotionFrames, MotionEvents = chosen.MotionEvents, ExtraEvents = chosen.ExtraEvents
+            };
+    }
+
+    // The frames that strike: the clip's events (MaxHits of them), the extra events and the clip's end.
+    public int[] HitFrames()
+    {
+        var events = MaxHits > 0 ? MotionEvents.Take(MaxHits) : MotionEvents;
+        var frames = events.Concat(ExtraEvents).ToList();
+        if (EndHit)
+        {
+            frames.Add(MotionFrames);
+        }
+
+        return frames.ToArray();
+    }
+}
+
+public static partial class SkillRuleCatalog
+{
+    private static bool MechanicsValid(SkillRule rule)
+    {
+        static bool Ranked(int[] table) => table is null || table.Length is 0 or 10;
+        var damage = rule.Damage;
+        var buff = rule.Buff;
+        return Ranked(rule.Volley) && rule.MotionSpeedPercent is > 0 and <= 400 && rule.MotionSpeedSteps is >= 0 and <= 6
+            && rule.MaxHits >= 0 && rule.ExtraEvents.All(frame => frame > 0) && rule.Exclusive.All(code => code != 0) && rule.Replaces.All(code => code != 0)
+            && rule.MotionVariants.All(variant => variant.FromRank is >= 1 and <= 10
+                && (variant.Motion == SkillMotion.Attack || variant.MotionFrames > 0 && variant.MotionEvents.Length > 0)
+                && variant.MotionEvents.All(frame => frame > 0 && (variant.MotionFrames == 0 || frame <= variant.MotionFrames))
+                && variant.ExtraEvents.All(frame => frame > 0))
+            && (rule.Allies is null || Ranked(rule.Allies.Radius) && rule.Allies.OthersPercent is >= 0 and <= 100)
+            && (rule.Charm is null || rule.Charm.Chance.Length == 10 && rule.Charm.LifePercent.Length == 10)
+            && (rule.Resurrect is null || rule.Resurrect.Chance.Length == 10 && rule.Resurrect.Radius > 0)
+            && (rule.Passive is null || rule.Passive.Modifiers.All(modifier => modifier.Values.Length == 10))
+            && (damage is null || DamageValid(damage))
+            && (buff is null || BuffValid(buff));
+    }
+
+    private static bool DamageValid(SkillDamageRule damage)
+    {
+        static bool Ranked(int[] table) => table is null || table.Length is 0 or 10;
+        return Ranked(damage.BonusPercentByRank) && Ranked(damage.Share) && Ranked(damage.Chance) && damage.ResistanceDivisor >= 1
+            && (damage.Mode == SkillDamageMode.Rolled || damage.Share.Length == 10) && (damage.Main is null || DamageValid(damage.Main));
+    }
+
+    private static bool BuffValid(SkillBuffRule buff)
+    {
+        static bool Ranked(int[] table) => table is null || table.Length is 0 or 10;
+        static bool Choice(SkillEnchantChoice choice) => Ranked(choice.Min) && Ranked(choice.Max) && Ranked(choice.SlowPercent) && Ranked(choice.SlowTenths)
+            && choice.Min.Length == choice.Max.Length && choice.SlowPercent.Length == choice.SlowTenths.Length;
+        return (buff.Enchant is null || buff.Enchant.Choices.Length > 0 && buff.Enchant.Choices.All(Choice))
+            && (buff.Absorb is null || buff.Absorb.Percent.Length == 10)
+            && (buff.Reflect is null || buff.Reflect.Percent.Length == 10)
+            && (buff.Guard is null || buff.Guard.HealPercent.Length == 10)
+            && (buff.Companion is null || buff.Companion.Choices.All(Choice))
+            && (buff.Pulse is null || buff.Pulse.IntervalMs > 0 && buff.Pulse.DurationTenths > 0);
+    }
+}

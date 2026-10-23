@@ -3,9 +3,11 @@
 //    octahedral map, decoded and divided by the frame's nominal display scale; below the horizon the ground's bounce;
 //  - Prefilter: the GGX-prefiltered radiance for one roughness level of the specular atlas (Karis 2013, split sum),
 //    importance-sampled from the octahedral map;
-//  - Irradiance (compute): the order-2 spherical harmonics of the sky (Ramamoorthi and Hanrahan 2001), scaled so that an
-//    upward surface receives the light model's sky light, plus a uniform ground below; stored convolved with the
-//    cosine lobe and divided by pi, the shaders' light unit. Entry 9 holds the scale for the specular atlas.
+//  - Irradiance (compute): the order-2 spherical harmonics of the dome's faces (Ramamoorthi and Hanrahan 2001), scaled so
+//    that an upward surface receives the light model's sky light (the dome at most at its visible level, a uniform fill
+//    for the rest), plus a uniform ground below; stored convolved with the cosine lobe and divided by pi, the shaders'
+//    light unit. Entry 9 holds the scale of the specular atlas (x) and the fill's radiance (yzw), which the octahedral
+//    map, built after it, includes.
 #include "../Core/Common.hlsli"
 #include "../Core/Color.hlsli"
 #include "../Core/Fullscreen.hlsli"
@@ -22,7 +24,7 @@ cbuffer EnvironmentConstants : register(b0)
 
 Texture2D<float4> FaceAtlas : register(t0);     // six faces side by side, 8-bit sRGB display values
 Texture2D<float4> Octahedral : register(t1);    // HDR octahedral radiance
-StructuredBuffer<float4> PreviousSh : register(t2);
+StructuredBuffer<float4> LightSh : register(t2);     // the irradiance pass's result (its scale and fill)
 SamplerState FaceSampler : register(s0) = sampler_state
 {
     Texture = (FaceAtlas); MinFilter = Linear; MagFilter = Linear; MipFilter = Point; AddressU = Clamp; AddressV = Clamp;
@@ -62,11 +64,13 @@ float4 PS_Octahedral(FullscreenOut i) : SV_Target0
 {
     float3 d = OctahedralDecode(i.Uv);
     float3 sky = SkyRadiance(d);
-    // The ground in the light model's units, converted to the atlas's (divided by its scale).
-    float scale = max(PreviousSh[9].x, 1.0e-4);
+    // The ground and the sky's fill (Irradiance) in the light model's units, converted to the atlas's (divided by its
+    // scale); the fill covers the whole upper hemisphere uniformly.
+    float scale = max(LightSh[9].x, 1.0e-4);
     float3 ground = GroundAmbientTarget / scale;
+    float3 fill = LightSh[9].yzw / scale;
     float below = smoothstep(-0.02, -0.15, d.y);
-    return float4(min(lerp(sky, ground, below), HdrCap), 1.0);
+    return float4(min(lerp(sky + fill, ground, below), HdrCap), 1.0);
 }
 
 float RadicalInverse(uint bits)
@@ -164,8 +168,9 @@ groupshared float PartialWeight[SH_THREADS];
 [numthreads(SH_THREADS, 1, 1)]
 void CS_Irradiance(uint index : SV_GroupIndex)
 {
-    // Every thread integrates four texels of a 32x32 grid over the octahedral map. The solid angle of an octahedral
-    // texel is proportional to 1 / |d|^3 for the unnormalised direction on the octahedron.
+    // Every thread integrates four cells of a 32x32 octahedral grid over the dome's faces (the octahedral map also
+    // holds the fill). The solid angle of an octahedral cell is proportional to 1 / |d|^3 for the unnormalised
+    // direction on the octahedron.
     float3 c[9];
     [unroll]
     for (uint z = 0; z < 9; z++)
@@ -189,7 +194,7 @@ void CS_Irradiance(uint index : SV_GroupIndex)
 
         float length3 = pow(dot(raw, raw), 1.5);
         float w = 1.0 / max(length3, 1.0e-4);
-        float3 radiance = Octahedral.SampleLevel(OctahedralSampler, uv, 0).rgb;
+        float3 radiance = SkyRadiance(d);
         float b[9];
         ShBasis(d, b);
         [unroll]
@@ -240,39 +245,54 @@ void CS_Irradiance(uint index : SV_GroupIndex)
         return;
     }
 
+    // The dome is display art: its reflections are never brighter than the sky behind the scene (a scale of at most 1),
+    // and a dome brighter than the light model's sky light is dimmed to it. The rest of the sky light, when the dome is
+    // darker (the night is lit for play, about a hundred times its dark dome), is a uniform fill over the upper
+    // hemisphere, so neither the dome's horizon glow nor its moon is magnified into the reflections. The scale and the
+    // fill come from the unwindowed sky (the reflections are not dimmed or brightened by the window).
+    float target = Luminance(SkyAmbientTarget);
+    float domeUp = max(Luminance(EvaluateSh(sky, float3(0, 1, 0))), 1.0e-6);
+    float specularScale = min(1.0, target / domeUp);
+
     // The hemispheres' step at the horizon rings in an order-2 expansion (dark undersides and bright bands on curved
-    // surfaces): the bands are windowed by Lanczos sigma factors, sinc(l / 3), before the sky is scaled. The specular
-    // atlas's scale comes from the unwindowed sky (the reflections are not dimmed or brightened by the window).
-    float specularScale = Luminance(SkyAmbientTarget) / max(Luminance(EvaluateSh(sky, float3(0, 1, 0))), 1.0e-6);
+    // surfaces): the bands are windowed by Lanczos sigma factors, sinc(l / 3), before the sky is scaled.
     [unroll]
     for (uint w = 1; w < 9; w++)
     {
         sky[w] *= w < 4 ? ShWindowBand1 : ShWindowBand2;
     }
 
-    // Scale the sky to the light model's sky light on an upward surface, keeping its direction; the colour is mostly the
+    // The dome keeps its direction and gives an upward surface its share of the sky light. The sky light's colour, in the
+    // irradiance and in the fill (so a dark dome's reflected sky has the colour of the light it sheds), is mostly the
     // light model's (SkyHueShare), the rest the dome's (its art hues are strong, a teal night or a purple dusk).
     float3 up = EvaluateSh(sky, float3(0, 1, 0));
-    float scale = Luminance(SkyAmbientTarget) / max(Luminance(up), 1.0e-6);
-    float3 tint = lerp(1.0, clamp(SkyAmbientTarget / max(up * scale, 1.0e-6), 0.25, 4.0), SkyHueShare);
+    float upLevel = max(Luminance(up), 1.0e-6);
+    float scale = specularScale * domeUp / upLevel;
+    float3 tint = lerp(1.0, clamp(SkyAmbientTarget / max(up * (target / upLevel), 1.0e-6), 0.25, 4.0), SkyHueShare);
+    // A black dome has no colour to keep.
+    float3 skyColour = max(up * tint, 0.0);
+    skyColour = Luminance(skyColour) > 1.0e-5 * target ? skyColour * (target / Luminance(skyColour)) : SkyAmbientTarget;
+    float3 fill = skyColour * (max(target - specularScale * domeUp, 0.0) / max(target, 1.0e-6));
     [unroll]
     for (uint t2 = 0; t2 < 9; t2++)
     {
         sky[t2] *= tint;
     }
 
-    // A uniform ground of radiance G below the horizon, projected on the basis: by symmetry only the constant term and
-    // the y term are non-zero (its step windowed like the sky's).
+    // A uniform ground of radiance G below the horizon and the uniform fill above it, projected on the basis: by symmetry
+    // only the constant term and the y term are non-zero (their step windowed like the sky's). An upward surface under a
+    // uniform upper hemisphere of radiance F receives F (unwindowed) or F (1 + w1) / 2 (windowed).
     float3 g = GroundAmbientTarget;
+    float3 f = fill * (2.0 / (1.0 + ShWindowBand1));
     [unroll]
     for (uint k = 0; k < 9; k++)
     {
         Sh[k] = float4(sky[k] * scale, 0.0);
     }
 
-    Sh[0] = float4(sky[0] * scale + g * (0.282095 * 2.0 * PI), 0.0);
-    Sh[1] = float4(sky[1] * scale - g * (0.488603 * PI * ShWindowBand1), 0.0);
-    Sh[9] = float4(specularScale, 0.0, 0.0, 1.0);
+    Sh[0] = float4(sky[0] * scale + (g + f) * (0.282095 * 2.0 * PI), 0.0);
+    Sh[1] = float4(sky[1] * scale + (f - g) * (0.488603 * PI * ShWindowBand1), 0.0);
+    Sh[9] = float4(specularScale, fill);
 }
 
 technique Octahedral { pass P0 { VertexShader = compile vs_6_0 VS_Fullscreen(); PixelShader = compile ps_6_0 PS_Octahedral(); } }

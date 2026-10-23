@@ -24,7 +24,7 @@ internal static class NpcMovementTests
             new KeyValuePair<int, MotionClip>(MotionStateCode.Stand, Clip(40, 80)),
             new KeyValuePair<int, MotionClip>(MotionStateCode.Stand, Clip(90, 150))
         ]);
-        var definition = new NpcDefinition(1, "Warehouse", "char/npc/TN-010/TN-010.inx", NpcServices.Warehouse)
+        var definition = new NpcDefinition(1, "Warehouse", "char/npc/TN-010/TN-010.inx", [new NpcService(NpcServiceKind.Warehouse)])
         {
             MoveRange = 64
         };
@@ -66,7 +66,7 @@ internal static class NpcMovementTests
         [
             new KeyValuePair<int, MotionClip>(MotionStateCode.Stand, Clip(0, 40))
         ]);
-        var definition = new NpcDefinition(1, "Smith", "char/npc/TN-003/TN-003.inx", NpcServices.Shop);
+        var definition = new NpcDefinition(1, "Smith", "char/npc/TN-003/TN-003.inx", [new NpcService(NpcServiceKind.Shop)]);
         var field = Field(definition, timings);
         var npc = field.Npcs.Single();
         var original = npc.Position;

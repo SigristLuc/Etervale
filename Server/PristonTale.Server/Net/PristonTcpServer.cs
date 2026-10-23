@@ -16,6 +16,7 @@ public sealed class PristonTcpServer(
     ISessionRegistry sessions,
     WorldServer world,
     WorldDataHolder worldData,
+    NpcAppService npc,
     IConfiguration configuration,
     ILogger<PristonTcpServer> logger) : BackgroundService
 {
@@ -38,7 +39,7 @@ public sealed class PristonTcpServer(
     {
         _perAddress = new ConnectionLimiter(_limits.MaxConnectionsPerIp);
         _loginThrottle = new LoginThrottle(_limits.LoginFailuresPerAccount, _limits.LoginFailuresPerIp, _limits.LoginFailureWindowMs);
-        var services = new SessionServices(auth, characters, sessionsApp, sessions, world, worldData, logger, _limits, _loginThrottle);
+        var services = new SessionServices(auth, characters, sessionsApp, sessions, world, worldData, logger, _limits, _loginThrottle, npc);
         using var listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp) { DualMode = true };
         listener.Bind(new IPEndPoint(IPAddress.IPv6Any, HostingExtensions.DefaultGamePort));
         listener.Listen(512);

@@ -27,8 +27,12 @@ internal sealed class PristonDayNightCycle
     public const float Sunset = 18.75f;
     // Tilt of the sun's path toward -Z (the path's horizontal offset, as a share of the east-west radius).
     private const float PathTilt = 0.35f;
-    // The moon lights the night from a fixed, high position.
+    // The moon lights the night from a fixed, high position with the sunlight its grey surface reflects, slightly
+    // reddened. The gradient's blue night levels give its brightness only: the blue of a moonlit night is the eye's (the
+    // final pass's mesopic vision), and a blue light would give every surface a blue specular sheen its diffuse colour
+    // does not have.
     private static readonly Vector3 TowardMoon = Vector3.Normalize(new Vector3(-0.45f, 0.78f, -0.42f));
+    private static readonly Vector3 MoonlightHue = PristonPhotometry.Hue(new Vector3(1f, 0.96f, 0.9f));
     // Colour of clear-sky diffuse light (about 10000 K) and its share in the daytime sky light.
     private static readonly Vector3 ClearSkyHue = PristonPhotometry.Hue(new Vector3(0.78f, 0.9f, 1.2f));
     private const float SkylightBlueShare = 0.6f;
@@ -56,6 +60,9 @@ internal sealed class PristonDayNightCycle
     public float DayLengthSeconds { get; set; }
 
     public float TimeOfDay { get; private set; }
+
+    // The hue of the gradient's midnight light: the colour the eye gives the night (the final pass's mesopic vision).
+    public Vector3 NightHue => PristonPhotometry.Hue(PristonPhotometry.LegacyLevelToIlluminance(SampleGradient(0f).Sun));
 
     private PristonSkyState _cachedState;
     private float _cachedTime = float.NaN;
@@ -102,7 +109,7 @@ internal sealed class PristonDayNightCycle
         var sunLux = PristonPhotometry.SunIlluminance(elevation);
         var skyLux = PristonPhotometry.SkyIlluminance(elevation);
         // Night: the gradient's levels (moon and night sky), never below them, so twilight hands over continuously.
-        var moonLevel = PristonPhotometry.LegacyLevelToIlluminance(sunTint) * NightLevelScale;
+        var moonLevel = MoonlightHue * (PristonPhotometry.Luminance(PristonPhotometry.LegacyLevelToIlluminance(sunTint)) * NightLevelScale);
         var nightSky = PristonPhotometry.LegacyLevelToIlluminance(ambientTint) * NightLevelScale;
         var moonVisibility = MathHelper.Clamp(-(MathHelper.ToDegrees(elevation) + 2f) / 6f, 0f, 1f);
         // The gradient's hue reddened by the air the low sun shines through (PristonPhotometry.SunTransmittance).

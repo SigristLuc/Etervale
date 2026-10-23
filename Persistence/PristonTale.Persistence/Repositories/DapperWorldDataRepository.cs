@@ -69,7 +69,14 @@ public sealed class DapperWorldDataRepository(IDbConnectionFactory connectionFac
 
         // Runtime NPC IDs derive from this deterministic order.
         var npcs = (await connection.QueryAsync<NpcRecord>(new CommandDefinition(
-            "SELECT * FROM npcs ORDER BY name", cancellationToken: ct))).ToList();
+            """
+            SELECT name, model, linked_file, svc_warehouse, svc_shop, svc_skill_master, svc_job_change,
+                   svc_teleport, svc_item_mix, svc_item_aging, svc_smelting, svc_manufacture, svc_mixture_reset,
+                   svc_clan, svc_bless_castle, svc_quest, svc_event_booth, svc_collect_money, svc_give_money,
+                   job_change_code, teleport_code, quest_code, quest_param, dialog, sound_code, move_range,
+                   model_scale, display_name, portrait_offset_y, portrait_offset_z
+            FROM npcs ORDER BY name
+            """, cancellationToken: ct))).ToList();
         if (npcs.Count == 0)
             return npcs;
 
@@ -77,9 +84,13 @@ public sealed class DapperWorldDataRepository(IDbConnectionFactory connectionFac
                 "SELECT id, npc_name, tab, ordinal, item_code FROM npc_shop_stock ORDER BY tab, ordinal",
                 cancellationToken: ct)))
             .ToLookup(static s => s.NpcName);
+        var services = (await connection.QueryAsync<NpcServiceRecord>(new CommandDefinition(
+                "SELECT id, npc_name, ordinal, kind, value, value2, text FROM npc_services ORDER BY npc_name, ordinal",
+                cancellationToken: ct)))
+            .ToLookup(static s => s.NpcName);
 
         return npcs
-            .Select(n => n with { ShopStock = stock[n.Name].ToList() })
+            .Select(n => n with { ShopStock = stock[n.Name].ToList(), Services = services[n.Name].ToList() })
             .ToList();
     }
 

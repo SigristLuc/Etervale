@@ -1,0 +1,27 @@
+// Shaman skills, tiers 1 to 4 in skill-window order. Format: Shared/PristonTale.Simulation/Skills/ClassSkillCatalog.cs.
+[
+    { "code": "0x50010001", "name": "Dark Bolt", "tier": "Job1", "category": "ActiveAttack", "icon": "MS10 Darkbolt",
+      "description": "Hits the enemy with an almighty bolt of dark magic created with sorcery", "requiredLevel": 10, "mouse": "Both",
+      "mana": [14, 16, 18, 20, 22, 24, 26, 28, 30, 32], "stamina": [8, 1], "weapons": ["Phantom"] },
+    { "code": "0x50010002", "name": "Dark Wave", "tier": "Job1", "category": "AreaAttack", "icon": "MS12 Darkwave",
+      "description": "Performs a consecutive area attack with almighty bolts of dark magic", "requiredLevel": 12, "mouse": "Both",
+      "mana": [22, 24, 26, 28, 31, 34, 38, 42, 46, 50], "stamina": [19, 1], "weapons": ["Phantom"] },
+    { "code": "0x50010003", "name": "Inertia", "tier": "Job1", "category": "Debuff", "icon": "MS14 Curselazy",
+      "description": "Throws a curse onto the enemies, slowing them down temporarily", "requiredLevel": 14, "mouse": "Right",
+      "mana": [25, 28, 32, 36, 40, 45, 50, 55, 60, 65], "stamina": [20, 1], "weapons": ["Phantom"] },
+    { "code": "0x50010004", "name": "Inner Peace", "tier": "Job1", "category": "Passive", "icon": "MS17 I_peace",
+      "description": "Through mental training, increases MP potion recovery and mana capacity permanently", "requiredLevel": 17, "mouse": "None",
+      "mana": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "stamina": [0, 0], "weapons": [] },
+    { "code": "0x50020001", "name": "Spiritual Flare", "tier": "Job2", "category": "AreaAttack", "icon": "MS20 S_Flare", "requiredLevel": 19 },
+    { "code": "0x50020002", "name": "Spiritual Manacle", "tier": "Job2", "category": "Debuff", "icon": "MS23 S_Manacle", "requiredLevel": 19 },
+    { "code": "0x50020003", "name": "Chasing Hunt", "tier": "Job2", "category": "Buff", "icon": "MS26 C_Hunt", "requiredLevel": 19 },
+    { "code": "0x50020004", "name": "Advent Migal", "tier": "Job2", "category": "Buff", "icon": "MS30 A_Migal", "requiredLevel": 19 },
+    { "code": "0x50040001", "name": "Rainmaker", "tier": "Job3", "category": "AreaAttack", "icon": "MS40 R_Maker", "requiredLevel": 39 },
+    { "code": "0x50040002", "name": "Phantom Call", "tier": "Job3", "category": "Summon", "icon": "MS43 L_Ghost", "requiredLevel": 39 },
+    { "code": "0x50040003", "name": "Haunt", "tier": "Job3", "category": "ActiveAttack", "icon": "MS46 Haunt", "requiredLevel": 39 },
+    { "code": "0x50040004", "name": "Scratch", "tier": "Job3", "category": "ActiveAttack", "icon": "MS50 Scratch", "requiredLevel": 39 },
+    { "code": "0x50080001", "name": "Recall Hestian", "tier": "Job4", "category": "Summon", "icon": "MS60 R_Knight", "requiredLevel": 59 },
+    { "code": "0x50080002", "name": "Judgement", "tier": "Job4", "category": "ActiveAttack", "icon": "MS63 Judge", "requiredLevel": 59 },
+    { "code": "0x50080003", "name": "Advent Midranda", "tier": "Job4", "category": "Buff", "icon": "MS66 A_Midranda", "requiredLevel": 59 },
+    { "code": "0x50080004", "name": "Mourning Pray", "tier": "Job4", "category": "Buff", "icon": "MS70 M_pray", "requiredLevel": 59 }
+]

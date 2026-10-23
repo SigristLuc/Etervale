@@ -23,6 +23,7 @@ public static class HostingExtensions
         // A factory prevents DI from selecting the collection constructor with an empty field set.
         builder.Services.AddSingleton(_ => new PristonTale.Simulation.World.WorldCatalog());
         builder.Services.AddSingleton<SessionAppService>();
+        builder.Services.AddSingleton<NpcAppService>();
 
         var provider = builder.Configuration["Database:Provider"] ?? "Sqlite";
         if (string.Equals(provider, "Sqlite", StringComparison.OrdinalIgnoreCase))

@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Progression;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Persistence.Abstractions.Characters;
 
@@ -18,14 +19,15 @@ public sealed record SavedItem(
     uint JobSpecMask,
     ItemStatBlock RolledBonus);
 
-public sealed record SavedItems(int Version, SavedItem[] Items, long Revision = 0, AppliedInventoryOperation[]? Operations = null);
-public sealed record SavedSkill(uint Code, int Rank);
+public sealed record SavedItems(int Version, SavedItem[] Items, long Revision = 0, AppliedInventoryOperation[]? Operations = null,
+    AppliedServiceOperation[]? ServiceOperations = null);
+public sealed record SavedSkill(uint Code, int Rank, int Uses = 0);
 public sealed record SavedSkills(int Version, int Points, int ElitePoints, SavedSkill[] Skills,
     long Revision = 0, AppliedProgressionOperation[]? Operations = null);
 
 public static class CharacterStateCodec
 {
-    private static readonly JsonSerializerOptions Options = new(CharacterJson.Options)
+    internal static readonly JsonSerializerOptions Options = new(CharacterJson.Options)
     {
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
         RespectRequiredConstructorParameters = true,
@@ -43,7 +45,8 @@ public static class CharacterStateCodec
         foreach (var saved in inventory.Items)
         {
             var item = RestoreItem(saved, catalog, identities);
-            if (saved.Slot.HasValue || !character.Inventory.TryPlace(item, saved.Anchor))
+            // Footprints follow the item table; an item saved where its footprint no longer fits moves to the first free place.
+            if (saved.Slot.HasValue || !character.Inventory.TryPlace(item, saved.Anchor) && !PlaceInFirstFree(character.Inventory, item))
             {
                 throw new InvalidDataException("Invalid saved inventory footprint.");
             }
@@ -63,11 +66,25 @@ public static class CharacterStateCodec
 
         foreach (var skill in skills.Skills)
         {
-            character.Skills.Restore(skill.Code, skill.Rank);
+            character.Skills.Restore(skill.Code, skill.Rank, skill.Uses);
         }
 
         character.RestoreInventoryHistory(inventory.Revision, inventory.Operations ?? []);
+        character.RestoreServiceHistory(inventory.ServiceOperations ?? []);
         character.RestoreProgressionHistory(skills.Revision, skills.Operations ?? []);
+    }
+
+    private static bool PlaceInFirstFree(Inventory inventory, ItemInstance item)
+    {
+        for (var anchor = 0; anchor < inventory.Capacity; anchor++)
+        {
+            if (inventory.TryPlace(item, anchor))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static SavedItems CaptureInventory(PlayerCharacter character)
@@ -81,7 +98,8 @@ public static class CharacterStateCodec
             }
         }
 
-        return new SavedItems(1, items.ToArray(), character.InventoryRevision, character.InventoryOperations.ToArray());
+        return new SavedItems(1, items.ToArray(), character.InventoryRevision, character.InventoryOperations.ToArray(),
+            character.ServiceOperations.ToArray());
     }
 
     public static SavedItems CaptureEquipment(PlayerCharacter character)
@@ -107,20 +125,20 @@ public static class CharacterStateCodec
         var index = 0;
         foreach (var skill in character.Skills.Ranks)
         {
-            skills[index++] = new SavedSkill(skill.Key, skill.Value);
+            skills[index++] = new SavedSkill(skill.Key, skill.Value, character.Skills.UsesOf(skill.Key));
         }
 
         return new SavedSkills(1, character.SkillPoints, character.EliteSkillPoints, skills,
             character.ProgressionRevision, character.ProgressionOperations.ToArray());
     }
 
-    private static SavedItem CaptureItem(ItemInstance item, int anchor, EquipmentSlot? slot)
+    internal static SavedItem CaptureItem(ItemInstance item, int anchor, EquipmentSlot? slot)
     {
         return new SavedItem(item.InstanceId, item.Definition.Code, item.Count, anchor, slot, item.UpgradeLevel,
             item.DurabilityCurrent, item.DurabilityMax, item.JobSpecMask, item.RolledBonus);
     }
 
-    private static ItemInstance RestoreItem(SavedItem saved, ItemCatalog catalog, HashSet<Guid> identities)
+    internal static ItemInstance RestoreItem(SavedItem saved, ItemCatalog catalog, HashSet<Guid> identities)
     {
         if (saved is null || saved.InstanceId == Guid.Empty || !identities.Add(saved.InstanceId)
             || !catalog.TryGet(saved.Code, out var definition) || saved.Count < 1 || saved.Count > definition.MaxStack
@@ -172,7 +190,7 @@ public static class CharacterStateCodec
         return state;
     }
 
-    private static bool IsLegacyEmpty(JsonText json, JsonValueKind expected)
+    internal static bool IsLegacyEmpty(JsonText json, JsonValueKind expected)
     {
         if (string.IsNullOrWhiteSpace(json.Value) || json.Value.Length > 65536)
         {

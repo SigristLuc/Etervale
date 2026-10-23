@@ -12,6 +12,12 @@ public enum RemoteCombatEventKind
     PotionBegin = 3,
     PotionApplied = 4,
     MonsterSkillImpact = 5,
+    // A skill or periodic effect restored life; Damage carries the amount.
+    Heal = 6,
+    // The target evaded a monster's attack through a skill effect.
+    Evade = 7,
+    // A dead player rose again (a revive skill); Damage carries the life it returns with.
+    Revive = 8,
 }
 
 public sealed record CombatEventInfo(

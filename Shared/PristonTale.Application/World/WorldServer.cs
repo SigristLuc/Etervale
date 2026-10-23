@@ -10,12 +10,13 @@ using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Fields;
 
 namespace PristonTale.Application.World;
 
-public sealed class WorldServer
+public sealed partial class WorldServer
 {
     public const int TickHz = 20;
 
@@ -55,6 +56,8 @@ public sealed class WorldServer
         PlayerSession? Session)
     {
         public OwnerState? LastOwner { get; set; }
+
+        public long CooldownRevision { get; set; } = -1;
     }
 
     public WorldServer(
@@ -162,7 +165,9 @@ public sealed class WorldServer
             }
 
             // The request's placement never becomes authoritative. Gates retain position; warps use catalog exits.
+            var oldNowMs = _fields[oldFieldId].NowMs;
             _fields[oldFieldId].Remove(player.EntityId);
+            player.Cooldowns.Rebase(oldNowMs, GetField(newFieldId).NowMs);
             var inVillage = destination.State == FieldState.Village;
             var terrain = GetField(newFieldId).Terrain;
             var respawnPoint = terrain.PlaceOnFloor(RespawnPoint(destination, arrival.Position));
@@ -200,6 +205,20 @@ public sealed class WorldServer
         });
     }
 
+    public Task<SkillCastOutcome> CastSkillAsync(int fieldId, uint entityId, SkillCastRequest request)
+    {
+        return EnqueueAsync(entityId, () =>
+        {
+            if (!_connections.TryGetValue(entityId, out var connection) || connection.FieldId != fieldId
+                || !_fields.TryGetValue(fieldId, out var field))
+            {
+                return SkillCastOutcome.Refused(request, SkillCastVerdict.Stale);
+            }
+
+            return field.CastSkill(connection.Player, request);
+        });
+    }
+
     public Task<Vector3?> PositionOfAsync(uint entityId)
     {
         return EnqueueAsync<Vector3?>(entityId, () => _connections.TryGetValue(entityId, out var connection) ? connection.Player.Position : null);
@@ -232,23 +251,6 @@ public sealed class WorldServer
     }
 
     public int PlayerCount => Volatile.Read(ref _playerCount);
-
-    public Task<NpcInteraction> InteractNpcAsync(PlayerSession session, uint npcId)
-    {
-        return EnqueueAsync(session.EntityId, () =>
-        {
-            if (!session.IsPlaying || !_connections.TryGetValue(session.EntityId, out var connection)
-                || !ReferenceEquals(connection.Session, session) || !_fields.TryGetValue(connection.FieldId, out var field)
-                || !field.TryGetNpc(npcId, out var npc) || !ProgressionTransactions.CanReach(connection.Player, npc))
-            {
-                return NpcInteraction.Rejected("approach this NPC while alive");
-            }
-
-            var definition = npc.Definition;
-            return new NpcInteraction(true, npc.EntityId, definition.Name,
-                definition.Services, definition.Dialog, "");
-        });
-    }
 
     public Task<PreparedCharacterOperation<ProgressionOutcome>?> PrepareProgressionAsync(
         PlayerSession session, ProgressionCommand command)
@@ -491,7 +493,9 @@ public sealed class WorldServer
         var entities = field.BuildViews();
         var snapshot = new WorldSnapshot(serverTick, entities, field.SnapshotEvents(), field.FieldId, groundDrops: field.GroundLoot.Snapshot())
         {
-            Grid = EntityGrid.Build(entities)
+            Grid = EntityGrid.Build(entities),
+            SkillEvents = field.SnapshotSkillEvents(),
+            StatusEvents = field.SnapshotStatusEvents()
         };
         foreach (var entityId in field.PlayerIds)
         {
@@ -499,7 +503,9 @@ public sealed class WorldServer
             {
                 var owner = OwnerState.Capture(connection.Player.Character, connection.LastOwner);
                 connection.LastOwner = owner;
-                connection.Outbound.TryWrite(snapshot.WithOwner(owner));
+                var cooldowns = connection.Player.Cooldowns.SnapshotIfChanged(connection.CooldownRevision, field.NowMs);
+                connection.CooldownRevision = connection.Player.Cooldowns.Revision;
+                connection.Outbound.TryWrite(snapshot.WithOwner(owner, cooldowns));
             }
         }
     }

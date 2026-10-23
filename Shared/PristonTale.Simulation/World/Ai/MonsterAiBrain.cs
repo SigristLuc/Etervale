@@ -1,5 +1,6 @@
 using System.Numerics;
 using PristonTale.Simulation.Combat;
+using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Monsters;
 
 namespace PristonTale.Simulation.World.Ai;
@@ -28,6 +29,27 @@ public sealed class MonsterAiBrain
         {
             return null;
         }
+
+        // A stunned or charmed monster holds still: no decisions, steps or swings until the control state ends. A charmed
+        // monster is on its caster's side; it attacks no player while the charm lasts.
+        if (monster.Effects.Count > 0 && monster.Effects.Has(ControlFlags.Stun | ControlFlags.Charmed))
+        {
+            if (monster.AiState == MonsterAiState.Attack)
+            {
+                // The interrupted swing does not land; the chase resumes on the same target afterwards.
+                monster.SkillImpactPending = false;
+                monster.AttackHitFired = true;
+                monster.AiState = MonsterAiState.Chase;
+                monster.SinceDecisionMs = MonsterAiTuning.DecisionIntervalMs;
+            }
+
+            monster.Motion = MonsterMotionState.Stand;
+            return null;
+        }
+
+        // A slowed monster moves, decides and swings at the slowed rate, as the original halves both its step and its frame
+        // advance.
+        dtMs *= SlowFactor(monster);
 
         monster.SinceDecisionMs += dtMs;
         monster.SinceRetargetMs += dtMs;
@@ -179,7 +201,7 @@ public sealed class MonsterAiBrain
             long dz = (long)(c.Position.Z - m.Position.Z);
             long dy = (long)(c.Position.Y - m.Position.Y);
             long distSq = (dx * dx) + (dy * dy) + (dz * dz);
-            if (distSq < bestSq && distSq < t.SightSq)
+            if (distSq < bestSq && distSq < SightSqFor(t, c))
             {
                 bestSq = distSq;
                 best = c.EntityId;
@@ -187,6 +209,29 @@ public sealed class MonsterAiBrain
         }
 
         return best;
+    }
+
+    // The slow modifiers of the monster's effects scale its clock (a -50 % move speed halves everything).
+    public static float SlowFactor(MonsterInstance monster)
+    {
+        if (monster.Effects.Count == 0 || !monster.Effects.Has(ControlFlags.Slow))
+        {
+            return 1f;
+        }
+
+        return Math.Clamp((100 + monster.Effects.Totals.Percent(StatKind.MoveSpeed)) / 100f, 0.05f, 1f);
+    }
+
+    // Stealth shortens the sight at which a monster notices the prey; some bosses see through it.
+    private static long SightSqFor(MonsterAiTuning t, in PreyCandidate prey)
+    {
+        if (prey.SightPercent >= 100 || t.SeesStealth)
+        {
+            return t.SightSq;
+        }
+
+        var sight = MathF.Sqrt(t.SightSq) * prey.SightPercent / 100f;
+        return (long)(sight * sight);
     }
 
     private static void EnterIdle(MonsterInstance m)

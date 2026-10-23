@@ -1,4 +1,5 @@
 using System.Numerics;
+using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Ai;
 
 namespace PristonTale.Simulation.World.Monsters;
@@ -94,6 +95,18 @@ public sealed class MonsterInstance
     public float IdleDespawnMsLeft { get; set; }
 
     public bool IsAlive => Life > 0 && AiState != MonsterAiState.Dead;
+
+    // Debuffs and buffs from any source (player skills, auras); the field steps their timers.
+    public EffectContainer Effects { get; } = new();
+
+    // Summons: the player that called the monster, the calling skill, the field-clock time it expires, whether it picks
+    // its own targets and its model size (0 keeps the catalog's). Wild monsters have no owner.
+    public uint OwnerId { get; set; }
+    public uint SummonSkill { get; set; }
+    public long ExpiresAtMs { get; set; }
+    public bool Aggressive { get; set; }
+    public float ModelScale { get; set; }
+    public bool IsSummon => OwnerId != 0;
 
     public void ApplyDamage(int amount)
     {

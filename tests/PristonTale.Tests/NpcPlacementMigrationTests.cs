@@ -34,6 +34,12 @@ internal static class NpcPlacementMigrationTests
                 "the consolidated baseline version was not recorded");
             Assert.True(
                 await connection.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(*) FROM pragma_table_info('npcs') WHERE name IN ('display_name', 'portrait_offset_y', 'portrait_offset_z')") == 3
+                && await connection.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(*) FROM pragma_table_info('monsters') WHERE name IN ('portrait_offset_y', 'portrait_offset_z')") == 2,
+                "the target-frame portrait columns are missing");
+            Assert.True(
+                await connection.ExecuteScalarAsync<int>(
                     "SELECT COUNT(*) FROM pragma_table_info('characters') WHERE name IN ('face_index', 'tier', 'hair_index', 'size_level')") == 4,
                 "the baseline omitted character appearance columns");
 
@@ -51,11 +57,12 @@ internal static class NpcPlacementMigrationTests
                 VALUES ('custom/npc-motion.inx', 10, 80, 1, 9, 0, 0, 0, 0, 1)
                 """);
 
+            var versions = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM \"VersionInfo\"");
             await migrator.MigrateAsync();
 
             Assert.True(
-                await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM \"VersionInfo\"") == 1,
-                "rerunning the baseline created a second version");
+                await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM \"VersionInfo\"") == versions,
+                "rerunning the migrations recorded another version");
             Assert.True(
                 await connection.ExecuteScalarAsync<int>("SELECT move_range FROM npcs WHERE name = 'Warehouse'") == 64,
                 "the baseline omitted the NPC movement default");

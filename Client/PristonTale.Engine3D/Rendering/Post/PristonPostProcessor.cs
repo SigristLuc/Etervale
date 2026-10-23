@@ -28,6 +28,7 @@ internal sealed class PristonPostProcessor : IDisposable
     private readonly EffectParameter _screenParams;
     private readonly EffectParameter _toneParams;
     private readonly EffectParameter _debugParams;
+    private readonly EffectParameter _mesopicParams;
     private readonly PristonBloom _bloom;
     private readonly PristonSmaa _smaa;
     private RenderTarget2D _ldrTarget;
@@ -52,6 +53,7 @@ internal sealed class PristonPostProcessor : IDisposable
         _screenParams = _final.Parameters["ScreenParams"];
         _toneParams = _final.Parameters["ToneParams"];
         _debugParams = _final.Parameters["DebugParams"];
+        _mesopicParams = _final.Parameters["MesopicParams"];
         _bloom = new PristonBloom(device, triangle, PristonShaderLibrary.LoadRequired(content, PristonBloom.Asset, log));
         _smaa = new PristonSmaa(device, triangle, PristonShaderLibrary.LoadRequired(content, PristonSmaa.Asset, log));
         Exposure = new PristonAutoExposure(device, PristonShaderLibrary.LoadRequired(content, PristonAutoExposure.Asset, log));
@@ -111,6 +113,7 @@ internal sealed class PristonPostProcessor : IDisposable
         _screenParams.SetValue(new Vector4(scene.Width, scene.Height, _frame++ % 64, settings.Sharpening));
         _toneParams.SetValue(new Vector4((float)settings.Tonemapper, settings.ColorGrading ? 1f : 0f, bloomStrength, fixedMultiplier));
         _debugParams.SetValue(new Vector4(frame.DebugExposure ? 1f : 0f, 1f / frame.Exposure.PreExposure, 0f, 0f));
+        _mesopicParams.SetValue(new Vector4(frame.Exposure.NightHue == Vector3.Zero ? Vector3.One : frame.Exposure.NightHue, 0f));
         _final.CurrentTechnique = _tonemap;
         _triangle.Draw(_final);
         Profiler?.End(RenderSection.DisplayTransform);

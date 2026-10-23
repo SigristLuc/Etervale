@@ -1,6 +1,7 @@
 using System.Numerics;
 using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Application.Sessions;
 
@@ -30,4 +31,7 @@ public sealed class PlayerSession
     public bool InVillage { get; set; }
 
     public CharacterRecord? Loaded { get; set; }
+
+    // The account warehouse as last loaded or committed, while this session has it open; changed only under SaveGate.
+    internal WarehouseStorage? Warehouse { get; set; }
 }

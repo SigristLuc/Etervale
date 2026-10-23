@@ -20,6 +20,20 @@ public sealed class Inventory
         _rows = new uint[Height];
     }
 
+    // A full grid of the given size; occupancy rows are 32-bit masks.
+    public Inventory(int width, int height)
+    {
+        if (width < 1 || width > 32 || height < 1 || height > 32)
+        {
+            throw new ArgumentOutOfRangeException(nameof(width));
+        }
+
+        _slots = new ItemInstance[width * height];
+        Width = width;
+        Height = height;
+        _rows = new uint[Height];
+    }
+
     public int Width { get; }
     public int Height { get; }
     public int Capacity => _slots.Length;

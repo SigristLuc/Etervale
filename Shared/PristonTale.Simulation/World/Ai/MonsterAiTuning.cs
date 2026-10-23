@@ -35,8 +35,14 @@ public sealed class MonsterAiTuning
 
     public const int ChaseHysteresis = 24;
 
+    // The four great bosses (by sound code) that skills never knock back or taunt and that see through stealth.
+    public static bool IsUnyielding(MonsterDefinition def) => def.SoundCode is 0x1600 or 0x1680 or 0x1830 or 0x18B0;
+
+    public bool SeesStealth { get; }
+
     public MonsterAiTuning(MonsterDefinition def, MotionTimingSet timing = null)
     {
+        SeesStealth = IsUnyielding(def);
         int sight = Math.Max(0, def.Ai.SightRadius);
         SightSq = (long)sight * sight;
 

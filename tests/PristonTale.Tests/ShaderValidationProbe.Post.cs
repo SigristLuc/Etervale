@@ -33,6 +33,7 @@ internal sealed partial class ShaderValidationProbe
         VerifyLampOnActor();
         VerifyReflections();
         VerifyFoliageCoverage();
+        VerifyNight();
     }
 
     // Identity view-projection: the previous one moved by 0.2 clip units in x and a jitter of 0.1 clip units, so the

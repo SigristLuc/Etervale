@@ -1,4 +1,3 @@
-using System.Numerics;
 using PristonTale.Application.Sessions;
 using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Progression;
@@ -8,12 +7,6 @@ namespace PristonTale.Application.World;
 
 internal static class ProgressionTransactions
 {
-    public static bool CanReach(WorldPlayer player, WorldNpc npc)
-    {
-        var delta = player.Position - npc.Position;
-        return !player.IsDead && delta.X * delta.X + delta.Z * delta.Z <= NpcInteraction.Reach * NpcInteraction.Reach;
-    }
-
     public static PreparedCharacterOperation<ProgressionOutcome> Prepare(
         PlayerSession session, WorldPlayer player, FieldInstance field, ProgressionCommand command)
     {
@@ -29,7 +22,7 @@ internal static class ProgressionTransactions
         }
 
         if (player.IsDead || command.Action == ProgressionAction.LearnSkill
-            && (!field.TryGetNpc(command.NpcEntityId, out var npc) || !npc.Definition.Has(NpcServices.SkillMaster) || !CanReach(player, npc)))
+            && (!field.TryGetNpc(command.NpcEntityId, out var npc) || !npc.Definition.Has(NpcServiceKind.SkillMaster) || !NpcServiceTransactions.CanReach(player, npc)))
         {
             return new PreparedCharacterOperation<ProgressionOutcome>(original, null, null,
                 new ProgressionOutcome(false, original.ProgressionRevision, "approach a skill master while alive"));

@@ -17,6 +17,8 @@ public sealed class RendererActorScene(PristonRenderer renderer) : IActorScene
     public void SetActorColorAdd(ActorHandle handle, Vector3 colorAdd) => _renderer.SetActorColorAdd(handle, colorAdd);
     public void SetActorMotion(ActorHandle handle, PristonActorMotion motion) => _renderer.SetActorMotion(handle, motion);
     public void SetActorMotionIndex(ActorHandle handle, int motionIndex) => _renderer.SetActorMotionIndex(handle, motionIndex);
+    public int ResolveSkillMotion(ActorHandle handle, int motionIndex) => _renderer.ResolveSkillMotion(handle, motionIndex);
+    public void SeekActorMotion(ActorHandle handle, int framesFromStart) => _renderer.SeekActorMotion(handle, framesFromStart);
     public void RestartActorMotion(ActorHandle handle, PristonActorMotion motion) => _renderer.RestartActorMotion(handle, motion);
     public void SetActorPlaybackRate(ActorHandle handle, float rateFactor) => _renderer.SetActorPlaybackRate(handle, rateFactor);
     public void RemoveActor(ActorHandle handle) => _renderer.RemoveActor(handle);

@@ -77,6 +77,15 @@ internal static class PhotorealTests
         Assert.True(night.LampFactor == 1f && dusk.LampFactor == 0f, "lamps are not off in the 18:00 sun and on at night");
         Assert.True(night.SunDirection.Y < 0f && night.HorizontalIlluminance is > 0.5f and < 20f, $"night light {night.HorizontalIlluminance} lux");
         Assert.True(dusk.SunIlluminance.X > dusk.SunIlluminance.Z * 2.5f, "the low sun is not warm");
+        // Moonlight is sunlight off a grey surface: a blue moon gives every surface a blue sheen its diffuse colour lacks.
+        // The night's blue is the eye's (mesopic vision in the final pass), in the hue the night light was authored with.
+        var moonHue = night.SunIlluminance.Z / night.SunIlluminance.X;
+        Assert.True(moonHue is > 0.8f and < 1.05f, $"moonlight blue/red {moonHue:F2}");
+        var nightHue = new PristonDayNightCycle().NightHue;
+        Assert.True(nightHue.Z > nightHue.X * 1.3f && MathF.Abs(PristonPhotometry.Luminance(nightHue) - 1f) < 1e-3f, $"night hue {nightHue}");
+        var dim = PristonDisplayTransform.Mesopic(new Vector3(0.05f), 1f, nightHue);
+        var bright = PristonDisplayTransform.Mesopic(new Vector3(500f), 1f, nightHue);
+        Assert.True(dim.Z > dim.X * 1.2f && MathF.Abs(bright.Z / bright.X - 1f) < 0.01f, $"mesopic vision: dim grey {dim}, bright grey {bright}");
         var highSun = PristonPhotometry.SunTransmittance(MathHelper.ToRadians(70f));
         var lowSun = PristonPhotometry.SunTransmittance(MathHelper.ToRadians(8f));
         Assert.True(highSun.Z > 0.95f && lowSun.X > lowSun.Y && lowSun.Y > lowSun.Z && lowSun.Z < 0.5f,

@@ -94,17 +94,30 @@ internal static class WireMapping
                 info.ModelName = monster.ModelInxPath ?? "";
                 info.CharSoundCode = (uint)monster.SoundCode;
                 info.SizeLevel = monster.ShadowSizeLevel;
+                info.Brood = (uint)monster.Brood;
+                info.ArrowPosiX = ClampShort(monster.PortraitOffsetY);
+                info.ArrowPosiY = ClampShort(monster.PortraitOffsetZ);
                 info.Temp[CharacterInfo.TempTemplateCode] = view.TemplateId;
                 info.Temp[CharacterInfo.TempModelScale] = BitConverter.SingleToUInt32Bits(monster.ModelScale);
+                if (view.OwnerId != 0)
+                {
+                    // An owned summon fights on its owner's side: the original marks it with the user brood.
+                    info.Brood = (uint)Simulation.World.Monsters.MonsterBrood.User;
+                    info.Temp[CharacterInfo.TempOwnerSerial] = view.OwnerId;
+                    info.Temp[CharacterInfo.TempInstanceScale] = BitConverter.SingleToUInt32Bits(view.ModelScale);
+                }
+
                 break;
             case EntityKindView.Npc when data.Npcs.TryGet((int)view.TemplateId, out var npc):
                 info.State = CharacterState.Npc;
-                info.Name = npc.Name ?? "";
+                info.Name = npc.Label ?? "";
                 info.ModelName = npc.ModelInxPath ?? "";
                 info.CharSoundCode = (uint)npc.SoundCode;
+                info.ArrowPosiX = ClampShort(npc.PortraitOffsetY);
+                info.ArrowPosiY = ClampShort(npc.PortraitOffsetZ);
                 info.Temp[CharacterInfo.TempTemplateCode] = view.TemplateId;
                 info.Temp[CharacterInfo.TempModelScale] = BitConverter.SingleToUInt32Bits(npc.ModelScale);
-                info.Temp[CharacterInfo.TempNpcServices] = (uint)npc.Services;
+                info.Temp[CharacterInfo.TempNpcServices] = npc.ServiceSet.Bits;
                 break;
             default:
                 // A template missing from the catalog is still described by kind and code.
@@ -183,7 +196,7 @@ internal static class WireMapping
         owner.Hp, owner.MaxHp, owner.Mp, owner.MaxMp, owner.Sp, owner.MaxSp,
         owner.StatPoints, owner.SkillPoints, owner.Strength, owner.Spirit, owner.Talent, owner.Agility, owner.Health,
         owner.DamageMin, owner.DamageMax, owner.Defence, owner.Absorption, owner.AttackRating, owner.MoveSpeed, owner.AttackRange,
-        owner.InventoryRevision, owner.ProgressionRevision, owner.SkillsRevision);
+        owner.InventoryRevision, owner.ProgressionRevision, owner.SkillsRevision, owner.EliteSkillPoints, owner.Tier);
 
     public static InventoryItemEntry Item(OwnedItemView item) => new(
         item.InstanceId, item.Code, (int)item.Kind, item.Count, item.Anchor, item.Slot, (short)item.Width, (short)item.Height, item.Name);
@@ -204,6 +217,41 @@ internal static class WireMapping
         return new CombatEventEntry(view.AttackerId, view.TargetId, (byte)view.Kind, flags, view.DurationMs, view.HitAtMs, view.Damage,
             view.Resources, view.SourceSoundCode, PristonUnits.ToFixed(view.Position.X), PristonUnits.ToFixed(view.Position.Y),
             PristonUnits.ToFixed(view.Position.Z), PristonUnits.ToAngle(view.Facing));
+    }
+
+    public static SkillEventEntry SkillEvent(in SkillEventView view) => new(
+        view.CasterId,
+        view.TargetId,
+        view.SkillCode,
+        (SkillEventPhase)view.Phase,
+        (byte)Math.Clamp(view.Rank, 0, 255),
+        (ushort)view.Flags,
+        view.DurationMs,
+        view.HitAtMs,
+        PristonUnits.ToFixed(view.Position.X),
+        PristonUnits.ToFixed(view.Position.Y),
+        PristonUnits.ToFixed(view.Position.Z),
+        PristonUnits.ToAngle(view.Facing),
+        (ushort)Math.Clamp(view.TargetCount, 0, ushort.MaxValue),
+        (int)MathF.Round(view.Radius));
+
+    public static StatusEffectEntry Status(in StatusEventView view)
+    {
+        ushort flags = 0;
+        if (view.Harmful)
+        {
+            flags |= StatusEffectFlags.Harmful;
+        }
+
+        if (view.Permanent)
+        {
+            flags |= StatusEffectFlags.Permanent;
+        }
+
+        var duration = view.Permanent ? 0 : Math.Max(0, view.DurationMs);
+        var remaining = view.Permanent ? 0 : Math.Clamp(view.RemainingMs, 0, duration);
+        return new StatusEffectEntry(view.EntityId, view.SourceId, view.StatusCode, (StatusEffectOp)view.Op, (byte)Math.Clamp(view.Stacks, 0, 255),
+            view.SourceKind, view.Control, flags, duration, remaining, view.Value);
     }
 
     public static GroundItemEntry Drop(GroundDropView drop) => new(

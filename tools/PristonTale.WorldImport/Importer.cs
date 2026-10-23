@@ -424,18 +424,39 @@ public sealed class Importer
 
     private readonly Dictionary<string, string> _npcNamesByFile = new(StringComparer.OrdinalIgnoreCase);
 
+    // Several files may share an identity name. The catalog keeps the first file a field places, else the first file
+    // read, so a placed NPC keeps its own model, dialog and services; the other files remain variants.
     private IReadOnlyList<ParsedNpc> ParseNpcs(ImportReport report)
     {
         var parser = new NpcParser();
-        var result = new List<ParsedNpc>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var parsed = new List<(string Path, ParsedNpc Npc)>();
         foreach (var path in EnumerateFiles("NPC", "*.npc"))
         {
             report.NpcFilesParsed++;
-            ParsedNpc n;
-            try { n = parser.Parse(path); }
-            catch (Exception ex) { report.Warnings.Add($"npc parse failed {Path.GetFileName(path)}: {ex.Message}"); continue; }
-            var selected = !string.IsNullOrWhiteSpace(n.Name) && seen.Add(n.Name);
+            try
+            {
+                parsed.Add((path, parser.Parse(path)));
+            }
+            catch (Exception ex)
+            {
+                report.Warnings.Add($"npc parse failed {Path.GetFileName(path)}: {ex.Message}");
+            }
+        }
+
+        var placed = PlacedNpcFiles();
+        var chosen = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (path, npc) in parsed.OrderBy(entry => placed.Contains(Path.GetFileName(entry.Path)) ? 0 : 1))
+        {
+            if (!string.IsNullOrWhiteSpace(npc.Name))
+            {
+                chosen.TryAdd(npc.Name, path);
+            }
+        }
+
+        var result = new List<ParsedNpc>();
+        foreach (var (path, n) in parsed)
+        {
+            var selected = !string.IsNullOrWhiteSpace(n.Name) && chosen[n.Name] == path;
             _entityVariants.Add(CreateVariant(path, "npc", n.Name, selected, n));
 
             if (string.IsNullOrWhiteSpace(n.Name))
@@ -443,15 +464,54 @@ public sealed class Importer
                 report.Warnings.Add($"npc {Path.GetFileName(path)} has no *이름 — retained as an unkeyed variant");
                 continue;
             }
+
             _npcNamesByFile[Path.GetFileName(path)] = n.Name;
             if (!selected)
             {
                 report.Warnings.Add($"npc variant '{n.Name}' ({Path.GetFileName(path)}) — retained outside the catalog");
                 continue;
             }
+
             result.Add(n);
         }
+
+        // Definitions sharing a name are one catalog entry; when the selected file has no localized name, players see
+        // the first variant's that has one.
+        foreach (var n in result)
+        {
+            if (n.DisplayName.Length == 0)
+            {
+                n.DisplayName = parsed.Select(entry => entry.Npc).FirstOrDefault(variant => variant.Name == n.Name && variant.DisplayName.Length > 0)?.DisplayName ?? "";
+            }
+
+            if (n.DisplayName.Length == 0)
+            {
+                report.Warnings.Add($"npc '{n.Name}' has no localized name in any definition; the original identity is shown");
+            }
+        }
+
         return result;
+    }
+
+    private HashSet<string> PlacedNpcFiles()
+    {
+        var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var def in new WorldCatalog().AllFields)
+        {
+            var aseBase = AseBaseOf(def.StageSmd);
+            var spcPath = aseBase.Length == 0 ? null : FindFieldFile(aseBase, "spc");
+            if (spcPath is null)
+            {
+                continue;
+            }
+
+            foreach (var source in SpcReader.Sources(spcPath))
+            {
+                files.Add(Path.GetFileName(source.Replace('\\', '/')));
+            }
+        }
+
+        return files;
     }
 
     private IReadOnlyList<ParsedField> ParseFields(ImportReport report)
@@ -630,14 +690,14 @@ public sealed class Importer
                 skill_distance, skill_range, skill_rating_pct, skill_curse_code, move_speed, move_range,
                 iq, group_min, group_max, exp, active_hour, nature, brood, class,
                 res_bionic, res_earth, res_fire, res_ice, res_lighting, res_poison, res_water, res_wind,
-                stun_pct, display_name, sound_code, model_scale)
+                stun_pct, display_name, sound_code, model_scale, portrait_offset_y, portrait_offset_z)
             VALUES (
                 @Name, @Model, @Level, @AtkMin, @AtkMax, @AtkSpeed, @AtkRange, @Accuracy,
                 @Defence, @Absorb, @Block, @Hp, @Sight, @SkDmgMin, @SkDmgMax,
                 @SkDist, @SkRange, @SkRating, @SkCurse, @MoveSpeed, @MoveRange,
                 @Iq, @GroupMin, @GroupMax, @Exp, @ActiveHour, @Nature, @Brood, @Class,
                 @R0, @R1, @R2, @R3, @R4, @R5, @R6, @R7,
-                @StunPct, @DisplayName, @SoundCode, @ModelScale)
+                @StunPct, @DisplayName, @SoundCode, @ModelScale, @PortraitOffsetY, @PortraitOffsetZ)
             ON CONFLICT (name) DO UPDATE SET
                 model=excluded.model, level=excluded.level, attack_min=excluded.attack_min, attack_max=excluded.attack_max,
                 attack_speed=excluded.attack_speed, attack_range=excluded.attack_range, accuracy=excluded.accuracy,
@@ -652,7 +712,8 @@ public sealed class Importer
                 res_ice=excluded.res_ice, res_lighting=excluded.res_lighting, res_poison=excluded.res_poison,
                 res_water=excluded.res_water, res_wind=excluded.res_wind, stun_pct=excluded.stun_pct,
                 display_name=excluded.display_name, sound_code=excluded.sound_code,
-                model_scale=excluded.model_scale;
+                model_scale=excluded.model_scale, portrait_offset_y=excluded.portrait_offset_y,
+                portrait_offset_z=excluded.portrait_offset_z;
             """;
 
         foreach (var m in monsters)
@@ -669,7 +730,7 @@ public sealed class Importer
                 Nature = m.Nature, Brood = m.Brood, Class = m.Class,
                 R0 = m.Resistances[0], R1 = m.Resistances[1], R2 = m.Resistances[2], R3 = m.Resistances[3],
                 R4 = m.Resistances[4], R5 = m.Resistances[5], R6 = m.Resistances[6], R7 = m.Resistances[7],
-                m.StunPct, m.DisplayName, m.SoundCode, m.ModelScale,
+                m.StunPct, m.DisplayName, m.SoundCode, m.ModelScale, m.PortraitOffsetY, m.PortraitOffsetZ,
             }, tx, cancellationToken: ct));
             report.MonsterRows++;
         }
@@ -754,12 +815,14 @@ public sealed class Importer
                 name, model, linked_file, svc_warehouse, svc_shop, svc_skill_master, svc_job_change,
                 svc_teleport, svc_item_mix, svc_item_aging, svc_smelting, svc_manufacture, svc_mixture_reset,
                 svc_clan, svc_bless_castle, svc_quest, svc_event_booth, svc_collect_money, svc_give_money,
-                job_change_code, teleport_code, quest_code, quest_param, dialog, sound_code, move_range, model_scale)
+                job_change_code, teleport_code, quest_code, quest_param, dialog, sound_code, move_range, model_scale,
+                display_name, portrait_offset_y, portrait_offset_z)
             VALUES (
                 @Name, @Model, @Linked, @Warehouse, @Shop, @SkillMaster, @JobChange,
                 @Teleport, @ItemMix, @ItemAging, @Smelting, @Manufacture, @MixtureReset,
                 @Clan, @BlessCastle, @Quest, @EventBooth, @CollectMoney, @GiveMoney,
-                @JobChangeCode, @TeleportCode, @QuestCode, @QuestParam, @Dialog, @SoundCode, @MoveRange, @ModelScale)
+                @JobChangeCode, @TeleportCode, @QuestCode, @QuestParam, @Dialog, @SoundCode, @MoveRange, @ModelScale,
+                @DisplayName, @PortraitOffsetY, @PortraitOffsetZ)
             ON CONFLICT (name) DO UPDATE SET
                 model=excluded.model, linked_file=excluded.linked_file,
                 svc_warehouse=excluded.svc_warehouse, svc_shop=excluded.svc_shop,
@@ -773,7 +836,8 @@ public sealed class Importer
                 job_change_code=excluded.job_change_code, teleport_code=excluded.teleport_code,
                 quest_code=excluded.quest_code, quest_param=excluded.quest_param, dialog=excluded.dialog,
                 sound_code=excluded.sound_code, move_range=excluded.move_range,
-                model_scale=excluded.model_scale;
+                model_scale=excluded.model_scale, display_name=excluded.display_name,
+                portrait_offset_y=excluded.portrait_offset_y, portrait_offset_z=excluded.portrait_offset_z;
             """;
 
         foreach (var n in npcs)
@@ -794,8 +858,28 @@ public sealed class Importer
                 JobChangeCode = n.JobChangeCode, TeleportCode = n.TeleportCode,
                 n.MoveRange, n.ModelScale,
                 QuestCode = n.QuestCode, QuestParam = n.QuestParam, Dialog = dialogJson, n.SoundCode,
+                n.DisplayName, n.PortraitOffsetY, n.PortraitOffsetZ,
             }, tx, cancellationToken: ct));
             report.NpcRows++;
+            if (n.Dialog.Count > 0)
+            {
+                report.NpcDialogRows++;
+            }
+        }
+
+        foreach (var n in npcs)
+        {
+            await conn.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM npc_services WHERE npc_name = @Name", new { n.Name }, tx, cancellationToken: ct));
+            for (var ordinal = 0; ordinal < n.Services.Count; ordinal++)
+            {
+                var service = n.Services[ordinal];
+                await conn.ExecuteAsync(new CommandDefinition(
+                    "INSERT INTO npc_services (npc_name, ordinal, kind, value, value2, text) VALUES (@Name,@Ordinal,@Kind,@Value,@Value2,@Text)",
+                    new { n.Name, Ordinal = ordinal, Kind = (int)service.Kind, service.Value, service.Value2, service.Text },
+                    tx, cancellationToken: ct));
+                report.NpcServiceRows++;
+            }
         }
 
         foreach (var n in npcs)

@@ -16,6 +16,23 @@ public sealed class DapperCharacterRepository(IDbConnectionFactory connectionFac
         "tier, hair_index, size_level, " +
         "inventory, equipment, skills, quests, derived_stats, premium, last_played_at";
 
+    // Identity columns (id/account_id/name/slot/job_code/created_at) are immutable and never updated.
+    internal const string UpdateSql =
+        """
+            UPDATE characters SET
+                level = @Level, exp = @Exp, money = @Money, brood = @Brood,
+                strength = @Strength, spirit = @Spirit, talent = @Talent, agility = @Agility,
+                health = @Health, stat_points = @StatPoints,
+                life = @Life, mana = @Mana, stamina = @Stamina,
+                field_id = @FieldId, pos_x = @PosX, pos_z = @PosZ,
+                model_name = @ModelName, model_name2 = @ModelName2, face_index = @FaceIndex,
+                tier = @Tier, hair_index = @HairIndex, size_level = @SizeLevel,
+                inventory = @Inventory, equipment = @Equipment, skills = @Skills,
+                quests = @Quests, derived_stats = @DerivedStats, premium = @Premium,
+                last_played_at = @LastPlayedAt
+            WHERE id = @Id
+            """;
+
     public async Task<IReadOnlyList<CharacterRecord>> ListByAccountAsync(long accountId, CancellationToken ct = default)
     {
         await using var connection = await connectionFactory.OpenAsync(ct);
@@ -84,22 +101,8 @@ public sealed class DapperCharacterRepository(IDbConnectionFactory connectionFac
     public async Task<bool> UpdateAsync(CharacterRecord record, CancellationToken ct = default)
     {
         await using var connection = await connectionFactory.OpenAsync(ct);
-        // Identity columns (id/account_id/name/slot/job_code/created_at) are immutable and never updated.
         var rows = await connection.ExecuteAsync(new CommandDefinition(
-            """
-            UPDATE characters SET
-                level = @Level, exp = @Exp, money = @Money, brood = @Brood,
-                strength = @Strength, spirit = @Spirit, talent = @Talent, agility = @Agility,
-                health = @Health, stat_points = @StatPoints,
-                life = @Life, mana = @Mana, stamina = @Stamina,
-                field_id = @FieldId, pos_x = @PosX, pos_z = @PosZ,
-                model_name = @ModelName, model_name2 = @ModelName2, face_index = @FaceIndex,
-                tier = @Tier, hair_index = @HairIndex, size_level = @SizeLevel,
-                inventory = @Inventory, equipment = @Equipment, skills = @Skills,
-                quests = @Quests, derived_stats = @DerivedStats, premium = @Premium,
-                last_played_at = @LastPlayedAt
-            WHERE id = @Id
-            """,
+            UpdateSql,
             record, cancellationToken: ct));
         return rows > 0;
     }

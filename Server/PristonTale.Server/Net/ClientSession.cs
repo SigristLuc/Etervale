@@ -11,6 +11,8 @@ using PristonTale.Server.Hosting;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Progression;
+using PristonTale.Simulation.Skills;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Server.Net;
 
@@ -23,7 +25,8 @@ internal sealed record SessionServices(
     WorldDataHolder WorldData,
     ILogger Logger,
     NetworkLimits Limits,
-    LoginThrottle LoginThrottle)
+    LoginThrottle LoginThrottle,
+    NpcAppService Npc)
 {
     // Shared by every connection so a flood from many peers still yields one warning per interval.
     public LogSampler RejectedPackets { get; } = new(5000);
@@ -157,6 +160,12 @@ internal sealed class ClientSession
                     break;
                 case EtervaleOpcodes.ProgressionCommand:
                     await ApplyProgressionAsync(ProgressionCommandPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.NpcServiceRequest:
+                    await RequestNpcServiceAsync(NpcServiceRequestPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.SkillCast:
+                    await CastSkillAsync(SkillCastPacket.Read(memory.Span));
                     break;
                 case EtervaleOpcodes.LeaveWorld:
                     await ClosePlayAsync();
@@ -453,20 +462,71 @@ internal sealed class ClientSession
         _ = _services.World.SetAttackTargetAsync(session.FieldId, session.EntityId, attack.TargetSerial, sustained, (uint)attack.AttackCount);
     }
 
+    // SkillCast is answered with SkillCastResult on this connection; the start, impact and statuses follow on the
+    // presence timeline. The server ignores the client's rank, cost and timing and validates the cast in the tick.
+    private async Task CastSkillAsync(SkillCastPacket packet)
+    {
+        var session = _session;
+        if (session is null || _player is null)
+        {
+            return;
+        }
+
+        var hasPoint = packet.X != 0 || packet.Y != 0 || packet.Z != 0;
+        var point = new Vector3(PristonUnits.FromFixed(packet.X), PristonUnits.FromFixed(packet.Y), PristonUnits.FromFixed(packet.Z));
+        var request = new SkillCastRequest(packet.Sequence, packet.SkillCode, packet.TargetSerial, point, hasPoint, (SkillCastCommand)packet.Flags);
+        SkillCastOutcome outcome;
+        try
+        {
+            outcome = await _services.World.CastSkillAsync(session.FieldId, session.EntityId, request);
+        }
+        catch (WorldBusyException)
+        {
+            outcome = SkillCastOutcome.Refused(request, SkillCastVerdict.Busy);
+        }
+
+        if (!outcome.Accepted)
+        {
+            LogRejected(EtervaleOpcodes.SkillCast, $"skill {packet.SkillCode:X8}: {outcome.Verdict}");
+        }
+
+        var result = new SkillCastResultPacket(outcome.Sequence, outcome.SkillCode, (SkillCastStatus)outcome.Verdict, (byte)Math.Clamp(outcome.Rank, 0, 255),
+            (uint)Math.Max(0, outcome.CooldownMs), (uint)Math.Max(0, outcome.RemainingMs), outcome.Mana, outcome.Stamina, 0);
+        SendLarge(result.Write, SkillCastResultPacket.Size, encrypt: true);
+    }
+
     private async Task InteractNpcAsync(PlayerSession session, uint npc)
     {
         var interaction = await _services.World.InteractNpcAsync(session, npc);
-        if (interaction.Ok)
+        var services = interaction.Services.Select(offer => new NpcServiceEntry((byte)offer.Kind, offer.Available, offer.Value)).ToArray();
+        var dialog = new NpcDialogPacket(npc, interaction.Ok, interaction.Name, interaction.Message, services, interaction.Dialog);
+        SendLarge(dialog.Write, PristonFrameCodec.MaxFrameSize, encrypt: true);
+    }
+
+    private async Task RequestNpcServiceAsync(NpcServiceRequestPacket request)
+    {
+        var session = _session;
+        var command = new NpcServiceCommand(request.OperationId, request.NpcSerial, (NpcServiceKind)request.Service, (NpcServiceAction)request.Action,
+            request.ExpectedRevision, request.ExpectedStorageRevision, request.ItemCode, request.ItemId, request.Anchor, request.Count, request.Amount);
+        NpcServiceReply reply;
+        try
         {
-            foreach (var line in interaction.Dialog)
-            {
-                var whisper = new ChatMessagePacket(PristonOpcodes.WhisperMessage, 0, npc, line);
-                SendLarge(whisper.Write, PristonFrameCodec.MaxFrameSize, encrypt: false);
-            }
+            reply = session is null || _player is null
+                ? new NpcServiceReply(NpcServiceOutcome.Failed(NpcServiceStatus.Rejected, "enter the world first"))
+                : await _services.Npc.RequestAsync(RequireToken(), command);
+        }
+        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException or System.Data.Common.DbException)
+        {
+            reply = new NpcServiceReply(NpcServiceOutcome.Failed(NpcServiceStatus.StorageFailed, ex.Message));
         }
 
-        var result = new NpcResultPacket(npc, interaction.Ok, (uint)interaction.Services, interaction.Name, interaction.Message);
-        SendLarge(result.Write, NpcResultPacket.Size, encrypt: true);
+        NpcWireMapping.SendState(request, reply, packet => SendLarge(packet, PristonFrameCodec.MaxFrameSize, encrypt: true));
+        if (reply.Arrival is { } arrival)
+        {
+            // WARPFIELD {LParam = Z, WParam = field, SParam = X, EParam 1 = forced}.
+            Send(new TransCommand(PristonOpcodes.WarpField, PristonUnits.ToFixed(arrival.Position.Z), arrival.FieldCode,
+                PristonUnits.ToFixed(arrival.Position.X), 1), encrypt: true);
+        }
     }
 
     private void DescribeObject(TransCommand request)
@@ -593,7 +653,7 @@ internal sealed class ClientSession
         }
     }
 
-    private delegate int PacketWrite(Span<byte> destination);
+    internal delegate int PacketWrite(Span<byte> destination);
 
     private void SendLarge(PacketWrite write, int capacity, bool encrypt)
     {

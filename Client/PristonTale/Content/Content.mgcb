@@ -37,6 +37,12 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Passes/Unlit.fx;Effects/Unlit.fx
 
+#begin Shaders/Passes/Vfx.fx
+/importer:EffectImporter
+/processor:SpirvEffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Passes/Vfx.fx;Effects/Vfx.fx
+
 #begin Shaders/Passes/SkyComposite.fx
 /importer:EffectImporter
 /processor:SpirvEffectProcessor

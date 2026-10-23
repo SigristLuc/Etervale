@@ -1,0 +1,579 @@
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Content;
+using Microsoft.Xna.Framework.Graphics;
+using PristonTale.Client.Net.Presence;
+using PristonTale.Effects;
+using PristonTale.Effects.Effects;
+using PristonTale.Effects.Vfx;
+using PristonTale.Engine3D.Diagnostics;
+using PristonTale.Engine3D.Rendering.Lighting;
+using PristonTale.Protocol.Packets;
+using PristonTale.Simulation.Skills;
+
+namespace PristonTale.Gameplay.Effects;
+
+// What the skill presentation needs from the scene: entity positions and bones (client world space), the listener and
+// the motion playback of casters.
+public interface ISkillSceneHost : IVfxAnchors
+{
+    uint SelfId { get; }
+    Vector3 ListenerPosition { get; }
+
+    // Plays the skill's motion on the caster; loop counts the repeats of weapon-clip skills. For a skill clip rate is
+    // the playback rate; for a weapon clip it multiplies the caster's attack rate.
+    void PlaySkillMotion(uint entityId, SkillMotionPlan plan, float durationMs, float rate, int loop);
+
+    // A released charge: the caster's skill clip jumps to the frame and plays on at the rate.
+    void SeekSkillMotion(uint entityId, int framesFromStart, float rate) { }
+}
+
+// Turns the server's skill timeline into motions, effects, sounds, lights, floating numbers and the buff and
+// cooldown state the HUD shows. Events of other entities wait for the remote playback delay, so their effects line up
+// with the interpolated motion; the local player's events play at once.
+public sealed class SkillPresentation : IVfxServices, IDisposable
+{
+    public const double RemoteDelayMs = 150d;
+    public const string ReviveEffect = "vfx.priestess.resurrection.rise";
+    // The shared effects and one file per class (Effects/Vfx/Common.vfx.json and Effects/Vfx/Classes/<Class>.vfx.json).
+    private const string EmbeddedEffects = "PristonTale.Gameplay.Effects.Vfx.";
+    private const float ChainLinkSeconds = 0.08f;
+
+    private readonly ISkillSceneHost _host;
+    private readonly string _assetRoot;
+    private readonly LegacyEffectLibrary _legacy;
+    private readonly EffectsEngine _legacyEngine;
+    private readonly PristonTransientLights _lights;
+    private readonly SkillSoundBank _sounds;
+    private readonly IClientLog _log;
+    private readonly List<Pending> _pending = new(32);
+    private readonly Dictionary<uint, VfxInstance> _projectiles = new();
+    private readonly List<VfxInstance> _castEffects = new();
+    private readonly VfxBuiltinTextures _builtins;
+
+    public SkillPresentation(GraphicsDevice device, ContentManager content, string assetRoot, LegacyEffectLibrary legacy, EffectsEngine legacyEngine,
+        PristonTransientLights lights, ISkillSceneHost host, SkillSoundBank sounds, IClientLog log)
+    {
+        _host = host;
+        _assetRoot = assetRoot;
+        _legacy = legacy;
+        _legacyEngine = legacyEngine;
+        _lights = lights;
+        _sounds = sounds;
+        _log = log;
+        _builtins = new VfxBuiltinTextures(device);
+        Library = LoadLibrary(legacy, assetRoot, log, _builtins);
+        System = new VfxSystem(host, this);
+        Renderer = new VfxRenderer(device, content);
+        Statuses.Added += OnStatusAdded;
+        Statuses.Removed += OnStatusRemoved;
+        sounds.Preload(SkillRuleCatalog.All.SelectMany(rule => new[] { rule.CastSound, rule.ImpactSound, rule.CompanionSound })
+            .Concat(Library.Names.SelectMany(name => Library.TryGet(name, out var effect) ? effect.Definition.Sounds.Select(sound => sound.Path) : [])));
+    }
+
+    public VfxLibrary Library { get; }
+    public VfxSystem System { get; }
+    public VfxRenderer Renderer { get; }
+    public StatusBook Statuses { get; } = new();
+    public SkillCooldownBook Cooldowns { get; } = new();
+    public FloatingCombatText Text { get; } = new();
+
+    public event Action<SkillCastResultInfo> CastResolved;
+
+    public static VfxLibrary LoadLibrary(LegacyEffectLibrary legacy, string assetRoot, IClientLog log, VfxBuiltinTextures builtins)
+    {
+        var library = new VfxLibrary(path => legacy.LoadTexture(assetRoot, path), legacy.White, builtins);
+        foreach (var json in EmbeddedDefinitions())
+        {
+            foreach (var definition in VfxDefinition.ParseFile(json))
+            {
+                library.Register(definition);
+            }
+        }
+
+        // Authored replacements under assets/Vfx take precedence over the shipped definitions.
+        var overrides = library.LoadDirectory(Path.Combine(assetRoot, "Vfx"));
+        log.Info($"[Effects] {library.Count} skill effects ({overrides} from assets/Vfx).");
+        return library;
+    }
+
+    // The text of every embedded effect file, shared ones first.
+    public static IEnumerable<string> EmbeddedDefinitions()
+    {
+        var assembly = typeof(SkillPresentation).Assembly;
+        var names = assembly.GetManifestResourceNames()
+            .Where(static name => name.StartsWith(EmbeddedEffects, StringComparison.Ordinal) && name.EndsWith(".vfx.json", StringComparison.Ordinal))
+            .OrderBy(static name => name.Contains(".Classes.", StringComparison.Ordinal))
+            .ThenBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+        if (names.Length == 0)
+        {
+            throw new InvalidDataException("The skill effect definitions are missing from the gameplay assembly.");
+        }
+
+        foreach (var name in names)
+        {
+            using var stream = assembly.GetManifestResourceStream(name)!;
+            using var reader = new StreamReader(stream);
+            yield return reader.ReadToEnd();
+        }
+    }
+
+    public void Observe(PresenceUpdate update, double nowMs)
+    {
+        if (update.CastResult is { } result)
+        {
+            Cooldowns.Apply(result, nowMs);
+            CastResolved?.Invoke(result);
+        }
+
+        if (update.Cooldowns is { } cooldowns)
+        {
+            Cooldowns.Apply(cooldowns, nowMs);
+        }
+
+        foreach (var skillEvent in update.SkillEvents)
+        {
+            var due = nowMs + (skillEvent.CasterId == _host.SelfId ? 0d : RemoteDelayMs);
+            _pending.Add(new Pending(due, PendingKind.Event, skillEvent, 0));
+        }
+
+        foreach (var status in update.StatusEffects)
+        {
+            if (status.Op != StatusEffectOp.Tick)
+            {
+                Statuses.Apply(status, nowMs);
+            }
+        }
+
+        foreach (var combat in update.Events)
+        {
+            ObserveCombat(combat);
+        }
+    }
+
+    public void Update(float seconds, double nowMs)
+    {
+        _sounds.Update();
+        for (var index = 0; index < _pending.Count; index++)
+        {
+            var pending = _pending[index];
+            if (pending.AtMs > nowMs)
+            {
+                continue;
+            }
+
+            _pending.RemoveAt(index--);
+            Run(pending, nowMs);
+        }
+
+        KeepAuras(nowMs);
+        System.Update(seconds);
+        Text.Update(seconds);
+    }
+
+    public void Draw(Matrix view, Matrix projection, Vector3 cameraPosition, Texture2D sceneDepth) =>
+        Renderer.Draw(System, view, projection, cameraPosition, sceneDepth);
+
+    public void Clear()
+    {
+        _pending.Clear();
+        _projectiles.Clear();
+        _castEffects.Clear();
+        Statuses.Clear();
+        System.Clear();
+    }
+
+    // Spawns a named effect directly (probes, previews).
+    public VfxInstance Spawn(string name, uint casterId, uint targetId, Vector3 point, float facing = 0f)
+    {
+        return Library.TryGet(name, out var effect) ? System.Spawn(effect, new VfxSpawn(casterId, targetId, point, facing)) : null;
+    }
+
+    void IVfxServices.AddLight(Vector3 position, Color color, int power, int decay) => _lights?.Add(position, color, power, decay);
+
+    void IVfxServices.PlaySound(string path, Vector3 position, float volume) => _sounds.Play(path, position, _host.ListenerPosition, volume);
+
+    EffectInstance IVfxServices.SpawnLegacy(string script, Vector3 position, Matrix orientation)
+    {
+        if (_legacyEngine is null || _legacyEngine.Instances.Count >= 128)
+        {
+            return null;
+        }
+
+        var definition = _legacy.ParticleScript(_assetRoot, script);
+        if (definition is null)
+        {
+            _log.Warn($"[Effects] legacy script {script} could not be read.");
+            return null;
+        }
+
+        return _legacyEngine.Spawn(definition, position, orientation);
+    }
+
+    private void Run(in Pending pending, double nowMs)
+    {
+        var skillEvent = pending.Event;
+        if (!SkillRuleCatalog.TryGet(skillEvent.SkillCode, out var rule))
+        {
+            return;
+        }
+
+        switch (pending.Kind)
+        {
+            case PendingKind.Event:
+                switch (skillEvent.Phase)
+                {
+                    case SkillEventPhase.Start:
+                        Start(skillEvent, rule, nowMs);
+                        break;
+                    case SkillEventPhase.Impact:
+                        Impact(skillEvent, rule);
+                        break;
+                    case SkillEventPhase.Cancel:
+                        Cancel(skillEvent.CasterId);
+                        break;
+                    case SkillEventPhase.Release:
+                        Release(skillEvent, rule, nowMs);
+                        break;
+                }
+
+                break;
+            case PendingKind.Loop:
+                var loops = Math.Max(1, rule.At(rule.Loops, skillEvent.Rank));
+                _host.PlaySkillMotion(skillEvent.CasterId, SkillFormulas.Plan(rule, skillEvent.Rank), skillEvent.DurationMs / loops, MotionRate(rule, skillEvent),
+                    pending.Loop);
+                break;
+            case PendingKind.Launch:
+                Launch(skillEvent, rule);
+                break;
+        }
+    }
+
+    private void Start(SkillEventInfo skillEvent, SkillRule rule, double nowMs)
+    {
+        var plan = SkillFormulas.Plan(rule, skillEvent.Rank);
+        var loops = plan.Motion == SkillMotion.Attack ? Math.Max(1, rule.At(rule.Loops, skillEvent.Rank)) : 1;
+        var rate = MotionRate(rule, skillEvent);
+        _host.PlaySkillMotion(skillEvent.CasterId, plan, skillEvent.DurationMs / loops, rate, 0);
+        for (var loop = 1; loop < loops; loop++)
+        {
+            _pending.Add(new Pending(nowMs + skillEvent.DurationMs * loop / loops, PendingKind.Loop, skillEvent, loop));
+        }
+
+        var position = Position(skillEvent.CasterId, skillEvent.Position);
+        var facing = -skillEvent.Facing;
+        if (rule.CastEffect.Length > 0 && Spawn(rule.CastEffect, skillEvent.CasterId, skillEvent.TargetId, position, facing) is { } cast)
+        {
+            _castEffects.Add(cast);
+        }
+
+        _sounds.Play(rule.CastSound, position, _host.ListenerPosition);
+        if (rule.Projectile && rule.ProjectileEffect.Length > 0)
+        {
+            _pending.Add(new Pending(nowMs + skillEvent.HitAtMs, PendingKind.Launch, skillEvent, 0));
+        }
+    }
+
+    private void Launch(SkillEventInfo skillEvent, SkillRule rule)
+    {
+        if (!_host.TryGetPosition(skillEvent.CasterId, out var from))
+        {
+            return;
+        }
+
+        var to = Position(skillEvent.TargetId, skillEvent.Position);
+        var planar = new Vector2(to.X - from.X, to.Z - from.Z).Length();
+        var seconds = SkillProjectile.FlightMs(planar) / 1000f;
+        if (Spawn(rule.ProjectileEffect, skillEvent.CasterId, skillEvent.TargetId, from, -skillEvent.Facing) is { } projectile)
+        {
+            projectile.Travel(from, to, MathF.Max(0.05f, seconds), rule.ProjectileArc);
+            _projectiles[skillEvent.CasterId] = projectile;
+        }
+    }
+
+    // The charge ended early: the clip jumps to the full frame and plays the rest in the time the server left.
+    private void Release(SkillEventInfo skillEvent, SkillRule rule, double nowMs)
+    {
+        if (rule.Charge is not { } charge)
+        {
+            return;
+        }
+
+        var plan = SkillFormulas.Plan(rule, skillEvent.Rank);
+        var remainingFrames = Math.Max(1, plan.Frames - charge.FullFrame);
+        var rate = skillEvent.DurationMs > 0f
+            ? Math.Clamp(remainingFrames * Simulation.World.Motion.MotionTiming.MsPerFrame / skillEvent.DurationMs, 0.1f, 8f)
+            : charge.ReleaseSpeed / 80f;
+        _host.SeekSkillMotion(skillEvent.CasterId, charge.FullFrame, rate);
+        if (rule.Projectile && rule.ProjectileEffect.Length > 0)
+        {
+            _pending.Add(new Pending(nowMs + skillEvent.HitAtMs, PendingKind.Launch, skillEvent, 0));
+        }
+    }
+
+    // A familiar's strike or a shield's counter: the strike effect from the caster to the struck target.
+    private void Strike(SkillEventInfo skillEvent, SkillRule rule)
+    {
+        var point = Position(skillEvent.TargetId, skillEvent.Position);
+        if (rule.CompanionEffect.Length > 0 && _host.TryGetPosition(skillEvent.CasterId, out var from))
+        {
+            // The strike flies from above the caster (the familiar, the orbs or the shield) to the struck target.
+            from.Y += 50f;
+            var flight = new Vector2(point.X - from.X, point.Z - from.Z).Length() / SkillProjectile.UnitsPerSecond;
+            if (Spawn(rule.CompanionEffect, skillEvent.CasterId, skillEvent.TargetId, from, -skillEvent.Facing) is { } strike)
+            {
+                strike.Travel(from, point + new Vector3(0f, 30f, 0f), MathF.Max(0.08f, flight), 12f);
+            }
+        }
+
+        _sounds.Play(rule.CompanionSound, point, _host.ListenerPosition);
+    }
+
+    // The cast's resolution mode (an element picked per cast) may bring its own impact effect.
+    private static string ImpactEffectOf(SkillRule rule, SkillEventInfo skillEvent)
+    {
+        var mode = (skillEvent.Flags & SkillEventFlags.ModeMask) >> SkillEventFlags.ModeShift;
+        if ((skillEvent.Flags & SkillEventFlags.Charged) != 0 && rule.Charge?.Full is { ImpactEffect.Length: > 0 } full)
+        {
+            return full.ImpactEffect;
+        }
+
+        return mode > 0 && mode < rule.Modes.Length && rule.Modes[mode].ImpactEffect.Length > 0 ? rule.Modes[mode].ImpactEffect
+            : rule.Modes.Length > 0 && rule.Modes[0].ImpactEffect.Length > 0 && mode == 0 ? rule.Modes[0].ImpactEffect : rule.ImpactEffect;
+    }
+
+    private void Impact(SkillEventInfo skillEvent, SkillRule rule)
+    {
+        if ((skillEvent.Flags & (SkillEventFlags.Companion | SkillEventFlags.Counter)) != 0 && rule.CompanionEffect.Length > 0)
+        {
+            Strike(skillEvent, rule);
+            return;
+        }
+
+        if ((skillEvent.Flags & (SkillEventFlags.Chain | SkillEventFlags.Companion | SkillEventFlags.Ally)) != 0)
+        {
+            SecondaryImpact(skillEvent, rule);
+            return;
+        }
+
+        if (_projectiles.Remove(skillEvent.CasterId, out var projectile))
+        {
+            projectile.Stop();
+        }
+
+        var targetsEntity = rule.Kind is SkillKind.WeaponAttack or SkillKind.MagicBolt or SkillKind.Heal
+            || rule.Kind == SkillKind.Area && rule.AreaCenter == SkillAreaCenter.Target && skillEvent.TargetId != 0;
+        var point = rule.Kind == SkillKind.Area && rule.AreaCenter == SkillAreaCenter.Caster
+            ? Position(skillEvent.CasterId, skillEvent.Position)
+            : Position(skillEvent.TargetId, skillEvent.Position);
+        var impactEffect = ImpactEffectOf(rule, skillEvent);
+        if (impactEffect.Length > 0 && (skillEvent.TargetCount > 0 || !targetsEntity))
+        {
+            Spawn(impactEffect, skillEvent.CasterId, skillEvent.TargetId != 0 ? skillEvent.TargetId : skillEvent.CasterId, point, -skillEvent.Facing);
+        }
+
+        _sounds.Play(rule.ImpactSound, point, _host.ListenerPosition);
+    }
+
+    // A chain link (an arc from the previous link to its target), a companion's strike or a support effect on an ally.
+    private void SecondaryImpact(SkillEventInfo skillEvent, SkillRule rule)
+    {
+        if (rule.ImpactEffect.Length == 0)
+        {
+            return;
+        }
+
+        var target = Position(skillEvent.TargetId, skillEvent.Position);
+        if ((skillEvent.Flags & SkillEventFlags.Chain) != 0)
+        {
+            var from = new Vector3(skillEvent.Position.X, skillEvent.Position.Y, -skillEvent.Position.Z);
+            if (Spawn(rule.ImpactEffect, skillEvent.CasterId, skillEvent.TargetId, from, -skillEvent.Facing) is { } link)
+            {
+                link.Travel(from, target, ChainLinkSeconds);
+            }
+
+            _sounds.Play(rule.ImpactSound, target, _host.ListenerPosition);
+            return;
+        }
+
+        Spawn(rule.ImpactEffect, skillEvent.CasterId, skillEvent.TargetId, target, -skillEvent.Facing);
+        if ((skillEvent.Flags & SkillEventFlags.Companion) != 0)
+        {
+            _sounds.Play(rule.ImpactSound, target, _host.ListenerPosition);
+        }
+    }
+
+    private void Cancel(uint casterId)
+    {
+        if (_projectiles.Remove(casterId, out var projectile))
+        {
+            projectile.Stop();
+        }
+
+        for (var index = _castEffects.Count - 1; index >= 0; index--)
+        {
+            var effect = _castEffects[index];
+            if (!effect.Alive)
+            {
+                _castEffects.RemoveAt(index);
+            }
+            else if (effect.Spawn.CasterId == casterId)
+            {
+                effect.Stop();
+                _castEffects.RemoveAt(index);
+            }
+        }
+    }
+
+    private void ObserveCombat(CombatEventInfo combat)
+    {
+        var self = _host.SelfId;
+        if (combat.Kind == RemoteCombatEventKind.Evade)
+        {
+            if (combat.TargetId == self && TryAbove(combat.TargetId, out var evaded))
+            {
+                Text.Add(evaded, 0, FloatingTextKind.Evade);
+            }
+
+            return;
+        }
+
+        if (combat.Kind == RemoteCombatEventKind.Revive)
+        {
+            if (_host.TryGetPosition(combat.TargetId, out var risen))
+            {
+                Spawn(ReviveEffect, combat.AttackerId, combat.TargetId, risen);
+            }
+
+            return;
+        }
+
+        if (combat.Kind == RemoteCombatEventKind.Heal)
+        {
+            if (combat.Damage > 0 && TryAbove(combat.TargetId, out var healed))
+            {
+                Text.Add(healed, combat.Damage, FloatingTextKind.Heal);
+            }
+
+            return;
+        }
+
+        if (combat.Kind != RemoteCombatEventKind.Hit || combat.Damage <= 0 || combat.AttackerId != self && combat.TargetId != self)
+        {
+            return;
+        }
+
+        if (!TryAbove(combat.TargetId, out var position))
+        {
+            return;
+        }
+
+        var kind = combat.TargetId == self ? FloatingTextKind.DamageTaken : combat.Critical ? FloatingTextKind.Critical : FloatingTextKind.DamageDealt;
+        Text.Add(position, combat.Damage, kind);
+    }
+
+    private bool TryAbove(uint entityId, out Vector3 position)
+    {
+        if (!_host.TryGetPosition(entityId, out position))
+        {
+            return false;
+        }
+
+        position.Y += 62f;
+        return true;
+    }
+
+    private void OnStatusAdded(uint entityId, StatusEntry entry)
+    {
+        entry.Presentation = SpawnAura(entityId, entry);
+    }
+
+    private void OnStatusRemoved(uint entityId, StatusEntry entry)
+    {
+        if (entry.Presentation is VfxInstance aura)
+        {
+            aura.Stop();
+        }
+
+        entry.Presentation = null;
+    }
+
+    // Aura effects are finite; one that ran out while its status is still active starts again.
+    private void KeepAuras(double nowMs)
+    {
+        foreach (var (entity, entry) in Statuses.All())
+        {
+            if (entry.Presentation is VfxInstance { Alive: false } && entry.RemainingMs(nowMs) > 500d)
+            {
+                entry.Presentation = SpawnAura(entity, entry);
+            }
+        }
+    }
+
+    // Effects that draw an element (enchants, companions) report it as the status value; their aura has a variant per
+    // element ("<aura>.ice") when one is defined.
+    private VfxInstance SpawnAura(uint entityId, StatusEntry entry)
+    {
+        if (!SkillRuleCatalog.TryGet(entry.Code, out var rule) || rule.BuffEffect.Length == 0 || !_host.TryGetPosition(entityId, out var position))
+        {
+            return null;
+        }
+
+        var name = rule.BuffEffect;
+        var element = (Simulation.Combat.Element)entry.Value;
+        if ((rule.Buff?.Enchant?.Choices ?? rule.Buff?.Companion?.Choices) is { Length: > 1 } && Enum.IsDefined(element))
+        {
+            var variant = name + "." + element.ToString().ToLowerInvariant();
+            name = Library.TryGet(variant, out _) ? variant : name;
+        }
+
+        return Spawn(name, entityId, entityId, position);
+    }
+
+    private Vector3 Position(uint entityId, Vector3 fallbackTransport)
+    {
+        if (entityId != 0 && _host.TryGetPosition(entityId, out var position))
+        {
+            return position;
+        }
+
+        // Transport is PT-global (x, z); presentation uses (x, -z).
+        return new Vector3(fallbackTransport.X, fallbackTransport.Y, -fallbackTransport.Z);
+    }
+
+    // Skill clips: the playback rate that makes the clip last the duration the server scheduled. Weapon clips: the
+    // speed-up the skill applies on top of the caster's attack rate.
+    private static float MotionRate(SkillRule rule, SkillEventInfo skillEvent)
+    {
+        var plan = SkillFormulas.Plan(rule, skillEvent.Rank);
+        if (plan.Motion == SkillMotion.Skill && plan.Frames > 0 && skillEvent.DurationMs > 0f)
+        {
+            return Math.Clamp(plan.Frames * Simulation.World.Motion.MotionTiming.MsPerFrame / skillEvent.DurationMs, 0.1f, 8f);
+        }
+
+        // A weapon clip multiplies the caster's own attack rate: the skill's speed steps (1.0 = one attack rate) and its
+        // rate percent; a fixed frame step is relative to the plain attack rate.
+        if (plan.Speed > 0)
+        {
+            return plan.Speed / 80f;
+        }
+
+        return (1f + 0.125f * rule.At(rule.AttackSpeedSteps, skillEvent.Rank)) * rule.MotionRatePercent / 100f;
+    }
+
+    public void Dispose()
+    {
+        Renderer.Dispose();
+        _sounds.Dispose();
+        _builtins.Dispose();
+    }
+
+    private enum PendingKind : byte
+    {
+        Event,
+        Loop,
+        Launch
+    }
+
+    private readonly record struct Pending(double AtMs, PendingKind Kind, SkillEventInfo Event, int Loop);
+}

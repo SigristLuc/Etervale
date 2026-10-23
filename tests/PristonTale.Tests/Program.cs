@@ -113,6 +113,20 @@ if (args.Length == 2 && args[0] == "--verify-monster-skills")
     return 0;
 }
 
+if (args.Length is 4 or 5 && args[0] == "--capture-skills")
+{
+    var codes = args.Length == 5 ? args[4].Split(',').Select(code => Convert.ToUInt32(code, 16)).ToArray() : null;
+    using var probe = new SkillCaptureProbe(args[1], args[2], args[3], codes);
+    probe.Run();
+    return 0;
+}
+
+if (args.Length == 2 && args[0] == "--verify-skill-motions")
+{
+    SkillMotionProbe.Run(args[1]);
+    return 0;
+}
+
 if (args.Length == 2 && args[0] == "--verify-player-timing")
 {
     PlayerTimingProbe.Run(args[1]);
@@ -183,6 +197,13 @@ if (args.Contains("--benchmark-world"))
     return 0;
 }
 
+if (args.Length == 4 && args[0] == "--capture-hud-target")
+{
+    using var probe = new HudTargetCaptureProbe(args[1], args[2], args[3]);
+    probe.Run();
+    return 0;
+}
+
 if (args.Length is 4 or 5 && args[0] == "--capture-hud")
 {
     using var probe = new HudCaptureProbe(args[1], args[2], args[3], args.Length == 5 ? args[4] : null);
@@ -229,7 +250,7 @@ specifications.AddRange(NetworkHardeningTests.Cases());
 specifications.AddRange(MonsterSkillTests.Cases());
 specifications.AddRange(SpatialIndexTests.Cases());
 specifications.AddRange(HudInteractionTests.Cases());
-specifications.AddRange(FirstTierSkillTests.Cases());
+specifications.AddRange(ClassSkillDataTests.Cases());
 specifications.AddRange(ProgressionTransactionTests.Cases());
 specifications.AddRange(FrameTimingTests.Cases());
 specifications.AddRange(ClientSettingsTests.Cases());
@@ -258,7 +279,30 @@ specifications.AddRange(MonsterCombatTests.Cases());
 specifications.AddRange(AttackInputTests.Cases());
 specifications.AddRange(MonsterNameTests.Cases());
 specifications.AddRange(WorldImportTests.Cases());
+specifications.AddRange(NpcServiceTests.Cases());
 specifications.AddRange(SkyTests.Cases());
+specifications.AddRange(SkillSystemTests.Cases());
+specifications.AddRange(SkillPresentationTests.Cases());
+specifications.AddRange(SkillCatalogTests.Cases());
+specifications.AddRange(SkillAllyTests.Cases());
+specifications.AddRange(SkillDefenseTests.Cases());
+specifications.AddRange(SkillAreaTests.Cases());
+specifications.AddRange(SkillEnchantTests.Cases());
+specifications.AddRange(SkillResurrectionTests.Cases());
+specifications.AddRange(SkillControlTests.Cases());
+specifications.AddRange(SkillWireTests.Cases());
+specifications.AddRange(ProgressionDataTests.Cases());
+specifications.AddRange(SkillSummonTests.Cases());
+specifications.AddRange(SkillStealthTests.Cases());
+specifications.AddRange(SkillChargeTests.Cases());
+specifications.AddRange(SkillCompanionTests.Cases());
+// --filter <text> runs only the cases whose name contains the text.
+var filterIndex = Array.IndexOf(args, "--filter");
+if (filterIndex >= 0 && filterIndex + 1 < args.Length)
+{
+    specifications.RemoveAll(spec => !spec.Item1.Contains(args[filterIndex + 1], StringComparison.OrdinalIgnoreCase));
+}
+
 var failed = 0;
 foreach (var (name, run) in specifications)
 {

@@ -26,6 +26,7 @@ public sealed class MonsterInfParser
         int soundCode = 0;
         float modelScale = 1f;
         var displayName = "";
+        int portraitY = 0, portraitZ = 0;
         int level = 0, atkMin = 0, atkMax = 0, atkSpeed = 0, atkRange = 0, accuracy = 0;
         int defence = 0, absorb = 0, block = 0, hp = 0, sight = 0;
         int skDmgMin = 0, skDmgMax = 0, skDist = 0, skRange = 0, skRating = 0, skCurse = 0;
@@ -80,6 +81,10 @@ public sealed class MonsterInfParser
                 case KeyMaps.CharModel: model = t.NextValueOrQuoted(); break;
                 case KeyMaps.CharSize:
                     t.NextWord();
+                    break;
+                case KeyMaps.CharPortrait:
+                    portraitY = t.NextInt();
+                    portraitZ = t.NextInt();
                     break;
                 case "*모델크기":
                     modelScale = t.NextFloat();
@@ -141,6 +146,8 @@ public sealed class MonsterInfParser
             Model = model,
             SoundCode = soundCode,
             ModelScale = modelScale,
+            PortraitOffsetY = portraitY,
+            PortraitOffsetZ = portraitZ,
             Level = level,
             AttackMin = atkMin, AttackMax = atkMax,
             AttackSpeed = atkSpeed, AttackRange = atkRange, Accuracy = accuracy,

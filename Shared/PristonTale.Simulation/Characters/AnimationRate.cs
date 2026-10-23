@@ -25,9 +25,13 @@ public static class AnimationRate
         return FixedOne + 32 * cnt;
     }
 
-    public static float AttackRate(int attackSpeedStat)
+    public static float AttackRate(int attackSpeedStat) => AttackRate(attackSpeedStat, 0);
+
+    // A percent bonus on the attack speed multiplier (an attack-speed buff) before the frame step is truncated.
+    public static float AttackRate(int attackSpeedStat, int motionPercent)
     {
         int attackSpeed = AttackSpeedMainFrame(attackSpeedStat);
+        attackSpeed += attackSpeed * motionPercent / 100;
         // FrameStep = (80*attackSpeed)>>8 (int), then / 80.0 to normalize against the baseline.
         int frameStep = (80 * attackSpeed) >> 8;
         return frameStep / Baseline;

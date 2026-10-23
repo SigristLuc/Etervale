@@ -7,7 +7,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Fixtures/first-tier-source.json" />
+    <EmbeddedResource Include="Fixtures/class-skill-source.json" />
     <EmbeddedResource Include="Fixtures/job-head-source.json" />
     <ProjectReference Include="../../Client/PristonTale.Gameplay/PristonTale.Gameplay.csproj" />
     <ProjectReference Include="../../tools/PristonTale.GltfExport/PristonTale.GltfExport.csproj" />

@@ -12,6 +12,9 @@ An HDR forward renderer (`Client/PristonTale.Engine3D/Rendering`):
   light is a photometric quantity (`Lighting/PristonPhotometry.cs`: sun, sky and moon illuminance of the hour from
   `PristonDayNightCycle`, the stage lamps and night levels from their authored light levels) times the frame's
   pre-exposure, pi over the incident illuminance, so a white surface under the metered light is near 1 at every hour;
+  the moon shines with the colour of sunlight (the authored night levels give its brightness): the night's blue is the
+  eye's, applied by the final pass (mesopic vision below), so a surface's specular light keeps the colour of its diffuse
+  light instead of laying a blue sheen over it;
 - one material model for every surface (metallic-roughness, `Materials/`), fed by `PristonMaterialAdapter`, which turns
   each legacy material into its inputs at load time;
 - the sun (or the moon) with stabilized cascaded shadows in one R32F atlas (`Lighting/PristonShadowCascades.cs`,
@@ -21,13 +24,21 @@ An HDR forward renderer (`Client/PristonTale.Engine3D/Rendering`):
 - a depth pre-pass (`Surface.fx` `Prepass`) writes the opaque surfaces' depth, linear depth, normals and motion; the lit
   pass then shades each pixel once, and `Passes/AmbientOcclusion.fx` computes GTAO and contact shadows at half
   resolution from it, which the lit pass upsamples by depth (ambient and specular occlusion, sun visibility);
-- image-based lighting from the sky dome (`Passes/Environment.fx`, `Lighting/PristonEnvironmentLighting.cs`): its six
-  cube faces to an octahedral HDR map, five GGX-prefiltered levels in one atlas, order-2 spherical harmonics of the
-  irradiance (compute) scaled to the light model's sky light, and a split-sum BRDF table with multiple-scattering
-  energy compensation; the ambient occlusion and specular occlusion apply to it;
+- image-based lighting from the sky dome (`Passes/Environment.fx`, `Lighting/PristonEnvironmentLighting.cs`): order-2
+  spherical harmonics of the irradiance of its six cube faces (compute) scaled to the light model's sky light, then the
+  faces to an octahedral HDR map, five GGX-prefiltered levels in one atlas, and a split-sum BRDF table with
+  multiple-scattering energy compensation; the ambient occlusion and specular occlusion apply to it. The dome is
+  display art: it is reflected at most at its visible level (dimmed when it is brighter than the sky light), and the
+  rest of the sky light, when the dome is darker, is a uniform fill over the upper hemisphere in the sky light's colour,
+  in the irradiance and in the reflections alike. At night, lit for play about a hundred times its dark dome, the
+  dome's horizon glow and moon disk are therefore not magnified into the reflections of the ground;
 - after the opaque passes, `Passes/Reflections.fx` adds screen-space reflections of water and ice (Ultra) over the
-  image-based reflection; after the scene, `Passes/Volumetric.fx` adds the sunlight a height fog scatters, shadowed by
-  the cascades, marched at quarter resolution;
+  image-based reflection; after the scene, `Passes/Volumetric.fx` composites the sunlight a thin height fog scatters
+  (a clear evening haze): marched at quarter resolution up to the distance fog's start, sixteen segments shadowed by
+  the cascades at points jittered per pixel and per frame, each scattering the light its fog takes out of the beam
+  (the exact optical depth of the exponential fog), accumulated over about eight frames by reprojection (with or
+  without the temporal anti-aliasing), upsampled by a joint bilateral filter and blended as scene x transmittance +
+  in-scatter; in front of the sky dome, which already holds the air's light, only the shadows' share is taken out;
 - the vertex colour scales the albedo in linear light on both paths: the stage's authored light on stage geometry and,
   per texture, on the stage's scenery models (`PristonStageBakedLight`), and on actors the light of the floor under them
   (`PristonStageLightField`, the skinned `DrawLight` constant); that light also occludes the sky's reflections; the
@@ -47,8 +58,11 @@ An HDR forward renderer (`Client/PristonTale.Engine3D/Rendering`):
 - with temporal anti-aliasing the opaque passes (or the pre-pass) also write a motion target (uv motion, previous and
   current view depth, negative on cut-outs, which the resolve treats as reactive); the projection is jittered;
 - `ComposeScene` runs the post chain: `PostTemporal` (resolve), `PostExposure` (compute histogram and adaptation),
-  `PostBloom` (pyramid), `PostFinal` (sharpening, exposure, PBR Neutral, AgX or ACES, sRGB, 3D LUT grade, dither; FXAA)
-  and `PostSmaa`; the UI is drawn after it in sRGB.
+  `PostBloom` (pyramid), `PostFinal` (sharpening, mesopic vision, exposure, PBR Neutral, AgX or ACES, sRGB, 3D LUT
+  grade, dither; FXAA) and `PostSmaa`; the UI is drawn after it in sRGB. Mesopic vision blends each pixel toward its
+  scotopic luminance (Larson et al. 1997) in the hue of the authored night light (`PristonDayNightCycle.NightHue`), by
+  0.04 / (0.04 + Y) of its absolute luminance Y in cd/m^2 (Krawczyk et al. 2005): moonlit ground turns a blue grey,
+  lamp pools and daylight keep their colour (CPU reference `PristonDisplayTransform.Mesopic`).
 
 Pass order and profiler sections: `PristonRenderer.Draw` and `PristonRenderer.ComposeScene`.
 
@@ -61,7 +75,7 @@ Pass order and profiler sections: `PristonRenderer.Draw` and `PristonRenderer.Co
 | `Atmosphere/` | `FogDecl.hlsli`, `Fog.hlsli`: the distance fog and the sky capture lookup. |
 | `Materials/` | `MaterialDecl.hlsli` (`MATERIAL_CONSTANTS`, `MATERIAL_RESOURCES`), `Material.hlsli` (`SampleSurface`: base colour, the second layer, alpha test). |
 | `Vertex/` | `SkinningDecl.hlsli` + `Skinning.hlsli` (rigid one-bone skinning, current and previous pose), `VertexAnimationDecl.hlsli` + `VertexAnimation.hlsli` (water ripple, wind, at any time). |
-| `Passes/` | `Surface.fx` (built as `Effects/StaticSurface` and, with `SKINNED`, `Effects/SkinnedSurface`; techniques `Prepass`, `PrepassMasked`, `Opaque`, `Masked`, `Sky`, `ShadowCaster`, `ShadowCasterMasked`, `ShadowClear`), `Unlit.fx`, `AmbientOcclusion.fx` (`Occlusion`, `Blur`), `LightCull.fx` (compute), `Environment.fx` (`Octahedral`, `Prefilter`, compute `Irradiance`), `Reflections.fx` (`Copy`, `Reflect`), `Volumetric.fx` (`March`, `Composite`), `SkyComposite.fx` (`SkyComposite`, `Background`), `PostTemporal.fx`, `PostExposure.fx` (compute: `Histogram`, `Adapt`), `PostBloom.fx`, `PostFinal.fx` (`Tonemap`, `Fxaa`), `PostSmaa.fx` (SMAA 1x, MIT; `Rendering/Post/Smaa/CREDITS.md`). |
+| `Passes/` | `Surface.fx` (built as `Effects/StaticSurface` and, with `SKINNED`, `Effects/SkinnedSurface`; techniques `Prepass`, `PrepassMasked`, `Opaque`, `Masked`, `Sky`, `ShadowCaster`, `ShadowCasterMasked`, `ShadowClear`), `Unlit.fx`, `AmbientOcclusion.fx` (`Occlusion`, `Blur`), `LightCull.fx` (compute), `Environment.fx` (compute `Irradiance`, `Octahedral`, `Prefilter`), `Reflections.fx` (`Copy`, `Reflect`), `Volumetric.fx` (`March`, `Accumulate`, `Composite`), `SkyComposite.fx` (`SkyComposite`, `Background`), `PostTemporal.fx`, `PostExposure.fx` (compute: `Histogram`, `Adapt`), `PostBloom.fx`, `PostFinal.fx` (`Tonemap`, `Fxaa`), `PostSmaa.fx` (SMAA 1x, MIT; `Rendering/Post/Smaa/CREDITS.md`). |
 
 ## Conventions
 
@@ -92,5 +106,8 @@ Pass order and profiler sections: `PristonRenderer.Draw` and `PristonRenderer.Co
 
 `--verify-shaders` in the regression runner (`tests/PristonTale.Tests/README.md`) draws every technique on the GPU and
 checks the material model against the same formulas in C#, the motion target, the exposure histogram and adaptation,
-the bloom pyramid, the display transforms and the colour grade against their CPU references
-(`Rendering/Post/PristonDisplayTransform.cs`, `PristonColorGrading.cs`) and the temporal resolve.
+the bloom pyramid, the display transforms, mesopic vision and the colour grade against their CPU references
+(`Rendering/Post/PristonDisplayTransform.cs`, `PristonColorGrading.cs`), the temporal resolve, the image-based
+lighting of a night dome (no reflection brighter than the visible dome; a dark rough ground reflects no more of the
+sky than under a uniform sky, in the irradiance's colour) and the volumetric light (scene x transmittance + in-scatter
+with the exact optical depth; the accumulated shafts of a finely striped shadow map against their converged mean).

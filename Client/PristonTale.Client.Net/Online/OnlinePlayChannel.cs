@@ -36,6 +36,12 @@ internal sealed class OnlinePlayChannel : IPlayChannel
         return await _connection.InteractNpcAsync(entityId, ct);
     }
 
+    public async Task<NpcServiceReply> RequestNpcServiceAsync(NpcServiceCommand command, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        return await _connection.RequestNpcServiceAsync(command, ct);
+    }
+
     public async Task<InventoryOutcome> ApplyInventoryAsync(InventoryCommand command, CancellationToken ct = default)
     {
         await _start.WaitAsync(ct);
@@ -52,6 +58,18 @@ internal sealed class OnlinePlayChannel : IPlayChannel
     {
         await _start.WaitAsync(ct);
         _connection.SendAttackPacket(targetEntityId, sustained ? 1 : 0, sequence);
+    }
+
+    public async Task SendSkillCastAsync(uint sequence, uint skillCode, uint targetEntityId, Vector3? point, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendSkillCast(sequence, skillCode, targetEntityId, point);
+    }
+
+    public async Task SendSkillCommandAsync(uint sequence, uint skillCode, ushort command, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendSkillCast(sequence, skillCode, 0, null, command);
     }
 
     public async IAsyncEnumerable<PresenceUpdate> ReadAllAsync([EnumeratorCancellation] CancellationToken ct = default)

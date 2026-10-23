@@ -5,7 +5,7 @@ The server uses SQLite by default; PostgreSQL remains an option.
 
 The game is online only. The C# client and server speak the original Priston Tale TCP protocol of the English C++
 client on port 10009: frame header, packet cipher, opcodes and 32-bit struct
-layouts. The server stays authoritative, and inventory, progression and resolved combat use Etervale extension opcodes.
+layouts. The server stays authoritative, and inventory, progression, resolved combat and skills use Etervale extension opcodes.
 See the [protocol notes](Shared/PristonTale.Protocol/README.md) for the wire contract, its deviations and server capacity.
 
 This README covers the local setup, including the world database migration and data import. Commands below run
@@ -101,8 +101,8 @@ standalone importer build is explicit because its Release output must be availab
 ## Online: migrate, import, and connect
 
 Run these commands from the repository root. The server, importer, and account tool use the same SQLite file at
-`data/pristontale.db`. The importer applies `M013Baseline` before importing. It preserves accounts and characters on
-repeat runs. SQLite runs in WAL mode, so `-wal` and `-shm` files appear next to the database while it is in use.
+`data/pristontale.db`. The importer applies the pending migrations (`M013Baseline`, `M014PortraitData`, `M015NpcServices`) before
+importing. It preserves accounts and characters on repeat runs. SQLite runs in WAL mode, so `-wal` and `-shm` files appear next to the database while it is in use.
 
 ```bash
 dotnet build tools/PristonTale.DevAccounts/PristonTale.DevAccounts.csproj -c Release -m:1 -warnaserror
@@ -189,8 +189,9 @@ deletes that volume and its data.
 The client keeps its options in `client-settings.json` under the local application data folder
 (`%LOCALAPPDATA%\PristonTale` on Windows) and changes them from the in-game system menu, entry Settings. Besides the
 display, audio and shadow options, `classicTargetHealthBar` selects the target frame's HP bar: `false` (default) always
-shows the bar with a percentage; `true` follows the original rule and shows the bar, without numbers, only after you
-attack a monster at full life.
+shows the bar with the target's level and life percentage under it; `true` follows the original rule and shows the
+bar, without numbers, only after you attack a monster at full life. Either way the frame shows a live 3D portrait of the
+target framed on its head, its name and, for monsters, the race icon.
 
 Rendering options (all validated on load; invalid values fall back to the defaults below). The in-game Settings panel
 cycles the preset (`Graphics quality`), the anti-aliasing, the sun shadow size and refresh and the shadows; the other
@@ -213,7 +214,7 @@ options are edited in the file.
 | `lampShadowCount`, `lampShadowTileSize` | 0, 2, 4 (4); 256, 512 (default), 1024 | Shadows that actors cast from the nearest stage lamps (cube faces of this size). |
 | `imageBasedLighting` | `true` | Irradiance (spherical harmonics) and prefiltered reflections from the sky dome, refreshed four times a second; `false`: a hemispherical sky/ground ambient. |
 | `screenSpaceReflections` | `false` (Ultra: `true`) | Screen-space reflections of water and ice over the sky's reflection (with the depth pre-pass). |
-| `volumetricLight` | `true` (Low, Medium: `false`) | Sunlight scattered by a height fog, with the shafts the shadows cut, at quarter resolution (by day). |
+| `volumetricLight` | `true` (Low, Medium: `false`) | Sunlight scattered by a thin height fog (dimming what it covers), with the shafts the shadows cut, at quarter resolution up to the distance fog, accumulated over frames (by day). |
 | `calibrationSpheres` | `false` | Look development: an 18 % grey and a chrome sphere beside the camera focus. |
 | `distanceFog` | `Off`, `Classic`, `Atmospheric` (default) | Distance fog toward the captured sky. |
 | `debugView` | `Shaded` (default), `Albedo`, `VertexColour`, `Normals`, `Lighting`, `Overdraw`, `ExposureFalseColour`, `Roughness`, `Metallic`, `AmbientOcclusion`, `Specular` | Development views, also cycled with Ctrl+F10 (`AmbientOcclusion`: occlusion in red, contact shadows in green; `Specular`: the specular light alone). |
@@ -229,26 +230,33 @@ The GPU times are the frame totals of `--benchmark-render` in Ricarten at noon a
 (`tests/PristonTale.Tests/README.md`), with the shadow cascades refreshed at 60 Hz; at 60 frames per second or less
 every frame refreshes them (about 1 ms more on High).
 
-The scene is lit in photometric units: sun, sky and moon illuminance from the time of day, the stage lamps and the
-night levels from their authored light levels, and the camera exposure in EV100 (incident calibration by day, the
-histogram's reflected reading, a dimming curve for dusk and night). The low sun is reddened by the air it crosses; the
+The scene is lit in photometric units: sun, sky and moon illuminance from the time of day, the stage lamps and the night
+levels from their authored light levels, and the camera exposure in EV100 (incident calibration by day, the histogram's
+reflected reading, a dimming curve for dusk and night). The moon shines with the colour of sunlight; the blue of the
+night is the eye's: the final pass blends dim pixels toward their scotopic luminance in the hue of the authored night
+light (mesopic vision), so moonlit soil stays matte instead of taking a blue sheen. The sky dome is reflected at most at
+its visible level; the rest of the sky light (the night is lit about a hundred times brighter than its dark dome) is a
+uniform fill, so the dome's horizon glow and moon are not magnified. The low sun is reddened by the air it crosses; the
 stage lamps fall off with the inverse square of the distance from a shared reference distance, windowed to zero at their
 range. Combat and spell lights by day add only a small share of the daylight. Local lights are culled per 16x16-pixel
 tile on the GPU. Alpha-tested foliage, also the leaves flagged to draw late, is an opaque cut-out of the depth pre-pass:
 it has its own depth, motion and occlusion, so the temporal anti-aliasing and the screen-space passes do not show the
-scene behind the leaves through them. Stage geometry is tinted by its authored per-vertex light; the scenery models on
-a stage (windmills, cranes, flags, static or animated) take the stage's light for the same texture, so they match the
+scene behind the leaves through them. Stage geometry is tinted by its authored per-vertex light; the scenery models on a
+stage (windmills, cranes, flags, static or animated) take the stage's light for the same texture, so they match the
 stage beside them; actors take the authored light of the floor under their feet, so they darken with it in a tree's
 shade or an alley (except on the character-select stage). The authored light also occludes the sky's reflections, and
-the sky's irradiance is windowed so curved surfaces show no bright and dark bands. `Client/PristonTale/Content/Shaders/README.md`
-describes the passes.
+the sky's irradiance is windowed so curved surfaces show no bright and dark bands.
+`Client/PristonTale/Content/Shaders/README.md` describes the passes.
 
 ## What the migration and importer do
 
-The current structural migration is `M013Baseline` in `Persistence/PristonTale.Persistence/Migrations/`. It creates the
+The structural migrations are in `Persistence/PristonTale.Persistence/Migrations/`. `M013Baseline` creates the
 full schema on an empty database and can add the new columns and source tables to an existing database already at legacy
 migration version 12. Databases stopped at intermediate versions 1–11 must first reach version 12 with the previous
-migration set or be backed up and recreated.
+migration set or be backed up and recreated. `M014PortraitData` adds the target-frame data of the character files: the
+portrait camera correction of monsters and NPCs and the NPC display name. `M015NpcServices` adds the typed NPC services
+(`npc_services`) and the warehouse revision. Run `import` again after upgrading so the existing rows receive them; until
+then NPCs show their authored Korean names, which the wire's code page cannot carry, and offer no services.
 
 `PristonTale.WorldImport` reads the CP949 `GameServer` files and builds the item, monster, NPC, and field catalogs. It
 follows linked text files, maps original item and sound codes, imports supported gameplay fields, and reads INX motion
@@ -256,6 +264,37 @@ timing from `--assets`. It also preserves every source file with a hash and deco
 duplicate parsed definitions in `world_entity_variants`, and source references that cannot be resolved in
 `world_import_unresolved_refs`. Preserving a source field does not by itself enable a gameplay feature; runtime behavior
 is implemented in the shared simulation and application layers.
+
+NPC files and the name files they link to become typed services: one `npc_services` row per service key in the order
+the original answers a click (quest hooks, shop, skill master with its class-change group, warehouse, mixing or
+alchemy, smelting, crafting, donations, prize draw and delivery, warp gate or event quest, teleport route, star points,
+event booth, aging, clan, Bless Castle, survey, broadcast, mixture reset, event creatures), plus keys of the supplied
+data that no original client handles. The display name and dialog come from `*E_NAME`/`*E_CHAT`, then `*B_NAME`/`*B_CHAT`,
+then the Korean `*대화` lines, with the fixed-width runs of spaces collapsed. When several files share an identity name,
+the catalog keeps the file a field places; the others stay variants. The older `svc_*` flag columns are still written
+for databases imported before `npc_services`, which the runtime reads only when a row set is missing. The `verify`
+command lists the services by kind.
+
+### NPC services in game
+
+Clicking an NPC opens its dialog with one line and a button per typed service; services Etervale does not run yet are
+grey and answer "not available yet". Running services:
+
+- Shop: the original shop window beside the inventory with the weapon and armour tabs (or goods), pages, and buy, sell,
+  repair and repair-all. Prices come from the item catalog on the server: an item is bought at its price in its unrolled
+  form, sells for a fifth of its worn value and costs an eighth of the lost value to repair; selling stops at the
+  original carry limit by level and class tier. Item tooltips show the price, the sale value or the repair cost.
+- Warehouse: one per account, the original 9x9 grid, 100 items, 1000 weight and 100,000,000 gold. Items move by drag and
+  drop between the grid and the inventory (right click takes one out); quest items and materials stay with the
+  character. Every change is written with the character in one transaction under the warehouse revision; a change made
+  elsewhere is refused until the warehouse is opened again. Gold deposit and withdrawal exist on the server and in the
+  protocol but have no client control yet.
+- Skill master: opens skill training, as before.
+- Teleporter (route 1): Mushroom Cave, Beehive Cave, Cursed Land and Forbidden Land for 100, 100, 500 and 1,000 gold,
+  limited by the destination field's level. Other routes are not available yet.
+
+Every request is checked on the server against the NPC (alive, in the field, within reach), written before it takes
+effect and recorded by operation id, so a retry never charges twice.
 
 The supplied `assets/GameServer` snapshot includes item categories absent from the original reference DWORD table.
 The importer preserves those rows with `item_code_mask=0` and reports their categories; the runtime omits them until
@@ -265,6 +304,53 @@ The import report lists missing item, monster, NPC, or asset references. Some en
 refer to files or codes absent from that snapshot. Inspect the report and `world_import_unresolved_refs` when
 reconciling source data. Passing `--assets` is necessary to import animation timing; without it, the motion pass is
 skipped.
+
+## Skills and effects
+
+All sixteen skills (four tiers) of the eight original classes can be learned and cast (Assassin and Shaman are not
+playable yet: their files hold the skill window's definitions only). Learn them at a skill master: each class tier
+opens the next four skills of the window, a skill needs one rank in the skill before it and rank r + 1 needs level
+`RequiredLevel + 2r`; the price grows with the window position, and the last four skills spend the final-tier skill
+points earned every second level from 60. Open the skill window (`S`), click a learned skill with the left or right
+mouse button to place it in that mouse socket, or hold the button over it and press `F1`-`F8` to bind a short key;
+`F1`-`F8` then select the bound skill. Right-click (or left-click, for skills usable on both buttons) a monster to cast
+at it, a player to heal or buff them, or anywhere for self skills; the character walks into range first. Hold the
+button of a charge skill and release it to strike early (holding through the window charges fully). Double-click a
+summon's icon in the buff bar to switch it between fighting your target and picking its own. Skills cannot be cast in
+town. The bottom bar shows the selected skills with their recharge, the top left the active effects with their time
+left.
+
+The server owns every rule: one file per class in `Shared/PristonTale.Simulation/Skills/Data/Classes/<Class>.json`
+(format in `Shared/PristonTale.Simulation/Skills/ClassSkillCatalog.cs`) holds each skill's definition, ten-rank costs
+and rule: damage, accuracy, areas and chains, durations, mastery cooldown, motions and effect names per rank, and the
+mechanics of support, drain, reflection, enchant, shield, familiar, counter, stealth, charge, revive, charm and summon
+skills. Mana and stamina costs, cooldowns, ranges, the motion timeline and the timed effects are checked and resolved on
+the server (`Shared/PristonTale.Application/World/FieldSkills.*.cs`, one file per mechanic). Effects of any source
+(skills now; items, monster skills, consumables and auras use the same engine) are modifiers in
+`Shared/PristonTale.Simulation/Modifiers`, and the derived stats are recomputed from them. Life, mana and stamina
+regenerate on the server with the original per-second rules. Summons are server monsters owned by their caster: they
+follow it, fight its target (or, when aggressive, the nearest enemy), are recalled when it moves far away and end with
+their time, their death or their owner leaving the field.
+
+Skill effects are data: `Client/PristonTale.Gameplay/Effects/Vfx/Common.vfx.json` and one file per class in
+`Client/PristonTale.Gameplay/Effects/Vfx/Classes/<Class>.vfx.json` (format in
+`Client/PristonTale.Effects/Vfx/VfxDefinition.cs`) define sprite emitters, ribbon trails, lights, sounds and layers
+that play an original particle script unchanged. Files `assets/Vfx/*.vfx.json` override or add effects at startup.
+Textures are asset paths or the procedural `builtin:glow`, `soft`, `spark`, `beam`, `ring`, `star`, `smoke` and
+`flame`. Effects draw in the HDR scene in linear light, fade against the depth pre-pass (soft particles) and can
+attach to actor bones; `LegacyVfxImporter` converts an original script into the native format as a starting point.
+
+A cast against a running server:
+
+```bash
+dotnet build tools/PristonTale.SmokeClient/PristonTale.SmokeClient.csproj -c Release -m:1 -warnaserror
+dotnet run --project tools/PristonTale.SmokeClient -c Release --no-build -- tcp://localhost:10009 smoke smoke-pw
+dotnet run --project tools/PristonTale.SmokeClient -c Release --no-build -- tcp://localhost:10009 smoke smoke-pw \
+  --character <name> --skill 0x01010003
+```
+
+The first run creates a Mechanician in town and expects a refused cast; the second expects the existing character,
+which must have learned the skill and stand outside a town, to cast it with its start, impact and status.
 
 ## Validation and useful paths
 

@@ -28,10 +28,13 @@ public static class WorldDataFactory
         var rolledMax = new ItemStatBlock(
             r.DamageMinHigh, r.DamageMaxHigh, r.DefenceMax, r.AttackRatingMax, 0, 0, 0, 0, 0, 0);
 
+        var (gridWidth, gridHeight) = ItemGridSizes.Of(r.Code);
         return ItemEquipmentMetadata.Apply(new ItemDefinition(
             (uint)r.ItemCodeMask,
             r.Name,
             (ItemKind)r.Kind,
+            GridWidth: gridWidth,
+            GridHeight: gridHeight,
             MaxStack: Math.Max(1, r.MaxStack))
         {
             CatalogKey = r.Code,
@@ -148,6 +151,8 @@ public static class WorldDataFactory
             ExpReward = r.Exp,
             SoundCode = r.SoundCode,
             ModelScale = r.ModelScale,
+            PortraitOffsetY = r.PortraitOffsetY,
+            PortraitOffsetZ = r.PortraitOffsetZ,
         };
     }
 
@@ -228,47 +233,61 @@ public static class WorldDataFactory
         var weapons = r.ShopStock.Where(static s => s.Tab == 0).OrderBy(static s => s.Ordinal);
         var armour = r.ShopStock.Where(static s => s.Tab == 1).OrderBy(static s => s.Ordinal);
         var misc = r.ShopStock.Where(static s => s.Tab == 2).OrderBy(static s => s.Ordinal);
+        var shop = r.ShopStock.Count == 0
+            ? NpcShopStock.Empty
+            : new NpcShopStock(
+                weapons.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(LegacyItemCode.Parse).ToList(),
+                armour.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(LegacyItemCode.Parse).ToList(),
+                misc.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(LegacyItemCode.Parse).ToList());
 
-        return new NpcDefinition(code, r.Name, ToInxModelPath(r.Model), FoldServices(r))
+        return new NpcDefinition(code, r.Name, ToInxModelPath(r.Model), ToServices(r, shop))
         {
-            JobChangeCode = r.JobChangeCode,
-            TeleportCode = r.TeleportCode,
-            Shop = (r.ShopStock.Count == 0)
-                ? NpcShopStock.Empty
-                : new NpcShopStock(
-                    weapons.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(LegacyItemCode.Parse).ToList(),
-                    armour.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(LegacyItemCode.Parse).ToList(),
-                    misc.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(LegacyItemCode.Parse).ToList()),
-            Quest = r.SvcQuest ? new NpcQuestHook(r.QuestCode, r.QuestParam) : NpcQuestHook.None,
+            DisplayName = r.DisplayName ?? "",
+            Shop = shop,
             Dialog = dialog,
             SoundCode = r.SoundCode,
             ModelScale = r.ModelScale,
             MoveRange = r.MoveRange,
+            PortraitOffsetY = r.PortraitOffsetY,
+            PortraitOffsetZ = r.PortraitOffsetZ,
         };
     }
 
     private static bool IsSupportedItemCode(string code) => LegacyItemCode.TryParse(code, out _);
 
-    private static NpcServices FoldServices(NpcRecord r)
+    // A shop whose stock has no runtime item is not offered; unknown service kinds from a newer importer are skipped.
+    private static List<NpcService> ToServices(NpcRecord r, NpcShopStock shop)
     {
-        var s = NpcServices.None;
-        if (r.SvcWarehouse) s |= NpcServices.Warehouse;
-        if (r.SvcShop) s |= NpcServices.Shop;
-        if (r.SvcSkillMaster) s |= NpcServices.SkillMaster;
-        if (r.SvcJobChange) s |= NpcServices.JobChange;
-        if (r.SvcTeleport) s |= NpcServices.Teleport;
-        if (r.SvcItemMix) s |= NpcServices.ItemMix;
-        if (r.SvcItemAging) s |= NpcServices.ItemAging;
-        if (r.SvcSmelting) s |= NpcServices.Smelting;
-        if (r.SvcManufacture) s |= NpcServices.Manufacture;
-        if (r.SvcMixtureReset) s |= NpcServices.MixtureReset;
-        if (r.SvcClan) s |= NpcServices.Clan;
-        if (r.SvcBlessCastle) s |= NpcServices.BlessCastle;
-        if (r.SvcQuest) s |= NpcServices.Quest;
-        if (r.SvcEventBooth) s |= NpcServices.EventBooth;
-        if (r.SvcCollectMoney) s |= NpcServices.CollectMoney;
-        if (r.SvcGiveMoney) s |= NpcServices.GiveMoney;
-        return s;
+        var services = r.Services.Count > 0
+            ? r.Services
+                .OrderBy(static s => s.Ordinal)
+                .Where(static s => Enum.IsDefined((NpcServiceKind)s.Kind))
+                .Select(static s => new NpcService((NpcServiceKind)s.Kind, s.Value, s.Value2, s.Text ?? ""))
+                .ToList()
+            : LegacyServices(r);
+        services.RemoveAll(service => service.Kind == NpcServiceKind.Shop && shop.IsEmpty);
+        return services;
+    }
+
+    private static List<NpcService> LegacyServices(NpcRecord r)
+    {
+        var services = new List<NpcService>();
+        if (r.SvcQuest) services.Add(new NpcService(NpcServiceKind.QuestScript, r.QuestCode, r.QuestParam));
+        if (r.SvcShop) services.Add(new NpcService(NpcServiceKind.Shop));
+        if (r.SvcSkillMaster) services.Add(new NpcService(NpcServiceKind.SkillMaster, r.SvcJobChange ? r.JobChangeCode : 0));
+        if (r.SvcWarehouse) services.Add(new NpcService(NpcServiceKind.Warehouse));
+        if (r.SvcItemMix) services.Add(new NpcService(NpcServiceKind.ItemMix, 1));
+        if (r.SvcSmelting) services.Add(new NpcService(NpcServiceKind.Smelting));
+        if (r.SvcManufacture) services.Add(new NpcService(NpcServiceKind.Manufacture));
+        if (r.SvcCollectMoney) services.Add(new NpcService(NpcServiceKind.CollectMoney));
+        if (r.SvcTeleport) services.Add(new NpcService(NpcServiceKind.Teleporter, r.TeleportCode == 0 ? 1 : r.TeleportCode));
+        if (r.SvcGiveMoney) services.Add(new NpcService(NpcServiceKind.GiveMoney));
+        if (r.SvcEventBooth) services.Add(new NpcService(NpcServiceKind.EventBooth, 1));
+        if (r.SvcItemAging) services.Add(new NpcService(NpcServiceKind.ItemAging));
+        if (r.SvcClan) services.Add(new NpcService(NpcServiceKind.Clan));
+        if (r.SvcBlessCastle) services.Add(new NpcService(NpcServiceKind.BlessCastle, 1));
+        if (r.SvcMixtureReset) services.Add(new NpcService(NpcServiceKind.MixtureReset));
+        return services;
     }
 
     public static FieldSpawnData ToFieldSpawnData(

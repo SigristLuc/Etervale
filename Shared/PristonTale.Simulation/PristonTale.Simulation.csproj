@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Skills/Data/Classes/*.json" LogicalName="PristonTale.Simulation.Skills.Data.Classes.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../PristonTale.Geometry/PristonTale.Geometry.csproj" />
   </ItemGroup>
 

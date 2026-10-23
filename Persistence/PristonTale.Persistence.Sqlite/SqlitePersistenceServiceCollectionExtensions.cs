@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PristonTale.Persistence.Abstractions;
 using PristonTale.Persistence.Abstractions.Accounts;
 using PristonTale.Persistence.Abstractions.Characters;
+using PristonTale.Persistence.Abstractions.Warehouses;
 using PristonTale.Persistence.Abstractions.WorldData;
 using PristonTale.Persistence.Migrations;
 using PristonTale.Persistence.Repositories;
@@ -32,6 +33,7 @@ public static class SqlitePersistenceServiceCollectionExtensions
         services.AddSingleton<IAccountRepository, DapperAccountRepository>();
         services.AddSingleton<ICharacterRepository, DapperCharacterRepository>();
         services.AddSingleton<IWorldDataRepository, DapperWorldDataRepository>();
+        services.AddSingleton<IWarehouseRepository, DapperWarehouseRepository>();
         services.AddSingleton<IDatabaseMigrator, FluentMigratorDatabaseMigrator>();
 
         services.AddFluentMigratorCore()

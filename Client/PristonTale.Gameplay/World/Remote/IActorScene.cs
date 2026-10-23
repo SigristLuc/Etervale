@@ -14,6 +14,8 @@ public interface IActorScene
     void SetActorColorAdd(ActorHandle handle, Vector3 colorAdd) { }
     void SetActorMotion(ActorHandle handle, PristonActorMotion motion);
     void SetActorMotionIndex(ActorHandle handle, int motionIndex);
+    int ResolveSkillMotion(ActorHandle handle, int motionIndex) => motionIndex;
+    void SeekActorMotion(ActorHandle handle, int framesFromStart) { }
     void RestartActorMotion(ActorHandle handle, PristonActorMotion motion);
     void SetActorPlaybackRate(ActorHandle handle, float rateFactor);
     void RemoveActor(ActorHandle handle);

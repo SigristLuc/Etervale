@@ -1,5 +1,6 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Skills;
 
 namespace PristonTale.Simulation.Combat;
@@ -11,6 +12,7 @@ public static class WeaponDamage
         var weapon = character.GetEquipped(EquipmentSlot.Weapon);
         if (weapon is null || weapon.IsBroken)
         {
+            // Bare-hand damage already includes the modifiers through the derived stats.
             return (character.Derived.AttackDamageMin, character.Derived.AttackDamageMax);
         }
 
@@ -64,9 +66,11 @@ public static class WeaponDamage
             _ => false
         };
         var jobDamage = favoured ? character.Level / 6 : 0;
-        var mastery = FirstTierPassives.WeaponBonus(character.Skills, weapon);
+        var mastery = PassiveSkills.WeaponBonus(character, weapon);
+        var passive = PassiveSkillEffects.WeaponBonus(character, weapon);
+        mastery = (mastery.Min + passive.Min, mastery.Max + passive.Max);
         var minimum = 2 + stats.DamageMin * (primary + divisor) / divisor + secondary + jobDamage + (stats.DamageMin + stats.DamageMax) / 16;
         var maximum = 4 + stats.DamageMax * (primary + divisor) / divisor + secondary + jobDamage;
-        return (minimum + mastery.Min, maximum + mastery.Max);
+        return ModifierRules.ApplyDamage(character.Effects.Totals, minimum + mastery.Min, maximum + mastery.Max);
     }
 }

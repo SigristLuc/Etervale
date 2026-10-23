@@ -19,4 +19,9 @@ public sealed record EntitySpawnInfo(
     ulong AttackSequence = 0,
     double? ServerTimeMs = null,
     string Name = "",
-    int Level = 0);
+    int Level = 0)
+{
+    // A summon: its owner's serial and its own model scale (0 keeps the catalog's).
+    public uint OwnerId { get; init; }
+    public float ModelScale { get; init; }
+}

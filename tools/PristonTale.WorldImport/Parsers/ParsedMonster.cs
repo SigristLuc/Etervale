@@ -15,6 +15,8 @@ public sealed class ParsedMonster
     public string Model { get; init; } = "";
     public int SoundCode { get; init; }
     public float ModelScale { get; init; } = 1f;
+    public int PortraitOffsetY { get; init; }
+    public int PortraitOffsetZ { get; init; }
     public int Level { get; init; }
     public int AttackMin { get; init; }
     public int AttackMax { get; init; }

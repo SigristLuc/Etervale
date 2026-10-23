@@ -17,6 +17,9 @@ public sealed class HudInventoryPanel
     private OwnedItemView _hovered;
     private OwnedItemView _dragged;
 
+    // An extra tooltip line for the hovered item, such as what an open shop pays for it.
+    public Func<OwnedItemView, string> Note { get; set; }
+
     public void Draw(HudPainter painter, Point origin, OwnerState state, HudInventoryController controller, HudItemIcons icons,
         Point pointer, bool interactive)
     {
@@ -113,6 +116,13 @@ public sealed class HudInventoryPanel
             : "Drag: move  Shift-drag: split  Right-click: equip";
         var count = _counts.GetValueOrDefault(item.InstanceId, "");
         var name = count.Length > 0 ? $"{item.Name} ({count})" : item.Name;
+        var note = Note?.Invoke(item) ?? "";
+        if (note.Length > 0)
+        {
+            Npc.HudItemTooltip.Draw(painter, layout, pointer, name, note, action);
+            return;
+        }
+
         var width = Math.Min(layout.Width - 8, Math.Max(painter.Measure(name), painter.Measure(action)) + 24);
         var size = HudPainter.InfoBoxBounds(0, 0, width, 48);
         var bounds = layout.PlaceOverlay(new Point(pointer.X - size.Width / 2, pointer.Y - size.Height - 8), size.Width, size.Height);

@@ -12,6 +12,9 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
         AllowSynchronousContinuations = false
     });
     private readonly Queue<CombatEventView[]> _events = new();
+    private readonly List<SkillEventView> _skillEvents = new();
+    private readonly List<StatusEventView> _statusEvents = new();
+    private SkillCooldownView[]? _cooldowns;
     private readonly int _eventCapacity;
     private WorldSnapshot _latest;
     private int _eventCount;
@@ -35,7 +38,8 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
                 return false;
             }
 
-            if (snapshot.Events.Length > _eventCapacity - _eventCount)
+            var incoming = snapshot.Events.Length + snapshot.SkillEvents.Length + snapshot.StatusEvents.Length;
+            if (incoming > _eventCapacity - _eventCount)
             {
                 _completed = true;
                 _ready.Writer.TryComplete(new InvalidOperationException("Reliable world-event queue overflow; reconnect required."));
@@ -48,6 +52,15 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
             {
                 _events.Enqueue(snapshot.Events);
                 _eventCount += snapshot.Events.Length;
+            }
+
+            // Skill and status changes are as reliable as combat events; the newest cooldown list replaces older ones.
+            _skillEvents.AddRange(snapshot.SkillEvents);
+            _statusEvents.AddRange(snapshot.StatusEvents);
+            _eventCount += snapshot.SkillEvents.Length + snapshot.StatusEvents.Length;
+            if (snapshot.Cooldowns is not null)
+            {
+                _cooldowns = snapshot.Cooldowns;
             }
 
             _ready.Writer.TryWrite(true);
@@ -87,7 +100,15 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
                 }
             }
 
-            snapshot = _latest.WithEvents(events);
+            snapshot = _latest.WithEvents(events) with
+            {
+                SkillEvents = _skillEvents.Count == 0 ? [] : _skillEvents.ToArray(),
+                StatusEvents = _statusEvents.Count == 0 ? [] : _statusEvents.ToArray(),
+                Cooldowns = _cooldowns
+            };
+            _skillEvents.Clear();
+            _statusEvents.Clear();
+            _cooldowns = null;
             _latest = default;
             _eventCount = 0;
             _hasState = false;

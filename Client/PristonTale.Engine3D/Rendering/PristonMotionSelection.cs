@@ -43,4 +43,32 @@ public static class PristonMotionSelection
 
         return unrestricted ?? fallback;
     }
+
+    // A skill clip is authored once per weapon group: the clips that share the indexed clip's state and skill tags differ
+    // only in the weapons they list. Returns the sibling whose weapons include the context's, else the indexed clip.
+    public static int SkillVariant(PristonModelInfo info, int motionIndex, PristonMotionContext context)
+    {
+        if ((uint)motionIndex >= (uint)info.Motions.Count)
+        {
+            return motionIndex;
+        }
+
+        var authored = info.Motions[motionIndex];
+        if (authored.ItemCodeCount == 0 || context.ItemIndex < 0 || authored.ItemIndices.Contains(context.ItemIndex))
+        {
+            return motionIndex;
+        }
+
+        for (int index = PristonFormatConstants.CharacterMotionBase; index < info.Motions.Count; index++)
+        {
+            var motion = info.Motions[index];
+            if (motion.State == authored.State && motion.SkillCodes.SequenceEqual(authored.SkillCodes) && motion.EndFrame > motion.StartFrame
+                && motion.ItemIndices.Contains(context.ItemIndex))
+            {
+                return index;
+            }
+        }
+
+        return motionIndex;
+    }
 }

@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Engine3D.Formats;
+using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Combat;
 using PristonTale.Simulation.Characters;
 
@@ -39,6 +40,12 @@ public abstract class RemoteEntityBase
     private float _learnedRunSpeed;
     private double _stallMs;
     private bool _stalled;
+    // A skill started by the server's skill event owns the Skill state: its clip (by motion index) or the weapon clip.
+    private int _skillMotionIndex = -1;
+    private bool _skillAttackClip;
+    private float _skillRate = 1f;
+
+    private bool SkillOverride => _skillMotionIndex >= 0 || _skillAttackClip;
 
     protected RemoteEntityBase(RemoteEntityKind kind, double timeMs, Vector3 position, float facing, RemoteMoveState moveState, int hp,
         int soundCode = 0)
@@ -103,7 +110,19 @@ public abstract class RemoteEntityBase
             var startsSound = _pendingMotionStartsSound;
             _pendingMotion = MotionCommand.None;
             _pendingMotionStartsSound = false;
-            ApplyMotionCommand(command);
+            if (command.Motion == PristonActorMotion.Skill && _skillMotionIndex >= 0)
+            {
+                ApplyMotionIndex(_skillMotionIndex);
+            }
+            else if (command.Motion == PristonActorMotion.Skill && _skillAttackClip)
+            {
+                ApplyMotionCommand(new MotionCommand(MotionCommandKind.Restart, PristonActorMotion.Attack));
+            }
+            else
+            {
+                ApplyMotionCommand(command);
+            }
+
             _shownMotion = command.Motion;
             _appliedRate = float.NaN;
             if (startsSound)
@@ -120,9 +139,25 @@ public abstract class RemoteEntityBase
         }
     }
 
+    public abstract int CopyActorHandles(Span<ActorHandle> destination);
+
     protected abstract void ApplyWorld(Matrix world);
 
     protected abstract void ApplyMotionCommand(MotionCommand command);
+
+    protected abstract void ApplyMotionIndex(int motionIndex);
+
+    // Starts a skill's motion from the server's skill event: the clip at motionIndex at the given rate, or the weapon's
+    // attack clip (attackClip) at the entity's attack rate times rate.
+    public void PlaySkill(int motionIndex, float rate, bool attackClip)
+    {
+        _skillAttackClip = attackClip;
+        _skillMotionIndex = attackClip ? -1 : motionIndex;
+        _skillRate = attackClip ? _attackRate * rate : rate;
+        _ = _controller.ApplyAuthoritative(PristonActorMotion.Skill);
+        _pendingMotion = new MotionCommand(MotionCommandKind.Restart, PristonActorMotion.Skill);
+        _pendingMotionStartsSound = false;
+    }
 
     protected abstract void ApplyPlaybackRate(float rate);
 
@@ -186,6 +221,12 @@ public abstract class RemoteEntityBase
     private void ApplySampleState(in RemoteSample sample)
     {
         var motion = ToActorMotion(sample.MoveState);
+        if (motion == PristonActorMotion.Skill && SkillOverride)
+        {
+            _lastHp = sample.Hp;
+            return;
+        }
+
         var command = _controller.ApplyAuthoritative(motion);
         if (command.Kind == MotionCommandKind.None
             && motion == PristonActorMotion.Damage
@@ -244,6 +285,12 @@ public abstract class RemoteEntityBase
             command = new MotionCommand(MotionCommandKind.Set, PristonActorMotion.Stand);
         }
 
+        if (command.Motion != PristonActorMotion.Skill)
+        {
+            _skillMotionIndex = -1;
+            _skillAttackClip = false;
+        }
+
         if (command.Kind == MotionCommandKind.Set && command.Motion == _shownMotion)
         {
             _pendingMotion = MotionCommand.None;
@@ -277,6 +324,7 @@ public abstract class RemoteEntityBase
         return motion switch
         {
             PristonActorMotion.Walk or PristonActorMotion.Run => BaseLocomotionRate(motion) * LocomotionScale(motion),
+            PristonActorMotion.Skill when SkillOverride => _skillRate,
             PristonActorMotion.Attack or PristonActorMotion.Skill => _attackRate,
             _ => 1f
         };

@@ -1,0 +1,73 @@
+using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Skills;
+
+namespace PristonTale.Simulation.Progression;
+
+// Skill-master training. The class skill list is in skill-window order: each class tier (0..3) opens the next four
+// skills, a skill needs one rank in the skill before it, rank r+1 needs level RequiredLevel + 2r, and the price grows
+// with the window position. The first twelve skills spend skill points; the last four spend the final-tier points.
+public static class SkillLearning
+{
+    public const int SkillsPerTier = 4;
+    public const int FinalTierStart = 12;
+
+    private static readonly int[] BasePrices = [500, 1000, 1500, 2000, 3000, 5000, 7000, 9000, 10000, 12000, 15000, 20000, 25000, 30000, 35000, 40000];
+    private static readonly int[] RankPrices = [500, 600, 700, 800, 1000, 1200, 1400, 1600, 2000, 2500, 3000, 4000, 5000, 6000, 7000, 8000];
+
+    public static int Price(int index, int currentRank)
+    {
+        if (index < 0 || index >= BasePrices.Length || currentRank is < 0 or > 9)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        return BasePrices[index] + RankPrices[index] * currentRank;
+    }
+
+    // Skills a class tier has opened in the window (tier 0 = the first four).
+    public static int OpenedBy(int tier) => SkillsPerTier * (Math.Clamp(tier, 0, 3) + 1);
+
+    public static bool UsesFinalTierPoints(int index) => index >= FinalTierStart;
+
+    // Whether the window skill at index can take its next rank, money aside. A definition without its ten ranks of costs
+    // cannot be trained.
+    public static bool CanTrain(IReadOnlyList<Skill> skills, int index, Func<uint, int> rankOf, int level, int tier, int skillPoints,
+        int finalTierPoints)
+    {
+        if (index < 0 || index >= skills.Count || index >= OpenedBy(tier))
+        {
+            return false;
+        }
+
+        var skill = skills[index];
+        var rank = rankOf(skill.Code);
+        var points = UsesFinalTierPoints(index) ? finalTierPoints : skillPoints;
+        return skill.Code != 0 && skill.ManaByRank.Count == 10 && rank < 10 && points > 0 && level >= skill.RequiredLevel + rank * 2
+            && (index == 0 || rankOf(skills[index - 1].Code) > 0);
+    }
+
+    public static bool TryQuote(PlayerCharacter character, uint code, out int price, out bool finalTier)
+    {
+        price = 0;
+        finalTier = false;
+        var skills = character.Class.Skills;
+        for (var index = 0; index < skills.Count; index++)
+        {
+            if (skills[index].Code != code)
+            {
+                continue;
+            }
+
+            if (!CanTrain(skills, index, character.Skills.RankOf, character.Level, character.Tier, character.SkillPoints, character.EliteSkillPoints))
+            {
+                return false;
+            }
+
+            price = Price(index, character.Skills.RankOf(code));
+            finalTier = UsesFinalTierPoints(index);
+            return character.Money >= price;
+        }
+
+        return false;
+    }
+}

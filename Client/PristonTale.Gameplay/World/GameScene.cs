@@ -10,6 +10,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Physics;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Combat;
+using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Gameplay.Audio;
 using PristonTale.Gameplay.World.Remote;
 using PristonTale.Gameplay.World.Streaming;
@@ -21,7 +22,7 @@ using NumVector3 = System.Numerics.Vector3;
 
 namespace PristonTale.Gameplay.World;
 
-public sealed class GameScene : IDisposable, IFieldContext
+public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortraitScene
 {
     private ActorHandle _playerBodyActor = ActorHandle.None;
     private ActorHandle _playerHeadActor = ActorHandle.None;
@@ -156,6 +157,44 @@ public sealed class GameScene : IDisposable, IFieldContext
     public uint SelectedTargetId => _targetSelection.FrameId;
     public FieldDef ActiveFieldDefinition => _activeField?.Definition;
     public PristonIntRectangle ActiveMapRectangle => _activeField?.Stage.AuthoredMapRectangle ?? default;
+    public PristonRenderer Renderer => _renderer;
+
+    public int CopyActorHandles(uint entityId, Span<ActorHandle> destination) => _remote?.CopyActorHandles(entityId, destination) ?? 0;
+
+    // The loaded field other than the active one whose map lies nearest the player: the minimap draws it underneath.
+    public bool TryGetNeighbourMap(out string fieldId, out PristonIntRectangle rectangle)
+    {
+        fieldId = null;
+        rectangle = default;
+        if (_activeField is null || _playerBody is null)
+        {
+            return false;
+        }
+
+        var position = _playerBody.Position;
+        var best = float.MaxValue;
+        foreach (var field in _fields)
+        {
+            var map = field.Stage.AuthoredMapRectangle;
+            if (field == _activeField || map.Right <= map.Left || map.Bottom <= map.Top)
+            {
+                continue;
+            }
+
+            // Stage map rectangles are fixed point with the original's z, the engine's -z.
+            var x = Math.Clamp(position.X, map.Left / 256f, map.Right / 256f) - position.X;
+            var z = Math.Clamp(-position.Z, map.Top / 256f, map.Bottom / 256f) + position.Z;
+            var distance = x * x + z * z;
+            if (distance < best)
+            {
+                best = distance;
+                fieldId = field.Definition.Id;
+                rectangle = map;
+            }
+        }
+
+        return fieldId is not null;
+    }
     public Vector3 PlayerPosition => _playerBody?.Position ?? Vector3.Zero;
     public Vector3 PlayerForward => _playerForward;
     public bool RunMode => _runMode;
@@ -182,6 +221,13 @@ public sealed class GameScene : IDisposable, IFieldContext
     {
         return _playChannel is not null ? _playChannel.InteractNpcAsync(entityId, _presenceCts.Token)
             : Task.FromResult(PristonTale.Simulation.World.Npcs.NpcInteraction.Rejected("world connection unavailable"));
+    }
+
+    public Task<PristonTale.Simulation.World.Npcs.NpcServiceReply> RequestNpcServiceAsync(PristonTale.Simulation.World.Npcs.NpcServiceCommand command)
+    {
+        return _playChannel is not null ? _playChannel.RequestNpcServiceAsync(command, _presenceCts.Token)
+            : Task.FromResult(new PristonTale.Simulation.World.Npcs.NpcServiceReply(PristonTale.Simulation.World.Npcs.NpcServiceOutcome.Failed(
+                PristonTale.Simulation.World.Npcs.NpcServiceStatus.Rejected, "world connection unavailable")));
     }
 
     public void PlayNpcInteractionAudio(PristonTale.Simulation.World.Npcs.NpcInteraction interaction)
@@ -294,6 +340,8 @@ public sealed class GameScene : IDisposable, IFieldContext
             _monsterMeshEffects = new PristonTale.Gameplay.Effects.LegacyMonsterMeshEffects(_effectLibrary, _effects, _renderer.TransientLights);
             _returnEffect = new PristonTale.Gameplay.Effects.LegacyReturnEffect(_graphicsDevice, _effectLibrary, _renderer.TransientLights);
         }
+
+        CreateSkillPresentation();
         var actorScene = new RendererActorScene(_renderer);
         _playerComposer = new PlayerActorComposer(actorScene, _actorLoader);
         _monsterComposer = new ModelActorComposer(actorScene, _actorLoader);
@@ -454,6 +502,7 @@ public sealed class GameScene : IDisposable, IFieldContext
 
                 _groundLoot.Apply(update);
                 ObserveEffects(update);
+                ObserveSkills(update);
                 PresenceObserved?.Invoke(update);
             }
 
@@ -962,6 +1011,10 @@ public sealed class GameScene : IDisposable, IFieldContext
                 ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.Attack));
                 break;
 
+            case PristonActorMotion.Skill:
+                // The skill presentation plays the cast's own clip from the server's skill event.
+                break;
+
             case PristonActorMotion.Damage:
                 {
                     var command = _playerController.ApplyAuthoritative(PristonActorMotion.Damage);
@@ -1118,7 +1171,9 @@ public sealed class GameScene : IDisposable, IFieldContext
             _fields.Add(completedField);
             _groundLoot?.InvalidateFloor();
         }
+        _skillClockMs = gameTime.TotalGameTime.TotalMilliseconds;
         DrainPresence(frameDt);
+        UpdateSkills(gameTime);
         ApplyPositionCorrection(frameDt);
         UpdatePlayerInput(gameTime);
         UpdateTargetSelection(gameTime);
@@ -1289,6 +1344,7 @@ public sealed class GameScene : IDisposable, IFieldContext
             _monsterMeshEffects?.Draw(_camera.View, _camera.Projection);
             _returnEffect?.Draw(_camera.View, _camera.Projection, _camera.Position);
             _effects?.Draw(_camera.View, _camera.Projection, _camera.Position);
+            DrawSkillEffects();
             _renderer.ComposeScene();
         }
     }
@@ -1330,6 +1386,11 @@ public sealed class GameScene : IDisposable, IFieldContext
         {
             _hasMoveTarget = false;
         }
+        else if (!PointerCaptured && !RightAttackEnabled && mouse.RightButton == ButtonState.Pressed
+            && _lastMouseState.RightButton == ButtonState.Released && !SelfCasting)
+        {
+            TryCastSkillClick(mouse, rightButton: true);
+        }
 
         if (!PointerCaptured && mouse.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released)
         {
@@ -1341,12 +1402,16 @@ public sealed class GameScene : IDisposable, IFieldContext
             if (TryPickLoot(mouse))
             {
             }
+            else if (!SelfCasting && TryCastSkillClick(mouse, rightButton: false))
+            {
+            }
             else if (TryPickAttackTarget(mouse))
             {
                 _hasMoveTarget = false;
             }
-            else if (SetMoveTarget(mouse))
+            else if (!SelfCasting && SetMoveTarget(mouse))
             {
+                CancelPendingCast();
                 ClearAttackTarget();
                 _lootInteraction.Cancel();
                 _moveTargetRun = doubleClickRun || shiftRun;
@@ -1360,10 +1425,12 @@ public sealed class GameScene : IDisposable, IFieldContext
             SendAttackIntent(release);
         }
 
+        UpdateCharge(mouse);
+        UpdatePendingCast();
         UpdateNpcApproach();
         _lootInteraction?.Update(_groundLoot, _playerBody.Position, _serverPlanarPosition, Owner);
         UpdateAttackPresentation(gameTime);
-        if (_hasMoveTarget && !_playerController.LocomotionFrozen && !_selfAttacking)
+        if (_hasMoveTarget && !_playerController.LocomotionFrozen && !_selfAttacking && !SelfCasting)
         {
             var current = _playerBody.PlanarPosition;
             var keyboard = Keyboard.GetState();
@@ -1426,8 +1493,11 @@ public sealed class GameScene : IDisposable, IFieldContext
         _groundLoot.DrawLabels(batch, font, _graphicsDevice.Viewport, _camera, hovered, showAll);
     }
 
-    private bool LootFloorAt(float x, float z, out float height) =>
-        TryGetFloorHeightNear(new Vector3(x, 0, z), _playerBody.Height + GroundTraversal.VisualOffset, out height);
+    // The floor query takes the highest surface at or below the reference plus a step, so the reference is the drop's
+    // own height; the player's height is only the fallback for a field the server holds no geometry for.
+    private bool LootFloorAt(float x, float referenceHeight, float z, out float height) =>
+        TryGetFloorHeightNear(new Vector3(x, 0, z), referenceHeight, out height)
+        || TryGetFloorHeightNear(new Vector3(x, 0, z), _playerBody.Height + GroundTraversal.VisualOffset, out height);
 
     private bool TryPickLoot(MouseState mouse)
     {
@@ -1817,6 +1887,7 @@ public sealed class GameScene : IDisposable, IFieldContext
         _equipmentPresentation?.Stop();
         _groundLoot?.Dispose();
         _returnEffect?.Dispose();
+        _skillFx?.Dispose();
         _renderer?.Dispose();
         _meteors?.Clear();
         _monsterMeshEffects?.Clear();

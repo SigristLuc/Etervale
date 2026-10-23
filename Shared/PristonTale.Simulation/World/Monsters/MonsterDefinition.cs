@@ -105,6 +105,11 @@ public sealed record MonsterDefinition(
 
     public int ShadowSizeLevel { get; init; }
 
+    // Authored correction of the target-frame portrait camera: height and distance in world units.
+    public int PortraitOffsetY { get; init; }
+
+    public int PortraitOffsetZ { get; init; }
+
     public bool IsBoss => Class == MonsterClass.Boss;
     public bool IsHostile => Faction == MonsterFaction.Enemy;
 }

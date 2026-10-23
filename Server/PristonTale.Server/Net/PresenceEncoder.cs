@@ -37,6 +37,8 @@ internal sealed class PresenceEncoder
     private readonly HashSet<uint> _visibleDrops = new();
     private readonly List<uint> _removed = new();
     private readonly List<CombatEventEntry> _events = new();
+    private readonly List<SkillEventEntry> _skillEvents = new();
+    private readonly List<StatusEffectEntry> _statusEvents = new();
     private readonly List<GroundItemEntry> _newDrops = new();
     private readonly byte[] _scratch = new byte[PristonFrameCodec.MaxFrameSize];
     private readonly byte[] _group = new byte[PristonFrameCodec.MaxFrameSize];
@@ -211,8 +213,11 @@ internal sealed class PresenceEncoder
         FlushGroup(ref group, connection);
         SendRemovals(connection);
         SendEvents(snapshot, connection);
+        SendSkillEvents(snapshot, connection);
+        SendStatusEvents(snapshot, connection);
         SendDrops(snapshot, self.Position, connection);
         SendOwner(snapshot.Owner, connection);
+        SendCooldowns(snapshot, connection);
     }
 
     // Writes spawns and discrete changes immediately. Returns the age in ticks of a due position-only update, which the
@@ -354,6 +359,77 @@ internal sealed class PresenceEncoder
         }
     }
 
+    private bool Relevant(uint first, uint second) =>
+        first == _self || second == _self || _known.ContainsKey(first) || second != 0 && _known.ContainsKey(second);
+
+    private void SendSkillEvents(in WorldSnapshot snapshot, IPacketSink connection)
+    {
+        _skillEvents.Clear();
+        foreach (var skillEvent in snapshot.SkillEvents)
+        {
+            if (Relevant(skillEvent.CasterId, skillEvent.TargetId))
+            {
+                _skillEvents.Add(WireMapping.SkillEvent(skillEvent));
+            }
+        }
+
+        if (_skillEvents.Count == 0)
+        {
+            return;
+        }
+
+        SendClock(connection);
+        var events = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_skillEvents);
+        for (var offset = 0; offset < events.Length; offset += SkillEventList.MaxEvents)
+        {
+            var batch = events.Slice(offset, Math.Min(SkillEventList.MaxEvents, events.Length - offset));
+            connection.Send(_scratch.AsSpan(0, SkillEventList.Write(_scratch, batch)));
+        }
+    }
+
+    private void SendStatusEvents(in WorldSnapshot snapshot, IPacketSink connection)
+    {
+        _statusEvents.Clear();
+        foreach (var status in snapshot.StatusEvents)
+        {
+            if (Relevant(status.EntityId, 0))
+            {
+                _statusEvents.Add(WireMapping.Status(status));
+            }
+        }
+
+        if (_statusEvents.Count == 0)
+        {
+            return;
+        }
+
+        SendClock(connection);
+        var entries = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_statusEvents);
+        for (var offset = 0; offset < entries.Length; offset += StatusEffectList.MaxEntries)
+        {
+            var batch = entries.Slice(offset, Math.Min(StatusEffectList.MaxEntries, entries.Length - offset));
+            connection.Send(_scratch.AsSpan(0, StatusEffectList.Write(_scratch, batch)));
+        }
+    }
+
+    private void SendCooldowns(in WorldSnapshot snapshot, IPacketSink connection)
+    {
+        if (snapshot.Cooldowns is not { } cooldowns)
+        {
+            return;
+        }
+
+        var count = Math.Min(cooldowns.Length, SkillCooldownsPacket.MaxEntries);
+        var entries = new SkillCooldownEntry[count];
+        for (var index = 0; index < count; index++)
+        {
+            var cooldown = cooldowns[index];
+            entries[index] = new SkillCooldownEntry(cooldown.SkillCode, (uint)Math.Max(0, cooldown.RemainingMs), (uint)Math.Max(0, cooldown.DurationMs));
+        }
+
+        connection.Send(_scratch.AsSpan(0, new SkillCooldownsPacket(_clockTick, entries).Write(_scratch)));
+    }
+
     private void SendDrops(in WorldSnapshot snapshot, Vector3 selfPosition, IPacketSink connection)
     {
         _visibleDrops.Clear();
@@ -466,7 +542,8 @@ internal sealed class PresenceEncoder
     {
         var appearance = view.Appearance;
         return HashCode.Combine(view.MaxHp, view.Level, view.TemplateId, view.MoveSpeed, view.AttackRate,
-            HashCode.Combine(appearance.WeaponKey, appearance.ArmorKey, appearance.OffHandKey, appearance.InVillage, appearance.Tier));
+            HashCode.Combine(appearance.WeaponKey, appearance.ArmorKey, appearance.OffHandKey, appearance.InVillage, appearance.Tier), view.OwnerId,
+            view.ModelScale);
     }
 
     private static float PlanarDistanceSq(Vector3 a, Vector3 b)
