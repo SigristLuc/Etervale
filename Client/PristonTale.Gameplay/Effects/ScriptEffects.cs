@@ -14,8 +14,8 @@ public interface IScriptEffect
     void Stop();
 }
 
-// Starts original particle scripts by name: in the game the converted effects ("particle.<name>" under Effect/Vfx), in
-// the opening cinematic the legacy engine reading the scripts directly.
+// Starts original particle scripts by name: the converted effects ("particle.<name>" under Effect/Vfx) of the game's skill
+// presentation, of a scene's own effect system (the opening flight), or the legacy engine reading the scripts directly.
 public interface IScriptEffects
 {
     IScriptEffect Spawn(string script, Vector3 position, Matrix orientation);
@@ -30,6 +30,27 @@ public sealed class VfxScriptEffects(Func<SkillPresentation> presentation) : ISc
     }
 
     public const string ParticlePrefix = "particle.";
+
+    private sealed class Handle(VfxInstance instance) : IScriptEffect
+    {
+        public void MoveTo(Vector3 position) => instance.MoveTo(position);
+
+        public void Stop() => instance.Stop();
+    }
+}
+
+public sealed class SystemScriptEffects(VfxSystem system, VfxLibrary library) : IScriptEffects
+{
+    public IScriptEffect Spawn(string script, Vector3 position, Matrix orientation)
+    {
+        if (!library.TryGet(VfxScriptEffects.ParticlePrefix + script, out var effect) || system.Spawn(effect, new VfxSpawn(0, 0, position, 0f)) is not { } instance)
+        {
+            return null;
+        }
+
+        instance.SetOrientation(orientation);
+        return new Handle(instance);
+    }
 
     private sealed class Handle(VfxInstance instance) : IScriptEffect
     {

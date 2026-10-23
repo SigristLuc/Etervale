@@ -1912,6 +1912,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _groundLoot?.Dispose();
         _returnEffect?.Dispose();
         _platePixel?.Dispose();
+        _looks?.Clear();
         _skillFx?.Dispose();
         _renderer?.Dispose();
         _meteors?.Clear();

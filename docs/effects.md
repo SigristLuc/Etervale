@@ -10,7 +10,8 @@ writes that data, and the gameplay glue in `Client/PristonTale.Gameplay/Effects/
 - Porting the effects of a class, an item or a monster from the original game data.
 - Adding a field to the `.vfx.json` format, a builtin texture, or a new layer behaviour.
 - Debugging an effect that is invisible, a white square, stuck alive, at the wrong position or on the wrong bone.
-- Working on potion, meteor, character-select or opening effects that use the legacy `EffectsEngine`.
+- Working on skill looks on actors (tints, translucency, shield swaps, enlarged weapons, afterimages) or costume wings.
+- Working on potion or character-select effects that use the legacy `EffectsEngine`.
 
 ## Code map
 
@@ -26,14 +27,17 @@ writes that data, and the gameplay glue in `Client/PristonTale.Gameplay/Effects/
 | `Client/PristonTale.Effects/Vfx/VfxRenderer*.cs` | Quads of every layer in one dynamic vertex buffer; effect models through their own draws |
 | `Client/PristonTale.Effects/Vfx/VfxBuiltinTextures.cs` | Procedural `builtin:` sprite textures |
 | `Client/PristonTale.Effects/Legacy/BillboardSequence.cs` | Original animated billboards (`Effect/AnimationData/*.ini`) and their tick-exact player |
-| `Client/PristonTale.Effects/Legacy/`, `EffectsEngine.cs`, `Effects/`, `Particles/`, `Rendering/` | Legacy particle engine used by potions, meteors, character select and the opening |
+| `Client/PristonTale.Effects/Legacy/`, `EffectsEngine.cs`, `Effects/`, `Particles/`, `Rendering/` | Legacy particle engine used by potions, character select and the combat-effects probe |
 | [`Client/PristonTale.Gameplay/Effects/VfxContent.cs`](../Client/PristonTale.Gameplay/Effects/VfxContent.cs) | Loads the catalog, models, animations and textures on a worker; registers them on the game thread in 2 ms slices |
 | [`Client/PristonTale.Gameplay/Effects/SkillPresentation.cs`](../Client/PristonTale.Gameplay/Effects/SkillPresentation.cs) | Implements `IVfxServices`, maps skill events and statuses to effects |
-| `Client/PristonTale.Gameplay/Effects/ScriptEffects.cs` | `IScriptEffects`: monster and meteor code start converted scripts (`particle.<name>`) through the VFX system |
+| `Client/PristonTale.Gameplay/Effects/ScriptEffects.cs` | `IScriptEffects`: monster and meteor code start converted scripts (`particle.<name>`) through the skill presentation or a scene's own `VfxSystem` (the opening flight) |
+| `Client/PristonTale.Gameplay/Effects/ActorLooks.cs`, `World/Remote/ActorLookPresenter.cs` | `ActorLookBook`: skill looks per entity from statuses, casts and impacts; the presenter paints them on actors (tint, opacity, overlay, wobble, shield swap, weapon copy, afterimage echoes) |
+| `Client/PristonTale.Gameplay/Effects/CostumeWings.cs` | Wings of the premium costume body items |
+| `Shared/PristonTale.Simulation/Skills/SkillRulePresentation.cs` | Rule fields for per-hit sounds and effects and actor looks |
 | `Client/PristonTale.Engine3D/Rendering/PristonVfxEffect.cs`, `PristonMeshEffect.cs` | VFX shader wrapper (`Vfx.fx`, blend modes) and baked effect models |
 | [`tools/PristonTale.VfxImport/`](../tools/PristonTale.VfxImport) | `ptvfx import`: converts the original effect scripts and installs the hand-authored definitions |
 | `tools/PristonTale.VfxImport/Authored/` | Hand-authored definitions (source of `Effect/Vfx/Common` and `Effect/Vfx/Classes`) |
-| `tests/PristonTale.Tests/SkillPresentationTests.cs`, `VfxLayerTests.cs`, `VfxImportTests.cs` | Regression cases; `VfxCaptureProbe.cs` and `SkillCaptureProbe.cs` are GPU capture probes |
+| `tests/PristonTale.Tests/SkillPresentationTests.cs`, `SkillLookTests.cs`, `VfxLayerTests.cs`, `VfxImportTests.cs` | Regression cases; `VfxCaptureProbe.cs` and `SkillCaptureProbe.cs` are GPU capture probes |
 
 ## Where effect data lives
 
@@ -46,7 +50,8 @@ the client. `assets/` is not in Git, so the data is produced by `ptvfx import <a
 | `Classes/<Class>/` | One file per class with every effect its skill rules name | `tools/PristonTale.VfxImport/Authored/Classes/<Class>/` |
 | `Scripts/` | `script.<File>`: one per original effect group script (`Effect/NewEffect/*.lua`) | converted |
 | `Particles/` | `particle.<File>`: one per original particle script (`Effect/Particle/Script/*.part`) | converted |
-| `Items/`, `Monsters/`, `Costumes/` | Reserved for item, monster and costume effects authored the same way | `Authored/<Folder>/` |
+| `Costumes/` | Costume wings (`vfx.costume.wing.*`) | `tools/PristonTale.VfxImport/Authored/Costumes/` |
+| `Items/`, `Monsters/` | Reserved for item and monster effects authored the same way | `Authored/<Folder>/` |
 
 Files load in ordinal order of their relative path. A name defined again replaces the earlier definition (reported as
 an error by the catalog, so shipped data keeps names unique). A file that cannot be read, parsed or validated is
@@ -55,7 +60,10 @@ reported (`[Effects] <file>: <reason>`) and skipped as a whole; the other files 
 Loading: `LegacyEffectLibrary.LoadBootstrap` creates `VfxContent`, whose worker reads the catalog, parses effect models
 (with their sibling `.smb` skeleton), reads animated billboards and decodes every texture. `SkillPresentation.Update`
 then registers prepared definitions on the game thread for at most 2 ms per frame and never waits for the worker;
-effects requested before their registration are skipped. Probes and tools call `VfxContent.CompileAll()`.
+effects requested before their registration are skipped. Probes, tools and the opening's load call
+`VfxContent.CompileAll()`. A texture an effect model's material names but the model's folder lacks is found by file
+name under `image/Sinimage/AssaEffect`, `Effect/AssaEffect` and `Effect/NewEffect/Res` (the game registers its effect
+textures from those folders by name), first match in ordinal path order.
 
 ## Units, colours and blends
 
@@ -65,7 +73,10 @@ effects requested before their registration are skipped. Probes and tools call `
   the original 0..255 display values; they are decoded from sRGB to linear when drawn, alpha stays linear.
 - Original rates per 1/70 s tick convert by x70 (speeds) and x4900 (accelerations); 1/256-unit fixed values divide by
   256 first. Animated billboards and part motion advance in 70 Hz ticks.
-- Sizes of components, sequences and parts are full extents; emitter `size` is a half extent.
+- Sizes of components, sequences and parts are full extents, as in the original (its billboard, axial and particle
+  quads extend half their size to each side); strip and ribbon `width`, component beam sizes and converted axial
+  particle widths are half widths (the original line faces also use half their width); emitter `size` is a half
+  extent.
 
 | `blend` | Draw | Shader mode |
 |---|---|---|
@@ -100,7 +111,7 @@ one-shots never start, layers that run until stopped end, finite ones finish.
 | emitter | `texture`, `frameColumns`/`frameRows` (1), `blend`, `intensity` (1), `softness` (16), `anchor` (Point), `bone`, `offset`, `local`, `delay`, `emitTime` (0 = whole duration), `rate`, `burst`, `maxParticles` (64), `lifetime` [1,1], `speed`, `direction` [0,1,0], `spread` deg, `shape` (Point/Sphere/Ring/Disc), `radius`, `gravity`, `drag`, `size` keys (half extent), `color` keys (linear RGBA), `rotation`, `spin`, `align` (Camera/Ground/Velocity), `stretch` (0.02) |
 | trail | `texture`, `blend`, `intensity`, `anchor` (Caster), `bone`, `offset`, `width` (12, full), `lifetime` (0.25 per point), `delay`, `emitTime`, `color` keys head -> tail |
 | light | `anchor`, `offset` [0,30,0], `color` [r,g,b] 0..1, `power` (160), `decay` (4 per tick), `delay`; legacy light units (radius power/2, brightness power x colour / 256) |
-| sound | `path` (asset-relative wave), `delay`, `volume` (1); played at the caster |
+| sound | `path` (asset-relative wave), `variants` (further takes; each play picks one of `path` and these at random), `delay`, `volume` (1); played at the caster |
 
 A key is `{ "t": 0..1, "v": [..] }` with non-decreasing `t`, sampled linearly and clamped.
 
@@ -183,17 +194,18 @@ Skill rules (`Shared/PristonTale.Simulation/Skills/Data/Classes/<Class>.json`) n
 |---|---|---|
 | `Start` phase | `castEffect` | At the caster; stopped on `Cancel` |
 | `hitAtMs` after Start/Release, projectile rules | `projectileEffect` | Travels caster -> target |
-| `Impact` phase | charged, mode or plain `impactEffect` | Point at the target (or caster for caster-centred areas), target id set |
+| `Impact` phase | charged, mode, per-hit (`impactEffects`) or plain `impactEffect`; per-hit `impactSounds` | Point at the target (or caster for caster-centred areas), target id set |
 | Companion/Counter impact | `companionEffect` | Travels from above the caster to the target |
 | Chain impact | `impactEffect` | Travels from the previous link to the target |
 | Status added | `buffEffect` (or `<buffEffect>.<element>`) | On the entity while the status lasts |
+| Each frame | `statusLook`, `rageGlow`, `shieldModel`, `weaponGrowth`, `afterimages`, `castShieldBone` | Actor looks (`ActorLookBook`) |
 | Revive | `vfx.priestess.resurrection.rise` | On the revived entity |
 
 ## Skill effect inventory
 
 What each active skill shows in the original and the effect names that carry it. "Hit" is the weapon point (socket plus
-half the weapon length) unless noted; impacts are drawn at the target's chest. Tempskron skills are ported with parts;
-the Morion classes still use their earlier definitions plus converted scripts and are next to port (see below).
+half the weapon length) unless noted; impacts are drawn at the target's chest. Every class is ported with parts and the
+converted scripts.
 
 ### Mechanician
 
@@ -234,13 +246,13 @@ the Morion classes still use their earlier definitions plus converted scripts an
 | Critical Hit, Jumping Crash | Band; critical flash | `vfx.trail.violet`, `vfx.impact.critical`, `vfx.impact.crash` |
 | Ground Pike | Ice pikes racing out in ten directions with sparkles | `vfx.pike.groundpike.hit` |
 | Tornado | Two bands sweeping a full turn through the target, two round impacts there | `vfx.pike.tornado.hit` |
-| Expansion | Enlarged red weapon (approximated by a wide band); round impact per hit | `vfx.pike.expansion.*` |
+| Expansion | Enlarged red translucent weapon (`weaponGrowth`); round impact per hit | `vfx.pike.expansion.hit` |
 | Venom Spear | Particles ahead of the caster; venom model and three particle bursts at each target | `vfx.pike.venomspear.*` |
-| Vanish | Flares rushing through the caster and particles | `vfx.pike.vanish.cast` |
+| Vanish | Flares rushing through the caster and particles; translucent body | `vfx.pike.vanish.cast`; `statusLook` |
 | Chain Lance | Red band; hit particles per hit | `vfx.trail.red`, `vfx.pike.chainlance.hit` |
 | Assassin Eye | Converted eye group above the marked target | `vfx.pike.assassineye.mark` |
-| Charging Strike, Shadow Master | Charge group; triple impact per hit | `vfx.pike.charging.*`, `vfx.pike.shadowmaster.hit` |
-| Vague | Body translucency only | (sound only) |
+| Charging Strike, Shadow Master | Charge group; triple impact per hit; Shadow Master trails afterimages | `vfx.pike.charging.*`, `vfx.pike.shadowmaster.hit`; `afterimages` |
+| Vague | Translucent body with a scrolling overlay | `statusLook` |
 
 ### Archer
 
@@ -260,65 +272,109 @@ the Morion classes still use their earlier definitions plus converted scripts an
 
 ### Knight
 
-| Skill | Original |
-|---|---|
-| Sword Blast | Blade model flying past the target with sparks |
-| Holy Body | Two counter-rotating body models, flash, spiral sparks; two orbiting comets while active |
-| Double Crash | Normal or critical hit flashes |
-| Holy Valor, Drastic Spirit | Gathering and outgoing streaks; particle aura while active |
-| Brandish | Slash model ahead twice; burst of lines, plates and sparks |
-| Piercing | Weapon glow and sparkles; piercing model flying forward with particles |
-| Divine Inhalation, Godly Shield | Hand burst, outgoing streaks, hand glow; shield model swap |
-| Holy Incantation | Hand particles; particles on the target and above a charmed monster |
-| Grand Cross | Hit particles per hit and a cross model |
-| Sword of Justice | Converted group, ice particles and three models |
-| God Bless | Shield particles, streaks and a converted group on the caster while active |
-| Divine Piercing | Hit particles per hit |
+| Skill | Original | Effects (`vfx.knight.`) |
+|---|---|---|
+| Sword Blast | Translucent blade model flying to and past the target dropping sparks; light and sound at launch | `swordblast.blade`, `swordblast.projectile` |
+| Holy Body | Two counter-rotating body models, flash, ring of sparkles; the orbiting shields while active | `holybody.cast`, `holybody.aura` |
+| Double Crash | Weapon band; normal hit flash and red light per hit | `doublecrash.blade`, `doublecrash.hit` |
+| Holy Valor, Drastic Spirit, God Bless | 20 lines gathering, 40 flying out; foot aura (God Bless: shield particles and its group at the chest) | `holyvalor.*`, `drastic.*`, `godbless.*` |
+| Brandish | Two slash models, rays, falling sparks, two ground rings, a ground flash 48 ahead | `brandish.blade`, `brandish.hit` |
+| Piercing | Body flare, sparkles and afterimage lines on the weapon, orbiting glows; the piercing model shooting forward with waves | `piercing.cast`, `piercing.thrust`, `piercing.wake` |
+| Divine Inhalation, Godly Shield | Lines out of the left hand at the motion event, hand particles while active; the held shield drawn as the skill's shield | `divineinhalation.cast`, `godlyshield.cast`, `shield.aura`; `shieldModel` |
+| Holy Incantation | Hand particles; a burst on the target; a mark above a charmed monster | `incantation.cast`, `incantation.hit`, `incantation.charm` |
+| Grand Cross | Hit particles on the first hit, the cross model and other particles on the second | `grandcross.hit`, `grandcross.hit2` (`impactEffects`) |
+| Sword of Justice | Its group at the caster and a blue light | `justice.blade`, `justice.hit` |
+| Divine Piercing | Hit particles per hit; the sound on the last hit only | `divinepiercing.blade`, `divinepiercing.hit` |
 
 ### Atalanta
 
-| Skill | Original |
-|---|---|
-| Shield Strike | Shield glow and ground quads; stun stars |
-| Farina, Bigger Spear | Javelin with trail faces; burst of lines and flashes on arrival |
-| Windy, Frost Javelin | Light, gathering ribbons; aura on the javelin while active (frost shots replace attacks) |
-| Twist Javelin, Fire Javelin, Storm Javelin | Rolling javelin model with particle trail; hit particles |
-| Soul Sucker | Rising souls streaming to the caster |
-| Split Javelin | Several javelins hovering then flying |
-| Triumph / Hall of Valhalla | Hand aura; converted group |
-| Lightning Javelin | Lightning strip projectile; homing sparks and lightning particles |
-| X-Rage, Vengeance | Shot model with ribbon; converted hit group |
+| Skill | Original | Effects (`vfx.atalanta.`) |
+|---|---|---|
+| Shield Strike | The thrown shield follows its own bone and glows; a turning disc and shrinking flashes on it; stun stars | `shieldstrike.cast`; `castShieldBone`, `vfx.debuff.stun` |
+| Farina, Bigger Spear | Sparks along the flight (Bigger Spear: a spear model); spinning lines, falling sparks and a growing light on arrival | `farina.*`, `biggerspear.*` |
+| Windy, Frost Javelin | Light and body flare, streaks gathering into the hand; particles on the javelin while active | `windy.*`, `frost.*` |
+| Twist Javelin, Fire Javelin | Rolling javelin model carrying its particles; a hit group | `twist.*`, `firejavelin.*` |
+| Soul Sucker | Thrown shield; a soul rising from the target, streams flying to the caster and spiralling down around her | `soulsucker.drain`; `castShieldBone` |
+| Split Javelin | Three javelins fading in, hovering, then flying, each ending in its group | `split.cast` |
+| Triumph / Hall of Valhalla | A comet to the ally's hand; Valhalla particles on the right hand; the Hall above the caster | `triumph.*`, `hall.*` |
+| Lightning Javelin | Animated bolt strip; spark ribbons, a light and the lightning group on arrival | `lightning.shot` |
+| Storm Javelin | Per hit a rolling storm javelin with light strips flying ahead; twist burst on the target | `storm.javelin` |
+| X-Rage, Vengeance | Shots diving from above the caster (Vengeance: from the hand), each ending in a hit group | `xrage.cast`, `vengeance.cast` |
 
-### Priestess and Magician
+### Priestess
 
-Every cast draws a cast circle at the feet (circle model plus two ground quads; the Magician has its own textures).
+Every active skill draws `vfx.priestess.castcircle` at the feet: the animated circle model and two ground quads.
 
-| Class | Skills |
-|---|---|
-| Priestess | Healing (spiral model and particles), Holy Bolt (tracking particle stream, line burst), Multi Spark (fanning sparks), Holy Mind, Divine Lightning (lightning strike per target), Holy Reflection (petals, net models), Grand Healing (wing models, orbiting ribbons), Vigor Ball (homing balls), Resurrection, Extinction, Virtual Life, Glacial Spike, Regeneration Field, Chain Lightning (beams between targets), Summon Muspell |
-| Magician | Agony (spiral), Fire Bolt and Fire Ball (tracking stream, meteor shards), Zenith (orbiting upright quads), Watornado (water column model), Enchant Weapon (weapon particles by element), Dead Ray (beam ribbon), Energy Shield (model and particles), Diastrophism (darkening light, model), Spirit Elemental, Dancing Sword, Fire Elemental, Flame Wave, Distortion, Meteo (four falling meteors) |
+| Skill | Original | Effects (`vfx.priestess.`) |
+|---|---|---|
+| Healing | Translucent spiral model rising on the healed body with sparkles, white light | `healing.impact` |
+| Holy Bolt, Multi Spark | A stream of puffs (Multi Spark: five homing sparks); streaks and sparks on arrival | `holybolt.*`, `multispark.*` |
+| Holy Mind | Violet light and burst; flares above the head while cursed | `holymind.impact`, `holymind.mark` |
+| Divine Lightning | Three bolts falling into crawling sparks | `divinelightning.strike` |
+| Holy Reflection | Angels, petals, flare lines; two rotating net shells while active | `reflection.cast`, `reflection.aura` |
+| Grand Healing | Wings, stars, spiral ribbons; ribbons, rings and models on each healed member | `grandhealing.cast`, `grandhealing.member` |
+| Vigor Ball | Two homing balls; a burst per hit | `vigorball.*` |
+| Resurrection | Aurora and a rising angel; a halo on the revived player | `resurrection.shot`, `resurrection.rise` |
+| Extinction, Virtual Life | Holy bursts around the caster; the life model and aura while active | `extinction.burst`, `virtuallife.aura` |
+| Glacial Spike | The ice block group ahead and a blue light; frozen targets turn blue | `glacialspike.spikes`; `statusLook` Frost |
+| Regeneration Field | The field model and particles while channelling | `regenfield.cast` |
+| Chain Lightning | A sky bolt at the hit; flickering beams between the chained targets | `chainlightning.cast`, `chainlightning.link` |
+| Summon Muspell | The spirit hovering above the caster with flames; its strikes | `muspell.*` |
 
-### Porting the Morion classes
+### Magician
 
-The machinery is complete for these classes; a port is data only:
+Every cast draws `vfx.magician.castcircle` (the Magician's circle textures) unless the skill has its own cast.
 
-1. Read the class's skills above and the original behaviour; express each element as parts in
-   `tools/PristonTale.VfxImport/Authored/Classes/<Class>/<Class>.vfx.json`, reusing `vfx.common.*` for hit flashes and
-   bursts and `script.*` / `particle.*` children (or `carryEffect`) for the original scripts.
-2. Map elements: animated billboards -> `animation`; streaks and rays -> `Streak`/`Line` with `burst`/`radial`;
-   orbiting comets -> `Ribbon` + billboard parts with `orbit*`; projectiles -> parts with a `goal` and `endEffect`;
-   javelins and meteors -> `Model` parts with `faceGoal`; weapon glows -> children on `Bip weapon01`; cast circles ->
-   `Model` + `Ground` parts; beams between targets -> `Beam` parts with a goal.
-3. Keep the effect names the rules use or update the rule fields; run `ptvfx import`, the regression runner and the
-   capture probes, and look at the frames.
+| Skill | Original | Effects (`vfx.magician.`) |
+|---|---|---|
+| Agony | A point circling up the caster dropping particles, white light | `agony.cast`, `vfx.agony` |
+| Fire Bolt, Fire Ball | A spark (bubble) stream with smoke; flash, puffs and streaks (Fire Ball: fire lines, meteor flashes) on arrival | `firebolt.*`, `fireball.*` |
+| Zenith | Five element glyphs circling the caster | `zenith.cast`, `zenith.aura` |
+| Watornado | The water column running to the target, splash model and bubbles there | `watornado.column`, `watornado.hit` |
+| Enchant Weapon | Flash; the element's particles on the weapon; ice-slowed monsters turn blue | `enchant.cast`, `enchant.aura[.fire/.ice/.lighting]`; `statusLook` Frost |
+| Dead Ray | A green laser from the staff through the target | `deadray.beam` |
+| Energy Shield, Spirit Elemental | The shield model with particles; the spirit model above the caster | `energyshield.*`, `spiritelemental.*` |
+| Diastrophism | The rock eruption model and dust (once per cast) | `diastrophism.quake`; `impactEffects` |
+| Dancing Sword | The floating sword by element; strikes by element | `dancingsword.blade[.fire/.ice]`, `dancingsword.strike[.fire/.ice]` |
+| Fire Elemental, Distortion | The cast circle; distorted targets glow red-yellow and wobble | `castcircle`; `statusLook` Distortion |
+| Flame Wave | Five fire streams fanning ahead | `flamewave.wave` |
+| Meteo | Four burning meteors falling around the target, a burst where each lands (once per cast) | `meteo.fall`, `meteo.hit`; `impactEffects` |
+
+### Actor looks and per-hit sounds
+
+Rule fields beside the effect names (docs/skills.md) draw what the original does to the actors themselves:
+`statusLook` Frost (Ground Pike, Glacial Spike, Frost Javelin, Enchant Weapon and Dancing Sword slows), Poison (Venom
+Spear), Distortion, Vanish and Vague; `rageGlow` (Raving 150, Berserker 200); `shieldModel` (Spark Shield, Divine
+Inhalation, Godly Shield); `weaponGrowth` (Expansion: a red translucent copy of the weapon growing to 1 + (percent x
+2.56 + 64) / 256); `afterimages` (Shadow Master); `castShieldBone`/`castShieldGlow` (Shield Strike, Soul Sucker). Per-hit
+sounds: Chain Lance in order, Shadow Master, Lightning and Storm Javelin, Divine Lightning, Vigor Ball, Glacial Spike,
+Chain Lightning, Watornado, Flame Wave and Dancing Sword at random, Vengeance in order, Divine Piercing on its final hit,
+Grand Cross with a swing on the first hit. Effect sounds take `variants` at random (Fire Bolt, Fire Ball, X-Rage).
+
+### Costume wings
+
+The premium costume armours and robes show a wing at the wearer's back (`CostumeWings`, `Effect/Vfx/Costumes`):
+Cygnus CA166-169 / CA266-269 `vfx.costume.wing.blue`, Aquila CA185-188 / CA285-288 `vfx.costume.wing.white`, Corvus
+CA189-192 / CA289-292 `vfx.costume.wing.red`. The wing model hangs 2.42 below the wearer's origin plus its own height,
+turns with the wearer and is hidden in a village and on the dead. Costume bodies keep the class body.
 
 ## Limitations
 
-- Actor appearance changes are not drawn: body tints (anger, poison, frost), translucency (Vague, Vanish), afterimages
-  (Shadow Master), shield model swaps (Spark Shield, Divine Inhalation, Godly Shield) and the enlarged weapon of
-  Expansion (approximated by a wide band).
+- Skill events carry no critical flag (Double Crash's critical flash), no block, reflect or absorb event (the Divine
+  Inhalation and Godly Shield block flash, Holy Reflection's reflected blow, Energy Shield's absorb burst, enchanted
+  weapon hits, the enchant flash on an ally) and only the primary target of an area (Divine Lightning, Extinction, Soul
+  Sucker and Storm Javelin strike every victim in the original; Divine Lightning and Extinction use fixed spots). Per-hit
+  sounds and effects count the impacts of the cast on the client.
+- Thrown javelins: the equipped javelin is neither hidden nor flown; Frost Javelin's frost shots on basic attacks are
+  not drawn.
+- Part layer gaps, approximated in data: darkening (negative) lights (Diastrophism), upright spinning quads (Zenith),
+  animated strip width (Dead Ray), effects riding an effect model's bones (Spirit Elemental, Dancing Sword), colour
+  ramps over a part's life, random part counts (Multi Spark draws five sparks), an effect when a status ends (Muspell's
+  dismiss burst), rank-dependent models (Watornado uses the rank 4-6 column) and camera shakes (Meteo, Diastrophism).
 - Weapon bands use a fixed blade length per effect, not the equipped weapon's length.
-- Per-hit sound variants (Chain Lance, Shadow Master) play the rule's single impact sound.
+- Afterimages and the enlarged weapon are extra actors; translucent actors draw in the transparent queue without depth
+  writes or motion vectors and cast no shadow.
+- Costume bodies (CA) keep the class body; only their wings are drawn.
 - `Color`/`AddColor` blends draw additively with squared colour; `Shadow`/`InvShadow` darken in the HDR scene.
 
 ## Pitfalls

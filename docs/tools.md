@@ -262,7 +262,7 @@ dotnet run --project tools/PristonTale.VfxImport -c Release --no-build -- import
 - Converts every `Effect/NewEffect/*.lua` to `Effect/Vfx/Scripts/<File>.vfx.json` and every
   `Effect/Particle/Script/*.part` to `Effect/Vfx/Particles/<File>.vfx.json`, overwriting earlier output.
 - Validates and copies `tools/PristonTale.VfxImport/Authored/**/*.vfx.json` (copied next to the tool by the build) to
-  the same relative paths under `Effect/Vfx/` (`Common/`, `Classes/<Class>/`).
+  the same relative paths under `Effect/Vfx/` (`Common/`, `Classes/<Class>/`, `Costumes/`).
 - Prints one line per construct kept with a caveat (missing models or textures, unreadable values, scripts the original
   rejects) and a summary; exits 1 when a file could not be converted or installed. Mapping rules: docs/effects.md.
 

@@ -45,14 +45,15 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
     private readonly List<string> _failures = [];
     private PristonRenderer _renderer = null!;
     private PlayerActorComposer _composer = null!;
+    private ActorLookPresenter _looks = null!;
     private LegacyEffectLibrary _library = null!;
     private SkillPresentation _presentation = null!;
     private PristonCamera _camera = null!;
     private RenderTarget2D _target = null!;
     private Task _preparation = Task.CompletedTask;
     private readonly List<CharacterVisualSet> _visuals = [];
-    private PlayerActorHandles _caster;
-    private PlayerActorHandles _dummy;
+    private PlayerActorHandles _caster = new(ActorHandle.None, ActorHandle.None);
+    private PlayerActorHandles _dummy = new(ActorHandle.None, ActorHandle.None);
     private int _cast = -1;
     private int _frame;
     private float _time;
@@ -97,6 +98,7 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
             [new(0, 1, 2, 0, -1), new(0, 2, 3, 0, -1)], [], [], new BoundingBox(new Vector3(-600, 0, -600), new Vector3(600, 0, 600)));
         _renderer.AddStage(stage, Array.Empty<PristonModel>());
         _composer = new PlayerActorComposer(new RendererActorScene(_renderer), new PristonActorLoader());
+        _looks = new ActorLookPresenter(new RendererActorScene(_renderer), new PristonActorLoader(), _assets);
         _camera = new PristonCamera(Vector3.Zero, Vector3.Forward, new PristonCameraSettings { FieldOfViewDegrees = 42 });
         _presentation = new SkillPresentation(GraphicsDevice, Content, _library, _renderer.TransientLights, this,
             new SkillSoundBank(_assets, ConsoleClientLog.Instance) { Enabled = false }, ConsoleClientLog.Instance);
@@ -112,7 +114,7 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
         }
 
         var dummy = registry.Get(PlayerClass.Knight).Definition;
-        _visuals.Add(EquipmentVisuals.Apply(dummy.DefaultVisuals, "DA108", "", "", false, dummy.MotionJobMask));
+        _visuals.Add(EquipmentVisuals.Apply(dummy.DefaultVisuals, "DA108", "WS201", "DS101", false, dummy.MotionJobMask));
         pending.Add(_composer.PrepareAsync(_assets, _visuals[^1], 0));
         _preparation = Task.WhenAll(pending);
     }
@@ -229,8 +231,12 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
             _presentation.Draw(_camera.View, _camera.Projection, _camera.Position, null!);
             Renderer().DisplayOutput = false;
             GraphicsDevice.SetRenderTarget(null);
-            using var dark = File.Create(Path.Combine(_output, name + ".dark.png"));
-            _target.SaveAsPng(dark, 960, 540);
+            using (var dark = File.Create(Path.Combine(_output, name + ".dark.png")))
+            {
+                _target.SaveAsPng(dark, 960, 540);
+            }
+
+            SaveActorView(name);
         }
 
         Console.WriteLine(path);
@@ -258,11 +264,33 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
 
     private VfxRenderer Renderer() => _presentation.Renderer;
 
+    // The caster up close at noon without the effects (<name>.actor.png): skill looks on the actors themselves (tints,
+    // translucency, afterimages, shield swaps, enlarged weapons).
+    private void SaveActorView(string name)
+    {
+        _renderer.SetTimeOfDay(12f);
+        _renderer.ExposureCompensation = 2.5f;
+        _camera.SetScriptedView(GraphicsDevice, new Vector3(95, 55, 150), new Vector3(10, 28, -20));
+        GraphicsDevice.SetRenderTarget(_target);
+        GraphicsDevice.Clear(new Color(18, 22, 25));
+        _renderer.ResetTemporalState();
+        _renderer.Draw(_camera);
+        _renderer.ComposeScene();
+        GraphicsDevice.SetRenderTarget(null);
+        using (var actor = File.Create(Path.Combine(_output, name + ".actor.png")))
+        {
+            _target.SaveAsPng(actor, 960, 540);
+        }
+
+        _renderer.ExposureCompensation = 0f;
+        _renderer.SetTimeOfDay(17.5f);
+    }
+
     // The skill code's high byte is its class group (1 Mechanician .. 8 Magician).
     private static (PlayerClass, string, string, uint, float[]) Cast(uint skill)
     {
         var (playerClass, weapon, offHand) = Equipment[(int)(skill >> 24) - 1];
-        return (playerClass, weapon, offHand, skill, [0.4f, 0.8f, 1.2f, 1.7f, 2.4f]);
+        return (playerClass, weapon, offHand, skill, [0.4f, 0.8f, 1.2f, 1.7f, 2.4f, 4f]);
     }
 
     private static readonly Vector3 CasterPosition = new(-40, 0, 40);
@@ -278,6 +306,7 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
         }
 
         _presentation.Clear();
+        _looks.Clear();
         _renderer.TransientLights.Clear();
         _cast = index;
         _frame = 0;
@@ -307,6 +336,12 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
         {
             var status = new StatusEffectInfo(CasterId, CasterId, skill, StatusEffectOp.Add, 1, 2, 0, 0, 60000, 60000, 5);
             _scheduledStatus = (status, _clockMs + timing.HitsAtMs[0]);
+        }
+        else if (rule.Buff is { Harmful: true } || rule.StatusLook is SkillLook.Frost or SkillLook.Poison or SkillLook.Distortion)
+        {
+            // A harmful status (a slow, a poison, a curse) lands on the dummy with the impact.
+            var status = new StatusEffectInfo(TargetId, CasterId, skill, StatusEffectOp.Add, 1, 2, 0, (ushort)StatusEffectFlags.Harmful, 60000, 60000, 5);
+            _scheduledStatus = (status, _clockMs + impactAt);
         }
     }
 
@@ -345,6 +380,12 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
     {
         var actor = entityId == CasterId ? _caster.Body : _dummy.Body;
         return _renderer.TryGetActorBoneWorld(actor, bone, out world);
+    }
+
+    public void ApplyLook(uint entityId, in EntityLook look)
+    {
+        var handles = entityId == CasterId ? _caster : _dummy;
+        _looks.Apply(entityId, handles, Casts[_cast].OffHand.StartsWith("DS", StringComparison.Ordinal) && entityId == CasterId, look);
     }
 
     public void PlaySkillMotion(uint entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)

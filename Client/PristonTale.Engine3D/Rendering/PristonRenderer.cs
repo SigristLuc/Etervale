@@ -1204,7 +1204,7 @@ public sealed partial class PristonRenderer : IDisposable
         }
         foreach (var actor in _actors)
         {
-            if (!actor.Alive)
+            if (!actor.Alive || actor.EchoSource.IsValid)
                 continue;
             actor.Advance(dt);
             if (!actor.Parent.IsValid)
@@ -1213,11 +1213,12 @@ public sealed partial class PristonRenderer : IDisposable
             }
         }
 
+        FollowEchoes();
         foreach (var actor in _actors)
         {
             if (actor.Alive && actor.Parent.IsValid && TryResolveActor(actor.Parent, out var parent))
             {
-                actor.World = parent.SampleSkeleton()[actor.ParentBone] * parent.World;
+                actor.World = AttachedWorld(actor, parent);
                 UpdateActor(actor);
             }
         }
@@ -2216,8 +2217,11 @@ public sealed partial class PristonRenderer : IDisposable
             }
             else
             {
-                var writesDepth = batch.Material.WritesDepth;
-                _stateCache.SetBlendState(TemporalBlend(batch.Material.BlendState, writesDepth));
+                // A translucent actor blends over the scene without writing depth.
+                var translucent = batch.Shade is { Translucent: true };
+                var writesDepth = batch.Material.WritesDepth && !translucent;
+                var blend = translucent && ReferenceEquals(batch.Material.BlendState, BlendState.Opaque) ? BlendState.NonPremultiplied : batch.Material.BlendState;
+                _stateCache.SetBlendState(TemporalBlend(blend, writesDepth));
                 _stateCache.SetDepthStencilState(writesDepth ? DepthStencilState.Default : DepthStencilState.DepthRead);
             }
 
@@ -2363,7 +2367,10 @@ public sealed partial class PristonRenderer : IDisposable
                 _neutralActorPass ? Vector3.Zero : batch.ActorColorAdd * SelectionRimScale,
                 LayerOffset(batch.Material),
                 _prepassMode,
-                _neutralActorPass ? 1f : batch.FloorLight);
+                _neutralActorPass ? 1f : batch.FloorLight,
+                _neutralActorPass ? null : batch.Shade,
+                batch.Shade is { Overlay: not null } overlaid ? TextureUOffset(overlaid.OverlayForm) : 0f,
+                WobblePhase);
             effect.CurrentTechnique.Passes[0].Apply();
             _stateCache.SetVertexBuffer(batch.SkinnedBuffer);
             _stateCache.SetIndexBuffer(batch.SkinnedIndexBuffer);
@@ -3750,6 +3757,24 @@ public sealed partial class PristonRenderer : IDisposable
 
         public bool Alive { get; set; } = true;
         public int Generation { get; set; }
+        public ActorShade Shade { get; set; }
+        // An echo plays its source's clip EchoLagTicks behind.
+        public ActorHandle EchoSource { get; set; } = ActorHandle.None;
+        public float EchoLagTicks { get; set; }
+
+        public void Follow(ActorRuntime source)
+        {
+            World = source.World;
+            Motion = source.Motion;
+            var start = StartTicks(Motion);
+            Frame = source.Frame - EchoLagTicks;
+            if (Shade is { } shade)
+            {
+                shade.EchoHidden = Frame <= start;
+            }
+
+            Frame = MathF.Max(Frame, start);
+        }
 
         public void SetBoneMap(int[] boneMap)
         {

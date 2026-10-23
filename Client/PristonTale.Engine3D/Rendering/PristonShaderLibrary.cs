@@ -172,11 +172,17 @@ internal sealed class PristonShaderLibrary : IDisposable
         Vector3 rimColor,
         Vector2 layerOffset,
         bool prepass = false,
-        float floorLight = 1f)
+        float floorLight = 1f,
+        ActorShade shade = null,
+        float overlayOffset = 0f,
+        float wobblePhase = 0f)
     {
         _skinned.SetBonePalette(palette);
         _skinned.SetDrawLight(floorLight);
-        _skinned.ApplyMaterial(material, texture, uvScrollOffset, layerOffset, 1f, rimColor);
+        var overlay = shade?.Overlay;
+        _skinned.ApplyMaterial(material, texture, uvScrollOffset, overlay is null ? layerOffset : new Vector2(overlayOffset, 0f), 1f, rimColor, overlay);
+        _skinned.ApplyActor(shade is null ? new Vector4(0f, 0f, 0f, 1f) : new Vector4(shade.Tint, shade.Opacity),
+            new Vector4(shade is { Wobble: true } ? ActorShade.WobbleAmplitude : 0f, wobblePhase, overlay is null ? 0f : 1f, 0f));
         return _skinned.Select(_skinned.SurfaceTechnique(material.AlphaTest, prepass));
     }
 
@@ -345,6 +351,11 @@ internal sealed class PristonShaderLibrary : IDisposable
         private readonly EffectParameter _rimColor;
         private readonly EffectParameter _materialBlink;
         private readonly EffectParameter _translucency;
+        private readonly EffectParameter _actorTint;
+        private readonly EffectParameter _actorParams;
+        private Vector4 _tint = new(0f, 0f, 0f, 1f);
+        private Vector4 _actorParamsValue;
+        private Texture2D _overlay;
         private readonly EffectParameter _baseColorMap;
         private readonly EffectParameter _layerMap;
         private Texture2D _boundBase;
@@ -449,6 +460,10 @@ internal sealed class PristonShaderLibrary : IDisposable
             _rimColor = Parameter("RimColor");
             _materialBlink = Parameter("MaterialBlink");
             _translucency = Parameter("Translucency");
+            _actorTint = Parameter("ActorTint");
+            _actorParams = Parameter("ActorParams");
+            _actorTint?.SetValue(_tint);
+            _actorParams?.SetValue(Vector4.Zero);
             _baseColorMap = Parameter("BaseColorMap");
             _layerMap = Parameter("LayerMap");
             _alphaCutoff?.SetValue(AlphaCutoff);
@@ -620,12 +635,17 @@ internal sealed class PristonShaderLibrary : IDisposable
             Vector2 uvScrollOffset,
             Vector2 layerOffset,
             float opacity,
-            Vector3 rimColor)
+            Vector3 rimColor,
+            Texture2D overlay = null)
         {
             BindTexture(_baseColorMap, ref _boundBase, texture);
             var layer = material.Layer;
             var description = material.Description;
-            if (description.LayerMode != PristonLayerMode.None && layer is not null)
+            if (overlay is not null)
+            {
+                BindTexture(_layerMap, ref _boundLayer, overlay);
+            }
+            else if (description.LayerMode != PristonLayerMode.None && layer is not null)
             {
                 BindTexture(_layerMap, ref _boundLayer, layer.Texture);
             }
@@ -639,7 +659,7 @@ internal sealed class PristonShaderLibrary : IDisposable
 
             var reflex = new Vector2(
                 material.StageReflex(0) ? 1f : 0f,
-                layer is not null && description.LayerMode != PristonLayerMode.None && material.StageReflex(1) ? 1f : 0f);
+                overlay is null && layer is not null && description.LayerMode != PristonLayerMode.None && material.StageReflex(1) ? 1f : 0f);
             if (reflex != _reflex)
             {
                 _reflexLayers?.SetValue(reflex);
@@ -658,10 +678,27 @@ internal sealed class PristonShaderLibrary : IDisposable
                 _rim = rimColor;
             }
 
-            if (description == _description)
+            if (overlay is not null)
+            {
+                // A gameplay overlay (a scrolling texture added over the body) takes the second layer's place.
+                ApplyDescription(description, null);
+                _layerMode?.SetValue((float)PristonLayerMode.Add);
+                _layerStrength?.SetValue(1f);
+                _overlay = overlay;
+                return;
+            }
+
+            if (description == _description && _overlay is null)
             {
                 return;
             }
+
+            _overlay = null;
+            ApplyDescription(description, layer);
+        }
+
+        private void ApplyDescription(PristonMaterialDescription description, PristonMaterialLayer layer)
+        {
 
             _baseColorFactor?.SetValue(description.BaseColorFactor);
             _roughness?.SetValue(description.Roughness);
@@ -674,6 +711,21 @@ internal sealed class PristonShaderLibrary : IDisposable
             _materialBlink?.SetValue(description.Blink ? 1f : 0f);
             _translucency?.SetValue(description.Translucency);
             _description = description;
+        }
+
+        public void ApplyActor(Vector4 tint, Vector4 parameters)
+        {
+            if (tint != _tint)
+            {
+                _actorTint?.SetValue(tint);
+                _tint = tint;
+            }
+
+            if (parameters != _actorParamsValue)
+            {
+                _actorParams?.SetValue(parameters);
+                _actorParamsValue = parameters;
+            }
         }
 
         public void ApplyCaster(Texture2D texture, Vector2 uvScrollOffset)

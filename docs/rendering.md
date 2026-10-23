@@ -102,6 +102,15 @@ Described in Etervale's terms; readers keep every field, including padding, for 
   lights split into ground lights and glow (corona) lights, `PristonStageBakedLight` and `PristonStageLightField`.
 - Actors (`AddActor`) get GPU resources shared per `PristonActor`, a bone palette (at most 64 bones,
   `PristonShaderLibrary.MaxBones`), rebuilt normals, and can be attached to a parent bone (`AttachActor`).
+- Gameplay looks (`PristonRenderer.Appearance.cs`): `SetActorAppearance(handle, PristonActorAppearance)` sets a signed
+  light tint (`Tint`, 1 = a white light added to the lit colour, negative takes light away; the surface shader's
+  `ActorTint`), `Opacity` (below 1 the actor's batches move to the transparent queue, blend over the scene without
+  depth writes and cast no shadow), `Wobble` (vertices shift up to 2 units along 32-unit sine waves, `ActorParams`),
+  `CastsShadow`, an `Overlay` texture added as the second layer on uv0 and scrolled by a texture form state
+  (`PrepareActorOverlayAsync` decodes it first; it shows once ready), and `Scale` of an attached item about its bone.
+  `AddActorEcho(source, lagFrames, parent)` adds a copy that plays the source's clip `lagFrames` behind and hides while
+  that frame lies before the clip start (afterimages), or a copy of an attached item on `parent` or the item's own
+  parent (an enlarged weapon). Echoes cast no shadow; remove them with `RemoveActor`.
 - `RenderQueueBuilder` frustum-culls batches by bounds and sorts: opaque and alpha-tested by state key then front to
   back, transparent back to front, shadow casters by state key. Shadow casters are collected before culling.
 - Queues: `Opaque`, `AlphaTest`, `Transparent` (`PristonMaterialRuntimeFactory.Classify`).

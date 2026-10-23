@@ -51,9 +51,11 @@ Each `.fx` in `Passes/` builds to `Effects/<Name>` (the asset name the C# owner 
 ### Surface.fx register map
 
 Both stages use one cbuffer at `b0`: vertex `SurfaceVertexConstants` (view-projection, caster matrices, UV scrolls,
-`DrawOpacity`, `DrawLight`, previous view-projection and `MotionParams`, then skinning or vertex-animation constants);
-pixel `SurfacePixelConstants` (`FRAME_CONSTANTS`, `FOG_CONSTANTS`, `LIGHTING_CONSTANTS`, `MATERIAL_CONSTANTS`, in that
-order).
+`DrawOpacity`, `DrawLight`, previous view-projection, `MotionParams` and `ActorParams`, then skinning or
+vertex-animation constants); pixel `SurfacePixelConstants` (`FRAME_CONSTANTS`, `FOG_CONSTANTS`, `LIGHTING_CONSTANTS`,
+`MATERIAL_CONSTANTS`, in that order). Actor looks: `ActorParams` (skinned only) holds the wobble amplitude and phase and
+whether the second layer is an overlay read on uv0; `ActorTint` (material constants) adds `albedo x rgb / Exposure` to
+the radiance (clamped at 0) and multiplies the output alpha by `a` after the alpha test.
 
 | Slot | Resource |
 |---|---|
