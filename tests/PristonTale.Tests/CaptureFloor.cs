@@ -14,7 +14,7 @@ internal static class CaptureFloor
         File.WriteAllBytes(texture, Bitmap(tone));
         var material = new PristonMaterial(true, 1, 0, 0, true, Vector3.One, 0, 1, PristonMaterialSurfaceFlags.None, "capture-floor.bmp", "", [], [],
             0, 0, 0);
-        var floor = Color.White;
+        var floor = tone;
         return new PristonStage(Path.Combine(directory, "capture-floor.smd"), [material],
             [new(new Vector3(-halfSize, 0, -halfSize), floor), new(new Vector3(-halfSize, 0, halfSize), floor), new(new Vector3(halfSize, 0, halfSize), floor),
              new(new Vector3(halfSize, 0, -halfSize), floor)],

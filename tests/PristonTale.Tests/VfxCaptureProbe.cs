@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Effects.Vfx;
@@ -100,7 +101,7 @@ internal sealed class VfxCaptureProbe : Game, IVfxAnchors, IVfxServices
             _renderer.Update(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(Step)));
         }
 
-        _camera.SetScriptedView(GraphicsDevice, new Vector3(0f, 130f, 230f), new Vector3(0f, 40f, 0f));
+        _camera.SetScriptedView(GraphicsDevice, new Vector3(0f, 90f, 150f), new Vector3(0f, 30f, 0f));
         GraphicsDevice.SetRenderTarget(_target);
         _renderer.ResetTemporalState();
         _renderer.Draw(_camera);
@@ -108,11 +109,17 @@ internal sealed class VfxCaptureProbe : Game, IVfxAnchors, IVfxServices
         _renderer.ComposeScene();
         GraphicsDevice.SetRenderTarget(null);
         _drawn = Math.Max(_drawn, _vfx.LastQuadCount + _vfx.LastModelCount);
-        var file = Path.Combine(_output, $"{name}-{Times[_frame]:0.00}.png".Replace(':', '_'));
-        using (var stream = File.Create(file))
-        {
-            _target.SaveAsPng(stream, 960, 540);
-        }
+        var file = Path.Combine(_output, string.Create(CultureInfo.InvariantCulture, $"{name}-{Times[_frame]:0.00}.png"));
+        Save(file);
+
+        // The exposed scene reads almost white, which hides additive light; the same frame on a dark backdrop shows it.
+        GraphicsDevice.SetRenderTarget(_target);
+        GraphicsDevice.Clear(new Color(18, 18, 22));
+        _vfx.DisplayOutput = true;
+        _vfx.Draw(_system, _camera.View, _camera.Projection, _camera.Position, null);
+        _vfx.DisplayOutput = false;
+        GraphicsDevice.SetRenderTarget(null);
+        Save(Path.ChangeExtension(file, ".dark.png"));
 
         Console.WriteLine($"{name} t={Times[_frame]:0.00}: {_vfx.LastQuadCount} quads, {_vfx.LastModelCount} models, {_system.ParticleCount} particles -> {file}");
         _frame++;
@@ -134,6 +141,12 @@ internal sealed class VfxCaptureProbe : Game, IVfxAnchors, IVfxServices
 
         Assert.True(_failures.Count == 0, string.Join("; ", _failures));
         Exit();
+    }
+
+    private void Save(string file)
+    {
+        using var stream = File.Create(file);
+        _target.SaveAsPng(stream, 960, 540);
     }
 
     public bool TryGetPosition(uint entityId, out Vector3 position)
