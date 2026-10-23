@@ -5,7 +5,8 @@ public sealed record CharacterSaveSnapshot(
     SavedItems Inventory,
     SavedItems Equipment,
     SavedSkills Skills,
-    DerivedStatsDto Derived)
+    DerivedStatsDto Derived,
+    SavedPremium Premium)
 {
     public CharacterRecord Encode()
     {
@@ -14,7 +15,8 @@ public sealed record CharacterSaveSnapshot(
             Inventory = CharacterJson.Write(Inventory),
             Equipment = CharacterJson.Write(Equipment),
             Skills = CharacterJson.Write(Skills),
-            DerivedStats = CharacterJson.Write(Derived)
+            DerivedStats = CharacterJson.Write(Derived),
+            Premium = CharacterJson.Write(Premium)
         };
     }
 }

@@ -47,6 +47,22 @@ public static class CharacterHead
             $"char/tmABCD/{pattern.Prefix}{hairVariant + 1:D2}{pattern.Suffix}.inx");
     }
 
+    // The big head of the big-head potion: look 1 or 2, cycling three heads by hair. Archer, Atalanta and Priestess ship
+    // only the second look, which they show for both.
+    public static string BigHead(PlayerClass playerClass, int look, int hairIndex)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(look, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(look, 2);
+        var secondOnly = playerClass is PlayerClass.Archer or PlayerClass.Atalanta or PlayerClass.Priestess;
+        var suffix = look == 1 && !secondOnly ? "b" : "t";
+        var prefix = CharacterHeadModels.Get(playerClass, 0).Prefix;
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"char/tmABCD/{prefix}{Math.Abs(hairIndex) % 3 + 1:D2}{suffix}.inx");
+    }
+
+    public static CharacterVisualSet ApplyBigHead(CharacterVisualSet visuals, PlayerClass playerClass, int look) =>
+        look is 1 or 2 ? visuals with { Head = new CharacterAssetRef(BigHead(playerClass, look, visuals.HairIndex)) } : visuals;
+
     private static void ValidateTier(int tier)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(tier);

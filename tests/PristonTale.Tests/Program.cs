@@ -204,6 +204,20 @@ if (args.Length == 4 && args[0] == "--capture-hud-target")
     return 0;
 }
 
+if (args.Length == 4 && args[0] == "--capture-item-effects")
+{
+    using var probe = new ItemEffectsCaptureProbe(args[1], args[2], args[3]);
+    probe.Run();
+    return 0;
+}
+
+if (args.Length == 4 && args[0] == "--capture-item-hud")
+{
+    using var probe = new ItemHudCaptureProbe(args[1], args[2], args[3]);
+    probe.Run();
+    return 0;
+}
+
 if (args.Length is 4 or 5 && args[0] == "--capture-hud")
 {
     using var probe = new HudCaptureProbe(args[1], args[2], args[3], args.Length == 5 ? args[4] : null);
@@ -311,6 +325,7 @@ specifications.AddRange(SkillSummonTests.Cases());
 specifications.AddRange(SkillStealthTests.Cases());
 specifications.AddRange(SkillChargeTests.Cases());
 specifications.AddRange(SkillCompanionTests.Cases());
+specifications.AddRange(SpecialItemTests.Cases());
 // --filter <text> runs only the cases whose name contains the text.
 var filterIndex = Array.IndexOf(args, "--filter");
 if (filterIndex >= 0 && filterIndex + 1 < args.Length)

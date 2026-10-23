@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
 
 namespace PristonTale.Simulation.Characters;
@@ -44,7 +45,12 @@ public sealed record OwnerState(
 
     public bool Overweight => CarriedWeight > MaxWeight;
 
-    public static OwnerState Capture(PlayerCharacter character, OwnerState previous = null)
+    // The running premium timers, their revision and the world clock (Unix seconds) they were captured at.
+    public long PremiumRevision { get; init; } = -1;
+    public IReadOnlyList<PremiumTimer> PremiumTimers { get; init; } = Array.Empty<PremiumTimer>();
+    public long PremiumClockSeconds { get; init; }
+
+    public static OwnerState Capture(PlayerCharacter character, OwnerState previous = null, long nowSeconds = 0)
     {
         var attributes = character.Attributes;
         if (previous is not null && previous.Level == character.Level && previous.Experience == character.Experience
@@ -63,7 +69,8 @@ public sealed record OwnerState(
             && previous.CriticalChance == Combat.CombatProfileFactory.CriticalChance(character)
             && previous.BlockChance == Combat.CombatProfileFactory.ForPlayerDefender(character).BlockChance
             && previous.AttackSpeed == character.Derived.AttackSpeed
-            && previous.Resistances == Combat.CombatProfileFactory.Resistances(character))
+            && previous.Resistances == Combat.CombatProfileFactory.Resistances(character)
+            && previous.PremiumRevision == character.Premium.Revision)
         {
             return previous;
         }
@@ -120,7 +127,11 @@ public sealed record OwnerState(
             ManaRegen = character.Derived.ManaRegen,
             StaminaRegen = character.Derived.StaminaRegen,
             MagicMastery = character.Derived.MagicMastery,
-            Resistances = Combat.CombatProfileFactory.Resistances(character)
+            Resistances = Combat.CombatProfileFactory.Resistances(character),
+            PremiumRevision = character.Premium.Revision,
+            PremiumTimers = previous is not null && previous.PremiumRevision == character.Premium.Revision ? previous.PremiumTimers
+                : Array.AsReadOnly(character.Premium.Timers.ToArray()),
+            PremiumClockSeconds = previous is not null && previous.PremiumRevision == character.Premium.Revision ? previous.PremiumClockSeconds : nowSeconds
         };
     }
 

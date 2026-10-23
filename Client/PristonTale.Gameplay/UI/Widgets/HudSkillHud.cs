@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Skills;
 
@@ -201,11 +202,15 @@ public sealed class HudSkillHud : IDisposable
         }
     }
 
+    private static string ItemStatusIcon(uint code) =>
+        ItemScrolls.TryGetByStatus(code, out var scroll) ? scroll.KeepIcon : ForceOrbs.TryGetByStatus(code, out var orb) ? orb.Icon : null;
+
     private static double Elapsed(StatusEntry status, double nowMs) =>
         status.Permanent || status.DurationMs <= 0 ? double.MaxValue : Math.Max(0d, status.DurationMs - status.RemainingMs(nowMs));
 
     private static string Name(uint code) =>
-        SkillRuleCatalog.TryGet(code, out var rule) ? rule.Name : ClassSkillCatalog.TryGet(code, out var skill) ? skill.Name : $"Effect {code:X8}";
+        SkillRuleCatalog.TryGet(code, out var rule) ? rule.Name : ClassSkillCatalog.TryGet(code, out var skill) ? skill.Name
+            : ItemScrolls.TryGetByStatus(code, out var scroll) ? scroll.Name : ForceOrbs.TryGetByStatus(code, out var orb) ? orb.Name : $"Effect {code:X8}";
 
     // The gauge frames: a white fan of k of the 72 steps (k = 0..72), antialiased, with premultiplied alpha.
     private static Texture2D[] BuildGauge(GraphicsDevice device)
@@ -299,6 +304,13 @@ public sealed class HudSkillHud : IDisposable
             var path = $"image/Sinimage/skill/keep/{rule.KeepIcon}.tga";
             _keepIcons[code] = path;
             _sprites.Request([path]);
+        }
+
+        // Item effects (scrolls, force orbs) show the item's own buff icon.
+        if (!_keepIcons.ContainsKey(code) && ItemStatusIcon(code) is { } itemIcon)
+        {
+            _keepIcons[code] = itemIcon;
+            _sprites.Request([itemIcon]);
         }
 
         if (_keepIcons.TryGetValue(code, out var keep) && !_sprites.IsMissing(keep))

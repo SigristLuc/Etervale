@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Input;
 using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 
 namespace PristonTale.Gameplay.UI.Inventory;
 
@@ -26,6 +27,9 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     // Shop and warehouse windows take clicks on owned items and drops outside the inventory while they are open.
     public Func<OwnedItemView, bool> InterceptClick { get; set; }
     public Func<Guid, Point, bool> ExternalDrop { get; set; }
+
+    // A right click on a carried usable item (premium, travel and effect items).
+    public Action<OwnedItemView> UseRequested { get; set; }
 
     public void CancelDrag()
     {
@@ -84,6 +88,13 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         var rightClicked = mouse.RightButton == ButtonState.Pressed && _previousMouse.RightButton == ButtonState.Released;
         if (rightClicked && selected is not null)
         {
+            if (selected.Slot < 0 && UsableItemCatalog.IsUsable(selected.CatalogKey))
+            {
+                CancelDrag();
+                UseRequested?.Invoke(selected);
+                return;
+            }
+
             if (selected.Slot < 0 && selected.Kind == ItemKind.Potion)
             {
                 CancelDrag();

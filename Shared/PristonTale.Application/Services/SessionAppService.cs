@@ -19,6 +19,7 @@ public sealed class SessionAppService
     private readonly WorldCatalog _world;
     private readonly WorldServer? _host;
     private readonly WorldDataHolder _worldData;
+    private readonly TimeProvider _clock;
 
     public SessionAppService(
         ISessionRegistry sessions,
@@ -26,7 +27,8 @@ public sealed class SessionAppService
         ICharacterRepository characters,
         WorldCatalog world,
         WorldServer? host = null,
-        WorldDataHolder? worldData = null)
+        WorldDataHolder? worldData = null,
+        TimeProvider? clock = null)
     {
         _sessions = sessions;
         _classes = classes;
@@ -34,6 +36,7 @@ public sealed class SessionAppService
         _world = world;
         _host = host;
         _worldData = worldData ?? new WorldDataHolder();
+        _clock = clock ?? TimeProvider.System;
     }
 
     public async Task<EnterWorldOutcome> EnterWorldAsync(string sessionToken, string characterName, CancellationToken ct = default)
@@ -74,6 +77,7 @@ public sealed class SessionAppService
             try
             {
                 CharacterStateCodec.Restore(character, record, _worldData.Current.Items);
+                SavedPremium.Restore(character, record.Premium, _clock.GetUtcNow().ToUnixTimeSeconds());
             }
             catch (Exception exception) when (exception is InvalidDataException or JsonException or ArgumentException)
             {

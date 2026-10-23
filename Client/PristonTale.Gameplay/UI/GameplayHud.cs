@@ -45,6 +45,10 @@ public sealed class GameplayHud : IDisposable
     private readonly HudSlide _inventorySlide = new();
     private readonly HudSlide _statusSlide = new();
     private readonly HudSlide _skillSlide = new();
+    private readonly HudItemUseController _itemUse;
+    private readonly HudPremiumTimers _premium;
+    private int _itemUseCompletions;
+    private int _shopsOpened;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private KeyboardState _previousKeyboard;
     private MouseState _previousMouse;
@@ -86,6 +90,10 @@ public sealed class GameplayHud : IDisposable
         _npc = new HudNpcPanel(interactNpc, context.Log, npcOpened, npcClosed);
         _portrait = new HudTargetPortrait(context.GraphicsDevice);
         _services = new HudNpcServiceController(requestNpcService, context.Log);
+        _itemUse = new HudItemUseController(UseItemAsync, context.Log);
+        _premium = new HudPremiumTimers(_sprites);
+        _sprites.Request(HudTeleportCore.Art);
+        _inventory.UseRequested = item => _itemUse.Request(item, _state);
         _inventory.InterceptClick = InterceptInventoryClick;
         _inventory.ExternalDrop = DropFromInventory;
         _inventoryPanel.Note = InventoryNote;
@@ -93,6 +101,12 @@ public sealed class GameplayHud : IDisposable
 
     public HudCombat Combat { get; } = new();
     public HudStringEffect StringEffect { get; } = new();
+
+    // Uses a carried item through the server; set by the screen.
+    public Func<PristonTale.Simulation.Items.Usable.ItemUseCommand, Task<PristonTale.Simulation.Items.Usable.ItemUseOutcome>> UseItem { get; set; }
+
+    // The local player's running premium timers as the server last sent them.
+    public PristonTale.Client.Net.Presence.PremiumTimerSnapshot PremiumTimers { get; set; }
     public uint TargetId { get; set; }
     public HudWorldView World { get; set; }
     public IHudPortraitScene PortraitScene { get; set; }
@@ -104,6 +118,7 @@ public sealed class GameplayHud : IDisposable
     public long TextureBytes => _sprites.TextureBytes;
     public bool RightAttackEnabled => _bindings.RightSkillId == HudSkillBindings.BasicAttackId;
     internal uint LeftSkillId => _bindings.LeftSkillId;
+    internal HudItemUseController ItemUse => _itemUse;
     internal uint RightSkillId => _bindings.RightSkillId;
     public HudSkillBindings Bindings => _bindings;
 
@@ -164,6 +179,8 @@ public sealed class GameplayHud : IDisposable
         var closed = _npcOpen || _settingsOpen || _systemMenu || _skills.TrainingPending
             || _inventorySlide.Open || _statusSlide.Open || _skillSlide.Open || _shop.IsOpen || _warehouse.IsOpen;
         CloseServices();
+        closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming;
+        _itemUse.Close();
         _npcOpen = false;
         _settingsOpen = false;
         _systemMenu = false;
@@ -190,6 +207,8 @@ public sealed class GameplayHud : IDisposable
         _icons.Update();
         _progression.Update();
         _services.Update();
+        _itemUse.Update();
+        _premium.Apply(PremiumTimers, _clock.Elapsed.TotalMilliseconds);
         _npc.Update(_context.Font);
         _minimap.Update(_sprites, World, elapsedSeconds);
         _notice.Update(elapsedSeconds);
@@ -310,6 +329,19 @@ public sealed class GameplayHud : IDisposable
             _notice.Show(_services.Message);
         }
 
+        if (_itemUse.Completions != _itemUseCompletions)
+        {
+            _itemUseCompletions = _itemUse.Completions;
+            _notice.Show(_itemUse.Message);
+        }
+
+        if (_itemUse.ShopsOpened != _shopsOpened)
+        {
+            _shopsOpened = _itemUse.ShopsOpened;
+            CloseServices();
+            _services.Request(0, "Mobile Shop", NpcServiceKind.Shop, NpcServiceAction.Open);
+        }
+
         if (_bindings.Refusals != _bindingRefusals)
         {
             _bindingRefusals = _bindings.Refusals;
@@ -358,6 +390,11 @@ public sealed class GameplayHud : IDisposable
                 _settings.Click(pointer, keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift));
             }
 
+            return;
+        }
+
+        if (_itemUse.Click(pointer, state))
+        {
             return;
         }
 
@@ -517,6 +554,11 @@ public sealed class GameplayHud : IDisposable
 
     private bool Captures(HudLayout layout, Point pointer, Point design)
     {
+        if (_itemUse.Captures(pointer) || _premium.Contains(pointer))
+        {
+            return true;
+        }
+
         if (HudBar.Captures(design) || MinimapShown && HudMinimap.Box(layout).Contains(pointer) || _skillHud.BuffAt(pointer) != 0
             || WindowContains(layout, _inventorySlide, pointer) || WindowContains(layout, _statusSlide, pointer) || WindowContains(layout, _skillSlide, pointer))
         {
@@ -557,6 +599,7 @@ public sealed class GameplayHud : IDisposable
         }
 
         Combat.DrawTarget(_painter, layout, TargetId, _context.Presentation.Requested.ClassicTargetHealthBar, _portrait.Texture(TargetId));
+        _premium.Draw(_painter, _clock.Elapsed.TotalMilliseconds);
         if (!_inventorySlide.Visible && !_statusSlide.Visible && !_skillSlide.Visible)
         {
             Combat.DrawLog(_painter, layout);
@@ -611,6 +654,12 @@ public sealed class GameplayHud : IDisposable
             _npc.Draw(_painter, layout, pointer, true);
         }
 
+        if (_itemUse.Teleport.IsOpen || _itemUse.Confirming)
+        {
+            _painter.Flush();
+            _itemUse.Draw(_painter, pointer);
+        }
+
         if (_settingsOpen)
         {
             _painter.Flush();
@@ -642,6 +691,8 @@ public sealed class GameplayHud : IDisposable
             _skillHud.DrawBuffTooltip(_painter, Statuses.For(SelfId), pointer, SkillClockMs, SummonAutomatic);
         }
 
+        _painter.Flush();
+        _premium.DrawHover(_painter, pointer, _clock.Elapsed.TotalMilliseconds);
         _painter.Flush();
         _notice.Draw(_painter, layout);
         _painter.End();
@@ -879,6 +930,11 @@ public sealed class GameplayHud : IDisposable
 
         return quote.SellPrice >= 0 ? $"Sells for {quote.SellPrice:N0} gold" : "The shop does not buy this";
     }
+
+    private Task<PristonTale.Simulation.Items.Usable.ItemUseOutcome> UseItemAsync(PristonTale.Simulation.Items.Usable.ItemUseCommand command) =>
+        UseItem is { } use ? use(command)
+            : Task.FromResult(PristonTale.Simulation.Items.Usable.ItemUseOutcome.Refused(command.ExpectedRevision,
+                PristonTale.Simulation.Items.Usable.ItemUseStatus.NotUsable));
 
     private bool Pressed(KeyboardState state, Keys key) => state.IsKeyDown(key) && !_previousKeyboard.IsKeyDown(key);
 

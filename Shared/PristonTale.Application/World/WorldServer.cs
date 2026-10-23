@@ -464,8 +464,9 @@ public sealed partial class WorldServer
 
         _activeFields.Clear();
         _activeFields.AddRange(_fields.Values);
+        var nowSeconds = _clock.GetUtcNow().ToUnixTimeSeconds();
         // Fields share only immutable catalogs and the thread-safe id allocator, so they step in parallel.
-        Parallel.ForEach(_activeFields, field => StepField(field, dt, serverTick, bossHour));
+        Parallel.ForEach(_activeFields, field => StepField(field, dt, serverTick, bossHour, nowSeconds));
 
         if (!_membershipChanged)
         {
@@ -486,8 +487,9 @@ public sealed partial class WorldServer
         Volatile.Write(ref _activeCounts, counts.AsReadOnly());
     }
 
-    private void StepField(FieldInstance field, float dt, uint serverTick, int? bossHour)
+    private void StepField(FieldInstance field, float dt, uint serverTick, int? bossHour, long nowSeconds)
     {
+        field.Premium.NowSeconds = nowSeconds;
         field.Step(dt, bossHour);
         if (field.PlayerCount == 0)
         {
@@ -499,13 +501,14 @@ public sealed partial class WorldServer
         {
             Grid = EntityGrid.Build(entities),
             SkillEvents = field.SnapshotSkillEvents(),
-            StatusEvents = field.SnapshotStatusEvents()
+            StatusEvents = field.SnapshotStatusEvents(),
+            ItemEffects = field.ItemEvents.Snapshot()
         };
         foreach (var entityId in field.PlayerIds)
         {
             if (_connections.TryGetValue(entityId, out var connection))
             {
-                var owner = OwnerState.Capture(connection.Player.Character, connection.LastOwner);
+                var owner = OwnerState.Capture(connection.Player.Character, connection.LastOwner, nowSeconds);
                 connection.LastOwner = owner;
                 var cooldowns = connection.Player.Cooldowns.SnapshotIfChanged(connection.CooldownRevision, field.NowMs);
                 connection.CooldownRevision = connection.Player.Cooldowns.Revision;

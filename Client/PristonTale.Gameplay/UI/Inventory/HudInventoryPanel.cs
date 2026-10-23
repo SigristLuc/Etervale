@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 
 namespace PristonTale.Gameplay.UI.Inventory;
 
@@ -130,12 +131,20 @@ public sealed class HudInventoryPanel
 
     private void DrawTooltip(HudPainter painter, HudLayout layout, OwnedItemView item, Point pointer)
     {
+        var usable = item.Slot < 0 && UsableItemCatalog.IsUsable(item.CatalogKey);
         var action = item.Slot >= 0 ? "Right-click: unequip"
             : item.Kind == ItemKind.Potion ? "Right-click: drink one"
+            : usable ? "Right-click: use"
             : "Drag: move  Shift-drag: split  Right-click: equip";
         var count = _counts.GetValueOrDefault(item.InstanceId, "");
         var named = count.Length > 0 ? item with { Name = $"{item.Name} ({count})" } : item;
         var note = Note?.Invoke(item) ?? "";
+        if (usable && note.Length == 0)
+        {
+            HudUsableTooltip.Draw(painter, layout, pointer, named.Name, HudUsableTooltip.Lines(item.CatalogKey), action);
+            return;
+        }
+
         HudItemDetailTooltip.Draw(painter, layout, pointer, HudItemDetailTooltip.Lines(named, _state, note, action));
     }
 

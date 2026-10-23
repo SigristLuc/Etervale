@@ -85,7 +85,10 @@ internal static class WireMapping
                 info.Temp[CharacterInfo.TempWeaponCode] = ItemCode(appearance.WeaponKey);
                 info.Temp[CharacterInfo.TempArmorCode] = ItemCode(appearance.ArmorKey);
                 info.Temp[CharacterInfo.TempOffHandCode] = ItemCode(appearance.OffHandKey);
-                info.Temp[CharacterInfo.TempFlags] = appearance.InVillage ? CharacterInfo.FlagInVillage : 0;
+                info.Temp[CharacterInfo.TempFlags] = (appearance.InVillage ? CharacterInfo.FlagInVillage : 0)
+                    | (appearance.Phoenix ? CharacterInfo.FlagPhoenix : 0)
+                    | (uint)(appearance.HelperPet & 0xF) << CharacterInfo.HelperPetShift
+                    | (uint)(appearance.BigHead & 0x3) << CharacterInfo.BigHeadShift;
                 break;
             }
             case EntityKindView.Monster when data.Monsters.TryGet((int)view.TemplateId, out var monster):

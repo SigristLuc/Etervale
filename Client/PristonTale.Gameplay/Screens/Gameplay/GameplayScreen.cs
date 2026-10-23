@@ -43,6 +43,7 @@ public sealed class GameplayScreen : GameScreen
         _scene.SkillNotice += _hud.ShowNotice;
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
         _hud.SummonAutomatic = _scene.SummonAutomatic;
+        _hud.UseItem = _scene.UseItemAsync;
 
         _scene.BeginRemotePresence(Context.Backend.OpenPlayChannel(), _entered);
 
@@ -98,6 +99,7 @@ public sealed class GameplayScreen : GameScreen
         var mapHidden = field is not null && HudMinimap.HiddenOn(field.FieldCode, field.State);
         _hud.World = new HudWorldView(field?.Id, field?.Underground == true, _scene.ActiveMapRectangle, _scene.PlayerPosition,
             _scene.PlayerForward, _scene.TimeOfDay, _scene.RunMode, mapHidden, neighbour, neighbourMap);
+        _hud.PremiumTimers = _scene.PremiumTimers;
         _hud.Update(_scene.Owner);
         _scene.PointerCaptured = _hud.PointerCaptured;
         _scene.CameraInputEnabled = Context.IsWindowActive && !Context.Presentation.AwaitingConfirmation;

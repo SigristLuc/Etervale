@@ -294,7 +294,8 @@ consumer; there is no text-input routing besides `TextInputField` on the login a
   shows each new message once as a notice.
 - Inventory (`HudInventoryController`): left drag moves, Shift-drag splits, drop on another stack merges, drop on an
   equipment slot equips, right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
-  slot first) or drinks a potion. One command in flight; it carries the `InventoryRevision` it was built from.
+  slot first), drinks a potion or uses a usable item (`HudItemUseController`: the Teleport Core window, confirmations,
+  the item-use request). One command in flight; it carries the `InventoryRevision` it was built from.
 - Inventory window (`HudInventoryPanel`): carried/maximum weight centred in x 326..406 at y 471 of the window; items the
   character cannot use (level, attributes or class against `OwnedItemView.Details`, re-checked on every owner state)
   get the original red cell tint, in the bag and in their equipment slot, and the slot under a dragged unusable item
@@ -303,6 +304,8 @@ consumer; there is no text-input routing besides `TextInputField` on the login a
   correction, one decimal), block, speed, integrity, the eight resistances, regeneration, added pools, potion storage,
   the requirements (orange when met, red when not), then the class specialization header and its bonuses in green, the
   shop price and the action hint.
+- Premium timers (`HudPremiumTimers`) form the column at x 8 under the running-effects bar; usable items have their
+  own tooltips (`HudUsableTooltip`). Details: [special-items.md](special-items.md).
 - Status window: attribute buttons send `ProgressionCommand` with `ProgressionRevision`; the organic, poison, fire,
   lightning and ice resistance boxes show the owner's resistances.
 - Block feedback (`HudStringEffect`): when the player blocks a blow, the original `block.tga` word shows at (354, 488)

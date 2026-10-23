@@ -22,6 +22,7 @@ it is described in [server.md](server.md); skill resolution details are in [skil
 | `Services/CharacterAppService.cs` | List, name check, create, delete characters; builds `CharacterSummary` for the select screen |
 | [`Services/SessionAppService.cs`](../Shared/PristonTale.Application/Services/SessionAppService.cs) | World entry, saves, durable inventory and progression operations (`ApplyDurableAsync`) |
 | [`Services/NpcAppService.cs`](../Shared/PristonTale.Application/Services/NpcAppService.cs) | NPC click and NPC service requests; warehouse load and joint character+warehouse write |
+| `Services/ItemUseAppService.cs` | Use of a carried item: prepare, store, commit ([special-items.md](special-items.md)) |
 | `Services/*Outcome.cs`, `CharacterSummary.cs` | Result records returned to the edge; failure enums carry stable codes |
 | `Sessions/` | `PlayerSession` (state machine, `SaveGate`, loaded record, open warehouse), `SessionRegistry` |
 | [`World/WorldServer.cs`](../Shared/PristonTale.Application/World/WorldServer.cs) | Command queue, tick, field registry, connections, prepare/commit entry points |
@@ -173,7 +174,8 @@ Durable entry points (`Prepare*Async`, `Commit*Async`, `CheckNpcServiceAsync`, `
 5. Per player: respawn countdown when dead; else action tick (swing hit), potion tick and pending potion start, attack
    lock (`StepPlayerAttack`), stale-motion expiry.
 6. `FieldSkills.Step` (cast timelines, projectiles, familiars, pulses, effect timers, regeneration), then place skill
-   kill payouts as loot.
+   kill payouts as loot; `FieldPremium.Step` expires premium timers, returns vampiric life and mana per attack and runs
+   the premium pets ([special-items.md](special-items.md)).
 7. Corpse timers, ground loot expiry.
 
 ### Players (`WorldPlayer`)
@@ -281,6 +283,7 @@ A prepared operation with `Snapshot == null` is final (rejection or replay) and 
 | `Pickup` | `GroundPickupTransactions.Prepare` (`PreparedPickupOperation`) | inventory, gold via `TryChangeMoney`, drop removed |
 | Progression (attributes, learn skill) | `ProgressionTransactions.Prepare`; learning needs a reachable skill master | re-applies the command to the live character (`ApplyProgression`) |
 | NPC services | `NpcServiceTransactions.Prepare` (`PreparedNpcOperation`) | inventory, gold delta, open warehouse, teleport arrival |
+| Item use | `ItemUseTransactions.Prepare` (`PreparedItemUseOperation`) | inventory, premium state, resets and mastery re-applied with the prepared clock, item effects, hair, arrival |
 
 Revisions and idempotency:
 
@@ -317,6 +320,7 @@ Flow (`NpcAppService.RequestAsync`):
 | Warehouse | Open, Refresh, Deposit, Withdraw, Move, DepositGold, WithdrawGold, Close | `WarehouseStorage`: per account, 9x9 grid, 100 items, weight 1000, 100,000,000 gold; quest items and materials stay on the character; no opening or withdrawing over the weight limit |
 | Teleporter | Open, Teleport, Close | `TeleportRoutes`: route 1 only (Mushroom Cave 100, Beehive Cave 100, Cursed Land 500, Forbidden Land 1000 gold); level must reach the destination field's `LimitLevel` |
 | Skill master | (dialog only here) | Learning goes through `ProgressionCommand.LearnSkill` with the NPC's entity id |
+| Mobile shop | NPC serial 0: Open, Refresh, Sell, Repair, RepairAll, Close | `MobileShopTransactions`: only after a used mobile shop item (`PlayerSession.MobileShopOpen`), no stock |
 
 Other `NpcServiceKind` values answer `NotAvailable`. Prices, stock, totals and destinations always come from the
 catalogs, never from the client. `InteractNpcAsync` returns all offers with their availability and one random line.

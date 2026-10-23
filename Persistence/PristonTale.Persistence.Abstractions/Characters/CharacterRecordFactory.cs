@@ -99,6 +99,7 @@ public static class CharacterRecordFactory
             CharacterStateCodec.CaptureInventory(character),
             CharacterStateCodec.CaptureEquipment(character),
             CharacterStateCodec.CaptureSkills(character),
-            DerivedStatsDto.From(character.Derived));
+            DerivedStatsDto.From(character.Derived),
+            SavedPremium.Capture(character));
     }
 }

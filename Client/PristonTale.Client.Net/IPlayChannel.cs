@@ -1,6 +1,7 @@
 using System.Numerics;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.World.Npcs;
 
@@ -14,6 +15,10 @@ public interface IPlayChannel : IAsyncDisposable
     // One typed NPC service request; the reply carries the shop, warehouse or teleport state the server sent with it.
     Task<NpcServiceReply> RequestNpcServiceAsync(NpcServiceCommand command, CancellationToken ct = default);
     Task<InventoryOutcome> ApplyInventoryAsync(InventoryCommand command, CancellationToken ct = default);
+
+    // Uses one owned item (premium items, travel items, firecrackers); the server consumes it and applies the effect.
+    Task<ItemUseOutcome> UseItemAsync(ItemUseCommand command, CancellationToken ct = default) =>
+        Task.FromResult(ItemUseOutcome.Refused(command.ExpectedRevision, ItemUseStatus.NotUsable));
 
     // TRANSPLAYDATA: the client's own position (PT-global coordinates), motion and action target, plus its field code.
     Task SendMovementAsync(Vector3 position, float facing, bool moving, bool running, uint actionTarget, int fieldCode, CancellationToken ct = default);

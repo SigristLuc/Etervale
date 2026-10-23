@@ -29,6 +29,10 @@ public sealed class CharacterInfo
     public const int TempOwnerSerial = 9;
     public const int TempInstanceScale = 10;
     public const uint FlagInVillage = 1;
+    // Players: the Phoenix pet, the helper pet (1 Terry, 2 Nepsys, 3 Io, 4 Mute) and the big-head look (1 or 2).
+    public const uint FlagPhoenix = 2;
+    public const int HelperPetShift = 8;
+    public const int BigHeadShift = 12;
 
     public string Name { get; set; } = "";
     public string ModelName { get; set; } = "";

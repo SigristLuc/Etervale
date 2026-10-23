@@ -2,6 +2,7 @@ using System.Numerics;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.World;
@@ -221,14 +222,27 @@ public sealed class WorldPlayer
 
     public bool IsBusy => Action != PlayerActionState.Idle;
 
-    private readonly PlayerAppearanceView _appearance;
+    private PlayerAppearanceView _appearance;
     public PlayerAppearanceView Appearance => _appearance with
     {
         WeaponKey = _character.GetEquipped(EquipmentSlot.Weapon)?.Definition.CatalogKey ?? "",
         ArmorKey = _character.GetEquipped(EquipmentSlot.Armor)?.Definition.CatalogKey ?? "",
         OffHandKey = _character.GetEquipped(EquipmentSlot.OffHand)?.Definition.CatalogKey ?? "",
-        InVillage = _inVillage
+        InVillage = _inVillage,
+        HelperPet = PremiumPets.HelperPet(_character.Premium) is { } pet ? pet - PremiumEffectKind.HelpPetTerry + 1 : 0,
+        Phoenix = _character.Premium.IsActive(PremiumEffectKind.PhoenixPet),
+        BigHead = _character.Premium.BigHeadMode
     };
+
+    // A hair tint changes the head every viewer draws.
+    public void ChangeHair(int hairIndex)
+    {
+        var current = _appearance;
+        _appearance = new PlayerAppearanceView(current.Name, current.JobCode, current.Tier, current.FaceIndex, hairIndex, current.ModelName, current.ModelName2);
+    }
+
+    // Damage is ignored while the guard runs (revives, invulnerability items).
+    public void Guard(float durationMs) => GuardMsLeft = MathF.Max(GuardMsLeft, durationMs);
 
     public int Level => _character.Level;
     public int Hp => _character.Life;

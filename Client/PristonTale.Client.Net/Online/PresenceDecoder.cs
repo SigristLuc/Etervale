@@ -6,6 +6,7 @@ using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
@@ -67,13 +68,16 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.SkillCastResult => OnSkillCastResult(SkillCastResultPacket.Read(packet)),
             EtervaleOpcodes.ItemDetails => OnItemDetails(ItemDetailsPartPacket.Read(packet)),
             EtervaleOpcodes.OwnerItemStatus => OnOwnerItemStatus(OwnerItemStatusPacket.Read(packet)),
+            EtervaleOpcodes.PremiumTimers => OnPremiumTimers(PremiumTimersPacket.Read(packet)),
+            EtervaleOpcodes.ItemEffects => OnItemEffects(ItemEffectsPacket.Read(packet)),
             _ => null
         };
         return update is not null || code is PristonOpcodes.PlayDataGroup or PristonOpcodes.PlayerInfo or EtervaleOpcodes.RemoveObjects
             or EtervaleOpcodes.CombatEvents or PristonOpcodes.PlayItem or PristonOpcodes.DelItem or PristonOpcodes.WarpField
             or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills or EtervaleOpcodes.PresenceClock
             or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult
-            or EtervaleOpcodes.ItemDetails or EtervaleOpcodes.OwnerItemStatus;
+            or EtervaleOpcodes.ItemDetails or EtervaleOpcodes.OwnerItemStatus
+            or EtervaleOpcodes.PremiumTimers or EtervaleOpcodes.ItemEffects;
     }
 
     public PresenceUpdate OnSkillEvents(SkillEventEntry[] entries)
@@ -119,6 +123,32 @@ internal sealed class PresenceDecoder
         CastResult = new SkillCastResultInfo(result.Sequence, result.SkillCode, result.Status, result.Rank, (int)result.CooldownMs, (int)result.RemainingMs,
             result.Mana, result.Stamina)
     };
+
+    public PresenceUpdate OnPremiumTimers(PremiumTimersPacket packet)
+    {
+        var timers = new List<PremiumTimerInfo>(packet.Timers.Count);
+        foreach (var entry in packet.Timers)
+        {
+            if (Enum.IsDefined((PremiumEffectKind)entry.Kind))
+            {
+                timers.Add(new PremiumTimerInfo((PremiumEffectKind)entry.Kind, entry.Value, entry.RemainingSeconds, entry.DurationSeconds));
+            }
+        }
+
+        return Update([], []) with { PremiumTimers = new PremiumTimerSnapshot(packet.Revision, timers) };
+    }
+
+    public PresenceUpdate OnItemEffects(ItemEffectsPacket packet)
+    {
+        var effects = new ItemEffectInfo[packet.Effects.Count];
+        for (var index = 0; index < effects.Length; index++)
+        {
+            var entry = packet.Effects[index];
+            effects[index] = new ItemEffectInfo(entry.Entity, entry.ItemCode, (ItemEffectKind)entry.Effect, Position(entry.X, entry.Y, entry.Z), entry.Variant);
+        }
+
+        return Update([], []) with { ItemEffects = effects, ServerTimeMs = _clockMs };
+    }
 
     public double? ServerTimeMs => _clockMs;
 
@@ -410,7 +440,12 @@ internal sealed class PresenceDecoder
             player = new PlayerAppearanceInfo(character.Name, (int)character.JobCode, (int)character.ChangeJob, (int)(faceAndHair & 0xFF),
                 (int)(faceAndHair >> 8 & 0xFF), character.ModelName, character.ModelName2, character.Level, Key(character.Temp[CharacterInfo.TempWeaponCode]),
                 Key(character.Temp[CharacterInfo.TempArmorCode]), Key(character.Temp[CharacterInfo.TempOffHandCode]),
-                (character.Temp[CharacterInfo.TempFlags] & CharacterInfo.FlagInVillage) != 0);
+                (character.Temp[CharacterInfo.TempFlags] & CharacterInfo.FlagInVillage) != 0)
+            {
+                HelperPet = (int)(character.Temp[CharacterInfo.TempFlags] >> CharacterInfo.HelperPetShift & 0xF),
+                Phoenix = (character.Temp[CharacterInfo.TempFlags] & CharacterInfo.FlagPhoenix) != 0,
+                BigHead = (int)(character.Temp[CharacterInfo.TempFlags] >> CharacterInfo.BigHeadShift & 0x3)
+            };
         }
 
         var summon = description.Kind == RemoteEntityKind.Monster && character.Brood == (uint)MonsterBrood.User;

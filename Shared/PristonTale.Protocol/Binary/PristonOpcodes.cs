@@ -75,4 +75,8 @@ public static class EtervaleOpcodes
 
     public const uint ItemDetails = 0x45540300;
     public const uint OwnerItemStatus = 0x45540301;
+    public const uint ItemUseCommand = 0x45540400;
+    public const uint ItemUseResult = 0x45540401;
+    public const uint PremiumTimers = 0x45540402;
+    public const uint ItemEffects = 0x45540403;
 }
