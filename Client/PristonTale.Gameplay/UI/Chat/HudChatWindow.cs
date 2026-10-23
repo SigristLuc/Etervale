@@ -191,7 +191,7 @@ public sealed class HudChatWindow
                 visible = visible[1..];
             }
 
-            painter.Text(visible, MessageX, 584 - lift + bottom, InputColor);
+            painter.Text(visible, MessageX, 584 - lift + bottom - (Math.Max(12, HudPainter.LineHeight) - 12) / 2, InputColor);
         }
 
         painter.Flush();
@@ -225,7 +225,11 @@ public sealed class HudChatWindow
     // The newest message sits at y; older messages go up line by line, each wrapped and drawn from its last line upward.
     private void DrawLines(HudPainter painter, HudChatTab tab, int y, int maxLines, int scroll)
     {
-        var lineHeight = Math.Max(12, painter.TextHeight);
+        var lineHeight = Math.Max(12, HudPainter.LineHeight);
+        // The classic lines are 12 pixels high; a taller line keeps the newest line's bottom where the classic one ended
+        // and draws fewer lines so each block stays inside its classic area.
+        y -= lineHeight - 12;
+        maxLines = Math.Max(1, maxLines * 12 / lineHeight);
         var drawn = 0;
         var messages = 0;
         foreach (var entry in Log.Newest(tab, scroll).Take(32))
