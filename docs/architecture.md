@@ -104,8 +104,10 @@ Original asset paths are resolved with `PristonFileResolver`; do not build legac
   steps every active `FieldInstance` in parallel (fields share only immutable catalogs and the thread-safe
   `EntityIdAllocator`). A player may have at most `World:MaxPendingCommandsPerPlayer` commands waiting; beyond that
   `WorldBusyException` is thrown synchronously.
-- After stepping, each field builds one `WorldSnapshot` and writes it, specialised with the owner's state and cooldowns,
-  to each connected player's outbound channel. The TCP session encodes snapshots into packets on its own task.
+- After stepping, each field fills one reused `PresenceFrame` (views, grid, field-wide descriptor revisions) and writes
+  one `WorldSnapshot` over it, specialised with the owner's state and cooldowns, to each connected player's outbound
+  channel. The TCP session encodes snapshots into packets on its own task, pinning the frame while it reads; entries
+  every receiver shares are encoded once per frame. Who receives what: [server.md](server.md#presence-propagation).
 - The tick never awaits IO. State changes that must be durable use prepare, persist, commit:
   1. An application service takes the session's `SaveGate`, then asks the world to prepare (on the tick): validate and
      build a candidate state plus a save snapshot (`Prepared*Operation` records).

@@ -22,6 +22,8 @@ benchmarks, and the asset/GPU probes that read game data or create a Vulkan devi
 | `SkillFixtures.cs`, `SkillScenario.cs` | Synthetic field, players, monsters, weapons and 50 ms tick stepping for skill cases |
 | `MemoryCharacters.cs` | In-memory `ICharacterRepository` with update hooks for persistence-failure cases |
 | `WireRoundTrip.cs` | Snapshots through server `PresenceEncoder` and client `PresenceDecoder` over original packet bytes |
+| `MultiplayerServer.cs`, `MultiplayerClient.cs` | A whole server in the runner (real host, disposable SQLite, ephemeral port, synthetic world) and real TCP clients with the world each one observed |
+| `AllocationSampler.cs` | Allocation ticks by type for benchmarks (`PRESENCE_ALLOCATIONS=1`) |
 | `AbsoluteContentManager.cs` | `ContentManager` that opens `.xnb` files from an absolute content root (GPU probes) |
 | `*Probe.cs`, `*Probe.<Topic>.cs` | Opt-in probes (see Probes); never part of the default suite |
 | `*Benchmark.cs`, `RenderBenchmarkProbe.cs` | Opt-in benchmarks; `DomainTests.BenchmarkAsync` is the `--benchmark` tick benchmark |
@@ -41,6 +43,7 @@ Default case files by area (all `tests/PristonTale.Tests/<Name>.cs`):
 | Equipment | `EquipmentTests`, `RangedEquipmentTests` | Catalog rules, hands, class masks, bone attachments |
 | Item rules | `ItemRulesTests` | Wearable slots, requirements, two-handed swaps, drop and shop rolls, the item stat pipeline, block, carried weight, saved rolls, item details on the wire, item reader |
 | Protocol | `BinaryProtocolTests`, `ClientTests`, `NetworkHardeningTests` | Struct layouts, framing, cipher, presence, abuse limits |
+| Multiplayer | `MultiplayerMovementTests`, `MultiplayerCombatTests`, `MultiplayerPresenceTests`, `MultiplayerSessionTests`, `MultiplayerSocialTests`, `PresencePipelineTests` | Propagation between real clients over TCP (see Multiplayer propagation); frames, shared encoding, revisions, crowd cap, event ticks, grid, status book |
 | World data | `WorldImportTests`, `NpcPlacementMigrationTests`, `MonsterNameTests`, `NpcServiceTests` | Import and migrations on temp SQLite |
 | Rewards, spawns | `WorldRewardsTests`, `SpawnGateTests`, `SpawnScheduleTests` | Loot, XP, spawn masks, boss hours |
 | Movement | `MovementAndStreamingTests`, `GroundTraversalTests`, `TerrainTests`, `EntitySweepTests`, `SpatialIndexTests` | Reports, stacked floors, ramps, gaps, steps |
@@ -89,13 +92,41 @@ git diff --check
 
 ### What default cases may touch
 
-- Synthetic data built in code, embedded `Fixtures/`, original-protocol byte arrays, a loopback TCP exchange, and files
-  and SQLite databases created and deleted under `Path.GetTempPath()`.
+- Synthetic data built in code, embedded `Fixtures/`, original-protocol byte arrays, loopback TCP (an exchange, or a
+  whole in-process server on an ephemeral port with real clients), and files and SQLite databases created and deleted
+  under `Path.GetTempPath()`.
 - Never game assets, a production database, `data/pristontale.db`, or reference directories.
 - One exception: the `SkillPresentationTests` case "game data effects cover every effect ..." walks up from the runner
   for an `assets/` directory with `Effect/Vfx`, checks that every effect, child, texture, animation, model and sound the
   rules and definitions use exists there, and prints `(skipped: no assets/Effect/Vfx next to the repository)` when none
   is found. The authored definitions are checked without assets from `tools/PristonTale.VfxImport/Authored/`.
+
+## Multiplayer propagation
+
+The `multiplayer:` cases prove that what one player does reaches exactly the right other players. Each starts a
+`MultiplayerServer`: the real host composition (`AddPristonServer`) on a disposable SQLite database, `Network:Port=0`
+(the port comes from `PristonTcpServer.BoundPort`), `Assets:AllowMissingTerrain` with an empty assets root (no game
+data is read), and a synthetic `WorldData` (monsters, spawn points beside the scenario, a staff and usable items)
+swapped in before anyone joins. Players are accounts with one character each, placed by `PlayerSetup` (class, level,
+field, position, learned skills, weapon, carried items) through the real repositories. Each `MultiplayerClient` is a
+real `GameServerConnection` with its play channel; a reader folds every `PresenceUpdate` into an `ObservedWorld`
+(entities with every position sample and its server time, removals, combat, skill, status and item events, chat,
+ground items, warps, owner state), and cases wait on it with timeouts (`WaitAsync`, `WaitUntilAsync`). `WalkAsync`
+moves at 5 Hz below the slowest run speed; `HuntAsync` keeps an attack locked and walks into reach like the client.
+
+| File | Covers |
+| --- | --- |
+| `MultiplayerMovementTests` | Walk, run, facing and stop at every viewer; the view range and other fields (nothing about a player reaches them; crossing the range spawns and removes); gate and warp field changes for the viewers of both fields; a rejected report corrects only the mover |
+| `MultiplayerCombatTests` | Swings, hits, the kill, a public drop, its pickup and the level up identical at a watching player; a skill's start, impact and damage and the monster's life; a monster's positions and attacks identical at three viewers for the same server ticks |
+| `MultiplayerPresenceTests` | A buff at viewers and at a player who arrives later; a summon and a crystal pet owned by one player beside wild monsters of their kind; equipment, big head, firecracker and scroll status; death and respawn at both places; descriptions the rate limit dropped asked again |
+| `MultiplayerSessionTests` | Leaving and coming back, a dropped connection freeing the character, two logins racing for one character |
+| `MultiplayerSocialTests` | Spoken lines within range only, whispers only to their two ends, a hidden game master leaving and rejoining presence |
+
+Tolerances: positions within 0.05 units of the reported or server point (fixed point plus floor), facing within 0.01
+rad, events compared exactly (in server order, aligned on the first one both clients saw). Each case takes 3 to 8 s
+inside the runner's 15 s limit. Add a case by starting a server with the world the scenario needs, entering the
+players with `MultiplayerMovementTests.Enter`, acting through the client and asserting on the other clients'
+`ObservedWorld`.
 
 ## Benchmarks
 
@@ -105,6 +136,7 @@ All CPU-only; no GPU, assets or database unless stated.
 | --- | --- |
 | `--benchmark` | After the (filtered) suite: 5 runs of 128 players, 100 warmup and 1,000 measured 50 ms ticks; median, p95, max, bytes/tick |
 | `--benchmark-world` | 128 players + 512 monsters at 20 Hz (AI, combat, collision, snapshots, 128 drained outboxes); spacing 128 and 64 units, 5 runs each |
+| `--benchmark-presence <counts> <layouts> <ticks>` | The real `WorldServer` tick plus one `PresenceEncoder` per player (no sockets): e.g. `500,1000,2000,5000 spread,crowded 100`. Players walk, a quarter fight, a tenth cast; prints tick and encode p50/p99, CPU cores, bytes per client per second and per tick, allocations (tick and encode), collections and heap. `PRESENCE_ALLOCATIONS=1` adds the allocating types. Results: [protocol.md](protocol.md#measured-capacity) |
 | `--benchmark-parsing <assets>` | Binary cursor microbenchmarks and `Field/forest/fore-1.smd` parses; requires 752 materials, 35,519 faces |
 | `--profile-ricarten <assets>` | Ricarten stage and model parsing, collision build and texture preparation times |
 

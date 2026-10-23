@@ -121,7 +121,7 @@ request (`FAILCONNECT` -16, a record echo with `WParam` 0, or entry failure `Rej
 | --- | --- | --- |
 | `TRANSPLAYDATA` | C→S | The client's own position, facing, motion (`angle[3]`), action target (`dwTargetSerial`) and field (`wArea[0]`). Sent every 200 ms while moving, on state changes and every second while idle. |
 | `PLAYDATAGROUP` | S→C | Nearby objects: `{size, code, PlayDataCnt, dwSendCode}` followed by self-sized entries, each a play data packet with one play buffer (84 B) or the coarse `PLAYDATA1` entry (40 B). |
-| `GETPLAYERINFO` / `PLAYERINFO` | C→S / S→C | Describes an unknown object or one whose `bUpdateInfo[0]` revision changed (`GETPLAYERINFO.WParam` = serial). Monsters and NPCs are cached by `dwAutoCharCode`, as in the original client. |
+| `GETPLAYERINFO` / `PLAYERINFO` | C→S / S→C | Describes an unknown object or one whose `bUpdateInfo[0]` revision changed (`GETPLAYERINFO.WParam` = serial). Monsters and NPCs are cached by `dwAutoCharCode`, as in the original client; owned summons and crystal pets carry `dwAutoCharCode` 0 and are always described on their own. The client asks again after a second without an answer (the server drops requests beyond its bucket). |
 | `WARPFIELD` | S→C | `{WParam field, SParam x, LParam z}` confirms a field change; `EParam` = 1 marks a correction after a rejected report or a teleport. |
 | `ATTACK_DAMAGE` | C→S | Attack data packet with the original damage checksum and damage cipher keyed by the sender's serial. Monster: attack lock (`AttackState` bit 0 held, `AttackCount` = sequence). NPC: opens it. |
 | `PLAYITEM` / `DELITEM` | S→C | Ground items within the ground-item range (squared `0xC8000` units, about 905 units); up to 16 records per `PLAYITEM`. `lpStgArea` carries the drop handle and `type` the quantity. Private drops go only to their owner. |
@@ -139,8 +139,9 @@ request (`FAILCONNECT` -16, a record echo with `WParam` 0, or entry failure `Rej
   animation rate (`CharacterInfo.Temp*` constants). A summon is described with the user brood, its owner's serial in
   `dwTemp[9]` and its own model scale (float bits, 0 keeps the template's) in `dwTemp[10]`. The character slot record
   uses `dwArmorCode` and `dwTemp[13]` for the same appearance data.
-- The play data header byte after the field codes is the descriptor revision (`bUpdateInfo[0]`); the server increments
-  it when level, max HP, template, speed, attack rate, equipment, village flag, tier, owner or scale change.
+- The play data header byte after the field codes is the descriptor revision (`bUpdateInfo[0]`, 1 to 255). The field
+  keeps one revision per entity for every viewer (`FieldDescriptors`) and increments it when level, max HP, template,
+  speed, attack rate, equipment, looks (hair, face, pets, big head), village flag, tier, owner or scale change.
 
 ### Authority
 
@@ -267,8 +268,9 @@ motion and emits a `Start` event whose `DurationMs` and `HitAtMs` are the motion
 server's rates; the hits resolve at the motion's event times (projectiles after their flight at 900 units per second,
 `SkillProjectile.UnitsPerSecond`) and emit an `Impact` event with the number of targets hit, then the usual
 `CombatEvents`. Statuses are source-agnostic: `SourceKind` is item, player skill, monster skill, consumable or aura,
-`Control` the control states (stun, root, silence, slow, hidden); a viewer that sees an entity only after a status
-started does not receive it. The original client sent damage, buffs and heals itself and the original server checked
+`Control` the control states (stun, root, silence, slow, hidden); a viewer that starts seeing an entity (it came into
+range, joined, or the entity arrived from another field) receives the statuses already running on it as `Add` entries
+with the time left. The original client sent damage, buffs and heals itself and the original server checked
 none of mana, stamina or cooldown. See [skills.md](skills.md) for the rules behind these messages.
 
 ### Usable items
@@ -363,17 +365,28 @@ quest arena arrives as the usual field confirmation `WARPFIELD`.
 
 The original server ran all game logic on one thread under one lock, scanned every connection and monster slot for
 visibility, and held 600 suspended worker threads with a shared 1024-slot send queue. Its default cap was 800 players
-per process. Etervale keeps the original view ranges and distance-weighted detail and changes the mechanics:
+per process. Etervale keeps the original view ranges and distance-weighted detail and changes the mechanics. Who
+receives what, in which order and how often is specified in [server.md](server.md#presence-propagation); the design:
 
 - Fields step in parallel on the tick. They share only immutable catalogs and the thread-safe id allocator.
-- Each field snapshot carries an `EntityGrid` built once per tick, so a receiver queries nearby cells instead of
-  scanning the field.
-- `PresenceEncoder` sends an object only when it changed: spawns and discrete changes (motion, HP, target, attack,
-  description) immediately, positions at 5 Hz inside the high-detail range (squared `0x48000`, about 543 units) and 2 Hz
-  out to the connect range (squared `0x120000`, about 1086 units); an object is forgotten beyond 1.15 times the connect
-  range. Position updates share a budget of 2048 bytes per receiver per tick, ranked by how overdue they are, which
-  plays the role of the original per-receiver user limit and round-robin cursor.
-- Sockets use .NET asynchronous I/O (IOCP on Windows) with pooled buffers and coalesced writes.
+- Who sees whom is prepared once per field and tick, not per pair: a `PresenceFrame` holds the views of every entity
+  with its field-wide descriptor revision, an `EntityGrid` (64-unit planar cells, sorted keys, one binary search per
+  column), the index of who targets or owns whom, and the NPC list. Frames are reused tick after tick (a receiver
+  pins the frame it encodes from on striped counters), so the tick allocates no views, grids or encode buffers.
+- Each receiver's `PresenceEncoder` (on its connection's pump, never on the tick) queries the grid, keeps at most 256
+  other entities in view (the nearest, plus its NPCs, its attack target, whoever targets it and its summons; an entity
+  already shown stays out to 1.15 times the cut-off), and sends an object only when it changed: spawns and discrete
+  changes (motion, HP, target, attack, description) immediately, positions at 5 Hz inside the high-detail range
+  (squared `0x48000`, about 543 units) and 2 Hz out to the connect range (squared `0x120000`, about 1086 units); an
+  object is forgotten beyond 1.15 times the connect range. Position updates share a budget of 2048 bytes per receiver
+  per tick, ranked by how overdue they are (a bounded heap keeps only what the budget can carry), which plays the role
+  of the original per-receiver user limit and round-robin cursor.
+- Play-data entries, coarse entries and `PLAYERINFO` descriptions are encoded once per frame and entity
+  (`SharedPresenceWire`) and copied by every receiver that needs them.
+- Movement reports travel through the command queue as values (no closure or task per report); the verdict comes back
+  through `IMovementVerdictSink`.
+- Sockets use .NET asynchronous I/O (IOCP on Windows) with pooled buffers and coalesced writes; the writer and the
+  presence pump wait without allocating.
 - Every field's stage collision (`Shared/PristonTale.Geometry`) is loaded at startup, as the original server does: 42
   stages, about 1.93 million collision triangles and 179 MiB, in under a second. Monsters step like the original
   server's next-move check (slide along walls with two side probes, climb 20 units, collide only with other monsters);
@@ -382,25 +395,66 @@ per process. Etervale keeps the original view ranges and distance-weighted detai
 - SQLite runs in WAL mode with `synchronous=NORMAL`. The rollback journal limited a login burst to a few hundred writes
   per second.
 
-Measured on one Windows machine running the server and all bots together, every bot in the same spot of Ricarten (the
-densest case), walking and reporting at 5 Hz:
+### Measured capacity
 
-| Bots | Failures | World tick p50 / p99 | Data per bot |
-| --- | --- | --- | --- |
-| 200 | 0 | 0.80 ms / 1.21 ms | 81 KiB/s before the movement budget |
-| 500 | 0 | 1.18 ms / 3.95 ms | 42 KiB/s |
-| 1000 | 0 | 2.27 ms / 7.61 ms | 40 KiB/s |
+All numbers come from one Windows machine (16 logical CPUs, .NET 10, Release, server GC). The tick budget is 50 ms.
 
-The tick budget is 50 ms. These numbers cover one process and one field; they do not include monsters fighting players
-or a separate client machine. Reproduce them with:
+The synthetic pipeline (`--benchmark-presence`, [testing.md](testing.md#benchmarks)) runs the real `WorldServer` tick
+and one real `PresenceEncoder` per player without sockets: players walk with 5 Hz reports, a quarter fight a monster
+beside them, a tenth cast an area skill every three seconds, monsters fight back. Crowded packs everyone into a
+500-unit square; spread places players 300 units apart. Encoding runs in parallel after each tick, as the pumps do.
+
+| Players | Layout | Tick p50 / p99 | Encode p50 / p99 (all receivers) | Out per client | Allocated per tick |
+| --- | --- | --- | --- | --- | --- |
+| 500 | spread | 1.92 / 4.48 ms | 1.65 / 3.56 ms | 7.6 KiB/s (389 B/tick) | 129 KiB |
+| 1000 | spread | 3.02 / 31.15 ms | 1.03 / 1.58 ms | 8.0 KiB/s (409 B/tick) | 208 KiB |
+| 2000 | spread | 3.65 / 10.17 ms | 2.14 / 7.66 ms | 8.1 KiB/s (414 B/tick) | 82 KiB |
+| 5000 | spread | 11.81 / 25.78 ms | 5.05 / 19.97 ms | 8.4 KiB/s (430 B/tick) | 197 KiB |
+| 500 | crowded | 1.51 / 5.88 ms | 3.80 / 16.58 ms | 54.6 KiB/s (2.7 KiB/tick) | 26 KiB |
+| 1000 | crowded | 3.56 / 31.44 ms | 7.61 / 20.70 ms | 55.6 KiB/s (2.8 KiB/tick) | 45 KiB |
+| 2000 | crowded | 7.00 / 31.40 ms | 15.75 / 31.07 ms | 58.1 KiB/s (2.9 KiB/tick) | 136 KiB |
+| 5000 | crowded | 13.17 / 79.36 ms | 33.25 / 59.79 ms | 60.2 KiB/s (3.0 KiB/tick) | 294 KiB |
+
+Before the shared frames, the crowd cap and the allocation work, the same benchmark measured 1000 crowded at 2.68 /
+35.81 ms tick and 34.83 / 116.88 ms encode with 98.7 KiB/s per client and 4.9 MiB allocated per tick, and 5000 crowded
+at 16 / 735 ms tick and 455 / 1584 ms encode with 354 KiB/s per client and an 8.6 GiB heap.
+
+The end-to-end load test (`tools/PristonTale.LoadTest --mode mixed`: half the bots walk, three in ten hunt the nearest
+monster with basic attacks, two in ten cast Mechanic Bomb) ran against the imported world on Forest 1 with full stage
+collision, the server and every bot on the same machine. Crowded bots start inside a 500-unit square, spread bots on an
+80-unit grid; each run measured 60 s after the ramp:
+
+| Bots | Layout | Failures | World tick p50 / p99 | Server CPU | Allocated | Working set | Out per connection |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 500 | crowded | 0 | 2.77 / 6.60 ms | 1.5 cores | 1.9 MiB/s | 594 MiB | 29.1 KiB/s (1.5 KiB/tick) |
+| 500 | spread | 0 | 4.96 / 7.14 ms | 2.4 cores | 1.7 MiB/s | 695 MiB | 33.7 KiB/s (1.7 KiB/tick) |
+| 1000 | crowded | 0 | 4.31 / 10.10 ms | 2.6 cores | 4.6 MiB/s | 835 MiB | 30.9 KiB/s (1.6 KiB/tick) |
+| 1000 | spread | 0 | 4.52 / 9.88 ms | 2.5 cores | 4.4 MiB/s | 890 MiB | 45.0 KiB/s (2.3 KiB/tick) |
+| 2000 | crowded | 0 | 11.40 / 25.07 ms | 6.2 cores | 10.4 MiB/s | 1257 MiB | 30.2 KiB/s (1.5 KiB/tick) |
+| 2000 | spread | 0 | 12.96 / 28.70 ms | 6.0 cores | 8.6 MiB/s | 1438 MiB | 34.8 KiB/s (1.8 KiB/tick) |
+| 5000 | crowded | 0 | 26.29 / 48.87 ms | 9.3 cores | 27.1 MiB/s | 4398 MiB | 18.4 KiB/s (0.9 KiB/tick) |
+| 5000 | spread | 0 | 22.93 / 42.93 ms | 9.0 cores | 22.2 MiB/s | 3452 MiB | 15.7 KiB/s (0.8 KiB/tick) |
+
+Before this work the load test's 2000 crowded run allocated 57 to 82 MiB/s. At 5000 bots the load-test process itself
+uses most of the remaining cores, so the tick shares the machine; the encoders then fall behind the 20 Hz tick, their
+outboxes coalesce, and each client receives fewer, larger updates (the lower bandwidth per connection) while every
+event still arrives in order. The many position corrections in these runs come from the bots walking straight through
+the stage's walls, not from the server. Reproduce a run with:
 
 ```bash
-dotnet run --project tools/PristonTale.DevAccounts -c Release --no-build -- --sqlite <copy.db> create-bots bot 1000 bot-pw
-dotnet run --project Server/PristonTale.Server -c Release --no-build -- --Database:SqlitePath=<copy.db> --Network:MaxConnectionsPerIp=0
-dotnet run --project tools/PristonTale.LoadTest -c Release --no-build -- --count 1000 --seconds 60 --ramp 100
+dotnet run --project tools/PristonTale.DevAccounts -c Release --no-build -- --sqlite <copy.db> \
+  create-bots cw 5000 bot-pw --class Mechanician --level 20 --field 2 --at 4184,-11016 --spacing 0 \
+  --skills 0x01010002:5,0x01010003:3
+dotnet run --project Server/PristonTale.Server -c Release --no-build -- --Database:SqlitePath=<copy.db> \
+  --Network:Port=10037 --Network:MaxConnectionsPerIp=0 --Server:ReportSeconds=10
+dotnet run --project tools/PristonTale.LoadTest -c Release --no-build -- --count 2000 \
+  --address tcp://127.0.0.1:10037 --prefix cw --mode mixed --seconds 60 --ramp 100 --server-pid <pid> --report 10
+dotnet run --project tests/PristonTale.Tests -c Release --no-build -- \
+  --benchmark-presence 500,1000,2000,5000 spread,crowded 100
 ```
 
-The server logs tick percentiles and bandwidth every 30 seconds.
+The server logs tick percentiles, process CPU, allocation rate, collections, heap and working set, and bandwidth per
+connection every `Server:ReportSeconds` (30 by default).
 
 ## How to add an opcode or packet
 
@@ -448,7 +502,10 @@ when the received version has it.
 - `SkillCastStatus` (wire) and `SkillCastVerdict` (simulation), and `CombatEventKindView` and the client's combat kinds,
   are separate enums cast by value; `SkillWireTests` pins them. Change both sides together.
 - `GETPLAYERINFO` is outside the packet flood count but has its own token bucket; a client that requests every serial
-  each frame will see descriptions silently dropped.
+  each frame will see descriptions silently dropped. A client must ask again for an object still undescribed (the
+  Etervale client does after a second), or a crowd entering view at once never appears.
+- Two monsters of one template share a description only while both are wild: a summon's description names its owner.
+  Never send a summon's template in `dwAutoCharCode`, and never cache a user-brood description by template.
 - A `RECORDDATA` record that fits one chunk declares `Total` = 0, not 1. `RecordDataChunks.Split`,
   `RecordDataAssembler.Add` and `ClientSession.AcknowledgeClientSave` all treat 0 as a single chunk; keep them aligned.
 - `SERVER_INFO` uses the login socket's local address; behind NAT an original client would dial the private address.

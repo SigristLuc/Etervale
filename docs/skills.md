@@ -341,8 +341,10 @@ Presentation (`SkillPresentation`):
   play the secondary effect; otherwise `impactEffect` (the mode's or `charge.full`'s when set) at the target or caster,
   skipped for entity-targeted rules that hit nothing. `Release` seeks the clip to `fullFrame`; `Cancel` stops effects.
 - Statuses: `StatusBook` keeps timers between messages; on add, `buffEffect` spawns as an aura (variant
-  `<name>.<element>` for multi-choice enchants or familiars when defined) and restarts while the status lasts. A
-  familiar's strike takes the same element variant of `impactEffect`.
+  `<name>.<element>` for multi-choice enchants or familiars when defined) and restarts while the status lasts; a
+  status that arrived before its entity was shown starts its aura once the entity is there. An entity's statuses are
+  forgotten when it leaves the view (the server sends the running ones again when it returns). A familiar's strike
+  takes the same element variant of `impactEffect`.
 - Looks: `ActorLookBook` turns statuses, casts and impacts into an `EntityLook` per entity each frame (the original's
   70 Hz ramps: frost +1 a tick to 160 blue and -80 alpha, poison to 100 green, both counting back after the status;
   vanish -160 alpha, vague -60 for the local player and -160 for others with a scrolling overlay; distortion +80

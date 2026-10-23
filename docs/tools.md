@@ -157,6 +157,7 @@ dotnet run --project tools/PristonTale.DevAccounts -c Release --no-build -- add-
 | --- | --- |
 | `create-account <user> <password>` | Creates the account; an existing account is left unchanged (exit 0) |
 | `create-bots <prefix> <count> <password>` | Creates `<prefix>0001` to `<prefix><count:D4>` (1 to 100,000), skipping existing ones |
+| `create-bots ... --class <class> --field <code> --at <x,z> [--spacing <s>] [--level <n>] [--skills <hex:rank,...>]` | Also gives each new account one character `Lt<prefix><index:D4>` of that class and level, with those skills, in that field: inside a 500-unit square around (x, z) when the spacing is 0 (a crowd), else on a square grid with that spacing |
 | `add-char <user> <name> <class> [level]` | Starter in the first free slot (max 6), Ricarten (field 3); see below |
 | `list <user>` | Slots, names, classes, levels and attributes |
 | `set-gm <user> <level>` | Game-master level 0 (player) to 4 (Administrator); applies at the account's next login ([chat-and-gm.md](chat-and-gm.md)) |
@@ -207,16 +208,29 @@ the spawn, cast the skill with no target and wait up to 8 s.
 
 ## LoadTest
 
-Headless bots over the original protocol. Each bot logs in as `<prefix><index:D4>`, creates a Fighter named
-`Lt<prefix><index:D4>` when the account has no character, enters the world and walks a 150-unit circle through its
-spawn at 80 units/s, reporting movement every 200 ms (5 Hz) and draining presence. A forced warp restarts the circle
-from the authoritative position.
+Headless bots over the original protocol. Each bot logs in as `<prefix><index:D4>`, uses the account's first character
+(or creates a Fighter named `Lt<prefix><index:D4>` when there is none), enters the world and plays its mode, reporting
+movement every 200 ms (5 Hz) and draining presence:
+
+| Mode | Bots |
+| --- | --- |
+| `walk` | Walk a 150-unit circle through the spawn at 100 units/s; a forced warp restarts the circle from the authoritative position |
+| `fight` | Lock a held basic attack on the nearest wild monster in sight (900 units) and walk to 28 units of it, reporting the target |
+| `cast` | Walk to 70 units of the nearest wild monster and cast `--skill` at it, again when the cooldown the server answered ends (at least every 3 s) |
+| `mixed` | Half walk, three in ten fight, two in ten cast (by bot index) |
+
+Hunters move from the position the server shows them at (the stage's walls change it), and every forced warp counts as
+a correction. For hunting runs, create placed characters (see DevAccounts `create-bots ... --class`), for example
+Mechanicians with Mechanic Bomb in Forest 1:
 
 ```bash
-dotnet run --project tools/PristonTale.DevAccounts -c Release --no-build -- --sqlite <copy.db> create-bots bot 1000 bot-pw
+dotnet run --project tools/PristonTale.DevAccounts -c Release --no-build -- --sqlite <copy.db> \
+  create-bots cw 2000 bot-pw --class Mechanician --level 20 --field 2 --at 4184,-11016 --spacing 0 \
+  --skills 0x01010002:5,0x01010003:3
 dotnet run --project Server/PristonTale.Server -c Release --no-build -- --Database:SqlitePath=<copy.db> \
-  --Network:MaxConnectionsPerIp=0
-dotnet run --project tools/PristonTale.LoadTest -c Release --no-build -- --count 1000 --seconds 60 --ramp 100
+  --Network:Port=10037 --Network:MaxConnectionsPerIp=0 --Server:ReportSeconds=10
+dotnet run --project tools/PristonTale.LoadTest -c Release --no-build -- --count 2000 --address tcp://127.0.0.1:10037 \
+  --prefix cw --mode mixed --seconds 60 --ramp 100 --server-pid <pid> --report 10
 ```
 
 | Option | Default | Meaning |
@@ -227,9 +241,14 @@ dotnet run --project tools/PristonTale.LoadTest -c Release --no-build -- --count
 | `--password <text>` | `bot-pw` | Shared password |
 | `--seconds <n>` | `60` | Measured time in the world after the ramp |
 | `--ramp <n>` | `50` | Bots started per second (minimum 1) |
+| `--mode <mode>` | `walk` | `walk`, `fight`, `cast` or `mixed` (see above) |
+| `--skill <hex>` | `0x01010002` | Skill the casters use (Mechanic Bomb) |
+| `--server-pid <pid>` | none | Also samples that local process's CPU (cores) and working set |
+| `--report <n>` | `5` | Seconds between report lines |
 
-- Every 5 s it prints bots playing, failures, received KiB/s (total and per bot), updates/s and position corrections;
-  at the end, entered, failed, corrections and leave timeouts.
+- Every report it prints bots playing, failures, received KiB/s (total and per bot), updates/s, the bots' own hits/s,
+  casts/s and accepted casts/s, position corrections and, with `--server-pid`, server CPU and working set; at the end,
+  entered, failed, corrections, leave timeouts, the mean KiB/s per bot and the refused casts by status.
 - Exit 0 without failures, 2 with any bot failure, 1 on a usage error. Only the first 10 failures are printed.
 - `--Network:MaxConnectionsPerIp=0` disables the per-address connection limit (default 8); every bot connects from one
   address. Measured results and the server's capacity design are in [protocol.md](protocol.md) (Server capacity).
@@ -306,8 +325,9 @@ Run from Blender's Scripting tab after importing GLBs produced by `ptgltf`.
   for the class clips, then `play_animation.py`.
 - Seed a test login: `create-account`, then `add-char`, against the database the server uses.
 - Check a protocol or skill change end to end: start the server, run SmokeClient without and with `--character`.
-- Measure capacity: `create-bots` on a copy, server with `--Network:MaxConnectionsPerIp=0`, LoadTest; update the table
-  in [protocol.md](protocol.md) when results change.
+- Measure capacity: `create-bots` (with placed characters for hunting modes) on a copy, server with
+  `--Network:MaxConnectionsPerIp=0 --Server:ReportSeconds=10`, LoadTest, and the `--benchmark-presence` runner; update
+  the tables in [protocol.md](protocol.md) when results change.
 - Add a CLI option: update the tool's parsing and usage text and the matching table in this doc together.
 
 ## Pitfalls

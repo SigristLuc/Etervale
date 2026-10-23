@@ -43,9 +43,13 @@ into it is described in [server.md](server.md); skill resolution details are in 
 | `World/FieldTransition.cs` | Authorizes gate and warp field changes |
 | `World/*Transactions.cs`, `World/Prepared*Operation.cs` | Prepare side of durable operations (pickup, progression, NPC services, quests) |
 | `World/WorldSnapshot.cs` | Published view types: `EntityView`, `CombatEventView`, `SkillEventView`, `StatusEventView`, `WorldSnapshot` |
-| `World/WorldOutbox.cs` | Per-connection coalescing channel between the tick and the edge |
+| `World/WorldOutbox.cs` | Per-connection coalescing channel between the tick and the edge; pins frames on read, keeps events per tick |
 | `World/SubscriberPresence.cs` | Spawn/state/remove diff of snapshots per subscriber (used by tests; the server encoder diffs itself) |
-| `World/EntityGrid.cs` | Sorted 256-unit planar buckets built once per field snapshot for nearby queries at the edge |
+| `World/PresenceFrame.cs` | `PresenceFrame` (one field tick's views and grid, reused across ticks, pinned by readers), `FieldPresenceFrames`, `ViewArrays` |
+| `World/EntityGrid.cs` | Sorted 64-unit planar buckets, square counts, who-targets-or-owns-whom and the NPC list, rebuilt once per frame |
+| `World/FieldDescriptors.cs` | Field-wide descriptor revision of every entity, computed while the frame's views are filled |
+| `World/FieldStatusBook.cs` | The statuses running on the field's entities, for viewers that start seeing an entity later |
+| `World/WorldServer.Movement.cs` | Movement reports queued as values (`TryReportMovement`) with an `IMovementVerdictSink` |
 | `World/PlayerSkillCooldowns.cs` | Cooldowns on the field clock, rebased on field change, revisioned for snapshots |
 | `World/WorldData*.cs`, `FieldTerrainCatalog.cs` | Catalogs loaded at startup (`WorldDataAppService.BuildAsync`), held in volatile holders |
 | `World/WorldStatusReadModel.cs`, `ServerStatus.cs` | Lock-free player and per-field counts for status reporting |
@@ -113,15 +117,19 @@ Lifecycle seen from the edge: `LoginAsync` -> `EnterWorldAsync` -> `TryBeginPlay
 1. Command phase: drains up to `CommandsPerTick` (16384) queued commands on the calling thread.
 2. Boss clock: `BossSpawnSchedule.TryBeginPass` on the injected `TimeProvider` yields at most one hour value per pass,
    shared by all fields.
-3. Field phase: `Parallel.ForEach` over every created field: `FieldInstance.Step`, then (only with players present)
-   build one `WorldSnapshot` and write it, stamped per player with `OwnerState` and changed cooldowns, to each
-   connection's outbox.
+3. Field phase: `Parallel.ForEach` over every created field: `FieldInstance.Step` (which also updates the status book),
+   then (only with players present) rent a `PresenceFrame`, fill its views with their descriptor revisions, rebuild its
+   grid, open it to readers, and write one `WorldSnapshot` over it, stamped per player with `OwnerState`, changed
+   cooldowns and the quest update, to each connection's outbox.
 4. When membership changed: publish `PlayerCount` and per-field counts with `Volatile.Write` for the read model.
 
 ### Command queue
 
 All world access from other threads goes through `EnqueueAsync`, which wraps a closure into a bounded
 (65536, single reader) channel and returns a `Task` completed on the tick thread. A closure that throws faults the task.
+Movement reports, the bulk of the traffic, use `TryReportMovement`: the report travels in the same ordered queue as a
+value (no closure, task or completion), counts against the same quota, and its verdict is handed to the caller's
+`IMovementVerdictSink` on the tick thread; `false` means quota or queue full and the report is dropped.
 
 - Per-player quota: commands tagged with the player's entity id count against `MaxPendingCommandsPerPlayer`
   (default 64, config `World:MaxPendingCommandsPerPlayer`). Over quota, or with the channel full, `EnqueueAsync`
@@ -141,7 +149,9 @@ All world access from other threads goes through `EnqueueAsync`, which wraps a c
 
 Immutable shared inputs: `WorldDataHolder.Current` and `FieldTerrainCatalog` are swapped whole (volatile) at startup
 by the server's load services before players join. Tick-owned scratch lists in `FieldInstance` and `FieldSkills` avoid
-per-tick allocation; event lists are copied to arrays before publication.
+per-tick allocation; event lists are copied to arrays before publication. Presence frames are the only state shared
+with the edge's threads: a frame is written only while no reader pins it and it is not the field's latest published
+frame, so a reader that pinned a generation sees it unchanged until it releases it.
 
 Persistence never runs on the tick. Durable work is split: the tick prepares a candidate and a
 `CharacterSaveSnapshot` (pure memory), the service writes it off the tick, the tick commits. See below.
@@ -153,7 +163,8 @@ Persistence never runs on the tick. Durable work is split: the tick prepares a c
 | `JoinAsync(fieldId, player, outbound, session)` | player | false if unknown field, already connected, or session not playing |
 | `LeaveAsync(fieldId, entityId, outbound)` | exempt | removes the player only if `outbound` matches the connection |
 | `MoveToFieldAsync(old, new, player, requestedPosition, outbound)` | player | gate or warp change authorized by `FieldTransition` |
-| `ReportMovementAsync(field, entity, position, facing, moving, running, actionTarget)` | player | `MovementVerdict` |
+| `TryReportMovement(field, entity, position, facing, moving, running, actionTarget, sink)` | player | false when dropped; the verdict goes to `sink` on the tick |
+| `ReportMovementAsync(field, entity, position, facing, moving, running, actionTarget)` | player | `MovementVerdict` (tests and tools) |
 | `SetAttackTargetAsync(field, attacker, target, sustained, sequence)` | player | false on dead attacker, stale sequence, invalid target |
 | `CastSkillAsync(field, entity, SkillCastRequest)` | player | `SkillCastOutcome` (cast, release, summon mode) |
 | `InteractNpcAsync(session, npcId)` | player | `NpcInteraction` (offers + one random dialog line) |
@@ -344,13 +355,21 @@ catalogs, never from the client. `InteractNpcAsync` returns all offers with thei
 - Per tick and field, one `WorldSnapshot`: server tick, `EntityView[]` (players, monsters, NPCs), `CombatEventView[]`
   (`SwingBegin`, `Hit`, `PotionBegin`, `PotionApplied`, `MonsterSkillImpact`, `Heal`, `Evade`, `Revive`),
   `SkillEventView[]` (start, impact, cancel, release), `StatusEventView[]` (add, refresh, remove, tick), ground drops
-  with owner and visibility, and an `EntityGrid`. `WithOwner` stamps each copy with the receiver's `OwnerState` (only
+  with owner and visibility, the frame's `EntityGrid`, the frame itself with its generation, the field's running
+  statuses (`ActiveStatuses`) and clock (`FieldNowMs`). `WithOwner` stamps each copy with the receiver's `OwnerState`
+  (only
   when changed) and its cooldowns (null when unchanged since the last send); each copy also carries the receiver's
   `QuestUpdate` (journal view when its revision moved, quest notices, a dialog the world opened).
 - `WorldOutbox` is the per-connection `Channel<WorldSnapshot>`: a write never blocks; the reader receives the latest
   entity state plus every event accumulated since its last read (state is coalesced, events are reliable, the newest
-  cooldown list wins; quest notices stay in order up to 256 and the newest journal view and dialog win). More than
-  4096 pending events completes the channel with an `InvalidOperationException`; the edge closes the connection.
+  cooldown list wins; quest notices stay in order up to 256 and the newest journal view and dialog win). A reader that
+  kept up gets the field's own event arrays; one that fell behind gets them joined in order with `EventSegments`
+  telling which tick each part belongs to. Reading pins the snapshot's frame (`ReleaseFrame` after encoding); a frame
+  the field already reused yields a snapshot without entities. More than 4096 pending events completes the channel with
+  an `InvalidOperationException`; the edge closes the connection.
+- Statuses: the field keeps the last published `Add`/`Refresh` of every running status (`FieldStatusBook`), removes
+  them on `Remove`, when the entity leaves (`TransferPlayer` carries a player's statuses to the new field on its clock)
+  and when they run out (pruned every 5 s), so an encoder can send them to a viewer that starts seeing the entity.
 - `IServerStatusReadModel` (`WorldStatusReadModel`) reads volatile counts without touching the tick.
 
 ## How to

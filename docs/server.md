@@ -22,13 +22,15 @@ layouts live in [protocol.md](protocol.md).
 | `Hosting/DatabaseMigrationService.cs` | Hosted service: `IDatabaseMigrator.MigrateAsync` on start. |
 | `Hosting/WorldDataLoadService.cs` | Hosted service: `WorldDataAppService.BuildAsync` into `WorldDataHolder.Current`; logs catalog counts. |
 | `Hosting/FieldTerrainLoadService.cs` | Hosted service: reads every field's stage `.smd` collision in parallel into `FieldTerrainCatalog`. |
-| `World/WorldTickService.cs` | `BackgroundService` calling `WorldServer.Tick(1/20 s, tick)` on a `PeriodicTimer`; logs tick percentiles. |
+| `World/WorldTickService.cs` | `BackgroundService` calling `WorldServer.Tick(1/20 s, tick)` on a `PeriodicTimer`; logs tick percentiles, process CPU, allocation rate, collections, heap and working set. |
 | `World/QuestUpkeepService.cs` | `BackgroundService` reading `WorldServer.QuestUpkeepRequests` and running `QuestAppService.RunUpkeepAsync`, at most 8 players at a time ([quests.md](quests.md)). |
 | [Net/PristonTcpServer.cs](../Server/PristonTale.Server/Net/PristonTcpServer.cs) | Listener, per-address limit, one `ClientSession` per socket, housekeeping (idle/login timeouts, bandwidth log). |
 | [Net/ClientSession.cs](../Server/PristonTale.Server/Net/ClientSession.cs) | Per-connection state machine: packet dispatch to application services and replies. |
 | `Net/ClientSession.Chat.cs` | The session's `IChatLink`: chat lines, forced warps, close requests and kicks from game masters. |
 | `Net/GameServerControl.cs` | `IServerOperations` for game masters: user limit, blocked logins, the shutdown countdown and host stop. |
-| `Net/PresenceEncoder.cs` | Turns the receiver's `WorldSnapshot` into presence packets (play data, events, drops, owner state). |
+| `Net/PresenceEncoder.cs` | Turns the receiver's `WorldSnapshot` into presence packets (play data, events, drops, owner state); the crowd cap, the movement budget and descriptions. |
+| `Net/SharedPresenceWire.cs` | Play-data entries, coarse entries and `PLAYERINFO` descriptions of one presence frame, encoded once for every receiver. |
+| `Net/VisibleSet.cs`, `Net/MotionCandidates.cs` | The receiver's visible crowd (nearest 256 plus essentials, keep band) and its most overdue position updates. |
 | `Net/WireMapping.cs`, `Net/NpcWireMapping.cs`, `Net/QuestWireMapping.cs` | Authoritative views to wire structs (`CharacterInfo`, play data, events, NPC service state, quest messages). |
 | `Net/NetworkLimits.cs` | `Network:*` settings with defaults and validation; IPv4-mapped address normalisation. |
 | `Net/ConnectionGuards.cs` | `PacketRateLimiter`, `TokenBucket`, `ConnectionLimiter`, `LoginThrottle`, `LogSampler`. |
@@ -119,7 +121,8 @@ limit of `0` disables that limit; negative values stop startup.
 | `World:CrystalEvent` | 0 | `WorldServerOptions` | Crystal event: 0 off, 1 from 12:00 to 23:59 server time, 2 all day ([special-items.md](special-items.md)). |
 | `World:ItemEvents:Mandoo` | false | `ItemEventRates` | Rice cakes replace drop rolls (SP101 4%, SP102 2%). |
 | `World:ItemEvents:ValentineDay`, `Watermelon`, `Valentine`, `CandyDays`, `WhiteDay`, `Puzzle`, `GiftBox` | 0 | `ItemEventRates` | Rate per 10000 drop rolls of each item event; 0 is off. |
-| `Network:Port` | 10009 | `PristonTcpServer` | TCP game port, 1 to 65535; the client always connects to 10009. |
+| `Network:Port` | 10009 | `PristonTcpServer` | TCP game port, 0 to 65535; 0 binds a free port (in-process tests read it from `PristonTcpServer.BoundPort`). The client always connects to 10009. |
+| `Server:ReportSeconds` | 30 | `WorldTickService`, `PristonTcpServer` | Period of the tick and TCP report lines; at least 1. |
 | `Network:PacketLimit` | 251 | `NetworkLimits` | Packets per window before the connection closes (`GETPLAYERINFO` excluded). |
 | `Network:PacketWindowSeconds` | 5 | `NetworkLimits` | Fixed window of the packet limit. |
 | `Network:MaxConnectionsPerIp` | 8 | `NetworkLimits` | Open connections per remote address; extra sockets are closed on accept. |
@@ -170,9 +173,9 @@ the same switch.
 | `DELRECORDDATA` | `DeleteCharacterAsync` | `CharacterAppService.DeleteCharacterAsync` | New list on success, then echo. |
 | `GETRECORDDATA` | `EnterWorldAsync` | `SessionAppService.EnterWorldAsync` | `RECORDDATA` chunks, or `FAILCONNECT` (`LParam` `EnterWorldFailure`, `EParam` 3). |
 | `PLAYERINFO` | `JoinWorldAsync` | `PlayerSession.TryBeginPlay`, `WorldPlayerFactory.Create`, `WorldServer.JoinAsync` | `CONNECTED`; starts the presence pump. |
-| `TRANSPLAYDATA` | `ReportMovement` | `WorldServer.MoveToFieldAsync` or `ReportMovementAsync` | `WARPFIELD` correction when rejected. |
+| `TRANSPLAYDATA` | `ReportMovement` | `WorldServer.MoveToFieldAsync` or `TryReportMovement` | `WARPFIELD` correction when rejected. |
 | `ATTACK_DAMAGE` | `AttackAsync` | `WorldServer.InteractNpcAsync` (target is a known NPC) or `SetAttackTargetAsync` | `NpcResult`, or nothing (results arrive as presence). |
-| `GETPLAYERINFO` | `DescribeObject` | `PresenceEncoder.Describe` | Plaintext `PLAYERINFO` when the serial is in view. |
+| `GETPLAYERINFO` | `DescribeObject` | `PresenceEncoder.WriteDescription` | Plaintext `PLAYERINFO` when the serial is in view, from the last encoded frame. |
 | `RECORDDATA` | `AcknowledgeClientSave` | none (discarded) | `RECORDRESULT` `WParam` 1 after the last chunk. |
 | `InventoryCommand` | `ApplyInventoryAsync` | `SessionAppService.ApplyInventoryAsync` | `InventoryResult`. |
 | `ProgressionCommand` | `ApplyProgressionAsync` | `SessionAppService.ApplyProgressionAsync` | `ProgressionResult`. |
@@ -197,10 +200,13 @@ result packet instead, so the client's pending operation always completes.
 ### Outbound presence
 
 After `CONNECTED`, `PumpAsync` reads the player's `WorldOutbox` and calls `PresenceEncoder.Encode` per snapshot on a
-thread-pool task, separate from the receive loop. Per snapshot, in order: `WARPFIELD` on a field change (after removing
-everything known), `PresenceClock` before the first timeline packet, `PLAYDATAGROUP` (one or more), `RemoveObjects`,
-`CombatEvents`, `SkillEvents`, `StatusEffects`, `PLAYITEM`/`DELITEM`, `OwnerStatus` with `Inventory` parts and `Skills`
-when their revisions changed, `SkillCooldowns`, then `QuestJournal` and `QuestNotices` from the snapshot's quest update.
+thread-pool task, separate from the receive loop, then releases the snapshot's frame. Per snapshot, in order:
+`WARPFIELD` on a field change (after removing everything known), the events of earlier ticks the pump fell behind on
+(each tick's events after its own `PresenceClock`), `PresenceClock` before the first timeline packet of the snapshot's
+tick, `PLAYDATAGROUP` (one or more), `RemoveObjects`, `CombatEvents`, `SkillEvents`, `StatusEffects` (with the running
+statuses of entities the receiver starts seeing), `ItemEffects`, `PLAYITEM`/`DELITEM`, `OwnerStatus` with `Inventory`
+parts and `Skills` when their revisions changed, `SkillCooldowns`, then `QuestJournal` and `QuestNotices` from the
+snapshot's quest update.
 In the quest arena (field 32) the encoder leaves out other players and monsters of other players' duels. View ranges,
 rates and the movement budget are in [protocol.md](protocol.md#server-capacity). A reliable-event overflow in the outbox
 (4096 queued events) ends the pump and closes the connection with `presence overflow`; the client must reconnect.
@@ -209,9 +215,37 @@ rates and the movement budget are in [protocol.md](protocol.md#server-capacity).
 
 - A report with `wArea[0]` different from the session field goes to `MoveToFieldAsync`; a refusal or a full queue sends
   a forced `WARPFIELD` back to the encoder's last known self position.
-- Other reports go to `ReportMovementAsync`; `MovementVerdict.Rejected` sends `WARPFIELD` with `EParam` 1, at most once
-  per 300 ms. A full queue silently drops the report; the next report carries a newer position.
-- Both continuations run on the thread pool; `ClientSession` serialises its own scratch buffer with `_sendGate`.
+- Other reports go to `WorldServer.TryReportMovement` as values; the session is the `IMovementVerdictSink`. A rejection
+  queues the correction on the thread pool (the tick never waits for the encoder), which sends `WARPFIELD` with
+  `EParam` 1, at most once per 300 ms. A full queue or quota silently drops the report; the next report carries a
+  newer position.
+- `ClientSession` serialises its own scratch buffer with `_sendGate`.
+
+### Presence propagation
+
+What one player does reaches exactly the players that see it. The guarantees, all covered by the `multiplayer:` cases
+of the regression suite ([testing.md](testing.md#multiplayer-propagation)):
+
+| What | Who receives it | How and when |
+| --- | --- | --- |
+| An entity (player, monster, summon, pet, NPC) | Players of the same field within the connect range (about 1086 units); kept to 1.15 times that range; hidden game masters and other players' duel opponents never | Spawn (`PLAYDATAGROUP` entry, then `PLAYERINFO` on request) the tick it enters the receiver's view; `RemoveObjects` the tick it leaves, dies away, logs out, disconnects or changes field |
+| Position, facing, motion | Its viewers | Motion, HP, target and attack changes the tick they happen; positions at 5 Hz near (543 units), 2 Hz far, within 2048 bytes per receiver per tick, most overdue first |
+| Description (level, equipment, looks, village flag, owner, size) | Its viewers | A new field-wide revision in the next entry; the client asks for the new `PLAYERINFO` |
+| Combat, skill and item events | The players that know its attacker or target (and the player itself) | Once, in server order, on the tick they happened; never dropped (an outbox that queues more than 4096 closes the connection) |
+| Statuses | The players that know the entity | `Add`, `Refresh`, `Remove` and ticks as they happen; a player that starts seeing the entity gets its running statuses with the time left |
+| Ground drops | Players within about 905 units; private drops only to their owner | `PLAYITEM` when they enter range, `DELITEM` on pickup, expiry or leaving range |
+| Owner state, inventory, skills, cooldowns, premium timers, quests | The player itself | When their revisions change |
+| Corrections | The player itself | `WARPFIELD` with `EParam` 1; viewers only ever see the authoritative position |
+
+- A crowd shows at most `PresenceEncoder.MaxVisible` (256) other entities: the nearest, plus the receiver's NPCs, its
+  attack target, the entities targeting it and its summons; an entity already shown stays until it is 1.15 times the
+  crowd's cut-off distance away.
+- Every viewer of an entity sees the same state for the same server tick: entries come from the field's single frame
+  of that tick. Events follow the state of their tick.
+- A pump that falls behind gets the latest state of each entity and every event since its last read, each event on its
+  own tick (`WorldSnapshot.EventSegments`), so a slow client sees fewer position samples but nothing out of order.
+- Two sessions for one character: the second entry is refused (`AlreadyActive`) until the first has left and saved;
+  viewers never see two avatars of one character.
 
 ### Limits and abuse handling
 
@@ -233,8 +267,8 @@ connection, -16 busy (throttled or storage failure), -24 account blocked.
 
 | Line | Period |
 | --- | --- |
-| `World tick: N players, p50, p99, max over N ticks (budget 50 ms)` | 30 s |
-| `TCP: N connections, N in world, out/in KiB/s` | 30 s (checked every 5 s) |
+| `World tick: N players, p50, p99, max over N ticks (budget 50 ms); process N cores, N MiB/s allocated, GC gen0/1/2, heap, working set` | `Server:ReportSeconds` (30 s) |
+| `TCP: N connections, N in world, out KiB/s (KiB/s per connection), in KiB/s` | `Server:ReportSeconds` (checked every 5 s) |
 | `Refused connection from ...` | at most one per 5 s, with the count of suppressed lines |
 | `Closed ...: reason` | at most one per 1 s; normal reasons are never logged |
 | `Rejected <code> from ...: reason` | at most one per 5 s across all connections |
@@ -262,8 +296,8 @@ or login timeout, packet flood, protocol error, send backlog, presence overflow,
 
 ## Pitfalls
 
-- The port is a constant (`HostingExtensions.DefaultGamePort`); there is no setting for it. `SERVER_INFO` advertises the
-  login socket's local IPv4 address and port 10009. The Etervale client ignores the address and keeps its socket.
+- `SERVER_INFO` advertises the login socket's local IPv4 address and port. The Etervale client ignores the address and
+  keeps its socket.
 - A relative `Database:SqlitePath` is not relative to the working directory but to the solution root found from the
   binary. `DevAccounts` resolves `--sqlite` the same way; `WorldImport` uses its `--sqlite` path as given (relative to
   the working directory). Run the tools from the repository root so all three open the same file.
@@ -271,7 +305,10 @@ or login timeout, packet flood, protocol error, send backlog, presence overflow,
 - `Assets:AllowMissingTerrain` leaves the affected fields on `FieldTerrain.None`: no floor or wall checks for movement
   reports, and positions keep the heights they are given.
 - `HandleAsync` awaits application calls in the receive loop; never block there on the tick. World calls return tasks
-  that complete inside the tick, so movement and attacks are fire-and-forget with continuations.
+  that complete inside the tick, so attacks are fire-and-forget; movement verdicts come back through the sink on the
+  tick thread, where nothing may block (not even the encoder's lock).
+- `WorldSnapshot.ReleaseFrame` must follow every snapshot read from a `WorldOutbox`: a pinned frame is never reused,
+  so a reader that forgets it makes the field allocate new frames.
 - `WorldBusyException` is thrown synchronously by `WorldServer` methods, not through the returned task; callers must
   wrap the call itself, as `ReportMovement` and `CastSkillAsync` do.
 - An NPC click is recognised only when the `ATTACK_DAMAGE` target is an NPC the receiver's `PresenceEncoder` currently
