@@ -54,7 +54,7 @@
       "reachPercent": [30, 38, 46, 54, 62, 70, 78, 86, 94, 102], "boxLengthPad": 20,
       "damage": { "percent": [30, 35, 40, 45, 50, 55, 60, 65, 70, 75], "percentAfter": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50], "weaponDivisor": 1, "weaponFromAttack": true, "noCritical": true,
         "bonusBroods": ["Mutant"], "bonusPercent": 30 },
-      "motion": "Attack", "loops": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "castEffect": "vfx.pike.expansion.weapon",
+      "motion": "Attack", "loops": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
       "impactEffect": "vfx.pike.expansion.hit", "castSound": "wav/Effects/Skill/Tempskron/Expansion 01.wav",
       "impactSound": "wav/Effects/Skill/Tempskron/Expansion 02.wav",
       "weaponGrowth": [30, 38, 46, 54, 62, 70, 78, 86, 94, 102] },
