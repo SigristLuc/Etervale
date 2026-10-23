@@ -273,6 +273,16 @@ public sealed class VfxInstance
         _lightsFired = ResizeCleared(_lightsFired, definition.Lights.Length);
         _soundsFired = ResizeCleared(_soundsFired, definition.Sounds.Length);
         _childrenFired = ResizeCleared(_childrenFired, definition.Children.Length);
+        for (var index = 0; index < definition.Children.Length; index++)
+        {
+            SkipUnpicked(definition.Children, static child => child.Pick, index, _childrenFired, ref _random);
+        }
+
+        for (var index = 0; index < definition.Sounds.Length; index++)
+        {
+            SkipUnpicked(definition.Sounds, static sound => sound.Pick, index, _soundsFired, ref _random);
+        }
+
         if (_children.Length != definition.Children.Length)
         {
             _children = new VfxInstance?[definition.Children.Length];
@@ -514,6 +524,44 @@ public sealed class VfxInstance
                 _soundsFired[index] = true;
                 services.PlaySound(sound.Path, AnchorPosition(VfxAnchor.Caster, "", Vector3.Zero, anchors), sound.Volume);
             }
+        }
+    }
+
+    // At the first member of a pick group, draws the member that plays and marks the others as already fired.
+    private static void SkipUnpicked<T>(T[] layers, Func<T, int> pickOf, int index, bool[] fired, ref uint random)
+    {
+        var group = pickOf(layers[index]);
+        if (group == 0)
+        {
+            return;
+        }
+
+        var members = 0;
+        for (var other = 0; other < layers.Length; other++)
+        {
+            if (pickOf(layers[other]) != group)
+            {
+                continue;
+            }
+
+            if (other < index)
+            {
+                return;
+            }
+
+            members++;
+        }
+
+        var chosen = Math.Min(members - 1, (int)(NextUnit(ref random) * members));
+        for (var other = index; other < layers.Length; other++)
+        {
+            if (pickOf(layers[other]) != group)
+            {
+                continue;
+            }
+
+            fired[other] = chosen != 0;
+            chosen--;
         }
     }
 

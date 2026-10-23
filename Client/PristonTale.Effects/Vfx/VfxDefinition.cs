@@ -127,6 +127,8 @@ public sealed record VfxSoundDefinition
     public string Path { get; init; } = "";
     public float Delay { get; init; }
     public float Volume { get; init; } = 1f;
+    // Sounds sharing a non-zero pick group play one of them, drawn uniformly when the effect starts.
+    public int Pick { get; init; }
 }
 
 // Another named effect started by this one at its anchor (the converted original scripts are used this way). Follow
@@ -142,6 +144,8 @@ public sealed record VfxChildDefinition
     public bool Turn { get; init; }
     // Stops the child when this effect stops (auras, casts); otherwise the child plays out.
     public bool StopWithParent { get; init; } = true;
+    // Children sharing a non-zero pick group start one of them, drawn uniformly when the effect starts.
+    public int Pick { get; init; }
 }
 
 public sealed record VfxDefinition
@@ -245,9 +249,17 @@ public sealed record VfxDefinition
         foreach (var child in Children)
         {
             if (string.IsNullOrWhiteSpace(child.Effect) || child.Effect.Equals(Name, StringComparison.OrdinalIgnoreCase) || !Vec3Ok(child.Offset)
-                || !float.IsFinite(child.Delay) || child.Delay < 0f)
+                || !float.IsFinite(child.Delay) || child.Delay < 0f || child.Pick < 0)
             {
                 throw new InvalidDataException($"Effect '{Name}' has an invalid child effect.");
+            }
+        }
+
+        foreach (var sound in Sounds)
+        {
+            if (string.IsNullOrWhiteSpace(sound.Path) || !float.IsFinite(sound.Delay) || sound.Delay < 0f || sound.Pick < 0)
+            {
+                throw new InvalidDataException($"Effect '{Name}' has an invalid sound.");
             }
         }
     }
