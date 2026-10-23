@@ -8,11 +8,11 @@ using PristonTale.Simulation.Items;
 namespace PristonTale.Gameplay.UI.Inventory;
 
 // The original item box: the name, every stat the copy carries with the original labels, the requirements (red when the
-// owner does not meet them), then the class specialization. Each line is label and value as one centred string, 14
-// pixels apart.
+// owner does not meet them), then the class specialization. Each line is label and value as one centred string, one
+// text line apart.
 public static class HudItemDetailTooltip
 {
-    public const int LineHeight = 14;
+    public const int LineHeight = 16;
     public static readonly Color NameColor = new(222, 231, 255);
     public static readonly Color UniqueColor = new(128, 255, 128);
     public static readonly Color AgedColor = new(255, 250, 0);
@@ -98,7 +98,7 @@ public static class HudItemDetailTooltip
         }
 
         var width = Math.Min(layout.Width - 8, textWidth + 28);
-        var size = HudPainter.InfoBoxBounds(0, 0, width, 28 + (lines.Count - 1) * LineHeight + 4);
+        var size = HudPainter.InfoBoxBounds(0, 0, width, 26 + (lines.Count - 1) * LineHeight + 8);
         var bounds = layout.PlaceOverlay(new Point(pointer.X - size.Width / 2, pointer.Y - size.Height - 8), size.Width, size.Height);
         bounds = HudPainter.InfoBoxBounds(bounds.X, bounds.Y, bounds.Width, bounds.Height);
         painter.Flush();

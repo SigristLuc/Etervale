@@ -76,6 +76,7 @@ public sealed class GameplayHud : IDisposable
         _sprites = new HudSprites(context.GraphicsDevice, context.AssetRoot, context.Log);
         _sprites.Request(HudArt.Static);
         _sprites.Request(HudNpcArt.All);
+        _sprites.Request(HudArt.BlockText);
         _painter = new HudPainter(context.SpriteBatch, context.Font, _sprites);
         _icons = new HudItemIcons(context.GraphicsDevice, context.AssetRoot, context.Log);
         _skills = new HudSkillsPanel(context.Font, _sprites);
