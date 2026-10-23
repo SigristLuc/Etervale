@@ -320,6 +320,7 @@ specifications.AddRange(NpcServiceTests.Cases());
 specifications.AddRange(SkyTests.Cases());
 specifications.AddRange(SkillSystemTests.Cases());
 specifications.AddRange(SkillPresentationTests.Cases());
+specifications.AddRange(SkillLookTests.Cases());
 specifications.AddRange(VfxLayerTests.Cases());
 specifications.AddRange(VfxImportTests.Cases());
 specifications.AddRange(SkillCatalogTests.Cases());

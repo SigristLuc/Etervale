@@ -303,7 +303,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     }
 
     // The cast's resolution mode (an element picked per cast) may bring its own impact effect.
-    private static string ImpactEffectOf(SkillRule rule, SkillEventInfo skillEvent, int impact)
+    internal static string ImpactEffectOf(SkillRule rule, SkillEventInfo skillEvent, int impact)
     {
         if (rule.ImpactEffects.Length > 0 && rule.ImpactEffects[Math.Min(impact, rule.ImpactEffects.Length - 1)] is { Length: > 0 } perHit)
         {
@@ -357,7 +357,10 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     }
 
     // The impact's sound: the rule's per-hit list when it has one (landed hits only), else its single impact sound.
-    private string ImpactSoundOf(SkillRule rule, SkillEventInfo skillEvent, int impact)
+    private string ImpactSoundOf(SkillRule rule, SkillEventInfo skillEvent, int impact) =>
+        ImpactSoundFor(rule, impact, skillEvent.TargetCount, skillEvent.Rank, _soundRandom);
+
+    internal static string ImpactSoundFor(SkillRule rule, int impact, int targetCount, int rank, Random random)
     {
         var sounds = rule.ImpactSounds;
         if (sounds.Length == 0)
@@ -365,15 +368,15 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
             return rule.ImpactSound;
         }
 
-        if (skillEvent.TargetCount <= 0)
+        if (targetCount <= 0)
         {
             return "";
         }
 
         return rule.ImpactSoundOrder switch
         {
-            SkillSoundOrder.Random => sounds[_soundRandom.Next(sounds.Length)],
-            SkillSoundOrder.Final => impact + 1 >= SkillImpacts.Count(rule, skillEvent.Rank) ? sounds[0] : "",
+            SkillSoundOrder.Random => sounds[random.Next(sounds.Length)],
+            SkillSoundOrder.Final => impact + 1 >= SkillImpacts.Count(rule, rank) ? sounds[0] : "",
             _ => sounds[impact % sounds.Length]
         };
     }
