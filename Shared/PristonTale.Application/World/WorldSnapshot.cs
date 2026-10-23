@@ -269,12 +269,13 @@ public readonly struct WorldSnapshot
 
     // True once a reader pinned the frame; the reader releases it after encoding.
     public bool Pinned { get; init; }
+    public uint PinKey { get; init; }
 
     public void ReleaseFrame()
     {
         if (Pinned)
         {
-            Frame!.Release();
+            Frame!.Release(PinKey);
         }
     }
 
@@ -298,7 +299,7 @@ public readonly struct WorldSnapshot
         Cooldowns = cooldowns
     };
 
-    internal WorldSnapshot WithPin() => this with { Pinned = true };
+    internal WorldSnapshot WithPin(uint key) => this with { Pinned = true, PinKey = key };
 
     public WorldSnapshot WithEvents(CombatEventView[] events) => new(ServerTick, Entities, events, FieldId, Owner, GroundDrops)
     {
@@ -312,6 +313,7 @@ public readonly struct WorldSnapshot
         FrameGeneration = FrameGeneration,
         Cooldowns = Cooldowns,
         Quest = Quest,
-        Pinned = Pinned
+        Pinned = Pinned,
+        PinKey = PinKey
     };
 }

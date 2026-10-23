@@ -13,8 +13,14 @@ public interface IPresenceFrameAttachment
 // outbox can still hand out (older than the field's latest published frame).
 public sealed class PresenceFrame
 {
-    // -1 while the field rebuilds the frame; otherwise the number of encoders reading it.
-    private int _readers;
+    // Thousands of receivers pin the same frame each tick, so pins are counted on separate cache lines (one stripe per
+    // receiver group) instead of one contended counter.
+    private const int Stripes = 64;
+    private const int StripeStride = 16;
+    private const int Rebuilding = -1;
+    private readonly int[] _pins = new int[Stripes * StripeStride];
+    // The frame's generation, or Rebuilding while the field rewrites it.
+    private int _state = Rebuilding;
     private int _generation;
     private IPresenceFrameAttachment? _attachment;
 
@@ -26,7 +32,7 @@ public sealed class PresenceFrame
 
     public EntityView[] Views { get; private set; }
     public EntityGrid Grid { get; }
-    public int Generation => Volatile.Read(ref _generation);
+    public int Generation => _generation;
 
     // Set when a snapshot of this frame went to a writer that never releases it (a plain channel in tests); such a
     // frame is never reused.
@@ -44,41 +50,40 @@ public sealed class PresenceFrame
         return Interlocked.CompareExchange(ref _attachment, created, null) as T ?? created;
     }
 
-    // Pins the frame for reading if it still holds the given generation; false when the field already reused it.
-    public bool TryPin(int generation)
+    // Pins the frame for reading (by the receiver of the given id) if it still holds the given generation; false when the
+    // field already reused it. A pin and a rebuild each write their own word and then read the other's, both through full
+    // fences, so at least one of them sees the other and backs off.
+    public bool TryPin(int generation, uint receiver)
     {
-        var spin = new SpinWait();
-        while (true)
+        ref var pin = ref _pins[(int)(receiver % Stripes) * StripeStride];
+        Interlocked.Increment(ref pin);
+        if (Volatile.Read(ref _state) == generation)
         {
-            var readers = Volatile.Read(ref _readers);
-            if (readers < 0)
-            {
-                return false;
-            }
-
-            if (Interlocked.CompareExchange(ref _readers, readers + 1, readers) == readers)
-            {
-                if (Volatile.Read(ref _generation) == generation)
-                {
-                    return true;
-                }
-
-                Interlocked.Decrement(ref _readers);
-                return false;
-            }
-
-            spin.SpinOnce();
+            return true;
         }
+
+        Interlocked.Decrement(ref pin);
+        return false;
     }
 
-    public void Release() => Interlocked.Decrement(ref _readers);
+    public void Release(uint receiver) => Interlocked.Decrement(ref _pins[(int)(receiver % Stripes) * StripeStride]);
 
     // Field tick only: claims an unpinned frame for a new tick, resizing the views when the entity count changed.
     internal bool TryRebuild(int entityCount)
     {
-        if (Retained || Interlocked.CompareExchange(ref _readers, -1, 0) != 0)
+        if (Retained)
         {
             return false;
+        }
+
+        var open = Interlocked.Exchange(ref _state, Rebuilding);
+        for (var stripe = 0; stripe < Stripes; stripe++)
+        {
+            if (Volatile.Read(ref _pins[stripe * StripeStride]) != 0)
+            {
+                Volatile.Write(ref _state, open);
+                return false;
+            }
         }
 
         _generation++;
@@ -91,7 +96,7 @@ public sealed class PresenceFrame
         return true;
     }
 
-    internal void Publish() => Volatile.Write(ref _readers, 0);
+    internal void Publish() => Interlocked.Exchange(ref _state, _generation);
 }
 
 // The frames of one field: a small pool reused tick after tick by the field's own step.

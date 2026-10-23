@@ -15,7 +15,7 @@ public sealed class FieldPreyView : IPreyView
 
     public IReadOnlyList<PreyCandidate> Nearby(Vector3 position, float radius)
     {
-        _index.Query(position, radius, _query);
+        _index.QueryWithin(position, radius, _query);
         _nearby.Clear();
         foreach (var entry in _query)
         {
@@ -26,6 +26,9 @@ public sealed class FieldPreyView : IPreyView
     }
 
     public IReadOnlyList<PreyCandidate> Candidates => _candidates;
+
+    // Whether a player stands strictly inside the planar circle (the spawner's proximity test).
+    public bool AnyWithin(Vector3 position, float radius) => _index.AnyWithin(position, radius);
 
     public bool TryGet(uint entityId, out PreyCandidate prey) => _byId.TryGetValue(entityId, out prey);
 

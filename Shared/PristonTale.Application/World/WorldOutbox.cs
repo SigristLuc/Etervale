@@ -20,6 +20,8 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
     private int _eventCount;
     private bool _hasState;
     private bool _completed;
+    // Spreads the frame pins of many outboxes over the frame's counters.
+    private readonly uint _pinKey = (uint)Random.Shared.Next();
 
     public WorldOutbox(int eventCapacity = 4096)
     {
@@ -82,8 +84,8 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
             {
                 // A frame the field already reused (only possible for a connection that left its field long ago) carries
                 // no entity state any more.
-                latest = frame.TryPin(latest.FrameGeneration)
-                    ? latest.WithPin()
+                latest = frame.TryPin(latest.FrameGeneration, _pinKey)
+                    ? latest.WithPin(_pinKey)
                     : new WorldSnapshot(latest.ServerTick, [], latest.Events, latest.FieldId, latest.Owner, latest.GroundDrops);
             }
 

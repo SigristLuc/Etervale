@@ -513,7 +513,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     {
         _neighbourScratch.Clear();
         var bounds = EntityCollision.QueryBounds(before, desired, MathF.Max(selfRadius, EntityCollisionRadii.Monster));
-        _collisionIndex.Query(bounds.Center, bounds.Radius, _collisionQuery);
+        _collisionIndex.QueryWithin(bounds.Center, bounds.Radius, _collisionQuery);
         foreach (var entry in _collisionQuery)
         {
             if (entry.Id == selfId)
@@ -543,7 +543,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     private void BuildMonsterNeighbours(uint selfId, Vector3 origin, float distance)
     {
         _neighbourScratch.Clear();
-        _collisionIndex.Query(origin, distance + EntityCollisionRadii.Monster * 2f, _collisionQuery);
+        _collisionIndex.QueryWithin(origin, distance + EntityCollisionRadii.Monster * 2f, _collisionQuery);
         foreach (var entry in _collisionQuery)
         {
             if (entry.Id != selfId && _monsters.TryGetValue(entry.Id, out var other) && other.IsAlive)
@@ -625,17 +625,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
             return false;
         }
 
-        foreach (var prey in _prey.Nearby(worldPosition, PlayerNearRadius))
-        {
-            float dx = prey.Position.X - worldPosition.X;
-            float dz = prey.Position.Z - worldPosition.Z;
-            if ((dx * dx) + (dz * dz) < PlayerNearRadiusSquared)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return _prey.AnyWithin(worldPosition, PlayerNearRadius);
     }
 
     public int EntityCount => _players.Count + _monsters.Count + _npcs.Count;

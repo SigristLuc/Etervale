@@ -52,20 +52,22 @@ internal static class ClientTests
     {
         EntityView Walker(int id, float offset) => new((uint)id, EntityKindView.Player, false, new System.Numerics.Vector3(id + offset, 0, id % 20 * 10f), 0f,
             MoveStateView.Walking, 1, 100, 100, new PlayerAppearanceView("W" + id, 2, 0, 0, 0, "", ""));
+        // The largest crowd a receiver shows at once: the receiver and MaxVisible others.
+        var crowd = Server.Net.PresenceEncoder.MaxVisible + 1;
         var wire = new WireRoundTrip(1);
-        var spawned = wire.PushMerged(new WorldSnapshot(1, Enumerable.Range(1, 300).Select(id => Walker(id, 0)).ToArray(), fieldId: 3));
-        Assert.True(spawned.Spawns.Count == 300, "spawns were held back by the movement budget");
+        var spawned = wire.PushMerged(new WorldSnapshot(1, Enumerable.Range(1, crowd).Select(id => Walker(id, 0)).ToArray(), fieldId: 3));
+        Assert.True(spawned.Spawns.Count == crowd, "spawns were held back by the movement budget");
         var updated = new HashSet<uint>();
         for (uint tick = 2; tick < 42; tick++)
         {
             var before = wire.BytesSent;
-            var update = wire.PushMerged(new WorldSnapshot(tick, Enumerable.Range(1, 300).Select(id => Walker(id, tick)).ToArray(), fieldId: 3));
+            var update = wire.PushMerged(new WorldSnapshot(tick, Enumerable.Range(1, crowd).Select(id => Walker(id, tick)).ToArray(), fieldId: 3));
             // Budget for others, plus the receiver's own entry, at most two PLAYDATAGROUP headers and the tick's clock.
             Assert.True(wire.BytesSent - before <= 2048 + 84 + 2 * 16 + PresenceClockPacket.Size, "a crowd exceeded the per-receiver movement budget");
             updated.UnionWith(update.States.Select(state => state.EntityId));
         }
 
-        Assert.True(updated.Count == 300, "age weighting starved part of the crowd");
+        Assert.True(updated.Count == crowd, "age weighting starved part of the crowd");
         return Task.CompletedTask;
     }
 

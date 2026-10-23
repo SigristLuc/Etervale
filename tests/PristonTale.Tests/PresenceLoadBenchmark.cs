@@ -21,6 +21,8 @@ internal static class PresenceLoadBenchmark
     private const int Field = 2;
     private const uint MechanicBomb = 0x01010002;
     private const int WarmupTicks = 100;
+    public static long ReadTicks;
+    public static long EncodeTicks;
 
     public static void Run(int[] counts, string[] layouts, int ticks)
     {
@@ -120,10 +122,15 @@ internal static class PresenceLoadBenchmark
             var afterTick = GC.GetTotalAllocatedBytes(precise: false);
             Parallel.For(0, count, index =>
             {
+                var t0 = Stopwatch.GetTimestamp();
                 while (outboxes[index].Reader.TryRead(out var snapshot))
                 {
+                    var t1 = Stopwatch.GetTimestamp();
+                    Interlocked.Add(ref ReadTicks, t1 - t0);
                     encoders[index].Encode(snapshot, sinks[index]);
                     snapshot.ReleaseFrame();
+                    Interlocked.Add(ref EncodeTicks, Stopwatch.GetTimestamp() - t1);
+                    t0 = Stopwatch.GetTimestamp();
                 }
             });
             var encoded = Stopwatch.GetTimestamp();
@@ -149,6 +156,9 @@ internal static class PresenceLoadBenchmark
             + $"{allocated / 1024.0 / ticks,8:F1} ({tickAllocated / 1024.0 / ticks:F0} tick, {encodeAllocated / 1024.0 / ticks:F0} encode) | {GC.CollectionCount(0) - gcStart.Item1}/{GC.CollectionCount(1) - gcStart.Item2}/{GC.CollectionCount(2) - gcStart.Item3} | "
             + $"{GC.GetTotalMemory(false) / 1048576.0,6:F0}"));
         sampler?.Print(ticks);
+        Console.WriteLine($"    read {ReadTicks * 1000.0 / Stopwatch.Frequency / (WarmupTicks + ticks):F2} ms/tick cpu, encode {EncodeTicks * 1000.0 / Stopwatch.Frequency / (WarmupTicks + ticks):F2} ms/tick cpu");
+        ReadTicks = 0;
+        EncodeTicks = 0;
         foreach (var player in players)
         {
             _ = world.LeaveAsync(Field, player.EntityId, outboxes[player.EntityId - 1].Writer);

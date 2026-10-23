@@ -74,7 +74,14 @@ public sealed class SpatialIndex
         _locations[id] = key;
     }
 
-    public void Query(Vector3 center, float radius, List<SpatialEntry> results)
+    // Every entry of the cells the square around the circle overlaps, in insertion order (a broad phase).
+    public void Query(Vector3 center, float radius, List<SpatialEntry> results) => Query(center, radius, results, within: false);
+
+    // Only the entries inside the planar circle, in insertion order. In a crowd the overlapped cells hold far more than the
+    // circle, and ordering all of them for every mover dominated the field step.
+    public void QueryWithin(Vector3 center, float radius, List<SpatialEntry> results) => Query(center, radius, results, within: true);
+
+    private void Query(Vector3 center, float radius, List<SpatialEntry> results, bool within)
     {
         results.Clear();
         if (!float.IsFinite(radius) || radius < 0f || !float.IsFinite(center.X) || !float.IsFinite(center.Z))
@@ -85,13 +92,14 @@ public sealed class SpatialIndex
         var minimum = Cell(center - new Vector3(radius, 0, radius));
         var maximum = Cell(center + new Vector3(radius, 0, radius));
         var visits = ((long)maximum.X - minimum.X + 1) * ((long)maximum.Z - minimum.Z + 1);
+        var radiusSq = within ? radius * radius : float.PositiveInfinity;
         if (visits > _cells.Count * 2L)
         {
             foreach (var cell in _cells)
             {
                 if (cell.Key.X >= minimum.X && cell.Key.X <= maximum.X && cell.Key.Z >= minimum.Z && cell.Key.Z <= maximum.Z)
                 {
-                    results.AddRange(cell.Value);
+                    AddWithin(cell.Value, center, radiusSq, results);
                 }
             }
         }
@@ -103,13 +111,62 @@ public sealed class SpatialIndex
                 {
                     if (_cells.TryGetValue((x, z), out var bucket))
                     {
-                        results.AddRange(bucket);
+                        AddWithin(bucket, center, radiusSq, results);
                     }
                 }
             }
         }
 
-        results.Sort(static (left, right) => left.Order.CompareTo(right.Order));
+        if (results.Count > 1)
+        {
+            results.Sort(static (left, right) => left.Order.CompareTo(right.Order));
+        }
+    }
+
+    // True when any entry lies inside the planar circle, without collecting or ordering the entries.
+    public bool AnyWithin(Vector3 center, float radius)
+    {
+        var minimum = Cell(center - new Vector3(radius, 0, radius));
+        var maximum = Cell(center + new Vector3(radius, 0, radius));
+        var radiusSq = radius * radius;
+        for (var z = minimum.Z; z <= maximum.Z; z++)
+        {
+            for (var x = minimum.X; x <= maximum.X; x++)
+            {
+                if (!_cells.TryGetValue((x, z), out var bucket))
+                {
+                    continue;
+                }
+
+                foreach (var entry in bucket)
+                {
+                    if (PlanarDistanceSq(entry.Position, center) < radiusSq)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static void AddWithin(List<SpatialEntry> bucket, Vector3 center, float radiusSq, List<SpatialEntry> results)
+    {
+        foreach (var entry in bucket)
+        {
+            if (PlanarDistanceSq(entry.Position, center) <= radiusSq)
+            {
+                results.Add(entry);
+            }
+        }
+    }
+
+    private static float PlanarDistanceSq(Vector3 a, Vector3 b)
+    {
+        var dx = a.X - b.X;
+        var dz = a.Z - b.Z;
+        return dx * dx + dz * dz;
     }
 
     private (int X, int Z) Cell(Vector3 position)

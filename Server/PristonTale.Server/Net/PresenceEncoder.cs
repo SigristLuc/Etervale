@@ -34,6 +34,10 @@ internal sealed partial class PresenceEncoder
     private readonly Dictionary<uint, Known> _known = new();
     private readonly Dictionary<uint, GroundDropView> _drops = new();
     private readonly List<int> _candidates = new();
+    // The entities a receiver may show at once; the nearest win in a denser crowd.
+    public const int MaxVisible = 256;
+    private readonly VisibleSet _visible = new(MaxVisible);
+    private readonly Func<int, bool> _isShown;
     private readonly MotionCandidates _pending = new(MovementBudgetBytes / PlayDataCoarse.Size);
     private readonly HashSet<uint> _visibleDrops = new();
     private readonly List<uint> _removed = new();
@@ -63,6 +67,7 @@ internal sealed partial class PresenceEncoder
     {
         _self = self;
         _data = data;
+        _isShown = index => _known.ContainsKey(_entities[index].EntityId);
     }
 
     public EntityKindView? KindOf(uint serial)
@@ -129,7 +134,7 @@ internal sealed partial class PresenceEncoder
 
     private void HoldForDescriptions(PresenceFrame? frame, EntityView[] views, EntityGrid? grid)
     {
-        _heldFrame?.Release();
+        _heldFrame?.Release(_self);
         _heldFrame = frame;
         _describeViews = views;
         _describeGrid = grid;
@@ -156,7 +161,7 @@ internal sealed partial class PresenceEncoder
         var self = snapshot.Entities[selfIndex];
         var field = snapshot.FieldId ?? 0;
         // A frame is pinned again for the descriptions asked about this snapshot; a hand-built snapshot is kept as is.
-        if (snapshot.Frame is not { } described || described.TryPin(snapshot.FrameGeneration))
+        if (snapshot.Frame is not { } described || described.TryPin(snapshot.FrameGeneration, _self))
         {
             HoldForDescriptions(snapshot.Frame, snapshot.Entities, grid);
         }
@@ -214,6 +219,7 @@ internal sealed partial class PresenceEncoder
 
         _candidates.Clear();
         _pending.Clear();
+        _visible.Clear();
         grid.Query(self.Position, ForgetRadius, _candidates);
         foreach (var index in _candidates)
         {
@@ -229,6 +235,15 @@ internal sealed partial class PresenceEncoder
                 continue;
             }
 
+            var essential = view.Kind == EntityKindView.Npc || view.AttackTargetId == _self || view.OwnerId == _self || view.EntityId == self.AttackTargetId;
+            _visible.Add(index, distanceSq, essential);
+        }
+
+        _visible.Trim(_isShown);
+        foreach (var (index, _) in _visible.Entries)
+        {
+            ref readonly var view = ref snapshot.Entities[index];
+            var distanceSq = PlanarDistanceSq(view.Position, self.Position);
             var near = distanceSq <= NearRadius * NearRadius;
             if (WriteEntity(ref group, connection, index, tick, field, near) is { } age)
             {
