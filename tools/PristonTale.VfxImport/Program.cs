@@ -4,7 +4,8 @@ using PristonTale.Effects.Vfx;
 using PristonTale.VfxImport;
 
 // ptvfx import <assetRoot>: converts the original effect group scripts (Effect/NewEffect/*.lua) and particle scripts
-// (Effect/Particle/Script/*.part) to effect definitions under <assetRoot>/Effect/Vfx/Scripts and .../Particles, and
+// (Effect/Particle/Script/*.part) to effect definitions under <assetRoot>/Effect/Vfx/Scripts and .../Particles, installs
+// the hand-authored definitions kept with this tool (Authored/**) at the same relative paths under Effect/Vfx, and
 // prints every construct that converted with a caveat.
 if (args.Length != 2 || args[0] != "import")
 {
@@ -19,12 +20,13 @@ foreach (var line in result.Report)
     Console.WriteLine(line);
 }
 
-Console.WriteLine($"{result.Scripts} effect group scripts and {result.Particles} particle scripts converted, {result.Failed} failed.");
+Console.WriteLine($"{result.Scripts} effect group scripts and {result.Particles} particle scripts converted, {result.Authored} authored files installed, "
+    + $"{result.Failed} failed.");
 return result.Failed == 0 ? 0 : 1;
 
 namespace PristonTale.VfxImport
 {
-    internal sealed record ImportResult(int Scripts, int Particles, int Failed, IReadOnlyList<string> Report);
+    internal sealed record ImportResult(int Scripts, int Particles, int Authored, int Failed, IReadOnlyList<string> Report);
 
     internal static class VfxImporter
     {
@@ -53,7 +55,51 @@ namespace PristonTale.VfxImport
                 particles++;
             }
 
-            return new ImportResult(scripts, particles, failed, report);
+            var authored = 0;
+            var source = Path.Combine(AppContext.BaseDirectory, AuthoredFolder);
+            foreach (var file in AuthoredFiles(source))
+            {
+                failed += Install(source, file, output, report) ? 0 : 1;
+                authored++;
+            }
+
+            return new ImportResult(scripts, particles, authored, failed, report);
+        }
+
+        public const string AuthoredFolder = "Authored";
+
+        public static IEnumerable<string> AuthoredFiles(string source)
+        {
+            if (!Directory.Exists(source))
+            {
+                return [];
+            }
+
+            return Directory.EnumerateFiles(source, VfxCatalog.Pattern, SearchOption.AllDirectories).Order(StringComparer.Ordinal);
+        }
+
+        // Authored files are validated before they are copied so a broken one never reaches the game data.
+        private static bool Install(string source, string file, string output, List<string> report)
+        {
+            var relative = Path.GetRelativePath(source, file);
+            try
+            {
+                var text = File.ReadAllText(file);
+                foreach (var definition in VfxDefinition.ParseFile(text))
+                {
+                    definition.Validate();
+                }
+
+                var target = Path.Combine(output, relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                File.WriteAllText(target, text);
+                return true;
+            }
+            catch (Exception exception) when (exception is InvalidDataException or IOException or JsonException)
+            {
+                report.Add($"{relative}: not installed: {exception.Message}");
+                return false;
+            }
         }
 
         private static IEnumerable<string> Files(string directory, string pattern)

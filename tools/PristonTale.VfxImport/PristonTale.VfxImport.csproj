@@ -16,6 +16,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Hand-authored effect definitions installed into the game data by "ptvfx import". -->
+    <None Include="Authored\**\*.vfx.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="PristonTale.Tests" />
   </ItemGroup>
 </Project>

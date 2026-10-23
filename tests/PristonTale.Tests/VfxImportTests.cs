@@ -1,4 +1,5 @@
 using PristonTale.Effects.Vfx;
+using PristonTale.Simulation.Skills;
 using PristonTale.VfxImport;
 
 namespace PristonTale.Tests;
@@ -10,6 +11,7 @@ internal static class VfxImportTests
     {
         yield return ("effect group scripts convert with the original defaults, axes and accepted calls", GroupScriptAsync);
         yield return ("particle scripts convert with the original tokenizer's quirks and failures", ParticleScriptAsync);
+        yield return ("authored definitions kept with the importer validate and cover every skill effect", AuthoredAsync);
     }
 
     private static Task GroupScriptAsync()
@@ -58,6 +60,48 @@ internal static class VfxImportTests
         Assert.True(particles.Blend == VfxBlend.Additive && report.Any(line => line.Contains("blend Alpha", StringComparison.Ordinal))
             && report.Any(line => line.Contains("missing.bmp", StringComparison.Ordinal)), string.Join("; ", report));
         return Task.CompletedTask;
+    }
+
+    // Converted names ("script.", "particle.") need the game data and are checked by the game data case.
+    private static Task AuthoredAsync()
+    {
+        var source = FindAuthored();
+        Assert.True(source is not null, "the importer's Authored folder was not found");
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var files = VfxImporter.AuthoredFiles(source!).ToArray();
+        Assert.True(files.Length > 0, "no authored definitions");
+        foreach (var file in files)
+        {
+            foreach (var definition in VfxDefinition.ParseFile(File.ReadAllText(file)))
+            {
+                definition.Validate();
+                Assert.True(names.Add(definition.Name), $"{definition.Name} is defined twice");
+            }
+        }
+
+        static bool Converted(string name) => name.StartsWith("script.", StringComparison.Ordinal) || name.StartsWith("particle.", StringComparison.Ordinal);
+        var missing = SkillRuleCatalog.All
+            .SelectMany(static rule => new[] { rule }.Concat(rule.Modes).Concat(rule.Charge?.Full is { } full ? [full] : Array.Empty<SkillRule>()))
+            .SelectMany(static rule => new[] { rule.CastEffect, rule.ImpactEffect, rule.ProjectileEffect, rule.BuffEffect, rule.CompanionEffect })
+            .Where(name => name.Length > 0 && !Converted(name) && !names.Contains(name))
+            .Distinct()
+            .ToArray();
+        Assert.True(missing.Length == 0, "skills reference undefined effects: " + string.Join(", ", missing));
+        return Task.CompletedTask;
+    }
+
+    private static string? FindAuthored()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        {
+            var candidate = Path.Combine(directory.FullName, "tools", "PristonTale.VfxImport", VfxImporter.AuthoredFolder);
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     private static Task ParticleScriptAsync()

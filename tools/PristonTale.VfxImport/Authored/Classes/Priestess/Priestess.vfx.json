@@ -1,0 +1,2733 @@
+[
+  {
+    "name": "vfx.priestess.divinelightning.bolt",
+    "duration": 0.5,
+    "emitters": [
+      {
+        "texture": "Effect/AssaEffect/Skill3Texture/light3_01.bmp",
+        "anchor": "Target",
+        "offset": [
+          0,
+          70,
+          0
+        ],
+        "burst": 2,
+        "maxParticles": 4,
+        "rate": 12,
+        "emitTime": 0.25,
+        "lifetime": [
+          0.1,
+          0.18
+        ],
+        "intensity": 5,
+        "softness": 0,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              70
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              60
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.85,
+              0.92,
+              1,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.5,
+              0.65,
+              1,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "texture": "builtin:spark",
+        "anchor": "Target",
+        "offset": [
+          0,
+          10,
+          0
+        ],
+        "burst": 24,
+        "maxParticles": 24,
+        "lifetime": [
+          0.2,
+          0.4
+        ],
+        "speed": [
+          80,
+          200
+        ],
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "spread": 70,
+        "drag": 2,
+        "align": "Velocity",
+        "intensity": 5,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              2.5
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.5
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.85,
+              0.92,
+              1,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.4,
+              0.55,
+              1,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Target",
+        "offset": [
+          0,
+          60,
+          0
+        ],
+        "color": [
+          0.7,
+          0.8,
+          1
+        ],
+        "power": 260,
+        "decay": 7
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.reflection.cast",
+    "duration": 1.3,
+    "emitters": [
+      {
+        "texture": "Effect/Particle/holy_refelection.tga",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          34,
+          0
+        ],
+        "local": true,
+        "burst": 1,
+        "maxParticles": 1,
+        "lifetime": [
+          1.1,
+          1.1
+        ],
+        "softness": 0,
+        "intensity": 2.6,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              10
+            ]
+          },
+          {
+            "t": 0.35,
+            "v": [
+              60
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              64
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.85,
+              0.9,
+              1,
+              0
+            ]
+          },
+          {
+            "t": 0.3,
+            "v": [
+              0.85,
+              0.9,
+              1,
+              0.85
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.6,
+              0.7,
+              1,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "texture": "builtin:glow",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          34,
+          0
+        ],
+        "local": true,
+        "rate": 50,
+        "emitTime": 0.7,
+        "maxParticles": 50,
+        "lifetime": [
+          0.4,
+          0.7
+        ],
+        "speed": [
+          30,
+          60
+        ],
+        "direction": [
+          0,
+          -1,
+          0
+        ],
+        "shape": "Sphere",
+        "radius": [
+          36,
+          40
+        ],
+        "spread": 0,
+        "intensity": 2.6,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              2
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              3
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.85,
+              0.92,
+              1,
+              0
+            ]
+          },
+          {
+            "t": 0.4,
+            "v": [
+              0.85,
+              0.92,
+              1,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.6,
+              0.7,
+              1,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Caster",
+        "offset": [
+          0,
+          34,
+          0
+        ],
+        "color": [
+          0.8,
+          0.88,
+          1
+        ],
+        "power": 160,
+        "decay": 3
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.reflection.aura",
+    "duration": 3,
+    "emitters": [
+      {
+        "texture": "Effect/Particle/holy_refelection.tga",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          34,
+          0
+        ],
+        "local": true,
+        "rate": 0.8,
+        "burst": 1,
+        "maxParticles": 3,
+        "lifetime": [
+          2.4,
+          2.4
+        ],
+        "softness": 0,
+        "intensity": 1.1,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              54
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              58
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.8,
+              0.88,
+              1,
+              0
+            ]
+          },
+          {
+            "t": 0.5,
+            "v": [
+              0.8,
+              0.88,
+              1,
+              0.4
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.6,
+              0.7,
+              1,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.grandhealing.cast",
+    "duration": 1.5,
+    "emitters": [
+      {
+        "texture": "Effect/Particle/maam2.tga",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          2,
+          0
+        ],
+        "local": true,
+        "burst": 1,
+        "maxParticles": 1,
+        "lifetime": [
+          1.4,
+          1.4
+        ],
+        "align": "Ground",
+        "softness": 0,
+        "spin": [
+          50,
+          50
+        ],
+        "intensity": 2.2,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              16
+            ]
+          },
+          {
+            "t": 0.3,
+            "v": [
+              120
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              130
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.5,
+              1,
+              0.6,
+              0
+            ]
+          },
+          {
+            "t": 0.3,
+            "v": [
+              0.55,
+              1,
+              0.65,
+              0.9
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.8,
+              1,
+              0.6,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "texture": "builtin:glow",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          4,
+          0
+        ],
+        "local": true,
+        "rate": 90,
+        "emitTime": 1,
+        "maxParticles": 120,
+        "lifetime": [
+          0.6,
+          1.1
+        ],
+        "speed": [
+          50,
+          100
+        ],
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "shape": "Disc",
+        "radius": [
+          10,
+          110
+        ],
+        "intensity": 3,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              3
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.55,
+              1,
+              0.65,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1,
+              1,
+              0.7,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Caster",
+        "offset": [
+          0,
+          30,
+          0
+        ],
+        "color": [
+          0.55,
+          1,
+          0.65
+        ],
+        "power": 240,
+        "decay": 3
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.vigorball.projectile",
+    "duration": 2,
+    "emitters": [
+      {
+        "texture": "Effect/Particle/Pt3_Vigorball.bmp",
+        "anchor": "Point",
+        "offset": [
+          0,
+          34,
+          0
+        ],
+        "rate": 50,
+        "maxParticles": 48,
+        "lifetime": [
+          0.2,
+          0.35
+        ],
+        "speed": [
+          0,
+          10
+        ],
+        "spread": 180,
+        "intensity": 3,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              14
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              5
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.7,
+              1,
+              0.6,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.3,
+              0.8,
+              0.3,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "trails": [
+      {
+        "texture": "builtin:beam",
+        "anchor": "Point",
+        "offset": [
+          0,
+          34,
+          0
+        ],
+        "width": 12,
+        "lifetime": 0.2,
+        "intensity": 3,
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.7,
+              1,
+              0.6,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.2,
+              0.7,
+              0.3,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.vigorball.impact",
+    "duration": 0.2,
+    "emitters": [
+      {
+        "texture": "builtin:glow",
+        "anchor": "Target",
+        "offset": [
+          0,
+          32,
+          0
+        ],
+        "burst": 1,
+        "maxParticles": 1,
+        "lifetime": [
+          0.3,
+          0.3
+        ],
+        "intensity": 4,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              18
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              50
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.75,
+              1,
+              0.65,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.3,
+              0.8,
+              0.3,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Target",
+        "offset": [
+          0,
+          32,
+          0
+        ],
+        "color": [
+          0.6,
+          1,
+          0.55
+        ],
+        "power": 180,
+        "decay": 6
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.resurrection.rise",
+    "duration": 2,
+    "emitters": [
+      {
+        "texture": "Effect/Particle/Resurrection_Aurora.bmp",
+        "anchor": "Target",
+        "offset": [
+          0,
+          50,
+          0
+        ],
+        "burst": 1,
+        "maxParticles": 1,
+        "lifetime": [
+          1.8,
+          1.8
+        ],
+        "softness": 0,
+        "intensity": 2.4,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              20
+            ]
+          },
+          {
+            "t": 0.3,
+            "v": [
+              90
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              100
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              1,
+              0.97,
+              0.8,
+              0
+            ]
+          },
+          {
+            "t": 0.3,
+            "v": [
+              1,
+              0.97,
+              0.8,
+              0.9
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1,
+              0.9,
+              0.6,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "texture": "builtin:glow",
+        "anchor": "Target",
+        "offset": [
+          0,
+          4,
+          0
+        ],
+        "rate": 70,
+        "emitTime": 1.4,
+        "maxParticles": 110,
+        "lifetime": [
+          0.8,
+          1.2
+        ],
+        "speed": [
+          50,
+          90
+        ],
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "shape": "Ring",
+        "radius": [
+          14,
+          24
+        ],
+        "intensity": 3,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              3
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              1,
+              0.97,
+              0.75,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1,
+              0.85,
+              0.5,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Target",
+        "offset": [
+          0,
+          40,
+          0
+        ],
+        "color": [
+          1,
+          0.95,
+          0.75
+        ],
+        "power": 260,
+        "decay": 2
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.extinction.burst",
+    "duration": 1,
+    "emitters": [
+      {
+        "texture": "builtin:ring",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          4,
+          0
+        ],
+        "burst": 2,
+        "maxParticles": 2,
+        "lifetime": [
+          0.6,
+          0.8
+        ],
+        "align": "Ground",
+        "softness": 0,
+        "intensity": 3,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              20
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              170
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              1,
+              0.95,
+              0.75,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1,
+              0.8,
+              0.4,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Caster",
+        "offset": [
+          0,
+          40,
+          0
+        ],
+        "color": [
+          1,
+          0.95,
+          0.75
+        ],
+        "power": 280,
+        "decay": 4
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.virtuallife.aura",
+    "duration": 3,
+    "emitters": [
+      {
+        "texture": "Effect/Particle/VirtualLife-jin.bmp",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          2,
+          0
+        ],
+        "local": true,
+        "rate": 0.7,
+        "burst": 1,
+        "maxParticles": 3,
+        "lifetime": [
+          2.4,
+          2.4
+        ],
+        "align": "Ground",
+        "softness": 0,
+        "spin": [
+          25,
+          25
+        ],
+        "intensity": 1.3,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              28
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              32
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              1,
+              0.55,
+              0.7,
+              0
+            ]
+          },
+          {
+            "t": 0.5,
+            "v": [
+              1,
+              0.6,
+              0.75,
+              0.6
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1,
+              0.4,
+              0.6,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.glacialspike.spikes",
+    "duration": 1.2,
+    "emitters": [
+      {
+        "texture": "Effect/Particle/ice-org.bmp",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          14,
+          -40
+        ],
+        "rate": 120,
+        "emitTime": 0.35,
+        "maxParticles": 48,
+        "lifetime": [
+          0.7,
+          1
+        ],
+        "speed": [
+          520,
+          600
+        ],
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "spread": 4,
+        "drag": 3.2,
+        "rotation": [
+          0,
+          360
+        ],
+        "intensity": 2.6,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              26
+            ]
+          },
+          {
+            "t": 0.2,
+            "v": [
+              44
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              36
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.7,
+              0.9,
+              1,
+              1
+            ]
+          },
+          {
+            "t": 0.7,
+            "v": [
+              0.6,
+              0.85,
+              1,
+              0.9
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.4,
+              0.6,
+              1,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "texture": "builtin:smoke",
+        "blend": "Alpha",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          6,
+          -40
+        ],
+        "rate": 100,
+        "emitTime": 0.4,
+        "maxParticles": 60,
+        "lifetime": [
+          0.6,
+          1
+        ],
+        "speed": [
+          480,
+          560
+        ],
+        "direction": [
+          0,
+          0.1,
+          -1
+        ],
+        "spread": 6,
+        "drag": 3,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              14
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              32
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.8,
+              0.9,
+              1,
+              0.5
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.85,
+              0.92,
+              1,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Caster",
+        "offset": [
+          0,
+          30,
+          -120
+        ],
+        "color": [
+          0.55,
+          0.8,
+          1
+        ],
+        "power": 260,
+        "decay": 4
+      }
+    ],
+    "children": [
+      {
+        "effect": "particle.IceHIt1",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          10,
+          -120
+        ],
+        "turn": true
+      }
+    ]
+  },
+  {
+    "name": "vfx.debuff.frozen",
+    "duration": 3,
+    "emitters": [
+      {
+        "texture": "Effect/Particle/snow.bmp",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          40,
+          0
+        ],
+        "local": true,
+        "rate": 8,
+        "maxParticles": 20,
+        "lifetime": [
+          0.8,
+          1.2
+        ],
+        "speed": [
+          8,
+          16
+        ],
+        "direction": [
+          0,
+          -1,
+          0
+        ],
+        "shape": "Ring",
+        "radius": [
+          12,
+          20
+        ],
+        "rotation": [
+          0,
+          360
+        ],
+        "intensity": 1.8,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              4
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              3
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.8,
+              0.92,
+              1,
+              0.9
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.5,
+              0.7,
+              1,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "texture": "builtin:ring",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          3,
+          0
+        ],
+        "local": true,
+        "rate": 0.8,
+        "burst": 1,
+        "maxParticles": 3,
+        "lifetime": [
+          2,
+          2
+        ],
+        "align": "Ground",
+        "softness": 0,
+        "intensity": 1.2,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              20
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              24
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.6,
+              0.85,
+              1,
+              0
+            ]
+          },
+          {
+            "t": 0.4,
+            "v": [
+              0.6,
+              0.85,
+              1,
+              0.6
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.4,
+              0.6,
+              1,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.regenfield.cast",
+    "duration": 2,
+    "emitters": [
+      {
+        "texture": "builtin:ring",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          3,
+          0
+        ],
+        "local": true,
+        "burst": 1,
+        "rate": 1.2,
+        "emitTime": 1.2,
+        "maxParticles": 3,
+        "lifetime": [
+          1.1,
+          1.1
+        ],
+        "align": "Ground",
+        "softness": 0,
+        "intensity": 1.6,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              16
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              110
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.55,
+              1,
+              0.75,
+              0.9
+            ]
+          },
+          {
+            "t": 0.6,
+            "v": [
+              0.6,
+              1,
+              0.8,
+              0.5
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.4,
+              0.9,
+              0.6,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "texture": "builtin:glow",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          4,
+          0
+        ],
+        "local": true,
+        "rate": 60,
+        "emitTime": 1.4,
+        "maxParticles": 110,
+        "lifetime": [
+          0.9,
+          1.4
+        ],
+        "speed": [
+          30,
+          60
+        ],
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "shape": "Disc",
+        "radius": [
+          10,
+          100
+        ],
+        "intensity": 2.4,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              3
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.55,
+              1,
+              0.75,
+              0.9
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.8,
+              1,
+              0.7,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Caster",
+        "offset": [
+          0,
+          30,
+          0
+        ],
+        "color": [
+          0.55,
+          1,
+          0.75
+        ],
+        "power": 240,
+        "decay": 2
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.regenfield.aura",
+    "duration": 3,
+    "emitters": [
+      {
+        "texture": "builtin:glow",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          4,
+          0
+        ],
+        "local": true,
+        "rate": 14,
+        "maxParticles": 40,
+        "lifetime": [
+          0.9,
+          1.4
+        ],
+        "speed": [
+          30,
+          50
+        ],
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "shape": "Disc",
+        "radius": [
+          4,
+          22
+        ],
+        "intensity": 2.2,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              3
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.55,
+              1,
+              0.75,
+              0.9
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.8,
+              1,
+              0.7,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.chainlightning.link",
+    "duration": 0.45,
+    "trails": [
+      {
+        "texture": "builtin:beam",
+        "anchor": "Point",
+        "offset": [
+          0,
+          34,
+          0
+        ],
+        "width": 16,
+        "lifetime": 0.3,
+        "intensity": 6,
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.85,
+              0.92,
+              1,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.45,
+              0.6,
+              1,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "texture": "builtin:beam",
+        "anchor": "Point",
+        "offset": [
+          0,
+          28,
+          0
+        ],
+        "width": 6,
+        "lifetime": 0.25,
+        "intensity": 7,
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.6,
+              0.7,
+              1,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "emitters": [
+      {
+        "texture": "Effect/AssaEffect/Skill3Texture/spark04_01.bmp",
+        "anchor": "Target",
+        "offset": [
+          0,
+          30,
+          0
+        ],
+        "delay": 0.08,
+        "burst": 6,
+        "maxParticles": 6,
+        "lifetime": [
+          0.12,
+          0.25
+        ],
+        "shape": "Sphere",
+        "radius": [
+          4,
+          18
+        ],
+        "rotation": [
+          0,
+          360
+        ],
+        "intensity": 5,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              24
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              12
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.85,
+              0.92,
+              1,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.5,
+              0.6,
+              1,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Target",
+        "offset": [
+          0,
+          30,
+          0
+        ],
+        "color": [
+          0.65,
+          0.78,
+          1
+        ],
+        "power": 220,
+        "decay": 8,
+        "delay": 0.08
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.muspell.cast",
+    "duration": 2,
+    "emitters": [
+      {
+        "texture": "builtin:glow",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          80,
+          0
+        ],
+        "local": true,
+        "rate": 60,
+        "emitTime": 1.4,
+        "maxParticles": 90,
+        "lifetime": [
+          0.5,
+          0.9
+        ],
+        "speed": [
+          30,
+          60
+        ],
+        "spread": 180,
+        "shape": "Sphere",
+        "radius": [
+          10,
+          30
+        ],
+        "intensity": 3,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              4
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              1,
+              0.92,
+              0.65,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1,
+              0.65,
+              0.3,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Caster",
+        "offset": [
+          0,
+          70,
+          0
+        ],
+        "color": [
+          1,
+          0.9,
+          0.65
+        ],
+        "power": 260,
+        "decay": 2
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.muspell.spirit",
+    "duration": 3,
+    "emitters": [
+      {
+        "texture": "builtin:glow",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          70,
+          24
+        ],
+        "local": true,
+        "rate": 2,
+        "burst": 1,
+        "maxParticles": 4,
+        "lifetime": [
+          1.2,
+          1.2
+        ],
+        "softness": 0,
+        "intensity": 2.4,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              10
+            ]
+          },
+          {
+            "t": 0.5,
+            "v": [
+              13
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              10
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              1,
+              0.92,
+              0.7,
+              0
+            ]
+          },
+          {
+            "t": 0.4,
+            "v": [
+              1,
+              0.92,
+              0.7,
+              0.8
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1,
+              0.75,
+              0.4,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "texture": "builtin:star",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          70,
+          24
+        ],
+        "local": true,
+        "rate": 4,
+        "maxParticles": 8,
+        "lifetime": [
+          0.5,
+          0.8
+        ],
+        "spin": [
+          60,
+          90
+        ],
+        "intensity": 2.6,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              4
+            ]
+          },
+          {
+            "t": 0.4,
+            "v": [
+              9
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              2
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              1,
+              0.95,
+              0.75,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1,
+              0.7,
+              0.35,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "texture": "builtin:glow",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          70,
+          24
+        ],
+        "local": true,
+        "rate": 10,
+        "maxParticles": 24,
+        "lifetime": [
+          0.6,
+          1
+        ],
+        "speed": [
+          4,
+          12
+        ],
+        "spread": 180,
+        "shape": "Sphere",
+        "radius": [
+          6,
+          16
+        ],
+        "intensity": 2,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              3
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              1,
+              0.92,
+              0.65,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1,
+              0.65,
+              0.3,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "vfx.priestess.muspell.strike",
+    "duration": 0.2,
+    "emitters": [
+      {
+        "texture": "builtin:spark",
+        "anchor": "Target",
+        "offset": [
+          0,
+          32,
+          0
+        ],
+        "burst": 20,
+        "maxParticles": 20,
+        "lifetime": [
+          0.2,
+          0.4
+        ],
+        "speed": [
+          100,
+          220
+        ],
+        "spread": 180,
+        "drag": 2.5,
+        "align": "Velocity",
+        "intensity": 5,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              2.5
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.5
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              1,
+              0.95,
+              0.75,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1,
+              0.6,
+              0.25,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Target",
+        "offset": [
+          0,
+          32,
+          0
+        ],
+        "color": [
+          1,
+          0.9,
+          0.6
+        ],
+        "power": 180,
+        "decay": 6
+      }
+    ],
+    "children": [
+      {
+        "effect": "particle.MuspellHit1",
+        "anchor": "Target",
+        "offset": [
+          0,
+          30,
+          0
+        ],
+        "turn": true
+      }
+    ]
+  },
+  {
+    "name": "vfx.debuff.holymind",
+    "duration": 15,
+    "emitters": [
+      {
+        "texture": "Effect/Particle/circle-2.tga",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          3,
+          0
+        ],
+        "local": true,
+        "rate": 1,
+        "burst": 1,
+        "maxParticles": 3,
+        "lifetime": [
+          2,
+          2
+        ],
+        "align": "Ground",
+        "softness": 0,
+        "intensity": 1.4,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              24
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              32
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.9,
+              0.85,
+              1,
+              0
+            ]
+          },
+          {
+            "t": 0.4,
+            "v": [
+              0.9,
+              0.85,
+              1,
+              0.7
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.7,
+              0.6,
+              1,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "texture": "builtin:glow",
+        "anchor": "Caster",
+        "offset": [
+          0,
+          50,
+          0
+        ],
+        "local": true,
+        "rate": 8,
+        "burst": 1,
+        "maxParticles": 16,
+        "lifetime": [
+          0.8,
+          1.2
+        ],
+        "speed": [
+          10,
+          20
+        ],
+        "direction": [
+          0,
+          -1,
+          0
+        ],
+        "shape": "Ring",
+        "radius": [
+          14,
+          18
+        ],
+        "intensity": 1.8,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              2
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.9,
+              0.85,
+              1,
+              0.9
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.6,
+              0.5,
+              1,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "vfx.impact.spark",
+    "duration": 0.1,
+    "emitters": [
+      {
+        "texture": "Effect/Particle/elec_1.bmp",
+        "anchor": "Target",
+        "offset": [
+          0,
+          30,
+          0
+        ],
+        "burst": 8,
+        "maxParticles": 8,
+        "lifetime": [
+          0.1,
+          0.25
+        ],
+        "shape": "Sphere",
+        "radius": [
+          4,
+          16
+        ],
+        "rotation": [
+          0,
+          360
+        ],
+        "intensity": 5,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              14
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              6
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.8,
+              0.9,
+              1,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.4,
+              0.5,
+              1,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Target",
+        "offset": [
+          0,
+          30,
+          0
+        ],
+        "color": [
+          0.6,
+          0.7,
+          1
+        ],
+        "power": 140,
+        "decay": 8
+      }
+    ],
+    "children": [
+      {
+        "effect": "particle.LightHIt1",
+        "anchor": "Target",
+        "offset": [
+          0,
+          30,
+          0
+        ],
+        "turn": true
+      }
+    ]
+  },
+  {
+    "name": "vfx.projectile.spark",
+    "duration": 2,
+    "emitters": [
+      {
+        "texture": "Effect/Particle/elec_1.bmp",
+        "anchor": "Point",
+        "offset": [
+          0,
+          32,
+          0
+        ],
+        "rate": 60,
+        "maxParticles": 64,
+        "lifetime": [
+          0.08,
+          0.16
+        ],
+        "rotation": [
+          0,
+          360
+        ],
+        "intensity": 4,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              10
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              6
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.7,
+              0.85,
+              1,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.4,
+              0.5,
+              1,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "vfx.impact.holy",
+    "duration": 0.1,
+    "emitters": [
+      {
+        "texture": "builtin:glow",
+        "anchor": "Target",
+        "offset": [
+          0,
+          32,
+          0
+        ],
+        "burst": 1,
+        "maxParticles": 1,
+        "lifetime": [
+          0.35,
+          0.35
+        ],
+        "intensity": 4,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              20
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              50
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.8,
+              0.9,
+              1,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.4,
+              0.6,
+              1,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "texture": "builtin:spark",
+        "anchor": "Target",
+        "offset": [
+          0,
+          32,
+          0
+        ],
+        "burst": 24,
+        "maxParticles": 24,
+        "lifetime": [
+          0.2,
+          0.45
+        ],
+        "speed": [
+          80,
+          200
+        ],
+        "spread": 180,
+        "drag": 2,
+        "align": "Velocity",
+        "intensity": 4,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              2
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.5
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.8,
+              0.9,
+              1,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.3,
+              0.5,
+              1,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Target",
+        "offset": [
+          0,
+          32,
+          0
+        ],
+        "color": [
+          0.6,
+          0.75,
+          1
+        ],
+        "power": 160,
+        "decay": 6
+      }
+    ]
+  },
+  {
+    "name": "vfx.projectile.holy",
+    "duration": 2,
+    "emitters": [
+      {
+        "texture": "builtin:glow",
+        "anchor": "Point",
+        "offset": [
+          0,
+          32,
+          0
+        ],
+        "rate": 70,
+        "maxParticles": 80,
+        "lifetime": [
+          0.2,
+          0.35
+        ],
+        "speed": [
+          0,
+          15
+        ],
+        "spread": 180,
+        "intensity": 4,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              8
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              2
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.6,
+              0.8,
+              1,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.3,
+              0.5,
+              1,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "trails": [
+      {
+        "texture": "builtin:beam",
+        "anchor": "Point",
+        "offset": [
+          0,
+          32,
+          0
+        ],
+        "width": 10,
+        "lifetime": 0.18,
+        "intensity": 3,
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.7,
+              0.85,
+              1,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.3,
+              0.5,
+              1,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "vfx.heal",
+    "duration": 1.4,
+    "emitters": [
+      {
+        "texture": "builtin:glow",
+        "anchor": "Target",
+        "offset": [
+          0,
+          0,
+          0
+        ],
+        "local": true,
+        "rate": 60,
+        "emitTime": 1,
+        "maxParticles": 80,
+        "lifetime": [
+          0.6,
+          1
+        ],
+        "speed": [
+          40,
+          80
+        ],
+        "direction": [
+          0,
+          1,
+          0
+        ],
+        "shape": "Disc",
+        "radius": [
+          4,
+          22
+        ],
+        "intensity": 3,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              3
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.5,
+              1,
+              0.6,
+              0
+            ]
+          },
+          {
+            "t": 0.2,
+            "v": [
+              0.6,
+              1,
+              0.65,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              1,
+              1,
+              0.7,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "texture": "builtin:ring",
+        "anchor": "Target",
+        "offset": [
+          0,
+          2,
+          0
+        ],
+        "local": true,
+        "burst": 1,
+        "maxParticles": 1,
+        "lifetime": [
+          1.2,
+          1.2
+        ],
+        "align": "Ground",
+        "softness": 0,
+        "intensity": 2,
+        "size": [
+          {
+            "t": 0,
+            "v": [
+              8
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              40
+            ]
+          }
+        ],
+        "color": [
+          {
+            "t": 0,
+            "v": [
+              0.5,
+              1,
+              0.6,
+              1
+            ]
+          },
+          {
+            "t": 1,
+            "v": [
+              0.5,
+              1,
+              0.6,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "lights": [
+      {
+        "anchor": "Target",
+        "offset": [
+          0,
+          30,
+          0
+        ],
+        "color": [
+          0.5,
+          1,
+          0.6
+        ],
+        "power": 160,
+        "decay": 3
+      }
+    ]
+  }
+]
