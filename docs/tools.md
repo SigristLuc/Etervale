@@ -21,7 +21,7 @@ JSON, UI font) and the Blender helper scripts in `3d_glb/blender/`. None of them
 | `tools/PristonTale.GltfExport/` | `ptgltf`: `.smd`/`.smb`/`.inx` to glTF 2.0 via SharpGLTF; also referenced by the regression runner |
 | `tools/PristonTale.WorldImport/` | `ptworld`: migrations plus import of the CP949 GameServer configuration; see [world-import.md](world-import.md) |
 | `tools/PristonTale.DevAccounts/` | `ptdevaccounts`: accounts, characters and load-test accounts through the real repositories |
-| `tools/PristonTale.SmokeClient/` | Protocol smoke test: login, character, world entry, presence, one skill cast |
+| `tools/PristonTale.SmokeClient/` | Protocol smoke test: login, character, world entry, presence, quest journal and request, one skill cast |
 | `tools/PristonTale.LoadTest/` | Headless bots that log in, enter the world and walk while reporting movement |
 | `tools/PristonTale.WorldJson/` | `ptworldjson`: dumps `WorldCatalog` fields, gates and warps to `world.json` |
 | `tools/PristonTale.VfxImport/` | `ptvfx`: converts the original effect scripts and installs the authored effect definitions into `<assetRoot>/Effect/Vfx` |
@@ -192,8 +192,9 @@ dotnet run --project tools/PristonTale.SmokeClient -c Release --no-build -- tcp:
 | `--skill <hex>` | `0x01010001` | Skill code, parsed as hex with or without `0x` |
 
 Sequence: login, list characters, create a Mechanician named `Smoke<6 hex>` (without `--character`), list again, enter
-the world, read the world catalog, read presence for up to 10 s (requires at least one spawn and the owner status),
-send one movement 20 units from the spawn, cast the skill with no target and wait up to 8 s.
+the world, read the world catalog, read presence for up to 10 s (requires at least one spawn, the owner status and the
+quest journal), send a quest talk without an NPC (it must be refused as out of reach), send one movement 20 units from
+the spawn, cast the skill with no target and wait up to 8 s.
 
 - Without `--character` any cast result passes; a new character normally gets a refusal (skill not learned, in town).
 - With `--character` the cast must be accepted and produce its start and impact skill events. The character must have

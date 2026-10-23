@@ -81,6 +81,7 @@ public static class CharacterRecordFactory
             Exp = character.Experience,
             Money = character.Money,
             StatPoints = character.StatPoints,
+            Tier = character.Tier,
             Strength = attributes.Strength,
             Spirit = attributes.Spirit,
             Talent = attributes.Talent,
@@ -100,6 +101,7 @@ public static class CharacterRecordFactory
             CharacterStateCodec.CaptureEquipment(character),
             CharacterStateCodec.CaptureSkills(character),
             DerivedStatsDto.From(character.Derived),
-            SavedPremium.Capture(character));
+            SavedPremium.Capture(character),
+            QuestStateCodec.Capture(character.Quests));
     }
 }

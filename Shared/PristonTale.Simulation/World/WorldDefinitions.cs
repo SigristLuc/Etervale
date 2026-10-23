@@ -196,7 +196,8 @@ public sealed class WorldCatalog
             Mine1Field.Definition,
             BossField.Definition,
             LostField.Definition,
-            LosttempleField.Definition
+            LosttempleField.Definition,
+            QuestArenaField.Definition
         ];
 
         _fieldsById = AllFields.ToDictionary(static field => field.Id);

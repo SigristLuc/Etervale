@@ -4,6 +4,7 @@ using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
 using PristonTale.Protocol.Transport;
 using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Loot;
 
 namespace PristonTale.Server.Net;
@@ -160,7 +161,7 @@ internal sealed partial class PresenceEncoder
         foreach (var index in _candidates)
         {
             var view = snapshot.Entities[index];
-            if (view.EntityId == _self)
+            if (view.EntityId == _self || HiddenInArena(field, view))
             {
                 continue;
             }
@@ -220,6 +221,21 @@ internal sealed partial class PresenceEncoder
         SendOwner(snapshot.Owner, connection);
         SendPremium(snapshot.Owner, connection);
         SendCooldowns(snapshot, connection);
+        QuestWireMapping.Send(snapshot.Quest, (write, capacity) => SendSized(connection, write, capacity));
+    }
+
+    // The duel arena is solo: a player sees only the opponent and helper of its own duel.
+    private bool HiddenInArena(int field, in EntityView view) =>
+        field == QuestArena.FieldCode && view.Kind != EntityKindView.Npc && (view.Kind == EntityKindView.Player || view.DuelPlayerId != _self);
+
+    private void SendSized(IPacketSink connection, Func<Span<byte>, int> write, int capacity)
+    {
+        if (capacity > _scratch.Length)
+        {
+            throw new InvalidOperationException("Quest message exceeds the frame size.");
+        }
+
+        connection.Send(_scratch.AsSpan(0, write(_scratch)));
     }
 
     // Writes spawns and discrete changes immediately. Returns the age in ticks of a due position-only update, which the

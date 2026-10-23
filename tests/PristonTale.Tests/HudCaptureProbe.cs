@@ -11,11 +11,13 @@ using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Gameplay.UI;
 using PristonTale.Gameplay.UI.Inventory;
 using PristonTale.Gameplay.UI.Npc;
+using PristonTale.Gameplay.UI.Quests;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Tests;
@@ -37,7 +39,25 @@ internal sealed class HudCaptureProbe : Game
         AllocateArrow,
         ShopItem,
         WarehouseItem,
-        Buff
+        Buff,
+        QuestTimer,
+        ClassChange,
+        QuestOk
+    }
+
+    // Quest states a scenario sets up: the server's answer to the talk, the journal and the clicks that follow.
+    private enum ProbeQuest
+    {
+        None,
+        Dialog,
+        Confirm,
+        RewardList,
+        RewardView,
+        ClassChange,
+        Window,
+        WindowDescription,
+        Timer,
+        SkillReset
     }
 
     private const uint SkillMasterNpc = 7;
@@ -48,7 +68,8 @@ internal sealed class HudCaptureProbe : Game
     private sealed record Scenario(string Name, int Width, int Height, Keys Panel = Keys.None, Hover Hover = Hover.None, int HealthPercent = 100,
         PlayerClass Class = PlayerClass.Mechanician, bool Npc = false, bool Settings = false, bool SystemMenu = false, bool Learned = false,
         bool Training = false, bool LowHealth = false, float Hour = 13, bool ClassicTarget = false, uint Target = 2, uint NpcId = SkillMasterNpc,
-        int ServiceButton = -1, bool SellMode = false, int ServiceCount = 2, int RightSelect = -1, bool Buffs = false, bool Block = false);
+        int ServiceButton = -1, bool SellMode = false, int ServiceCount = 2, int RightSelect = -1, bool Buffs = false, bool Block = false,
+        ProbeQuest Quest = ProbeQuest.None);
 
     private static readonly Scenario[] Scenarios =
     [
@@ -101,7 +122,18 @@ internal sealed class HudCaptureProbe : Game
         new("npc-warehouse-1600x1200-scale2", 1600, 1200, Npc: true, NpcId: WarehouseNpc, ServiceButton: 1),
         new("system-menu-800", 800, 600, SystemMenu: true),
         new("settings-800", 800, 600, Hover: Hover.SettingsRow, Settings: true),
-        new("settings-1600x1200-scale2", 1600, 1200, Settings: true)
+        new("settings-1600x1200-scale2", 1600, 1200, Settings: true),
+        new("quest-dialog-800", 800, 600, Hover: Hover.QuestOk, Npc: true, Quest: ProbeQuest.Dialog),
+        new("quest-confirm-800", 800, 600, Npc: true, Quest: ProbeQuest.Confirm),
+        new("quest-reward-list-800", 800, 600, Npc: true, Quest: ProbeQuest.RewardList),
+        new("quest-reward-view-800", 800, 600, Npc: true, Quest: ProbeQuest.RewardView),
+        new("quest-class-change-800", 800, 600, Hover: Hover.ClassChange, Npc: true, Quest: ProbeQuest.ClassChange),
+        new("quest-window-800", 800, 600, Keys.Q, Quest: ProbeQuest.Window),
+        new("quest-window-description-800", 800, 600, Keys.Q, Quest: ProbeQuest.WindowDescription),
+        new("quest-window-1600x1200-scale2", 1600, 1200, Keys.Q, Quest: ProbeQuest.WindowDescription),
+        new("quest-timer-800", 800, 600, Hover: Hover.QuestTimer, Quest: ProbeQuest.Timer),
+        new("quest-timer-buffs-800", 800, 600, Buffs: true, Quest: ProbeQuest.Timer),
+        new("quest-skill-reset-800", 800, 600, Quest: ProbeQuest.SkillReset)
     ];
 
     private readonly string _assetRoot;
@@ -145,7 +177,8 @@ internal sealed class HudCaptureProbe : Game
         _hud = new GameplayHud(context,
             _ => Task.FromResult(new InventoryOutcome(false, 0, "Capture fixture: commands disabled")),
             interactNpc: id => Task.FromResult(Interaction(id)),
-            requestNpcService: command => Task.FromResult(Reply(command)));
+            requestNpcService: command => Task.FromResult(Reply(command)),
+            requestQuest: command => Task.FromResult(QuestReply(command)));
         _hud.CharacterName = "Panzer";
         _hud.CharacterClass = PlayerClass.Mechanician;
         var player = new CharacterClassRegistry().CreatePlayer(PlayerClass.Mechanician, "Panzer");
@@ -244,6 +277,8 @@ internal sealed class HudCaptureProbe : Game
             _presentation.Requested = _presentation.Requested with { ClassicTargetHealthBar = scenario.ClassicTarget };
             var state = ScenarioState(scenario);
             var layout = HudLayout.Create(scenario.Width, scenario.Height);
+            _quest = scenario.Quest;
+            _hud.ObserveQuests(new PresenceUpdate(1, [], [], [], []) { Quest = QuestJournal(scenario.Quest) });
             if (scenario.Npc)
             {
                 _hud.OpenNpc(scenario.NpcId);
@@ -283,6 +318,16 @@ internal sealed class HudCaptureProbe : Game
                 _hud.Update(state, default, new MouseState(x, y, 0, ButtonState.Released, ButtonState.Released, ButtonState.Released,
                     ButtonState.Released, ButtonState.Released));
                 Console.WriteLine($"HUD {scenario.Name}: right socket {_hud.Bindings.RightSkillId:X8}");
+            }
+
+            if (scenario.Quest == ProbeQuest.Confirm)
+            {
+                Click(state, layout, HudQuestDialog.OkButton.Center);
+            }
+
+            if (scenario.Quest == ProbeQuest.WindowDescription)
+            {
+                Click(state, layout, HudQuestWindow.Row(HudQuestWindow.Origin(layout), 0).Center);
             }
 
             if (scenario.Training)
@@ -368,6 +413,9 @@ internal sealed class HudCaptureProbe : Game
             Hover.ShopItem => HudStoreLayout.Cell(HudStoreLayout.Origin(0), 0, 2, 3).Center,
             Hover.WarehouseItem => HudStoreLayout.Cell(HudStoreLayout.Origin(0), 2, 2, 3).Center,
             Hover.Buff => new Point(10 + 16, 26),
+            Hover.QuestTimer => new Point(10 + 16, 26),
+            Hover.ClassChange => HudNpcPanel.ClassChangeButton(layout).Center,
+            Hover.QuestOk => HudQuestDialog.OkButton.Center,
             _ => new Point(layout.Width - 200, layout.Height / 2)
         };
         return new MouseState(point.X * layout.Scale, point.Y * layout.Scale, 0,
@@ -410,6 +458,46 @@ internal sealed class HudCaptureProbe : Game
                 ["Bem-vindo à escola de habilidades. Escolha uma habilidade para aprender ou melhorar.", "안녕하세요. 스킬을 선택하세요."], "")
         };
     }
+
+    private ProbeQuest _quest;
+
+    // The server's answer to the probe's quest talk.
+    private QuestOutcome QuestReply(QuestCommand command)
+    {
+        var rewards = new[] { "Minotaur Axe", "Extreme Talon", "Dragon Bone Hammer", "Hellfire Scythe", "Revenge Bow", "Immortal Sword", "Salamander Javelin",
+            "Gothic Staff" };
+        var documents = Enumerable.Range(1, 8).Select(index => $"haQuestFuryItem{index}").ToArray();
+        QuestPrompt? prompt = _quest switch
+        {
+            ProbeQuest.Dialog or ProbeQuest.Confirm => QuestSteps.Confirm(QuestCode.Level30, 0, "LevelQuest30start", QuestTexts.SearchQuest),
+            ProbeQuest.RewardList => new QuestPrompt(QuestCode.FuryOfPhantom, 12, "100LVQuest_7End", QuestFollowup.ChooseFromList)
+            {
+                Title = QuestTexts.FuryTitle,
+                Choices = rewards,
+                ChoiceDocuments = documents
+            },
+            ProbeQuest.RewardView => new QuestPrompt(QuestCode.FuryOfPhantom, 13, documents[1], QuestFollowup.ConfirmChoice)
+            {
+                Title = QuestTexts.FuryTitle,
+                Choices = rewards,
+                ChoiceDocuments = documents,
+                Choice = 2
+            },
+            _ => null
+        };
+        return new QuestOutcome(true, QuestStatus.Ok, "", 1, prompt, []) { ClassChangeOffered = _quest == ProbeQuest.ClassChange };
+    }
+
+    private static QuestView QuestJournal(ProbeQuest quest) => quest switch
+    {
+        ProbeQuest.Window or ProbeQuest.WindowDescription => new QuestView(2, QuestCode.Level30, 1, "Bargon", 7, 20, QuestTimerKind.None, 0,
+            [new QuestBoardEntry("For her", "LevelQuest\\Quest30.Msg"), new QuestBoardEntry("Rank up quest", "ChangeJob1a.Msg")],
+            [new QuestBoardEntry("A tired warehouse keeper(Complete)", "HaQuest\\Quest_tired_1end.msg")]),
+        ProbeQuest.Timer => new QuestView(3, QuestCode.RankUpMasterTrial, 1, "Muffin", 12, 50, QuestTimerKind.Expiring, 2_450_000,
+            [new QuestBoardEntry("Job Quest 3th[1]", "Quest4\\ChangeJob4_1.msg")], []),
+        ProbeQuest.SkillReset => new QuestView(4, QuestCode.None, 0, "", 0, 0, QuestTimerKind.None, 0, [], []) { SkillResetOffered = true },
+        _ => new QuestView(1, QuestCode.None, 0, "", 0, 0, QuestTimerKind.None, 0, [], [])
+    };
 
     private NpcServiceReply Reply(NpcServiceCommand command)
     {
