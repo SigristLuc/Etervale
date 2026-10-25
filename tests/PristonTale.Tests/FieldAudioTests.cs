@@ -73,6 +73,12 @@ internal static class FieldAudioTests
         var codes = CharacterSoundBanks.Directories.Select(bank => bank.Code).ToHashSet();
         Assert.True(codes.Contains(0x1600) && codes.Contains(LegacyNpcSoundCode.Wolverine) && codes.Contains(LegacyNpcSoundCode.Morif)
             && Enumerable.Range(1, 10).All(codes.Contains), "a monster, NPC or class bank is missing");
+        foreach (var keyword in (string[])["Greedy", "Hestian", "ISoldier", "Lizard_Papa", "UndeadStalker", "Yagditha"])
+        {
+            var code = LegacyNpcSoundCode.Resolve(keyword);
+            Assert.True(code >= 0x6000 && codes.Contains(code), $"the newer monster sound {keyword} has no code or bank");
+        }
+
         var root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "assets");
         if (Directory.Exists(Path.Combine(root, "wav")))
         {

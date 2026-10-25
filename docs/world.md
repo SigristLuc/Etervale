@@ -510,7 +510,10 @@ Ruinen Village (6), Navisko (9), Forbidden Land (12), Eura (29), Land of Chaos (
   castle ownership yet.
 
 `LegacyNpcSoundCode.Resolve(key)` maps the authored sound keyword of a monster or NPC to its sound family code. The
-importer stores it; the client audio library and the AI rules key on it.
+importer stores it; the client audio library and the AI rules key on it. The 54 keywords of monsters newer than the
+original sound table (Greedy, Hestian, the invaders, the lizards, the mine and laboratory monsters...) have Etervale's
+own codes from 0x6000, one per sound folder; MapleFairy, MapleTree, Furia, Lucifer, KhanDoor, LizardDoor, Sakura and
+Soldier_D have no sound folder and stay silent.
 
 ## Driving surface (Application)
 

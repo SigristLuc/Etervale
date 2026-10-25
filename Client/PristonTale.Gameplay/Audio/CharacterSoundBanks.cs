@@ -1,7 +1,8 @@
 namespace PristonTale.Gameplay.Audio;
 
 // The sound folder of every character sound code: monsters and summons by their sound code, NPCs, and player classes by
-// class code. Data from the legacy sound table; folders the assets do not ship are left out. Edit entries, not structure.
+// class code. Data from the original sound table, then Etervale's own codes (0x6000 on) for the monsters newer than it;
+// folders the assets do not ship are left out. Edit entries, not structure.
 public static class CharacterSoundBanks
 {
     public static readonly (int Code, string Directory)[] Directories =
@@ -169,6 +170,60 @@ public static class CharacterSoundBanks
         (0x0007, "wav/Effects/Player/Magician"),
         (0x5130, "wav/Effects/monster/Watermelon"),
         (0x0009, "wav/Effects/Player/Assassin"),
-        (0x000A, "wav/Effects/Player/Shaman")
+        (0x000A, "wav/Effects/Player/Shaman"),
+        (0x6000, "wav/Effects/monster/Acero"),
+        (0x6010, "wav/Effects/monster/Arcuda"),
+        (0x6020, "wav/Effects/monster/Arhdyra"),
+        (0x6030, "wav/Effects/monster/Billy"),
+        (0x6040, "wav/Effects/monster/Chalybs"),
+        (0x6050, "wav/Effects/monster/Crios"),
+        (0x6060, "wav/Effects/monster/Cstone"),
+        (0x6070, "wav/Effects/monster/DevilShy"),
+        (0x6080, "wav/Effects/monster/Dey"),
+        (0x6090, "wav/Effects/monster/DMystery"),
+        (0x60A0, "wav/Effects/monster/Draxos"),
+        (0x60B0, "wav/Effects/monster/Faugn"),
+        (0x60C0, "wav/Effects/monster/Greedy"),
+        (0x60D0, "wav/Effects/monster/Gurkob"),
+        (0x60E0, "wav/Effects/monster/Hestian"),
+        (0x60F0, "wav/Effects/monster/Hound"),
+        (0x6100, "wav/Effects/monster/IBomber"),
+        (0x6110, "wav/Effects/monster/IceSerpent"),
+        (0x6120, "wav/Effects/monster/IceWorm"),
+        (0x6130, "wav/Effects/monster/IElite"),
+        (0x6140, "wav/Effects/monster/Ignis"),
+        (0x6150, "wav/Effects/monster/Inferno"),
+        (0x6160, "wav/Effects/monster/ISoldier"),
+        (0x6170, "wav/Effects/monster/ITechnician"),
+        (0x6180, "wav/Effects/monster/Koon"),
+        (0x6190, "wav/Effects/monster/Lena"),
+        (0x61A0, "wav/Effects/monster/LEngineer"),
+        (0x61B0, "wav/Effects/monster/LGuardian"),
+        (0x61C0, "wav/Effects/monster/Lizard_Bigmama"),
+        (0x61D0, "wav/Effects/monster/Lizard_Commander"),
+        (0x61E0, "wav/Effects/monster/Lizard_Doctor"),
+        (0x61F0, "wav/Effects/monster/Lizard_Elder"),
+        (0x6200, "wav/Effects/monster/Lizard_Papa"),
+        (0x6210, "wav/Effects/monster/Lizard_Soldier"),
+        (0x6220, "wav/Effects/monster/LTechnician"),
+        (0x6230, "wav/Effects/monster/marionette"),
+        (0x6240, "wav/Effects/monster/Midranda"),
+        (0x6250, "wav/Effects/monster/Minebat"),
+        (0x6260, "wav/Effects/monster/MineGolem"),
+        (0x6270, "wav/Effects/monster/Najan"),
+        (0x6280, "wav/Effects/monster/Nihil"),
+        (0x6290, "wav/Effects/monster/PumpkinGhost"),
+        (0x62A0, "wav/Effects/monster/RGuard"),
+        (0x62B0, "wav/Effects/monster/Sathla"),
+        (0x62C0, "wav/Effects/monster/SealCrasher"),
+        (0x62D0, "wav/Effects/monster/Shogoth"),
+        (0x62E0, "wav/Effects/monster/Snowman"),
+        (0x62F0, "wav/Effects/monster/Tarantulika"),
+        (0x6300, "wav/Effects/monster/Tulla"),
+        (0x6310, "wav/Effects/monster/UndeadManager"),
+        (0x6320, "wav/Effects/monster/UndeadMiner"),
+        (0x6330, "wav/Effects/monster/UndeadStalker"),
+        (0x6340, "wav/Effects/monster/WLord"),
+        (0x6350, "wav/Effects/monster/Yagditha")
     ];
 }
