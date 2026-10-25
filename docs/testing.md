@@ -178,7 +178,7 @@ when reading those assets is authorized. GPU probes:
 | `--capture-job-heads <assets> <content> <output.png>` | yes | Job-head presentation capture |
 | `--capture-equipment <assets> <content> <output-dir>` | yes | Equipment captures |
 | `--capture-ranged-equipment <assets> <content> <output-dir>` | yes | Bow and crossbow attachment captures |
-| `--capture-ground-loot <assets> <content> <output-dir>` | yes | Ground drop elevation, coordinate remapping and distinct label click targets |
+| `--capture-ground-loot <assets> <content> <output.png>` | yes | Ground drop elevation, coordinate remapping and distinct label click targets; `<output>-close.png` shows how the drops lie (weapons flat) |
 | `--capture-combat-effects <assets> <content> <output-dir>` | yes | Temporary lights, meteors and the return effect over time |
 | `--capture-monster-skills <assets> <content> <output-dir> [<case,case,...>]` | yes | Real monsters' attack, skill and death clips with their effects, and monster statuses on a player |
 | `--capture-potions <assets> <content> <output-dir>` | yes | Potion particle captures over time |

@@ -4,6 +4,7 @@ using PristonTale.Client.Net.Presence;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Loot;
 
 namespace PristonTale.Gameplay.World.Remote;
@@ -96,7 +97,7 @@ public sealed class GroundLootPresentation(IActorScene scene, PristonActorLoader
             if (!entry.Handle.IsValid && !entry.PublishFailed && entry.Preparation.IsCompletedSuccessfully && uploads < 1)
             {
                 var actor = entry.Preparation.Result;
-                entry.Offset = -actor.Mesh.Bounds.Min.Y;
+                entry.Offset = -RestingHeight(actor.Mesh.Bounds, entry.Rotation);
                 try
                 {
                     entry.Handle = scene.AddActor(new PristonActorInstance(actor, World(entry), PristonActorMotion.Stand));
@@ -117,7 +118,31 @@ public sealed class GroundLootPresentation(IActorScene scene, PristonActorLoader
         }
     }
 
-    private static Matrix World(Entry entry) => Matrix.CreateTranslation(entry.Position + Vector3.Up * (entry.Offset + 0.5f));
+    private static Matrix World(Entry entry) => entry.Rotation * Matrix.CreateTranslation(entry.Position + Vector3.Up * (entry.Offset + 0.5f));
+
+    // A drop lies as the original lays it: turned by a yaw drawn from its position, and a weapon turned a quarter turn
+    // about X so it lies flat instead of standing on its tip.
+    internal static Matrix Orientation(GroundDropView drop)
+    {
+        int turn = (int)MathF.Round(drop.Position.X * 256f) + (int)MathF.Round(drop.Position.Z * 256f) >> 2 & 4095;
+        var yaw = Matrix.CreateRotationY(turn * MathHelper.TwoPi / 4096f);
+        return IsWeapon(drop) ? Matrix.CreateRotationX(MathHelper.PiOver2) * yaw : yaw;
+    }
+
+    private static bool IsWeapon(GroundDropView drop) =>
+        LegacyItemCode.TryParse(drop.CatalogKey, out var code) && (code & 0xFF00_0000u) == 0x0100_0000u;
+
+    // The lowest point of the turned mesh, so it rests on the floor whichever way it lies.
+    private static float RestingHeight(BoundingBox bounds, Matrix rotation)
+    {
+        float lowest = float.MaxValue;
+        foreach (var corner in bounds.GetCorners())
+        {
+            lowest = MathF.Min(lowest, Vector3.Transform(corner, rotation).Y);
+        }
+
+        return lowest;
+    }
 
     public bool TryGet(Guid id, out Vector3 position)
     {
@@ -217,6 +242,7 @@ public sealed class GroundLootPresentation(IActorScene scene, PristonActorLoader
     private sealed class Entry(GroundDropView drop, Task<PristonActor> preparation)
     {
         public GroundDropView Drop { get; } = drop;
+        public Matrix Rotation { get; } = Orientation(drop);
         public Task<PristonActor> Preparation { get; } = preparation;
         public ActorHandle Handle { get; set; } = ActorHandle.None;
         public Vector3 Position { get; set; }

@@ -231,6 +231,9 @@ flip Z themselves.
   are loading waits in `_preparingActors` and keeps receiving the latest state. A player appearance change re-composes
   the actor from the drawn pose. Summons record their owner and are not pickable; summons and crystal pets carry
   a name plate (`SummonPlates`, drawn after the ground labels) at the model's authored height.
+- `GroundLootPresentation` lays each drop as the original does: a yaw drawn from its position
+  (`(x + z) >> 2` in fixed point, 4096 per turn), and weapons (`0x01xxxxxx` codes) turned a quarter turn about X so they
+  lie flat. The turned mesh rests on the floor by its lowest rotated corner (`GroundLootPresentation.Orientation`).
 
 ## Local player: prediction and authority
 

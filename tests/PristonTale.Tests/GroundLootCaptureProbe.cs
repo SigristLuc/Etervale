@@ -49,6 +49,8 @@ internal sealed class GroundLootCaptureProbe : Game
             Drop("GG101", "Gold", 13, 0),
             Drop("GG101", "Gold", 15, 0),
             Drop("WA101", "Stone Axe", 1, -60),
+            Drop("WS101", "Short Sword", 1, -120),
+            Drop("WP101", "Wooden Spear", 1, 120),
             Drop("PL101", "Mini Life Potion", 1, 60)
         ];
         _ground.Apply(new PresenceUpdate(1, [], [], [], []) { GroundAdded = _drops });
@@ -133,8 +135,23 @@ internal sealed class GroundLootCaptureProbe : Game
 
         GraphicsDevice.SetRenderTarget(null);
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(_output))!);
-        using var stream = File.Create(_output);
-        target.SaveAsPng(stream, 960, 540);
+        using (var stream = File.Create(_output))
+        {
+            target.SaveAsPng(stream, 960, 540);
+        }
+
+        // A close look at how each drop lies: weapons flat, every drop turned by its position's yaw.
+        GraphicsDevice.SetRenderTarget(target);
+        GraphicsDevice.Clear(new Color(42, 48, 54));
+        _camera.SetScriptedView(GraphicsDevice, new Vector3(0, 110, 90), new Vector3(0, 50, 20));
+        _renderer.Draw(_camera);
+        _renderer.ComposeScene();
+        GraphicsDevice.SetRenderTarget(null);
+        using (var close = File.Create(Path.ChangeExtension(_output, null) + "-close.png"))
+        {
+            target.SaveAsPng(close, 960, 540);
+        }
+
         Console.WriteLine($"Verified ground elevation, coordinate remapping and {_drops.Length} distinct label click targets: {_output}");
         Exit();
     }
