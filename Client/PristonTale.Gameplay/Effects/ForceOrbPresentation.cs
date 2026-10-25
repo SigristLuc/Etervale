@@ -17,7 +17,7 @@ public sealed class ForceOrbPresentation
     private readonly EffectsEngine _engine;
     private readonly PristonTransientLights _lights;
     private readonly EffectDefinition _hit;
-    private readonly Dictionary<uint, Glow> _active = new();
+    private readonly Dictionary<ulong, Glow> _active = new();
 
     public ForceOrbPresentation(SkillPresentation skills, LegacyEffectLibrary library, string assetRoot, EffectsEngine engine, PristonTransientLights lights)
     {
@@ -29,7 +29,7 @@ public sealed class ForceOrbPresentation
 
     public int ActiveCount => _active.Count;
 
-    public void Observe(PresenceUpdate update, Func<uint, Vector3?> position, double nowMs)
+    public void Observe(PresenceUpdate update, Func<ulong, Vector3?> position, double nowMs)
     {
         foreach (var status in update.StatusEffects)
         {
@@ -65,7 +65,7 @@ public sealed class ForceOrbPresentation
     }
 
     // Keeps a glow on every holder of a running orb; a glow lasts 30 s and is renewed until the orb ends.
-    public void Update(double nowMs, Func<uint, Vector3?> position)
+    public void Update(double nowMs, Func<ulong, Vector3?> position)
     {
         foreach (var (entity, glow) in _active.ToArray())
         {
@@ -84,7 +84,7 @@ public sealed class ForceOrbPresentation
         }
     }
 
-    private void Stop(uint entity)
+    private void Stop(ulong entity)
     {
         if (_active.Remove(entity, out var glow))
         {

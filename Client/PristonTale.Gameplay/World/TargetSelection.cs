@@ -7,7 +7,7 @@ public enum TargetLiveness
     Dead
 }
 
-public delegate TargetLiveness TargetLivenessQuery(uint entityId);
+public delegate TargetLiveness TargetLivenessQuery(ulong entityId);
 
 // Which entity the target frame shows, following the original client: the traced target (a clicked monster or NPC)
 // always owns the frame; without one, the entity under the cursor replaces it. The frame stays after the swing and
@@ -20,13 +20,13 @@ public sealed class TargetSelection
 
     private double _deadSinceMs = double.NaN;
 
-    public uint TracedId { get; private set; }
+    public ulong TracedId { get; private set; }
 
-    public uint HoveredId { get; private set; }
+    public ulong HoveredId { get; private set; }
 
-    public uint FrameId { get; private set; }
+    public ulong FrameId { get; private set; }
 
-    public void Trace(uint entityId)
+    public void Trace(ulong entityId)
     {
         TracedId = entityId;
     }
@@ -36,7 +36,7 @@ public sealed class TargetSelection
         TracedId = 0;
     }
 
-    public void Hover(uint entityId)
+    public void Hover(ulong entityId)
     {
         HoveredId = entityId;
     }
@@ -91,7 +91,7 @@ public sealed class TargetSelection
         }
     }
 
-    private void Show(uint entityId)
+    private void Show(ulong entityId)
     {
         if (FrameId != entityId)
         {

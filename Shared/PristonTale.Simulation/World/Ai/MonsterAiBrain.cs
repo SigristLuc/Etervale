@@ -198,10 +198,10 @@ public sealed class MonsterAiBrain
         }
     }
 
-    private static uint AcquireNearestPrey(MonsterInstance m, MonsterAiTuning t, IPreyView prey)
+    private static ulong AcquireNearestPrey(MonsterInstance m, MonsterAiTuning t, IPreyView prey)
     {
         IReadOnlyList<PreyCandidate> candidates = prey.Nearby(m.Position, MathF.Sqrt(t.SightSq) + 1f);
-        uint best = 0;
+        ulong best = 0;
         long bestSq = long.MaxValue;
 
         for (int i = 0; i < candidates.Count; i++)
@@ -658,7 +658,7 @@ public sealed class MonsterAiBrain
         monster.FlinchMsLeft = durationMs;
     }
 
-    public static void ApplyBossRetargetOnHit(MonsterInstance boss, uint attackerEntityId)
+    public static void ApplyBossRetargetOnHit(MonsterInstance boss, ulong attackerEntityId)
     {
         ArgumentNullException.ThrowIfNull(boss);
         if (!boss.Def.IsBoss)

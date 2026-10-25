@@ -153,15 +153,15 @@ internal static class ChatRoutingTests
 
     private sealed class FakeClans : IClanRoster
     {
-        public Dictionary<uint, uint> Clans { get; } = new();
+        public Dictionary<ulong, uint> Clans { get; } = new();
 
-        public uint ClanOf(uint entityId) => Clans.GetValueOrDefault(entityId);
+        public uint ClanOf(ulong entityId) => Clans.GetValueOrDefault(entityId);
     }
 
     private sealed class FakeParties : IPartyRoster
     {
-        public uint[] Members { get; set; } = [];
+        public ulong[] Members { get; set; } = [];
 
-        public IReadOnlyCollection<uint> MembersOf(uint entityId) => Members.Contains(entityId) ? Members : [];
+        public IReadOnlyCollection<ulong> MembersOf(ulong entityId) => Members.Contains(entityId) ? Members : [];
     }
 }

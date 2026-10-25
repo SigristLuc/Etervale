@@ -71,7 +71,7 @@ public sealed partial class GameScene : IMonsterScene
         return _renderer.TryGetActorMotion(actor, out motion, out ticks);
     }
 
-    void IMonsterScene.SetEntityTint(uint entityId, Vector3 tint)
+    void IMonsterScene.SetEntityTint(ulong entityId, Vector3 tint)
     {
         if (_renderer is null || _remote is null)
         {

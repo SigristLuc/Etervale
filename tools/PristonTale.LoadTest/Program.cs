@@ -166,7 +166,7 @@ internal static class Bot
         // The circle passes through the spawn so the first report stays within one step of the server position.
         var center = new Vector2(spawn.X, spawn.Z) - new Vector2(MathF.Cos(phase), MathF.Sin(phase)) * Radius;
         var position = spawn;
-        uint target = 0;
+        ulong target = 0;
         uint sequence = 0;
         long lastBytes = 0;
         var nextCast = TimeSpan.FromSeconds(index % 30 / 10.0);
@@ -257,10 +257,10 @@ internal static class Bot
 }
 
 // The monsters a bot sees, enough to pick and chase a target, and the corrections it receives.
-internal sealed class BotWorld(uint self)
+internal sealed class BotWorld(ulong self)
 {
     private readonly object _gate = new();
-    private readonly Dictionary<uint, (Vector3 Position, bool Alive)> _monsters = new();
+    private readonly Dictionary<ulong, (Vector3 Position, bool Alive)> _monsters = new();
     private Vector3? _correction;
     private TimeSpan? _castWait;
 
@@ -355,7 +355,7 @@ internal sealed class BotWorld(uint self)
         }
     }
 
-    public bool Alive(uint id)
+    public bool Alive(ulong id)
     {
         lock (_gate)
         {
@@ -363,7 +363,7 @@ internal sealed class BotWorld(uint self)
         }
     }
 
-    public Vector3? PositionOf(uint id)
+    public Vector3? PositionOf(ulong id)
     {
         lock (_gate)
         {
@@ -371,11 +371,11 @@ internal sealed class BotWorld(uint self)
         }
     }
 
-    public uint NearestMonster(Vector3 from, float within)
+    public ulong NearestMonster(Vector3 from, float within)
     {
         lock (_gate)
         {
-            var best = 0u;
+            var best = 0UL;
             var bestDistance = within * within;
             foreach (var (id, monster) in _monsters)
             {

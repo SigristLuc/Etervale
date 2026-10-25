@@ -51,7 +51,7 @@ search finds; they are not part of the build.
 | Header | `{int32 size, uint32 code}`; `size` includes the header. |
 | Positions | Fixed point, world units × 256 (`PristonUnits.ToFixed`, `FixedShift` 8). |
 | Angles | Skill messages: 4096 per turn (`PristonUnits.ToAngle`); presence and movement: `uint16`, 65536 per turn. |
-| Entity ids | 64-bit on the wire (`uint64` or `varuint`); the world hands out 32-bit ids, so a wider id names no entity. |
+| Entity ids | 64-bit (`uint64` or `varuint`) on the wire and in memory; players count from 1, monsters, NPCs and summons from `2^32`. |
 | Text | UTF-8 with a `uint16` byte length, cut at a whole character to the field's byte limit (`Utf8Text`). |
 | Item identity | Original category ordinal codes (`LegacyItemCode`), e.g. gold is `GG101`. |
 | Reading | `PacketReader` requires `size == span length` and `size >= minimum`; trailing bytes are accepted. Overruns throw `InvalidDataException`. |
@@ -119,8 +119,6 @@ Bodies start with `uint16 Version = 1`; positions are fixed point (x256), entity
 | `FieldWarp` | `uint8 Flags (1 forced), uint8 0, int32 Field, int32 X, Z` (the client puts the owner on the floor) | 24 |
 | `CloseRequest` | `uint16 0` | 12 |
 
-A target beyond the world's 32-bit ids names nothing: the server drops such an attack and treats such an action target
-as none.
 
 Other field values:
 
@@ -238,7 +236,7 @@ accept newer versions that append fields (the list messages check their length e
 
 `SkillCast` flags carry the command (`SkillCastFlags`): 0 a new cast, 1 the release of the held charge of that skill, 2
 and 3 order the caster's summon of that skill to fight only the caster's target or to pick the nearest enemy; flags
-above 3 fail to decode. A target above the 32-bit ids the world hands out is refused as `InvalidTarget`. A zero `X, Y, Z` means "no ground point". The server
+above 3 fail to decode. A zero `X, Y, Z` means "no ground point". The server
 writes 0 in `SkillCastResult.ServerTick`.
 
 A skill entry is `{uint64 Caster, Target, uint SkillCode, byte Phase (1 start, 2 impact, 3 cancel, 4 release), byte Rank,
@@ -319,8 +317,7 @@ damage, 5 dead, 6 skill, 7 eat, 8 warp). Positions cover the world's ±1,000,000
 
 The server sends a full entry when an entity enters the receiver's view and whenever its motion, life, target, attack
 sequence or description revision changes; otherwise a motion entry (about 14 bytes) at the near or far rate. Ids,
-targets and the attack sequence are 64-bit on the wire; the world hands out 32-bit entity ids today and the client
-rejects larger ones. `Template` is the shared template code (monsters and NPCs that are not owned), 0 otherwise;
+targets and the attack sequence are 64-bit. `Template` is the shared template code (monsters and NPCs that are not owned), 0 otherwise;
 `FieldCode` is -1 when not sent.
 
 The client plays remote objects back on that timeline

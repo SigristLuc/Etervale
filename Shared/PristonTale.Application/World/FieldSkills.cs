@@ -14,13 +14,13 @@ internal interface IFieldSkillHost
 {
     long NowMs { get; }
     FieldTerrain Terrain { get; }
-    bool TryGetPlayer(uint entityId, [MaybeNullWhen(false)] out WorldPlayer player);
-    bool TryGetMonster(uint entityId, [MaybeNullWhen(false)] out MonsterInstance monster);
+    bool TryGetPlayer(ulong entityId, [MaybeNullWhen(false)] out WorldPlayer player);
+    bool TryGetMonster(ulong entityId, [MaybeNullWhen(false)] out MonsterInstance monster);
     IEnumerable<MonsterInstance> Monsters { get; }
     IEnumerable<WorldPlayer> Players { get; }
     (float DurationMs, float HitAtMs) PlayerSwingTiming(WorldPlayer player);
     void EmitCombatEvent(in CombatEventView combatEvent);
-    KillPayout? ApplyPlayerDamage(WorldPlayer player, MonsterInstance monster, int damage, bool crit, bool forceFlinch = false, uint sourceEntityId = 0);
+    KillPayout? ApplyPlayerDamage(WorldPlayer player, MonsterInstance monster, int damage, bool crit, bool forceFlinch = false, ulong sourceEntityId = 0);
     MonsterAiTuning TuningFor(MonsterDefinition definition);
     bool TryFindMonsterDefinition(string name, [MaybeNullWhen(false)] out MonsterDefinition definition);
     MonsterInstance AddSummon(MonsterDefinition definition, Vector3 position, float facing);
@@ -38,8 +38,8 @@ internal sealed partial class FieldSkills
 
     private readonly IFieldSkillHost _host;
     private readonly CombatRng _rng;
-    private readonly Dictionary<uint, ActiveCast> _casts = new();
-    private readonly List<uint> _finished = new();
+    private readonly Dictionary<ulong, ActiveCast> _casts = new();
+    private readonly List<ulong> _finished = new();
     private readonly List<PendingImpact> _impacts = new();
     private readonly List<EffectChange> _changes = new();
     private readonly List<MonsterInstance?> _targets = new();
@@ -236,7 +236,7 @@ internal sealed partial class FieldSkills
         StepEffects(dtMs);
     }
 
-    public void Forget(uint playerId)
+    public void Forget(ulong playerId)
     {
         _casts.Remove(playerId);
         _impacts.RemoveAll(impact => impact.CasterId == playerId);
@@ -254,7 +254,7 @@ internal sealed partial class FieldSkills
         };
     }
 
-    private void CancelCast(uint casterId, ActiveCast cast)
+    private void CancelCast(ulong casterId, ActiveCast cast)
     {
         _skillEvents.Add(new SkillEventView(casterId, cast.TargetId, cast.Rule.Code, SkillEventPhaseView.Cancel, cast.Rank, SkillEventFlagsView.None,
             0f, 0f, cast.Aim, 0f, 0, 0f));
@@ -388,7 +388,7 @@ internal sealed partial class FieldSkills
         return true;
     }
 
-    private void Pay(WorldPlayer caster, MonsterInstance monster, int damage, bool crit, bool forceFlinch = false, uint source = 0)
+    private void Pay(WorldPlayer caster, MonsterInstance monster, int damage, bool crit, bool forceFlinch = false, ulong source = 0)
     {
         if (_host.ApplyPlayerDamage(caster, monster, damage, crit, forceFlinch, source) is { } payout)
         {
@@ -404,7 +404,7 @@ internal sealed partial class FieldSkills
         _ => SkillEventFlagsView.None
     };
 
-    private SkillCastVerdict ResolveTarget(WorldPlayer player, SkillRule rule, int rank, in SkillCastRequest request, out uint targetId, out Vector3 aim)
+    private SkillCastVerdict ResolveTarget(WorldPlayer player, SkillRule rule, int rank, in SkillCastRequest request, out ulong targetId, out Vector3 aim)
     {
         targetId = 0;
         aim = player.Position;
@@ -515,11 +515,11 @@ internal sealed partial class FieldSkills
         return null;
     }
 
-    private sealed class ActiveCast(SkillRule rule, int rank, uint targetId, Vector3 aim, float[] hitsAtMs, uint sequence, int mode, SkillChargeTiming? charge)
+    private sealed class ActiveCast(SkillRule rule, int rank, ulong targetId, Vector3 aim, float[] hitsAtMs, uint sequence, int mode, SkillChargeTiming? charge)
     {
         public SkillRule Rule { get; } = rule;
         public int Rank { get; } = rank;
-        public uint TargetId { get; } = targetId;
+        public ulong TargetId { get; } = targetId;
         public Vector3 Aim { get; } = aim;
         public float[] HitsAtMs { get; } = hitsAtMs;
         public uint Sequence { get; } = sequence;
@@ -531,5 +531,5 @@ internal sealed partial class FieldSkills
         public bool Full { get; set; }
     }
 
-    private readonly record struct PendingImpact(uint CasterId, ActiveCast Cast, int Hit, long AtMs);
+    private readonly record struct PendingImpact(ulong CasterId, ActiveCast Cast, int Hit, long AtMs);
 }

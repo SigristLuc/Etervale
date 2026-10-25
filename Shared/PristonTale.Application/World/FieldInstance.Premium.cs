@@ -10,9 +10,9 @@ public sealed partial class FieldInstance : IFieldPremiumHost
 {
     CombatRng IFieldPremiumHost.Rng => _rng;
 
-    bool IFieldPremiumHost.TryGetMonster(uint entityId, [MaybeNullWhen(false)] out MonsterInstance monster) => _monsters.TryGetValue(entityId, out monster);
+    bool IFieldPremiumHost.TryGetMonster(ulong entityId, [MaybeNullWhen(false)] out MonsterInstance monster) => _monsters.TryGetValue(entityId, out monster);
 
-    bool IFieldPremiumHost.TryGetPlayer(uint entityId, [MaybeNullWhen(false)] out WorldPlayer player) => _players.TryGetValue(entityId, out player);
+    bool IFieldPremiumHost.TryGetPlayer(ulong entityId, [MaybeNullWhen(false)] out WorldPlayer player) => _players.TryGetValue(entityId, out player);
 
     void IFieldPremiumHost.PetStrike(WorldPlayer owner, MonsterInstance monster, int damage)
     {
@@ -22,7 +22,7 @@ public sealed partial class FieldInstance : IFieldPremiumHost
         }
     }
 
-    void IFieldPremiumHost.QueueMonsterEffect(uint monsterId, EffectSpec spec, float durationMs) => _skills.QueueItemEffect(monsterId, spec, durationMs);
+    void IFieldPremiumHost.QueueMonsterEffect(ulong monsterId, EffectSpec spec, float durationMs) => _skills.QueueItemEffect(monsterId, spec, durationMs);
 
     void IFieldPremiumHost.AddItemEvent(in ItemEffectView effect) => ItemEvents.Add(effect);
 }

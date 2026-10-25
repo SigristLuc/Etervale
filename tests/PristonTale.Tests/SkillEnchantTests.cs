@@ -65,7 +65,7 @@ internal static class SkillEnchantTests
         mage.Character.Skills.Restore(0x08040004, 1);
         SkillFixtures.Accept("Dancing Sword", field, mage, 0x08040004);
         var strikes = 0;
-        var targets = new HashSet<uint>();
+        var targets = new HashSet<ulong>();
         for (var tick = 0; tick < 12 * 20; tick++)
         {
             field.Step(0.05f);

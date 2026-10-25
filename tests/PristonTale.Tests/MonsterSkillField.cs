@@ -65,7 +65,7 @@ internal sealed class MonsterSkillField
             Ai = new MonsterAi(6, MonsterNature.Evil, 1000, 1, 64, MonsterRange.Zero, MonsterActiveHour.Any)
         };
 
-    public WorldPlayer AddPlayer(uint id, Vector3 position, PlayerClass playerClass = PlayerClass.Fighter, int level = 100)
+    public WorldPlayer AddPlayer(ulong id, Vector3 position, PlayerClass playerClass = PlayerClass.Fighter, int level = 100)
     {
         var character = Classes.CreatePlayer(playerClass, $"Player {id}", level);
         var player = new WorldPlayer(id, position, character, false, default);
@@ -73,7 +73,7 @@ internal sealed class MonsterSkillField
         return player;
     }
 
-    public MonsterInstance Spawn(MonsterDefinition definition, Vector3 position, uint target = 0, int point = 0)
+    public MonsterInstance Spawn(MonsterDefinition definition, Vector3 position, ulong target = 0, int point = 0)
     {
         var monster = ((ISpawnSink)Field).Spawn(Definitions.First(d => d.Name == definition.Name && d.Combat.Level == definition.Combat.Level),
             position, point, 0f);
@@ -112,10 +112,10 @@ internal sealed class MonsterSkillField
         Assert.True(condition(), failure);
     }
 
-    public IEnumerable<CombatEventView> Swings(uint attacker) =>
+    public IEnumerable<CombatEventView> Swings(ulong attacker) =>
         Events.Where(value => value.Kind == CombatEventKindView.SwingBegin && value.AttackerId == attacker);
 
-    public IEnumerable<CombatEventView> HitsOn(uint target) =>
+    public IEnumerable<CombatEventView> HitsOn(ulong target) =>
         Events.Where(value => value.Kind == CombatEventKindView.Hit && value.TargetId == target);
 
     public MonsterInstance? MonsterOf(int soundCode) => ((IFieldSkillHost)Field).Monsters.FirstOrDefault(m => m.Def.SoundCode == soundCode && m.IsAlive);

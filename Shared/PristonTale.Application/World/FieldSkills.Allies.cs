@@ -16,8 +16,8 @@ internal sealed partial class FieldSkills
     private readonly List<EffectChange> _supportChanges = new();
     private readonly List<Pulse> _pulses = new();
     // The rank an effect was applied with and the element choice of enchants and companions, per holder and skill.
-    private readonly Dictionary<(uint Entity, uint Code), int> _effectRanks = new();
-    private readonly Dictionary<(uint Entity, uint Code), int> _choices = new();
+    private readonly Dictionary<(ulong Entity, uint Code), int> _effectRanks = new();
+    private readonly Dictionary<(ulong Entity, uint Code), int> _choices = new();
 
     // The resolved rule may be a mode of the cast skill; the effect keeps the skill's code and takes the mode's buff.
     private int ApplySupport(WorldPlayer caster, ActiveCast cast, SkillRule resolved, long nowMs)
@@ -268,7 +268,7 @@ internal sealed partial class FieldSkills
         }
     }
 
-    private void ForgetSupport(uint playerId)
+    private void ForgetSupport(ulong playerId)
     {
         _pulses.RemoveAll(pulse => pulse.CasterId == playerId);
         _companions.RemoveAll(companion => companion.HolderId == playerId);
@@ -280,7 +280,7 @@ internal sealed partial class FieldSkills
     }
 
     // Status values: the element drawn by enchants and companions (Element as an integer), the main modifier otherwise.
-    private int StatusValue(uint entity, ActiveEffect effect)
+    private int StatusValue(ulong entity, ActiveEffect effect)
     {
         if (_choices.TryGetValue((entity, effect.Code), out var choice) && SkillRuleCatalog.TryGet(effect.Code, out var rule)
             && (rule.Buff?.Enchant?.Choices ?? rule.Buff?.Companion?.Choices) is { } choices && choice < choices.Length)
@@ -291,11 +291,11 @@ internal sealed partial class FieldSkills
         return MainValue(effect);
     }
 
-    private int RankOfEffect(uint entity, uint code) => _effectRanks.GetValueOrDefault((entity, code), 1);
+    private int RankOfEffect(ulong entity, uint code) => _effectRanks.GetValueOrDefault((entity, code), 1);
 
-    private sealed class Pulse(uint casterId, SkillRule rule, int rank)
+    private sealed class Pulse(ulong casterId, SkillRule rule, int rank)
     {
-        public uint CasterId { get; } = casterId;
+        public ulong CasterId { get; } = casterId;
         public SkillRule Rule { get; } = rule;
         public int Rank { get; } = rank;
         public long NextAtMs { get; set; }

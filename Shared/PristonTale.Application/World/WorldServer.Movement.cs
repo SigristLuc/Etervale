@@ -14,7 +14,7 @@ public sealed partial class WorldServer
 {
     // Queued like any command of the player (same quota, same order); false when the quota or the queue is full, and the
     // caller drops the report like a lost packet (the next one carries a newer position).
-    public bool TryReportMovement(int fieldId, uint entityId, Vector3 position, float facing, bool moving, bool running, uint actionTarget,
+    public bool TryReportMovement(int fieldId, ulong entityId, Vector3 position, float facing, bool moving, bool running, ulong actionTarget,
         IMovementVerdictSink? sink)
     {
         var pending = _pendingByPlayer.GetOrAdd(entityId, static _ => new PendingCommands());
@@ -50,12 +50,12 @@ public sealed partial class WorldServer
 
     private readonly record struct MovementCommand(
         int FieldId,
-        uint EntityId,
+        ulong EntityId,
         Vector3 Position,
         float Facing,
         bool Moving,
         bool Running,
-        uint ActionTarget,
+        ulong ActionTarget,
         IMovementVerdictSink? Sink,
         PendingCommands Pending);
 

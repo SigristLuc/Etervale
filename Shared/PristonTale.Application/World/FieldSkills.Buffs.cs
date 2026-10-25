@@ -15,7 +15,7 @@ internal sealed partial class FieldSkills
 
     // One timed effect of a skill on an entity: its modifiers (the ally share on other players), periodic ticks, control
     // state and weapon binding. A positive durationMs replaces the rank's duration (a pulse's short copy).
-    private bool ApplyEffect(EffectContainer effects, uint entity, uint source, uint code, SkillBuffRule buff, int rank, int resistance, PlayerCharacter caster,
+    private bool ApplyEffect(EffectContainer effects, ulong entity, ulong source, uint code, SkillBuffRule buff, int rank, int resistance, PlayerCharacter caster,
         bool onOther = false, int othersPercent = 100, float durationMs = 0f)
     {
         if (buff is null)
@@ -51,7 +51,7 @@ internal sealed partial class FieldSkills
         return true;
     }
 
-    private void RemoveEffect(EffectContainer effects, uint entity, uint code)
+    private void RemoveEffect(EffectContainer effects, ulong entity, uint code)
     {
         _removed.Clear();
         if (effects.Remove(code, entity, _removed))

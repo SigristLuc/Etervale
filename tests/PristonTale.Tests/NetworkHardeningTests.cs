@@ -132,7 +132,7 @@ internal static class NetworkHardeningTests
 
         var full = new WorldServer(new WorldDataHolder(), catalog);
         var refused = false;
-        for (uint owner = 1; owner <= 2000 && !refused; owner++)
+        for (ulong owner = 1; owner <= 2000 && !refused; owner++)
         {
             for (var command = 0; command < 40 && !refused; command++)
             {

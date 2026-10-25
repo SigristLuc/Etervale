@@ -136,11 +136,11 @@ internal static class SkillControlTests
         return Task.CompletedTask;
     }
 
-    private sealed class FieldPreyFixture(uint id, Vector3 position) : IPreyView
+    private sealed class FieldPreyFixture(ulong id, Vector3 position) : IPreyView
     {
         public IReadOnlyList<PreyCandidate> Candidates { get; } = [new PreyCandidate(id, position, true)];
 
-        public bool TryGet(uint entityId, out PreyCandidate prey)
+        public bool TryGet(ulong entityId, out PreyCandidate prey)
         {
             prey = Candidates[0];
             return entityId == id;

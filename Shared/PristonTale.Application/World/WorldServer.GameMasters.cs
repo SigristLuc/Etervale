@@ -60,18 +60,18 @@ public sealed partial class WorldServer
         }
     }
 
-    public Task<GmPlacement?> LocateAsync(uint requesterId, uint entityId)
+    public Task<GmPlacement?> LocateAsync(ulong requesterId, ulong entityId)
     {
         return EnqueueAsync<GmPlacement?>(requesterId, () =>
             _connections.TryGetValue(entityId, out var connection) ? new GmPlacement(connection.FieldId, connection.Player.Position) : null);
     }
 
-    public Task<bool> KillAsync(uint requesterId, uint entityId)
+    public Task<bool> KillAsync(ulong requesterId, ulong entityId)
     {
         return EnqueueAsync(requesterId, () => _connections.TryGetValue(entityId, out var connection) && connection.Player.Kill());
     }
 
-    public Task<bool> SetHiddenAsync(uint entityId, bool hidden)
+    public Task<bool> SetHiddenAsync(ulong entityId, bool hidden)
     {
         return EnqueueAsync(entityId, () =>
         {
@@ -104,7 +104,7 @@ public sealed partial class WorldServer
 
     // Places a player at a position of a field, as a game master's summon or approach. A position without a height
     // (NaN) stands on the highest floor there. The caller sends the forced warp.
-    public Task<GmPlacement?> RelocateAsync(uint requesterId, uint entityId, GmPlacement destination)
+    public Task<GmPlacement?> RelocateAsync(ulong requesterId, ulong entityId, GmPlacement destination)
     {
         return EnqueueAsync<GmPlacement?>(requesterId, () =>
         {
@@ -130,13 +130,13 @@ public sealed partial class WorldServer
     }
 
     // Players in the world and living wild monsters of every field.
-    public Task<(int Players, int Monsters)> CountsAsync(uint requesterId)
+    public Task<(int Players, int Monsters)> CountsAsync(ulong requesterId)
     {
         return EnqueueAsync(requesterId, () => (_connections.Count, _fields.Values.Sum(static field => field.LiveMonsterCount)));
     }
 
     // The requester's field and how many players are in it.
-    public Task<(int FieldId, int Players)> FieldPlayersAsync(uint requesterId)
+    public Task<(int FieldId, int Players)> FieldPlayersAsync(ulong requesterId)
     {
         return EnqueueAsync(requesterId, () =>
         {
@@ -152,7 +152,7 @@ public sealed partial class WorldServer
 
     // Calls count + 1 monsters of a name at the game master: the first on the spot, the others scattered around. A pet takes
     // the game master's side instead (one at a time). Monsters a low-level game master calls drop nothing.
-    public Task<GmSpawnResult> SpawnMonstersAsync(uint requesterId, string name, int extra, bool pet, bool drops)
+    public Task<GmSpawnResult> SpawnMonstersAsync(ulong requesterId, string name, int extra, bool pet, bool drops)
     {
         return EnqueueAsync(requesterId, () =>
         {
@@ -189,7 +189,7 @@ public sealed partial class WorldServer
     }
 
     // Starts (minutes above 0) or reads the field's event monster. A start with an unknown name fails.
-    public Task<GmEventMonster?> EventMonsterAsync(uint requesterId, string? name, int minutes, int permille)
+    public Task<GmEventMonster?> EventMonsterAsync(ulong requesterId, string? name, int minutes, int permille)
     {
         return EnqueueAsync<GmEventMonster?>(requesterId, () =>
         {
@@ -216,7 +216,7 @@ public sealed partial class WorldServer
         });
     }
 
-    public Task<GmFieldMonsters?> FieldMonstersAsync(uint requesterId)
+    public Task<GmFieldMonsters?> FieldMonstersAsync(ulong requesterId)
     {
         return EnqueueAsync<GmFieldMonsters?>(requesterId, () =>
         {
@@ -232,7 +232,7 @@ public sealed partial class WorldServer
     }
 
     // Sets a monster's absorption (1 to 99) by a permanent status on it.
-    public Task<GmAbsorption?> SetAbsorptionAsync(uint requesterId, uint monsterId, int absorption)
+    public Task<GmAbsorption?> SetAbsorptionAsync(ulong requesterId, ulong monsterId, int absorption)
     {
         return EnqueueAsync<GmAbsorption?>(requesterId, () =>
         {
@@ -255,7 +255,7 @@ public sealed partial class WorldServer
     }
 
     // Drops an item copy, or gold when item is null, under the game master.
-    public Task<bool> DropAsync(uint requesterId, Func<ISimRng, ItemInstance?>? make, int gold)
+    public Task<bool> DropAsync(ulong requesterId, Func<ISimRng, ItemInstance?>? make, int gold)
     {
         return EnqueueAsync(requesterId, () =>
         {
@@ -277,7 +277,7 @@ public sealed partial class WorldServer
 
     // Raises the character to the experience that starts a level; null when the level is out of range or not above the
     // current experience.
-    public Task<ulong?> RaiseExperienceAsync(uint entityId, int level)
+    public Task<ulong?> RaiseExperienceAsync(ulong entityId, int level)
     {
         return EnqueueAsync<ulong?>(entityId, () =>
         {
@@ -305,7 +305,7 @@ public sealed partial class WorldServer
 
     // Adds experience to a character as monsters award it (levels included); the new total, or null when the amount is
     // not positive.
-    public Task<ulong?> AddExperienceAsync(uint entityId, ulong amount)
+    public Task<ulong?> AddExperienceAsync(ulong entityId, ulong amount)
     {
         return EnqueueAsync<ulong?>(entityId, () =>
         {
@@ -320,7 +320,7 @@ public sealed partial class WorldServer
     }
 
     // Ends one premium timer at once; false when it is not running.
-    public Task<bool> EndPremiumAsync(uint entityId, PremiumEffectKind kind)
+    public Task<bool> EndPremiumAsync(ulong entityId, PremiumEffectKind kind)
     {
         return EnqueueAsync(entityId, () =>
         {
@@ -337,7 +337,7 @@ public sealed partial class WorldServer
 
     // A game master's gift into a player's bag: the copy must fit the bag and the weight limit. Outcome false means it did
     // not fit (nothing is written); null means the player is not playing.
-    public Task<PreparedCharacterOperation<bool>?> PrepareGiftAsync(uint requesterId, PlayerSession session, Func<ISimRng, ItemInstance> make)
+    public Task<PreparedCharacterOperation<bool>?> PrepareGiftAsync(ulong requesterId, PlayerSession session, Func<ISimRng, ItemInstance> make)
     {
         return EnqueueAsync<PreparedCharacterOperation<bool>?>(requesterId, () =>
         {
@@ -373,7 +373,7 @@ public sealed partial class WorldServer
         }, waitForCapacity: true);
     }
 
-    public Task<GmCharacterReport?> InspectAsync(uint requesterId, uint entityId)
+    public Task<GmCharacterReport?> InspectAsync(ulong requesterId, ulong entityId)
     {
         return EnqueueAsync<GmCharacterReport?>(requesterId, () =>
         {

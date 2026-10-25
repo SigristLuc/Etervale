@@ -6,11 +6,11 @@ namespace PristonTale.Application.World;
 // next field step so the status events reach that step's snapshot.
 internal sealed partial class FieldSkills
 {
-    private readonly List<(uint Entity, EffectSpec Spec, float DurationMs, int Rank)> _pendingItemEffects = new();
+    private readonly List<(ulong Entity, EffectSpec Spec, float DurationMs, int Rank)> _pendingItemEffects = new();
 
-    private readonly List<(uint Entity, uint Code)> _pendingItemEnds = new();
+    private readonly List<(ulong Entity, uint Code)> _pendingItemEnds = new();
 
-    public void QueueItemEffect(uint entity, EffectSpec spec, float durationMs, int rank = 1) => _pendingItemEffects.Add((entity, spec, durationMs, rank));
+    public void QueueItemEffect(ulong entity, EffectSpec spec, float durationMs, int rank = 1) => _pendingItemEffects.Add((entity, spec, durationMs, rank));
 
     // Ends an item's effect on a player with the next step (a castle item replaced or left behind).
     public void EndItemEffect(WorldPlayer player, uint code) => _pendingItemEnds.Add((player.EntityId, code));

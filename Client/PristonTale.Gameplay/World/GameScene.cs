@@ -118,7 +118,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private bool _reportDue;
     private bool _lastReportMoving;
     private bool _lastReportRunning;
-    private uint _lastReportTarget;
+    private ulong _lastReportTarget;
     private int _lastSentFieldCode = -1;
 
     private readonly PristonSkyLibrary _sky;
@@ -159,13 +159,13 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     public bool PointerCaptured { get; set; }
     public bool CameraInputEnabled { get; set; } = true;
     public bool RightAttackEnabled { get; set; }
-    public uint AttackTargetId => _attackInput.TargetId;
-    public uint SelectedTargetId => _targetSelection.FrameId;
+    public ulong AttackTargetId => _attackInput.TargetId;
+    public ulong SelectedTargetId => _targetSelection.FrameId;
     public FieldDef ActiveFieldDefinition => _activeField?.Definition;
     public PristonIntRectangle ActiveMapRectangle => _activeField?.Stage.AuthoredMapRectangle ?? default;
     public PristonRenderer Renderer => _renderer;
 
-    public int CopyActorHandles(uint entityId, Span<ActorHandle> destination) => _remote?.CopyActorHandles(entityId, destination) ?? 0;
+    public int CopyActorHandles(ulong entityId, Span<ActorHandle> destination) => _remote?.CopyActorHandles(entityId, destination) ?? 0;
 
     // The loaded field other than the active one whose map lies nearest the player: the minimap draws it underneath.
     public bool TryGetNeighbourMap(out string fieldId, out PristonIntRectangle rectangle)
@@ -211,8 +211,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         return _playChannel is not null ? _playChannel.ApplyInventoryAsync(command, _presenceCts.Token)
             : Task.FromResult(new PristonTale.Simulation.Items.InventoryOutcome(false, 0, "world connection unavailable"));
     }
-    public event Action<uint> NpcSelected;
-    private uint _npcTargetId;
+    public event Action<ulong> NpcSelected;
+    private ulong _npcTargetId;
     private bool _npcMoveSent;
     private Vector2 _serverPlanarPosition;
     private float _serverCollisionHeight;
@@ -223,7 +223,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             : Task.FromResult(new PristonTale.Simulation.Progression.ProgressionOutcome(false, 0, "world connection unavailable"));
     }
 
-    public Task<PristonTale.Simulation.World.Npcs.NpcInteraction> InteractNpcAsync(uint entityId)
+    public Task<PristonTale.Simulation.World.Npcs.NpcInteraction> InteractNpcAsync(ulong entityId)
     {
         return _playChannel is not null ? _playChannel.InteractNpcAsync(entityId, _presenceCts.Token)
             : Task.FromResult(PristonTale.Simulation.World.Npcs.NpcInteraction.Rejected("world connection unavailable"));
@@ -1591,7 +1591,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     // Hover picking runs in Update so Draw stays free of scene queries.
     private void UpdateTargetSelection(GameTime gameTime)
     {
-        uint hovered = 0;
+        ulong hovered = 0;
         if (_remote is not null && _camera is not null && !PointerCaptured && CameraInputEnabled && TryCursorRay(Mouse.GetState(), out var ray)
             && _remote.TryPick(ray, _remote.SelfEntityId, out var entityId, out _))
         {
@@ -1602,7 +1602,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _targetSelection.Update(gameTime.TotalGameTime.TotalMilliseconds, _targetLiveness);
     }
 
-    private TargetLiveness QueryTargetLiveness(uint entityId)
+    private TargetLiveness QueryTargetLiveness(ulong entityId)
     {
         if (_remote is null || !_remote.TryGetTarget(entityId, out _, out var dead))
         {

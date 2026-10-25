@@ -324,13 +324,13 @@ internal static class VfxLayerTests
 
         public Vector3 Target { get; set; }
 
-        public bool TryGetPosition(uint entityId, out Vector3 position)
+        public bool TryGetPosition(ulong entityId, out Vector3 position)
         {
             position = entityId == 2 ? Target : Caster;
             return entityId is 1 or 2;
         }
 
-        public bool TryGetBone(uint entityId, string bone, out Vector3 position)
+        public bool TryGetBone(ulong entityId, string bone, out Vector3 position)
         {
             position = Vector3.Zero;
             return false;

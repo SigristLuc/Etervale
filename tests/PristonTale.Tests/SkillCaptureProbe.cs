@@ -19,8 +19,8 @@ namespace PristonTale.Tests;
 // motion clip and for effect light against the frame before the cast.
 internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
 {
-    private const uint CasterId = 1;
-    private const uint TargetId = 2;
+    private const ulong CasterId = 1;
+    private const ulong TargetId = 2;
     private const float Step = 1f / 120f;
 
     private static readonly (PlayerClass Class, string Weapon, string OffHand, uint Skill, float[] Times)[] DefaultCasts =
@@ -79,7 +79,7 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
         IsFixedTimeStep = false;
     }
 
-    public uint SelfId => CasterId;
+    public ulong SelfId => CasterId;
 
     public Vector3 ListenerPosition => Vector3.Zero;
 
@@ -363,32 +363,32 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
         }
     }
 
-    public bool TryGetPosition(uint entityId, out Vector3 position)
+    public bool TryGetPosition(ulong entityId, out Vector3 position)
     {
         position = entityId == CasterId ? CasterPosition : TargetPosition;
         return entityId is CasterId or TargetId;
     }
 
-    public bool TryGetBone(uint entityId, string bone, out Vector3 position)
+    public bool TryGetBone(ulong entityId, string bone, out Vector3 position)
     {
         var found = TryGetBoneWorld(entityId, bone, out var world);
         position = world.Translation;
         return found;
     }
 
-    public bool TryGetBoneWorld(uint entityId, string bone, out Matrix world)
+    public bool TryGetBoneWorld(ulong entityId, string bone, out Matrix world)
     {
         var actor = entityId == CasterId ? _caster.Body : _dummy.Body;
         return _renderer.TryGetActorBoneWorld(actor, bone, out world);
     }
 
-    public void ApplyLook(uint entityId, in EntityLook look)
+    public void ApplyLook(ulong entityId, in EntityLook look)
     {
         var handles = entityId == CasterId ? _caster : _dummy;
         _looks.Apply(entityId, handles, Casts[_cast].OffHand.StartsWith("DS", StringComparison.Ordinal) && entityId == CasterId, look);
     }
 
-    public void PlaySkillMotion(uint entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)
+    public void PlaySkillMotion(ulong entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)
     {
         if (entityId != CasterId)
         {

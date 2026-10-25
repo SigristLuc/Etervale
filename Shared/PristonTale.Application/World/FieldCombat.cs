@@ -16,11 +16,11 @@ namespace PristonTale.Application.World;
 
 internal interface IFieldCombatHost
 {
-    bool TryGetPlayer(uint entityId, [MaybeNullWhen(false)] out WorldPlayer player);
-    bool TryGetMonster(uint entityId, [MaybeNullWhen(false)] out MonsterInstance monster);
+    bool TryGetPlayer(ulong entityId, [MaybeNullWhen(false)] out WorldPlayer player);
+    bool TryGetMonster(ulong entityId, [MaybeNullWhen(false)] out MonsterInstance monster);
     IEnumerable<MonsterInstance> Monsters { get; }
     IReadOnlyList<PreyCandidate> NearbyPlayers(Vector3 origin, float radius);
-    void DespawnMonster(uint entityId);
+    void DespawnMonster(ulong entityId);
 
     MonsterAiTuning TuningFor(MonsterDefinition def);
 
@@ -29,7 +29,7 @@ internal interface IFieldCombatHost
     void EmitCombatEvent(in CombatEventView combatEvent);
 }
 
-public readonly record struct KillPayout(uint MonsterEntityId, uint CreditedPlayerId, ulong ExpAwarded, IReadOnlyList<RolledDrop> Drops);
+public readonly record struct KillPayout(ulong MonsterEntityId, ulong CreditedPlayerId, ulong ExpAwarded, IReadOnlyList<RolledDrop> Drops);
 
 internal sealed class FieldCombat
 {
@@ -39,11 +39,11 @@ internal sealed class FieldCombat
     private readonly CombatRng _rng;
     private readonly int _experienceMultiplier;
 
-    private readonly Dictionary<uint, MonsterDamageLog> _damageLogs = new();
-    private readonly Dictionary<uint, float> _corpseMsLeft = new();
-    private readonly Dictionary<uint, ulong> _expByPlayer = new();
+    private readonly Dictionary<ulong, MonsterDamageLog> _damageLogs = new();
+    private readonly Dictionary<ulong, float> _corpseMsLeft = new();
+    private readonly Dictionary<ulong, ulong> _expByPlayer = new();
 
-    private readonly List<uint> _expiredScratch = new();
+    private readonly List<ulong> _expiredScratch = new();
 
     public FieldCombat(IFieldCombatHost host, CombatRng rng, int experienceMultiplier = 1)
     {
@@ -52,14 +52,14 @@ internal sealed class FieldCombat
         _experienceMultiplier = experienceMultiplier;
     }
 
-    public ulong ExpFor(uint playerId) => _expByPlayer.TryGetValue(playerId, out var e) ? e : 0;
+    public ulong ExpFor(ulong playerId) => _expByPlayer.TryGetValue(playerId, out var e) ? e : 0;
 
     // Skill effects that join normal attacks on this field (enchants, shields, reflection, evasion).
     internal IPlayerSkillCombat? SkillCombat { get; set; }
 
     public void StepPlayerAttack(WorldPlayer player)
     {
-        uint targetId = player.AttackTargetId;
+        ulong targetId = player.AttackTargetId;
         if (targetId == 0 || player.IsDead)
         {
             return;
@@ -88,7 +88,7 @@ internal sealed class FieldCombat
             player.EntityId, targetId, CombatEventKindView.SwingBegin, durationMs, hitAtMs));
     }
 
-    public KillPayout? ResolvePlayerSwingHit(WorldPlayer player, uint targetId, long nowMs)
+    public KillPayout? ResolvePlayerSwingHit(WorldPlayer player, ulong targetId, long nowMs)
     {
         if (player.IsDead)
             return null;
@@ -117,7 +117,7 @@ internal sealed class FieldCombat
     public Action<WorldPlayer, MonsterInstance, int>? PlayerHitLanded { get; set; }
 
     public KillPayout? ApplyPlayerDamage(WorldPlayer player, MonsterInstance monster, int damage, bool crit, long nowMs, bool forceFlinch = false,
-        uint sourceEntityId = 0)
+        ulong sourceEntityId = 0)
     {
         if (damage <= 0 || !monster.IsAlive || monster.DuelPlayerId != 0 && monster.DuelPlayerId != player.EntityId)
         {
@@ -259,14 +259,14 @@ internal sealed class FieldCombat
     }
 
     // A summon that died outside a player's kill (expiry, a monster's blow) leaves a corpse like any monster.
-    public void BeginCorpse(uint monsterId) => _corpseMsLeft.TryAdd(monsterId, CorpseDespawnMs);
+    public void BeginCorpse(ulong monsterId) => _corpseMsLeft.TryAdd(monsterId, CorpseDespawnMs);
 
     private KillPayout OnMonsterDeath(MonsterInstance monster, long nowMs)
     {
         MonsterDamageLog log = Log(monster.EntityId);
 
         // Kill credit: killer unless a latched first-attacker dealt ≥40% MaxLife and stayed engaged (15 s).
-        uint credited = log.KillerId;
+        ulong credited = log.KillerId;
         bool firstIsKiller = log.FirstAttackerId == log.KillerId;
         bool stillEngaged = (nowMs - log.FirstAttackerLastHitMs) <= KillReward.FirstAttackerDisengageMs;
         if (KillReward.FirstAttackerStealsCredit(
@@ -325,19 +325,19 @@ internal sealed class FieldCombat
 
         for (int i = 0; i < _expiredScratch.Count; i++)
         {
-            uint id = _expiredScratch[i];
+            ulong id = _expiredScratch[i];
             _corpseMsLeft.Remove(id);
             _host.DespawnMonster(id);
         }
     }
 
-    public void ForgetMonster(uint entityId)
+    public void ForgetMonster(ulong entityId)
     {
         _damageLogs.Remove(entityId);
         _corpseMsLeft.Remove(entityId);
     }
 
-    private MonsterDamageLog Log(uint monsterId)
+    private MonsterDamageLog Log(ulong monsterId)
     {
         if (!_damageLogs.TryGetValue(monsterId, out var log))
         {

@@ -32,7 +32,7 @@ public sealed partial class WorldServer
     private bool _membershipChanged;
     private IReadOnlyList<(int FieldId, int PlayerCount)> _activeCounts = Array.Empty<(int, int)>();
     private readonly Dictionary<int, FieldInstance> _fields = new();
-    private readonly Dictionary<uint, Connection> _connections = new();
+    private readonly Dictionary<ulong, Connection> _connections = new();
     private readonly EntityIdAllocator _ids = new();
     private readonly WorldDataHolder _worldData;
     private readonly WorldCatalog _catalog;
@@ -42,7 +42,7 @@ public sealed partial class WorldServer
     private readonly FieldTerrainCatalog _terrain;
     private readonly WorldServerOptions _options;
     // Commands each player has waiting in the shared queue; entries are dropped when the player leaves the world.
-    private readonly ConcurrentDictionary<uint, PendingCommands> _pendingByPlayer = new();
+    private readonly ConcurrentDictionary<ulong, PendingCommands> _pendingByPlayer = new();
 
     private sealed class PendingCommands
     {
@@ -126,7 +126,7 @@ public sealed partial class WorldServer
     }
 
     // Leaving must not be refused: it waits for queue room and is exempt from the player's quota.
-    public Task<bool> LeaveAsync(int fieldId, uint entityId, ChannelWriter<WorldSnapshot> outbound)
+    public Task<bool> LeaveAsync(int fieldId, ulong entityId, ChannelWriter<WorldSnapshot> outbound)
     {
         return EnqueueAsync(NoOwner, () =>
         {
@@ -189,7 +189,7 @@ public sealed partial class WorldServer
         });
     }
 
-    public Task<MovementVerdict> ReportMovementAsync(int fieldId, uint entityId, Vector3 position, float facing, bool moving, bool running, uint actionTarget)
+    public Task<MovementVerdict> ReportMovementAsync(int fieldId, ulong entityId, Vector3 position, float facing, bool moving, bool running, ulong actionTarget)
     {
         return EnqueueAsync(entityId, () =>
         {
@@ -203,7 +203,7 @@ public sealed partial class WorldServer
         });
     }
 
-    public Task<SkillCastOutcome> CastSkillAsync(int fieldId, uint entityId, SkillCastRequest request)
+    public Task<SkillCastOutcome> CastSkillAsync(int fieldId, ulong entityId, SkillCastRequest request)
     {
         return EnqueueAsync(entityId, () =>
         {
@@ -217,12 +217,12 @@ public sealed partial class WorldServer
         });
     }
 
-    public Task<Vector3?> PositionOfAsync(uint entityId)
+    public Task<Vector3?> PositionOfAsync(ulong entityId)
     {
         return EnqueueAsync<Vector3?>(entityId, () => _connections.TryGetValue(entityId, out var connection) ? connection.Player.Position : null);
     }
 
-    public Task<bool> SetAttackTargetAsync(int fieldId, uint attackerEntityId, uint targetEntityId, bool sustained, ulong sequence = 0)
+    public Task<bool> SetAttackTargetAsync(int fieldId, ulong attackerEntityId, ulong targetEntityId, bool sustained, ulong sequence = 0)
     {
         return EnqueueAsync(attackerEntityId, () =>
         {
@@ -394,12 +394,12 @@ public sealed partial class WorldServer
         }, waitForCapacity: true);
     }
 
-    private const uint NoOwner = 0;
+    private const ulong NoOwner = 0;
 
-    public int PendingCommandsOf(uint entityId) => _pendingByPlayer.TryGetValue(entityId, out var pending) ? Volatile.Read(ref pending.Count) : 0;
+    public int PendingCommandsOf(ulong entityId) => _pendingByPlayer.TryGetValue(entityId, out var pending) ? Volatile.Read(ref pending.Count) : 0;
 
     // Not async: a refused command throws WorldBusyException to the caller synchronously instead of faulting the task.
-    private Task<T> EnqueueAsync<T>(uint owner, Func<T> operation, bool waitForCapacity = false)
+    private Task<T> EnqueueAsync<T>(ulong owner, Func<T> operation, bool waitForCapacity = false)
     {
         PendingCommands? pending = null;
         if (owner != NoOwner)

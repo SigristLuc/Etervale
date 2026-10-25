@@ -122,7 +122,7 @@ internal static class MonsterPresentationTests
         return Task.CompletedTask;
     }
 
-    private static StatusEffectInfo Status(uint entity, uint source, uint code, StatusEffectOp op, ControlFlags control = ControlFlags.None) =>
+    private static StatusEffectInfo Status(ulong entity, ulong source, uint code, StatusEffectOp op, ControlFlags control = ControlFlags.None) =>
         new(entity, source, code, op, 1, (byte)EffectSourceKind.MonsterSkill, (byte)control, StatusEffectFlags.Harmful, 3000, 3000, 0);
 
     private static Task DataAsync()
@@ -185,15 +185,15 @@ internal static class MonsterPresentationTests
         private readonly HashSet<string> _defined = new(defined, StringComparer.OrdinalIgnoreCase);
 
         public List<string> Spawned { get; } = new();
-        public List<uint> Casters { get; } = new();
-        public List<uint> Targets { get; } = new();
+        public List<ulong> Casters { get; } = new();
+        public List<ulong> Targets { get; } = new();
         public int Stopped { get; private set; }
         public int DefinitionCount => _defined.Count;
         public StatusBook Statuses { get; } = new();
 
         public bool Defines(string name) => _defined.Contains(name);
 
-        public IMonsterEffect Spawn(string name, uint casterId, uint targetId, Vector3 point, float facing)
+        public IMonsterEffect Spawn(string name, ulong casterId, ulong targetId, Vector3 point, float facing)
         {
             Spawned.Add(name);
             Casters.Add(casterId);
@@ -211,7 +211,7 @@ internal static class MonsterPresentationTests
     {
         public PristonMotionInfo Motion { get; set; } = Clip(0x40, 0, 10, '\0');
         public float Ticks { get; set; }
-        public Dictionary<uint, Vector3> Tints { get; } = new();
+        public Dictionary<ulong, Vector3> Tints { get; } = new();
 
         public bool TryGetActorMotion(ActorHandle actor, out PristonMotionInfo motion, out float ticks)
         {
@@ -220,6 +220,6 @@ internal static class MonsterPresentationTests
             return true;
         }
 
-        public void SetEntityTint(uint entityId, Vector3 tint) => Tints[entityId] = tint;
+        public void SetEntityTint(ulong entityId, Vector3 tint) => Tints[entityId] = tint;
     }
 }

@@ -24,11 +24,11 @@ namespace PristonTale.Tests;
 // monster, and crystal pets with their name plates called in the return sparkle.
 internal sealed class ItemEffectsCaptureProbe : Game
 {
-    private const uint SelfId = 1;
+    private const ulong SelfId = 1;
     private const uint HopyId = 2;
     private const uint FriendId = 3;
     private const uint KickerId = 4;
-    private const uint PetId = 5;
+    private const ulong PetId = 5;
     private const uint FriendPetId = 6;
 
     private sealed record Shot(string Name, double AtSeconds, Action<ItemEffectsCaptureProbe>? Begin = null);
@@ -210,9 +210,9 @@ internal sealed class ItemEffectsCaptureProbe : Game
         _orbs.Observe(new PresenceUpdate(4, [], [], [], [hit]), Anchor, _seconds * 1000d);
     }
 
-    private Vector3? Anchor(uint entityId) => _remote.TryGetDrawnPosition(entityId, out var position) ? position : null;
+    private Vector3? Anchor(ulong entityId) => _remote.TryGetDrawnPosition(entityId, out var position) ? position : null;
 
-    private (Vector3 Position, float Facing)? Pose(uint entityId) =>
+    private (Vector3 Position, float Facing)? Pose(ulong entityId) =>
         _remote.TryGetDrawnPosition(entityId, out var position) && _remote.TryGetDrawnFacing(entityId, out var facing) ? (position, facing) : null;
 
     protected override void Update(GameTime gameTime)
@@ -322,17 +322,17 @@ internal sealed class ItemEffectsCaptureProbe : Game
 
     private sealed class SceneHost(ItemEffectsCaptureProbe probe) : ISkillSceneHost
     {
-        public uint SelfId => ItemEffectsCaptureProbe.SelfId;
+        public ulong SelfId => ItemEffectsCaptureProbe.SelfId;
 
         public Vector3 ListenerPosition => probe._eye;
 
-        public void PlaySkillMotion(uint entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)
+        public void PlaySkillMotion(ulong entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)
         {
         }
 
-        public bool TryGetPosition(uint entityId, out Vector3 position) => probe._remote.TryGetDrawnPosition(entityId, out position);
+        public bool TryGetPosition(ulong entityId, out Vector3 position) => probe._remote.TryGetDrawnPosition(entityId, out position);
 
-        public bool TryGetBone(uint entityId, string bone, out Vector3 position)
+        public bool TryGetBone(ulong entityId, string bone, out Vector3 position)
         {
             position = default;
             if (!probe._remote.TryGetBodyActor(entityId, out var actor) || !probe._renderer.TryGetActorBoneWorld(actor, bone, out var world))

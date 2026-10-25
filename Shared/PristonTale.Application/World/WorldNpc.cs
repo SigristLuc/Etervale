@@ -20,7 +20,7 @@ public sealed class WorldNpc
     private Vector3 _moveTarget;
 
     private WorldNpc(
-        uint entityId,
+        ulong entityId,
         NpcDefinition definition,
         Vector3 position,
         float facing,
@@ -35,7 +35,7 @@ public sealed class WorldNpc
         _moveRange = MathF.Max(0f, definition.MoveRange);
         _standClips = motionTimings?.ClipsForState(MotionStateCode.Stand) ?? Array.Empty<MotionClip>();
         _canWalk = _moveRange > 0f && motionTimings?.TryGetClip(MotionStateCode.Walk, out _) == true;
-        _randomState = entityId ^ unchecked((uint)definition.Code * 0x9E3779B9u) ^ 0xA341316Cu;
+        _randomState = (uint)(entityId ^ entityId >> 32) ^ unchecked((uint)definition.Code * 0x9E3779B9u) ^ 0xA341316Cu;
         if (_randomState == 0)
         {
             _randomState = 1;
@@ -44,7 +44,7 @@ public sealed class WorldNpc
         BeginStand();
     }
 
-    public uint EntityId { get; }
+    public ulong EntityId { get; }
     public NpcDefinition Definition { get; }
     public Vector3 HomeAnchor { get; }
     public Vector3 Position { get; private set; }
@@ -53,7 +53,7 @@ public sealed class WorldNpc
     public bool CanWalk => _canWalk;
 
     public static WorldNpc Place(
-        uint entityId,
+        ulong entityId,
         NpcDefinition definition,
         FixedNpc placement,
         MotionTimingSet? motionTimings = null)

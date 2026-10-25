@@ -9,7 +9,7 @@ internal sealed class FieldStatusBook
 {
     // Pruning of expired timers and departed entities; lookups also skip expired entries.
     private const long PruneIntervalMs = 5000;
-    private ImmutableDictionary<uint, ImmutableArray<ActiveStatusView>> _entries = ImmutableDictionary<uint, ImmutableArray<ActiveStatusView>>.Empty;
+    private ImmutableDictionary<ulong, ImmutableArray<ActiveStatusView>> _entries = ImmutableDictionary<ulong, ImmutableArray<ActiveStatusView>>.Empty;
     private long _nextPruneMs = PruneIntervalMs;
 
     public ActiveStatusSet Snapshot => new(_entries);
@@ -44,7 +44,7 @@ internal sealed class FieldStatusBook
     }
 
     // The statuses of an entity leaving the field; a field change carries them to the destination.
-    public ImmutableArray<ActiveStatusView> Take(uint entityId)
+    public ImmutableArray<ActiveStatusView> Take(ulong entityId)
     {
         if (!_entries.TryGetValue(entityId, out var list))
         {
@@ -56,7 +56,7 @@ internal sealed class FieldStatusBook
     }
 
     // Statuses carried from another field, rebased from its clock to this one.
-    public void Carry(uint entityId, ImmutableArray<ActiveStatusView> statuses, long fromNowMs, long toNowMs)
+    public void Carry(ulong entityId, ImmutableArray<ActiveStatusView> statuses, long fromNowMs, long toNowMs)
     {
         if (statuses.IsEmpty)
         {
@@ -72,7 +72,7 @@ internal sealed class FieldStatusBook
         _entries = _entries.SetItem(entityId, builder.MoveToImmutable());
     }
 
-    public void Prune(long nowMs, Func<uint, bool> present)
+    public void Prune(long nowMs, Func<ulong, bool> present)
     {
         if (nowMs < _nextPruneMs || _entries.IsEmpty)
         {
@@ -133,10 +133,10 @@ public readonly record struct ActiveStatusView(StatusEventView Status, long AtMs
 
 public readonly struct ActiveStatusSet
 {
-    private readonly ImmutableDictionary<uint, ImmutableArray<ActiveStatusView>>? _entries;
+    private readonly ImmutableDictionary<ulong, ImmutableArray<ActiveStatusView>>? _entries;
 
-    public ActiveStatusSet(ImmutableDictionary<uint, ImmutableArray<ActiveStatusView>> entries) => _entries = entries;
+    public ActiveStatusSet(ImmutableDictionary<ulong, ImmutableArray<ActiveStatusView>> entries) => _entries = entries;
 
-    public ImmutableArray<ActiveStatusView> For(uint entityId) =>
+    public ImmutableArray<ActiveStatusView> For(ulong entityId) =>
         _entries is not null && _entries.TryGetValue(entityId, out var list) ? list : ImmutableArray<ActiveStatusView>.Empty;
 }

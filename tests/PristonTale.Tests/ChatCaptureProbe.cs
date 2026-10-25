@@ -89,7 +89,7 @@ internal sealed class ChatCaptureProbe : Game
         _hud.SelfId = 1;
         _hud.Chat.SelfId = 1;
         _hud.Chat.PlayerName = "Panzer";
-        var points = new Dictionary<uint, HudOverheadPoint>();
+        var points = new Dictionary<ulong, HudOverheadPoint>();
         _hud.Overhead = id => points.TryGetValue(id, out var point) ? point : null;
         _points = points;
         Fill(_hud.Chat);
@@ -101,7 +101,7 @@ internal sealed class ChatCaptureProbe : Game
         }
     }
 
-    private Dictionary<uint, HudOverheadPoint> _points = null!;
+    private Dictionary<ulong, HudOverheadPoint> _points = null!;
 
     // Every kind of line the window shows, oldest first.
     private static void Fill(HudChat chat)

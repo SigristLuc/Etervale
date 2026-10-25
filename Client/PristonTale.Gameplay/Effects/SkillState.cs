@@ -55,7 +55,7 @@ public sealed class SkillCooldownBook
 public sealed class StatusEntry
 {
     public uint Code { get; init; }
-    public uint SourceId { get; set; }
+    public ulong SourceId { get; set; }
     public EffectSourceKind SourceKind { get; init; }
     public ControlFlags Control { get; set; }
     public bool Harmful { get; init; }
@@ -73,13 +73,13 @@ public sealed class StatusEntry
 // running between messages so the buff bar counts down; the server's remove message is authoritative.
 public sealed class StatusBook
 {
-    private readonly Dictionary<uint, List<StatusEntry>> _byEntity = new();
+    private readonly Dictionary<ulong, List<StatusEntry>> _byEntity = new();
     private readonly List<StatusEntry> _empty = new();
 
-    public event Action<uint, StatusEntry> Added;
-    public event Action<uint, StatusEntry> Removed;
+    public event Action<ulong, StatusEntry> Added;
+    public event Action<ulong, StatusEntry> Removed;
 
-    public IReadOnlyList<StatusEntry> For(uint entityId) => _byEntity.TryGetValue(entityId, out var list) ? list : _empty;
+    public IReadOnlyList<StatusEntry> For(ulong entityId) => _byEntity.TryGetValue(entityId, out var list) ? list : _empty;
 
     public void Apply(StatusEffectInfo status, double nowMs)
     {
@@ -133,7 +133,7 @@ public sealed class StatusBook
         }
     }
 
-    public void Forget(uint entityId)
+    public void Forget(ulong entityId)
     {
         if (!_byEntity.Remove(entityId, out var list))
         {
@@ -154,7 +154,7 @@ public sealed class StatusBook
         }
     }
 
-    public IEnumerable<(uint EntityId, StatusEntry Entry)> All()
+    public IEnumerable<(ulong EntityId, StatusEntry Entry)> All()
     {
         foreach (var (entity, list) in _byEntity)
         {

@@ -7,7 +7,7 @@ namespace PristonTale.Gameplay.World.Remote;
 internal sealed class RemoteCollisionRoster
 {
     private readonly record struct Entry(RemoteEntityKind Kind, Vector3 Position, int Hp);
-    private readonly Dictionary<uint, Entry> _entries = [];
+    private readonly Dictionary<ulong, Entry> _entries = [];
 
     public void Spawn(EntitySpawnInfo spawn)
     {
@@ -25,10 +25,10 @@ internal sealed class RemoteCollisionRoster
         }
     }
 
-    public void Remove(uint id) => _entries.Remove(id);
+    public void Remove(ulong id) => _entries.Remove(id);
     public void Clear() => _entries.Clear();
 
-    public void Collect(uint excludeId, List<EntityNeighbour> into)
+    public void Collect(ulong excludeId, List<EntityNeighbour> into)
     {
         into.Clear();
         foreach (var (id, entry) in _entries)

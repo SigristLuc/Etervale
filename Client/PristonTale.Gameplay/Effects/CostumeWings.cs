@@ -8,9 +8,9 @@ namespace PristonTale.Gameplay.Effects;
 // and is not shown in a village or on the dead.
 public sealed class CostumeWings
 {
-    private readonly Dictionary<uint, (string Effect, VfxInstance Instance, int Generation)> _worn = new();
-    private readonly HashSet<uint> _seen = new();
-    private readonly List<uint> _gone = new();
+    private readonly Dictionary<ulong, (string Effect, VfxInstance Instance, int Generation)> _worn = new();
+    private readonly HashSet<ulong> _seen = new();
+    private readonly List<ulong> _gone = new();
 
     // The wing effect of a body item ("" for none): costume armours CA1xx and robes CA2xx by their ordinal.
     public static string EffectFor(string armorKey)
@@ -31,7 +31,7 @@ public sealed class CostumeWings
     }
 
     // One wearer this frame; yaw is the wearer's model yaw. Wearers not reported before EndFrame lose their wing.
-    public void Wear(SkillPresentation skills, uint entityId, string armorKey, bool shown, Vector3 position, float yaw)
+    public void Wear(SkillPresentation skills, ulong entityId, string armorKey, bool shown, Vector3 position, float yaw)
     {
         var effect = shown ? EffectFor(armorKey) : "";
         if (effect.Length == 0)

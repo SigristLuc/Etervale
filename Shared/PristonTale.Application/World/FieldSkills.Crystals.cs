@@ -10,11 +10,11 @@ namespace PristonTale.Application.World;
 // another pet. Their kills credit the user like his own; they die when they expire or the user leaves the field.
 internal sealed partial class FieldSkills
 {
-    private readonly Dictionary<uint, CrystalPet> _crystalPets = new();
+    private readonly Dictionary<ulong, CrystalPet> _crystalPets = new();
 
-    private sealed record CrystalPet(uint OwnerId, int ClanId);
+    private sealed record CrystalPet(ulong OwnerId, int ClanId);
 
-    public IEnumerable<(uint PetId, uint OwnerId, int ClanId)> CrystalPets =>
+    public IEnumerable<(ulong PetId, ulong OwnerId, int ClanId)> CrystalPets =>
         _crystalPets.Select(static pair => (pair.Key, pair.Value.OwnerId, pair.Value.ClanId));
 
     // Calls the pet beside its owner with the owner-level lifetime and life bonus; returns where it stands.

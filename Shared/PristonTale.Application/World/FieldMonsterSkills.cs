@@ -11,16 +11,16 @@ namespace PristonTale.Application.World;
 
 internal interface IFieldMonsterSkillHost
 {
-    bool TryGetPlayer(uint entityId, [MaybeNullWhen(false)] out WorldPlayer player);
-    bool TryGetMonster(uint entityId, [MaybeNullWhen(false)] out MonsterInstance monster);
+    bool TryGetPlayer(ulong entityId, [MaybeNullWhen(false)] out WorldPlayer player);
+    bool TryGetMonster(ulong entityId, [MaybeNullWhen(false)] out MonsterInstance monster);
     IEnumerable<MonsterInstance> Monsters { get; }
     IEnumerable<WorldPlayer> Players { get; }
     IReadOnlyList<PreyCandidate> NearbyPlayers(Vector3 origin, float radius);
     IReadOnlyList<MonsterDefinition> MonsterDefinitions { get; }
     MonsterInstance SpawnMonster(MonsterDefinition definition, Vector3 position, float facing, int spawnPointIndex);
-    void RemoveMonster(uint entityId);
+    void RemoveMonster(ulong entityId);
     void EmitCombatEvent(in CombatEventView combatEvent);
-    bool ApplyStatus(uint entity, EffectSpec spec, float durationMs, uint source);
+    bool ApplyStatus(ulong entity, EffectSpec spec, float durationMs, ulong source);
     void EndStuns(MonsterInstance monster);
 }
 
@@ -35,7 +35,7 @@ internal sealed class FieldMonsterSkills
     private readonly MonsterHitRider[] _riders = new MonsterHitRider[MonsterSkillRules.MaxRiders];
     private readonly List<MonsterInstance> _pointScratch = new();
     private readonly List<(MonsterInstance Monster, MonsterDefinition Into)> _changes = new();
-    private readonly Dictionary<uint, (MonsterMotionState Motion, float Ms, bool Regenerated)> _babelMotion = new();
+    private readonly Dictionary<ulong, (MonsterMotionState Motion, float Ms, bool Regenerated)> _babelMotion = new();
 
     public FieldMonsterSkills(IFieldMonsterSkillHost host, CombatRng rng)
     {
@@ -445,7 +445,7 @@ internal sealed class FieldMonsterSkills
     }
 
     // The skill's blow. Areas are placed when the swing began; the host's checks filter live victims.
-    public void ResolveSkill(MonsterInstance attacker, uint targetId)
+    public void ResolveSkill(MonsterInstance attacker, ulong targetId)
     {
         if (!attacker.AttackIsSkill || !attacker.SkillImpactPending || targetId != attacker.SkillTargetId)
         {

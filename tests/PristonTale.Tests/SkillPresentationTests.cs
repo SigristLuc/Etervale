@@ -325,13 +325,13 @@ internal static class SkillPresentationTests
 
     private sealed class Anchors : IVfxAnchors
     {
-        public bool TryGetPosition(uint entityId, out Vector3 position)
+        public bool TryGetPosition(ulong entityId, out Vector3 position)
         {
             position = Vector3.Zero;
             return false;
         }
 
-        public bool TryGetBone(uint entityId, string bone, out Vector3 position)
+        public bool TryGetBone(ulong entityId, string bone, out Vector3 position)
         {
             position = Vector3.Zero;
             return false;

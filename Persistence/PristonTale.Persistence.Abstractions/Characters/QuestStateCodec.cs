@@ -22,7 +22,7 @@ public sealed record SavedQuest(
     int WeaponManaRegenTenths,
     bool ArenaWon);
 
-public sealed record SavedQuestOperation(Guid OperationId, uint NpcEntityId, QuestAction Action, QuestCode Code, int State, int Choice, long Revision);
+public sealed record SavedQuestOperation(Guid OperationId, ulong NpcEntityId, QuestAction Action, QuestCode Code, int State, int Choice, long Revision);
 
 // The characters.quests column: the running quest, the completion logs, the finished history and the applied quest
 // operations that make retried requests idempotent.

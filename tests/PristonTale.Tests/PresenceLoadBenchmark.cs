@@ -82,7 +82,7 @@ internal static class PresenceLoadBenchmark
 
         var field = world.FieldFor(Field)!;
         var sink = (ISpawnSink)field;
-        var monsters = new uint[(count + 3) / 4];
+        var monsters = new ulong[(count + 3) / 4];
         for (var index = 0; index < monsters.Length; index++)
         {
             var at = homes[index * 4] + new Vector3(30f, 0f, 0f);
@@ -169,7 +169,7 @@ internal static class PresenceLoadBenchmark
 
     // Walkers report a circle at 5 Hz through the command queue; fighters stand by their monster; casters throw a bomb
     // every three seconds.
-    private static void Drive(WorldServer world, FieldInstance field, WorldPlayer[] players, Vector3[] homes, uint[] monsters, uint tick)
+    private static void Drive(WorldServer world, FieldInstance field, WorldPlayer[] players, Vector3[] homes, ulong[] monsters, uint tick)
     {
         for (var index = 0; index < players.Length; index++)
         {

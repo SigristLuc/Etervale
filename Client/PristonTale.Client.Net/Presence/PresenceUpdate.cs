@@ -7,7 +7,7 @@ public sealed record PresenceUpdate(
     long ServerTick,
     IReadOnlyList<EntitySpawnInfo> Spawns,
     IReadOnlyList<EntityStateInfo> States,
-    IReadOnlyList<uint> Removed,
+    IReadOnlyList<ulong> Removed,
     IReadOnlyList<CombatEventInfo> Events,
     int? FieldId = null,
     OwnerState? Owner = null)
@@ -44,6 +44,6 @@ public sealed record PresenceUpdate(
 
 // One chat line: Kind is the server's colour and tab code, SpeakerId the entity that said it (0 for server lines).
 // Direct lines (the plain chat message) go to the log as they are; the others show over a speaker the client sees.
-public sealed record ChatLineInfo(uint Kind, uint SpeakerId, string Text);
+public sealed record ChatLineInfo(uint Kind, ulong SpeakerId, string Text);
 
 public sealed record WarpInfo(int FieldId, System.Numerics.Vector3 Position, bool Forced);

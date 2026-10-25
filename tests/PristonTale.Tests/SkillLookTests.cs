@@ -47,13 +47,13 @@ internal static class SkillLookTests
         return rule;
     }
 
-    private static StatusEffectInfo Status(uint entity, uint code, bool harmful, StatusEffectOp op = StatusEffectOp.Add) =>
+    private static StatusEffectInfo Status(ulong entity, uint code, bool harmful, StatusEffectOp op = StatusEffectOp.Add) =>
         new(entity, Self, code, op, 1, 2, 0, harmful ? StatusEffectFlags.Harmful : (ushort)0, 60000, 60000, 5);
 
     private static SkillEventInfo Cast(uint caster, uint code, float durationMs = 1000f, float hitAtMs = 300f, int targets = 1) =>
         new(caster, Monster, code, SkillEventPhase.Start, 5, 0, durationMs, hitAtMs, default, 0f, targets, 0f);
 
-    private static EntityLook Step(ActorLookBook book, StatusBook statuses, ref double nowMs, float seconds, uint entity)
+    private static EntityLook Step(ActorLookBook book, StatusBook statuses, ref double nowMs, float seconds, ulong entity)
     {
         nowMs += seconds * 1000d;
         book.Update(seconds, nowMs, statuses, Self);

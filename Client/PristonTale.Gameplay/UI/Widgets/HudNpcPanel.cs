@@ -13,7 +13,7 @@ namespace PristonTale.Gameplay.UI.Widgets;
 // the class-change button works when the master offers this player a rank-up. A teleporter's destinations replace the
 // service buttons once its service is opened.
 public sealed class HudNpcPanel(
-    Func<uint, Task<NpcInteraction>> interact,
+    Func<ulong, Task<NpcInteraction>> interact,
     IClientLog log,
     Action<NpcInteraction> opened = null,
     Action closed = null)
@@ -91,7 +91,7 @@ public sealed class HudNpcPanel(
         return new Rectangle(origin.X + 21 + 51 * index, origin.Y + 22, 44, 44);
     }
 
-    public void Request(uint entityId)
+    public void Request(ulong entityId)
     {
         if (_pending is null && interact is not null)
         {
@@ -103,7 +103,7 @@ public sealed class HudNpcPanel(
         }
     }
 
-    private async Task<NpcInteraction> InteractAsync(uint entityId)
+    private async Task<NpcInteraction> InteractAsync(ulong entityId)
     {
         try
         {

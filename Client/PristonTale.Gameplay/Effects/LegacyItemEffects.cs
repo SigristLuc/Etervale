@@ -61,7 +61,7 @@ public sealed class LegacyItemEffects
     public static (string Cracker, string Bomb) Shapes(int burst) =>
         burst is >= 0 and < 20 ? (Crackers[burst / 4], burst % 4 < 3 ? Bombs[burst % 4] : null) : (null, null);
 
-    public void Play(ItemEffectKind effect, uint entity, int variant, Vector3 position, Vector3 listener, double nowMs)
+    public void Play(ItemEffectKind effect, ulong entity, int variant, Vector3 position, Vector3 listener, double nowMs)
     {
         switch (effect)
         {
@@ -94,7 +94,7 @@ public sealed class LegacyItemEffects
     }
 
     // Fires the bursts that came due; position resolves the entity's drawn position (null when it left the view).
-    public void Update(double nowMs, Func<uint, Vector3?> position, Vector3 listener)
+    public void Update(double nowMs, Func<ulong, Vector3?> position, Vector3 listener)
     {
         for (var index = _bursts.Count - 1; index >= 0; index--)
         {
@@ -167,5 +167,5 @@ public sealed class LegacyItemEffects
         };
     }
 
-    private readonly record struct Burst(uint Entity, double DueMs, int Shape);
+    private readonly record struct Burst(ulong Entity, double DueMs, int Shape);
 }

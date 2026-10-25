@@ -237,7 +237,7 @@ internal static class MonsterMovementTests
 
         public Prey(PreyCandidate candidate = default) => Candidate = candidate;
 
-        public bool TryGet(uint entityId, out PreyCandidate prey)
+        public bool TryGet(ulong entityId, out PreyCandidate prey)
         {
             prey = Candidate;
             return entityId != 0 && entityId == Candidate.EntityId;

@@ -7,7 +7,7 @@ namespace PristonTale.Application.World;
 // other status, ended by the shared timers, death and the status rules of the effect engine.
 internal sealed partial class FieldSkills
 {
-    public bool ApplyMonsterStatus(uint entity, EffectSpec spec, float durationMs, uint source)
+    public bool ApplyMonsterStatus(ulong entity, EffectSpec spec, float durationMs, ulong source)
     {
         var effects = _host.TryGetPlayer(entity, out var player) && !player.IsDead ? player.Character.Effects
             : _host.TryGetMonster(entity, out var monster) && monster.IsAlive ? monster.Effects : null;

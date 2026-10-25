@@ -10,9 +10,9 @@ namespace PristonTale.Application.World;
 // The field side of monster skills: what FieldMonsterSkills reads and changes on this field.
 public sealed partial class FieldInstance : IFieldMonsterSkillHost
 {
-    bool IFieldMonsterSkillHost.TryGetPlayer(uint entityId, [MaybeNullWhen(false)] out WorldPlayer player) => _players.TryGetValue(entityId, out player);
+    bool IFieldMonsterSkillHost.TryGetPlayer(ulong entityId, [MaybeNullWhen(false)] out WorldPlayer player) => _players.TryGetValue(entityId, out player);
 
-    bool IFieldMonsterSkillHost.TryGetMonster(uint entityId, [MaybeNullWhen(false)] out MonsterInstance monster) =>
+    bool IFieldMonsterSkillHost.TryGetMonster(ulong entityId, [MaybeNullWhen(false)] out MonsterInstance monster) =>
         _monsters.TryGetValue(entityId, out monster);
 
     IEnumerable<MonsterInstance> IFieldMonsterSkillHost.Monsters => _monsters.Values;
@@ -26,9 +26,9 @@ public sealed partial class FieldInstance : IFieldMonsterSkillHost
     MonsterInstance IFieldMonsterSkillHost.SpawnMonster(MonsterDefinition definition, Vector3 position, float facing, int spawnPointIndex) =>
         ((ISpawnSink)this).Spawn(definition, position, spawnPointIndex, facing);
 
-    void IFieldMonsterSkillHost.RemoveMonster(uint entityId) => RemoveMonster(entityId);
+    void IFieldMonsterSkillHost.RemoveMonster(ulong entityId) => RemoveMonster(entityId);
 
-    bool IFieldMonsterSkillHost.ApplyStatus(uint entity, EffectSpec spec, float durationMs, uint source) =>
+    bool IFieldMonsterSkillHost.ApplyStatus(ulong entity, EffectSpec spec, float durationMs, ulong source) =>
         _skills.ApplyMonsterStatus(entity, spec, durationMs, source);
 
     void IFieldMonsterSkillHost.EndStuns(MonsterInstance monster) => _skills.EndStuns(monster);

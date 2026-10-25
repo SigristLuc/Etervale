@@ -22,9 +22,9 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     public const int PlayerNearRadiusSquared = 0x120000;
     public static readonly float PlayerNearRadius = MathF.Sqrt(PlayerNearRadiusSquared);
 
-    private readonly Dictionary<uint, WorldPlayer> _players = new();
-    private readonly Dictionary<uint, MonsterInstance> _monsters = new();
-    private readonly Dictionary<uint, WorldNpc> _npcs = new();
+    private readonly Dictionary<ulong, WorldPlayer> _players = new();
+    private readonly Dictionary<ulong, MonsterInstance> _monsters = new();
+    private readonly Dictionary<ulong, WorldNpc> _npcs = new();
 
     // Reused scratch (tick thread only) so Step allocates no per-tick garbage on the hot path.
     private readonly List<MonsterInstance> _liveScratch = new();
@@ -107,11 +107,11 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     public FieldGroundLoot GroundLoot { get; }
 
     public IReadOnlyCollection<WorldNpc> Npcs => _npcs.Values;
-    public bool TryGetNpc(uint entityId, [MaybeNullWhen(false)] out WorldNpc npc) => _npcs.TryGetValue(entityId, out npc);
-    public IEnumerable<uint> PlayerIds => _players.Keys;
+    public bool TryGetNpc(ulong entityId, [MaybeNullWhen(false)] out WorldNpc npc) => _npcs.TryGetValue(entityId, out npc);
+    public IEnumerable<ulong> PlayerIds => _players.Keys;
 
     public void Add(WorldPlayer player) => _players[player.EntityId] = player;
-    public void Remove(uint entityId)
+    public void Remove(ulong entityId)
     {
         if (_players.TryGetValue(entityId, out var leaving))
         {
@@ -134,9 +134,9 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
         return _skills.Cast(player, request);
     }
-    public bool TryGet(uint entityId, [MaybeNullWhen(false)] out WorldPlayer player) => _players.TryGetValue(entityId, out player);
+    public bool TryGet(ulong entityId, [MaybeNullWhen(false)] out WorldPlayer player) => _players.TryGetValue(entityId, out player);
 
-    public bool SetAttackTarget(uint attackerEntityId, uint targetEntityId, bool sustained, ulong sequence = 0)
+    public bool SetAttackTarget(ulong attackerEntityId, ulong targetEntityId, bool sustained, ulong sequence = 0)
     {
         if (!_players.TryGetValue(attackerEntityId, out var attacker) || attacker.IsDead)
         {
@@ -159,10 +159,10 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         return true;
     }
 
-    public ulong ExpFor(uint playerId) => _combat.ExpFor(playerId);
+    public ulong ExpFor(ulong playerId) => _combat.ExpFor(playerId);
 
     // A used item's timed effect on a player of this field; it starts with the next step.
-    internal void QueueItemEffect(uint entityId, EffectSpec spec, float durationMs, int rank = 1) => _skills.QueueItemEffect(entityId, spec, durationMs, rank);
+    internal void QueueItemEffect(ulong entityId, EffectSpec spec, float durationMs, int rank = 1) => _skills.QueueItemEffect(entityId, spec, durationMs, rank);
 
     // The field's combat resolution, for scenario tests that drive single monster attacks.
     internal FieldCombat Combat => _combat;
@@ -227,7 +227,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
                 continue;
             }
 
-            if (player.TickAction(dtMs, out uint hitTargetId))
+            if (player.TickAction(dtMs, out ulong hitTargetId))
             {
                 if (_combat.ResolvePlayerSwingHit(player, hitTargetId, nowMs) is { } reward)
                 {
@@ -268,9 +268,9 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         Statuses.Prune(nowMs, _isPresent ??= IsPresent);
     }
 
-    private Func<uint, bool>? _isPresent;
+    private Func<ulong, bool>? _isPresent;
 
-    private bool IsPresent(uint entityId) => _players.ContainsKey(entityId) || _monsters.ContainsKey(entityId) || _npcs.ContainsKey(entityId);
+    private bool IsPresent(ulong entityId) => _players.ContainsKey(entityId) || _monsters.ContainsKey(entityId) || _npcs.ContainsKey(entityId);
 
     private void PlaceLoot(KillPayout reward, long nowMs)
     {
@@ -286,15 +286,15 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
     internal StatusEventView[] SnapshotStatusEvents() => _skills.SnapshotStatusEvents();
 
-    bool IFieldSkillHost.TryGetPlayer(uint entityId, [MaybeNullWhen(false)] out WorldPlayer player) => _players.TryGetValue(entityId, out player);
+    bool IFieldSkillHost.TryGetPlayer(ulong entityId, [MaybeNullWhen(false)] out WorldPlayer player) => _players.TryGetValue(entityId, out player);
 
-    bool IFieldSkillHost.TryGetMonster(uint entityId, [MaybeNullWhen(false)] out MonsterInstance monster) => _monsters.TryGetValue(entityId, out monster);
+    bool IFieldSkillHost.TryGetMonster(ulong entityId, [MaybeNullWhen(false)] out MonsterInstance monster) => _monsters.TryGetValue(entityId, out monster);
 
     IEnumerable<MonsterInstance> IFieldSkillHost.Monsters => _monsters.Values;
 
     IEnumerable<WorldPlayer> IFieldSkillHost.Players => _players.Values;
 
-    KillPayout? IFieldSkillHost.ApplyPlayerDamage(WorldPlayer player, MonsterInstance monster, int damage, bool crit, bool forceFlinch, uint sourceEntityId) =>
+    KillPayout? IFieldSkillHost.ApplyPlayerDamage(WorldPlayer player, MonsterInstance monster, int damage, bool crit, bool forceFlinch, ulong sourceEntityId) =>
         _combat.ApplyPlayerDamage(player, monster, damage, crit, NowMs, forceFlinch, sourceEntityId);
 
     bool IFieldSkillHost.TryFindMonsterDefinition(string name, [MaybeNullWhen(false)] out MonsterDefinition definition) =>
@@ -501,7 +501,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         }
     }
 
-    private void BuildNeighbours(uint selfId, Vector3 before, Vector3 desired, float selfRadius)
+    private void BuildNeighbours(ulong selfId, Vector3 before, Vector3 desired, float selfRadius)
     {
         _neighbourScratch.Clear();
         var bounds = EntityCollision.QueryBounds(before, desired, MathF.Max(selfRadius, EntityCollisionRadii.Monster));
@@ -532,7 +532,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     }
 
     // Live monsters around a mover, for the server's monster-only overlap test (players are not blockers).
-    private void BuildMonsterNeighbours(uint selfId, Vector3 origin, float distance)
+    private void BuildMonsterNeighbours(ulong selfId, Vector3 origin, float distance)
     {
         _neighbourScratch.Clear();
         _collisionIndex.QueryWithin(origin, distance + EntityCollisionRadii.Monster * 2f, _collisionQuery);
@@ -579,33 +579,27 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
     MonsterInstance ISpawnSink.Spawn(MonsterDefinition definition, Vector3 position, int spawnPointIndex, float facing)
     {
-        uint id = _ids.NextMonsterId();
+        ulong id = _ids.NextMonsterId();
         var monster = new MonsterInstance(id, definition, Terrain.PlaceOnFloor(position), facing, spawnPointIndex);
         _monsters[id] = monster;
         _monsterSkills.Prepare(monster);
         return monster;
     }
 
-    bool IFieldCombatHost.TryGetPlayer(uint entityId, [MaybeNullWhen(false)] out WorldPlayer player)
+    bool IFieldCombatHost.TryGetPlayer(ulong entityId, [MaybeNullWhen(false)] out WorldPlayer player)
         => _players.TryGetValue(entityId, out player);
 
-    bool IFieldCombatHost.TryGetMonster(uint entityId, [MaybeNullWhen(false)] out MonsterInstance monster)
+    bool IFieldCombatHost.TryGetMonster(ulong entityId, [MaybeNullWhen(false)] out MonsterInstance monster)
         => _monsters.TryGetValue(entityId, out monster);
 
     IEnumerable<MonsterInstance> IFieldCombatHost.Monsters => _monsters.Values;
 
     IReadOnlyList<PreyCandidate> IFieldCombatHost.NearbyPlayers(Vector3 origin, float radius) => _prey.Nearby(origin, radius);
 
-    void IFieldCombatHost.DespawnMonster(uint entityId)
-    {
-        if (_monsters.Remove(entityId, out _))
-        {
-            _ids.Release(entityId);
-        }
-    }
+    void IFieldCombatHost.DespawnMonster(ulong entityId) => _monsters.Remove(entityId, out _);
 
-    // Removes a monster from the field and its combat state and releases its id.
-    private bool RemoveMonster(uint entityId)
+    // Removes a monster from the field and its combat state.
+    private bool RemoveMonster(ulong entityId)
     {
         if (!_monsters.Remove(entityId, out _))
         {
@@ -613,7 +607,6 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         }
 
         _combat.ForgetMonster(entityId);
-        _ids.Release(entityId);
         return true;
     }
 

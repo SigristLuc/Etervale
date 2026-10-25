@@ -8,7 +8,7 @@ namespace PristonTale.Application.World;
 public sealed class FieldPreyView : IPreyView
 {
     private readonly List<PreyCandidate> _candidates = new();
-    private readonly Dictionary<uint, PreyCandidate> _byId = new();
+    private readonly Dictionary<ulong, PreyCandidate> _byId = new();
     private readonly SpatialIndex _index = new();
     private readonly List<SpatialEntry> _query = new();
     private readonly List<PreyCandidate> _nearby = new();
@@ -30,10 +30,10 @@ public sealed class FieldPreyView : IPreyView
     // Whether a player stands strictly inside the planar circle (the spawner's proximity test).
     public bool AnyWithin(Vector3 position, float radius) => _index.AnyWithin(position, radius);
 
-    public bool TryGet(uint entityId, out PreyCandidate prey) => _byId.TryGetValue(entityId, out prey);
+    public bool TryGet(ulong entityId, out PreyCandidate prey) => _byId.TryGetValue(entityId, out prey);
 
     // An entity monsters can keep as their target but never acquire by sight (a summon that hit them).
-    public void AddTargetOnly(uint entityId, Vector3 position, bool alive) => _byId[entityId] = new PreyCandidate(entityId, position, alive);
+    public void AddTargetOnly(ulong entityId, Vector3 position, bool alive) => _byId[entityId] = new PreyCandidate(entityId, position, alive);
 
     public void Rebuild(IEnumerable<WorldPlayer> players)
     {

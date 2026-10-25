@@ -22,11 +22,11 @@ internal sealed class PresenceDecoder
     private const long DescriptionRetryMs = 1000;
     // The receive loop decodes; the connection's timer retries descriptions.
     private readonly object _gate = new();
-    private readonly Dictionary<uint, Tracked> _objects = new();
+    private readonly Dictionary<ulong, Tracked> _objects = new();
     // Monster and NPC descriptions are shared by template, like the original client's enemy cache.
     private readonly Dictionary<uint, Description> _templates = new();
     private readonly WorldRenderCatalog _catalog;
-    private readonly Action<uint> _requestDescription;
+    private readonly Action<ulong> _requestDescription;
     private readonly Dictionary<int, InventoryItemEntry[]> _inventoryParts = new();
     private readonly OwnerItemDecoder _ownerItems = new();
     private OwnerStatusPacket? _status;
@@ -38,13 +38,13 @@ internal sealed class PresenceDecoder
     private long _tick;
     private double? _clockMs;
 
-    public PresenceDecoder(WorldRenderCatalog catalog, Action<uint> requestDescription)
+    public PresenceDecoder(WorldRenderCatalog catalog, Action<ulong> requestDescription)
     {
         _catalog = catalog;
         _requestDescription = requestDescription;
     }
 
-    public uint SelfSerial { get; set; }
+    public ulong SelfSerial { get; set; }
 
     public int? FieldId { get; private set; }
 
@@ -114,7 +114,7 @@ internal sealed class PresenceDecoder
     }
 
     private PresenceUpdate OnChat(ChatLinePacket packet) =>
-        Update([], []) with { Chat = [new ChatLineInfo(packet.Kind, Serial(packet.Speaker), packet.Text)] };
+        Update([], []) with { Chat = [new ChatLineInfo(packet.Kind, packet.Speaker, packet.Text)] };
 
     private PresenceUpdate OnQuestNotices(QuestNoticesPacket packet) =>
         Update([], []) with { QuestNotices = QuestWireReader.ToNotices(packet.Notices), QuestPrompt = QuestWireReader.ToPrompt(packet.Prompt) };
@@ -125,7 +125,7 @@ internal sealed class PresenceDecoder
         for (var index = 0; index < entries.Length; index++)
         {
             var entry = entries[index];
-            events[index] = new SkillEventInfo(Serial(entry.Caster), Serial(entry.Target), entry.SkillCode, entry.Phase, entry.Rank, entry.Flags, entry.DurationMs,
+            events[index] = new SkillEventInfo(entry.Caster, entry.Target, entry.SkillCode, entry.Phase, entry.Rank, entry.Flags, entry.DurationMs,
                 entry.HitAtMs, Position(entry.X, entry.Y, entry.Z), PristonUnits.FromAngle(entry.Angle), entry.TargetCount, entry.Radius);
         }
 
@@ -138,7 +138,7 @@ internal sealed class PresenceDecoder
         for (var index = 0; index < entries.Length; index++)
         {
             var entry = entries[index];
-            statuses[index] = new StatusEffectInfo(Serial(entry.Entity), Serial(entry.Source), entry.StatusCode, entry.Op, entry.Stacks, entry.SourceKind,
+            statuses[index] = new StatusEffectInfo(entry.Entity, entry.Source, entry.StatusCode, entry.Op, entry.Stacks, entry.SourceKind,
                 entry.Control, entry.Flags, entry.DurationMs, entry.RemainingMs, entry.Value);
         }
 
@@ -183,8 +183,8 @@ internal sealed class PresenceDecoder
         for (var index = 0; index < effects.Length; index++)
         {
             var entry = packet.Effects[index];
-            effects[index] = new ItemEffectInfo(Serial(entry.Entity), entry.ItemCode, (ItemEffectKind)entry.Effect, Position(entry.X, entry.Y, entry.Z), entry.Variant,
-                Serial(entry.Target));
+            effects[index] = new ItemEffectInfo(entry.Entity, entry.ItemCode, (ItemEffectKind)entry.Effect, Position(entry.X, entry.Y, entry.Z), entry.Variant,
+                entry.Target);
         }
 
         return Update([], []) with { ItemEffects = effects, ServerTimeMs = _clockMs };
@@ -220,13 +220,9 @@ internal sealed class PresenceDecoder
         return spawns.Count == 0 && states.Count == 0 ? null : Update(spawns, states) with { ServerTimeMs = _clockMs };
     }
 
-    // Entity ids travel as 64-bit values; the world hands out 32-bit ones (EntityIdAllocator).
-    private static uint Serial(ulong serial) =>
-        serial <= uint.MaxValue ? (uint)serial : throw new InvalidDataException($"Entity id {serial} exceeds the 32-bit ids the world hands out.");
-
     private void ApplyFull(in PresenceEntry entry, List<EntitySpawnInfo> spawns, List<EntityStateInfo> states)
     {
-        var serial = Serial(entry.Serial);
+        var serial = entry.Serial;
         if (!_objects.TryGetValue(serial, out var tracked))
         {
             tracked = new Tracked();
@@ -240,7 +236,7 @@ internal sealed class PresenceDecoder
 
         tracked.Hp = entry.Hp;
         tracked.MaxHp = entry.MaxHp;
-        tracked.Target = Serial(entry.Target);
+        tracked.Target = entry.Target;
         tracked.Sequence = entry.AttackSequence;
         tracked.Position = entry.Position;
         tracked.Facing = entry.Facing;
@@ -264,7 +260,7 @@ internal sealed class PresenceDecoder
 
     private void ApplyMotion(in PresenceEntry entry, List<EntityStateInfo> states)
     {
-        var serial = Serial(entry.Serial);
+        var serial = entry.Serial;
         if (!_objects.TryGetValue(serial, out var tracked) || !tracked.HasState)
         {
             // A motion entry never introduces an object; its next full entry does.
@@ -283,7 +279,7 @@ internal sealed class PresenceDecoder
 
     // One GETPLAYERINFO per revision, repeated after a second when its answer does not come: the server drops requests
     // beyond its rate bucket (a crowd entering view at once), and an object without a description is never shown.
-    private void RequestDescription(uint serial, Tracked tracked, int revision)
+    private void RequestDescription(ulong serial, Tracked tracked, int revision)
     {
         var now = Environment.TickCount64;
         if (tracked.RequestedRevision == revision && now - tracked.RequestedAtMs < DescriptionRetryMs)
@@ -296,7 +292,7 @@ internal sealed class PresenceDecoder
         _requestDescription(serial);
     }
 
-    private void Publish(uint serial, Tracked tracked, List<EntitySpawnInfo> spawns, List<EntityStateInfo> states)
+    private void Publish(ulong serial, Tracked tracked, List<EntitySpawnInfo> spawns, List<EntityStateInfo> states)
     {
         if (tracked.Description is null)
         {
@@ -316,7 +312,7 @@ internal sealed class PresenceDecoder
 
     public PresenceUpdate? OnDescription(EntityDescriptionPacket packet)
     {
-        var serial = Serial(packet.Serial);
+        var serial = packet.Serial;
         if (!_objects.TryGetValue(serial, out var tracked))
         {
             return null;
@@ -356,10 +352,9 @@ internal sealed class PresenceDecoder
 
     public PresenceUpdate OnRemoved(ulong[] serials)
     {
-        var removed = new List<uint>(serials.Length);
-        foreach (var wide in serials)
+        var removed = new List<ulong>(serials.Length);
+        foreach (var serial in serials)
         {
-            var serial = Serial(wide);
             if (_objects.Remove(serial, out var tracked) && tracked.Published)
             {
                 removed.Add(serial);
@@ -374,7 +369,7 @@ internal sealed class PresenceDecoder
         var events = new List<CombatEventInfo>(entries.Length);
         foreach (var entry in entries)
         {
-            events.Add(new CombatEventInfo(Serial(entry.Attacker), Serial(entry.Target), (RemoteCombatEventKind)entry.Kind, entry.DurationMs, entry.HitAtMs,
+            events.Add(new CombatEventInfo(entry.Attacker, entry.Target, (RemoteCombatEventKind)entry.Kind, entry.DurationMs, entry.HitAtMs,
                 entry.Damage, (entry.Flags & CombatEventFlags.Critical) != 0, (entry.Flags & CombatEventFlags.Killed) != 0, entry.Resources,
                 entry.SoundCode, Position(entry.X, entry.Y, entry.Z), PristonUnits.FromAngle(entry.Angle))
             {
@@ -490,10 +485,10 @@ internal sealed class PresenceDecoder
     private static OwnedItemView Item(InventoryItemEntry entry) => new(entry.InstanceId, entry.Code, entry.Name, (ItemKind)entry.Kind, entry.Count,
         entry.Anchor, entry.Slot, entry.Width, entry.Height, LegacyItemCode.TryFormat(entry.Code, out var key) ? key : "");
 
-    private PresenceUpdate Update(List<EntitySpawnInfo> spawns, List<EntityStateInfo> states, List<uint>? removed = null, List<CombatEventInfo>? events = null) =>
+    private PresenceUpdate Update(List<EntitySpawnInfo> spawns, List<EntityStateInfo> states, List<ulong>? removed = null, List<CombatEventInfo>? events = null) =>
         new(_tick, spawns, states, removed ?? [], events ?? [], FieldId);
 
-    private EntitySpawnInfo Spawn(uint serial, Tracked tracked)
+    private EntitySpawnInfo Spawn(ulong serial, Tracked tracked)
     {
         var description = tracked.Description!;
         var packet = description.Packet;
@@ -510,7 +505,7 @@ internal sealed class PresenceDecoder
         }
 
         var template = packet.Template;
-        var owner = template is { Owner: not 0 } ? Serial(template.Owner) : 0u;
+        var owner = template is { Owner: not 0 } ? template.Owner : 0UL;
         return new EntitySpawnInfo(serial, description.Kind, serial == SelfSerial, tracked.Position, tracked.Facing, tracked.Motion, tracked.Hp,
             tracked.MaxHp, player, template?.Template ?? 0, packet.MoveSpeed, AttackRate(packet), tracked.Target, tracked.Sequence, tracked.SampleTimeMs,
             packet.Name, packet.Level)
@@ -520,7 +515,7 @@ internal sealed class PresenceDecoder
         };
     }
 
-    private static EntityStateInfo State(uint serial, Tracked tracked)
+    private static EntityStateInfo State(ulong serial, Tracked tracked)
     {
         var packet = tracked.Description!.Packet;
         return new EntityStateInfo(serial, tracked.Position, tracked.Facing, tracked.Motion, tracked.Hp, packet.MoveSpeed, AttackRate(packet),
@@ -571,7 +566,7 @@ internal sealed class PresenceDecoder
         public RemoteMoveState Motion { get; set; }
         public int Hp { get; set; }
         public int MaxHp { get; set; }
-        public uint Target { get; set; }
+        public ulong Target { get; set; }
         public ulong Sequence { get; set; }
         public double? SampleTimeMs { get; set; }
     }

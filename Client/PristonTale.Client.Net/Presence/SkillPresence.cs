@@ -5,8 +5,8 @@ namespace PristonTale.Client.Net.Presence;
 
 // A skill start or impact on the server timeline of the presence update that carries it.
 public sealed record SkillEventInfo(
-    uint CasterId,
-    uint TargetId,
+    ulong CasterId,
+    ulong TargetId,
     uint SkillCode,
     SkillEventPhase Phase,
     int Rank,
@@ -19,8 +19,8 @@ public sealed record SkillEventInfo(
     float Radius);
 
 public sealed record StatusEffectInfo(
-    uint EntityId,
-    uint SourceId,
+    ulong EntityId,
+    ulong SourceId,
     uint StatusCode,
     StatusEffectOp Op,
     int Stacks,

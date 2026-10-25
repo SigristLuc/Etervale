@@ -274,13 +274,13 @@ internal sealed class OpeningCinematic : IDisposable
     // The flight has no entities to anchor effects to.
     private sealed class NoAnchors : IVfxAnchors
     {
-        public bool TryGetPosition(uint entityId, out Vector3 position)
+        public bool TryGetPosition(ulong entityId, out Vector3 position)
         {
             position = default;
             return false;
         }
 
-        public bool TryGetBone(uint entityId, string bone, out Vector3 position)
+        public bool TryGetBone(ulong entityId, string bone, out Vector3 position)
         {
             position = default;
             return false;

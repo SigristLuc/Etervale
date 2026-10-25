@@ -3,14 +3,14 @@ namespace PristonTale.Application.World;
 
 public sealed class SubscriberPresence
 {
-    private readonly uint _selfEntityId;
+    private readonly ulong _selfEntityId;
 
-    private readonly Dictionary<uint, EntityView> _spawned = new();
+    private readonly Dictionary<ulong, EntityView> _spawned = new();
 
     // Scratch reused across ticks to mark which known ids are still present, avoiding per-tick allocs.
-    private readonly HashSet<uint> _stillPresent = new();
+    private readonly HashSet<ulong> _stillPresent = new();
 
-    public SubscriberPresence(uint selfEntityId) => _selfEntityId = selfEntityId;
+    public SubscriberPresence(ulong selfEntityId) => _selfEntityId = selfEntityId;
 
     private readonly HashSet<Guid> _knownDrops = [];
     private readonly HashSet<Guid> _visibleDrops = [];
@@ -82,12 +82,12 @@ public sealed class SubscriberPresence
             _spawned[view.EntityId] = view;
         }
 
-        List<uint>? removed = null;
+        List<ulong>? removed = null;
         foreach (var knownId in _spawned.Keys)
         {
             if (!_stillPresent.Contains(knownId))
             {
-                removed ??= new List<uint>();
+                removed ??= new List<ulong>();
                 removed.Add(knownId);
             }
         }
@@ -107,7 +107,7 @@ public sealed class SubscriberPresence
             events ?? EmptyEvents);
     }
 
-    private static readonly IReadOnlyList<uint> EmptyIds = Array.Empty<uint>();
+    private static readonly IReadOnlyList<ulong> EmptyIds = Array.Empty<ulong>();
     private static readonly IReadOnlyList<CombatEventView> EmptyEvents = Array.Empty<CombatEventView>();
 
     private static EntityView WithSelf(EntityView v) => new(
@@ -118,7 +118,7 @@ public sealed class SubscriberPresence
 public readonly struct PresenceDiff
 {
     public PresenceDiff(
-        IReadOnlyList<EntityView> spawns, IReadOnlyList<EntityView> states, IReadOnlyList<uint> removed,
+        IReadOnlyList<EntityView> spawns, IReadOnlyList<EntityView> states, IReadOnlyList<ulong> removed,
         IReadOnlyList<CombatEventView>? events = null)
     {
         Spawns = spawns;
@@ -132,7 +132,7 @@ public readonly struct PresenceDiff
 
     public IReadOnlyList<EntityView> Spawns { get; }
     public IReadOnlyList<EntityView> States { get; }
-    public IReadOnlyList<uint> Removed { get; }
+    public IReadOnlyList<ulong> Removed { get; }
 
     public IReadOnlyList<CombatEventView> Events { get; }
 }

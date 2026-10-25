@@ -140,10 +140,10 @@ internal static class PresencePipelineTests
 
     private static Task CrowdCapAsync()
     {
-        static EntityView Player(uint id, Vector3 at, uint target = 0) => new(id, EntityKindView.Player, false, at, 0f, MoveStateView.Idle, 1, 100, 100,
+        static EntityView Player(ulong id, Vector3 at, ulong target = 0) => new(id, EntityKindView.Player, false, at, 0f, MoveStateView.Idle, 1, 100, 100,
             new PlayerAppearanceView("P" + id, 2, 0, 0, 0, "", ""), attackTargetId: target) { Revision = 1 };
         var views = new List<EntityView> { Player(1, Vector3.Zero, target: 900) };
-        for (uint id = 2; id < 402; id++)
+        for (ulong id = 2; id < 402; id++)
         {
             views.Add(Player(id, new Vector3(id % 20 * 8f, 0f, id / 20 * 8f)));
         }
@@ -161,7 +161,7 @@ internal static class PresencePipelineTests
         var update = wire.PushMerged(new WorldSnapshot(1, views.ToArray(), fieldId: 3));
         var spawned = update.Spawns.Select(spawn => spawn.EntityId).ToHashSet();
         Assert.True(spawned.Count == PresenceEncoder.MaxVisible + 1, $"the crowd showed {spawned.Count} entities");
-        Assert.True(new uint[] { 900, 901, 902, 903 }.All(spawned.Contains), "an essential entity was dropped for the crowd");
+        Assert.True(new ulong[] { 900, 901, 902, 903 }.All(spawned.Contains), "an essential entity was dropped for the crowd");
         Assert.True(spawned.Contains(2) && !spawned.Contains(401), "the crowd did not keep its nearest members");
         var again = wire.PushMerged(new WorldSnapshot(2, views.ToArray(), fieldId: 3));
         Assert.True(again.Spawns.Count == 0 && again.Removed.Count == 0, "an unchanged crowd churned its visible set");
@@ -192,7 +192,7 @@ internal static class PresencePipelineTests
 
     private static Task GridAsync()
     {
-        static EntityView At(uint id, float x, float z, uint target = 0, uint owner = 0, EntityKindView kind = EntityKindView.Monster) =>
+        static EntityView At(ulong id, float x, float z, ulong target = 0, ulong owner = 0, EntityKindView kind = EntityKindView.Monster) =>
             new(id, kind, false, new Vector3(x, 0, z), 0f, MoveStateView.Idle, 1, 1, 1, default, attackTargetId: target) { OwnerId = owner };
         var grid = EntityGrid.Build([At(1, -10, -10), At(2, 10, 10, target: 1), At(3, -5000, 0, owner: 1), At(4, 0, 300, kind: EntityKindView.Npc), At(5, 63, -1)]);
         var found = new List<int>();
@@ -209,7 +209,7 @@ internal static class PresencePipelineTests
     private static Task StatusBookAsync()
     {
         var book = new FieldStatusBook();
-        StatusEventView Status(uint entity, StatusEventOpView op, int remaining, bool permanent = false) =>
+        StatusEventView Status(ulong entity, StatusEventOpView op, int remaining, bool permanent = false) =>
             new(entity, 9, 0x01010003, op, 1, 1, 0, false, permanent, 10000, remaining, 5);
         book.Apply([Status(1, StatusEventOpView.Add, 10000), Status(2, StatusEventOpView.Add, 4000)], 1000);
         Assert.True(book.Snapshot.For(1).Single().At(4000).RemainingMs == 7000, "a running status did not count down");

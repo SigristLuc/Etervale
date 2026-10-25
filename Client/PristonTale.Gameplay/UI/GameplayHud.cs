@@ -71,7 +71,7 @@ public sealed class GameplayHud : IDisposable
     private OwnerState _state;
     private HudMenuButton? _hoveredButton;
     private HudToggle? _hoveredToggle;
-    private uint _skillMaster;
+    private ulong _skillMaster;
     private bool _systemMenu;
     private bool _settingsOpen;
     private bool _npcOpen;
@@ -86,7 +86,7 @@ public sealed class GameplayHud : IDisposable
 
     public GameplayHud(ScreenContext context, Func<InventoryCommand, Task<InventoryOutcome>> applyInventory,
         Func<ProgressionCommand, Task<ProgressionOutcome>> applyProgression = null,
-        Func<uint, Task<NpcInteraction>> interactNpc = null,
+        Func<ulong, Task<NpcInteraction>> interactNpc = null,
         Action<NpcInteraction> npcOpened = null,
         Action npcClosed = null,
         Func<NpcServiceCommand, Task<NpcServiceReply>> requestNpcService = null,
@@ -132,7 +132,7 @@ public sealed class GameplayHud : IDisposable
     public bool KeyboardCaptured => _chat.KeyboardCaptured;
 
     // Where a speaker's bubble hangs on screen, from the scene; null when the speaker is not drawn.
-    public Func<uint, HudOverheadPoint?> Overhead { get; set; } = static _ => null;
+    public Func<ulong, HudOverheadPoint?> Overhead { get; set; } = static _ => null;
 
     public HudCombat Combat { get; } = new();
     public HudStringEffect StringEffect { get; } = new();
@@ -142,7 +142,7 @@ public sealed class GameplayHud : IDisposable
 
     // The local player's running premium timers as the server last sent them.
     public PristonTale.Client.Net.Presence.PremiumTimerSnapshot PremiumTimers { get; set; }
-    public uint TargetId { get; set; }
+    public ulong TargetId { get; set; }
     public HudWorldView World { get; set; }
 
     // The player stands in a castle field, where a Restoration revives.
@@ -173,7 +173,7 @@ public sealed class GameplayHud : IDisposable
     public PristonTale.Gameplay.Effects.StatusBook Statuses { get; set; }
     public PristonTale.Gameplay.Effects.SkillCooldownBook Cooldowns { get; set; }
     public double SkillClockMs { get; set; }
-    public uint SelfId { get; set; }
+    public ulong SelfId { get; set; }
 
     // A double click on a summon's buff icon asks to switch the summon's fighting mode.
     public event Action<uint> SummonModeRequested;
@@ -226,7 +226,7 @@ public sealed class GameplayHud : IDisposable
         }
     }
 
-    public void OpenNpc(uint entityId) => _npc.Request(entityId);
+    public void OpenNpc(ulong entityId) => _npc.Request(entityId);
 
     public bool ClosePanel()
     {

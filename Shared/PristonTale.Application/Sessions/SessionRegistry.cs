@@ -5,7 +5,7 @@ namespace PristonTale.Application.Sessions;
 public sealed class SessionRegistry : ISessionRegistry
 {
     private readonly ConcurrentDictionary<string, PlayerSession> _sessions = new();
-    private int _nextEntityId;
+    private long _nextEntityId;
     private readonly ConcurrentDictionary<long, string> _characterOwners = new();
 
     public PlayerSession Create(long accountId, string userId)
@@ -16,7 +16,7 @@ public sealed class SessionRegistry : ISessionRegistry
             SessionToken = token,
             AccountId = accountId,
             UserId = userId,
-            EntityId = (uint)Interlocked.Increment(ref _nextEntityId),
+            EntityId = (ulong)Interlocked.Increment(ref _nextEntityId),
         };
         _sessions[token] = session;
         return session;

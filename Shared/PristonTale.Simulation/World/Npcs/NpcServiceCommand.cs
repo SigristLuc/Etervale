@@ -45,7 +45,7 @@ public enum NpcServiceStatus : ushort
 // teleport, the destination index. Amount is gold for the gold actions.
 public sealed record NpcServiceCommand(
     Guid OperationId,
-    uint NpcEntityId,
+    ulong NpcEntityId,
     NpcServiceKind Service,
     NpcServiceAction Action,
     long ExpectedRevision = 0,

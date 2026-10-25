@@ -11,14 +11,14 @@ public sealed class HudQuestController(Func<QuestCommand, Task<QuestOutcome>> re
     private readonly Queue<QuestNotice> _notices = new();
     private Task<QuestOutcome> _pending;
     private QuestAction _pendingAction;
-    private uint _pendingNpc;
+    private ulong _pendingNpc;
     private bool _resetDeclined;
 
     public QuestView View { get; private set; }
     public QuestPrompt Dialog { get; private set; }
 
     // The NPC the dialog answers to; 0 for a dialog the world opened (a won duel).
-    public uint DialogNpc { get; private set; }
+    public ulong DialogNpc { get; private set; }
 
     // The reward a reward dialog shows (1-based).
     public int Browse { get; private set; }
@@ -26,7 +26,7 @@ public sealed class HudQuestController(Func<QuestCommand, Task<QuestOutcome>> re
     public bool SkillResetBox { get; private set; }
 
     // The skill master whose class-change button works for this player (0 for none).
-    public uint ClassChangeNpc { get; private set; }
+    public ulong ClassChangeNpc { get; private set; }
     public bool Pending => _pending is not null;
     public int Completions { get; private set; }
     public string Message { get; private set; } = "";
@@ -78,7 +78,7 @@ public sealed class HudQuestController(Func<QuestCommand, Task<QuestOutcome>> re
     public bool TryTakeNotice(out QuestNotice notice) => _notices.TryDequeue(out notice);
 
     // An NPC that takes part in quests was clicked.
-    public void Talk(uint npc)
+    public void Talk(ulong npc)
     {
         if (!Pending)
         {
@@ -87,7 +87,7 @@ public sealed class HudQuestController(Func<QuestCommand, Task<QuestOutcome>> re
         }
     }
 
-    public void ChangeClass(uint npc)
+    public void ChangeClass(ulong npc)
     {
         if (!Pending && npc != 0 && npc == ClassChangeNpc)
         {
@@ -218,7 +218,7 @@ public sealed class HudQuestController(Func<QuestCommand, Task<QuestOutcome>> re
         }
     }
 
-    private void Apply(QuestOutcome outcome, QuestAction action, uint npc)
+    private void Apply(QuestOutcome outcome, QuestAction action, ulong npc)
     {
         foreach (var notice in outcome.Notices)
         {
@@ -244,7 +244,7 @@ public sealed class HudQuestController(Func<QuestCommand, Task<QuestOutcome>> re
         }
     }
 
-    private void Open(QuestPrompt prompt, uint npc)
+    private void Open(QuestPrompt prompt, ulong npc)
     {
         Dialog = prompt;
         DialogNpc = npc;

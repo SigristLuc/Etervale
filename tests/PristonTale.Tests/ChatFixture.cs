@@ -97,7 +97,7 @@ internal sealed class ChatFixture
         var session = _sessions.Create(++_accounts, name.ToLowerInvariant() + "-account");
         session.GmLevel = gmLevel;
         Assert.True(session.TryBeginEntry(), "fixture entry");
-        var record = CharacterRecordFactory.NewStarter(_classes, session.AccountId, name, 0, playerClass, Field) with { Id = session.EntityId };
+        var record = CharacterRecordFactory.NewStarter(_classes, session.AccountId, name, 0, playerClass, Field) with { Id = (long)session.EntityId };
         session.Character = _classes.CreatePlayer(playerClass, name);
         session.Loaded = record;
         session.CharacterName = name;
@@ -154,7 +154,7 @@ internal sealed class ChatFixture
 
     public sealed record Player(PlayerSession Session, ChatMember Member, FakeLink Link, WorldOutbox Outbox)
     {
-        public uint Id => Session.EntityId;
+        public ulong Id => Session.EntityId;
     }
 }
 

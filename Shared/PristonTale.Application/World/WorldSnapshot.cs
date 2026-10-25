@@ -45,10 +45,10 @@ public readonly struct PlayerAppearanceView
 public readonly struct EntityView
 {
     public EntityView(
-        uint entityId, EntityKindView kind, bool isSelf, Vector3 position, float facing,
+        ulong entityId, EntityKindView kind, bool isSelf, Vector3 position, float facing,
         MoveStateView moveState, int level, int hp, int maxHp,
         PlayerAppearanceView appearance, uint templateId = 0,
-        int moveSpeed = 0, float attackRate = 1f, uint attackTargetId = 0, ulong attackSequence = 0)
+        int moveSpeed = 0, float attackRate = 1f, ulong attackTargetId = 0, ulong attackSequence = 0)
     {
         EntityId = entityId;
         Kind = kind;
@@ -67,15 +67,15 @@ public readonly struct EntityView
         AttackSequence = attackSequence;
     }
 
-    public uint EntityId { get; }
+    public ulong EntityId { get; }
     public EntityKindView Kind { get; }
 
     // A summon's owner and its own model size (0 keeps the catalog size).
-    public uint OwnerId { get; init; }
+    public ulong OwnerId { get; init; }
     public float ModelScale { get; init; }
 
     // The player a quest duel opponent was opened for; only that player sees it in the arena.
-    public uint DuelPlayerId { get; init; }
+    public ulong DuelPlayerId { get; init; }
 
     // The field's descriptor revision of the entity (1..255), the same for every viewer; 0 for a view built outside a field.
     public byte Revision { get; init; }
@@ -99,7 +99,7 @@ public readonly struct EntityView
     public int MoveSpeed { get; }
 
     public float AttackRate { get; }
-    public uint AttackTargetId { get; }
+    public ulong AttackTargetId { get; }
     public ulong AttackSequence { get; }
 }
 
@@ -150,8 +150,8 @@ public enum SkillEventFlagsView : ushort
 }
 
 public readonly record struct SkillEventView(
-    uint CasterId,
-    uint TargetId,
+    ulong CasterId,
+    ulong TargetId,
     uint SkillCode,
     SkillEventPhaseView Phase,
     int Rank,
@@ -172,8 +172,8 @@ public enum StatusEventOpView : byte
 }
 
 public readonly record struct StatusEventView(
-    uint EntityId,
-    uint SourceId,
+    ulong EntityId,
+    ulong SourceId,
     uint StatusCode,
     StatusEventOpView Op,
     int Stacks,
@@ -190,7 +190,7 @@ public readonly record struct SkillCooldownView(uint SkillCode, int RemainingMs,
 public readonly struct CombatEventView
 {
     public CombatEventView(
-        uint attackerId, uint targetId, CombatEventKindView kind,
+        ulong attackerId, ulong targetId, CombatEventKindView kind,
         float durationMs = 0f, float hitAtMs = 0f, int damage = 0, bool crit = false, bool killed = false, int resources = 0,
         int sourceSoundCode = 0, Vector3 position = default, float facing = 0f)
     {
@@ -208,8 +208,8 @@ public readonly struct CombatEventView
         Facing = facing;
     }
 
-    public uint AttackerId { get; }
-    public uint TargetId { get; }
+    public ulong AttackerId { get; }
+    public ulong TargetId { get; }
     public CombatEventKindView Kind { get; }
     public float DurationMs { get; }
     public float HitAtMs { get; }
@@ -269,7 +269,7 @@ public readonly struct WorldSnapshot
 
     // True once a reader pinned the frame; the reader releases it after encoding.
     public bool Pinned { get; init; }
-    public uint PinKey { get; init; }
+    public ulong PinKey { get; init; }
 
     public void ReleaseFrame()
     {
@@ -302,7 +302,7 @@ public readonly struct WorldSnapshot
         Cooldowns = cooldowns
     };
 
-    internal WorldSnapshot WithPin(uint key) => this with { Pinned = true, PinKey = key };
+    internal WorldSnapshot WithPin(ulong key) => this with { Pinned = true, PinKey = key };
 
     public WorldSnapshot WithEvents(CombatEventView[] events) => new(ServerTick, Entities, events, FieldId, Owner, GroundDrops)
     {

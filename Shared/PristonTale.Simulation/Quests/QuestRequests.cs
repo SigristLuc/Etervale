@@ -72,7 +72,7 @@ public enum QuestNoticeKind : byte
     Fanfare = 4
 }
 
-public sealed record QuestCommand(Guid OperationId, uint NpcEntityId, QuestAction Action, QuestCode Code, int State, int Choice);
+public sealed record QuestCommand(Guid OperationId, ulong NpcEntityId, QuestAction Action, QuestCode Code, int State, int Choice);
 
 public sealed record QuestNotice(QuestNoticeKind Kind, string Text);
 

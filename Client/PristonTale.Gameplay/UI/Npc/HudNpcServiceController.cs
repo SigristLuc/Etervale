@@ -11,7 +11,7 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
     private Task<NpcServiceReply> _pending;
     private NpcServiceCommand _pendingCommand;
 
-    public uint NpcId { get; private set; }
+    public ulong NpcId { get; private set; }
     public string NpcName { get; private set; } = "";
     public NpcServiceKind? Open { get; private set; }
     public IReadOnlyList<ShopOffer> Catalog { get; private set; } = [];
@@ -25,7 +25,7 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
     public int Completions { get; private set; }
     public int Opened { get; private set; }
 
-    public bool Request(uint npcId, string npcName, NpcServiceKind service, NpcServiceAction action, long expectedRevision = 0,
+    public bool Request(ulong npcId, string npcName, NpcServiceKind service, NpcServiceAction action, long expectedRevision = 0,
         uint itemCode = 0, Guid itemId = default, int anchor = -1, int count = 1, long amount = 0)
     {
         // NPC serial 0 names the mobile shop a used item opens; every other service needs an NPC.

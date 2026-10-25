@@ -33,7 +33,7 @@ internal static class WorldLoadBenchmark
         };
         var field = new FieldInstance(0, FieldSpawnData.Empty, new MonsterCatalog([definition]), new EntityIdAllocator(), new CombatRng(37));
         var sink = (ISpawnSink)field;
-        var monsters = new uint[512];
+        var monsters = new ulong[512];
         for (var index = 0; index < monsters.Length; index++)
         {
             monsters[index] = sink.Spawn(definition, new Vector3(index % 32 * spacing + 48, 0, index / 32 * spacing + 48), -1, 0).EntityId;

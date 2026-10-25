@@ -13,7 +13,7 @@ public sealed class HudStringEffect
     private const float FrameSeconds = 1f / 70f;
     private const int SteadyFrames = 26;
     private readonly Effect[] _effects = new Effect[MaxEffects];
-    private uint _self;
+    private ulong _self;
 
     public int Active => _effects.Count(static effect => effect.Image is not null);
 

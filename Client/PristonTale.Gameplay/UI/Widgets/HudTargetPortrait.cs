@@ -9,11 +9,11 @@ public interface IHudPortraitScene
 {
     PristonRenderer Renderer { get; }
 
-    int CopyActorHandles(uint entityId, Span<ActorHandle> destination);
+    int CopyActorHandles(ulong entityId, Span<ActorHandle> destination);
 }
 
 // The authored camera correction (height, distance) applies to monsters and NPCs; players have none.
-public readonly record struct HudPortraitSubject(uint EntityId, int CorrectionY, int CorrectionZ);
+public readonly record struct HudPortraitSubject(ulong EntityId, int CorrectionY, int CorrectionZ);
 
 public readonly record struct HudPortraitCamera(Vector3 Position, Vector3 Target, Vector3 Up, float FieldOfView, float AspectRatio, float Near, float Far);
 
@@ -49,16 +49,16 @@ public sealed class HudTargetPortrait : IDisposable
     private readonly RenderTargetBinding[] _previous = new RenderTargetBinding[1];
     private RenderTarget2D _target;
     private PristonPortraitAnchor _anchor;
-    private uint _anchorEntity;
+    private ulong _anchorEntity;
     private bool _hasAnchor;
-    private uint _drawnEntity;
+    private ulong _drawnEntity;
 
     public HudTargetPortrait(GraphicsDevice device)
     {
         _device = device;
     }
 
-    public Texture2D Texture(uint entityId) => entityId != 0 && entityId == _drawnEntity ? _target : null;
+    public Texture2D Texture(ulong entityId) => entityId != 0 && entityId == _drawnEntity ? _target : null;
 
     public static HudPortraitCamera Camera(PristonPortraitAnchor anchor, Matrix world, HudPortraitSubject subject, Rectangle frame, int screenHeight)
     {

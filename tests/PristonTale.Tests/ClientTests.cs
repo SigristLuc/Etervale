@@ -57,7 +57,7 @@ internal static class ClientTests
         var wire = new WireRoundTrip(1);
         var spawned = wire.PushMerged(new WorldSnapshot(1, Enumerable.Range(1, crowd).Select(id => Walker(id, 0)).ToArray(), fieldId: 3));
         Assert.True(spawned.Spawns.Count == crowd, "spawns were held back by the movement budget");
-        var updated = new HashSet<uint>();
+        var updated = new HashSet<ulong>();
         for (uint tick = 2; tick < 42; tick++)
         {
             var before = wire.BytesSent;

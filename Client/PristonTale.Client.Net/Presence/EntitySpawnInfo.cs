@@ -3,7 +3,7 @@ using System.Numerics;
 namespace PristonTale.Client.Net.Presence;
 
 public sealed record EntitySpawnInfo(
-    uint EntityId,
+    ulong EntityId,
     RemoteEntityKind Kind,
     bool IsSelf,
     Vector3 Position,
@@ -15,13 +15,13 @@ public sealed record EntitySpawnInfo(
     uint TemplateId,
     int MoveSpeed = 0,
     float AttackRate = 1f,
-    uint AttackTargetId = 0,
+    ulong AttackTargetId = 0,
     ulong AttackSequence = 0,
     double? ServerTimeMs = null,
     string Name = "",
     int Level = 0)
 {
     // A summon: its owner's serial and its own model scale (0 keeps the catalog's).
-    public uint OwnerId { get; init; }
+    public ulong OwnerId { get; init; }
     public float ModelScale { get; init; }
 }

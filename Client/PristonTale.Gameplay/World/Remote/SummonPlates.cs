@@ -17,7 +17,7 @@ public static class SummonPlates
     private const int BarHeight = 4;
 
     public static void Draw(SpriteBatch batch, SpriteFont font, Texture2D pixel, Viewport viewport, Matrix view, Matrix projection, RemoteEntityManager remote,
-        PristonRenderer renderer, uint viewerId, Vector3 viewer)
+        PristonRenderer renderer, ulong viewerId, Vector3 viewer)
     {
         foreach (var (entityId, ownerId, plate) in remote.SummonPlates)
         {

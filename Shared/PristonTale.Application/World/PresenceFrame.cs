@@ -53,7 +53,7 @@ public sealed class PresenceFrame
     // Pins the frame for reading (by the receiver of the given id) if it still holds the given generation; false when the
     // field already reused it. A pin and a rebuild each write their own word and then read the other's, both through full
     // fences, so at least one of them sees the other and backs off.
-    public bool TryPin(int generation, uint receiver)
+    public bool TryPin(int generation, ulong receiver)
     {
         ref var pin = ref _pins[(int)(receiver % Stripes) * StripeStride];
         Interlocked.Increment(ref pin);
@@ -66,7 +66,7 @@ public sealed class PresenceFrame
         return false;
     }
 
-    public void Release(uint receiver) => Interlocked.Decrement(ref _pins[(int)(receiver % Stripes) * StripeStride]);
+    public void Release(ulong receiver) => Interlocked.Decrement(ref _pins[(int)(receiver % Stripes) * StripeStride]);
 
     // Field tick only: claims an unpinned frame for a new tick, resizing the views when the entity count changed.
     internal bool TryRebuild(int entityCount, ViewArrays arrays)

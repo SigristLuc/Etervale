@@ -75,7 +75,7 @@ internal sealed class SkillScenario
         return this;
     }
 
-    public SkillCastOutcome Cast(uint code, uint targetId = 0, SkillCastCommand command = SkillCastCommand.Cast) =>
+    public SkillCastOutcome Cast(uint code, ulong targetId = 0, SkillCastCommand command = SkillCastCommand.Cast) =>
         Field.CastSkill(Player, new SkillCastRequest(1, code, targetId, default, false, command));
 
     // Steps the field, keeping the snapshot events of every tick; stops early once until holds.

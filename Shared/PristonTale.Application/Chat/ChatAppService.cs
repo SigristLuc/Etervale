@@ -28,7 +28,7 @@ public sealed class ChatAppService
     public GameMasterCommands GameMasters { get; }
 
     // A line typed in the chat input.
-    public async Task SayAsync(uint entityId, string text)
+    public async Task SayAsync(ulong entityId, string text)
     {
         if (!Directory.TryGet(entityId, out var member))
         {
@@ -54,7 +54,7 @@ public sealed class ChatAppService
     }
 
     // A party line: every other member of the speaker's party receives it (nobody while there are no parties).
-    public Task PartyAsync(uint entityId, string text)
+    public Task PartyAsync(ulong entityId, string text)
     {
         if (!Directory.TryGet(entityId, out var member))
         {
@@ -80,7 +80,7 @@ public sealed class ChatAppService
     }
 
     // Called with each heartbeat: a standing notice the player has not received yet goes out now.
-    public void Heartbeat(uint entityId)
+    public void Heartbeat(ulong entityId)
     {
         if (Directory.TryGet(entityId, out var member) && Directory.TryTakeNotice(member, out var text))
         {
@@ -91,7 +91,7 @@ public sealed class ChatAppService
     private async Task SpeakAsync(ChatMember member, string text)
     {
         var line = new ChatLine(ChatKind.Player, member.EntityId, ChatRules.Shorten(ChatRules.Compose(member.Name, text)));
-        uint[] near;
+        ulong[] near;
         try
         {
             near = await World.PlayersNearAsync(member.EntityId, ChatRules.AreaRangeSquared);

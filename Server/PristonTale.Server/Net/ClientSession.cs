@@ -424,11 +424,9 @@ internal sealed partial class ClientSession : IMovementVerdictSink
             return;
         }
 
-        // A saturated queue or quota drops the report; the next one carries the newer position. A target beyond the
-        // world's 32-bit ids names nothing.
-        var target = report.ActionTarget <= uint.MaxValue ? (uint)report.ActionTarget : 0u;
+        // A saturated queue or quota drops the report; the next one carries the newer position.
         _services.World.TryReportMovement(session.FieldId, session.EntityId, position, report.Facing, report.Moving,
-            report.Motion == PresenceMotion.Run, target, this);
+            report.Motion == PresenceMotion.Run, report.ActionTarget, this);
     }
 
     // On the tick thread: a rejection is answered from the thread pool, where the correction may wait for the encoder.
@@ -467,13 +465,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
             return;
         }
 
-        if (attack.Target > uint.MaxValue)
-        {
-            LogRejected(EtervaleOpcodes.AttackRequest, "target beyond the world's ids");
-            return;
-        }
-
-        var target = (uint)attack.Target;
+        var target = attack.Target;
         if (target != 0 && _encoder.KindOf(target) == EntityKindView.Npc)
         {
             await InteractNpcAsync(session, target);
@@ -495,16 +487,11 @@ internal sealed partial class ClientSession : IMovementVerdictSink
 
         var hasPoint = packet.X != 0 || packet.Y != 0 || packet.Z != 0;
         var point = new Vector3(PristonUnits.FromFixed(packet.X), PristonUnits.FromFixed(packet.Y), PristonUnits.FromFixed(packet.Z));
-        // The world hands out 32-bit ids; a wider target names no entity.
-        var knownTarget = packet.TargetSerial <= uint.MaxValue;
-        var request = new SkillCastRequest(packet.Sequence, packet.SkillCode, knownTarget ? (uint)packet.TargetSerial : 0, point, hasPoint,
-            (SkillCastCommand)packet.Flags);
+        var request = new SkillCastRequest(packet.Sequence, packet.SkillCode, packet.TargetSerial, point, hasPoint, (SkillCastCommand)packet.Flags);
         SkillCastOutcome outcome;
         try
         {
-            outcome = knownTarget
-                ? await _services.World.CastSkillAsync(session.FieldId, session.EntityId, request)
-                : SkillCastOutcome.Refused(request, SkillCastVerdict.InvalidTarget);
+            outcome = await _services.World.CastSkillAsync(session.FieldId, session.EntityId, request);
         }
         catch (WorldBusyException)
         {
@@ -521,7 +508,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         SendLarge(result.Write, SkillCastResultPacket.Size);
     }
 
-    private async Task InteractNpcAsync(PlayerSession session, uint npc)
+    private async Task InteractNpcAsync(PlayerSession session, ulong npc)
     {
         var interaction = await _services.World.InteractNpcAsync(session, npc);
         var services = interaction.Services.Select(offer => new NpcServiceEntry((byte)offer.Kind, offer.Available, offer.Value)).ToArray();
@@ -532,7 +519,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
     private async Task RequestNpcServiceAsync(NpcServiceRequestPacket request)
     {
         var session = _session;
-        var command = new NpcServiceCommand(request.OperationId, WireMapping.EntityId(request.NpcSerial), (NpcServiceKind)request.Service,
+        var command = new NpcServiceCommand(request.OperationId, request.NpcSerial, (NpcServiceKind)request.Service,
             (NpcServiceAction)request.Action,
             request.ExpectedRevision, request.ExpectedStorageRevision, request.ItemCode, request.ItemId, request.Anchor, request.Count, request.Amount);
         NpcServiceReply reply;
@@ -582,12 +569,11 @@ internal sealed partial class ClientSession : IMovementVerdictSink
             return;
         }
 
-        // Ids are 64-bit on the wire; the world hands out 32-bit ones, so a larger id is never in view.
-        if (_encoder is { } encoder && request.Serial <= uint.MaxValue)
+        if (_encoder is { } encoder)
         {
             lock (_sendGate)
             {
-                var length = encoder.WriteDescription((uint)request.Serial, _scratch);
+                var length = encoder.WriteDescription(request.Serial, _scratch);
                 if (length > 0)
                 {
                     SendSpan(_scratch.AsSpan(0, length));
@@ -676,7 +662,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
     private async Task ApplyProgressionAsync(ProgressionCommandPacket request)
     {
         var command = new ProgressionCommand(request.OperationId, request.ExpectedRevision, (ProgressionAction)request.Action,
-            (CharacterAttribute)request.Attribute, request.Amount, request.SkillCode, WireMapping.EntityId(request.NpcSerial));
+            (CharacterAttribute)request.Attribute, request.Amount, request.SkillCode, request.NpcSerial);
         ProgressionOutcome outcome;
         try
         {

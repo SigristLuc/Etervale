@@ -25,17 +25,17 @@ namespace PristonTale.Tests;
 // shows its 3D portrait (a monster of each race icon kind used here, an NPC and a player) and the minimap its markers.
 internal sealed class HudTargetCaptureProbe : Game
 {
-    private const uint SelfId = 1;
+    private const ulong SelfId = 1;
     private const uint HopyId = 2;
     private const uint SkeletonId = 3;
-    private const uint NpcId = 4;
-    private const uint PlayerId = 5;
+    private const ulong NpcId = 4;
+    private const ulong PlayerId = 5;
     // A static NPC without a head bone: the portrait falls back to the authored model height.
     private const uint BonelessNpcId = 6;
     // A long name over a head-bone NPC, at a window height that is not a multiple of the design height.
     private const uint CraftsmanId = 7;
 
-    private sealed record Scenario(string Name, int Width, int Height, uint Target, bool Classic = false, bool HoverMap = false);
+    private sealed record Scenario(string Name, int Width, int Height, ulong Target, bool Classic = false, bool HoverMap = false);
 
     private static readonly Scenario[] Scenarios =
     [
@@ -56,7 +56,7 @@ internal sealed class HudTargetCaptureProbe : Game
     {
         public PristonRenderer Renderer { get; } = renderer;
 
-        public int CopyActorHandles(uint entityId, Span<ActorHandle> destination) => remote.CopyActorHandles(entityId, destination);
+        public int CopyActorHandles(ulong entityId, Span<ActorHandle> destination) => remote.CopyActorHandles(entityId, destination);
     }
 
     private readonly string _assetRoot;

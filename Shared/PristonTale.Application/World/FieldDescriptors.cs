@@ -7,8 +7,8 @@ internal sealed class FieldDescriptors
 {
     // Entries of entities that left are dropped after this many ticks without a view.
     private const int PruneIntervalTicks = 200;
-    private readonly Dictionary<uint, Entry> _entries = new();
-    private readonly List<uint> _departed = new();
+    private readonly Dictionary<ulong, Entry> _entries = new();
+    private readonly List<ulong> _departed = new();
     private int _tick;
 
     public void BeginTick() => _tick++;
@@ -69,7 +69,7 @@ internal sealed class FieldDescriptors
         private readonly uint _template = view.TemplateId;
         private readonly int _moveSpeed = view.MoveSpeed;
         private readonly float _attackRate = view.AttackRate;
-        private readonly uint _owner = view.OwnerId;
+        private readonly ulong _owner = view.OwnerId;
         private readonly float _scale = view.ModelScale;
         private readonly PlayerAppearanceView _appearance = view.Appearance;
 

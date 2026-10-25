@@ -105,7 +105,7 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
         return 0;
     }
 
-    public void HandleTrainingClick(Point origin, Point pointer, OwnerState state, uint npcId, HudProgressionController controller)
+    public void HandleTrainingClick(Point origin, Point pointer, OwnerState state, ulong npcId, HudProgressionController controller)
     {
         if (state is null || npcId == 0 || controller.Pending)
         {
@@ -148,7 +148,7 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
         }
     }
 
-    public void Draw(HudPainter painter, Point origin, Point pointer, OwnerState state, HudSkillBindings bindings, uint skillMaster, bool pressed,
+    public void Draw(HudPainter painter, Point origin, Point pointer, OwnerState state, HudSkillBindings bindings, ulong skillMaster, bool pressed,
         bool interactive)
     {
         RefreshRanks(state);
@@ -216,7 +216,7 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
         }
     }
 
-    public void DrawOverlay(HudPainter painter, HudLayout layout, Point pointer, uint skillMaster, string message)
+    public void DrawOverlay(HudPainter painter, HudLayout layout, Point pointer, ulong skillMaster, string message)
     {
         if (_trainingIndex >= 0)
         {

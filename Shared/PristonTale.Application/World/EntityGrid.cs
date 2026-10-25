@@ -12,9 +12,10 @@ public sealed class EntityGrid
     public const float CellSize = 64f;
     private long[] _keys;
     private int[] _indices;
-    private readonly Dictionary<uint, int> _byId;
+    private readonly Dictionary<ulong, int> _byId;
     // (related entity id << 32 | index) of every entity that targets or is owned by another one, sorted.
-    private long[] _relations = [];
+    // (related entity id << 64 | index), sorted, so the entities related to one id are one contiguous run.
+    private UInt128[] _relations = [];
     private int _relationCount;
     private readonly List<int> _npcs = new();
 
@@ -22,7 +23,7 @@ public sealed class EntityGrid
     {
         _keys = new long[capacity];
         _indices = new int[capacity];
-        _byId = new Dictionary<uint, int>(capacity);
+        _byId = new Dictionary<ulong, int>(capacity);
     }
 
     public static EntityGrid Build(EntityView[] entities)
@@ -69,14 +70,14 @@ public sealed class EntityGrid
     public IReadOnlyList<int> Npcs => _npcs;
 
     // Appends the indices of the entities that target or are owned by the given one.
-    public void Related(uint entityId, List<int> results)
+    public void Related(ulong entityId, List<int> results)
     {
-        var first = (long)entityId << 32;
+        var first = (UInt128)entityId << 64;
         var position = Array.BinarySearch(_relations, 0, _relationCount, first);
         position = position < 0 ? ~position : position;
-        while (position < _relationCount && _relations[position] >>> 32 == entityId)
+        while (position < _relationCount && (ulong)(_relations[position] >> 64) == entityId)
         {
-            results.Add((int)(_relations[position] & 0xFFFFFFFF));
+            results.Add((int)(ulong)_relations[position]);
             position++;
         }
     }
@@ -95,7 +96,7 @@ public sealed class EntityGrid
         return count;
     }
 
-    private void AddRelation(uint related, int index)
+    private void AddRelation(ulong related, int index)
     {
         if (related == 0)
         {
@@ -107,10 +108,10 @@ public sealed class EntityGrid
             Array.Resize(ref _relations, Math.Max(16, _relations.Length * 2));
         }
 
-        _relations[_relationCount++] = (long)related << 32 | (uint)index;
+        _relations[_relationCount++] = (UInt128)related << 64 | (uint)index;
     }
 
-    public bool TryGetIndex(uint entityId, out int index) => _byId.TryGetValue(entityId, out index);
+    public bool TryGetIndex(ulong entityId, out int index) => _byId.TryGetValue(entityId, out index);
 
     // Appends indices of entities in cells overlapping the square around center; callers apply the exact radius.
     public void Query(Vector3 center, float radius, List<int> results)

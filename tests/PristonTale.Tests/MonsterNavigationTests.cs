@@ -200,8 +200,8 @@ internal static class MonsterNavigationTests
     {
         private readonly FieldInstance _field;
         private readonly MonsterDefinition _definition;
-        private readonly Dictionary<uint, Vector3> _previous = new();
-        private readonly Dictionary<uint, int> _swings = new();
+        private readonly Dictionary<ulong, Vector3> _previous = new();
+        private readonly Dictionary<ulong, int> _swings = new();
         private readonly List<MonsterInstance> _monsters = new();
 
         public Scenario(FieldTerrain terrain, MonsterDefinition definition)
@@ -228,7 +228,7 @@ internal static class MonsterNavigationTests
             return monster;
         }
 
-        public int SwingsBy(uint entityId) => _swings.GetValueOrDefault(entityId);
+        public int SwingsBy(ulong entityId) => _swings.GetValueOrDefault(entityId);
 
         public void ResetCounters()
         {

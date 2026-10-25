@@ -20,25 +20,25 @@ public sealed class HudChatBubbles
     public static readonly string[] SelectedFrame = Enumerable.Range(0, 10).Select(index => $"{Box}MessageBoxa00{index}.tga").ToArray();
     public static readonly string[] Art = [.. Frame, .. SelectedFrame.Where((_, index) => index != 4)];
     private static readonly Color DefaultName = new(255, 220, 100);
-    private readonly Dictionary<uint, (string Text, double UntilMs)> _lines = new();
-    private readonly List<(uint Id, HudOverheadPoint Point)> _visible = new();
+    private readonly Dictionary<ulong, (string Text, double UntilMs)> _lines = new();
+    private readonly List<(ulong Id, HudOverheadPoint Point)> _visible = new();
 
     // The frame is drawn unless the player switched frames off; a named line always keeps its frame and tail.
     public bool Framed { get; set; } = true;
 
     public int Count => _lines.Count;
 
-    public bool TryGet(uint entityId, out string text)
+    public bool TryGet(ulong entityId, out string text)
     {
         text = _lines.TryGetValue(entityId, out var line) ? line.Text : "";
         return text.Length > 0;
     }
 
-    public void Say(uint entityId, string text, double nowMs, int durationMs) => _lines[entityId] = (text, nowMs + durationMs);
+    public void Say(ulong entityId, string text, double nowMs, int durationMs) => _lines[entityId] = (text, nowMs + durationMs);
 
-    public void Forget(uint entityId) => _lines.Remove(entityId);
+    public void Forget(ulong entityId) => _lines.Remove(entityId);
 
-    public void Draw(HudPainter painter, HudLayout layout, double nowMs, Func<uint, HudOverheadPoint?> project, Func<uint, Color> nameColor, uint selected)
+    public void Draw(HudPainter painter, HudLayout layout, double nowMs, Func<ulong, HudOverheadPoint?> project, Func<ulong, Color> nameColor, ulong selected)
     {
         _visible.Clear();
         foreach (var (id, line) in _lines.ToArray())

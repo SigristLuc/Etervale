@@ -24,7 +24,7 @@ internal sealed class MultiplayerClient : IAsyncDisposable
     }
 
     public string Name { get; }
-    public uint Serial { get; private set; }
+    public ulong Serial { get; private set; }
     public int FieldId { get; private set; }
     public Vector3 Spawn { get; private set; }
     public ObservedWorld World { get; } = new();
@@ -84,20 +84,20 @@ internal sealed class MultiplayerClient : IAsyncDisposable
         }
     }
 
-    public Task MoveAsync(Vector3 position, float facing, bool moving = true, bool running = false, uint target = 0, int? field = null) =>
+    public Task MoveAsync(Vector3 position, float facing, bool moving = true, bool running = false, ulong target = 0, int? field = null) =>
         Play.SendMovementAsync(position, facing, moving, running, target, field ?? FieldId, _lifetime.Token);
 
     public Task StopAsync(Vector3 position, float facing) => MoveAsync(position, facing, moving: false);
 
-    public Task AttackAsync(uint target, bool sustained = true) => Play.SendAttackAsync(target, sustained, _lifetime.Token, ++_sequence);
+    public Task AttackAsync(ulong target, bool sustained = true) => Play.SendAttackAsync(target, sustained, _lifetime.Token, ++_sequence);
 
-    public Task<SkillCastResultInfo> CastAsync(uint skill, uint target = 0, Vector3? point = null)
+    public Task<SkillCastResultInfo> CastAsync(uint skill, ulong target = 0, Vector3? point = null)
     {
         var sequence = ++_sequence;
         return CastCoreAsync(sequence, skill, target, point);
     }
 
-    private async Task<SkillCastResultInfo> CastCoreAsync(uint sequence, uint skill, uint target, Vector3? point)
+    private async Task<SkillCastResultInfo> CastCoreAsync(uint sequence, uint skill, ulong target, Vector3? point)
     {
         await Play.SendSkillCastAsync(sequence, skill, target, point, _lifetime.Token);
         return await WaitAsync(world => world.CastResults.LastOrDefault(result => result.Sequence == sequence), $"{Name}: cast result {sequence}");
@@ -130,7 +130,7 @@ internal sealed class MultiplayerClient : IAsyncDisposable
     }
 
     // Locks a basic attack on a target and keeps within reach of it, as the game client walks into range, until done.
-    public async Task HuntAsync(uint target, Func<ObservedWorld, bool> done, float reach = 24f, int timeoutMs = 10000)
+    public async Task HuntAsync(ulong target, Func<ObservedWorld, bool> done, float reach = 24f, int timeoutMs = 10000)
     {
         await AttackAsync(target);
         var deadline = Environment.TickCount64 + timeoutMs;
@@ -223,9 +223,9 @@ internal sealed class ObservedWorld
 {
     private readonly object _gate = new();
 
-    public Dictionary<uint, ObservedEntity> Entities { get; } = new();
-    public HashSet<uint> EverSeen { get; } = new();
-    public List<uint> Removed { get; } = new();
+    public Dictionary<ulong, ObservedEntity> Entities { get; } = new();
+    public HashSet<ulong> EverSeen { get; } = new();
+    public List<ulong> Removed { get; } = new();
     public List<(double? TimeMs, CombatEventInfo Event)> Combat { get; } = new();
     public List<SkillEventInfo> Skills { get; } = new();
     public List<StatusEffectInfo> Statuses { get; } = new();
@@ -328,14 +328,14 @@ internal sealed class ObservedWorld
         }
     }
 
-    public bool Mentions(uint serial) =>
+    public bool Mentions(ulong serial) =>
         EverSeen.Contains(serial) || Removed.Contains(serial) || Combat.Any(entry => entry.Event.AttackerId == serial || entry.Event.TargetId == serial)
         || Skills.Any(entry => entry.CasterId == serial || entry.TargetId == serial) || Statuses.Any(entry => entry.EntityId == serial);
 }
 
-internal sealed class ObservedEntity(uint id)
+internal sealed class ObservedEntity(ulong id)
 {
-    public uint Id { get; } = id;
+    public ulong Id { get; } = id;
     public RemoteEntityKind Kind { get; private set; }
     public Vector3 Position { get; private set; }
     public float Facing { get; private set; }
@@ -344,7 +344,7 @@ internal sealed class ObservedEntity(uint id)
     public int MaxHp { get; private set; }
     public int Level { get; private set; }
     public uint TemplateId { get; private set; }
-    public uint OwnerId { get; private set; }
+    public ulong OwnerId { get; private set; }
     public PlayerAppearanceInfo? Player { get; private set; }
     public int Spawns { get; private set; }
     // Every position sample with its server time, for comparing what different clients saw at the same tick.

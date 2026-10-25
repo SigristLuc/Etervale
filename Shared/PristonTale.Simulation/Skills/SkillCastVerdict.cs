@@ -34,7 +34,7 @@ public enum SkillCastCommand : byte
 
 // One cast request as the client aimed it: a target entity, a ground point or both. The server re-derives every
 // value it trusts (rank, cost, range, facing).
-public readonly record struct SkillCastRequest(uint Sequence, uint SkillCode, uint TargetId, Vector3 Point, bool HasPoint,
+public readonly record struct SkillCastRequest(uint Sequence, uint SkillCode, ulong TargetId, Vector3 Point, bool HasPoint,
     SkillCastCommand Command = SkillCastCommand.Cast);
 
 public readonly record struct SkillCastOutcome(uint Sequence, uint SkillCode, SkillCastVerdict Verdict, int Rank, int CooldownMs, int RemainingMs,

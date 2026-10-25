@@ -16,9 +16,9 @@ internal sealed class WireRoundTrip
     private readonly PresenceEncoder _encoder;
     private readonly PresenceDecoder _decoder;
     private readonly CapturingSink _sink = new();
-    private readonly Queue<uint> _requests = new();
+    private readonly Queue<ulong> _requests = new();
 
-    public WireRoundTrip(uint self, WorldDataHolder? data = null)
+    public WireRoundTrip(ulong self, WorldDataHolder? data = null)
     {
         _encoder = new PresenceEncoder(self, data ?? new WorldDataHolder());
         Catalog = new WorldRenderCatalog();

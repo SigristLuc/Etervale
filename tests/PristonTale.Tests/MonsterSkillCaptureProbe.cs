@@ -22,7 +22,7 @@ namespace PristonTale.Tests;
 internal sealed class MonsterSkillCaptureProbe : Game, ISkillSceneHost, IMonsterScene
 {
     private const uint MonsterId = 1;
-    private const uint PlayerId = 2;
+    private const ulong PlayerId = 2;
     private const float Step = 1f / 120f;
 
     private sealed record Case(string Name, int Sound, int Level, float Scale, string Model, int Slot, float[] Times, uint Status = 0, float Distance = 1f);
@@ -98,7 +98,7 @@ internal sealed class MonsterSkillCaptureProbe : Game, ISkillSceneHost, IMonster
         IsFixedTimeStep = false;
     }
 
-    public uint SelfId => PlayerId;
+    public ulong SelfId => PlayerId;
 
     public Vector3 ListenerPosition => Vector3.Zero;
 
@@ -304,29 +304,29 @@ internal sealed class MonsterSkillCaptureProbe : Game, ISkillSceneHost, IMonster
         _presentation.Update(seconds, _time * 1000d);
     }
 
-    public bool TryGetPosition(uint entityId, out Vector3 position)
+    public bool TryGetPosition(ulong entityId, out Vector3 position)
     {
         position = entityId == MonsterId ? MonsterPosition : PlayerPosition;
         return entityId is MonsterId or PlayerId;
     }
 
-    public bool TryGetBone(uint entityId, string bone, out Vector3 position)
+    public bool TryGetBone(ulong entityId, string bone, out Vector3 position)
     {
         var found = TryGetBoneWorld(entityId, bone, out var world);
         position = world.Translation;
         return found;
     }
 
-    public bool TryGetBoneWorld(uint entityId, string bone, out Matrix world) =>
+    public bool TryGetBoneWorld(ulong entityId, string bone, out Matrix world) =>
         _renderer.TryGetActorBoneWorld(entityId == MonsterId ? _monster : _player.Body, bone, out world);
 
-    public void PlaySkillMotion(uint entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)
+    public void PlaySkillMotion(ulong entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)
     {
     }
 
     public bool TryGetActorMotion(ActorHandle actor, out PristonMotionInfo motion, out float ticks) => _renderer.TryGetActorMotion(actor, out motion, out ticks);
 
-    public void SetEntityTint(uint entityId, Vector3 tint)
+    public void SetEntityTint(ulong entityId, Vector3 tint)
     {
         if (entityId == PlayerId)
         {

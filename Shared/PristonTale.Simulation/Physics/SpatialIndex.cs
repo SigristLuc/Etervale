@@ -2,13 +2,13 @@ using System.Numerics;
 
 namespace PristonTale.Simulation.Physics;
 
-public readonly record struct SpatialEntry(uint Id, Vector3 Position, int Order);
+public readonly record struct SpatialEntry(ulong Id, Vector3 Position, int Order);
 
 public sealed class SpatialIndex
 {
     private readonly float _cellSize;
     private readonly Dictionary<(int X, int Z), List<SpatialEntry>> _cells = new();
-    private readonly Dictionary<uint, (int X, int Z)> _locations = new();
+    private readonly Dictionary<ulong, (int X, int Z)> _locations = new();
     private readonly Stack<List<SpatialEntry>> _pool = new();
 
     public SpatialIndex(float cellSize = 256f)
@@ -33,7 +33,7 @@ public sealed class SpatialIndex
         _locations.Clear();
     }
 
-    public void Put(uint id, Vector3 position, int order = -1)
+    public void Put(ulong id, Vector3 position, int order = -1)
     {
         var key = Cell(position);
         if (_locations.TryGetValue(id, out var previousKey))

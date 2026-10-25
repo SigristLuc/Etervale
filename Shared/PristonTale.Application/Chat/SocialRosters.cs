@@ -4,13 +4,13 @@ namespace PristonTale.Application.Chat;
 // the player is not in a party.
 public interface IPartyRoster
 {
-    IReadOnlyCollection<uint> MembersOf(uint entityId);
+    IReadOnlyCollection<ulong> MembersOf(ulong entityId);
 }
 
 // The clan a player belongs to, for clan chat; 0 when the player has no clan.
 public interface IClanRoster
 {
-    uint ClanOf(uint entityId);
+    uint ClanOf(ulong entityId);
 }
 
 // Used while the server runs no party system: nobody is in a party, so party lines reach no one.
@@ -18,7 +18,7 @@ public sealed class NoParties : IPartyRoster
 {
     public static readonly NoParties Instance = new();
 
-    public IReadOnlyCollection<uint> MembersOf(uint entityId) => [];
+    public IReadOnlyCollection<ulong> MembersOf(ulong entityId) => [];
 }
 
 // Used while the server runs no clan system: nobody has a clan, so clan lines are not accepted.
@@ -26,5 +26,5 @@ public sealed class NoClans : IClanRoster
 {
     public static readonly NoClans Instance = new();
 
-    public uint ClanOf(uint entityId) => 0;
+    public uint ClanOf(ulong entityId) => 0;
 }

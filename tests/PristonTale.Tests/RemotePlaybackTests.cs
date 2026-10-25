@@ -213,8 +213,8 @@ internal static class RemotePlaybackTests
 
     private static Task TargetSelectionAsync()
     {
-        var live = new Dictionary<uint, TargetLiveness> { [2] = TargetLiveness.Alive, [3] = TargetLiveness.Alive, [4] = TargetLiveness.Alive };
-        TargetLiveness Query(uint id) => live.TryGetValue(id, out var state) ? state : TargetLiveness.Missing;
+        var live = new Dictionary<ulong, TargetLiveness> { [2] = TargetLiveness.Alive, [3] = TargetLiveness.Alive, [4] = TargetLiveness.Alive };
+        TargetLiveness Query(ulong id) => live.TryGetValue(id, out var state) ? state : TargetLiveness.Missing;
         var selection = new TargetSelection();
         selection.Trace(2);
         selection.Update(0, Query);

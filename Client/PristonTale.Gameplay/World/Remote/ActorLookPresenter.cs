@@ -20,7 +20,7 @@ public sealed class ActorLookPresenter
     private readonly string _assetRoot;
     private readonly string _overlay;
     private readonly Dictionary<string, Task<PristonActor>> _shields = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<uint, Extras> _extras = new();
+    private readonly Dictionary<ulong, Extras> _extras = new();
 
     public ActorLookPresenter(IActorScene scene, PristonActorLoader loader, string assetRoot)
     {
@@ -34,7 +34,7 @@ public sealed class ActorLookPresenter
     public int ExtraActors => _extras.Values.Sum(static extras => extras.Count);
 
     // handles: the entity's actors now (none when it is gone); holdsShield: its off hand holds a shield.
-    public void Apply(uint entityId, PlayerActorHandles handles, bool holdsShield, in EntityLook look)
+    public void Apply(ulong entityId, PlayerActorHandles handles, bool holdsShield, in EntityLook look)
     {
         if (!_extras.TryGetValue(entityId, out var extras))
         {

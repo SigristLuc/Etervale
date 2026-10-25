@@ -14,7 +14,7 @@ public sealed class RemoteModelEntity : RemoteEntityBase
     private readonly NpcStandMotionCycle _standMotionCycle;
 
     public RemoteModelEntity(IActorScene scene, ActorHandle actor, float scale, double timeMs, Vector3 position, float facing, RemoteMoveState moveState,
-        int hp, RemoteEntityKind kind = RemoteEntityKind.Monster, int soundCode = 0, PristonModelInfo modelInfo = null, uint entityId = 0)
+        int hp, RemoteEntityKind kind = RemoteEntityKind.Monster, int soundCode = 0, PristonModelInfo modelInfo = null, ulong entityId = 0)
         : base(kind, timeMs, position, facing, moveState, hp, soundCode)
     {
         _scene = scene;

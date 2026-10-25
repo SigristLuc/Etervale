@@ -54,13 +54,13 @@ public sealed class ActorLookBook
     private const int OwnAfterimageLimit = 6;
     private const int OtherAfterimageLimit = 4;
 
-    private readonly Dictionary<uint, State> _states = new();
-    private readonly List<uint> _finished = new();
+    private readonly Dictionary<ulong, State> _states = new();
+    private readonly List<ulong> _finished = new();
 
     // Looks to apply this frame, including a last Normal for entities whose look just ended.
-    public IReadOnlyDictionary<uint, EntityLook> Looks => _looks;
+    public IReadOnlyDictionary<ulong, EntityLook> Looks => _looks;
 
-    private readonly Dictionary<uint, EntityLook> _looks = new();
+    private readonly Dictionary<ulong, EntityLook> _looks = new();
 
     // A cast started: its weapon growth and afterimages follow the cast's clip.
     public void Cast(SkillEventInfo skillEvent, SkillRule rule, double nowMs)
@@ -92,7 +92,7 @@ public sealed class ActorLookBook
         }
     }
 
-    public void Cancel(uint casterId)
+    public void Cancel(ulong casterId)
     {
         if (_states.TryGetValue(casterId, out var state))
         {
@@ -106,7 +106,7 @@ public sealed class ActorLookBook
         _looks.Clear();
     }
 
-    public void Update(float seconds, double nowMs, StatusBook statuses, uint selfId)
+    public void Update(float seconds, double nowMs, StatusBook statuses, ulong selfId)
     {
         _looks.Clear();
         foreach (var (entity, entry) in statuses.All())
@@ -136,7 +136,7 @@ public sealed class ActorLookBook
         }
     }
 
-    private EntityLook Evaluate(uint entity, State state, float ticks, double nowMs, IReadOnlyList<StatusEntry> entries, bool self)
+    private EntityLook Evaluate(ulong entity, State state, float ticks, double nowMs, IReadOnlyList<StatusEntry> entries, bool self)
     {
         var frost = false;
         var poison = false;
@@ -275,7 +275,7 @@ public sealed class ActorLookBook
         return MathF.Min(0f, value + ticks);
     }
 
-    private State StateOf(uint entity)
+    private State StateOf(ulong entity)
     {
         if (!_states.TryGetValue(entity, out var state))
         {

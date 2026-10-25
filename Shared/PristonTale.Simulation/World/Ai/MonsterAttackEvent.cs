@@ -1,3 +1,3 @@
 namespace PristonTale.Simulation.World.Ai;
 
-public readonly record struct MonsterAttackEvent(uint AttackerEntityId, uint TargetEntityId, bool IsSkill);
+public readonly record struct MonsterAttackEvent(ulong AttackerEntityId, ulong TargetEntityId, bool IsSkill);

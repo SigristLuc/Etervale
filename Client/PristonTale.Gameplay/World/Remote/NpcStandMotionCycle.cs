@@ -17,13 +17,13 @@ internal sealed class NpcStandMotionCycle
     private float _elapsedSeconds;
     private bool _active;
 
-    public NpcStandMotionCycle(PristonModelInfo info, uint entityId)
+    public NpcStandMotionCycle(PristonModelInfo info, ulong entityId)
     {
         ArgumentNullException.ThrowIfNull(info);
         _info = info;
         _standIndices = CollectStandIndices(info);
         _weightedStandIndices = CollectWeightedStandIndices(info, _standIndices);
-        _randomState = entityId ^ info.FileTypeKeyword ^ 0xA341316Cu;
+        _randomState = (uint)(entityId ^ entityId >> 32) ^ info.FileTypeKeyword ^ 0xA341316Cu;
         if (_randomState == 0)
         {
             _randomState = 1;

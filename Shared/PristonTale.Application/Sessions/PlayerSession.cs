@@ -21,7 +21,7 @@ public sealed class PlayerSession
     public required string SessionToken { get; init; }
     public required long AccountId { get; init; }
     public required string UserId { get; init; }
-    public required uint EntityId { get; init; }
+    public required ulong EntityId { get; init; }
 
     // The account's game-master level at login (0 for players).
     public int GmLevel { get; set; }

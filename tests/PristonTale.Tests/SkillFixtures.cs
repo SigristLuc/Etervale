@@ -25,7 +25,7 @@ internal static class SkillFixtures
     public static FieldInstance Field(int seed = 11, params MonsterDefinition[] definitions) =>
         new(3, FieldSpawnData.Empty, new MonsterCatalog(definitions.Length > 0 ? definitions : [Monster()]), new EntityIdAllocator(), new CombatRng(seed));
 
-    public static WorldPlayer Player(FieldInstance field, uint id, PlayerClass playerClass, int level, Vector3 position, ItemInstance? weapon = null,
+    public static WorldPlayer Player(FieldInstance field, ulong id, PlayerClass playerClass, int level, Vector3 position, ItemInstance? weapon = null,
         ItemInstance? offHand = null)
     {
         var character = Classes.CreatePlayer(playerClass, "Skill" + id, level);
@@ -47,18 +47,18 @@ internal static class SkillFixtures
     public static MonsterInstance Spawn(FieldInstance field, MonsterDefinition definition, Vector3 position) =>
         ((ISpawnSink)field).Spawn(definition, position, 0, 0);
 
-    public static SkillCastOutcome Cast(FieldInstance field, WorldPlayer player, uint code, uint target = 0) =>
+    public static SkillCastOutcome Cast(FieldInstance field, WorldPlayer player, uint code, ulong target = 0) =>
         field.CastSkill(player, new SkillCastRequest(1, code, target, default, false));
 
     // Scenario casts start settled with full mana and stamina, so they test the mechanic rather than the caster's pools.
-    public static void Accept(string skill, FieldInstance field, WorldPlayer player, uint code, uint target = 0)
+    public static void Accept(string skill, FieldInstance field, WorldPlayer player, uint code, ulong target = 0)
     {
         Ready(field, player);
         var outcome = Cast(field, player, code, target);
         Assert.True(outcome.Accepted, $"{skill} refused: {outcome.Verdict}");
     }
 
-    public static void Refuse(SkillCastVerdict expected, string failure, FieldInstance field, WorldPlayer player, uint code, uint target = 0)
+    public static void Refuse(SkillCastVerdict expected, string failure, FieldInstance field, WorldPlayer player, uint code, ulong target = 0)
     {
         Ready(field, player);
         var outcome = Cast(field, player, code, target);

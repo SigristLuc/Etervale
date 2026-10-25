@@ -267,7 +267,7 @@ internal static class QuestServiceTests
         public required WorldPlayer Player { get; init; }
         public required MemoryCharacters Characters { get; init; }
         public required WorldOutbox Outbox { get; init; }
-        public required uint NpcId { get; init; }
+        public required ulong NpcId { get; init; }
         private uint _tick;
 
         public static async Task<QuestWorld> CreateAsync(PlayerClass playerClass, int level, short tier, IReadOnlyList<NpcService> services,

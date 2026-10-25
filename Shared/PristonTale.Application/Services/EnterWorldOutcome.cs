@@ -16,7 +16,7 @@ public enum EnterWorldFailure
 public sealed record EnterWorldOutcome(
     bool Ok,
     int FieldId,
-    uint EntityId,
+    ulong EntityId,
     float SpawnX,
     float SpawnZ,
     string Message)
@@ -26,7 +26,7 @@ public sealed record EnterWorldOutcome(
     public static EnterWorldOutcome Denied(EnterWorldFailure failure) =>
         new(false, 0, 0, 0f, 0f, MessageFor(failure)) { Failure = failure };
 
-    public static EnterWorldOutcome Success(int fieldId, uint entityId, float spawnX, float spawnZ, string message) =>
+    public static EnterWorldOutcome Success(int fieldId, ulong entityId, float spawnX, float spawnZ, string message) =>
         new(true, fieldId, entityId, spawnX, spawnZ, message);
 
     public static string MessageFor(EnterWorldFailure failure) => failure switch

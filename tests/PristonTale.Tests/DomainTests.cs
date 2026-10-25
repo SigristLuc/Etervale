@@ -20,7 +20,7 @@ internal static class DomainTests
     {
         yield return ("saved attributes survive entry/save and level-up grants allocation points", AttributesAsync);
         yield return ("session and character ownership are exclusive", SessionsAsync);
-        yield return ("monster ids wrap to the base of their range and skip ids still in use", MonsterIdsAsync);
+        yield return ("monster ids are 64-bit and start above every player id", MonsterIdsAsync);
         yield return ("world mailbox defers mutations and protects writer ownership", MailboxAsync);
         yield return ("field transfers use catalog placement and refresh respawn/village", TransfersAsync);
         yield return ("authoritative field transfer keeps a ground move in progress", RunningTransferAsync);
@@ -64,12 +64,10 @@ internal static class DomainTests
         var ids = new EntityIdAllocator();
         var first = ids.NextMonsterId();
         var second = ids.NextMonsterId();
-        Assert.True(first == EntityIdAllocator.MonsterIdBase && second == first + 1, "monster ids do not start at the base");
-        ids.Release(second);
-        ids.Rewind(uint.MaxValue - 1);
-        Assert.True(ids.NextMonsterId() == uint.MaxValue, "the top of the range was skipped");
-        Assert.True(ids.NextMonsterId() == second, "the counter did not wrap to the base past the live id");
-        Assert.True(ids.LiveCount == 3, $"live ids {ids.LiveCount}");
+        Assert.True(first == EntityIdAllocator.MonsterIdBase && second == first + 1 && first > uint.MaxValue,
+            "monster ids must start above every 32-bit player id and count up");
+        var session = new SessionRegistry().Create(1, "a");
+        Assert.True(session.EntityId is > 0 and < EntityIdAllocator.MonsterIdBase, $"player id {session.EntityId} is not below the monster range");
         return Task.CompletedTask;
     }
 
@@ -179,7 +177,7 @@ internal static class DomainTests
         return new WorldCatalog([first, second, third]);
     }
 
-    private static WorldPlayer Player(uint id = 1, int level = 1)
+    private static WorldPlayer Player(ulong id = 1, int level = 1)
     {
         var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Probe", level);
         return new WorldPlayer(id, new Vector3(100, 0, 100), character, true, default);
@@ -355,7 +353,7 @@ internal static class DomainTests
         {
             var world = new WorldServer(new WorldDataHolder(), Catalog());
             var joins = new List<Task<bool>>();
-            for (uint id = 1; id <= 128; id++)
+            for (ulong id = 1; id <= 128; id++)
             {
                 var outbound = Channel.CreateBounded<WorldSnapshot>(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropOldest });
                 var player = Player(id);
@@ -366,7 +364,7 @@ internal static class DomainTests
             world.Tick(0.05f, 1);
             await Task.WhenAll(joins);
             var moves = new List<Task<MovementVerdict>>();
-            for (uint id = 1; id <= 128; id++)
+            for (ulong id = 1; id <= 128; id++)
             {
                 moves.Add(world.ReportMovementAsync(3, id, new Vector3((id % 16) * 200 + 20, 0, (id / 16) * 200), 0f, true, true, 0));
             }
@@ -396,7 +394,7 @@ internal static class DomainTests
     private sealed class SinglePrey : IPreyView
     {
         public IReadOnlyList<PreyCandidate> Candidates { get; } = [new(1, new Vector3(1000, 0, 0), true)];
-        public bool TryGet(uint entityId, out PreyCandidate prey)
+        public bool TryGet(ulong entityId, out PreyCandidate prey)
         {
             prey = Candidates[0];
             return entityId == prey.EntityId;

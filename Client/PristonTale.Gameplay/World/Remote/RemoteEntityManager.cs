@@ -21,16 +21,16 @@ public sealed partial class RemoteEntityManager
 
     private WorldRenderCatalog _catalog;
 
-    private readonly Dictionary<uint, RemoteEntityBase> _entities = new();
+    private readonly Dictionary<ulong, RemoteEntityBase> _entities = new();
     // Summons and their owners: allies that cannot be picked as targets.
-    private readonly Dictionary<uint, uint> _summonOwners = new();
+    private readonly Dictionary<ulong, ulong> _summonOwners = new();
     private readonly RemoteCollisionRoster _collisionRoster = new();
 
-    private readonly Dictionary<uint, EntitySpawnInfo> _pendingModels = new();
-    private readonly Dictionary<uint, (EntitySpawnInfo Spawn, Task Preparation)> _preparingActors = new();
+    private readonly Dictionary<ulong, EntitySpawnInfo> _pendingModels = new();
+    private readonly Dictionary<ulong, (EntitySpawnInfo Spawn, Task Preparation)> _preparingActors = new();
     private readonly RemoteServerClock _clock = new();
 
-    private uint _selfEntityId;
+    private ulong _selfEntityId;
 
     private Action<EntitySpawnInfo> _onSelfSpawn;
     private Action<EntityStateInfo> _onSelfState;
@@ -56,7 +56,7 @@ public sealed partial class RemoteEntityManager
 
     public int Count => _entities.Count;
 
-    public uint SelfEntityId => _selfEntityId;
+    public ulong SelfEntityId => _selfEntityId;
 
     public event Action<int, PristonActorMotion, XnaVector3> NpcMotionStarted;
 
@@ -136,7 +136,7 @@ public sealed partial class RemoteEntityManager
         }
     }
 
-    private readonly Dictionary<uint, PlayerAppearanceInfo> _playerAppearances = new();
+    private readonly Dictionary<ulong, PlayerAppearanceInfo> _playerAppearances = new();
 
     private void ApplySpawn(EntitySpawnInfo spawn, bool publish = false)
     {
@@ -384,9 +384,9 @@ public sealed partial class RemoteEntityManager
         }
     }
 
-    public bool TryGetSummonOwner(uint entityId, out uint ownerId) => _summonOwners.TryGetValue(entityId, out ownerId);
+    public bool TryGetSummonOwner(ulong entityId, out ulong ownerId) => _summonOwners.TryGetValue(entityId, out ownerId);
 
-    public void SeekSkillMotion(uint entityId, int framesFromStart, float rate)
+    public void SeekSkillMotion(ulong entityId, int framesFromStart, float rate)
     {
         if (_entities.TryGetValue(entityId, out var entity) && entity is RemoteEntity player)
         {
@@ -394,7 +394,7 @@ public sealed partial class RemoteEntityManager
         }
     }
 
-    private void ApplyRemoved(uint entityId)
+    private void ApplyRemoved(ulong entityId)
     {
         _summonOwners.Remove(entityId);
         _summonPlates.Remove(entityId);
@@ -426,7 +426,7 @@ public sealed partial class RemoteEntityManager
     public void Update(float dt)
     {
         _clock.Advance(dt * 1000d);
-        uint completed = 0;
+        ulong completed = 0;
         foreach (var (id, pending) in _preparingActors)
         {
             if (!pending.Preparation.IsCompleted)
@@ -475,7 +475,7 @@ public sealed partial class RemoteEntityManager
         _ => 0f,
     };
 
-    public bool TryPick(Microsoft.Xna.Framework.Ray ray, uint selfId, out uint entityId, out RemoteEntityKind kind)
+    public bool TryPick(Microsoft.Xna.Framework.Ray ray, ulong selfId, out ulong entityId, out RemoteEntityKind kind)
     {
         entityId = 0;
         kind = RemoteEntityKind.Unspecified;
@@ -503,10 +503,10 @@ public sealed partial class RemoteEntityManager
     }
 
     // Entities still loading their models are not in the roster and have no actors yet.
-    public int CopyActorHandles(uint entityId, Span<ActorHandle> destination) =>
+    public int CopyActorHandles(ulong entityId, Span<ActorHandle> destination) =>
         _entities.TryGetValue(entityId, out var entity) ? entity.CopyActorHandles(destination) : 0;
 
-    public bool TryGetDrawnPosition(uint entityId, out XnaVector3 position)
+    public bool TryGetDrawnPosition(ulong entityId, out XnaVector3 position)
     {
         if (_entities.TryGetValue(entityId, out var entity))
         {
@@ -518,7 +518,7 @@ public sealed partial class RemoteEntityManager
         return false;
     }
 
-    public bool TryGetDrawnFacing(uint entityId, out float facing)
+    public bool TryGetDrawnFacing(ulong entityId, out float facing)
     {
         if (_entities.TryGetValue(entityId, out var entity))
         {
@@ -531,7 +531,7 @@ public sealed partial class RemoteEntityManager
     }
 
     // Every other player's body item ("" while unknown), whether it is shown (alive, outside a village) and its model yaw.
-    public void ForEachWearer(Action<uint, string, bool, float> visit)
+    public void ForEachWearer(Action<ulong, string, bool, float> visit)
     {
         foreach (var (entityId, appearance) in _playerAppearances)
         {
@@ -544,7 +544,7 @@ public sealed partial class RemoteEntityManager
 
     // The actors a skill look paints: a player's body, head and held items, or a monster's model; and whether the
     // player holds a shield.
-    public bool TryGetLookHandles(uint entityId, out PlayerActorHandles handles, out bool holdsShield)
+    public bool TryGetLookHandles(ulong entityId, out PlayerActorHandles handles, out bool holdsShield)
     {
         handles = new PlayerActorHandles(ActorHandle.None, ActorHandle.None);
         holdsShield = false;
@@ -569,7 +569,7 @@ public sealed partial class RemoteEntityManager
     }
 
     // The actor whose bones effects attach to: a player's body or a monster's model.
-    public bool TryGetBodyActor(uint entityId, out ActorHandle handle)
+    public bool TryGetBodyActor(ulong entityId, out ActorHandle handle)
     {
         handle = default;
         if (!_entities.TryGetValue(entityId, out var entity))
@@ -586,7 +586,7 @@ public sealed partial class RemoteEntityManager
         return handle.IsValid;
     }
 
-    public bool PlaySkillMotion(uint entityId, int motionIndex, float rate, bool attackClip)
+    public bool PlaySkillMotion(ulong entityId, int motionIndex, float rate, bool attackClip)
     {
         if (!_entities.TryGetValue(entityId, out var entity) || entity.IsDead)
         {
@@ -597,7 +597,7 @@ public sealed partial class RemoteEntityManager
         return true;
     }
 
-    public bool TryGetNpcAudioSource(uint entityId, out int soundCode, out XnaVector3 position)
+    public bool TryGetNpcAudioSource(ulong entityId, out int soundCode, out XnaVector3 position)
     {
         if (_entities.TryGetValue(entityId, out var entity) && entity.Kind == RemoteEntityKind.Npc)
         {
@@ -611,7 +611,7 @@ public sealed partial class RemoteEntityManager
         return false;
     }
 
-    public bool TryGetTarget(uint entityId, out XnaVector3 position, out bool isDead)
+    public bool TryGetTarget(ulong entityId, out XnaVector3 position, out bool isDead)
     {
         if (_entities.TryGetValue(entityId, out var entity))
         {
@@ -624,7 +624,7 @@ public sealed partial class RemoteEntityManager
         return false;
     }
 
-    public void CollectNeighbours(uint excludeId, List<EntityNeighbour> into) => _collisionRoster.Collect(excludeId, into);
+    public void CollectNeighbours(ulong excludeId, List<EntityNeighbour> into) => _collisionRoster.Collect(excludeId, into);
 
     public void Clear()
     {

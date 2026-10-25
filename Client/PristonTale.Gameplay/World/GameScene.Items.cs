@@ -109,7 +109,7 @@ public sealed partial class GameScene
         _forceOrbs?.Update(_skillClockMs, ItemAnchor);
     }
 
-    private (Vector3 Position, float Facing)? PetOwnerPose(uint entityId)
+    private (Vector3 Position, float Facing)? PetOwnerPose(ulong entityId)
     {
         if (_remote is not null && entityId == _remote.SelfEntityId && _playerBody is not null)
         {
@@ -121,7 +121,7 @@ public sealed partial class GameScene
             : null;
     }
 
-    private Vector3? ItemAnchor(uint entityId)
+    private Vector3? ItemAnchor(ulong entityId)
     {
         if (_remote is not null && entityId == _remote.SelfEntityId && _playerBody is not null)
         {

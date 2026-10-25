@@ -160,7 +160,7 @@ internal static class MonsterCombatTests
         private readonly PreyCandidate[] _candidates = [new(1, position, true)];
         public IReadOnlyList<PreyCandidate> Candidates => _candidates;
         public void Move(Vector3 target) => _candidates[0] = new PreyCandidate(1, target, true);
-        public bool TryGet(uint entityId, out PreyCandidate prey)
+        public bool TryGet(ulong entityId, out PreyCandidate prey)
         {
             prey = _candidates[0];
             return entityId == prey.EntityId;
@@ -172,17 +172,17 @@ internal static class MonsterCombatTests
         public int EventCount { get; private set; }
         public IEnumerable<MonsterInstance> Monsters => [monster];
         public IReadOnlyList<PreyCandidate> NearbyPlayers(Vector3 origin, float radius) => [new(player.EntityId, player.Position, !player.IsDead)];
-        public void DespawnMonster(uint entityId) { }
+        public void DespawnMonster(ulong entityId) { }
         public MonsterAiTuning TuningFor(MonsterDefinition definition) => new(definition);
         public (float DurationMs, float HitAtMs) PlayerSwingTiming(WorldPlayer target) => (1000, 400);
         public void EmitCombatEvent(in CombatEventView combatEvent) => EventCount++;
-        public bool TryGetPlayer(uint entityId, [MaybeNullWhen(false)] out WorldPlayer target)
+        public bool TryGetPlayer(ulong entityId, [MaybeNullWhen(false)] out WorldPlayer target)
         {
             target = player;
             return entityId == player.EntityId;
         }
 
-        public bool TryGetMonster(uint entityId, [MaybeNullWhen(false)] out MonsterInstance target)
+        public bool TryGetMonster(ulong entityId, [MaybeNullWhen(false)] out MonsterInstance target)
         {
             target = monster;
             return entityId == monster.EntityId;

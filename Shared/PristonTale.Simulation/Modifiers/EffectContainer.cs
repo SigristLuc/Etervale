@@ -65,7 +65,7 @@ public sealed class ActiveEffect
 {
     private readonly float[] _sinceTickMs;
 
-    internal ActiveEffect(EffectSpec spec, uint sourceEntity, float durationMs)
+    internal ActiveEffect(EffectSpec spec, ulong sourceEntity, float durationMs)
     {
         Spec = spec;
         SourceEntity = sourceEntity;
@@ -77,7 +77,7 @@ public sealed class ActiveEffect
 
     public EffectSpec Spec { get; private set; }
     public uint Code => Spec.Code;
-    public uint SourceEntity { get; private set; }
+    public ulong SourceEntity { get; private set; }
     public int Stacks { get; private set; }
 
     // Permanent effects (equipped items, auras held by their source) have no timer and are removed explicitly.
@@ -85,7 +85,7 @@ public sealed class ActiveEffect
     public float DurationMs { get; private set; }
     public float RemainingMs { get; private set; }
 
-    internal void Reapply(EffectSpec spec, uint sourceEntity, float durationMs)
+    internal void Reapply(EffectSpec spec, ulong sourceEntity, float durationMs)
     {
         if (spec.Stacking == StackRule.Stack)
         {
@@ -99,7 +99,7 @@ public sealed class ActiveEffect
         Array.Clear(_sinceTickMs);
     }
 
-    internal void Advance(float dtMs, uint entity, List<EffectChange> changes)
+    internal void Advance(float dtMs, ulong entity, List<EffectChange> changes)
     {
         if (!Permanent)
         {
@@ -128,7 +128,7 @@ public enum EffectChangeKind : byte
     Ticked = 4
 }
 
-public readonly record struct EffectChange(uint Entity, ActiveEffect Effect, EffectChangeKind Kind, int PeriodicIndex = -1)
+public readonly record struct EffectChange(ulong Entity, ActiveEffect Effect, EffectChangeKind Kind, int PeriodicIndex = -1)
 {
     public PeriodicEffect Periodic => Effect.Spec.Periodic[PeriodicIndex];
 }
@@ -203,7 +203,7 @@ public sealed class EffectContainer
     }
 
     // durationMs = +infinity applies a permanent effect. Returns the change, or null when KeepStrongest kept the old one.
-    public EffectChange? Apply(EffectSpec spec, uint sourceEntity, float durationMs, uint entity = 0)
+    public EffectChange? Apply(EffectSpec spec, ulong sourceEntity, float durationMs, ulong entity = 0)
     {
         ArgumentNullException.ThrowIfNull(spec);
         if (float.IsNaN(durationMs) || durationMs <= 0f)
@@ -230,7 +230,7 @@ public sealed class EffectContainer
         return new EffectChange(entity, running, EffectChangeKind.Refreshed);
     }
 
-    public bool Remove(uint code, uint entity, List<EffectChange> changes)
+    public bool Remove(uint code, ulong entity, List<EffectChange> changes)
     {
         var removed = false;
         for (var index = _effects.Count - 1; index >= 0; index--)
@@ -246,7 +246,7 @@ public sealed class EffectContainer
     }
 
     // Removes the effects one source applied, for example every modifier of an unequipped item.
-    public int RemoveFrom(EffectSourceKind source, uint sourceEntity, uint entity, List<EffectChange> changes)
+    public int RemoveFrom(EffectSourceKind source, ulong sourceEntity, ulong entity, List<EffectChange> changes)
     {
         var count = 0;
         for (var index = _effects.Count - 1; index >= 0; index--)
@@ -263,7 +263,7 @@ public sealed class EffectContainer
     }
 
     // Removes the timed effects of one source kind (skill buffs that end in town).
-    public void RemoveTimedFrom(EffectSourceKind source, uint entity, List<EffectChange> changes)
+    public void RemoveTimedFrom(EffectSourceKind source, ulong entity, List<EffectChange> changes)
     {
         for (var index = _effects.Count - 1; index >= 0; index--)
         {
@@ -275,7 +275,7 @@ public sealed class EffectContainer
     }
 
     // Clears timed effects (death, field change); permanent effects stay with their source.
-    public void ClearTimed(uint entity, List<EffectChange> changes)
+    public void ClearTimed(ulong entity, List<EffectChange> changes)
     {
         for (var index = _effects.Count - 1; index >= 0; index--)
         {
@@ -287,7 +287,7 @@ public sealed class EffectContainer
     }
 
     // Advances timers, reports periodic ticks and expiries into the caller's scratch list.
-    public void Step(float dtMs, uint entity, List<EffectChange> changes)
+    public void Step(float dtMs, ulong entity, List<EffectChange> changes)
     {
         if (_effects.Count == 0 || !float.IsFinite(dtMs) || dtMs <= 0f)
         {
@@ -305,7 +305,7 @@ public sealed class EffectContainer
         }
     }
 
-    private ActiveEffect Find(uint code, uint? source)
+    private ActiveEffect Find(uint code, ulong? source)
     {
         foreach (var effect in _effects)
         {
@@ -318,7 +318,7 @@ public sealed class EffectContainer
         return null;
     }
 
-    private void RemoveAt(int index, uint entity, List<EffectChange> changes)
+    private void RemoveAt(int index, ulong entity, List<EffectChange> changes)
     {
         var effect = _effects[index];
         _effects.RemoveAt(index);

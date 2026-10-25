@@ -15,7 +15,7 @@ public sealed class HudPuzzleExchange
     public const string Title = "Completed Puzzle";
     public const string Help = "Lay the eight pieces of one puzzle on the board of your inventory, then bring it to me.";
 
-    private uint _npcId;
+    private ulong _npcId;
     private string _npcName = "";
 
     public bool Confirming { get; private set; }
@@ -23,7 +23,7 @@ public sealed class HudPuzzleExchange
     public bool Captures(Point pointer) => Confirming && HudMessageBox.Bounds.Contains(pointer);
 
     // Opens the question for a finished puzzle; returns the help line otherwise.
-    public string Offer(OwnerState state, uint npcId, string npcName)
+    public string Offer(OwnerState state, ulong npcId, string npcName)
     {
         if (state is null || !Puzzles.Complete(state.Items.Where(static item => item.Slot < 0).Select(static item => (item.CatalogKey, item.Anchor)),
                 HudInventoryLayout.Columns))

@@ -60,7 +60,7 @@ public sealed class WorldPlayer
     private float _moveBudget;
     private long _budgetMs = -1;
 
-    private uint _attackTargetId;
+    private ulong _attackTargetId;
     private bool _attackSustained;
 
     // A swing hits only when elapsed time crosses its authored event offset.
@@ -68,7 +68,7 @@ public sealed class WorldPlayer
     private float _swingDurationMs;
     private float _swingHitAtMs;
     private bool _swingHitFired;
-    private uint _swingTargetId;
+    private ulong _swingTargetId;
 
     private PotionDefinition? _pendingPotion;
     private float _potionElapsedMs;
@@ -146,7 +146,7 @@ public sealed class WorldPlayer
     public Dictionary<uint, int> SkillCasts { get; } = new();
 
     // The monster this player last attacked or cast at (its familiar and passive summon fight it).
-    public uint CombatTargetId { get; set; }
+    public ulong CombatTargetId { get; set; }
 
     // A released charge ends the cast motion earlier.
     public void ShortenCast(float durationMs)
@@ -180,7 +180,7 @@ public sealed class WorldPlayer
         _ => RegenerationPosture.Acting
     };
 
-    public WorldPlayer(uint entityId, Vector3 position, PlayerCharacter character, bool inVillage, PlayerAppearanceView appearance)
+    public WorldPlayer(ulong entityId, Vector3 position, PlayerCharacter character, bool inVillage, PlayerAppearanceView appearance)
     {
         if (!WorldPosition.IsValid(position))
         {
@@ -194,12 +194,12 @@ public sealed class WorldPlayer
         _appearance = appearance;
     }
 
-    public uint EntityId { get; }
+    public ulong EntityId { get; }
     public Vector3 Position { get; private set; }
     public float Facing { get; private set; }
     public MoveStateView MoveState { get; private set; } = MoveStateView.Idle;
 
-    public uint AttackTargetId => _attackTargetId;
+    public ulong AttackTargetId => _attackTargetId;
     public ulong AttackSequence { get; private set; }
     private ulong _swingAttackSequence;
 
@@ -252,7 +252,7 @@ public sealed class WorldPlayer
     public PlayerCharacter Character => _character;
 
     // WorldServer serializes this with the tick. Height stays authoritative; client terrain samples are not trusted.
-    public MovementVerdict ReportMovement(Vector3 position, float facing, bool moving, bool running, uint actionTarget, long nowMs,
+    public MovementVerdict ReportMovement(Vector3 position, float facing, bool moving, bool running, ulong actionTarget, long nowMs,
         FieldTerrain? terrain = null)
     {
         if (!WorldPosition.IsValid(position) || !float.IsFinite(facing) || IsDead)
@@ -348,7 +348,7 @@ public sealed class WorldPlayer
         }
     }
 
-    public void SetAttackTarget(uint targetEntityId, bool sustained)
+    public void SetAttackTarget(ulong targetEntityId, bool sustained)
     {
         _attackTargetId = targetEntityId;
         _attackSustained = sustained;
@@ -403,7 +403,7 @@ public sealed class WorldPlayer
         return DistanceSqTo(worldPos) <= range * range && MathF.Abs(worldPos.Y - Position.Y) <= 64f;
     }
 
-    public void BeginSwing(uint targetId, Vector3 targetPos, float durationMs, float hitAtMs)
+    public void BeginSwing(ulong targetId, Vector3 targetPos, float durationMs, float hitAtMs)
     {
         Facing = MathF.Atan2(targetPos.X - Position.X, targetPos.Z - Position.Z);
         Action = PlayerActionState.Swing;
@@ -417,7 +417,7 @@ public sealed class WorldPlayer
         CombatTargetId = targetId;
     }
 
-    public bool TickAction(float dtMs, out uint hitTargetId)
+    public bool TickAction(float dtMs, out ulong hitTargetId)
     {
         hitTargetId = 0;
 

@@ -149,13 +149,13 @@ internal sealed class VfxCaptureProbe : Game, IVfxAnchors, IVfxServices
         _target.SaveAsPng(stream, 960, 540);
     }
 
-    public bool TryGetPosition(uint entityId, out Vector3 position)
+    public bool TryGetPosition(ulong entityId, out Vector3 position)
     {
         position = entityId == 2 ? new Vector3(60f, 0f, -60f) : Vector3.Zero;
         return entityId is 1 or 2;
     }
 
-    public bool TryGetBone(uint entityId, string bone, out Vector3 position)
+    public bool TryGetBone(ulong entityId, string bone, out Vector3 position)
     {
         position = new Vector3(0f, 40f, 0f);
         return entityId == 1;

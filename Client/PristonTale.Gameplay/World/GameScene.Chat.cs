@@ -18,7 +18,7 @@ public sealed partial class GameScene
 
     // The screen point over an entity's head and its depth from the camera, or null when it is behind the camera or not
     // drawn.
-    public HudOverheadPoint? Overhead(uint entityId)
+    public HudOverheadPoint? Overhead(ulong entityId)
     {
         if (_camera is null)
         {

@@ -42,7 +42,7 @@ public sealed class PlayerQuestState
     public QuestTravel? PendingTravel { get; set; }
 
     // The opponent of the player's current duel (0 without one).
-    public uint DuelOpponentId { get; set; }
+    public ulong DuelOpponentId { get; set; }
 
     public void AddDrop(PendingQuestDrop drop)
     {

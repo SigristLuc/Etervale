@@ -61,7 +61,7 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
     }
 
     // An item copy or gold a game master made at a position; it is public at once and lasts as a monster drop does.
-    public bool PlaceCreated(ItemInstance? item, int gold, Vector3 position, uint ownerId, long nowMs)
+    public bool PlaceCreated(ItemInstance? item, int gold, Vector3 position, ulong ownerId, long nowMs)
     {
         if (_entries.Count >= Capacity || item is null && gold <= 0)
         {
@@ -170,11 +170,11 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
         }
     }
 
-    private sealed class Entry(GroundDropView view, ItemInstance? item, uint ownerId, long publicAt, long expiresAt)
+    private sealed class Entry(GroundDropView view, ItemInstance? item, ulong ownerId, long publicAt, long expiresAt)
     {
         public GroundDropView View { get; } = view;
         public ItemInstance? Item { get; } = item;
-        public uint OwnerId { get; } = ownerId;
+        public ulong OwnerId { get; } = ownerId;
         public long PublicAt { get; } = publicAt;
         public long ExpiresAt { get; } = expiresAt;
         public bool Public { get; set; }

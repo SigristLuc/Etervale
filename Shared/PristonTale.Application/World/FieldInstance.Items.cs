@@ -16,8 +16,8 @@ public sealed partial class FieldInstance
     internal FieldState State { get; set; }
 
     // Soul-stone monsters and the field time they vanish at.
-    private readonly Dictionary<uint, long> _soulMonsters = new();
-    private readonly List<uint> _soulScratch = new();
+    private readonly Dictionary<ulong, long> _soulMonsters = new();
+    private readonly List<ulong> _soulScratch = new();
 
     // The server's item events, which replace drop rolls with event items.
     internal ItemEventRates ItemEventRates

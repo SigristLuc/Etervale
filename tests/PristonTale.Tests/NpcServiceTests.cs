@@ -414,7 +414,7 @@ internal static class NpcServiceTests
         public static readonly string[] Lines = ["Welcome.", "Take a look."];
 
         public required WorldServer World { get; init; }
-        public required uint NpcId { get; init; }
+        public required ulong NpcId { get; init; }
         public required PlayerSession Session { get; init; }
         public required NpcAppService Npc { get; init; }
         public required MemoryCharacters Characters { get; init; }

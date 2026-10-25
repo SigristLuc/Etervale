@@ -24,7 +24,7 @@ internal static class MonsterSkillStatusTests
         yield return ("curse monsters forget their player after each normal blow", CurseTargetAsync);
     }
 
-    private static MonsterInstance CastOnce(MonsterSkillField world, MonsterDefinition definition, uint target)
+    private static MonsterInstance CastOnce(MonsterSkillField world, MonsterDefinition definition, ulong target)
     {
         var monster = world.Spawn(definition, Vector3.Zero, target);
         world.StepUntil(() => world.Events.Any(value => value.Kind == CombatEventKindView.MonsterSkillImpact && value.AttackerId == monster.EntityId), 40,

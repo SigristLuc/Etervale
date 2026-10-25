@@ -103,7 +103,7 @@ internal static class GmInformationCommands
             return Task.CompletedTask;
         }
 
-        var serial = (uint)ChatCommandText.ToNumber(word);
+        var serial = ChatCommandText.ToSerial(word);
         Describe(context, serial != 0 && context.Commands.Directory.TryGet(serial, out var member) ? member : null);
         return Task.CompletedTask;
     }

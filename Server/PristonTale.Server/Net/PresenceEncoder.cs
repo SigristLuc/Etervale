@@ -29,10 +29,10 @@ internal sealed partial class PresenceEncoder
     private const int MovementBudgetBytes = 2048;
     private const uint TickIntervalMs = 1000 / WorldServer.TickHz;
 
-    private readonly uint _self;
+    private readonly ulong _self;
     private readonly WorldDataHolder _data;
     private readonly object _gate = new();
-    private readonly Dictionary<uint, Known> _known = new();
+    private readonly Dictionary<ulong, Known> _known = new();
     private readonly Dictionary<Guid, GroundDropView> _drops = new();
     private readonly List<int> _candidates = new();
     // The entities a receiver may show at once; the nearest win in a denser crowd.
@@ -44,9 +44,9 @@ internal sealed partial class PresenceEncoder
     private readonly MotionCandidates _pending = new(MovementBudgetBytes / PresenceWire.MotionEntrySize(0));
     private readonly HashSet<Guid> _visibleDrops = new();
     private readonly List<Guid> _goneDrops = new();
-    private readonly List<uint> _removed = new();
+    private readonly List<ulong> _removed = new();
     // Entities this receiver started seeing in the snapshot being encoded; their running statuses follow.
-    private readonly List<uint> _spawned = new();
+    private readonly List<ulong> _spawned = new();
     private readonly List<CombatEventEntry> _events = new();
     private readonly List<SkillEventEntry> _skillEvents = new();
     private readonly List<StatusEffectEntry> _statusEvents = new();
@@ -68,14 +68,14 @@ internal sealed partial class PresenceEncoder
     private EntityGrid? _describeGrid;
     private EntityView[] _entities = [];
 
-    public PresenceEncoder(uint self, WorldDataHolder data)
+    public PresenceEncoder(ulong self, WorldDataHolder data)
     {
         _self = self;
         _data = data;
         _isShown = index => _known.ContainsKey(_entities[index].EntityId);
     }
 
-    public EntityKindView? KindOf(uint serial)
+    public EntityKindView? KindOf(ulong serial)
     {
         lock (_gate)
         {
@@ -107,7 +107,7 @@ internal sealed partial class PresenceEncoder
 
     // The description of an entity from the last encoded snapshot (its frame stays pinned until the next one); null when
     // the serial is not in this subscriber's view.
-    public EntityDescriptionPacket? Describe(uint serial)
+    public EntityDescriptionPacket? Describe(ulong serial)
     {
         EntityView view;
         byte revision;
@@ -127,7 +127,7 @@ internal sealed partial class PresenceEncoder
 
     // Writes the description into destination and returns its length, 0 when the serial is not in view. Every receiver
     // asking about an entity of the same frame gets the same bytes, so they are encoded once per frame.
-    public int WriteDescription(uint serial, Span<byte> destination)
+    public int WriteDescription(ulong serial, Span<byte> destination)
     {
         lock (_gate)
         {
@@ -590,7 +590,7 @@ internal sealed partial class PresenceEncoder
         }
     }
 
-    private bool Relevant(uint first, uint second) =>
+    private bool Relevant(ulong first, ulong second) =>
         first == _self || second == _self || _known.ContainsKey(first) || second != 0 && _known.ContainsKey(second);
 
     private void SendSkillEvents(ReadOnlySpan<SkillEventView> skills, IPacketSink connection)
@@ -808,7 +808,7 @@ internal sealed partial class PresenceEncoder
         public Vector3 Position;
         public float Facing;
         public int Hp;
-        public uint AttackTargetId;
+        public ulong AttackTargetId;
         public ulong AttackSequence;
         public uint LastSentTick;
         public uint Pass;

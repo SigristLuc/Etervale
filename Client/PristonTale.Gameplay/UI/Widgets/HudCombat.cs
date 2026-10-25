@@ -35,10 +35,10 @@ public sealed class HudCombat
         public bool StateBarEnabled { get; set; }
     }
 
-    private readonly Dictionary<uint, Entity> _entities = new();
+    private readonly Dictionary<ulong, Entity> _entities = new();
     private readonly (string Text, Color Color)[] _history = new (string, Color)[64];
     private WorldRenderCatalog _catalog = WorldRenderCatalog.Empty;
-    private uint _self;
+    private ulong _self;
     private int _levelValue = -1;
     private string _levelText = "";
     private int _percentValue = -1;
@@ -51,7 +51,7 @@ public sealed class HudCombat
     public void SetCatalog(WorldRenderCatalog catalog) => _catalog = catalog;
 
     // What the client knows of an entity in view: its kind and a summon's owner (Unspecified when not in view).
-    public RemoteEntityKind KindOf(uint id, out uint ownerId)
+    public RemoteEntityKind KindOf(ulong id, out ulong ownerId)
     {
         ownerId = 0;
         if (!_entities.TryGetValue(id, out var entity))
@@ -134,7 +134,7 @@ public sealed class HudCombat
     }
 
     // As in the original, only an attack that finds the monster at full life enables the classic bar.
-    public void NoteAttack(uint target)
+    public void NoteAttack(ulong target)
     {
         if (_entities.TryGetValue(target, out var entity) && entity.Spawn.Kind == RemoteEntityKind.Monster && entity.Spawn.MaxHp > 0
             && entity.Hp == entity.Spawn.MaxHp)
@@ -176,7 +176,7 @@ public sealed class HudCombat
         return (int)Math.Clamp((long)Math.Min(life, maximum) * 100 / maximum, 1, 100);
     }
 
-    public bool ShowsHealthBar(uint target, bool classic)
+    public bool ShowsHealthBar(ulong target, bool classic)
     {
         // NPCs show only their name, as in the original: they cannot be fought, so a life bar would mislead.
         if (!_entities.TryGetValue(target, out var entity) || entity.Spawn.MaxHp <= 0 || entity.Spawn.Kind == RemoteEntityKind.Npc)
@@ -201,7 +201,7 @@ public sealed class HudCombat
         return percent < 256 ? new Color(255, low, 0) : new Color(255 - low, 255, 0);
     }
 
-    public bool TryGetPortraitSubject(uint target, out HudPortraitSubject subject)
+    public bool TryGetPortraitSubject(ulong target, out HudPortraitSubject subject)
     {
         subject = default;
         if (target == 0 || !_entities.TryGetValue(target, out var entity))
@@ -232,7 +232,7 @@ public sealed class HudCombat
 
     // Modern mode (default) always shows the bar with the level and life percentage under it; classic mode draws only
     // what the original shows: the name, the race icon and the life bar once StateBarEnabled.
-    public void DrawTarget(HudPainter painter, HudLayout layout, uint target, bool classicHealthBar = false, Texture2D portrait = null)
+    public void DrawTarget(HudPainter painter, HudLayout layout, ulong target, bool classicHealthBar = false, Texture2D portrait = null)
     {
         if (target == 0 || !_entities.TryGetValue(target, out var entity))
         {
@@ -314,7 +314,7 @@ public sealed class HudCombat
         return _percentText;
     }
 
-    private string Name(uint id)
+    private string Name(ulong id)
     {
         if (!_entities.TryGetValue(id, out var entity))
         {

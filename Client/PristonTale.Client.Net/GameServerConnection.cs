@@ -42,7 +42,7 @@ public sealed class GameServerConnection : IGameBackend
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<OperationResultPacket>> _operations = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<ItemUseResultPacket>> _itemUses = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<RestartResultPacket>> _restarts = new();
-    private readonly ConcurrentDictionary<uint, NpcRequest> _npcRequests = new();
+    private readonly ConcurrentDictionary<ulong, NpcRequest> _npcRequests = new();
     private readonly ConcurrentDictionary<Guid, ServiceRequest> _serviceRequests = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<QuestOutcome>> _questRequests = new();
     private readonly Channel<PresenceUpdate> _presenceUpdates = Channel.CreateBounded<PresenceUpdate>(new BoundedChannelOptions(4096)
@@ -220,7 +220,7 @@ public sealed class GameServerConnection : IGameBackend
             var entered = _entered ?? throw new InvalidOperationException("Enter the world before opening a play channel.");
             var pending = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             _joined = pending;
-            _presence.SelfSerial = (uint)entered.EntityId;
+            _presence.SelfSerial = entered.EntityId;
             var join = new JoinWorldPacket(entered.EntityId);
             lock (_sendGate)
             {
@@ -348,7 +348,7 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
-    internal async Task<NpcInteraction> InteractNpcAsync(uint entityId, CancellationToken ct)
+    internal async Task<NpcInteraction> InteractNpcAsync(ulong entityId, CancellationToken ct)
     {
         ThrowIfDisconnected();
         var request = new NpcRequest();
@@ -419,7 +419,7 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
-    internal void SendMovement(Vector3 position, float facing, bool moving, bool running, uint actionTarget, int fieldCode)
+    internal void SendMovement(Vector3 position, float facing, bool moving, bool running, ulong actionTarget, int fieldCode)
     {
         var motion = !moving ? PresenceMotion.Stand : running ? PresenceMotion.Run : PresenceMotion.Walk;
         var report = new MovementReportPacket(motion, fieldCode, position, facing, actionTarget);
@@ -430,7 +430,7 @@ public sealed class GameServerConnection : IGameBackend
     }
 
     // The clicked target (0 stops attacking) and the request sequence; the server resolves every swing.
-    internal void SendAttackRequest(uint target, bool sustained, ulong sequence)
+    internal void SendAttackRequest(ulong target, bool sustained, ulong sequence)
     {
         var attack = new AttackRequestPacket(target, sustained, sequence);
         lock (_sendGate)
@@ -439,7 +439,7 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
-    internal void SendSkillCast(uint sequence, uint skillCode, uint target, Vector3? point, ushort command = SkillCastFlags.Cast)
+    internal void SendSkillCast(uint sequence, uint skillCode, ulong target, Vector3? point, ushort command = SkillCastFlags.Cast)
     {
         var aimed = point ?? Vector3.Zero;
         var cast = new SkillCastPacket(sequence, skillCode, target, PristonUnits.ToFixed(aimed.X), PristonUnits.ToFixed(aimed.Y), PristonUnits.ToFixed(aimed.Z),
@@ -652,10 +652,10 @@ public sealed class GameServerConnection : IGameBackend
             case EtervaleOpcodes.NpcResult:
             {
                 var dialog = NpcDialogPacket.Read(packet);
-                if (dialog.NpcSerial <= uint.MaxValue && _npcRequests.TryGetValue((uint)dialog.NpcSerial, out var request))
+                if (_npcRequests.TryGetValue(dialog.NpcSerial, out var request))
                 {
                     var offers = dialog.Services.Select(entry => new NpcServiceOffer((NpcServiceKind)entry.Kind, entry.Value, entry.Available)).ToArray();
-                    request.Completion.TrySetResult(new NpcInteraction(dialog.Ok, (uint)dialog.NpcSerial, dialog.Name, offers, dialog.Lines, dialog.Message));
+                    request.Completion.TrySetResult(new NpcInteraction(dialog.Ok, dialog.NpcSerial, dialog.Name, offers, dialog.Lines, dialog.Message));
                 }
 
                 break;
@@ -778,7 +778,6 @@ public sealed class GameServerConnection : IGameBackend
         Volatile.Write(ref _characters, summaries);
     }
 
-    // Entity ids travel as 64-bit values; the world hands out 32-bit ones.
     private void OnWorldEntry(WorldEntryPacket entry)
     {
         if (!entry.Entered)
@@ -787,13 +786,8 @@ public sealed class GameServerConnection : IGameBackend
             return;
         }
 
-        if (entry.EntityId > uint.MaxValue)
-        {
-            throw new InvalidDataException($"Entity id {entry.EntityId} exceeds the 32-bit ids the world hands out.");
-        }
-
         _entered = entry;
-        _enter?.TrySetResult(EnterWorldOutcome.Success(entry.Field, (uint)entry.EntityId, entry.X, entry.Z, $"entered field {entry.Field}"));
+        _enter?.TrySetResult(EnterWorldOutcome.Success(entry.Field, entry.EntityId, entry.X, entry.Z, $"entered field {entry.Field}"));
     }
 
     private static string ItemKey(uint code) => code != 0 && LegacyItemCode.TryFormat(code, out var key) ? key : "";
@@ -806,7 +800,7 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
-    private void RequestDescription(uint serial)
+    private void RequestDescription(ulong serial)
     {
         lock (_sendGate)
         {

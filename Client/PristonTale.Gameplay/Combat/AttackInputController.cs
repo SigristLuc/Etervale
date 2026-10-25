@@ -1,6 +1,6 @@
 namespace PristonTale.Gameplay.Combat;
 
-public readonly record struct AttackRequest(uint TargetId, bool Sustained, ulong Sequence);
+public readonly record struct AttackRequest(ulong TargetId, bool Sustained, ulong Sequence);
 
 public sealed class AttackInputController
 {
@@ -9,10 +9,10 @@ public sealed class AttackInputController
     private bool _holding;
     private bool _acceptState;
 
-    public uint TargetId { get; private set; }
+    public ulong TargetId { get; private set; }
     public ulong Sequence { get; private set; }
 
-    public AttackRequest Press(uint targetId, bool automatic, bool rightButton)
+    public AttackRequest Press(ulong targetId, bool automatic, bool rightButton)
     {
         TargetId = targetId;
         Sequence++;
@@ -39,7 +39,7 @@ public sealed class AttackInputController
         return new AttackRequest(TargetId, false, Sequence);
     }
 
-    public void Reconcile(ulong sequence, uint targetId)
+    public void Reconcile(ulong sequence, ulong targetId)
     {
         if (!_acceptState || sequence < Sequence)
         {

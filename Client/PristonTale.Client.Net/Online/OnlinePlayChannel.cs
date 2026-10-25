@@ -33,7 +33,7 @@ internal sealed class OnlinePlayChannel : IPlayChannel
         return await _connection.ApplyProgressionAsync(command, ct);
     }
 
-    public async Task<NpcInteraction> InteractNpcAsync(uint entityId, CancellationToken ct = default)
+    public async Task<NpcInteraction> InteractNpcAsync(ulong entityId, CancellationToken ct = default)
     {
         await _start.WaitAsync(ct);
         return await _connection.InteractNpcAsync(entityId, ct);
@@ -69,19 +69,19 @@ internal sealed class OnlinePlayChannel : IPlayChannel
         return await _connection.RestartAsync(choice, ct);
     }
 
-    public async Task SendMovementAsync(Vector3 position, float facing, bool moving, bool running, uint actionTarget, int fieldCode, CancellationToken ct = default)
+    public async Task SendMovementAsync(Vector3 position, float facing, bool moving, bool running, ulong actionTarget, int fieldCode, CancellationToken ct = default)
     {
         await _start.WaitAsync(ct);
         _connection.SendMovement(position, facing, moving, running, actionTarget, fieldCode);
     }
 
-    public async Task SendAttackAsync(uint targetEntityId, bool sustained, CancellationToken ct = default, ulong sequence = 0)
+    public async Task SendAttackAsync(ulong targetEntityId, bool sustained, CancellationToken ct = default, ulong sequence = 0)
     {
         await _start.WaitAsync(ct);
         _connection.SendAttackRequest(targetEntityId, sustained, sequence);
     }
 
-    public async Task SendSkillCastAsync(uint sequence, uint skillCode, uint targetEntityId, Vector3? point, CancellationToken ct = default)
+    public async Task SendSkillCastAsync(uint sequence, uint skillCode, ulong targetEntityId, Vector3? point, CancellationToken ct = default)
     {
         await _start.WaitAsync(ct);
         _connection.SendSkillCast(sequence, skillCode, targetEntityId, point);

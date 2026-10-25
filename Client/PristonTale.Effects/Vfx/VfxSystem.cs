@@ -6,12 +6,12 @@ namespace PristonTale.Effects.Vfx;
 // Positions the effects attach to. Entity ids are the server serials; positions are client world space.
 public interface IVfxAnchors
 {
-    bool TryGetPosition(uint entityId, out Vector3 position);
+    bool TryGetPosition(ulong entityId, out Vector3 position);
 
-    bool TryGetBone(uint entityId, string bone, out Vector3 position);
+    bool TryGetBone(ulong entityId, string bone, out Vector3 position);
 
     // The bone's full world transform, for models attached to a hand or a shield; by default a translation only.
-    bool TryGetBoneWorld(uint entityId, string bone, out Matrix world)
+    bool TryGetBoneWorld(ulong entityId, string bone, out Matrix world)
     {
         var found = TryGetBone(entityId, bone, out var position);
         world = Matrix.CreateTranslation(position);
@@ -37,7 +37,7 @@ public struct VfxParticle
     public float Spin;
 }
 
-public readonly record struct VfxSpawn(uint CasterId, uint TargetId, Vector3 Point, float Facing);
+public readonly record struct VfxSpawn(ulong CasterId, ulong TargetId, Vector3 Point, float Facing);
 
 // Runs every native effect instance. Instances, particle arrays and trail buffers are pooled, so a frame allocates
 // nothing once the pools have warmed up; the budget caps live instances so a crowd of casters cannot run away.
@@ -322,7 +322,7 @@ public sealed class VfxInstance
         }
     }
 
-    internal uint EntityOf(VfxAnchor anchor) => anchor switch
+    internal ulong EntityOf(VfxAnchor anchor) => anchor switch
     {
         VfxAnchor.Caster => Spawn.CasterId,
         VfxAnchor.Target => Spawn.TargetId,

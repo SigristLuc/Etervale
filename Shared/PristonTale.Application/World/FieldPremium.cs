@@ -12,10 +12,10 @@ internal interface IFieldPremiumHost
 {
     long NowMs { get; }
     CombatRng Rng { get; }
-    bool TryGetMonster(uint entityId, [MaybeNullWhen(false)] out MonsterInstance monster);
-    bool TryGetPlayer(uint entityId, [MaybeNullWhen(false)] out WorldPlayer player);
+    bool TryGetMonster(ulong entityId, [MaybeNullWhen(false)] out MonsterInstance monster);
+    bool TryGetPlayer(ulong entityId, [MaybeNullWhen(false)] out WorldPlayer player);
     void PetStrike(WorldPlayer owner, MonsterInstance monster, int damage);
-    void QueueMonsterEffect(uint monsterId, EffectSpec spec, float durationMs);
+    void QueueMonsterEffect(ulong monsterId, EffectSpec spec, float durationMs);
     void AddItemEvent(in ItemEffectView effect);
 }
 
@@ -28,11 +28,11 @@ internal sealed class FieldPremium
     // Bless Castle: the per-attack premium effects do not work there.
     public const int CastleFieldId = 33;
 
-    private readonly Dictionary<uint, Attack> _attacks = new();
-    private readonly Dictionary<uint, PetCycle> _helpers = new();
-    private readonly Dictionary<uint, PetCycle> _phoenixes = new();
-    private readonly Dictionary<uint, long> _phoenixLastHit = new();
-    private readonly List<uint> _scratch = new();
+    private readonly Dictionary<ulong, Attack> _attacks = new();
+    private readonly Dictionary<ulong, PetCycle> _helpers = new();
+    private readonly Dictionary<ulong, PetCycle> _phoenixes = new();
+    private readonly Dictionary<ulong, long> _phoenixLastHit = new();
+    private readonly List<ulong> _scratch = new();
     private readonly int _fieldId;
     private readonly IFieldPremiumHost _host;
     private bool _petStriking;
@@ -57,7 +57,7 @@ internal sealed class FieldPremium
         _attacks[player.EntityId] = new Attack(current.Hits + 1, current.Damage + damage, current.Hits == 0 ? monster.EntityId : current.Target);
     }
 
-    public void Forget(uint entityId)
+    public void Forget(ulong entityId)
     {
         _helpers.Remove(entityId);
         _phoenixes.Remove(entityId);
@@ -112,7 +112,7 @@ internal sealed class FieldPremium
         _attacks.Clear();
     }
 
-    private void StartPets(WorldPlayer owner, uint target)
+    private void StartPets(WorldPlayer owner, ulong target)
     {
         var premium = owner.Character.Premium;
         var now = _host.NowMs;
@@ -132,13 +132,13 @@ internal sealed class FieldPremium
         }
     }
 
-    private void Announce(WorldPlayer owner, PremiumEffectKind pet, uint target)
+    private void Announce(WorldPlayer owner, PremiumEffectKind pet, ulong target)
     {
         var position = _host.TryGetMonster(target, out var monster) ? monster.Position : owner.Position;
         _host.AddItemEvent(new ItemEffectView(owner.EntityId, (uint)pet, ItemEffectKind.PetAttack, position, 0, target));
     }
 
-    private void StepPets(Dictionary<uint, PetCycle> cycles)
+    private void StepPets(Dictionary<ulong, PetCycle> cycles)
     {
         if (cycles.Count == 0)
         {
@@ -205,7 +205,7 @@ internal sealed class FieldPremium
         }
     }
 
-    private readonly record struct Attack(int Hits, long Damage, uint Target);
+    private readonly record struct Attack(int Hits, long Damage, ulong Target);
 
-    private readonly record struct PetCycle(PremiumEffectKind Pet, uint Target, long HitAtMs, long EndAtMs, bool Struck);
+    private readonly record struct PetCycle(PremiumEffectKind Pet, ulong Target, long HitAtMs, long EndAtMs, bool Struck);
 }

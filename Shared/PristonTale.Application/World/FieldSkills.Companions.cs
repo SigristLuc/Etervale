@@ -143,9 +143,9 @@ internal sealed partial class FieldSkills
         }
     }
 
-    private sealed class Companion(uint holderId, SkillRule rule, int rank)
+    private sealed class Companion(ulong holderId, SkillRule rule, int rank)
     {
-        public uint HolderId { get; } = holderId;
+        public ulong HolderId { get; } = holderId;
         public SkillRule Rule { get; } = rule;
         public int Rank { get; } = rank;
         public long NextAtMs { get; set; }

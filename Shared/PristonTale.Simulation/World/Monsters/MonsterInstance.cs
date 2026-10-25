@@ -7,7 +7,7 @@ namespace PristonTale.Simulation.World.Monsters;
 
 public sealed class MonsterInstance
 {
-    public MonsterInstance(uint entityId, MonsterDefinition definition, Vector3 home, float facing, int spawnPointIndex)
+    public MonsterInstance(ulong entityId, MonsterDefinition definition, Vector3 home, float facing, int spawnPointIndex)
     {
         EntityId = entityId;
         Def = definition ?? throw new ArgumentNullException(nameof(definition));
@@ -22,7 +22,7 @@ public sealed class MonsterInstance
         MoveTarget = home;
     }
 
-    public uint EntityId { get; }
+    public ulong EntityId { get; }
 
     public MonsterDefinition Def { get; }
 
@@ -42,7 +42,7 @@ public sealed class MonsterInstance
 
     public Vector3 MoveTarget { get; set; }
 
-    public uint TargetId { get; set; }
+    public ulong TargetId { get; set; }
 
     public float SinceDecisionMs { get; set; }
 
@@ -56,7 +56,7 @@ public sealed class MonsterInstance
 
     public bool AttackIsSkill { get; set; }
 
-    public uint SkillTargetId { get; set; }
+    public ulong SkillTargetId { get; set; }
     public float SkillFacing { get; set; }
     public Vector3 SkillOrigin { get; set; }
     public Vector3 SkillCenter { get; set; }
@@ -102,7 +102,7 @@ public sealed class MonsterInstance
 
     // Summons: the player that called the monster, the calling skill, the field-clock time it expires, whether it picks
     // its own targets and its model size (0 keeps the catalog's). Wild monsters have no owner.
-    public uint OwnerId { get; set; }
+    public ulong OwnerId { get; set; }
     public uint SummonSkill { get; set; }
     public long ExpiresAtMs { get; set; }
     public bool Aggressive { get; set; }
@@ -114,7 +114,7 @@ public sealed class MonsterInstance
 
     // A quest duel opponent fights only the player it was opened for; MinimumLife keeps it from dying before it yields
     // or drinks its last potion.
-    public uint DuelPlayerId { get; set; }
+    public ulong DuelPlayerId { get; set; }
     public bool DuelYielded { get; set; }
     public int Potions { get; set; }
     public int MinimumLife { get; set; }
@@ -132,7 +132,7 @@ public sealed class MonsterInstance
     public int VirtualLivesMax { get; set; }
     public int LivesSpent { get; set; }
     public int AttackAnger { get; set; }
-    public uint AllyTargetId { get; set; }
+    public ulong AllyTargetId { get; set; }
     public float SpecialMsLeft { get; set; }
     public MonsterMotionState CompletedSpecial { get; set; }
     public bool DrinkHeals { get; set; }

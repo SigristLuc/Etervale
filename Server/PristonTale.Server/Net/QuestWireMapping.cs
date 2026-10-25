@@ -8,7 +8,7 @@ namespace PristonTale.Server.Net;
 internal static class QuestWireMapping
 {
     public static QuestCommand ToCommand(QuestRequestPacket request) =>
-        new(request.OperationId, WireMapping.EntityId(request.NpcSerial), (QuestAction)request.Action, (QuestCode)request.Code, request.State, request.Choice);
+        new(request.OperationId, request.NpcSerial, (QuestAction)request.Action, (QuestCode)request.Code, request.State, request.Choice);
 
     public static QuestResultPacket ToResult(Guid operationId, QuestOutcome outcome) =>
         new(operationId, (byte)outcome.Status, outcome.Ok, outcome.ClassChangeOffered, outcome.SkillResetOffered, outcome.Revision, outcome.Message,

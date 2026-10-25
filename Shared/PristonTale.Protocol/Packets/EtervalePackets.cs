@@ -367,7 +367,7 @@ public static class RemoveObjectList
 
     public static int SizeFor(int count) => HeaderSize + count * 8;
 
-    public static int Write(Span<byte> destination, ReadOnlySpan<uint> serials)
+    public static int Write(Span<byte> destination, ReadOnlySpan<ulong> serials)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.RemoveObjects);
         writer.Int32(serials.Length);

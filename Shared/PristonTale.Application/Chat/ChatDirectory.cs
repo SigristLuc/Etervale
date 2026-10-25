@@ -22,7 +22,7 @@ public sealed class ChatMember
     }
 
     public PlayerSession Session { get; }
-    public uint EntityId => Session.EntityId;
+    public ulong EntityId => Session.EntityId;
     public string Name { get; }
     public string UserId => Session.UserId;
     public long AccountId => Session.AccountId;
@@ -56,7 +56,7 @@ public sealed class ChatMember
 // accepted them and leave before the world forgets them.
 public sealed class ChatDirectory
 {
-    private readonly ConcurrentDictionary<uint, ChatMember> _byEntity = new();
+    private readonly ConcurrentDictionary<ulong, ChatMember> _byEntity = new();
     private readonly ConcurrentDictionary<string, ChatMember> _byName = new(StringComparer.OrdinalIgnoreCase);
     private string _notice = "";
     private int _noticeCounter;
@@ -74,16 +74,16 @@ public sealed class ChatDirectory
         _byName[member.Name] = member;
     }
 
-    public void Leave(uint entityId, IChatLink link)
+    public void Leave(ulong entityId, IChatLink link)
     {
         if (_byEntity.TryGetValue(entityId, out var member) && ReferenceEquals(member.Link, link))
         {
-            _byEntity.TryRemove(new KeyValuePair<uint, ChatMember>(entityId, member));
+            _byEntity.TryRemove(new KeyValuePair<ulong, ChatMember>(entityId, member));
             _byName.TryRemove(new KeyValuePair<string, ChatMember>(member.Name, member));
         }
     }
 
-    public bool TryGet(uint entityId, out ChatMember member) => _byEntity.TryGetValue(entityId, out member!);
+    public bool TryGet(ulong entityId, out ChatMember member) => _byEntity.TryGetValue(entityId, out member!);
 
     public ChatMember? FindByName(string name) => _byName.TryGetValue(name, out var member) ? member : null;
 

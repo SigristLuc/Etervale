@@ -16,8 +16,8 @@ public sealed partial class FieldInstance
     private const long UpkeepCheckIntervalMs = 5000;
     private const float QuestStepIntervalMs = 1000;
 
-    private readonly Dictionary<uint, Duel> _duels = new();
-    private readonly List<uint> _duelScratch = new();
+    private readonly Dictionary<ulong, Duel> _duels = new();
+    private readonly List<ulong> _duelScratch = new();
 
     // Wall-clock milliseconds for quest item lifetimes; the world sets it from its time provider.
     internal Func<long> QuestClock { get; set; } = static () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -25,14 +25,14 @@ public sealed partial class FieldInstance
     // Called when a player has quest work the upkeep must store; the world forwards it to the upkeep worker.
     internal Action<WorldPlayer>? QuestUpkeepRequested { get; set; }
 
-    private sealed class Duel(uint playerId, QuestCode quest, long expiresAtMs, bool master, bool magicMaster)
+    private sealed class Duel(ulong playerId, QuestCode quest, long expiresAtMs, bool master, bool magicMaster)
     {
-        public uint PlayerId { get; } = playerId;
+        public ulong PlayerId { get; } = playerId;
         public QuestCode Quest { get; } = quest;
         public long ExpiresAtMs { get; } = expiresAtMs;
         public bool Master { get; } = master;
         public bool MagicMaster { get; } = magicMaster;
-        public uint HelperId { get; set; }
+        public ulong HelperId { get; set; }
         public long HelperExpiresAtMs { get; set; }
         public bool WasSkilling { get; set; }
         public DuelPreyView Prey { get; } = new();
@@ -54,7 +54,7 @@ public sealed partial class FieldInstance
             }
         }
 
-        public bool TryGet(uint entityId, out PreyCandidate prey)
+        public bool TryGet(ulong entityId, out PreyCandidate prey)
         {
             foreach (var candidate in _candidates)
             {
@@ -287,7 +287,7 @@ public sealed partial class FieldInstance
         return prey;
     }
 
-    private Duel? FindDuelOfHelper(uint helperId)
+    private Duel? FindDuelOfHelper(ulong helperId)
     {
         foreach (var duel in _duels.Values)
         {
@@ -463,7 +463,7 @@ public sealed partial class FieldInstance
         CloseDuelsOf(player.EntityId);
     }
 
-    private void CloseDuelsOf(uint playerId)
+    private void CloseDuelsOf(ulong playerId)
     {
         _duelScratch.Clear();
         foreach (var (opponentId, duel) in _duels)
@@ -480,7 +480,7 @@ public sealed partial class FieldInstance
         }
     }
 
-    private void CloseDuel(uint opponentId)
+    private void CloseDuel(ulong opponentId)
     {
         if (_duels.Remove(opponentId, out var duel))
         {

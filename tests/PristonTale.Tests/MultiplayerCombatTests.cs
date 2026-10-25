@@ -193,7 +193,7 @@ internal static class MultiplayerCombatTests
         string.Join(" ", events.Select(entry => $"{entry.TimeMs}:{entry.Event.Kind}>{entry.Event.TargetId}={entry.Event.Damage}"));
 
     // Blows of one attacker (on one target, or any target with 0), in server order, without the arrival time.
-    private static List<CombatEventInfo> Blows(ObservedWorld world, uint attacker, uint target) => world.Combat
+    private static List<CombatEventInfo> Blows(ObservedWorld world, ulong attacker, ulong target) => world.Combat
         .Select(entry => entry.Event)
         .Where(value => value.AttackerId == attacker && (target == 0 || value.TargetId == target))
         .ToList();

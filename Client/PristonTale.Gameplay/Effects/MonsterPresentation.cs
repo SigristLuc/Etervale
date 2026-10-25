@@ -9,7 +9,7 @@ namespace PristonTale.Gameplay.Effects;
 
 // A monster drawn this frame: its body actor, what selects its effects and where it stands (client space; facing as the
 // server sends it).
-public readonly record struct MonsterActorView(uint EntityId, ActorHandle Actor, int SoundCode, int Level, float Scale, Vector3 Position, float Facing,
+public readonly record struct MonsterActorView(ulong EntityId, ActorHandle Actor, int SoundCode, int Level, float Scale, Vector3 Position, float Facing,
     bool IsDead);
 
 // The effects the monster presentation starts: named effect definitions, running instances it may stop and the statuses
@@ -19,7 +19,7 @@ public interface IMonsterEffectSink
     int DefinitionCount { get; }
     StatusBook Statuses { get; }
     bool Defines(string name);
-    IMonsterEffect Spawn(string name, uint casterId, uint targetId, Vector3 point, float facing);
+    IMonsterEffect Spawn(string name, ulong casterId, ulong targetId, Vector3 point, float facing);
 }
 
 public interface IMonsterEffect
@@ -36,7 +36,7 @@ public sealed class SkillEffectSink(SkillPresentation effects) : IMonsterEffectS
 
     public bool Defines(string name) => effects.Library.TryGet(name, out _);
 
-    public IMonsterEffect Spawn(string name, uint casterId, uint targetId, Vector3 point, float facing) =>
+    public IMonsterEffect Spawn(string name, ulong casterId, ulong targetId, Vector3 point, float facing) =>
         effects.Spawn(name, casterId, targetId, point, facing) is { } instance ? new Running(instance) : null;
 
     private sealed class Running(VfxInstance instance) : IMonsterEffect
@@ -51,7 +51,7 @@ public interface IMonsterScene
     bool TryGetActorMotion(ActorHandle actor, out PristonMotionInfo motion, out float ticks);
 
     // Adds a colour to every actor of an entity (players included); zero clears it.
-    void SetEntityTint(uint entityId, Vector3 tint);
+    void SetEntityTint(ulong entityId, Vector3 tint);
 }
 
 // Plays the visuals of monsters the way the original client did: it follows each monster's animation and starts the
@@ -74,12 +74,12 @@ public sealed class MonsterPresentation
 
     private readonly IMonsterEffectSink _effects;
     private readonly IMonsterScene _scene;
-    private readonly Dictionary<uint, Tracked> _tracked = new();
-    private readonly Dictionary<uint, uint> _targets = new();
-    private readonly Dictionary<(uint Entity, uint Code, uint Source), IMonsterEffect> _statusEffects = new();
-    private readonly Dictionary<uint, (int Ice, int Poison)> _tints = new();
-    private readonly HashSet<uint> _seen = new();
-    private readonly List<uint> _gone = new();
+    private readonly Dictionary<ulong, Tracked> _tracked = new();
+    private readonly Dictionary<ulong, ulong> _targets = new();
+    private readonly Dictionary<(ulong Entity, uint Code, ulong Source), IMonsterEffect> _statusEffects = new();
+    private readonly Dictionary<ulong, (int Ice, int Poison)> _tints = new();
+    private readonly HashSet<ulong> _seen = new();
+    private readonly List<ulong> _gone = new();
     private readonly Dictionary<string, string> _names = new(StringComparer.Ordinal);
 
     public MonsterPresentation(IMonsterEffectSink effects, IMonsterScene scene)
@@ -93,10 +93,10 @@ public sealed class MonsterPresentation
     public int TrackedCount => _tracked.Count;
 
     // The target of a monster's latest swing, from the server's swing event.
-    public void ObserveSwing(uint attackerId, uint targetId) => _targets[attackerId] = targetId;
+    public void ObserveSwing(ulong attackerId, ulong targetId) => _targets[attackerId] = targetId;
 
     // A monster skill struck someone besides its swing's target: the family's impact effect plays on that victim.
-    public void ObserveSkillHit(uint attackerId, uint victimId, Vector3 victimPosition)
+    public void ObserveSkillHit(ulong attackerId, ulong victimId, Vector3 victimPosition)
     {
         if (victimId == Target(attackerId) || !_tracked.TryGetValue(attackerId, out var tracked) || tracked.Family.Length == 0
             || Resolve(tracked.Family, "impact", '\0', 0) is not { } name)
@@ -149,7 +149,7 @@ public sealed class MonsterPresentation
         _tints.Clear();
     }
 
-    private void Forget(uint id)
+    private void Forget(ulong id)
     {
         if (_tracked.Remove(id, out var tracked))
         {
@@ -239,16 +239,16 @@ public sealed class MonsterPresentation
     }
 
     // A Minig grows red while it fights: +2 per frame in attack or flinch clips, -1 otherwise, at most 100.
-    private void StepAnger(Tracked tracked, uint entityId, int state, float seconds)
+    private void StepAnger(Tracked tracked, ulong entityId, int state, float seconds)
     {
         var frames = seconds * 70f;
         tracked.Anger = Math.Clamp(tracked.Anger + (state is AttackState or 0x110 ? 2f : -1f) * frames, 0f, 100f);
         _scene.SetEntityTint(entityId, new Vector3(tracked.Anger / 256f, -tracked.Anger / 512f, 0f));
     }
 
-    private uint Target(uint attackerId) => _targets.TryGetValue(attackerId, out var target) ? target : 0;
+    private ulong Target(ulong attackerId) => _targets.TryGetValue(attackerId, out var target) ? target : 0;
 
-    private IMonsterEffect Spawn(string family, string trigger, char key, int eventNumber, in MonsterActorView monster, uint target)
+    private IMonsterEffect Spawn(string family, string trigger, char key, int eventNumber, in MonsterActorView monster, ulong target)
     {
         var name = Resolve(family, trigger, key, eventNumber);
         return name is null ? null : _effects.Spawn(name, monster.EntityId, target, monster.Position, -monster.Facing);
@@ -306,7 +306,7 @@ public sealed class MonsterPresentation
         _ => null
     };
 
-    private void OnStatusAdded(uint entityId, StatusEntry entry)
+    private void OnStatusAdded(ulong entityId, StatusEntry entry)
     {
         if (!MonsterStatuses.IsMonsterStatus(entry.Code))
         {
@@ -331,7 +331,7 @@ public sealed class MonsterPresentation
         UpdateTint(entityId, entry.Code, 1);
     }
 
-    private void OnStatusRemoved(uint entityId, StatusEntry entry)
+    private void OnStatusRemoved(ulong entityId, StatusEntry entry)
     {
         if (!MonsterStatuses.IsMonsterStatus(entry.Code))
         {
@@ -346,12 +346,12 @@ public sealed class MonsterPresentation
         UpdateTint(entityId, entry.Code, -1);
     }
 
-    private int SoundOf(uint entityId) => _soundById.TryGetValue(entityId, out var sound) ? sound : 0;
+    private int SoundOf(ulong entityId) => _soundById.TryGetValue(entityId, out var sound) ? sound : 0;
 
     // The sound family of every monster seen, for statuses whose look depends on the monster that applied them.
-    private readonly Dictionary<uint, int> _soundById = new();
+    private readonly Dictionary<ulong, int> _soundById = new();
 
-    private void UpdateTint(uint entityId, uint code, int delta)
+    private void UpdateTint(ulong entityId, uint code, int delta)
     {
         if (code is not (MonsterStatuses.IceSlow or MonsterStatuses.Poison))
         {

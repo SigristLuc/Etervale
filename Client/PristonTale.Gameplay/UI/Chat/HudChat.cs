@@ -24,10 +24,10 @@ public sealed class HudChat
     public Func<string, bool, Task> Send { get; set; }
 
     // What the client knows of an entity in view (HudCombat): its kind and a summon's owner.
-    public Func<uint, (RemoteEntityKind Kind, uint OwnerId)> Lookup { get; set; } = static _ => (RemoteEntityKind.Unspecified, 0);
+    public Func<ulong, (RemoteEntityKind Kind, ulong OwnerId)> Lookup { get; set; } = static _ => (RemoteEntityKind.Unspecified, 0);
 
     public string PlayerName { get; set; } = "";
-    public uint SelfId { get; set; }
+    public ulong SelfId { get; set; }
 
     // Raised when a whisper or notice opens the closed window (the whisper sound).
     public event Action WhisperArrived;
@@ -174,7 +174,7 @@ public sealed class HudChat
 
     // The colour of a speaker's name in a bubble: players, the party and owned summons, monsters, NPCs; the hovered or
     // selected speaker is drawn brighter.
-    public Color NameColor(uint id, uint hovered)
+    public Color NameColor(ulong id, ulong hovered)
     {
         var (kind, owner) = id == SelfId ? (RemoteEntityKind.Player, 0u) : Lookup(id);
         if (id == hovered)

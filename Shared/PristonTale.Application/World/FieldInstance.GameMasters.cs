@@ -17,7 +17,7 @@ public sealed partial class FieldInstance
 
     internal bool TryFindMonsterDefinition(string name, [MaybeNullWhen(false)] out MonsterDefinition definition) => _catalog.TryFind(name, out definition);
 
-    internal bool TryGetMonster(uint entityId, [MaybeNullWhen(false)] out MonsterInstance monster) => _monsters.TryGetValue(entityId, out monster);
+    internal bool TryGetMonster(ulong entityId, [MaybeNullWhen(false)] out MonsterInstance monster) => _monsters.TryGetValue(entityId, out monster);
 
     // Living wild monsters of the field (summons excluded).
     internal int LiveMonsterCount => _monsters.Values.Count(static monster => monster.IsAlive && !monster.IsSummon);
@@ -28,7 +28,7 @@ public sealed partial class FieldInstance
     internal int MonsterEntryCount => _monsters.Count;
 
     // The name of a monster, NPC or player of this field.
-    internal bool TryGetEntityName(uint entityId, [MaybeNullWhen(false)] out string name)
+    internal bool TryGetEntityName(ulong entityId, [MaybeNullWhen(false)] out string name)
     {
         if (_monsters.TryGetValue(entityId, out var monster))
         {
@@ -64,6 +64,6 @@ public sealed partial class FieldInstance
         _skills.CallGameMasterPet(owner, definition, lifetimeMs);
 
     // An item copy or gold a game master made, dropped on the floor under the position.
-    internal bool DropForGameMaster(ItemInstance? item, int gold, Vector3 position, uint ownerId) =>
+    internal bool DropForGameMaster(ItemInstance? item, int gold, Vector3 position, ulong ownerId) =>
         GroundLoot.PlaceCreated(item, gold, Terrain.SettleNear(position, FieldTerrain.DropTolerance), ownerId, NowMs);
 }

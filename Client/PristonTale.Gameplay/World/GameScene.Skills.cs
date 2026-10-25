@@ -35,7 +35,7 @@ public sealed partial class GameScene : ISkillSceneHost
 
     public SkillPresentation Skills => _skillFx;
 
-    public uint SelfEntityId => _remote?.SelfEntityId ?? 0;
+    public ulong SelfEntityId => _remote?.SelfEntityId ?? 0;
 
     // The skills bound to the left and right mouse sockets; 0 or the basic attack id leaves the socket to attacks.
     public uint LeftSkill { get; set; }
@@ -46,7 +46,7 @@ public sealed partial class GameScene : ISkillSceneHost
 
     public bool SelfCasting => _skillClockMs < _castLockUntilMs;
 
-    uint ISkillSceneHost.SelfId => _remote?.SelfEntityId ?? 0;
+    ulong ISkillSceneHost.SelfId => _remote?.SelfEntityId ?? 0;
 
     Vector3 ISkillSceneHost.ListenerPosition => _playerBody?.Position ?? Vector3.Zero;
 
@@ -64,7 +64,7 @@ public sealed partial class GameScene : ISkillSceneHost
         _looks = new ActorLookPresenter(new RendererActorScene(_renderer), _actorLoader, _assetRoot ?? "");
     }
 
-    void ISkillSceneHost.ApplyLook(uint entityId, in EntityLook look)
+    void ISkillSceneHost.ApplyLook(ulong entityId, in EntityLook look)
     {
         if (_looks is null || _remote is null)
         {
@@ -108,9 +108,9 @@ public sealed partial class GameScene : ISkillSceneHost
         _wings.EndFrame();
     }
 
-    private Action<uint, string, bool, float> _wearRemote;
+    private Action<ulong, string, bool, float> _wearRemote;
 
-    private void WearRemote(uint entityId, string armorKey, bool shown, float yaw)
+    private void WearRemote(ulong entityId, string armorKey, bool shown, float yaw)
     {
         if (_remote.TryGetDrawnPosition(entityId, out var position))
         {
@@ -175,7 +175,7 @@ public sealed partial class GameScene : ISkillSceneHost
             return false;
         }
 
-        uint target = 0;
+        ulong target = 0;
         var kind = RemoteEntityKind.Monster;
         if (TryCursorRay(mouse, out var ray) && _remote.TryPick(ray, _remote.SelfEntityId, out var picked, out var pickedKind))
         {
@@ -203,7 +203,7 @@ public sealed partial class GameScene : ISkillSceneHost
         }
     }
 
-    private bool RequestCast(uint code, SkillRule rule, uint target, NumVector3? point)
+    private bool RequestCast(uint code, SkillRule rule, ulong target, NumVector3? point)
     {
         var rank = Rank(code);
         var skill = FindSkill(code);
@@ -280,7 +280,7 @@ public sealed partial class GameScene : ISkillSceneHost
         _moveTargetRun = _runMode;
     }
 
-    private void Send(PendingCast pending, uint target)
+    private void Send(PendingCast pending, ulong target)
     {
         _pendingCast = null;
         if (_playChannel is null)
@@ -391,7 +391,7 @@ public sealed partial class GameScene : ISkillSceneHost
         return null;
     }
 
-    bool PristonTale.Effects.Vfx.IVfxAnchors.TryGetPosition(uint entityId, out Vector3 position)
+    bool PristonTale.Effects.Vfx.IVfxAnchors.TryGetPosition(ulong entityId, out Vector3 position)
     {
         if (_remote is not null && entityId == _remote.SelfEntityId && _playerBody is not null)
         {
@@ -408,14 +408,14 @@ public sealed partial class GameScene : ISkillSceneHost
         return false;
     }
 
-    bool PristonTale.Effects.Vfx.IVfxAnchors.TryGetBone(uint entityId, string bone, out Vector3 position)
+    bool PristonTale.Effects.Vfx.IVfxAnchors.TryGetBone(ulong entityId, string bone, out Vector3 position)
     {
         var found = ((PristonTale.Effects.Vfx.IVfxAnchors)this).TryGetBoneWorld(entityId, bone, out var world);
         position = world.Translation;
         return found;
     }
 
-    bool PristonTale.Effects.Vfx.IVfxAnchors.TryGetBoneWorld(uint entityId, string bone, out Matrix world)
+    bool PristonTale.Effects.Vfx.IVfxAnchors.TryGetBoneWorld(ulong entityId, string bone, out Matrix world)
     {
         world = Matrix.Identity;
         if (_renderer is null || _remote is null)
@@ -436,7 +436,7 @@ public sealed partial class GameScene : ISkillSceneHost
         return _renderer.TryGetActorBoneWorld(actor, bone, out world);
     }
 
-    void ISkillSceneHost.SeekSkillMotion(uint entityId, int framesFromStart, float rate)
+    void ISkillSceneHost.SeekSkillMotion(ulong entityId, int framesFromStart, float rate)
     {
         if (_remote is null)
         {
@@ -460,7 +460,7 @@ public sealed partial class GameScene : ISkillSceneHost
         _renderer.SetActorPlaybackRate(_playerHeadActor, rate);
     }
 
-    void ISkillSceneHost.PlaySkillMotion(uint entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)
+    void ISkillSceneHost.PlaySkillMotion(ulong entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)
     {
         if (_remote is null)
         {
@@ -497,5 +497,5 @@ public sealed partial class GameScene : ISkillSceneHost
         _renderer.SetActorPlaybackRate(_playerHeadActor, attackRate);
     }
 
-    private readonly record struct PendingCast(uint Code, SkillRule Rule, int Rank, uint TargetId);
+    private readonly record struct PendingCast(uint Code, SkillRule Rule, int Rank, ulong TargetId);
 }

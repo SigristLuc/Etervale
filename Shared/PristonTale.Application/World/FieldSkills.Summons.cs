@@ -19,10 +19,10 @@ internal sealed partial class FieldSkills
     private const float SummonRetaliationLockMs = 4000f;
     private const float SummonVerticalSight = 140f;
 
-    private readonly Dictionary<uint, uint> _summons = new();
-    private readonly Dictionary<uint, uint> _summonSkills = new();
+    private readonly Dictionary<ulong, ulong> _summons = new();
+    private readonly Dictionary<ulong, uint> _summonSkills = new();
 
-    public bool TryGetSummon(uint ownerId, out uint summonId) => _summons.TryGetValue(ownerId, out summonId);
+    public bool TryGetSummon(ulong ownerId, out ulong summonId) => _summons.TryGetValue(ownerId, out summonId);
 
     private bool CallSummon(WorldPlayer owner, SkillRule rule, int rank)
     {
@@ -103,7 +103,7 @@ internal sealed partial class FieldSkills
     }
 
     // Ends the owner's summon: it dies where it stands and the owner's status ends.
-    private void DismissSummon(uint ownerId)
+    private void DismissSummon(ulong ownerId)
     {
         if (!_summons.Remove(ownerId, out var summonId))
         {

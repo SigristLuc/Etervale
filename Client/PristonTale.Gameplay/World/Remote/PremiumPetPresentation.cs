@@ -33,7 +33,7 @@ public sealed class PremiumPetPresentation : IDisposable
     private readonly SkillSoundBank _sounds;
     private readonly Task<PristonActor>[] _helpers = new Task<PristonActor>[4];
     private readonly Task<PristonActor> _phoenix;
-    private readonly Dictionary<uint, Owner> _owners = new();
+    private readonly Dictionary<ulong, Owner> _owners = new();
     private readonly List<Projectile> _projectiles = new();
     private readonly Dictionary<string, EffectDefinition> _scripts = new(StringComparer.Ordinal);
     private readonly Random _random = new();
@@ -70,12 +70,12 @@ public sealed class PremiumPetPresentation : IDisposable
     public int OwnerCount => _owners.Count;
 
     // The pets drawn now, for diagnostics and captures.
-    internal IEnumerable<(uint Owner, PremiumEffectKind Kind, Vector3 Position)> Pets =>
+    internal IEnumerable<(ulong Owner, PremiumEffectKind Kind, Vector3 Position)> Pets =>
         _owners.SelectMany(pair => new[] { pair.Value.Helper, pair.Value.Phoenix }.Where(pet => pet is { HasActor: true })
             .Select(pet => (pair.Key, pet.Kind, pet.Position)));
 
     // The pets each player shows, from the spawns of players, and the strikes the server reports.
-    public void Observe(PresenceUpdate update, Func<uint, Vector3?> targetPosition)
+    public void Observe(PresenceUpdate update, Func<ulong, Vector3?> targetPosition)
     {
         foreach (var spawn in update.Spawns)
         {
@@ -104,7 +104,7 @@ public sealed class PremiumPetPresentation : IDisposable
         }
     }
 
-    public void SetPets(uint ownerId, int helper, bool phoenix)
+    public void SetPets(ulong ownerId, int helper, bool phoenix)
     {
         if (!_owners.TryGetValue(ownerId, out var owner))
         {
@@ -136,7 +136,7 @@ public sealed class PremiumPetPresentation : IDisposable
         }
     }
 
-    public void RemoveOwner(uint ownerId)
+    public void RemoveOwner(ulong ownerId)
     {
         if (_owners.Remove(ownerId, out var owner))
         {
@@ -146,7 +146,7 @@ public sealed class PremiumPetPresentation : IDisposable
     }
 
     // pose: the owner's drawn position and facing (yaw), or null when it is not drawn.
-    public void Update(float dt, Func<uint, (Vector3 Position, float Facing)?> pose, Func<uint, Vector3?> targetPosition, Vector3 listener)
+    public void Update(float dt, Func<ulong, (Vector3 Position, float Facing)?> pose, Func<ulong, Vector3?> targetPosition, Vector3 listener)
     {
         var ticks = dt * FrameRate;
         foreach (var (ownerId, owner) in _owners)
@@ -298,7 +298,7 @@ public sealed class PremiumPetPresentation : IDisposable
         public Vector3 Position { get; set; }
         public float Facing { get; set; }
         public float Frame { get; set; }
-        public uint Target { get; private set; }
+        public ulong Target { get; private set; }
         private bool _attacking;
         private bool _struck;
 
@@ -314,7 +314,7 @@ public sealed class PremiumPetPresentation : IDisposable
             _ => (240, 270, 300)
         };
 
-        public void BeginAttack(uint target)
+        public void BeginAttack(ulong target)
         {
             Target = target;
             _attacking = true;
@@ -323,7 +323,7 @@ public sealed class PremiumPetPresentation : IDisposable
         }
 
         // Advances by ticks of the 70 Hz clock; true on the frame the attack's hit lands.
-        public bool Step(float ticks, Vector3 owner, float ownerFacing, Func<uint, Vector3?> targetPosition)
+        public bool Step(float ticks, Vector3 owner, float ownerFacing, Func<ulong, Vector3?> targetPosition)
         {
             var side = Phoenix ? -10f : 10f;
             var height = OwnerHeight + (_attacking ? 10f : 5f);

@@ -23,8 +23,8 @@ public enum RemoteCombatEventKind
 }
 
 public sealed record CombatEventInfo(
-    uint AttackerId,
-    uint TargetId,
+    ulong AttackerId,
+    ulong TargetId,
     RemoteCombatEventKind Kind,
     float DurationMs,
     float HitAtMs,

@@ -67,7 +67,7 @@ internal static class GmMonsterCommands
             return;
         }
 
-        if (await context.Commands.World.SetAbsorptionAsync(context.Issuer.EntityId, (uint)ChatCommandText.ToNumber(serial), value) is { } changed)
+        if (await context.Commands.World.SetAbsorptionAsync(context.Issuer.EntityId, ChatCommandText.ToSerial(serial), value) is { } changed)
         {
             context.Reply(Format("> set_absorb ({0}) {1}->{2} ", changed.Name, changed.Before, changed.After));
         }
@@ -83,7 +83,7 @@ internal static class GmMonsterCommands
             return;
         }
 
-        var serial = (uint)ChatCommandText.ToNumber(serialWord);
+        var serial = ChatCommandText.ToSerial(serialWord);
         var world = context.Commands.World;
         if (await world.EntityNameAsync(context.Issuer.EntityId, serial) is not { } name)
         {

@@ -16,7 +16,7 @@ public sealed class NpcAppService(
     WorldServer world,
     WorldDataHolder worldData)
 {
-    public Task<NpcInteraction> InteractAsync(string sessionToken, uint npcId)
+    public Task<NpcInteraction> InteractAsync(string sessionToken, ulong npcId)
     {
         if (!sessions.TryGet(sessionToken, out var session))
         {

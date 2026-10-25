@@ -16,18 +16,18 @@ namespace PristonTale.Gameplay.Effects;
 // the motion playback of casters.
 public interface ISkillSceneHost : IVfxAnchors
 {
-    uint SelfId { get; }
+    ulong SelfId { get; }
     Vector3 ListenerPosition { get; }
 
     // Plays the skill's motion on the caster; loop counts the repeats of weapon-clip skills. For a skill clip rate is
     // the playback rate; for a weapon clip it multiplies the caster's attack rate.
-    void PlaySkillMotion(uint entityId, SkillMotionPlan plan, float durationMs, float rate, int loop);
+    void PlaySkillMotion(ulong entityId, SkillMotionPlan plan, float durationMs, float rate, int loop);
 
     // A released charge: the caster's skill clip jumps to the frame and plays on at the rate.
-    void SeekSkillMotion(uint entityId, int framesFromStart, float rate) { }
+    void SeekSkillMotion(ulong entityId, int framesFromStart, float rate) { }
 
     // How the entity's actors look this frame (tints, translucency, shield swaps, afterimages); Normal once a look ends.
-    void ApplyLook(uint entityId, in EntityLook look) { }
+    void ApplyLook(ulong entityId, in EntityLook look) { }
 }
 
 // Turns the server's skill timeline into motions, effects, sounds, lights, floating numbers and the buff and
@@ -47,10 +47,10 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     private readonly SkillSoundBank _sounds;
     private readonly IClientLog _log;
     private readonly List<Pending> _pending = new(32);
-    private readonly Dictionary<uint, VfxInstance> _projectiles = new();
+    private readonly Dictionary<ulong, VfxInstance> _projectiles = new();
     private readonly List<VfxInstance> _castEffects = new();
     // Impacts each caster's current cast has had (per-hit sounds and effects).
-    private readonly Dictionary<uint, int> _impacts = new();
+    private readonly Dictionary<ulong, int> _impacts = new();
     private readonly Random _soundRandom = new();
     private bool _effectSoundsLoaded;
 
@@ -178,7 +178,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     }
 
     // Spawns a named effect directly (probes, previews).
-    public VfxInstance Spawn(string name, uint casterId, uint targetId, Vector3 point, float facing = 0f)
+    public VfxInstance Spawn(string name, ulong casterId, ulong targetId, Vector3 point, float facing = 0f)
     {
         return Library.TryGet(name, out var effect) ? System.Spawn(effect, new VfxSpawn(casterId, targetId, point, facing)) : null;
     }
@@ -416,7 +416,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         }
     }
 
-    private void Cancel(uint casterId)
+    private void Cancel(ulong casterId)
     {
         Looks.Cancel(casterId);
         if (_projectiles.Remove(casterId, out var projectile))
@@ -486,7 +486,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         Text.Add(position, combat.Damage, kind);
     }
 
-    private bool TryAbove(uint entityId, out Vector3 position)
+    private bool TryAbove(ulong entityId, out Vector3 position)
     {
         if (!_host.TryGetPosition(entityId, out position))
         {
@@ -497,12 +497,12 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         return true;
     }
 
-    private void OnStatusAdded(uint entityId, StatusEntry entry)
+    private void OnStatusAdded(ulong entityId, StatusEntry entry)
     {
         entry.Presentation = SpawnAura(entityId, entry);
     }
 
-    private void OnStatusRemoved(uint entityId, StatusEntry entry)
+    private void OnStatusRemoved(ulong entityId, StatusEntry entry)
     {
         if (entry.Presentation is VfxInstance aura)
         {
@@ -527,7 +527,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
 
     // Effects that draw an element (enchants, companions) report it as the status value; their aura has a variant per
     // element ("<aura>.ice") when one is defined.
-    private VfxInstance SpawnAura(uint entityId, StatusEntry entry)
+    private VfxInstance SpawnAura(ulong entityId, StatusEntry entry)
     {
         if (!SkillRuleCatalog.TryGet(entry.Code, out var rule) || rule.BuffEffect.Length == 0 || !_host.TryGetPosition(entityId, out var position))
         {
@@ -546,7 +546,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     }
 
     // A familiar's strike in the element its status drew ("<effect>.ice"), when that variant is defined.
-    private string ElementVariant(SkillRule rule, string name, uint casterId)
+    private string ElementVariant(SkillRule rule, string name, ulong casterId)
     {
         if (rule.Buff?.Companion?.Choices is not { Length: > 1 })
         {
@@ -566,7 +566,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         return name;
     }
 
-    private Vector3 Position(uint entityId, Vector3 fallbackTransport)
+    private Vector3 Position(ulong entityId, Vector3 fallbackTransport)
     {
         if (entityId != 0 && _host.TryGetPosition(entityId, out var position))
         {

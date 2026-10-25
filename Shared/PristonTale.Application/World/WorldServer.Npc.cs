@@ -10,7 +10,7 @@ public sealed partial class WorldServer
     private readonly Random _dialogRandom = new();
 
     // A click answers with the NPC's typed services and one of its lines, chosen at random as the original does.
-    public Task<NpcInteraction> InteractNpcAsync(PlayerSession session, uint npcId)
+    public Task<NpcInteraction> InteractNpcAsync(PlayerSession session, ulong npcId)
     {
         return EnqueueAsync(session.EntityId, () =>
         {
