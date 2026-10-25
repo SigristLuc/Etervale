@@ -230,6 +230,10 @@ internal sealed class FieldCombat
             _host.EmitCombatEvent(new CombatEventView(
                 attacker.EntityId, target.EntityId, CombatEventKindView.Hit,
                 damage: damage, crit: result.Crit, killed: target.IsDead));
+            if (attacker.Def.Class == MonsterClass.Hammer)
+            {
+                HammerLanded?.Invoke(attacker, target);
+            }
         }
 
         MonsterSkills?.AfterBlow(attacker, target, damage, splash);
@@ -299,13 +303,41 @@ internal sealed class FieldCombat
         var dropBonus = credited != 0 && _host.TryGetPlayer(credited, out var looter) ? PremiumRules.ExtraDropChance(looter.Character.Premium) : 0;
         var level = credited != 0 && _host.TryGetPlayer(credited, out var eventPlayer) ? eventPlayer.Level : -1;
         Func<RolledDrop?>? events = EventRates.Any && level >= 0 ? () => EventDrop(level, monster.Def.Combat.Level) : null;
-        IReadOnlyList<RolledDrop> drops = monster.DropsDisabled ? [] : DropRoller.Roll(_rng, monster.Def.Drops, eventItem, monster.Def.EventItem, dropBonus, events);
+        IReadOnlyList<RolledDrop> drops = monster.DropsDisabled ? [] : FinishDrops(monster,
+            DropRoller.Roll(_rng, monster.Def.Drops, eventItem, monster.Def.EventItem, dropBonus, events));
 
         _damageLogs.Remove(monster.EntityId);
         _corpseMsLeft[monster.EntityId] = CorpseDespawnMs;
 
         return new KillPayout(monster.EntityId, credited, exp, drops);
     }
+
+    // Items over their daily limit do not fall; the monster's own death gold falls on top of the table with its chance.
+    private List<RolledDrop> FinishDrops(MonsterInstance monster, IReadOnlyList<RolledDrop> rolled)
+    {
+        var drops = new List<RolledDrop>(rolled.Count + 1);
+        foreach (var drop in rolled)
+        {
+            if (drop.Kind != DropKind.Item || DropLedger?.TryTake(drop.ItemCode) != false)
+            {
+                drops.Add(drop);
+            }
+        }
+
+        var gold = monster.Def.DeathGold;
+        if (monster.Def.DeathGoldChance > 0 && gold.Max > 0 && _rng.RollPercent() < monster.Def.DeathGoldChance)
+        {
+            drops.Add(RolledDrop.Gold(_rng.Range(gold.Min, gold.Max)));
+        }
+
+        return drops;
+    }
+
+    // A hammer-class monster's blow landed on a player (the hammer event).
+    public Action<MonsterInstance, WorldPlayer>? HammerLanded { get; set; }
+
+    // The server-wide count of daily-limited drops; null leaves every item unlimited (tests).
+    public DailyDropLedger? DropLedger { get; set; }
 
     // The server's item events (rice cakes, chocolates, puzzles, gift boxes); none run by default.
     public ItemEventRates EventRates { get; set; } = ItemEventRates.None;

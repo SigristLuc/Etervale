@@ -331,7 +331,7 @@ internal sealed class PresenceDecoder
             if (description.Kind == RemoteEntityKind.Monster)
             {
                 _catalog.Register(new MonsterRenderInfo(template.Template, packet.Model, template.TemplateScale, packet.Name, packet.Level,
-                    (MonsterBrood)template.Brood, template.PortraitY, template.PortraitZ, (int)template.SoundCode));
+                    (MonsterBrood)template.Brood, template.PortraitY, template.PortraitZ, (int)template.SoundCode, template.Class));
             }
             else if (description.Kind == RemoteEntityKind.Npc)
             {

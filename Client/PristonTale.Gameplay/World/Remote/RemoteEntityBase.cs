@@ -70,6 +70,9 @@ public abstract class RemoteEntityBase
 
     public int SoundCode { get; }
 
+    // The monster class from its description (1 boss, 200 hammer); 0 for others.
+    public int MonsterClass { get; init; }
+
     public bool InVillage { get; set; }
 
     public event Action<RemoteEntityBase, PristonActorMotion> MotionStarted;

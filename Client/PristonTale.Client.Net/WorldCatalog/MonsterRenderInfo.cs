@@ -12,4 +12,5 @@ public sealed record MonsterRenderInfo(
     MonsterBrood Brood = MonsterBrood.Normal,
     int PortraitOffsetY = 0,
     int PortraitOffsetZ = 0,
-    int SoundCode = 0) : ModelRenderInfo(TemplateId, ModelInxPath, ModelScale, Name);
+    int SoundCode = 0,
+    int Class = 0) : ModelRenderInfo(TemplateId, ModelInxPath, ModelScale, Name);

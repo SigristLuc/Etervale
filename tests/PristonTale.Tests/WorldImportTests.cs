@@ -73,7 +73,10 @@ internal static class WorldImportTests
             var set = WorldDataFactory.ToItemSets(await repository.GetAllItemSetsAsync()).Single();
             Assert.True(set.SetCode == 1 && set.Pieces == 2 && set.Life == 400, "the set bonus was not imported");
 
-            var monster = WorldDataFactory.ToMonsterDefinitions(await repository.GetAllMonstersAsync()).Definitions.Single();
+            var monsters = WorldDataFactory.ToMonsterDefinitions(await repository.GetAllMonstersAsync()).Definitions;
+            var monster = monsters[0];
+            Assert.True(monsters.Count == 2 && monster.EventFormCode == monsters[1].Code && monsters[1].Class == Simulation.World.Monsters.MonsterClass.Normal
+                && monsters[1].ModelInxPath.EndsWith("Wolf-b.inx", StringComparison.OrdinalIgnoreCase), "the event form of a monster was not built");
             Assert.True(monster.Name == "Bronze Wolverine" && monster.IsHostile && monster.ShadowSizeLevel == 2 && monster.MagicResistance == -5
                 && monster.MoveType == 2 && monster.SpecialAttackPercent == 20 && monster.DeathGold == new Simulation.World.Monsters.MonsterRange(8, 15)
                 && monster.DeathGoldChance == 80 && monster.IsBoss && monster.EventModelInxPath.EndsWith("Wolf-b.inx", StringComparison.OrdinalIgnoreCase)

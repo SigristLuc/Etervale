@@ -133,6 +133,11 @@ public sealed class MonsterInstance
     public int LivesSpent { get; set; }
     public int AttackAnger { get; set; }
     public ulong AllyTargetId { get; set; }
+
+    // The hammer event: blows landed on the same player in a row, and whether the monster already gave its big head.
+    public ulong HammerTargetId { get; set; }
+    public int HammerHits { get; set; }
+    public bool HammerSpent { get; set; }
     public float SpecialMsLeft { get; set; }
     public MonsterMotionState CompletedSpecial { get; set; }
     public bool DrinkHeals { get; set; }

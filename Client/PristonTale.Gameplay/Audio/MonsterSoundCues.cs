@@ -87,7 +87,8 @@ public sealed class MonsterSoundCues(CombatSounds sounds, IMonsterScene scene)
             var at = start + frame;
             if (frame != 0 && at > previous && at <= ticks)
             {
-                Play(monster, state == SkillState ? CharacterSoundCue.Skill : CharacterSoundCue.Attack, listener);
+                // A hammer-class monster swings its hammer sound instead of its attack sound.
+                Play(monster, state == SkillState ? CharacterSoundCue.Skill : monster.Hammer ? CharacterSoundCue.Hammer : CharacterSoundCue.Attack, listener);
             }
         }
     }

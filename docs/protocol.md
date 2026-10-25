@@ -296,7 +296,7 @@ model paths 160).
 | `DescribeEntity` | `varuint Serial` |
 | `EntityDescription` | `varuint Serial, uint8 Revision, uint8 Kind (1 player, 2 monster, 3 NPC), varuint Level, varuint MoveSpeed, float32 AttackRate, text Name, text Model`, then the player or template part |
 | Player part | `varuint Job, Tier, Face, Hair, text HeadModel, uint32 Weapon, Armor, OffHand (item codes, 0 none), uint8 Flags (1 village, 2 Phoenix), uint8 HelperPet, uint8 BigHead` |
-| Template part | `varuint Template, float32 TemplateScale, varuint SoundCode, varint PortraitY, PortraitZ, uint8 Brood, varuint Owner, float32 InstanceScale, uint32 NpcServices` |
+| Template part | `varuint Template, float32 TemplateScale, varuint SoundCode, varint PortraitY, PortraitZ, uint8 Brood, varuint Owner, float32 InstanceScale, uint32 NpcServices, varuint Class` (the monster class: 1 boss, 200 hammer) |
 
 An owned summon or crystal pet names its owner (64-bit) and its own scale (0 keeps the template's) and carries the user
 brood; NPC services are bit `1 << NpcServiceKind`. A description is encoded once per frame and entity for every

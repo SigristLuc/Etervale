@@ -135,8 +135,10 @@ public sealed record MonsterDefinition(
     public MonsterRange DeathGold { get; init; } = MonsterRange.Zero;
     public int DeathGoldChance { get; init; }
 
-    // The model the monster changes into during its event (the hammer event); empty for none.
+    // The model the monster changes into during its event (the hammer event); empty for none. EventFormCode names the
+    // catalog form wearing it (a normal-class copy), 0 when there is none.
     public string EventModelInxPath { get; init; } = "";
+    public int EventFormCode { get; init; }
 
     // Event creatures: code 100 walks at night in field EventInfo (the wolverines).
     public int EventCode { get; init; }

@@ -229,13 +229,31 @@ internal static class GmItemCommands
         {
             var close = argument.IndexOf('"', 1);
             var name = close < 0 ? argument[1..] : argument[1..close];
-            return context.Commands.WorldData.Current.Items.All.FirstOrDefault(item => item.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            var items = context.Commands.WorldData.Current.Items;
+            return items.All.Concat(items.NamedUniques).FirstOrDefault(item => item.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         }
 
         return FindByCode(context, argument.Split(' ', 2)[0]);
     }
 
-    private static ItemDefinition? FindByCode(GmCommandContext context, string code) =>
-        code.Length == 0 ? null : context.Commands.WorldData.Current.Items.All.FirstOrDefault(item =>
+    // A catalog key, "<key>#U<n>" for a named unique (Vega, Ancient Rage...) or "<key>#Q" for a quest variant.
+    private static ItemDefinition? FindByCode(GmCommandContext context, string code)
+    {
+        var items = context.Commands.WorldData.Current.Items;
+        var mark = code.IndexOf('#');
+        if (mark > 0 && ItemCodes.TryParse(code[..mark], out var itemCode))
+        {
+            var variant = code[(mark + 1)..];
+            if (variant.Equals("Q", StringComparison.OrdinalIgnoreCase))
+            {
+                return items.TryGetQuestVariant(itemCode, out var quest) ? quest : null;
+            }
+
+            return variant.Length > 1 && char.ToUpperInvariant(variant[0]) == 'U' && int.TryParse(variant[1..], out var number)
+                && items.TryGetNamedUnique(itemCode, number, out var unique) ? unique : null;
+        }
+
+        return code.Length == 0 ? null : items.All.FirstOrDefault(item =>
             item.UniqueItem == 0 && item.CatalogKey.Equals(code, StringComparison.OrdinalIgnoreCase));
+    }
 }

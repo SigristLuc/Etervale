@@ -81,6 +81,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         _combat.MonsterSkills = _monsterSkills;
         Premium = new FieldPremium(fieldId, this);
         _combat.PlayerHitLanded = Premium.RecordHit;
+        _combat.HammerLanded = OnHammerLanded;
         foreach (var placement in spawnData.FixedNpcs)
         {
             if (npcs is null || !npcs.TryGet(placement.NpcCode, out var definition))
@@ -209,6 +210,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         }
 
         _monsterSkills.ApplyChanges();
+        ApplyEventForms();
         StepSummons(dtMs);
         ExpireSoulMonsters();
 

@@ -186,8 +186,12 @@ first `Order`; `Query` returns candidates sorted by `Order`, which keeps neighbo
 
 - `Code` is the 1-based position of the record in the loaded list; 0 means unset. Spawn tables and boss spawns
   reference monsters by name and are resolved to codes at load, so codes are stable only within one load.
-- `Faction` is always `Enemy`; `Name` is the display name (`"Monster"` when empty); `ModelInxPath` is normalized to
-  `.inx`.
+- `Faction` is `Enemy` for a hostile monster (`*속성 적`), `Npc` otherwise; `Name` is the display name (`"Monster"` when
+  empty); `ModelInxPath` is normalized to `.inx`. `ShadowSizeLevel` is the authored shadow size.
+- `DeathGold` with `DeathGoldChance`: gold dropped on death on top of the drop table. `EventCode`/`EventInfo`: event
+  creatures (code 100 walks at night in field `EventInfo`). `EventModelInxPath`: the model of the hammer event; a monster
+  with one gets an event form after every authored monster in the catalog (`EventFormCode`: the same monster, normal
+  class, wearing that model). `MagicResistance`, `MoveType` and `SpecialAttackPercent` are kept as authored.
 - `Combat.MeleeRange` is the attack reach; `Combat.DamageStunPercent` the flinch chance; `Ai.SightRadius` the notice
   radius; `Ai.Iq` enables running; `Ai.GroupSize` the spawn group. `Ai.MoveSpeed` is only sent to clients for
   presentation; `Ai.MoveRange`, `Ai.Nature` and `Ai.ActiveHour` are imported but no rule reads them.
@@ -202,6 +206,11 @@ field), summon fields (`OwnerId`, `ExpiresAtMs`, `Aggressive`, `ModelScale`) and
 (`ActionSlot`/`ActionKey` of the clip playing, its blow times, `Potions`, `VirtualLives`, `AttackAnger`, the ally a
 power-lending skill aims at). `ApplyDamage` spends a virtual life at 10 % life or less, otherwise clamps at 0 and
 enters `Dead`. `PresentedMotion` reports `Stand` instead of walk/run on ticks where the host did not actually move it.
+
+Hammer event (`FieldInstance.Hammer`): a hammer-class monster (`MonsterClass.Hammer`, 200) counts the blows it lands in a
+row on one player without a big head; the tenth gives the player a big head (mode 1 or 2) for 600 s with the head-change
+burst, and the monster stops counting (`HammerSpent`) and, when it has an event form, is replaced by it after the monster
+step with the life it had left. Its attack sound is the hammer sound of its bank (the description carries the class).
 
 ## Monster AI
 
@@ -384,6 +393,9 @@ picks; the field hands them to the credited player's quest upkeep instead of the
 award wraps or throws). The server passes `World:ExperienceMultiplier`.
 `FirstAttackerStealsCredit`: the first attacker gets the kill over another killer if it dealt at least 40% of max life
 and hit within the last 15 s (`FirstAttackerDisengageMs`).
+
+`FieldCombat.FinishDrops` then drops every item over its daily limit (`DailyDropLedger`: one count per item and server
+local date, shared by all fields) and adds the monster's death gold when its chance rolls.
 
 Drops settle on the floor within 32 units of the corpse. `DropTable.AllPlayersSeeDrops` makes a drop public at once;
 lifetimes and the owner window live in `FieldGroundLoot` ([application.md](application.md)).

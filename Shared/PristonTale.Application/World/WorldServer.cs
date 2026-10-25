@@ -100,9 +100,18 @@ public sealed partial class WorldServer
         ConfigureQuests(field);
         field.State = _catalog.TryGetFieldByCode(fieldId, out var definition) ? definition.State : FieldState.Forest;
         field.ItemEventRates = _options.ItemEvents;
+        field.DropLedger = DropLedgerFor(_worldData.Current.Items);
         _fields.Add(fieldId, field);
         return field;
     }
+
+    private DailyDropLedger? _dropLedger;
+
+    // One ledger per item catalog: a reloaded world data starts its own count.
+    private DailyDropLedger DropLedgerFor(ItemCatalog items) =>
+        _dropLedger is { } ledger && ReferenceEquals(_dropLedgerItems, items) ? ledger : (_dropLedger = new DailyDropLedger(_dropLedgerItems = items, _clock));
+
+    private ItemCatalog? _dropLedgerItems;
 
     public Task<bool> JoinAsync(int fieldId, WorldPlayer player, ChannelWriter<WorldSnapshot> outbound, PlayerSession? session = null)
     {

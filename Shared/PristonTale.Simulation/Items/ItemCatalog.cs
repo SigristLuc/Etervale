@@ -13,12 +13,15 @@ public sealed class ItemCatalog
     public ItemCatalog(IEnumerable<ItemDefinition> definitions, IEnumerable<ItemDefinition> questVariants = null,
         IEnumerable<ItemDefinition> namedUniques = null, IEnumerable<ItemSetDefinition> sets = null)
     {
-        _byCode = definitions.ToDictionary(static d => d.Code);
-        _questVariants = (questVariants ?? []).ToDictionary(static d => d.Code);
-        _namedUniques = (namedUniques ?? []).ToDictionary(static d => (d.Code, d.UniqueVariant));
         _sets = (sets ?? []).ToDictionary(static set => set.SetCode);
+        _byCode = definitions.Select(WithSet).ToDictionary(static d => d.Code);
+        _questVariants = (questVariants ?? []).Select(WithSet).ToDictionary(static d => d.Code);
+        _namedUniques = (namedUniques ?? []).Select(WithSet).ToDictionary(static d => (d.Code, d.UniqueVariant));
         All = _byCode.Values.ToList();
     }
+
+    private ItemDefinition WithSet(ItemDefinition definition) =>
+        definition.SetCode != 0 && _sets.TryGetValue(definition.SetCode, out var set) ? definition with { Set = set } : definition;
 
     public IReadOnlyCollection<ItemDefinition> NamedUniques => _namedUniques.Values;
 

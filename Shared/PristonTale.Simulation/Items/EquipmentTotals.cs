@@ -42,11 +42,18 @@ public sealed record EquipmentTotals
         var job = character.Definition.JobBitCode;
         var level = character.Level;
         var totals = new Accumulator();
+        Dictionary<int, (ItemSetDefinition Set, int Worn)> sets = null;
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
             if (character.GetEquipped(slot) is not { } item || !ItemUsability.CanUse(character, item))
             {
                 continue;
+            }
+
+            if (item.Definition.Set is { } set)
+            {
+                sets ??= new Dictionary<int, (ItemSetDefinition, int)>();
+                sets[set.SetCode] = (set, sets.TryGetValue(set.SetCode, out var worn) ? worn.Worn + 1 : 1);
             }
 
             var roll = item.Roll;
@@ -96,6 +103,20 @@ public sealed record EquipmentTotals
             }
 
             totals.Resistances = totals.Resistances.Add(roll.Resistances);
+        }
+
+        // A set gives its bonus once its pieces are worn (each ring counts).
+        foreach (var (set, worn) in sets?.Values ?? Enumerable.Empty<(ItemSetDefinition, int)>())
+        {
+            if (worn >= set.Pieces)
+            {
+                totals.AddLife += set.Life;
+                totals.Absorb += set.Absorb;
+                totals.Block += set.Block;
+                totals.LifeRegen += set.LifeRegen;
+                totals.ManaRegen += set.ManaRegen;
+                totals.StaminaRegen += set.StaminaRegen;
+            }
         }
 
         return totals.Build();

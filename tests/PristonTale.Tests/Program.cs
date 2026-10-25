@@ -343,6 +343,7 @@ specifications.AddRange(ModelNormalTests.Cases());
 specifications.AddRange(EquipmentTests.Cases());
 specifications.AddRange(RangedEquipmentTests.Cases());
 specifications.AddRange(WorldRewardsTests.Cases());
+specifications.AddRange(WorldDataRulesTests.Cases());
 specifications.AddRange(ItemRulesTests.Cases());
 specifications.AddRange(NpcPlacementMigrationTests.Cases());
 specifications.AddRange(NpcMovementTests.Cases());

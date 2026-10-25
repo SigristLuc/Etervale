@@ -26,6 +26,12 @@ public sealed partial class FieldInstance
         set => _combat.EventRates = value;
     }
 
+    internal DailyDropLedger? DropLedger
+    {
+        get => _combat.DropLedger;
+        set => _combat.DropLedger = value;
+    }
+
     // The field's random source for item prizes rolled by NPC services.
     internal ISimRng ItemRng => _rng;
 

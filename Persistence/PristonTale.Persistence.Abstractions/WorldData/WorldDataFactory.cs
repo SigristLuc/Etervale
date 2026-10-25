@@ -170,6 +170,25 @@ public static class WorldDataFactory
             codeByName[records[i].Name] = code;
             defs.Add(ToMonsterDefinition(records[i], code, itemCodes));
         }
+
+        // A monster with an event model gets its event form after every authored monster: the same monster, normal class,
+        // wearing the event model (the hammer event turns it into this form).
+        var authored = defs.Count;
+        for (var i = 0; i < authored; i++)
+        {
+            if (defs[i].EventModelInxPath.Length == 0)
+            {
+                continue;
+            }
+
+            var formCode = defs.Count + 1;
+            defs.Add(defs[i] with
+            {
+                Code = formCode, ModelInxPath = defs[i].EventModelInxPath, Class = MonsterClass.Normal, EventModelInxPath = "", EventFormCode = 0
+            });
+            defs[i] = defs[i] with { EventFormCode = formCode };
+        }
+
         return (defs, codeByName);
     }
 

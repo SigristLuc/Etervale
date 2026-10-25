@@ -87,8 +87,9 @@ public sealed record ItemDefinition(
     // Drops of the item per day across the server; 0 is unlimited.
     public int DailyDropLimit { get; init; }
 
-    // The item set it belongs to (0 none).
+    // The item set it belongs to (0 none) and that set, attached by the catalog.
     public int SetCode { get; init; }
+    public ItemSetDefinition Set { get; init; }
 
     // A named unique of the code (1, 2...): the variant a saved item names with NamedUniqueBase + this number.
     public int UniqueVariant { get; init; }

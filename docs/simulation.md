@@ -149,7 +149,9 @@ a transaction candidate) is the only writer.
 3. `EquipmentTotals.Sum` walks the slots in `EquipmentSlot` order and adds every worn item the character can use
    (`ItemUsability.CanUse`; see [Items](#items)). Per copy: attack rating, damage range, critical, defence, rated absorb
    cut to one decimal (`(int)(absorb * 10.000001) / 10 + 0.000001`, absorb = copy + `ItemAbsorbCorrection`), block,
-   move speed, attack speed, shooting range, life/mana/stamina regeneration, added life/mana/stamina, resistances;
+   move speed, attack speed, shooting range, life/mana/stamina regeneration, added life/mana/stamina, resistances; an
+   item set whose pieces are worn (each ring counts; `ItemCatalog` attaches the `ItemSetDefinition` to its items) adds
+   its bonus once: added life, absorb, block and the three regenerations;
    magic mastery and belt capacity (`PotionSpace`) are set by the last item that has one. A copy whose `SpecJob`
    includes the class bit also adds its `ItemSpecBonus`: absorb (cut the same way), defence, speed, block, attack
    speed, critical, range, magic mastery, `Level / divisor` life, mana, attack rating and maximum damage, and half of

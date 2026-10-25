@@ -129,7 +129,8 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
   position, `/field n` goes to field n's start point (a random one in the castle), `/player_location x y z` moves within
   the field (each move carries the running statuses), `/hide` and `/show` make the issuer invisible to other players' presence, `/grant` lends the issuer's level to a
   player until that player leaves the world.
-- Items: `/@get code` or `/@get "name"` drops an item, `/@get_perf code [class]` its best copy, `/@put name code` writes
+- Items: `/@get code` or `/@get "name"` drops an item (`code#U<n>` or a named unique's name makes that named unique,
+  `code#Q` the quest variant), `/@get_perf code [class]` its best copy, `/@put name code` writes
   a copy into a player's bag before delivering it; `/specific job` and `/Performance value` force the class and middle
   roll of items made in the next minute; `/init_premiumitem n` ends a premium timer.
 - Monsters: `/monster name [count]` spawns up to 21 (only the highest level drops items), `/mymonster name` a pet for

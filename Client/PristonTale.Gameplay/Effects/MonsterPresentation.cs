@@ -10,7 +10,7 @@ namespace PristonTale.Gameplay.Effects;
 // A monster drawn this frame: its body actor, what selects its effects and where it stands (client space; facing as the
 // server sends it).
 public readonly record struct MonsterActorView(ulong EntityId, ActorHandle Actor, int SoundCode, int Level, float Scale, Vector3 Position, float Facing,
-    bool IsDead);
+    bool IsDead, bool Hammer = false);
 
 // The effects the monster presentation starts: named effect definitions, running instances it may stop and the statuses
 // of every visible entity.
