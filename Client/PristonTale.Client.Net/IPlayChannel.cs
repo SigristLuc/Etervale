@@ -11,6 +11,9 @@ namespace PristonTale.Client.Net;
 
 public interface IPlayChannel : IAsyncDisposable
 {
+    // The player's game master level (0 for players), for client-side game master controls.
+    int GameMasterLevel => 0;
+
     Task<ProgressionOutcome> ApplyProgressionAsync(ProgressionCommand command, CancellationToken ct = default);
     Task<NpcInteraction> InteractNpcAsync(ulong entityId, CancellationToken ct = default);
 

@@ -20,6 +20,8 @@ internal sealed class OnlinePlayChannel : IPlayChannel
     private readonly object _disposeGate = new();
     private Task? _disposeTask;
 
+    public int GameMasterLevel => _connection.GameMasterLevel;
+
     public OnlinePlayChannel(GameServerConnection connection, CancellationToken cancellationToken = default)
     {
         _connection = connection;

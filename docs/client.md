@@ -278,7 +278,9 @@ Renderer side of stage publication: [rendering.md](rendering.md).
 | Input | Where | Effect |
 |---|---|---|
 | Left click | `GameScene.UpdatePlayerInput` | In order: pick ground loot, cast the left socket skill, pick a monster (attack) or NPC (approach and talk), move |
-| Double left click (350 ms) or Shift + click | same | Run to the target |
+| Double left click (350 ms) on the ground | same | Keep walking toward the cursor without holding the button, until blocked or the next click |
+| `R`, or the bar's walk/run button | `GameplayHud.RunToggleRequested` -> `GameScene.ToggleRun` | Walk/run setting (running at first) for every move: clicks, monster, NPC and item approaches. A player tracing a target or holding the button keeps its pace while its stamina is at a quarter or less and walks once it runs out; overweight only walks |
+| Shift held while running (game masters) | `GameScene.MovementSpeed` | Dash at 3000/256 units per original tick; `WorldJoined` carries the game master level and the server allows game masters that speed |
 | Shift + click on a monster | same | Automatic attack (keeps attacking after release) |
 | Right click | same | Attack if the right socket holds the basic attack, otherwise cast the right socket skill |
 | Hold `A` | `GameScene.DrawGroundLabels`, `TryPickLoot` | Show and pick every ground item label |

@@ -13,6 +13,7 @@ internal static class MovementAndStreamingTests
     {
         yield return ("client-reported movement at 5 Hz is accepted and stops at the reported point", ArrivalAsync);
         yield return ("reports beyond run speed or during busy actions keep the authoritative position", BlockedArrivalAsync);
+        yield return ("a game master may dash at the original's debug speed, a player may not", GameMasterDashAsync);
         yield return ("streaming follows the movement destination without loading a distant adjacent field while idle", PrefetchAsync);
         yield return ("NPC approach stops locally before authority confirms interaction range", NpcApproachAsync);
         yield return ("continuous gates keep reported running while warps reject stale positions", GateMovementAsync);
@@ -56,6 +57,22 @@ internal static class MovementAndStreamingTests
 
         var unchanged = DestinationMovement.Advance(Vector2.One, new Vector2(20), 100, float.NaN);
         Assert.True(unchanged.Position == Vector2.One && !unchanged.Arrived, "invalid delta time moved prediction");
+        return Task.CompletedTask;
+    }
+
+    private static Task GameMasterDashAsync()
+    {
+        var registry = new CharacterClassRegistry();
+        var dash = Locomotion.GameMasterDashUnitsPerSecond;
+        Assert.True(dash > Locomotion.RunUnitsPerSecond(9) * 4, $"dash speed {dash} is not far above running");
+        var gm = new WorldPlayer(1, new Vector3(100, 0, 100), registry.CreatePlayer(PlayerClass.Fighter, "Gm"), true, default) { GameMasterLevel = 1 };
+        var player = new WorldPlayer(2, new Vector3(100, 0, 100), registry.CreatePlayer(PlayerClass.Fighter, "Runner"), true, default);
+        Assert.True(gm.ReportMovement(new Vector3(100, 0, 100), 0f, false, false, 0, 0) == MovementVerdict.Accepted
+            && player.ReportMovement(new Vector3(100, 0, 100), 0f, false, false, 0, 0) == MovementVerdict.Accepted, "first reports rejected");
+        // Half a second of dashing.
+        var far = new Vector3(100 + dash * 0.5f, 0, 100);
+        Assert.True(gm.ReportMovement(far, 0f, true, true, 0, 500) == MovementVerdict.Accepted, "a game master's dash was rejected");
+        Assert.True(player.ReportMovement(far, 0f, true, true, 0, 500) == MovementVerdict.Rejected, "a player dashed");
         return Task.CompletedTask;
     }
 

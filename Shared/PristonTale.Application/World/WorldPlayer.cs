@@ -36,6 +36,9 @@ public sealed class WorldPlayer
 
     public float AttackRange => PlayerAttackReach.For(_character);
 
+    // A game master may dash (Shift held while running); its movement budget allows that speed.
+    public int GameMasterLevel { get; init; }
+
     private readonly PlayerCharacter _character;
     private bool _inVillage;
 
@@ -322,7 +325,8 @@ public sealed class WorldPlayer
     private float RefillMoveBudget(long nowMs)
     {
         var moveSpeed = _character.Derived.MoveSpeed;
-        float rate = (CarriedWeight.IsOverweight(_character) ? Locomotion.WalkUnitsPerSecond(moveSpeed, true) : Locomotion.RunUnitsPerSecond(moveSpeed))
+        float rate = (GameMasterLevel > 0 ? Locomotion.GameMasterDashUnitsPerSecond
+                : CarriedWeight.IsOverweight(_character) ? Locomotion.WalkUnitsPerSecond(moveSpeed, true) : Locomotion.RunUnitsPerSecond(moveSpeed))
             * ReportSpeedTolerance;
         if (_budgetMs < 0)
         {

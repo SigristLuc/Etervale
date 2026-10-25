@@ -82,6 +82,9 @@ public sealed class GameServerConnection : IGameBackend
 
     public string? SessionToken { get; private set; }
 
+    // The player's game master level from WorldJoined (0 for players).
+    public int GameMasterLevel { get; private set; }
+
     public bool RequiresNewConnection => SessionToken is not null || Volatile.Read(ref _terminalError) is not null;
 
     public long BytesReceived => _connection?.BytesReceived ?? 0;
@@ -608,7 +611,7 @@ public sealed class GameServerConnection : IGameBackend
                 OnWorldEntry(WorldEntryPacket.Read(packet));
                 break;
             case EtervaleOpcodes.WorldJoined:
-                WorldJoinedPacket.Read(packet);
+                GameMasterLevel = WorldJoinedPacket.Read(packet).GameMasterLevel;
                 _joined?.TrySetResult(true);
                 break;
             case EtervaleOpcodes.LeaveWorld:

@@ -278,7 +278,6 @@ public sealed partial class GameScene : ISkillSceneHost
 
         _moveTarget = planar;
         _hasMoveTarget = true;
-        _moveTargetRun = _runMode;
     }
 
     private void Send(PendingCast pending, ulong target)

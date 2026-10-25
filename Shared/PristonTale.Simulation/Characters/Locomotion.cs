@@ -20,6 +20,11 @@ public static class Locomotion
         return PerTickToUnitsPerSecond(perTick);
     }
 
+    // A game master running with Shift held moves 3000/256 units per original tick.
+    public const int GameMasterDashPerTick = 3000;
+
+    public static float GameMasterDashUnitsPerSecond => PerTickToUnitsPerSecond(GameMasterDashPerTick);
+
     public static float RunUnitsPerSecond(int moveSpeedStat)
         => PerTickToUnitsPerSecond((BaseTranslation(moveSpeedStat) * RunFactor) >> 8);
 

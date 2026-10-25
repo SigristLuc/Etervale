@@ -76,7 +76,43 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     {
         var moveSpeed = _serverMoveSpeed ?? _player?.Derived.MoveSpeed ?? 1;
         var inVillage = _activeField?.Definition.State == FieldState.Village;
+        if (running && GameMasterDash)
+        {
+            return Locomotion.GameMasterDashUnitsPerSecond;
+        }
+
         return running ? Locomotion.RunUnitsPerSecond(moveSpeed) : Locomotion.WalkUnitsPerSecond(moveSpeed, inVillage);
+    }
+
+    // A game master running with Shift held dashes, as the original's debug mode did; the server allows game masters
+    // that speed.
+    private bool GameMasterDash => (_playChannel?.GameMasterLevel ?? 0) > 0 && !KeyboardCaptured
+        && (Keyboard.GetState().IsKeyDown(Keys.LeftShift) || Keyboard.GetState().IsKeyDown(Keys.RightShift));
+
+    public bool RunFlag => _runFlag;
+
+    public void ToggleRun() => _runFlag = !_runFlag;
+
+    // The original's walk/run rule: the setting decides, except that a player tracing a target or holding the button
+    // keeps its pace while its stamina is at a quarter or less, and walks once it runs out. Overweight only walks.
+    private void UpdateRunMode(MouseState mouse)
+    {
+        var tracing = _hasMoveTarget || _followCursor || _attackInput.TargetId != 0 || _npcTargetId != 0
+            || mouse.LeftButton == ButtonState.Pressed;
+        var stamina = Owner?.Sp ?? 1;
+        var maxStamina = Math.Max(1, Owner?.MaxSp ?? 1);
+        var run = _runMode;
+        if (!tracing || stamina > maxStamina / 4)
+        {
+            run = _runFlag;
+        }
+
+        run = run && stamina > 0 && !Overweight;
+        if (run != _runMode)
+        {
+            _runMode = run;
+            _reportDue = true;
+        }
     }
 
     private const float PlayerRadius = 24f;
@@ -84,7 +120,10 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private const float WallFloorThreshold = 0.25f;
     private const double DoubleClickMs = 350.0;
     private double _lastLeftClickMs = double.NegativeInfinity;
-    private bool _moveTargetRun;
+    // The walk/run setting (R or the bar's button), running at first as in the original.
+    private bool _runFlag = true;
+    // After a double click on the ground the player keeps walking toward the cursor until it is blocked or clicks again.
+    private bool _followCursor;
 
     private readonly AttackInputController _attackInput = new();
     private readonly TargetSelection _targetSelection = new();
@@ -666,7 +705,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         var active = _activeField.Definition;
         var player = _playerBody.PlanarPosition;
         Vector2? movementTarget = _hasMoveTarget ? _moveTarget : null;
-        var movementSpeed = _hasMoveTarget ? MovementSpeed(_moveTargetRun) : 0f;
+        var movementSpeed = _hasMoveTarget ? MovementSpeed(_runMode) : 0f;
         var disconnect = FieldStreamingPolicy.RetentionDistance(movementSpeed);
         foreach (var neighbour in _worldCatalog.Neighbours(active))
         {
@@ -912,7 +951,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
         SetActiveField(dest);
         _hasMoveTarget = false;
-        _moveTargetRun = false;
         _playerBody.PlanarPosition = new Vector2(warp.DestinationX, -warp.DestinationZ);
         _playerBody.Height = warp.DestinationY - GroundTraversal.VisualOffset;
         ApplyPlayerWorld();
@@ -1063,7 +1101,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                     ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.Dead));
                     ClearAttackTarget();
                     _hasMoveTarget = false;
-                    _moveTargetRun = false;
                 }
 
                 break;
@@ -1373,13 +1410,13 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             TryCastSkillClick(mouse, rightButton: true);
         }
 
+        UpdateRunMode(mouse);
         if (!PointerCaptured && mouse.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released)
         {
             var nowMs = gameTime.TotalGameTime.TotalMilliseconds;
-            var doubleClickRun = (nowMs - _lastLeftClickMs) <= DoubleClickMs;
+            var doubleClick = (nowMs - _lastLeftClickMs) <= DoubleClickMs;
             _lastLeftClickMs = nowMs;
-            var kb = Keyboard.GetState();
-            var shiftRun = kb.IsKeyDown(Keys.LeftShift) || kb.IsKeyDown(Keys.RightShift);
+            _followCursor = false;
             if (TryPickLoot(mouse))
             {
             }
@@ -1395,8 +1432,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 CancelPendingCast();
                 ClearAttackTarget();
                 _lootInteraction.Cancel();
-                _moveTargetRun = doubleClickRun || shiftRun;
-                _runMode = _moveTargetRun && !Overweight;
+                _followCursor = doubleClick;
                 _reportDue = true;
             }
         }
@@ -1411,16 +1447,15 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         UpdateNpcApproach();
         _lootInteraction?.Update(_groundLoot, _playerBody.Position, _serverPlanarPosition, Owner);
         UpdateAttackPresentation(gameTime);
+        if (_followCursor && !PointerCaptured && !SelfCasting)
+        {
+            SetMoveTarget(mouse);
+        }
+
         if (_hasMoveTarget && !_playerController.LocomotionFrozen && !_selfAttacking && !SelfCasting && !SelfStunned)
         {
             var current = _playerBody.PlanarPosition;
-            var keyboard = Keyboard.GetState();
-            var running = (_moveTargetRun || keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift)) && !Overweight;
-            if (running != _runMode)
-            {
-                _runMode = running;
-                _reportDue = true;
-            }
+            var running = _runMode;
 
             var step = DestinationMovement.Advance(
                 new System.Numerics.Vector2(current.X, current.Y),
@@ -1430,6 +1465,12 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             var proposed = new Vector2(step.Position.X, step.Position.Y);
             var slid = MoveWithCollision(current, proposed - current, _playerBody.Height + BodyProbeHeight);
             CommitGroundMovement(ResolveEntityCollision(current, slid));
+            // Following the cursor ends where the player is blocked, as in the original.
+            if (_followCursor && proposed != current && Vector2.DistanceSquared(_playerBody.PlanarPosition, current) < 1e-4f)
+            {
+                _followCursor = false;
+            }
+
             if (step.Direction != System.Numerics.Vector2.Zero)
             {
                 _playerForward = new Vector3(step.Direction.X, 0f, step.Direction.Y);
@@ -1442,7 +1483,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             if (arrived)
             {
                 _hasMoveTarget = false;
-                _moveTargetRun = false;
                 _positionCorrection = Vector2.Zero;
                 ApplyPlayerCommand(_playerController.ApplyLocomotion(PristonActorMotion.Stand));
             }
@@ -1498,7 +1538,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _npcTargetId = 0;
         _lootInteraction.Select(id);
         _moveTarget = new Vector2(position.X, position.Z);
-        _moveTargetRun = _runMode;
         _hasMoveTarget = true;
         _reportDue = true;
         return true;
@@ -1623,7 +1662,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private void StopPredictedMovement()
     {
         _hasMoveTarget = false;
-        _moveTargetRun = false;
         _positionCorrection = Vector2.Zero;
         ApplyPlayerCommand(_playerController.ApplyLocomotion(PristonActorMotion.Stand));
     }
@@ -1670,7 +1708,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         if (decision.BeginApproach)
         {
             _moveTarget = decision.Destination;
-            _moveTargetRun = _runMode;
             _hasMoveTarget = true;
             _npcMoveSent = true;
             _reportDue = true;

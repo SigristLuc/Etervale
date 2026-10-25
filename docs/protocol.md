@@ -89,7 +89,7 @@ Bodies start with `uint16 Version = 1`; text is UTF-8 with a `uint16` byte lengt
 | Create, delete | C→S `CharacterCommand` (`0x45540F04`), S→C `CharacterResult` (`0x45540F05`) | Command `{uint16 Version, uint8 Action (1 create, 2 delete), uint8 0, int32 ClassCode, FaceIndex, text Name}`; result `{uint16 Version, uint8 Action, uint8 Ok, int32 Failure (CreateCharacterFailure), text Name}`. |
 | Select | C→S `EnterWorld` (`0x45540E00`) | `{uint16 Version = 1, uint16 0, text Name (64 B)}`. |
 | Entry | S→C `WorldEntry` (`0x45540E01`) | `{uint16 Version, uint8 Status (0 entered, else EnterWorldFailure), uint8 0, uint64 EntityId, int32 Field, int32 X, Z (x256)}`. The owner's stats, inventory and skills follow on the presence stream. |
-| Join | C→S `JoinWorld` (`0x45540E02`), S→C `WorldJoined` (`0x45540E03`) | `JoinWorld` = `{uint16 Version, uint16 0, uint64 EntityId}`, which must be the id from `WorldEntry`; `WorldJoined` = `{uint16 Version, uint16 0, uint64 EntityId, int64 ServerTimeMs}`. |
+| Join | C→S `JoinWorld` (`0x45540E02`), S→C `WorldJoined` (`0x45540E03`) | `JoinWorld` = `{uint16 Version, uint16 0, uint64 EntityId}`, which must be the id from `WorldEntry`; `WorldJoined` = `{uint16 Version, uint8 GameMasterLevel, uint8 0, uint64 EntityId, int64 ServerTimeMs}`; the level only enables client-side game master controls. |
 | Heartbeat | `Heartbeat` (`0x45540F06`) every 4 s | `{uint16 Version, uint16 0, uint32 Counter, int64 TimeMs}`; echoed with the server's time. The server closes connections silent for 60 s. |
 | Leave | `LeaveWorld` (`0x45540160`) | `{uint16 Version, uint8 Saved, uint8 0}`: the client sends Saved 0; the server answers with Saved 1 after it stored the character. |
 
@@ -131,8 +131,9 @@ Other field values:
 
 The server validates client reports instead of trusting them (`WorldPlayer.ReportMovement`):
 
-- Reports spend a distance budget that refills at 1.35 times the run speed and holds at most two seconds of travel plus
-  32 units, so many small reports cannot add up to more than one long report could.
+- Reports spend a distance budget that refills at 1.35 times the run speed (a game master's at 1.35 times the dash
+  speed, 3000/256 units per original tick) and holds at most two seconds of travel plus 32 units, so many small reports
+  cannot add up to more than one long report could.
 - During a swing, flinch or potion, drift beyond 192 units is rejected and smaller drift is ignored. Reports from a dead
   player are ignored without a correction.
 - With the field's stage loaded, a report up to 48 units long follows the wall slide and may end at most 8 units from

@@ -178,6 +178,9 @@ public sealed class GameplayHud : IDisposable
     // A double click on a summon's buff icon asks to switch the summon's fighting mode.
     public event Action<uint> SummonModeRequested;
 
+    // R or the bar's walk/run button.
+    public event Action RunToggleRequested;
+
     // The fighting mode the player chose for a running summon skill (true: automatic), or null for other skills.
     public Func<uint, bool?> SummonAutomatic { get; set; }
     private uint _lastBuffClicked;
@@ -496,6 +499,11 @@ public sealed class GameplayHud : IDisposable
         {
             _questWindow.Toggle();
         }
+
+        if (Pressed(keyboard, Keys.R))
+        {
+            RunToggleRequested?.Invoke();
+        }
     }
 
     // Quest notices go to the combat log (chat lines), the notice strip (events and messages) or the fanfare; a new quest
@@ -693,6 +701,12 @@ public sealed class GameplayHud : IDisposable
         if (_hoveredToggle == HudToggle.Map)
         {
             _mapVisible = !_mapVisible;
+            return;
+        }
+
+        if (_hoveredToggle == HudToggle.Walk)
+        {
+            RunToggleRequested?.Invoke();
             return;
         }
 

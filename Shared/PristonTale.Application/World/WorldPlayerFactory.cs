@@ -13,7 +13,10 @@ public static class WorldPlayerFactory
 
         var appearance = ToAppearance(session.Loaded);
         return new WorldPlayer(
-            session.EntityId, session.SpawnPosition, session.Character, session.InVillage, appearance);
+            session.EntityId, session.SpawnPosition, session.Character, session.InVillage, appearance)
+        {
+            GameMasterLevel = session.GmLevel
+        };
     }
 
     public static PlayerAppearanceView ToAppearance(CharacterRecord record)

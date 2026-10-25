@@ -97,8 +97,9 @@ public readonly record struct JoinWorldPacket(ulong EntityId)
     }
 }
 
-// S->C {header, uint16 Version = 1, uint16 0, uint64 EntityId, int64 ServerTimeMs}.
-public readonly record struct WorldJoinedPacket(ulong EntityId, long ServerTimeMs)
+// S->C {header, uint16 Version = 1, uint8 GameMasterLevel, uint8 0, uint64 EntityId, int64 ServerTimeMs}: the player's game
+// master level enables its client-side game master controls (the server checks every command and move itself).
+public readonly record struct WorldJoinedPacket(ulong EntityId, long ServerTimeMs, byte GameMasterLevel = 0)
 {
     public const int Size = 8 + 4 + 8 + 8;
 
@@ -106,7 +107,8 @@ public readonly record struct WorldJoinedPacket(ulong EntityId, long ServerTimeM
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.WorldJoined);
         writer.UInt16(WorldEntryWire.CurrentVersion);
-        writer.UInt16(0);
+        writer.Byte(GameMasterLevel);
+        writer.Byte(0);
         writer.UInt64(EntityId);
         writer.Int64(ServerTimeMs);
         return writer.Finish();
@@ -116,8 +118,9 @@ public readonly record struct WorldJoinedPacket(ulong EntityId, long ServerTimeM
     {
         var reader = new PacketReader(packet, Size);
         WorldEntryWire.ReadVersion(ref reader, "World joined");
-        reader.Skip(2);
-        return new WorldJoinedPacket(reader.UInt64(), reader.Int64());
+        var level = reader.Byte();
+        reader.Skip(1);
+        return new WorldJoinedPacket(reader.UInt64(), reader.Int64(), level);
     }
 }
 

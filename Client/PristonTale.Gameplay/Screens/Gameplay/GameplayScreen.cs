@@ -45,6 +45,7 @@ public sealed class GameplayScreen : GameScreen
         _scene.NpcSelected += _hud.OpenNpc;
         _scene.SkillNotice += _hud.Chat.System;
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
+        _hud.RunToggleRequested += _scene.ToggleRun;
         _hud.SummonAutomatic = _scene.SummonAutomatic;
         _hud.UseItem = _scene.UseItemAsync;
         _hud.Chat.PlayerName = _scene.Player.Name;
@@ -109,7 +110,7 @@ public sealed class GameplayScreen : GameScreen
         _ = _scene.TryGetNeighbourMap(out var neighbour, out var neighbourMap);
         var mapHidden = field is not null && HudMinimap.HiddenOn(field.FieldCode, field.State);
         _hud.World = new HudWorldView(field?.Id, field?.Underground == true, _scene.ActiveMapRectangle, _scene.PlayerPosition,
-            _scene.PlayerForward, _scene.TimeOfDay, _scene.RunMode, mapHidden, neighbour, neighbourMap);
+            _scene.PlayerForward, _scene.TimeOfDay, _scene.RunFlag, mapHidden, neighbour, neighbourMap);
         _hud.PremiumTimers = _scene.PremiumTimers;
         _hud.InCastleField = field?.State == Simulation.World.FieldState.Castle;
         _hud.PlayerDead = _scene.PlayerDead;
