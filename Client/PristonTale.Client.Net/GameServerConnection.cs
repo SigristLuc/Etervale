@@ -275,7 +275,7 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
-    // A dead player's restart; the new place arrives as a forced WARPFIELD and the presence stream.
+    // A dead player's restart; the new place arrives as a forced FieldWarp and the presence stream.
     internal async Task<RestartOutcome> RestartAsync(RestartChoice choice, CancellationToken ct)
     {
         ThrowIfDisconnected();
@@ -342,7 +342,7 @@ public sealed class GameServerConnection : IGameBackend
 
         try
         {
-            SendAttackPacket(entityId, 0, 0);
+            SendAttackRequest(entityId, sustained: false, 0);
             return await request.Completion.Task.WaitAsync(ct);
         }
         finally
@@ -404,22 +404,18 @@ public sealed class GameServerConnection : IGameBackend
 
     internal void SendMovement(Vector3 position, float facing, bool moving, bool running, uint actionTarget, int fieldCode)
     {
-        var serial = _presence.SelfSerial;
-        var action = !moving ? MotionStateCode.Stand : running ? MotionStateCode.Run : MotionStateCode.Walk;
-        var buffer = new PlayBuffer(PristonUnits.ToFixed(position.X), PristonUnits.ToFixed(position.Y), PristonUnits.ToFixed(position.Z),
-            PristonUnits.FrameNone, PristonUnits.ToAngle(facing), action, actionTarget);
-        var data = new TransPlayData(serial, 0, 0, 0, 0, 0, (short)fieldCode, -1, 0, 0, [buffer]);
+        var motion = !moving ? PresenceMotion.Stand : running ? PresenceMotion.Run : PresenceMotion.Walk;
+        var report = new MovementReportPacket(motion, fieldCode, position, facing, actionTarget);
         lock (_sendGate)
         {
-            Connection.Send(_scratch.AsSpan(0, data.Write(_scratch)));
+            Connection.Send(_scratch.AsSpan(0, report.Write(_scratch)));
         }
     }
 
-    // AttackDamage {AttackState bit 0 = held attack, AttackCount = request sequence}; Power is ignored by the server.
-    internal void SendAttackPacket(uint target, int attackState, ulong sequence)
+    // The clicked target (0 stops attacking) and the request sequence; the server resolves every swing.
+    internal void SendAttackRequest(uint target, bool sustained, ulong sequence)
     {
-        var attack = new AttackDamagePacket(_presence.SelfSerial, target, 0, 0, 0, attackState, 48 * 256, 0, 0, 0, (uint)Environment.TickCount,
-            unchecked((int)sequence), 0, (short)(_presence.FieldId ?? -1));
+        var attack = new AttackRequestPacket(target, sustained, sequence);
         lock (_sendGate)
         {
             Connection.SendEncrypted(_scratch.AsSpan(0, attack.Write(_scratch)));

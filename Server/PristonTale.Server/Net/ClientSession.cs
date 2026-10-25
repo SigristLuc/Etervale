@@ -163,11 +163,11 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                 case PristonOpcodes.PlayerInfo:
                     await JoinWorldAsync(PlayerInfoPacket.Read(memory.Span));
                     break;
-                case PristonOpcodes.TransPlayData:
-                    ReportMovement(TransPlayData.Read(memory.Span));
+                case EtervaleOpcodes.MovementReport:
+                    ReportMovement(MovementReportPacket.Read(memory.Span));
                     break;
-                case PristonOpcodes.AttackDamage:
-                    await AttackAsync(memory);
+                case EtervaleOpcodes.AttackRequest:
+                    await AttackAsync(AttackRequestPacket.Read(memory.Span));
                     break;
                 case EtervaleOpcodes.DescribeEntity:
                     DescribeObject(DescribeEntityPacket.Read(memory.Span));
@@ -414,24 +414,23 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         }
     }
 
-    private void ReportMovement(TransPlayData report)
+    private void ReportMovement(MovementReportPacket report)
     {
         var session = _session;
         var player = _player;
         var outbox = _outbox;
-        if (session is null || player is null || outbox is null || report.ObjectSerial != session.EntityId)
+        if (session is null || player is null || outbox is null)
         {
             return;
         }
 
-        var last = report.Buffers[^1];
-        var position = new Vector3(PristonUnits.FromFixed(last.X), PristonUnits.FromFixed(last.Y), PristonUnits.FromFixed(last.Z));
-        if (report.FieldCode >= 0 && report.FieldCode != session.FieldId)
+        var position = report.Position;
+        if (report.Field >= 0 && report.Field != session.FieldId)
         {
             Task<bool> transition;
             try
             {
-                transition = _services.World.MoveToFieldAsync(session.FieldId, report.FieldCode, player, position, outbox.Writer);
+                transition = _services.World.MoveToFieldAsync(session.FieldId, report.Field, player, position, outbox.Writer);
             }
             catch (WorldBusyException)
             {
@@ -449,10 +448,11 @@ internal sealed partial class ClientSession : IMovementVerdictSink
             return;
         }
 
-        var moving = last.Action is MotionStateCode.Walk or MotionStateCode.Run;
-        // A saturated queue or quota drops the report; the next one carries the newer position.
-        _services.World.TryReportMovement(session.FieldId, session.EntityId, position, PristonUnits.FromAngle(last.AngleY), moving,
-            last.Action == MotionStateCode.Run, last.TargetSerial, this);
+        // A saturated queue or quota drops the report; the next one carries the newer position. A target beyond the
+        // world's 32-bit ids names nothing.
+        var target = report.ActionTarget <= uint.MaxValue ? (uint)report.ActionTarget : 0u;
+        _services.World.TryReportMovement(session.FieldId, session.EntityId, position, report.Facing, report.Moving,
+            report.Motion == PresenceMotion.Run, target, this);
     }
 
     // On the tick thread: a rejection is answered from the thread pool, where the correction may wait for the encoder.
@@ -464,7 +464,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         }
     }
 
-    // WARPFIELD back to the authoritative field and position after a rejected report or field change.
+    // FieldWarp back to the authoritative field and position after a rejected report or field change.
     private void Correct(bool force)
     {
         var now = Environment.TickCount64;
@@ -476,10 +476,14 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         }
 
         _lastCorrectionMs = now;
-        Send(new TransCommand(PristonOpcodes.WarpField, PristonUnits.ToFixed(position.Z), session.FieldId, PristonUnits.ToFixed(position.X), 1), encrypt: true);
+        SendWarp(session.FieldId, position);
     }
 
-    private async Task AttackAsync(ReadOnlyMemory<byte> memory)
+    // A forced FieldWarp: the client puts its player on the floor at the new field and position.
+    private void SendWarp(int fieldId, Vector3 position) =>
+        SendLarge(new FieldWarpPacket(fieldId, position.X, position.Z, Forced: true).Write, FieldWarpPacket.Size, encrypt: true);
+
+    private async Task AttackAsync(AttackRequestPacket attack)
     {
         var session = _session;
         if (session is null || _player is null || _encoder is null)
@@ -487,26 +491,20 @@ internal sealed partial class ClientSession : IMovementVerdictSink
             return;
         }
 
-        AttackDamagePacket attack;
-        try
+        if (attack.Target > uint.MaxValue)
         {
-            attack = AttackDamagePacket.Read(memory.Span, session.EntityId);
-        }
-        catch (InvalidDataException ex)
-        {
-            LogRejected(PristonOpcodes.AttackDamage, ex.Message);
+            LogRejected(EtervaleOpcodes.AttackRequest, "target beyond the world's ids");
             return;
         }
 
-        if (attack.TargetSerial != 0 && _encoder.KindOf(attack.TargetSerial) == EntityKindView.Npc)
+        var target = (uint)attack.Target;
+        if (target != 0 && _encoder.KindOf(target) == EntityKindView.Npc)
         {
-            await InteractNpcAsync(session, attack.TargetSerial);
+            await InteractNpcAsync(session, target);
             return;
         }
 
-        // AttackState bit 0 marks a held (automatic) attack; AttackCount carries the client's request sequence.
-        var sustained = (attack.AttackState & 1) != 0;
-        _ = _services.World.SetAttackTargetAsync(session.FieldId, session.EntityId, attack.TargetSerial, sustained, (uint)attack.AttackCount);
+        _ = _services.World.SetAttackTargetAsync(session.FieldId, session.EntityId, target, attack.Sustained, attack.Sequence);
     }
 
     // SkillCast is answered with SkillCastResult on this connection; the start, impact and statuses follow on the
@@ -575,9 +573,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         NpcWireMapping.SendState(request, reply, packet => SendLarge(packet, PristonFrameCodec.MaxFrameSize, encrypt: true));
         if (reply.Arrival is { } arrival)
         {
-            // WARPFIELD {LParam = Z, WParam = field, SParam = X, EParam 1 = forced}.
-            Send(new TransCommand(PristonOpcodes.WarpField, PristonUnits.ToFixed(arrival.Position.Z), arrival.FieldCode,
-                PristonUnits.ToFixed(arrival.Position.X), 1), encrypt: true);
+            SendWarp(arrival.FieldCode, arrival.Position);
         }
     }
 
@@ -653,7 +649,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         SendLarge(result.Write, OperationResultPacket.Size, encrypt: true);
     }
 
-    // The item use answers with ItemUseResult; a use that moved the player to another field also sends a forced WARPFIELD.
+    // The item use answers with ItemUseResult; a use that moved the player to another field also sends a forced FieldWarp.
     private async Task UseItemAsync(ItemUseCommandPacket request)
     {
         var command = new ItemUseCommand(request.OperationId, request.ExpectedRevision, request.ItemId, request.Argument, request.Text);
@@ -678,12 +674,11 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         SendLarge(result.Write, ItemUseResultPacket.MaximumSize, encrypt: true);
         if (reply.Arrival is { } arrival)
         {
-            Send(new TransCommand(PristonOpcodes.WarpField, PristonUnits.ToFixed(arrival.Position.Z), arrival.FieldCode,
-                PristonUnits.ToFixed(arrival.Position.X), 1), encrypt: true);
+            SendWarp(arrival.FieldCode, arrival.Position);
         }
     }
 
-    // A dead player's restart answers with RestartResult; a restart that moved the player sends a forced WARPFIELD.
+    // A dead player's restart answers with RestartResult; a restart that moved the player sends a forced FieldWarp.
     private async Task RestartAsync(RestartRequestPacket request)
     {
         var command = new RestartCommand(request.OperationId, (RestartChoice)request.Choice);
@@ -709,8 +704,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         SendLarge(result.Write, RestartResultPacket.Size, encrypt: true);
         if (outcome.Ok)
         {
-            Send(new TransCommand(PristonOpcodes.WarpField, PristonUnits.ToFixed(reply.Position.Z), reply.FieldId,
-                PristonUnits.ToFixed(reply.Position.X), 1), encrypt: true);
+            SendWarp(reply.FieldId, reply.Position);
         }
     }
 

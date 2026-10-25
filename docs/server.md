@@ -172,14 +172,14 @@ the same switch.
 | `DELRECORDDATA` | `DeleteCharacterAsync` | `CharacterAppService.DeleteCharacterAsync` | New list on success, then echo. |
 | `GETRECORDDATA` | `EnterWorldAsync` | `SessionAppService.EnterWorldAsync` | `RECORDDATA` chunks, or `FAILCONNECT` (`LParam` `EnterWorldFailure`, `EParam` 3). |
 | `PLAYERINFO` | `JoinWorldAsync` | `PlayerSession.TryBeginPlay`, `WorldPlayerFactory.Create`, `WorldServer.JoinAsync` | `CONNECTED`; starts the presence pump. |
-| `TRANSPLAYDATA` | `ReportMovement` | `WorldServer.MoveToFieldAsync` or `TryReportMovement` | `WARPFIELD` correction when rejected. |
-| `ATTACK_DAMAGE` | `AttackAsync` | `WorldServer.InteractNpcAsync` (target is a known NPC) or `SetAttackTargetAsync` | `NpcResult`, or nothing (results arrive as presence). |
+| `MovementReport` | `ReportMovement` | `WorldServer.MoveToFieldAsync` or `TryReportMovement` | Forced `FieldWarp` correction when rejected. |
+| `AttackRequest` | `AttackAsync` | `WorldServer.InteractNpcAsync` (target is a known NPC) or `SetAttackTargetAsync` | `NpcResult`, or nothing (results arrive as presence). |
 | `GETPLAYERINFO` | `DescribeObject` | `PresenceEncoder.WriteDescription` | Plaintext `PLAYERINFO` when the serial is in view, from the last encoded frame. |
 | `RECORDDATA` | `AcknowledgeClientSave` | none (discarded) | `RECORDRESULT` `WParam` 1 after the last chunk. |
 | `InventoryCommand` | `ApplyInventoryAsync` | `SessionAppService.ApplyInventoryAsync` | `InventoryResult`. |
 | `ProgressionCommand` | `ApplyProgressionAsync` | `SessionAppService.ApplyProgressionAsync` | `ProgressionResult`. |
-| `NpcServiceRequest` | `RequestNpcServiceAsync` | `NpcAppService.RequestAsync` | State messages, `NpcServiceResult`, and `WARPFIELD` (`EParam` 1) for a teleport. |
-| `QuestRequest` | `RequestQuestAsync` | `QuestAppService.RequestAsync` | `QuestResult`; travel to or from the arena arrives as the encoder's `WARPFIELD`. |
+| `NpcServiceRequest` | `RequestNpcServiceAsync` | `NpcAppService.RequestAsync` | State messages, `NpcServiceResult`, and a forced `FieldWarp` for a teleport. |
+| `QuestRequest` | `RequestQuestAsync` | `QuestAppService.RequestAsync` | `QuestResult`; travel to or from the arena arrives as the encoder's `FieldWarp`. |
 | `SkillCast` | `CastSkillAsync` | `WorldServer.CastSkillAsync` | `SkillCastResult`. |
 | `LeaveWorld` | inline | `ClosePlayAsync` (leave, save) | `LeaveWorld` echo, `WParam` 1. |
 | anything else | ignored | none | none |
@@ -190,7 +190,7 @@ Error handling inside `HandleAsync`:
 | --- | --- |
 | `InvalidSessionException`, `InvalidOperationException` (includes `WorldBusyException`) | Packet dropped, sampled `Rejected` warning; the connection stays open. |
 | `DbException` | `ReplyStorageFailure`: login gets `FAILCONNECT` -16, record commands get an echo with `WParam` 0 and `CreateCharacterFailure.Rejected`, `GETRECORDDATA` gets `FAILCONNECT` with `EnterWorldFailure.Rejected`. |
-| `InvalidDataException` (malformed packet from a `Read`) | Escapes to `PristonConnection`, which closes with `protocol: ...`. `ATTACK_DAMAGE` decoding errors are caught and only logged. |
+| `InvalidDataException` (malformed packet from a `Read`) | Escapes to `PristonConnection`, which closes with `protocol: ...`. |
 | anything else | Ends the session; logged as `Client session ... failed`. |
 
 Inventory, progression, NPC service and quest handlers convert session, operation and storage exceptions into a failed
@@ -200,7 +200,7 @@ result packet instead, so the client's pending operation always completes.
 
 After `CONNECTED`, `PumpAsync` reads the player's `WorldOutbox` and calls `PresenceEncoder.Encode` per snapshot on a
 thread-pool task, separate from the receive loop, then releases the snapshot's frame. Per snapshot, in order:
-`WARPFIELD` on a field change (after removing everything known), the events of earlier ticks the pump fell behind on
+`FieldWarp` on a field change (after removing everything known), the events of earlier ticks the pump fell behind on
 (each tick's events after its own `PresenceClock`), `PresenceClock` before the first timeline packet of the snapshot's
 tick, `PresenceEntries` (one or more), `RemoveObjects`, `CombatEvents`, `SkillEvents`, `StatusEffects` (with the running
 statuses of entities the receiver starts seeing), `ItemEffects`, `GroundItems`/`GroundItemsRemoved`, `OwnerStatus` with `Inventory`
@@ -212,11 +212,11 @@ rates and the movement budget are in [protocol.md](protocol.md#server-capacity).
 
 ### Movement and corrections
 
-- A report with `wArea[0]` different from the session field goes to `MoveToFieldAsync`; a refusal or a full queue sends
-  a forced `WARPFIELD` back to the encoder's last known self position.
+- A report naming a field other than the session field goes to `MoveToFieldAsync`; a refusal or a full queue sends
+  a forced `FieldWarp` back to the encoder's last known self position.
 - Other reports go to `WorldServer.TryReportMovement` as values; the session is the `IMovementVerdictSink`. A rejection
-  queues the correction on the thread pool (the tick never waits for the encoder), which sends `WARPFIELD` with
-  `EParam` 1, at most once per 300 ms. A full queue or quota silently drops the report; the next report carries a
+  queues the correction on the thread pool (the tick never waits for the encoder), which sends a forced `FieldWarp`,
+  at most once per 300 ms. A full queue or quota silently drops the report; the next report carries a
   newer position.
 - `ClientSession` serialises its own scratch buffer with `_sendGate`.
 
@@ -234,7 +234,7 @@ of the regression suite ([testing.md](testing.md#multiplayer-propagation)):
 | Statuses | The players that know the entity | `Add`, `Refresh`, `Remove` and ticks as they happen; a player that starts seeing the entity gets its running statuses with the time left |
 | Ground drops | Players within about 905 units; private drops only to their owner | `GroundItems` when they enter range, `GroundItemsRemoved` (batched) on pickup, expiry or leaving range |
 | Owner state, inventory, skills, cooldowns, premium timers, quests | The player itself | When their revisions change |
-| Corrections | The player itself | `WARPFIELD` with `EParam` 1; viewers only ever see the authoritative position |
+| Corrections | The player itself | Forced `FieldWarp`; viewers only ever see the authoritative position |
 
 - A crowd shows at most `PresenceEncoder.MaxVisible` (256) other entities: the nearest, plus the receiver's NPCs, its
   attack target, the entities targeting it and its summons; an entity already shown stays until it is 1.15 times the
@@ -310,7 +310,7 @@ or login timeout, packet flood, protocol error, send backlog, presence overflow,
   so a reader that forgets it makes the field allocate new frames.
 - `WorldBusyException` is thrown synchronously by `WorldServer` methods, not through the returned task; callers must
   wrap the call itself, as `ReportMovement` and `CastSkillAsync` do.
-- An NPC click is recognised only when the `ATTACK_DAMAGE` target is an NPC the receiver's `PresenceEncoder` currently
+- An NPC click is recognised only when the `AttackRequest` target is an NPC the receiver's `PresenceEncoder` currently
   knows; an unknown serial becomes an attack target change.
 - Client-sent `RECORDDATA` is acknowledged and discarded: the server owns the record. `ClientSession` saves the
   character on `LeaveWorld` and on disconnect (`SessionAppService.SaveCharacterAsync`); inventory, progression and NPC

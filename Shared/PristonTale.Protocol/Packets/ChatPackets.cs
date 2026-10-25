@@ -76,3 +76,23 @@ public readonly record struct ChatLinePacket(byte Kind, ulong Speaker, string Te
         return new ChatLinePacket(kind, speaker, Utf8Text.Read(ref reader, ChatWire.MaxTextBytes, "Chat line"));
     }
 }
+
+// S->C {header, uint16 Version = 1, uint16 0}: the end of a game master's shutdown countdown; the client quits.
+public static class CloseRequestPacket
+{
+    public const int Size = 8 + 4;
+
+    public static int Write(Span<byte> destination)
+    {
+        var writer = new PacketWriter(destination, EtervaleOpcodes.CloseRequest);
+        writer.UInt16(ChatWire.CurrentVersion);
+        writer.UInt16(0);
+        return writer.Finish();
+    }
+
+    public static void Read(ReadOnlySpan<byte> packet)
+    {
+        var reader = new PacketReader(packet, Size);
+        ChatWire.ReadVersion(ref reader, "Close request");
+    }
+}

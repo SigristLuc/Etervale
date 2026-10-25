@@ -47,7 +47,7 @@ character).
 | --- | --- | --- |
 | Client to server | `ChatSay` `0x45540C01` | `uint8 Party (0 spoken line or command, 1 party), uint8 0, text` |
 | Server to client | `ChatLine` `0x45540C00` | `uint8 Kind, uint8 0, uint64 Speaker (0 for server lines), text`: over the speaker when the receiver sees it, else in the log |
-| Server to client | Close client `0x484700E6` | The client saves nothing more and quits (the shutdown) |
+| Server to client | `CloseRequest` `0x45540D03` | The client saves nothing more and quits (the shutdown) |
 
 Kinds: 0 server, 1 whisper, 2 system, 3 notice, 4 party, 5 clan, 6 trade, 9 assistant; a player's spoken line carries
 `0x80`. The wire carries any character; the input accepts only what the HUD font draws (the single-byte code page).

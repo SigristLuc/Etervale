@@ -1019,7 +1019,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _selfHp = state.Hp;
         _serverMoveSpeed = state.MoveSpeed;
         _serverAttackRate = state.AttackRate;
-        // The client owns locomotion; server echoes lag behind it, so only WARPFIELD moves the local avatar.
+        // The client owns locomotion; server echoes lag behind it, so only FieldWarp moves the local avatar.
         _serverPlanarPosition = new Vector2(state.Position.X, state.Position.Z);
         _serverCollisionHeight = state.Position.Y;
         var wire = RemoteEntityBase.ToActorMotion(state.MoveState);

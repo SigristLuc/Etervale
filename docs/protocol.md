@@ -26,12 +26,12 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Binary/PristonText.cs` | Fixed `char[]` fields: Windows-1252, NUL-terminated (`Strict` throws, `Lenient` replaces with `?`). |
 | `Binary/PristonServerListCodec.cs` | `SERVER_INFO` (44-byte header, 108-byte entries, at most 8). |
 | `Packets/TransCommand.cs` | 24-byte command, 40-byte extended command, `CharCommand` (52 B) and `CharCommand2` (84 B). |
-| `Packets/PlayData.cs` | `PristonUnits`, `MotionStateCode`, play buffer, `TransPlayData` (the client's movement report). |
+| `Packets/PristonUnits.cs` | `PristonUnits` (fixed point x256, 4096-per-turn angles), `MotionStateCode`. |
+| `Packets/PlayerActionPackets.cs` | `MovementReport`, `AttackRequest` and `FieldWarp`. |
 | `Packets/PresencePackets.cs` | `PresenceEntries`: `VarInt`, `PresenceMotion`, `PresenceEntry`, `PresenceWire` (entry codec), writer and reader. |
 | `Packets/CharacterInfo.cs` | 464-byte character info record, `dwTemp` slot constants, 504-byte `PLAYERINFO`. |
 | `Packets/RecordData.cs` | Character record (1776-byte fixed part), `RecordDataChunks.Split` and `RecordDataAssembler`. |
 | `Packets/UserCharacterList.cs` | `ID_SETUSERINFO` character list (1484 B, six 240-byte slots). |
-| `Packets/AttackDamagePacket.cs` | 92-byte `ATTACK_DAMAGE` with the damage checksum and damage cipher. |
 | `Packets/GroundItemPackets.cs` | `GroundItems` and `GroundItemsRemoved`. |
 | `Packets/ChatPackets.cs`, `ChatChannelCode.cs` | `ChatSay` (typed line), `ChatLine` (received line); chat kinds on the wire. |
 | `Packets/EtervalePackets.cs` | Owner status, inventory parts, skills, inventory/progression commands and results, combat events, removals, presence clock. |
@@ -87,10 +87,10 @@ Deviations from the original transport:
   packets after about 65,520 of them in one direction.
 
 Which side encrypts what is a sender choice; receivers accept either form for every code. The server encrypts command
-replies, login, record and NPC/inventory/progression/skill-cast results and `WARPFIELD`; presence traffic (play data,
-events, drops, owner state, removals, clock, entity descriptions) goes out in plaintext. The client encrypts
-login, character commands, heartbeats, `ATTACK_DAMAGE`, `SkillCast` and operation requests, and sends `GETRECORDDATA`,
-`PLAYERINFO`, `TRANSPLAYDATA` and `DescribeEntity` in plaintext.
+replies, login, record and NPC/inventory/progression/skill-cast results and `FieldWarp`; presence traffic (presence
+entries, events, drops, owner state, removals, clock, entity descriptions) goes out in plaintext. The client encrypts
+login, character commands, heartbeats, `AttackRequest`, `SkillCast` and operation requests, and sends `GETRECORDDATA`,
+`PLAYERINFO`, `MovementReport` and `DescribeEntity` in plaintext.
 
 ## Login, character select and world entry
 
@@ -120,17 +120,29 @@ request (`FAILCONNECT` -16, a record echo with `WParam` 0, or entry failure `Rej
 
 | Message | Direction | Use |
 | --- | --- | --- |
-| `TRANSPLAYDATA` | C→S | The client's own position, facing, motion (`angle[3]`), action target (`dwTargetSerial`) and field (`wArea[0]`). Sent every 200 ms while moving, on state changes (at most one per 50 ms) and every second while idle. |
+| `MovementReport` (`0x45540D00`) | C→S | The client's own position, facing, motion, action target and field (see [Player actions](#player-actions)). Sent every 200 ms while moving, on state changes (at most one per 50 ms) and every second while idle. |
 | `PresenceEntries` (`0x45540900`) | S→C | Nearby objects as compact full or motion entries (see [Presence entries](#presence-entries)). |
 | `DescribeEntity` / `EntityDescription` (`0x45540901` / `0x45540902`) | C→S / S→C | Describes an unknown object or one whose description revision changed (see [Entity descriptions](#entity-descriptions)). Monsters and NPCs are cached by template; owned summons and crystal pets carry template 0 in their presence entries and are always described on their own. The client asks again after a second without an answer (the server drops requests beyond its bucket). |
-| `WARPFIELD` | S→C | `{WParam field, SParam x, LParam z}` confirms a field change; `EParam` = 1 marks a correction after a rejected report or a teleport. |
-| `ATTACK_DAMAGE` | C→S | Attack data packet with the original damage checksum and damage cipher keyed by the sender's serial. Monster: attack lock (`AttackState` bit 0 held, `AttackCount` = sequence). NPC: opens it. |
-| `CLOSECLIENT` | S→C | Asks the client to quit (the end of a game master's shutdown countdown). |
+| `FieldWarp` (`0x45540D02`) | S→C | The owner's authoritative field and position: a field confirmation, or forced (a correction after a rejected report, a teleport, a restart). |
+| `AttackRequest` (`0x45540D01`) | C→S | The clicked target and the request sequence. Monster: attack lock (held or one swing). NPC: opens it. |
+| `CloseRequest` (`0x45540D03`) | S→C | Asks the client to quit (the end of a game master's shutdown countdown). |
 
-`Power` in `ATTACK_DAMAGE` is ignored. Field values that differ from the original:
+### Player actions
 
-- `angle[3]` of the client's movement report holds motion state codes (`MotionStateCode`) instead of a model motion
-  index; the server has no per-model motion table.
+Bodies start with `uint16 Version = 1`; positions are fixed point (x256), entity ids and sequences 64-bit.
+
+| Message | Layout after the version | Size |
+| --- | --- | --- |
+| `MovementReport` | `uint8 Motion (0 stand, 1 walk, 2 run), uint8 0, int32 Field (-1 keeps the field), int32 X, Y, Z, uint16 Facing (65536 per turn), uint16 0, uint64 ActionTarget` | 40 |
+| `AttackRequest` | `uint8 Flags (1 held attack), uint8 0, uint64 Target (0 stops), uint64 Sequence` | 28 |
+| `FieldWarp` | `uint8 Flags (1 forced), uint8 0, int32 Field, int32 X, Z` (the client puts the owner on the floor) | 24 |
+| `CloseRequest` | `uint16 0` | 12 |
+
+A target beyond the world's 32-bit ids names nothing: the server drops such an attack and treats such an action target
+as none.
+
+Other field values:
+
 - The character slot record (character select) uses `dwArmorCode` and `dwTemp[13]` for the appearance data.
 - A full presence entry carries the descriptor revision (1 to 255) of the entity's description. The field
   keeps one revision per entity for every viewer (`FieldDescriptors`) and increments it when level, max HP, template,
@@ -148,7 +160,7 @@ The server validates client reports instead of trusting them (`WorldPlayer.Repor
   the reported point; a longer report may not cross a wall. A report is rejected when no walkable floor lies under it
   within 64 units of climb; the accepted height is the floor height.
 
-A rejected report is answered with `WARPFIELD` and `EParam` = 1 (at most every 300 ms). A field change in `wArea[0]` is
+A rejected report is answered with a forced `FieldWarp` (at most every 300 ms). A field change in the report is
 accepted only when the player stands at a warp gate or field gate leading to that field and meets its level limit
 (`FieldTransition.TryResolve`); otherwise the server forces the player back. The client walks into attack range itself,
 and the server swings only once the reported position is in range. Damage, experience, drops and inventory are computed
@@ -183,13 +195,13 @@ keep the `{size, code}` header and the 8192-byte frame limit.
 | `0x45540204` | `SkillCooldowns` | S→C | The owner's running cooldowns whenever the set changes. |
 | `0x45540300` | `ItemDetails` | S→C | The values of every owned item copy at an inventory revision, in parts sent before its `Inventory` parts. |
 | `0x45540301` | `OwnerItemStatus` | S→C | Carried and maximum weight, critical, block, range, attack speed, belt capacity, regeneration, magic mastery and the eight resistances; sent before every `OwnerStatus`. |
-| `0x45540400` / `0x45540401` | `ItemUseCommand` / `ItemUseResult` | C→S / S→C | Use of one carried item, correlated by operation id; a travel item also sends a forced `WARPFIELD`. |
+| `0x45540400` / `0x45540401` | `ItemUseCommand` / `ItemUseResult` | C→S / S→C | Use of one carried item, correlated by operation id; a travel item also sends a forced `FieldWarp`. |
 | `0x45540402` | `PremiumTimers` | S→C | The owner's running premium timers whenever they change. |
 | `0x45540403` | `ItemEffects` | S→C | Item effects around players (firecrackers, learn ring, mastery, pet strikes), on the presence timeline. |
 | `0x45540500` / `0x45540501` | `QuestRequest` / `QuestResult` | C→S / S→C | One quest step (talk, proceed, accept, class change, reward choice, skill redistribution), correlated by operation id (see below). |
 | `0x45540502` | `QuestJournal` | S→C | The owner's quest journal view whenever its revision changes. |
 | `0x45540503` | `QuestNotices` | S→C | Quest notices of the world tick and a quest dialog the world opened. |
-| `0x45540A00` / `0x45540A01` | `RestartRequest` / `RestartResult` | C→S / S→C | A dead player's restart (field, town, exit), correlated by operation id; a stored restart also sends a forced `WARPFIELD`. |
+| `0x45540A00` / `0x45540A01` | `RestartRequest` / `RestartResult` | C→S / S→C | A dead player's restart (field, town, exit), correlated by operation id; a stored restart also sends a forced `FieldWarp`. |
 | `0x45540A02` | `RestartOffer` | S→C | While the owner is dead, what a restart would cost, whenever it changes. |
 | `0x45540B00` / `0x45540B01` | `GroundItems` / `GroundItemsRemoved` | S→C | Drops entering and leaving the receiver's view: within the ground-item range (squared `0xC8000` units, about 905 units), private drops only to their owner. |
 | `0x45540C00` / `0x45540C01` | `ChatLine` / `ChatSay` | S→C / C→S | A chat line for the receiver; a typed line (spoken, command or party). Layouts and routing: [chat-and-gm.md](chat-and-gm.md#wire). |
@@ -342,9 +354,8 @@ interpolated ground speed, and a walk or run state without ground motion is show
 
 Every NPC message body starts with `{uint16 Version = 1, uint16 Flags = 0}`; readers accept newer versions that append
 fields, except `ShopQuotes`, whose list length is checked exactly. Text is UTF-8 with a `uint16` byte length (names up
-to 64 bytes, item names 40, messages 128, dialog lines 256), and counts are 32-bit. The click itself stays the original
-`ATTACK_DAMAGE` on the NPC serial; the server answers with `NpcResult` instead of the original whisper and
-service-window commands.
+to 64 bytes, item names 40, messages 128, dialog lines 256), and counts are 32-bit. The click itself is an
+`AttackRequest` on the NPC serial; the server answers with `NpcResult`.
 
 - `NpcResult`: `{uint32 NpcSerial, int32 Ok, text Name, text Message, int32 ServiceCount, services {uint8 Kind, uint8
   Available, uint16 0, int32 Value}, int32 LineCount, text lines}` (at most 32 services and 20 lines). `Kind` is
@@ -359,8 +370,7 @@ service-window commands.
   Revision, int64 StorageRevision, text Message}`. `Status` is `NpcServiceStatus` (`NotAvailable` for services Etervale
   does not run, `OutOfReach`, `Rejected`, `Stale`, `NotEnoughGold`, `NoSpace`, `GoldLimit`, `Busy`, `StorageFailed`,
   `Conflict`, `NotOpen`). The state messages a request produces (`ShopCatalog`, `ShopQuotes`, `Warehouse`,
-  `TeleportList`) carry the same operation id and precede the result. A teleport also sends `WARPFIELD` with `EParam` =
-  1.
+  `TeleportList`) carry the same operation id and precede the result. A teleport also sends a forced `FieldWarp`.
 
 The server checks every request against the NPC in the player's field (alive, within 96 units, offering the service),
 writes durable changes before applying them and records the operation id with the character, so a retried request
@@ -401,7 +411,7 @@ choices); a notice list is `{int32 Count, (uint8 Kind, uint8 0, text)...}` (at m
 
 The server answers a request only after a changed character is stored; the presence stream carries the journal and
 notices of the tick (kill counts, timers, duel results) to the owner alone. A step that sends the player to or from the
-quest arena arrives as the usual field confirmation `WARPFIELD`.
+quest arena arrives as the usual field confirmation `FieldWarp`.
 
 ## Server capacity
 
@@ -545,7 +555,7 @@ when the received version has it.
   (`SkillEvents`, `StatusEffects`, `SkillCooldowns`, `CombatEvents`, `Inventory`, ...) check `Remaining == count *
   EntrySize` exactly, so appending anything to them breaks every deployed reader; make readers version-aware first or
   add a new opcode.
-- A malformed packet that makes a `Read` throw closes the whole connection (`protocol: ...`), except `ATTACK_DAMAGE`.
+- A malformed packet that makes a `Read` throw closes the whole connection (`protocol: ...`).
 - `SkillCastStatus` (wire) and `SkillCastVerdict` (simulation), and `CombatEventKindView` and the client's combat kinds,
   are separate enums cast by value; `SkillWireTests` pins them. Change both sides together.
 - `DescribeEntity` is outside the packet flood count but has its own token bucket; a client that requests every serial

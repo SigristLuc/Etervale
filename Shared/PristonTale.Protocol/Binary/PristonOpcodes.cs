@@ -20,19 +20,9 @@ public static class PristonOpcodes
     public const uint CheckNetState4 = 0x48470090;
     public const uint CheckNetState5 = 0x48470091;
 
-    public const uint TransPlayData = 0x48470013;
     public const uint PlayerInfo = 0x48470020;
-    public const uint GetPlayerInfo = 0x48470021;
     public const uint FailConnect = 0x48470023;
-    public const uint AddExp = 0x48470031;
-    public const uint PlayerInfo2 = 0x48470032;
-    public const uint WarpField = 0x48470040;
     public const uint ServerInfo = 0x484700C0;
-    public const uint CloseClient = 0x484700E6;
-    public const uint SaveClient = 0x484700E8;
-
-    public const uint AttackDamage = 0x50322000;
-    public const uint AttackResult = 0x50322020;
 
     public static bool IsHeartbeat(uint code) => code is CheckNetState or CheckNetState2 or CheckNetState3 or CheckNetState4 or CheckNetState5;
 }
@@ -90,4 +80,9 @@ public static class EtervaleOpcodes
 
     public const uint ChatLine = 0x45540C00;
     public const uint ChatSay = 0x45540C01;
+
+    public const uint MovementReport = 0x45540D00;
+    public const uint AttackRequest = 0x45540D01;
+    public const uint FieldWarp = 0x45540D02;
+    public const uint CloseRequest = 0x45540D03;
 }

@@ -78,7 +78,7 @@ internal sealed class OnlinePlayChannel : IPlayChannel
     public async Task SendAttackAsync(uint targetEntityId, bool sustained, CancellationToken ct = default, ulong sequence = 0)
     {
         await _start.WaitAsync(ct);
-        _connection.SendAttackPacket(targetEntityId, sustained ? 1 : 0, sequence);
+        _connection.SendAttackRequest(targetEntityId, sustained, sequence);
     }
 
     public async Task SendSkillCastAsync(uint sequence, uint skillCode, uint targetEntityId, Vector3? point, CancellationToken ct = default)

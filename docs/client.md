@@ -170,7 +170,7 @@ Correlation rules (the original protocol has no request ids):
   their reply opcodes.
 - Inventory and progression commands carry a `Guid` operation id; `InventoryResult`/`ProgressionResult` complete the
   matching entry in `_operations`.
-- NPC interaction is an ATTACK_DAMAGE to the NPC serial; one request per NPC serial at a time; `NpcResult` completes it.
+- NPC interaction is an `AttackRequest` on the NPC serial; one request per NPC serial at a time; `NpcResult` completes it.
 - NPC service requests carry an operation id. Shop catalog, quotes, warehouse and teleport list messages arrive before
   `NpcServiceResult` and are collected on the pending `ServiceRequest`, then returned together as `NpcServiceReply`.
 - A receive-loop failure fails every pending request and completes the presence channel with the error; later calls
@@ -198,7 +198,7 @@ a pending buffer flushed by a single writer task (a backlog above 512 KiB closes
   status revisions match the received inventory and skills revisions. `OwnerItemDecoder` keeps the `ItemDetails` parts
   of a revision (attached to the items as `OwnedItemView.Details`) and the latest `OwnerItemStatus` (weight, critical,
   block, range, regeneration, resistances), folded into each published owner state.
-- Also decoded: `RemoveObjects`, `CombatEvents`, ground items (`GroundItems`/`GroundItemsRemoved`), WARPFIELD, `PresenceClock` (sets the
+- Also decoded: `RemoveObjects`, `CombatEvents`, ground items (`GroundItems`/`GroundItemsRemoved`), `FieldWarp`, `PresenceClock` (sets the
   server time stamped on later updates), skill events, status effects, cooldowns and cast results
   ([skills.md](skills.md)).
 
@@ -240,7 +240,7 @@ The client owns its own locomotion; the server validates and corrects.
   server-reported move speed (local derived stats until the first self state), slides against field collision
   (`MoveWithCollision`) and entity neighbours (`ResolveEntityCollision`) and follows the floor (`GroundTraversal`).
   Target reachability is checked with `GroundTraversal.CanReachSurface`.
-- Reports: `UpdateMovementReport` sends TRANSPLAYDATA (position in PT-global, facing, moving, running, action target,
+- Reports: `UpdateMovementReport` sends `MovementReport` (position in PT-global, facing, moving, running, action target,
   field code) every 200 ms while moving, every 1000 ms idle, and at once when motion, run mode, target or field
   changes, or when `_reportDue` is set, never twice within 50 ms (`MinReportGapMs`: the server closes a connection over
   251 packets in 5 s). The walk toward a skill target reports only a new destination (`ApproachReportDistance`).
@@ -248,7 +248,7 @@ The client owns its own locomotion; the server validates and corrects.
   reconcile (`AttackInputController.Reconcile` by sequence) and authoritative motions (Attack, Damage, Dead, Eat,
   the restart after death). The last echoed position is kept as `_serverPlanarPosition` for reach checks (NPC dialog,
   loot pickup).
-- Only WARPFIELD moves the avatar: a forced warp (server rejected a report) or a difference above 200 units snaps the
+- Only `FieldWarp` moves the avatar: a forced warp (server rejected a report) or a difference above 200 units snaps the
   body and camera. A warp to another field code activates that field if loaded, or requests it.
 - Field changes are local: across a seamless border the active field becomes the loaded field with the highest floor
   under the player (`UpdateActiveField`); warp gates are detected in `UpdateWarps` (level limit checked), and
@@ -422,7 +422,7 @@ budget; never read files in `Update`/`Draw` after `BeginRemotePresence`. Resolve
 - `GameScene` planar vectors are `(x, worldZ)`, not `(x, ptZ)`; `EnteredCharacter.SpawnZ` and field gate coordinates
   are PT-global and are negated when placed.
 - Self state echoes intentionally do not move the local avatar; adding a position correction from them causes rubber
-  banding. Use WARPFIELD (forced) on the server for corrections.
+  banding. Use a forced `FieldWarp` on the server for corrections.
 - `RenderPortrait` must run before the world draw: binding its render target discards the back buffer contents.
 - The presence channels are bounded; if the game thread stops draining (more than 64 updates per frame sustained), the
   receive loop's `TryWrite` fails and the connection ends.

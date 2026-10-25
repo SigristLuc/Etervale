@@ -46,8 +46,7 @@ internal static class ChatClientTests
             && update!.Chat.Single() == new ChatLineInfo(0x80, 42, "Ann: olá"), "a spoken line lost its speaker or text");
         var wide = new ChatLinePacket(ChatChannelCode.Player, 1UL << 40, "far");
         Assert.True(ChatLinePacket.Read(buffer.AsSpan(0, wide.Write(buffer))).Speaker == 1UL << 40, "64-bit speakers round trip");
-        var close = new TransCommand(PristonOpcodes.CloseClient, 0, 0);
-        Assert.True(decoder.TryHandle(buffer.AsSpan(0, close.Write(buffer)), out update) && update!.CloseRequested, "the close request did not decode");
+        Assert.True(decoder.TryHandle(buffer.AsSpan(0, CloseRequestPacket.Write(buffer)), out update) && update!.CloseRequested, "the close request did not decode");
         Assert.True(ChatChannelCode.Party == (byte)Application.Chat.ChatKind.Party && ChatChannelCode.Player == (byte)Application.Chat.ChatKind.Player
             && ChatChannelCode.Assist == (byte)Application.Chat.ChatKind.Assist, "the wire channel codes and the chat kinds must stay equal");
         return Task.CompletedTask;

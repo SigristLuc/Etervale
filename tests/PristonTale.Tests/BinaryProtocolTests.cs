@@ -17,7 +17,7 @@ internal static class BinaryProtocolTests
         yield return ("Priston server list preserves the classic field layout and counts", ServerListAsync);
         yield return ("character info and PLAYERINFO keep the 32-bit x86 layout", CharacterInfoAsync);
         yield return ("character list is 1484 bytes with 240-byte character slots", CharacterListAsync);
-        yield return ("ATTACK_DAMAGE uses the damage checksum and damage cipher keyed by the sender serial", AttackDamageAsync);
+        yield return ("movement reports, attack requests and field warps round-trip with 64-bit targets and sequences", PlayerActionsAsync);
         yield return ("RECORDDATA chunks follow the original chunk totals", RecordChunksAsync);
         yield return ("replay window rejects repeats and stale counters and survives the 16-bit wrap", ReplayWindowAsync);
         yield return ("TCP connection delivers encrypted and plain packets and coalesces sends", ConnectionAsync);
@@ -138,25 +138,25 @@ internal static class BinaryProtocolTests
         return Task.CompletedTask;
     }
 
-    private static Task AttackDamageAsync()
+    private static Task PlayerActionsAsync()
     {
-        var attack = new AttackDamagePacket(0x4000_0010, 0x4000_0020, 256, 0, -512, 1, 48 * 256, 10, 20, 0, 1234, 7, 0, 3);
-        var packet = new byte[AttackDamagePacket.Size];
-        Assert.True(attack.Write(packet) == 92, "ATTACK_DAMAGE is not 92 bytes");
-        Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(4)) == PristonOpcodes.AttackDamage
-            && BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(16)) != 0x4000_0020, "damage cipher left the target serial readable");
-        Assert.True(AttackDamagePacket.Read(packet, 0x4000_0010) == attack, "ATTACK_DAMAGE round trip changed fields");
-        var rejected = false;
-        try
-        {
-            AttackDamagePacket.Read(packet, 0x4000_0011);
-        }
-        catch (InvalidDataException)
-        {
-            rejected = true;
-        }
+        var buffer = new byte[PristonFrameCodec.MaxFrameSize];
+        var report = new MovementReportPacket(PresenceMotion.Run, 3, new System.Numerics.Vector3(1024.5f, -12.25f, -999_999f), MathF.PI / 2,
+            0x1_0000_0002UL);
+        Assert.True(report.Write(buffer) == MovementReportPacket.Size, "movement report size changed");
+        var read = MovementReportPacket.Read(buffer.AsSpan(0, MovementReportPacket.Size));
+        Assert.True(read with { Facing = report.Facing } == report && MathF.Abs(read.Facing - report.Facing) < 1e-4f && read.Moving,
+            $"movement report read back as {read}");
+        buffer[10] = PresenceMotion.Attack;
+        Assert.ThrowsAsync(() => Task.Run(() => MovementReportPacket.Read(buffer.AsSpan(0, MovementReportPacket.Size).ToArray()))).Wait();
 
-        Assert.True(rejected, "a packet decoded with another serial passed the checksum");
+        var attack = new AttackRequestPacket(0x1_0000_0003UL, true, ulong.MaxValue - 1);
+        Assert.True(AttackRequestPacket.Read(buffer.AsSpan(0, attack.Write(buffer))) == attack, "attack request round trip changed fields");
+        buffer[10] = 2;
+        Assert.ThrowsAsync(() => Task.Run(() => AttackRequestPacket.Read(buffer.AsSpan(0, AttackRequestPacket.Size).ToArray()))).Wait();
+
+        var warp = new FieldWarpPacket(21, 512.5f, -256.25f, true);
+        Assert.True(FieldWarpPacket.Read(buffer.AsSpan(0, warp.Write(buffer))) == warp, "field warp round trip changed fields");
         return Task.CompletedTask;
     }
 
@@ -229,7 +229,7 @@ internal static class BinaryProtocolTests
         Assert.True(sender.SendEncrypted(buffer), "encrypted send was refused");
         for (var index = 0; index < 100; index++)
         {
-            new TransCommand(PristonOpcodes.GetPlayerInfo, 0, index).Write(buffer);
+            new TransCommand(EtervaleOpcodes.DescribeEntity, 0, index).Write(buffer);
             sender.Send(buffer);
         }
 

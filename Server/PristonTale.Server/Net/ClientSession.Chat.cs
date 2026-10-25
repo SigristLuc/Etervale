@@ -67,11 +67,9 @@ internal sealed partial class ClientSession
 
         public void Deliver(ChatLine line) => owner.SendChat(line);
 
-        // WARPFIELD {LParam = Z, WParam = field, SParam = X, EParam 1 = forced}.
-        public void Warp(int fieldId, Vector3 position) => owner.Send(new TransCommand(PristonOpcodes.WarpField, PristonUnits.ToFixed(position.Z), fieldId,
-            PristonUnits.ToFixed(position.X), 1), encrypt: true);
+        public void Warp(int fieldId, Vector3 position) => owner.SendWarp(fieldId, position);
 
-        public void RequestClose() => owner.Send(new TransCommand(PristonOpcodes.CloseClient, 0, 0), encrypt: true);
+        public void RequestClose() => owner.SendLarge(CloseRequestPacket.Write, CloseRequestPacket.Size, encrypt: true);
 
         public void Disconnect(string reason) => owner._connection.Close(reason);
     }

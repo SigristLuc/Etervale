@@ -68,7 +68,7 @@ and draws the result.
    inventory, re-applies the character part to the live character with the same clock, and the world part: scroll and
    force orb effects, hair, the mobile shop flag, crystal monsters, castle items, the Restoration revive, the eat motion
    of foods and boxes, Virtual Life, item effects and the field change of travel items.
-5. The result (`ItemUseResult`) carries `ItemUseStatus`; a field change also sends a forced `WARPFIELD`.
+5. The result (`ItemUseResult`) carries `ItemUseStatus`; a field change also sends a forced `FieldWarp`.
 
 | Status | Meaning |
 | --- | --- |

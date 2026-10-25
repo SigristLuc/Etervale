@@ -84,7 +84,7 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.CombatEvents => OnCombatEvents(CombatEventList.Read(packet)),
             EtervaleOpcodes.GroundItems => OnGroundItems(GroundItemList.Read(packet)),
             EtervaleOpcodes.GroundItemsRemoved => Update([], []) with { GroundRemoved = GroundItemRemovals.Read(packet) },
-            PristonOpcodes.WarpField => OnWarpField(TransCommand.Read(packet)),
+            EtervaleOpcodes.FieldWarp => OnFieldWarp(FieldWarpPacket.Read(packet)),
             EtervaleOpcodes.OwnerStatus => OnOwnerStatus(OwnerStatusPacket.Read(packet)),
             EtervaleOpcodes.Inventory => OnInventory(InventoryPartPacket.Read(packet)),
             EtervaleOpcodes.Skills => OnSkills(SkillsPacket.Read(packet)),
@@ -101,16 +101,16 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.QuestJournal => Update([], []) with { Quest = QuestWireReader.ToView(QuestJournalPacket.Read(packet)) },
             EtervaleOpcodes.QuestNotices => OnQuestNotices(QuestNoticesPacket.Read(packet)),
             EtervaleOpcodes.ChatLine => OnChat(ChatLinePacket.Read(packet)),
-            PristonOpcodes.CloseClient => Update([], []) with { CloseRequested = true },
+            EtervaleOpcodes.CloseRequest => OnCloseRequest(packet),
             _ => null
         };
         return update is not null || code is EtervaleOpcodes.PresenceEntries or EtervaleOpcodes.EntityDescription or EtervaleOpcodes.RemoveObjects
-            or EtervaleOpcodes.CombatEvents or EtervaleOpcodes.GroundItems or EtervaleOpcodes.GroundItemsRemoved or PristonOpcodes.WarpField
+            or EtervaleOpcodes.CombatEvents or EtervaleOpcodes.GroundItems or EtervaleOpcodes.GroundItemsRemoved or EtervaleOpcodes.FieldWarp
             or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills or EtervaleOpcodes.PresenceClock
             or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult
             or EtervaleOpcodes.ItemDetails or EtervaleOpcodes.OwnerItemStatus
             or EtervaleOpcodes.PremiumTimers or EtervaleOpcodes.ItemEffects or EtervaleOpcodes.RestartOffer or EtervaleOpcodes.QuestJournal or EtervaleOpcodes.QuestNotices
-            or EtervaleOpcodes.ChatLine or PristonOpcodes.CloseClient;
+            or EtervaleOpcodes.ChatLine or EtervaleOpcodes.CloseRequest;
     }
 
     private PresenceUpdate OnChat(ChatLinePacket packet) =>
@@ -397,19 +397,24 @@ internal sealed class PresenceDecoder
         return Update([], []) with { GroundAdded = added };
     }
 
-    // WARPFIELD {WParam = FieldCode, SParam = x, LParam = z}; Etervale sets EParam = 1 when it rejects a report.
-    public PresenceUpdate OnWarpField(TransCommand command)
+    public PresenceUpdate OnFieldWarp(FieldWarpPacket warp)
     {
-        FieldId = command.WParam;
+        FieldId = warp.Field;
         _objects.TryGetValue(SelfSerial, out var self);
         var y = self?.Position.Y ?? 0f;
-        var position = new Vector3(PristonUnits.FromFixed(command.SParam), y, PristonUnits.FromFixed(command.LParam));
+        var position = new Vector3(warp.X, y, warp.Z);
         if (self is not null)
         {
             self.Position = position;
         }
 
-        return Update([], []) with { Warp = new WarpInfo(command.WParam, position, command.EParam == 1) };
+        return Update([], []) with { Warp = new WarpInfo(warp.Field, position, warp.Forced) };
+    }
+
+    private PresenceUpdate OnCloseRequest(ReadOnlySpan<byte> packet)
+    {
+        CloseRequestPacket.Read(packet);
+        return Update([], []) with { CloseRequested = true };
     }
 
     public PresenceUpdate? OnOwnerStatus(OwnerStatusPacket status)

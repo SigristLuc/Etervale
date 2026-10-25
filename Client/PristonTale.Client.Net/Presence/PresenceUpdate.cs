@@ -15,7 +15,7 @@ public sealed record PresenceUpdate(
     public IReadOnlyList<PristonTale.Simulation.World.Loot.GroundDropView> GroundAdded { get; init; } = [];
     public IReadOnlyList<Guid> GroundRemoved { get; init; } = [];
 
-    // WARPFIELD for the local player: a forced correction after a rejected report, otherwise a field confirmation.
+    // FieldWarp for the local player: a forced correction after a rejected report, otherwise a field confirmation.
     public WarpInfo? Warp { get; init; }
 
     // Server simulation time of a freshly received group or event list (PresenceClock extension); null otherwise.

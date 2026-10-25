@@ -201,9 +201,8 @@ internal sealed partial class PresenceEncoder
             }
 
             _field = field;
-            // WARPFIELD {WParam = FieldCode, SParam = x, LParam = z}: confirms the authoritative field and position.
-            SendCommand(connection, new TransCommand(PristonOpcodes.WarpField, PristonUnits.ToFixed(self.Position.Z), field,
-                PristonUnits.ToFixed(self.Position.X)), encrypt: true);
+            // Confirms the authoritative field and position.
+            connection.SendEncrypted(_scratch.AsSpan(0, new FieldWarpPacket(field, self.Position.X, self.Position.Z, Forced: false).Write(_scratch)));
         }
 
         var tick = snapshot.ServerTick;
@@ -784,19 +783,6 @@ internal sealed partial class PresenceEncoder
         _clockPending = false;
         var length = new PresenceClockPacket(_clockTick, TickIntervalMs).Write(_scratch);
         connection.Send(_scratch.AsSpan(0, length));
-    }
-
-    private void SendCommand(IPacketSink connection, TransCommand command, bool encrypt)
-    {
-        var length = command.Write(_scratch);
-        if (encrypt)
-        {
-            connection.SendEncrypted(_scratch.AsSpan(0, length));
-        }
-        else
-        {
-            connection.Send(_scratch.AsSpan(0, length));
-        }
     }
 
     private static int DescriptorHash(in EntityView view)
