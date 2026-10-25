@@ -1521,7 +1521,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         }
         else if (_holdMove && !PointerCaptured && !SelfCasting && !_selfAttacking)
         {
-            SetMoveTarget(mouse);
+            SteerToCursor(mouse);
         }
 
         if (_attackInput.Release(mouse.LeftButton == ButtonState.Pressed, mouse.RightButton == ButtonState.Pressed) is { } release)
@@ -1536,7 +1536,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         UpdateAttackPresentation(gameTime);
         if (_followCursor && !PointerCaptured && !SelfCasting)
         {
-            SetMoveTarget(mouse);
+            SteerToCursor(mouse);
         }
 
         if (_hasMoveTarget && !_playerController.LocomotionFrozen && !_selfAttacking && !SelfCasting && !SelfStunned)
@@ -1652,6 +1652,21 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _hasMoveTarget = true;
         return true;
     }
+
+    // Steering toward the cursor each frame ignores a cursor on or beside the player: there the direction flips from frame
+    // to frame and the avatar spins in place, so the walk keeps its previous destination.
+    private void SteerToCursor(MouseState mouse)
+    {
+        var previous = _moveTarget;
+        var hadTarget = _hasMoveTarget;
+        if (SetMoveTarget(mouse) && Vector2.DistanceSquared(_moveTarget, _playerBody.PlanarPosition) < SteerDeadZone * SteerDeadZone)
+        {
+            _moveTarget = previous;
+            _hasMoveTarget = hadTarget;
+        }
+    }
+
+    private const float SteerDeadZone = PlayerRadius * 2f;
 
     private bool TryCursorRay(MouseState mouse, out Ray ray)
     {
