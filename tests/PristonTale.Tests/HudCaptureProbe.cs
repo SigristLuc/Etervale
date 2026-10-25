@@ -42,7 +42,9 @@ internal sealed class HudCaptureProbe : Game
         Buff,
         QuestTimer,
         ClassChange,
-        QuestOk
+        QuestOk,
+        RestartField,
+        RestartTown
     }
 
     // Quest states a scenario sets up: the server's answer to the talk, the journal and the clicks that follow.
@@ -69,11 +71,15 @@ internal sealed class HudCaptureProbe : Game
         PlayerClass Class = PlayerClass.Mechanician, bool Npc = false, bool Settings = false, bool SystemMenu = false, bool Learned = false,
         bool Training = false, bool LowHealth = false, float Hour = 13, bool ClassicTarget = false, uint Target = 2, uint NpcId = SkillMasterNpc,
         int ServiceButton = -1, bool SellMode = false, int ServiceCount = 2, int RightSelect = -1, bool Buffs = false, bool Block = false,
-        ProbeQuest Quest = ProbeQuest.None);
+        ProbeQuest Quest = ProbeQuest.None, bool Dead = false, bool FieldOpen = true);
 
     private static readonly Scenario[] Scenarios =
     [
         new("bar-800", 800, 600),
+        new("restart-800", 800, 600, Dead: true),
+        new("restart-field-hover-800", 800, 600, Hover: Hover.RestartField, Dead: true),
+        new("restart-field-refused-800", 800, 600, Hover: Hover.RestartField, Dead: true, FieldOpen: false),
+        new("restart-town-hover-1600x1200-scale2", 1600, 1200, Hover: Hover.RestartTown, Dead: true),
         new("buffs-800", 800, 600, Buffs: true),
         new("buffs-summon-tooltip-800", 800, 600, Hover: Hover.Buff, Buffs: true),
         new("buffs-1600x1200-scale2", 1600, 1200, Buffs: true),
@@ -274,6 +280,8 @@ internal sealed class HudCaptureProbe : Game
             _hud.SelfId = 1;
             _hud.SkillClockMs = BuffClockMs;
             _hud.SummonAutomatic = code => code == MetalGolem ? true : null;
+            _hud.PlayerDead = scenario.Dead;
+            _hud.RestartOffer = scenario.Dead ? new PristonTale.Simulation.Progression.RestartOffer(scenario.FieldOpen, false, 0, 0) : null;
             _presentation.Requested = _presentation.Requested with { ClassicTargetHealthBar = scenario.ClassicTarget };
             var state = ScenarioState(scenario);
             var layout = HudLayout.Create(scenario.Width, scenario.Height);
@@ -351,7 +359,8 @@ internal sealed class HudCaptureProbe : Game
 
     protected override void Draw(GameTime gameTime)
     {
-        if (!_prepared || !_hud.IsReady || !_hud.IconsIdle || _scenario >= Scenarios.Length)
+        // A dead scenario waits for the restart window to open after the death motion.
+        if (!_prepared || !_hud.IsReady || !_hud.IconsIdle || _scenario >= Scenarios.Length || Scenarios[_scenario].Dead && !_hud.Restart.Open)
         {
             GraphicsDevice.SetRenderTarget(null);
             return;
@@ -416,6 +425,8 @@ internal sealed class HudCaptureProbe : Game
             Hover.QuestTimer => new Point(10 + 16, 26),
             Hover.ClassChange => HudNpcPanel.ClassChangeButton(layout).Center,
             Hover.QuestOk => HudQuestDialog.OkButton.Center,
+            Hover.RestartField => HudRestartPanel.Button(layout, PristonTale.Application.World.RestartChoice.Field).Center,
+            Hover.RestartTown => HudRestartPanel.Button(layout, PristonTale.Application.World.RestartChoice.Town).Center,
             _ => new Point(layout.Width - 200, layout.Height / 2)
         };
         return new MouseState(point.X * layout.Scale, point.Y * layout.Scale, 0,

@@ -526,6 +526,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 ObserveEffects(update);
                 ObserveSkills(update);
                 ObserveItems(update);
+                ObserveRestart(update);
                 PresenceObserved?.Invoke(update);
             }
 

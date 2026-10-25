@@ -189,7 +189,7 @@ Durable entry points (`Prepare*Async`, `Commit*Async`, `CheckNpcServiceAsync`, `
 2. Spawner: maintain population and despawns for wild monsters; scheduled bosses when the hour pass is due.
 3. Rebuild the collision index; step wild monsters (AI brain, swing-begin events, `MoveMonster`, hit resolution).
 4. Step summons, then NPC wander with entity collision and terrain step.
-5. Per player: respawn countdown when dead; else action tick (swing hit), potion tick and pending potion start, attack
+5. Per player: the time down when dead (`TickDead`); else action tick (swing hit), potion tick and pending potion start, attack
    lock (`StepPlayerAttack`), stale-motion expiry.
 6. `FieldSkills.Step` (cast timelines, projectiles, familiars, pulses, effect timers, regeneration), then place skill
    kill payouts as loot; `FieldPremium.Step` expires premium timers, returns vampiric life and mana per attack and runs
@@ -204,8 +204,21 @@ Durable entry points (`Prepare*Async`, `Commit*Async`, `CheckNpcServiceAsync`, `
   within 8 units; the
   floor must be within 64 units of climb. Height is always the server's floor. Busy players (swing, flinch, eat,
   cast) ignore drift up to 192 units and reject larger. A move without an action target drops the attack lock.
-- Motion stops showing after 1.5 s without reports. Death clears actions and potion; respawn after 5000 ms at the
-  field respawn point with full life, mana and stamina. `Revive` brings a player back in place with a damage guard.
+- Motion stops showing after 1.5 s without reports. Death clears actions and potion; the player stays down until it
+  restarts (below) or a revive reaches it. `Revive` brings a player back in place with a damage guard.
+- Death and restart (`Simulation/Progression/DeathPenalty.cs`, `World/RestartTransactions.cs`, `WorldServer.Restart.cs`,
+  `Services/RestartAppService.cs`): while down, every owner snapshot carries a `RestartOffer` (field restart open,
+  Resurrection Scroll carried, the death's experience and gold shares). A `RestartRequest` (field, town, exit) is a
+  durable operation: the tick prepares a candidate that uses up a carried BI104 or else takes the death's share (from
+  level 11: a thirty-third of the level's experience span and of the gold, a fiftieth at level 85+ after the level 85
+  quest, nothing in the castle field), refuses the field restart when it is closed (castle field; below level 11 outside
+  a forest; from level 11 when the experience above the level's start no longer covers a hundredth of the span), and in
+  the field takes that hundredth of experience and gold unless the scroll was used. Experience never drops below the
+  level's start. The candidate stands up at half life (mana and stamina as they were) at the field's start point
+  nearest to where it fell, or at a random start point of its town (Ricarten for Fighter to Pikeman and the assassin,
+  Pillai for the Morion classes); the record is stored, then the tick moves the player there, revives it with a 10 s
+  guard and sends a revive event. A save while down (leaving the world, disconnecting) stores the town restart with its
+  costs instead, so leaving neither skips the penalty nor brings the player back dead.
 - Field changes (`MoveToFieldAsync`): the requested position is never used. A gate keeps the current position
   (`CrossGate`); a warp places the player at the catalog exit, settled on the floor. `FieldTransition` accepts a warp
   gate within `max(width, 48) + 64` of the player (level and destination level checked, special effect 2 excluded) or

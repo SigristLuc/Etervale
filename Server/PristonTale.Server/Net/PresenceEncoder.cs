@@ -60,6 +60,7 @@ internal sealed partial class PresenceEncoder
     private bool _clockPending;
     private uint _pass;
     private SharedPresenceWire? _wire;
+    private Simulation.Progression.RestartOffer? _restartOffer;
     private PresenceFrame? _heldFrame;
     private EntityView[] _describeViews = [];
     private EntityGrid? _describeGrid;
@@ -330,9 +331,26 @@ internal sealed partial class PresenceEncoder
         SendOwner(snapshot.Owner, connection);
         SendPremium(snapshot.Owner, connection);
         SendCooldowns(snapshot, connection);
+        SendRestartOffer(snapshot.Restart, connection);
         if (snapshot.Quest is not null)
         {
             SendQuest(snapshot.Quest, connection);
+        }
+    }
+
+    // A dead receiver learns what standing up would cost whenever that changes.
+    private void SendRestartOffer(Simulation.Progression.RestartOffer? offer, IPacketSink connection)
+    {
+        if (offer == _restartOffer)
+        {
+            return;
+        }
+
+        _restartOffer = offer;
+        if (offer is { } current)
+        {
+            var packet = new RestartOfferPacket(current.FieldOpen, current.Scroll, current.ExperienceShare, current.GoldShare);
+            connection.Send(_scratch.AsSpan(0, packet.Write(_scratch)));
         }
     }
 

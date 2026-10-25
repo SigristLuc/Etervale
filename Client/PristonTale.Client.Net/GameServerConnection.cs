@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Numerics;
 using System.Threading.Channels;
+using PristonTale.Application.World;
 using PristonTale.Application.Services;
 using PristonTale.Client.Net.Online;
 using PristonTale.Client.Net.Presence;
@@ -41,6 +42,7 @@ public sealed class GameServerConnection : IGameBackend
     private readonly RecordDataAssembler _record = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<OperationResultPacket>> _operations = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<ItemUseResultPacket>> _itemUses = new();
+    private readonly ConcurrentDictionary<Guid, TaskCompletionSource<RestartResultPacket>> _restarts = new();
     private readonly ConcurrentDictionary<uint, NpcRequest> _npcRequests = new();
     private readonly ConcurrentDictionary<Guid, ServiceRequest> _serviceRequests = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<QuestOutcome>> _questRequests = new();
@@ -273,6 +275,30 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
+    // A dead player's restart; the new place arrives as a forced WARPFIELD and the presence stream.
+    internal async Task<RestartOutcome> RestartAsync(RestartChoice choice, CancellationToken ct)
+    {
+        ThrowIfDisconnected();
+        var operation = Guid.NewGuid();
+        var pending = new TaskCompletionSource<RestartResultPacket>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _restarts[operation] = pending;
+        try
+        {
+            var packet = new RestartRequestPacket(operation, (byte)choice);
+            lock (_sendGate)
+            {
+                Connection.SendEncrypted(_scratch.AsSpan(0, packet.Write(_scratch)));
+            }
+
+            var result = await pending.Task.WaitAsync(ct);
+            return new RestartOutcome((RestartStatus)result.Status, (RestartChoice)result.Choice, result.ExperienceLost, result.GoldLost, result.ScrollUsed);
+        }
+        finally
+        {
+            _restarts.TryRemove(operation, out _);
+        }
+    }
+
     internal async Task<ProgressionOutcome> ApplyProgressionAsync(ProgressionCommand command, CancellationToken ct)
     {
         var packet = new ProgressionCommandPacket(command.OperationId, command.ExpectedRevision, (int)command.Action, (int)command.Attribute,
@@ -501,6 +527,11 @@ public sealed class GameServerConnection : IGameBackend
                 pending.TrySetException(error);
             }
 
+            foreach (var pending in _restarts.Values)
+            {
+                pending.TrySetException(error);
+            }
+
             foreach (var pending in _npcRequests.Values)
             {
                 pending.Completion.TrySetException(error);
@@ -595,6 +626,16 @@ public sealed class GameServerConnection : IGameBackend
                 if (_operations.TryGetValue(result.OperationId, out var pending))
                 {
                     pending.TrySetResult(result);
+                }
+
+                break;
+            }
+            case EtervaleOpcodes.RestartResult:
+            {
+                var restart = RestartResultPacket.Read(packet);
+                if (_restarts.TryGetValue(restart.OperationId, out var waiting))
+                {
+                    waiting.TrySetResult(restart);
                 }
 
                 break;

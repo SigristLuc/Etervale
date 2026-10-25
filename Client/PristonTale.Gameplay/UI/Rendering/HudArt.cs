@@ -34,8 +34,13 @@ public static class HudArt
     public const string SystemSettings = Inter + "Settings.bmp";
     public const string SystemHelp = Inter + "Option.bmp";
     public const string SystemExit = Inter + "Exit.bmp";
-    public const string SkillMasterBox = Inter + "ReStart/ReStartMain.bmp";
-    public const string SkillMasterExit = Inter + "ReStart/ReStart_Exit.bmp";
+    // The restart window of a dead player; the skill master's box reuses its frame and exit button.
+    public const string RestartMain = Inter + "ReStart/ReStartMain.bmp";
+    public const string RestartField = Inter + "ReStart/ReStart_Field.bmp";
+    public const string RestartTown = Inter + "ReStart/ReStart_Town.bmp";
+    public const string RestartExit = Inter + "ReStart/ReStart_Exit.bmp";
+    public const string SkillMasterBox = RestartMain;
+    public const string SkillMasterExit = RestartExit;
     public const string SelectSkill = Inter + "SkillIcon/Select_Skill.bmp";
     public const string SelectSkillGray = Inter + "SkillIcon/G_Select_Skill.bmp";
     public const string SelectJobGray = Inter + "SkillIcon/G_Select_ChangeJob.bmp";
@@ -118,7 +123,7 @@ public static class HudArt
     [
         Menu1, Menu2, GrowLeft, GrowMiddle, GrowRight, Life, Mana, Stamina, Experience, Time, Sun, Moon,
         Walk, CameraAuto, CameraFixed, MapOn, RunInfo, WalkInfo, CameraHandInfo, MapOnInfo, MapOffInfo,
-        SystemMenu, SystemSettings, SystemHelp, SystemExit, SkillMasterBox, SkillMasterExit, SelectSkill, SelectSkillGray, SelectJobGray, SelectJob,
+        SystemMenu, SystemSettings, SystemHelp, SystemExit, RestartMain, RestartField, RestartTown, RestartExit, SelectSkill, SelectSkillGray, SelectJobGray, SelectJob,
         .. MenuButtons, .. MenuButtonsDown, .. MenuInfo,
         SkillNormal, SkillWindow, SkillSelect, SkillGauge, SkillGaugeBack, SkillGaugePassive, .. ShortKeys,
         Inventory, PuzzleBoard, CoverLarge, CoverMiddle, CoverSmall, PotionBack, Status, StatusPoint, StatusArrow, StatusArrowDown,

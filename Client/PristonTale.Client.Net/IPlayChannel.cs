@@ -1,4 +1,5 @@
 using System.Numerics;
+using PristonTale.Application.World;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
@@ -22,6 +23,10 @@ public interface IPlayChannel : IAsyncDisposable
     // Uses one owned item (premium items, travel items, firecrackers); the server consumes it and applies the effect.
     Task<ItemUseOutcome> UseItemAsync(ItemUseCommand command, CancellationToken ct = default) =>
         Task.FromResult(ItemUseOutcome.Refused(command.ExpectedRevision, ItemUseStatus.NotUsable));
+
+    // A dead player chooses where to stand up; the server takes the death's costs and places it.
+    Task<RestartOutcome> RestartAsync(RestartChoice choice, CancellationToken ct = default) =>
+        Task.FromResult(new RestartOutcome(RestartStatus.Rejected, choice));
 
     // TRANSPLAYDATA: the client's own position (PT-global coordinates), motion and action target, plus its field code.
     Task SendMovementAsync(Vector3 position, float facing, bool moving, bool running, uint actionTarget, int fieldCode, CancellationToken ct = default);

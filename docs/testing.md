@@ -38,6 +38,7 @@ Default case files by area (all `tests/PristonTale.Tests/<Name>.cs`):
 | Usable items | `SpecialItemTests` | Item rules, premium timers and formulas, use flow, pets, persistence, wire |
 | Crystals | `MonsterCrystalTests` | Crystal tables, pet summon and hunt, the shared delay, clan, mercenary, soul and town refusals |
 | Castle items | `CastleItemTests` | Castle-only scrolls and stones, scroll exclusions and replacement, leaving the castle, Restoration |
+| Death and restart | `DeathPenaltyTests` | Death shares, the level 85 reduction, castle exemption, field rule, towns; town and field restarts stored and applied; the Resurrection Scroll; a refused field restart; saving while dead; the restart window's timing |
 | Event items | `EventItemTests` | Foods, gift boxes, chocolates, the soccer-ball head, boosters (offline pause), skill delay, item events |
 | Puzzles | `PuzzleTests` | Lucky bag seal and reveal, board completion and exchange, sealed ground drops |
 | Equipment | `EquipmentTests`, `RangedEquipmentTests` | Catalog rules, hands, class masks, bone attachments |
@@ -165,7 +166,7 @@ when reading those assets is authorized. GPU probes:
 | `--check-look <mode> <assets> <content> <output-dir>` | yes | Fails on look regressions; `mode` is `charselect`, `actor`, `opening`, `scenery` or `shade` |
 | `--profile-stream <assets> <content>` | yes | Incremental stage upload with the game's policy at a fixed 60 Hz |
 | `--profile-stream-baseline <assets> <content>` | yes | Same with an 8-step upload limit for comparison |
-| `--capture-hud <assets> <content> <output-dir> [<background.png>]` | yes | In-game HUD scenarios to PNG (scales 2 and 3, `npc-*` dialogs, `buffs-*` continuous-skill bar, `quest-*` quest dialog, boxes, window and timer, `skill-right-select` prints the right socket after a right click) |
+| `--capture-hud <assets> <content> <output-dir> [<background.png>]` | yes | In-game HUD scenarios to PNG (scales 2 and 3, `npc-*` dialogs, `buffs-*` continuous-skill bar, `restart-*` restart window, `quest-*` quest dialog, boxes, window and timer, `skill-right-select` prints the right socket after a right click) |
 | `--capture-hud-target <assets> <content> <output-dir>` | yes | Ricarten at 14:00 with remote-roster entities; target frame, bar, resolutions |
 | `--capture-chat <assets> <content> <output-dir> [<background.png>]` | yes | Chat window open, closed, unfocused, per tab, assistant split and page, shrunk beside the inventory, at 1280x720 and scale 2; speech bubbles over players, an NPC and a monster |
 | `--capture-item-hud <assets> <content> <output-dir>` | yes | Premium timer column, hover and blink, Teleport Core pages and confirmation, item tooltips (orb, package, crystal, gift box, chocolate, castle stone, lucky bag), item effects, castle items and boosters in the effects bar, the puzzle board, finished puzzle and collector question |

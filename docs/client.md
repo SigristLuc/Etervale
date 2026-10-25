@@ -246,7 +246,7 @@ The client owns its own locomotion; the server validates and corrects.
   251 packets in 5 s). The walk toward a skill target reports only a new destination (`ApproachReportDistance`).
 - Server echoes of the self state do not move the avatar. They update HP, move speed, attack rate, the attack-target
   reconcile (`AttackInputController.Reconcile` by sequence) and authoritative motions (Attack, Damage, Dead, Eat,
-  respawn after death). The last echoed position is kept as `_serverPlanarPosition` for reach checks (NPC dialog,
+  the restart after death). The last echoed position is kept as `_serverPlanarPosition` for reach checks (NPC dialog,
   loot pickup).
 - Only WARPFIELD moves the avatar: a forced warp (server rejected a report) or a difference above 200 units snaps the
   body and camera. A warp to another field code activates that field if loaded, or requests it.
@@ -310,6 +310,11 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   equipment slot equips, right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
   slot first), drinks a potion or uses a usable item (`HudItemUseController`: the Teleport Core window, confirmations,
   the item-use request). One command in flight; it carries the `InventoryRevision` it was built from.
+- Restart window (`HudRestartPanel`): opens 100 death-motion frames (about 1.4 s) after the local player falls, centred
+  100 pixels above the middle; field, town and exit buttons light up under the pointer with their help lines; the field
+  button stays dark with red help where the server's `RestartOffer` says the field restart is closed (nothing in the
+  castle field). The town is chosen after 20 s open; a refused or busy answer opens it again, a stored exit quits the
+  game. The scene (`GameScene.Restart.cs`) keeps the last offer and sends `RestartAsync`.
 - Inventory window (`HudInventoryPanel`): carried/maximum weight centred in x 326..406 at y 471 of the window; items the
   character cannot use (level, attributes or class against `OwnedItemView.Details`, re-checked on every owner state)
   get the original red cell tint, in the bag and in their equipment slot, and the slot under a dragged unusable item

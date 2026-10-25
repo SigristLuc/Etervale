@@ -206,8 +206,8 @@ internal static class DomainTests
         Assert.True(player.ReportMovement(new Vector3(150, 0, 100), 0f, true, false, 0, 1000) == MovementVerdict.Accepted && player.Position.X == 150,
             "walk report after a gate rejected");
         player.ApplyDamage(int.MaxValue);
-        player.TickRespawn(WorldPlayer.RespawnDelayMs);
-        Assert.True(player.Position == new Vector3(5000, 0, 6000), "respawn retained previous field anchor");
+        player.TickDead(60_000f);
+        Assert.True(player.IsDead && player.Position.X == 150, "a dead player stood up without choosing a restart");
         var high = Player(2, 10);
         var highWriter = Channel.CreateUnbounded<WorldSnapshot>().Writer;
         await Tick(world, world.JoinAsync(3, high, highWriter));

@@ -1,3 +1,4 @@
+using PristonTale.Application.World;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using PristonTale.Client.Net.Presence;
@@ -60,6 +61,12 @@ internal sealed class OnlinePlayChannel : IPlayChannel
     {
         await _start.WaitAsync(ct);
         return await _connection.UseItemAsync(command, ct);
+    }
+
+    public async Task<RestartOutcome> RestartAsync(RestartChoice choice, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        return await _connection.RestartAsync(choice, ct);
     }
 
     public async Task SendMovementAsync(Vector3 position, float facing, bool moving, bool running, uint actionTarget, int fieldCode, CancellationToken ct = default)

@@ -128,13 +128,13 @@ internal static class MovementAndStreamingTests
         var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "GateRunner");
         var player = new WorldPlayer(1, new Vector3(100, 0, 100), character, false, default);
         Assert.True(player.ReportMovement(new Vector3(150, 0, 100), 0f, true, true, 0, 100) == MovementVerdict.Accepted, "run report rejected");
-        player.CrossGate(true, new Vector3(5000, 0, 6000));
+        player.CrossGate(true);
         Assert.True(player.MoveState == MoveStateView.Running && player.Position == new Vector3(150, 0, 100), "crossing a gate stopped the run");
         Assert.True(player.ReportMovement(new Vector3(200, 0, 100), 0f, true, true, 0, 500) == MovementVerdict.Accepted, "run after a gate rejected");
         player.ExpireStaleMotion(2100);
         Assert.True(player.MoveState == MoveStateView.Idle, "a silent client kept running");
         var warp = new Vector3(9000, 0, 8000);
-        player.EnterField(warp, true, warp);
+        player.EnterField(warp, true);
         Assert.True(player.ReportMovement(new Vector3(250, 0, 100), 0f, true, true, 0, 2200) == MovementVerdict.Rejected && player.Position == warp,
             "warp accepted a position from the old field");
         return Task.CompletedTask;

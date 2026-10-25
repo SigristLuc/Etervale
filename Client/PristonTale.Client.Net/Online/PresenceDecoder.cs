@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Numerics;
 using PristonTale.Client.Net.Presence;
+using PristonTale.Simulation.Progression;
 using PristonTale.Client.Net.WorldCatalog;
 using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
@@ -97,6 +98,7 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.OwnerItemStatus => OnOwnerItemStatus(OwnerItemStatusPacket.Read(packet)),
             EtervaleOpcodes.PremiumTimers => OnPremiumTimers(PremiumTimersPacket.Read(packet)),
             EtervaleOpcodes.ItemEffects => OnItemEffects(ItemEffectsPacket.Read(packet)),
+            EtervaleOpcodes.RestartOffer => OnRestartOffer(RestartOfferPacket.Read(packet)),
             EtervaleOpcodes.QuestJournal => Update([], []) with { Quest = QuestWireReader.ToView(QuestJournalPacket.Read(packet)) },
             EtervaleOpcodes.QuestNotices => OnQuestNotices(QuestNoticesPacket.Read(packet)),
             PristonOpcodes.WhisperMessage or PristonOpcodes.ChatMessage => OnChat(ChatMessagePacket.Read(packet)),
@@ -108,7 +110,7 @@ internal sealed class PresenceDecoder
             or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills or EtervaleOpcodes.PresenceClock
             or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult
             or EtervaleOpcodes.ItemDetails or EtervaleOpcodes.OwnerItemStatus
-            or EtervaleOpcodes.PremiumTimers or EtervaleOpcodes.ItemEffects or EtervaleOpcodes.QuestJournal or EtervaleOpcodes.QuestNotices
+            or EtervaleOpcodes.PremiumTimers or EtervaleOpcodes.ItemEffects or EtervaleOpcodes.RestartOffer or EtervaleOpcodes.QuestJournal or EtervaleOpcodes.QuestNotices
             or PristonOpcodes.WhisperMessage or PristonOpcodes.ChatMessage or PristonOpcodes.CloseClient;
     }
 
@@ -187,6 +189,9 @@ internal sealed class PresenceDecoder
 
         return Update([], []) with { ItemEffects = effects, ServerTimeMs = _clockMs };
     }
+
+    public PresenceUpdate OnRestartOffer(RestartOfferPacket packet) =>
+        Update([], []) with { RestartOffer = new RestartOffer(packet.FieldOpen, packet.Scroll, packet.ExperienceShare, packet.GoldShare) };
 
     public double? ServerTimeMs => _clockMs;
 

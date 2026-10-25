@@ -79,7 +79,7 @@ field; `WorldCatalog(IEnumerable<FieldDef>)` builds test catalogs. Lookups by `I
 | `StageSmd` | Asset-relative stage path with Windows separators; source of collision and of the importer's join key |
 | `StageObjectSmds` | Animated stage props; client only |
 | `State` (`FieldState`) | `Village` sets the player's in-village flag on entry; `Dungeon` sets `Underground` (no sky) |
-| `Center`, `StartPoints` | `StartPoints[0]` is the respawn point and the NPC teleport arrival; `Center` is the teleport fallback |
+| `Center`, `StartPoints` | `StartPoints[0]` is the NPC teleport arrival; a field restart stands up at the start point nearest to the fall, a town restart at a random one; `Center` is the fallback |
 | `Gates` | Seamless boundaries to an adjacent field (`DestinationFieldId`, X/Z, angle) |
 | `WarpGates` | Portals: trigger X/Z/Y and Width/Height, destination field and X/Z/Y, `LimitLevel`, `SpecialEffect` |
 | `LimitLevel` | Minimum character level to enter (gates, warps and teleports) |

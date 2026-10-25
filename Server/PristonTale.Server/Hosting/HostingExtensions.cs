@@ -32,6 +32,7 @@ public static class HostingExtensions
         builder.Services.AddSingleton<SessionAppService>();
         builder.Services.AddSingleton<NpcAppService>();
         builder.Services.AddSingleton<ItemUseAppService>();
+        builder.Services.AddSingleton<RestartAppService>();
         builder.Services.AddSingleton<QuestAppService>();
 
         var provider = builder.Configuration["Database:Provider"] ?? "Sqlite";

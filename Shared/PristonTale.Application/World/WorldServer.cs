@@ -116,8 +116,7 @@ public sealed partial class WorldServer
             }
 
             var field = GetField(fieldId);
-            var anchor = field.Terrain.PlaceOnFloor(RespawnPoint(definition, player.Position));
-            player.EnterField(field.Terrain.PlaceOnFloor(player.Position), definition.State == FieldState.Village, anchor);
+            player.EnterField(field.Terrain.PlaceOnFloor(player.Position), definition.State == FieldState.Village);
             field.Add(player);
             _connections.Add(player.EntityId, new Connection(fieldId, player, outbound, session));
             _membershipChanged = true;
@@ -171,15 +170,14 @@ public sealed partial class WorldServer
             TransferPlayer(player, _fields[oldFieldId], GetField(newFieldId));
             var inVillage = destination.State == FieldState.Village;
             var terrain = GetField(newFieldId).Terrain;
-            var respawnPoint = terrain.PlaceOnFloor(RespawnPoint(destination, arrival.Position));
             if (arrival.IsWarp)
             {
                 // Warp exits carry an authored height; settle on the floor at or just below it rather than on a roof.
-                player.EnterField(terrain.SettleNear(arrival.Position, FieldTerrain.DropTolerance * 2f), inVillage, respawnPoint);
+                player.EnterField(terrain.SettleNear(arrival.Position, FieldTerrain.DropTolerance * 2f), inVillage);
             }
             else
             {
-                player.CrossGate(inVillage, respawnPoint);
+                player.CrossGate(inVillage);
             }
             _membershipChanged = true;
             _connections[player.EntityId] = connection with
@@ -243,6 +241,11 @@ public sealed partial class WorldServer
 
             if (_connections.TryGetValue(session.EntityId, out var connection))
             {
+                if (connection.Player.IsDead && CaptureDead(session, connection) is { } dead)
+                {
+                    return dead;
+                }
+
                 UpdatePlacement(session, connection.FieldId, connection.Player.Position);
             }
 
@@ -535,7 +538,8 @@ public sealed partial class WorldServer
                 connection.CooldownRevision = connection.Player.Cooldowns.Revision;
                 connection.Outbound.TryWrite(snapshot.WithOwner(owner, cooldowns) with
                 {
-                    Quest = connection.Player.QuestState.TakeUpdate(connection.Player.Character)
+                    Quest = connection.Player.QuestState.TakeUpdate(connection.Player.Character),
+                    Restart = connection.Player.IsDead ? DeathPenalty.Offer(connection.Player.Character, field.State) : null
                 });
                 // Only an outbox pins and releases frames; any other writer may keep the snapshot forever.
                 frame.Retained |= connection.Outbound is not WorldOutbox.OutboxWriter;
@@ -552,17 +556,6 @@ public sealed partial class WorldServer
         player.Cooldowns.Rebase(from.NowMs, to.NowMs);
         to.Add(player);
         to.Statuses.Carry(player.EntityId, statuses, from.NowMs, to.NowMs);
-    }
-
-    private static Vector3 RespawnPoint(FieldDef field, Vector3 fallback)
-    {
-        if (field.StartPoints.Count == 0)
-        {
-            return fallback;
-        }
-
-        var point = field.StartPoints[0];
-        return new Vector3(point.X, 0f, point.Z);
     }
 
     private static void UpdatePlacement(PlayerSession? session, int fieldId, Vector3 position, bool? inVillage = null)

@@ -1,0 +1,100 @@
+using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Quests;
+using PristonTale.Simulation.World;
+
+namespace PristonTale.Simulation.Progression;
+
+// What a restart would cost a dead player now: whether the field restart is open after the death's share, whether a
+// Resurrection Scroll waives the shares, and the death's share of experience and gold.
+public readonly record struct RestartOffer(bool FieldOpen, bool Scroll, ulong ExperienceShare, long GoldShare);
+
+// What dying costs. From level 11 a death takes a share of the level's experience span and of the carried gold (a
+// thirty-third, a fiftieth from level 85 after the level 85 quest, nothing in the castle field), and standing up again in
+// the field where the player fell takes a hundredth more. A Resurrection Scroll carried at death is used up instead and
+// waives both. Experience never drops below the start of the current level.
+public static class DeathPenalty
+{
+    public const int FirstLevel = 11;
+    public const int StandardDivisor = 33;
+    public const int ReducedDivisor = 50;
+    public const int FieldDivisor = 100;
+    public const string ResurrectionScroll = "BI104";
+
+    // Gameplay seconds after a restart in which no damage lands.
+    public const float RestartGuardMs = 10_000f;
+
+    // The divisor of a death's share; 0 takes nothing.
+    public static int Divisor(PlayerCharacter character, FieldState field) =>
+        field == FieldState.Castle ? 0 : QuestRewards.ReducedDeathPenalty(character) ? ReducedDivisor : StandardDivisor;
+
+    // The share of the level's experience span a divisor takes (the last level spans up to the experience ceiling).
+    public static ulong ExperienceShare(int level, int divisor)
+    {
+        if (level < FirstLevel || divisor <= 0 || level > ExperienceTable.MaximumLevel)
+        {
+            return 0;
+        }
+
+        var start = ExperienceTable.ForLevel(level);
+        var end = level < ExperienceTable.MaximumLevel ? ExperienceTable.ForLevel(level + 1) : ExperienceTable.Ceiling;
+        return (end - start) / (ulong)divisor;
+    }
+
+    public static long GoldShare(int level, long money, int divisor) => level < FirstLevel || divisor <= 0 || money <= 0 ? 0 : money / divisor;
+
+    // Standing up in the field where the player fell: never in the castle field; below level 11 only in a forest field;
+    // from level 11 only while the experience above the level's start covers the hundredth the restart takes.
+    public static bool CanRestartInField(PlayerCharacter character, FieldState field)
+    {
+        ArgumentNullException.ThrowIfNull(character);
+        return CanRestartInField(character.Level, character.Experience, field);
+    }
+
+    // The same rule from the owner's level and experience (the client's restart window).
+    public static bool CanRestartInField(int level, ulong experience, FieldState field)
+    {
+        if (field == FieldState.Castle)
+        {
+            return false;
+        }
+
+        if (level < FirstLevel)
+        {
+            return field == FieldState.Forest;
+        }
+
+        var start = ExperienceTable.ForLevel(Math.Clamp(level, 1, ExperienceTable.MaximumLevel));
+        return experience >= start && experience - start >= ExperienceShare(level, FieldDivisor);
+    }
+
+    // The offer a dead player's restart window shows; RestartTransactions takes exactly these shares.
+    public static RestartOffer Offer(PlayerCharacter character, FieldState field)
+    {
+        ArgumentNullException.ThrowIfNull(character);
+        var scroll = ScrollAnchor(character) >= 0;
+        var divisor = scroll ? 0 : Divisor(character, field);
+        var start = ExperienceTable.ForLevel(Math.Clamp(character.Level, 1, ExperienceTable.MaximumLevel));
+        var above = character.Experience > start ? character.Experience - start : 0;
+        var experience = Math.Min(ExperienceShare(character.Level, divisor), above);
+        return new RestartOffer(CanRestartInField(character.Level, character.Experience - experience, field), scroll, experience,
+            GoldShare(character.Level, character.Money, divisor));
+    }
+
+    // The inventory anchor of a carried Resurrection Scroll, or -1.
+    public static int ScrollAnchor(PlayerCharacter character)
+    {
+        for (var anchor = 0; anchor < character.Inventory.Capacity; anchor++)
+        {
+            if (character.Inventory[anchor] is { } item && item.Definition.CatalogKey == ResurrectionScroll)
+            {
+                return anchor;
+            }
+        }
+
+        return -1;
+    }
+
+    // The town a player stands up in: Ricarten for the Tempskron classes and the assassin, Pillai for the Morion classes.
+    public static int TownField(PlayerClass playerClass) =>
+        (int)playerClass <= (int)PlayerClass.Pikeman || playerClass == PlayerClass.Assassin ? QuestClasses.RicartenField : QuestClasses.PillaiField;
+}

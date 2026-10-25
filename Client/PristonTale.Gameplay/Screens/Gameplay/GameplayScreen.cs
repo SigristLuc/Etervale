@@ -53,6 +53,8 @@ public sealed class GameplayScreen : GameScreen
         _scene.PresenceObserved += _hud.ObserveChat;
         _hud.Chat.WhisperArrived += _scene.PlayWhisper;
         _hud.Chat.CloseRequested += RequestExit;
+        _hud.Restart.Restart = _scene.RestartAsync;
+        _hud.Restart.ExitRequested += RequestExit;
 
         _scene.BeginRemotePresence(Context.Backend.OpenPlayChannel(), _entered);
 
@@ -110,6 +112,8 @@ public sealed class GameplayScreen : GameScreen
             _scene.PlayerForward, _scene.TimeOfDay, _scene.RunMode, mapHidden, neighbour, neighbourMap);
         _hud.PremiumTimers = _scene.PremiumTimers;
         _hud.InCastleField = field?.State == Simulation.World.FieldState.Castle;
+        _hud.PlayerDead = _scene.PlayerDead;
+        _hud.RestartOffer = _scene.RestartOffer;
         _hud.Update(_scene.Owner);
         _scene.PointerCaptured = _hud.PointerCaptured;
         _scene.KeyboardCaptured = _hud.KeyboardCaptured;
@@ -231,6 +235,7 @@ public sealed class GameplayScreen : GameScreen
             _scene.PresenceObserved -= _hud.ObserveChat;
             _hud.Chat.WhisperArrived -= _scene.PlayWhisper;
             _hud.Chat.CloseRequested -= RequestExit;
+            _hud.Restart.ExitRequested -= RequestExit;
             _hud.QuestFanfare -= _scene.PlayQuestFanfare;
             _scene.NpcSelected -= _hud.OpenNpc;
             _scene.SkillNotice -= _hud.Chat.System;

@@ -1,0 +1,85 @@
+using System.Numerics;
+using PristonTale.Application.Sessions;
+using PristonTale.Persistence.Abstractions.Characters;
+using PristonTale.Simulation.Progression;
+using PristonTale.Simulation.World;
+
+namespace PristonTale.Application.World;
+
+// A dead player standing up again (RestartTransactions): the tick prepares the costs and the place, the character is
+// stored, then the tick moves the player there and revives it.
+public sealed partial class WorldServer
+{
+    // Touched only by the tick thread: the town start point a restart lands on.
+    private readonly Random _restartRandom = new();
+
+    public Task<PreparedRestartOperation?> PrepareRestartAsync(PlayerSession session, RestartCommand command)
+    {
+        return EnqueueAsync<PreparedRestartOperation?>(session.EntityId, () =>
+            TryGetPlaying(session, out var connection) && _fields.TryGetValue(connection.FieldId, out var field)
+                ? RestartTransactions.Prepare(session, connection.Player, field, _catalog, command, _restartRandom)
+                : null);
+    }
+
+    // Exempt from the player's quota: the restart is already stored.
+    public Task<bool> CommitRestartAsync(PlayerSession session, PreparedRestartOperation operation)
+    {
+        return EnqueueAsync(NoOwner, () =>
+        {
+            var original = operation.Original;
+            if (!ReferenceEquals(session.Character, original) || operation.Candidate is not { } candidate)
+            {
+                throw new InvalidOperationException("Character ownership changed during restart commit.");
+            }
+
+            if (operation.Outcome.ScrollUsed)
+            {
+                original.CommitInventoryOperation(candidate);
+            }
+
+            original.RestoreProgress(candidate.Experience, candidate.Money, original.StatPoints, original.Tier, original.SkillPoints,
+                original.EliteSkillPoints);
+            if (!TryGetPlaying(session, out var connection) || !_catalog.TryGetFieldByCode(operation.FieldId, out var destination))
+            {
+                original.Life = candidate.Life;
+                session.FieldId = operation.FieldId;
+                session.SpawnPosition = operation.Position with { Y = 0f };
+                return true;
+            }
+
+            var player = connection.Player;
+            var target = GetField(operation.FieldId);
+            if (connection.FieldId != operation.FieldId)
+            {
+                TransferPlayer(player, _fields[connection.FieldId], target);
+                _membershipChanged = true;
+                _connections[player.EntityId] = connection with { FieldId = operation.FieldId };
+            }
+
+            var position = target.Terrain.PlaceOnFloor(operation.Position with { Y = 0f });
+            var inVillage = destination.State == FieldState.Village;
+            player.EnterField(position, inVillage);
+            player.Restart(candidate.Life, DeathPenalty.RestartGuardMs);
+            target.EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKindView.Revive, damage: player.Hp));
+            UpdatePlacement(session, operation.FieldId, position, inVillage);
+            return true;
+        }, waitForCapacity: true);
+    }
+
+    // The record a dead player is saved with: the town restart with its costs, so leaving while down neither skips the
+    // penalty nor brings the player back dead.
+    private CharacterSaveSnapshot? CaptureDead(PlayerSession session, Connection connection)
+    {
+        if (session.Loaded is null || !_fields.TryGetValue(connection.FieldId, out var field)
+            || RestartTransactions.Resolve(connection.Player.Character, field.State, RestartChoice.Town, out _, out _, out _) is not { } candidate)
+        {
+            return null;
+        }
+
+        var town = DeathPenalty.TownField(candidate.Class.Class);
+        var position = _catalog.TryGetFieldByCode(town, out var definition) && definition.StartPoints.Count > 0
+            ? new Vector3(definition.StartPoints[0].X, 0f, definition.StartPoints[0].Z)
+            : connection.Player.Position;
+        return CharacterRecordFactory.Capture(session.Loaded, candidate, town, position);
+    }
+}

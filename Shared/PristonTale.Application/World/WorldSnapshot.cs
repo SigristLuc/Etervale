@@ -286,6 +286,9 @@ public readonly struct WorldSnapshot
     // The receiver's quest changes: the journal view when it changed, quest notices and a dialog the world opened.
     public QuestUpdate? Quest { get; init; }
 
+    // What standing up again would cost the receiver; set while it is dead.
+    public Simulation.Progression.RestartOffer? Restart { get; init; }
+
     public WorldSnapshot WithOwner(OwnerState? owner, SkillCooldownView[]? cooldowns = null) => new(ServerTick, Entities, Events, FieldId, owner, GroundDrops)
     {
         Grid = Grid,
@@ -313,6 +316,7 @@ public readonly struct WorldSnapshot
         FrameGeneration = FrameGeneration,
         Cooldowns = Cooldowns,
         Quest = Quest,
+        Restart = Restart,
         Pinned = Pinned,
         PinKey = PinKey
     };

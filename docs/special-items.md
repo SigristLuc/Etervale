@@ -47,7 +47,7 @@ and draws the result.
 | `.../Usable/Puzzles.cs`, `PuzzleExchange.cs` | Pieces, board cells, reveal cost, drop weights, reward table, the collector's exchange |
 | `Shared/PristonTale.Simulation/World/Loot/ItemEventDrops.cs` | Item events that replace drop rolls (`ItemEventRates`) |
 | `Shared/PristonTale.Application/World/ItemUseTransactions.*.cs` | Per family checks: `Crystals`, `Castle` (and Restoration), `Events` (foods, boxes, chocolates, puzzle bags) |
-| `Shared/PristonTale.Application/World/FieldSkills.Crystals.cs`, `FieldInstance.Items.cs` | Crystal pets, soul monsters, castle items on the field, the Restoration hold |
+| `Shared/PristonTale.Application/World/FieldSkills.Crystals.cs`, `FieldInstance.Items.cs` | Crystal pets, soul monsters, castle items on the field |
 | `Client/PristonTale.Gameplay/UI/Widgets/HudPremiumKeeps.cs` | Boosters and the skill-delay item in the effects bar |
 | `Client/PristonTale.Gameplay/UI/Inventory/HudPuzzleExchange.cs` | The collector's question; the board is drawn by `HudInventoryPanel` |
 | `Client/PristonTale.Gameplay/World/Remote/SummonPlates.cs` | Name plates of crystal pets and summons |
@@ -152,7 +152,7 @@ data lacks is refused and kept; the data's soul monsters are absent, so soul sto
 
 One castle scroll, one Defiance Stone and one Might Stone run at a time; a new one replaces the running one of its
 kind, and every castle item ends when its holder leaves the castle. The same code refuses while it runs. A dead player
-in a castle field who carries a Restoration stays down up to 12 s instead of respawning after 5 s. Crystal towers spawn
+in a castle field may use a Restoration after 10 s down (players stay down until they restart). Crystal towers spawn
 only with a siege and Might Stones need castle player combat; neither exists in Etervale, so those stones have no
 target.
 

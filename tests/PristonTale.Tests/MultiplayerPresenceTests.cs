@@ -173,7 +173,8 @@ internal static class MultiplayerPresenceTests
         };
         var world = MultiplayerServer.WorldWith(MultiplayerServer.SpawnBeside(KillerCode, Spot), killer);
         await using var server = await MultiplayerServer.StartAsync(world);
-        // Forest 1's first start point is where the dead respawn; it lies beyond the view range of the camp.
+        // Forest 1's start point nearest to the camp is where the dead stand up in the field; it lies beyond the view range of
+        // the camp.
         var respawn = new Vector3(1350f, 0f, -13672f);
         await using var a = await Enter(server, "Victim", Spot + new Vector3(60f, 0f, 0f), level: 1);
         await using var b = await Enter(server, "Mourner", Spot + new Vector3(-650f, 0f, 0f));
@@ -184,6 +185,10 @@ internal static class MultiplayerPresenceTests
             "the victim dead", 9000);
         var killing = b.World.Read(world => world.Combat.Select(entry => entry.Event).First(value => value.TargetId == a.Serial && value.Killed));
         Assert.True(a.World.Read(world => world.Combat.Any(entry => entry.Event == killing)), "the victim saw another killing blow");
+        await Task.Delay(500);
+        Assert.True(b.World.Read(world => world.Entities.TryGetValue(a.Serial, out var down) && down.Hp <= 0), "the victim stood up without choosing");
+        var restart = await a.RestartAsync(Application.World.RestartChoice.Field);
+        Assert.True(restart.Ok && restart.ExperienceLost == 0 && restart.GoldLost == 0, $"a level 1 field restart failed or cost: {restart}");
         await c.WaitAsync(world => world.Entities.TryGetValue(a.Serial, out var victim) && victim.Hp > 0
             && Vector3.Distance(Planar(victim.Position), Planar(respawn)) < 1f ? victim : null, "the victim respawning", 9000);
         await b.WaitUntilAsync(world => world.Entities.TryGetValue(a.Serial, out var victim) && victim.Hp > 0

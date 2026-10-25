@@ -111,6 +111,4 @@ public sealed partial class FieldInstance
             player.Character.Effects.Remove(item.StatusCode, player.EntityId, null);
         }
     }
-
-    private bool HoldsForRestoration(WorldPlayer player) => ItemUseTransactions.HoldsForRestoration(player, State);
 }

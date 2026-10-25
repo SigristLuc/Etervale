@@ -221,16 +221,9 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
         foreach (var player in _players.Values)
         {
-            if (player.IsDead && HoldsForRestoration(player))
-            {
-                player.TickDeadHeld(dtMs);
-                _collisionIndex.Put(player.EntityId, player.Position);
-                continue;
-            }
-
             if (player.IsDead)
             {
-                player.TickRespawn(dtMs);
+                player.TickDead(dtMs);
                 _collisionIndex.Put(player.EntityId, player.Position);
                 continue;
             }

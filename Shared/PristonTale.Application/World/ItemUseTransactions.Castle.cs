@@ -9,9 +9,8 @@ namespace PristonTale.Application.World;
 // castle field after ten seconds down.
 internal static partial class ItemUseTransactions
 {
-    // A dead player in a castle field who carries a Restoration stays down this long so the item can revive him.
+    // A dead player in a castle field may use a Restoration after this long down.
     public const float RestorationDelayMs = 10_000f;
-    public const float RestorationHoldMs = 12_000f;
     public const float RestorationGuardMs = 5000f;
 
     private static ItemUseStatus CheckCastleItem(ItemUseContext context, UsableItemRule rule)
@@ -46,10 +45,4 @@ internal static partial class ItemUseTransactions
 
         return context.Player.DeadMs >= RestorationDelayMs ? ItemUseStatus.Used : ItemUseStatus.Delay;
     }
-
-    // Whether a dead player waits for his Restoration instead of respawning.
-    public static bool HoldsForRestoration(WorldPlayer player, FieldState state) =>
-        player.IsDead && state == FieldState.Castle && player.DeadMs < RestorationHoldMs
-        && player.Character.Inventory is var inventory && Enumerable.Range(0, inventory.Capacity)
-            .Any(anchor => inventory[anchor]?.Definition.CatalogKey.Equals("BC105", StringComparison.OrdinalIgnoreCase) == true);
 }

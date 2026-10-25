@@ -98,7 +98,7 @@ public sealed partial class WorldServer
         TransferPlayer(player, _fields[connection.FieldId], target);
         var position = target.Terrain.PlaceOnFloor(arrival.Position);
         var inVillage = destination.State == FieldState.Village;
-        player.EnterField(position, inVillage, position);
+        player.EnterField(position, inVillage);
         _membershipChanged = true;
         _connections[player.EntityId] = connection with
         {

@@ -191,8 +191,7 @@ public sealed partial class WorldServer
             };
         }
 
-        var respawn = target.Terrain.PlaceOnFloor(RespawnPoint(destination, position));
-        player.EnterField(position, inVillage, respawn);
+        player.EnterField(position, inVillage);
         UpdatePlacement(connection.Session, travel.FieldCode, position, inVillage);
     }
 

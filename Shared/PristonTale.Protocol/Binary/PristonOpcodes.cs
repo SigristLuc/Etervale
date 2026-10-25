@@ -84,4 +84,8 @@ public static class EtervaleOpcodes
     public const uint QuestResult = 0x45540501;
     public const uint QuestJournal = 0x45540502;
     public const uint QuestNotices = 0x45540503;
+
+    public const uint RestartRequest = 0x45540A00;
+    public const uint RestartResult = 0x45540A01;
+    public const uint RestartOffer = 0x45540A02;
 }

@@ -62,6 +62,7 @@ public sealed class GameplayHud : IDisposable
     private readonly HudPremiumTimers _premium;
     private readonly HudPremiumKeeps _premiumKeeps = new();
     private readonly HudPuzzleExchange _puzzle = new();
+    private readonly HudRestartPanel _restart = new();
     private int _itemUseCompletions;
     private int _shopsOpened;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
@@ -146,6 +147,13 @@ public sealed class GameplayHud : IDisposable
 
     // The player stands in a castle field, where a Restoration revives.
     public bool InCastleField { get; set; }
+
+    // The local player is down, and what standing up would cost (from the server).
+    public bool PlayerDead { get; set; }
+    public RestartOffer? RestartOffer { get; set; }
+
+    // The restart window; the screen sets its request and quits on its exit choice.
+    public HudRestartPanel Restart => _restart;
     public IHudPortraitScene PortraitScene { get; set; }
     public bool PortraitReady => _portrait.Texture(TargetId) is not null;
     public float MinimapViewSize => _minimap.CurrentViewSize;
@@ -269,6 +277,7 @@ public sealed class GameplayHud : IDisposable
         _services.Update();
         _itemUse.Update();
         _itemUse.Restore(state, InCastleField, _clock.Elapsed.TotalMilliseconds);
+        _restart.Update(PlayerDead, _clock.Elapsed.TotalMilliseconds);
         _premium.Apply(PremiumTimers, _clock.Elapsed.TotalMilliseconds);
         _quests.Update();
         _npc.Update(_context.Font);
@@ -598,6 +607,11 @@ public sealed class GameplayHud : IDisposable
 
     private void Click(OwnerState state, HudLayout layout, Point pointer, Point design, KeyboardState keyboard)
     {
+        if (_restart.Click(layout, pointer, RestartOffer?.FieldOpen == true))
+        {
+            return;
+        }
+
         if (_settingsOpen && HudSettingsPanel.Box.Contains(pointer))
         {
             if (HudSettingsPanel.OkButton.Contains(pointer))
@@ -809,7 +823,8 @@ public sealed class GameplayHud : IDisposable
             return true;
         }
 
-        return _systemMenu && HudSystemMenu.Bounds.Contains(design)
+        return _restart.Open && HudRestartPanel.Box(layout).Contains(pointer)
+            || _systemMenu && HudSystemMenu.Bounds.Contains(design)
             || _settingsOpen && HudSettingsPanel.Box.Contains(pointer)
             || _npcOpen && (HudNpcPanel.Box.Contains(pointer) || _npc.CanTrain && HudNpcPanel.SkillMasterBox(layout).Contains(pointer))
             || _skills.TrainingPending && HudMessageBox.Bounds.Contains(pointer);
@@ -968,6 +983,8 @@ public sealed class GameplayHud : IDisposable
 
         _painter.Flush();
         _premium.DrawHover(_painter, pointer, _clock.Elapsed.TotalMilliseconds);
+        _painter.Flush();
+        _restart.Draw(_painter, layout, pointer, RestartOffer?.FieldOpen == true, InCastleField);
         _painter.Flush();
         _notice.Draw(_painter, layout);
         _painter.End();

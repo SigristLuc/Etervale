@@ -105,6 +105,8 @@ internal sealed class MultiplayerClient : IAsyncDisposable
 
     public Task SayAsync(string text) => Play.SendChatAsync(text, party: false, _lifetime.Token);
 
+    public Task<Application.World.RestartOutcome> RestartAsync(Application.World.RestartChoice choice) => Play.RestartAsync(choice, _lifetime.Token);
+
     public Task<Simulation.Items.Usable.ItemUseOutcome> UseItemAsync(string key)
     {
         var (revision, item) = World.Read(world => (world.Owner!.InventoryRevision, world.Owner.Items.First(value => value.CatalogKey == key).InstanceId));

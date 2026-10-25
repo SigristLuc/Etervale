@@ -31,6 +31,7 @@ internal sealed record SessionServices(
     LoginThrottle LoginThrottle,
     NpcAppService Npc,
     ItemUseAppService ItemUse,
+    RestartAppService Restart,
     QuestAppService Quests,
     ChatAppService Chat,
     GameServerControl Control)
@@ -188,6 +189,9 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                     break;
                 case EtervaleOpcodes.ItemUseCommand:
                     await UseItemAsync(ItemUseCommandPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.RestartRequest:
+                    await RestartAsync(RestartRequestPacket.Read(memory.Span));
                     break;
                 case EtervaleOpcodes.QuestRequest:
                     await RequestQuestAsync(QuestRequestPacket.Read(memory.Span));
@@ -674,6 +678,37 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         {
             Send(new TransCommand(PristonOpcodes.WarpField, PristonUnits.ToFixed(arrival.Position.Z), arrival.FieldCode,
                 PristonUnits.ToFixed(arrival.Position.X), 1), encrypt: true);
+        }
+    }
+
+    // A dead player's restart answers with RestartResult; a restart that moved the player sends a forced WARPFIELD.
+    private async Task RestartAsync(RestartRequestPacket request)
+    {
+        var command = new RestartCommand(request.OperationId, (RestartChoice)request.Choice);
+        RestartReply reply;
+        try
+        {
+            reply = _session is null || _player is null
+                ? new RestartReply(new RestartOutcome(RestartStatus.Rejected, command.Choice))
+                : await _services.Restart.RestartAsync(RequireToken(), command);
+        }
+        catch (WorldBusyException)
+        {
+            reply = new RestartReply(new RestartOutcome(RestartStatus.Busy, command.Choice));
+        }
+        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException or System.Data.Common.DbException)
+        {
+            reply = new RestartReply(new RestartOutcome(RestartStatus.StorageFailed, command.Choice));
+        }
+
+        var outcome = reply.Outcome;
+        var result = new RestartResultPacket(request.OperationId, (byte)outcome.Status, (byte)outcome.Choice, outcome.ScrollUsed, outcome.ExperienceLost,
+            outcome.GoldLost);
+        SendLarge(result.Write, RestartResultPacket.Size, encrypt: true);
+        if (outcome.Ok)
+        {
+            Send(new TransCommand(PristonOpcodes.WarpField, PristonUnits.ToFixed(reply.Position.Z), reply.FieldId,
+                PristonUnits.ToFixed(reply.Position.X), 1), encrypt: true);
         }
     }
 

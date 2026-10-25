@@ -196,6 +196,8 @@ keep the `{size, code}` header and the 8192-byte frame limit.
 | `0x45540500` / `0x45540501` | `QuestRequest` / `QuestResult` | C→S / S→C | One quest step (talk, proceed, accept, class change, reward choice, skill redistribution), correlated by operation id (see below). |
 | `0x45540502` | `QuestJournal` | S→C | The owner's quest journal view whenever its revision changes. |
 | `0x45540503` | `QuestNotices` | S→C | Quest notices of the world tick and a quest dialog the world opened. |
+| `0x45540A00` / `0x45540A01` | `RestartRequest` / `RestartResult` | C→S / S→C | A dead player's restart (field, town, exit), correlated by operation id; a stored restart also sends a forced `WARPFIELD`. |
+| `0x45540A02` | `RestartOffer` | S→C | While the owner is dead, what a restart would cost, whenever it changes. |
 
 ### Owner, inventory and combat layouts
 
@@ -336,6 +338,19 @@ service-window commands.
 The server checks every request against the NPC in the player's field (alive, within 96 units, offering the service),
 writes durable changes before applying them and records the operation id with the character, so a retried request
 returns its first outcome without charging again.
+
+### Death and restart
+
+Bodies start with `{uint16 Version = 1, uint16 Flags = 0}`.
+
+| Message | Layout after the header | Size |
+| --- | --- | --- |
+| `RestartRequest` | `Guid OperationId, uint8 Choice (1 field, 2 town, 3 exit), uint8 0, uint16 0` | 32 |
+| `RestartResult` | `Guid OperationId, uint8 Status (RestartStatus), uint8 Choice, uint8 ScrollUsed, uint8 0, uint64 ExperienceLost, int64 GoldLost` | 48 |
+| `RestartOffer` | `uint8 Flags (1 field restart open, 2 a Resurrection Scroll waives the shares), uint8 0, uint16 0, uint64 ExperienceShare, int64 GoldShare` | 32 |
+
+`RestartStatus`: 0 restarted, 1 not dead, 2 field refused, 3 busy, 4 storage failed, 5 rejected. Rules:
+[application.md](application.md#players-worldplayer).
 
 ### Quests
 

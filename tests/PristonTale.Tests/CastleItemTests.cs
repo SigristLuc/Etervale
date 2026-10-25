@@ -102,7 +102,10 @@ internal static class CastleItemTests
 
         var field = await SpecialItemTests.Harness.CreateAsync(20, "BC105");
         field.Player.ApplyDamage(field.Session.Character!.MaxLife * 10);
-        field.Tick(20 * 6);
-        Assert.True(!field.Player.IsDead, "a Restoration held a player outside the castle");
+        field.Tick(20 * 11);
+        var outside = field.Use(new ItemUseCommand(Guid.NewGuid(), field.Session.Character.InventoryRevision, field.Id("BC105")));
+        await field.AdvanceAsync(outside);
+        Assert.True((await outside).Outcome.Status == ItemUseStatus.NotHere && field.Player.IsDead && field.Item("BC105") is not null,
+            "a Restoration revived a player outside the castle");
     }
 }

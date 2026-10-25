@@ -27,6 +27,9 @@ public sealed record PresenceUpdate(
     public SkillCastResultInfo? CastResult { get; init; }
 
     public PremiumTimerSnapshot? PremiumTimers { get; init; }
+
+    // What standing up again would cost the local player while it is dead.
+    public PristonTale.Simulation.Progression.RestartOffer? RestartOffer { get; init; }
     public IReadOnlyList<ItemEffectInfo> ItemEffects { get; init; } = [];
 
     // The quest journal when it changed, quest notices and a quest dialog the world opened on its own.

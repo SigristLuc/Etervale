@@ -19,6 +19,7 @@ public sealed class PristonTcpServer(
     WorldDataHolder worldData,
     NpcAppService npc,
     ItemUseAppService itemUse,
+    RestartAppService restart,
     QuestAppService quests,
     ChatAppService chat,
     GameServerControl control,
@@ -50,7 +51,7 @@ public sealed class PristonTcpServer(
         _loginThrottle = new LoginThrottle(_limits.LoginFailuresPerAccount, _limits.LoginFailuresPerIp, _limits.LoginFailureWindowMs);
         control.Attach(() => _clients.Count, _loginThrottle);
         var services = new SessionServices(auth, characters, sessionsApp, sessions, world, worldData, logger, _limits, _loginThrottle, npc, itemUse,
-            quests, chat, control);
+            restart, quests, chat, control);
         using var listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp) { DualMode = true };
         var port = configuration.GetValue("Network:Port", HostingExtensions.DefaultGamePort);
         if (port is < 0 or > 65535)

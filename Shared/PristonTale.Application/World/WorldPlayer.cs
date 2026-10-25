@@ -38,7 +38,6 @@ public sealed class WorldPlayer
 
     private readonly PlayerCharacter _character;
     private bool _inVillage;
-    private Vector3 _respawnPoint;
 
     // The client owns locomotion and reports it with TransPlayData. Reports spend a distance budget that refills at
     // 1.35 x run speed and holds at most two seconds of it plus 32 units, so many small reports in one tick cannot add
@@ -63,7 +62,6 @@ public sealed class WorldPlayer
 
     private uint _attackTargetId;
     private bool _attackSustained;
-    private float _respawnMsLeft;
 
     // A swing hits only when elapsed time crosses its authored event offset.
     private float _swingElapsedMs;
@@ -193,7 +191,6 @@ public sealed class WorldPlayer
         Position = position;
         _character = character;
         _inVillage = inVillage;
-        _respawnPoint = position;
         _appearance = appearance;
     }
 
@@ -379,30 +376,18 @@ public sealed class WorldPlayer
         MoveState = MoveStateView.Idle;
     }
 
-    public void EnterField(Vector3 position, bool inVillage, Vector3 respawnPoint)
+    public void EnterField(Vector3 position, bool inVillage)
     {
-        if (!WorldPosition.IsValid(respawnPoint))
-        {
-            throw new ArgumentOutOfRangeException(nameof(respawnPoint));
-        }
-
         Teleport(position);
         _inVillage = inVillage;
-        _respawnPoint = respawnPoint;
     }
 
-    public void CrossGate(bool inVillage, Vector3 respawnPoint)
+    public void CrossGate(bool inVillage)
     {
-        if (!WorldPosition.IsValid(respawnPoint))
-        {
-            throw new ArgumentOutOfRangeException(nameof(respawnPoint));
-        }
-
         // A chase target belongs to the previous field.
         ClearAttackTarget();
 
         _inVillage = inVillage;
-        _respawnPoint = respawnPoint;
     }
 
     public float DistanceSqTo(Vector3 worldPos)
@@ -512,7 +497,6 @@ public sealed class WorldPlayer
             Action = PlayerActionState.Idle;
             _attackTargetId = 0;
             _attackSustained = false;
-            _respawnMsLeft = RespawnDelayMs;
             DeadMs = 0f;
             MoveState = MoveStateView.Dead;
         }
@@ -544,8 +528,8 @@ public sealed class WorldPlayer
     // Milliseconds since the player died.
     public float DeadMs { get; private set; }
 
-    // Keeps a dead player down without counting the respawn delay (a Restoration may still revive it).
-    public void TickDeadHeld(float dtMs)
+    // A dead player stays down until it chooses where to stand up (RestartTransactions) or a revive reaches it.
+    public void TickDead(float dtMs)
     {
         if (IsDead)
         {
@@ -553,33 +537,14 @@ public sealed class WorldPlayer
         }
     }
 
-    public bool TickRespawn(float dtMs)
+    // Stands a dead player up where the world placed it (EnterField first), with this much life, guarded for a while.
+    // Mana and stamina stay as they were, as the original's restart left them.
+    public void Restart(int life, float guardMs)
     {
-        if (!IsDead)
-        {
-            return false;
-        }
-
-        DeadMs += dtMs;
-        _respawnMsLeft -= dtMs;
-        if (_respawnMsLeft > 0f)
-        {
-            return false;
-        }
-
-        Position = _respawnPoint;
-        _character.Life = MaxHp;
-        _character.Mana = _character.MaxMana;
-        _character.Stamina = _character.MaxStamina;
-        IsDead = false;
+        Revive(life, guardMs);
         _lastReportMs = -1;
         _budgetMs = -1;
-        _attackTargetId = 0;
-        MoveState = MoveStateView.Idle;
-        return true;
     }
-
-    public const float RespawnDelayMs = 5000f;
 
     // Time after a revive in which no damage lands, as the original's restart grace.
     public float GuardMsLeft { get; private set; }
@@ -596,7 +561,6 @@ public sealed class WorldPlayer
 
         _character.Life = Math.Clamp(life, 1, MaxHp);
         IsDead = false;
-        _respawnMsLeft = 0f;
         _attackTargetId = 0;
         MoveState = MoveStateView.Idle;
         Action = PlayerActionState.Idle;
