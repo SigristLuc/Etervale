@@ -94,6 +94,9 @@ public sealed class Tokenizer
     // Read the next word as an integer (atoi semantics: empty/invalid → 0).
     public int NextInt() => Atoi(NextWord());
 
+    // Read the next word as a non-negative 64-bit value (monster experience passes 2^31), saturating instead of wrapping.
+    public ulong NextUInt64() => AtoUInt64(NextWord());
+
     // Read the next word as a float (atof semantics: empty/invalid → 0).
     public float NextFloat() => Atof(NextWord());
 
@@ -143,6 +146,19 @@ public sealed class Tokenizer
             any = true;
         }
         return any ? (int)(sign * value) : 0;
+    }
+
+    public static ulong AtoUInt64(string s)
+    {
+        s = s.Trim();
+        var i = s.Length > 0 && s[0] == '+' ? 1 : 0;
+        UInt128 value = 0;
+        for (; i < s.Length && char.IsDigit(s[i]); i++)
+        {
+            value = UInt128.Min(value * 10 + (uint)(s[i] - '0'), ulong.MaxValue);
+        }
+
+        return (ulong)value;
     }
 
     public static float Atof(string s)

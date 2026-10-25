@@ -69,8 +69,9 @@ public sealed class PlayerCharacter
             return 0;
         }
 
-        // As in the English release, experience stops accumulating at the threshold of the level below the cap.
-        var ceiling = ExperienceTable.ForLevel(ExperienceTable.MaximumLevel - 1);
+        // Experience saturates below the unsigned maximum (no wrap); below the third rank-up an award that would pass the
+        // level 100 threshold is discarded whole.
+        const ulong ceiling = ExperienceTable.Ceiling;
         if (Experience >= ceiling)
         {
             return 0;
@@ -82,7 +83,7 @@ public sealed class PlayerCharacter
             return 0;
         }
 
-        Experience = Math.Min(ceiling, next);
+        Experience = next;
         var previousLevel = Level;
         var targetLevel = ExperienceTable.LevelFor(Experience);
         while (Level < targetLevel)
@@ -91,6 +92,20 @@ public sealed class PlayerCharacter
         }
 
         return Level - previousLevel;
+    }
+
+    // Takes experience away (the death penalties), never below the start of the current level; returns what was taken.
+    public ulong LoseExperience(ulong amount)
+    {
+        var floor = ExperienceTable.ForLevel(Math.Clamp(Level, 1, ExperienceTable.MaximumLevel));
+        if (amount == 0 || Experience <= floor)
+        {
+            return 0;
+        }
+
+        var taken = Math.Min(amount, Experience - floor);
+        Experience -= taken;
+        return taken;
     }
 
     public bool ReceiveGroundLoot(ItemInstance item, int gold)

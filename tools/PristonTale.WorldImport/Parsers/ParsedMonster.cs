@@ -37,7 +37,8 @@ public sealed class ParsedMonster
     public int Iq { get; init; }
     public int GroupMin { get; init; }
     public int GroupMax { get; init; }
-    public int Exp { get; init; }
+    // Stored as the database's signed 64-bit integer; some bosses give more than 2^31.
+    public long Exp { get; init; }
     public int ActiveHour { get; init; }  // +1 day / -1 night / 0 any
     public short Nature { get; init; }
     public short Brood { get; init; }

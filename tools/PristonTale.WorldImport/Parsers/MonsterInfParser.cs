@@ -28,7 +28,8 @@ public sealed class MonsterInfParser
         int level = 0, atkMin = 0, atkMax = 0, atkSpeed = 0, atkRange = 0, accuracy = 0;
         int defence = 0, absorb = 0, block = 0, hp = 0, sight = 0;
         int skDmgMin = 0, skDmgMax = 0, skDist = 0, skRange = 0, skRating = 0, skCurse = 0;
-        int moveSpeed = 0, moveRange = 0, iq = 0, groupMin = 0, groupMax = 0, exp = 0, activeHour = 0;
+        int moveSpeed = 0, moveRange = 0, iq = 0, groupMin = 0, groupMax = 0, activeHour = 0;
+        ulong exp = 0;
         int stun = 100; // Default flinch chance.
         int questCode = 0, potionCount = 0, potionPercent = 0;
         var eventItem = "";
@@ -117,7 +118,7 @@ public sealed class MonsterInfParser
                 case KeyMaps.MonMoveRange: moveRange = (int)t.NextFloat(); break;
                 case KeyMaps.MonIq: iq = t.NextInt(); break;
                 case KeyMaps.MonGroup: groupMin = t.NextInt(); groupMax = t.NextInt(); break;
-                case KeyMaps.MonExp: exp = t.NextInt(); break;
+                case KeyMaps.MonExp: exp = t.NextUInt64(); break;
                 case KeyMaps.MonActiveHour: activeHour = ParseActiveHour(t.NextWord()); break;
                 case KeyMaps.MonNature: nature = (short)KeyMaps.ParseNature(t.NextWord()); break;
                 case KeyMaps.MonBrood: brood = (short)KeyMaps.ParseBrood(t.NextWord()); break;
@@ -160,7 +161,7 @@ public sealed class MonsterInfParser
             SkillDamageMin = skDmgMin, SkillDamageMax = skDmgMax,
             SkillDistance = skDist, SkillRange = skRange, SkillRatingPct = skRating, SkillCurseCode = skCurse,
             MoveSpeed = moveSpeed, MoveRange = moveRange, Iq = iq,
-            GroupMin = groupMin, GroupMax = groupMax, Exp = exp, ActiveHour = activeHour,
+            GroupMin = groupMin, GroupMax = groupMax, Exp = checked((long)exp), ActiveHour = activeHour,
             Nature = nature, Brood = brood, Class = klass, StunPct = stun,
             AllPlayersSee = allSee, MaxItemsPerKill = maxItems,
             QuestCode = questCode, EventItem = eventItem, PotionCount = potionCount, PotionPercent = potionPercent,

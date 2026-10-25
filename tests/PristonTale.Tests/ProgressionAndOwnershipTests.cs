@@ -42,9 +42,14 @@ internal static class ProgressionAndOwnershipTests
         character.AwardExperience(ulong.MaxValue);
         Assert.True(character.Experience == ulong.MaxValue, "overflow or loss of saved XP above cap");
         character.RestoreProgress(ExperienceTable.ForLevel(110), 0, tier: 3);
-        var ceiling = ExperienceTable.ForLevel(ExperienceTable.MaximumLevel - 1);
         character.AwardExperience(ulong.MaxValue);
-        Assert.True(character.Experience == ceiling, "a 64-bit award wrapped instead of stopping at the experience cap");
+        Assert.True(character.Experience == ExperienceTable.Ceiling && character.Level == ExperienceTable.MaximumLevel && ExperienceTable.MaximumLevel == 285,
+            "a 64-bit award wrapped or the 285 levels are not reachable");
+        Assert.True(ExperienceTable.ForLevel(121) == 1_632_547_885_967UL && ExperienceTable.ForLevel(285) == long.MaxValue,
+            "the level table past 120 differs");
+        var lost = character.LoseExperience(ulong.MaxValue);
+        Assert.True(character.Experience == ExperienceTable.ForLevel(285) && lost == ExperienceTable.Ceiling - ExperienceTable.ForLevel(285),
+            "a loss went below the level's start or wrapped");
         Assert.True(KillReward.ExpForKill(ulong.MaxValue, 1, 1, 5) == ulong.MaxValue
             && PremiumRules.BoostExperience(ulong.MaxValue / 2, new PremiumTimers()) == ulong.MaxValue / 2, "kill experience wrapped");
         Assert.True(!character.TryChangeMoney(-1) && character.TryChangeMoney(10) && !character.TryChangeMoney(long.MaxValue), "money overflow/overdraft accepted");
@@ -111,6 +116,11 @@ internal static class ProgressionAndOwnershipTests
             new CharacterAttributes(encoded.Strength, encoded.Spirit, encoded.Talent, encoded.Agility, encoded.Health));
         CharacterStateCodec.Restore(restored, encoded, catalog);
         Assert.True(restored.Experience == 2500 && restored.Money == 37 && restored.StatPoints == 10, "saved progression lost");
+        var veteran = encoded with { Exp = unchecked((long)ExperienceTable.Ceiling) };
+        var reloaded = new PlayerCharacter(classes.Get(PlayerClass.Fighter), record.Name, ExperienceTable.MaximumLevel, restored.Attributes);
+        CharacterStateCodec.Restore(reloaded, veteran, catalog);
+        Assert.True(reloaded.Experience == ExperienceTable.Ceiling
+            && CharacterRecordFactory.Capture(record, reloaded, 3, Vector3.Zero).Encode().Exp == veteran.Exp, "experience past 2^63 did not round-trip");
         Assert.True(restored.Inventory[5].Count == 4 && restored.Inventory[5].InstanceId == identity, "save snapshot aliases live inventory");
         var corrupt = encoded with { Inventory = new JsonText("{\"Version\":2,\"Items\":[]}") };
         var repository = new MemoryCharacters(corrupt);
