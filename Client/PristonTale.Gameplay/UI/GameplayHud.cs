@@ -26,6 +26,7 @@ public sealed class GameplayHud : IDisposable
     private readonly HudSprites _sprites;
     private readonly HudPainter _painter;
     private readonly HudItemIcons _icons;
+    private readonly Dictionary<Guid, string> _itemKeys = new();
     private readonly HudSkillBindings _bindings = new();
     private readonly HudBar _bar = new();
     private readonly HudStatusPanel _status = new();
@@ -116,6 +117,8 @@ public sealed class GameplayHud : IDisposable
         _questDocuments = new HudQuestDocuments(context.AssetRoot, context.Log);
         _inventory.InterceptClick = InterceptInventoryClick;
         _inventory.ExternalDrop = DropFromInventory;
+        _inventory.ItemSound = key => ItemSound?.Invoke(key);
+        _services.Succeeded = ServiceSound;
         _inventoryPanel.Note = InventoryNote;
         _sprites.Request(HudChatWindow.Art);
         _sprites.Request(HudChatBubbles.Art);
@@ -190,6 +193,9 @@ public sealed class GameplayHud : IDisposable
 
     // The quest fanfare: a quest started, moved on or ended.
     public event Action QuestFanfare;
+
+    // An item lifted, set, bought, sold, stored or taken back, by catalog key, for its sound.
+    public event Action<string> ItemSound;
 
     public HudQuestController Quests => _quests;
     public HudQuestWindow QuestWindow => _questWindow;
@@ -1105,6 +1111,8 @@ public sealed class GameplayHud : IDisposable
     // shop's stock and the open warehouse.
     private void RequestIcons(OwnerState state)
     {
+        RememberKeys(state?.Items);
+        RememberKeys(_warehouse.View?.Items);
         var keys = state?.Items.Select(static item => item.CatalogKey) ?? [];
         if (_shop.IsOpen)
         {
@@ -1117,6 +1125,33 @@ public sealed class GameplayHud : IDisposable
         }
 
         _icons.Request(keys);
+    }
+
+    // Keys of the items seen in the pack or the warehouse, so a sold or stored item still has its sound once it is gone.
+    private void RememberKeys(IEnumerable<OwnedItemView> items)
+    {
+        if (_itemKeys.Count > 4096)
+        {
+            _itemKeys.Clear();
+        }
+
+        foreach (var item in items ?? [])
+        {
+            _itemKeys[item.InstanceId] = item.CatalogKey;
+        }
+    }
+
+    private void ServiceSound(NpcServiceCommand command)
+    {
+        var key = command.Action == NpcServiceAction.Buy
+            ? ItemCodes.TryFormat(command.ItemCode, out var bought) ? bought : null
+            : command.Action is NpcServiceAction.Sell or NpcServiceAction.Deposit or NpcServiceAction.Withdraw or NpcServiceAction.Move
+                ? _itemKeys.GetValueOrDefault(command.ItemId)
+                : null;
+        if (key is not null)
+        {
+            ItemSound?.Invoke(key);
+        }
     }
 
     private void OpenService()

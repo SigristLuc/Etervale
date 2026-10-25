@@ -144,6 +144,12 @@ public sealed class GroundLootPresentation(IActorScene scene, PristonActorLoader
         return lowest;
     }
 
+    public bool TryGetDrop(Guid id, out GroundDropView drop)
+    {
+        drop = _entries.TryGetValue(id, out var entry) ? entry.Drop : null;
+        return drop is not null;
+    }
+
     public bool TryGet(Guid id, out Vector3 position)
     {
         if (_entries.TryGetValue(id, out var entry) && entry.FloorFound)

@@ -21,6 +21,34 @@ internal static class FieldAudioTests
         yield return ("NPC motion sounds preserve the classic positional attenuation", NpcProximityVolumeAsync);
         yield return ("swings pick the original weapon sound by weapon family, hand and class", WeaponSoundCodesAsync);
         yield return ("character sound banks cover monsters, summons, NPCs and every class with an asset folder", CharacterBanksAsync);
+        yield return ("items sound by family with their own exceptions, and every item sound file exists", ItemSoundsAsync);
+    }
+
+    private static Task ItemSoundsAsync()
+    {
+        (string Key, string File)[] cases =
+        [
+            ("WA101", "Axes.wav"), ("WS101", "Shooters.wav"), ("WS201", "Swords.wav"), ("WM101", "Magicial_weapon.wav"),
+            ("DA304", "Armor.wav"), ("DA401", "Armor.wav"), ("DB101", "Boots.wav"), ("OA101", "Amulet.wav"), ("OA201", "Armlet.wav"),
+            ("OR201", "Ring.wav"), ("PL101", "Potion.wav"), ("GG101", "Coin.wav"), ("GG102", "Magicial_Stuffs.wav"),
+            ("BI101", "Sheltom.wav"), ("BI150", "Potion.wav"), ("BI213", "Potion.wav"), ("BI201", "Sheltom.wav"),
+            ("QT113", "Ring.wav"), ("QT101", "Armlet.wav"), ("ZZ101", "Armlet.wav"), ("", "Armlet.wav")
+        ];
+        foreach (var (key, file) in cases)
+        {
+            Assert.True(ItemSoundRules.For(key) == file, $"{key} sounds {ItemSoundRules.For(key)}, expected {file}");
+        }
+
+        var root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "assets");
+        if (Directory.Exists(Path.Combine(root, "image")))
+        {
+            foreach (var file in ItemSoundRules.Files)
+            {
+                Assert.True(File.Exists(PristonFileResolver.Resolve(Path.Combine(root, ItemSoundRules.Directory + file))), $"item sound {file} is missing");
+            }
+        }
+
+        return Task.CompletedTask;
     }
 
     private static Task WeaponSoundCodesAsync()

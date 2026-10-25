@@ -2,13 +2,16 @@ using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.World.Loot;
 
 namespace PristonTale.Gameplay.World.Remote;
 
-public sealed class GroundLootInteraction(Func<InventoryCommand, Task<InventoryOutcome>> submit, IClientLog log)
+// pickedUp hears every drop the server handed over, for its sound.
+public sealed class GroundLootInteraction(Func<InventoryCommand, Task<InventoryOutcome>> submit, IClientLog log, Action<GroundDropView> pickedUp = null)
 {
     private Guid _selected;
     private Task<InventoryOutcome> _pending;
+    private GroundDropView _pendingDrop;
     public bool Busy => _pending is not null;
 
     public void Select(Guid id)
@@ -30,6 +33,10 @@ public sealed class GroundLootInteraction(Func<InventoryCommand, Task<InventoryO
                 if (_pending.IsCompletedSuccessfully && !_pending.Result.Ok)
                 {
                     log.Info($"[Loot] Pickup rejected: {_pending.Result.Message}");
+                }
+                else if (_pending.IsCompletedSuccessfully && _pendingDrop is not null)
+                {
+                    pickedUp?.Invoke(_pendingDrop);
                 }
 
                 if (_pending.IsFaulted)
@@ -63,6 +70,7 @@ public sealed class GroundLootInteraction(Func<InventoryCommand, Task<InventoryO
 
         var id = _selected;
         Cancel();
+        _pendingDrop = ground.TryGetDrop(id, out var drop) ? drop : null;
         _pending = submit(new InventoryCommand(Guid.NewGuid(), owner.InventoryRevision, InventoryAction.Pickup, id, 0, 1, default));
         _ = ObserveAsync(_pending);
     }

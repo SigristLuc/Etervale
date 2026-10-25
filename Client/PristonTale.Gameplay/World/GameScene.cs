@@ -284,6 +284,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 "world connection unavailable"));
     }
 
+    public void PlayItemSound(string catalogKey) => _fieldAudio?.PlayItem(catalogKey);
+
     public void PlayQuestFanfare()
     {
         _fieldAudio?.PlayQuestFanfare();
@@ -409,7 +411,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _playerComposer = new PlayerActorComposer(actorScene, _actorLoader);
         _monsterComposer = new ModelActorComposer(actorScene, _actorLoader);
         _groundLoot = new GroundLootPresentation(actorScene, _actorLoader, _assetRoot, _log);
-        _lootInteraction = new GroundLootInteraction(ApplyInventoryAsync, _log);
+        _lootInteraction = new GroundLootInteraction(ApplyInventoryAsync, _log, drop => _fieldAudio?.PlayItem(drop.CatalogKey, drop.Gold));
         _lootFloor = LootFloorAt;
     }
 

@@ -34,6 +34,10 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     // A right click on a carried usable item (premium, travel and effect items).
     public Action<OwnedItemView> UseRequested { get; set; }
 
+    // The catalog key of an item lifted from or set into the pack or the equipment, for its sound.
+    public Action<string> ItemSound { get; set; }
+    private string _pendingSound;
+
     public void CancelDrag()
     {
         _dragging = Guid.Empty;
@@ -51,6 +55,12 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             Message = completed.Message;
             LastOk = completed.Ok;
             Completions++;
+            if (completed.Ok && _pendingSound is not null)
+            {
+                ItemSound?.Invoke(_pendingSound);
+            }
+
+            _pendingSound = null;
         }
 
         if (visible && state is not null && !_pendingOperation)
@@ -87,6 +97,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         if (clicked && selected is { Slot: < 0 })
         {
             _dragging = selected.InstanceId;
+            ItemSound?.Invoke(selected.CatalogKey);
         }
 
         var rightClicked = mouse.RightButton == ButtonState.Pressed && _previousMouse.RightButton == ButtonState.Released;
@@ -157,6 +168,9 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     private void SendInventory(InventoryCommand command)
     {
         _pendingOperation = true;
+        _pendingSound = command.Action == InventoryAction.ConsumePotion
+            ? null
+            : _state.Items.FirstOrDefault(item => item.InstanceId == command.ItemId)?.CatalogKey;
         _ = CompleteInventoryAsync(command);
     }
 

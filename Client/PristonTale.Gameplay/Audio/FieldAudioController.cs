@@ -74,6 +74,15 @@ public sealed class FieldAudioController : IDisposable
         }
     }
 
+    // An item entering, leaving or moving in the pack; gold rings the coin.
+    public void PlayItem(string catalogKey, bool gold = false)
+    {
+        if (_library.SoundEnabled && (gold ? _library.CoinSound : _library.ItemSound(catalogKey)) is { } sound)
+        {
+            sound.Play(1f, 0f, 0f);
+        }
+    }
+
     public void PlayQuestFanfare()
     {
         if (_library.SoundEnabled)

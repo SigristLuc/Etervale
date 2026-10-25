@@ -96,6 +96,7 @@ public sealed class PristonAudioLibrary : IDisposable
     private readonly Dictionary<(int SoundCode, PristonActorMotion Motion), SoundEffect[]> _npcSounds = [];
     private readonly Dictionary<uint, SoundEffect> _talkSounds = [];
     private readonly List<SoundEffect> _owned = [];
+    private readonly Dictionary<string, SoundEffect> _itemSounds = new(StringComparer.OrdinalIgnoreCase);
     private int _npcSoundCount;
 
     private PristonAudioLibrary()
@@ -147,6 +148,11 @@ public sealed class PristonAudioLibrary : IDisposable
                 library._fieldAmbients[index] = library.Load(assetRoot, FieldAmbientFiles[index], byPath);
             }
 
+            foreach (var file in ItemSoundRules.Files)
+            {
+                library._itemSounds[file] = library.Load(assetRoot, ItemSoundRules.Directory + file, byPath);
+            }
+
             library.LoadNpcSoundBanks(assetRoot, byPath);
             library.LoadTalkSounds(assetRoot, byPath, log);
 
@@ -162,6 +168,10 @@ public sealed class PristonAudioLibrary : IDisposable
             throw;
         }
     }
+
+    public SoundEffect ItemSound(string catalogKey) => _itemSounds.GetValueOrDefault(ItemSoundRules.For(catalogKey));
+
+    public SoundEffect CoinSound => _itemSounds.GetValueOrDefault(ItemSoundRules.Coin);
 
     public bool TryGetFieldMusic(string code, out SoundEffect music)
     {

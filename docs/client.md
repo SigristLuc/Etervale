@@ -40,7 +40,7 @@ rendering internals, skill presentation and VFX data have their own documents (s
 | `Client/PristonTale.Gameplay/UI/Npc/` | NPC service controller, shop and warehouse windows, store layout, NPC art |
 | `Client/PristonTale.Gameplay/UI/Quests/` | Quest controller, quest dialog and yes/no boxes, quest window, quest texts and art (see [quests.md](quests.md#client)) |
 | `Client/PristonTale.Gameplay/UI/Rendering/` | `HudSprites` (original UI images), `HudIconCache` (item icons), `HudAtlas` (login atlas), `HudPainter`/`HudCanvas` |
-| `Client/PristonTale.Gameplay/Audio/` | `PristonAudioLibrary` (bootstrap sound load), `FieldAudioController` (music, field and positional ambience), `NpcAudioController`, `LegacyTalkSound`, `CombatSounds` and `CharacterSoundBanks` (character, weapon and footstep sounds), `MonsterSoundCues` |
+| `Client/PristonTale.Gameplay/Audio/` | `PristonAudioLibrary` (bootstrap sound load), `FieldAudioController` (music, field and positional ambience), `NpcAudioController`, `LegacyTalkSound`, `CombatSounds` and `CharacterSoundBanks` (character, weapon and footstep sounds), `MonsterSoundCues`, `ItemSoundRules` (item sounds) |
 | `Client/PristonTale.Gameplay/Effects/` | Effect glue: `LegacyEffectLibrary`, `VfxContent` (effect data from `<assetRoot>/Effect/Vfx`, loaded off the game thread), `SkillPresentation`, `ScriptEffects`, `SkillSoundBank`, `SkillState`, combat text, meteor, monster mesh and return effects ([effects.md](effects.md)) |
 | [`Client/PristonTale.Client.Net/GameServerConnection.cs`](../Client/PristonTale.Client.Net/GameServerConnection.cs) | TCP session: connect, login, characters, world entry, request correlation, heartbeat, receive dispatch |
 | `Client/PristonTale.Client.Net/IGameBackend.cs`, `IPlayChannel.cs` | Contracts the screens use: account and character requests; in-world commands and the presence stream |
@@ -393,6 +393,12 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   and death play the class's sound, a `Revive` the restart chime. The local player's walk and run clips play the floor's
   footsteps (stone in towns and ruins, dungeon stone, soft ground in forests and deserts) on their first two event
   frames. Everything comes from the presence stream, so every client near the action plays it.
+- Item sounds (`ItemSoundRules`, `image/Sinimage/Sound`): an item sounds by catalog family (three characters of its key,
+  then two: axes, claws, hammers, staves, spears, bows, swords, throwing weapons, armour, boots, gloves, shields,
+  amulets, armlets, rings, sheltoms, potions...) with per-item exceptions; gold rings the coin. They play for the local
+  player only: a ground pickup the server accepted (`GroundLootInteraction`), lifting an item in the pack, a successful
+  move, split, merge, equip or unequip (`HudInventoryController.ItemSound`), and a shop buy or sell or a warehouse
+  deposit, withdrawal or move (`HudNpcServiceController.Succeeded`).
 
 ## How to
 

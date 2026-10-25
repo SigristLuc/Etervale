@@ -46,6 +46,7 @@ public sealed class GameplayScreen : GameScreen
         _scene.SkillNotice += _hud.Chat.System;
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
         _hud.RunToggleRequested += _scene.ToggleRun;
+        _hud.ItemSound += _scene.PlayItemSound;
         _hud.SummonAutomatic = _scene.SummonAutomatic;
         _hud.UseItem = _scene.UseItemAsync;
         _hud.Chat.PlayerName = _scene.Player.Name;
@@ -241,6 +242,8 @@ public sealed class GameplayScreen : GameScreen
             _scene.NpcSelected -= _hud.OpenNpc;
             _scene.SkillNotice -= _hud.Chat.System;
             _hud.SummonModeRequested -= _scene.ToggleSummonMode;
+            _hud.RunToggleRequested -= _scene.ToggleRun;
+            _hud.ItemSound -= _scene.PlayItemSound;
         }
 
         _hud?.Dispose();
