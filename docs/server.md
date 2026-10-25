@@ -24,7 +24,8 @@ layouts live in [protocol.md](protocol.md).
 | `Hosting/FieldTerrainLoadService.cs` | Hosted service: reads every field's stage `.smd` collision in parallel into `FieldTerrainCatalog`. |
 | `World/WorldTickService.cs` | `BackgroundService` calling `WorldServer.Tick(1/20 s, tick)` on a `PeriodicTimer`; logs tick percentiles, process CPU, allocation rate, collections, heap and working set. |
 | `World/QuestUpkeepService.cs` | `BackgroundService` reading `WorldServer.QuestUpkeepRequests` and running `QuestAppService.RunUpkeepAsync`, at most 8 players at a time ([quests.md](quests.md)). |
-| [Net/PristonTcpServer.cs](../Server/PristonTale.Server/Net/PristonTcpServer.cs) | Listener, per-address limit, one `ClientSession` per socket, housekeeping (idle/login timeouts, bandwidth log). |
+| [Net/GameTcpServer.cs](../Server/PristonTale.Server/Net/GameTcpServer.cs) | Listener, per-address limit, TLS handshake, one `ClientSession` per connection, housekeeping (idle/login timeouts, bandwidth log). |
+| `Net/ServerCertificate.cs` | Loads the TLS certificate, or creates and stores a self-signed one. |
 | [Net/ClientSession.cs](../Server/PristonTale.Server/Net/ClientSession.cs) | Per-connection state machine: packet dispatch to application services and replies. |
 | `Net/ClientSession.Chat.cs` | The session's `IChatLink`: chat lines, forced warps, close requests and kicks from game masters. |
 | `Net/GameServerControl.cs` | `IServerOperations` for game masters: user limit, blocked logins, the shutdown countdown and host stop. |
@@ -51,7 +52,7 @@ registration order. An exception from any `StartAsync` stops the host before the
 | 2 | `WorldDataLoadService` | Loads items, monsters, NPCs, field spawns and motion timings from the database. | Repository errors only. An empty, un-imported database loads zero rows and starts an empty world. |
 | 3 | `FieldTerrainLoadService` | Loads the collision of all 43 fields of `WorldCatalog.AllFields` (the quest arena included) (`FieldDef.StageSmd`). | No assets directory, or any stage missing or unreadable, unless `Assets:AllowMissingTerrain=true`. |
 | 4 | `WorldTickService` | Starts the 20 Hz tick loop. | Never; a throwing tick is logged and the loop continues. |
-| 5 | `PristonTcpServer` | Binds `[::]:<Network:Port>` (10009) dual-stack, backlog 512, and accepts. | The port is in use (the host stops). |
+| 5 | `GameTcpServer` | Loads the TLS certificate, binds `[::]:<Network:Port>` (10009) dual-stack, backlog 512, and accepts. | The port is in use (the host stops). |
 | 6 | `QuestUpkeepService` | Stores the quest work the tick queues (quest drops, quest weapon growth and expiry). | Never; a failed upkeep is logged and retried on the field's next check. |
 
 Terrain details:
@@ -121,8 +122,11 @@ limit of `0` disables that limit; negative values stop startup.
 | `World:CrystalEvent` | 0 | `WorldServerOptions` | Crystal event: 0 off, 1 from 12:00 to 23:59 server time, 2 all day ([special-items.md](special-items.md)). |
 | `World:ItemEvents:Mandoo` | false | `ItemEventRates` | Rice cakes replace drop rolls (SP101 4%, SP102 2%). |
 | `World:ItemEvents:ValentineDay`, `Watermelon`, `Valentine`, `CandyDays`, `WhiteDay`, `Puzzle`, `GiftBox` | 0 | `ItemEventRates` | Rate per 10000 drop rolls of each item event; 0 is off. |
-| `Network:Port` | 10009 | `PristonTcpServer` | TCP game port, 0 to 65535; 0 binds a free port (in-process tests read it from `PristonTcpServer.BoundPort`). The client always connects to 10009. |
-| `Server:ReportSeconds` | 30 | `WorldTickService`, `PristonTcpServer` | Period of the tick and TCP report lines; at least 1. |
+| `Network:Port` | 10009 | `GameTcpServer` | TCP game port, 0 to 65535; 0 binds a free port (in-process tests read it from `GameTcpServer.BoundPort`). The client always connects to 10009. |
+| `Network:Certificate:Path` | `data/server-certificate.pfx` | `ServerCertificate` | TLS certificate (PKCS#12); relative paths resolve from the solution root. Created self-signed when missing. |
+| `Network:Certificate:Password` | none | `ServerCertificate` | Password of the PKCS#12 file. |
+| `Network:HandshakeTimeoutSeconds` | 10 | `GameTcpServer` | Deadline of the TLS handshake of an accepted socket. |
+| `Server:ReportSeconds` | 30 | `WorldTickService`, `GameTcpServer` | Period of the tick and TCP report lines; at least 1. |
 | `Network:PacketLimit` | 251 | `NetworkLimits` | Packets per window before the connection closes (`DescribeEntity` excluded). |
 | `Network:PacketWindowSeconds` | 5 | `NetworkLimits` | Fixed window of the packet limit. |
 | `Network:MaxConnectionsPerIp` | 8 | `NetworkLimits` | Open connections per remote address; extra sockets are closed on accept. |
@@ -139,17 +143,18 @@ limit of `0` disables that limit; negative values stop startup.
 | `Logging:LogLevel:Default` | `Information` | host | Standard .NET logging filter. |
 
 Fixed values that are not settings: idle timeout 60 s, housekeeping period 5 s, report period 30 s,
-tick rate 20 Hz, send backlog limit 512 KiB per connection (`PristonConnectionOptions.MaxPendingSendBytes`).
+tick rate 20 Hz, send backlog limit 512 KiB per connection (`FrameConnectionOptions.MaxPendingSendBytes`).
 
 ## TCP edge
 
 ### Connection lifecycle
 
-1. `PristonTcpServer` accepts, normalises IPv4-mapped addresses (`NetworkLimits.AddressOf`) and calls
+1. `GameTcpServer` accepts, normalises IPv4-mapped addresses (`NetworkLimits.AddressOf`) and calls
    `ConnectionLimiter.TryAcquire`; a refused socket is closed without a reply.
-2. A `ClientSession` wraps a `PristonConnection` (framing, cipher, replay window, coalesced writer; see
-   [protocol.md](protocol.md#transport)) and sends the encrypted `ServerHello` (protocol version and minimum).
-3. `PristonConnection.RunAsync` reads frames and awaits `ClientSession.HandleAsync` for each packet before reading the
+2. `TlsTransport.AcceptAsync` runs the TLS handshake under its deadline; a failed or late handshake closes the socket.
+   A `ClientSession` then wraps the `FrameConnection` (framing and coalesced writer; see
+   [protocol.md](protocol.md#transport)) and sends the `ServerHello` (protocol version and minimum).
+3. `FrameConnection.RunAsync` reads frames and awaits `ClientSession.HandleAsync` for each packet before reading the
    next: one connection's packets are processed strictly in order, and a slow database call delays that connection only.
 4. Housekeeping (every 5 s): closes sockets silent for 60 s (`idle timeout`) and unauthenticated sockets older than the
    login timeout (`login timeout`; heartbeats do not extend it), prunes the login throttle and adds up traffic.
@@ -187,7 +192,7 @@ Error handling inside `HandleAsync`:
 | --- | --- |
 | `InvalidSessionException`, `InvalidOperationException` (includes `WorldBusyException`) | Packet dropped, sampled `Rejected` warning; the connection stays open. |
 | `DbException` | `ReplyStorageFailure`: login gets `LoginResult` busy, character commands get a `CharacterResult` with `CreateCharacterFailure.Rejected`, `EnterWorld` gets a `WorldEntry` with `EnterWorldFailure.Rejected`. |
-| `InvalidDataException` (malformed packet from a `Read`) | Escapes to `PristonConnection`, which closes with `protocol: ...`. |
+| `InvalidDataException` (malformed packet from a `Read`) | Escapes to `FrameConnection`, which closes with `protocol: ...`. |
 | anything else | Ends the session; logged as `Client session ... failed`. |
 
 Inventory, progression, NPC service and quest handlers convert session, operation and storage exceptions into a failed
@@ -248,7 +253,7 @@ of the regression suite ([testing.md](testing.md#multiplayer-propagation)):
 | Guard | Scope | Behaviour |
 | --- | --- | --- |
 | `ConnectionLimiter` | per remote address, process-wide | Refuses sockets above `MaxConnectionsPerIp`; released when the session ends. |
-| `PacketRateLimiter` | per connection, fixed window | Counts every decoded packet except `DescribeEntity`; exceeding it closes with `packet flood`. Replayed encrypted packets are dropped before counting. |
+| `PacketRateLimiter` | per connection, fixed window | Counts every decoded packet except `DescribeEntity`; exceeding it closes with `packet flood`. |
 | `TokenBucket` | per connection | `DescribeEntity` beyond the bucket is dropped (a few-byte request costs a description of up to a few hundred bytes). |
 | `LoginThrottle` | per account (case-insensitive) and per address | Only `BadCredentials` counts. A blocked attempt gets `LoginResult` busy before the password hash is computed. Success clears the account counter only. At most 65536 keys per map. |
 | Login timeout | per connection | Unauthenticated sockets close after `LoginTimeoutSeconds`. |
@@ -279,14 +284,13 @@ or login timeout, packet flood, protocol error, send backlog, presence overflow,
   `NetworkHardeningTests` (`NetworkConfigurationAsync` / `WorldOptionsAsync`).
 - **Handle a new client packet.** Define the packet and opcode
   ([protocol.md](protocol.md#how-to-add-an-opcode-or-packet)), add a `case` in `ClientSession.HandleAsync`, convert it
-  into an application input (`Shared/PristonTale.Application`), and reply with `SendLarge(packet.Write, Size, encrypt:
-  true)`. Catch the exceptions the call can throw and answer with a failed result when the client waits for one. Update
+  into an application input (`Shared/PristonTale.Application`), and reply with `SendLarge(packet.Write, Size)`. Catch the exceptions the call can throw and answer with a failed result when the client waits for one. Update
   the inbound table above.
 - **Send new tick-driven state.** Add it to `WorldSnapshot`/`OwnerState` in the application layer, map it in
   `WireMapping`, emit it in `PresenceEncoder.EncodeLocked` (call `SendClock` first if it belongs on the timeline),
   decode it in the client's `PresenceDecoder`, and cover it with a `WireRoundTrip` test.
 - **Register a startup step.** Add an `IHostedService` in `AddPristonServer` at the right position: anything the world
-  reads must be registered before `WorldTickService` and `PristonTcpServer`. Throw from `StartAsync` to stop startup.
+  reads must be registered before `WorldTickService` and `GameTcpServer`. Throw from `StartAsync` to stop startup.
 - **Run against a copy or Postgres.** `--Database:SqlitePath=<copy.db>` or `Database__Provider=Postgres` with
   `ConnectionStrings__Postgres`; for local load tests add `--Network:MaxConnectionsPerIp=0`.
 

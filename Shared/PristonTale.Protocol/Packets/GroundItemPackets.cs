@@ -92,7 +92,7 @@ public static class GroundItemRemovals
 {
     public const ushort CurrentVersion = 1;
     public const int HeaderSize = 8 + 4 + 4;
-    public const int MaxItems = (PristonFrameCodec.MaxFrameSize - HeaderSize) / 16;
+    public const int MaxItems = (FrameCodec.MaxFrameSize - HeaderSize) / 16;
 
     public static int Write(Span<byte> destination, ReadOnlySpan<Guid> ids)
     {

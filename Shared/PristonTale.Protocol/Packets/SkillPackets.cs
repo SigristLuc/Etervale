@@ -221,7 +221,7 @@ public static class SkillEventList
 {
     public const ushort CurrentVersion = 3;
     public const int HeaderSize = 8 + 4 + 4;
-    public const int MaxEvents = (PristonFrameCodec.MaxFrameSize - HeaderSize) / SkillEventEntry.Size;
+    public const int MaxEvents = (FrameCodec.MaxFrameSize - HeaderSize) / SkillEventEntry.Size;
 
     public static int Write(Span<byte> destination, ReadOnlySpan<SkillEventEntry> events)
     {
@@ -346,7 +346,7 @@ public static class StatusEffectList
 {
     public const ushort CurrentVersion = 2;
     public const int HeaderSize = 8 + 4 + 4;
-    public const int MaxEntries = (PristonFrameCodec.MaxFrameSize - HeaderSize) / StatusEffectEntry.Size;
+    public const int MaxEntries = (FrameCodec.MaxFrameSize - HeaderSize) / StatusEffectEntry.Size;
 
     public static int Write(Span<byte> destination, ReadOnlySpan<StatusEffectEntry> entries)
     {

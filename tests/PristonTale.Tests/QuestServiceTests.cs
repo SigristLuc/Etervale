@@ -76,7 +76,7 @@ internal static class QuestServiceTests
         uint[] opcodes = [EtervaleOpcodes.QuestRequest, EtervaleOpcodes.QuestResult, EtervaleOpcodes.QuestJournal, EtervaleOpcodes.QuestNotices];
         Assert.True(opcodes.All(code => code is >= 0x45540500 and <= 0x455405FF) && opcodes.Distinct().Count() == 4, "quest opcodes leave their range");
 
-        var buffer = new byte[PristonFrameCodec.MaxFrameSize];
+        var buffer = new byte[FrameCodec.MaxFrameSize];
         var request = new QuestRequestPacket(Guid.NewGuid(), 77, (byte)QuestAction.ChooseReward, (ushort)QuestCode.FuryOfPhantom, 12, 3);
         Assert.True(request.Write(buffer) == QuestRequestPacket.Size && QuestRequestPacket.Read(buffer.AsSpan(0, QuestRequestPacket.Size)) == request,
             "the quest request differs");

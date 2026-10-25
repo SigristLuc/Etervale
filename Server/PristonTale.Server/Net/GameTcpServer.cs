@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
 using PristonTale.Application.Chat;
 using PristonTale.Application.Services;
@@ -10,7 +11,7 @@ using PristonTale.Server.Hosting;
 
 namespace PristonTale.Server.Net;
 
-public sealed class PristonTcpServer(
+public sealed class GameTcpServer(
     AuthAppService auth,
     CharacterAppService characters,
     SessionAppService sessionsApp,
@@ -24,13 +25,16 @@ public sealed class PristonTcpServer(
     ChatAppService chat,
     GameServerControl control,
     IConfiguration configuration,
-    ILogger<PristonTcpServer> logger) : BackgroundService
+    ILogger<GameTcpServer> logger) : BackgroundService
 {
-    // The client heartbeats every 4 s (CheckNetState); silence beyond this closes the connection.
+    // The client heartbeats every 4 s; silence beyond this closes the connection.
     private static readonly TimeSpan IdleTimeout = TimeSpan.FromSeconds(60);
     private readonly TimeSpan _reportInterval = TimeSpan.FromSeconds(Math.Max(1, configuration.GetValue("Server:ReportSeconds", World.WorldTickService.DefaultReportSeconds)));
     private static readonly HashSet<string> NormalCloseReasons = ["peer closed", "receive ended", "cancelled", "server stopping", "disposed"];
-    private readonly ConcurrentDictionary<ClientSession, Task> _clients = new();
+    private readonly ConcurrentDictionary<ClientSession, byte> _clients = new();
+    // Every accepted socket, from the TLS handshake until its session ends.
+    private readonly ConcurrentDictionary<Task, byte> _connections = new();
+    private readonly TimeSpan _handshakeTimeout = TimeSpan.FromSeconds(Math.Max(1, configuration.GetValue("Network:HandshakeTimeoutSeconds", 10)));
     private readonly NetworkLimits _limits = NetworkLimits.From(configuration);
     private readonly LogSampler _refusedLog = new(5000);
     private readonly LogSampler _closedLog = new(1000);
@@ -52,6 +56,8 @@ public sealed class PristonTcpServer(
         control.Attach(() => _clients.Count, _loginThrottle);
         var services = new SessionServices(auth, characters, sessionsApp, sessions, world, worldData, logger, _limits, _loginThrottle, npc, itemUse,
             restart, quests, chat, control);
+        using var certificate = ServerCertificate.Load(configuration, logger);
+        var certificateContext = SslStreamCertificateContext.Create(certificate, additionalCertificates: null);
         using var listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp) { DualMode = true };
         var port = configuration.GetValue("Network:Port", HostingExtensions.DefaultGamePort);
         if (port is < 0 or > 65535)
@@ -74,7 +80,7 @@ public sealed class PristonTcpServer(
 
         port = ((IPEndPoint)listener.LocalEndPoint!).Port;
         _boundPort.TrySetResult(port);
-        logger.LogInformation("Priston TCP listening on port {Port}", port);
+        logger.LogInformation("Etervale TLS listening on port {Port}", port);
         var housekeeping = HousekeepingAsync(stoppingToken);
         try
         {
@@ -94,8 +100,10 @@ public sealed class PristonTcpServer(
                     continue;
                 }
 
-                var session = new ClientSession(new PristonConnection(socket), services);
-                _clients[session] = RunClientAsync(session, address, stoppingToken);
+                var connection = RunClientAsync(socket, certificateContext, services, address, stoppingToken);
+                _connections[connection] = 0;
+                _ = connection.ContinueWith(static (task, state) => ((ConcurrentDictionary<Task, byte>)state!).TryRemove(task, out _), _connections,
+                    TaskScheduler.Default);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -108,14 +116,39 @@ public sealed class PristonTcpServer(
                 client.Connection.Close("server stopping");
             }
 
-            await Task.WhenAll(_clients.Values);
+            await Task.WhenAll(_connections.Keys);
             await housekeeping;
         }
     }
 
-    private async Task RunClientAsync(ClientSession session, IPAddress? address, CancellationToken cancellationToken)
+    private async Task RunClientAsync(Socket socket, SslStreamCertificateContext certificate, SessionServices services, IPAddress? address,
+        CancellationToken cancellationToken)
     {
         await Task.Yield();
+        FrameConnection connection;
+        try
+        {
+            connection = await TlsTransport.AcceptAsync(socket, certificate, _handshakeTimeout, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            socket.Dispose();
+            _perAddress?.Release(address);
+            if (!cancellationToken.IsCancellationRequested && _closedLog.TryEnter(Environment.TickCount64, out var skipped))
+            {
+                logger.LogWarning("TLS handshake with {Address} failed: {Message} ({Suppressed} similar closes not logged)", address, ex.Message, skipped);
+            }
+
+            return;
+        }
+
+        var session = new ClientSession(connection, services);
+        _clients[session] = 0;
+        if (cancellationToken.IsCancellationRequested)
+        {
+            connection.Close("server stopping");
+        }
+
         try
         {
             await session.RunAsync(cancellationToken);
@@ -126,7 +159,6 @@ public sealed class PristonTcpServer(
         }
         finally
         {
-            var connection = session.Connection;
             if (connection.CloseReason is { } reason && !NormalCloseReasons.Contains(reason)
                 && _closedLog.TryEnter(Environment.TickCount64, out var suppressed))
             {

@@ -323,7 +323,7 @@ public readonly record struct CombatEventEntry(
 public static class CombatEventList
 {
     public const int HeaderSize = 12;
-    public const int MaxEvents = (PristonFrameCodec.MaxFrameSize - HeaderSize) / CombatEventEntry.Size;
+    public const int MaxEvents = (FrameCodec.MaxFrameSize - HeaderSize) / CombatEventEntry.Size;
 
     public static int SizeFor(int count) => HeaderSize + count * CombatEventEntry.Size;
 
@@ -363,7 +363,7 @@ public static class CombatEventList
 public static class RemoveObjectList
 {
     public const int HeaderSize = 12;
-    public const int MaxSerials = (PristonFrameCodec.MaxFrameSize - HeaderSize) / 8;
+    public const int MaxSerials = (FrameCodec.MaxFrameSize - HeaderSize) / 8;
 
     public static int SizeFor(int count) => HeaderSize + count * 8;
 

@@ -1,7 +1,11 @@
 using System.Buffers.Binary;
 using System.Text;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
 using PristonTale.Protocol.Transport;
@@ -12,61 +16,30 @@ internal static class BinaryProtocolTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("Priston TCP header handles partial reads and rejects invalid lengths", HeaderAsync);
-        yield return ("Priston packet cipher matches the default English client build", CipherAsync);
+        yield return ("frame header handles partial reads and rejects invalid lengths", HeaderAsync);
         yield return ("hello, login, character list and commands and heartbeats round-trip with UTF-8 text", AccountAsync);
         yield return ("movement reports, attack requests and field warps round-trip with 64-bit targets and sequences", PlayerActionsAsync);
         yield return ("world entry, join and leave messages round-trip with 64-bit ids and UTF-8 names", WorldEntryAsync);
-        yield return ("replay window rejects repeats and stale counters and survives the 16-bit wrap", ReplayWindowAsync);
-        yield return ("TCP connection delivers encrypted and plain packets and coalesces sends", ConnectionAsync);
+        yield return ("TLS connections deliver frames in order, coalesce sends and check the server certificate", ConnectionAsync);
     }
 
     private static Task HeaderAsync()
     {
-        Span<byte> packet = stackalloc byte[PristonFrameCodec.HeaderSize];
-        Assert.True(PristonFrameCodec.ReadHeader(packet[..7], out _, out _) == PristonHeaderStatus.NeedMoreData, "partial TCP header was accepted");
-        Assert.True(PristonFrameCodec.WriteFrame(packet, 0x48470080, []) == 8, "empty command frame has the wrong length");
-        Assert.True(PristonFrameCodec.ReadHeader(packet, out var size, out var code) == PristonHeaderStatus.Complete
-            && size == 8 && code == 0x48470080, "Priston little-endian frame header changed");
+        Span<byte> packet = stackalloc byte[FrameCodec.HeaderSize];
+        Assert.True(FrameCodec.ReadHeader(packet[..7], out _, out _) == FrameHeaderStatus.NeedMoreData, "partial TCP header was accepted");
+        Assert.True(FrameCodec.WriteFrame(packet, 0x48470080, []) == 8, "empty command frame has the wrong length");
+        Assert.True(FrameCodec.ReadHeader(packet, out var size, out var code) == FrameHeaderStatus.Complete
+            && size == 8 && code == 0x48470080, "little-endian frame header changed");
         BinaryPrimitives.WriteInt32LittleEndian(packet, 8193);
-        Assert.True(PristonFrameCodec.ReadHeader(packet, out _, out _) == PristonHeaderStatus.Invalid, "oversized frame was accepted");
+        Assert.True(FrameCodec.ReadHeader(packet, out _, out _) == FrameHeaderStatus.Invalid, "oversized frame was accepted");
         BinaryPrimitives.WriteInt32LittleEndian(packet, 7);
-        Assert.True(PristonFrameCodec.ReadHeader(packet, out _, out _) == PristonHeaderStatus.Invalid, "undersized frame was accepted");
-        return Task.CompletedTask;
-    }
-
-    private static Task CipherAsync()
-    {
-        byte[] plain =
-        [
-            0x18, 0x00, 0x00, 0x00, 0x80, 0x00, 0x47, 0x48,
-            0x44, 0x33, 0x22, 0x11, 0x88, 0x77, 0x66, 0x55,
-            0x04, 0x03, 0x02, 0x01, 0x0D, 0x0C, 0x0B, 0x0A
-        ];
-        byte[] expected =
-        [
-            0x20, 0x00, 0x00, 0x00, 0xAB, 0x03, 0x01, 0x80,
-            0x10, 0x00, 0x34, 0x12, 0xDD, 0x11, 0x90, 0x08,
-            0xF3, 0x5F, 0x06, 0x32, 0xA8, 0x75, 0x6B, 0x24,
-            0xAD, 0xA3, 0x24, 0xC2, 0x97, 0x0B, 0xA2, 0x04
-        ];
-        Span<byte> encoded = stackalloc byte[32];
-        var written = PristonPacketCipher.Encode(plain, encoded, 0x1234, 0x0010, 0xED);
-        Assert.True(written == expected.Length && encoded.SequenceEqual(expected), "encoded command differs from the reference cipher output");
-        Span<byte> decoded = stackalloc byte[24];
-        Assert.True(PristonPacketCipher.TryDecode(expected, decoded, 0xED, out var sequence, out var length)
-            && sequence == 0x0010 && length == plain.Length && decoded.SequenceEqual(plain), "Priston command did not decode");
-
-        expected[15] ^= 1;
-        Assert.True(!PristonPacketCipher.TryDecode(expected, decoded, 0xED, out _, out _), "corrupt checksum was accepted");
-        expected[15] ^= 1;
-        Assert.True(!PristonPacketCipher.TryDecode(expected[..^1], decoded, 0xED, out _, out _), "truncated encrypted packet was accepted");
+        Assert.True(FrameCodec.ReadHeader(packet, out _, out _) == FrameHeaderStatus.Invalid, "undersized frame was accepted");
         return Task.CompletedTask;
     }
 
     private static Task AccountAsync()
     {
-        var buffer = new byte[PristonFrameCodec.MaxFrameSize];
+        var buffer = new byte[FrameCodec.MaxFrameSize];
         var hello = new ServerHelloPacket(ProtocolVersion.Current, ProtocolVersion.Minimum, 12);
         Assert.True(ServerHelloPacket.Read(buffer.AsSpan(0, hello.Write(buffer))) == hello, "server hello round trip changed fields");
         var login = new LoginPacket(ProtocolVersion.Current, "conta", "sênha✓");
@@ -94,7 +67,7 @@ internal static class BinaryProtocolTests
 
     private static Task PlayerActionsAsync()
     {
-        var buffer = new byte[PristonFrameCodec.MaxFrameSize];
+        var buffer = new byte[FrameCodec.MaxFrameSize];
         var report = new MovementReportPacket(PresenceMotion.Run, 3, new System.Numerics.Vector3(1024.5f, -12.25f, -999_999f), MathF.PI / 2,
             0x1_0000_0002UL);
         Assert.True(report.Write(buffer) == MovementReportPacket.Size, "movement report size changed");
@@ -116,7 +89,7 @@ internal static class BinaryProtocolTests
 
     private static Task WorldEntryAsync()
     {
-        var buffer = new byte[PristonFrameCodec.MaxFrameSize];
+        var buffer = new byte[FrameCodec.MaxFrameSize];
         var enter = new EnterWorldPacket("Hélio");
         Assert.True(EnterWorldPacket.Read(buffer.AsSpan(0, enter.Write(buffer))) == enter, "world entry request round trip changed the name");
         var entry = new WorldEntryPacket(0, 0x1_0000_0005UL, 3, 1000.5f, -1000.25f);
@@ -131,39 +104,21 @@ internal static class BinaryProtocolTests
         return Task.CompletedTask;
     }
 
-    private static Task ReplayWindowAsync()
-    {
-        var window = new PristonReplayWindow();
-        Assert.True(window.TryAccept(0x10) && window.TryAccept(0x12) && !window.TryAccept(0x10), "repeated counter accepted");
-        Assert.True(window.TryAccept(0x11), "reordered recent counter rejected");
-        for (ushort counter = 0x13; counter < 0x40; counter++)
-        {
-            window.TryAccept(counter);
-        }
-
-        Assert.True(!window.TryAccept(0x20), "counter 16 behind the highest was accepted");
-        var wrapping = new PristonReplayWindow();
-        for (var counter = 0xFFF0; counter <= 0x1_0005; counter++)
-        {
-            Assert.True(wrapping.TryAccept((ushort)counter), "counter wrap stopped the stream");
-        }
-
-        return Task.CompletedTask;
-    }
-
     private static async Task ConnectionAsync()
     {
+        using var certificate = X509CertificateLoader.LoadPkcs12(Server.Net.ServerCertificate.CreateSelfSignedPfx(), null);
+        var context = SslStreamCertificateContext.Create(certificate, additionalCertificates: null);
         using var listener = new Socket(SocketType.Stream, ProtocolType.Tcp);
         listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
-        listener.Listen(1);
-        var client = new Socket(SocketType.Stream, ProtocolType.Tcp);
-        var accept = listener.AcceptAsync();
-        await client.ConnectAsync(listener.LocalEndPoint!);
-        await using var server = new PristonConnection(await accept);
-        await using var sender = new PristonConnection(client);
+        listener.Listen(4);
+        var port = ((IPEndPoint)listener.LocalEndPoint!).Port;
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+
+        var accept = AcceptAsync();
+        await using var sender = await TlsTransport.ConnectAsync("127.0.0.1", port, new ServerCertificatePolicy("127.0.0.1"), timeout.Token);
+        await using var server = await accept;
         var received = new List<byte[]>();
         var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var serverRun = server.RunAsync(packet =>
         {
             received.Add(packet.ToArray());
@@ -178,7 +133,7 @@ internal static class BinaryProtocolTests
         var buffer = new byte[HeartbeatPacket.Size];
         var beat = new HeartbeatPacket(1, 0x0102_0304_0506);
         beat.Write(buffer);
-        Assert.True(sender.SendEncrypted(buffer), "encrypted send was refused");
+        Assert.True(sender.Send(buffer), "send was refused");
         for (var index = 0; index < 100; index++)
         {
             new HeartbeatPacket((uint)index, 0).Write(buffer);
@@ -186,10 +141,50 @@ internal static class BinaryProtocolTests
         }
 
         await done.Task.WaitAsync(timeout.Token);
-        Assert.True(HeartbeatPacket.Read(received[0]) == beat, "encrypted packet changed in transit");
-        Assert.True(received.Skip(1).Select(packet => (int)HeartbeatPacket.Read(packet).Counter).SequenceEqual(Enumerable.Range(0, 100)), "plain packets reordered");
-        Assert.True(sender.BytesSent == 24 + 8 + 100 * 24, "encrypted envelope size or coalesced byte count changed");
+        Assert.True(HeartbeatPacket.Read(received[0]) == beat, "frame changed in transit");
+        Assert.True(received.Skip(1).Select(packet => (int)HeartbeatPacket.Read(packet).Counter).SequenceEqual(Enumerable.Range(0, 100)), "frames reordered");
+        Assert.True(sender.BytesSent == 101 * 24, "frame byte count changed");
         sender.Close("test done");
         await Task.WhenAll(serverRun, senderRun);
+
+        // A pinned certificate is accepted, another pin is refused even on this machine.
+        var pin = SHA256.HashData(certificate.RawData);
+        var pinnedAccept = AcceptAsync();
+        await using (var pinned = await TlsTransport.ConnectAsync("localhost", port, new ServerCertificatePolicy("localhost", pin), timeout.Token))
+        {
+            await using var pinnedServer = await pinnedAccept;
+        }
+
+        var wrong = (byte[])pin.Clone();
+        wrong[0] ^= 1;
+        var refusedAccept = AcceptAsync();
+        var refused = false;
+        try
+        {
+            await using var _ = await TlsTransport.ConnectAsync("localhost", port, new ServerCertificatePolicy("localhost", wrong), timeout.Token);
+        }
+        catch (AuthenticationException)
+        {
+            refused = true;
+        }
+
+        Assert.True(refused, "a certificate with another SHA-256 than the pin was accepted");
+        try
+        {
+            await using var _ = await refusedAccept;
+        }
+        catch (Exception ex) when (ex is AuthenticationException or IOException)
+        {
+        }
+
+        var remote = ServerCertificatePolicy.FromAddress(new Uri("tcp://play.example.com:10009"));
+        Assert.True(!remote.Accepts(certificate, SslPolicyErrors.RemoteCertificateChainErrors), "an untrusted certificate of a remote host was accepted");
+        Assert.True(remote.Accepts(certificate, SslPolicyErrors.None), "a trusted certificate of a remote host was refused");
+        var address = new Uri($"tcp://play.example.com:10009?cert={Convert.ToHexString(pin)}");
+        Assert.True(ServerCertificatePolicy.FromAddress(address).Accepts(certificate, SslPolicyErrors.RemoteCertificateChainErrors),
+            "the cert pin in the address was ignored");
+
+        async Task<FrameConnection> AcceptAsync() =>
+            await TlsTransport.AcceptAsync(await listener.AcceptAsync(timeout.Token), context, TlsTransport.DefaultHandshakeTimeout, timeout.Token);
     }
 }

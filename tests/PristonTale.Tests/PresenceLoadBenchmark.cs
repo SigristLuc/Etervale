@@ -210,7 +210,5 @@ internal static class PresenceLoadBenchmark
             Bytes += packet.Length;
             return true;
         }
-
-        public bool SendEncrypted(ReadOnlySpan<byte> packet) => Send(packet);
     }
 }

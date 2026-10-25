@@ -54,7 +54,7 @@ public readonly record struct ServerHelloPacket(uint Protocol, uint MinimumProto
     }
 }
 
-// C->S, encrypted {header, uint16 Version = 1, uint16 0, uint32 Protocol, text Account (64 B), text Password (128 B)}.
+// C->S {header, uint16 Version = 1, uint16 0, uint32 Protocol, text Account (64 B), text Password (128 B)}.
 public readonly record struct LoginPacket(uint Protocol, string Account, string Password)
 {
     public const int MaxSize = 8 + 4 + 4 + 2 + AccountWire.MaxAccountBytes + 2 + AccountWire.MaxPasswordBytes;
@@ -213,7 +213,7 @@ public static class CharacterAction
     public const byte Delete = 2;
 }
 
-// C->S, encrypted {header, uint16 Version = 1, uint8 Action (1 create, 2 delete), uint8 0, int32 ClassCode, FaceIndex,
+// C->S {header, uint16 Version = 1, uint8 Action (1 create, 2 delete), uint8 0, int32 ClassCode, FaceIndex,
 // text Name (64 B)}.
 public readonly record struct CharacterCommandPacket(byte Action, int ClassCode, int FaceIndex, string Name)
 {
@@ -276,7 +276,7 @@ public readonly record struct CharacterResultPacket(byte Action, bool Ok, int Fa
     }
 }
 
-// Both directions, encrypted {header, uint16 Version = 1, uint16 0, uint32 Counter, int64 TimeMs}: the client sends one
+// Both directions {header, uint16 Version = 1, uint16 0, uint32 Counter, int64 TimeMs}: the client sends one
 // every 4 s; the server echoes it with its own time and closes connections silent for 60 s.
 public readonly record struct HeartbeatPacket(uint Counter, long TimeMs)
 {

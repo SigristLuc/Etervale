@@ -43,7 +43,7 @@ Default case files by area (all `tests/PristonTale.Tests/<Name>.cs`):
 | Puzzles | `PuzzleTests` | Lucky bag seal and reveal, board completion and exchange, sealed ground drops |
 | Equipment | `EquipmentTests`, `RangedEquipmentTests` | Catalog rules, hands, class masks, bone attachments |
 | Item rules | `ItemRulesTests` | Wearable slots, requirements, two-handed swaps, drop and shop rolls, the item stat pipeline, block, carried weight, saved rolls, item details on the wire, item reader |
-| Protocol | `BinaryProtocolTests`, `ClientTests`, `NetworkHardeningTests` | Struct layouts, framing, cipher, presence, abuse limits |
+| Protocol | `BinaryProtocolTests`, `ClientTests`, `NetworkHardeningTests` | Message layouts, framing, TLS and certificate checks, presence, abuse limits |
 | Multiplayer | `MultiplayerMovementTests`, `MultiplayerCombatTests`, `MultiplayerPresenceTests`, `MultiplayerSessionTests`, `MultiplayerSocialTests`, `PresencePipelineTests` | Propagation between real clients over TCP (see Multiplayer propagation); frames, shared encoding, revisions, crowd cap, event ticks, grid, status book |
 | World data | `WorldImportTests`, `NpcPlacementMigrationTests`, `MonsterNameTests`, `NpcServiceTests` | Import and migrations on temp SQLite |
 | Rewards, spawns | `WorldRewardsTests`, `SpawnGateTests`, `SpawnScheduleTests` | Loot, XP, spawn masks, boss hours |
@@ -106,7 +106,7 @@ git diff --check
 
 The `multiplayer:` cases prove that what one player does reaches exactly the right other players. Each starts a
 `MultiplayerServer`: the real host composition (`AddPristonServer`) on a disposable SQLite database, `Network:Port=0`
-(the port comes from `PristonTcpServer.BoundPort`), `Assets:AllowMissingTerrain` with an empty assets root (no game
+(the port comes from `GameTcpServer.BoundPort`), `Assets:AllowMissingTerrain` with an empty assets root (no game
 data is read), and a synthetic `WorldData` (monsters, spawn points beside the scenario, a staff and usable items)
 swapped in before anyone joins. Players are accounts with one character each, placed by `PlayerSetup` (class, level,
 field, position, learned skills, weapon, carried items) through the real repositories. Each `MultiplayerClient` is a

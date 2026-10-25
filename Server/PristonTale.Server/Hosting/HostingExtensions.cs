@@ -84,7 +84,7 @@ public static class HostingExtensions
             options: worldOptions));
         builder.Services.AddHostedService<WorldTickService>();
         AddChat(builder);
-        builder.Services.AddHostedService<PristonTcpServer>();
+        builder.Services.AddHostedService<GameTcpServer>();
         builder.Services.AddHostedService<PristonTale.Server.World.QuestUpkeepService>();
 
         builder.Services.AddSingleton<IServerStatusReadModel, WorldStatusReadModel>();

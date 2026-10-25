@@ -13,7 +13,7 @@ work moves between threads on the server and the client. Read this before touchi
 ## Runtime topology
 
 ```text
-PristonTale (client, MonoGame/Vulkan)  --TCP 10009, original framing + cipher-->  PristonTale.Server (generic host)
+PristonTale (client, MonoGame/Vulkan)  --TLS over TCP 10009, Etervale frames-->  PristonTale.Server (generic host)
                                                                                    |  WorldServer tick (20 Hz)
                                                                                    |  Application services
                                                                                    v
@@ -32,7 +32,7 @@ shows comes from server snapshots.
 |---|---|---|
 | `Shared/PristonTale.Geometry` | library, no deps | Pure geometry used by simulation and renderer |
 | `Shared/PristonTale.Simulation` | library | Game rules and data models: characters, classes, items, combat, modifiers, progression, skills, world rules (fields, AI, spawning, loot, motion, NPCs), physics. No IO, no transport, no MonoGame |
-| `Shared/PristonTale.Protocol` | library, no deps | Wire format: framing, cipher, packet structs and codecs, Etervale extension opcodes |
+| `Shared/PristonTale.Protocol` | library, no deps | Wire format: framing, TLS transport, messages and codecs, Etervale opcodes |
 | `Shared/PristonTale.Application` | library | Transport-free use cases (auth, characters, sessions, NPC services) and the authoritative `WorldServer` with its tick |
 | `Persistence/PristonTale.Persistence.Abstractions` | library | Repository interfaces and persisted records |
 | `Persistence/PristonTale.Persistence` | library | Dapper repositories, FluentMigrator migrations |
@@ -83,7 +83,7 @@ Consequences:
 |---|---|
 | Formula, table, validation that both client and server evaluate | `Shared/PristonTale.Simulation` |
 | Authoritative decision, world state mutation, transaction preparation | `Shared/PristonTale.Application` |
-| Byte layout, opcode, cipher | `Shared/PristonTale.Protocol` |
+| Byte layout, opcode, transport | `Shared/PristonTale.Protocol` |
 | Packet to command mapping, connection policy | `Server/PristonTale.Server/Net` |
 | SQL, schema change | `Persistence/` (migration + repository + both providers) |
 | Parsing authored `GameServer` files into the catalog tables | `tools/PristonTale.WorldImport` |

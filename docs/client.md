@@ -152,8 +152,9 @@ frame.
 
 ## Network client
 
-`GameServerConnection` implements `IGameBackend` over one TCP connection using `PristonConnection`
-(`Shared/PristonTale.Protocol/Transport`). Wire details live in [protocol.md](protocol.md).
+`GameServerConnection` implements `IGameBackend` over one TLS connection (`TlsTransport.ConnectAsync`, then
+`FrameConnection`; `Shared/PristonTale.Protocol/Transport`). The address is `tcp://host:port`, optionally with
+`?cert=<sha-256 hex>` to pin the server certificate. Wire details live in [protocol.md](protocol.md).
 
 | Step | Client sends | Completes on |
 |---|---|---|
@@ -176,7 +177,7 @@ Correlation rules (requests without an operation id):
 - A receive-loop failure fails every pending request and completes the presence channel with the error; later calls
   throw `IOException`.
 
-Sends from any thread take `_sendGate` only to serialise into the shared scratch buffer; `PristonConnection` appends to
+Sends from any thread take `_sendGate` only to serialise into the shared scratch buffer; `FrameConnection` appends to
 a pending buffer flushed by a single writer task (a backlog above 512 KiB closes the connection).
 
 ### Presence decoding
@@ -448,6 +449,6 @@ budget; never read files in `Update`/`Draw` after `BeginRemotePresence`. Resolve
 - [skills.md](skills.md) — skill sockets, casting, skill timeline, cooldowns, buffs.
 - [effects.md](effects.md) — effects engine and VFX data.
 - [client-settings.md](client-settings.md) — `client-settings.json` fields and presets.
-- [protocol.md](protocol.md) — opcodes, packets, framing and cipher.
+- [protocol.md](protocol.md) — opcodes, packets, framing and TLS.
 - [application.md](application.md), [server.md](server.md) — the authority behind each request.
 - [testing.md](testing.md) — regression runner and capture probes.

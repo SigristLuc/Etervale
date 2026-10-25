@@ -51,8 +51,8 @@ internal sealed partial class PresenceEncoder
     private readonly List<SkillEventEntry> _skillEvents = new();
     private readonly List<StatusEffectEntry> _statusEvents = new();
     private readonly List<GroundItemEntry> _newDrops = new();
-    private readonly byte[] _scratch = new byte[PristonFrameCodec.MaxFrameSize];
-    private readonly byte[] _group = new byte[PristonFrameCodec.MaxFrameSize];
+    private readonly byte[] _scratch = new byte[FrameCodec.MaxFrameSize];
+    private readonly byte[] _group = new byte[FrameCodec.MaxFrameSize];
     private int? _field;
     private OwnerState? _owner;
     private long _inventoryRevision = -1;
@@ -202,7 +202,7 @@ internal sealed partial class PresenceEncoder
 
             _field = field;
             // Confirms the authoritative field and position.
-            connection.SendEncrypted(_scratch.AsSpan(0, new FieldWarpPacket(field, self.Position.X, self.Position.Z, Forced: false).Write(_scratch)));
+            connection.Send(_scratch.AsSpan(0, new FieldWarpPacket(field, self.Position.X, self.Position.Z, Forced: false).Write(_scratch)));
         }
 
         var tick = snapshot.ServerTick;

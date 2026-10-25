@@ -139,7 +139,7 @@ internal static class NpcServiceTests
 
     private static Task ProtocolAsync()
     {
-        var buffer = new byte[Protocol.Binary.PristonFrameCodec.MaxFrameSize];
+        var buffer = new byte[Protocol.Binary.FrameCodec.MaxFrameSize];
         var dialog = new NpcDialogPacket(7, true, "Skill Master, Verkan", "", [new NpcServiceEntry(2, true, 4), new NpcServiceEntry(4, false, 1003)],
             ["Stout body and noble mind.", "스킬"]);
         var readDialog = NpcDialogPacket.Read(buffer.AsSpan(0, dialog.Write(buffer)));

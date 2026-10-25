@@ -83,12 +83,10 @@ internal sealed class WireRoundTrip
 
         public bool Send(ReadOnlySpan<byte> packet)
         {
-            Assert.True(packet.Length <= PristonFrameCodec.MaxFrameSize, "presence packet exceeds the 8192-byte frame");
+            Assert.True(packet.Length <= FrameCodec.MaxFrameSize, "presence packet exceeds the 8192-byte frame");
             Packets.Enqueue(packet.ToArray());
             Bytes += packet.Length;
             return true;
         }
-
-        public bool SendEncrypted(ReadOnlySpan<byte> packet) => Send(packet);
     }
 }

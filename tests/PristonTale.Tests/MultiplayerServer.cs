@@ -72,7 +72,7 @@ internal sealed class MultiplayerServer : IAsyncDisposable
             await host.StartAsync();
             // The loader published the empty database's catalogs; fields read the holder when the first player arrives.
             host.Services.GetRequiredService<WorldDataHolder>().Current = world;
-            var listener = host.Services.GetServices<IHostedService>().OfType<PristonTcpServer>().Single();
+            var listener = host.Services.GetServices<IHostedService>().OfType<GameTcpServer>().Single();
             var port = await listener.BoundPort.WaitAsync(TimeSpan.FromSeconds(10));
             return new MultiplayerServer(host, directory, port);
         }

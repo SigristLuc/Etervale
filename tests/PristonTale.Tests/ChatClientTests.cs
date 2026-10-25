@@ -22,7 +22,7 @@ internal static class ChatClientTests
 
     private static Task WireAsync()
     {
-        var buffer = new byte[PristonFrameCodec.MaxFrameSize];
+        var buffer = new byte[FrameCodec.MaxFrameSize];
         var say = new ChatSayPacket(false, "/:Bob olá ✓");
         var size = say.Write(buffer);
         Assert.True(size == 8 + 4 + 2 + System.Text.Encoding.UTF8.GetByteCount(say.Text) && BitConverter.ToInt32(buffer, 0) == size,

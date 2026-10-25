@@ -102,8 +102,7 @@ that explains it in depth.
 
 | Term | Meaning | Doc |
 |---|---|---|
-| Encrypted envelope | Packet code `0x8001xxxx`, XOR running-key cipher with 16-bit checksum | protocol.md |
-| Replay window | Rejects encrypted receive counters repeated or more than 16 behind | protocol.md |
+| Certificate pin | `cert=<sha-256>` in the client's server address; only that certificate is accepted | protocol.md |
 | Extension opcode | Etervale message with high word `0x4554` ("ET"), ignored by an original client | protocol.md |
 | Play data group | Server batch of nearby object updates | protocol.md |
 | Descriptor revision | Play data byte that tells the client to re-request an object's description | protocol.md |

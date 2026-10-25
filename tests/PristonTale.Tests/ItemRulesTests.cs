@@ -360,7 +360,7 @@ internal static class ItemRulesTests
         // The owner packets in the order the presence encoder sends them.
         var state = OwnerState.Capture(character);
         var sink = new PacketList();
-        var scratch = new byte[Protocol.Binary.PristonFrameCodec.MaxFrameSize];
+        var scratch = new byte[Protocol.Binary.FrameCodec.MaxFrameSize];
         sink.Send(scratch.AsSpan(0, ItemWireMapping.Status(state).Write(scratch)));
         sink.Send(scratch.AsSpan(0, WireMapping.Status(state).Write(scratch)));
         ItemWireMapping.SendDetails(state, sink, scratch);
@@ -385,7 +385,7 @@ internal static class ItemRulesTests
         var buffer = new byte[ItemDetailsPartPacket.HeaderSize + ItemDetailEntry.Size * ItemDetailsPartPacket.MaxItemsPerPart];
         var many = Enumerable.Range(0, ItemDetailsPartPacket.MaxItemsPerPart).Select(_ => new ItemDetailEntry { InstanceId = Guid.NewGuid() }).ToArray();
         var written = new ItemDetailsPartPacket(5, 0, 1, many).Write(buffer);
-        Assert.True(written <= Protocol.Binary.PristonFrameCodec.MaxFrameSize && ItemDetailsPartPacket.Read(buffer.AsSpan(0, written)).Items.Count == many.Length,
+        Assert.True(written <= Protocol.Binary.FrameCodec.MaxFrameSize && ItemDetailsPartPacket.Read(buffer.AsSpan(0, written)).Items.Count == many.Length,
             "a full item details part does not fit one frame");
         return Task.CompletedTask;
     }
@@ -399,8 +399,6 @@ internal static class ItemRulesTests
             Packets.Add(packet.ToArray());
             return true;
         }
-
-        public bool SendEncrypted(ReadOnlySpan<byte> packet) => Send(packet);
     }
 
     private static Task ImportAsync()

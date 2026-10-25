@@ -1,9 +1,7 @@
 namespace PristonTale.Protocol.Transport;
 
-// Destination for complete Priston packets: Send writes plaintext, SendEncrypted uses the encrypted envelope when it fits.
+// Destination for complete frames; the connection's TLS stream protects every one.
 public interface IPacketSink
 {
     bool Send(ReadOnlySpan<byte> packet);
-
-    bool SendEncrypted(ReadOnlySpan<byte> packet);
 }

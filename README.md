@@ -3,9 +3,8 @@
 Etervale is a C# and MonoGame reimplementation of Priston Tale. Gameplay authority runs on the game server.
 The server uses SQLite by default; PostgreSQL remains an option.
 
-The game is online only. The C# client and server speak the original Priston Tale TCP protocol of the English C++
-client on port 10009: frame header, packet cipher, opcodes and 32-bit struct layouts. The server stays authoritative,
-and inventory, progression, resolved combat and skills use Etervale extension opcodes.
+The game is online only. The client and server speak Etervale's own protocol over TLS on port 10009, and the server
+is authoritative.
 
 This README covers setup, build and run. Commands run from the repository root and use the Release configuration.
 How the code works is documented in [docs/](docs/README.md).
@@ -123,7 +122,10 @@ Run the client in another terminal and log in with the account you created:
 dotnet run --project Client/PristonTale -c Release --no-build
 ```
 
-The client connects to `tcp://localhost:10009`. The server applies pending migrations at startup but does not run the
+The client connects to `tcp://localhost:10009` over TLS. On its first start the server creates a self-signed
+certificate at `data/server-certificate.pfx` and logs its SHA-256; a client on the same machine accepts it, and a remote
+client (`SmokeClient`, `LoadTest`) pins it with `tcp://host:10009?cert=<sha-256>`. Set `Network:Certificate:Path` (and
+`Network:Certificate:Password`) to use a certificate of your own. The server applies pending migrations at startup but does not run the
 importer, so import first. A migration, catalog or stage-collision load failure stops server startup; without assets,
 pass `--Assets:AllowMissingTerrain=true` to run fields without terrain checks.
 

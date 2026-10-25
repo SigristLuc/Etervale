@@ -46,9 +46,9 @@ internal sealed partial class ClientSession : IMovementVerdictSink
 {
     private const long CorrectionIntervalMs = 300;
 
-    private readonly PristonConnection _connection;
+    private readonly FrameConnection _connection;
     private readonly SessionServices _services;
-    private readonly byte[] _scratch = new byte[PristonFrameCodec.MaxFrameSize];
+    private readonly byte[] _scratch = new byte[FrameCodec.MaxFrameSize];
     private readonly object _sendGate = new();
     private string? _token;
     private string? _account;
@@ -62,7 +62,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
     private readonly PacketRateLimiter _packetRate;
     private readonly TokenBucket _playerInfoRate;
 
-    public ClientSession(PristonConnection connection, SessionServices services)
+    public ClientSession(FrameConnection connection, SessionServices services)
     {
         _connection = connection;
         _services = services;
@@ -79,13 +79,13 @@ internal sealed partial class ClientSession : IMovementVerdictSink
 
     public bool IsAuthenticated => Volatile.Read(ref _token) is not null;
 
-    public PristonConnection Connection => _connection;
+    public FrameConnection Connection => _connection;
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         var players = _services.World.PlayerCount;
         var hello = new ServerHelloPacket(ProtocolVersion.Current, ProtocolVersion.Minimum, _services.Control.Full(players) ? Math.Max(1, players) : 0);
-        SendLarge(hello.Write, ServerHelloPacket.Size, encrypt: true);
+        SendLarge(hello.Write, ServerHelloPacket.Size);
         try
         {
             await _connection.RunAsync(HandleAsync, cancellationToken);
@@ -122,7 +122,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                 case EtervaleOpcodes.Heartbeat:
                 {
                     var beat = HeartbeatPacket.Read(memory.Span) with { TimeMs = Environment.TickCount64 };
-                    SendLarge(beat.Write, HeartbeatPacket.Size, encrypt: true);
+                    SendLarge(beat.Write, HeartbeatPacket.Size);
                     if (_player is not null && _session is { } playing)
                     {
                         _services.Chat.Heartbeat(playing.EntityId);
@@ -177,7 +177,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                     break;
                 case EtervaleOpcodes.LeaveWorld:
                     await ClosePlayAsync();
-                    SendLarge(new LeaveWorldPacket(Saved: true).Write, LeaveWorldPacket.Size, encrypt: true);
+                    SendLarge(new LeaveWorldPacket(Saved: true).Write, LeaveWorldPacket.Size);
                     break;
                 default:
                     // The original dispatcher also ignores codes it does not handle (PlayerInfo2, network-quality reports, ...).
@@ -267,13 +267,13 @@ internal sealed partial class ClientSession : IMovementVerdictSink
     }
 
     private void SendLoginResult(LoginFailure failure) =>
-        SendLarge(new LoginResultPacket((byte)failure).Write, LoginResultPacket.Size, encrypt: true);
+        SendLarge(new LoginResultPacket((byte)failure).Write, LoginResultPacket.Size);
 
     private async Task SendCharacterListAsync()
     {
         _characters = await _services.Characters.ListCharactersAsync(RequireToken());
         var list = new CharacterListPacket(_characters.Take(CharacterListPacket.MaxCharacters).Select(WireMapping.Entry).ToArray());
-        SendLarge(list.Write, CharacterListPacket.MaxSize, encrypt: true);
+        SendLarge(list.Write, CharacterListPacket.MaxSize);
     }
 
     // A successful creation or deletion sends the new character list before the result.
@@ -302,7 +302,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
     }
 
     private void SendCharacterResult(CharacterCommandPacket command, bool ok, int failure) =>
-        SendLarge(new CharacterResultPacket(command.Action, ok, failure, command.Name).Write, CharacterResultPacket.MaxSize, encrypt: true);
+        SendLarge(new CharacterResultPacket(command.Action, ok, failure, command.Name).Write, CharacterResultPacket.MaxSize);
 
     private async Task EnterWorldAsync(EnterWorldPacket request)
     {
@@ -315,11 +315,11 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         }
 
         var entry = new WorldEntryPacket(0, outcome.EntityId, outcome.FieldId, outcome.SpawnX, outcome.SpawnZ);
-        SendLarge(entry.Write, WorldEntryPacket.Size, encrypt: true);
+        SendLarge(entry.Write, WorldEntryPacket.Size);
     }
 
     private void SendEntryFailure(EnterWorldFailure failure) =>
-        SendLarge(new WorldEntryPacket((byte)failure, 0, 0, 0, 0).Write, WorldEntryPacket.Size, encrypt: true);
+        SendLarge(new WorldEntryPacket((byte)failure, 0, 0, 0, 0).Write, WorldEntryPacket.Size);
 
     private async Task JoinWorldAsync(JoinWorldPacket request)
     {
@@ -351,7 +351,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         _player = player;
         _outbox = outbox;
         _encoder = new PresenceEncoder(session.EntityId, _services.WorldData);
-        SendLarge(new WorldJoinedPacket(session.EntityId, Environment.TickCount64).Write, WorldJoinedPacket.Size, encrypt: true);
+        SendLarge(new WorldJoinedPacket(session.EntityId, Environment.TickCount64).Write, WorldJoinedPacket.Size);
         _pump = PumpAsync(outbox, _encoder);
         JoinChat(session);
     }
@@ -457,7 +457,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
 
     // A forced FieldWarp: the client puts its player on the floor at the new field and position.
     private void SendWarp(int fieldId, Vector3 position) =>
-        SendLarge(new FieldWarpPacket(fieldId, position.X, position.Z, Forced: true).Write, FieldWarpPacket.Size, encrypt: true);
+        SendLarge(new FieldWarpPacket(fieldId, position.X, position.Z, Forced: true).Write, FieldWarpPacket.Size);
 
     private async Task AttackAsync(AttackRequestPacket attack)
     {
@@ -518,7 +518,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
 
         var result = new SkillCastResultPacket(outcome.Sequence, outcome.SkillCode, (SkillCastStatus)outcome.Verdict, (byte)Math.Clamp(outcome.Rank, 0, 255),
             (uint)Math.Max(0, outcome.CooldownMs), (uint)Math.Max(0, outcome.RemainingMs), outcome.Mana, outcome.Stamina, 0);
-        SendLarge(result.Write, SkillCastResultPacket.Size, encrypt: true);
+        SendLarge(result.Write, SkillCastResultPacket.Size);
     }
 
     private async Task InteractNpcAsync(PlayerSession session, uint npc)
@@ -526,7 +526,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         var interaction = await _services.World.InteractNpcAsync(session, npc);
         var services = interaction.Services.Select(offer => new NpcServiceEntry((byte)offer.Kind, offer.Available, offer.Value)).ToArray();
         var dialog = new NpcDialogPacket(npc, interaction.Ok, interaction.Name, interaction.Message, services, interaction.Dialog);
-        SendLarge(dialog.Write, PristonFrameCodec.MaxFrameSize, encrypt: true);
+        SendLarge(dialog.Write, FrameCodec.MaxFrameSize);
     }
 
     private async Task RequestNpcServiceAsync(NpcServiceRequestPacket request)
@@ -547,7 +547,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
             reply = new NpcServiceReply(NpcServiceOutcome.Failed(NpcServiceStatus.StorageFailed, ex.Message));
         }
 
-        NpcWireMapping.SendState(request, reply, packet => SendLarge(packet, PristonFrameCodec.MaxFrameSize, encrypt: true));
+        NpcWireMapping.SendState(request, reply, packet => SendLarge(packet, FrameCodec.MaxFrameSize));
         if (reply.Arrival is { } arrival)
         {
             SendWarp(arrival.FieldCode, arrival.Position);
@@ -570,7 +570,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         }
 
         var result = QuestWireMapping.ToResult(request.OperationId, outcome);
-        SendLarge(result.Write, result.Capacity, encrypt: true);
+        SendLarge(result.Write, result.Capacity);
     }
 
     private void DescribeObject(DescribeEntityPacket request)
@@ -590,7 +590,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                 var length = encoder.WriteDescription((uint)request.Serial, _scratch);
                 if (length > 0)
                 {
-                    SendSpan(_scratch.AsSpan(0, length), encrypt: false);
+                    SendSpan(_scratch.AsSpan(0, length));
                 }
             }
         }
@@ -611,7 +611,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         }
 
         var result = new OperationResultPacket(EtervaleOpcodes.InventoryResult, request.OperationId, outcome.Ok, outcome.Revision, outcome.Message);
-        SendLarge(result.Write, OperationResultPacket.MaxSize, encrypt: true);
+        SendLarge(result.Write, OperationResultPacket.MaxSize);
     }
 
     // The item use answers with ItemUseResult; a use that moved the player to another field also sends a forced FieldWarp.
@@ -636,7 +636,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
 
         var outcome = reply.Outcome;
         var result = new ItemUseResultPacket(request.OperationId, outcome.Ok, outcome.Revision, (ushort)outcome.Status, outcome.ItemCode, outcome.Message);
-        SendLarge(result.Write, ItemUseResultPacket.MaximumSize, encrypt: true);
+        SendLarge(result.Write, ItemUseResultPacket.MaximumSize);
         if (reply.Arrival is { } arrival)
         {
             SendWarp(arrival.FieldCode, arrival.Position);
@@ -666,7 +666,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         var outcome = reply.Outcome;
         var result = new RestartResultPacket(request.OperationId, (byte)outcome.Status, (byte)outcome.Choice, outcome.ScrollUsed, outcome.ExperienceLost,
             outcome.GoldLost);
-        SendLarge(result.Write, RestartResultPacket.Size, encrypt: true);
+        SendLarge(result.Write, RestartResultPacket.Size);
         if (outcome.Ok)
         {
             SendWarp(reply.FieldId, reply.Position);
@@ -688,7 +688,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         }
 
         var result = new OperationResultPacket(EtervaleOpcodes.ProgressionResult, request.OperationId, outcome.Ok, outcome.Revision, outcome.Message);
-        SendLarge(result.Write, OperationResultPacket.MaxSize, encrypt: true);
+        SendLarge(result.Write, OperationResultPacket.MaxSize);
     }
 
     private async Task ClosePlayAsync()
@@ -738,7 +738,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
 
     internal delegate int PacketWrite(Span<byte> destination);
 
-    private void SendLarge(PacketWrite write, int capacity, bool encrypt)
+    private void SendLarge(PacketWrite write, int capacity)
     {
         lock (_sendGate)
         {
@@ -747,20 +747,13 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                 throw new ArgumentOutOfRangeException(nameof(capacity));
             }
 
-            SendSpan(_scratch.AsSpan(0, write(_scratch)), encrypt);
+            SendSpan(_scratch.AsSpan(0, write(_scratch)));
         }
     }
 
-    private void SendSpan(ReadOnlySpan<byte> packet, bool encrypt)
+    private void SendSpan(ReadOnlySpan<byte> packet)
     {
         Interlocked.Increment(ref _packetsSent);
-        if (encrypt)
-        {
-            _connection.SendEncrypted(packet);
-        }
-        else
-        {
-            _connection.Send(packet);
-        }
+        _connection.Send(packet);
     }
 }

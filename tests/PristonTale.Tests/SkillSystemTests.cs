@@ -202,7 +202,7 @@ internal static class SkillSystemTests
 
     private static Task PacketsAsync()
     {
-        var buffer = new byte[PristonFrameCodec.MaxFrameSize];
+        var buffer = new byte[FrameCodec.MaxFrameSize];
         var cast = new SkillCastPacket(7, 0x08010002, 99, 256, -512, 1024, 300, 12345);
         Assert.True(SkillCastPacket.Read(buffer.AsSpan(0, cast.Write(buffer))) == cast, "cast round trip");
         var result = new SkillCastResultPacket(7, 0x08010002, SkillCastStatus.Cooldown, 3, 17150, 900, 40, 70, 88);

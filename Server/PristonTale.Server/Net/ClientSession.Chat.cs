@@ -54,7 +54,7 @@ internal sealed partial class ClientSession
     private void SendChat(ChatLine line)
     {
         var packet = new ChatLinePacket((byte)line.Kind, line.SpeakerId, line.Text);
-        SendLarge(packet.Write, ChatLinePacket.MaxSize, encrypt: true);
+        SendLarge(packet.Write, ChatLinePacket.MaxSize);
     }
 
     private sealed class ChatLink(ClientSession owner) : IChatLink
@@ -69,7 +69,7 @@ internal sealed partial class ClientSession
 
         public void Warp(int fieldId, Vector3 position) => owner.SendWarp(fieldId, position);
 
-        public void RequestClose() => owner.SendLarge(CloseRequestPacket.Write, CloseRequestPacket.Size, encrypt: true);
+        public void RequestClose() => owner.SendLarge(CloseRequestPacket.Write, CloseRequestPacket.Size);
 
         public void Disconnect(string reason) => owner._connection.Close(reason);
     }
@@ -81,12 +81,6 @@ internal sealed partial class ClientSession
         {
             Interlocked.Increment(ref owner._packetsSent);
             return owner._connection.Send(packet);
-        }
-
-        public bool SendEncrypted(ReadOnlySpan<byte> packet)
-        {
-            Interlocked.Increment(ref owner._packetsSent);
-            return owner._connection.SendEncrypted(packet);
         }
     }
 }

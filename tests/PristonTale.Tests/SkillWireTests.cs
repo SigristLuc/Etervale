@@ -38,7 +38,7 @@ internal static class SkillWireTests
             Assert.True((ushort)command <= SkillCastFlags.SummonAggressive, $"cast command {command} has no wire flag");
         }
 
-        var buffer = new byte[PristonFrameCodec.MaxFrameSize];
+        var buffer = new byte[FrameCodec.MaxFrameSize];
         var result = new SkillCastResultPacket(9, 0x06040002, SkillCastStatus.AlreadyActive, 10, 0, 0, 0, 0, 0);
         Assert.True(SkillCastResultPacket.Read(buffer.AsSpan(0, result.Write(buffer))) == result, "already-active result round trip");
         SkillEventEntry[] events =
@@ -61,7 +61,7 @@ internal static class SkillWireTests
 
     private static Task CommandsAsync()
     {
-        var buffer = new byte[PristonFrameCodec.MaxFrameSize];
+        var buffer = new byte[FrameCodec.MaxFrameSize];
         foreach (var flags in new[] { SkillCastFlags.Cast, SkillCastFlags.Release, SkillCastFlags.SummonPassive, SkillCastFlags.SummonAggressive })
         {
             var cast = new SkillCastPacket(3, 0x03080002, 77, 256, 0, -512, 1024, 4000, flags);

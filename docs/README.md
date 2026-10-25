@@ -27,7 +27,7 @@ where to look. Setup, build and run commands are in the root [README.md](../READ
 | [chat-and-gm.md](chat-and-gm.md) | Chat end to end: window, bubbles, routing, whispers, notices; game-master levels, commands and audit |
 | [application.md](application.md) | `Shared/PristonTale.Application`: use cases, sessions, `WorldServer`, tick, transactions, NPC services |
 | [server.md](server.md) | `Server/PristonTale.Server`: startup, hosted services, TCP edge, settings |
-| [protocol.md](protocol.md) | Wire protocol: transport, cipher, login and world messages, Etervale extension opcodes, server capacity |
+| [protocol.md](protocol.md) | Wire protocol: TLS transport, login and world messages, Etervale opcodes, server capacity |
 | [persistence.md](persistence.md) | Repositories, migrations, schema, SQLite and PostgreSQL providers |
 | [world-import.md](world-import.md) | `tools/PristonTale.WorldImport`: authored data formats, parsers, catalog import, verify |
 | [client.md](client.md) | Client app, screens, game scene, HUD and windows, remote actors, audio, client networking |

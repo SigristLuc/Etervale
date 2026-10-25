@@ -31,10 +31,11 @@ public sealed class GameServerConnection : IGameBackend
 
     private readonly string _host;
     private readonly int _port;
+    private readonly ServerCertificatePolicy _certificatePolicy;
     private readonly SemaphoreSlim _connectGate = new(1, 1);
     private readonly SemaphoreSlim _requestGate = new(1, 1);
     private readonly object _sendGate = new();
-    private readonly byte[] _scratch = new byte[PristonFrameCodec.MaxFrameSize];
+    private readonly byte[] _scratch = new byte[FrameCodec.MaxFrameSize];
     private readonly CancellationTokenSource _lifetime = new();
     private readonly WorldRenderCatalog _catalog = new();
     private readonly PresenceDecoder _presence;
@@ -50,7 +51,7 @@ public sealed class GameServerConnection : IGameBackend
         SingleWriter = true,
         FullMode = BoundedChannelFullMode.Wait
     });
-    private PristonConnection? _connection;
+    private FrameConnection? _connection;
     private Task? _run;
     private Task? _heartbeat;
     private Exception? _terminalError;
@@ -75,6 +76,7 @@ public sealed class GameServerConnection : IGameBackend
 
         _host = uri.Host;
         _port = uri.Port;
+        _certificatePolicy = ServerCertificatePolicy.FromAddress(uri);
         _presence = new PresenceDecoder(_catalog, RequestDescription);
     }
 
@@ -100,7 +102,7 @@ public sealed class GameServerConnection : IGameBackend
             var pending = new PendingLogin();
             _login = pending;
             _account = account;
-            SendEncrypted(new LoginPacket(ProtocolVersion.Current, account, password).Write);
+            SendFrame(new LoginPacket(ProtocolVersion.Current, account, password).Write);
             var outcome = await pending.Completion.Task.WaitAsync(ct);
             if (outcome.Ok)
             {
@@ -152,11 +154,11 @@ public sealed class GameServerConnection : IGameBackend
 
     private static bool Fits(string text, int maxBytes) => text.Length > 0 && System.Text.Encoding.UTF8.GetByteCount(text) <= maxBytes;
 
-    private void SendEncrypted(ClientWrite write)
+    private void SendFrame(ClientWrite write)
     {
         lock (_sendGate)
         {
-            Connection.SendEncrypted(_scratch.AsSpan(0, write(_scratch)));
+            Connection.Send(_scratch.AsSpan(0, write(_scratch)));
         }
     }
 
@@ -169,7 +171,7 @@ public sealed class GameServerConnection : IGameBackend
         {
             var pending = new TaskCompletionSource<CharacterResultPacket>(TaskCreationOptions.RunContinuationsAsynchronously);
             _characterReply = pending;
-            SendEncrypted(request.Write);
+            SendFrame(request.Write);
             return await pending.Task.WaitAsync(ct);
         }
         finally
@@ -194,7 +196,7 @@ public sealed class GameServerConnection : IGameBackend
             var request = new EnterWorldPacket(characterName);
             lock (_sendGate)
             {
-                Connection.SendEncrypted(_scratch.AsSpan(0, request.Write(_scratch)));
+                Connection.Send(_scratch.AsSpan(0, request.Write(_scratch)));
             }
 
             return await pending.Task.WaitAsync(ct);
@@ -222,7 +224,7 @@ public sealed class GameServerConnection : IGameBackend
             var join = new JoinWorldPacket(entered.EntityId);
             lock (_sendGate)
             {
-                Connection.SendEncrypted(_scratch.AsSpan(0, join.Write(_scratch)));
+                Connection.Send(_scratch.AsSpan(0, join.Write(_scratch)));
             }
 
             await pending.Task.WaitAsync(ct);
@@ -243,7 +245,7 @@ public sealed class GameServerConnection : IGameBackend
             _left = pending;
             lock (_sendGate)
             {
-                Connection.SendEncrypted(_scratch.AsSpan(0, new LeaveWorldPacket(Saved: false).Write(_scratch)));
+                Connection.Send(_scratch.AsSpan(0, new LeaveWorldPacket(Saved: false).Write(_scratch)));
             }
 
             await pending.Task.WaitAsync(ct);
@@ -278,7 +280,7 @@ public sealed class GameServerConnection : IGameBackend
             var packet = new ItemUseCommandPacket(command.OperationId, command.ExpectedRevision, command.ItemId, command.Argument, command.Text);
             lock (_sendGate)
             {
-                Connection.SendEncrypted(_scratch.AsSpan(0, packet.Write(_scratch)));
+                Connection.Send(_scratch.AsSpan(0, packet.Write(_scratch)));
             }
 
             var result = await pending.Task.WaitAsync(ct);
@@ -302,7 +304,7 @@ public sealed class GameServerConnection : IGameBackend
             var packet = new RestartRequestPacket(operation, (byte)choice);
             lock (_sendGate)
             {
-                Connection.SendEncrypted(_scratch.AsSpan(0, packet.Write(_scratch)));
+                Connection.Send(_scratch.AsSpan(0, packet.Write(_scratch)));
             }
 
             var result = await pending.Task.WaitAsync(ct);
@@ -335,7 +337,7 @@ public sealed class GameServerConnection : IGameBackend
         {
             lock (_sendGate)
             {
-                Connection.SendEncrypted(_scratch.AsSpan(0, write(_scratch)));
+                Connection.Send(_scratch.AsSpan(0, write(_scratch)));
             }
 
             return await pending.Task.WaitAsync(ct);
@@ -381,7 +383,7 @@ public sealed class GameServerConnection : IGameBackend
                 command.ExpectedRevision, command.ExpectedStorageRevision, command.ItemCode, command.ItemId, command.Anchor, command.Count, command.Amount);
             lock (_sendGate)
             {
-                Connection.SendEncrypted(_scratch.AsSpan(0, packet.Write(_scratch)));
+                Connection.Send(_scratch.AsSpan(0, packet.Write(_scratch)));
             }
 
             return await request.Completion.Task.WaitAsync(ct);
@@ -406,7 +408,7 @@ public sealed class GameServerConnection : IGameBackend
             var packet = QuestWireReader.ToPacket(command);
             lock (_sendGate)
             {
-                Connection.SendEncrypted(_scratch.AsSpan(0, packet.Write(_scratch)));
+                Connection.Send(_scratch.AsSpan(0, packet.Write(_scratch)));
             }
 
             return await pending.Task.WaitAsync(ct);
@@ -433,7 +435,7 @@ public sealed class GameServerConnection : IGameBackend
         var attack = new AttackRequestPacket(target, sustained, sequence);
         lock (_sendGate)
         {
-            Connection.SendEncrypted(_scratch.AsSpan(0, attack.Write(_scratch)));
+            Connection.Send(_scratch.AsSpan(0, attack.Write(_scratch)));
         }
     }
 
@@ -444,7 +446,7 @@ public sealed class GameServerConnection : IGameBackend
             0, (uint)Environment.TickCount, command);
         lock (_sendGate)
         {
-            Connection.SendEncrypted(_scratch.AsSpan(0, cast.Write(_scratch)));
+            Connection.Send(_scratch.AsSpan(0, cast.Write(_scratch)));
         }
     }
 
@@ -454,13 +456,13 @@ public sealed class GameServerConnection : IGameBackend
         var input = new ChatSayPacket(party, text);
         lock (_sendGate)
         {
-            Connection.SendEncrypted(_scratch.AsSpan(0, input.Write(_scratch)));
+            Connection.Send(_scratch.AsSpan(0, input.Write(_scratch)));
         }
     }
 
     internal IAsyncEnumerable<PresenceUpdate> ReadPresenceAsync(CancellationToken ct) => _presenceUpdates.Reader.ReadAllAsync(ct);
 
-    private PristonConnection Connection
+    private FrameConnection Connection
     {
         get
         {
@@ -485,18 +487,7 @@ public sealed class GameServerConnection : IGameBackend
                 return;
             }
 
-            var socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
-            try
-            {
-                await socket.ConnectAsync(_host, _port, ct);
-            }
-            catch
-            {
-                socket.Dispose();
-                throw;
-            }
-
-            var connection = new PristonConnection(socket);
+            var connection = await TlsTransport.ConnectAsync(_host, _port, _certificatePolicy, ct);
             _connection = connection;
             _run = RunAsync(connection);
             _heartbeat = HeartbeatAsync(connection);
@@ -507,7 +498,7 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
-    private async Task RunAsync(PristonConnection connection)
+    private async Task RunAsync(FrameConnection connection)
     {
         Exception? error = null;
         try
@@ -561,7 +552,7 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
-    private async Task HeartbeatAsync(PristonConnection connection)
+    private async Task HeartbeatAsync(FrameConnection connection)
     {
         using var timer = new PeriodicTimer(DescriptionRetryInterval);
         var counter = 0u;
@@ -578,7 +569,7 @@ public sealed class GameServerConnection : IGameBackend
                 }
 
                 elapsed = TimeSpan.Zero;
-                SendEncrypted(new HeartbeatPacket(++counter, Environment.TickCount64).Write);
+                SendFrame(new HeartbeatPacket(++counter, Environment.TickCount64).Write);
             }
         }
         catch (Exception ex) when (ex is OperationCanceledException or IOException or InvalidOperationException)

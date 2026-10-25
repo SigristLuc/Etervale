@@ -11,9 +11,9 @@ public ref struct PacketWriter
     public PacketWriter(Span<byte> buffer, uint code)
     {
         _buffer = buffer;
-        _buffer[..PristonFrameCodec.HeaderSize].Clear();
+        _buffer[..FrameCodec.HeaderSize].Clear();
         BinaryPrimitives.WriteUInt32LittleEndian(_buffer[4..], code);
-        _position = PristonFrameCodec.HeaderSize;
+        _position = FrameCodec.HeaderSize;
     }
 
     public readonly int Position => _position;

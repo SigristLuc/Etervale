@@ -1,7 +1,6 @@
 # Network protocol
 
-Etervale is online only. Client and server speak Etervale's own message set over the Priston Tale TCP framing and
-packet cipher: every message has an Etervale code (`0x4554xxxx`), entity ids and sequences are 64-bit, and text is
+Etervale is online only. Client and server speak Etervale's own message set over TLS: every message has an Etervale code (`0x4554xxxx`), entity ids and sequences are 64-bit, and text is
 UTF-8. The server is authoritative; the client sends requests and reports and draws what the server decides.
 The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/PristonTale.Server/Net`
 ([server.md](server.md)) and the client edge is `Client/PristonTale.Client.Net` ([client.md](client.md)).
@@ -19,8 +18,7 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | Path | Responsibility |
 | --- | --- |
 | [Binary/EtervaleOpcodes.cs](../Shared/PristonTale.Protocol/Binary/EtervaleOpcodes.cs) | `EtervaleOpcodes` (`0x4554xxxx`), grouped by domain. |
-| `Binary/PristonFrameCodec.cs` | `PristonFrameCodec` (header, 8192-byte limit) and `PristonPacketCipher` (encrypted envelope). |
-| `Binary/PristonReplayWindow.cs` | Replay check of encrypted receive counters. |
+| `Binary/FrameCodec.cs` | `FrameCodec`: the `{size, code}` header and the 8192-byte limit. |
 | `Binary/PacketReader.cs`, `Binary/PacketWriter.cs` | Little-endian sequential reader/writer; the writer patches the size in `Finish()`. |
 | `Binary/Utf8Text.cs` | Text fields: `{uint16 ByteLength, UTF-8}`, cut at a whole character. |
 | `Packets/AccountPackets.cs` | `ProtocolVersion`, `ServerHello`, `Login`/`LoginResult`, `CharacterList`, `CharacterCommand`/`CharacterResult`, `Heartbeat`. |
@@ -34,12 +32,13 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Packets/ItemPackets.cs` | Owner item details (`ItemDetailEntry`, `ItemDetailsPartPacket`) and the equipment status (`OwnerItemStatusPacket`). |
 | `Packets/SkillPackets.cs` | Skill cast, cast result, skill events, status effects, cooldowns. |
 | `Packets/NpcPackets.cs` | NPC result, service request/result, shop catalog and quotes, warehouse, teleport list. |
-| [Transport/PristonConnection.cs](../Shared/PristonTale.Protocol/Transport/PristonConnection.cs) | One TCP stream: receive loop, decryption, replay check, coalesced single-writer send. |
-| `Transport/IPacketSink.cs` | `Send` (plaintext) / `SendEncrypted`; implemented by `PristonConnection` and test sinks. |
+| [Transport/FrameConnection.cs](../Shared/PristonTale.Protocol/Transport/FrameConnection.cs) | One TLS stream: receive loop and coalesced single-writer send. |
+| `Transport/TlsTransport.cs` | Server and client handshakes, `ServerCertificatePolicy` (system trust, loopback, pin). |
+| `Transport/IPacketSink.cs` | `Send`; implemented by `FrameConnection` and test sinks. |
 | `Server/PristonTale.Server/Net/` | `ClientSession` dispatch, `PresenceEncoder`, `WireMapping`, `NpcWireMapping`. |
 | `Client/PristonTale.Client.Net/GameServerConnection.cs` | Client requests, heartbeat, request/reply correlation. |
 | `Client/PristonTale.Client.Net/Online/PresenceDecoder.cs` | Client decoding of presence packets into `PresenceUpdate`s. |
-| `tests/PristonTale.Tests/BinaryProtocolTests.cs`, `SkillWireTests.cs`, `NpcServiceTests.cs`, `WireRoundTrip.cs` | Layout, cipher, replay, connection and encoder-decoder round trips. |
+| `tests/PristonTale.Tests/BinaryProtocolTests.cs`, `SkillWireTests.cs`, `NpcServiceTests.cs`, `WireRoundTrip.cs` | Layouts, TLS connection and certificate checks, encoder-decoder round trips. |
 
 The protocol project's `obj/` folder can contain stale generated sources (for example `messages/Session.cs`) that a text
 search finds; they are not part of the build.
@@ -62,31 +61,20 @@ search finds; they are not part of the build.
 
 | Item | Value |
 | --- | --- |
-| Port | TCP 10009 (English build); the server's `Network:Port` can change it |
-| Frame | `int32 size` (including the header), `uint32 code`, 8 to 8192 bytes; anything else closes the connection |
-| Cipher | Encrypted envelope: code `0x8001xxxx` (low word = 16-bit byte-sum checksum), XOR `0xED`, running key, 8 bytes of overhead |
-| Key seed | High byte = first octet of the peer's IPv4 address, low byte random; counter in the envelope |
-| Encrypted limit | Packets of 8176 bytes or more go out in plaintext, as in the original |
-| Replay check | Send counter starts at `0x0010`; a received counter that repeats one of the last 16 or is more than 16 behind the highest is dropped silently |
+| Port | TCP 10009; the server's `Network:Port` can change it |
+| Security | TLS 1.2 or 1.3 (`TlsTransport`) around the whole stream; the handshake must finish within `Network:HandshakeTimeoutSeconds` (10) |
+| Frame | `int32 size` (including the header), `uint32 code`, 8 to 8192 bytes, inside the TLS stream; anything else closes the connection |
 | Send backlog | More than 512 KiB pending closes the connection |
 
-`PristonConnection` reads into a 16 KiB buffer, decodes encrypted frames, and awaits the handler for each packet before
-reading the next one. The packet memory is valid only until the handler's task completes. Sends from any thread append
-to one pending buffer that a single writer flushes, so all packets queued during one socket write leave together. The
-original dropped packets once its global send queue was full. A failed checksum closes the connection.
+The server presents the certificate in `Network:Certificate:Path` (PKCS#12, default `data/server-certificate.pfx`,
+password `Network:Certificate:Password`). When the file is missing it creates a self-signed ECDSA P-256 certificate for
+`localhost` and the machine name and logs its SHA-256. The client (`ServerCertificatePolicy`) accepts a certificate the
+system trusts for the host name, any certificate when the host is loopback, or exactly the certificate pinned with
+`cert=<sha-256 hex>` in the address (`tcp://host:10009?cert=...`); a pin replaces every other rule.
 
-Deviations from the original transport:
-
-- The second envelope (`0x9001xxxx`) is rejected and closes the connection. The original only used it with a decoder
-  that the server pushes to the client as x86 machine code.
-- The replay window compares counters modulo 65536. The original compares plain integers and stops accepting encrypted
-  packets after about 65,520 of them in one direction.
-
-Which side encrypts what is a sender choice; receivers accept either form for every code. The server encrypts command
-replies, login, record and NPC/inventory/progression/skill-cast results and `FieldWarp`; presence traffic (presence
-entries, events, drops, owner state, removals, clock, entity descriptions) goes out in plaintext. The client encrypts
-login, character commands, world entry, heartbeats, `AttackRequest`, `SkillCast` and operation requests, and sends
-`MovementReport` and `DescribeEntity` in plaintext.
+`FrameConnection` reads into a 16 KiB buffer and awaits the handler for each frame before reading the next one. The
+packet memory is valid only until the handler's task completes. Sends from any thread append to one pending buffer that
+a single writer flushes, so all frames queued during one write leave together in the same TLS records.
 
 ## Login, character select and world entry
 
@@ -95,14 +83,14 @@ Bodies start with `uint16 Version = 1`; text is UTF-8 with a `uint16` byte lengt
 | Step | Packet | Notes |
 | --- | --- | --- |
 | Connect | S→C `ServerHello` (`0x45540F00`) | `{uint16 Version, uint16 0, uint32 Protocol, MinimumProtocol, int32 FullPlayers}`: `FullPlayers` = players in the world when a game master's `/user_limit` is reached, else 0 (then only game masters may log in). |
-| Log in | C→S `Login` (`0x45540F01`, encrypted) | `{uint16 Version, uint16 0, uint32 Protocol, text Account (64 B), text Password (128 B)}`. |
+| Log in | C→S `Login` (`0x45540F01`) | `{uint16 Version, uint16 0, uint32 Protocol, text Account (64 B), text Password (128 B)}`. |
 | Result | S→C `CharacterList` (`0x45540F03`), then `LoginResult` (`0x45540F02`) | `LoginResult` = `{uint16 Version, uint8 Status, uint8 0}`: 0 ok, 1 bad credentials (also unknown accounts), 2 account blocked, 3 already logged in on this connection, 4 busy (throttled, full or storage failure), 5 client protocol older than the server's minimum. A failed login sends no list. |
 | Character list | S→C `CharacterList` | `{uint16 Version, uint16 0, int32 Count (at most 6)}`, then `{text Name, uint32 ClassCode, int32 Level, uint8 Tier, Face, Hair, Flags (1 in a village), uint32 WeaponCode, ArmorCode, OffHandCode, uint32 0}`. |
-| Create, delete | C→S `CharacterCommand` (`0x45540F04`, encrypted), S→C `CharacterResult` (`0x45540F05`) | Command `{uint16 Version, uint8 Action (1 create, 2 delete), uint8 0, int32 ClassCode, FaceIndex, text Name}`; result `{uint16 Version, uint8 Action, uint8 Ok, int32 Failure (CreateCharacterFailure), text Name}`. |
+| Create, delete | C→S `CharacterCommand` (`0x45540F04`), S→C `CharacterResult` (`0x45540F05`) | Command `{uint16 Version, uint8 Action (1 create, 2 delete), uint8 0, int32 ClassCode, FaceIndex, text Name}`; result `{uint16 Version, uint8 Action, uint8 Ok, int32 Failure (CreateCharacterFailure), text Name}`. |
 | Select | C→S `EnterWorld` (`0x45540E00`) | `{uint16 Version = 1, uint16 0, text Name (64 B)}`. |
 | Entry | S→C `WorldEntry` (`0x45540E01`) | `{uint16 Version, uint8 Status (0 entered, else EnterWorldFailure), uint8 0, uint64 EntityId, int32 Field, int32 X, Z (x256)}`. The owner's stats, inventory and skills follow on the presence stream. |
 | Join | C→S `JoinWorld` (`0x45540E02`), S→C `WorldJoined` (`0x45540E03`) | `JoinWorld` = `{uint16 Version, uint16 0, uint64 EntityId}`, which must be the id from `WorldEntry`; `WorldJoined` = `{uint16 Version, uint16 0, uint64 EntityId, int64 ServerTimeMs}`. |
-| Heartbeat | `Heartbeat` (`0x45540F06`, encrypted) every 4 s | `{uint16 Version, uint16 0, uint32 Counter, int64 TimeMs}`; echoed with the server's time. The server closes connections silent for 60 s. |
+| Heartbeat | `Heartbeat` (`0x45540F06`) every 4 s | `{uint16 Version, uint16 0, uint32 Counter, int64 TimeMs}`; echoed with the server's time. The server closes connections silent for 60 s. |
 | Leave | `LeaveWorld` (`0x45540160`) | `{uint16 Version, uint8 Saved, uint8 0}`: the client sends Saved 0; the server answers with Saved 1 after it stored the character. |
 
 Successful creation and deletion send a fresh `CharacterList` before the result. Storage failures answer the pending
@@ -521,7 +509,7 @@ connection every `Server:ReportSeconds` (30 by default).
    batches.
 3. **Server, C→S.** Add a `case` in `ClientSession.HandleAsync`, map the packet to an application input, catch the
    exceptions the call can throw and send a failed result if the client waits for one. Reply with
-   `SendLarge(packet.Write, capacity, encrypt: true)`.
+   `SendLarge(packet.Write, capacity)`.
 4. **Server, S→C presence.** Expose the state on `WorldSnapshot`/`OwnerState` in `Shared/PristonTale.Application`, map
    it in `WireMapping` (or `NpcWireMapping`), emit it from `PresenceEncoder.EncodeLocked`, and call `SendClock` first if
    it belongs to the timeline.

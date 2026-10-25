@@ -10,7 +10,7 @@ public ref struct PacketReader
 
     public PacketReader(ReadOnlySpan<byte> packet, int minimumSize)
     {
-        if (packet.Length < minimumSize || packet.Length < PristonFrameCodec.HeaderSize
+        if (packet.Length < minimumSize || packet.Length < FrameCodec.HeaderSize
             || BinaryPrimitives.ReadInt32LittleEndian(packet) != packet.Length)
         {
             throw new InvalidDataException($"Priston packet is shorter than {minimumSize} bytes or its size field disagrees.");
@@ -18,7 +18,7 @@ public ref struct PacketReader
 
         _packet = packet;
         Code = BinaryPrimitives.ReadUInt32LittleEndian(packet[4..]);
-        _position = PristonFrameCodec.HeaderSize;
+        _position = FrameCodec.HeaderSize;
     }
 
     public uint Code { get; }
