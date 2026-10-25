@@ -6,9 +6,9 @@ namespace PristonTale.Protocol.Packets;
 // 8192-byte frame limit; lists that can exceed one frame are split into parts.
 public sealed record OwnerStatusPacket(
     int Level,
-    long Experience,
-    long LevelStart,
-    long NextLevel,
+    ulong Experience,
+    ulong LevelStart,
+    ulong NextLevel,
     long Money,
     int Hp,
     int MaxHp,
@@ -42,9 +42,9 @@ public sealed record OwnerStatusPacket(
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.OwnerStatus);
         writer.Int32(Level);
-        writer.Int64(Experience);
-        writer.Int64(LevelStart);
-        writer.Int64(NextLevel);
+        writer.UInt64(Experience);
+        writer.UInt64(LevelStart);
+        writer.UInt64(NextLevel);
         writer.Int64(Money);
         writer.Int32(Hp);
         writer.Int32(MaxHp);
@@ -77,7 +77,7 @@ public sealed record OwnerStatusPacket(
     public static OwnerStatusPacket Read(ReadOnlySpan<byte> packet)
     {
         var r = new PacketReader(packet, Size);
-        return new OwnerStatusPacket(r.Int32(), r.Int64(), r.Int64(), r.Int64(), r.Int64(), r.Int32(), r.Int32(), r.Int32(), r.Int32(),
+        return new OwnerStatusPacket(r.Int32(), r.UInt64(), r.UInt64(), r.UInt64(), r.Int64(), r.Int32(), r.Int32(), r.Int32(), r.Int32(),
             r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Int32(),
             r.Int32(), r.Int32(), r.Int32(), r.Int32(), r.Single(), r.Int64(), r.Int64(), r.Int64(), r.Int32(), r.Int32());
     }

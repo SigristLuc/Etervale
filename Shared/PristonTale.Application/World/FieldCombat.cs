@@ -29,7 +29,7 @@ internal interface IFieldCombatHost
     void EmitCombatEvent(in CombatEventView combatEvent);
 }
 
-public readonly record struct KillPayout(uint MonsterEntityId, uint CreditedPlayerId, int ExpAwarded, IReadOnlyList<RolledDrop> Drops);
+public readonly record struct KillPayout(uint MonsterEntityId, uint CreditedPlayerId, ulong ExpAwarded, IReadOnlyList<RolledDrop> Drops);
 
 internal sealed class FieldCombat
 {
@@ -41,7 +41,7 @@ internal sealed class FieldCombat
 
     private readonly Dictionary<uint, MonsterDamageLog> _damageLogs = new();
     private readonly Dictionary<uint, float> _corpseMsLeft = new();
-    private readonly Dictionary<uint, long> _expByPlayer = new();
+    private readonly Dictionary<uint, ulong> _expByPlayer = new();
 
     private readonly List<uint> _expiredScratch = new();
 
@@ -52,7 +52,7 @@ internal sealed class FieldCombat
         _experienceMultiplier = experienceMultiplier;
     }
 
-    public long ExpFor(uint playerId) => _expByPlayer.TryGetValue(playerId, out long e) ? e : 0;
+    public ulong ExpFor(uint playerId) => _expByPlayer.TryGetValue(playerId, out var e) ? e : 0;
 
     // Skill effects that join normal attacks on this field (enchants, shields, reflection, evasion).
     internal IPlayerSkillCombat? SkillCombat { get; set; }
@@ -275,15 +275,15 @@ internal sealed class FieldCombat
             credited = log.FirstAttackerId;
         }
 
-        int exp = 0;
+        ulong exp = 0;
         var creditedTier = -1;
         if (credited != 0 && _host.TryGetPlayer(credited, out var creditedPlayer))
         {
             creditedTier = creditedPlayer.Character.Tier;
             exp = KillReward.ExpForKill(monster.Def.ExpReward, monster.Def.Combat.Level, creditedPlayer.Level, _experienceMultiplier);
-            exp = (int)Math.Min(int.MaxValue, PremiumRules.BoostExperience(exp, creditedPlayer.Character.Premium));
-            _expByPlayer.TryGetValue(credited, out long total);
-            _expByPlayer[credited] = total + exp;
+            exp = PremiumRules.BoostExperience(exp, creditedPlayer.Character.Premium);
+            _expByPlayer.TryGetValue(credited, out var total);
+            _expByPlayer[credited] = exp > ulong.MaxValue - total ? ulong.MaxValue : total + exp;
             creditedPlayer.Character.AwardExperience(exp);
         }
 

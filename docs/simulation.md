@@ -401,9 +401,12 @@ totals.
 
 ## Progression
 
+- Experience is `ulong` everywhere (character, table, kill rewards, premium boosts, owner state, wire); thresholds pass
+  2^32 from level 84. Sums saturate instead of wrapping; persistence stores it as a signed 64-bit integer (the cap is far
+  below 2^63) and refuses a negative stored value.
 - `ExperienceTable` holds 120 cumulative thresholds; `ForLevel(1) = 0`, `LevelFor` returns the highest level whose
   threshold is reached.
-- `AwardExperience(amount)`: ignores non-positive amounts and stops at `ForLevel(119)`. Below tier 3, an award that
+- `AwardExperience(amount)`: ignores zero and stops at `ForLevel(119)`. Below tier 3, an award that
   would pass `ForLevel(100)` is rejected entirely (not clamped). Levels are applied one `LevelUp` at a time.
 - `LevelUp`: +5 status points; +1 skill point at even levels from 10; +1 final-tier (elite) point at even levels from
   60; pools refilled; `OnLevelUp` and `LeveledUp` raised.

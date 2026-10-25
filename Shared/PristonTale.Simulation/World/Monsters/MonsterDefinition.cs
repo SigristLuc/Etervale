@@ -101,7 +101,7 @@ public sealed record MonsterDefinition(
     public MonsterAi Ai { get; init; } = MonsterAi.Default;
     public DropTable Drops { get; init; } = DropTable.Empty;
 
-    public int ExpReward { get; init; }
+    public ulong ExpReward { get; init; }
 
     public float ModelScale { get; init; } = 1f;
 

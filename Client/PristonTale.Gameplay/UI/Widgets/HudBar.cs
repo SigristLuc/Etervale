@@ -97,12 +97,13 @@ public sealed class HudBar
 
     public static float ExperienceFraction(OwnerState state)
     {
-        if (state is null || state.NextLevel <= state.LevelStart)
+        // Unsigned experience: a total at or below the level start is an empty bar, never a wrapped difference.
+        if (state is null || state.NextLevel <= state.LevelStart || state.Experience <= state.LevelStart)
         {
             return 0;
         }
 
-        return (float)Math.Clamp((double)(state.Experience - state.LevelStart) / (state.NextLevel - state.LevelStart), 0, 1);
+        return (float)Math.Min(1.0, (double)(state.Experience - state.LevelStart) / (state.NextLevel - state.LevelStart));
     }
 
     public void Draw(HudPainter painter, HudLayout layout, OwnerState state, HudBarView view)

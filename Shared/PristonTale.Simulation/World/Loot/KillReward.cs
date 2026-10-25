@@ -2,9 +2,8 @@ namespace PristonTale.Simulation.World.Loot;
 
 public static class KillReward
 {
-    public static int ExpForKill(int baseExp, int monsterLevel, int playerLevel, int multiplier = 1)
+    public static ulong ExpForKill(ulong baseExp, int monsterLevel, int playerLevel, int multiplier = 1)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(baseExp);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(multiplier);
         long difference = Math.Abs((long)monsterLevel - playerLevel);
         int percent = difference switch
@@ -14,9 +13,9 @@ public static class KillReward
             <= 30 => 70,
             _ => 55
         };
-        // Event bonus precedes the experience total; widen before multiplying to avoid overflow.
-        long boosted = checked((long)baseExp * multiplier);
-        return checked((int)(boosted * percent / 100));
+        // Event bonus precedes the experience total; computed in 128 bits and saturated, so no award wraps or throws.
+        var total = (UInt128)baseExp * (uint)multiplier * (uint)percent / 100;
+        return total > ulong.MaxValue ? ulong.MaxValue : (ulong)total;
     }
 
     public static bool FirstAttackerStealsCredit(

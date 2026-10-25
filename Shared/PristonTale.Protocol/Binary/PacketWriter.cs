@@ -60,6 +60,12 @@ public ref struct PacketWriter
         _position += 8;
     }
 
+    public void UInt64(ulong value)
+    {
+        BinaryPrimitives.WriteUInt64LittleEndian(_buffer[_position..], value);
+        _position += 8;
+    }
+
     public void Guid(Guid value)
     {
         value.TryWriteBytes(_buffer.Slice(_position, 16));

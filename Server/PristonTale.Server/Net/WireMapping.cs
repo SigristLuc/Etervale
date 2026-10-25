@@ -176,15 +176,6 @@ internal static class WireMapping
             Absorption = owner.Absorption,
             MoveSpeed = owner.MoveSpeed,
             ShootingRange = (int)owner.AttackRange,
-            LifeCurrent = ClampShort(owner.Hp),
-            LifeMax = ClampShort(owner.MaxHp),
-            ManaCurrent = ClampShort(owner.Mp),
-            ManaMax = ClampShort(owner.MaxMp),
-            StaminaCurrent = ClampShort(owner.Sp),
-            StaminaMax = ClampShort(owner.MaxSp),
-            Experience = owner.Experience,
-            NextExp = (int)Math.Min(owner.NextLevel, int.MaxValue),
-            Money = (int)Math.Min(owner.Money, int.MaxValue),
             StatePoint = owner.StatPoints
         };
         info.Temp[CharacterInfo.TempFaceAndHair] = (uint)(summary.FaceIndex & 0xFF) | (uint)(summary.HairIndex & 0xFF) << 8;

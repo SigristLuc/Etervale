@@ -78,7 +78,8 @@ public static class CharacterRecordFactory
         var scalars = loaded with
         {
             Level = character.Level,
-            Exp = character.Experience,
+            // SQLite and PostgreSQL store signed 64-bit integers; the experience cap (about 1.5e12) is far below 2^63.
+            Exp = checked((long)character.Experience),
             Money = character.Money,
             StatPoints = character.StatPoints,
             Tier = character.Tier,

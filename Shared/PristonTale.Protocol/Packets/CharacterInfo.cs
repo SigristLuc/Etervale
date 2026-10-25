@@ -110,13 +110,14 @@ public sealed class CharacterInfo
     public ushort Version0 { get; set; }
     public ushort Version1 { get; set; }
 
-    public long Experience
+    // The record splits the unsigned 64-bit experience into its low and high 32-bit halves.
+    public ulong Experience
     {
-        get => (long)ExpHigh << 32 | (uint)Exp;
+        get => (ulong)(uint)ExpHigh << 32 | (uint)Exp;
         set
         {
             Exp = unchecked((int)value);
-            ExpHigh = (int)(value >> 32);
+            ExpHigh = unchecked((int)(value >> 32));
         }
     }
 

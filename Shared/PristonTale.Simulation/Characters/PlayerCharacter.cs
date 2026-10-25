@@ -37,7 +37,7 @@ public sealed class PlayerCharacter
     public CharacterClassDef Definition => Class.Definition;
     public string Name { get; }
     public int Level { get; private set; }
-    public long Experience { get; private set; }
+    public ulong Experience { get; private set; }
     public long Money { get; private set; }
     public int StatPoints { get; private set; }
     public int SkillPoints { get; private set; }
@@ -47,9 +47,9 @@ public sealed class PlayerCharacter
     // Quest progress: the running quest, finished quests and the logs whose bits pay lasting rewards.
     public QuestJournal Quests { get; private set; } = new();
 
-    public void RestoreProgress(long experience, long money, int statPoints = 0, short tier = 0, int skillPoints = 0, int eliteSkillPoints = 0)
+    public void RestoreProgress(ulong experience, long money, int statPoints = 0, short tier = 0, int skillPoints = 0, int eliteSkillPoints = 0)
     {
-        if (experience < 0 || money < 0 || statPoints < 0 || skillPoints < 0 || eliteSkillPoints < 0 || tier < 0 || tier > 3)
+        if (money < 0 || statPoints < 0 || skillPoints < 0 || eliteSkillPoints < 0 || tier < 0 || tier > 3)
         {
             throw new ArgumentOutOfRangeException(nameof(experience));
         }
@@ -62,9 +62,9 @@ public sealed class PlayerCharacter
         EliteSkillPoints = eliteSkillPoints;
     }
 
-    public int AwardExperience(int amount)
+    public int AwardExperience(ulong amount)
     {
-        if (amount <= 0)
+        if (amount == 0)
         {
             return 0;
         }
@@ -76,7 +76,7 @@ public sealed class PlayerCharacter
             return 0;
         }
 
-        var next = Experience + amount;
+        var next = amount > ceiling - Experience ? ceiling : Experience + amount;
         if (Tier < 3 && next > ExperienceTable.ForLevel(100))
         {
             return 0;

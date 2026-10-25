@@ -25,7 +25,7 @@ public sealed record MonsterRecord(
     int Iq,
     int GroupMin,
     int GroupMax,
-    int Exp,
+    long Exp,
     int ActiveHour,
     short Nature,
     short Brood,

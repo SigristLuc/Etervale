@@ -197,7 +197,7 @@ public static class WorldDataFactory
             Key = r.Name,
             Ai = ai,
             Drops = ToDropTable(r, itemCodes),
-            ExpReward = r.Exp,
+            ExpReward = r.Exp >= 0 ? (ulong)r.Exp : throw new InvalidDataException($"Monster '{r.Name}' has negative experience {r.Exp}."),
             SoundCode = r.SoundCode,
             ModelScale = r.ModelScale,
             PortraitOffsetY = r.PortraitOffsetY,

@@ -22,10 +22,16 @@ public static class PremiumRules
     public static int ExperiencePercent(PremiumTimers timers) =>
         timers.ValueOf(PremiumEffectKind.ExperienceUp) + (timers.IsActive(PremiumEffectKind.PhoenixPet) ? PhoenixExperiencePercent : 0);
 
-    public static long BoostExperience(long experience, PremiumTimers timers)
+    public static ulong BoostExperience(ulong experience, PremiumTimers timers)
     {
         var percent = ExperiencePercent(timers);
-        return percent <= 0 ? experience : experience + experience * percent / 100;
+        if (percent <= 0)
+        {
+            return experience;
+        }
+
+        var total = experience + (UInt128)experience * (uint)percent / 100;
+        return total > ulong.MaxValue ? ulong.MaxValue : (ulong)total;
     }
 
     // Percent chance of one extra drop roll from a monster that drops at all: Third Eyes (or a package) plus the Phoenix;

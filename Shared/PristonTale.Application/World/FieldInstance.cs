@@ -159,7 +159,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         return true;
     }
 
-    public long ExpFor(uint playerId) => _combat.ExpFor(playerId);
+    public ulong ExpFor(uint playerId) => _combat.ExpFor(playerId);
 
     // A used item's timed effect on a player of this field; it starts with the next step.
     internal void QueueItemEffect(uint entityId, EffectSpec spec, float durationMs, int rank = 1) => _skills.QueueItemEffect(entityId, spec, durationMs, rank);

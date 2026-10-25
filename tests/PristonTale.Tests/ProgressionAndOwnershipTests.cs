@@ -5,8 +5,10 @@ using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.World;
+using PristonTale.Simulation.World.Loot;
 
 namespace PristonTale.Tests;
 
@@ -30,15 +32,21 @@ internal static class ProgressionAndOwnershipTests
         Assert.True(character.TryAllocateAttribute(CharacterAttribute.Strength, 5), "available points rejected");
         Assert.True(!character.TryAllocateAttribute(CharacterAttribute.Health, 6), "unavailable points spent");
         Assert.True(character.Attributes.Strength == attributes.Strength + 5 && character.StatPoints == 5, "attribute allocation changed wrong state");
-        character.AwardExperience((int)ExperienceTable.ForLevel(12) - (int)character.Experience);
+        character.AwardExperience(ExperienceTable.ForLevel(12) - character.Experience);
         Assert.True(character.Level == 12 && character.SkillPoints == 2, "even-level skill points were lost in a multi-level award");
         Assert.True(character.Life == character.MaxLife && character.Mana == character.MaxMana && character.Stamina == character.MaxStamina, "level-up pools not restored");
         character.RestoreProgress(ExperienceTable.ForLevel(100), 0);
         character.AwardExperience(1);
         Assert.True(character.Experience == ExperienceTable.ForLevel(100), "job quest XP gate bypassed");
-        character.RestoreProgress(long.MaxValue, 0, tier: 3);
-        character.AwardExperience(int.MaxValue);
-        Assert.True(character.Experience == long.MaxValue, "overflow or loss of saved XP above cap");
+        character.RestoreProgress(ulong.MaxValue, 0, tier: 3);
+        character.AwardExperience(ulong.MaxValue);
+        Assert.True(character.Experience == ulong.MaxValue, "overflow or loss of saved XP above cap");
+        character.RestoreProgress(ExperienceTable.ForLevel(110), 0, tier: 3);
+        var ceiling = ExperienceTable.ForLevel(ExperienceTable.MaximumLevel - 1);
+        character.AwardExperience(ulong.MaxValue);
+        Assert.True(character.Experience == ceiling, "a 64-bit award wrapped instead of stopping at the experience cap");
+        Assert.True(KillReward.ExpForKill(ulong.MaxValue, 1, 1, 5) == ulong.MaxValue
+            && PremiumRules.BoostExperience(ulong.MaxValue / 2, new PremiumTimers()) == ulong.MaxValue / 2, "kill experience wrapped");
         Assert.True(!character.TryChangeMoney(-1) && character.TryChangeMoney(10) && !character.TryChangeMoney(long.MaxValue), "money overflow/overdraft accepted");
         return Task.CompletedTask;
     }

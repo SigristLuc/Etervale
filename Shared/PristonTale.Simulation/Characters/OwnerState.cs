@@ -13,7 +13,7 @@ public sealed record OwnedItemView(
 public sealed record OwnedSkillView(uint Code, int Rank);
 
 public sealed record OwnerState(
-    int Level, long Experience, long LevelStart, long NextLevel,
+    int Level, ulong Experience, ulong LevelStart, ulong NextLevel,
     long Money, int Hp, int MaxHp, int Mp, int MaxMp, int Sp, int MaxSp,
     int StatPoints, int SkillPoints, int Strength, int Spirit, int Talent, int Agility, int Health,
     int DamageMin, int DamageMax, int Defence, int Absorption, long InventoryRevision,

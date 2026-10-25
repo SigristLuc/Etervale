@@ -131,9 +131,9 @@ internal static class GmItemCommands
     // Adds experience points to the game master, as a monster's award would.
     public static async Task ExperienceUp(GmCommandContext context)
     {
-        var word = context.Word();
-        var amount = ChatCommandText.ToNumber(word);
-        if (word.Length == 0 || amount <= 0)
+        // Experience is unsigned 64-bit: amounts past the 32-bit range are accepted.
+        if (!ulong.TryParse(context.Word(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var amount)
+            || amount == 0)
         {
             return;
         }

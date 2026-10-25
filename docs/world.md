@@ -379,7 +379,8 @@ Quest and ingredient items (`QuestItems.IsQuestDrop`) are flagged `ToInventory` 
 picks; the field hands them to the credited player's quest upkeep instead of the ground ([quests.md](quests.md)).
 
 `KillReward.ExpForKill(baseExp, monsterLevel, playerLevel, multiplier)`: `baseExp * multiplier`, then 100 / 85 / 70 /
-55 percent for a level gap of at most 10 / 20 / 30 / more. The server passes `World:ExperienceMultiplier`.
+55 percent for a level gap of at most 10 / 20 / 30 / more, computed in 128 bits and saturated at `ulong.MaxValue` (no
+award wraps or throws). The server passes `World:ExperienceMultiplier`.
 `FirstAttackerStealsCredit`: the first attacker gets the kill over another killer if it dealt at least 40% of max life
 and hit within the last 15 s (`FirstAttackerDisengageMs`).
 

@@ -119,7 +119,7 @@ request (`FAILCONNECT` -16, a record echo with `WParam` 0, or entry failure `Rej
 
 | Message | Direction | Use |
 | --- | --- | --- |
-| `TRANSPLAYDATA` | C→S | The client's own position, facing, motion (`angle[3]`), action target (`dwTargetSerial`) and field (`wArea[0]`). Sent every 200 ms while moving, on state changes and every second while idle. |
+| `TRANSPLAYDATA` | C→S | The client's own position, facing, motion (`angle[3]`), action target (`dwTargetSerial`) and field (`wArea[0]`). Sent every 200 ms while moving, on state changes (at most one per 50 ms) and every second while idle. |
 | `PLAYDATAGROUP` | S→C | Nearby objects: `{size, code, PlayDataCnt, dwSendCode}` followed by self-sized entries, each a play data packet with one play buffer (84 B) or the coarse `PLAYDATA1` entry (40 B). |
 | `GETPLAYERINFO` / `PLAYERINFO` | C→S / S→C | Describes an unknown object or one whose `bUpdateInfo[0]` revision changed (`GETPLAYERINFO.WParam` = serial). Monsters and NPCs are cached by `dwAutoCharCode`, as in the original client; owned summons and crystal pets carry `dwAutoCharCode` 0 and are always described on their own. The client asks again after a second without an answer (the server drops requests beyond its bucket). |
 | `WARPFIELD` | S→C | `{WParam field, SParam x, LParam z}` confirms a field change; `EParam` = 1 marks a correction after a rejected report or a teleport. |
@@ -168,7 +168,7 @@ keep the `{size, code}` header and the 8192-byte frame limit.
 
 | Code | Name | Direction | Content |
 | --- | --- | --- | --- |
-| `0x45540100` | `OwnerStatus` | S→C | Level, 64-bit experience, money, resources, attributes, combat values and revisions, then the final-tier skill points and the class tier (0..3). 156 B. |
+| `0x45540100` | `OwnerStatus` | S→C | Level, unsigned 64-bit experience (current, level start, next level), 64-bit money, resources, attributes, combat values and revisions, then the final-tier skill points and the class tier (0..3). 156 B. |
 | `0x45540101` | `Skills` | S→C | Skill revision and (code, rank) pairs, at most 512. |
 | `0x45540102` | `Inventory` | S→C | Inventory revision split into parts of up to 100 items; the client replaces its inventory when all parts of a revision arrived. |
 | `0x45540110` / `0x45540111` | `InventoryCommand` / `InventoryResult` | C→S / S→C | Transactional inventory operation, correlated by operation id. A ground pickup (`InventoryAction.Pickup`) names the drop in `ItemId`. |

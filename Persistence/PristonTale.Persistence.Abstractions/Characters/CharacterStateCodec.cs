@@ -43,7 +43,12 @@ public static class CharacterStateCodec
         var equipment = ReadEquipment(record.Equipment);
         var skills = ReadSkills(record.Skills);
         var identities = new HashSet<Guid>();
-        character.RestoreProgress(record.Exp, record.Money, record.StatPoints, record.Tier, skills.Points, skills.ElitePoints);
+        if (record.Exp < 0)
+        {
+            throw new InvalidDataException($"Character {record.Id} has negative experience {record.Exp}.");
+        }
+
+        character.RestoreProgress((ulong)record.Exp, record.Money, record.StatPoints, record.Tier, skills.Points, skills.ElitePoints);
         character.RestoreQuests(QuestStateCodec.Read(record.Quests));
 
         foreach (var saved in inventory.Items)

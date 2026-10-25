@@ -53,6 +53,8 @@ public ref struct PacketReader
 
     public long Int64() => BinaryPrimitives.ReadInt64LittleEndian(Take(8));
 
+    public ulong UInt64() => BinaryPrimitives.ReadUInt64LittleEndian(Take(8));
+
     public Guid Guid() => new(Take(16));
 
     public ReadOnlySpan<byte> Bytes(int count) => Take(count);

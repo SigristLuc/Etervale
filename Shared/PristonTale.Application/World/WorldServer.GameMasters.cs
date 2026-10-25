@@ -277,9 +277,9 @@ public sealed partial class WorldServer
 
     // Raises the character to the experience that starts a level; null when the level is out of range or not above the
     // current experience.
-    public Task<long?> RaiseExperienceAsync(uint entityId, int level)
+    public Task<ulong?> RaiseExperienceAsync(uint entityId, int level)
     {
-        return EnqueueAsync<long?>(entityId, () =>
+        return EnqueueAsync<ulong?>(entityId, () =>
         {
             if (!_connections.TryGetValue(entityId, out var connection) || level < 2 || level > ExperienceTable.MaximumLevel)
             {
@@ -288,14 +288,15 @@ public sealed partial class WorldServer
 
             var character = connection.Player.Character;
             var target = ExperienceTable.ForLevel(level);
-            while (character.Experience < target)
+            // Below the final tier experience stops at level 100, as a monster's award would.
+            if (character.Tier < 3)
             {
-                var before = character.Experience;
-                character.AwardExperience((int)Math.Min(int.MaxValue, target - character.Experience));
-                if (character.Experience == before)
-                {
-                    break;
-                }
+                target = Math.Min(target, ExperienceTable.ForLevel(100));
+            }
+
+            if (character.Experience < target)
+            {
+                character.AwardExperience(target - character.Experience);
             }
 
             return character.Experience;
@@ -304,11 +305,11 @@ public sealed partial class WorldServer
 
     // Adds experience to a character as monsters award it (levels included); the new total, or null when the amount is
     // not positive.
-    public Task<long?> AddExperienceAsync(uint entityId, int amount)
+    public Task<ulong?> AddExperienceAsync(uint entityId, ulong amount)
     {
-        return EnqueueAsync<long?>(entityId, () =>
+        return EnqueueAsync<ulong?>(entityId, () =>
         {
-            if (!_connections.TryGetValue(entityId, out var connection) || amount <= 0)
+            if (!_connections.TryGetValue(entityId, out var connection) || amount == 0)
             {
                 return null;
             }
