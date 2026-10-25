@@ -46,6 +46,7 @@ public sealed class Importer
     {
         var report = new ImportReport();
         _entityVariants.Clear();
+        _unknownKeys.Clear();
         _npcNamesByFile.Clear();
         _fieldCodeByBase.Clear();
 
@@ -62,6 +63,7 @@ public sealed class Importer
         }
         var monsters = ParseMonsters(report);
         var npcs = ParseNpcs(report);
+        ReportUnknownKeys(report);
         var fields = ParseFields(report);
 
         // Code/name resolution sets (the PKs that exist after parse). Parents win by natural PK; on dup
@@ -86,7 +88,8 @@ public sealed class Importer
 
         await conn.ExecuteAsync(new CommandDefinition("DELETE FROM world_import_unresolved_refs", transaction: tx, cancellationToken: ct));
         var footprints = ItemFootprints.Measure(_assetRoot, items.Select(static item => item.Code), report);
-        await WriteItemsAsync(conn, tx, items, _questVariants, footprints, report, ct);
+        await WriteItemsAsync(conn, tx, items, _questVariants, _namedUniques, footprints, report, ct);
+        await WriteItemSetsAsync(conn, tx, items, report, ct);
         await WriteMonstersAsync(conn, tx, monsters, itemCodes, report, ct);
         await WriteNpcsAsync(conn, tx, npcs, itemCodes, report, ct);
         await WriteFieldsAsync(conn, tx, fields, monsterNames, npcNames, report, ct);
@@ -342,6 +345,7 @@ public sealed class Importer
             }
 
             parsed.Add((path, item));
+            NoteUnknownKeys("item", path, item.UnknownKeys);
         }
 
         var winners = parsed
@@ -373,7 +377,11 @@ public sealed class Importer
 
             if (!selected)
             {
-                report.Warnings.Add($"item variant '{item.Code}' ({Path.GetFileName(path)}) — retained outside the catalog");
+                if (item.UniqueItem != NamedUnique)
+                {
+                    report.Warnings.Add($"item variant '{item.Code}' ({Path.GetFileName(path)}) — retained outside the catalog");
+                }
+
                 continue;
             }
 
@@ -388,12 +396,49 @@ public sealed class Importer
             _questVariants.Add(group.OrderBy(static entry => entry.Path, StringComparer.Ordinal).First().Item);
         }
 
+        // Named uniques (unique marker 1) of a code that lost the selection: "<code>#U<n>", one per distinct name in path order.
+        _namedUniques.Clear();
+        foreach (var group in parsed.Where(entry => entry.Item.Code.Length > 0 && entry.Item.UniqueItem == NamedUnique
+                         && !string.Equals(winners[entry.Item.Code].Path, entry.Path, StringComparison.Ordinal))
+                     .GroupBy(static entry => entry.Item.Code, StringComparer.OrdinalIgnoreCase))
+        {
+            var variant = 0;
+            foreach (var entry in group.OrderBy(static entry => entry.Path, StringComparer.Ordinal).DistinctBy(static entry => entry.Item.Name))
+            {
+                _namedUniques.Add((++variant, entry.Item));
+            }
+        }
+
         return result;
     }
 
+    private const long NamedUnique = 1;
+    private const string NamedUniqueSuffix = "#U";
+    private readonly List<(int Variant, ParsedItem Item)> _namedUniques = [];
     private const long QuestUnique = 2;
     private const string QuestVariantSuffix = "#Q";
     private readonly List<ParsedItem> _questVariants = [];
+
+    // Keys no rule reads, by source kind: how many files carry each and the first one.
+    private readonly SortedDictionary<string, (int Files, string First)> _unknownKeys = new(StringComparer.Ordinal);
+
+    private void NoteUnknownKeys(string kind, string path, IEnumerable<string> keys)
+    {
+        // Comment lines and stray text are not keys.
+        foreach (var key in keys.Where(static key => key.StartsWith('*')).Distinct(StringComparer.Ordinal))
+        {
+            var id = $"{kind} {key}";
+            _unknownKeys[id] = _unknownKeys.TryGetValue(id, out var seen) ? (seen.Files + 1, seen.First) : (1, Path.GetFileName(path));
+        }
+    }
+
+    private void ReportUnknownKeys(ImportReport report)
+    {
+        foreach (var (id, (files, first)) in _unknownKeys)
+        {
+            report.Warnings.Add($"unknown key {id}: {files} file(s), first {first} — not imported");
+        }
+    }
 
     private IReadOnlyList<ParsedMonster> ParseMonsters(ImportReport report)
     {
@@ -406,6 +451,7 @@ public sealed class Importer
             ParsedMonster m;
             try { m = parser.Parse(path); }
             catch (Exception ex) { report.Warnings.Add($"monster parse failed {Path.GetFileName(path)}: {ex.Message}"); continue; }
+            NoteUnknownKeys("monster", path, m.UnknownKeys);
             var selected = !string.IsNullOrWhiteSpace(m.Name) && seen.Add(m.Name);
             _entityVariants.Add(CreateVariant(path, "monster", m.Name, selected, m));
 
@@ -441,7 +487,9 @@ public sealed class Importer
             report.NpcFilesParsed++;
             try
             {
-                parsed.Add((path, parser.Parse(path)));
+                var npc = parser.Parse(path);
+                parsed.Add((path, npc));
+                NoteUnknownKeys("npc", path, npc.UnknownKeys);
             }
             catch (Exception ex)
             {
@@ -559,12 +607,46 @@ public sealed class Importer
 
     // ---- Writes (idempotent) ------------------------------------------------------------------------
 
+    // One row per item set: the pieces worn for the bonus (the most any of its items asks) and the bonus its files state.
+    private static async Task WriteItemSetsAsync(DbConnection conn, DbTransaction tx, IReadOnlyList<ParsedItem> items, ImportReport report,
+        CancellationToken ct)
+    {
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM item_sets", transaction: tx, cancellationToken: ct));
+        foreach (var set in items.Where(static item => item.SetCode != 0).GroupBy(static item => item.SetCode).OrderBy(static set => set.Key))
+        {
+            var texts = set.Select(static item => item.SetBonus).Where(static text => text.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+            var text = texts.FirstOrDefault() ?? "";
+            if (texts.Count > 1)
+            {
+                report.Warnings.Add($"item set {set.Key}: its items state different bonuses ({string.Join(" | ", texts)}); the first is used");
+            }
+
+            if (!SetBonusParser.TryParse(text, out var bonus))
+            {
+                report.Warnings.Add($"item set {set.Key}: bonus '{text}' not understood; the set gives nothing");
+            }
+
+            await conn.ExecuteAsync(new CommandDefinition(
+                """
+                INSERT INTO item_sets (set_code, pieces, life, absorb, block, life_regen, mana_regen, stamina_regen, description)
+                VALUES (@SetCode, @Pieces, @Life, @Absorb, @Block, @LifeRegen, @ManaRegen, @StaminaRegen, @Description)
+                """,
+                new
+                {
+                    SetCode = set.Key, Pieces = set.Max(static item => item.SetPieces), bonus.Life, bonus.Absorb, bonus.Block, bonus.LifeRegen,
+                    bonus.ManaRegen, bonus.StaminaRegen, Description = text,
+                }, tx, cancellationToken: ct));
+        }
+    }
+
     private static async Task WriteItemsAsync(
         DbConnection conn, DbTransaction tx, IReadOnlyList<ParsedItem> items, IReadOnlyList<ParsedItem> questVariants,
-        IReadOnlyDictionary<string, (int Width, int Height)> footprints, ImportReport report, CancellationToken ct)
+        IReadOnlyList<(int Variant, ParsedItem Item)> namedUniques, IReadOnlyDictionary<string, (int Width, int Height)> footprints,
+        ImportReport report, CancellationToken ct)
     {
         var rows = items.Select(static it => (Key: it.Code, Item: it))
             .Concat(questVariants.Select(static it => (Key: it.Code + QuestVariantSuffix, Item: it)))
+            .Concat(namedUniques.Select(static unique => (Key: unique.Item.Code + NamedUniqueSuffix + unique.Variant, unique.Item)))
             .ToList();
         const string upsert = """
             INSERT INTO item_templates (
@@ -580,7 +662,8 @@ public sealed class Importer
                 res_bionic_min, res_bionic_max, res_earth_min, res_earth_max, res_fire_min, res_fire_max,
                 res_ice_min, res_ice_max, res_lighting_min, res_lighting_max, res_poison_min, res_poison_max,
                 res_water_min, res_water_max, res_wind_min, res_wind_max,
-                max_stack, potion_space, magic_mastery, grid_width, grid_height)
+                max_stack, potion_space, magic_mastery, grid_width, grid_height, glow_r, glow_g, glow_b, glow_a, glow_blink,
+                glow_scale, display_effect, daily_drop_limit, set_code, set_pieces)
             VALUES (
                 @Code, @Mask, @Name, @Kind, @DurMin, @DurMax, @Weight, @Price,
                 @DmgMinLow, @DmgMinHigh, @DmgMaxLow, @DmgMaxHigh,
@@ -593,7 +676,8 @@ public sealed class Importer
                 @ShootRange, @AtkSpeed, @JobMask, @Unique,
                 @RB0min, @RB0max, @RB1min, @RB1max, @RB2min, @RB2max, @RB3min, @RB3max,
                 @RB4min, @RB4max, @RB5min, @RB5max, @RB6min, @RB6max, @RB7min, @RB7max,
-                @MaxStack, @PotionSpace, @MagicMastery, @GridWidth, @GridHeight)
+                @MaxStack, @PotionSpace, @MagicMastery, @GridWidth, @GridHeight, @GlowR, @GlowG, @GlowB, @GlowA, @GlowBlink,
+                @GlowScale, @DisplayEffect, @DailyDropLimit, @SetCode, @SetPieces)
             ON CONFLICT (code) DO UPDATE SET
                 item_code_mask=excluded.item_code_mask, name=excluded.name, kind=excluded.kind,
                 durability_min=excluded.durability_min, durability_max=excluded.durability_max,
@@ -627,7 +711,10 @@ public sealed class Importer
                 res_water_min=excluded.res_water_min, res_water_max=excluded.res_water_max,
                 res_wind_min=excluded.res_wind_min, res_wind_max=excluded.res_wind_max,
                 max_stack=excluded.max_stack, potion_space=excluded.potion_space,
-                magic_mastery=excluded.magic_mastery, grid_width=excluded.grid_width, grid_height=excluded.grid_height;
+                magic_mastery=excluded.magic_mastery, grid_width=excluded.grid_width, grid_height=excluded.grid_height,
+                glow_r=excluded.glow_r, glow_g=excluded.glow_g, glow_b=excluded.glow_b, glow_a=excluded.glow_a,
+                glow_blink=excluded.glow_blink, glow_scale=excluded.glow_scale, display_effect=excluded.display_effect,
+                daily_drop_limit=excluded.daily_drop_limit, set_code=excluded.set_code, set_pieces=excluded.set_pieces;
             """;
 
         foreach (var (key, it) in rows)
@@ -661,6 +748,8 @@ public sealed class Importer
                 it.MaxStack, it.PotionSpace, it.MagicMastery,
                 GridWidth = footprints.TryGetValue(it.Code, out var footprint) ? footprint.Width : 1,
                 GridHeight = footprints.TryGetValue(it.Code, out footprint) ? footprint.Height : 1,
+                GlowR = it.UniqueColor[0], GlowG = it.UniqueColor[1], GlowB = it.UniqueColor[2], GlowA = it.UniqueColor[3],
+                GlowBlink = it.UniqueBlink, GlowScale = it.UniqueScale, it.DisplayEffect, it.DailyDropLimit, it.SetCode, it.SetPieces,
             }, tx, cancellationToken: ct));
             report.ItemRows++;
         }
@@ -703,7 +792,8 @@ public sealed class Importer
                 iq, group_min, group_max, exp, active_hour, nature, brood, class,
                 res_bionic, res_earth, res_fire, res_ice, res_lighting, res_poison, res_water, res_wind,
                 stun_pct, display_name, sound_code, model_scale, portrait_offset_y, portrait_offset_z,
-                quest_code, event_item, potion_count, potion_percent)
+                quest_code, event_item, potion_count, potion_percent, hostile, size_level, res_magic, move_type,
+                special_attack_pct, gold_min, gold_max, gold_pct, event_model, event_code, event_info)
             VALUES (
                 @Name, @Model, @Level, @AtkMin, @AtkMax, @AtkSpeed, @AtkRange, @Accuracy,
                 @Defence, @Absorb, @Block, @Hp, @Sight, @SkDmgMin, @SkDmgMax,
@@ -711,7 +801,8 @@ public sealed class Importer
                 @Iq, @GroupMin, @GroupMax, @Exp, @ActiveHour, @Nature, @Brood, @Class,
                 @R0, @R1, @R2, @R3, @R4, @R5, @R6, @R7,
                 @StunPct, @DisplayName, @SoundCode, @ModelScale, @PortraitOffsetY, @PortraitOffsetZ,
-                @QuestCode, @EventItem, @PotionCount, @PotionPercent)
+                @QuestCode, @EventItem, @PotionCount, @PotionPercent, @Hostile, @SizeLevel, @MagicResistance, @MoveType,
+                @SpecialAttackPct, @GoldMin, @GoldMax, @GoldPct, @EventModel, @EventCode, @EventInfo)
             ON CONFLICT (name) DO UPDATE SET
                 model=excluded.model, level=excluded.level, attack_min=excluded.attack_min, attack_max=excluded.attack_max,
                 attack_speed=excluded.attack_speed, attack_range=excluded.attack_range, accuracy=excluded.accuracy,
@@ -728,7 +819,11 @@ public sealed class Importer
                 display_name=excluded.display_name, sound_code=excluded.sound_code,
                 model_scale=excluded.model_scale, portrait_offset_y=excluded.portrait_offset_y,
                 portrait_offset_z=excluded.portrait_offset_z, quest_code=excluded.quest_code, event_item=excluded.event_item,
-                potion_count=excluded.potion_count, potion_percent=excluded.potion_percent;
+                potion_count=excluded.potion_count, potion_percent=excluded.potion_percent, hostile=excluded.hostile,
+                size_level=excluded.size_level, res_magic=excluded.res_magic, move_type=excluded.move_type,
+                special_attack_pct=excluded.special_attack_pct, gold_min=excluded.gold_min, gold_max=excluded.gold_max,
+                gold_pct=excluded.gold_pct, event_model=excluded.event_model, event_code=excluded.event_code,
+                event_info=excluded.event_info;
             """;
 
         foreach (var m in monsters)
@@ -747,6 +842,8 @@ public sealed class Importer
                 R4 = m.Resistances[4], R5 = m.Resistances[5], R6 = m.Resistances[6], R7 = m.Resistances[7],
                 m.StunPct, m.DisplayName, m.SoundCode, m.ModelScale, m.PortraitOffsetY, m.PortraitOffsetZ,
                 m.QuestCode, EventItem = itemCodes.TryGetValue(m.EventItem, out var eventItem) ? eventItem : m.EventItem, m.PotionCount, m.PotionPercent,
+                m.Hostile, m.SizeLevel, m.MagicResistance, m.MoveType, m.SpecialAttackPct, m.GoldMin, m.GoldMax, m.GoldPct,
+                m.EventModel, m.EventCode, m.EventInfo,
             }, tx, cancellationToken: ct));
             report.MonsterRows++;
         }
@@ -832,13 +929,13 @@ public sealed class Importer
                 svc_teleport, svc_item_mix, svc_item_aging, svc_smelting, svc_manufacture, svc_mixture_reset,
                 svc_clan, svc_bless_castle, svc_quest, svc_event_booth, svc_collect_money, svc_give_money,
                 job_change_code, teleport_code, quest_code, quest_param, dialog, sound_code, move_range, model_scale,
-                display_name, portrait_offset_y, portrait_offset_z)
+                display_name, portrait_offset_y, portrait_offset_z, hostile, level, size_level, appear_slot, appear_cycle)
             VALUES (
                 @Name, @Model, @Linked, @Warehouse, @Shop, @SkillMaster, @JobChange,
                 @Teleport, @ItemMix, @ItemAging, @Smelting, @Manufacture, @MixtureReset,
                 @Clan, @BlessCastle, @Quest, @EventBooth, @CollectMoney, @GiveMoney,
                 @JobChangeCode, @TeleportCode, @QuestCode, @QuestParam, @Dialog, @SoundCode, @MoveRange, @ModelScale,
-                @DisplayName, @PortraitOffsetY, @PortraitOffsetZ)
+                @DisplayName, @PortraitOffsetY, @PortraitOffsetZ, @Hostile, @Level, @SizeLevel, @AppearSlot, @AppearCycle)
             ON CONFLICT (name) DO UPDATE SET
                 model=excluded.model, linked_file=excluded.linked_file,
                 svc_warehouse=excluded.svc_warehouse, svc_shop=excluded.svc_shop,
@@ -853,7 +950,9 @@ public sealed class Importer
                 quest_code=excluded.quest_code, quest_param=excluded.quest_param, dialog=excluded.dialog,
                 sound_code=excluded.sound_code, move_range=excluded.move_range,
                 model_scale=excluded.model_scale, display_name=excluded.display_name,
-                portrait_offset_y=excluded.portrait_offset_y, portrait_offset_z=excluded.portrait_offset_z;
+                portrait_offset_y=excluded.portrait_offset_y, portrait_offset_z=excluded.portrait_offset_z,
+                hostile=excluded.hostile, level=excluded.level, size_level=excluded.size_level,
+                appear_slot=excluded.appear_slot, appear_cycle=excluded.appear_cycle;
             """;
 
         foreach (var n in npcs)
@@ -874,7 +973,7 @@ public sealed class Importer
                 JobChangeCode = n.JobChangeCode, TeleportCode = n.TeleportCode,
                 n.MoveRange, n.ModelScale,
                 QuestCode = n.QuestCode, QuestParam = n.QuestParam, Dialog = dialogJson, n.SoundCode,
-                n.DisplayName, n.PortraitOffsetY, n.PortraitOffsetZ,
+                n.DisplayName, n.PortraitOffsetY, n.PortraitOffsetZ, n.Hostile, n.Level, n.SizeLevel, n.AppearSlot, n.AppearCycle,
             }, tx, cancellationToken: ct));
             report.NpcRows++;
             if (n.Dialog.Count > 0)

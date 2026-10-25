@@ -53,11 +53,36 @@ public static class WorldDataFactory
             MagicMastery = r.MagicMastery,
             UniqueItem = (int)r.UniqueItem,
             Template = ToItemTemplate(r),
+            Glow = new ItemGlow((byte)Math.Clamp(r.GlowR, 0, 255), (byte)Math.Clamp(r.GlowG, 0, 255), (byte)Math.Clamp(r.GlowB, 0, 255),
+                (byte)Math.Clamp(r.GlowA, 0, 255), Math.Max(0, r.GlowBlink), r.GlowScale),
+            DisplayEffect = r.DisplayEffect,
+            DailyDropLimit = Math.Max(0, r.DailyDropLimit),
+            SetCode = r.SetCode,
         });
     }
 
     public static IReadOnlyList<ItemDefinition> ToItemDefinitions(IEnumerable<ItemTemplateRecord> records) =>
-        records.Where(static record => record.ItemCodeMask != 0 && !IsQuestVariantKey(record.Code)).Select(ToItemDefinition).ToList();
+        records.Where(static record => record.ItemCodeMask != 0 && !IsQuestVariantKey(record.Code) && !IsNamedUniqueKey(record.Code))
+            .Select(ToItemDefinition).ToList();
+
+    // Rows of a code's named uniques are keyed "<code>#U<n>" by the importer.
+    public const string NamedUniqueSuffix = "#U";
+
+    public static bool IsNamedUniqueKey(string code) => code.Contains(NamedUniqueSuffix, StringComparison.OrdinalIgnoreCase);
+
+    public static IReadOnlyList<ItemDefinition> ToNamedUniqueDefinitions(IEnumerable<ItemTemplateRecord> records) =>
+        records.Where(static record => record.ItemCodeMask != 0 && IsNamedUniqueKey(record.Code))
+            .Select(static record =>
+            {
+                var at = record.Code.IndexOf(NamedUniqueSuffix, StringComparison.OrdinalIgnoreCase);
+                var variant = int.Parse(record.Code[(at + NamedUniqueSuffix.Length)..], System.Globalization.CultureInfo.InvariantCulture);
+                return ToItemDefinition(record with { Code = record.Code[..at] }) with { UniqueVariant = variant };
+            })
+            .ToList();
+
+    public static IReadOnlyList<ItemSetDefinition> ToItemSets(IEnumerable<ItemSetRecord> records) =>
+        records.Select(static r => new ItemSetDefinition(r.SetCode, r.Pieces, r.Life, r.Absorb, r.Block, r.LifeRegen, r.ManaRegen, r.StaminaRegen,
+            r.Description)).ToList();
 
     // Rows of the quest variant of a code are keyed "<code>#Q" by the importer; they load beside the regular catalog.
     public const string QuestVariantSuffix = "#Q";
@@ -186,7 +211,7 @@ public static class WorldDataFactory
         var monsterClass = (MonsterClass)r.Class;
         return new MonsterDefinition(
             code, string.IsNullOrWhiteSpace(r.DisplayName) ? "Monster" : r.DisplayName,
-            Faction: MonsterFaction.Enemy,
+            Faction: r.Hostile ? MonsterFaction.Enemy : MonsterFaction.Npc,
             Class: monsterClass,
             Brood: (MonsterBrood)r.Brood,
             Combat: combat,
@@ -205,6 +230,15 @@ public static class WorldDataFactory
             EventItem = TryResolveDrop(r.EventItem, itemCodes, out var eventItem) ? eventItem : 0,
             PotionCount = r.PotionCount,
             PotionPercent = r.PotionPercent,
+            ShadowSizeLevel = r.SizeLevel,
+            MagicResistance = r.ResMagic,
+            MoveType = r.MoveType,
+            SpecialAttackPercent = r.SpecialAttackPct,
+            DeathGold = new MonsterRange(Math.Min(r.GoldMin, r.GoldMax), Math.Max(r.GoldMin, r.GoldMax)),
+            DeathGoldChance = Math.Clamp(r.GoldPct, 0, 100),
+            EventModelInxPath = string.IsNullOrWhiteSpace(r.EventModel) ? "" : ToInxModelPath(r.EventModel),
+            EventCode = r.EventCode,
+            EventInfo = r.EventInfo,
         };
     }
 
@@ -302,6 +336,11 @@ public static class WorldDataFactory
             MoveRange = r.MoveRange,
             PortraitOffsetY = r.PortraitOffsetY,
             PortraitOffsetZ = r.PortraitOffsetZ,
+            Hostile = r.Hostile,
+            Level = r.Level,
+            ShadowSizeLevel = r.SizeLevel,
+            AppearSlot = r.AppearSlot,
+            AppearCycle = Math.Max(0, r.AppearCycle),
         };
     }
 

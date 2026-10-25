@@ -74,6 +74,7 @@ public static class KeyMaps
     public const string CharModel = "*모양파일";       // quoted model file
     public const string CharDialog = "*대화";          // dialog line (at most 20)
     public const string CharAttribute = "*속성";       // 적 = enemy, otherwise NPC
+    public const string HostileAttribute = "적";
     public const string CharSize = "*크기";            // size level
     public const string CharPortrait = "*화면보정";    // target-frame portrait camera: height, distance
     public static readonly string[] CharSound = ["*소리", "*효과음"]; // sound family code
@@ -105,6 +106,28 @@ public static class KeyMaps
     public const string MonEventItem = "*이벤트아이템"; // item handed out on every kill
     public const string MonPotionCount = "*물약보유수"; // potions carried
     public const string MonPotionPercent = "*물약보유률"; // chance to spawn with them
+    public const string MonBossAlias = "*보스";          // marks a boss class, like *두목
+    public const string MonMagicResistance = "*매직";    // magic resistance
+    public const string MonMoveType = "*이동타입";       // movement type
+    public const string MonSpecialAttack = "*특수공격률"; // special attack chance, percent
+    public const string MonGold = "*골드";               // gold on death: min, max, chance percent
+    public const string MonEventModel = "*예비모델";     // model worn during an event
+    public const string MonUndead = "*언데드";           // 유/있음 = undead, otherwise normal
+    public const string MonEventCode = "*이벤트코드";    // event creature code (100: the night creatures)
+    public const string MonEventInfo = "*이벤트정보";    // event creature information (its field)
+    public static readonly string[] UndeadYes = ["유", "있음"];
+
+    // Shadow sizes of *크기 by level; anything else (없음) has none (-1).
+    public static readonly string[] SizeLevels = ["소형", "중형", "중대형", "대형"];
+
+    public static int ParseSizeLevel(string word) => Array.IndexOf(SizeLevels, word);
+
+    // Item keys of the supplied data beyond the original decoder.
+    public const string ItemUniqueColor = "*유니크색상";  // glow colour r g b a, blink, scale
+    public const string ItemDisplayEffect = "*이펙트설정"; // weapon effect setting
+    public const string ItemDailyLimit = "*발생제한";     // drops of the item per day
+    public const string ItemSet = "*세트아이템";          // set code, pieces worn for the bonus
+    public const string ItemSetBonusSection = "세트 효과"; // header of the comment that states the set bonus
 
     // Active-hour value tokens. 낮(day)=+1, 밤(night)=-1, else 0 (any).
     public const string ActiveHourDay = "낮";
@@ -184,6 +207,11 @@ public static class KeyMaps
     // English text. The original compares them case-sensitively; some files spell them in mixed case.
     public static readonly string[] NpcNameLocales = ["*E_NAME", "*B_NAME"];
     public static readonly string[] NpcDialogLocales = ["*E_CHAT", "*B_CHAT"];
+
+    // Japanese names and lines: the game has no Japanese text, so they are read and left out.
+    public static readonly string[] UnshippedLocales = ["*J_NAME", "*J_CHAT"];
+
+    public static bool IsUnshippedLocale(string key) => UnshippedLocales.Contains(key, StringComparer.OrdinalIgnoreCase);
 
     // Keys present in the supplied NPC files that no original client handles, with the label kept for them.
     public static readonly (string Token, string Label)[] NpcUnportedServices =

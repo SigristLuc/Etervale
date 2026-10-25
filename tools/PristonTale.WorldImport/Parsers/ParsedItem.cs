@@ -75,6 +75,21 @@ public sealed class ParsedItem
     public int[] ResMin { get; } = new int[8];
     public int[] ResMax { get; } = new int[8];
 
+    // *유니크색상: the glow of a unique weapon (r g b a 0..255), its blink period in ticks and its scale pulse.
+    public int[] UniqueColor { get; } = new int[4];
+    public int UniqueBlink { get; init; }
+    public float UniqueScale { get; init; }
+    // *이펙트설정: the weapon's effect setting; *발생제한: drops of the item per day (0 unlimited).
+    public int DisplayEffect { get; init; }
+    public int DailyDropLimit { get; init; }
+    // *세트아이템: set code and pieces worn for the bonus, with the bonus as the file states it.
+    public int SetCode { get; init; }
+    public int SetPieces { get; init; }
+    public string SetBonus { get; init; } = "";
+
+    // Keys of the file no rule reads; the importer reports them.
+    public List<string> UnknownKeys { get; } = [];
+
     // Variadic children.
     public List<long> JobRandom { get; } = [];                  // **특화랜덤 job bitcodes
     public List<(int Code, float V0, float V1)> Specials { get; } = []; // ** special bonuses

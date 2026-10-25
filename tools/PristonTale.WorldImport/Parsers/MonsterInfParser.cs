@@ -24,6 +24,7 @@ public sealed class MonsterInfParser
         int soundCode = 0;
         float modelScale = 1f;
         var displayName = "";
+        var displayRank = 0;
         int portraitY = 0, portraitZ = 0;
         int level = 0, atkMin = 0, atkMax = 0, atkSpeed = 0, atkRange = 0, accuracy = 0;
         int defence = 0, absorb = 0, block = 0, hp = 0, sight = 0;
@@ -40,6 +41,11 @@ public sealed class MonsterInfParser
 
         bool allSee = false;
         int maxItems = 0;
+        var hostile = true;
+        int sizeLevel = -1, magic = 0, moveType = 0, specialAttack = 0, goldMin = 0, goldMax = 0, goldPct = 0;
+        int eventCode = 0, eventInfo = 0;
+        var eventModel = "";
+        var unknown = new List<string>();
         var dropItems = new List<ParsedDropMain>();
         var dropsPlus = new List<ParsedDropPlus>();
 
@@ -54,9 +60,24 @@ public sealed class MonsterInfParser
             var t = new Tokenizer(line);
             t.NextWord();
 
-            if (key.Equals(KeyMaps.CharDisplayName, StringComparison.OrdinalIgnoreCase))
+            // Display name: *E_NAME, then *Name, then *B_NAME (the Brazilian build's English text).
+            var locale = key.Equals("*E_NAME", StringComparison.OrdinalIgnoreCase) ? 3
+                : key.Equals(KeyMaps.CharDisplayName, StringComparison.OrdinalIgnoreCase) ? 2
+                : key.Equals("*B_NAME", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+            if (locale > 0)
             {
-                displayName = t.NextValueOrQuoted().Trim();
+                var label = t.NextValueOrQuoted().Trim();
+                if (label.Length > 0 && locale >= displayRank)
+                {
+                    displayName = label;
+                    displayRank = locale;
+                }
+
+                continue;
+            }
+
+            if (KeyMaps.IsUnshippedLocale(key))
+            {
                 continue;
             }
 
@@ -81,7 +102,24 @@ public sealed class MonsterInfParser
                 case KeyMaps.CharName: name = t.NextValueOrQuoted(); break;
                 case KeyMaps.CharModel: model = t.NextValueOrQuoted(); break;
                 case KeyMaps.CharSize:
-                    t.NextWord();
+                    sizeLevel = KeyMaps.ParseSizeLevel(t.NextWord());
+                    break;
+                case KeyMaps.CharAttribute:
+                    hostile = t.NextValueOrQuoted() == KeyMaps.HostileAttribute;
+                    break;
+                case KeyMaps.MonMagicResistance: magic = t.NextInt(); break;
+                case KeyMaps.MonMoveType: moveType = t.NextInt(); break;
+                case KeyMaps.MonSpecialAttack: specialAttack = t.NextInt(); break;
+                case KeyMaps.MonGold:
+                    goldMin = t.NextInt();
+                    goldMax = t.NextInt();
+                    goldPct = t.NextInt();
+                    break;
+                case KeyMaps.MonEventModel: eventModel = t.NextValueOrQuoted(); break;
+                case KeyMaps.MonEventCode: eventCode = t.NextInt(); break;
+                case KeyMaps.MonEventInfo: eventInfo = t.NextInt(); break;
+                case KeyMaps.MonUndead:
+                    brood = (short)(KeyMaps.UndeadYes.Contains(t.NextWord()) ? MonsterBrood.Undead : MonsterBrood.Normal);
                     break;
                 case KeyMaps.CharPortrait:
                     portraitY = t.NextInt();
@@ -95,7 +133,10 @@ public sealed class MonsterInfParser
                     soundCode = LegacyNpcSoundCode.Resolve(t.NextWord());
                     break;
                 case KeyMaps.MonLevel: level = t.NextInt(); break;
-                case KeyMaps.MonBoss: klass = (short)MonsterClass.Boss; break;     // no value
+                case KeyMaps.MonBoss:
+                case KeyMaps.MonBossAlias:
+                    klass = (short)MonsterClass.Boss;                                 // no value
+                    break;
                 case KeyMaps.MonClass: klass = (short)t.NextInt(); break;
                 case KeyMaps.MonMoveSpeed:
                 case "*이동속도":
@@ -141,6 +182,11 @@ public sealed class MonsterInfParser
                 case KeyMaps.MonDrop:
                     ParseDropLine(t, dropItems);
                     break;
+                case KeyMaps.ItemLinkedFile:
+                    break;
+                default:
+                    unknown.Add(key);
+                    break;
             }
         }
 
@@ -165,7 +211,11 @@ public sealed class MonsterInfParser
             Nature = nature, Brood = brood, Class = klass, StunPct = stun,
             AllPlayersSee = allSee, MaxItemsPerKill = maxItems,
             QuestCode = questCode, EventItem = eventItem, PotionCount = potionCount, PotionPercent = potionPercent,
+            Hostile = hostile, SizeLevel = sizeLevel, MagicResistance = magic, MoveType = moveType,
+            SpecialAttackPct = specialAttack, GoldMin = goldMin, GoldMax = goldMax, GoldPct = goldPct,
+            EventModel = eventModel, EventCode = eventCode, EventInfo = eventInfo,
         };
+        m.UnknownKeys.AddRange(unknown);
         Array.Copy(res, m.Resistances, 8);
         m.DropItems.AddRange(dropItems);
         m.DropsPlus.AddRange(dropsPlus);

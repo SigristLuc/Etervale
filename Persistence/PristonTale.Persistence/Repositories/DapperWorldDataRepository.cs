@@ -32,6 +32,14 @@ public sealed class DapperWorldDataRepository(IDbConnectionFactory connectionFac
             .ToList();
     }
 
+    public async Task<IReadOnlyList<ItemSetRecord>> GetAllItemSetsAsync(CancellationToken ct = default)
+    {
+        await using var connection = await connectionFactory.OpenAsync(ct);
+        return (await connection.QueryAsync<ItemSetRecord>(new CommandDefinition(
+            "SELECT set_code, pieces, life, absorb, block, life_regen, mana_regen, stamina_regen, description FROM item_sets ORDER BY set_code",
+            cancellationToken: ct))).ToList();
+    }
+
     public async Task<IReadOnlyList<MonsterRecord>> GetAllMonstersAsync(CancellationToken ct = default)
     {
         await using var connection = await connectionFactory.OpenAsync(ct);
@@ -74,7 +82,7 @@ public sealed class DapperWorldDataRepository(IDbConnectionFactory connectionFac
                    svc_teleport, svc_item_mix, svc_item_aging, svc_smelting, svc_manufacture, svc_mixture_reset,
                    svc_clan, svc_bless_castle, svc_quest, svc_event_booth, svc_collect_money, svc_give_money,
                    job_change_code, teleport_code, quest_code, quest_param, dialog, sound_code, move_range,
-                   model_scale, display_name, portrait_offset_y, portrait_offset_z
+                   model_scale, display_name, portrait_offset_y, portrait_offset_z, hostile, level, size_level, appear_slot, appear_cycle
             FROM npcs ORDER BY name
             """, cancellationToken: ct))).ToList();
         if (npcs.Count == 0)

@@ -47,7 +47,18 @@ public sealed record MonsterRecord(
     int QuestCode = 0,
     string EventItem = "",
     int PotionCount = 0,
-    int PotionPercent = 0)
+    int PotionPercent = 0,
+    bool Hostile = true,
+    int SizeLevel = -1,
+    int ResMagic = 0,
+    int MoveType = 0,
+    int SpecialAttackPct = 0,
+    int GoldMin = 0,
+    int GoldMax = 0,
+    int GoldPct = 0,
+    string EventModel = "",
+    int EventCode = 0,
+    int EventInfo = 0)
 {
     public MonsterDropConfigRecord? DropConfig { get; init; }
 

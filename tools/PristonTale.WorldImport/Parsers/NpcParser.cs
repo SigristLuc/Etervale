@@ -67,12 +67,22 @@ public sealed class NpcParser
                 continue;
             }
 
+            var unported = key == KeyMaps.CharName || KeyMaps.IsUnshippedLocale(key);
             foreach (var (token, label) in KeyMaps.NpcUnportedServices)
             {
-                if (key == token && !facts.Unported.Contains(label))
+                if (key == token)
                 {
-                    facts.Unported.Add(label);
+                    unported = true;
+                    if (!facts.Unported.Contains(label))
+                    {
+                        facts.Unported.Add(label);
+                    }
                 }
+            }
+
+            if (!unported)
+            {
+                npc.UnknownKeys.Add(key);
             }
         }
     }
@@ -124,6 +134,19 @@ public sealed class NpcParser
         {
             case KeyMaps.MonMoveRange:
                 npc.MoveRange = Math.Max(0, (int)t.NextFloat());
+                return true;
+            case KeyMaps.CharAttribute:
+                npc.Hostile = t.NextValueOrQuoted() == KeyMaps.HostileAttribute;
+                return true;
+            case KeyMaps.MonLevel:
+                npc.Level = t.NextInt();
+                return true;
+            case KeyMaps.CharSize:
+                npc.SizeLevel = KeyMaps.ParseSizeLevel(t.NextWord());
+                return true;
+            case var appear when KeyMaps.SpmInterval.Contains(appear, StringComparer.OrdinalIgnoreCase):
+                npc.AppearSlot = t.NextInt();
+                npc.AppearCycle = t.NextInt();
                 return true;
             case KeyMaps.CharModel:
                 npc.Model = t.NextValueOrQuoted();

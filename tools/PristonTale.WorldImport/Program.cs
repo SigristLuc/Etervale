@@ -6,6 +6,8 @@ using PristonTale.Persistence.Sqlite;
 using PristonTale.WorldImport;
 
 Cp949.Encoding.GetType(); // force CP949 provider registration up front
+// The report names Korean keys and texts.
+Console.OutputEncoding = System.Text.Encoding.UTF8;
 
 var argv = new List<string>(args);
 if (argv.Count == 0)

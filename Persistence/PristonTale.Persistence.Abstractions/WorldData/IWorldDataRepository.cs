@@ -4,6 +4,8 @@ public interface IWorldDataRepository
 {
     Task<IReadOnlyList<ItemTemplateRecord>> GetAllItemTemplatesAsync(CancellationToken ct = default);
 
+    Task<IReadOnlyList<ItemSetRecord>> GetAllItemSetsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<ItemSetRecord>>([]);
+
     Task<IReadOnlyList<MonsterRecord>> GetAllMonstersAsync(CancellationToken ct = default);
 
     Task<IReadOnlyList<NpcRecord>> GetAllNpcsAsync(CancellationToken ct = default);

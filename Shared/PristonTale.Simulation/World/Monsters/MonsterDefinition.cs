@@ -124,6 +124,24 @@ public sealed record MonsterDefinition(
     public int PotionCount { get; init; }
     public int PotionPercent { get; init; }
 
+    // Resistance to magic, beside the eight elements.
+    public int MagicResistance { get; init; }
+
+    // Movement type and special attack chance as authored.
+    public int MoveType { get; init; }
+    public int SpecialAttackPercent { get; init; }
+
+    // Gold dropped on death on top of the drop table: GoldChance percent of the kills drop DeathGold.
+    public MonsterRange DeathGold { get; init; } = MonsterRange.Zero;
+    public int DeathGoldChance { get; init; }
+
+    // The model the monster changes into during its event (the hammer event); empty for none.
+    public string EventModelInxPath { get; init; } = "";
+
+    // Event creatures: code 100 walks at night in field EventInfo (the wolverines).
+    public int EventCode { get; init; }
+    public int EventInfo { get; init; }
+
     public bool IsBoss => Class == MonsterClass.Boss;
     public bool IsHostile => Faction == MonsterFaction.Enemy;
 }

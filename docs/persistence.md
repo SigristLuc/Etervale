@@ -28,7 +28,7 @@ FluentMigrator migrations, the schema, and the SQLite and PostgreSQL providers. 
 | `.../WorldData/` | Read-side catalog records and [WorldDataFactory](../Persistence/PristonTale.Persistence.Abstractions/WorldData/WorldDataFactory.cs) |
 | `.../Security/PasswordHasher.cs` | PBKDF2-SHA256 hashes: `pbkdf2-sha256$<iterations>$<salt b64>$<key b64>` |
 | `Persistence/PristonTale.Persistence/Repositories/` | `Dapper*Repository` implementations shared by both providers |
-| `Persistence/PristonTale.Persistence/Migrations/` | `M013Baseline`, `M014PortraitData`, `M015NpcServices`, `M016QuestData`, `M019GameMasters`, `M021MonsterSkillData`, `M022MonsterExperience64`, `M023ItemFootprints`, `FluentMigratorDatabaseMigrator` |
+| `Persistence/PristonTale.Persistence/Migrations/` | `M013Baseline`, `M014PortraitData`, `M015NpcServices`, `M016QuestData`, `M019GameMasters`, `M021MonsterSkillData`, `M022MonsterExperience64`, `M023ItemFootprints`, `M024WorldDataFields`, `FluentMigratorDatabaseMigrator` |
 | `Persistence/PristonTale.Persistence.Sqlite/` | `AddPristonSqlite`, connection factory (WAL), Dapper type handlers, path resolution |
 | `Persistence/PristonTale.Persistence.Postgres/` | `AddPristonPostgres`, `NpgsqlDataSource` factory, `jsonb` handler for `JsonText` |
 | `docker-compose.yml` | Local PostgreSQL 17 for development |
@@ -143,6 +143,7 @@ FluentMigrator scans `PristonTale.Persistence` for `[Migration(n)]` classes. Ver
 | 21 | `M021MonsterSkillData` | `motion_slots.key_code` (the clip's authored key character, 0 when none) |
 | 22 | `M022MonsterExperience64` | PostgreSQL widens `monsters.exp` to `bigint` (two bosses give more than 2^31); re-import afterwards |
 | 23 | `M023ItemFootprints` | `item_templates.grid_width`, `grid_height` (default 1), the inventory footprint; re-import afterwards |
+| 24 | `M024WorldDataFields` | `monsters.hostile`, `size_level`, `res_magic`, `move_type`, `special_attack_pct`, `gold_min/max/pct`, `event_model`, `event_code`, `event_info`; `npcs.hostile`, `level`, `size_level`, `appear_slot`, `appear_cycle`; `item_templates.glow_r/g/b/a`, `glow_blink`, `glow_scale`, `display_effect`, `daily_drop_limit`, `set_code`, `set_pieces`; the `item_sets` table; re-import afterwards |
 
 Legacy upgrade path: databases from the earlier migration set at version 12 upgrade in place. Databases at
 versions 1-11 make `M013Baseline` throw; bring them to 12 with the previous release or back up and recreate them.

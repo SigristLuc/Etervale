@@ -78,8 +78,28 @@ public sealed record ItemDefinition(
     // Authored value ranges; null for definitions built without authored data (every range then collapses to the base).
     public ItemTemplate Template { get; init; }
 
+    // The glow a unique weapon shows in the hand (colour, blink period in ticks, scale pulse); Alpha 0 with no colour shows none.
+    public ItemGlow Glow { get; init; } = ItemGlow.None;
+
+    // The weapon's effect setting: a non-zero value shows the class-up light on the weapon while it is held.
+    public int DisplayEffect { get; init; }
+
+    // Drops of the item per day across the server; 0 is unlimited.
+    public int DailyDropLimit { get; init; }
+
+    // The item set it belongs to (0 none).
+    public int SetCode { get; init; }
+
+    // A named unique of the code (1, 2...): the variant a saved item names with NamedUniqueBase + this number.
+    public int UniqueVariant { get; init; }
+
     // The unique marker of a code's quest variant (UniqueItem), kept apart from the regular definition.
     public const int QuestUnique = 2;
+
+    // Saved items name a named unique by this base plus its variant number.
+    public const int NamedUniqueBase = 1000;
+
+    public int SavedUnique => UniqueVariant > 0 ? NamedUniqueBase + UniqueVariant : UniqueItem == QuestUnique ? QuestUnique : 0;
 
     public bool IsEquippable => EquipSlot.HasValue;
     public bool IsStackable => MaxStack > 1;

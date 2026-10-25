@@ -141,7 +141,7 @@ public static class CharacterStateCodec
     {
         return new SavedItem(item.InstanceId, item.Definition.Code, item.Count, anchor, slot, item.UpgradeLevel,
             item.DurabilityCurrent, item.DurabilityMax, item.JobSpecMask, default, item.Roll,
-            item.Definition.UniqueItem == ItemDefinition.QuestUnique ? ItemDefinition.QuestUnique : 0, item.Sealed);
+            item.Definition.SavedUnique, item.Sealed);
     }
 
     internal static ItemInstance RestoreItem(SavedItem saved, ItemCatalog catalog, HashSet<Guid> identities)

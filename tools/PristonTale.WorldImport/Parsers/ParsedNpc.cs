@@ -16,6 +16,16 @@ public sealed class ParsedNpc
     public int SoundCode { get; set; }
     public float ModelScale { get; set; } = 1f;
     public int MoveRange { get; set; } = 64;
+    // *속성 적 makes the character hostile; *레벨 its level; *크기 its shadow size (-1 none).
+    public bool Hostile { get; set; }
+    public int Level { get; set; }
+    public int SizeLevel { get; set; } = -1;
+    // *출현간격 slot, cycle: the NPC appears only when the field's draw modulo the cycle equals the slot (cycle 0: always).
+    public int AppearSlot { get; set; }
+    public int AppearCycle { get; set; }
+
+    // Keys of the file no rule reads; the importer reports them.
+    public List<string> UnknownKeys { get; } = [];
 
     public bool SvcWarehouse { get; set; }
     public bool SvcShop { get; set; }

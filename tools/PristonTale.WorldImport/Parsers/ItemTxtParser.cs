@@ -13,7 +13,7 @@ public sealed class ItemTxtParser
     {
         var lines = SourceTextReader.ReadChain(path);
 
-        string code = "", displayName = "", legacyName = "", englishName = "";
+        string code = "", displayName = "", legacyName = "", englishName = "", brazilianName = "";
         long unique = 0, jobMask = 0;
         int durMin = 0, durMax = 0, weight = 0, price = 0;
         int dmgMinLow = 0, dmgMinHigh = 0, dmgMaxLow = 0, dmgMaxHigh = 0;
@@ -28,12 +28,23 @@ public sealed class ItemTxtParser
 
         var resMin = new int[8];
         var resMax = new int[8];
+        var uniqueColor = new int[4];
+        int uniqueBlink = 0, displayEffect = 0, dailyLimit = 0, setCode = 0, setPieces = 0;
+        float uniqueScale = 0f;
+        string setBonus = "", lastComment = "";
+        var unknown = new List<string>();
         var jobRandom = new List<long>();
         var specials = new List<(int, float, float)>();
 
         foreach (var sourceLine in lines)
         {
             var line = sourceLine.Text;
+            var trimmed = line.TrimStart();
+            if (trimmed.StartsWith("//", StringComparison.Ordinal) && !trimmed.StartsWith("///", StringComparison.Ordinal))
+            {
+                lastComment = trimmed[2..].Trim();
+            }
+
             var key = Tokenizer.LeadingKey(line);
             if (key.Length == 0)
                 continue;
@@ -64,10 +75,33 @@ public sealed class ItemTxtParser
                 case KeyMaps.ItemName:
                     legacyName = t.NextValueOrQuoted();
                     break;
-                case "*E_NAME":
+                case var english when english.Equals("*E_NAME", StringComparison.OrdinalIgnoreCase):
                     englishName = t.NextValueOrQuoted().Trim();
                     break;
+                case var brazilian when brazilian.Equals("*B_NAME", StringComparison.OrdinalIgnoreCase):
+                    brazilianName = t.NextValueOrQuoted().Trim();
+                    break;
+                case var japanese when KeyMaps.IsUnshippedLocale(japanese):
+                    break;
                 case KeyMaps.ItemCode: code = t.NextValueOrQuoted(); break;
+                case KeyMaps.ItemUniqueColor:
+                    for (var channel = 0; channel < 4; channel++)
+                    {
+                        uniqueColor[channel] = t.NextInt();
+                    }
+
+                    uniqueBlink = t.NextInt();
+                    uniqueScale = t.AtEnd ? 0f : t.NextFloat();
+                    break;
+                case KeyMaps.ItemDisplayEffect: displayEffect = t.NextInt(); break;
+                case KeyMaps.ItemDailyLimit: dailyLimit = t.NextInt(); break;
+                case KeyMaps.ItemSet:
+                    setCode = t.NextInt();
+                    setPieces = t.NextInt();
+                    setBonus = lastComment;
+                    break;
+                case KeyMaps.ItemLinkedFile:
+                    break;
                 case KeyMaps.ItemUnique: unique = t.AtEnd ? 1 : t.NextInt(); break;
                 case KeyMaps.ItemDurability: durMin = t.NextInt(); durMax = t.NextInt(); break;
                 case KeyMaps.ItemWeight: weight = t.NextInt(); break;
@@ -112,11 +146,15 @@ public sealed class ItemTxtParser
 
                     break;
                 default:
-                    HandleAliasGroups(key, t,
+                    if (!HandleAliasGroups(key, t,
                         ref manaRegMin, ref manaRegMax, ref lifeRegMin, ref lifeRegMax, ref staRegMin, ref staRegMax,
                         ref addManaMin, ref addManaMax, ref addLifeMin, ref addLifeMax, ref addStaMin, ref addStaMax,
                         ref resStaMin, ref resStaMax, ref resManaMin, ref resManaMax, ref resLifeMin, ref resLifeMax,
-                        specials);
+                        specials))
+                    {
+                        unknown.Add(key);
+                    }
+
                     break;
             }
         }
@@ -124,7 +162,7 @@ public sealed class ItemTxtParser
         var item = new ParsedItem
         {
             Code = code,
-            Name = SelectDisplayName(displayName, englishName, legacyName, code),
+            Name = SelectDisplayName(displayName, englishName, string.IsNullOrWhiteSpace(brazilianName) ? legacyName : brazilianName, code),
             Kind = KeyMaps.ClassifyKind(code),
             UniqueItem = unique,
             MaxStack = maxStack,
@@ -152,7 +190,11 @@ public sealed class ItemTxtParser
             RestoreLifeMin = resLifeMin, RestoreLifeMax = resLifeMax,
             ShootingRange = shootRange, AttackSpeed = atkSpeed,
             JobMask = jobMask,
+            UniqueBlink = uniqueBlink, UniqueScale = uniqueScale, DisplayEffect = displayEffect, DailyDropLimit = dailyLimit,
+            SetCode = setCode, SetPieces = setPieces, SetBonus = setCode != 0 ? setBonus : "",
         };
+        Array.Copy(uniqueColor, item.UniqueColor, 4);
+        item.UnknownKeys.AddRange(unknown);
         Array.Copy(resMin, item.ResMin, 8);
         Array.Copy(resMax, item.ResMax, 8);
         item.JobRandom.AddRange(jobRandom);
@@ -181,7 +223,7 @@ public sealed class ItemTxtParser
     }
 
     // The dual-alias regen/add/restore tokens, plus the ** special bonuses (commented out in this dataset).
-    private static void HandleAliasGroups(
+    private static bool HandleAliasGroups(
         string key, Tokenizer t,
         ref float manaRegMin, ref float manaRegMax, ref float lifeRegMin, ref float lifeRegMax,
         ref float staRegMin, ref float staRegMax,
@@ -191,15 +233,15 @@ public sealed class ItemTxtParser
         ref int resLifeMin, ref int resLifeMax,
         List<(int, float, float)> specials)
     {
-        if (Match(key, KeyMaps.ItemManaRegen)) { manaRegMin = t.NextFloat(); manaRegMax = t.NextFloat(); return; }
-        if (Match(key, KeyMaps.ItemLifeRegen)) { lifeRegMin = t.NextFloat(); lifeRegMax = t.NextFloat(); return; }
-        if (Match(key, KeyMaps.ItemStaminaRegen)) { staRegMin = t.NextFloat(); staRegMax = t.NextFloat(); return; }
-        if (Match(key, KeyMaps.ItemAddMana)) { addManaMin = t.NextInt(); addManaMax = t.NextInt(); return; }
-        if (Match(key, KeyMaps.ItemAddLife)) { addLifeMin = t.NextInt(); addLifeMax = t.NextInt(); return; }
-        if (Match(key, KeyMaps.ItemAddStamina)) { addStaMin = t.NextInt(); addStaMax = t.NextInt(); return; }
-        if (Match(key, KeyMaps.ItemRestoreStamina)) { resStaMin = t.NextInt(); resStaMax = t.NextInt(); return; }
-        if (Match(key, KeyMaps.ItemRestoreMana)) { resManaMin = t.NextInt(); resManaMax = t.NextInt(); return; }
-        if (Match(key, KeyMaps.ItemRestoreLife)) { resLifeMin = t.NextInt(); resLifeMax = t.NextInt(); return; }
+        if (Match(key, KeyMaps.ItemManaRegen)) { manaRegMin = t.NextFloat(); manaRegMax = t.NextFloat(); return true; }
+        if (Match(key, KeyMaps.ItemLifeRegen)) { lifeRegMin = t.NextFloat(); lifeRegMax = t.NextFloat(); return true; }
+        if (Match(key, KeyMaps.ItemStaminaRegen)) { staRegMin = t.NextFloat(); staRegMax = t.NextFloat(); return true; }
+        if (Match(key, KeyMaps.ItemAddMana)) { addManaMin = t.NextInt(); addManaMax = t.NextInt(); return true; }
+        if (Match(key, KeyMaps.ItemAddLife)) { addLifeMin = t.NextInt(); addLifeMax = t.NextInt(); return true; }
+        if (Match(key, KeyMaps.ItemAddStamina)) { addStaMin = t.NextInt(); addStaMax = t.NextInt(); return true; }
+        if (Match(key, KeyMaps.ItemRestoreStamina)) { resStaMin = t.NextInt(); resStaMax = t.NextInt(); return true; }
+        if (Match(key, KeyMaps.ItemRestoreMana)) { resManaMin = t.NextInt(); resManaMax = t.NextInt(); return true; }
+        if (Match(key, KeyMaps.ItemRestoreLife)) { resLifeMin = t.NextInt(); resLifeMax = t.NextInt(); return true; }
 
         // ** special bonuses (rare/none in this build): store as a coded (bonus_code, v0, v1) child.
         // bonus_code = a stable index over the recognised ** tokens.
@@ -207,8 +249,13 @@ public sealed class ItemTxtParser
         {
             var bonusCode = SpecialBonusCode(key);
             if (bonusCode >= 0)
+            {
                 specials.Add((bonusCode, t.NextFloat(), t.NextFloat()));
+                return true;
+            }
         }
+
+        return false;
     }
 
     private static bool Match(string key, string[] aliases) => Array.IndexOf(aliases, key) >= 0;

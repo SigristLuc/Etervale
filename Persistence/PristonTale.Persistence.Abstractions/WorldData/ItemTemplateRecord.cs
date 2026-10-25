@@ -66,7 +66,19 @@ public sealed record ItemTemplateRecord(
     float MagicMastery = 0,
     // Inventory cells, measured by the importer from the item's inventory sprite.
     int GridWidth = 1,
-    int GridHeight = 1)
+    int GridHeight = 1,
+    // The glow of a unique weapon: colour 0..255, blink period in ticks and scale pulse.
+    int GlowR = 0,
+    int GlowG = 0,
+    int GlowB = 0,
+    int GlowA = 0,
+    int GlowBlink = 0,
+    float GlowScale = 0,
+    int DisplayEffect = 0,
+    // Drops of the item per day across the server (0 unlimited); its set and the pieces worn for the set bonus.
+    int DailyDropLimit = 0,
+    int SetCode = 0,
+    int SetPieces = 0)
 {
     public IReadOnlyList<ItemTemplateSpecialRecord> Specials { get; init; } = [];
 

@@ -50,6 +50,25 @@ public sealed class ParsedMonster
     public int PotionPercent { get; init; }
 
     public int[] Resistances { get; } = new int[8]; // single value per element, ResistanceBlock order
+    public int MagicResistance { get; init; }   // *매직
+
+    // *속성 적 (enemy) or anything else (a non-hostile creature); *크기 shadow size level, -1 none.
+    public bool Hostile { get; init; } = true;
+    public int SizeLevel { get; init; } = -1;
+    public int MoveType { get; init; }
+    public int SpecialAttackPct { get; init; }
+    // *골드: gold dropped on death, min..max, with GoldPct percent chance.
+    public int GoldMin { get; init; }
+    public int GoldMax { get; init; }
+    public int GoldPct { get; init; }
+    // *예비모델: the model worn while its event runs.
+    public string EventModel { get; init; } = "";
+    // *이벤트코드 / *이벤트정보: event creatures (code 100 walk at night in field EventInfo).
+    public int EventCode { get; init; }
+    public int EventInfo { get; init; }
+
+    // Keys of the file no rule reads; the importer reports them.
+    public List<string> UnknownKeys { get; } = [];
 
     // Drop config (1:1) + the weighted main slots + plus-drops.
     public bool AllPlayersSee { get; set; }

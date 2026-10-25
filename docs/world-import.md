@@ -111,7 +111,7 @@ Item, monster, NPC and spawn-table files share one line format, decoded as CP949
 | Key (see `KeyMaps`) | Column |
 | --- | --- |
 | `*코드` | `code`, the 5-character natural key |
-| `*Name`, then `*E_NAME`, then `*이름`, then the code | `name` (first non-empty) |
+| `*Name`, then `*E_NAME`, then `*B_NAME` (or `*이름` without it), then the code | `name` (first non-empty); `*J_NAME` is read and left out (the game has no Japanese text) |
 | `*내구력`, `*무게`, `*가격`, `*공격력` (4 values), `*명중력`, `*방어력`, `*흡수력`, `*블럭율`, `*이동속도`, ... | Stat ranges |
 | Element keys (8) | `res_<element>_min/max` in bionic, earth, fire, ice, lighting, poison, water, wind order |
 | Regen, add and restore keys | Each has two spellings (`KeyMaps.ItemManaRegen` and siblings) |
@@ -120,6 +120,10 @@ Item, monster, NPC and spawn-table files share one line format, decoded as CP949
 | Other `**` stat keys | `item_template_special` with a stable bonus code (`ItemTxtParser.SpecialBonusCode`, value 0 and value 1): 0 absorb, 1 defence, 2 move speed, 3 block, 4 attack speed, 5 critical, 6 range, 7 magic mastery, 8 mana per level, 9 life per level, 10 attack rating per level, 11 damage per level (second value), 12 mana regeneration, 13 life regeneration, 14 stamina regeneration, 15 life regeneration range (`**LifeRegenRange`) |
 | `*최대수량`, `*보유공간`, magic mastery keys | `max_stack` (min 1), `potion_space`, `magic_mastery` |
 | `*유니크` | `unique_item` (1 when the key has no value) |
+| `*유니크색상 r g b a blink [scale]` | `glow_r/g/b/a`, `glow_blink` (ticks), `glow_scale`: the glow of a unique weapon in the hand |
+| `*이펙트설정` | `display_effect`: non-zero shows the class-up light on the held weapon |
+| `*발생제한` | `daily_drop_limit`: drops of the item per day across the server (0 unlimited) |
+| `*세트아이템 <set> <pieces>` | `set_code`, `set_pieces`; the comment line above it states the bonus (`item_sets`) |
 
 `kind` comes from the code prefix (`KeyMaps.ClassifyKind`); the files have no kind key.
 
@@ -127,6 +131,15 @@ A file whose `*유니크` value is 2 is the quest variant of its code (the quest
 Phantom rewards): besides the catalog entry, the first such file in path order is written to `item_templates` under
 the key `<code>#Q` with its own children. The runtime keeps it beside the regular catalog (`ItemCatalog.QuestVariants`)
 and the quests hand it out ([quests.md](quests.md)).
+
+A file whose `*유니크` has no value (1) and that lost the selection of its code is a named unique (Vega, Ancient Rage,
+Bone Crasher...): each distinct name in path order is written under `<code>#U<n>` (n from 1). The runtime keeps them as
+`ItemCatalog.NamedUniques`; saved items name one by `ItemDefinition.NamedUniqueBase` + n. They never drop.
+
+`item_sets` has one row per set code: the most pieces any of its items asks and the bonus `SetBonusParser` reads from
+the comment above `*세트아이템` (terms "stat+value" separated by commas; a term without a value takes the next value;
+`체력` life, `흡수력` absorption, `블럭율` block, a term ending in `재생` regeneration of the pools its letters name: 체/생
+life, 근 stamina, 기 mana). A bonus it cannot read is a warning and gives nothing.
 
 ### Item code mapping
 
@@ -151,14 +164,20 @@ Code lookups are case-insensitive: drop and shop references (often lower case) a
 
 ### Monsters: `Monster/*.inf` (+ linked name files)
 
-- Identity: `*이름`, verbatim with its spaces, because spawn tables reference it byte for byte. HUD label: `*Name`,
-  trimmed; empty gives a warning.
+- Identity: `*이름`, verbatim with its spaces, because spawn tables reference it byte for byte. HUD label: `*E_NAME`,
+  then `*Name`, then `*B_NAME`, trimmed; empty gives a warning. `*J_NAME` is read and left out.
 - Model: `*모양파일` (quoted path, usually `.ini`; the runtime and motion pass use the `.inx` sibling).
 - Resistances use a different key set from items and a different order; `KeyMaps.MonsterResistances` maps them to the
   same eight-element order.
 - `*시야` is stored raw. `*활동시간`: `낮` day +1, `밤` night -1, anything else 0. `*품성`: `good`, `evil`, else
-  natural. `*몬스터종족`: undead, mutant, demon, mechanic, else normal. `*두목` (no value) marks a boss; `*계급` sets
-  the class number. `*스턴율`/`*스턴률`: flinch chance, default 100.
+  natural. `*몬스터종족`: undead, mutant, demon, mechanic, else normal; `*언데드 유|있음` undead, anything else normal.
+  `*두목` or `*보스` (no value) marks a boss; `*계급` sets the class number. `*스턴율`/`*스턴률`: flinch chance, default
+  100.
+- `*속성 적` hostile (`hostile`), anything else not; `*크기` the shadow size (`size_level`: 소형 0, 중형 1, 중대형 2, 대형 3,
+  else -1); `*매직` magic resistance (`res_magic`); `*이동타입` (`move_type`); `*특수공격률` (`special_attack_pct`);
+  `*골드 <min> <max> <percent>` gold dropped on death on top of the drop table (`gold_min/max/pct`); `*예비모델` the model
+  worn during the hammer event (`event_model`); `*이벤트코드`, `*이벤트정보` the event creature code and its field
+  (`event_code`, `event_info`: code 100 walks at night).
 - Sound keys resolve through `LegacyNpcSoundCode.Resolve`; `*모델크기` is the model scale; `*화면보정 <height>
   <distance>` is the target-frame portrait correction.
 - Quest keys: `*구별코드` is the classification code quest hunts count (`quest_code`); `*이벤트아이템 <code>` an item
@@ -180,6 +199,8 @@ Code lookups are case-insensitive: drop and shop references (often lower case) a
 - Shop lists `*무기판매`, `*방어구판매`, `*잡화판매` fill tabs 0, 1, 2, up to 32 codes each. The placeholder `없음`
   keeps its ordinal and becomes an unresolved `npc_shop` reference; the shop exists only if a tab has a real code.
 - `*이동범위` move range (default 64), sound keys, `*모델크기`, `*화면보정` as for monsters.
+- `*속성 적` hostile, `*레벨` level, `*크기` shadow size as for monsters; `*출현간격 <slot> <cycle>` the appearance draw
+  (`appear_slot`, `appear_cycle`: the NPC appears only when the field's draw modulo the cycle is the slot).
 
 ### NPC services
 
@@ -291,6 +312,10 @@ parsed with child counts; field children; motion models, tables, clip rows and u
 counts for drop items, shop items, spawn monsters, bosses and fixed NPCs; then every warning and the row counts of the
 item, monster, NPC, field and preservation tables. The supplied snapshot references some files and codes it does not
 contain, so dangling counts are expected; check `world_import_unresolved_refs` when reconciling data.
+
+Every key the parsers do not read is reported once per kind and key with the number of files and the first one
+(`unknown key monster *...`). The supplied data has only corrupted keys there (Korean saved through another code page);
+fix the file rather than the parser.
 
 ## Other tools
 

@@ -14,6 +14,7 @@ public sealed class WorldDataAppService
     public async Task<WorldData> BuildAsync(CancellationToken ct = default)
     {
         var itemRecords = await _repository.GetAllItemTemplatesAsync(ct);
+        var itemSets = await _repository.GetAllItemSetsAsync(ct);
         var monsterRecords = await _repository.GetAllMonstersAsync(ct);
         var npcRecords = await _repository.GetAllNpcsAsync(ct);
         var fieldRecords = await _repository.GetAllFieldSpawnsAsync(ct);
@@ -30,7 +31,8 @@ public sealed class WorldDataAppService
         var motions = WorldDataFactory.ToMotionTimings(motionModels, motionSlots);
 
         return new WorldData(
-            new ItemCatalog(itemDefs, WorldDataFactory.ToQuestVariantDefinitions(itemRecords)),
+            new ItemCatalog(itemDefs, WorldDataFactory.ToQuestVariantDefinitions(itemRecords), WorldDataFactory.ToNamedUniqueDefinitions(itemRecords),
+                WorldDataFactory.ToItemSets(itemSets)),
             new MonsterCatalog(monsterDefs),
             new NpcCatalog(npcDefs),
             fieldSpawns,

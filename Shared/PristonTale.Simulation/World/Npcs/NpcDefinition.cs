@@ -42,6 +42,17 @@ public sealed record NpcDefinition(
 
     public float MoveRange { get; init; } = 64f;
 
+    // A hostile character placed as an NPC, its level and shadow size (-1 none).
+    public bool Hostile { get; init; }
+    public int Level { get; init; }
+    public int ShadowSizeLevel { get; init; } = -1;
+
+    // The NPC appears only when the field's appearance draw modulo AppearCycle equals AppearSlot; a cycle of 0 always.
+    public int AppearSlot { get; init; }
+    public int AppearCycle { get; init; }
+
+    public bool AppearsFor(int draw) => AppearCycle <= 0 || draw % AppearCycle == AppearSlot;
+
     // Authored correction of the target-frame portrait camera: height and distance in world units.
     public int PortraitOffsetY { get; init; }
 

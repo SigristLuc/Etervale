@@ -34,7 +34,12 @@ public sealed record NpcRecord(
     float ModelScale = 1,
     string DisplayName = "",
     int PortraitOffsetY = 0,
-    int PortraitOffsetZ = 0)
+    int PortraitOffsetZ = 0,
+    bool Hostile = false,
+    int Level = 0,
+    int SizeLevel = -1,
+    int AppearSlot = 0,
+    int AppearCycle = 0)
 {
     public IReadOnlyList<NpcShopStockRecord> ShopStock { get; init; } = [];
 
