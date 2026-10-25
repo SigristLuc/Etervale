@@ -1,3 +1,4 @@
+using System.Globalization;
 using PristonTale.Application.Chat;
 using PristonTale.Application.World;
 using PristonTale.Persistence.Abstractions.Accounts;
@@ -188,6 +189,12 @@ public sealed class GameMasterCommands
                 {
                     context.Reply("> Server busy, try again");
                 }
+            }
+            else if (issuer.GmLevel >= GameMasterLevel.Guide)
+            {
+                // A game master learns the level a command needs; a player is never told the command exists.
+                context.Reply(string.Format(CultureInfo.InvariantCulture, "> {0} needs game-master level {1} (yours is {2})",
+                    command.Text, required, issuer.GmLevel));
             }
 
             await AuditAsync(issuer, line, required, accepted, accepted ? string.Join(" | ", context.Replies) : Denied);

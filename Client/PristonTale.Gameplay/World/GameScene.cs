@@ -108,6 +108,11 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     // TRANSPLAYDATA cadence: the original sends every 64 frames; moving avatars report at 5 Hz for smoother peers.
     private const double MovingReportMs = 200;
     private const double IdleReportMs = 1000;
+    // At most one movement report per server tick: the server closes a connection that sends more than 251 packets in
+    // 5 s, so a report asked for every frame waits for the next slot instead.
+    private const double MinReportGapMs = 50;
+    // A walk toward a skill target reports its destination again once the target has moved this far from it.
+    private const float ApproachReportDistance = 16f;
     private double _reportClockMs;
     private double _lastReportMs = double.NegativeInfinity;
     private bool _reportDue;
@@ -1236,6 +1241,12 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         var changed = moving != _lastReportMoving || running != _lastReportRunning || target != _lastReportTarget || fieldCode != _lastSentFieldCode;
         if (!_reportDue && !changed && elapsed < (moving ? MovingReportMs : IdleReportMs))
         {
+            return;
+        }
+
+        if (elapsed < MinReportGapMs)
+        {
+            _reportDue = true;
             return;
         }
 

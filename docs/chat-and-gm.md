@@ -108,7 +108,8 @@ The account's `gm_level` (0 Player, 1 Guide, 2 Moderator, 3 Operator, 4 Administ
 session and the chat directory; a higher level may use every command of the levels below. Set it with
 `DevAccounts set-gm <user> <level>`; it applies at the next login. Every line that matches a command is written to
 `gm_audit` (account, character, level, line, required level, accepted, result), denied ones included; read it with
-`DevAccounts gm-audit [count]`. A player below the level gets no answer.
+`DevAccounts gm-audit [count]`. A game master below the level is told the level the command needs
+(`> /cmd needs game-master level N (yours is M)`); a player gets no answer.
 
 Commands match by exact, case-sensitive prefix in table order. Levels:
 

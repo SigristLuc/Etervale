@@ -59,6 +59,11 @@ internal static class GameMasterCommandTests
                 Assert.True(entry.Command == text + " nobody" && entry.RequiredLevel == required && entry.Accepted == level >= required
                     && entry.GmLevel == level && entry.CharacterName == player.Member.Name, $"{text} at level {level}: {entry}");
                 Assert.True(entry.Accepted || entry.Result.StartsWith("denied", StringComparison.Ordinal), $"{text} refusal not recorded");
+                if (!entry.Accepted)
+                {
+                    var told = player.Link.Lines.Count > 0 && player.Link.Last == $"> {text} needs game-master level {required} (yours is {level})";
+                    Assert.True(level == 0 ? player.Link.Lines.Count == 0 : told, $"{text} refusal at level {level}: {(player.Link.Lines.Count > 0 ? player.Link.Last : "nothing")}");
+                }
             }
         }
 

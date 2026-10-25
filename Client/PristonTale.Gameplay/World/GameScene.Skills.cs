@@ -269,10 +269,15 @@ public sealed partial class GameScene : ISkillSceneHost
             return;
         }
 
+        // The approach runs every frame: only a new destination (or a target that moved away from it) is reported.
+        if (!_hasMoveTarget || Vector2.DistanceSquared(_moveTarget, planar) > ApproachReportDistance * ApproachReportDistance)
+        {
+            _reportDue = true;
+        }
+
         _moveTarget = planar;
         _hasMoveTarget = true;
         _moveTargetRun = _runMode;
-        _reportDue = true;
     }
 
     private void Send(PendingCast pending, uint target)
