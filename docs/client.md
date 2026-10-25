@@ -140,7 +140,7 @@ the back buffer), clear, `GameScene.Draw` (renderer, effects, `ComposeScene`), g
 | Field streaming | `FieldResourceStreamer.Request`: stage and model parse, collision build, `PrepareStageTexturesAsync` on `Task.Run` | `Update` publishes through `AddStageIncrementally`: up to 32 steps and a 2 ms soft budget per frame |
 | Remote actors | Composer `PrepareAsync` (`PristonActorLoader.Load` + `PrepareActorResourcesAsync`) | `RemoteEntityManager.Update` publishes one completed preparation per frame |
 | Ground loot models | `GroundLootPresentation` preparation tasks | `GroundLootPresentation.Update` |
-| HUD images and item icons | `HudSprites`/`HudIconCache` decode on the thread pool | Upload within a byte budget per `Update` (`HudSprites`: 512 KiB) |
+| HUD images and item icons | `HudSprites`/`HudIconCache` decode on the thread pool | Upload within a byte budget per `Update` (`HudSprites`: 512 KiB). The icon cache keeps only the last requested set (at most 512), so `GameplayHud.RequestIcons` always names the pack, the open shop and the open warehouse together |
 | Skill sounds | `SkillSoundBank` reads and decodes on a worker | Creates `SoundEffect`s in `Update`; a sound not ready is skipped |
 | Display settings file | `ClientSettingsStore` writer task | `QueueSave` only |
 
@@ -348,7 +348,8 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
 - `HudNpcServiceController`: one request in flight; `Open` replies set the open service and its state; `OutOfReach`,
   `NotOpen` and `Conflict` close it. While the shop is open, an inventory revision change triggers a quote refresh.
 - Shop (`HudShopWindow`): buy, sell (click or drop an inventory item on the shop), repair, repair all; opens next to the
-  inventory. Warehouse (`HudWarehouseWindow`): grid drag/drop between warehouse and inventory sends Deposit, Move and
+  inventory. Stock fills pages in authored order, each item at the first free place down the columns from the left; an
+  item that does not fit starts the next page. Warehouse (`HudWarehouseWindow`): grid drag/drop between warehouse and inventory sends Deposit, Move and
   Withdraw with the warehouse revision. Server rules: [application.md](application.md), [world.md](world.md).
 - Target frame (`HudCombat.DrawTarget`, `TargetSelection`): a clicked monster or NPC owns the frame; otherwise the
   hovered entity. The frame stays after an attack is cancelled and closes when the entity is removed or has been dead

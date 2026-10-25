@@ -33,13 +33,16 @@ public sealed class HudIconCache : IDisposable
     public bool IsIdle => _pending.Count == 0 && _decode is null;
     public bool Failed => _failed || _index.IsFaulted;
 
+    // A pack, a full shop and a full warehouse at once, with room to spare.
+    private const int MaxIcons = 512;
+
     public void Request(IEnumerable<string> keys)
     {
         // Call only when the required set changes; discard stale queued work and GPU resources.
         var current = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var key in keys)
         {
-            if (string.IsNullOrEmpty(key) || key.Length > 80 || current.Count >= 96)
+            if (string.IsNullOrEmpty(key) || key.Length > 80 || current.Count >= MaxIcons)
             {
                 continue;
             }

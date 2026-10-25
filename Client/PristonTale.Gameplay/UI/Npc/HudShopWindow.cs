@@ -311,7 +311,8 @@ public sealed class HudShopWindow
         }
     }
 
-    // Stock fills pages of the grid in authored order; an item starts a new page when the current one has no room for it.
+    // Stock fills pages of the grid in authored order, each item at the first free place down the columns from the left (the
+    // original shop's order); an item starts a new page when the current one has no room for it.
     private static List<List<Placed>> Pack(IEnumerable<ShopOffer> offers)
     {
         var pages = new List<List<Placed>>();
@@ -342,10 +343,10 @@ public sealed class HudShopWindow
 
     private static int FindSpace(bool[] occupied, ShopOffer offer)
     {
-        for (var anchor = 0; anchor < occupied.Length; anchor++)
+        for (var place = 0; place < occupied.Length; place++)
         {
-            var x = anchor % HudStoreLayout.Columns;
-            var y = anchor / HudStoreLayout.Columns;
+            var x = place / HudStoreLayout.Rows;
+            var y = place % HudStoreLayout.Rows;
             if (x + offer.Width > HudStoreLayout.Columns || y + offer.Height > HudStoreLayout.Rows)
             {
                 continue;
@@ -362,7 +363,7 @@ public sealed class HudShopWindow
 
             if (free)
             {
-                return anchor;
+                return y * HudStoreLayout.Columns + x;
             }
         }
 

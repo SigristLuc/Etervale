@@ -326,7 +326,7 @@ public sealed class GameplayHud : IDisposable
 
         if (state is not null && (_state is null || state.InventoryRevision != _state.InventoryRevision))
         {
-            _icons.Request(state.Items);
+            RequestIcons(state);
         }
 
         _state = state;
@@ -1092,13 +1092,31 @@ public sealed class GameplayHud : IDisposable
         if (_warehouse.IsOpen && _services.Warehouse is { } view && !ReferenceEquals(view, _warehouse.View))
         {
             _warehouse.Refresh(view);
-            _icons.Request(view.Items);
+            RequestIcons(_state);
         }
 
         if (!_services.Pending)
         {
             _services.RefreshQuotes(state);
         }
+    }
+
+    // The icon cache keeps only the last requested set, so every request names everything on screen: the pack, the open
+    // shop's stock and the open warehouse.
+    private void RequestIcons(OwnerState state)
+    {
+        var keys = state?.Items.Select(static item => item.CatalogKey) ?? [];
+        if (_shop.IsOpen)
+        {
+            keys = keys.Concat(_shop.IconKeys);
+        }
+
+        if (_warehouse.IsOpen && _warehouse.View is { } view)
+        {
+            keys = keys.Concat(view.Items.Select(static item => item.CatalogKey));
+        }
+
+        _icons.Request(keys);
     }
 
     private void OpenService()
@@ -1108,13 +1126,13 @@ public sealed class GameplayHud : IDisposable
             case NpcServiceKind.Shop:
                 _npcOpen = false;
                 _shop.Show(_services.Catalog);
-                _icons.Request(_shop.IconKeys);
+                RequestIcons(_state);
                 OpenOnly(_inventorySlide);
                 break;
             case NpcServiceKind.Warehouse when _services.Warehouse is { } view:
                 _npcOpen = false;
                 _warehouse.Show(view);
-                _icons.Request(view.Items);
+                RequestIcons(_state);
                 OpenOnly(_inventorySlide);
                 break;
             case NpcServiceKind.Teleporter:
