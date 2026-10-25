@@ -403,6 +403,13 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   and death play the class's sound, a `Revive` the restart chime. The local player's walk and run clips play the floor's
   footsteps (stone in towns and ruins, dungeon stone, soft ground in forests and deserts) on their first two event
   frames. Everything comes from the presence stream, so every client near the action plays it.
+- Equipment looks (`EquipmentVisuals`, `EquipmentVisualTables`): every item with a model has its motion index (the
+  weapon index the character motion files list; items newer than those files take the first item of their family and
+  hand class), model (`image/sinimage/Items/DropItem/it<model>.smd`, also its ground model), hand and village bone. An
+  armour or robe wears the body of its catalog ordinal (`ArmorSlots`: ordinals from 26 sit sixteen slots further, so
+  DA126-129 wear the 25th-28th bodies, DA301/401 the 29th, DA302-304/402-404 the 30th-32nd and DA131+ the costume
+  bodies) from its class row (A, B, C, D, mA, mB, mC, mD, E, mE; 75 slots each); premium costumes (`CA`) keep the class
+  body and wear wings.
 - Progression (`GameScene.Progression`): a `LevelUp` combat event plays `vfx.player.levelup` (with the level-up chime) at
   the player, a `SkillLearned` event the skill-learn light (`ItemVfx.Learn`) and sound, for every client near.
 - Item sounds (`ItemSoundRules`, `image/Sinimage/Sound`): an item sounds by catalog family (three characters of its key,

@@ -1,4 +1,3 @@
-using System.Globalization;
 using PristonTale.Simulation.Characters;
 
 namespace PristonTale.Gameplay.World.Remote;
@@ -38,14 +37,11 @@ public static class EquipmentVisuals
         // Premium costume bodies (CA) keep the class body; their wings are an effect (CostumeWings).
         if (!string.IsNullOrEmpty(armor) && !armor.StartsWith("CA", StringComparison.OrdinalIgnoreCase))
         {
-            if (armor.Length < 5 || !armor.StartsWith("DA", StringComparison.OrdinalIgnoreCase)
-                || !int.TryParse(armor.AsSpan(3), NumberStyles.None, CultureInfo.InvariantCulture, out int ordinal))
+            if (!EquipmentVisualTables.ArmorSlots.TryGetValue(armor, out var index))
             {
                 throw new InvalidDataException($"Invalid armor catalog key '{armor}'.");
             }
 
-            int index = ordinal > 25 ? ordinal - 17 : ordinal;
-            index = Math.Clamp(index, 0, 53);
             if ((uint)defaults.ArmorTableIndex >= (uint)EquipmentVisualTables.Armors.Length)
             {
                 throw new InvalidDataException($"Invalid armor table index {defaults.ArmorTableIndex}.");

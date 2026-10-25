@@ -45,14 +45,21 @@ internal static class EquipmentTests
 
     private static Task ResourcesAsync()
     {
-        Assert.True(EquipmentVisuals.MotionIndex("WA101") == 0 && EquipmentVisuals.MotionIndex("WC101") == 15, "sItem indices shifted");
+        Assert.True(EquipmentVisuals.MotionIndex("WA101") == 0 && EquipmentVisuals.MotionIndex("WC101") == 15, "the motion indices shifted");
         Assert.True(EquipmentVisuals.MeshPath("WC101").EndsWith("itWC101.smd", StringComparison.Ordinal), "drop/equipped mesh identity changed");
         var definition = new CharacterClassRegistry().Get(PlayerClass.Mechanician).Definition;
         Assert.True(definition.MotionJobMask == 2 && new CharacterClassRegistry().Get(PlayerClass.Archer).Definition.MotionJobMask == 4, "motion and item job masks were confused");
         var armored = EquipmentVisuals.Apply(definition.DefaultVisuals, "DA108", "WC101", "DS101", false, definition.MotionJobMask);
         Assert.True(armored.Body.InxExtensionPath.EndsWith("A008.inx", StringComparison.Ordinal), "armor selected the wrong class body");
-        var alias = EquipmentVisuals.Apply(definition.DefaultVisuals, "DA126", "", "", false, definition.MotionJobMask);
-        Assert.True(alias.Body.InxExtensionPath.EndsWith("A009.inx", StringComparison.Ordinal), "post-25 armor alias changed");
+        string Body(string armor) => EquipmentVisuals.Apply(definition.DefaultVisuals, armor, "", "", false, definition.MotionJobMask).Body.InxExtensionPath;
+        Assert.True(Body("DA126").EndsWith("A025.inx", StringComparison.Ordinal) && Body("DA129").EndsWith("A028.inx", StringComparison.Ordinal),
+            "an armour from ordinal 26 does not wear its body sixteen slots further");
+        Assert.True(Body("DA301").EndsWith("A029.inx", StringComparison.Ordinal) && Body("DA302").EndsWith("A030.inx", StringComparison.Ordinal)
+            && Body("DA304").EndsWith("A032.inx", StringComparison.Ordinal) && Body("DA131").EndsWith("Ca001.inx", StringComparison.Ordinal)
+            && Body("DA155").EndsWith("Ca012.inx", StringComparison.Ordinal), "the later armours or the costume bodies differ");
+        Assert.True(EquipmentVisuals.MotionIndex("WA126") == EquipmentVisuals.MotionIndex("WA105")
+            && EquipmentVisuals.MeshPath("WA126").EndsWith("itWA126.smd", StringComparison.Ordinal) && EquipmentVisuals.HeldInLeftHand("DS125"),
+            "an item newer than the motion files has no model, motion or hand");
         Assert.True(EquipmentVisuals.WeaponBone("WA101", true) == "Bip in01", "city weapon not sheathed");
         Assert.True(EquipmentVisuals.WeaponBone("WC101", true) == "Bip weapon01", "claw should remain in hand");
         Assert.True(EquipmentVisuals.WeaponBone("WS104", true) == "Bip in-cro", "crossbow back attachment differs from BackObjBip[1]");
