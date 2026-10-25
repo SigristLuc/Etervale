@@ -115,6 +115,7 @@ public sealed class GameplayHud : IDisposable
         _itemUse = new HudItemUseController(UseItemAsync, context.Log);
         _premium = new HudPremiumTimers(_sprites);
         _sprites.Request(HudTeleportCore.Art);
+        _sprites.Request(HudInventoryLayout.Art);
         _wingGate = new HudWingGate(context.Log);
         _sprites.Request(HudWingGate.Art);
         _inventory.UseRequested = item => _itemUse.Request(item, _state);
@@ -384,7 +385,9 @@ public sealed class GameplayHud : IDisposable
         _skills.RefreshRanks(_state);
         var hoveredSkill = _skillSlide.FullyOpen && _skillMaster == 0 ? _skills.HoveredSkill(skillOrigin, pointer) : 0;
         _bindings.Update(typing ? default : keyboard, mouse, hoveredSkill);
-        PointerCaptured = Captures(layout, pointer, design) || _chat.Window.Contains(layout, pointer, SideWindowOpen) || _inventory.Dragging != Guid.Empty || _warehouse.Dragging != Guid.Empty;
+        var overHud = Captures(layout, pointer, design) || _chat.Window.Contains(layout, pointer, SideWindowOpen);
+        PointerCaptured = overHud || _inventory.Dragging != Guid.Empty || _warehouse.Dragging != Guid.Empty;
+        _inventory.GroundDropAllowed = !overHud && !_shop.FullyOpen && !_warehouse.FullyOpen;
         _inventory.Update(state, layout, _inventorySlide.FullyOpen && !_settingsOpen, keyboard, mouse);
         _previousKeyboard = keyboard;
         _previousMouse = mouse;
@@ -525,6 +528,16 @@ public sealed class GameplayHud : IDisposable
         if (Pressed(keyboard, Keys.R))
         {
             RunToggleRequested?.Invoke();
+        }
+
+        if (Pressed(keyboard, Keys.W))
+        {
+            _inventory.SwapWeaponSet();
+        }
+
+        if (Pressed(keyboard, Keys.E))
+        {
+            _inventory.SwapBagPage();
         }
     }
 

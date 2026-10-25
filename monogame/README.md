@@ -60,8 +60,8 @@ macOS) or `runtime/build-windows.ps1` (Windows), and the C# projects by `dotnet 
 
 The fork's GPU API beyond XNA: `GraphicsDevice.BeginFrameCapture`/`TryPopFrame` (issue 003), `GpuTimestampPool` (004),
 `GraphicsDevice.Dispatch`/`DispatchIndirect`, `EffectPass.IsCompute`, `Texture2D` with `TextureShaderAccess.ReadWrite`
-(005), `StructuredBuffer` (006), MGFX 12 and the `cs_6_0`/`*_6_5` profiles (007, 008), pipeline statistics (012) and
-NoOverwrite uploads in place (013).
+(005), `StructuredBuffer` (006), MGFX 12 and the `cs_6_0`/`*_6_5` profiles (007, 008), pipeline statistics (012),
+NoOverwrite uploads in place (013) and the clipboard's text (`Input.Clipboard.GetText`, 014).
 
 ## Licence and credits
 

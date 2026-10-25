@@ -102,6 +102,14 @@ internal static class ChatClientTests
         Assert.True(input.Type('ã') && input.Text == "ã", "a character the font draws must be accepted");
         input.Set("");
         Assert.True(!input.Type('中') && input.Text.Length == 0, "a character the font cannot draw was accepted");
+        input.Set("/@get ");
+        input.Paste("\"Mythology\tSpear中\"\r\nsecond line");
+        Assert.True(input.Text == "/@get \"Mythology Spear\"", $"a paste keeps its first line without refused characters, got '{input.Text}'");
+        input.Set(new string('a', ChatRules.InputLimit - 2));
+        input.Paste("bcd");
+        Assert.True(input.Text.EndsWith("bc", StringComparison.Ordinal) && input.Text.Length == ChatRules.InputLimit, "a paste stops at the input limit");
+        input.Paste(null);
+        input.Set("");
         var now = 0.0;
         HudChatSend? Send(string text, HudChatTab tab = HudChatTab.All)
         {

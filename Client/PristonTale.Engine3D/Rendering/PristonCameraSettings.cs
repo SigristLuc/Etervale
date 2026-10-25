@@ -18,11 +18,16 @@ public sealed record PristonCameraSettings
     // Exponential follow rate (higher = snappier), applied frame-rate-independently via 1 - exp(-rate*dt).
     public float FollowSmoothing { get; init; } = 14f;
     public float MouseOrbitSensitivity { get; init; } = 0.006f;
-    public float MouseZoomSensitivity { get; init; } = 0.35f;
+    // The mouse wheel tilts the camera as the original does: a notch (120) moves the target angle 120 of its 4096 units per
+    // turn, and the camera eases there at 8 units per 70 Hz frame.
+    public float WheelPitchRadiansPerUnit { get; init; } = MathF.Tau / 4096f;
+    public float WheelPitchRadiansPerSecond { get; init; } = 8f * 70f * MathF.Tau / 4096f;
     // A pointer within this many pixels of the window's side edge orbits the camera; the angular speed is per second,
     // so it does not depend on the frame rate.
     public int EdgeOrbitWidth { get; init; } = 8;
     public float EdgeOrbitRadiansPerSecond { get; init; } = MathF.PI / 2f;
+    // Arrow keys: Left and Right orbit at the edge-orbit speed; Up zooms in and Down out at this many units per second.
+    public float KeyZoomUnitsPerSecond { get; init; } = 600f;
     // Clearance for the camera's own position/movement. Scenery between camera and player does not shorten the orbit.
     public float CollisionFloorPad { get; init; } = 32f;
     public float CollisionWallPad { get; init; } = 24f;

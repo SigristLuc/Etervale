@@ -25,3 +25,4 @@ upstream notes, in `../upstream/`.
 | 011 | [texture-load-binding](011-texture-load-binding.md) | processor |
 | 012 | [pipeline-statistics](012-pipeline-statistics.md) | runtime, framework |
 | 013 | [no-overwrite-uploads](013-no-overwrite-uploads.md) | runtime, framework |
+| 014 | [clipboard-text](014-clipboard-text.md) | runtime, framework |

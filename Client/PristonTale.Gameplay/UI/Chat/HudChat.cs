@@ -84,8 +84,8 @@ public sealed class HudChat
     // A quest hint in the assistant's colour and page.
     public void Assist(string text) => Window.Log.Add(text, HudChatLog.AssistKind);
 
-    // Enter opens the input or sends its line (Escape closes the window through the HUD); Page Up and Page Down scroll; Up and Down recall
-    // commands. Typed characters (backspace included) arrive from the window's text input.
+    // Enter opens the input or sends its line (Escape closes the window through the HUD); Ctrl+V pastes; Page Up and Page Down scroll;
+    // Up and Down recall commands. Typed characters (backspace included) arrive from the window's text input.
     public void Update(KeyboardState keyboard, KeyboardState previous, IEnumerable<char> typed, double nowMs, HudChatTab tab)
     {
         bool Pressed(Keys key) => keyboard.IsKeyDown(key) && !previous.IsKeyDown(key);
@@ -110,6 +110,11 @@ public sealed class HudChat
             {
                 Window.Input.Type(character);
             }
+        }
+
+        if (control && Pressed(Keys.V))
+        {
+            Window.Input.Paste(Clipboard.GetText());
         }
 
         if (Pressed(Keys.PageUp))

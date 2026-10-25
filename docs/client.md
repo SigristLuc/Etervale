@@ -227,6 +227,11 @@ flip Z themselves.
 - `RemoteEntityBase` owns no rules: the server owns position and motion. Presentation-only choices: Walk/Run playback
   speed follows the interpolated ground speed; Walk/Run without ground motion shows Stand. Combat events share the
   sample timeline.
+- A player's clip is the first motion of its state whose item list holds the weapon's motion index
+  (`EquipmentVisualTables`, `PristonMotionSelection`). The indices are the ones the player motion files list: the first
+  weapon generation at 0-128, then one block per family for the second (axes 129, claws 145, hammers 160, staffs 176,
+  scythes 192, bows 208, swords 224, javelins 242); an x51-x53 variant takes the index of the mesh it reuses, and an
+  item newer than the motion files the index of its family and hand class.
 - `RemoteEntityManager`: the self entity's spawn/state/combat events go to `GameScene` sinks, not to an actor. A monster
   or NPC whose template is not in the catalog yet is held in `_pendingModels` until `SetCatalog`; a spawn whose models
   are loading waits in `_preparingActors` and keeps receiving the latest state. A player appearance change re-composes
@@ -283,13 +288,15 @@ Renderer side of stage publication: [rendering.md](rendering.md).
 | Input | Where | Effect |
 |---|---|---|
 | Left click | `GameScene.UpdatePlayerInput` | In order: pick ground loot, cast the left socket skill, pick a monster (attack) or NPC (approach and talk), move |
+| Hold left button after a move click | same | The destination follows the floor under the cursor while held (not over the HUD, casting or attacking); on release the walk ends at the last point |
 | Double left click (350 ms) on the ground | same | Keep walking toward the cursor without holding the button, until blocked or the next click |
 | `R`, or the bar's walk/run button | `GameplayHud.RunToggleRequested` -> `GameScene.ToggleRun` | Walk/run setting (running at first) for every move: clicks, monster, NPC and item approaches. A player tracing a target or holding the button keeps its pace while its stamina is at a quarter or less and walks once it runs out; overweight only walks |
 | Shift held while running (game masters) | `GameScene.MovementSpeed` | Dash at 3000/256 units per original tick; `WorldJoined` carries the game master level and the server allows game masters that speed |
 | Shift + click on a monster | same | Automatic attack (keeps attacking after release) |
 | Right click | same | Attack if the right socket holds the basic attack, otherwise cast the right socket skill |
 | Hold `A` | `GameScene.DrawGroundLabels`, `TryPickLoot` | Show and pick every ground item label |
-| Middle drag, cursor at screen edge, wheel | `PristonCamera.UpdateOrbit` (Engine3D) | Orbit, edge orbit, zoom; ignored while the HUD captures the pointer |
+| Middle drag, cursor at screen edge, wheel | `PristonCamera.UpdateOrbit` (Engine3D) | Orbit, edge orbit; the wheel tilts the camera up or down (a notch moves the target angle 120 of 4096 units, eased at 8 units per 70 Hz frame) and does not zoom; ignored while the HUD captures the pointer |
+| Arrow keys | `PristonCamera.UpdateKeys` | Left and Right orbit at the edge-orbit speed, Up zooms in and Down out (`KeyZoomUnitsPerSecond`); off while typing in the chat |
 | `I` or `V`, `C`, `S`, `X`, `Q` | `GameplayHud.UpdateKeys` | Inventory, status, skills, system menu, quest window (ignored with Ctrl held) |
 | `F1`-`F8` | `HudSkillBindings` | Select a skill shortcut; while pressing a skill in the tree, bind it ([skills.md](skills.md)) |
 | `Enter`, `Page Up`/`Page Down`, `Up`/`Down` | `HudChat.Update` | Open the chat input or send its line, scroll the chat, recall commands; while typing, HUD, binding, debug and motion keys and the `A` labels are suppressed |
@@ -317,8 +324,16 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
 - Server results reach the HUD as counters: controllers increment `Completions` and set `Message` and `LastOk`;
   `ForwardMessages` shows each new refusal once as a notice and each confirmation as a chat server line; skill notices
   go to the chat, quest hints to its assistant tab ([chat-and-gm.md](chat-and-gm.md#client-chat-window)).
-- Inventory (`HudInventoryController`): left drag moves, Shift-drag splits, drop on another stack merges, drop on an
-  equipment slot equips, right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
+- Inventory (`HudInventoryController`): a click picks a bag or equipped item (it leaves the grid and shows only on the cursor) and the next
+  click puts it down (a drag
+  works too; right click or Escape cancels): a bag cell moves it (Shift splits, another stack merges) or unequips it, an
+  equipment slot equips it, the shop and warehouse take it, and outside the inventory window, with no shop, warehouse or
+  other HUD element under the pointer, it is thrown on the ground (`InventoryAction.Drop`; `ItemDropRules` keeps quest
+  items, quest weapons and rings, the BI, MA and QW families and listed costumes in the bag). E or the I/II arrow at the bottom left shows the other bag page (`InventoryAction.SwapBagPage`: the
+  page set aside is carried and weighed but out of reach; a bag item held on the cursor goes to the new page and stays
+  held, so it can be put down there). W or the A/B arrow beside the weapon slot swaps the weapon set
+  (`InventoryAction.SwapWeaponSet`: the worn weapon and off-hand item trade places with the spare set, which is carried
+  and weighed but adds no stats; the worn set's arrow shows its art). Right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
   slot first), drinks a potion or uses a usable item (`HudItemUseController`: the Teleport Core window, confirmations,
   the item-use request). One command in flight; it carries the `InventoryRevision` it was built from.
 - Step marks (`GameScene.Terrain.cs`, `PristonCollisionWorld.TryGetIceFloor` / `TryGetWaterHeight`): the stage's ice
@@ -350,7 +365,8 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   shop price and the action hint.
 - Premium timers (`HudPremiumTimers`) form the column at x 8 under the running-effects bar; usable items have their
   own tooltips (`HudUsableTooltip`). Details: [special-items.md](special-items.md).
-- Status window: attribute buttons send `ProgressionCommand` with `ProgressionRevision`; the organic, poison, fire,
+- Status window: experience and next level read in full under a million, then in millions, billions, trillions,
+  quadrillions (Qa) or quintillions (Qi) with one decimal cut, not rounded (`HudStatusPanel.Abbreviate`: `37B`, `278.3T`). Attribute buttons send `ProgressionCommand` with `ProgressionRevision`; the organic, poison, fire,
   lightning and ice resistance boxes show the owner's resistances.
 - Block feedback (`HudStringEffect`): when the player blocks a blow, the original `block.tga` word shows at (354, 488)
   of the 800x600 frame, opaque for 26 interface frames at 70 per second, then fades by 10 alpha per frame while it

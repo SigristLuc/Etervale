@@ -122,6 +122,35 @@ internal static class ProgressionAndOwnershipTests
         Assert.True(reloaded.Experience == ExperienceTable.Ceiling
             && CharacterRecordFactory.Capture(record, reloaded, 3, Vector3.Zero).Encode().Exp == veteran.Exp, "experience past 2^63 did not round-trip");
         Assert.True(restored.Inventory[5].Count == 4 && restored.Inventory[5].InstanceId == identity, "save snapshot aliases live inventory");
+        // Weapon sets: the worn hands trade places with the spare set, which is carried, saved and never adds stats.
+        var axe = new ItemDefinition(ItemCodes.Parse("WA101"), "Stone Axe", ItemKind.Axe, EquipmentSlot.Weapon) { CatalogKey = "WA101", Weight = 7 };
+        var shield = new ItemDefinition(ItemCodes.Parse("DS101"), "Shield", ItemKind.Shield, EquipmentSlot.OffHand) { CatalogKey = "DS101", Weight = 5 };
+        var hammer = new ItemDefinition(ItemCodes.Parse("WH101"), "Hammer", ItemKind.Hammer, EquipmentSlot.Weapon) { CatalogKey = "WH101", Weight = 9 };
+        var armed = classes.CreatePlayer(PlayerClass.Fighter, "Armed");
+        armed.Equip(EquipmentSlot.Weapon, new ItemInstance(axe));
+        armed.Equip(EquipmentSlot.OffHand, new ItemInstance(shield));
+        var weight = armed.CarriedWeight;
+        Assert.True(armed.TrySwapWeaponSet() && armed.WeaponSet == 1 && armed.GetEquipped(EquipmentSlot.Weapon) is null
+            && armed.SpareHands.Count == 2 && armed.CarriedWeight == weight, "swapping to an empty set did not keep the first set carried");
+        armed.Equip(EquipmentSlot.Weapon, new ItemInstance(hammer));
+        // Bag pages: page I's items leave the bag for page II and come back with the next swap.
+        Assert.True(armed.Inventory.TryPlace(new ItemInstance(definition, 3), 0) && armed.TrySwapBagPage() && armed.BagPage == 1
+            && armed.Inventory[0] is null && armed.SpareBagItems().Single().Item.Count == 3, "swapping bag pages did not set page I aside");
+        Assert.True(armed.Inventory.TryPlace(new ItemInstance(definition, 6), 2), "page II refused an item");
+        var saved = CharacterRecordFactory.Capture(record, armed, 3, Vector3.Zero).Encode();
+        var rearmed = new PlayerCharacter(classes.Get(PlayerClass.Fighter), record.Name, saved.Level,
+            new CharacterAttributes(saved.Strength, saved.Spirit, saved.Talent, saved.Agility, saved.Health));
+        CharacterStateCodec.Restore(rearmed, saved, new ItemCatalog([definition, axe, shield, hammer]));
+        Assert.True(rearmed.WeaponSet == 1 && rearmed.GetEquipped(EquipmentSlot.Weapon)?.Definition.CatalogKey == "WH101"
+            && rearmed.SpareHands.Count == 2, "the spare weapon set was not saved");
+        Assert.True(rearmed.TrySwapWeaponSet() && rearmed.WeaponSet == 0 && rearmed.GetEquipped(EquipmentSlot.Weapon)?.Definition.CatalogKey == "WA101"
+            && rearmed.GetEquipped(EquipmentSlot.OffHand)?.Definition.CatalogKey == "DS101" && rearmed.SpareHands[EquipmentSlot.Weapon].Definition.CatalogKey == "WH101",
+            "swapping back did not restore the first set");
+        Assert.True(rearmed.BagPage == 1 && rearmed.Inventory[2]?.Count == 6 && rearmed.TrySwapBagPage() && rearmed.BagPage == 0
+            && rearmed.Inventory[0]?.Count == 3 && rearmed.SpareBagItems().Single().Anchor == 2, "the other bag page was not saved");
+        var carried = rearmed.Inventory[0]!.InstanceId;
+        Assert.True(rearmed.TrySwapBagPage(carried) && rearmed.BagPage == 1 && rearmed.Inventory.Find(carried) >= 0
+            && !rearmed.SpareBagItems().Any(), "an item held on the cursor did not travel to the other page");
         var corrupt = encoded with { Inventory = new JsonText("{\"Version\":2,\"Items\":[]}") };
         var repository = new MemoryCharacters(corrupt);
         var registry = new SessionRegistry();

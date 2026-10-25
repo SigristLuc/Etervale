@@ -43,8 +43,15 @@ public sealed class HudInventoryPanel
         Refresh(state);
         _state = state;
         DrawPuzzleBoard(painter, origin, state);
+        // A picked item leaves the grid and its slot, as in the original: it is drawn only on the cursor, and once put down
+        // it stays hidden until the server's answer places it.
         foreach (var item in state.Items)
         {
+            if (controller.Dragging == item.InstanceId || controller.Settling == item.InstanceId)
+            {
+                continue;
+            }
+
             if (item.Slot >= 0)
             {
                 var slot = HudInventoryLayout.Equipment(origin, item.Slot);
@@ -80,9 +87,16 @@ public sealed class HudInventoryPanel
 
         foreach (var item in state.Items)
         {
-            var tint = controller.Dragging == item.InstanceId ? Color.White * 0.4f : Color.White;
-            DrawItem(painter, icons, item, Bounds(origin, item), tint);
+            if (controller.Dragging != item.InstanceId && controller.Settling != item.InstanceId)
+            {
+                DrawItem(painter, icons, item, Bounds(origin, item), Color.White);
+            }
         }
+
+        var set = HudInventoryLayout.WeaponSet(origin, state.WeaponSet);
+        painter.Sprite(state.WeaponSet == 0 ? HudInventoryLayout.LeftArrow : HudInventoryLayout.RightArrow, set.X, set.Y);
+        var page = HudInventoryLayout.BagPage(origin, state.BagPage);
+        painter.Sprite(state.BagPage == 0 ? HudInventoryLayout.LeftArrow : HudInventoryLayout.RightArrow, page.X, page.Y);
 
         var money = HudInventoryLayout.Money(origin);
         painter.TextCentered(_gold, money.Left, money.Right, money.Y);

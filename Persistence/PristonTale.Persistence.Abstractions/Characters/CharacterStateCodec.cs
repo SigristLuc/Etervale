@@ -22,8 +22,11 @@ public sealed record SavedItem(
     int Unique = 0,
     bool Sealed = false);
 
+// Spare keeps what is carried out of use: in the inventory column the other bag page's items (BagPage is the page in use,
+// 0 for I, 1 for II), in the equipment column the inactive weapon set's weapon and off-hand item (WeaponSet is the worn
+// set, 0 for A, 1 for B).
 public sealed record SavedItems(int Version, SavedItem[] Items, long Revision = 0, AppliedInventoryOperation[]? Operations = null,
-    AppliedServiceOperation[]? ServiceOperations = null);
+    AppliedServiceOperation[]? ServiceOperations = null, SavedItem[]? Spare = null, int WeaponSet = 0, int BagPage = 0);
 public sealed record SavedSkill(uint Code, int Rank, int Uses = 0);
 public sealed record SavedSkills(int Version, int Points, int ElitePoints, SavedSkill[] Skills,
     long Revision = 0, AppliedProgressionOperation[]? Operations = null);
@@ -57,6 +60,14 @@ public static class CharacterStateCodec
             }
         }
 
+        if (inventory.BagPage is not (0 or 1) || (inventory.Spare ?? []).Any(static saved => saved is null || saved.Slot.HasValue))
+        {
+            throw new InvalidDataException("Invalid saved bag page.");
+        }
+
+        character.RestoreBagPage(inventory.BagPage,
+            (inventory.Spare ?? []).Select(saved => (saved.Anchor, RestoreItem(saved, catalog, identities))).ToArray());
+
         foreach (var saved in equipment.Items)
         {
             var item = RestoreItem(saved, catalog, identities);
@@ -68,6 +79,14 @@ public static class CharacterStateCodec
 
             character.Equip(saved.Slot.Value, item);
         }
+
+        if (equipment.WeaponSet is not (0 or 1) || (equipment.Spare ?? []).Any(static saved => saved is null || !saved.Slot.HasValue))
+        {
+            throw new InvalidDataException("Invalid saved weapon set.");
+        }
+
+        character.RestoreWeaponSet(equipment.WeaponSet,
+            (equipment.Spare ?? []).Select(saved => (saved.Slot!.Value, RestoreItem(saved, catalog, identities))).ToArray());
 
         foreach (var skill in skills.Skills)
         {
@@ -103,8 +122,9 @@ public static class CharacterStateCodec
             }
         }
 
+        var spare = character.SpareBagItems().Select(static pair => CaptureItem(pair.Item, pair.Anchor, null)).ToArray();
         return new SavedItems(1, items.ToArray(), character.InventoryRevision, character.InventoryOperations.ToArray(),
-            character.ServiceOperations.ToArray());
+            character.ServiceOperations.ToArray(), spare.Length > 0 ? spare : null, BagPage: character.BagPage);
     }
 
     public static SavedItems CaptureEquipment(PlayerCharacter character)
@@ -116,7 +136,8 @@ public static class CharacterStateCodec
             items[index++] = CaptureItem(equipped.Value, -1, equipped.Key);
         }
 
-        return new SavedItems(1, items);
+        var spare = character.SpareHands.Select(static pair => CaptureItem(pair.Value, -1, pair.Key)).ToArray();
+        return new SavedItems(1, items, Spare: spare.Length > 0 ? spare : null, WeaponSet: character.WeaponSet);
     }
 
     public static SavedItems ReadEquipment(JsonText equipment)

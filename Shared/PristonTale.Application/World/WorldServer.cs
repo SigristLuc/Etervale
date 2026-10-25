@@ -10,6 +10,7 @@ using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Fields;
@@ -141,6 +142,11 @@ public sealed partial class WorldServer
             _connections.Add(player.EntityId, new Connection(fieldId, player, outbound, session));
             _membershipChanged = true;
             UpdatePlacement(session, fieldId, player.Position, definition.State == FieldState.Village);
+            if (player.Character.Premium.TakeForceOrb(out var orbStatus, out var orbSeconds) && ForceOrbs.TryGetByStatus(orbStatus, out var orb))
+            {
+                field.QueueItemEffect(player.EntityId, orb.Spec(ItemUseTransactions.AverageAttack(player.Character)), orbSeconds * 1000f);
+            }
+
             return true;
         });
     }
@@ -345,6 +351,12 @@ public sealed partial class WorldServer
                     new InventoryOutcome(false, original.InventoryRevision, "cannot use another potion now"));
             }
 
+            if (command.Action == InventoryAction.Drop && (connection.Player.IsDead || _fields[connection.FieldId].GroundLoot.Count >= FieldGroundLoot.Capacity))
+            {
+                return new PreparedCharacterOperation<InventoryOutcome>(original, null, null,
+                    new InventoryOutcome(false, original.InventoryRevision, "cannot drop an item now"));
+            }
+
             var candidate = original.CloneForInventoryOperation();
             if (!InventoryCommands.Apply(candidate, command))
             {
@@ -360,6 +372,12 @@ public sealed partial class WorldServer
             {
                 var anchor = original.Inventory.Find(command.ItemId);
                 return new PreparedPotionOperation(original, candidate, snapshot, outcome, original.Inventory[anchor]!.Definition.Potion!);
+            }
+
+            if (command.Action == InventoryAction.Drop)
+            {
+                return new PreparedDropOperation(original, candidate, snapshot, outcome, original.Inventory[original.Inventory.Find(command.ItemId)]!,
+                    connection.FieldId);
             }
 
             return new PreparedCharacterOperation<InventoryOutcome>(original, candidate, snapshot, outcome);
@@ -390,6 +408,13 @@ public sealed partial class WorldServer
                 && ReferenceEquals(connection.Session, session))
             {
                 connection.Player.QueuePotion(potion.Potion);
+            }
+
+            // The item lands at the player's feet in the field it was dropped in, public at once.
+            if (operation is PreparedDropOperation drop && _fields.TryGetValue(drop.FieldId, out var dropField))
+            {
+                var at = _connections.TryGetValue(session.EntityId, out var holder) && holder.FieldId == drop.FieldId ? holder.Player.Position : session.SpawnPosition;
+                dropField.DropForGameMaster(drop.Item, 0, at, session.EntityId);
             }
 
             return true;

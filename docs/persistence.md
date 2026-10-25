@@ -106,12 +106,12 @@ and its account warehouse are always written together, so a gold or item move be
 
 | Column | Shape | Limits on restore |
 | --- | --- | --- |
-| `inventory` | `SavedItems` v1: items with `Anchor` (grid cell), `Slot = null`, plus `Revision`, inventory `Operations`, `ServiceOperations` | 72 items |
-| `equipment` | `SavedItems` v1: items with `Slot` set and `Anchor = -1` | 72 items |
+| `inventory` | `SavedItems` v1: items with `Anchor` (grid cell), `Slot = null`, plus `Revision`, inventory `Operations`, `ServiceOperations`; `Spare` holds the other bag page's items and `BagPage` the page in use (0 I, 1 II) | 72 items |
+| `equipment` | `SavedItems` v1: items with `Slot` set and `Anchor = -1`; `Spare` holds the inactive weapon set's weapon and off-hand item and `WeaponSet` the worn set (0 A, 1 B) | 72 items |
 | `skills` | `SavedSkills` v1: points, elite points, `(Code, Rank, Uses)`, progression `Revision` and `Operations` | 128 skills, points >= 0 |
 | `warehouses.items` | `SavedItems` v1 with anchors in the warehouse grid | `WarehouseStorage.MaxItems` |
 | `derived_stats` | `DerivedStatsDto`, written on save; nothing reads it | - |
-| `premium` | `SavedPremium` v1 (`PremiumStateCodec.cs`): premium timers `(Kind, Value, DurationSeconds, ExpiresAtSeconds)` with Unix-second expiry, item-use `Operations`, `GravityScrolls`, head mode (1-2 big head, 3 soccer ball) and expiry, `SavedAtSeconds` (the last tick's clock); `{}` is empty | 17 timers; expired timers and heads are dropped on restore; boosters and skill delay move their expiry by the time since `SavedAtSeconds` |
+| `premium` | `SavedPremium` v1 (`PremiumStateCodec.cs`): premium timers `(Kind, Value, DurationSeconds, ExpiresAtSeconds)` with Unix-second expiry, item-use `Operations`, `GravityScrolls`, head mode (1-2 big head, 3 soccer ball) and expiry, `SavedAtSeconds` (the last tick's clock), the running force orb's status and seconds left (`ForceOrbStatus`, `ForceOrbSeconds`); `{}` is empty | 17 timers; expired timers and heads are dropped on restore; boosters and skill delay move their expiry by the time since `SavedAtSeconds`; a saved force orb starts again with its seconds left when the character enters the world (`WorldServer.JoinAsync`) |
 | `quests` | `SavedQuests` v1: the running quest (`SavedQuest`), level and beginner logs, finished codes, `FinishedCount`, the redistribution offer, `Revision` and quest `Operations` (see [quests.md](quests.md)); `{}` reads as an idle journal | 32 finished codes, 64 operations, defined quest codes and timer kinds, non-negative counts |
 
 - Restore is strict: unknown JSON members are rejected, constructor parameters without defaults are required, max

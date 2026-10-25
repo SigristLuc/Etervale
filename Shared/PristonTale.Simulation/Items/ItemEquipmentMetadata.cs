@@ -78,6 +78,10 @@ public static class ItemEquipmentMetadata
         return definition with { Kind = kind, EquipSlot = slot, TwoHanded = TwoHandedKeys.Contains(definition.CatalogKey) };
     }
 
+    // Whether an item may sit in a slot: its own slot, or either ring slot for a ring.
+    public static bool Fits(ItemDefinition definition, EquipmentSlot slot) =>
+        definition.EquipSlot == slot || definition.Kind == ItemKind.Ring && slot is EquipmentSlot.RingLeft or EquipmentSlot.RingRight;
+
     // The slot an item goes to when it is equipped without naming one: the left ring slot first, then the right.
     public static EquipmentSlot? DefaultSlot(ItemKind kind, EquipmentSlot? slot, Func<EquipmentSlot, bool> occupied)
     {

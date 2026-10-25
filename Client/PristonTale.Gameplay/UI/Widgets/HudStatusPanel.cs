@@ -60,6 +60,30 @@ public sealed class HudStatusPanel
         }
     }
 
+    // Experience past a million is shown in millions, billions, trillions, quadrillions (Qa) or quintillions (Qi) with one
+    // decimal, cut rather than rounded so the display never shows an amount not yet reached (37 097 295 775 is "37B",
+    // 278 319 929 840 944 is "278.3T").
+    public static string Abbreviate(ulong value)
+    {
+        if (value < 1_000_000)
+        {
+            return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        var (unit, suffix) = value switch
+        {
+            >= 1_000_000_000_000_000_000 => (1_000_000_000_000_000_000UL, "Qi"),
+            >= 1_000_000_000_000_000 => (1_000_000_000_000_000UL, "Qa"),
+            >= 1_000_000_000_000 => (1_000_000_000_000UL, "T"),
+            >= 1_000_000_000 => (1_000_000_000UL, "B"),
+            _ => (1_000_000UL, "M")
+        };
+        var tenths = value / (unit / 10);
+        var text = tenths % 10 == 0 ? (tenths / 10).ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : $"{tenths / 10}.{tenths % 10}";
+        return text + suffix;
+    }
+
     private void Refresh(OwnerState state)
     {
         if (ReferenceEquals(state, _state))
@@ -71,8 +95,8 @@ public sealed class HudStatusPanel
         _text[0] = ClassName;
         _text[1] = Name;
         _text[2] = state.Level.ToString();
-        _text[3] = state.Experience.ToString();
-        _text[4] = state.NextLevel.ToString();
+        _text[3] = Abbreviate(state.Experience);
+        _text[4] = Abbreviate(state.NextLevel);
         _text[5] = $"{state.Hp}/{state.MaxHp}";
         _text[6] = $"{state.Mp}/{state.MaxMp}";
         _text[7] = $"{state.Sp}/{state.MaxSp}";

@@ -68,3 +68,5 @@ Every change is marked `Etervale fork` in the source and has a document in `../i
   (`StorageKind`, `StorageInfo`), the thread group size and the requirements (`ShaderRequirements`; a ray-query shader
   is refused with `NotSupportedException` until the runtime binds acceleration structures);
   `EffectParameterType.AccelerationStructure`.
+- `Input.Clipboard.GetText` (`Input/Clipboard.cs`, `Platform/Native/Platform.Interop.Etervale.cs`, issue 014): the
+  system clipboard's text.

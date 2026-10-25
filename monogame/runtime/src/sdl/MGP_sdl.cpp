@@ -275,6 +275,23 @@ void MGP_Platform_Free(void* ptr)
     SDL_free(ptr);
 }
 
+// Etervale fork: the clipboard's text as UTF-8, released with MGP_Platform_Free; null when the clipboard holds no text
+// (monogame/issues/014-clipboard-text.md).
+MG_EXPORT void* MGP_Platform_GetClipboardText()
+{
+    if (!SDL_HasClipboardText())
+        return nullptr;
+
+    char* text = SDL_GetClipboardText();
+    if (text != nullptr && text[0] == '\0')
+    {
+        SDL_free(text);
+        return nullptr;
+    }
+
+    return text;
+}
+
 void MGP_Platform_BeforeInitialize(MGP_Platform* platform)
 {
 	assert(platform != nullptr);

@@ -152,6 +152,8 @@ Since the C# half was forked too (`../issues/001-framework-from-source.md`), eac
     version 4): `SetDataOptions.NoOverwrite` on a dynamic buffer no longer renames the buffer and copies its old
     content back from mapped memory (change 14 did it for every non-discard write), so `DrawUser*Primitives` and
     SpriteBatch keep their DesktopGL cost.
+26. **The clipboard's text** (`MGP_Platform_GetClipboardText`, `../issues/014-clipboard-text.md`; interface version 5):
+    `SDL_GetClipboardText` as UTF-8 released with `MGP_Platform_Free`, or null when the clipboard holds no text.
 
 The runtime also prints the swapchain image count and present mode, an early submission when the uniform buffer is
 full, and a warning when two resources of one shader share a binding.

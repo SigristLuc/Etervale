@@ -66,6 +66,25 @@ public sealed class HudChatInput
         return true;
     }
 
+    // Pasted text goes in up to its first line break; characters Type refuses are skipped and the rest stops at the limit.
+    public void Paste(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        foreach (var value in text)
+        {
+            if (value is '\r' or '\n' || _text.Length >= ChatRules.InputLimit)
+            {
+                return;
+            }
+
+            Type(value == '\t' ? ' ' : value);
+        }
+    }
+
     public void Backspace()
     {
         if (_text.Length > 0)

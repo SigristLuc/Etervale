@@ -156,6 +156,36 @@ internal static class CameraTests
 
     private static Task InputAsync()
     {
+        var keyed = CreateCamera();
+        keyed.UpdateFollow(Vector3.Zero, 0);
+        var start = keyed.Position;
+        var startDistance = Vector3.Distance(keyed.Position, keyed.Target);
+        keyed.UpdateKeys(new KeyboardState(Keys.Up), 0.1f);
+        keyed.UpdateFollow(Vector3.Zero, 0);
+        Assert.Near(startDistance - 60f, Vector3.Distance(keyed.Position, keyed.Target), 0.5f);
+        keyed.UpdateKeys(new KeyboardState(Keys.Down), 0.1f);
+        keyed.UpdateKeys(new KeyboardState(Keys.Left), 0.5f);
+        keyed.UpdateKeys(new KeyboardState(Keys.Right), 0.5f);
+        keyed.UpdateFollow(Vector3.Zero, 0);
+        Assert.True(Vector3.Distance(keyed.Position, start) < 0.01f, "opposite arrow keys did not cancel out");
+        keyed.UpdateKeys(new KeyboardState(Keys.Left), 0.5f);
+        keyed.UpdateFollow(Vector3.Zero, 0);
+        Assert.True(Vector3.Distance(keyed.Position, start) > 1f, "the Left arrow did not orbit");
+
+        // The wheel tilts the camera toward a target angle (a notch is 120 of 4096 units) without changing its distance.
+        var tilted = CreateCamera();
+        tilted.UpdateOrbit(Mouse(0, 0));
+        tilted.UpdateFollow(Vector3.Zero, 0);
+        var level = tilted.Position;
+        var distance = Vector3.Distance(tilted.Position, tilted.Target);
+        tilted.UpdateOrbit(Mouse(0, 0, wheel: 120), deltaSeconds: 0f);
+        tilted.UpdateFollow(Vector3.Zero, 0);
+        Assert.True(tilted.Position == level, "a wheel notch jumped instead of easing");
+        tilted.UpdateOrbit(Mouse(0, 0, wheel: 120), deltaSeconds: 1f);
+        tilted.UpdateFollow(Vector3.Zero, 0);
+        var expectedPitch = 120f * MathF.Tau / 4096f;
+        Assert.Near(MathF.Sin(expectedPitch) * distance, tilted.Position.Y - tilted.Target.Y, 0.5f);
+        Assert.Near(distance, Vector3.Distance(tilted.Position, tilted.Target), 0.01f);
         var camera = CreateCamera();
         camera.UpdateOrbit(Mouse(0, 0));
         var original = camera.Position;

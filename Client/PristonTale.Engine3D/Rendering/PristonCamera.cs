@@ -13,6 +13,7 @@ public sealed class PristonCamera
     private Vector3 _position;
     private float _yaw;
     private float _pitch;
+    private float _pitchTarget = float.NaN;
     private MouseState _lastMouse;
     private bool _hasMouse;
     private float _distance;
@@ -37,6 +38,7 @@ public sealed class PristonCamera
     {
         _distance = _settings.DefaultDistance;
         _pitch = _settings.DefaultPitch;
+        _pitchTarget = float.NaN;
         var normalized = NormalizedForward(forward);
         _yaw = MathF.Atan2(normalized.X, normalized.Z);
         _hasPosition = false;
@@ -71,15 +73,45 @@ public sealed class PristonCamera
     }
 
     public void Update(GameTime gameTime, GraphicsDevice graphicsDevice, Vector3 target, Vector3 forward,
-        IPristonCollisionQuery collisionWorld, bool pointerCaptured = false, bool inputEnabled = true)
+        IPristonCollisionQuery collisionWorld, bool pointerCaptured = false, bool inputEnabled = true, bool keysEnabled = false)
     {
         UpdateOrbit(Mouse.GetState(), pointerCaptured, graphicsDevice.Viewport.Bounds, (float)gameTime.ElapsedGameTime.TotalSeconds, inputEnabled);
+        if (inputEnabled && keysEnabled)
+        {
+            UpdateKeys(Keyboard.GetState(), (float)gameTime.ElapsedGameTime.TotalSeconds);
+        }
+
         EnsureProjection(graphicsDevice);
         UpdateFollow(target, (float)gameTime.ElapsedGameTime.TotalSeconds, collisionWorld);
     }
 
+    public void UpdateKeys(KeyboardState keyboard, float deltaSeconds)
+    {
+        if (!float.IsFinite(deltaSeconds) || deltaSeconds <= 0f)
+        {
+            return;
+        }
+
+        if (keyboard.IsKeyDown(Keys.Left))
+        {
+            _yaw -= _settings.EdgeOrbitRadiansPerSecond * deltaSeconds;
+        }
+
+        if (keyboard.IsKeyDown(Keys.Right))
+        {
+            _yaw += _settings.EdgeOrbitRadiansPerSecond * deltaSeconds;
+        }
+
+        var zoom = (keyboard.IsKeyDown(Keys.Down) ? 1f : 0f) - (keyboard.IsKeyDown(Keys.Up) ? 1f : 0f);
+        if (zoom != 0f)
+        {
+            _distance = MathHelper.Clamp(_distance + zoom * _settings.KeyZoomUnitsPerSecond * deltaSeconds, _settings.MinDistance, _settings.MaxDistance);
+        }
+    }
+
     public void UpdateOrbit(MouseState mouse, bool pointerCaptured = false, Rectangle viewport = default, float deltaSeconds = 0f, bool inputEnabled = true)
     {
+        EaseTowardWheelPitch(deltaSeconds);
         if (!inputEnabled)
         {
             _hasMouse = false;
@@ -99,6 +131,7 @@ public sealed class PristonCamera
             var dy = mouse.Y - _lastMouse.Y;
             _yaw -= dx * _settings.MouseOrbitSensitivity;
             _pitch = MathHelper.Clamp(_pitch + dy * _settings.MouseOrbitSensitivity, _settings.MinPitch, _settings.MaxPitch);
+            _pitchTarget = float.NaN;
         }
 
         if (!pointerCaptured && mouse.MiddleButton == ButtonState.Released && viewport.Contains(mouse.Position)
@@ -117,10 +150,29 @@ public sealed class PristonCamera
         var scroll = mouse.ScrollWheelValue - _lastMouse.ScrollWheelValue;
         if (!pointerCaptured && scroll != 0)
         {
-            _distance = MathHelper.Clamp(_distance - scroll * _settings.MouseZoomSensitivity, _settings.MinDistance, _settings.MaxDistance);
+            var from = float.IsNaN(_pitchTarget) ? _pitch : _pitchTarget;
+            _pitchTarget = MathHelper.Clamp(from + scroll * _settings.WheelPitchRadiansPerUnit, _settings.MinPitch, _settings.MaxPitch);
         }
 
         _lastMouse = mouse;
+    }
+
+    private void EaseTowardWheelPitch(float deltaSeconds)
+    {
+        if (float.IsNaN(_pitchTarget) || !float.IsFinite(deltaSeconds) || deltaSeconds <= 0f)
+        {
+            return;
+        }
+
+        var step = _settings.WheelPitchRadiansPerSecond * deltaSeconds;
+        if (MathF.Abs(_pitchTarget - _pitch) <= step)
+        {
+            _pitch = _pitchTarget;
+            _pitchTarget = float.NaN;
+            return;
+        }
+
+        _pitch += MathF.Sign(_pitchTarget - _pitch) * step;
     }
 
     private void EnsureProjection(GraphicsDevice graphicsDevice)

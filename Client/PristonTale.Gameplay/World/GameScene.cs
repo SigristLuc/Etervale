@@ -124,6 +124,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private bool _runFlag = true;
     // After a double click on the ground the player keeps walking toward the cursor until it is blocked or clicks again.
     private bool _followCursor;
+    private bool _holdMove;
 
     private readonly AttackInputController _attackInput = new();
     private readonly TargetSelection _targetSelection = new();
@@ -1319,7 +1320,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         UpdateStreaming();
         if (_camera != null && _activeField != null)
         {
-            _camera.Update(gameTime, _graphicsDevice, _playerBody.Position, _playerForward, _fieldCollision, PointerCaptured, CameraInputEnabled);
+            _camera.Update(gameTime, _graphicsDevice, _playerBody.Position, _playerForward, _fieldCollision, PointerCaptured, CameraInputEnabled, !KeyboardCaptured);
         }
 
         if (_renderer != null)
@@ -1461,12 +1462,14 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         var mouse = Mouse.GetState();
         if (_pendingWarp is not null)
         {
+            _holdMove = false;
             _lastMouseState = mouse;
             return;
         }
 
         if (_playerController.IsDead)
         {
+            _holdMove = false;
             _lastMouseState = mouse;
             return;
         }
@@ -1506,7 +1509,19 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 _lootInteraction.Cancel();
                 _followCursor = doubleClick;
                 _reportDue = true;
+                _holdMove = true;
             }
+        }
+
+        // A press that started a walk keeps steering it while the button is held: the destination follows the floor under
+        // the cursor; on release the avatar finishes the walk to the last point.
+        if (mouse.LeftButton == ButtonState.Released)
+        {
+            _holdMove = false;
+        }
+        else if (_holdMove && !PointerCaptured && !SelfCasting && !_selfAttacking)
+        {
+            SetMoveTarget(mouse);
         }
 
         if (_attackInput.Release(mouse.LeftButton == ButtonState.Pressed, mouse.RightButton == ButtonState.Pressed) is { } release)

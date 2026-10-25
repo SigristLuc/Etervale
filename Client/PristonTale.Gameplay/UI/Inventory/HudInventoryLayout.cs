@@ -54,6 +54,19 @@ public static class HudInventoryLayout
         _ => Rendering.HudArt.CoverSmall
     };
 
+    // The weapon-set arrows beside the weapon slot: A on the left, B on the right; the worn set's arrow shows its art
+    // (drawn 20x20 from the hit box's top-left).
+    public const string LeftArrow = "image/Sinimage/Inven/LeftArrow.bmp";
+    public const string RightArrow = "image/Sinimage/Inven/RightArrow.bmp";
+    public static readonly string[] Art = [LeftArrow, RightArrow];
+
+    public static Rectangle WeaponSet(Point origin, int set) => set == 0
+        ? new Rectangle(origin.X + 523, origin.Y + 524, 15, 9)
+        : new Rectangle(origin.X + 545, origin.Y + 524, 15, 9);
+
+    // The bag-page arrows at the window's bottom left: I on the left, II on the right, with the same art as the set arrows.
+    public static Rectangle BagPage(Point origin, int page) => new(origin.X + (page == 0 ? 26 : 48), origin.Y + 572, 22, 19);
+
     public static Rectangle Close(Point origin) => new(origin.X + 266, origin.Y + 572, 22, 19);
     public static Rectangle Money(Point origin) => new(origin.X + 147, origin.Y + 574, 110, 18);
     public static Rectangle Weight(Point origin) => new(origin.X + 326, origin.Y + 471, 80, 15);

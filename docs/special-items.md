@@ -226,6 +226,8 @@ clan and refuses (`ClanOnly`).
 - Item effects (`ItemEffects` message): firecracker bursts with the original particle scripts and sounds, the
   skill-learn light of hair tints and force orbs (`ItemVfx.Learn`, rising streaks registered in code), the agony glow
   of skill masters, and pet strikes.
+- A running force orb is saved with the seconds it has left (paused while offline) and starts again when the
+  character enters the world.
 - A running force orb keeps a flare glow in the orb's colour on the holder's weapon bone, renewed every 29 s until the
   status ends, and each hit the holder lands bursts the weapon-hit spark on the target with a white light.
 - The big head replaces the head model with the oversized one of the class (tier-0 head prefix, hair 1..3, look `b`

@@ -121,6 +121,9 @@ internal static class HudInteractionTests
         var allocate = Enumerable.Range(0, 5).Select(index => HudStatusPanel.AllocateButton(origin, index)).ToArray();
         AssertDisjointInside(allocate.Append(HudStatusPanel.Close(origin)).ToArray(), window, "status buttons");
         Assert.True(allocate[0] == new Rectangle(566, 432, 18, 17), "strength arrow differs from PointButton");
+        Assert.True(HudStatusPanel.Abbreviate(999_999) == "999999" && HudStatusPanel.Abbreviate(1_000_000) == "1M"
+            && HudStatusPanel.Abbreviate(10_190_000) == "10.1M" && HudStatusPanel.Abbreviate(37_097_295_775) == "37B"
+            && HudStatusPanel.Abbreviate(278_319_929_840_944) == "278.3T" && HudStatusPanel.Abbreviate(9_223_372_036_854_775_807) == "9.2Qi", "status experience must read in millions, billions and trillions, cut to one decimal");
 
         var entries = Enum.GetValues<HudSystemEntry>().Select(HudSystemMenu.Entry).ToArray();
         AssertDisjointInside(entries, HudSystemMenu.Bounds, "system menu entries");

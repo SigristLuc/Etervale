@@ -140,6 +140,12 @@ internal static class SpecialItemTests
         var empty = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Empty");
         SavedPremium.Restore(empty, JsonText.EmptyObject, 0);
         Assert.True(empty.Premium.Timers.Count == 0, "legacy empty premium column");
+        Assert.True(ForceOrbs.TryGet("FO105", out var orb), "Raident Force missing");
+        harness.Session.Character.Effects.Apply(orb.Spec(100), 0, 120_000f);
+        var withOrb = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Orb");
+        SavedPremium.Restore(withOrb, CharacterJson.Write(SavedPremium.Capture(harness.Session.Character)), harness.NowSeconds + 3600);
+        Assert.True(withOrb.Premium.TakeForceOrb(out var orbStatus, out var orbSeconds) && orbStatus == orb.StatusCode && orbSeconds == 120
+            && !withOrb.Premium.TakeForceOrb(out _, out _), "a running force orb must come back once with the seconds it had left, paused offline");
     }
 
     private static async Task ExperiencePotionAsync()

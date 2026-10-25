@@ -13,7 +13,7 @@ public static class ItemWireMapping
         var r = owner.Resistances;
         return new OwnerItemStatusPacket(owner.CarriedWeight, owner.MaxWeight, owner.CriticalChance, owner.BlockChance, owner.ShootingRange,
             owner.AttackSpeed, owner.PotionSpace, owner.LifeRegen, owner.ManaRegen, owner.StaminaRegen, owner.MagicMastery,
-            [r.Bionic, r.Earth, r.Fire, r.Ice, r.Lighting, r.Poison, r.Water, r.Wind]);
+            [r.Bionic, r.Earth, r.Fire, r.Ice, r.Lighting, r.Poison, r.Water, r.Wind], owner.WeaponSet, owner.BagPage);
     }
 
     // The details of every owned item at the owner's inventory revision, in parts that precede its inventory parts.

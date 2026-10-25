@@ -192,7 +192,8 @@ public sealed record ItemDetailsPartPacket(long Revision, int Part, int Parts, I
 }
 
 // What the owner's worn items add beyond the owner status: carried and maximum weight, critical and block chance,
-// shooting range, regeneration, belt capacity, magic mastery and the eight element resistances.
+// shooting range, regeneration, belt capacity, magic mastery and the eight element resistances. The word after the
+// version carries the worn weapon set in bit 0 (A or B) and the bag page in use in bit 1 (I or II).
 public sealed record OwnerItemStatusPacket(
     int CarriedWeight,
     int MaxWeight,
@@ -205,7 +206,9 @@ public sealed record OwnerItemStatusPacket(
     float ManaRegen,
     float StaminaRegen,
     float MagicMastery,
-    short[] Resistances)
+    short[] Resistances,
+    int WeaponSet = 0,
+    int BagPage = 0)
 {
     public const ushort CurrentVersion = 1;
     public const int Size = 8 + 4 + 4 * 7 + 4 * 4 + 2 * 8;
@@ -214,7 +217,7 @@ public sealed record OwnerItemStatusPacket(
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.OwnerItemStatus);
         writer.UInt16(CurrentVersion);
-        writer.UInt16(0);
+        writer.UInt16((ushort)((WeaponSet & 1) | (BagPage & 1) << 1));
         writer.Int32(CarriedWeight);
         writer.Int32(MaxWeight);
         writer.Int32(CriticalChance);
@@ -242,7 +245,7 @@ public sealed record OwnerItemStatusPacket(
             throw new InvalidDataException("Owner item status has an invalid size or version.");
         }
 
-        r.UInt16();
+        var sets = r.UInt16();
 
         var values = new int[7];
         for (var index = 0; index < values.Length; index++)
@@ -263,6 +266,6 @@ public sealed record OwnerItemStatusPacket(
         }
 
         return new OwnerItemStatusPacket(values[0], values[1], values[2], values[3], values[4], values[5], values[6], floats[0], floats[1], floats[2],
-            floats[3], resistances);
+            floats[3], resistances, sets & 1, sets >> 1 & 1);
     }
 }

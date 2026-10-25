@@ -72,7 +72,9 @@ internal sealed class OwnerItemDecoder
             ManaRegen = status.ManaRegen,
             StaminaRegen = status.StaminaRegen,
             MagicMastery = status.MagicMastery,
-            Resistances = new ResistanceBlock(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7])
+            Resistances = new ResistanceBlock(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7]),
+            WeaponSet = status.WeaponSet,
+            BagPage = status.BagPage
         };
     }
 

@@ -40,12 +40,22 @@ internal static class EquipmentTests
         Assert.True(character.CanEquip(EquipmentSlot.OffHand, new ItemInstance(shield)), "one-handed weapon rejected a shield");
         Assert.True(!classes.CreatePlayer(PlayerClass.Mechanician, "Low level").CanEquip(EquipmentSlot.Armor, new ItemInstance(armor)),
             "catalog enrichment bypassed the armor level requirement");
+        var ring = ItemEquipmentMetadata.Apply(new ItemDefinition(5, "Fury Ring", ItemKind.Ring) { CatalogKey = "OR232" });
+        var amulet = ItemEquipmentMetadata.Apply(new ItemDefinition(6, "Tulla Amulet", ItemKind.Amulet) { CatalogKey = "OA144" });
+        Assert.True(ItemEquipmentMetadata.Fits(ring, EquipmentSlot.RingLeft) && ItemEquipmentMetadata.Fits(ring, EquipmentSlot.RingRight)
+            && !ItemEquipmentMetadata.Fits(ring, EquipmentSlot.Amulet) && !ItemEquipmentMetadata.Fits(amulet, EquipmentSlot.RingRight),
+            "a ring must fit either ring slot and nothing else");
         return Task.CompletedTask;
     }
 
     private static Task ResourcesAsync()
     {
         Assert.True(EquipmentVisuals.MotionIndex("WA101") == 0 && EquipmentVisuals.MotionIndex("WC101") == 15, "the motion indices shifted");
+        // The second generation follows the blocks the player motion files list: scythes WP117-WP125 from 192, bows from 208
+        // (WS120 sits with the crossbows), and an x51-x53 variant takes the index of the mesh it reuses.
+        Assert.True(EquipmentVisuals.MotionIndex("WP117") == 192 && EquipmentVisuals.MotionIndex("WP125") == 200 && EquipmentVisuals.MotionIndex("WS120") == 210
+            && EquipmentVisuals.MotionIndex("WC116") == 145 && EquipmentVisuals.MotionIndex("WP152") == EquipmentVisuals.MotionIndex("WP122"),
+            "later weapon generations select the wrong motions");
         Assert.True(EquipmentVisuals.MeshPath("WC101").EndsWith("itWC101.smd", StringComparison.Ordinal), "drop/equipped mesh identity changed");
         var definition = new CharacterClassRegistry().Get(PlayerClass.Mechanician).Definition;
         Assert.True(definition.MotionJobMask == 2 && new CharacterClassRegistry().Get(PlayerClass.Archer).Definition.MotionJobMask == 4, "motion and item job masks were confused");

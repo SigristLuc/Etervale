@@ -36,11 +36,17 @@ internal static class CharacterSelectTests
         {
             CatalogKey = "DS101"
         };
-        var itemCatalog = new ItemCatalog([armor, weapon, shield]);
+        var ring = new ItemDefinition(0x0100_0004, "Ring", ItemKind.Ring, EquipmentSlot.RingLeft)
+        {
+            CatalogKey = "OR101"
+        };
+        var itemCatalog = new ItemCatalog([armor, weapon, shield, ring]);
         var player = classes.CreatePlayer(PlayerClass.Mechanician, "Armored", 80);
         player.Equip(EquipmentSlot.Armor, new ItemInstance(armor));
         player.Equip(EquipmentSlot.Weapon, new ItemInstance(weapon));
         player.Equip(EquipmentSlot.OffHand, new ItemInstance(shield));
+        player.Equip(EquipmentSlot.RingLeft, new ItemInstance(ring));
+        player.Equip(EquipmentSlot.RingRight, new ItemInstance(ring));
 
         var starter = CharacterRecordFactory.NewStarter(classes, 1, player.Name, 0, player.Class.Class, 3);
         var record = CharacterRecordFactory.FromLiveSession(starter, player, 3, System.Numerics.Vector3.Zero);

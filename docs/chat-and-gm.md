@@ -83,7 +83,8 @@ Kinds: 0 server, 1 whisper, 2 system, 3 notice, 4 party, 5 clan, 6 trade, 9 assi
 - Colours: server (255,128,96), whisper (150,190,255), notice (230,160,255), party (200,255,0), clan (255,255,80),
   trade (200,255,255), assistant (200,128,128), players (255,255,192).
 - Enter opens the input or sends; Escape closes the window before anything else; Up and Down recall the last 16
-  commands (by first word). The input holds 78 characters. Typing suppresses the HUD and movement keys.
+  commands (by first word). Ctrl+V pastes the clipboard's first line (tabs become spaces, characters the HUD
+  font cannot draw are skipped) up to the limit. The input holds 78 characters. Typing suppresses the HUD and movement keys.
 - On the All tab a line is spoken; on the Clan and Trade tabs it is prefixed `/CLAN> ` or `/TRADE> `; on the Party tab,
   or with a leading `@`, it goes as party chat. After a whisper the input keeps `/:name ` for the next line. The classic
   routing marks `~/` (every server) and `` `/ `` (the data server) are dropped before a command is sent, and the server

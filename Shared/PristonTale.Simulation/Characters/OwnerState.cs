@@ -45,6 +45,11 @@ public sealed record OwnerState(
 
     public bool Overweight => CarriedWeight > MaxWeight;
 
+    // The worn weapon set (0 for A, 1 for B) and the bag page in use (0 for I, 1 for II); both change with the inventory
+    // revision.
+    public int WeaponSet { get; init; }
+    public int BagPage { get; init; }
+
     // The running premium timers, their revision and the world clock (Unix seconds) they were captured at.
     public long PremiumRevision { get; init; } = -1;
     public IReadOnlyList<PremiumTimer> PremiumTimers { get; init; } = Array.Empty<PremiumTimer>();
@@ -118,6 +123,8 @@ public sealed record OwnerState(
                 : Array.AsReadOnly(character.Skills.Ranks.Select(pair => new OwnedSkillView(pair.Key, pair.Value)).ToArray()),
             CarriedWeight = character.Derived.CarriedWeight,
             MaxWeight = character.Derived.MaxWeight,
+            WeaponSet = character.WeaponSet,
+            BagPage = character.BagPage,
             CriticalChance = Combat.CombatProfileFactory.CriticalChance(character),
             BlockChance = Combat.CombatProfileFactory.ForPlayerDefender(character).BlockChance,
             ShootingRange = character.Derived.ShootingRange,

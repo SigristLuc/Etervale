@@ -9,9 +9,9 @@ public sealed record SavedPremiumTimer(PremiumEffectKind Kind, int Value, long D
 // The character's `premium` column: the running premium timers with their real-clock expiry (Unix seconds) and the
 // recent item uses kept for retries.
 // SavedAtSeconds is the real clock of the save: timers that pause offline move their expiry by the time between the
-// save and the next entry.
+// save and the next entry. ForceOrbStatus and ForceOrbSeconds keep a running force orb and the seconds it had left.
 public sealed record SavedPremium(int Version, SavedPremiumTimer[] Timers, AppliedItemUse[]? Operations = null, int GravityScrolls = 0,
-    int BigHeadMode = 0, long BigHeadExpiresAtSeconds = 0, long SavedAtSeconds = 0)
+    int BigHeadMode = 0, long BigHeadExpiresAtSeconds = 0, long SavedAtSeconds = 0, uint ForceOrbStatus = 0, int ForceOrbSeconds = 0)
 {
     public static SavedPremium Capture(PlayerCharacter character)
     {
@@ -19,8 +19,17 @@ public sealed record SavedPremium(int Version, SavedPremiumTimer[] Timers, Appli
             .Select(static timer => new SavedPremiumTimer(timer.Kind, timer.Value, timer.DurationSeconds, timer.ExpiresAtSeconds))
             .ToArray();
         var premium = character.Premium;
+        var (orb, orbSeconds) = (premium.SavedForceOrb, premium.SavedForceOrbSeconds);
+        foreach (var effect in character.Effects.Effects)
+        {
+            if (ForceOrbDefinition.IsOrbStatus(effect.Code) && !effect.Permanent && effect.RemainingMs > 0)
+            {
+                (orb, orbSeconds) = (effect.Code, (int)MathF.Ceiling(effect.RemainingMs / 1000f));
+            }
+        }
+
         return new SavedPremium(1, timers, character.ItemUses.Applied.ToArray(), premium.GravityScrolls, premium.BigHeadMode,
-            premium.BigHeadExpiresAtSeconds, premium.ClockSeconds);
+            premium.BigHeadExpiresAtSeconds, premium.ClockSeconds, orb, orbSeconds);
     }
 
     // Expired timers are dropped while loading; an unknown kind or version is corrupt data.
@@ -48,5 +57,6 @@ public sealed record SavedPremium(int Version, SavedPremiumTimer[] Timers, Appli
         character.ItemUses.Restore(state.Operations ?? []);
         var bigHead = state.BigHeadExpiresAtSeconds > nowSeconds ? state.BigHeadMode : 0;
         character.Premium.RestoreCounters(state.GravityScrolls, bigHead, state.BigHeadExpiresAtSeconds);
+        character.Premium.RestoreForceOrb(state.ForceOrbStatus, state.ForceOrbSeconds);
     }
 }

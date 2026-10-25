@@ -12,6 +12,7 @@ namespace PristonTale.Simulation.Characters;
 public sealed class PlayerCharacter
 {
     private readonly Dictionary<EquipmentSlot, ItemInstance> _equipment = new();
+    private readonly Dictionary<EquipmentSlot, ItemInstance> _spareHands = new();
     private readonly List<AppliedInventoryOperation> _inventoryOperations = new();
     private readonly List<AppliedProgressionOperation> _progressionOperations = new();
     private readonly List<AppliedServiceOperation> _serviceOperations = new();
@@ -233,6 +234,119 @@ public sealed class PlayerCharacter
     public ItemInstance GetEquipped(EquipmentSlot slot) =>
         _equipment.GetValueOrDefault(slot);
 
+    // The inactive weapon set (A is 0, B is 1): its weapon and off-hand item wait here, carried but not worn, until the
+    // next swap trades them with the worn hands.
+    public int WeaponSet { get; private set; }
+    public IReadOnlyDictionary<EquipmentSlot, ItemInstance> SpareHands => _spareHands;
+
+    public bool TrySwapWeaponSet()
+    {
+        var weapon = GetEquipped(EquipmentSlot.Weapon);
+        var offHand = GetEquipped(EquipmentSlot.OffHand);
+        var spareWeapon = _spareHands.GetValueOrDefault(EquipmentSlot.Weapon);
+        var spareOffHand = _spareHands.GetValueOrDefault(EquipmentSlot.OffHand);
+        _equipment.Remove(EquipmentSlot.Weapon);
+        _equipment.Remove(EquipmentSlot.OffHand);
+        _spareHands.Clear();
+        SetSpare(EquipmentSlot.Weapon, weapon);
+        SetSpare(EquipmentSlot.OffHand, offHand);
+        Equip(EquipmentSlot.Weapon, spareWeapon);
+        Equip(EquipmentSlot.OffHand, spareOffHand);
+        WeaponSet ^= 1;
+        return true;
+    }
+
+    public void RestoreWeaponSet(int weaponSet, IEnumerable<(EquipmentSlot Slot, ItemInstance Item)> spares)
+    {
+        if (weaponSet is not (0 or 1))
+        {
+            throw new ArgumentOutOfRangeException(nameof(weaponSet));
+        }
+
+        WeaponSet = weaponSet;
+        _spareHands.Clear();
+        foreach (var (slot, item) in spares)
+        {
+            if (slot is not (EquipmentSlot.Weapon or EquipmentSlot.OffHand) || _spareHands.ContainsKey(slot) || !ItemEquipmentMetadata.Fits(item.Definition, slot))
+            {
+                throw new ArgumentException("Invalid spare weapon-set item.", nameof(spares));
+            }
+
+            _spareHands[slot] = item;
+        }
+
+        Recompute();
+    }
+
+    // The other bag page (I is 0, II is 1): its items are carried and weighed but stay out of reach until the next swap
+    // makes it the bag.
+    public int BagPage { get; private set; }
+    public Inventory SpareBag { get; private set; } = new();
+
+    // An item the player holds on the cursor (carried) travels to the page coming into use, at its first free place and
+    // never merged into a stack, so it stays the held item; the swap is refused when that page has no room for it.
+    public bool TrySwapBagPage(Guid carried = default)
+    {
+        var anchor = carried == Guid.Empty ? -1 : Inventory.Find(carried);
+        if (carried != Guid.Empty && anchor < 0)
+        {
+            return false;
+        }
+
+        var held = anchor >= 0 ? Inventory.TakeAt(anchor) : null;
+        if (held is not null && !Enumerable.Range(0, SpareBag.Capacity).Any(free => SpareBag.TryPlace(held, free)))
+        {
+            Inventory.TryPlace(held, anchor);
+            return false;
+        }
+
+        Inventory.Changed -= OnInventoryChanged;
+        (Inventory, SpareBag) = (SpareBag, Inventory);
+        Inventory.Changed += OnInventoryChanged;
+        BagPage ^= 1;
+        OnInventoryChanged();
+        return true;
+    }
+
+    public void RestoreBagPage(int page, IEnumerable<(int Anchor, ItemInstance Item)> spares)
+    {
+        if (page is not (0 or 1))
+        {
+            throw new ArgumentOutOfRangeException(nameof(page));
+        }
+
+        BagPage = page;
+        SpareBag = new Inventory();
+        foreach (var (anchor, item) in spares)
+        {
+            if (!SpareBag.TryPlace(item, anchor))
+            {
+                throw new ArgumentException("Invalid spare bag footprint.", nameof(spares));
+            }
+        }
+
+        OnInventoryChanged();
+    }
+
+    public IEnumerable<(int Anchor, ItemInstance Item)> SpareBagItems()
+    {
+        for (var anchor = 0; anchor < SpareBag.Capacity; anchor++)
+        {
+            if (SpareBag[anchor] is { } item)
+            {
+                yield return (anchor, item);
+            }
+        }
+    }
+
+    private void SetSpare(EquipmentSlot slot, ItemInstance item)
+    {
+        if (item is not null)
+        {
+            _spareHands[slot] = item;
+        }
+    }
+
     public void Equip(EquipmentSlot slot, ItemInstance item)
     {
         if (item is null)
@@ -289,9 +403,7 @@ public sealed class PlayerCharacter
         }
 
         var definition = item.Definition;
-        var sameSlot = definition.EquipSlot == slot;
-        var ringSlot = definition.Kind == ItemKind.Ring && slot is EquipmentSlot.RingLeft or EquipmentSlot.RingRight;
-        if (!sameSlot && !ringSlot)
+        if (!ItemEquipmentMetadata.Fits(definition, slot))
         {
             return false;
         }
@@ -526,7 +638,7 @@ public sealed class PlayerCharacter
             return Inventory[anchor];
         }
 
-        foreach (var equipped in _equipment.Values)
+        foreach (var equipped in _equipment.Values.Concat(_spareHands.Values).Concat(SpareBagItems().Select(static pair => pair.Item)))
         {
             if (equipped.InstanceId == instanceId)
             {
@@ -550,6 +662,16 @@ public sealed class PlayerCharacter
         foreach (var equipped in _equipment.Values)
         {
             yield return equipped;
+        }
+
+        foreach (var spare in _spareHands.Values)
+        {
+            yield return spare;
+        }
+
+        foreach (var (_, item) in SpareBagItems())
+        {
+            yield return item;
         }
     }
 
@@ -589,6 +711,9 @@ public sealed class PlayerCharacter
         {
             clone.Equip(equipped.Key, equipped.Value.Copy(1, preserveId: true));
         }
+
+        clone.RestoreWeaponSet(WeaponSet, _spareHands.Select(static spare => (spare.Key, spare.Value.Copy(1, preserveId: true))));
+        clone.RestoreBagPage(BagPage, SpareBagItems().Select(static pair => (pair.Anchor, pair.Item.Copy(pair.Item.Count, preserveId: true))));
 
         foreach (var skill in Skills.Ranks)
         {
@@ -762,6 +887,15 @@ public sealed class PlayerCharacter
         foreach (var equipped in candidate._equipment)
         {
             _equipment.Add(equipped.Key, equipped.Value);
+        }
+
+        BagPage = candidate.BagPage;
+        SpareBag = candidate.SpareBag;
+        WeaponSet = candidate.WeaponSet;
+        _spareHands.Clear();
+        foreach (var spare in candidate._spareHands)
+        {
+            _spareHands.Add(spare.Key, spare.Value);
         }
 
         RestoreInventoryHistory(candidate.InventoryRevision, candidate._inventoryOperations);

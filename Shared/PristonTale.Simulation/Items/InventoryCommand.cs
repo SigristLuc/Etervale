@@ -10,7 +10,10 @@ public enum InventoryAction
     Equip,
     Unequip,
     ConsumePotion,
-    Pickup
+    Pickup,
+    Drop,
+    SwapWeaponSet,
+    SwapBagPage
 }
 
 public sealed record InventoryCommand(Guid OperationId, long ExpectedRevision, InventoryAction Action,
@@ -23,8 +26,9 @@ public static class InventoryCommands
 {
     public static bool Apply(PlayerCharacter character, InventoryCommand command)
     {
-        if (command.OperationId == Guid.Empty || command.ItemId == Guid.Empty || !Enum.IsDefined(command.Action)
-            || command.ExpectedRevision != character.InventoryRevision)
+        // Swapping weapon sets or bag pages names no item.
+        if (command.OperationId == Guid.Empty || command.ItemId == Guid.Empty && command.Action is not (InventoryAction.SwapWeaponSet or InventoryAction.SwapBagPage)
+            || !Enum.IsDefined(command.Action) || command.ExpectedRevision != character.InventoryRevision)
         {
             return false;
         }
@@ -40,6 +44,9 @@ public static class InventoryCommands
             InventoryAction.ConsumePotion => command.Count == 1 && anchor >= 0 && character.Life > 0
                 && character.Inventory[anchor]?.Definition is { Kind: ItemKind.Potion, Potion.IsValid: true }
                 && character.Inventory.ConsumeAt(anchor),
+            InventoryAction.Drop => anchor >= 0 && ItemDropRules.CanDrop(character, character.Inventory[anchor]) && character.Inventory.TakeAt(anchor) is not null,
+            InventoryAction.SwapWeaponSet => character.TrySwapWeaponSet(),
+            InventoryAction.SwapBagPage => character.TrySwapBagPage(command.ItemId),
             _ => false
         };
     }
@@ -56,6 +63,9 @@ public static class InventoryCommands
                     : null;
             case InventoryAction.Unequip:
                 return CarriedWeight.IsOverweight(character) ? ItemRuleMessages.OverWeight : null;
+            case InventoryAction.Drop:
+                var carried = character.Inventory.Find(command.ItemId);
+                return carried >= 0 && !ItemDropRules.CanDrop(character, character.Inventory[carried]) ? ItemDropRules.Refusal : null;
             default:
                 return null;
         }

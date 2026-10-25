@@ -18,6 +18,51 @@ internal static class GroundPickupTransactionTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("pickup reserves through storage, rolls back failure and replays without duplication", DurableAsync);
+        yield return ("a dropped item leaves the bag through storage and lands on the ground; quest items stay", DropAsync);
+    }
+
+    private static async Task DropAsync()
+    {
+        var classes = new CharacterClassRegistry();
+        var axe = new ItemDefinition(ItemCodes.Parse("WA101"), "Stone Axe", ItemKind.Axe, EquipmentSlot.Weapon) { CatalogKey = "WA101" };
+        var tail = new ItemDefinition(ItemCodes.Parse("QT102"), "Tail", ItemKind.Quest) { CatalogKey = "QT102" };
+        var starter = CharacterRecordFactory.NewStarter(classes, 1, "Thrower", 0, PlayerClass.Fighter, 3) with { Id = 1 };
+        var character = classes.CreatePlayer(PlayerClass.Fighter, starter.Name);
+        var axeCopy = new ItemInstance(axe);
+        var tailCopy = new ItemInstance(tail);
+        Assert.True(character.Inventory.TryAdd(axeCopy) && character.Inventory.TryAdd(tailCopy), "fixture bag refused the items");
+        var repository = new MemoryCharacters(CharacterRecordFactory.FromLiveSession(starter, character, 3, Vector3.Zero));
+        var empty = WorldData.Empty;
+        var holder = new WorldDataHolder { Current = new WorldData(new ItemCatalog([axe, tail]), empty.Monsters, empty.Npcs, empty.FieldSpawns, empty.Motions) };
+        var catalog = new WorldCatalog([new FieldDef("fixture", "Fixture", FieldState.Forest, new FieldBackdrop("", "", ""), "", []) { FieldCode = 3 }]);
+        var world = new WorldServer(holder, catalog);
+        var sessions = new SessionRegistry();
+        var session = sessions.Create(1, "owner");
+        var service = new SessionAppService(sessions, classes, repository, catalog, world, holder);
+        Assert.True((await service.EnterWorldAsync(session.SessionToken, starter.Name)).Ok && session.TryBeginPlay(), "fixture entry failed");
+        var outbox = new WorldOutbox();
+        await AdvanceAsync(world, world.JoinAsync(3, WorldPlayerFactory.Create(session), outbox.Writer, session));
+
+        var refused = await AdvanceAsync(world, service.ApplyInventoryAsync(session.SessionToken,
+            new InventoryCommand(Guid.NewGuid(), session.Character!.InventoryRevision, InventoryAction.Drop, tailCopy.InstanceId, 0, 1, default)));
+        Assert.True(!refused.Ok && refused.Message == ItemDropRules.Refusal && session.Character.Inventory.Find(tailCopy.InstanceId) >= 0,
+            "a quest item was dropped");
+        int writes = repository.UpdateCount;
+        var dropped = await AdvanceAsync(world, service.ApplyInventoryAsync(session.SessionToken,
+            new InventoryCommand(Guid.NewGuid(), session.Character.InventoryRevision, InventoryAction.Drop, axeCopy.InstanceId, 0, 1, default)));
+        Assert.True(dropped.Ok && repository.UpdateCount == writes + 1 && session.Character.Inventory.Find(axeCopy.InstanceId) < 0,
+            "the dropped item did not leave the stored bag");
+        GroundDropState[] ground = [];
+        for (uint tick = 0; tick < 20 && ground.Length == 0; tick++)
+        {
+            world.Tick(0.05f, tick);
+            while (outbox.Reader.TryRead(out var next))
+            {
+                ground = next.GroundDrops;
+            }
+        }
+
+        Assert.True(ground.Length == 1 && ground[0].View.CatalogKey == "WA101", "the dropped item is not on the ground");
     }
 
     private static async Task DurableAsync()

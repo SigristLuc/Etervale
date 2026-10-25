@@ -199,6 +199,27 @@ public sealed class PremiumTimers
         return true;
     }
 
+    // A force orb that ran at the last save: its status and the seconds it had left. The time pauses while the character is
+    // offline; entering the world starts the orb again (TakeForceOrb).
+    public uint SavedForceOrb { get; private set; }
+    public int SavedForceOrbSeconds { get; private set; }
+
+    public void RestoreForceOrb(uint status, int seconds)
+    {
+        var valid = ForceOrbDefinition.IsOrbStatus(status) && seconds > 0;
+        SavedForceOrb = valid ? status : 0;
+        SavedForceOrbSeconds = valid ? seconds : 0;
+    }
+
+    public bool TakeForceOrb(out uint status, out int seconds)
+    {
+        status = SavedForceOrb;
+        seconds = SavedForceOrbSeconds;
+        SavedForceOrb = 0;
+        SavedForceOrbSeconds = 0;
+        return status != 0;
+    }
+
     public void RestoreCounters(int gravityScrolls, int bigHeadMode, long bigHeadExpiresAtSeconds)
     {
         if (gravityScrolls < 0 || bigHeadMode is < 0 or > MaxHeadMode)
