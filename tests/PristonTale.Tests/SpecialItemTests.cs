@@ -340,7 +340,7 @@ internal static class SpecialItemTests
         var self = new EntityView(1, EntityKindView.Player, true, new Vector3(256, 0, 512), 0f, MoveStateView.Idle, 10, 100, 100, appearance);
         var snapshot = new WorldSnapshot(4, [self], fieldId: 3, owner: owner)
         {
-            ItemEffects = [new ItemEffectView(1, LegacyItemCode.Parse("BI123"), ItemEffectKind.Firecracker, new Vector3(256, 0, 512), 1234)]
+            ItemEffects = [new ItemEffectView(1, ItemCodes.Parse("BI123"), ItemEffectKind.Firecracker, new Vector3(256, 0, 512), 1234)]
         };
         var updates = new WireRoundTrip(1).Push(snapshot);
         var timers = updates.Select(update => update.PremiumTimers).Single(timers => timers is not null)!;
@@ -395,7 +395,7 @@ internal static class SpecialItemTests
             var definitions = new Dictionary<string, ItemDefinition>(StringComparer.OrdinalIgnoreCase);
             foreach (var key in keys.Distinct())
             {
-                definitions[key] = new ItemDefinition(LegacyItemCode.Parse(key), key, key.StartsWith("PL", StringComparison.Ordinal) ? ItemKind.Potion : ItemKind.Misc,
+                definitions[key] = new ItemDefinition(ItemCodes.Parse(key), key, key.StartsWith("PL", StringComparison.Ordinal) ? ItemKind.Potion : ItemKind.Misc,
                     MaxStack: 1)
                 { CatalogKey = key, Price = 100 };
             }

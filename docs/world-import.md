@@ -130,13 +130,18 @@ and the quests hand it out ([quests.md](quests.md)).
 
 ### Item code mapping
 
-An item code is a 3-character category plus two digits (`WA101`). `LegacyItemCode.TryParse`
-(`Shared/PristonTale.Simulation/Items/LegacyItemCode.cs`) maps the category to the 32-bit base of the binary item code
-and returns `base | ordinal << 8`; the importer stores it as `item_code_mask`. Codes whose category is not in that
-table (the supplied data has several) are imported with `item_code_mask = 0`, listed in one report warning, kept in
-`item_templates`, and skipped by the runtime catalog. Giving them invented numbers would create conflicting item
-identities on the wire. Daggers (`WD1`), phantoms (`WN1`) and vambraces (`WV1`) take the free weapon categories after
-the javelins: `0x01090000` phantoms, `0x010A0000` daggers, `0x010B0000` vambraces.
+An item key is a family of two letters and a letter or digit plus two digits (`WA101`, `DA304`). `ItemCodes.TryParse`
+(`Shared/PristonTale.Simulation/Items/ItemCodes.cs`) derives the 32-bit item code from the key alone, so every family has
+one; the importer stores it as `item_code_mask`. A key of another shape is imported with `item_code_mask = 0`, listed in
+one report warning, kept in `item_templates` and skipped by the runtime catalog.
+
+### Item footprints
+
+`ItemFootprints.Measure` (`tools/PristonTale.WorldImport/ItemFootprints.cs`) sizes every item from its inventory sprite,
+`<assets>/image/Sinimage/Items/**/it<KEY>.bmp` (`ItemIconFiles`, outside `DropItem`): one cell per whole 22 pixels in
+each direction, at least one. An item without a sprite takes the most common footprint of its family (the first three
+characters of its key), and one cell when the family has no sprite either; those items are listed in one report warning.
+The footprint is stored in `item_templates.grid_width` and `grid_height`. Without `--assets` every item takes one cell.
 
 `WorldDataFactory.ToItemDefinition` turns each row into the shop form plus an `ItemTemplate` with every range and the
 specialization bonuses (`ToItemTemplate`); see [simulation.md](simulation.md#items).
@@ -346,8 +351,6 @@ migrates before running a command.
   is lost.
 - `world_entity_variants.data_json` serializes the DTOs with `IncludeFields`, so value-tuple lists (item specials,
   NPC shop stock) appear as `Item1`, `Item2`... objects. `world_source_files` holds the complete source.
-- Adding a category to `LegacyItemCode` changes `item_code_mask` for existing rows on the next import; the
-  `TryParse` switch and the `Prefixes` table must change together.
 - `--assets` is not required inside the repository: the default finds the repository `assets/` from the executable
   path. Pass it explicitly when running a published copy.
 - The default database without `--sqlite`/`--postgres` is a temporary file, not `data/pristontale.db`.

@@ -335,21 +335,21 @@ public static class ElementaryQuests
         QuestCode.ElementaryA => QuestClasses.BeginnerWeapon(QuestClasses.ClassOf(context.Character)) is var weapon and not 0
             ? [new QuestGrant(weapon, ClassSpecific: true)]
             : [],
-        QuestCode.ElementaryB => [new QuestGrant(LegacyItemCode.Parse("OA202"), ClassSpecific: true)],
+        QuestCode.ElementaryB => [new QuestGrant(ItemCodes.Parse("OA202"), ClassSpecific: true)],
         QuestCode.ElementaryC =>
         [
-            new QuestGrant(LegacyItemCode.Parse("PL101"), 10), new QuestGrant(LegacyItemCode.Parse("PS101"), 10), new QuestGrant(LegacyItemCode.Parse("PM101"), 10)
+            new QuestGrant(ItemCodes.Parse("PL101"), 10), new QuestGrant(ItemCodes.Parse("PS101"), 10), new QuestGrant(ItemCodes.Parse("PM101"), 10)
         ],
         QuestCode.ElementaryD =>
         [
-            new QuestGrant(LegacyItemCode.Parse("OA106"), ClassSpecific: true), new QuestGrant(LegacyItemCode.Parse("OR106"), Copies: 2, ClassSpecific: true)
+            new QuestGrant(ItemCodes.Parse("OA106"), ClassSpecific: true), new QuestGrant(ItemCodes.Parse("OR106"), Copies: 2, ClassSpecific: true)
         ],
-        QuestCode.ElementaryE => [new QuestGrant(LegacyItemCode.Parse("FO104"), Copies: 2)],
+        QuestCode.ElementaryE => [new QuestGrant(ItemCodes.Parse("FO104"), Copies: 2)],
         QuestCode.ElementaryF =>
         [
-            new QuestGrant(LegacyItemCode.Parse("PL103"), 20), new QuestGrant(LegacyItemCode.Parse("PS103"), 20), new QuestGrant(LegacyItemCode.Parse("PM103"), 20)
+            new QuestGrant(ItemCodes.Parse("PL103"), 20), new QuestGrant(ItemCodes.Parse("PS103"), 20), new QuestGrant(ItemCodes.Parse("PM103"), 20)
         ],
-        QuestCode.ElementaryG => [new QuestGrant(LegacyItemCode.Parse("FO106"), Copies: 2)],
+        QuestCode.ElementaryG => [new QuestGrant(ItemCodes.Parse("FO106"), Copies: 2)],
         _ => []
     };
 

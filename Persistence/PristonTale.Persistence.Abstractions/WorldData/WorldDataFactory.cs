@@ -24,13 +24,12 @@ public static class WorldDataFactory
             AttackSpeed: r.AttackSpeed,
             Strength: 0, Spirit: 0, Talent: 0, Agility: 0, Health: 0);
 
-        var (gridWidth, gridHeight) = ItemGridSizes.Of(r.Code);
         return ItemEquipmentMetadata.Apply(new ItemDefinition(
             (uint)r.ItemCodeMask,
             r.Name,
             (ItemKind)r.Kind,
-            GridWidth: gridWidth,
-            GridHeight: gridHeight,
+            GridWidth: Math.Max(1, r.GridWidth),
+            GridHeight: Math.Max(1, r.GridHeight),
             MaxStack: Math.Max(1, r.MaxStack))
         {
             CatalogKey = r.Code,
@@ -289,9 +288,9 @@ public static class WorldDataFactory
         var shop = r.ShopStock.Count == 0
             ? NpcShopStock.Empty
             : new NpcShopStock(
-                weapons.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(LegacyItemCode.Parse).ToList(),
-                armour.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(LegacyItemCode.Parse).ToList(),
-                misc.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(LegacyItemCode.Parse).ToList());
+                weapons.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(ItemCodes.Parse).ToList(),
+                armour.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(ItemCodes.Parse).ToList(),
+                misc.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(ItemCodes.Parse).ToList());
 
         return new NpcDefinition(code, r.Name, ToInxModelPath(r.Model), ToServices(r, shop))
         {
@@ -306,7 +305,7 @@ public static class WorldDataFactory
         };
     }
 
-    private static bool IsSupportedItemCode(string code) => LegacyItemCode.TryParse(code, out _);
+    private static bool IsSupportedItemCode(string code) => ItemCodes.TryParse(code, out _);
 
     // A shop whose stock has no runtime item is not offered; unknown service kinds from a newer importer are skipped.
     private static List<NpcService> ToServices(NpcRecord r, NpcShopStock shop)

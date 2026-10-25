@@ -29,20 +29,20 @@ public static class QuestClasses
 
     public static uint QuestWeapon(PlayerClass playerClass) => playerClass switch
     {
-        PlayerClass.Fighter => LegacyItemCode.Parse("WA108"),
-        PlayerClass.Mechanician => LegacyItemCode.Parse("WC108"),
-        PlayerClass.Archer => LegacyItemCode.Parse("WS110"),
-        PlayerClass.Pikeman => LegacyItemCode.Parse("WP109"),
-        PlayerClass.Atalanta => LegacyItemCode.Parse("WT109"),
-        PlayerClass.Knight => LegacyItemCode.Parse("WS210"),
-        PlayerClass.Magician or PlayerClass.Priestess => LegacyItemCode.Parse("WM109"),
+        PlayerClass.Fighter => ItemCodes.Parse("WA108"),
+        PlayerClass.Mechanician => ItemCodes.Parse("WC108"),
+        PlayerClass.Archer => ItemCodes.Parse("WS110"),
+        PlayerClass.Pikeman => ItemCodes.Parse("WP109"),
+        PlayerClass.Atalanta => ItemCodes.Parse("WT109"),
+        PlayerClass.Knight => ItemCodes.Parse("WS210"),
+        PlayerClass.Magician or PlayerClass.Priestess => ItemCodes.Parse("WM109"),
         PlayerClass.Assassin => CodeOrZero("WD109"),
         PlayerClass.Shaman => CodeOrZero("WN109"),
         _ => 0
     };
 
     // Dagger and phantom codes resolve only once the item codes cover their categories.
-    private static uint CodeOrZero(string code) => LegacyItemCode.TryParse(code, out var value) ? value : 0;
+    private static uint CodeOrZero(string code) => ItemCodes.TryParse(code, out var value) ? value : 0;
 
     // How the quest weapon counts kills while it grows.
     public static QuestWeaponHunt WeaponHunt(PlayerClass playerClass) => playerClass switch
@@ -62,13 +62,13 @@ public static class QuestClasses
     // The first beginner quest's weapon, specialised for the class.
     public static uint BeginnerWeapon(PlayerClass playerClass) => playerClass switch
     {
-        PlayerClass.Mechanician => LegacyItemCode.Parse("WC102"),
-        PlayerClass.Fighter => LegacyItemCode.Parse("WA102"),
-        PlayerClass.Pikeman => LegacyItemCode.Parse("WP102"),
-        PlayerClass.Archer => LegacyItemCode.Parse("WS102"),
-        PlayerClass.Knight => LegacyItemCode.Parse("WS202"),
-        PlayerClass.Atalanta => LegacyItemCode.Parse("WT102"),
-        PlayerClass.Priestess or PlayerClass.Magician => LegacyItemCode.Parse("WM101"),
+        PlayerClass.Mechanician => ItemCodes.Parse("WC102"),
+        PlayerClass.Fighter => ItemCodes.Parse("WA102"),
+        PlayerClass.Pikeman => ItemCodes.Parse("WP102"),
+        PlayerClass.Archer => ItemCodes.Parse("WS102"),
+        PlayerClass.Knight => ItemCodes.Parse("WS202"),
+        PlayerClass.Atalanta => ItemCodes.Parse("WT102"),
+        PlayerClass.Priestess or PlayerClass.Magician => ItemCodes.Parse("WM101"),
         _ => 0
     };
 

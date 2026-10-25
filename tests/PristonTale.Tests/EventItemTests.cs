@@ -50,7 +50,7 @@ internal static class EventItemTests
             "box grade by monster level");
 
         var prizes = GiftBoxes.Prizes(1).Select(static prize => prize.CatalogKey).Distinct()
-            .Select(static key => new ItemDefinition(LegacyItemCode.Parse(key), key, ItemKind.Misc, MaxStack: key.StartsWith("PM") ? 100 : 1) { CatalogKey = key })
+            .Select(static key => new ItemDefinition(ItemCodes.Parse(key), key, ItemKind.Misc, MaxStack: key.StartsWith("PM") ? 100 : 1) { CatalogKey = key })
             .ToArray();
         var harness = await SpecialItemTests.Harness.CreateAsync(20, [], prizes, "SP105");
         var character = harness.Session.Character!;
@@ -64,7 +64,7 @@ internal static class EventItemTests
 
         var full = await SpecialItemTests.Harness.CreateAsync(20, [], prizes, "SP105");
         var crowded = full.Session.Character!;
-        var filler = new ItemDefinition(LegacyItemCode.Parse("WA101"), "Filler", ItemKind.Axe, GridWidth: 1, GridHeight: 1) { CatalogKey = "WA101" };
+        var filler = new ItemDefinition(ItemCodes.Parse("WA101"), "Filler", ItemKind.Axe, GridWidth: 1, GridHeight: 1) { CatalogKey = "WA101" };
         while (crowded.Inventory.TryAdd(new ItemInstance(filler)))
         {
         }
@@ -175,13 +175,13 @@ internal static class EventItemTests
         var valentine = new ItemEventRates { ValentineDay = 10000, GiftBox = 10000 };
         Assert.True(ItemEventDrops.Roll(rng, valentine, 40, 40) is { CatalogKey: "CH101" or "CH102" }, "events run in order");
         var table = new DropTable([DropEntry.GoldSlot(100, 1, 1)], 1, false);
-        var drops = DropRoller.Roll(rng, table, eventRoll: () => RolledDrop.Item(LegacyItemCode.Parse("SP110")) with { FromMainTable = true });
-        Assert.True(drops.Count == 1 && drops[0].ItemCode == LegacyItemCode.Parse("SP110"), "the event did not replace the drop roll");
+        var drops = DropRoller.Roll(rng, table, eventRoll: () => RolledDrop.Item(ItemCodes.Parse("SP110")) with { FromMainTable = true });
+        Assert.True(drops.Count == 1 && drops[0].ItemCode == ItemCodes.Parse("SP110"), "the event did not replace the drop roll");
         var counts = Enumerable.Range(0, 10000).Select(Puzzles.DropPiece).GroupBy(static key => key).ToDictionary(static group => group.Key, static group => group.Count());
         Assert.True(counts["PZ101"] == 743 && counts["PZ107"] == 380 && counts["PZ208"] == 500 && counts.Count == 16, "puzzle drop weights");
         return Task.CompletedTask;
     }
 
     private static ItemDefinition Food(string key, int lifeMin, int lifeMax, int manaMin, int manaMax, int staminaMin, int staminaMax) =>
-        new(LegacyItemCode.Parse(key), key, ItemKind.Misc) { CatalogKey = key, Potion = new PotionDefinition(lifeMin, lifeMax, manaMin, manaMax, staminaMin, staminaMax) };
+        new(ItemCodes.Parse(key), key, ItemKind.Misc) { CatalogKey = key, Potion = new PotionDefinition(lifeMin, lifeMax, manaMin, manaMax, staminaMin, staminaMax) };
 }

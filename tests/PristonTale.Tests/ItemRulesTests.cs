@@ -21,6 +21,7 @@ internal static class ItemRulesTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("every wearable family equips in its own slot, aged copies included", WearableSlotsAsync);
+        yield return ("every item key has its own code, so new item families need no registration", CodesAsync);
         yield return ("unmet requirements refuse equipping and a worn item that stops meeting them adds nothing", RequirementsAsync);
         yield return ("a two-handed weapon sends the off-hand item to the bag and an off-hand item sends a held two-handed weapon there", TwoHandedAsync);
         yield return ("drops roll every value inside its authored range and specialize four times in ten", DropRollsAsync);
@@ -35,7 +36,7 @@ internal static class ItemRulesTests
     }
 
     private static ItemTemplateRecord Record(string code) => new(
-        code, LegacyItemCode.Parse(code), code, (int)ItemKind.Misc, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        code, ItemCodes.Parse(code), code, (int)ItemKind.Misc, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
     private static ItemDefinition Def(string code, Func<ItemTemplateRecord, ItemTemplateRecord>? change = null) =>
@@ -83,7 +84,27 @@ internal static class ItemRulesTests
         Assert.True(Def("WA105").TwoHanded && !Def("WA101").TwoHanded && Def("WS101").TwoHanded && !Def("WT101").TwoHanded,
             "two-handed weapons differ from the item table");
         Assert.True(!Def("FO101").IsEquippable, "force orbs became wearable");
-        Assert.True(LegacyItemCode.TryFormat(Def("WD105").Code, out var key) && key == "WD105", "dagger codes do not round-trip");
+        Assert.True(ItemCodes.TryFormat(Def("WD105").Code, out var key) && key == "WD105", "dagger codes do not round-trip");
+        Assert.True(Def("DA304").Kind == ItemKind.Armor && Def("DA304").EquipSlot == EquipmentSlot.Armor
+            && Def("DA401").EquipSlot == EquipmentSlot.Armor, "armours and robes of the newer families are not worn as armour");
+        return Task.CompletedTask;
+    }
+
+    // Every key of two letters, a letter or digit and two digits has its own code, whatever its family, and formats back.
+    private static Task CodesAsync()
+    {
+        var codes = new HashSet<uint>();
+        foreach (var key in new[] { "WA101", "DA304", "DA401", "CA624", "OE101", "SP299", "BI501", "RS108", "ZZ900", "AA000" })
+        {
+            Assert.True(ItemCodes.TryParse(key, out var code) && code != 0 && codes.Add(code), $"{key} has no code of its own");
+            Assert.True(ItemCodes.TryFormat(code, out var formatted) && formatted == key, $"{key} does not format back");
+        }
+
+        Assert.True(ItemCodes.Parse("sp201") == ItemCodes.Parse("SP201"), "item keys are case-sensitive");
+        Assert.True(ItemCodes.Family(ItemCodes.Parse("WS201")) == ItemCodes.Family("WS2")
+            && ItemCodes.Family(ItemCodes.Parse("WS201")) != ItemCodes.Family(ItemCodes.Parse("WS101")), "families are not told apart");
+        Assert.True(!ItemCodes.TryParse("WA1", out _) && !ItemCodes.TryParse("1A101", out _) && !ItemCodes.TryParse("WA1X1", out _)
+            && !ItemCodes.TryParse(null, out _) && !ItemCodes.TryFormat(0, out _), "malformed keys or codes were accepted");
         return Task.CompletedTask;
     }
 
@@ -275,7 +296,7 @@ internal static class ItemRulesTests
         Assert.True(character.Derived.MoveSpeed == loaded, "carried weight does not weigh on speed");
         var stone = Def("BI102", record => record with { Weight = 10 });
         Assert.True(!character.ReceiveGroundLoot(new ItemInstance(stone), 0), "a pickup over the limit was accepted");
-        var potion = new ItemDefinition(LegacyItemCode.Parse("PL101"), "Potion", ItemKind.Potion, MaxStack: 100) { Weight = 7, Price = 1 };
+        var potion = new ItemDefinition(ItemCodes.Parse("PL101"), "Potion", ItemKind.Potion, MaxStack: 100) { Weight = 7, Price = 1 };
         character.TryChangeMoney(1000);
         Assert.True(NpcShopRules.TryBuy(character, potion, 5, -1, out _) == NpcServiceStatus.Ok && character.CarriedWeight == max,
             "a potion did not weigh one per unit");

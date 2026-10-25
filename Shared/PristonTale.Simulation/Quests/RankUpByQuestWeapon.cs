@@ -25,7 +25,7 @@ public static class RankUpByQuestWeapon
     private static readonly int[] StageKills = [30, 40, 50, 25, 35, 45, 50, 70, 100];
     private static readonly int[] StageFields = [8, 10, 13];
 
-    private static readonly uint StaffCategory = LegacyItemCode.Parse("WM101") & 0xFFFF0000u;
+    private static readonly uint StaffFamily = ItemCodes.Family("WM1");
 
     private static int HuntBase(QuestWeaponHunt hunt) => hunt switch
     {
@@ -204,7 +204,7 @@ public static class RankUpByQuestWeapon
         var damage = context.Rng.NextInclusive(1, 2);
         var roll = weapon.Roll with { DamageMin = weapon.Roll.DamageMin + damage, DamageMax = weapon.Roll.DamageMax + damage };
         var manaRegen = 0;
-        if ((weapon.Definition.Code & 0xFFFF0000u) == StaffCategory)
+        if (ItemCodes.Family(weapon.Definition.Code) == StaffFamily)
         {
             manaRegen = context.Rng.NextInclusive(3, 6);
         }

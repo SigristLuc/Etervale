@@ -48,10 +48,10 @@ internal static class PuzzleTests
         Assert.True(Puzzles.Value(["PZ101", "PZ102", "PZ103", "PZ104", "PZ105", "PZ106", "PZ107", "PZ108"]) == 8
             && Puzzles.Value(["PZ201", "PZ201"]) == 0, "set values");
 
-        var definitions = Puzzles.Pieces.Select(static key => new ItemDefinition(LegacyItemCode.Parse(key), key, ItemKind.Misc,
+        var definitions = Puzzles.Pieces.Select(static key => new ItemDefinition(ItemCodes.Parse(key), key, ItemKind.Misc,
             GridWidth: key[4] is '3' or '6' ? 1 : 2, GridHeight: key[4] is '3' or '6' ? 2 : 1) { CatalogKey = key }).ToList();
-        var reward = new ItemDefinition(LegacyItemCode.Parse("BI123"), "Firecracker", ItemKind.Misc) { CatalogKey = "BI123" };
-        var potions = new ItemDefinition(LegacyItemCode.Parse("PM104"), "Mystic Mana Potion", ItemKind.Potion, MaxStack: 100) { CatalogKey = "PM104" };
+        var reward = new ItemDefinition(ItemCodes.Parse("BI123"), "Firecracker", ItemKind.Misc) { CatalogKey = "BI123" };
+        var potions = new ItemDefinition(ItemCodes.Parse("PM104"), "Mystic Mana Potion", ItemKind.Potion, MaxStack: 100) { CatalogKey = "PM104" };
         var catalog = new ItemCatalog([.. definitions, reward, potions]);
         var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Puzzler");
         for (var number = 1; number <= 7; number++)
@@ -74,7 +74,7 @@ internal static class PuzzleTests
 
     private static Task GroundAsync()
     {
-        var definition = new ItemDefinition(LegacyItemCode.Parse("PZ205"), "Knight 5", ItemKind.Misc, GridWidth: 2) { CatalogKey = "PZ205" };
+        var definition = new ItemDefinition(ItemCodes.Parse("PZ205"), "Knight 5", ItemKind.Misc, GridWidth: 2) { CatalogKey = "PZ205" };
         var loot = new FieldGroundLoot(new ItemCatalog([definition]));
         var drop = RolledDrop.Item(definition.Code) with { Sealed = true };
         loot.Place(new KillPayout(1, 7, 0, [drop]), Vector3.Zero, true, 0, new SeededRng(3));

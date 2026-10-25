@@ -26,6 +26,7 @@ sources are in [shaders.md](shaders.md); option fields in [client-settings.md](c
 | `IO/PristonFileResolver.cs` | Case-insensitive path resolution for original asset names (use it for every original asset path). |
 | `IO/ClientSettingsStore.cs` | `client-settings.json` persistence ([client-settings.md](client-settings.md)). |
 | `IO/PristonWaveDecoder.cs` | WAV decoding for the audio library. |
+| `IO/ItemIconFiles.cs` | Item inventory sprites (`it<KEY>.bmp`) by key and the inventory cells a sprite covers (22 pixels each); used by the HUD and the world importer. |
 | `Physics/` | `PristonCollisionWorld`: client view of the shared `CollisionMesh` (`Shared/PristonTale.Geometry`) built from the stage faces flagged for collision; floor height and segment traces. |
 | [`Rendering/PristonRenderer.cs`](../Client/PristonTale.Engine3D/Rendering/PristonRenderer.cs) | The renderer: stage/actor residency, animation, light selection, frame graph (`Draw`), post chain (`ComposeScene`). `PristonRenderer.Portrait.cs`: actor portraits with a studio light. |
 | `Rendering/PristonSceneTargets.cs` | HDR scene, motion, pre-pass targets; sky composition; caller target capture and restore. |

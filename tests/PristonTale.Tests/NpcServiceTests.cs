@@ -22,9 +22,9 @@ namespace PristonTale.Tests;
 
 internal static class NpcServiceTests
 {
-    private static readonly uint AxeCode = LegacyItemCode.Parse("WA101");
-    private static readonly uint PotionCode = LegacyItemCode.Parse("PL101");
-    private static readonly uint QuestCode = LegacyItemCode.Parse("QT101");
+    private static readonly uint AxeCode = ItemCodes.Parse("WA101");
+    private static readonly uint PotionCode = ItemCodes.Parse("PL101");
+    private static readonly uint QuestCode = ItemCodes.Parse("QT101");
 
     public static IEnumerable<(string, Func<Task>)> Cases()
     {

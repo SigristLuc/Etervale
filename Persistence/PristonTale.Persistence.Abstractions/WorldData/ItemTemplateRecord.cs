@@ -63,7 +63,10 @@ public sealed record ItemTemplateRecord(
     int ResWindMin, int ResWindMax,
     int MaxStack = 1,
     int PotionSpace = 0,
-    float MagicMastery = 0)
+    float MagicMastery = 0,
+    // Inventory cells, measured by the importer from the item's inventory sprite.
+    int GridWidth = 1,
+    int GridHeight = 1)
 {
     public IReadOnlyList<ItemTemplateSpecialRecord> Specials { get; init; } = [];
 

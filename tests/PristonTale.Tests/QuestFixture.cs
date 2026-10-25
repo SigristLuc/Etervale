@@ -12,7 +12,7 @@ internal static class QuestFixture
     public static readonly CharacterClassRegistry Classes = new();
     public static readonly ItemCatalog Items = CreateItems();
 
-    public static uint Code(string key) => LegacyItemCode.Parse(key);
+    public static uint Code(string key) => ItemCodes.Parse(key);
 
     public static PlayerCharacter Character(PlayerClass playerClass, string name, int level, short tier = 0, long money = 0)
     {

@@ -151,22 +151,22 @@ public sealed class CombatSounds : IDisposable
     // by magicians and priestesses, struck by others), hammers and throwing weapons; anything else punches.
     internal static int WeaponCode(string weaponKey, bool twoHanded, int classCode)
     {
-        if (!LegacyItemCode.TryParse(weaponKey, out var code))
+        if (!ItemCodes.TryParse(weaponKey, out var code))
         {
             return 14;
         }
 
-        return (code & 0xFFFF0000u) switch
+        return weaponKey[..3].ToUpperInvariant() switch
         {
-            0x01010000u => twoHanded ? 2 : 1,
-            0x01070000u when (code & 0xFFFFu) <= 0x0300u => 15,
-            0x01070000u => twoHanded ? 4 : 3,
-            0x01050000u => twoHanded ? 6 : 5,
-            0x01020000u => 7,
-            0x01060000u => 8,
-            0x01040000u when classCode is 7 or 8 => twoHanded ? 18 : 17,
-            0x01040000u or 0x01030000u => twoHanded ? 10 : 9,
-            0x01080000u => 11,
+            "WA1" => twoHanded ? 2 : 1,
+            "WS2" when ItemCodes.Ordinal(code) <= 3 => 15,
+            "WS2" => twoHanded ? 4 : 3,
+            "WP1" => twoHanded ? 6 : 5,
+            "WC1" => 7,
+            "WS1" => 8,
+            "WM1" when classCode is 7 or 8 => twoHanded ? 18 : 17,
+            "WM1" or "WH1" => twoHanded ? 10 : 9,
+            "WT1" => 11,
             _ => 14
         };
     }

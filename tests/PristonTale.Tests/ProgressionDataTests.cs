@@ -53,9 +53,6 @@ internal static class ProgressionDataTests
 
     private static Task FootprintsAsync()
     {
-        Assert.True(ItemGridSizes.Of("WA102") == (2, 3) && ItemGridSizes.Of("da102") == (3, 4) && ItemGridSizes.Of("PL101") == (1, 1)
-            && ItemGridSizes.Of("ZZ999") == (1, 1), "item footprints do not follow the item table");
-
         var small = new ItemDefinition(0x0101_0001, "Axe", ItemKind.Axe, EquipmentSlot.Weapon) { CatalogKey = "WA102" };
         var other = new ItemDefinition(0x0101_0002, "Potion", ItemKind.Potion) { CatalogKey = "PL101" };
         var classes = new CharacterClassRegistry();

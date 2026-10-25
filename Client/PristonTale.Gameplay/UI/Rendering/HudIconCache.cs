@@ -24,7 +24,7 @@ public sealed class HudIconCache : IDisposable
     {
         _device = device;
         _log = log;
-        _index = Task.Run(() => Index(assetRoot));
+        _index = Task.Run(() => ItemIconFiles.Index(assetRoot));
         _ = _index.ContinueWith(task => log.Error("HUD item icon index failed", task.Exception),
             CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
     }
@@ -144,34 +144,6 @@ public sealed class HudIconCache : IDisposable
         PristonUiPixels.Prepare(image, PristonUiColorKey.Black);
 
         return new PreparedIcon(key, image);
-    }
-
-    private static Dictionary<string, string> Index(string assetRoot)
-    {
-        var root = PristonFileResolver.Resolve(Path.Combine(assetRoot, "image", "Sinimage", "Items"));
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
-        {
-            if (!Path.GetExtension(path).Equals(".bmp", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            // DropItem contains model texture sheets with names that collide with inventory sprites.
-            var name = Path.GetFileNameWithoutExtension(path);
-            var relative = Path.GetRelativePath(root, Path.GetDirectoryName(path));
-            if (relative.Split(Path.DirectorySeparatorChar).Any(part => part.Equals("DropItem", StringComparison.OrdinalIgnoreCase)))
-            {
-                continue;
-            }
-
-            if (name.StartsWith("it", StringComparison.OrdinalIgnoreCase) && name.Length > 2)
-            {
-                result.TryAdd(name[2..], path);
-            }
-        }
-
-        return result;
     }
 
     public void Dispose()

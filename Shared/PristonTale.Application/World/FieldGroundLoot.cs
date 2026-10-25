@@ -43,7 +43,7 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
             var id = Guid.NewGuid();
             // A sealed puzzle piece lies on the ground as the lucky bag.
             var view = drop.Sealed
-                ? new GroundDropView(id, LegacyItemCode.Parse(Puzzles.LuckyBagIcon), Puzzles.LuckyBagIcon, Puzzles.LuckyBagName, drop.Amount, false, position)
+                ? new GroundDropView(id, ItemCodes.Parse(Puzzles.LuckyBagIcon), Puzzles.LuckyBagIcon, Puzzles.LuckyBagName, drop.Amount, false, position)
                 : new GroundDropView(id, drop.ItemCode, gold ? "GG101" : definition!.CatalogKey, gold ? "Gold" : definition!.Name, drop.Amount, gold, position);
             // As on the original server, gold, life and stamina potions expire in 90s; mana and other items in 180s.
             bool shortLived = gold || definition?.CatalogKey.StartsWith("PL", StringComparison.OrdinalIgnoreCase) == true

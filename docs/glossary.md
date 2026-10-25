@@ -37,7 +37,7 @@ that explains it in depth.
 | Tier / job tier | Class rank 0..3 (`Job1`..`Job4`); opens skill-window rows; below tier 3 experience stops at level 100 | simulation.md |
 | JobBitCode | Class bit mask for item restrictions; differs from `MotionJobMask` (`1 << (JobCode-1)`) used by animation tables | simulation.md |
 | Catalog key | 5-character authored item key, 3-character category + 2 digits (`WA101`) | simulation.md |
-| Item code | 32-bit wire item code `category \| ordinal << 8`, built by `LegacyItemCode`; stored as `item_code_mask` | simulation.md |
+| Item code | 32-bit item code `family << 8 \| ordinal` derived from the item key by `ItemCodes`; stored as `item_code_mask` | simulation.md |
 | Item roll | The values one item copy was made with (`ItemRoll`): stats, requirements, price, specialization | simulation.md |
 | Shop form | The lowest form of an item, as NPC shops sell it (`ItemRoller.Lower`) | simulation.md |
 | Specialization | A copy made for one class (`ItemRoll.SpecJob`); grants its bonuses only to that class | simulation.md |

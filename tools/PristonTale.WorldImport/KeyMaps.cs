@@ -212,9 +212,8 @@ public static class KeyMaps
     public static readonly string[] SpmInterval = ["*출현간격", "*DELAY"];          // interval+ms
     public static readonly string[] SpmPerWave = ["*출현수", "*MAX_ACTOR"];          // monsters per wave
 
-    // There is no kind token in the data: the category is encoded only by the prefix of the 5-character item
-    // code, which is also the primary-category byte of the binary item code. The kind column classifies by the
-    // 2-character prefix so it carries the original category.
+    // There is no kind token in the data: the kind follows the family prefix of the 5-character item key, by its
+    // first two characters except where one group holds two kinds (WS1 bows, WS2 swords, OA2 bracelets).
     public static ItemKind ClassifyKind(string code)
     {
         if (string.IsNullOrEmpty(code))

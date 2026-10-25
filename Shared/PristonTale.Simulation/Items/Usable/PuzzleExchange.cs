@@ -67,7 +67,7 @@ public static class PuzzleExchange
     private static bool TryMake(ItemCatalog items, PuzzleReward entry, ISimRng rng, out ItemInstance item)
     {
         item = null;
-        if (!LegacyItemCode.TryParse(entry.CatalogKey, out var code) || !items.TryGet(code, out var definition))
+        if (!ItemCodes.TryParse(entry.CatalogKey, out var code) || !items.TryGet(code, out var definition))
         {
             return false;
         }

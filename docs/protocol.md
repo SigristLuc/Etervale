@@ -53,7 +53,7 @@ search finds; they are not part of the build.
 | Angles | Skill messages: 4096 per turn (`PristonUnits.ToAngle`); presence and movement: `uint16`, 65536 per turn. |
 | Entity ids | 64-bit (`uint64` or `varuint`) on the wire and in memory; players count from 1, monsters, NPCs and summons from `2^32`. |
 | Text | UTF-8 with a `uint16` byte length, cut at a whole character to the field's byte limit (`Utf8Text`). |
-| Item identity | Original category ordinal codes (`LegacyItemCode`), e.g. gold is `GG101`. |
+| Item identity | Item codes derived from the item key (`ItemCodes`), e.g. gold is `GG101`. |
 | Reading | `PacketReader` requires `size == span length` and `size >= minimum`; trailing bytes are accepted. Overruns throw `InvalidDataException`. |
 | Versioned bodies | Messages with `{uint16 Version, uint16 Flags}` reject version 0. Fixed-size bodies accept newer versions that append fields; list bodies check their length exactly. |
 

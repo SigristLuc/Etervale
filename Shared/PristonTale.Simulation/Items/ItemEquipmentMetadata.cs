@@ -1,10 +1,11 @@
-// The two-handed list is data taken from the legacy item table; edit entries, not structure.
+// The two-handed list is item data; edit entries, not structure.
 using PristonTale.Simulation.Characters;
 
 namespace PristonTale.Simulation.Items;
 
-// Equipment slot and kind of every wearable family by its three-letter catalog prefix. Rings fit either ring slot and
-// two-handed weapons also hold the off hand.
+// Equipment slot and kind of every wearable family by its three-character catalog prefix, or by its first two characters
+// when every family of that group is worn the same way (all body armours and robes are "DA"). Rings fit either ring slot
+// and two-handed weapons also hold the off hand.
 public static class ItemEquipmentMetadata
 {
     private static readonly Dictionary<string, (ItemKind Kind, EquipmentSlot Slot)> Families = new(StringComparer.OrdinalIgnoreCase)
@@ -20,11 +21,10 @@ public static class ItemEquipmentMetadata
         ["WD1"] = (ItemKind.Dagger, EquipmentSlot.Weapon),
         ["WN1"] = (ItemKind.Phantom, EquipmentSlot.Weapon),
         ["WV1"] = (ItemKind.Vambrace, EquipmentSlot.Weapon),
-        ["DA1"] = (ItemKind.Armor, EquipmentSlot.Armor),
-        ["DA2"] = (ItemKind.Armor, EquipmentSlot.Armor),
-        ["DB1"] = (ItemKind.Boots, EquipmentSlot.Boots),
-        ["DG1"] = (ItemKind.Gloves, EquipmentSlot.Gloves),
-        ["DS1"] = (ItemKind.Shield, EquipmentSlot.OffHand),
+        ["DA"] = (ItemKind.Armor, EquipmentSlot.Armor),
+        ["DB"] = (ItemKind.Boots, EquipmentSlot.Boots),
+        ["DG"] = (ItemKind.Gloves, EquipmentSlot.Gloves),
+        ["DS"] = (ItemKind.Shield, EquipmentSlot.OffHand),
         ["OM1"] = (ItemKind.Orb, EquipmentSlot.OffHand),
         ["OA1"] = (ItemKind.Amulet, EquipmentSlot.Amulet),
         ["OA2"] = (ItemKind.Bracelet, EquipmentSlot.Bracelet),
@@ -58,7 +58,8 @@ public static class ItemEquipmentMetadata
     {
         kind = default;
         slot = default;
-        if (catalogKey is null || catalogKey.Length < 3 || !Families.TryGetValue(catalogKey[..3], out var family))
+        if (catalogKey is null || catalogKey.Length < 3
+            || !Families.TryGetValue(catalogKey[..3], out var family) && !Families.TryGetValue(catalogKey[..2], out family))
         {
             return false;
         }

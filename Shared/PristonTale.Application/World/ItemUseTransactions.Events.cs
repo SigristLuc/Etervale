@@ -93,7 +93,7 @@ internal static partial class ItemUseTransactions
     internal static bool TryCreate(ItemCatalog items, string catalogKey, int count, out ItemInstance item)
     {
         item = null!;
-        if (!LegacyItemCode.TryParse(catalogKey, out var code) || !items.TryGet(code, out var definition))
+        if (!ItemCodes.TryParse(catalogKey, out var code) || !items.TryGet(code, out var definition))
         {
             return false;
         }

@@ -11,8 +11,8 @@ public static class WingQuest
 
     private static readonly uint[] Wings =
     [
-        LegacyItemCode.Parse("QW101"), LegacyItemCode.Parse("QW102"), LegacyItemCode.Parse("QW103"), LegacyItemCode.Parse("QW104"),
-        LegacyItemCode.Parse("QW105"), LegacyItemCode.Parse("QW106")
+        ItemCodes.Parse("QW101"), ItemCodes.Parse("QW102"), ItemCodes.Parse("QW103"), ItemCodes.Parse("QW104"),
+        ItemCodes.Parse("QW105"), ItemCodes.Parse("QW106")
     ];
 
     private static readonly Recipe[] Recipes =
@@ -25,7 +25,7 @@ public static class WingQuest
         new([Wings[4], Crystal(7), Crystal(8)], 80000, Wings[5], "E_Wing")
     ];
 
-    private static uint Crystal(int ordinal) => LegacyItemCode.Parse($"GP1{ordinal:D2}");
+    private static uint Crystal(int ordinal) => ItemCodes.Parse($"GP1{ordinal:D2}");
 
     // The recipe of the held wing (the last one found in the pack); -1 when the extreme wing is already held.
     public static int RecipeIndex(QuestContext context)

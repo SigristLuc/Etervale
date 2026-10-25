@@ -40,7 +40,7 @@ public sealed class Importer
         _assetRoot = assetRoot;
     }
 
-    public static long ItemCodeMask(string code) => LegacyItemCode.TryParse(code, out var value) ? value : 0;
+    public static long ItemCodeMask(string code) => ItemCodes.TryParse(code, out var value) ? value : 0;
 
     public async Task<ImportReport> RunAsync(CancellationToken ct = default)
     {
@@ -51,15 +51,14 @@ public sealed class Importer
 
         // ---- 1. Parse all sources -------------------------------------------------------------------
         var items = ParseItems(report);
-        var unmappedCategories = items
-            .Where(static item => !LegacyItemCode.TryParse(item.Code, out _))
-            .Select(static item => item.Code.Length >= 3 ? item.Code[..3].ToUpperInvariant() : item.Code)
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(static category => category, StringComparer.Ordinal)
+        var invalidKeys = items
+            .Where(static item => !ItemCodes.TryParse(item.Code, out _))
+            .Select(static item => item.Code)
+            .Order(StringComparer.Ordinal)
             .ToArray();
-        if (unmappedCategories.Length > 0)
+        if (invalidKeys.Length > 0)
         {
-            report.Warnings.Add($"Item categories absent from the reference DWORD table are retained with mask 0 and excluded from runtime: {string.Join(", ", unmappedCategories)}.");
+            report.Warnings.Add($"Item keys that are not two letters, a letter or digit and two digits are retained with mask 0 and excluded from runtime: {string.Join(", ", invalidKeys)}.");
         }
         var monsters = ParseMonsters(report);
         var npcs = ParseNpcs(report);
@@ -86,7 +85,8 @@ public sealed class Importer
         await using var tx = await conn.BeginTransactionAsync(ct);
 
         await conn.ExecuteAsync(new CommandDefinition("DELETE FROM world_import_unresolved_refs", transaction: tx, cancellationToken: ct));
-        await WriteItemsAsync(conn, tx, items, _questVariants, report, ct);
+        var footprints = ItemFootprints.Measure(_assetRoot, items.Select(static item => item.Code), report);
+        await WriteItemsAsync(conn, tx, items, _questVariants, footprints, report, ct);
         await WriteMonstersAsync(conn, tx, monsters, itemCodes, report, ct);
         await WriteNpcsAsync(conn, tx, npcs, itemCodes, report, ct);
         await WriteFieldsAsync(conn, tx, fields, monsterNames, npcNames, report, ct);
@@ -560,8 +560,8 @@ public sealed class Importer
     // ---- Writes (idempotent) ------------------------------------------------------------------------
 
     private static async Task WriteItemsAsync(
-        DbConnection conn, DbTransaction tx, IReadOnlyList<ParsedItem> items, IReadOnlyList<ParsedItem> questVariants, ImportReport report,
-        CancellationToken ct)
+        DbConnection conn, DbTransaction tx, IReadOnlyList<ParsedItem> items, IReadOnlyList<ParsedItem> questVariants,
+        IReadOnlyDictionary<string, (int Width, int Height)> footprints, ImportReport report, CancellationToken ct)
     {
         var rows = items.Select(static it => (Key: it.Code, Item: it))
             .Concat(questVariants.Select(static it => (Key: it.Code + QuestVariantSuffix, Item: it)))
@@ -580,7 +580,7 @@ public sealed class Importer
                 res_bionic_min, res_bionic_max, res_earth_min, res_earth_max, res_fire_min, res_fire_max,
                 res_ice_min, res_ice_max, res_lighting_min, res_lighting_max, res_poison_min, res_poison_max,
                 res_water_min, res_water_max, res_wind_min, res_wind_max,
-                max_stack, potion_space, magic_mastery)
+                max_stack, potion_space, magic_mastery, grid_width, grid_height)
             VALUES (
                 @Code, @Mask, @Name, @Kind, @DurMin, @DurMax, @Weight, @Price,
                 @DmgMinLow, @DmgMinHigh, @DmgMaxLow, @DmgMaxHigh,
@@ -593,7 +593,7 @@ public sealed class Importer
                 @ShootRange, @AtkSpeed, @JobMask, @Unique,
                 @RB0min, @RB0max, @RB1min, @RB1max, @RB2min, @RB2max, @RB3min, @RB3max,
                 @RB4min, @RB4max, @RB5min, @RB5max, @RB6min, @RB6max, @RB7min, @RB7max,
-                @MaxStack, @PotionSpace, @MagicMastery)
+                @MaxStack, @PotionSpace, @MagicMastery, @GridWidth, @GridHeight)
             ON CONFLICT (code) DO UPDATE SET
                 item_code_mask=excluded.item_code_mask, name=excluded.name, kind=excluded.kind,
                 durability_min=excluded.durability_min, durability_max=excluded.durability_max,
@@ -627,7 +627,7 @@ public sealed class Importer
                 res_water_min=excluded.res_water_min, res_water_max=excluded.res_water_max,
                 res_wind_min=excluded.res_wind_min, res_wind_max=excluded.res_wind_max,
                 max_stack=excluded.max_stack, potion_space=excluded.potion_space,
-                magic_mastery=excluded.magic_mastery;
+                magic_mastery=excluded.magic_mastery, grid_width=excluded.grid_width, grid_height=excluded.grid_height;
             """;
 
         foreach (var (key, it) in rows)
@@ -659,6 +659,8 @@ public sealed class Importer
                 RB4min = it.ResMin[4], RB4max = it.ResMax[4], RB5min = it.ResMin[5], RB5max = it.ResMax[5],
                 RB6min = it.ResMin[6], RB6max = it.ResMax[6], RB7min = it.ResMin[7], RB7max = it.ResMax[7],
                 it.MaxStack, it.PotionSpace, it.MagicMastery,
+                GridWidth = footprints.TryGetValue(it.Code, out var footprint) ? footprint.Width : 1,
+                GridHeight = footprints.TryGetValue(it.Code, out footprint) ? footprint.Height : 1,
             }, tx, cancellationToken: ct));
             report.ItemRows++;
         }

@@ -167,9 +167,9 @@ internal sealed class MultiplayerServer : IAsyncDisposable
     public static readonly ItemDefinition Invulnerability = Usable("BI105");
     public static readonly ItemDefinition HopyCrystal = Usable("GP101");
 
-    private static ItemDefinition Usable(string key) => new(LegacyItemCode.Parse(key), key, ItemKind.Misc, MaxStack: 1) { CatalogKey = key, Price = 100 };
+    private static ItemDefinition Usable(string key) => new(ItemCodes.Parse(key), key, ItemKind.Misc, MaxStack: 1) { CatalogKey = key, Price = 100 };
 
-    public static readonly ItemDefinition Staff = new(LegacyItemCode.Parse("WM101"), "Test staff", ItemKind.Staff, EquipmentSlot.Weapon)
+    public static readonly ItemDefinition Staff = new(ItemCodes.Parse("WM101"), "Test staff", ItemKind.Staff, EquipmentSlot.Weapon)
     {
         CatalogKey = "WM101",
         BaseStats = new ItemStatBlock(4, 8, 0, 0, 0, 0, 0, 0, 0, 0)

@@ -130,7 +130,7 @@ public sealed class GroundLootPresentation(IActorScene scene, PristonActorLoader
     }
 
     private static bool IsWeapon(GroundDropView drop) =>
-        LegacyItemCode.TryParse(drop.CatalogKey, out var code) && (code & 0xFF00_0000u) == 0x0100_0000u;
+        ItemCodes.TryParse(drop.CatalogKey, out _) && drop.CatalogKey[0] is 'W' or 'w';
 
     // The lowest point of the turned mesh, so it rests on the floor whichever way it lies.
     private static float RestingHeight(BoundingBox bounds, Matrix rotation)

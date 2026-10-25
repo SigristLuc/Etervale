@@ -535,9 +535,9 @@ internal sealed class HudCaptureProbe : Game
             {
                 Warehouse = new WarehouseView(1, 125000, 37, WarehouseStorage.MaxWeight, WarehouseStorage.Columns, WarehouseStorage.Rows,
                 [
-                    new(Guid.NewGuid(), LegacyItemCode.Parse("WA101"), "Stone Axe", ItemKind.Axe, 1, 2, -1, 2, 3, "WA101"),
-                    new(Guid.NewGuid(), LegacyItemCode.Parse("DA102"), "Battle Suit", ItemKind.Armor, 1, 5, -1, 2, 3, "DA102"),
-                    new(Guid.NewGuid(), LegacyItemCode.Parse("PL101"), "Mini Life Potion", ItemKind.Potion, 1, 27, -1, 1, 1, "PL101")
+                    new(Guid.NewGuid(), ItemCodes.Parse("WA101"), "Stone Axe", ItemKind.Axe, 1, 2, -1, 2, 3, "WA101"),
+                    new(Guid.NewGuid(), ItemCodes.Parse("DA102"), "Battle Suit", ItemKind.Armor, 1, 5, -1, 2, 3, "DA102"),
+                    new(Guid.NewGuid(), ItemCodes.Parse("PL101"), "Mini Life Potion", ItemKind.Potion, 1, 27, -1, 1, 1, "PL101")
                 ])
             },
             NpcServiceKind.Teleporter => new NpcServiceReply(ok)
@@ -550,7 +550,7 @@ internal sealed class HudCaptureProbe : Game
     }
 
     private static ShopOffer Stock(string key, int tab, int ordinal, string name, ItemKind kind, long price, int width, int height) =>
-        new(LegacyItemCode.Parse(key), tab, ordinal, name, kind, price, width, height, 1, key);
+        new(ItemCodes.Parse(key), tab, ordinal, name, kind, price, width, height, 1, key);
 
     private static ItemDetailView Detail(ItemRoll roll, int critical = 0, int attackSpeed = 0) =>
         new(54, 70, 0, roll, critical, attackSpeed, 0, 0, 0, 30, 0, false, true);

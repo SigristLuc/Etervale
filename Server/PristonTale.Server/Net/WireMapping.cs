@@ -26,7 +26,7 @@ internal static class WireMapping
 
     public static short ClampShort(int value) => (short)Math.Clamp(value, short.MinValue, short.MaxValue);
 
-    public static uint ItemCode(string? catalogKey) => !string.IsNullOrEmpty(catalogKey) && LegacyItemCode.TryParse(catalogKey, out var code) ? code : 0;
+    public static uint ItemCode(string? catalogKey) => ItemCodes.TryParse(catalogKey, out var code) ? code : 0;
 
     // The template code clients use to share one description among monsters and NPCs of a kind. Players and owned
     // summons describe themselves (a summon's owner and size are its own), so they carry none.
@@ -178,7 +178,7 @@ internal static class WireMapping
 
     public static GroundItemEntry Drop(GroundDropView drop) => new(
         drop.Id,
-        drop.Gold ? LegacyItemCode.Parse("GG101") : drop.ItemCode,
+        drop.Gold ? ItemCodes.Parse("GG101") : drop.ItemCode,
         drop.Gold,
         drop.Amount,
         PristonUnits.ToFixed(drop.Position.X),

@@ -141,7 +141,7 @@ public sealed class HudItemUseController(Func<ItemUseCommand, Task<ItemUseOutcom
         LastOutcome = outcome;
         Message = outcome.Message;
         Completions++;
-        if (outcome.Ok && UsableItemCatalog.TryGet(Simulation.Items.LegacyItemCode.TryFormat(outcome.ItemCode, out var key) ? key : "", out var rule)
+        if (outcome.Ok && UsableItemCatalog.TryGet(Simulation.Items.ItemCodes.TryFormat(outcome.ItemCode, out var key) ? key : "", out var rule)
             && rule.Action == UsableItemAction.MobileShop)
         {
             ShopsOpened++;

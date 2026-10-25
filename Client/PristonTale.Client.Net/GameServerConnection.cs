@@ -793,7 +793,7 @@ public sealed class GameServerConnection : IGameBackend
         _enter?.TrySetResult(EnterWorldOutcome.Success(entry.Field, entry.EntityId, entry.X, entry.Z, $"entered field {entry.Field}"));
     }
 
-    private static string ItemKey(uint code) => code != 0 && LegacyItemCode.TryFormat(code, out var key) ? key : "";
+    private static string ItemKey(uint code) => code != 0 && ItemCodes.TryFormat(code, out var key) ? key : "";
 
     private void Publish(PresenceUpdate? update)
     {

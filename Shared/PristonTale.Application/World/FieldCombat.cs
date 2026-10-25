@@ -311,7 +311,7 @@ internal sealed class FieldCombat
     public ItemEventRates EventRates { get; set; } = ItemEventRates.None;
 
     private RolledDrop? EventDrop(int playerLevel, int monsterLevel) =>
-        ItemEventDrops.Roll(_rng, EventRates, playerLevel, monsterLevel) is { } drop && LegacyItemCode.TryParse(drop.CatalogKey, out var code)
+        ItemEventDrops.Roll(_rng, EventRates, playerLevel, monsterLevel) is { } drop && ItemCodes.TryParse(drop.CatalogKey, out var code)
             ? RolledDrop.Item(code) with { FromMainTable = true, Sealed = drop.Sealed }
             : null;
 

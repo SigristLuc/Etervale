@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Engine3D.Diagnostics;
+using PristonTale.Engine3D.IO;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Gameplay.Screens.Framework;
@@ -73,6 +74,7 @@ internal sealed class ItemHudCaptureProbe : Game
     ];
 
     private readonly string _assetRoot;
+    private Dictionary<string, string>? _icons;
     private readonly string _output;
     private readonly PresentationSettings _presentation = new();
     private readonly Stopwatch _clock = new();
@@ -140,17 +142,24 @@ internal sealed class ItemHudCaptureProbe : Game
     }
 
     private static OwnedItemView Item(string key, string name, int anchor) =>
-        new(Guid.NewGuid(), LegacyItemCode.Parse(key), name, ItemKind.Misc, 1, anchor, -1, 1, 1, key);
+        new(Guid.NewGuid(), ItemCodes.Parse(key), name, ItemKind.Misc, 1, anchor, -1, 1, 1, key);
 
-    // An item with its authored size; a lucky bag takes the size of the piece it hides.
-    private static OwnedItemView Sized(string key, string name, int anchor, string? sizeKey = null)
+    // An item with the size of its inventory sprite; a lucky bag takes the size of the piece it hides.
+    private OwnedItemView Sized(string key, string name, int anchor, string? sizeKey = null)
     {
-        var (width, height) = ItemGridSizes.Of(sizeKey ?? key);
-        return new OwnedItemView(Guid.NewGuid(), LegacyItemCode.Parse(key), name, ItemKind.Misc, 1, anchor, -1, width, height, key);
+        _icons ??= ItemIconFiles.Index(_assetRoot);
+        var width = 1;
+        var height = 1;
+        if (_icons.TryGetValue(sizeKey ?? key, out var path))
+        {
+            ItemIconFiles.TryFootprint(path, out width, out height);
+        }
+
+        return new OwnedItemView(Guid.NewGuid(), ItemCodes.Parse(key), name, ItemKind.Misc, 1, anchor, -1, width, height, key);
     }
 
     // The first pieces of the first puzzle, each in its board cell.
-    private static IEnumerable<OwnedItemView> Puzzle(int pieces)
+    private IEnumerable<OwnedItemView> Puzzle(int pieces)
     {
         for (var number = 1; number <= pieces; number++)
         {

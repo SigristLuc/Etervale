@@ -386,7 +386,7 @@ internal sealed class PresenceDecoder
         var added = new List<GroundDropView>(items.Length);
         foreach (var item in items)
         {
-            var key = item.Gold ? "GG101" : LegacyItemCode.TryFormat(item.ItemCode, out var code) ? code : "";
+            var key = item.Gold ? "GG101" : ItemCodes.TryFormat(item.ItemCode, out var code) ? code : "";
             added.Add(new GroundDropView(item.Id, item.ItemCode, key, item.Name, item.Amount, item.Gold, Position(item.X, item.Y, item.Z)));
         }
 
@@ -483,7 +483,7 @@ internal sealed class PresenceDecoder
     }
 
     private static OwnedItemView Item(InventoryItemEntry entry) => new(entry.InstanceId, entry.Code, entry.Name, (ItemKind)entry.Kind, entry.Count,
-        entry.Anchor, entry.Slot, entry.Width, entry.Height, LegacyItemCode.TryFormat(entry.Code, out var key) ? key : "");
+        entry.Anchor, entry.Slot, entry.Width, entry.Height, ItemCodes.TryFormat(entry.Code, out var key) ? key : "");
 
     private PresenceUpdate Update(List<EntitySpawnInfo> spawns, List<EntityStateInfo> states, List<ulong>? removed = null, List<CombatEventInfo>? events = null) =>
         new(_tick, spawns, states, removed ?? [], events ?? [], FieldId);
@@ -525,7 +525,7 @@ internal sealed class PresenceDecoder
     private static float AttackRate(EntityDescriptionPacket packet) =>
         float.IsFinite(packet.AttackRate) && packet.AttackRate > 0f ? packet.AttackRate : 1f;
 
-    private static string Key(uint code) => code != 0 && LegacyItemCode.TryFormat(code, out var key) ? key : "";
+    private static string Key(uint code) => code != 0 && ItemCodes.TryFormat(code, out var key) ? key : "";
 
     private static Vector3 Position(int x, int y, int z) => new(PristonUnits.FromFixed(x), PristonUnits.FromFixed(y), PristonUnits.FromFixed(z));
 

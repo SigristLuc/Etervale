@@ -64,10 +64,10 @@ internal static class WorldImportTests
             var item = await connection.QuerySingleAsync<(string Name, long Mask, int MaxStack, int PotionSpace, float MagicMastery)>(
                 "SELECT name, item_code_mask, max_stack, potion_space, magic_mastery FROM item_templates WHERE code = 'WA101'");
             Assert.True(item.Name == "Linked Axe", "linked display name was not imported");
-            Assert.True(item.Mask == LegacyItemCode.Parse("WA101"), "item mask differs from the original DWORD");
+            Assert.True(item.Mask == ItemCodes.Parse("WA101"), "item code differs from its key");
             Assert.True(await connection.ExecuteScalarAsync<long>(
-                "SELECT item_code_mask FROM item_templates WHERE code = 'BI319'") == 0,
-                "an item absent from the original DWORD table was given an invented code");
+                "SELECT item_code_mask FROM item_templates WHERE code = 'BI319'") == ItemCodes.Parse("BI319"),
+                "an item of a family without other items has no code");
             Assert.True(item.MaxStack == 20 && item.PotionSpace == 3 && Math.Abs(item.MagicMastery - 1.5f) < 0.001f,
                 "linked item properties were not imported");
 
@@ -96,14 +96,16 @@ internal static class WorldImportTests
                 await repository.GetAllMonstersAsync(),
                 items.ToDictionary(static item => item.CatalogKey, static item => item.Code, StringComparer.OrdinalIgnoreCase)).Definitions;
             var npcs = WorldDataFactory.ToNpcDefinitions(await repository.GetAllNpcsAsync()).Definitions;
-            Assert.True(items.Single().MaxStack == 20, "runtime item catalog lost the imported stack size");
+            Assert.True(items.Count == 2 && items.Single(static item => item.CatalogKey == "WA101").MaxStack == 20,
+                "runtime item catalog lost the imported stack size or an item family");
             Assert.True(monsters.Single().SoundCode == LegacyNpcSoundCode.Wolverine,
                 "runtime monster catalog lost the imported sound code");
             Assert.True(Math.Abs(monsters.Single().ModelScale - 1.4f) < 0.001f,
                 "runtime monster catalog lost the imported model scale");
-            Assert.True(monstersWithCatalog.Single().Drops.MainEntries.All(static entry => entry.Kind != PristonTale.Simulation.World.Loot.DropKind.Item),
-                "unmapped authored item leaked into the runtime drop table");
-            Assert.True(npcs.Single().Shop.WeaponItemCodes.Single() == LegacyItemCode.Parse("WA101"),
+            Assert.True(monstersWithCatalog.Single().Drops.MainEntries.Where(static entry => entry.Kind == PristonTale.Simulation.World.Loot.DropKind.Item)
+                    .Select(static entry => entry.ItemCode).SequenceEqual([ItemCodes.Parse("BI319")]),
+                "an unknown authored item leaked into the runtime drop table");
+            Assert.True(npcs.Single().Shop.WeaponItemCodes.SequenceEqual([ItemCodes.Parse("WA101"), ItemCodes.Parse("BI319")]),
                 "runtime NPC shop uses a different item identity from the catalog");
             Assert.True(npcs.Single().Label == "Travelling Merchant" && npcs.Single().PortraitOffsetZ == 70,
                 "the NPC lost the localized name of its variant or its portrait correction");

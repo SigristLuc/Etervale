@@ -28,7 +28,7 @@ FluentMigrator migrations, the schema, and the SQLite and PostgreSQL providers. 
 | `.../WorldData/` | Read-side catalog records and [WorldDataFactory](../Persistence/PristonTale.Persistence.Abstractions/WorldData/WorldDataFactory.cs) |
 | `.../Security/PasswordHasher.cs` | PBKDF2-SHA256 hashes: `pbkdf2-sha256$<iterations>$<salt b64>$<key b64>` |
 | `Persistence/PristonTale.Persistence/Repositories/` | `Dapper*Repository` implementations shared by both providers |
-| `Persistence/PristonTale.Persistence/Migrations/` | `M013Baseline`, `M014PortraitData`, `M015NpcServices`, `M016QuestData`, `M019GameMasters`, `M021MonsterSkillData`, `M022MonsterExperience64`, `FluentMigratorDatabaseMigrator` |
+| `Persistence/PristonTale.Persistence/Migrations/` | `M013Baseline`, `M014PortraitData`, `M015NpcServices`, `M016QuestData`, `M019GameMasters`, `M021MonsterSkillData`, `M022MonsterExperience64`, `M023ItemFootprints`, `FluentMigratorDatabaseMigrator` |
 | `Persistence/PristonTale.Persistence.Sqlite/` | `AddPristonSqlite`, connection factory (WAL), Dapper type handlers, path resolution |
 | `Persistence/PristonTale.Persistence.Postgres/` | `AddPristonPostgres`, `NpgsqlDataSource` factory, `jsonb` handler for `JsonText` |
 | `docker-compose.yml` | Local PostgreSQL 17 for development |
@@ -142,6 +142,7 @@ FluentMigrator scans `PristonTale.Persistence` for `[Migration(n)]` classes. Ver
 | 19 | `M019GameMasters` | `accounts.gm_level` (default 0); `gm_audit` table and its `account_id` index |
 | 21 | `M021MonsterSkillData` | `motion_slots.key_code` (the clip's authored key character, 0 when none) |
 | 22 | `M022MonsterExperience64` | PostgreSQL widens `monsters.exp` to `bigint` (two bosses give more than 2^31); re-import afterwards |
+| 23 | `M023ItemFootprints` | `item_templates.grid_width`, `grid_height` (default 1), the inventory footprint; re-import afterwards |
 
 Legacy upgrade path: databases from the earlier migration set at version 12 upgrade in place. Databases at
 versions 1-11 make `M013Baseline` throw; bring them to 12 with the previous release or back up and recreate them.
@@ -183,7 +184,7 @@ Written only by the importer. Natural keys are the authored identities, kept ver
 
 | Table | Columns and constraints |
 | --- | --- |
-| `item_templates` | `code` (16) PK, authored 5-character code; `item_code_mask` int64 (0 = category not mapped, excluded at runtime); `name`; `kind` (`ItemKind`); durability, weight, price; damage min/max low/high; attack rating, critical, defence, block, absorb, speed; mana/life/stamina regen (float) and add; requirements; potion restore min/max; `shooting_range`, `attack_speed`; `job_mask`, `unique_item` int64; `res_<element>_min/max` for bionic, earth, fire, ice, lighting, poison, water, wind; `max_stack`, `potion_space`, `magic_mastery`. A row keyed `<code>#Q` holds the code's quest variant (unique marker 2); it loads into `ItemCatalog.QuestVariants`, not the regular catalog |
+| `item_templates` | `code` (16) PK, authored 5-character code; `item_code_mask` int64 (the key's `ItemCodes` code; 0 = malformed key, excluded at runtime); `name`; `kind` (`ItemKind`); durability, weight, price; damage min/max low/high; attack rating, critical, defence, block, absorb, speed; mana/life/stamina regen (float) and add; requirements; potion restore min/max; `shooting_range`, `attack_speed`; `job_mask`, `unique_item` int64; `res_<element>_min/max` for bionic, earth, fire, ice, lighting, poison, water, wind; `max_stack`, `potion_space`, `magic_mastery`; `grid_width`, `grid_height` (inventory cells, from the item's sprite). A row keyed `<code>#Q` holds the code's quest variant (unique marker 2); it loads into `ItemCatalog.QuestVariants`, not the regular catalog |
 | `item_template_special` | `id` PK; `item_code` FK `item_templates`; `bonus_code`; `value0`, `value1` float |
 | `item_template_job_random` | `id` PK; `item_code` FK; `ordinal`; `job_bit_code` int64 |
 | `monsters` | `name` PK (identity, may contain leading or trailing spaces); `model`; combat stats; `sight` (raw authored reach); skill damage, distance, range, rating, curse; `move_speed`, `move_range`, `iq`, `group_min/max`, `exp` (64-bit), `active_hour` (+1 day, -1 night, 0 any); `nature`, `brood`, `class` int16; `res_<element>`; `stun_pct` (default 100); `display_name` (128); `sound_code`; `model_scale`; `portrait_offset_y/z`; `quest_code`, `event_item`, `potion_count`, `potion_percent` (M016) |
@@ -292,7 +293,7 @@ old rows (`UnmappedMemberHandling.Disallow`); bump `Version` and add a conversio
 - Dapper configuration is process-global (`MatchNamesWithUnderscores`, type handlers). Use one provider per
   process; the SQLite int and float handlers would also apply to PostgreSQL parameters.
 - A saved item whose code is missing from the runtime catalog makes the character or warehouse fail to load. Item
-  codes removed from the source, or whose category maps to `item_code_mask = 0`, affect existing saves.
+  codes removed from the source, or whose key is malformed (`item_code_mask = 0`), affect existing saves.
 - `M013Baseline.Down` drops every table, including on a database that came through the legacy upgrade branch.
 - `M015NpcServices` checks `npcs.display_name` before adding it because `M014PortraitData` already adds it.
 - `svc_*` columns and their codes are still written by the importer; the runtime reads them only for an NPC with no

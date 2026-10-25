@@ -141,7 +141,7 @@ public sealed record OwnerState(
         if (item.Sealed)
         {
             // A sealed puzzle piece shows as the lucky bag until it is revealed.
-            return new OwnedItemView(item.InstanceId, LegacyItemCode.Parse(Puzzles.LuckyBagIcon), Puzzles.LuckyBagName, definition.Kind, item.Count,
+            return new OwnedItemView(item.InstanceId, ItemCodes.Parse(Puzzles.LuckyBagIcon), Puzzles.LuckyBagName, definition.Kind, item.Count,
                 anchor, slot, definition.GridWidth, definition.GridHeight, Puzzles.LuckyBagIcon)
             {
                 Details = ItemDetailView.Of(item, owner)

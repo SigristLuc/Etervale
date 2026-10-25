@@ -180,7 +180,7 @@ public sealed class WarehouseStorage
             {
                 var definition = item.Definition;
                 var key = item.Sealed ? PristonTale.Simulation.Items.Usable.Puzzles.LuckyBagIcon : definition.CatalogKey;
-                items.Add(new OwnedItemView(item.InstanceId, item.Sealed ? LegacyItemCode.Parse(key) : definition.Code,
+                items.Add(new OwnedItemView(item.InstanceId, item.Sealed ? ItemCodes.Parse(key) : definition.Code,
                     item.Sealed ? PristonTale.Simulation.Items.Usable.Puzzles.LuckyBagName : item.DisplayName, definition.Kind, item.Count, anchor, -1,
                     definition.GridWidth, definition.GridHeight, key));
             }

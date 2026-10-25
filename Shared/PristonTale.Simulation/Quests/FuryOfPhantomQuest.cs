@@ -17,8 +17,8 @@ public static class FuryOfPhantomQuest
 
     private static readonly uint[] RewardWeapons =
     [
-        LegacyItemCode.Parse("WA120"), LegacyItemCode.Parse("WC120"), LegacyItemCode.Parse("WH121"), LegacyItemCode.Parse("WP121"),
-        LegacyItemCode.Parse("WS122"), LegacyItemCode.Parse("WS223"), LegacyItemCode.Parse("WT121"), LegacyItemCode.Parse("WM121")
+        ItemCodes.Parse("WA120"), ItemCodes.Parse("WC120"), ItemCodes.Parse("WH121"), ItemCodes.Parse("WP121"),
+        ItemCodes.Parse("WS122"), ItemCodes.Parse("WS223"), ItemCodes.Parse("WT121"), ItemCodes.Parse("WM121")
     ];
 
     private static readonly string[] RewardDocuments =

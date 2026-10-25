@@ -10,7 +10,7 @@ progression, regeneration and movement rates. `World/`, `Physics/` and `Skills/`
 - Changing how a derived stat (life, mana, stamina, attack rating, defence, absorption, damage, speed) is computed.
 - Adding a stat a buff, item or passive can change, or changing how modifiers stack or expire.
 - Changing hit, block, critical, element or absorption math for players or monsters.
-- Adding an item family, an equipment rule, a grid size or an item code mapping.
+- Adding an item family or an equipment rule.
 - Changing inventory placement, stacking, equip rules or the command/revision contract.
 - Changing experience, level-up rewards, stat/skill points or skill-master training rules.
 - Changing life/mana/stamina regeneration, walk/run speed or animation rates.
@@ -43,9 +43,8 @@ progression, regeneration and movement rates. `World/`, `Physics/` and `Skills/`
 | `Items/ItemDetailView.cs`, `ItemRuleMessages.cs` | Owner view of one copy; the texts of item refusals |
 | `Items/Inventory.cs` | Bitmask grid with anchors, stacking, move/split/merge/exchange |
 | `Items/InventoryCommand.cs` | `InventoryCommand` and `InventoryCommands.Apply` |
-| `Items/LegacyItemCode.cs` | Catalog key (`WA101`) to 32-bit wire item code and back |
+| `Items/ItemCodes.cs` | Catalog key (`WA101`) to 32-bit item code and back, for every item family |
 | `Items/ItemEquipmentMetadata.cs` | Kind and slot by catalog family; the two-handed list taken from the item table |
-| `Items/ItemGridSizes.cs` | Generated table: catalog key to inventory cell size (default 1x1) |
 | `Items/ItemClassRestrictions.cs` | Class/gender restriction masks for armor, robes and orbs by catalog key |
 | `Items/ItemCatalog.cs`, `PotionDefinition.cs` | Definition lookup by code; potion restore ranges |
 | `Items/Usable/` | Usable item rules, premium timers and their effects, pets, scrolls, force orbs ([special-items.md](special-items.md)) |
@@ -309,14 +308,17 @@ totals.
 
 - `ItemDefinition` is immutable catalog data built by `WorldDataFactory.ToItemDefinition` in
   `Persistence/PristonTale.Persistence.Abstractions` from imported item templates (see
-  [world-import.md](world-import.md) and [persistence.md](persistence.md)). That factory applies `ItemGridSizes.Of`,
-  `ItemClassRestrictions.AllowedJobs` and `ItemEquipmentMetadata.Apply`, sets `BaseStats`, `Resistances` and
+  [world-import.md](world-import.md) and [persistence.md](persistence.md)). That factory takes the inventory footprint
+  the importer measured (`grid_width`, `grid_height`), applies `ItemClassRestrictions.AllowedJobs` and
+  `ItemEquipmentMetadata.Apply`, sets `BaseStats`, `Resistances` and
   `MaxDurability` to the low end of each range and keeps every authored range in `Template` (`ItemTemplate`, with the
   specialization bonuses in `ItemSpecTemplate`). `Critical`, `ShootingRange`, `PotionSpace`, `MagicMastery`,
   `UniqueItem` and `BaseStats.AttackSpeed` are fixed per kind. A range whose upper value is 0 is a fixed value.
-- `Code` is the 32-bit wire item code; `CatalogKey` is the 5-character key (`WA101`). `LegacyItemCode.TryParse` maps a
-  key to `category | ordinal << 8` (category from the 3-letter prefix, ordinal from the two digits);
-  `TryFormat` is the inverse and rejects a non-zero low byte or ordinals above 99. Unknown prefixes fail.
+- `Code` is the 32-bit item code; `CatalogKey` is the 5-character key (`WA101`). A key is a family of two letters and a
+  letter or digit (`WA1`, `DA3`) plus a two-digit ordinal. `ItemCodes.TryParse` gives `family << 8 | ordinal`, where the
+  family number is `(first * 26 + second) * 36 + third + 1` (letters A-Z = 0-25; third character 0-9 then A-Z = 10-35),
+  case-insensitively; `TryFormat` is the inverse. Every well-formed key has a code, so a new item family needs no
+  registration. `ItemCodes.Family` compares families (`Family(code) == Family("WM1")`).
 - `ItemKind` is persisted as an integer: append new values at the end only.
 - Equippable means `EquipSlot` is set, which only `ItemEquipmentMetadata` does by family, and it also overrides the
   imported kind:
@@ -455,8 +457,9 @@ server steps it per player in `FieldSkills.StepEffects` and resets it on death. 
   points, then run the regression runner (`EquipmentTests`, `ProgressionAndOwnershipTests`, `PotionTests` cover them).
 - Change hit/crit/block math: edit `CombatResolver`; keep the roll order or expect seeded tests in
   `MonsterCombatTests` and the skill tests to change outcomes.
-- Add an item family: add its prefix to both maps in `LegacyItemCode`, grid sizes to `ItemGridSizes`, and its kind and
-  slot to `ItemEquipmentMetadata` if wearable (two-handed keys to its list); restrictions in `ItemClassRestrictions`.
+- Add an item family: its code and inventory footprint need nothing (the footprint comes from its inventory sprite at
+  import). Add its kind and slot to `ItemEquipmentMetadata` if wearable and not covered by a two-character group (two-handed
+  keys to its list); restrictions in `ItemClassRestrictions`.
   Check `WorldDataFactory` and the importer ([world-import.md](world-import.md)).
 - Add an item stat: carry its range in `ItemTemplate` (from `WorldDataFactory.ToItemTemplate`), its value in
   `ItemRoll`, roll it in `ItemRoller`, sum it in `EquipmentTotals`, apply it in `DerivedStats.Compute`, persist it
@@ -487,7 +490,8 @@ server steps it per player in `FieldSkills.StepEffects` and resets it on death. 
   uses `<`. Both match the original receivers.
 - `TrySplit` gives the split stack a new `InstanceId`; `TryAdd` keeps the id only for the first new stack.
 - `Compatible` stacking uses record equality of `ItemDefinition`; two catalogs with equal data compare equal.
-- `ItemEquipmentMetadata` and `ItemGridSizes` are generated data tables; edit entries, not structure.
+- `ItemEquipmentMetadata` is a data table; edit entries, not structure. Its families are looked up by the
+  three-character prefix first, then by the first two characters (`DA` covers every body armour and robe family).
 - `CombatAntiCheat` and `PlayerCompositionFactory` are not used by any project; do not assume they are enforced.
 - Requirements and price live in the copy's roll (a specialization shifts them); read `ItemInstance.Roll`, not the
   definition, for anything about a particular copy.
