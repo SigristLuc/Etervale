@@ -84,6 +84,7 @@ public sealed partial class GameScene
     // A hair tint or a big-head potion changes the local player's head when the server describes the player again.
     private void ObserveOwnHead(PresenceUpdate update)
     {
+        ObserveOwnGlow(update);
         if (_remote is null || _equipmentPresentation is null || _player is null)
         {
             return;

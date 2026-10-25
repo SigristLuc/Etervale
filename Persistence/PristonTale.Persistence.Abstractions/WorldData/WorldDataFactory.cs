@@ -53,8 +53,7 @@ public static class WorldDataFactory
             MagicMastery = r.MagicMastery,
             UniqueItem = (int)r.UniqueItem,
             Template = ToItemTemplate(r),
-            Glow = new ItemGlow((byte)Math.Clamp(r.GlowR, 0, 255), (byte)Math.Clamp(r.GlowG, 0, 255), (byte)Math.Clamp(r.GlowB, 0, 255),
-                (byte)Math.Clamp(r.GlowA, 0, 255), Math.Max(0, r.GlowBlink), r.GlowScale),
+            Glow = new ItemGlow(Channel(r.GlowR), Channel(r.GlowG), Channel(r.GlowB), Channel(r.GlowA), Math.Clamp(r.GlowBlink, -1, 16), r.GlowScale),
             DisplayEffect = r.DisplayEffect,
             DailyDropLimit = Math.Max(0, r.DailyDropLimit),
             SetCode = r.SetCode,
@@ -444,6 +443,8 @@ public static class WorldDataFactory
         records.ToDictionary(
             static r => r.FieldCode,
             r => ToFieldSpawnData(r, monsterCodeByName, npcCodeByName));
+
+    private static short Channel(int value) => (short)Math.Clamp(value, -255, 255);
 
     private static int Resolve(IReadOnlyDictionary<string, int> map, string name) =>
         map.TryGetValue(name, out var code) ? code : 0;

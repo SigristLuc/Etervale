@@ -93,6 +93,36 @@ public sealed partial class PristonRenderer
         return true;
     }
 
+    // How far a held item reaches along its length (the model's Y) from its grip, in its model units: the authored bounds
+    // when the file records them, else the resident geometry's; false until the geometry is resident.
+    public bool TryGetActorReach(ActorHandle handle, out float reach)
+    {
+        reach = 0f;
+        if (!TryResolveActor(handle, out var runtime) || runtime.Batches.Count == 0)
+        {
+            return false;
+        }
+
+        var authored = 0;
+        foreach (var model in runtime.Instance.Actor.Mesh.Objects)
+        {
+            if (model.AuthoredBoundsFixed is { } bounds)
+            {
+                authored = Math.Max(authored, Math.Max(Math.Abs(bounds.MaximumY), Math.Abs(bounds.MinimumY)));
+            }
+        }
+
+        if (authored > 0)
+        {
+            reach = authored / 256f;
+            return true;
+        }
+
+        var local = ModelBounds(runtime);
+        reach = MathF.Max(MathF.Abs(local.Min.Y), MathF.Abs(local.Max.Y));
+        return true;
+    }
+
     private static float AuthoredHeight(PristonModel mesh, float fallback)
     {
         var height = 0;

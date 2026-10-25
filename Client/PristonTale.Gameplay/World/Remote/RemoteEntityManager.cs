@@ -572,6 +572,20 @@ public sealed partial class RemoteEntityManager
         }
     }
 
+    // Every other player's held items: its actors, how its weapon and off-hand item glow, whether it is shown (alive and
+    // drawn) and the weapon's catalog key.
+    public void ForEachHolder(Action<ulong, PlayerActorHandles, PlayerAppearanceInfo, bool> visit)
+    {
+        foreach (var (entityId, appearance) in _playerAppearances)
+        {
+            if ((!appearance.WeaponGlow.IsNone || !appearance.OffHandGlow.IsNone) && _entities.TryGetValue(entityId, out var entity)
+                && entity is RemoteEntity player)
+            {
+                visit(entityId, player.Handles, appearance, !entity.IsDead);
+            }
+        }
+    }
+
     // The actors a skill look paints: a player's body, head and held items, or a monster's model; and whether the
     // player holds a shield.
     public bool TryGetLookHandles(ulong entityId, out PlayerActorHandles handles, out bool holdsShield)

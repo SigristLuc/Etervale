@@ -89,6 +89,7 @@ public sealed partial class GameScene : ISkillSceneHost
     {
         _skillFx?.Update((float)gameTime.ElapsedGameTime.TotalSeconds, _skillClockMs);
         UpdateCostumeWings();
+        UpdateHeldItems((float)gameTime.ElapsedGameTime.TotalSeconds);
     }
 
     private void UpdateCostumeWings()

@@ -35,6 +35,7 @@ writes that data, and the gameplay glue in `Client/PristonTale.Gameplay/Effects/
 | `Client/PristonTale.Gameplay/Effects/MonsterVisualFamilies.cs` | Sound family (and level, size) to effect family |
 | `Client/PristonTale.Gameplay/Effects/ActorLooks.cs`, `World/Remote/ActorLookPresenter.cs` | `ActorLookBook`: skill looks per entity from statuses, casts and impacts; the presenter paints them on actors (tint, opacity, overlay, wobble, shield swap, weapon copy, afterimage echoes) |
 | `Client/PristonTale.Gameplay/Effects/CostumeWings.cs` | Wings of the premium costume body items |
+| `Shared/PristonTale.Simulation/Items/HeldItemGlow.cs`, `Client/PristonTale.Gameplay/World/GameScene.HeldItems.cs`, `Effects/ClassUpLights.cs` | The glow of held weapons and shields (unique colours, aging colours, mix textures) and the class-up weapon lights |
 | `Shared/PristonTale.Simulation/Skills/SkillRulePresentation.cs` | Rule fields for per-hit sounds and effects and actor looks |
 | `Client/PristonTale.Engine3D/Rendering/PristonVfxEffect.cs`, `PristonMeshEffect.cs` | VFX shader wrapper (`Vfx.fx`, blend modes) and baked effect models |
 | [`tools/PristonTale.VfxImport/`](../tools/PristonTale.VfxImport) | `ptvfx import`: converts the original effect scripts and installs the hand-authored definitions |
@@ -400,8 +401,38 @@ Cygnus CA166-169 / CA266-269 `vfx.costume.wing.blue`, Aquila CA185-188 / CA285-2
 CA189-192 / CA289-292 `vfx.costume.wing.red`. The wing model hangs 2.42 below the wearer's origin plus its own height,
 turns with the wearer and is hidden in a village and on the dead. Costume bodies keep the class body.
 
+### Held item glow
+
+`HeldItemGlow.For(item)` (Simulation) is what a held weapon or off-hand item shows; the server puts it in the player's
+appearance (`PlayerAppearanceView.WeaponGlow`, `OffHandGlow`) and description, so every viewer draws the same:
+
+- A unique's file glow (`ItemDefinition.Glow`: signed colour offsets, the pulse `Blink`, the peak `Scale`).
+- An item aged +4 to +20 (`UpgradeLevel`) takes its level's colour with blink 9 instead: +4 light purple, +5 yellow,
+  +6 green, +7 blue, +8 purple, +9 orange, +10 red, +11 teal, +12 light green, +13 purple, +14 deep pink, +15 sky blue,
+  +16 light orange, +17 brown, +18 blue violet, +19 light yellow, +20 white.
+- A colour of the aging table (from +7) or of the mixing table brings its item mix texture (`mixS_01..05`,
+  `mixM_01..05` under `image/sinImage/Items/DropItem`) and scroll form (8..14), whatever gave the colour.
+- `ItemDefinition.DisplayEffect` non-zero: the class-up light.
+
+`HeldItemGlow.Sample(ms)`: each way of the pulse lasts `2^Blink` ms; the added light is `step * channel >> Blink`
+(255 = a full white light), alpha below 0 fades the item with the pulse and above 0 keeps it translucent; a negative
+blink is a steady colour; a positive scale grows the item up to it with the pulse, a negative one is a fixed scale.
+`GameScene.HeldItems.cs` paints each frame, after the skill looks, every glowing held item of the local player and of
+every other described player: `ActorLookPresenter.PaintGlow` adds the pulse to the look the item last took (the mix
+texture replaces the look's overlay) and `EndGlowFrame` returns items that stopped glowing to that look.
+
+Class-up lights (`ClassUpLights`): while its holder is alive, a weapon with the class-up light carries two lights,
+each `particle.ClassUpWeapon1` (the light) plus `particle.ClassUpWeapon2` (its trail), circling a point of the weapon
+(along its length, `TryGetActorReach`: a sword at 0.8 of it, 0.75 above 5000 fixed units; a staff 0.7; a bow 0.7 turned
+45 degrees, in the left hand its end less 10 turned a quarter; a javelin 0.4 behind the grip; a claw twice its reach
+beside the hand; anything else its middle; a two-handed weapon's point leans 9 degrees). The circle turns 70/4096 of a
+turn and its radius moves 10 between 1000 and 1600 fixed units each 70 Hz frame, across the weapon (a claw's and a
+bow's along it).
+
 ## Limitations
 
+- There is no mixing yet, so no item carries a mixing colour; a basic ranged attack draws no arrow or javelin in
+  flight, so the coloured shot particle a glowing bow or javelin fires is not shown.
 - Monsters that fade out or darken as corpses keep their full colour; monster effects keep their authored size whatever
   the model size.
 - Skill events carry no critical flag (Double Crash's critical flash), no block, reflect or absorb event (the Divine

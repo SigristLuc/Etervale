@@ -75,7 +75,7 @@ public sealed class ParsedItem
     public int[] ResMin { get; } = new int[8];
     public int[] ResMax { get; } = new int[8];
 
-    // *유니크색상: the glow of a unique weapon (r g b a 0..255), its blink period in ticks and its scale pulse.
+    // *유니크색상: the glow of a unique weapon (signed r g b a offsets), its pulse (2^blink ms each way) and its scale.
     public int[] UniqueColor { get; } = new int[4];
     public int UniqueBlink { get; init; }
     public float UniqueScale { get; init; }

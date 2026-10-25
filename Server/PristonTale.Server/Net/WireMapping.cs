@@ -57,6 +57,9 @@ internal static class WireMapping
     public static int WriteMotion(Span<byte> destination, in EntityView view) =>
         PresenceWire.WriteMotion(destination, view.EntityId, view.Position, view.Facing, Motion(view.MoveState));
 
+    private static DescribedGlow Glow(in Simulation.Items.HeldItemGlow glow) =>
+        new(glow.Blink, glow.R, glow.G, glow.B, glow.A, glow.Scale, glow.Mix, glow.MixScroll, glow.ClassUp);
+
     // An entity's description for one revision (the answer to DescribeEntity).
     public static EntityDescriptionPacket Describe(in EntityView view, byte revision, WorldData data)
     {
@@ -67,7 +70,11 @@ internal static class WireMapping
                 var appearance = view.Appearance;
                 var looks = new DescribedPlayer(appearance.JobCode, appearance.Tier, appearance.FaceIndex, appearance.HairIndex, appearance.ModelName2 ?? "",
                     ItemCode(appearance.WeaponKey), ItemCode(appearance.ArmorKey), ItemCode(appearance.OffHandKey), appearance.InVillage, appearance.Phoenix,
-                    appearance.HelperPet, appearance.BigHead);
+                    appearance.HelperPet, appearance.BigHead)
+                {
+                    WeaponGlow = Glow(appearance.WeaponGlow),
+                    OffHandGlow = Glow(appearance.OffHandGlow)
+                };
                 return new EntityDescriptionPacket(view.EntityId, revision, DescribedKind.Player, view.Level, view.MoveSpeed, view.AttackRate,
                     appearance.Name ?? "", appearance.ModelName ?? "", looks);
             }

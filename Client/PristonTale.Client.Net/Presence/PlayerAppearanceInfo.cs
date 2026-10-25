@@ -15,4 +15,8 @@ public sealed record PlayerAppearanceInfo(
     public int HelperPet { get; init; }
     public bool Phoenix { get; init; }
     public int BigHead { get; init; }
+
+    // How the held weapon and off-hand item glow.
+    public Simulation.Items.HeldItemGlow WeaponGlow { get; init; } = Simulation.Items.HeldItemGlow.None;
+    public Simulation.Items.HeldItemGlow OffHandGlow { get; init; } = Simulation.Items.HeldItemGlow.None;
 }

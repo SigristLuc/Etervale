@@ -67,7 +67,7 @@ public sealed record ItemTemplateRecord(
     // Inventory cells, measured by the importer from the item's inventory sprite.
     int GridWidth = 1,
     int GridHeight = 1,
-    // The glow of a unique weapon: colour 0..255, blink period in ticks and scale pulse.
+    // The glow of a unique weapon: signed colour offsets, the pulse (2^blink ms each way, below 0 steady) and its scale.
     int GlowR = 0,
     int GlowG = 0,
     int GlowB = 0,

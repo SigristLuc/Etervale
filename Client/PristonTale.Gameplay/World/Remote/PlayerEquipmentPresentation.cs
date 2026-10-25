@@ -23,6 +23,8 @@ public sealed class PlayerEquipmentPresentation
     // The body item worn now ("" for none).
     public string ArmorKey { get; private set; } = "";
 
+    public string WeaponKey => (_requestedPlayerVisuals ?? _basePlayerVisuals)?.WeaponKey ?? "";
+
     public bool HoldsShield => (_requestedPlayerVisuals ?? _basePlayerVisuals)?.OffHandKey?.StartsWith("DS", StringComparison.OrdinalIgnoreCase) == true;
 
     public PlayerEquipmentPresentation(PlayerActorComposer composer, IActorScene scene, IClientLog log, string root,

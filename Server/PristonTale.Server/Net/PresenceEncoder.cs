@@ -888,7 +888,7 @@ internal sealed partial class PresenceEncoder
         var appearance = view.Appearance;
         return HashCode.Combine(view.MaxHp, view.Level, view.TemplateId, view.MoveSpeed, view.AttackRate,
             HashCode.Combine(appearance.WeaponKey, appearance.ArmorKey, appearance.OffHandKey, appearance.InVillage, appearance.Tier, appearance.HairIndex,
-                HashCode.Combine(appearance.HelperPet, appearance.Phoenix, appearance.BigHead)), view.OwnerId,
+                HashCode.Combine(appearance.HelperPet, appearance.Phoenix, appearance.BigHead, appearance.WeaponGlow, appearance.OffHandGlow)), view.OwnerId,
             view.ModelScale);
     }
 

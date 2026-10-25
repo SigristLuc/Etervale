@@ -28,6 +28,10 @@ public readonly struct PlayerAppearanceView
     public string OffHandKey { get; init; } = "";
     public bool InVillage { get; init; }
 
+    // How the held weapon and off-hand item glow (HeldItemGlow).
+    public Simulation.Items.HeldItemGlow WeaponGlow { get; init; } = Simulation.Items.HeldItemGlow.None;
+    public Simulation.Items.HeldItemGlow OffHandGlow { get; init; } = Simulation.Items.HeldItemGlow.None;
+
     // Premium looks: the helper pet (1 Terry, 2 Nepsys, 3 Io, 4 Mute), the Phoenix and the big head (1 or 2).
     public int HelperPet { get; init; }
     public bool Phoenix { get; init; }

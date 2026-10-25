@@ -2,12 +2,14 @@ using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Effects;
+using PristonTale.Simulation.Items;
 
 namespace PristonTale.Gameplay.World.Remote;
 
 // Draws an entity's skill look on its actors: the body, head and held items take the tint, opacity, wobble and overlay;
 // a shield model swap, an enlarged weapon copy and afterimages are extra actors this presenter adds, keeps attached to
-// the current body and removes when the look ends or the body is replaced.
+// the current body and removes when the look ends or the body is replaced. A held item's glow (PaintGlow) is drawn
+// each frame on top of the look the item last took; an item that stops glowing returns to that look.
 public sealed class ActorLookPresenter
 {
     // The vague body's overlay: an item mix texture scrolled by the fifth scroll form (5/256 of a turn per 64 ms).
@@ -21,6 +23,11 @@ public sealed class ActorLookPresenter
     private readonly string _overlay;
     private readonly Dictionary<string, Task<PristonActor>> _shields = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ulong, Extras> _extras = new();
+    // The look each held item last took (absent: normal), and the items that glowed this and the previous frame.
+    private readonly Dictionary<ActorHandle, PristonActorAppearance> _held = new();
+    private readonly HashSet<ActorHandle> _glowing = new();
+    private readonly HashSet<ActorHandle> _glowed = new();
+    private readonly HashSet<string> _overlays = new(StringComparer.OrdinalIgnoreCase);
 
     public ActorLookPresenter(IActorScene scene, PristonActorLoader loader, string assetRoot)
     {
@@ -79,6 +86,55 @@ public sealed class ActorLookPresenter
         UpdateAfterimages(extras, handles, look);
     }
 
+    // One held item's glow this frame, at the clock in milliseconds.
+    public void PaintGlow(ActorHandle handle, in HeldItemGlow glow, long nowMs)
+    {
+        if (!handle.IsValid || !glow.Glows)
+        {
+            return;
+        }
+
+        var look = _held.TryGetValue(handle, out var held) ? held : PristonActorAppearance.Normal;
+        var sample = glow.Sample(nowMs);
+        var overlay = look.Overlay;
+        var form = look.OverlayForm;
+        if (glow.MixTexture.Length > 0)
+        {
+            overlay = Path.Combine(_assetRoot, glow.MixTexture);
+            form = (uint)glow.MixScroll;
+            if (_overlays.Add(overlay))
+            {
+                _ = _scene.PrepareActorOverlayAsync(overlay);
+            }
+        }
+
+        _scene.SetActorAppearance(handle, look with
+        {
+            Tint = look.Tint + new Vector3(sample.R, sample.G, sample.B),
+            Opacity = look.Opacity * sample.Opacity,
+            Overlay = overlay,
+            OverlayForm = form,
+            Scale = look.Scale * sample.Scale
+        });
+        _glowing.Add(handle);
+    }
+
+    // Returns the items that glowed last frame and not in this one to their look.
+    public void EndGlowFrame()
+    {
+        foreach (var handle in _glowed)
+        {
+            if (!_glowing.Contains(handle))
+            {
+                _scene.SetActorAppearance(handle, _held.TryGetValue(handle, out var look) ? look : PristonActorAppearance.Normal);
+            }
+        }
+
+        _glowed.Clear();
+        _glowed.UnionWith(_glowing);
+        _glowing.Clear();
+    }
+
     // Removes every extra actor (scene change).
     public void Clear()
     {
@@ -88,6 +144,9 @@ public sealed class ActorLookPresenter
         }
 
         _extras.Clear();
+        _held.Clear();
+        _glowed.Clear();
+        _glowing.Clear();
     }
 
     private void Paint(PlayerActorHandles handles, in PristonActorAppearance body, in PristonActorAppearance offHand)
@@ -103,6 +162,26 @@ public sealed class ActorLookPresenter
         if (handles.OffHand.IsValid)
         {
             _scene.SetActorAppearance(handles.OffHand, offHand);
+        }
+
+        Hold(handles.Weapon, body);
+        Hold(handles.OffHand, offHand);
+    }
+
+    private void Hold(ActorHandle handle, in PristonActorAppearance look)
+    {
+        if (!handle.IsValid)
+        {
+            return;
+        }
+
+        if (look == PristonActorAppearance.Normal)
+        {
+            _held.Remove(handle);
+        }
+        else
+        {
+            _held[handle] = look;
         }
     }
 

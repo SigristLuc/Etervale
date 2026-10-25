@@ -321,6 +321,8 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   equipment slot equips, right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
   slot first), drinks a potion or uses a usable item (`HudItemUseController`: the Teleport Core window, confirmations,
   the item-use request). One command in flight; it carries the `InventoryRevision` it was built from.
+- Held items (`GameScene.HeldItems.cs`): the weapon and off-hand glow and the class-up lights of every drawn player
+  ([effects.md](effects.md#held-item-glow)).
 - Wing warp map (`HudWingGate`): `WG_map.tga` (256 x 256) at (472, 120) with the icon of each stone the carried wing
   reaches, three rings growing and fading from the hovered icon, the help box at (50, 45) with the hovered stone's name
   and `WarpGateDoc` document (the fee table of `Default.sin`, its `%d` filled with the wings' fees, while none is

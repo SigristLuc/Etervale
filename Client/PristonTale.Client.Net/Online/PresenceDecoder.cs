@@ -487,6 +487,9 @@ internal sealed class PresenceDecoder
     private PresenceUpdate Update(List<EntitySpawnInfo> spawns, List<EntityStateInfo> states, List<ulong>? removed = null, List<CombatEventInfo>? events = null) =>
         new(_tick, spawns, states, removed ?? [], events ?? [], FieldId);
 
+    private static Simulation.Items.HeldItemGlow Glow(in DescribedGlow glow) =>
+        new(glow.R, glow.G, glow.B, glow.A, glow.Blink, glow.Scale, glow.Mix, glow.MixScroll, glow.ClassUp);
+
     private EntitySpawnInfo Spawn(ulong serial, Tracked tracked)
     {
         var description = tracked.Description!;
@@ -499,7 +502,9 @@ internal sealed class PresenceDecoder
             {
                 HelperPet = looks.HelperPet,
                 Phoenix = looks.Phoenix,
-                BigHead = looks.BigHead
+                BigHead = looks.BigHead,
+                WeaponGlow = Glow(looks.WeaponGlow),
+                OffHandGlow = Glow(looks.OffHandGlow)
             };
         }
 

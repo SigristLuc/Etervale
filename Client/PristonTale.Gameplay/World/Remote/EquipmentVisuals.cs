@@ -64,6 +64,9 @@ public static class EquipmentVisuals
         };
     }
 
+    // True when the item is held in the left hand (bows); false for the right hand or an unknown key.
+    public static bool HeldInLeftHand(string key) => Items.TryGetValue(key, out var item) && item.LeftHand;
+
     public static string WeaponBone(string key, bool village)
     {
         if (!Items.TryGetValue(key, out var item))

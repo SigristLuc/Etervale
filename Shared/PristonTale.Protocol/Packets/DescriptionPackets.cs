@@ -54,7 +54,8 @@ public readonly record struct DescribeEntityPacket(ulong Serial)
 }
 
 // A player's looks: class, tier, face, hair, head model, the equipped weapon, armour and off-hand codes, the village
-// flag, the Phoenix, the helper pet (0 none) and the head look (0 normal, 1-2 big head, 3 soccer ball).
+// flag, the Phoenix, the helper pet (0 none), the head look (0 normal, 1-2 big head, 3 soccer ball) and how the held
+// weapon and off-hand item glow.
 public sealed record DescribedPlayer(
     int Job,
     int Tier,
@@ -67,7 +68,46 @@ public sealed record DescribedPlayer(
     bool InVillage,
     bool Phoenix,
     int HelperPet,
-    int BigHead);
+    int BigHead)
+{
+    public DescribedGlow WeaponGlow { get; init; } = DescribedGlow.None;
+    public DescribedGlow OffHandGlow { get; init; } = DescribedGlow.None;
+}
+
+// A held item's glow: {int8 Blink (0 none, below 0 steady), int16 R, G, B, A, float32 Scale, int8 Mix (-1 none), uint8
+// MixScroll, uint8 Flags (1 class-up light)}.
+public readonly record struct DescribedGlow(int Blink, short R, short G, short B, short A, float Scale, int Mix, int MixScroll, bool ClassUp)
+{
+    public const int Size = 1 + 8 + 4 + 3;
+
+    public static readonly DescribedGlow None = new(0, 0, 0, 0, 0, 0f, -1, 0, false);
+
+    public void Write(ref PacketWriter writer)
+    {
+        writer.Byte((byte)(sbyte)Math.Clamp(Blink, sbyte.MinValue, sbyte.MaxValue));
+        writer.Int16(R);
+        writer.Int16(G);
+        writer.Int16(B);
+        writer.Int16(A);
+        writer.Single(Scale);
+        writer.Byte((byte)(sbyte)Math.Clamp(Mix, sbyte.MinValue, sbyte.MaxValue));
+        writer.Byte((byte)Math.Clamp(MixScroll, 0, byte.MaxValue));
+        writer.Byte((byte)(ClassUp ? 1 : 0));
+    }
+
+    public static DescribedGlow Read(ref PacketReader reader)
+    {
+        var blink = (sbyte)reader.Byte();
+        var r = reader.Int16();
+        var g = reader.Int16();
+        var b = reader.Int16();
+        var a = reader.Int16();
+        var scale = reader.Single();
+        var mix = (sbyte)reader.Byte();
+        var scroll = reader.Byte();
+        return new DescribedGlow(blink, r, g, b, a, scale, mix, scroll, (reader.Byte() & 1) != 0);
+    }
+}
 
 // A monster's or NPC's template part: its shared template code and scale, sound code, portrait offsets, brood, the
 // owner of a summon or pet with its own scale (0 keeps the template's), and an NPC's service bits.
@@ -86,7 +126,7 @@ public sealed record DescribedTemplate(
 // S->C: what a viewer needs to draw an entity, for one description revision. {header, uint16 Version = 1, uint16 Flags =
 // 0, varuint Serial, uint8 Revision, uint8 Kind, varuint Level, varuint MoveSpeed, float32 AttackRate, text Name, text
 // Model}, then for a player {varuint Job, Tier, Face, Hair, text HeadModel, uint32 Weapon, Armor, OffHand, uint8 Flags (1
-// village, 2 Phoenix), uint8 HelperPet, uint8 BigHead}, else {varuint Template, float32 TemplateScale, varuint SoundCode,
+// village, 2 Phoenix), uint8 HelperPet, uint8 BigHead, glow WeaponGlow, glow OffHandGlow (DescribedGlow)}, else {varuint Template, float32 TemplateScale, varuint SoundCode,
 // varint PortraitY, PortraitZ, uint8 Brood, varuint Owner, float32 InstanceScale, uint32 NpcServices, varuint Class (the
 // monster class: 1 boss, 200 hammer)}. Text is UTF-8 with a
 // uint16 byte length.
@@ -102,8 +142,8 @@ public sealed record EntityDescriptionPacket(
     DescribedPlayer? Player = null,
     DescribedTemplate? Template = null)
 {
-    // The player part (four varuints, the head model, three codes, three bytes) is the larger of the two tails.
-    private const int PlayerPart = 5 * 4 + 2 + DescriptionWire.MaxModelBytes + 4 * 3 + 3;
+    // The player part (four varuints, the head model, three codes, three bytes, two glows) is the larger of the two tails.
+    private const int PlayerPart = 5 * 4 + 2 + DescriptionWire.MaxModelBytes + 4 * 3 + 3 + 2 * DescribedGlow.Size;
     public const int MaximumSize = 8 + 4 + VarInt.MaxBytes64 + 2 + 5 * 2 + 4 + (2 + DescriptionWire.MaxNameBytes) + (2 + DescriptionWire.MaxModelBytes)
         + PlayerPart;
 
@@ -133,6 +173,8 @@ public sealed record EntityDescriptionPacket(
             writer.Byte((byte)((player.InVillage ? 1 : 0) | (player.Phoenix ? 2 : 0)));
             writer.Byte((byte)Math.Clamp(player.HelperPet, 0, byte.MaxValue));
             writer.Byte((byte)Math.Clamp(player.BigHead, 0, byte.MaxValue));
+            player.WeaponGlow.Write(ref writer);
+            player.OffHandGlow.Write(ref writer);
         }
         else
         {
@@ -179,8 +221,14 @@ public sealed record EntityDescriptionPacket(
                 var flags = reader.Byte();
                 var pet = reader.Byte();
                 var bigHead = reader.Byte();
+                var weaponGlow = DescribedGlow.Read(ref reader);
+                var offHandGlow = DescribedGlow.Read(ref reader);
                 return new EntityDescriptionPacket(serial, revision, kind, level, moveSpeed, attackRate, name, model,
-                    new DescribedPlayer(job, tier, face, hair, head, weapon, armor, offHand, (flags & 1) != 0, (flags & 2) != 0, pet, bigHead));
+                    new DescribedPlayer(job, tier, face, hair, head, weapon, armor, offHand, (flags & 1) != 0, (flags & 2) != 0, pet, bigHead)
+                    {
+                        WeaponGlow = weaponGlow,
+                        OffHandGlow = offHandGlow
+                    });
             }
             case DescribedKind.Monster or DescribedKind.Npc:
             {
