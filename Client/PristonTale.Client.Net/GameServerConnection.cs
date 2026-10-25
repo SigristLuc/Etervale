@@ -26,7 +26,6 @@ namespace PristonTale.Client.Net;
 public sealed class GameServerConnection : IGameBackend
 {
     // Client version of the English retail build; the server's VERSION reply sets the minimum.
-    public const int EnglishClientVersion = 3122;
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(4);
     private static readonly TimeSpan DescriptionRetryInterval = TimeSpan.FromSeconds(1);
 
@@ -57,13 +56,12 @@ public sealed class GameServerConnection : IGameBackend
     private Exception? _terminalError;
     private IReadOnlyList<CharacterSummary> _characters = [];
     private PendingLogin? _login;
-    private TaskCompletionSource<CharCommand2>? _characterReply;
+    private TaskCompletionSource<CharacterResultPacket>? _characterReply;
     private TaskCompletionSource<EnterWorldOutcome>? _enter;
     private TaskCompletionSource<bool>? _joined;
     private TaskCompletionSource<bool>? _left;
     private WorldEntryPacket? _entered;
-    private int _versionLimit;
-    private int _clientVersion = EnglishClientVersion;
+    private uint _minimumProtocol;
     private string _account = "";
     private bool _disposed;
 
@@ -88,14 +86,13 @@ public sealed class GameServerConnection : IGameBackend
 
     public long BytesSent => _connection?.BytesSent ?? 0;
 
-    public async Task<LoginOutcome> LoginAsync(string account, string password, int clientVersion, CancellationToken ct = default)
+    public async Task<LoginOutcome> LoginAsync(string account, string password, CancellationToken ct = default)
     {
         await ConnectAsync(ct);
         await _requestGate.WaitAsync(ct);
         try
         {
-            _clientVersion = clientVersion;
-            if (!PristonText.IsRepresentable(account, CharCommand2.TextLength) || !PristonText.IsRepresentable(password, CharCommand2.TextLength))
+            if (!Fits(account, AccountWire.MaxAccountBytes) || !Fits(password, AccountWire.MaxPasswordBytes))
             {
                 return LoginOutcome.Denied(LoginFailure.BadCredentials);
             }
@@ -103,7 +100,7 @@ public sealed class GameServerConnection : IGameBackend
             var pending = new PendingLogin();
             _login = pending;
             _account = account;
-            Send(new CharCommand2(PristonOpcodes.IdGetUserInfo, 0, 0, 0, account, password), encrypt: true);
+            SendEncrypted(new LoginPacket(ProtocolVersion.Current, account, password).Write);
             var outcome = await pending.Completion.Task.WaitAsync(ct);
             if (outcome.Ok)
             {
@@ -127,16 +124,15 @@ public sealed class GameServerConnection : IGameBackend
 
     public async Task<CreateCharacterOutcome> CreateCharacterAsync(string name, int classId, int faceIndex, CancellationToken ct = default)
     {
-        if (!PristonText.IsRepresentable(name, CharCommand2.TextLength))
+        if (!Fits(name, AccountWire.MaxNameBytes))
         {
             return CreateCharacterOutcome.Failed(CreateCharacterFailure.NameLength);
         }
 
-        // INSRECORDDATA carries the class code and face in LParam/SParam, which the original leaves unset.
-        var reply = await CharacterRequestAsync(new CharCommand2(PristonOpcodes.InsRecordData, classId, 0, faceIndex, _account, name), ct);
-        if (reply.WParam == 0)
+        var reply = await CharacterRequestAsync(new CharacterCommandPacket(CharacterAction.Create, classId, faceIndex, name), ct);
+        if (!reply.Ok)
         {
-            return CreateCharacterOutcome.Failed((CreateCharacterFailure)reply.LParam);
+            return CreateCharacterOutcome.Failed((CreateCharacterFailure)reply.Failure);
         }
 
         var summary = _characters.FirstOrDefault(candidate => string.Equals(candidate.Name, name.Trim(), StringComparison.OrdinalIgnoreCase));
@@ -145,23 +141,35 @@ public sealed class GameServerConnection : IGameBackend
 
     public async Task<DeleteCharacterOutcome> DeleteCharacterAsync(string name, CancellationToken ct = default)
     {
-        if (!PristonText.IsRepresentable(name, CharCommand2.TextLength))
+        if (!Fits(name, AccountWire.MaxNameBytes))
         {
             return DeleteCharacterOutcome.Denied("character not found");
         }
 
-        var reply = await CharacterRequestAsync(new CharCommand2(PristonOpcodes.DelRecordData, 0, 0, 0, _account, name), ct);
-        return reply.WParam != 0 ? DeleteCharacterOutcome.Success() : DeleteCharacterOutcome.Denied("character not found");
+        var reply = await CharacterRequestAsync(new CharacterCommandPacket(CharacterAction.Delete, 0, 0, name), ct);
+        return reply.Ok ? DeleteCharacterOutcome.Success() : DeleteCharacterOutcome.Denied("character not found");
     }
 
-    private async Task<CharCommand2> CharacterRequestAsync(CharCommand2 request, CancellationToken ct)
+    private static bool Fits(string text, int maxBytes) => text.Length > 0 && System.Text.Encoding.UTF8.GetByteCount(text) <= maxBytes;
+
+    private void SendEncrypted(ClientWrite write)
+    {
+        lock (_sendGate)
+        {
+            Connection.SendEncrypted(_scratch.AsSpan(0, write(_scratch)));
+        }
+    }
+
+    private delegate int ClientWrite(Span<byte> destination);
+
+    private async Task<CharacterResultPacket> CharacterRequestAsync(CharacterCommandPacket request, CancellationToken ct)
     {
         await _requestGate.WaitAsync(ct);
         try
         {
-            var pending = new TaskCompletionSource<CharCommand2>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var pending = new TaskCompletionSource<CharacterResultPacket>(TaskCreationOptions.RunContinuationsAsynchronously);
             _characterReply = pending;
-            Send(request, encrypt: true);
+            SendEncrypted(request.Write);
             return await pending.Task.WaitAsync(ct);
         }
         finally
@@ -173,7 +181,7 @@ public sealed class GameServerConnection : IGameBackend
 
     public async Task<EnterWorldOutcome> EnterWorldAsync(string characterName, CancellationToken ct = default)
     {
-        if (characterName.Length == 0 || System.Text.Encoding.UTF8.GetByteCount(characterName) > WorldEntryWire.MaxNameBytes)
+        if (!Fits(characterName, WorldEntryWire.MaxNameBytes))
         {
             return EnterWorldOutcome.Denied(EnterWorldFailure.NotFound);
         }
@@ -556,7 +564,7 @@ public sealed class GameServerConnection : IGameBackend
     private async Task HeartbeatAsync(PristonConnection connection)
     {
         using var timer = new PeriodicTimer(DescriptionRetryInterval);
-        var counter = 0;
+        var counter = 0u;
         var elapsed = TimeSpan.Zero;
         try
         {
@@ -570,8 +578,7 @@ public sealed class GameServerConnection : IGameBackend
                 }
 
                 elapsed = TimeSpan.Zero;
-                // CheckNetState {LParam = counter, WParam = client time}.
-                Send(new TransCommand(PristonOpcodes.CheckNetState, ++counter, Environment.TickCount), encrypt: true);
+                SendEncrypted(new HeartbeatPacket(++counter, Environment.TickCount64).Write);
             }
         }
         catch (Exception ex) when (ex is OperationCanceledException or IOException or InvalidOperationException)
@@ -591,26 +598,20 @@ public sealed class GameServerConnection : IGameBackend
         var code = BinaryPrimitives.ReadUInt32LittleEndian(packet[4..]);
         switch (code)
         {
-            case PristonOpcodes.Version:
-                _versionLimit = TransCommand.Read(packet).WParam;
+            case EtervaleOpcodes.ServerHello:
+                _minimumProtocol = ServerHelloPacket.Read(packet).MinimumProtocol;
                 break;
-            case PristonOpcodes.FailConnect:
-                OnFailConnect(TransCommand.Read(packet));
+            case EtervaleOpcodes.LoginResult:
+                OnLoginResult(LoginResultPacket.Read(packet));
                 break;
-            case PristonOpcodes.IdSetUserInfo:
-                OnCharacterList(UserCharacterList.Read(packet));
+            case EtervaleOpcodes.CharacterList:
+                OnCharacterList(CharacterListPacket.Read(packet));
                 break;
-            case PristonOpcodes.ServerInfo:
-                if (_login is { } login)
-                {
-                    login.ServerList = true;
-                    TryCompleteLogin(login);
-                }
-
+            case EtervaleOpcodes.CharacterResult:
+                _characterReply?.TrySetResult(CharacterResultPacket.Read(packet));
                 break;
-            case PristonOpcodes.InsRecordData:
-            case PristonOpcodes.DelRecordData:
-                _characterReply?.TrySetResult(CharCommand2.Read(packet));
+            case EtervaleOpcodes.Heartbeat:
+                HeartbeatPacket.Read(packet);
                 break;
             case EtervaleOpcodes.WorldEntry:
                 OnWorldEntry(WorldEntryPacket.Read(packet));
@@ -760,35 +761,30 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
-    private void OnFailConnect(TransCommand failure)
+    // A successful login sends the character list first. A client older than the server's minimum cannot play.
+    private void OnLoginResult(LoginResultPacket result)
     {
-        // FAILCONNECT {WParam = reason, EParam = 1/2 login}.
-        _login?.Completion.TrySetResult(LoginOutcome.Denied((LoginFailure)failure.WParam));
-    }
-
-    private void OnCharacterList(UserCharacterList list)
-    {
-        var summaries = list.Characters.Select(entry => new CharacterSummary(entry.Name, (int)entry.JobCode, entry.Level, entry.FaceIndex, entry.Tier,
-            entry.HairIndex, ItemKey(entry.ArmorCode), ItemKey(entry.WeaponCode), ItemKey(entry.OffHandCode), entry.InVillage)).ToArray();
-        Volatile.Write(ref _characters, summaries);
-        if (_login is { } login)
-        {
-            login.CharacterList = true;
-            TryCompleteLogin(login);
-        }
-    }
-
-    private void TryCompleteLogin(PendingLogin login)
-    {
-        if (!login.CharacterList || !login.ServerList)
+        if (_login is not { } login)
         {
             return;
         }
 
-        // As in the original, a client older than the server's limit cannot play.
-        login.Completion.TrySetResult(_clientVersion < _versionLimit
-            ? new LoginOutcome(false, "", "client version is older than the server requires") { Failure = LoginFailure.LoginDenied }
+        if (result.Status != LoginStatus.Ok)
+        {
+            login.Completion.TrySetResult(LoginOutcome.Denied((LoginFailure)result.Status));
+            return;
+        }
+
+        login.Completion.TrySetResult(ProtocolVersion.Current < _minimumProtocol
+            ? LoginOutcome.Denied(LoginFailure.OutdatedClient)
             : LoginOutcome.Success(_account, $"welcome, {_account}"));
+    }
+
+    private void OnCharacterList(CharacterListPacket list)
+    {
+        var summaries = list.Characters.Select(entry => new CharacterSummary(entry.Name, (int)entry.ClassCode, entry.Level, entry.FaceIndex, entry.Tier,
+            entry.HairIndex, ItemKey(entry.ArmorCode), ItemKey(entry.WeaponCode), ItemKey(entry.OffHandCode), entry.InVillage)).ToArray();
+        Volatile.Write(ref _characters, summaries);
     }
 
     // Entity ids travel as 64-bit values; the world hands out 32-bit ones.
@@ -824,38 +820,6 @@ public sealed class GameServerConnection : IGameBackend
         lock (_sendGate)
         {
             Connection.Send(_scratch.AsSpan(0, new DescribeEntityPacket(serial).Write(_scratch)));
-        }
-    }
-
-    private void Send(TransCommand command, bool encrypt)
-    {
-        lock (_sendGate)
-        {
-            var span = _scratch.AsSpan(0, command.Write(_scratch));
-            if (encrypt)
-            {
-                Connection.SendEncrypted(span);
-            }
-            else
-            {
-                Connection.Send(span);
-            }
-        }
-    }
-
-    private void Send(CharCommand2 command, bool encrypt)
-    {
-        lock (_sendGate)
-        {
-            var span = _scratch.AsSpan(0, command.Write(_scratch));
-            if (encrypt)
-            {
-                Connection.SendEncrypted(span);
-            }
-            else
-            {
-                Connection.Send(span);
-            }
         }
     }
 
@@ -900,8 +864,6 @@ public sealed class GameServerConnection : IGameBackend
     private sealed class PendingLogin
     {
         public TaskCompletionSource<LoginOutcome> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public bool CharacterList { get; set; }
-        public bool ServerList { get; set; }
     }
 
     private sealed class NpcRequest

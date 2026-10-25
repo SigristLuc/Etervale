@@ -14,8 +14,7 @@ internal static class BinaryProtocolTests
     {
         yield return ("Priston TCP header handles partial reads and rejects invalid lengths", HeaderAsync);
         yield return ("Priston packet cipher matches the default English client build", CipherAsync);
-        yield return ("Priston server list preserves the classic field layout and counts", ServerListAsync);
-        yield return ("character list is 1484 bytes with 240-byte character slots", CharacterListAsync);
+        yield return ("hello, login, character list and commands and heartbeats round-trip with UTF-8 text", AccountAsync);
         yield return ("movement reports, attack requests and field warps round-trip with 64-bit targets and sequences", PlayerActionsAsync);
         yield return ("world entry, join and leave messages round-trip with 64-bit ids and UTF-8 names", WorldEntryAsync);
         yield return ("replay window rejects repeats and stale counters and survives the 16-bit wrap", ReplayWindowAsync);
@@ -65,50 +64,31 @@ internal static class BinaryProtocolTests
         return Task.CompletedTask;
     }
 
-    private static Task ServerListAsync()
+    private static Task AccountAsync()
     {
-        var entry = new PristonServerEntry("Alpha", "127.0.0.1", "", "", 10012, 0, 0, 1);
-        var source = new PristonServerList("Etervale", 0x12345678, 7, 0, 1, [entry]);
-        Span<byte> packet = stackalloc byte[PristonServerListCodec.HeaderSize + PristonServerListCodec.EntrySize];
-        var written = PristonServerListCodec.Write(packet, source, Encoding.ASCII);
-        Assert.True(written == 152, "single-entry server list has the wrong Win32 size");
-        Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(packet[4..]) == PristonServerListCodec.PacketCode, "server-list opcode changed");
-        Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(packet[24..]) == 0x12345678, "server time has the wrong offset");
-        Assert.True(BinaryPrimitives.ReadInt32LittleEndian(packet[36..]) == 0
-            && BinaryPrimitives.ReadInt32LittleEndian(packet[40..]) == 1, "server counts have the wrong offsets");
-        Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(packet[136..]) == 10012
-            && BinaryPrimitives.ReadUInt32LittleEndian(packet[148..]) == 1, "entry ports or connection state have the wrong offsets");
-        Assert.True(PristonServerListCodec.TryRead(packet, Encoding.ASCII, out var decoded)
-            && decoded is not null
-            && decoded.Name == source.Name
-            && decoded.GameServerCount == 1
-            && decoded.Entries[0] == entry, "server-list round trip changed fields");
-        var rejectedLossyName = false;
-        try
-        {
-            PristonServerListCodec.Write(new byte[packet.Length], source with { Name = "Étervale" }, Encoding.ASCII);
-        }
-        catch (ArgumentException)
-        {
-            rejectedLossyName = true;
-        }
+        var buffer = new byte[PristonFrameCodec.MaxFrameSize];
+        var hello = new ServerHelloPacket(ProtocolVersion.Current, ProtocolVersion.Minimum, 12);
+        Assert.True(ServerHelloPacket.Read(buffer.AsSpan(0, hello.Write(buffer))) == hello, "server hello round trip changed fields");
+        var login = new LoginPacket(ProtocolVersion.Current, "conta", "sênha✓");
+        Assert.True(LoginPacket.Read(buffer.AsSpan(0, login.Write(buffer))) == login, "login round trip changed the account or password");
+        Assert.True(LoginResultPacket.Read(buffer.AsSpan(0, new LoginResultPacket(LoginStatus.Busy).Write(buffer))).Status == LoginStatus.Busy,
+            "login result lost its status");
 
-        Assert.True(rejectedLossyName, "a lossy server name was written to the fixed char field");
-        BinaryPrimitives.WriteInt32LittleEndian(packet[36..], int.MaxValue);
-        Assert.True(!PristonServerListCodec.TryRead(packet, Encoding.ASCII, out _), "overflowing server counts were accepted");
-        return Task.CompletedTask;
-    }
+        var entry = new CharacterListEntry("Álvaro", 6, 42, 1, 2, 1, 0x01010300, 0x02010100, 0, true);
+        var list = new CharacterListPacket([entry, entry with { Name = "Beta", InVillage = false }]);
+        var read = CharacterListPacket.Read(buffer.AsSpan(0, list.Write(buffer)));
+        Assert.True(read.Characters.SequenceEqual(list.Characters), "character list round trip changed fields");
+        Assert.True(CharacterListPacket.Read(buffer.AsSpan(0, new CharacterListPacket([]).Write(buffer))).Characters.Count == 0, "an empty list did not read back");
 
-    private static Task CharacterListAsync()
-    {
-        var entry = new UserCharacterEntry("Alpha", "", "", 6, 42, 0, 0x02010100, 3, 1024, -2048, 2, 1, 1, 0x01010300, 0, true);
-        var packet = new byte[UserCharacterList.Size];
-        Assert.True(new UserCharacterList("acct", [entry]).Write(packet) == 1484, "character list is not 1484 bytes");
-        Assert.True(BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(40)) == 1, "PlayUserCount offset changed");
-        Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(44 + 160)) == 6 && BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(44 + 164)) == 42
-            && BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(44 + 172)) == 0x02010100
-            && BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(44 + 184)) == -2048, "character slot field offsets changed");
-        Assert.True(UserCharacterList.Read(packet).Characters.Single() == entry, "character list round trip changed fields");
+        var create = new CharacterCommandPacket(CharacterAction.Create, 3, 2, "Nova");
+        Assert.True(CharacterCommandPacket.Read(buffer.AsSpan(0, create.Write(buffer))) == create, "character command round trip changed fields");
+        var length = create.Write(buffer);
+        buffer[10] = 9;
+        Assert.ThrowsAsync(() => Task.Run(() => CharacterCommandPacket.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
+        var result = new CharacterResultPacket(CharacterAction.Create, false, 4, "Nova");
+        Assert.True(CharacterResultPacket.Read(buffer.AsSpan(0, result.Write(buffer))) == result, "character result round trip changed fields");
+        var beat = new HeartbeatPacket(uint.MaxValue, long.MaxValue);
+        Assert.True(HeartbeatPacket.Read(buffer.AsSpan(0, beat.Write(buffer))) == beat, "heartbeat round trip changed fields");
         return Task.CompletedTask;
     }
 
@@ -195,18 +175,19 @@ internal static class BinaryProtocolTests
             return ValueTask.CompletedTask;
         }, timeout.Token);
         var senderRun = sender.RunAsync(_ => ValueTask.CompletedTask, timeout.Token);
-        var buffer = new byte[TransCommand.Size];
-        new TransCommand(PristonOpcodes.CheckNetState, 1, 2, 3, 4).Write(buffer);
+        var buffer = new byte[HeartbeatPacket.Size];
+        var beat = new HeartbeatPacket(1, 0x0102_0304_0506);
+        beat.Write(buffer);
         Assert.True(sender.SendEncrypted(buffer), "encrypted send was refused");
         for (var index = 0; index < 100; index++)
         {
-            new TransCommand(EtervaleOpcodes.DescribeEntity, 0, index).Write(buffer);
+            new HeartbeatPacket((uint)index, 0).Write(buffer);
             sender.Send(buffer);
         }
 
         await done.Task.WaitAsync(timeout.Token);
-        Assert.True(TransCommand.Read(received[0]) == new TransCommand(PristonOpcodes.CheckNetState, 1, 2, 3, 4), "encrypted packet changed in transit");
-        Assert.True(received.Skip(1).Select(packet => TransCommand.Read(packet).WParam).SequenceEqual(Enumerable.Range(0, 100)), "plain packets reordered");
+        Assert.True(HeartbeatPacket.Read(received[0]) == beat, "encrypted packet changed in transit");
+        Assert.True(received.Skip(1).Select(packet => (int)HeartbeatPacket.Read(packet).Counter).SequenceEqual(Enumerable.Range(0, 100)), "plain packets reordered");
         Assert.True(sender.BytesSent == 24 + 8 + 100 * 24, "encrypted envelope size or coalesced byte count changed");
         sender.Close("test done");
         await Task.WhenAll(serverRun, senderRun);

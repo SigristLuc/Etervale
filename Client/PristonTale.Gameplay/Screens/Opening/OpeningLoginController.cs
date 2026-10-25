@@ -9,7 +9,6 @@ namespace PristonTale.Gameplay.Screens.Opening;
 internal sealed class OpeningLoginController : IDisposable
 {
     private enum Phase { Login, Authenticating }
-    private const int ClientVersion = PristonTale.Client.Net.GameServerConnection.EnglishClientVersion;
 
     private readonly ScreenContext _context;
     private readonly LoginPanel _login;
@@ -52,7 +51,7 @@ internal sealed class OpeningLoginController : IDisposable
             _context.RenewBackend();
         }
 
-        _loginTask = _context.Backend.LoginAsync(_login.Account.Text, _login.Password.Text, ClientVersion, _loginCts.Token);
+        _loginTask = _context.Backend.LoginAsync(_login.Account.Text, _login.Password.Text, _loginCts.Token);
     }
 
     private LoginResult PollLogin()

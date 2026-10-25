@@ -11,7 +11,7 @@ public interface IGameBackend : IAsyncDisposable
     // through a new backend.
     bool RequiresNewConnection { get; }
 
-    Task<LoginOutcome> LoginAsync(string account, string password, int clientVersion, CancellationToken ct = default);
+    Task<LoginOutcome> LoginAsync(string account, string password, CancellationToken ct = default);
 
     Task<IReadOnlyList<CharacterSummary>> ListCharactersAsync(CancellationToken ct = default);
 
@@ -23,6 +23,6 @@ public interface IGameBackend : IAsyncDisposable
 
     IPlayChannel OpenPlayChannel(CancellationToken ct = default);
 
-    // Live catalog: monster and NPC templates appear as their PLAYERINFO descriptions arrive.
+    // Live catalog: monster and NPC templates appear as their descriptions arrive.
     Task<WorldRenderCatalog> GetWorldCatalogAsync(CancellationToken ct = default);
 }

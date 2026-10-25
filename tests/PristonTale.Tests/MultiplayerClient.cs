@@ -46,7 +46,7 @@ internal sealed class MultiplayerClient : IAsyncDisposable
     {
         var connection = new GameServerConnection(server.Address);
         var client = new MultiplayerClient(connection, character);
-        var login = await connection.LoginAsync(account, MultiplayerServer.Password, GameServerConnection.EnglishClientVersion, client._lifetime.Token);
+        var login = await connection.LoginAsync(account, MultiplayerServer.Password, client._lifetime.Token);
         Assert.True(login.Ok, $"{account} could not log in: {login.Message}");
         return client;
     }

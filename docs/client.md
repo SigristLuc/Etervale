@@ -157,14 +157,14 @@ frame.
 
 | Step | Client sends | Completes on |
 |---|---|---|
-| Connect | First `LoginAsync` opens the socket and starts `RunAsync` (receive) and `HeartbeatAsync` (CHECK_NETSTATE every 4 s) | — |
-| Login | Encrypted GETUSERINFO (account, password); client version `EnglishClientVersion` = 3122 | Character list (IDSETUSERINFO) and SERVERINFO both arrived; version below the VERSION limit or FAILCONNECT is a denial |
-| Characters | `ListCharactersAsync` returns the list cached at login; create/delete send INSRECORDDATA/DELRECORDDATA | The matching reply opcode |
+| Connect | First `LoginAsync` opens the socket and starts `RunAsync` (receive) and `HeartbeatAsync` (`Heartbeat` every 4 s) | `ServerHello` (minimum protocol) |
+| Login | Encrypted `Login` (protocol version, account, password) | `LoginResult` after the `CharacterList`; a non-zero status, or a `ProtocolVersion.Current` below the hello's minimum, is a denial |
+| Characters | `ListCharactersAsync` returns the list cached at login; create/delete send `CharacterCommand` | `CharacterResult` (a fresh list arrives first on success) |
 | Enter world | `EnterWorld` with the name | `WorldEntry` (id, field, spawn point; a non-zero status is a denial) |
 | Open play | `OpenPlayChannel` -> `OnlinePlayChannel` sends `JoinWorld` with the entered id | `WorldJoined` |
 | Leave | Disposing the play channel sends `LeaveWorld` | The answer with Saved 1 (5 s timeout) |
 
-Correlation rules (the original protocol has no request ids):
+Correlation rules (requests without an operation id):
 
 - Login, character and world-entry requests, open play and leave are serialised by `_requestGate` and complete on
   their reply opcodes.

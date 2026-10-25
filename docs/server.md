@@ -148,7 +148,7 @@ tick rate 20 Hz, send backlog limit 512 KiB per connection (`PristonConnectionOp
 1. `PristonTcpServer` accepts, normalises IPv4-mapped addresses (`NetworkLimits.AddressOf`) and calls
    `ConnectionLimiter.TryAcquire`; a refused socket is closed without a reply.
 2. A `ClientSession` wraps a `PristonConnection` (framing, cipher, replay window, coalesced writer; see
-   [protocol.md](protocol.md#transport)) and sends the encrypted `VERSION` command (`WParam` = 167).
+   [protocol.md](protocol.md#transport)) and sends the encrypted `ServerHello` (protocol version and minimum).
 3. `PristonConnection.RunAsync` reads frames and awaits `ClientSession.HandleAsync` for each packet before reading the
    next: one connection's packets are processed strictly in order, and a slow database call delays that connection only.
 4. Housekeeping (every 5 s): closes sockets silent for 60 s (`idle timeout`) and unauthenticated sockets older than the
@@ -164,12 +164,10 @@ the same switch.
 
 | Packet | Handler | Application call | Reply |
 | --- | --- | --- | --- |
-| `CHECK_NETSTATE` 1-5 | inline | `ChatAppService.Heartbeat` (the standing notice) | Echo with `SParam` = server `Environment.TickCount`. |
+| `Heartbeat` | inline | `ChatAppService.Heartbeat` (the standing notice) | Echo with the server's `Environment.TickCount64`. |
 | `ChatSay` | `SayAsync` | `ChatAppService.SayAsync` (spoken line, player or game-master command) or `PartyAsync` (party flag) | Chat lines to the hearers or the other party members ([chat-and-gm.md](chat-and-gm.md)). |
-| `ID_GETUSERINFO` | `LoginAsync` | `LoginThrottle.IsBlocked`, `AuthAppService.LoginAsync`, `ISessionRegistry.TryGet` | `ID_SETUSERINFO` + `SERVER_INFO`, or `FAILCONNECT` (`WParam` code, `EParam` 2). |
-| `ISRECORDDATA` | inline | `CharacterAppService.NameExistsAsync` | Echo, `WParam` 1 when the name exists. |
-| `INSRECORDDATA` | `CreateCharacterAsync` | `CharacterAppService.CreateCharacterAsync(token, name, LParam class, SParam face)` | New list on success, then echo. |
-| `DELRECORDDATA` | `DeleteCharacterAsync` | `CharacterAppService.DeleteCharacterAsync` | New list on success, then echo. |
+| `Login` | `LoginAsync` | `LoginThrottle.IsBlocked`, `AuthAppService.LoginAsync`, `ISessionRegistry.TryGet` | `CharacterList` + `LoginResult` 0, or `LoginResult` with the failure. |
+| `CharacterCommand` | `ApplyCharacterCommandAsync` | `CharacterAppService.CreateCharacterAsync(token, name, class, face)` or `DeleteCharacterAsync` | New list on success, then `CharacterResult`. |
 | `EnterWorld` | `EnterWorldAsync` | `SessionAppService.EnterWorldAsync` | `WorldEntry` (id, field and spawn point, or the `EnterWorldFailure`). |
 | `JoinWorld` | `JoinWorldAsync` | `PlayerSession.TryBeginPlay`, `WorldPlayerFactory.Create`, `WorldServer.JoinAsync` | `WorldJoined`; starts the presence pump. |
 | `MovementReport` | `ReportMovement` | `WorldServer.MoveToFieldAsync` or `TryReportMovement` | Forced `FieldWarp` correction when rejected. |
@@ -188,7 +186,7 @@ Error handling inside `HandleAsync`:
 | Exception | Effect |
 | --- | --- |
 | `InvalidSessionException`, `InvalidOperationException` (includes `WorldBusyException`) | Packet dropped, sampled `Rejected` warning; the connection stays open. |
-| `DbException` | `ReplyStorageFailure`: login gets `FAILCONNECT` -16, record commands get an echo with `WParam` 0 and `CreateCharacterFailure.Rejected`, `EnterWorld` gets a `WorldEntry` with `EnterWorldFailure.Rejected`. |
+| `DbException` | `ReplyStorageFailure`: login gets `LoginResult` busy, character commands get a `CharacterResult` with `CreateCharacterFailure.Rejected`, `EnterWorld` gets a `WorldEntry` with `EnterWorldFailure.Rejected`. |
 | `InvalidDataException` (malformed packet from a `Read`) | Escapes to `PristonConnection`, which closes with `protocol: ...`. |
 | anything else | Ends the session; logged as `Client session ... failed`. |
 
@@ -252,14 +250,14 @@ of the regression suite ([testing.md](testing.md#multiplayer-propagation)):
 | `ConnectionLimiter` | per remote address, process-wide | Refuses sockets above `MaxConnectionsPerIp`; released when the session ends. |
 | `PacketRateLimiter` | per connection, fixed window | Counts every decoded packet except `DescribeEntity`; exceeding it closes with `packet flood`. Replayed encrypted packets are dropped before counting. |
 | `TokenBucket` | per connection | `DescribeEntity` beyond the bucket is dropped (a few-byte request costs a description of up to a few hundred bytes). |
-| `LoginThrottle` | per account (case-insensitive) and per address | Only `BadCredentials` counts. A blocked attempt gets `FAILCONNECT` -16 before the password hash is computed. Success clears the account counter only. At most 65536 keys per map. |
+| `LoginThrottle` | per account (case-insensitive) and per address | Only `BadCredentials` counts. A blocked attempt gets `LoginResult` busy before the password hash is computed. Success clears the account counter only. At most 65536 keys per map. |
 | Login timeout | per connection | Unauthenticated sockets close after `LoginTimeoutSeconds`. |
-| Second login | per connection | `ID_GETUSERINFO` after a successful login gets `FAILCONNECT` -4. |
+| Second login | per connection | `Login` after a successful login gets `LoginResult` 3 (already logged in). |
 | World quota | per player | `WorldServer` refuses more than `MaxPendingCommandsPerPlayer` queued commands with `WorldBusyException`; the shared queue holds 65536. |
 | Send backlog | per connection | More than 512 KiB unsent closes the connection (`send backlog exceeded ...`). |
 
-`FAILCONNECT` login codes: -2 bad credentials (unknown account, wrong or empty password), -4 already logged in on this
-connection, -16 busy (throttled or storage failure), -24 account blocked.
+`LoginResult` statuses: 1 bad credentials (unknown account, wrong or empty password), 2 account blocked, 3 already
+logged in on this connection, 4 busy (throttled, full or storage failure), 5 outdated client protocol.
 
 ### Logging
 
@@ -294,8 +292,6 @@ or login timeout, packet flood, protocol error, send backlog, presence overflow,
 
 ## Pitfalls
 
-- `SERVER_INFO` advertises the login socket's local IPv4 address and port. The Etervale client ignores the address and
-  keeps its socket.
 - A relative `Database:SqlitePath` is not relative to the working directory but to the solution root found from the
   binary. `DevAccounts` resolves `--sqlite` the same way; `WorldImport` uses its `--sqlite` path as given (relative to
   the working directory). Run the tools from the repository root so all three open the same file.

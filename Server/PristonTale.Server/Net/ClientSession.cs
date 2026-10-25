@@ -40,15 +40,11 @@ internal sealed record SessionServices(
     public LogSampler RejectedPackets { get; } = new(5000);
 }
 
-// One client connection following the classic order: Version, IdGetUserInfo, IdSetUserInfo + ServerInfo,
-// character records, GetRecordData -> RecordData, PlayerInfo -> Connected, then play traffic.
+// One client connection: ServerHello, Login -> CharacterList + LoginResult, character commands, EnterWorld ->
+// WorldEntry, JoinWorld -> WorldJoined, then play traffic.
 internal sealed partial class ClientSession : IMovementVerdictSink
 {
-    // Default minimum client version of the original server; the client compares it with its own version.
-    public const int LimitVersion = 167;
     private const long CorrectionIntervalMs = 300;
-    // FAILCONNECT -16: "traffic busy" on the original login screen.
-    private const int TrafficBusy = -16;
 
     private readonly PristonConnection _connection;
     private readonly SessionServices _services;
@@ -87,9 +83,9 @@ internal sealed partial class ClientSession : IMovementVerdictSink
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        // VERSION {WParam = minimum client version, LParam = players in the world when the server is full, else 0}.
         var players = _services.World.PlayerCount;
-        Send(new TransCommand(PristonOpcodes.Version, _services.Control.Full(players) ? Math.Max(1, players) : 0, LimitVersion), encrypt: true);
+        var hello = new ServerHelloPacket(ProtocolVersion.Current, ProtocolVersion.Minimum, _services.Control.Full(players) ? Math.Max(1, players) : 0);
+        SendLarge(hello.Write, ServerHelloPacket.Size, encrypt: true);
         try
         {
             await _connection.RunAsync(HandleAsync, cancellationToken);
@@ -123,14 +119,10 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         {
             switch (code)
             {
-                case PristonOpcodes.CheckNetState:
-                case PristonOpcodes.CheckNetState2:
-                case PristonOpcodes.CheckNetState3:
-                case PristonOpcodes.CheckNetState4:
-                case PristonOpcodes.CheckNetState5:
+                case EtervaleOpcodes.Heartbeat:
                 {
-                    var beat = TransCommand.Read(memory.Span);
-                    Send(beat with { SParam = Environment.TickCount }, encrypt: true);
+                    var beat = HeartbeatPacket.Read(memory.Span) with { TimeMs = Environment.TickCount64 };
+                    SendLarge(beat.Write, HeartbeatPacket.Size, encrypt: true);
                     if (_player is not null && _session is { } playing)
                     {
                         _services.Chat.Heartbeat(playing.EntityId);
@@ -141,21 +133,11 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                 case EtervaleOpcodes.ChatSay:
                     await SayAsync(ChatSayPacket.Read(memory.Span));
                     break;
-                case PristonOpcodes.IdGetUserInfo:
-                    await LoginAsync(CharCommand2.Read(memory.Span));
+                case EtervaleOpcodes.Login:
+                    await LoginAsync(LoginPacket.Read(memory.Span));
                     break;
-                case PristonOpcodes.IsRecordData:
-                {
-                    var query = CharCommand2.Read(memory.Span);
-                    var exists = await _services.Characters.NameExistsAsync(RequireToken(), query.Name);
-                    Send(query with { WParam = exists ? 1 : 0 }, encrypt: true);
-                    break;
-                }
-                case PristonOpcodes.InsRecordData:
-                    await CreateCharacterAsync(CharCommand2.Read(memory.Span));
-                    break;
-                case PristonOpcodes.DelRecordData:
-                    await DeleteCharacterAsync(CharCommand2.Read(memory.Span));
+                case EtervaleOpcodes.CharacterCommand:
+                    await ApplyCharacterCommandAsync(CharacterCommandPacket.Read(memory.Span));
                     break;
                 case EtervaleOpcodes.EnterWorld:
                     await EnterWorldAsync(EnterWorldPacket.Read(memory.Span));
@@ -218,108 +200,109 @@ internal sealed partial class ClientSession : IMovementVerdictSink
     {
         switch (code)
         {
-            case PristonOpcodes.IdGetUserInfo:
-                Send(new TransCommand(PristonOpcodes.FailConnect, 0, TrafficBusy, 0, 2), encrypt: true);
+            case EtervaleOpcodes.Login:
+                SendLoginResult(LoginFailure.Busy);
                 break;
-            case PristonOpcodes.InsRecordData:
-            case PristonOpcodes.DelRecordData:
-            case PristonOpcodes.IsRecordData:
-                Send(CharCommand2.Read(packet) with { WParam = 0, LParam = (int)CreateCharacterFailure.Rejected }, encrypt: true);
+            case EtervaleOpcodes.CharacterCommand:
+            {
+                var command = CharacterCommandPacket.Read(packet);
+                SendCharacterResult(command, ok: false, (int)CreateCharacterFailure.Rejected);
                 break;
+            }
             case EtervaleOpcodes.EnterWorld:
                 SendEntryFailure(EnterWorldFailure.Rejected);
                 break;
         }
     }
 
-    private async Task LoginAsync(CharCommand2 request)
+    private async Task LoginAsync(LoginPacket request)
     {
         if (_token is not null)
         {
-            Send(new TransCommand(PristonOpcodes.FailConnect, 0, -4, 0, 2), encrypt: true);
+            SendLoginResult(LoginFailure.AlreadyLoggedIn);
+            return;
+        }
+
+        if (request.Protocol < ProtocolVersion.Minimum)
+        {
+            SendLoginResult(LoginFailure.OutdatedClient);
             return;
         }
 
         var address = NetworkLimits.AddressOf(_connection.RemoteEndPoint);
         var throttle = _services.LoginThrottle;
-        if (throttle.IsBlocked(address, request.Id, Environment.TickCount64))
+        if (throttle.IsBlocked(address, request.Account, Environment.TickCount64))
         {
-            LogRejected(PristonOpcodes.IdGetUserInfo, "login throttled");
-            Send(new TransCommand(PristonOpcodes.FailConnect, 0, TrafficBusy, 0, 2), encrypt: true);
+            LogRejected(EtervaleOpcodes.Login, "login throttled");
+            SendLoginResult(LoginFailure.Busy);
             return;
         }
 
-        var outcome = await _services.Auth.LoginAsync(request.Id, request.Name);
+        var outcome = await _services.Auth.LoginAsync(request.Account, request.Password);
         if (!outcome.Ok || !_services.Registry.TryGet(outcome.SessionToken, out var session))
         {
             if (outcome.Failure == LoginFailure.BadCredentials)
             {
-                throttle.RecordFailure(address, request.Id, Environment.TickCount64);
+                throttle.RecordFailure(address, request.Account, Environment.TickCount64);
             }
 
-            Send(new TransCommand(PristonOpcodes.FailConnect, 0, (int)outcome.Failure, 0, 2), encrypt: true);
+            SendLoginResult(outcome.Ok ? LoginFailure.Busy : outcome.Failure);
             return;
         }
 
-        throttle.RecordSuccess(request.Id);
+        throttle.RecordSuccess(request.Account);
         if (session.GmLevel == 0 && _services.Control.Full(_services.World.PlayerCount))
         {
             // Only game masters may join a full server.
             _services.Registry.Remove(outcome.SessionToken);
-            Send(new TransCommand(PristonOpcodes.FailConnect, 0, TrafficBusy, 0, 2), encrypt: true);
+            SendLoginResult(LoginFailure.Busy);
             return;
         }
 
         Volatile.Write(ref _token, outcome.SessionToken);
-        _account = request.Id;
+        _account = request.Account;
         _session = session;
         await SendCharacterListAsync();
-        SendServerList();
+        SendLoginResult(LoginFailure.None);
     }
+
+    private void SendLoginResult(LoginFailure failure) =>
+        SendLarge(new LoginResultPacket((byte)failure).Write, LoginResultPacket.Size, encrypt: true);
 
     private async Task SendCharacterListAsync()
     {
         _characters = await _services.Characters.ListCharactersAsync(RequireToken());
-        var list = new UserCharacterList(_account!, _characters.Take(UserCharacterList.MaxCharacters).Select(WireMapping.Entry).ToArray());
-        SendLarge(list.Write, UserCharacterList.Size, encrypt: true);
+        var list = new CharacterListPacket(_characters.Take(CharacterListPacket.MaxCharacters).Select(WireMapping.Entry).ToArray());
+        SendLarge(list.Write, CharacterListPacket.MaxSize, encrypt: true);
     }
 
-    private void SendServerList()
-    {
-        // The original client opens its game socket from this entry and reuses the login socket when it matches.
-        var address = LocalAddress() ?? "127.0.0.1";
-        var port = _connection.LocalEndPoint is IPEndPoint local ? (uint)local.Port : HostingExtensions.DefaultGamePort;
-        var entry = new PristonServerEntry("Etervale", address, "", "", port, port, 0, 0);
-        var list = new PristonServerList("Etervale", (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds(), 0, 0, 1, [entry]);
-        var size = PristonServerListCodec.HeaderSize + PristonServerListCodec.EntrySize;
-        SendLarge(buffer => PristonServerListCodec.Write(buffer, list, PristonText.Strict), size, encrypt: true);
-    }
-
-    private string? LocalAddress() => _connection.LocalEndPoint is IPEndPoint endpoint ? endpoint.Address.MapToIPv4().ToString() : null;
-
-    private async Task CreateCharacterAsync(CharCommand2 request)
+    // A successful creation or deletion sends the new character list before the result.
+    private async Task ApplyCharacterCommandAsync(CharacterCommandPacket command)
     {
         var token = RequireToken();
-        var outcome = await _services.Characters.CreateCharacterAsync(token, request.Name, request.LParam, request.SParam);
-        if (outcome.Ok)
+        if (command.Action == CharacterAction.Create)
+        {
+            var created = await _services.Characters.CreateCharacterAsync(token, command.Name, command.ClassCode, command.FaceIndex);
+            if (created.Ok)
+            {
+                await SendCharacterListAsync();
+            }
+
+            SendCharacterResult(command, created.Ok, (int)created.Failure);
+            return;
+        }
+
+        var deleted = await _services.Characters.DeleteCharacterAsync(token, command.Name);
+        if (deleted.Ok)
         {
             await SendCharacterListAsync();
         }
 
-        Send(request with { WParam = outcome.Ok ? 1 : 0, LParam = (int)outcome.Failure }, encrypt: true);
+        SendCharacterResult(command, deleted.Ok, 0);
     }
 
-    private async Task DeleteCharacterAsync(CharCommand2 request)
-    {
-        var outcome = await _services.Characters.DeleteCharacterAsync(RequireToken(), request.Name);
-        if (outcome.Ok)
-        {
-            await SendCharacterListAsync();
-        }
-
-        // The original sends no reply; Etervale echoes the request so the client knows the result.
-        Send(request with { WParam = outcome.Ok ? 1 : 0 }, encrypt: true);
-    }
+    private void SendCharacterResult(CharacterCommandPacket command, bool ok, int failure) =>
+        SendLarge(new CharacterResultPacket(command.Action, ok, failure, command.Name).Write, CharacterResultPacket.MaxSize, encrypt: true);
 
     private async Task EnterWorldAsync(EnterWorldPacket request)
     {
@@ -749,22 +732,6 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         {
             _services.Logger.LogWarning("Rejected {Code:X8} from {Remote}: {Reason} ({Suppressed} similar rejections not logged)",
                 code, _connection.RemoteEndPoint, reason, suppressed);
-        }
-    }
-
-    private void Send(TransCommand command, bool encrypt)
-    {
-        lock (_sendGate)
-        {
-            SendSpan(_scratch.AsSpan(0, command.Write(_scratch)), encrypt);
-        }
-    }
-
-    private void Send(CharCommand2 command, bool encrypt)
-    {
-        lock (_sendGate)
-        {
-            SendSpan(_scratch.AsSpan(0, command.Write(_scratch)), encrypt);
         }
     }
 

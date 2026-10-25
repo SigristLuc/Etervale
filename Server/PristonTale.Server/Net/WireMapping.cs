@@ -96,21 +96,15 @@ internal static class WireMapping
     }
 
     // Character info record embedded in the character record for the entering character.
-    public static UserCharacterEntry Entry(CharacterSummary summary) => new(
+    public static CharacterListEntry Entry(CharacterSummary summary) => new(
         summary.Name,
-        "",
-        "",
         (uint)summary.ClassId,
         summary.Level,
-        0,
-        ItemCode(summary.ArmorKey),
-        0,
-        0,
-        0,
+        summary.Tier,
         summary.FaceIndex,
         summary.HairIndex,
-        summary.Tier,
         ItemCode(summary.WeaponKey),
+        ItemCode(summary.ArmorKey),
         ItemCode(summary.OffHandKey),
         summary.InVillage);
 

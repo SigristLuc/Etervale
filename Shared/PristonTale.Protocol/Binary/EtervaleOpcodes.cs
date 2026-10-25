@@ -1,28 +1,6 @@
 namespace PristonTale.Protocol.Binary;
 
-// Message codes of the original wire protocol.
-public static class PristonOpcodes
-{
-    public const uint IdGetUserInfo = 0x48470085;
-    public const uint IdSetUserInfo = 0x48470086;
-    public const uint DelRecordData = 0x48470087;
-    public const uint InsRecordData = 0x48470088;
-    public const uint IsRecordData = 0x48470089;
-    public const uint Version = 0x4847008A;
-    public const uint CheckNetState = 0x4847008B;
-    public const uint CheckNetState2 = 0x4847008E;
-    public const uint CheckNetState3 = 0x4847008F;
-    public const uint CheckNetState4 = 0x48470090;
-    public const uint CheckNetState5 = 0x48470091;
-
-    public const uint FailConnect = 0x48470023;
-    public const uint ServerInfo = 0x484700C0;
-
-    public static bool IsHeartbeat(uint code) => code is CheckNetState or CheckNetState2 or CheckNetState3 or CheckNetState4 or CheckNetState5;
-}
-
-// Etervale-only messages for server-authoritative operations the original client performs locally.
-// The high word "ET" (0x4554) is unused by the original protocol, so the original client ignores these codes.
+// Message codes. Every code keeps the high word "ET" (0x4554); the low word groups the messages by domain.
 public static class EtervaleOpcodes
 {
     public const uint OwnerStatus = 0x45540100;
@@ -84,4 +62,12 @@ public static class EtervaleOpcodes
     public const uint WorldEntry = 0x45540E01;
     public const uint JoinWorld = 0x45540E02;
     public const uint WorldJoined = 0x45540E03;
+
+    public const uint ServerHello = 0x45540F00;
+    public const uint Login = 0x45540F01;
+    public const uint LoginResult = 0x45540F02;
+    public const uint CharacterList = 0x45540F03;
+    public const uint CharacterCommand = 0x45540F04;
+    public const uint CharacterResult = 0x45540F05;
+    public const uint Heartbeat = 0x45540F06;
 }

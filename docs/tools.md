@@ -177,7 +177,7 @@ dotnet run --project tools/PristonTale.DevAccounts -c Release --no-build -- add-
 
 ## SmokeClient
 
-End-to-end check over the original protocol through `PristonTale.Client.Net`, against a running server.
+End-to-end check over the Etervale protocol through `PristonTale.Client.Net`, against a running server.
 
 ```bash
 dotnet build tools/PristonTale.SmokeClient/PristonTale.SmokeClient.csproj -c Release -m:1 -warnaserror
@@ -208,7 +208,7 @@ the spawn, cast the skill with no target and wait up to 8 s.
 
 ## LoadTest
 
-Headless bots over the original protocol. Each bot logs in as `<prefix><index:D4>`, uses the account's first character
+Headless bots over the Etervale protocol. Each bot logs in as `<prefix><index:D4>`, uses the account's first character
 (or creates a Fighter named `Lt<prefix><index:D4>` when there is none), enters the world and plays its mode, reporting
 movement every 200 ms (5 Hz) and draining presence:
 

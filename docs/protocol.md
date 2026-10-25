@@ -1,8 +1,8 @@
 # Network protocol
 
-Etervale is online only. Client and server speak the original Priston Tale TCP protocol of the English client: the same
-framing, cipher, opcodes and 32-bit x86 struct layouts. The server stays authoritative, so a few messages keep the
-original layout but change meaning, and operations the original client performed locally use Etervale extension opcodes.
+Etervale is online only. Client and server speak Etervale's own message set over the Priston Tale TCP framing and
+packet cipher: every message has an Etervale code (`0x4554xxxx`), entity ids and sequences are 64-bit, and text is
+UTF-8. The server is authoritative; the client sends requests and reports and draws what the server decides.
 The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/PristonTale.Server/Net`
 ([server.md](server.md)) and the client edge is `Client/PristonTale.Client.Net` ([client.md](client.md)).
 
@@ -10,7 +10,6 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 
 - You add an opcode, a packet or a field, or change a layout or size.
 - A packet fails to decode, the connection closes with `protocol: ...`, or sizes disagree between client and server.
-- You need the meaning of a `TransCommand` parameter (`LParam`/`WParam`/`SParam`/`EParam`) for a given opcode.
 - You work on presence: presence entries, the presence clock, remote playback timing, view ranges or bandwidth.
 - You change server movement authority, skill cast validation or NPC service messages on the wire.
 - You measure or tune server capacity.
@@ -19,18 +18,17 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 
 | Path | Responsibility |
 | --- | --- |
-| [Binary/PristonOpcodes.cs](../Shared/PristonTale.Protocol/Binary/PristonOpcodes.cs) | `PristonOpcodes` (original codes) and `EtervaleOpcodes` (`0x4554xxxx` extensions). |
+| [Binary/EtervaleOpcodes.cs](../Shared/PristonTale.Protocol/Binary/EtervaleOpcodes.cs) | `EtervaleOpcodes` (`0x4554xxxx`), grouped by domain. |
 | `Binary/PristonFrameCodec.cs` | `PristonFrameCodec` (header, 8192-byte limit) and `PristonPacketCipher` (encrypted envelope). |
 | `Binary/PristonReplayWindow.cs` | Replay check of encrypted receive counters. |
 | `Binary/PacketReader.cs`, `Binary/PacketWriter.cs` | Little-endian sequential reader/writer; the writer patches the size in `Finish()`. |
 | `Binary/PristonText.cs` | Fixed `char[]` fields: Windows-1252, NUL-terminated (`Strict` throws, `Lenient` replaces with `?`). |
-| `Binary/PristonServerListCodec.cs` | `SERVER_INFO` (44-byte header, 108-byte entries, at most 8). |
-| `Packets/TransCommand.cs` | 24-byte command, 40-byte extended command, `CharCommand` (52 B) and `CharCommand2` (84 B). |
+| `Binary/Utf8Text.cs` | Text fields: `{uint16 ByteLength, UTF-8}`, cut at a whole character. |
+| `Packets/AccountPackets.cs` | `ProtocolVersion`, `ServerHello`, `Login`/`LoginResult`, `CharacterList`, `CharacterCommand`/`CharacterResult`, `Heartbeat`. |
 | `Packets/PristonUnits.cs` | `PristonUnits` (fixed point x256, 4096-per-turn angles), `MotionStateCode`. |
 | `Packets/PlayerActionPackets.cs` | `MovementReport`, `AttackRequest` and `FieldWarp`. |
 | `Packets/PresencePackets.cs` | `PresenceEntries`: `VarInt`, `PresenceMotion`, `PresenceEntry`, `PresenceWire` (entry codec), writer and reader. |
 | `Packets/WorldEntryPackets.cs` | `EnterWorld`, `WorldEntry`, `JoinWorld`, `WorldJoined` and `LeaveWorld`. |
-| `Packets/UserCharacterList.cs` | `ID_SETUSERINFO` character list (1484 B, six 240-byte slots). |
 | `Packets/GroundItemPackets.cs` | `GroundItems` and `GroundItemsRemoved`. |
 | `Packets/ChatPackets.cs`, `ChatChannelCode.cs` | `ChatSay` (typed line), `ChatLine` (received line); chat kinds on the wire. |
 | `Packets/EtervalePackets.cs` | Owner status, inventory parts, skills, inventory/progression commands and results, combat events, removals, presence clock. |
@@ -93,25 +91,24 @@ login, character commands, world entry, heartbeats, `AttackRequest`, `SkillCast`
 
 ## Login, character select and world entry
 
-`TransCommand` parameters are listed by name; on the wire the order is `LParam, WParam, SParam, EParam`.
+Bodies start with `uint16 Version = 1`; text is UTF-8 with a `uint16` byte length.
 
 | Step | Packet | Notes |
 | --- | --- | --- |
-| Connect | S→C `VERSION` | `WParam` = minimum client version (167); `LParam` = players in the world when a game master's `/user_limit` is reached, else 0 (then only game masters may log in). |
-| Log in | C→S `ID_GETUSERINFO` (account command packet, 84 B) | `szId` = account, `szName` = password, as in the original. |
-| Success | S→C `ID_SETUSERINFO` (1484 B) and `SERVER_INFO` (152 B) | Character list and the one game server: name `Etervale`, the login socket's local IPv4 address and port. |
-| Failure | S→C `FAILCONNECT`, `EParam` = 2 | `WParam` uses the original codes: -2 bad credentials, -4 already logged in on this connection, -16 busy (throttled or storage failure), -24 account blocked. |
-| Name check | `ISRECORDDATA` echo | `WParam` = 1 when the name exists. |
-| Create | `INSRECORDDATA` echo | Request `LParam` = class code, `SParam` = face (unset in the original). Echo `WParam` = 1/0, `LParam` = `CreateCharacterFailure`. |
-| Delete | `DELRECORDDATA` echo | The original sends no reply; Etervale echoes the result in `WParam`. |
+| Connect | S→C `ServerHello` (`0x45540F00`) | `{uint16 Version, uint16 0, uint32 Protocol, MinimumProtocol, int32 FullPlayers}`: `FullPlayers` = players in the world when a game master's `/user_limit` is reached, else 0 (then only game masters may log in). |
+| Log in | C→S `Login` (`0x45540F01`, encrypted) | `{uint16 Version, uint16 0, uint32 Protocol, text Account (64 B), text Password (128 B)}`. |
+| Result | S→C `CharacterList` (`0x45540F03`), then `LoginResult` (`0x45540F02`) | `LoginResult` = `{uint16 Version, uint8 Status, uint8 0}`: 0 ok, 1 bad credentials (also unknown accounts), 2 account blocked, 3 already logged in on this connection, 4 busy (throttled, full or storage failure), 5 client protocol older than the server's minimum. A failed login sends no list. |
+| Character list | S→C `CharacterList` | `{uint16 Version, uint16 0, int32 Count (at most 6)}`, then `{text Name, uint32 ClassCode, int32 Level, uint8 Tier, Face, Hair, Flags (1 in a village), uint32 WeaponCode, ArmorCode, OffHandCode, uint32 0}`. |
+| Create, delete | C→S `CharacterCommand` (`0x45540F04`, encrypted), S→C `CharacterResult` (`0x45540F05`) | Command `{uint16 Version, uint8 Action (1 create, 2 delete), uint8 0, int32 ClassCode, FaceIndex, text Name}`; result `{uint16 Version, uint8 Action, uint8 Ok, int32 Failure (CreateCharacterFailure), text Name}`. |
 | Select | C→S `EnterWorld` (`0x45540E00`) | `{uint16 Version = 1, uint16 0, text Name (64 B)}`. |
 | Entry | S→C `WorldEntry` (`0x45540E01`) | `{uint16 Version, uint8 Status (0 entered, else EnterWorldFailure), uint8 0, uint64 EntityId, int32 Field, int32 X, Z (x256)}`. The owner's stats, inventory and skills follow on the presence stream. |
 | Join | C→S `JoinWorld` (`0x45540E02`), S→C `WorldJoined` (`0x45540E03`) | `JoinWorld` = `{uint16 Version, uint16 0, uint64 EntityId}`, which must be the id from `WorldEntry`; `WorldJoined` = `{uint16 Version, uint16 0, uint64 EntityId, int64 ServerTimeMs}`. |
-| Heartbeat | `CHECK_NETSTATE` every 4 s | Client `LParam` = counter, `WParam` = client time; echoed with `SParam` = server time. The server closes connections silent for 60 s. |
+| Heartbeat | `Heartbeat` (`0x45540F06`, encrypted) every 4 s | `{uint16 Version, uint16 0, uint32 Counter, int64 TimeMs}`; echoed with the server's time. The server closes connections silent for 60 s. |
 | Leave | `LeaveWorld` (`0x45540160`) | `{uint16 Version, uint8 Saved, uint8 0}`: the client sends Saved 0; the server answers with Saved 1 after it stored the character. |
 
-Successful creation and deletion send a fresh `ID_SETUSERINFO` before the echo. Storage failures answer the pending
-request (`FAILCONNECT` -16, a record echo with `WParam` 0, or a `WorldEntry` with `Rejected`) instead of closing.
+Successful creation and deletion send a fresh `CharacterList` before the result. Storage failures answer the pending
+request (`LoginResult` busy, a `CharacterResult` with `Rejected`, or a `WorldEntry` with `Rejected`) instead of
+closing.
 
 ## In-world messages
 
@@ -165,8 +162,8 @@ on the server.
 
 ## Etervale extension opcodes
 
-The high word `0x4554` ("ET") is unused by the original protocol, so an original client ignores these messages. They
-keep the `{size, code}` header and the 8192-byte frame limit.
+Every message code has the high word `0x4554` ("ET"); every message keeps the `{size, code}` header and the
+8192-byte frame limit.
 
 | Code | Name | Direction | Content |
 | --- | --- | --- | --- |
@@ -511,11 +508,11 @@ connection every `Server:ReportSeconds` (30 by default).
 
 ## How to add an opcode or packet
 
-1. **Code.** Add a constant to `EtervaleOpcodes` in `Binary/PristonOpcodes.cs`, in the range of its area (`0x455401xx`
+1. **Code.** Add a constant to `EtervaleOpcodes` in `Binary/EtervaleOpcodes.cs`, in the range of its area (`0x455401xx`
    owner state, `0x4554011x` inventory, `0x4554012x` progression, `0x4554013x` NPC, `0x4554014x` combat, `0x4554015x`
    removals, `0x4554016x` leave, `0x4554017x` clock, `0x455402xx` skills, `0x455403xx` item details, `0x455404xx`
-   usable items, `0x455405xx` quests). Never give an original `0x4847xxxx` or `0x5032xxxx` code a new layout; reuse an
-   original message only when its layout stays byte-identical.
+   usable items, `0x455405xx` quests, `0x455409xx` presence, `0x45540Axx` restart, `0x45540Bxx` ground items,
+   `0x45540Cxx` chat, `0x45540Dxx` player actions, `0x45540Exx` world entry, `0x45540Fxx` account).
 2. **Packet type.** Add a record in `Packets/` with `Size` or `HeaderSize` constants, `int Write(Span<byte>)` built on
    `PacketWriter` (returning `Finish()`), and `static Read(ReadOnlySpan<byte>)` built on `PacketReader(packet,
    minimum)`. Start new bodies with `{uint16 Version, uint16 Flags}`, reject version 0, append fields only at the end,
@@ -542,8 +539,6 @@ when the received version has it.
 
 ## Pitfalls
 
-- `TransCommand` writes `LParam` before `WParam`; constructor order is `(Code, LParam, WParam, SParam, EParam)`. Most
-  original messages are documented by meaning (`WParam` = field), so check the constructor call, not the position.
 - Fixed `char[]` fields are Windows-1252. Authored Korean names cannot cross the original layouts; that is why NPC
   messages use UTF-8 text. `PristonText.Strict` throws on unrepresentable text, so the client checks
   `PristonText.IsRepresentable` before sending names and passwords.
@@ -559,7 +554,6 @@ when the received version has it.
   Etervale client does after a second), or a crowd entering view at once never appears.
 - Two monsters of one template share a description only while both are wild: a summon's description names its owner.
   Never send a summon's template in its presence entry, and never cache a user-brood description by template.
-- `SERVER_INFO` uses the login socket's local address; behind NAT an original client would dial the private address.
 
 ## Related
 
