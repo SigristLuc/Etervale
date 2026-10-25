@@ -62,8 +62,9 @@ public sealed class SkillSoundBank : IDisposable
         }
     }
 
-    // Plays at the original proximity falloff: full volume within about 33 units, silent beyond about 663.
-    public void Play(string path, Vector3 source, Vector3 listener, float volume = 1f)
+    // Plays at the original proximity falloff: full volume within about 33 units, silent beyond about 663. Pitch is in
+    // octaves (-1 to 1).
+    public void Play(string path, Vector3 source, Vector3 listener, float volume = 1f, float pitch = 0f)
     {
         if (!Enabled || string.IsNullOrEmpty(path) || !_ready.TryGetValue(path, out var sound))
         {
@@ -74,7 +75,7 @@ public sealed class SkillSoundBank : IDisposable
         var level = (400 - attenuation) / 400f * Math.Clamp(volume, 0f, 1f);
         if (level > 0.01f)
         {
-            sound.Play(level, 0f, 0f);
+            sound.Play(level, Math.Clamp(pitch, -1f, 1f), 0f);
         }
     }
 

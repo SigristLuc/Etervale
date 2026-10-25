@@ -60,6 +60,9 @@ public sealed partial class RemoteEntityManager
 
     public event Action<int, PristonActorMotion, XnaVector3> NpcMotionStarted;
 
+    // Another player entered a motion: its class code, the motion and where it stands.
+    public event Action<int, PristonActorMotion, XnaVector3> PlayerMotionStarted;
+
     public int PendingMonsterCount => _pendingModels.Count;
 
     public void SetSelfSink(
@@ -258,8 +261,10 @@ public sealed partial class RemoteEntityManager
             spawn.MoveState,
             spawn.Hp)
         {
-            InVillage = spawn.Player.InVillage
+            InVillage = spawn.Player.InVillage,
+            EntityId = spawn.EntityId
         };
+        replacement.MotionStarted += OnMotionStarted;
         replacement.SetRates(spawn.MoveSpeed, spawn.AttackRate);
         replacement.SetTarget(sampleTime, ToXna(spawn.Position), spawn.Facing, spawn.MoveState, spawn.Hp);
         _entities[spawn.EntityId] = replacement;
@@ -421,6 +426,28 @@ public sealed partial class RemoteEntityManager
         {
             NpcMotionStarted?.Invoke(entity.SoundCode, motion, entity.DrawnPosition);
         }
+        else if (entity.Kind == RemoteEntityKind.Player && _playerAppearances.TryGetValue(entity.EntityId, out var appearance))
+        {
+            PlayerMotionStarted?.Invoke(appearance.JobCode, motion, entity.DrawnPosition);
+        }
+    }
+
+    // The class, equipped weapon and drawn position of another player, for its swing sounds.
+    public bool TryGetPlayerAudio(ulong entityId, out int classCode, out string weaponKey, out XnaVector3 position)
+    {
+        if (_entities.TryGetValue(entityId, out var entity) && entity.Kind == RemoteEntityKind.Player
+            && _playerAppearances.TryGetValue(entityId, out var appearance))
+        {
+            classCode = appearance.JobCode;
+            weaponKey = appearance.WeaponKey ?? "";
+            position = entity.DrawnPosition;
+            return true;
+        }
+
+        classCode = 0;
+        weaponKey = "";
+        position = default;
+        return false;
     }
 
     public void Update(float dt)

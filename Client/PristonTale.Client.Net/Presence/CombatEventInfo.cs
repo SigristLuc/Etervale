@@ -20,6 +20,8 @@ public enum RemoteCombatEventKind
     Revive = 8,
     // A player blocked a monster's normal attack; no damage reaches them.
     Block = 9,
+    // A player's swing missed its target.
+    Miss = 10,
 }
 
 public sealed record CombatEventInfo(

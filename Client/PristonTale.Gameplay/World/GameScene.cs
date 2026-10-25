@@ -49,6 +49,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private readonly PristonTale.Effects.EffectsEngine _effects;
     private readonly FieldAudioController _fieldAudio;
     private readonly NpcAudioController _npcAudio;
+    private readonly PristonAudioLibrary _audio;
     private PristonTale.Gameplay.Effects.LegacyReturnEffect _returnEffect;
     private readonly List<LoadedField> _fields = [];
     private readonly FieldCollisionQuery _fieldCollision;
@@ -136,6 +137,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         }
         if (audio is not null)
         {
+            _audio = audio;
             _fieldAudio = new FieldAudioController(audio);
             _npcAudio = new NpcAudioController(audio);
         }
@@ -467,6 +469,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             _log);
         _remote.SetSelfSink(OnSelfSpawn, OnSelfState, OnSelfCombatEvent);
         _remote.NpcMotionStarted += OnNpcMotionStarted;
+        _remote.PlayerMotionStarted += OnRemotePlayerMotionStarted;
         _renderer.RequirePreparedTextures();
         _playChannel = channel;
         _lastSentFieldCode = entered.FieldCode;
@@ -524,6 +527,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
                 _groundLoot.Apply(update);
                 ObserveEffects(update);
+                ObserveCombatSounds(update);
                 ObserveSkills(update);
                 ObserveItems(update);
                 ObserveRestart(update);
@@ -587,6 +591,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         if (_remote is not null)
         {
             _remote.NpcMotionStarted -= OnNpcMotionStarted;
+            _remote.PlayerMotionStarted -= OnRemotePlayerMotionStarted;
         }
 
         _ = ClosePresenceAsync(_playChannel, _presenceReader, _presenceCts);
@@ -996,6 +1001,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             RestartPlayerMotion(command.Motion);
         else
             SetPlayerMotion(command.Motion);
+        if (_player is not null && _playerBody is not null)
+            PlayPlayerMotionSound((int)_player.Class.Class, command.Motion, _playerBody.Position);
     }
 
     public void DebugForceMotion(PristonActorMotion motion)
@@ -1180,6 +1187,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             _playerHeadActor = _equipmentPresentation.Handles.Head;
         }
         UpdateMonsterEffects((float)gameTime.ElapsedGameTime.TotalSeconds);
+        UpdateCombatSounds();
         _returnEffect?.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
         _effects?.Update(gameTime);
         var frameDt = (float)gameTime.ElapsedGameTime.TotalSeconds;
@@ -1865,6 +1873,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _skillFx?.Dispose();
         _renderer?.Dispose();
         _monsterFx?.Clear();
+        _combatSounds?.Dispose();
         _effects?.Dispose();
         _fieldAudio?.Dispose();
         _npcAudio?.Dispose();

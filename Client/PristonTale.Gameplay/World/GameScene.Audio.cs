@@ -1,0 +1,181 @@
+using Microsoft.Xna.Framework;
+using PristonTale.Client.Net.Presence;
+using PristonTale.Engine3D.Formats;
+using PristonTale.Gameplay.Audio;
+using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.World;
+
+namespace PristonTale.Gameplay.World;
+
+// Character, weapon and footstep sounds: monsters on their animation's cues, players' swings from the server's combat
+// events (the hit, critical or miss of the attacker's weapon), players' damage and death by class, and the local
+// player's steps on the floor of its field.
+public sealed partial class GameScene
+{
+    private CombatSounds _combatSounds;
+    private MonsterSoundCues _monsterSounds;
+    private int _footsteps;
+    private PristonMotionInfo _stepMotion;
+    private float _stepTicks;
+
+    private void CreateCombatSounds()
+    {
+        if (_combatSounds is not null || _assetRoot is null)
+        {
+            return;
+        }
+
+        _combatSounds = new CombatSounds(_assetRoot, _log);
+        _monsterSounds = new MonsterSoundCues(_combatSounds, this);
+    }
+
+    private void UpdateCombatSounds()
+    {
+        if (_combatSounds is null)
+        {
+            return;
+        }
+
+        _combatSounds.Enabled = _audio?.SoundEnabled ?? true;
+        _combatSounds.Update();
+        if (_remote is not null && _playerBody is not null)
+        {
+            _remote.CollectMonsters(_monsterViews);
+            _monsterSounds.Update(_monsterViews, _playerBody.Position);
+        }
+
+        StepFootsteps();
+    }
+
+    // The local player's walk and run clips step on their first two event frames.
+    private void StepFootsteps()
+    {
+        if (!_playerBodyActor.IsValid || !((Effects.IMonsterScene)this).TryGetActorMotion(_playerBodyActor, out var motion, out var ticks)
+            || motion is null)
+        {
+            return;
+        }
+
+        var start = (float)motion.StartFrame * 160f;
+        var previous = !ReferenceEquals(motion, _stepMotion) || ticks < _stepTicks ? start : _stepTicks;
+        _stepMotion = motion;
+        _stepTicks = ticks;
+        if ((int)motion.State is not (0x50 or 0x60))
+        {
+            return;
+        }
+
+        for (var index = 0; index < 2 && index < motion.EventFrames.Count; index++)
+        {
+            var frame = motion.EventFrames[index];
+            var at = start + frame;
+            if (frame != 0 && at > previous && at <= ticks)
+            {
+                PlayFootstep();
+            }
+        }
+    }
+
+    private void ObserveCombatSounds(PresenceUpdate update)
+    {
+        if (_combatSounds is null || _playerBody is null || _remote is null)
+        {
+            return;
+        }
+
+        var listener = _playerBody.Position;
+        foreach (var combatEvent in update.Events)
+        {
+            switch (combatEvent.Kind)
+            {
+                case RemoteCombatEventKind.Hit or RemoteCombatEventKind.Miss when !combatEvent.Skill:
+                    if (SwingOf(combatEvent.AttackerId) is { } swing)
+                    {
+                        var outcome = combatEvent.Kind == RemoteCombatEventKind.Miss ? WeaponSoundOutcome.Miss
+                            : combatEvent.Critical ? WeaponSoundOutcome.Critical : WeaponSoundOutcome.Hit;
+                        _combatSounds.PlayWeapon(swing.WeaponKey, swing.ClassCode, outcome, swing.Position, listener);
+                    }
+
+                    break;
+                case RemoteCombatEventKind.Revive:
+                    var risen = combatEvent.TargetId == _remote.SelfEntityId ? listener
+                        : _remote.TryGetDrawnPosition(combatEvent.TargetId, out var drawn) ? drawn : (Vector3?)null;
+                    if (risen is { } at)
+                    {
+                        _combatSounds.PlayRestart(at, listener);
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    // The weapon, class and position of a player that swung: the local player from its own equipment, others from their
+    // appearance; null for monsters.
+    private (string WeaponKey, int ClassCode, Vector3 Position)? SwingOf(ulong attackerId)
+    {
+        if (attackerId == _remote.SelfEntityId)
+        {
+            var weapon = "";
+            foreach (var item in Owner?.Items ?? [])
+            {
+                if ((EquipmentSlot)item.Slot == EquipmentSlot.Weapon)
+                {
+                    weapon = item.CatalogKey;
+                }
+            }
+
+            return (weapon, (int)_player.Class.Class, _playerBody.Position);
+        }
+
+        return _remote.TryGetPlayerAudio(attackerId, out var classCode, out var weaponKey, out var position)
+            ? (weaponKey, classCode, position)
+            : null;
+    }
+
+    // A player entering damage or death plays its class's sound where it stands.
+    private void PlayPlayerMotionSound(int classCode, PristonActorMotion motion, Vector3 position)
+    {
+        if (_combatSounds is null || _playerBody is null)
+        {
+            return;
+        }
+
+        var cue = motion switch
+        {
+            PristonActorMotion.Damage => CharacterSoundCue.Damage,
+            PristonActorMotion.Dead => CharacterSoundCue.Dead,
+            _ => (CharacterSoundCue?)null
+        };
+        if (cue is { } sound)
+        {
+            _combatSounds.PlayCharacter(classCode, sound, position, _playerBody.Position);
+        }
+    }
+
+    private void OnRemotePlayerMotionStarted(int classCode, PristonActorMotion motion, Vector3 position) =>
+        PlayPlayerMotionSound(classCode, motion, position);
+
+    // The local player's step on the floor of its field: stone in towns and ruins, dungeon stone, soft ground in forests
+    // and deserts; other fields are silent, as in the original.
+    private void PlayFootstep()
+    {
+        if (_combatSounds is null)
+        {
+            return;
+        }
+
+        _footsteps++;
+        var floor = _activeField?.Definition.State switch
+        {
+            FieldState.Village or FieldState.Ruin => FootstepFloor.Stone,
+            FieldState.Forest or FieldState.Desert => FootstepFloor.Soft,
+            FieldState.Dungeon => FootstepFloor.Dungeon,
+            _ => (FootstepFloor?)null
+        };
+        if (floor is { } ground)
+        {
+            _combatSounds.PlayFootstep(ground, _footsteps);
+        }
+    }
+}

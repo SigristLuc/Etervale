@@ -19,6 +19,42 @@ internal static class FieldAudioTests
         yield return ("NPC sound-bank names preserve the classic 32-bit lookup", NpcSoundCodesAsync);
         yield return ("NPC talk filenames preserve the classic CP949 checksum", NpcTalkSoundCodeAsync);
         yield return ("NPC motion sounds preserve the classic positional attenuation", NpcProximityVolumeAsync);
+        yield return ("swings pick the original weapon sound by weapon family, hand and class", WeaponSoundCodesAsync);
+        yield return ("character sound banks cover monsters, summons, NPCs and every class with an asset folder", CharacterBanksAsync);
+    }
+
+    private static Task WeaponSoundCodesAsync()
+    {
+        (string Key, int Class, int Code)[] cases =
+        [
+            ("WA101", 1, 1), ("WA105", 1, 2), ("WS201", 1, 15), ("WS203", 1, 15), ("WS204", 6, 3), ("WS205", 6, 4),
+            ("WP101", 4, 5), ("WP104", 4, 6), ("WC101", 1, 7), ("WS101", 3, 8), ("WM101", 7, 17), ("WM104", 8, 18),
+            ("WM101", 1, 9), ("WH101", 2, 9), ("WH106", 2, 10), ("WT101", 5, 11), ("", 1, 14)
+        ];
+        foreach (var (key, classCode, code) in cases)
+        {
+            var actual = CombatSounds.WeaponCode(key, key.Length > 0 && Simulation.Items.ItemEquipmentMetadata.IsTwoHanded(key), classCode);
+            Assert.True(actual == code, $"{key} for class {classCode} picked weapon sound {actual}, expected {code}");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static Task CharacterBanksAsync()
+    {
+        var codes = CharacterSoundBanks.Directories.Select(bank => bank.Code).ToHashSet();
+        Assert.True(codes.Contains(0x1600) && codes.Contains(LegacyNpcSoundCode.Wolverine) && codes.Contains(LegacyNpcSoundCode.Morif)
+            && Enumerable.Range(1, 10).All(codes.Contains), "a monster, NPC or class bank is missing");
+        var root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "assets");
+        if (Directory.Exists(Path.Combine(root, "wav")))
+        {
+            foreach (var (code, directory) in CharacterSoundBanks.Directories)
+            {
+                Assert.True(Directory.Exists(PristonFileResolver.Resolve(Path.Combine(root, directory))), $"bank 0x{code:X4} has no folder {directory}");
+            }
+        }
+
+        return Task.CompletedTask;
     }
 
     private static Task WaveHeaderAsync()

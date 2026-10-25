@@ -65,6 +65,9 @@ public abstract class RemoteEntityBase
 
     public RemoteEntityKind Kind { get; }
 
+    // The entity's id (set for players, whose motions play their class's sounds).
+    public ulong EntityId { get; init; }
+
     public int SoundCode { get; }
 
     public bool InVillage { get; set; }

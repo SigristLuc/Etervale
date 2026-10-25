@@ -52,6 +52,8 @@ public static class ItemEquipmentMetadata
         "WS227", "WS229", "WS230", "WS231", "WS232", "WS233", "WS234", "WS235", "WS253", "WS254"
     };
 
+    public static bool IsTwoHanded(string catalogKey) => TwoHandedKeys.Contains(catalogKey);
+
     public static bool TryGet(string catalogKey, out ItemKind kind, out EquipmentSlot slot)
     {
         kind = default;

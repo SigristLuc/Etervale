@@ -40,7 +40,7 @@ rendering internals, skill presentation and VFX data have their own documents (s
 | `Client/PristonTale.Gameplay/UI/Npc/` | NPC service controller, shop and warehouse windows, store layout, NPC art |
 | `Client/PristonTale.Gameplay/UI/Quests/` | Quest controller, quest dialog and yes/no boxes, quest window, quest texts and art (see [quests.md](quests.md#client)) |
 | `Client/PristonTale.Gameplay/UI/Rendering/` | `HudSprites` (original UI images), `HudIconCache` (item icons), `HudAtlas` (login atlas), `HudPainter`/`HudCanvas` |
-| `Client/PristonTale.Gameplay/Audio/` | `PristonAudioLibrary` (bootstrap sound load), `FieldAudioController` (music, field and positional ambience), `NpcAudioController`, `LegacyTalkSound` |
+| `Client/PristonTale.Gameplay/Audio/` | `PristonAudioLibrary` (bootstrap sound load), `FieldAudioController` (music, field and positional ambience), `NpcAudioController`, `LegacyTalkSound`, `CombatSounds` and `CharacterSoundBanks` (character, weapon and footstep sounds), `MonsterSoundCues` |
 | `Client/PristonTale.Gameplay/Effects/` | Effect glue: `LegacyEffectLibrary`, `VfxContent` (effect data from `<assetRoot>/Effect/Vfx`, loaded off the game thread), `SkillPresentation`, `ScriptEffects`, `SkillSoundBank`, `SkillState`, combat text, meteor, monster mesh and return effects ([effects.md](effects.md)) |
 | [`Client/PristonTale.Client.Net/GameServerConnection.cs`](../Client/PristonTale.Client.Net/GameServerConnection.cs) | TCP session: connect, login, characters, world entry, request correlation, heartbeat, receive dispatch |
 | `Client/PristonTale.Client.Net/IGameBackend.cs`, `IPlayChannel.cs` | Contracts the screens use: account and character requests; in-world commands and the presence stream |
@@ -372,6 +372,22 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
 - `NpcAudioController` plays the dialog line or a motion sound of the NPC at its position relative to the listener.
 - `MusicEnabled`/`SoundEnabled` come from client settings each frame (`ApplySettings`).
 - Skill sounds: `SkillSoundBank` ([skills.md](skills.md)).
+- Character sounds (`CombatSounds`): `CharacterSoundBanks` maps every character sound code to its folder (monsters and
+  summons by sound code, NPCs, player classes 1 to 10 by class code); a file plays for the motion its name starts with
+  (`attack`, `damage`, `dead`, `neutral`, `move`, `disappear`/`change`, `skill`, `hammer`). A folder is read when its
+  character first appears and decoded on a worker through a `SkillSoundBank`; a sound not ready yet is skipped.
+  Monsters drawn smaller than their model play higher (3600/2205 of the rate), more than twice as large lower
+  (1400/2205).
+- `MonsterSoundCues` follows each monster's animation like `MonsterPresentation`: the attack or skill sound on the
+  clip's first two event frames, the damage, death or vanishing sound when the monster enters that motion, and the idle
+  sound one time in four when it stops.
+- Players: a server `Hit` or `Miss` of a player's swing plays the weapon sound of the attacker's weapon (`CombatSounds.
+  WeaponCode`: axes, swords with the first three as small blades, spears, claws, bows, staves cast by magicians and
+  priestesses and struck by others, hammers, throwing weapons, punches without a weapon; one- or two-handed by
+  `ItemEquipmentMetadata.IsTwoHanded`; a miss plays the hand's miss sound, a critical adds the critical sound). Damage
+  and death play the class's sound, a `Revive` the restart chime. The local player's walk and run clips play the floor's
+  footsteps (stone in towns and ruins, dungeon stone, soft ground in forests and deserts) on their first two event
+  frames. Everything comes from the presence stream, so every client near the action plays it.
 
 ## How to
 

@@ -61,6 +61,7 @@ public sealed partial class GameScene : ISkillSceneHost
         _skillFx = new SkillPresentation(_graphicsDevice, _content, _effectLibrary, _renderer.TransientLights, this, _skillSounds, _log);
         _skillFx.CastResolved += OnCastResolved;
         CreateMonsterPresentation();
+        CreateCombatSounds();
         _looks = new ActorLookPresenter(new RendererActorScene(_renderer), _actorLoader, _assetRoot ?? "");
     }
 

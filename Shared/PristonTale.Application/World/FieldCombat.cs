@@ -102,7 +102,14 @@ internal sealed class FieldCombat
         HitResult result = CombatResolver.Resolve(_rng, atk, def, defenderHasShield: false);
 
         if (result.Damage <= 0)
+        {
+            if (!result.Hit)
+            {
+                _host.EmitCombatEvent(new CombatEventView(player.EntityId, targetId, CombatEventKindView.Miss));
+            }
+
             return null;
+        }
 
         SkillCombat?.ConsumeNextHit(player);
 

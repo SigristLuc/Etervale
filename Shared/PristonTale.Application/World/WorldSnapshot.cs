@@ -119,6 +119,8 @@ public enum CombatEventKindView
     Revive = 8,
     // A player blocked a monster's normal attack; no damage reaches them.
     Block = 9,
+    // A player's swing missed its target (its weapon's miss sound plays for everyone near).
+    Miss = 10,
 }
 
 public enum SkillEventPhaseView : byte
