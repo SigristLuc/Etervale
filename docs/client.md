@@ -258,7 +258,10 @@ The client owns its own locomotion; the server validates and corrects.
   (`_pendingFieldWarp`, the player stops) until the field is in the world, then applies it.
 - Field changes are local: across a seamless border the active field becomes the loaded field with the highest floor
   under the player (`UpdateActiveField`); warp gates are detected in `UpdateWarps` (level limit checked), and
-  special-effect warp gates hold the player for 2 s with the return effect and portal sound before switching. The
+  special-effect warp gates hold the player for 2 s with the return effect and portal sound before switching. A wing
+  warp stone (`GameScene.WingGates.cs`) holds the player on it and opens the wing warp map; walking off closes it, and
+  it opens again only after the player left the stone. A trip the server accepts plays the return sparkle and the
+  portal sound where its forced `FieldWarp` lands the player. The
   server learns the new field code from the next report, which a field change sends at once.
 - `ActorMotionController`: `ApplyLocomotion` is ignored while Damage, Dead or Eat freeze locomotion;
   `ApplyAuthoritative` always wins.
@@ -318,6 +321,11 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   equipment slot equips, right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
   slot first), drinks a potion or uses a usable item (`HudItemUseController`: the Teleport Core window, confirmations,
   the item-use request). One command in flight; it carries the `InventoryRevision` it was built from.
+- Wing warp map (`HudWingGate`): `WG_map.tga` (256 x 256) at (472, 120) with the icon of each stone the carried wing
+  reaches, three rings growing and fading from the hovered icon, the help box at (50, 45) with the hovered stone's name
+  and `WarpGateDoc` document (the fee table of `Default.sin`, its `%d` filled with the wings' fees, while none is
+  hovered), and the cancel button at the map's lower right. A click checks the level and the gold, then asks for
+  confirmation before `IPlayChannel.TravelWingGateAsync`; a refusal shows as a notice.
 - Restart window (`HudRestartPanel`): opens 100 death-motion frames (about 1.4 s) after the local player falls, centred
   100 pixels above the middle; field, town and exit buttons light up under the pointer with their help lines; the field
   button stays dark with red help where the server's `RestartOffer` says the field restart is closed (nothing in the

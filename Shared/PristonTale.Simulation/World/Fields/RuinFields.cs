@@ -59,7 +59,7 @@ public static class Ruin1Field
         Center = new FieldPoint(16362, 14959),
         StartPoints = [new FieldPoint(12242, 16034), new FieldPoint(12194, 8969)],
         Gates = [new FieldGate("De-1", 13319, 7102, 0)],
-        WarpGates = [new FieldWarpGate(16809, 15407, 501, 128, 32, "dun-1", -15395, -24185, 0, 0, 0)],
+        WarpGates = [new FieldWarpGate(16809, 15407, 501, 128, 32, "dun-1", -15395, -24185, 0, 40, 0)],
         BackMusicCode = "BGM_CODE_DESERT",
         ServerCode = "PLAY_SERVER_CODE_MAIN"
     };

@@ -26,6 +26,7 @@ public static class Iron1Field
         ])
     {
         FieldCode = 27,
+        LimitLevel = 80,
         Center = new FieldPoint(47617, 13626),
         StartPoints =
         [
@@ -69,6 +70,7 @@ public static class Iron2Field
         ])
     {
         FieldCode = 28,
+        LimitLevel = 85,
         Center = new FieldPoint(33938, 24229),
         StartPoints = [new FieldPoint(35149, 24326), new FieldPoint(44893, 21380)],
         Gates = [new FieldGate("ice_ura", 33618, 24011, 0)],

@@ -145,7 +145,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             SingleWriter = true,
             FullMode = BoundedChannelFullMode.Wait
         });
-    // TRANSPLAYDATA cadence: the original sends every 64 frames; moving avatars report at 5 Hz for smoother peers.
+    // Movement report cadence: the original sends every 64 frames; moving avatars report at 5 Hz for smoother peers.
     private const double MovingReportMs = 200;
     private const double IdleReportMs = 1000;
     // At most one movement report per server tick: the server closes a connection that sends more than 251 packets in
@@ -771,7 +771,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         foreach (var warp in active.WarpGates)
         {
             var point = new Vector2(warp.X, -warp.Z);
-            if (warp.SpecialEffect != 2
+            if (!WingGates.IsStone(warp)
                 && FieldStreamingPolicy.ShouldPrefetch(player, movementTarget, point, movementSpeed)
                 && _worldCatalog.TryGetField(warp.DestinationFieldId, out var destination))
             {
@@ -912,6 +912,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             return;
         }
 
+        UpdateWingStone();
         if (_warpCooldown > 0f)
         {
             _warpCooldown -= dtSeconds;
@@ -923,10 +924,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             return;
         }
 
-        var player = _playerBody.PlanarPosition;
         foreach (var warp in _activeField.Definition.WarpGates)
         {
-            if (warp.SpecialEffect == 2 || warp.DestinationFieldId == _activeField.Definition.Id)
+            if (WingGates.IsStone(warp) || warp.DestinationFieldId == _activeField.Definition.Id)
             {
                 continue;
             }
@@ -941,11 +941,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 continue;
             }
 
-            var center = new Vector2(warp.X, -warp.Z);
-            var radius = MathF.Max(warp.Width, 48f);
-            var playerFeet = _playerBody.Height + GroundTraversal.VisualOffset;
-            var withinHeight = warp.Y == 0 || MathF.Abs(playerFeet - warp.Y) < warp.Height;
-            if (withinHeight && Vector2.DistanceSquared(player, center) <= radius * radius)
+            if (OnGate(warp))
             {
                 if (warp.SpecialEffect == 1)
                 {
@@ -961,6 +957,16 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 return;
             }
         }
+    }
+
+    // The player's feet stand within the gate's width and, for a gate with a height, within its height.
+    private bool OnGate(FieldWarpGate warp)
+    {
+        var center = new Vector2(warp.X, -warp.Z);
+        var radius = MathF.Max(warp.Width, 48f);
+        var playerFeet = _playerBody.Height + GroundTraversal.VisualOffset;
+        var withinHeight = warp.Y == 0 || MathF.Abs(playerFeet - warp.Y) < warp.Height;
+        return withinHeight && Vector2.DistanceSquared(_playerBody.PlanarPosition, center) <= radius * radius;
     }
 
     private void BeginSpecialWarp(FieldWarpGate warp)
@@ -1210,6 +1216,12 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             ApplyPlayerWorld();
             _camera?.SnapFollow(_playerBody.Position, _fieldCollision);
             _reportDue = true;
+            if (_wingTripLanding)
+            {
+                _wingTripLanding = false;
+                _returnEffect?.Start(_playerBody.Position + Vector3.Up * GroundTraversal.VisualOffset);
+                _fieldAudio?.PlayPortalWarp();
+            }
         }
     }
 

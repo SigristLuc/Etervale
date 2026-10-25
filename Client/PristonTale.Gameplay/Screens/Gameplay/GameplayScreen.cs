@@ -57,6 +57,10 @@ public sealed class GameplayScreen : GameScreen
         _hud.Chat.CloseRequested += RequestExit;
         _hud.Restart.Restart = _scene.RestartAsync;
         _hud.Restart.ExitRequested += RequestExit;
+        _hud.WingGate.Travel = _scene.TravelWingGateAsync;
+        _hud.WingGate.RequiredLevel = _scene.FieldLimitLevel;
+        _scene.WingGateEntered += _hud.WingGate.Open;
+        _scene.WingGateLeft += _hud.WingGate.Close;
 
         _scene.BeginRemotePresence(Context.Backend.OpenPlayChannel(), _entered);
 

@@ -6,6 +6,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
+using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Client.Net.Online;
@@ -71,6 +72,12 @@ internal sealed class OnlinePlayChannel : IPlayChannel
     {
         await _start.WaitAsync(ct);
         return await _connection.RestartAsync(choice, ct);
+    }
+
+    public async Task<WingGateOutcome> TravelWingGateAsync(int destination, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        return await _connection.TravelWingGateAsync(destination, ct);
     }
 
     public async Task SendMovementAsync(Vector3 position, float facing, bool moving, bool running, ulong actionTarget, int fieldCode, CancellationToken ct = default)

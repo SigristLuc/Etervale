@@ -60,7 +60,7 @@ public static class ForeverFall3Field
         WarpGates =
         [
             new FieldWarpGate(-4730, 48107, 1173, 64, 32, "forever-fall-03", -4615, 48002, 1146, 0, 2),
-            new FieldWarpGate(-6306, 43241, 779, 64, 32, "Mcave", 119025, 35680, 499, 0, 0)
+            new FieldWarpGate(-6306, 43241, 779, 64, 32, "Mcave", 119025, 35680, 499, 55, 0)
         ],
         Ambients =
         [

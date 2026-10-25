@@ -5,6 +5,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
+using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Client.Net;
@@ -34,7 +35,11 @@ public interface IPlayChannel : IAsyncDisposable
     Task<RestartOutcome> RestartAsync(RestartChoice choice, CancellationToken ct = default) =>
         Task.FromResult(new RestartOutcome(RestartStatus.Rejected, choice));
 
-    // TRANSPLAYDATA: the client's own position (PT-global coordinates), motion and action target, plus its field code.
+    // A player on a warp stone travels to a stone of the wing warp map; the server checks the wing, level and fee.
+    Task<WingGateOutcome> TravelWingGateAsync(int destination, CancellationToken ct = default) =>
+        Task.FromResult(new WingGateOutcome(WingGateStatus.Rejected, destination));
+
+    // The client's own position (PT-global coordinates), motion and action target, plus its field code.
     Task SendMovementAsync(Vector3 position, float facing, bool moving, bool running, ulong actionTarget, int fieldCode, CancellationToken ct = default);
 
     Task SendAttackAsync(ulong targetEntityId, bool sustained, CancellationToken ct = default, ulong sequence = 0);

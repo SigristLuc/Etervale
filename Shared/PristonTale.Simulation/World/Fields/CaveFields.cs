@@ -29,7 +29,7 @@ public static class TcaveField
         StartPoints = [new FieldPoint(119319, 26034), new FieldPoint(125606, 24541)],
         WarpGates =
         [
-            new FieldWarpGate(125581, 25086, 480, 80, 32, "Dcave", 158627, 20504, 240, 0, 0),
+            new FieldWarpGate(125581, 25086, 480, 80, 32, "Dcave", 158627, 20504, 240, 65, 0),
             new FieldWarpGate(118869, 26017, 538, 80, 32, "fore-3", -16490, -6930, 298, 0, 0)
         ],
         BackMusicCode = "BGM_CODE_DUNGEON",
@@ -67,7 +67,7 @@ public static class McaveField
         StartPoints = [new FieldPoint(119320, 35680), new FieldPoint(124380, 33260)],
         WarpGates =
         [
-            new FieldWarpGate(124391, 32913, 37, 80, 32, "Dcave", 158543, 19557, 290, 0, 0),
+            new FieldWarpGate(124391, 32913, 37, 80, 32, "Dcave", 158543, 19557, 290, 65, 0),
             new FieldWarpGate(118808, 35686, 520, 80, 32, "forever-fall-03", -6056, 43245, 787, 0, 0)
         ],
         BackMusicCode = "BGM_CODE_DUNGEON",

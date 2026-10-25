@@ -7,7 +7,7 @@ using PristonTale.Simulation.Characters;
 
 // Headless load generator over the original Priston protocol. Each bot logs in, creates a character when the account
 // has none, enters the world and then walks, hunts monsters with basic attacks or casts a skill at them, reporting
-// TRANSPLAYDATA at 5 Hz and draining presence. Accounts (and placed hunting characters) come from:
+// its movement at 5 Hz and draining presence. Accounts (and placed hunting characters) come from:
 // dotnet run --project tools/PristonTale.DevAccounts -- create-bots <prefix> <count> <password> [--class ... --field ... --at x,z]
 var options = Options.Parse(args);
 if (options is null)

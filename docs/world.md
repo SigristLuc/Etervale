@@ -81,8 +81,8 @@ field; `WorldCatalog(IEnumerable<FieldDef>)` builds test catalogs. Lookups by `I
 | `State` (`FieldState`) | `Village` sets the player's in-village flag on entry; `Dungeon` sets `Underground` (no sky) |
 | `Center`, `StartPoints` | `StartPoints[0]` is the NPC teleport arrival; a field restart stands up at the start point nearest to the fall, a town restart at a random one; `Center` is the fallback |
 | `Gates` | Seamless boundaries to an adjacent field (`DestinationFieldId`, X/Z, angle) |
-| `WarpGates` | Portals: trigger X/Z/Y and Width/Height, destination field and X/Z/Y, `LimitLevel`, `SpecialEffect` (1: a delayed warp with the return sparkle; 2: the town's wing warp gate stone, exit in its own field) |
-| `LimitLevel` | Minimum character level to enter (gates, warps and teleports) |
+| `WarpGates` | Portals: trigger X/Z/Y and Width/Height, destination field and X/Z/Y, `LimitLevel`, `SpecialEffect` (1: a delayed warp with the return sparkle; 2: a wing warp stone, its destination point the stone's exit in its own field; see [Wing warp gates](#wing-warp-gates)) |
+| `LimitLevel` | Minimum character level to enter (gates, warps and teleports): Desert 3 (11) 55, Greedy Lake (34) 70, Iron 1 (27) 80, Iron 2 (28) 85, Eura (29), Ice 1 (31) and Ice 2 (35) 90, the Lost Temple (38) and both floors of the Endless Tower (39, 40) 100 |
 | `Ambients`, `Lighting`, `Camera`, `DayNight`, `Backdrop`, `BackMusicCode`, `OnLoaded`, `OnUpdate` | Client presentation |
 | `FieldEvent` | `Nightmare` (Navisko): see Night and day |
 | `HazeReduction`, `SightCells` | The share of the distance haze the field clears (Ricarten 0.2) and the 64-unit cells of sight added before it starts (Ice Ura 1); client presentation |
@@ -98,7 +98,7 @@ adjacent stages.
 server position; the requested position is never trusted. Rules:
 
 - Refused for an invalid origin, the same field, or `level < destination.LimitLevel`.
-- Warp: a source warp gate to the destination, `SpecialEffect != 2`, `level >= warp.LimitLevel`, origin within
+- Warp: a source warp gate to the destination, not a wing warp stone, `level >= warp.LimitLevel`, origin within
   `max(Width, 48) + 64` planar units of the trigger. Arrival is the warp's authored destination point, settled on the
   floor within 64 units.
 - Gate: a gate between the two fields (either direction) within 1810 planar units of the origin. The player keeps the
@@ -488,6 +488,26 @@ Teleport routes (`TeleportRoutes`): route 0 means route 1. Route 1: index 1 fiel
 `LimitLevel` applies; arrival is its first start point (or `Center`) placed on the floor. The cave destinations are the
 fields that hold the cave entrances: field 0 (`fore-3`) has the warp gate to `Tcave`, field 18 (`forever-fall-03`) the
 one to `Mcave`.
+
+## Wing warp gates
+
+`WingGates` (Simulation) holds the rules; `WingGateTransactions` (Application) runs a trip on the tick. Ten fields
+have a warp stone (`FieldWarpGate` with `SpecialEffect` 2): Ricarten, Pillai, Land of Dusk (18), Bamboo Forest (1),
+Ruinen Village (6), Navisko (9), Forbidden Land (12), Eura (29), Land of Chaos (37) and Bless Castle (33).
+
+- Stepping on a stone opens the wing warp map. Its destinations, in order: Ricarten, Pillai, Land of Dusk, Bamboo
+  Forest, Ruinen Village, Navisko Town, Forbidden Land (level 55), Eura Village (90), Land of Chaos (95); the
+  destination field's own `LimitLevel` applies as well.
+- Reach: without a wing the first two; with a wing in the pack the best one counts: Metal (`QW101`) 4, Silver 5,
+  Gold 6, Dia 7, Chaos 8, Extreme (`QW106`) 9.
+- Fee: Ricarten, Pillai and the field the player stands in are free; elsewhere the wing's fee: 100, 300, 500, 1000,
+  2000, 4000 gold from Metal to Extreme. It counts as teleport spending in the currency report.
+- The server checks that the living player stands within `max(Width, 48) + 64` planar units of a stone of its field,
+  the reach, the level and the gold. The candidate pays the fee and is stored at the destination, then the commit
+  takes the gold and moves the player (`Arrive`, also within the same field) to the destination stone's exit (its
+  first start point when it has no stone).
+- Bless Castle's stone has no map entry: the castle destination belongs to the castle's owner clan, and there is no
+  castle ownership yet.
 
 `LegacyNpcSoundCode.Resolve(key)` maps the authored sound keyword of a monster or NPC to its sound family code. The
 importer stores it; the client audio library and the AI rules key on it.

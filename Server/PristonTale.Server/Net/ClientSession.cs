@@ -15,6 +15,7 @@ using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.Skills;
+using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Server.Net;
@@ -32,6 +33,7 @@ internal sealed record SessionServices(
     NpcAppService Npc,
     ItemUseAppService ItemUse,
     RestartAppService Restart,
+    WingGateAppService WingGates,
     QuestAppService Quests,
     ChatAppService Chat,
     GameServerControl Control)
@@ -168,6 +170,9 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                     break;
                 case EtervaleOpcodes.RestartRequest:
                     await RestartAsync(RestartRequestPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.WingGateRequest:
+                    await TravelWingGateAsync(WingGateRequestPacket.Read(memory.Span));
                     break;
                 case EtervaleOpcodes.QuestRequest:
                     await RequestQuestAsync(QuestRequestPacket.Read(memory.Span));
@@ -624,6 +629,35 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         var outcome = reply.Outcome;
         var result = new ItemUseResultPacket(request.OperationId, outcome.Ok, outcome.Revision, (ushort)outcome.Status, outcome.ItemCode, outcome.Message);
         SendLarge(result.Write, ItemUseResultPacket.MaximumSize);
+        if (reply.Arrival is { } arrival)
+        {
+            SendWarp(arrival.FieldCode, arrival.Position);
+        }
+    }
+
+    // A wing gate trip answers with WingGateResult; a trip that warped sends a forced FieldWarp.
+    private async Task TravelWingGateAsync(WingGateRequestPacket request)
+    {
+        var command = new WingGateCommand(request.OperationId, request.Destination);
+        WingGateReply reply;
+        try
+        {
+            reply = _session is null || _player is null
+                ? new WingGateReply(new WingGateOutcome(WingGateStatus.Rejected, command.Destination))
+                : await _services.WingGates.TravelAsync(RequireToken(), command);
+        }
+        catch (WorldBusyException)
+        {
+            reply = new WingGateReply(new WingGateOutcome(WingGateStatus.Busy, command.Destination));
+        }
+        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException or System.Data.Common.DbException)
+        {
+            reply = new WingGateReply(new WingGateOutcome(WingGateStatus.StorageFailed, command.Destination));
+        }
+
+        var outcome = reply.Outcome;
+        var result = new WingGateResultPacket(request.OperationId, (byte)outcome.Status, request.Destination, outcome.Fee);
+        SendLarge(result.Write, WingGateResultPacket.Size);
         if (reply.Arrival is { } arrival)
         {
             SendWarp(arrival.FieldCode, arrival.Position);

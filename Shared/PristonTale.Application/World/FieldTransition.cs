@@ -23,7 +23,7 @@ public static class FieldTransition
         {
             var radius = MathF.Max(warp.Width, 48f) + WarpTolerance;
             if (warp.DestinationFieldId == destination.Id
-                && warp.SpecialEffect != 2
+                && !WingGates.IsStone(warp)
                 && level >= warp.LimitLevel
                 && Near(origin, warp.X, warp.Z, radius))
             {

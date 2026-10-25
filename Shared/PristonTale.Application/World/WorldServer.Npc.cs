@@ -95,7 +95,11 @@ public sealed partial class WorldServer
 
         var player = connection.Player;
         var target = GetField(arrival.FieldCode);
-        TransferPlayer(player, _fields[connection.FieldId], target);
+        if (connection.FieldId != arrival.FieldCode)
+        {
+            TransferPlayer(player, _fields[connection.FieldId], target);
+        }
+
         var position = target.Terrain.PlaceOnFloor(arrival.Position);
         var inVillage = destination.State == FieldState.Village;
         player.EnterField(position, inVillage);

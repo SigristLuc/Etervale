@@ -1,0 +1,145 @@
+using System.Numerics;
+using PristonTale.Simulation.Items;
+
+namespace PristonTale.Simulation.World;
+
+// A stone the wing warp map lists: its order on the map, the field it lands in, its name, the spot of its 16 x 16 icon
+// on the 256 x 256 map, the help document shown while the pointer is on it and the level a trip there asks (the field's
+// own limit applies as well).
+public sealed record WingGateDestination(int Index, int FieldCode, string Name, int MapX, int MapY, string Document, int Level = 0);
+
+public enum WingGateStatus : byte
+{
+    Warped = 0,
+    Rejected = 1,
+    NotAtStone = 2,
+    NotReached = 3,
+    LevelTooLow = 4,
+    NotEnoughGold = 5,
+    Busy = 6,
+    StorageFailed = 7
+}
+
+// The wing warp gates. Stepping on a warp stone (a FieldWarpGate with SpecialEffect 2) opens a map of the stones a
+// carried wing reaches: without a wing Ricarten and Pillai, with one the first Reach stones of the list, the best wing
+// carried counting. Ricarten, Pillai and the field the player stands in are free; elsewhere the trip costs the wing's
+// fee. The traveller lands on the exit of the destination's stone.
+public static class WingGates
+{
+    public const int StoneEffect = 2;
+    public const int FreeReach = 2;
+    public const int FreeDestinations = 2;
+
+    // A stone answers within its width plus this tolerance, as a warp gate does.
+    public const float StoneTolerance = 64f;
+
+    public const string MapArt = "image/Sinimage/help/WG_map.tga";
+    public const string IconArt = "image/Sinimage/help/WG_icon.tga";
+    public const string SelectArt = "image/Sinimage/help/WG_slt.tga";
+    public const string DocumentFolder = "image/Sinimage/WarpGateDoc";
+    public const string IntroDocument = "Default";
+
+    public static readonly IReadOnlyList<WingGateDestination> Destinations =
+    [
+        new(0, 3, "Ricarten", 96, 199, "Ricarten"),
+        new(1, 21, "Pillai", 64, 21, "Pilai"),
+        new(2, 18, "Land of Dusk", 88, 84, "Forest2"),
+        new(3, 1, "Bamboo Forest", 67, 177, "Forest3"),
+        new(4, 6, "Ruinen Village", 78, 116, "Ruinen"),
+        new(5, 9, "Navisko Town", 150, 165, "Nevisco"),
+        new(6, 12, "Forbidden Land", 158, 137, "Desert4", 55),
+        new(7, 29, "Eura Village", 155, 65, "yura", 90),
+        new(8, 37, "Land of Chaos", 140, 225, "chaoticpost", 95)
+    ];
+
+    // The wings from Metal to Extreme: how many stones each reaches and the fee it charges.
+    public static readonly IReadOnlyList<WingGateWing> Wings =
+    [
+        new(ItemCodes.Parse("QW101"), "Metal Wing", 4, 100),
+        new(ItemCodes.Parse("QW102"), "Silver Wing", 5, 300),
+        new(ItemCodes.Parse("QW103"), "Gold Wing", 6, 500),
+        new(ItemCodes.Parse("QW104"), "Dia Wing", 7, 1000),
+        new(ItemCodes.Parse("QW105"), "Chaos Wing", 8, 2000),
+        new(ItemCodes.Parse("QW106"), "Extreme Wing", 9, 4000)
+    ];
+
+    // The best wing among the carried item codes; null without one.
+    public static WingGateWing BestWing(IEnumerable<uint> carried)
+    {
+        WingGateWing best = null;
+        foreach (var code in carried)
+        {
+            foreach (var wing in Wings)
+            {
+                if (wing.Code == code && (best is null || wing.Reach > best.Reach))
+                {
+                    best = wing;
+                }
+            }
+        }
+
+        return best;
+    }
+
+    public static int Reach(WingGateWing wing) => wing?.Reach ?? FreeReach;
+
+    public static int RequiredLevel(WingGateDestination destination, int fieldLimit) => Math.Max(destination.Level, fieldLimit);
+
+    public static bool TryGet(int index, out WingGateDestination destination)
+    {
+        destination = index >= 0 && index < Destinations.Count ? Destinations[index] : null;
+        return destination is not null;
+    }
+
+    // What a trip to the destination costs a player with this wing standing in the given field.
+    public static long Fee(WingGateWing wing, WingGateDestination destination, int currentField) =>
+        wing is null || destination.Index < FreeDestinations || destination.FieldCode == currentField ? 0 : wing.Fee;
+
+    public static bool IsStone(FieldWarpGate warp) => warp.SpecialEffect == StoneEffect;
+
+    // The line the player reads for a trip that did not warp.
+    public static string Message(WingGateStatus status) => status switch
+    {
+        WingGateStatus.Warped => "",
+        WingGateStatus.NotAtStone => "Stand on the warp gate first",
+        WingGateStatus.NotReached => "Your wing does not reach this gate",
+        WingGateStatus.LevelTooLow => "Your level is too low",
+        WingGateStatus.NotEnoughGold => "Not enough gold",
+        WingGateStatus.Busy => "Another action is pending; try again",
+        WingGateStatus.StorageFailed => "Storage rejected the operation; character unchanged",
+        _ => "The warp gate refused"
+    };
+
+    // True when the position (original X and Z) stands on a stone of the field.
+    public static bool AtStone(FieldDef field, Vector3 position)
+    {
+        foreach (var warp in field.WarpGates)
+        {
+            var radius = MathF.Max(warp.Width, 48f) + StoneTolerance;
+            var delta = new Vector2(position.X - warp.X, position.Z - warp.Z);
+            if (IsStone(warp) && delta.LengthSquared() <= radius * radius)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Where a trip to the field lands: the exit of its stone, else its first start point (original X, Y, Z).
+    public static Vector3 Exit(FieldDef field)
+    {
+        foreach (var warp in field.WarpGates)
+        {
+            if (IsStone(warp))
+            {
+                return new Vector3(warp.DestinationX, warp.DestinationY, warp.DestinationZ);
+            }
+        }
+
+        var start = field.StartPoints.Count > 0 ? field.StartPoints[0] : field.Center;
+        return new Vector3(start.X, 0f, start.Z);
+    }
+}
+
+public sealed record WingGateWing(uint Code, string Name, int Reach, long Fee);

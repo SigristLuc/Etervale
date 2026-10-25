@@ -57,6 +57,8 @@ public static class EtervaleOpcodes
     public const uint AttackRequest = 0x45540D01;
     public const uint FieldWarp = 0x45540D02;
     public const uint CloseRequest = 0x45540D03;
+    public const uint WingGateRequest = 0x45540D04;
+    public const uint WingGateResult = 0x45540D05;
 
     public const uint EnterWorld = 0x45540E00;
     public const uint WorldEntry = 0x45540E01;

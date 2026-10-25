@@ -7,6 +7,7 @@ using PristonTale.Gameplay.UI.Inventory;
 using PristonTale.Gameplay.UI.Npc;
 using PristonTale.Gameplay.UI.Quests;
 using PristonTale.Gameplay.UI.Rendering;
+using PristonTale.Gameplay.UI.Travel;
 using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
@@ -64,7 +65,9 @@ public sealed class GameplayHud : IDisposable
     private readonly HudPremiumKeeps _premiumKeeps = new();
     private readonly HudPuzzleExchange _puzzle = new();
     private readonly HudRestartPanel _restart = new();
+    private readonly HudWingGate _wingGate;
     private int _itemUseCompletions;
+    private int _wingGateCompletions;
     private int _shopsOpened;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private KeyboardState _previousKeyboard;
@@ -112,6 +115,8 @@ public sealed class GameplayHud : IDisposable
         _itemUse = new HudItemUseController(UseItemAsync, context.Log);
         _premium = new HudPremiumTimers(_sprites);
         _sprites.Request(HudTeleportCore.Art);
+        _wingGate = new HudWingGate(context.Log);
+        _sprites.Request(HudWingGate.Art);
         _inventory.UseRequested = item => _itemUse.Request(item, _state);
         _quests = new HudQuestController(requestQuest, context.Log);
         _questDocuments = new HudQuestDocuments(context.AssetRoot, context.Log);
@@ -157,6 +162,9 @@ public sealed class GameplayHud : IDisposable
 
     // The restart window; the screen sets its request and quits on its exit choice.
     public HudRestartPanel Restart => _restart;
+
+    // The wing warp map a warp stone opens; the screen opens it and sets its trip.
+    public HudWingGate WingGate => _wingGate;
     public IHudPortraitScene PortraitScene { get; set; }
     public bool PortraitReady => _portrait.Texture(TargetId) is not null;
     public float MinimapViewSize => _minimap.CurrentViewSize;
@@ -251,8 +259,9 @@ public sealed class GameplayHud : IDisposable
             || _inventorySlide.Open || _statusSlide.Open || _skillSlide.Open || _shop.IsOpen || _warehouse.IsOpen
             || _questWindow.Open || _quests.Dialog is not null || _quests.SkillResetBox;
         CloseServices();
-        closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming;
+        closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming || _wingGate.IsOpen || _wingGate.Confirming;
         _itemUse.Close();
+        _wingGate.Close();
         _puzzle.Close();
         _quests.CloseDialog();
         _quests.AnswerSkillReset(false);
@@ -285,6 +294,7 @@ public sealed class GameplayHud : IDisposable
         _progression.Update();
         _services.Update();
         _itemUse.Update();
+        _wingGate.Update();
         _itemUse.Restore(state, InCastleField, _clock.Elapsed.TotalMilliseconds);
         _restart.Update(PlayerDead, _clock.Elapsed.TotalMilliseconds);
         _premium.Apply(PremiumTimers, _clock.Elapsed.TotalMilliseconds);
@@ -430,6 +440,12 @@ public sealed class GameplayHud : IDisposable
         {
             _itemUseCompletions = _itemUse.Completions;
             Report(_itemUse.LastOutcome?.Ok == true, _itemUse.Message);
+        }
+
+        if (_wingGate.Completions != _wingGateCompletions)
+        {
+            _wingGateCompletions = _wingGate.Completions;
+            Report(_wingGate.LastOutcome?.Ok == true, _wingGate.Message);
         }
 
         if (_itemUse.ShopsOpened != _shopsOpened)
@@ -645,7 +661,7 @@ public sealed class GameplayHud : IDisposable
             return;
         }
 
-        if (_itemUse.Click(pointer, state) || _puzzle.Click(pointer, state, _services))
+        if (_itemUse.Click(pointer, state) || _wingGate.Click(pointer, state) || _puzzle.Click(pointer, state, _services))
         {
             return;
         }
@@ -821,7 +837,7 @@ public sealed class GameplayHud : IDisposable
 
     private bool Captures(HudLayout layout, Point pointer, Point design)
     {
-        if (_itemUse.Captures(pointer) || _puzzle.Captures(pointer) || _premium.Contains(pointer))
+        if (_itemUse.Captures(pointer) || _wingGate.Captures(pointer) || _puzzle.Captures(pointer) || _premium.Contains(pointer))
         {
             return true;
         }
@@ -953,6 +969,12 @@ public sealed class GameplayHud : IDisposable
         {
             _painter.Flush();
             _itemUse.Draw(_painter, pointer);
+        }
+
+        if (_wingGate.IsOpen || _wingGate.Confirming)
+        {
+            _painter.Flush();
+            _wingGate.Draw(_painter, _context.Font, _questDocuments, _state, pointer, _clock.Elapsed.TotalMilliseconds);
         }
 
         _puzzle.Draw(_painter, pointer);

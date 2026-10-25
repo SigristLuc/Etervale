@@ -25,6 +25,7 @@ public static class LosttempleField
         "Field\\Losttemple\\lost_temple.smd", [])
     {
         FieldCode = 38,
+        LimitLevel = 100,
         Center = new FieldPoint(-11718, 10794),
         BackMusicCode = "BGM_CODE_DESERT",
         ServerCode = "PLAY_SERVER_CODE_EXTEND"

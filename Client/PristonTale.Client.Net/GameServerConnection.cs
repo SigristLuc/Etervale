@@ -16,6 +16,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
+using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Client.Net;
@@ -42,6 +43,7 @@ public sealed class GameServerConnection : IGameBackend
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<OperationResultPacket>> _operations = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<ItemUseResultPacket>> _itemUses = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<RestartResultPacket>> _restarts = new();
+    private readonly ConcurrentDictionary<Guid, TaskCompletionSource<WingGateResultPacket>> _wingGates = new();
     private readonly ConcurrentDictionary<ulong, NpcRequest> _npcRequests = new();
     private readonly ConcurrentDictionary<Guid, ServiceRequest> _serviceRequests = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<QuestOutcome>> _questRequests = new();
@@ -324,6 +326,30 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
+    // A trip through the wing warp gates; the new place arrives as a forced FieldWarp.
+    internal async Task<WingGateOutcome> TravelWingGateAsync(int destination, CancellationToken ct)
+    {
+        ThrowIfDisconnected();
+        var operation = Guid.NewGuid();
+        var pending = new TaskCompletionSource<WingGateResultPacket>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _wingGates[operation] = pending;
+        try
+        {
+            var packet = new WingGateRequestPacket(operation, (byte)destination);
+            lock (_sendGate)
+            {
+                Connection.Send(_scratch.AsSpan(0, packet.Write(_scratch)));
+            }
+
+            var result = await pending.Task.WaitAsync(ct);
+            return new WingGateOutcome((WingGateStatus)result.Status, result.Destination, result.Fee);
+        }
+        finally
+        {
+            _wingGates.TryRemove(operation, out _);
+        }
+    }
+
     internal async Task<ProgressionOutcome> ApplyProgressionAsync(ProgressionCommand command, CancellationToken ct)
     {
         var packet = new ProgressionCommandPacket(command.OperationId, command.ExpectedRevision, (int)command.Action, (int)command.Attribute,
@@ -541,6 +567,11 @@ public sealed class GameServerConnection : IGameBackend
                 pending.TrySetException(error);
             }
 
+            foreach (var pending in _wingGates.Values)
+            {
+                pending.TrySetException(error);
+            }
+
             foreach (var pending in _npcRequests.Values)
             {
                 pending.Completion.TrySetException(error);
@@ -646,6 +677,16 @@ public sealed class GameServerConnection : IGameBackend
                 if (_restarts.TryGetValue(restart.OperationId, out var waiting))
                 {
                     waiting.TrySetResult(restart);
+                }
+
+                break;
+            }
+            case EtervaleOpcodes.WingGateResult:
+            {
+                var wingGate = WingGateResultPacket.Read(packet);
+                if (_wingGates.TryGetValue(wingGate.OperationId, out var waiting))
+                {
+                    waiting.TrySetResult(wingGate);
                 }
 
                 break;

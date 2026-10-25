@@ -34,10 +34,11 @@ public static class Desert3Field
     public static readonly FieldDef Definition = new("De-3", "Desert 3", FieldState.Desert, FieldBackdrops.Desert, "Field\\desert\\De-3.smd", [])
     {
         FieldCode = 11,
+        LimitLevel = 55,
         Center = new FieldPoint(34758, -1323),
         StartPoints = [new FieldPoint(34758, -1323), new FieldPoint(29424, 322)],
         Gates = [new FieldGate("De-4", 34372, 4277, 0)],
-        WarpGates = [new FieldWarpGate(36128, -2162, 804, 64, 32, "dun-4", -11088, -41570, 343, 0, 0)],
+        WarpGates = [new FieldWarpGate(36128, -2162, 804, 64, 32, "dun-4", -11088, -41570, 343, 70, 0)],
         BackMusicCode = "BGM_CODE_DESERT",
         ServerCode = "PLAY_SERVER_CODE_EXTEND"
     };

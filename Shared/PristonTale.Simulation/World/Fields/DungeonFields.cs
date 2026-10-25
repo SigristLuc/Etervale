@@ -15,7 +15,7 @@ public static class Dungeon1Field
         WarpGates =
         [
             new FieldWarpGate(-15388, -24073, 100, 64, 32, "ruin-1", 16649, 15238, 501, 0, 0),
-            new FieldWarpGate(-15305, -28824, 1, 64, 32, "dun-2", -6027, -26881, 99, 0, 0)
+            new FieldWarpGate(-15305, -28824, 1, 64, 32, "dun-2", -6027, -26881, 99, 50, 0)
         ],
         Ambients =
         [
@@ -36,8 +36,8 @@ public static class Dungeon2Field
             WarpGates =
             [
                 new FieldWarpGate(-5908, -26878, 136, 64, 32, "dun-1", -15314, -28718, 58, 0, 0),
-                new FieldWarpGate(-8019, -25768, 21, 64, 32, "dun-3", 1810, -28802, 0, 0, 0),
-                new FieldWarpGate(-3918, -27988, 21, 64, 32, "dun-3", 1810, -28802, 0, 0, 0)
+                new FieldWarpGate(-8019, -25768, 21, 64, 32, "dun-3", 1810, -28802, 0, 60, 0),
+                new FieldWarpGate(-3918, -27988, 21, 64, 32, "dun-3", 1810, -28802, 0, 60, 0)
             ],
             BackMusicCode = "BGM_CODE_DUNGEON",
             ServerCode = "PLAY_SERVER_CODE_EXTEND"
@@ -107,7 +107,7 @@ public static class Dungeon4Field
         WarpGates =
         [
             new FieldWarpGate(-10860, -41666, 398, 64, 32, "De-3", 35872, -2016, 804, 0, 0),
-            new FieldWarpGate(-12089, -40380, 95, 64, 32, "dun-5", -2527, -37196, 727, 0, 0)
+            new FieldWarpGate(-12089, -40380, 95, 64, 32, "dun-5", -2527, -37196, 727, 75, 0)
         ],
         Ambients =
         [
@@ -171,8 +171,8 @@ public static class Dungeon5Field
             new FieldWarpGate(-3665, -36334, 762, 64, 32, "dun-4", -12073, -40701, 95, 0, 0),
             new FieldWarpGate(-4895, -37132, 762, 64, 32, "dun-4", -12073, -40701, 95, 0, 0),
             new FieldWarpGate(-2441, -37137, 762, 64, 32, "dun-4", -12073, -40701, 95, 0, 0),
-            new FieldWarpGate(-3207, -43830, 553, 128, 32, "dun-9", -3650, -45312, 116, 0, 0),
-            new FieldWarpGate(-4025, -43821, 553, 128, 32, "dun-9", -3650, -45312, 116, 0, 0)
+            new FieldWarpGate(-3207, -43830, 553, 128, 32, "dun-6", -3650, -45312, 116, 80, 0),
+            new FieldWarpGate(-4025, -43821, 553, 128, 32, "dun-6", -3650, -45312, 116, 80, 0)
         ],
         Ambients =
         [
