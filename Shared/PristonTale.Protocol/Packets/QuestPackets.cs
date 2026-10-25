@@ -145,17 +145,17 @@ public readonly record struct QuestNoticeEntry(byte Kind, string Text);
 
 public readonly record struct QuestBoardLine(string Title, string Description);
 
-// C->S, 44 bytes: {header, Guid OperationId, uint32 NpcSerial, uint8 Action, uint8 0, uint16 Code, int32 State, int32 Choice}.
-public sealed record QuestRequestPacket(Guid OperationId, uint NpcSerial, byte Action, ushort Code, int State, int Choice)
+// C->S, 48 bytes: {header, Guid OperationId, uint64 NpcSerial, uint8 Action, uint8 0, uint16 Code, int32 State, int32 Choice}.
+public sealed record QuestRequestPacket(Guid OperationId, ulong NpcSerial, byte Action, ushort Code, int State, int Choice)
 {
-    public const int Size = 44;
+    public const int Size = 48;
 
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.QuestRequest);
         NpcWire.Header(ref writer);
         writer.Guid(OperationId);
-        writer.UInt32(NpcSerial);
+        writer.UInt64(NpcSerial);
         writer.Byte(Action);
         writer.Byte(0);
         writer.UInt16(Code);
@@ -169,7 +169,7 @@ public sealed record QuestRequestPacket(Guid OperationId, uint NpcSerial, byte A
         var reader = new PacketReader(packet, Size);
         NpcWire.ReadHeader(ref reader);
         var operation = reader.Guid();
-        var npc = reader.UInt32();
+        var npc = reader.UInt64();
         var action = reader.Byte();
         reader.Skip(1);
         var code = reader.UInt16();

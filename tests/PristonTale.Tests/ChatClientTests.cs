@@ -91,7 +91,7 @@ internal static class ChatClientTests
 
     private static Task InputAsync()
     {
-        var input = new HudChatInput();
+        var input = new HudChatInput { CanDraw = static value => value is >= ' ' and <= '~' or >= '\u00A0' and <= '\u0103' };
         foreach (var character in new string('a', 90))
         {
             input.Type(character);
@@ -99,9 +99,9 @@ internal static class ChatClientTests
 
         Assert.True(input.Text.Length == ChatRules.InputLimit, "the input line holds 78 characters");
         input.Set("");
-        Assert.True(!input.Type('€') || input.Text == "€", "a Windows-1252 character must be accepted");
+        Assert.True(input.Type('ã') && input.Text == "ã", "a character the font draws must be accepted");
         input.Set("");
-        Assert.True(!input.Type('中') && input.Text.Length == 0, "a character outside Windows-1252 was accepted");
+        Assert.True(!input.Type('中') && input.Text.Length == 0, "a character the font cannot draw was accepted");
         var now = 0.0;
         HudChatSend? Send(string text, HudChatTab tab = HudChatTab.All)
         {

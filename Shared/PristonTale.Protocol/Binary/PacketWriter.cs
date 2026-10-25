@@ -89,18 +89,6 @@ public ref struct PacketWriter
         _position += count;
     }
 
-    public void Text(string? value, int fieldLength)
-    {
-        PristonText.WriteLenient(_buffer.Slice(_position, fieldLength), value);
-        _position += fieldLength;
-    }
-
-    public void StrictText(string value, int fieldLength)
-    {
-        PristonText.WriteStrict(_buffer.Slice(_position, fieldLength), value);
-        _position += fieldLength;
-    }
-
     public int Finish()
     {
         BinaryPrimitives.WriteInt32LittleEndian(_buffer, _position);

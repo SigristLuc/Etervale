@@ -78,6 +78,4 @@ public ref struct PacketReader
     public ReadOnlySpan<byte> Bytes(int count) => Take(count);
 
     public void Skip(int count) => Take(count);
-
-    public string Text(int fieldLength) => PristonText.Read(Take(fieldLength));
 }

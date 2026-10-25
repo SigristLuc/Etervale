@@ -16,6 +16,7 @@ public sealed class HudPainter : IDisposable
 
     private readonly SpriteBatch _batch;
     private readonly SpriteFont _font;
+    private HashSet<char> _glyphs;
     private readonly HudSprites _sprites;
     private readonly Texture2D _white;
     private readonly List<TextRun> _text = new(128);
@@ -177,6 +178,8 @@ public sealed class HudPainter : IDisposable
 
     // The height of one line of HUD text.
     public int TextHeight => (int)MathF.Ceiling(_font.LineSpacing * TextScale);
+
+    public bool CanDraw(char value) => (_glyphs ??= [.. _font.Characters]).Contains(value);
 
     public int Measure(string value) => string.IsNullOrEmpty(value) ? 0 : (int)MathF.Ceiling(_font.MeasureString(value).X * TextScale);
 

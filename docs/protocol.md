@@ -22,7 +22,6 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Binary/PristonFrameCodec.cs` | `PristonFrameCodec` (header, 8192-byte limit) and `PristonPacketCipher` (encrypted envelope). |
 | `Binary/PristonReplayWindow.cs` | Replay check of encrypted receive counters. |
 | `Binary/PacketReader.cs`, `Binary/PacketWriter.cs` | Little-endian sequential reader/writer; the writer patches the size in `Finish()`. |
-| `Binary/PristonText.cs` | Fixed `char[]` fields: Windows-1252, NUL-terminated (`Strict` throws, `Lenient` replaces with `?`). |
 | `Binary/Utf8Text.cs` | Text fields: `{uint16 ByteLength, UTF-8}`, cut at a whole character. |
 | `Packets/AccountPackets.cs` | `ProtocolVersion`, `ServerHello`, `Login`/`LoginResult`, `CharacterList`, `CharacterCommand`/`CharacterResult`, `Heartbeat`. |
 | `Packets/PristonUnits.cs` | `PristonUnits` (fixed point x256, 4096-per-turn angles), `MotionStateCode`. |
@@ -49,15 +48,15 @@ search finds; they are not part of the build.
 
 | Item | Rule |
 | --- | --- |
-| Byte order | Little-endian everywhere; structs follow 32-bit x86 packing (pointers are 4-byte zero slots). |
+| Byte order | Little-endian everywhere. |
 | Header | `{int32 size, uint32 code}`; `size` includes the header. |
 | Positions | Fixed point, world units × 256 (`PristonUnits.ToFixed`, `FixedShift` 8). |
-| Angles | 4096 per turn; yaw in `angle[1]` (`PristonUnits.ToAngle`). |
-| Fixed text | `char[N]` Windows-1252, NUL-terminated, at most N-1 bytes (`PristonText`). |
-| Extension text | NPC messages: UTF-8 with a `uint16` byte length, truncated to the field's byte limit. |
+| Angles | Skill messages: 4096 per turn (`PristonUnits.ToAngle`); presence and movement: `uint16`, 65536 per turn. |
+| Entity ids | 64-bit on the wire (`uint64` or `varuint`); the world hands out 32-bit ids, so a wider id names no entity. |
+| Text | UTF-8 with a `uint16` byte length, cut at a whole character to the field's byte limit (`Utf8Text`). |
 | Item identity | Original category ordinal codes (`LegacyItemCode`), e.g. gold is `GG101`. |
 | Reading | `PacketReader` requires `size == span length` and `size >= minimum`; trailing bytes are accepted. Overruns throw `InvalidDataException`. |
-| Versioned bodies | Extension messages with `{uint16 Version, uint16 Flags}` reject version 0. Fixed-size bodies accept newer versions that append fields; list bodies check their length exactly. |
+| Versioned bodies | Messages with `{uint16 Version, uint16 Flags}` reject version 0. Fixed-size bodies accept newer versions that append fields; list bodies check their length exactly. |
 
 ## Transport
 
@@ -207,9 +206,9 @@ These bodies have no version header.
 | Message | Layout after the header | Size |
 | --- | --- | --- |
 | `InventoryCommand` | `Guid OperationId, int64 ExpectedRevision, int32 Action, Guid ItemId, int32 Destination, Count, Slot` | 64 |
-| `ProgressionCommand` | `Guid OperationId, int64 ExpectedRevision, int32 Action, Attribute, Amount, uint SkillCode, NpcSerial` | 52 |
-| `InventoryResult` / `ProgressionResult` | `Guid OperationId, int32 Ok, int64 Revision, char Message[64]` | 100 |
-| `Inventory` | `int64 Revision, int32 Part, Parts, Count`, then items `{Guid, uint Code, int32 Kind, Count, Anchor, Slot, int16 Width, Height, char Name[32]}` | 28 + 72n |
+| `ProgressionCommand` | `Guid OperationId, int64 ExpectedRevision, int32 Action, Attribute, Amount, uint SkillCode, uint64 NpcSerial` | 56 |
+| `InventoryResult` / `ProgressionResult` | `Guid OperationId, int32 Ok, int64 Revision, text Message (128 B)` | 38 + text |
+| `Inventory` | `int64 Revision, int32 Part, Parts, Count`, then items `{Guid, uint Code, int32 Kind, Count, Anchor, Slot, int16 Width, Height, text Name (64 B)}` (at most 64 per part) | 28 + up to 106n |
 | `Skills` | `int64 Revision, int32 Count`, then `{uint Code, int32 Rank}` | 20 + 8n |
 | `CombatEvents` | `int32 Count`, then entries of 56 bytes | 12 + 56n |
 | `RemoveObjects` | `int32 Count`, then `uint64 Serial` | 12 + 8n |
@@ -345,21 +344,22 @@ interpolated ground speed, and a walk or run state without ground motion is show
 
 ### NPC services
 
-Every NPC message body starts with `{uint16 Version = 1, uint16 Flags = 0}`; readers accept newer versions that append
-fields, except `ShopQuotes`, whose list length is checked exactly. Text is UTF-8 with a `uint16` byte length (names up
+Every NPC and quest message body starts with `{uint16 Version = 2, uint16 Flags = 0}` (version 2 widened the NPC serial
+to 64 bits; older versions are refused); readers accept newer versions that append fields, except `ShopQuotes`, whose
+list length is checked exactly. Text is UTF-8 with a `uint16` byte length (names up
 to 64 bytes, item names 40, messages 128, dialog lines 256), and counts are 32-bit. The click itself is an
 `AttackRequest` on the NPC serial; the server answers with `NpcResult`.
 
-- `NpcResult`: `{uint32 NpcSerial, int32 Ok, text Name, text Message, int32 ServiceCount, services {uint8 Kind, uint8
+- `NpcResult`: `{uint64 NpcSerial, int32 Ok, text Name, text Message, int32 ServiceCount, services {uint8 Kind, uint8
   Available, uint16 0, int32 Value}, int32 LineCount, text lines}` (at most 32 services and 20 lines). `Kind` is
   `NpcServiceKind`, `Value` the authored argument (class-change group, teleport route, mix mode, quest code...). One
   dialog line is sent, chosen at random as the original does.
-- `NpcServiceRequest` (88 bytes): `{Guid OperationId, uint32 NpcSerial, uint8 Service, uint8 Action, uint16 0, int64
+- `NpcServiceRequest` (92 bytes): `{Guid OperationId, uint64 NpcSerial, uint8 Service, uint8 Action, uint16 0, int64
   ExpectedRevision, int64 ExpectedStorageRevision, uint32 ItemCode, Guid ItemId, int32 Anchor, int32 Count, int64
   Amount}`. The client names a stock entry, an owned item, a grid cell (-1 = first free) or a destination index; it
   never sends an item, a price or a total. The original buy and warehouse layouts, which carry a whole client-built item
   or warehouse, are not used.
-- `NpcServiceResult`: `{Guid OperationId, uint32 NpcSerial, uint8 Service, uint8 Action, uint16 Status, int32 Ok, int64
+- `NpcServiceResult`: `{Guid OperationId, uint64 NpcSerial, uint8 Service, uint8 Action, uint16 Status, int32 Ok, int64
   Revision, int64 StorageRevision, text Message}`. `Status` is `NpcServiceStatus` (`NotAvailable` for services Etervale
   does not run, `OutOfReach`, `Rejected`, `Stale`, `NotEnoughGold`, `NoSpace`, `GoldLimit`, `Busy`, `StorageFailed`,
   `Conflict`, `NotOpen`). The state messages a request produces (`ShopCatalog`, `ShopQuotes`, `Warehouse`,
@@ -391,7 +391,7 @@ choices); a notice list is `{int32 Count, (uint8 Kind, uint8 0, text)...}` (at m
 `QuestCode`, `QuestAction`, `QuestStatus`, `QuestFollowup`, `QuestNoticeKind`, `QuestTimerKind` (see
 [quests.md](quests.md)).
 
-- `QuestRequest` (44 bytes): `{Guid OperationId, uint32 NpcSerial, uint8 Action, uint8 0, uint16 Code, int32 State,
+- `QuestRequest` (48 bytes): `{Guid OperationId, uint64 NpcSerial, uint8 Action, uint8 0, uint16 Code, int32 State,
   int32 Choice}`. `NpcSerial` is 0 only for the redistribution offer and the victory dialog of a duel.
 - `QuestResult`: `{Guid OperationId, uint8 Status, uint8 Flags (1 ok, 2 class change offered, 4 redistribution
   offered, 8 dialog follows), uint16 0, int64 Revision, text Message, [dialog], notices}`.
@@ -539,9 +539,8 @@ when the received version has it.
 
 ## Pitfalls
 
-- Fixed `char[]` fields are Windows-1252. Authored Korean names cannot cross the original layouts; that is why NPC
-  messages use UTF-8 text. `PristonText.Strict` throws on unrepresentable text, so the client checks
-  `PristonText.IsRepresentable` before sending names and passwords.
+- Text on the wire is UTF-8, but the HUD font draws only its own glyph ranges; the chat input refuses characters the
+  font cannot draw (`HudPainter.CanDraw`).
 - `PacketReader` accepts trailing bytes, so an old reader keeps working when a fixed-size body grows. List bodies
   (`SkillEvents`, `StatusEffects`, `SkillCooldowns`, `CombatEvents`, `Inventory`, ...) check `Remaining == count *
   EntrySize` exactly, so appending anything to them breaks every deployed reader; make readers version-aware first or

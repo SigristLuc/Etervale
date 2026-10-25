@@ -532,7 +532,8 @@ internal sealed partial class ClientSession : IMovementVerdictSink
     private async Task RequestNpcServiceAsync(NpcServiceRequestPacket request)
     {
         var session = _session;
-        var command = new NpcServiceCommand(request.OperationId, request.NpcSerial, (NpcServiceKind)request.Service, (NpcServiceAction)request.Action,
+        var command = new NpcServiceCommand(request.OperationId, WireMapping.EntityId(request.NpcSerial), (NpcServiceKind)request.Service,
+            (NpcServiceAction)request.Action,
             request.ExpectedRevision, request.ExpectedStorageRevision, request.ItemCode, request.ItemId, request.Anchor, request.Count, request.Amount);
         NpcServiceReply reply;
         try
@@ -610,7 +611,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         }
 
         var result = new OperationResultPacket(EtervaleOpcodes.InventoryResult, request.OperationId, outcome.Ok, outcome.Revision, outcome.Message);
-        SendLarge(result.Write, OperationResultPacket.Size, encrypt: true);
+        SendLarge(result.Write, OperationResultPacket.MaxSize, encrypt: true);
     }
 
     // The item use answers with ItemUseResult; a use that moved the player to another field also sends a forced FieldWarp.
@@ -675,7 +676,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
     private async Task ApplyProgressionAsync(ProgressionCommandPacket request)
     {
         var command = new ProgressionCommand(request.OperationId, request.ExpectedRevision, (ProgressionAction)request.Action,
-            (CharacterAttribute)request.Attribute, request.Amount, request.SkillCode, request.NpcSerial);
+            (CharacterAttribute)request.Attribute, request.Amount, request.SkillCode, WireMapping.EntityId(request.NpcSerial));
         ProgressionOutcome outcome;
         try
         {
@@ -687,7 +688,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         }
 
         var result = new OperationResultPacket(EtervaleOpcodes.ProgressionResult, request.OperationId, outcome.Ok, outcome.Revision, outcome.Message);
-        SendLarge(result.Write, OperationResultPacket.Size, encrypt: true);
+        SendLarge(result.Write, OperationResultPacket.MaxSize, encrypt: true);
     }
 
     private async Task ClosePlayAsync()

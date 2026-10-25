@@ -6,7 +6,7 @@ namespace PristonTale.Protocol.Packets;
 // versions that append fields. Text is UTF-8 with a uint16 byte length, so localized names keep their characters.
 public static class NpcWire
 {
-    public const ushort Version = 1;
+    public const ushort Version = 2;
     public const int MaxNameBytes = 64;
     public const int MaxItemNameBytes = 40;
     public const int MaxMessageBytes = 128;
@@ -20,9 +20,9 @@ public static class NpcWire
 
     internal static void ReadHeader(ref PacketReader reader)
     {
-        if (reader.UInt16() == 0)
+        if (reader.UInt16() < Version)
         {
-            throw new InvalidDataException("NPC message has version 0.");
+            throw new InvalidDataException("NPC message has an older layout.");
         }
 
         reader.Skip(2);
@@ -40,14 +40,14 @@ public readonly record struct NpcServiceEntry(byte Kind, bool Available, int Val
     public const int Size = 8;
 }
 
-// Completes an NPC click: {header, uint32 NpcSerial, int32 Ok, text Name, text Message, int32 ServiceCount,
+// Completes an NPC click: {header, uint64 NpcSerial, int32 Ok, text Name, text Message, int32 ServiceCount,
 // services {uint8 Kind, uint8 Available, uint16 0, int32 Value}, int32 LineCount, text lines}.
-public sealed record NpcDialogPacket(uint NpcSerial, bool Ok, string Name, string Message, IReadOnlyList<NpcServiceEntry> Services,
+public sealed record NpcDialogPacket(ulong NpcSerial, bool Ok, string Name, string Message, IReadOnlyList<NpcServiceEntry> Services,
     IReadOnlyList<string> Lines)
 {
     public const int MaxServices = 32;
     public const int MaxLines = 20;
-    private const int MinimumSize = 8 + 4 + 4 + 4 + 2 + 2 + 4 + 4;
+    private const int MinimumSize = 8 + 4 + 8 + 4 + 2 + 2 + 4 + 4;
 
     public int Write(Span<byte> destination)
     {
@@ -58,7 +58,7 @@ public sealed record NpcDialogPacket(uint NpcSerial, bool Ok, string Name, strin
 
         var writer = new PacketWriter(destination, EtervaleOpcodes.NpcResult);
         NpcWire.Header(ref writer);
-        writer.UInt32(NpcSerial);
+        writer.UInt64(NpcSerial);
         writer.Int32(Ok ? 1 : 0);
         NpcWire.Text(ref writer, Name, NpcWire.MaxNameBytes);
         NpcWire.Text(ref writer, Message, NpcWire.MaxMessageBytes);
@@ -84,7 +84,7 @@ public sealed record NpcDialogPacket(uint NpcSerial, bool Ok, string Name, strin
     {
         var reader = new PacketReader(packet, MinimumSize);
         NpcWire.ReadHeader(ref reader);
-        var serial = reader.UInt32();
+        var serial = reader.UInt64();
         var ok = reader.Int32() != 0;
         var name = NpcWire.Text(ref reader, NpcWire.MaxNameBytes);
         var message = NpcWire.Text(ref reader, NpcWire.MaxMessageBytes);
@@ -123,7 +123,7 @@ public sealed record NpcDialogPacket(uint NpcSerial, bool Ok, string Name, strin
 // the actions that use them; the client never sends items, prices or totals.
 public sealed record NpcServiceRequestPacket(
     Guid OperationId,
-    uint NpcSerial,
+    ulong NpcSerial,
     byte Service,
     byte Action,
     long ExpectedRevision,
@@ -134,14 +134,14 @@ public sealed record NpcServiceRequestPacket(
     int Count,
     long Amount)
 {
-    public const int Size = 8 + 4 + 16 + 4 + 4 + 8 + 8 + 4 + 16 + 4 + 4 + 8;
+    public const int Size = 8 + 4 + 16 + 8 + 4 + 8 + 8 + 4 + 16 + 4 + 4 + 8;
 
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.NpcServiceRequest);
         NpcWire.Header(ref writer);
         writer.Guid(OperationId);
-        writer.UInt32(NpcSerial);
+        writer.UInt64(NpcSerial);
         writer.Byte(Service);
         writer.Byte(Action);
         writer.UInt16(0);
@@ -160,7 +160,7 @@ public sealed record NpcServiceRequestPacket(
         var r = new PacketReader(packet, Size);
         NpcWire.ReadHeader(ref r);
         var operation = r.Guid();
-        var serial = r.UInt32();
+        var serial = r.UInt64();
         var service = r.Byte();
         var action = r.Byte();
         r.Skip(2);
@@ -170,10 +170,10 @@ public sealed record NpcServiceRequestPacket(
 }
 
 // S→C completion of a service request, sent after the state messages the request produced.
-public sealed record NpcServiceResultPacket(Guid OperationId, uint NpcSerial, byte Service, byte Action, ushort Status, bool Ok,
+public sealed record NpcServiceResultPacket(Guid OperationId, ulong NpcSerial, byte Service, byte Action, ushort Status, bool Ok,
     long Revision, long StorageRevision, string Message)
 {
-    public const int MaxSize = 8 + 4 + 16 + 4 + 4 + 4 + 8 + 8 + 2 + NpcWire.MaxMessageBytes;
+    public const int MaxSize = 8 + 4 + 16 + 8 + 4 + 4 + 8 + 8 + 2 + NpcWire.MaxMessageBytes;
     private const int MinimumSize = MaxSize - NpcWire.MaxMessageBytes;
 
     public int Write(Span<byte> destination)
@@ -181,7 +181,7 @@ public sealed record NpcServiceResultPacket(Guid OperationId, uint NpcSerial, by
         var writer = new PacketWriter(destination, EtervaleOpcodes.NpcServiceResult);
         NpcWire.Header(ref writer);
         writer.Guid(OperationId);
-        writer.UInt32(NpcSerial);
+        writer.UInt64(NpcSerial);
         writer.Byte(Service);
         writer.Byte(Action);
         writer.UInt16(Status);
@@ -197,7 +197,7 @@ public sealed record NpcServiceResultPacket(Guid OperationId, uint NpcSerial, by
         var r = new PacketReader(packet, MinimumSize);
         NpcWire.ReadHeader(ref r);
         var operation = r.Guid();
-        var serial = r.UInt32();
+        var serial = r.UInt64();
         var service = r.Byte();
         var action = r.Byte();
         var status = r.UInt16();
@@ -212,12 +212,12 @@ public sealed record NpcServiceResultPacket(Guid OperationId, uint NpcSerial, by
 public readonly record struct ShopCatalogEntry(uint Code, byte Tab, byte Kind, ushort Ordinal, long Price, short Width, short Height, int MaxStack,
     string Name);
 
-// The NPC's stock with server prices: {header, Guid OperationId, uint32 NpcSerial, int32 Count, entries {uint32 Code,
+// The NPC's stock with server prices: {header, Guid OperationId, uint64 NpcSerial, int32 Count, entries {uint32 Code,
 // uint8 Tab, uint8 Kind, uint16 Ordinal, int64 Price, int16 Width, int16 Height, int32 MaxStack, text Name}}.
-public sealed record ShopCatalogPacket(Guid OperationId, uint NpcSerial, IReadOnlyList<ShopCatalogEntry> Items)
+public sealed record ShopCatalogPacket(Guid OperationId, ulong NpcSerial, IReadOnlyList<ShopCatalogEntry> Items)
 {
     public const int MaxItems = 96;
-    private const int HeaderSize = 8 + 4 + 16 + 4 + 4;
+    private const int HeaderSize = 8 + 4 + 16 + 8 + 4;
 
     public int Write(Span<byte> destination)
     {
@@ -229,7 +229,7 @@ public sealed record ShopCatalogPacket(Guid OperationId, uint NpcSerial, IReadOn
         var writer = new PacketWriter(destination, EtervaleOpcodes.ShopCatalog);
         NpcWire.Header(ref writer);
         writer.Guid(OperationId);
-        writer.UInt32(NpcSerial);
+        writer.UInt64(NpcSerial);
         writer.Int32(Items.Count);
         foreach (var item in Items)
         {
@@ -252,7 +252,7 @@ public sealed record ShopCatalogPacket(Guid OperationId, uint NpcSerial, IReadOn
         var r = new PacketReader(packet, HeaderSize);
         NpcWire.ReadHeader(ref r);
         var operation = r.Guid();
-        var serial = r.UInt32();
+        var serial = r.UInt64();
         var count = r.Int32();
         if (count < 0 || count > MaxItems)
         {
@@ -275,12 +275,12 @@ public readonly record struct ShopQuoteEntry(Guid ItemId, long SellPrice, long R
     public const int Size = 16 + 8 + 8 + 4 + 4;
 }
 
-// What the shop pays for each owned item and what repairing it costs: {header, Guid OperationId, uint32 NpcSerial,
+// What the shop pays for each owned item and what repairing it costs: {header, Guid OperationId, uint64 NpcSerial,
 // int64 InventoryRevision, int32 Count, entries}.
-public sealed record ShopQuotesPacket(Guid OperationId, uint NpcSerial, long InventoryRevision, IReadOnlyList<ShopQuoteEntry> Items)
+public sealed record ShopQuotesPacket(Guid OperationId, ulong NpcSerial, long InventoryRevision, IReadOnlyList<ShopQuoteEntry> Items)
 {
     public const int MaxItems = 128;
-    public const int HeaderSize = 8 + 4 + 16 + 4 + 8 + 4;
+    public const int HeaderSize = 8 + 4 + 16 + 8 + 8 + 4;
 
     public static int SizeFor(int count) => HeaderSize + count * ShopQuoteEntry.Size;
 
@@ -294,7 +294,7 @@ public sealed record ShopQuotesPacket(Guid OperationId, uint NpcSerial, long Inv
         var writer = new PacketWriter(destination, EtervaleOpcodes.ShopQuotes);
         NpcWire.Header(ref writer);
         writer.Guid(OperationId);
-        writer.UInt32(NpcSerial);
+        writer.UInt64(NpcSerial);
         writer.Int64(InventoryRevision);
         writer.Int32(Items.Count);
         foreach (var item in Items)
@@ -314,7 +314,7 @@ public sealed record ShopQuotesPacket(Guid OperationId, uint NpcSerial, long Inv
         var r = new PacketReader(packet, HeaderSize);
         NpcWire.ReadHeader(ref r);
         var operation = r.Guid();
-        var serial = r.UInt32();
+        var serial = r.UInt64();
         var revision = r.Int64();
         var count = r.Int32();
         if (count < 0 || count > MaxItems || r.Remaining != count * ShopQuoteEntry.Size)
@@ -335,14 +335,14 @@ public sealed record ShopQuotesPacket(Guid OperationId, uint NpcSerial, long Inv
 public readonly record struct WarehouseItemEntry(Guid InstanceId, uint Code, byte Kind, int Count, int Anchor, short Width, short Height,
     string Name);
 
-// The account warehouse after an open or a change: {header, Guid OperationId, uint32 NpcSerial, int64 Revision, int64 Money,
+// The account warehouse after an open or a change: {header, Guid OperationId, uint64 NpcSerial, int64 Revision, int64 Money,
 // int32 Weight, int32 MaxWeight, int16 Columns, int16 Rows, int32 Count, entries {Guid, uint32 Code, uint8 Kind, uint8 0,
 // uint16 0, int32 Count, int32 Anchor, int16 Width, int16 Height, text Name}}.
-public sealed record WarehousePacket(Guid OperationId, uint NpcSerial, long Revision, long Money, int Weight, int MaxWeight, short Columns,
+public sealed record WarehousePacket(Guid OperationId, ulong NpcSerial, long Revision, long Money, int Weight, int MaxWeight, short Columns,
     short Rows, IReadOnlyList<WarehouseItemEntry> Items)
 {
     public const int MaxItems = 100;
-    private const int HeaderSize = 8 + 4 + 16 + 4 + 8 + 8 + 4 + 4 + 2 + 2 + 4;
+    private const int HeaderSize = 8 + 4 + 16 + 8 + 8 + 8 + 4 + 4 + 2 + 2 + 4;
 
     public int Write(Span<byte> destination)
     {
@@ -354,7 +354,7 @@ public sealed record WarehousePacket(Guid OperationId, uint NpcSerial, long Revi
         var writer = new PacketWriter(destination, EtervaleOpcodes.Warehouse);
         NpcWire.Header(ref writer);
         writer.Guid(OperationId);
-        writer.UInt32(NpcSerial);
+        writer.UInt64(NpcSerial);
         writer.Int64(Revision);
         writer.Int64(Money);
         writer.Int32(Weight);
@@ -384,7 +384,7 @@ public sealed record WarehousePacket(Guid OperationId, uint NpcSerial, long Revi
         var r = new PacketReader(packet, HeaderSize);
         NpcWire.ReadHeader(ref r);
         var operation = r.Guid();
-        var serial = r.UInt32();
+        var serial = r.UInt64();
         var revision = r.Int64();
         var money = r.Int64();
         var weight = r.Int32();
@@ -413,12 +413,12 @@ public sealed record WarehousePacket(Guid OperationId, uint NpcSerial, long Revi
 
 public readonly record struct TeleportEntry(int Index, int FieldCode, long Price, int MinimumLevel, string Name);
 
-// Destinations of a teleporter: {header, Guid OperationId, uint32 NpcSerial, int32 Count, entries {int32 Index,
+// Destinations of a teleporter: {header, Guid OperationId, uint64 NpcSerial, int32 Count, entries {int32 Index,
 // int32 FieldCode, int64 Price, int32 MinimumLevel, text Name}}.
-public sealed record TeleportListPacket(Guid OperationId, uint NpcSerial, IReadOnlyList<TeleportEntry> Destinations)
+public sealed record TeleportListPacket(Guid OperationId, ulong NpcSerial, IReadOnlyList<TeleportEntry> Destinations)
 {
     public const int MaxDestinations = 16;
-    private const int HeaderSize = 8 + 4 + 16 + 4 + 4;
+    private const int HeaderSize = 8 + 4 + 16 + 8 + 4;
 
     public int Write(Span<byte> destination)
     {
@@ -430,7 +430,7 @@ public sealed record TeleportListPacket(Guid OperationId, uint NpcSerial, IReadO
         var writer = new PacketWriter(destination, EtervaleOpcodes.TeleportList);
         NpcWire.Header(ref writer);
         writer.Guid(OperationId);
-        writer.UInt32(NpcSerial);
+        writer.UInt64(NpcSerial);
         writer.Int32(Destinations.Count);
         foreach (var entry in Destinations)
         {
@@ -449,7 +449,7 @@ public sealed record TeleportListPacket(Guid OperationId, uint NpcSerial, IReadO
         var r = new PacketReader(packet, HeaderSize);
         NpcWire.ReadHeader(ref r);
         var operation = r.Guid();
-        var serial = r.UInt32();
+        var serial = r.UInt64();
         var count = r.Int32();
         if (count < 0 || count > MaxDestinations)
         {

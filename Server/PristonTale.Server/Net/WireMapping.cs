@@ -96,6 +96,9 @@ internal static class WireMapping
     }
 
     // Character info record embedded in the character record for the entering character.
+    // Entity ids travel as 64-bit values; the world hands out 32-bit ones, so a wider id names no entity (0).
+    public static uint EntityId(ulong wire) => wire <= uint.MaxValue ? (uint)wire : 0u;
+
     public static CharacterListEntry Entry(CharacterSummary summary) => new(
         summary.Name,
         (uint)summary.ClassId,

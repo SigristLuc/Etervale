@@ -661,10 +661,10 @@ public sealed class GameServerConnection : IGameBackend
             case EtervaleOpcodes.NpcResult:
             {
                 var dialog = NpcDialogPacket.Read(packet);
-                if (_npcRequests.TryGetValue(dialog.NpcSerial, out var request))
+                if (dialog.NpcSerial <= uint.MaxValue && _npcRequests.TryGetValue((uint)dialog.NpcSerial, out var request))
                 {
                     var offers = dialog.Services.Select(entry => new NpcServiceOffer((NpcServiceKind)entry.Kind, entry.Value, entry.Available)).ToArray();
-                    request.Completion.TrySetResult(new NpcInteraction(dialog.Ok, dialog.NpcSerial, dialog.Name, offers, dialog.Lines, dialog.Message));
+                    request.Completion.TrySetResult(new NpcInteraction(dialog.Ok, (uint)dialog.NpcSerial, dialog.Name, offers, dialog.Lines, dialog.Message));
                 }
 
                 break;

@@ -145,6 +145,7 @@ public sealed class HudChatWindow
 
     public void Draw(HudPainter painter, HudLayout layout, bool side)
     {
+        Input.CanDraw = painter.CanDraw;
         _drawnLines.Clear();
         ShownMessages = 0;
         if (!Open)

@@ -1,5 +1,4 @@
 using System.Text;
-using PristonTale.Protocol.Binary;
 using PristonTale.Simulation.Social;
 
 namespace PristonTale.Gameplay.UI.Chat;
@@ -28,6 +27,9 @@ public sealed class HudChatInput
     private double _lastSentMs = double.NegativeInfinity;
     private int _rapidLines;
     private double _frozenUntilMs = double.NegativeInfinity;
+
+    // The characters the HUD font draws; the window sets it from its painter. The wire carries any character.
+    public Func<char, bool> CanDraw { get; set; } = static _ => true;
     private string _whisperName = "";
     private int _whisperPrefix;
 
@@ -55,7 +57,7 @@ public sealed class HudChatInput
 
     public bool Type(char value)
     {
-        if (char.IsControl(value) || _text.Length >= ChatRules.InputLimit || !PristonText.IsRepresentable(value.ToString(), 2))
+        if (char.IsControl(value) || _text.Length >= ChatRules.InputLimit || !CanDraw(value))
         {
             return false;
         }

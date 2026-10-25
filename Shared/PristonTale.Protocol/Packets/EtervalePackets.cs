@@ -85,16 +85,16 @@ public sealed record OwnerStatusPacket(
 
 public readonly record struct InventoryItemEntry(Guid InstanceId, uint Code, int Kind, int Count, int Anchor, int Slot, short Width, short Height, string Name)
 {
-    public const int Size = 16 + 4 * 5 + 2 * 2 + 32;
+    public const int MaxNameBytes = 64;
+    public const int MaxSize = 16 + 4 * 5 + 2 * 2 + 2 + MaxNameBytes;
 }
 
-// {size, code, Revision, Part, Parts, Count, entries}. The client replaces its inventory when all parts of a revision arrive.
+// {size, code, Revision, Part, Parts, Count, entries {Guid, uint32 Code, int32 Kind, Count, Anchor, Slot, int16 Width,
+// Height, text Name}}. The client replaces its inventory when all parts of a revision arrive.
 public sealed record InventoryPartPacket(long Revision, int Part, int Parts, IReadOnlyList<InventoryItemEntry> Items)
 {
     public const int HeaderSize = 8 + 8 + 4 * 3;
-    public const int MaxItemsPerPart = 100;
-
-    public static int SizeFor(int count) => HeaderSize + count * InventoryItemEntry.Size;
+    public const int MaxItemsPerPart = 64;
 
     public int Write(Span<byte> destination)
     {
@@ -113,7 +113,7 @@ public sealed record InventoryPartPacket(long Revision, int Part, int Parts, IRe
             writer.Int32(item.Slot);
             writer.Int16(item.Width);
             writer.Int16(item.Height);
-            writer.Text(item.Name, 32);
+            Utf8Text.Write(ref writer, item.Name, InventoryItemEntry.MaxNameBytes);
         }
 
         return writer.Finish();
@@ -126,7 +126,7 @@ public sealed record InventoryPartPacket(long Revision, int Part, int Parts, IRe
         var part = reader.Int32();
         var parts = reader.Int32();
         var count = reader.Int32();
-        if (parts < 1 || part < 0 || part >= parts || count < 0 || count > MaxItemsPerPart || reader.Remaining != count * InventoryItemEntry.Size)
+        if (parts < 1 || part < 0 || part >= parts || count < 0 || count > MaxItemsPerPart)
         {
             throw new InvalidDataException("Inventory part has invalid counts.");
         }
@@ -135,7 +135,12 @@ public sealed record InventoryPartPacket(long Revision, int Part, int Parts, IRe
         for (var index = 0; index < count; index++)
         {
             items[index] = new InventoryItemEntry(reader.Guid(), reader.UInt32(), reader.Int32(), reader.Int32(), reader.Int32(), reader.Int32(),
-                reader.Int16(), reader.Int16(), reader.Text(32));
+                reader.Int16(), reader.Int16(), Utf8Text.Read(ref reader, InventoryItemEntry.MaxNameBytes, "Inventory item"));
+        }
+
+        if (reader.Remaining != 0)
+        {
+            throw new InvalidDataException("Inventory part has trailing bytes.");
         }
 
         return new InventoryPartPacket(revision, part, parts, items);
@@ -205,9 +210,9 @@ public sealed record InventoryCommandPacket(Guid OperationId, long ExpectedRevis
     }
 }
 
-public sealed record ProgressionCommandPacket(Guid OperationId, long ExpectedRevision, int Action, int Attribute, int Amount, uint SkillCode, uint NpcSerial)
+public sealed record ProgressionCommandPacket(Guid OperationId, long ExpectedRevision, int Action, int Attribute, int Amount, uint SkillCode, ulong NpcSerial)
 {
-    public const int Size = 8 + 16 + 8 + 4 * 5;
+    public const int Size = 8 + 16 + 8 + 4 * 4 + 8;
 
     public int Write(Span<byte> destination)
     {
@@ -218,21 +223,23 @@ public sealed record ProgressionCommandPacket(Guid OperationId, long ExpectedRev
         writer.Int32(Attribute);
         writer.Int32(Amount);
         writer.UInt32(SkillCode);
-        writer.UInt32(NpcSerial);
+        writer.UInt64(NpcSerial);
         return writer.Finish();
     }
 
     public static ProgressionCommandPacket Read(ReadOnlySpan<byte> packet)
     {
         var r = new PacketReader(packet, Size);
-        return new ProgressionCommandPacket(r.Guid(), r.Int64(), r.Int32(), r.Int32(), r.Int32(), r.UInt32(), r.UInt32());
+        return new ProgressionCommandPacket(r.Guid(), r.Int64(), r.Int32(), r.Int32(), r.Int32(), r.UInt32(), r.UInt64());
     }
 }
 
-// Shared reply for inventory and progression commands, correlated by OperationId.
+// Shared reply for inventory and progression commands, correlated by OperationId: {header, Guid OperationId, int32 Ok,
+// int64 Revision, text Message (128 B)}.
 public sealed record OperationResultPacket(uint Code, Guid OperationId, bool Ok, long Revision, string Message)
 {
-    public const int Size = 8 + 16 + 4 + 8 + 64;
+    public const int MaxMessageBytes = 128;
+    public const int MaxSize = 8 + 16 + 4 + 8 + 2 + MaxMessageBytes;
 
     public int Write(Span<byte> destination)
     {
@@ -240,14 +247,14 @@ public sealed record OperationResultPacket(uint Code, Guid OperationId, bool Ok,
         writer.Guid(OperationId);
         writer.Int32(Ok ? 1 : 0);
         writer.Int64(Revision);
-        writer.Text(Message, 64);
+        Utf8Text.Write(ref writer, Message, MaxMessageBytes);
         return writer.Finish();
     }
 
     public static OperationResultPacket Read(ReadOnlySpan<byte> packet)
     {
-        var r = new PacketReader(packet, Size);
-        return new OperationResultPacket(r.Code, r.Guid(), r.Int32() != 0, r.Int64(), r.Text(64));
+        var r = new PacketReader(packet, MaxSize - MaxMessageBytes);
+        return new OperationResultPacket(r.Code, r.Guid(), r.Int32() != 0, r.Int64(), Utf8Text.Read(ref r, MaxMessageBytes, "Operation result"));
     }
 }
 
