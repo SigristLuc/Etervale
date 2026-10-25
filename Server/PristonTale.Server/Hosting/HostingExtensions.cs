@@ -74,6 +74,7 @@ public static class HostingExtensions
                 GiftBox = builder.Configuration.GetValue("World:ItemEvents:GiftBox", 0)
             },
             ExperienceMultiplier = builder.Configuration.GetValue("World:ExperienceMultiplier", WorldServerOptions.DefaultExperienceMultiplier),
+            ClockOffsetMinutes = builder.Configuration.GetValue("World:ClockOffsetMinutes", 0),
             MaxPendingCommandsPerPlayer = builder.Configuration.GetValue("World:MaxPendingCommandsPerPlayer",
                 WorldServerOptions.DefaultMaxPendingCommandsPerPlayer)
         }.Validated();

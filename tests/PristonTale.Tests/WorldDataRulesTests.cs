@@ -3,7 +3,9 @@ using PristonTale.Application.World;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Ai;
+using PristonTale.Simulation.World.Npcs;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.World.Monsters;
@@ -20,6 +22,9 @@ internal static class WorldDataRulesTests
         yield return ("a daily-limited item stops dropping at its limit until the date changes", DailyLimitAsync);
         yield return ("an item set gives its bonus once its pieces are worn", SetBonusAsync);
         yield return ("ten hammer blows in a row give the player a big head and turn the monster into its event form", HammerAsync);
+        yield return ("the game clock runs a day in 19.2 minutes with night from 23:00 to 4:00", ClockAsync);
+        yield return ("night creatures walk at night and come back when killed, their NPCs leave, and both turn at dawn", NightCreaturesAsync);
+        yield return ("a nightmare field spawns only at night, its people turn into the night creature and return at dawn", NightmareAsync);
     }
 
     private static Task DeathGoldAsync()
@@ -97,6 +102,86 @@ internal static class WorldDataRulesTests
         field.Step(0.05f);
         var now = field.MonstersForInspection.Single();
         Assert.True(now.Def.Code == form.Code && now.HammerSpent && now.EntityId != monster.EntityId, "the monster did not take its event form");
+        return Task.CompletedTask;
+    }
+
+    private static Task ClockAsync()
+    {
+        Assert.True(WorldClock.HoursAt(0) == 0f && Math.Abs(WorldClock.HoursAt(60L * WorldClock.MinuteMs) - 1f) < 0.0001f
+            && Math.Abs(WorldClock.HoursAt(WorldClock.MinutesPerDay * (long)WorldClock.MinuteMs + 30L * WorldClock.MinuteMs) - 0.5f) < 0.0001f,
+            "the game clock does not run 800 ms a minute");
+        Assert.True(WorldClock.IsNight(23f) && WorldClock.IsNight(3.99f) && !WorldClock.IsNight(4f) && !WorldClock.IsNight(22.99f),
+            "night does not run from 23:00 to 4:00");
+        return Task.CompletedTask;
+    }
+
+    private static Task NightCreaturesAsync()
+    {
+        var wolverine = Monster(1, MonsterClass.Normal) with { EventCode = 100, EventInfo = 1, SoundCode = 0x11E0, Ai = MonsterAi.Default };
+        var pet = new NpcDefinition(1, "Wolverine pet", "", [new NpcService(NpcServiceKind.EventMonster, 100, 1)]);
+        var data = new FieldSpawnData([new SpawnPoint(500, 500, true)], [], [], [new FixedNpc(1, 0, 0, 0)]);
+        var field = new FieldInstance(1, data, new MonsterCatalog([wolverine]), new EntityIdAllocator(), new CombatRng(3), npcs: new NpcCatalog([pet]));
+        field.Step(0.05f);
+        Assert.True(!field.MonstersForInspection.Any() && field.Npcs.Count == 1, "a night creature walked by day or its NPC left");
+
+        field.Night = true;
+        field.Step(0.05f);
+        var walking = field.MonstersForInspection.Single();
+        Assert.True(walking.Def.Code == wolverine.Code && Vector3.Distance(walking.Position, new Vector3(500, 0, 500)) < 64 && field.Npcs.Count == 0,
+            "the night creature did not walk at its point, or its NPC stayed");
+
+        walking.ApplyDamage(walking.Life);
+        field.Combat.BeginCorpse(walking.EntityId);
+        for (var index = 0; index < 200 && field.MonstersForInspection.All(monster => monster.EntityId == walking.EntityId); index++)
+        {
+            field.Step(0.05f);
+        }
+
+        var again = field.MonstersForInspection.Single();
+        Assert.True(again.EntityId != walking.EntityId && again.IsAlive, "a killed night creature did not come back");
+
+        field.Night = false;
+        field.Step(0.05f);
+        Assert.True(again.VanishOnWarp && again.Motion == MonsterMotionState.Warp && field.Npcs.Count == 1, "dawn did not warp the creature or return its NPC");
+        for (var index = 0; index < 200 && field.MonstersForInspection.Any(); index++)
+        {
+            field.Step(0.05f);
+        }
+
+        Assert.True(!field.MonstersForInspection.Any(), "the night creature did not leave after its warp");
+        return Task.CompletedTask;
+    }
+
+    private static Task NightmareAsync()
+    {
+        var creature = Monster(1, MonsterClass.Normal) with { ModelInxPath = "char\\monster\\Wolverin\\Wolverin_A.inx" };
+        var bandit = Monster(2, MonsterClass.Normal) with { Ai = MonsterAi.Default };
+        var villager = new NpcDefinition(1, "Villager", "", []);
+        var data = new FieldSpawnData([new SpawnPoint(800, 800, true)], [new SpawnTableEntry(2, 100)], [], [new FixedNpc(1, 100 * 256, 100 * 256, 0)])
+        {
+            MaxConcurrentMonsters = 5
+        };
+        var field = new FieldInstance(9, data, new MonsterCatalog([creature, bandit]), new EntityIdAllocator(), new CombatRng(5),
+            npcs: new NpcCatalog([villager])) { Event = FieldEventKind.Nightmare };
+        var player = new WorldPlayer(1, new Vector3(800, 0, 800), new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Watcher", 100), false,
+            default);
+        field.Add(player);
+        for (var index = 0; index < 200; index++)
+        {
+            field.Step(0.05f);
+        }
+
+        Assert.True(!field.MonstersForInspection.Any() && field.Npcs.Count == 1, "a nightmare field spawned by day");
+        field.Night = true;
+        field.Step(0.05f);
+        Assert.True(field.Npcs.Count == 0 && field.MonstersForInspection.Any(monster => monster.Def.Code == creature.Code
+                && Vector3.Distance(monster.Position, new Vector3(100, 0, 100)) < 64),
+            "the villager did not turn into the night creature where it stood: npcs " + field.Npcs.Count + ", monsters "
+            + string.Join(";", field.MonstersForInspection.Select(monster => monster.Def.Code + "@" + monster.Position)));
+
+        field.Night = false;
+        field.Step(0.05f);
+        Assert.True(field.Npcs.Count == 1 && field.MonstersForInspection.All(monster => !monster.IsAlive), "dawn did not end the night");
         return Task.CompletedTask;
     }
 

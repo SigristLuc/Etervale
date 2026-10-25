@@ -292,7 +292,7 @@ Renderer side of stage publication: [rendering.md](rendering.md).
 | `Enter`, `Page Up`/`Page Down`, `Up`/`Down` | `HudChat.Update` | Open the chat input or send its line, scroll the chat, recall commands; while typing, HUD, binding, debug and motion keys and the `A` labels are suppressed |
 | `Esc` | `Game1` | Close the chat window first, then HUD panels, else quit |
 | `Ctrl+F3` / `Ctrl+F5` / `Ctrl+F10` | `GameplayScreen.UpdateDebugKeys` | Toggle render stats in the window title / toggle shadows / cycle `PristonDebugView` |
-| `,` / `.` / `P` | same | Time of day -1 h / +1 h / toggle the day cycle (150 s) and frozen time |
+| `,` / `.` / `P` | same | Online the sky follows the server's game clock: shift it -1 h / +1 h on this screen, or hold it; offline time of day -1 h / +1 h / toggle the day cycle (150 s) |
 | `Ctrl+1`..`Ctrl+7` | `GameplayScreen.UpdateMotionKeys` | Force Stand, Walk, Run, Attack, Damage, Dead, Skill on the local avatar |
 
 `GameplayHud.PointerCaptured` (pointer over a HUD element or dragging) disables world clicks, hover picking and camera

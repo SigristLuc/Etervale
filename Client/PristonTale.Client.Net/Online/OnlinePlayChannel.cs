@@ -22,6 +22,8 @@ internal sealed class OnlinePlayChannel : IPlayChannel
 
     public int GameMasterLevel => _connection.GameMasterLevel;
 
+    public long? GameClockMs => _connection.HasGameClock ? _connection.GameClockMs : null;
+
     public OnlinePlayChannel(GameServerConnection connection, CancellationToken cancellationToken = default)
     {
         _connection = connection;

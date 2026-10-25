@@ -345,6 +345,25 @@ when within `max(80, MeleeRange + 32)` planar and 64 vertical; uses the same cli
 tells the host to place it beside the owner. Only stun stops it. Wild monsters see summons as target-only prey (they
 fight a summon that hits them, never pick it by sight). Summon skills are documented in [skills.md](skills.md).
 
+## Night and day
+
+`WorldClock` (Simulation): one game minute lasts 800 ms, a day 19.2 real minutes; night runs from 23:00 to 4:00. The
+server keeps the clock (`WorldServer.GameClockMs`, the Unix time plus `World:ClockOffsetMinutes` game minutes) and sends
+it in `WorldJoined`; each tick it sets `FieldInstance.Night` for every field.
+
+`FieldInstance.Night` (`FieldInstance.Night.cs`), applied at the first step and at each change:
+
+- Event creatures (`MonsterDefinition.EventCode` 100, field `EventInfo`: the bronze, silver and golden wolverines) walk
+  at night at a random active spawn point of their field and come back when killed (once the corpse is gone); they stay
+  until dawn even with no player near (`StaysUntilDawn`). At dawn they play their warp clip and leave (`VanishOnWarp`);
+  clients show the return sparkle with the skill-learn sound for a wolverine's warp.
+- NPCs with the event creature service (`NpcServiceKind.EventMonster` 100: the town's wolverine pets) leave at night and
+  return at dawn.
+- A nightmare field (`FieldDef.FieldEvent` = `Nightmare`: Navisko) spawns its monsters only at night; at nightfall each
+  of its people turns into the night creature (the monster whose model is `Wolverin_A`) where it stands; at dawn its
+  hostile monsters die without reward and its people return, those with an appearance draw (`NpcDefinition.AppearSlot`,
+  `AppearCycle`) only when the dawn's new draw picks them.
+
 ## Spawning
 
 `FieldSpawnData` per field code comes from the database (`WorldDataFactory.ToFieldSpawnData`, imported from the field

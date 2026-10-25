@@ -100,10 +100,14 @@ public sealed partial class WorldServer
         ConfigureQuests(field);
         field.State = _catalog.TryGetFieldByCode(fieldId, out var definition) ? definition.State : FieldState.Forest;
         field.ItemEventRates = _options.ItemEvents;
+        field.Event = _catalog.TryGetFieldByCode(fieldId, out var described) ? described.FieldEvent : FieldEventKind.None;
         field.DropLedger = DropLedgerFor(_worldData.Current.Items);
         _fields.Add(fieldId, field);
         return field;
     }
+
+    // The game clock in game milliseconds: the Unix time plus the configured offset (World:ClockOffsetMinutes game minutes).
+    public long GameClockMs => _clock.GetUtcNow().ToUnixTimeMilliseconds() + _options.ClockOffsetMinutes * (long)WorldClock.MinuteMs;
 
     private DailyDropLedger? _dropLedger;
 
@@ -497,7 +501,8 @@ public sealed partial class WorldServer
         _activeFields.AddRange(_fields.Values);
         var nowSeconds = _clock.GetUtcNow().ToUnixTimeSeconds();
         // Fields share only immutable catalogs and the thread-safe id allocator, so they step in parallel.
-        Parallel.ForEach(_activeFields, field => StepField(field, dt, serverTick, bossHour, nowSeconds));
+        var night = WorldClock.IsNight(WorldClock.HoursAt(GameClockMs));
+        Parallel.ForEach(_activeFields, field => StepField(field, dt, serverTick, bossHour, nowSeconds, night));
         ApplyQuestTravels();
 
         if (!_membershipChanged)
@@ -519,9 +524,10 @@ public sealed partial class WorldServer
         Volatile.Write(ref _activeCounts, counts.AsReadOnly());
     }
 
-    private void StepField(FieldInstance field, float dt, uint serverTick, int? bossHour, long nowSeconds)
+    private void StepField(FieldInstance field, float dt, uint serverTick, int? bossHour, long nowSeconds, bool night)
     {
         field.Premium.NowSeconds = nowSeconds;
+        field.Night = night;
         field.Step(dt, bossHour);
         if (field.PlayerCount == 0)
         {

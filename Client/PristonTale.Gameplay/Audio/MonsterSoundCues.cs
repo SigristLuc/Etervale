@@ -47,6 +47,9 @@ public sealed class MonsterSoundCues(CombatSounds sounds, IMonsterScene scene)
 
     public void Clear() => _tracked.Clear();
 
+    // A monster entered its warp motion (a wolverine leaving at dawn, a shape change).
+    public event Action<MonsterActorView> WarpStarted;
+
     private void Step(in MonsterActorView monster, Vector3 listener)
     {
         if (!_tracked.TryGetValue(monster.EntityId, out var tracked))
@@ -68,6 +71,11 @@ public sealed class MonsterSoundCues(CombatSounds sounds, IMonsterScene scene)
         if (restarted && state != tracked.State)
         {
             tracked.State = state;
+            if (state == WarpState)
+            {
+                WarpStarted?.Invoke(monster);
+            }
+
             if (Cue(state) is { } cue && (state != StandState || Random.Shared.Next(4) == 0))
             {
                 Play(monster, cue, listener);

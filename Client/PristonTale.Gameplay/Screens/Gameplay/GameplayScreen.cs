@@ -215,7 +215,7 @@ public sealed class GameplayScreen : GameScreen
         }
         if (Pressed(keyboard, Keys.P))
         {
-            _scene.DayLengthSeconds = _scene.DayLengthSeconds > 0f ? 0f : 150f;
+            _scene.ToggleClockHold();
         }
     }
 

@@ -351,8 +351,8 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         _player = player;
         _outbox = outbox;
         _encoder = new PresenceEncoder(session.EntityId, _services.WorldData);
-        SendLarge(new WorldJoinedPacket(session.EntityId, Environment.TickCount64, (byte)Math.Clamp(session.GmLevel, 0, 255)).Write,
-            WorldJoinedPacket.Size);
+        SendLarge(new WorldJoinedPacket(session.EntityId, Environment.TickCount64, (byte)Math.Clamp(session.GmLevel, 0, 255),
+            _services.World.GameClockMs).Write, WorldJoinedPacket.Size);
         _pump = PumpAsync(outbox, _encoder);
         JoinChat(session);
     }

@@ -27,6 +27,7 @@ public sealed partial class GameScene
 
         _combatSounds = new CombatSounds(_assetRoot, _log);
         _monsterSounds = new MonsterSoundCues(_combatSounds, this);
+        _monsterSounds.WarpStarted += OnMonsterWarp;
     }
 
     private void UpdateCombatSounds()

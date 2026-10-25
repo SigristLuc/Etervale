@@ -43,6 +43,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     private static readonly CharacterClassRegistry ClassRegistry = new();
 
     private readonly FieldSpawner _spawner;
+    private readonly IReadOnlyList<SpawnPoint> _spawnPoints;
     private readonly MonsterAiBrain _brain;
     private readonly FieldCombat _combat;
     private readonly FieldSkills _skills;
@@ -73,6 +74,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         _ = PlayerEquipmentTiming.Count;
         _occupancy = new MonsterOccupancy(_neighbourScratch);
         _spawner = new FieldSpawner(spawnData, catalog, rng);
+        _spawnPoints = spawnData.SpawnPoints;
         _brain = new MonsterAiBrain(rng);
         _combat = new FieldCombat(this, rng, experienceMultiplier);
         _skills = new FieldSkills(this, rng);
@@ -187,8 +189,12 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
             }
         }
 
+        StepNight();
         SnapshotLiveMonsters();
-        _spawner.MaintainPopulation(dtMs, _liveScratch, this, nowMs, this);
+        if (SpawnsNow)
+        {
+            _spawner.MaintainPopulation(dtMs, _liveScratch, this, nowMs, this);
+        }
         IReadOnlyList<MonsterInstance> expired = _spawner.MaintainDespawns(dtMs, _liveScratch, this);
         for (int i = 0; i < expired.Count; i++)
         {

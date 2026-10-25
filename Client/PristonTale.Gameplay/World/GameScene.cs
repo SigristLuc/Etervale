@@ -324,7 +324,45 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         set { if (_renderer != null) _renderer.DayLengthSeconds = value; }
     }
 
-    public void AdvanceTimeOfDay(float hours) => _renderer?.AdvanceTimeOfDay(hours);
+    // The server keeps the time of day; the sky follows its clock. The debug keys only shift it (or hold it) on this
+    // client's screen.
+    private float _clockShiftHours;
+    private float? _clockHeldAt;
+
+    private void FollowServerClock()
+    {
+        if (_playChannel?.GameClockMs is not { } clock)
+        {
+            return;
+        }
+
+        _renderer.DayLengthSeconds = 0f;
+        var hours = _clockHeldAt ?? WorldClock.HoursAt(clock) + _clockShiftHours;
+        _renderer.SetTimeOfDay(((hours % 24f) + 24f) % 24f);
+    }
+
+    public void ToggleClockHold()
+    {
+        if (_playChannel?.GameClockMs is null)
+        {
+            DayLengthSeconds = DayLengthSeconds > 0f ? 0f : 150f;
+            return;
+        }
+
+        _clockHeldAt = _clockHeldAt is null ? TimeOfDay : null;
+    }
+
+    public void AdvanceTimeOfDay(float hours)
+    {
+        if (_playChannel?.GameClockMs is not null)
+        {
+            _clockShiftHours += hours;
+            _clockHeldAt += hours;
+            return;
+        }
+
+        _renderer?.AdvanceTimeOfDay(hours);
+    }
     public void SetTimeOfDay(float hours) => _renderer?.SetTimeOfDay(hours);
 
     public bool ShadowsEnabled => _renderer?.ShadowsEnabled ?? false;
@@ -1271,6 +1309,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
         if (_renderer != null)
         {
+            FollowServerClock();
             _renderer.Update(gameTime);
         }
 

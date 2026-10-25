@@ -14,6 +14,9 @@ public interface IPlayChannel : IAsyncDisposable
     // The player's game master level (0 for players), for client-side game master controls.
     int GameMasterLevel => 0;
 
+    // The server's game clock in game milliseconds; null before the world is joined or without a server.
+    long? GameClockMs => null;
+
     Task<ProgressionOutcome> ApplyProgressionAsync(ProgressionCommand command, CancellationToken ct = default);
     Task<NpcInteraction> InteractNpcAsync(ulong entityId, CancellationToken ct = default);
 

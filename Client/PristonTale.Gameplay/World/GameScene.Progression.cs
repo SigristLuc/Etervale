@@ -1,6 +1,8 @@
+using Microsoft.Xna.Framework;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Simulation.Items.Usable;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Gameplay.World;
 
@@ -9,6 +11,18 @@ namespace PristonTale.Gameplay.World;
 public sealed partial class GameScene
 {
     public const string LevelUpEffect = "vfx.player.levelup";
+
+    // A wolverine leaving at dawn warps out in the return sparkle with the skill-learn sound.
+    private void OnMonsterWarp(MonsterActorView monster)
+    {
+        if (monster.SoundCode != LegacyNpcSoundCode.Wolverine)
+        {
+            return;
+        }
+
+        _returnEffect?.Start(monster.Position + Vector3.Up * GroundTraversal.VisualOffset);
+        _itemEffects?.Play(ItemEffectKind.Return, monster.EntityId, 0, monster.Position, PlayerPosition, _skillClockMs);
+    }
 
     private void ObserveProgression(PresenceUpdate update)
     {

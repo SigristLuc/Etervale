@@ -131,7 +131,7 @@ public sealed class FieldSpawner
         for (int i = 0; i < live.Count; i++)
         {
             MonsterInstance m = live[i];
-            if (!m.IsAlive)
+            if (!m.IsAlive || m.StaysUntilDawn)
             {
                 continue;
             }

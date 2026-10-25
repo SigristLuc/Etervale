@@ -11,6 +11,7 @@ public static class NaviskoField
         [])
     {
         FieldCode = 9,
+        FieldEvent = FieldEventKind.Nightmare,
         Center = new FieldPoint(22214, -1182),
         StartPoints = [new FieldPoint(22214, -1182)],
         Gates =

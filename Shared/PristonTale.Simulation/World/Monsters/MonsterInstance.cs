@@ -138,6 +138,12 @@ public sealed class MonsterInstance
     public ulong HammerTargetId { get; set; }
     public int HammerHits { get; set; }
     public bool HammerSpent { get; set; }
+
+    // An event creature leaving at dawn: its warp clip ends by removing it.
+    public bool VanishOnWarp { get; set; }
+
+    // A night creature stays until dawn even with no player near.
+    public bool StaysUntilDawn { get; set; }
     public float SpecialMsLeft { get; set; }
     public MonsterMotionState CompletedSpecial { get; set; }
     public bool DrinkHeals { get; set; }

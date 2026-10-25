@@ -227,6 +227,12 @@ internal sealed class FieldMonsterSkills
         }
 
         monster.CompletedSpecial = MonsterMotionState.Stand;
+        if (completed == MonsterMotionState.Warp && monster.VanishOnWarp)
+        {
+            _vanished.Add(monster);
+            return;
+        }
+
         if (completed == MonsterMotionState.Eat && monster.DrinkHeals)
         {
             var max = monster.Def.Combat.MaxLife;
@@ -253,9 +259,17 @@ internal sealed class FieldMonsterSkills
         return chosen;
     }
 
-    // Shape changes swap the instance after every monster has stepped.
+    private readonly List<MonsterInstance> _vanished = new();
+
+    // Shape changes swap the instance after every monster has stepped; monsters that warped away leave.
     public void ApplyChanges()
     {
+        foreach (var monster in _vanished)
+        {
+            _host.RemoveMonster(monster.EntityId);
+        }
+
+        _vanished.Clear();
         foreach (var (monster, into) in _changes)
         {
             if (!monster.IsAlive || !_host.TryGetMonster(monster.EntityId, out _))

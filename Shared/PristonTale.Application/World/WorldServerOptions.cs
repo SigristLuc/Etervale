@@ -16,6 +16,9 @@ public sealed record WorldServerOptions
 
     public int ExperienceMultiplier { get; init; } = DefaultExperienceMultiplier;
 
+    // Game minutes added to the game clock, to start the server at another hour of the day.
+    public int ClockOffsetMinutes { get; init; }
+
     public int MaxPendingCommandsPerPlayer { get; init; } = DefaultMaxPendingCommandsPerPlayer;
 
     // The crystal event: 0 off, 1 from 12:00 to 23:59 server time, 2 all day; crystals then call their event monsters.

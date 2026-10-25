@@ -130,7 +130,7 @@ public sealed record FieldDef(
     public FieldDayNight DayNight { get; init; } = new();
     public string BackMusicCode { get; init; } = string.Empty;
     public string ServerCode { get; init; } = string.Empty;
-    public string FieldEvent { get; init; } = string.Empty;
+    public FieldEventKind FieldEvent { get; init; }
     public int LimitLevel { get; init; }
 
     // Dungeon state disables sky and daylight in favor of stage lighting.

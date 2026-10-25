@@ -85,6 +85,11 @@ public sealed class GameServerConnection : IGameBackend
     // The player's game master level from WorldJoined (0 for players).
     public int GameMasterLevel { get; private set; }
 
+    // The server's game clock: the WorldJoined value carried forward on the local clock.
+    public bool HasGameClock { get; private set; }
+    public long GameClockOffsetMs { get; private set; }
+    public long GameClockMs => GameClockOffsetMs + Environment.TickCount64;
+
     public bool RequiresNewConnection => SessionToken is not null || Volatile.Read(ref _terminalError) is not null;
 
     public long BytesReceived => _connection?.BytesReceived ?? 0;
@@ -611,7 +616,10 @@ public sealed class GameServerConnection : IGameBackend
                 OnWorldEntry(WorldEntryPacket.Read(packet));
                 break;
             case EtervaleOpcodes.WorldJoined:
-                GameMasterLevel = WorldJoinedPacket.Read(packet).GameMasterLevel;
+                var joined = WorldJoinedPacket.Read(packet);
+                GameMasterLevel = joined.GameMasterLevel;
+                GameClockOffsetMs = joined.GameClockMs - Environment.TickCount64;
+                HasGameClock = true;
                 _joined?.TrySetResult(true);
                 break;
             case EtervaleOpcodes.LeaveWorld:

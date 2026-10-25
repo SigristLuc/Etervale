@@ -98,7 +98,7 @@ internal static class BinaryProtocolTests
         Assert.True(!WorldEntryPacket.Read(buffer.AsSpan(0, new WorldEntryPacket(5, 0, 0, 0, 0).Write(buffer))).Entered, "a refused entry read as entered");
         Assert.True(JoinWorldPacket.Read(buffer.AsSpan(0, new JoinWorldPacket(ulong.MaxValue).Write(buffer))).EntityId == ulong.MaxValue,
             "world join lost its 64-bit id");
-        var joined = new WorldJoinedPacket(7, long.MaxValue);
+        var joined = new WorldJoinedPacket(7, long.MaxValue, 3, 1_793_000_000_123);
         Assert.True(WorldJoinedPacket.Read(buffer.AsSpan(0, joined.Write(buffer))) == joined, "world joined round trip changed fields");
         Assert.True(LeaveWorldPacket.Read(buffer.AsSpan(0, new LeaveWorldPacket(true).Write(buffer))).Saved, "leave answer lost its saved flag");
         return Task.CompletedTask;

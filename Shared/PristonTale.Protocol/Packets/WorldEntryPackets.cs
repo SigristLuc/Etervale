@@ -97,11 +97,12 @@ public readonly record struct JoinWorldPacket(ulong EntityId)
     }
 }
 
-// S->C {header, uint16 Version = 1, uint8 GameMasterLevel, uint8 0, uint64 EntityId, int64 ServerTimeMs}: the player's game
-// master level enables its client-side game master controls (the server checks every command and move itself).
-public readonly record struct WorldJoinedPacket(ulong EntityId, long ServerTimeMs, byte GameMasterLevel = 0)
+// S->C {header, uint16 Version = 1, uint8 GameMasterLevel, uint8 0, uint64 EntityId, int64 ServerTimeMs, int64 GameClockMs}:
+// the player's game master level enables its client-side game master controls (the server checks every command and move
+// itself); GameClockMs is the server's game clock, which the client's sky follows from then on.
+public readonly record struct WorldJoinedPacket(ulong EntityId, long ServerTimeMs, byte GameMasterLevel = 0, long GameClockMs = 0)
 {
-    public const int Size = 8 + 4 + 8 + 8;
+    public const int Size = 8 + 4 + 8 + 8 + 8;
 
     public int Write(Span<byte> destination)
     {
@@ -111,6 +112,7 @@ public readonly record struct WorldJoinedPacket(ulong EntityId, long ServerTimeM
         writer.Byte(0);
         writer.UInt64(EntityId);
         writer.Int64(ServerTimeMs);
+        writer.Int64(GameClockMs);
         return writer.Finish();
     }
 
@@ -120,7 +122,9 @@ public readonly record struct WorldJoinedPacket(ulong EntityId, long ServerTimeM
         WorldEntryWire.ReadVersion(ref reader, "World joined");
         var level = reader.Byte();
         reader.Skip(1);
-        return new WorldJoinedPacket(reader.UInt64(), reader.Int64(), level);
+        var entity = reader.UInt64();
+        var serverTime = reader.Int64();
+        return new WorldJoinedPacket(entity, serverTime, level, reader.Int64());
     }
 }
 
