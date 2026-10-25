@@ -57,79 +57,42 @@ internal static class WireMapping
     public static int WriteMotion(Span<byte> destination, in EntityView view) =>
         PresenceWire.WriteMotion(destination, view.EntityId, view.Position, view.Facing, Motion(view.MoveState));
 
-    // Character info record for an object description (PLAYERINFO reply to GETPLAYERINFO).
-    public static CharacterInfo Describe(in EntityView view, WorldData data)
+    // An entity's description for one revision (the answer to DescribeEntity).
+    public static EntityDescriptionPacket Describe(in EntityView view, byte revision, WorldData data)
     {
-        var info = new CharacterInfo
-        {
-            ObjectSerial = view.EntityId,
-            Level = view.Level,
-            LifeCurrent = ClampShort(view.Hp),
-            LifeMax = ClampShort(view.MaxHp),
-            MoveSpeed = view.MoveSpeed
-        };
-        info.Temp[CharacterInfo.TempAttackRate] = BitConverter.SingleToUInt32Bits(view.AttackRate);
         switch (view.Kind)
         {
             case EntityKindView.Player:
             {
                 var appearance = view.Appearance;
-                info.State = CharacterState.User;
-                info.Name = appearance.Name ?? "";
-                info.ModelName = appearance.ModelName ?? "";
-                info.ModelName2 = appearance.ModelName2 ?? "";
-                info.JobCode = (uint)appearance.JobCode;
-                info.ChangeJob = (uint)appearance.Tier;
-                info.Temp[CharacterInfo.TempFaceAndHair] = (uint)(appearance.FaceIndex & 0xFF) | (uint)(appearance.HairIndex & 0xFF) << 8;
-                info.Temp[CharacterInfo.TempWeaponCode] = ItemCode(appearance.WeaponKey);
-                info.Temp[CharacterInfo.TempArmorCode] = ItemCode(appearance.ArmorKey);
-                info.Temp[CharacterInfo.TempOffHandCode] = ItemCode(appearance.OffHandKey);
-                info.Temp[CharacterInfo.TempFlags] = (appearance.InVillage ? CharacterInfo.FlagInVillage : 0)
-                    | (appearance.Phoenix ? CharacterInfo.FlagPhoenix : 0)
-                    | (uint)(appearance.HelperPet & 0xF) << CharacterInfo.HelperPetShift
-                    | (uint)(appearance.BigHead & 0x3) << CharacterInfo.BigHeadShift;
-                break;
+                var looks = new DescribedPlayer(appearance.JobCode, appearance.Tier, appearance.FaceIndex, appearance.HairIndex, appearance.ModelName2 ?? "",
+                    ItemCode(appearance.WeaponKey), ItemCode(appearance.ArmorKey), ItemCode(appearance.OffHandKey), appearance.InVillage, appearance.Phoenix,
+                    appearance.HelperPet, appearance.BigHead);
+                return new EntityDescriptionPacket(view.EntityId, revision, DescribedKind.Player, view.Level, view.MoveSpeed, view.AttackRate,
+                    appearance.Name ?? "", appearance.ModelName ?? "", looks);
             }
             case EntityKindView.Monster when data.Monsters.TryGet((int)view.TemplateId, out var monster):
-                info.State = CharacterState.Enemy;
-                info.Name = monster.Name ?? "";
-                info.ModelName = monster.ModelInxPath ?? "";
-                info.CharSoundCode = (uint)monster.SoundCode;
-                info.SizeLevel = monster.ShadowSizeLevel;
-                info.Brood = (uint)monster.Brood;
-                info.ArrowPosiX = ClampShort(monster.PortraitOffsetY);
-                info.ArrowPosiY = ClampShort(monster.PortraitOffsetZ);
-                info.Temp[CharacterInfo.TempTemplateCode] = view.TemplateId;
-                info.Temp[CharacterInfo.TempModelScale] = BitConverter.SingleToUInt32Bits(monster.ModelScale);
-                if (view.OwnerId != 0)
-                {
-                    // An owned summon fights on its owner's side: the original marks it with the user brood.
-                    info.Brood = (uint)Simulation.World.Monsters.MonsterBrood.User;
-                    info.Temp[CharacterInfo.TempOwnerSerial] = view.OwnerId;
-                    info.Temp[CharacterInfo.TempInstanceScale] = BitConverter.SingleToUInt32Bits(view.ModelScale);
-                }
-
-                break;
+            {
+                // An owned summon fights on its owner's side: the original marks it with the user brood.
+                var owned = view.OwnerId != 0;
+                var template = new DescribedTemplate(view.TemplateId, monster.ModelScale, (uint)monster.SoundCode, monster.PortraitOffsetY,
+                    monster.PortraitOffsetZ, (byte)(owned ? Simulation.World.Monsters.MonsterBrood.User : monster.Brood), view.OwnerId,
+                    owned ? view.ModelScale : 0f, 0);
+                return new EntityDescriptionPacket(view.EntityId, revision, DescribedKind.Monster, view.Level, view.MoveSpeed, view.AttackRate,
+                    monster.Name ?? "", monster.ModelInxPath ?? "", Template: template);
+            }
             case EntityKindView.Npc when data.Npcs.TryGet((int)view.TemplateId, out var npc):
-                info.State = CharacterState.Npc;
-                info.Name = npc.Label ?? "";
-                info.ModelName = npc.ModelInxPath ?? "";
-                info.CharSoundCode = (uint)npc.SoundCode;
-                info.ArrowPosiX = ClampShort(npc.PortraitOffsetY);
-                info.ArrowPosiY = ClampShort(npc.PortraitOffsetZ);
-                info.Temp[CharacterInfo.TempTemplateCode] = view.TemplateId;
-                info.Temp[CharacterInfo.TempModelScale] = BitConverter.SingleToUInt32Bits(npc.ModelScale);
-                info.Temp[CharacterInfo.TempNpcServices] = npc.ServiceSet.Bits;
-                break;
+            {
+                var template = new DescribedTemplate(view.TemplateId, npc.ModelScale, (uint)npc.SoundCode, npc.PortraitOffsetY, npc.PortraitOffsetZ, 0, 0, 0f,
+                    npc.ServiceSet.Bits);
+                return new EntityDescriptionPacket(view.EntityId, revision, DescribedKind.Npc, view.Level, view.MoveSpeed, view.AttackRate,
+                    npc.Label ?? "", npc.ModelInxPath ?? "", Template: template);
+            }
             default:
                 // A template missing from the catalog is still described by kind and code.
-                info.State = view.Kind == EntityKindView.Npc ? CharacterState.Npc : CharacterState.Enemy;
-                info.Temp[CharacterInfo.TempTemplateCode] = view.TemplateId;
-                info.Temp[CharacterInfo.TempModelScale] = BitConverter.SingleToUInt32Bits(1f);
-                break;
+                return new EntityDescriptionPacket(view.EntityId, revision, view.Kind == EntityKindView.Npc ? DescribedKind.Npc : DescribedKind.Monster,
+                    view.Level, view.MoveSpeed, view.AttackRate, "", "", Template: new DescribedTemplate(view.TemplateId, 1f, 0, 0, 0, 0, view.OwnerId, 0f, 0));
         }
-
-        return info;
     }
 
     // Character info record embedded in the character record for the entering character.

@@ -21,6 +21,7 @@ internal sealed class SharedPresenceWire : IPresenceFrameAttachment
     private int[] _fullLength = [];
     private int[] _motionLength = [];
     private byte[]? _described;
+    private int[] _describedLength = [];
     private int[] _state = [];
 
     private SharedPresenceWire(int entityCount) => Reset(entityCount);
@@ -38,6 +39,7 @@ internal sealed class SharedPresenceWire : IPresenceFrameAttachment
             _motion = new byte[capacity * MotionSlot];
             _fullLength = new int[capacity];
             _motionLength = new int[capacity];
+            _describedLength = new int[capacity];
             _described = null;
             _state = new int[capacity];
             return;
@@ -46,24 +48,25 @@ internal sealed class SharedPresenceWire : IPresenceFrameAttachment
         Array.Clear(_state, 0, entityCount);
     }
 
-    // The PLAYERINFO answer for the entity, built on the first request of the frame.
+    // The description of the entity, built on the first request of the frame.
     public ReadOnlySpan<byte> Description(int index, in EntityView view, WorldData data)
     {
+        const int Slot = EntityDescriptionPacket.MaximumSize;
         var described = Volatile.Read(ref _described);
         if (described is null)
         {
-            Interlocked.CompareExchange(ref _described, new byte[_state.Length * PlayerInfoPacket.Size], null);
+            Interlocked.CompareExchange(ref _described, new byte[_state.Length * Slot], null);
             described = Volatile.Read(ref _described)!;
         }
 
-        var entry = described.AsSpan(index * PlayerInfoPacket.Size, PlayerInfoPacket.Size);
+        var entry = described.AsSpan(index * Slot, Slot);
         if (Claim(index, DescriptionBusy, DescriptionDone))
         {
-            PresenceEncoder.DescriptionPacket(view, view.Revision, data).Write(entry);
+            _describedLength[index] = PresenceEncoder.DescriptionPacket(view, view.Revision, data).Write(entry);
             Interlocked.Or(ref _state[index], DescriptionDone);
         }
 
-        return entry;
+        return entry[.._describedLength[index]];
     }
 
     public ReadOnlySpan<byte> Full(int index, in EntityView view, int field)

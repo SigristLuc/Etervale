@@ -66,6 +66,11 @@ public ref struct PacketWriter
         _position += 8;
     }
 
+    // Little-endian base-128 (Packets.VarInt): 1 byte below 128, at most 10 for 64 bits.
+    public void VarUInt(ulong value) => _position += Packets.VarInt.Write(_buffer[_position..], value);
+
+    public void VarInt(int value) => VarUInt(Packets.VarInt.ZigZag(value));
+
     public void Guid(Guid value)
     {
         value.TryWriteBytes(_buffer.Slice(_position, 16));

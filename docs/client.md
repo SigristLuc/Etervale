@@ -185,12 +185,12 @@ a pending buffer flushed by a single writer task (a backlog above 512 KiB closes
 `PresenceUpdate` published to a bounded channel (4096, `TryWrite`; overflow throws and ends the connection).
 
 - `PresenceEntries`: full and motion entries update tracked objects (a motion entry never introduces one). An unknown serial or a
-  changed descriptor revision triggers GETPLAYERINFO; an object is published as a spawn only once its PLAYERINFO
-  description arrived. Coarse entries never introduce an object. The connection's one-second timer
+  changed descriptor revision triggers `DescribeEntity`; an object is published as a spawn only once its `EntityDescription`
+  arrived. The connection's one-second timer
   (`RetryDescriptions`, which shares the decoder's lock with the receive thread) asks again for every object still
   undescribed after a second: the server drops requests beyond its bucket, and an object that stands still sends no
   entry that would ask again.
-- PLAYERINFO: monster and NPC descriptions register a `MonsterRenderInfo`/`NpcRenderInfo` in `WorldRenderCatalog`
+- `EntityDescription`: monster and NPC descriptions register a `MonsterRenderInfo`/`NpcRenderInfo` in `WorldRenderCatalog`
   (model path, scale, name, level, brood, NPC services, sound code, portrait offsets) and are shared by template code;
   a summon's or crystal pet's description (user brood, its owner) is never shared. A new description is re-published
   as a spawn of a known id (full refresh).

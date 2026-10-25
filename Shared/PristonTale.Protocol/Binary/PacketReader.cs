@@ -55,6 +55,24 @@ public ref struct PacketReader
 
     public ulong UInt64() => BinaryPrimitives.ReadUInt64LittleEndian(Take(8));
 
+    public ulong VarUInt() => Packets.VarInt.Read(_packet, ref _position);
+
+    public int VarInt() => Packets.VarInt.UnZigZag(VarUInt());
+
+    // A varuint that must fit a non-negative int (levels, speeds, indices).
+    public int VarUInt31()
+    {
+        var value = VarUInt();
+        return value <= int.MaxValue ? (int)value : throw new InvalidDataException("Variable-length value exceeds 31 bits.");
+    }
+
+    // A varuint that must fit 32 bits (counts, levels, codes).
+    public uint VarUInt32()
+    {
+        var value = VarUInt();
+        return value <= uint.MaxValue ? (uint)value : throw new InvalidDataException("Variable-length value exceeds 32 bits.");
+    }
+
     public Guid Guid() => new(Take(16));
 
     public ReadOnlySpan<byte> Bytes(int count) => Take(count);

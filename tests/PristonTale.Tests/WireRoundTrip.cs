@@ -47,9 +47,8 @@ internal sealed class WireRoundTrip
             {
                 if (_encoder.Describe(serial) is { } info)
                 {
-                    var buffer = new byte[PlayerInfoPacket.Size];
-                    info.Write(buffer);
-                    _sink.Packets.Enqueue(buffer);
+                    var buffer = new byte[EntityDescriptionPacket.MaximumSize];
+                    _sink.Packets.Enqueue(buffer[..info.Write(buffer)]);
                 }
             }
         }

@@ -88,9 +88,9 @@ Deviations from the original transport:
 
 Which side encrypts what is a sender choice; receivers accept either form for every code. The server encrypts command
 replies, login, record and NPC/inventory/progression/skill-cast results and `WARPFIELD`; presence traffic (play data,
-events, drops, owner state, removals, clock, `PLAYERINFO` descriptions) goes out in plaintext. The client encrypts
+events, drops, owner state, removals, clock, entity descriptions) goes out in plaintext. The client encrypts
 login, character commands, heartbeats, `ATTACK_DAMAGE`, `SkillCast` and operation requests, and sends `GETRECORDDATA`,
-`PLAYERINFO`, `TRANSPLAYDATA` and `GETPLAYERINFO` in plaintext.
+`PLAYERINFO`, `TRANSPLAYDATA` and `DescribeEntity` in plaintext.
 
 ## Login, character select and world entry
 
@@ -122,7 +122,7 @@ request (`FAILCONNECT` -16, a record echo with `WParam` 0, or entry failure `Rej
 | --- | --- | --- |
 | `TRANSPLAYDATA` | C→S | The client's own position, facing, motion (`angle[3]`), action target (`dwTargetSerial`) and field (`wArea[0]`). Sent every 200 ms while moving, on state changes (at most one per 50 ms) and every second while idle. |
 | `PresenceEntries` (`0x45540900`) | S→C | Nearby objects as compact full or motion entries (see [Presence entries](#presence-entries)). |
-| `GETPLAYERINFO` / `PLAYERINFO` | C→S / S→C | Describes an unknown object or one whose `bUpdateInfo[0]` revision changed (`GETPLAYERINFO.WParam` = serial). Monsters and NPCs are cached by `dwAutoCharCode`, as in the original client; owned summons and crystal pets carry `dwAutoCharCode` 0 and are always described on their own. The client asks again after a second without an answer (the server drops requests beyond its bucket). |
+| `DescribeEntity` / `EntityDescription` (`0x45540901` / `0x45540902`) | C→S / S→C | Describes an unknown object or one whose description revision changed (see [Entity descriptions](#entity-descriptions)). Monsters and NPCs are cached by template; owned summons and crystal pets carry template 0 in their presence entries and are always described on their own. The client asks again after a second without an answer (the server drops requests beyond its bucket). |
 | `WARPFIELD` | S→C | `{WParam field, SParam x, LParam z}` confirms a field change; `EParam` = 1 marks a correction after a rejected report or a teleport. |
 | `ATTACK_DAMAGE` | C→S | Attack data packet with the original damage checksum and damage cipher keyed by the sender's serial. Monster: attack lock (`AttackState` bit 0 held, `AttackCount` = sequence). NPC: opens it. |
 | `PLAYITEM` / `DELITEM` | S→C | Ground items within the ground-item range (squared `0xC8000` units, about 905 units); up to 16 records per `PLAYITEM`. `lpStgArea` carries the drop handle and `type` the quantity. Private drops go only to their owner. |
@@ -134,12 +134,8 @@ request (`FAILCONNECT` -16, a record echo with `WParam` 0, or entry failure `Rej
 
 - `angle[3]` of the client's movement report holds motion state codes (`MotionStateCode`) instead of a model motion
   index; the server has no per-model motion table.
-- `dwTemp[11]` of the character info record holds the template code, model scale, NPC services (bit `1 <<
-  NpcServiceKind`), face and hair, equipped weapon, armour and off-hand item codes, the village flag and the attack
-  animation rate (`CharacterInfo.Temp*` constants). A summon is described with the user brood, its owner's serial in
-  `dwTemp[9]` and its own model scale (float bits, 0 keeps the template's) in `dwTemp[10]`. The character slot record
-  uses `dwArmorCode` and `dwTemp[13]` for the same appearance data.
-- A full presence entry carries the descriptor revision (`bUpdateInfo[0]` of the description, 1 to 255). The field
+- The character slot record (character select) uses `dwArmorCode` and `dwTemp[13]` for the appearance data.
+- A full presence entry carries the descriptor revision (1 to 255) of the entity's description. The field
   keeps one revision per entity for every viewer (`FieldDescriptors`) and increments it when level, max HP, template,
   speed, attack rate, equipment, looks (hair, face, pets, big head), village flag, tier, owner or scale change.
 
@@ -294,6 +290,22 @@ big head, 3 soccer ball). A sealed puzzle piece travels as the PZ100 code with t
 collector's exchange is the NPC service action `Exchange` (40) on `QuestEvent`.
 Rules: [special-items.md](special-items.md).
 
+### Entity descriptions
+
+Bodies start with `{uint16 Version = 1, uint16 Flags = 0}`; text is UTF-8 with a `uint16` byte length (name 64 bytes,
+model paths 160).
+
+| Message | Layout after the header |
+| --- | --- |
+| `DescribeEntity` | `varuint Serial` |
+| `EntityDescription` | `varuint Serial, uint8 Revision, uint8 Kind (1 player, 2 monster, 3 NPC), varuint Level, varuint MoveSpeed, float32 AttackRate, text Name, text Model`, then the player or template part |
+| Player part | `varuint Job, Tier, Face, Hair, text HeadModel, uint32 Weapon, Armor, OffHand (item codes, 0 none), uint8 Flags (1 village, 2 Phoenix), uint8 HelperPet, uint8 BigHead` |
+| Template part | `varuint Template, float32 TemplateScale, varuint SoundCode, varint PortraitY, PortraitZ, uint8 Brood, varuint Owner, float32 InstanceScale, uint32 NpcServices` |
+
+An owned summon or crystal pet names its owner (64-bit) and its own scale (0 keeps the template's) and carries the user
+brood; NPC services are bit `1 << NpcServiceKind`. A description is encoded once per frame and entity for every
+receiver (`SharedPresenceWire`).
+
 ### Presence clock and remote playback
 
 `PresenceClock` is 20 bytes: `{int32 size, uint32 code, uint16 Version = 1, uint16 Flags = 0, uint32 ServerTick, uint32
@@ -410,7 +422,7 @@ receives what, in which order and how often is specified in [server.md](server.m
   object is forgotten beyond 1.15 times the connect range. Position updates share a budget of 2048 bytes per receiver
   per tick, ranked by how overdue they are (a bounded heap keeps only what the budget can carry), which plays the role
   of the original per-receiver user limit and round-robin cursor.
-- Full and motion presence entries and `PLAYERINFO` descriptions are encoded once per frame and entity
+- Full and motion presence entries and entity descriptions are encoded once per frame and entity
   (`SharedPresenceWire`) and copied by every receiver that needs them.
 - Movement reports travel through the command queue as values (no closure or task per report); the verdict comes back
   through `IMovementVerdictSink`.
@@ -535,7 +547,7 @@ when the received version has it.
 - A malformed packet that makes a `Read` throw closes the whole connection (`protocol: ...`), except `ATTACK_DAMAGE`.
 - `SkillCastStatus` (wire) and `SkillCastVerdict` (simulation), and `CombatEventKindView` and the client's combat kinds,
   are separate enums cast by value; `SkillWireTests` pins them. Change both sides together.
-- `GETPLAYERINFO` is outside the packet flood count but has its own token bucket; a client that requests every serial
+- `DescribeEntity` is outside the packet flood count but has its own token bucket; a client that requests every serial
   each frame will see descriptions silently dropped. A client must ask again for an object still undescribed (the
   Etervale client does after a second), or a crowd entering view at once never appears.
 - Two monsters of one template share a description only while both are wild: a summon's description names its owner.

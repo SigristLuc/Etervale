@@ -104,9 +104,9 @@ internal sealed partial class PresenceEncoder
         }
     }
 
-    // PLAYERINFO answer for GETPLAYERINFO from the last encoded snapshot (its frame stays pinned until the next one);
-    // null when the serial is not in this subscriber's view.
-    public PlayerInfoPacket? Describe(uint serial)
+    // The description of an entity from the last encoded snapshot (its frame stays pinned until the next one); null when
+    // the serial is not in this subscriber's view.
+    public EntityDescriptionPacket? Describe(uint serial)
     {
         EntityView view;
         byte revision;
@@ -124,8 +124,8 @@ internal sealed partial class PresenceEncoder
         return DescriptionPacket(view, revision, _data.Current);
     }
 
-    // Writes the PLAYERINFO answer into destination and returns its length, 0 when the serial is not in view. Every
-    // receiver asking about an entity of the same frame gets the same bytes, so they are encoded once per frame.
+    // Writes the description into destination and returns its length, 0 when the serial is not in view. Every receiver
+    // asking about an entity of the same frame gets the same bytes, so they are encoded once per frame.
     public int WriteDescription(uint serial, Span<byte> destination)
     {
         lock (_gate)
@@ -147,13 +147,7 @@ internal sealed partial class PresenceEncoder
         }
     }
 
-    internal static PlayerInfoPacket DescriptionPacket(in EntityView view, byte revision, WorldData data)
-    {
-        var character = WireMapping.Describe(view, data);
-        character.UpdateInfo[0] = revision;
-        return new PlayerInfoPacket(character, view.EntityId, PristonUnits.ToFixed(view.Position.X), PristonUnits.ToFixed(view.Position.Y),
-            PristonUnits.ToFixed(view.Position.Z), 0, PristonUnits.ToAngle(view.Facing), 0, WireMapping.ActionCode(view.MoveState));
-    }
+    internal static EntityDescriptionPacket DescriptionPacket(in EntityView view, byte revision, WorldData data) => WireMapping.Describe(view, revision, data);
 
     // The connection ended: the last snapshot's frame is no longer needed for descriptions.
     public void Close()

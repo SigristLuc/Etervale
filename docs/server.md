@@ -29,7 +29,7 @@ layouts live in [protocol.md](protocol.md).
 | `Net/ClientSession.Chat.cs` | The session's `IChatLink`: chat lines, forced warps, close requests and kicks from game masters. |
 | `Net/GameServerControl.cs` | `IServerOperations` for game masters: user limit, blocked logins, the shutdown countdown and host stop. |
 | `Net/PresenceEncoder.cs` | Turns the receiver's `WorldSnapshot` into presence packets (presence entries, events, drops, owner state, the restart offer); the crowd cap, the movement budget and descriptions. |
-| `Net/SharedPresenceWire.cs` | Full and motion presence entries and `PLAYERINFO` descriptions of one presence frame, encoded once for every receiver. |
+| `Net/SharedPresenceWire.cs` | Full and motion presence entries and entity descriptions of one presence frame, encoded once for every receiver. |
 | `Net/VisibleSet.cs`, `Net/MotionCandidates.cs` | The receiver's visible crowd (nearest 256 plus essentials, keep band) and its most overdue position updates. |
 | `Net/WireMapping.cs`, `Net/NpcWireMapping.cs`, `Net/QuestWireMapping.cs` | Authoritative views to wire structs (`CharacterInfo`, presence entries, events, NPC service state, quest messages). |
 | `Net/NetworkLimits.cs` | `Network:*` settings with defaults and validation; IPv4-mapped address normalisation. |
@@ -123,15 +123,15 @@ limit of `0` disables that limit; negative values stop startup.
 | `World:ItemEvents:ValentineDay`, `Watermelon`, `Valentine`, `CandyDays`, `WhiteDay`, `Puzzle`, `GiftBox` | 0 | `ItemEventRates` | Rate per 10000 drop rolls of each item event; 0 is off. |
 | `Network:Port` | 10009 | `PristonTcpServer` | TCP game port, 0 to 65535; 0 binds a free port (in-process tests read it from `PristonTcpServer.BoundPort`). The client always connects to 10009. |
 | `Server:ReportSeconds` | 30 | `WorldTickService`, `PristonTcpServer` | Period of the tick and TCP report lines; at least 1. |
-| `Network:PacketLimit` | 251 | `NetworkLimits` | Packets per window before the connection closes (`GETPLAYERINFO` excluded). |
+| `Network:PacketLimit` | 251 | `NetworkLimits` | Packets per window before the connection closes (`DescribeEntity` excluded). |
 | `Network:PacketWindowSeconds` | 5 | `NetworkLimits` | Fixed window of the packet limit. |
 | `Network:MaxConnectionsPerIp` | 8 | `NetworkLimits` | Open connections per remote address; extra sockets are closed on accept. |
 | `Network:LoginTimeoutSeconds` | 30 | `NetworkLimits` | Close connections that have not logged in; checked every 5 s. |
 | `Network:LoginFailuresPerAccount` | 5 | `NetworkLimits` | Bad-password logins per account per window before refusal. |
 | `Network:LoginFailuresPerIp` | 20 | `NetworkLimits` | Bad-password logins per address per window before refusal. |
 | `Network:LoginFailureWindowSeconds` | 300 | `NetworkLimits` | Window of both failure counters. |
-| `Network:PlayerInfoBurst` | 512 | `NetworkLimits` | Token-bucket capacity for `GETPLAYERINFO` requests. |
-| `Network:PlayerInfoPerSecond` | 128 | `NetworkLimits` | Token refill rate for `GETPLAYERINFO`. |
+| `Network:PlayerInfoBurst` | 512 | `NetworkLimits` | Token-bucket capacity for `DescribeEntity` requests. |
+| `Network:PlayerInfoPerSecond` | 128 | `NetworkLimits` | Token refill rate for `DescribeEntity`. |
 | `GameMasters:TestServer` | `false` | `GameMasterOptions` | Lets every game master use `/GiveMeExp!` and `/GiveMeMoney!`. |
 | `GameMasters:DebugServer` | `false` | `GameMasterOptions` | As `TestServer`, and `/` with an item code drops that item. |
 | `GameMasters:PotionMonitor` | `true` | `GameMasterOptions` | Enables `/get_potion`. |
@@ -228,7 +228,7 @@ of the regression suite ([testing.md](testing.md#multiplayer-propagation)):
 
 | What | Who receives it | How and when |
 | --- | --- | --- |
-| An entity (player, monster, summon, pet, NPC) | Players of the same field within the connect range (about 1086 units); kept to 1.15 times that range; hidden game masters and other players' duel opponents never | Spawn (a full presence entry, then `PLAYERINFO` on request) the tick it enters the receiver's view; `RemoveObjects` the tick it leaves, dies away, logs out, disconnects or changes field |
+| An entity (player, monster, summon, pet, NPC) | Players of the same field within the connect range (about 1086 units); kept to 1.15 times that range; hidden game masters and other players' duel opponents never | Spawn (a full presence entry, then `EntityDescription` on request) the tick it enters the receiver's view; `RemoveObjects` the tick it leaves, dies away, logs out, disconnects or changes field |
 | Position, facing, motion | Its viewers | Motion, HP, target and attack changes the tick they happen; positions at 5 Hz near (543 units), 2 Hz far, within 2048 bytes per receiver per tick, most overdue first |
 | Description (level, equipment, looks, village flag, owner, size) | Its viewers | A new field-wide revision in the next entry; the client asks for the new `PLAYERINFO` |
 | Combat, skill and item events | The players that know its attacker or target (and the player itself) | Once, in server order, on the tick they happened; never dropped (an outbox that queues more than 4096 closes the connection) |

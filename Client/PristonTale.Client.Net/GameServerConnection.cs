@@ -815,7 +815,13 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
-    private void RequestDescription(uint serial) => Send(new TransCommand(PristonOpcodes.GetPlayerInfo, 0, (int)serial), encrypt: false);
+    private void RequestDescription(uint serial)
+    {
+        lock (_sendGate)
+        {
+            Connection.Send(_scratch.AsSpan(0, new DescribeEntityPacket(serial).Write(_scratch)));
+        }
+    }
 
     private void Send(TransCommand command, bool encrypt)
     {

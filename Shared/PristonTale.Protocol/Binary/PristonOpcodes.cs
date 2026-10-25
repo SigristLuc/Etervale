@@ -84,6 +84,8 @@ public static class EtervaleOpcodes
     public const uint QuestNotices = 0x45540503;
 
     public const uint PresenceEntries = 0x45540900;
+    public const uint DescribeEntity = 0x45540901;
+    public const uint EntityDescription = 0x45540902;
 
     public const uint RestartRequest = 0x45540A00;
     public const uint RestartResult = 0x45540A01;

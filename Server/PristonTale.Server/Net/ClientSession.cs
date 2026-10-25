@@ -110,9 +110,9 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         LastReceivedMs = now;
         Interlocked.Increment(ref _packetsReceived);
         var code = BinaryPrimitives.ReadUInt32LittleEndian(memory.Span[4..]);
-        // GETPLAYERINFO has its own bucket: one is sent per newly seen entity, so a crowd can exceed the original's
-        // 28-entity updates; every other packet counts toward the original flood limit.
-        if (code != PristonOpcodes.GetPlayerInfo && !_packetRate.Admit(now))
+        // Description requests have their own bucket: one is sent per newly seen entity, so a crowd can exceed the
+        // original's 28-entity updates; every other packet counts toward the flood limit.
+        if (code != EtervaleOpcodes.DescribeEntity && !_packetRate.Admit(now))
         {
             LogRejected(code, "packet flood, closing");
             _connection.Close("packet flood");
@@ -172,8 +172,8 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                 case PristonOpcodes.AttackDamage:
                     await AttackAsync(memory);
                     break;
-                case PristonOpcodes.GetPlayerInfo:
-                    DescribeObject(TransCommand.Read(memory.Span));
+                case EtervaleOpcodes.DescribeEntity:
+                    DescribeObject(DescribeEntityPacket.Read(memory.Span));
                     break;
                 case PristonOpcodes.RecordData:
                     AcknowledgeClientSave(memory.Span);
@@ -598,21 +598,21 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         SendLarge(result.Write, result.Capacity, encrypt: true);
     }
 
-    private void DescribeObject(TransCommand request)
+    private void DescribeObject(DescribeEntityPacket request)
     {
-        // A 32-byte request costs a 504-byte reply, so requests beyond the bucket are dropped.
+        // A small request costs a description of up to a few hundred bytes, so requests beyond the bucket are dropped.
         if (!_playerInfoRate.TryTake(Environment.TickCount64))
         {
-            LogRejected(PristonOpcodes.GetPlayerInfo, "player info rate exceeded");
+            LogRejected(EtervaleOpcodes.DescribeEntity, "description rate exceeded");
             return;
         }
 
-        // GETPLAYERINFO {WParam = object serial}; the reply is a plain 504-byte PLAYERINFO.
-        if (_encoder is { } encoder)
+        // Ids are 64-bit on the wire; the world hands out 32-bit ones, so a larger id is never in view.
+        if (_encoder is { } encoder && request.Serial <= uint.MaxValue)
         {
             lock (_sendGate)
             {
-                var length = encoder.WriteDescription((uint)request.WParam, _scratch);
+                var length = encoder.WriteDescription((uint)request.Serial, _scratch);
                 if (length > 0)
                 {
                     SendSpan(_scratch.AsSpan(0, length), encrypt: false);

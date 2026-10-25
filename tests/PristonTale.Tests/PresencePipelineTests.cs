@@ -61,9 +61,9 @@ internal static class PresencePipelineTests
         var motionLength = WireMapping.WriteMotion(motion, view);
         Assert.True(wire.Motion(1, view).SequenceEqual(motion.AsSpan(0, motionLength)) && motionLength == PresenceWire.MotionEntrySize(42),
             "the shared motion entry differs");
-        var description = new byte[PlayerInfoPacket.Size];
-        PresenceEncoder.DescriptionPacket(view, view.Revision, WorldData.Empty).Write(description);
-        Assert.True(wire.Description(1, view, WorldData.Empty).SequenceEqual(description), "the shared description differs");
+        var description = new byte[EntityDescriptionPacket.MaximumSize];
+        var described = PresenceEncoder.DescriptionPacket(view, view.Revision, WorldData.Empty).Write(description);
+        Assert.True(wire.Description(1, view, WorldData.Empty).SequenceEqual(description.AsSpan(0, described)), "the shared description differs");
         wire.Reset(4);
         var moved = new EntityView(42, EntityKindView.Monster, false, Vector3.Zero, 0f, MoveStateView.Idle, 30, 77, 120, default, templateId: 9) { Revision = 3 };
         length = WireMapping.WriteFull(direct, moved, 2, moved.Revision);
@@ -101,6 +101,19 @@ internal static class PresencePipelineTests
         }
 
         Assert.True(VarInt.UnZigZag(VarInt.ZigZag(-1)) == -1 && VarInt.UnZigZag(VarInt.ZigZag(int.MinValue)) == int.MinValue, "zigzag lost the sign");
+
+        var buffer2 = new byte[EntityDescriptionPacket.MaximumSize];
+        var player = new EntityDescriptionPacket(7, 4, DescribedKind.Player, 285, 3, 1.25f, "Ário Ñandú", "char/tmABCD/b001.ini",
+            new DescribedPlayer(2, 3, 1, 4, "char/tmABCD/tmh-b01.inf", 0x01020304, 0x02030405, 0x03040506, true, true, 5, 2));
+        var length2 = player.Write(buffer2);
+        var readPlayer = EntityDescriptionPacket.Read(buffer2.AsSpan(0, length2));
+        Assert.True(readPlayer == player with { Player = readPlayer.Player } && readPlayer.Player == player.Player, "a player description did not round-trip");
+        var summon = new EntityDescriptionPacket(0x4000_0002, 9, DescribedKind.Monster, 70, 3, 1f, "Metal Golem", "char/monster/Metalgolem/metalgolem.inx",
+            Template: new DescribedTemplate(0x3020, 1f, 0x3020, -8, 200, 4, uint.MaxValue + 5UL, 1.5f, 0));
+        length2 = summon.Write(buffer2);
+        var readSummon = EntityDescriptionPacket.Read(buffer2.AsSpan(0, length2));
+        Assert.True(readSummon.Template == summon.Template && readSummon.Name == summon.Name && readSummon.Level == 70 && length2 <= EntityDescriptionPacket.MaximumSize,
+            "a summon description did not round-trip");
         return Task.CompletedTask;
     }
 

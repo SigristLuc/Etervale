@@ -1,0 +1,200 @@
+using PristonTale.Protocol.Binary;
+
+namespace PristonTale.Protocol.Packets;
+
+public enum DescribedKind : byte
+{
+    Player = 1,
+    Monster = 2,
+    Npc = 3
+}
+
+internal static class DescriptionWire
+{
+    public const ushort Version = 1;
+    public const int MaxNameBytes = 64;
+    public const int MaxModelBytes = 160;
+
+    public static void Header(ref PacketWriter writer)
+    {
+        writer.UInt16(Version);
+        writer.UInt16(0);
+    }
+
+    public static void ReadHeader(ref PacketReader reader)
+    {
+        if (reader.UInt16() == 0)
+        {
+            throw new InvalidDataException("Description message has version 0.");
+        }
+
+        reader.Skip(2);
+    }
+}
+
+// C->S: asks for the description of an entity in view. {header, uint16 Version = 1, uint16 Flags = 0, varuint Serial}.
+public readonly record struct DescribeEntityPacket(ulong Serial)
+{
+    public const int MaximumSize = 8 + 4 + VarInt.MaxBytes64;
+
+    public int Write(Span<byte> destination)
+    {
+        var writer = new PacketWriter(destination, EtervaleOpcodes.DescribeEntity);
+        DescriptionWire.Header(ref writer);
+        writer.VarUInt(Serial);
+        return writer.Finish();
+    }
+
+    public static DescribeEntityPacket Read(ReadOnlySpan<byte> packet)
+    {
+        var reader = new PacketReader(packet, 8 + 4 + 1);
+        DescriptionWire.ReadHeader(ref reader);
+        return new DescribeEntityPacket(reader.VarUInt());
+    }
+}
+
+// A player's looks: class, tier, face, hair, head model, the equipped weapon, armour and off-hand codes, the village
+// flag, the Phoenix, the helper pet (0 none) and the head look (0 normal, 1-2 big head, 3 soccer ball).
+public sealed record DescribedPlayer(
+    int Job,
+    int Tier,
+    int Face,
+    int Hair,
+    string HeadModel,
+    uint Weapon,
+    uint Armor,
+    uint OffHand,
+    bool InVillage,
+    bool Phoenix,
+    int HelperPet,
+    int BigHead);
+
+// A monster's or NPC's template part: its shared template code and scale, sound code, portrait offsets, brood, the
+// owner of a summon or pet with its own scale (0 keeps the template's), and an NPC's service bits.
+public sealed record DescribedTemplate(
+    uint Template,
+    float TemplateScale,
+    uint SoundCode,
+    int PortraitY,
+    int PortraitZ,
+    byte Brood,
+    ulong Owner,
+    float InstanceScale,
+    uint NpcServices);
+
+// S->C: what a viewer needs to draw an entity, for one description revision. {header, uint16 Version = 1, uint16 Flags =
+// 0, varuint Serial, uint8 Revision, uint8 Kind, varuint Level, varuint MoveSpeed, float32 AttackRate, text Name, text
+// Model}, then for a player {varuint Job, Tier, Face, Hair, text HeadModel, uint32 Weapon, Armor, OffHand, uint8 Flags (1
+// village, 2 Phoenix), uint8 HelperPet, uint8 BigHead}, else {varuint Template, float32 TemplateScale, varuint SoundCode,
+// varint PortraitY, PortraitZ, uint8 Brood, varuint Owner, float32 InstanceScale, uint32 NpcServices}. Text is UTF-8 with a
+// uint16 byte length.
+public sealed record EntityDescriptionPacket(
+    ulong Serial,
+    byte Revision,
+    DescribedKind Kind,
+    int Level,
+    int MoveSpeed,
+    float AttackRate,
+    string Name,
+    string Model,
+    DescribedPlayer? Player = null,
+    DescribedTemplate? Template = null)
+{
+    // The player part (four varuints, the head model, three codes, three bytes) is the larger of the two tails.
+    private const int PlayerPart = 5 * 4 + 2 + DescriptionWire.MaxModelBytes + 4 * 3 + 3;
+    public const int MaximumSize = 8 + 4 + VarInt.MaxBytes64 + 2 + 5 * 2 + 4 + (2 + DescriptionWire.MaxNameBytes) + (2 + DescriptionWire.MaxModelBytes)
+        + PlayerPart;
+
+    public int Write(Span<byte> destination)
+    {
+        var writer = new PacketWriter(destination, EtervaleOpcodes.EntityDescription);
+        DescriptionWire.Header(ref writer);
+        writer.VarUInt(Serial);
+        writer.Byte(Revision);
+        writer.Byte((byte)Kind);
+        writer.VarUInt((ulong)Math.Max(0, Level));
+        writer.VarUInt((ulong)Math.Max(0, MoveSpeed));
+        writer.Single(AttackRate);
+        NpcWire.Text(ref writer, Name, DescriptionWire.MaxNameBytes);
+        NpcWire.Text(ref writer, Model, DescriptionWire.MaxModelBytes);
+        if (Kind == DescribedKind.Player)
+        {
+            var player = Player ?? throw new InvalidOperationException("A player description needs its looks.");
+            writer.VarUInt((ulong)Math.Max(0, player.Job));
+            writer.VarUInt((ulong)Math.Max(0, player.Tier));
+            writer.VarUInt((ulong)Math.Max(0, player.Face));
+            writer.VarUInt((ulong)Math.Max(0, player.Hair));
+            NpcWire.Text(ref writer, player.HeadModel, DescriptionWire.MaxModelBytes);
+            writer.UInt32(player.Weapon);
+            writer.UInt32(player.Armor);
+            writer.UInt32(player.OffHand);
+            writer.Byte((byte)((player.InVillage ? 1 : 0) | (player.Phoenix ? 2 : 0)));
+            writer.Byte((byte)Math.Clamp(player.HelperPet, 0, byte.MaxValue));
+            writer.Byte((byte)Math.Clamp(player.BigHead, 0, byte.MaxValue));
+        }
+        else
+        {
+            var template = Template ?? throw new InvalidOperationException("A monster or NPC description needs its template.");
+            writer.VarUInt(template.Template);
+            writer.Single(template.TemplateScale);
+            writer.VarUInt(template.SoundCode);
+            writer.VarInt(template.PortraitY);
+            writer.VarInt(template.PortraitZ);
+            writer.Byte(template.Brood);
+            writer.VarUInt(template.Owner);
+            writer.Single(template.InstanceScale);
+            writer.UInt32(template.NpcServices);
+        }
+
+        return writer.Finish();
+    }
+
+    public static EntityDescriptionPacket Read(ReadOnlySpan<byte> packet)
+    {
+        var reader = new PacketReader(packet, 8 + 4 + 1);
+        DescriptionWire.ReadHeader(ref reader);
+        var serial = reader.VarUInt();
+        var revision = reader.Byte();
+        var kind = (DescribedKind)reader.Byte();
+        var level = reader.VarUInt31();
+        var moveSpeed = reader.VarUInt31();
+        var attackRate = reader.Single();
+        var name = NpcWire.Text(ref reader, DescriptionWire.MaxNameBytes);
+        var model = NpcWire.Text(ref reader, DescriptionWire.MaxModelBytes);
+        switch (kind)
+        {
+            case DescribedKind.Player:
+            {
+                var job = reader.VarUInt31();
+                var tier = reader.VarUInt31();
+                var face = reader.VarUInt31();
+                var hair = reader.VarUInt31();
+                var head = NpcWire.Text(ref reader, DescriptionWire.MaxModelBytes);
+                var weapon = reader.UInt32();
+                var armor = reader.UInt32();
+                var offHand = reader.UInt32();
+                var flags = reader.Byte();
+                var pet = reader.Byte();
+                var bigHead = reader.Byte();
+                return new EntityDescriptionPacket(serial, revision, kind, level, moveSpeed, attackRate, name, model,
+                    new DescribedPlayer(job, tier, face, hair, head, weapon, armor, offHand, (flags & 1) != 0, (flags & 2) != 0, pet, bigHead));
+            }
+            case DescribedKind.Monster or DescribedKind.Npc:
+            {
+                var template = reader.VarUInt32();
+                var templateScale = reader.Single();
+                var sound = reader.VarUInt32();
+                var portraitY = reader.VarInt();
+                var portraitZ = reader.VarInt();
+                var brood = reader.Byte();
+                var owner = reader.VarUInt();
+                var instanceScale = reader.Single();
+                var services = reader.UInt32();
+                return new EntityDescriptionPacket(serial, revision, kind, level, moveSpeed, attackRate, name, model, null,
+                    new DescribedTemplate(template, templateScale, sound, portraitY, portraitZ, brood, owner, instanceScale, services));
+            }
+            default:
+                throw new InvalidDataException($"Description of unknown kind {(int)kind}.");
+        }
+    }
+}

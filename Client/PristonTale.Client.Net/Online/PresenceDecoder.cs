@@ -14,8 +14,8 @@ using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Client.Net.Online;
 
-// Rebuilds the neutral presence model from the server's messages. An unknown serial in a presence message triggers
-// GetPlayerInfo; the object is published once its PlayerInfo description arrives, and a changed descriptor revision
+// Rebuilds the neutral presence model from the server's messages. An unknown serial in a presence message triggers a
+// DescribeEntity request; the object is published once its EntityDescription arrives, and a changed descriptor revision
 // (PresenceEntry.Revision) requests a fresh description.
 internal sealed class PresenceDecoder
 {
@@ -80,7 +80,7 @@ internal sealed class PresenceDecoder
         update = code switch
         {
             EtervaleOpcodes.PresenceEntries => OnPresenceEntries(packet),
-            PristonOpcodes.PlayerInfo => OnPlayerInfo(PlayerInfoPacket.Read(packet)),
+            EtervaleOpcodes.EntityDescription => OnDescription(EntityDescriptionPacket.Read(packet)),
             EtervaleOpcodes.RemoveObjects => OnRemoved(RemoveObjectList.Read(packet)),
             EtervaleOpcodes.CombatEvents => OnCombatEvents(CombatEventList.Read(packet)),
             PristonOpcodes.PlayItem => OnGroundItems(GroundItemList.Read(packet)),
@@ -105,7 +105,7 @@ internal sealed class PresenceDecoder
             PristonOpcodes.CloseClient => Update([], []) with { CloseRequested = true },
             _ => null
         };
-        return update is not null || code is EtervaleOpcodes.PresenceEntries or PristonOpcodes.PlayerInfo or EtervaleOpcodes.RemoveObjects
+        return update is not null || code is EtervaleOpcodes.PresenceEntries or EtervaleOpcodes.EntityDescription or EtervaleOpcodes.RemoveObjects
             or EtervaleOpcodes.CombatEvents or PristonOpcodes.PlayItem or PristonOpcodes.DelItem or PristonOpcodes.WarpField
             or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills or EtervaleOpcodes.PresenceClock
             or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult
@@ -314,34 +314,34 @@ internal sealed class PresenceDecoder
         }
     }
 
-    public PresenceUpdate? OnPlayerInfo(PlayerInfoPacket packet)
+    public PresenceUpdate? OnDescription(EntityDescriptionPacket packet)
     {
-        var serial = packet.ObjectSerial;
+        var serial = Serial(packet.Serial);
         if (!_objects.TryGetValue(serial, out var tracked))
         {
             return null;
         }
 
-        var character = packet.Character;
-        var description = new Description(character.UpdateInfo[0], Kind(character.State), character);
+        var description = new Description(packet.Revision, Kind(packet.Kind), packet);
         tracked.Description = description;
-        var template = character.Temp[CharacterInfo.TempTemplateCode];
-        var scale = BitConverter.UInt32BitsToSingle(character.Temp[CharacterInfo.TempModelScale]);
-        // A summon's description names its owner, so it never stands for the wild monsters of its template.
-        if (description.Kind is RemoteEntityKind.Monster or RemoteEntityKind.Npc && template != 0 && character.Brood != (uint)MonsterBrood.User)
+        if (packet.Template is { } template)
         {
-            _templates[template] = description;
-        }
-        if (description.Kind == RemoteEntityKind.Monster)
-        {
-            _catalog.Register(new MonsterRenderInfo(template, character.ModelName, scale, character.Name, character.Level,
-                (MonsterBrood)character.Brood, character.ArrowPosiX, character.ArrowPosiY, (int)character.CharSoundCode));
-        }
-        else if (description.Kind == RemoteEntityKind.Npc)
-        {
-            _catalog.Register(new NpcRenderInfo(template, character.ModelName, scale, character.Name,
-                new NpcServiceSet(character.Temp[CharacterInfo.TempNpcServices]), (int)character.CharSoundCode, character.ArrowPosiX,
-                character.ArrowPosiY));
+            // A summon's description names its owner, so it never stands for the wild monsters of its template.
+            if (template.Template != 0 && template.Owner == 0)
+            {
+                _templates[template.Template] = description;
+            }
+
+            if (description.Kind == RemoteEntityKind.Monster)
+            {
+                _catalog.Register(new MonsterRenderInfo(template.Template, packet.Model, template.TemplateScale, packet.Name, packet.Level,
+                    (MonsterBrood)template.Brood, template.PortraitY, template.PortraitZ, (int)template.SoundCode));
+            }
+            else if (description.Kind == RemoteEntityKind.Npc)
+            {
+                _catalog.Register(new NpcRenderInfo(template.Template, packet.Model, template.TemplateScale, packet.Name,
+                    new NpcServiceSet(template.NpcServices), (int)template.SoundCode, template.PortraitY, template.PortraitZ));
+            }
         }
 
         if (!tracked.HasState)
@@ -495,54 +495,49 @@ internal sealed class PresenceDecoder
     private EntitySpawnInfo Spawn(uint serial, Tracked tracked)
     {
         var description = tracked.Description!;
-        var character = description.Character;
+        var packet = description.Packet;
         PlayerAppearanceInfo? player = null;
-        if (description.Kind == RemoteEntityKind.Player)
+        if (packet.Player is { } looks)
         {
-            var faceAndHair = character.Temp[CharacterInfo.TempFaceAndHair];
-            player = new PlayerAppearanceInfo(character.Name, (int)character.JobCode, (int)character.ChangeJob, (int)(faceAndHair & 0xFF),
-                (int)(faceAndHair >> 8 & 0xFF), character.ModelName, character.ModelName2, character.Level, Key(character.Temp[CharacterInfo.TempWeaponCode]),
-                Key(character.Temp[CharacterInfo.TempArmorCode]), Key(character.Temp[CharacterInfo.TempOffHandCode]),
-                (character.Temp[CharacterInfo.TempFlags] & CharacterInfo.FlagInVillage) != 0)
+            player = new PlayerAppearanceInfo(packet.Name, looks.Job, looks.Tier, looks.Face, looks.Hair, packet.Model, looks.HeadModel, packet.Level,
+                Key(looks.Weapon), Key(looks.Armor), Key(looks.OffHand), looks.InVillage)
             {
-                HelperPet = (int)(character.Temp[CharacterInfo.TempFlags] >> CharacterInfo.HelperPetShift & 0xF),
-                Phoenix = (character.Temp[CharacterInfo.TempFlags] & CharacterInfo.FlagPhoenix) != 0,
-                BigHead = (int)(character.Temp[CharacterInfo.TempFlags] >> CharacterInfo.BigHeadShift & 0x3)
+                HelperPet = looks.HelperPet,
+                Phoenix = looks.Phoenix,
+                BigHead = looks.BigHead
             };
         }
 
-        var summon = description.Kind == RemoteEntityKind.Monster && character.Brood == (uint)MonsterBrood.User;
+        var template = packet.Template;
+        var owner = template is { Owner: not 0 } ? Serial(template.Owner) : 0u;
         return new EntitySpawnInfo(serial, description.Kind, serial == SelfSerial, tracked.Position, tracked.Facing, tracked.Motion, tracked.Hp,
-            tracked.MaxHp, player, description.Kind == RemoteEntityKind.Player ? 0 : character.Temp[CharacterInfo.TempTemplateCode], character.MoveSpeed,
-            AttackRate(character), tracked.Target, tracked.Sequence, tracked.SampleTimeMs, character.Name ?? "", character.Level)
+            tracked.MaxHp, player, template?.Template ?? 0, packet.MoveSpeed, AttackRate(packet), tracked.Target, tracked.Sequence, tracked.SampleTimeMs,
+            packet.Name, packet.Level)
         {
-            OwnerId = summon ? character.Temp[CharacterInfo.TempOwnerSerial] : 0,
-            ModelScale = summon ? BitConverter.UInt32BitsToSingle(character.Temp[CharacterInfo.TempInstanceScale]) : 0f
+            OwnerId = owner,
+            ModelScale = owner != 0 ? template!.InstanceScale : 0f
         };
     }
 
     private static EntityStateInfo State(uint serial, Tracked tracked)
     {
-        var character = tracked.Description!.Character;
-        return new EntityStateInfo(serial, tracked.Position, tracked.Facing, tracked.Motion, tracked.Hp, character.MoveSpeed, AttackRate(character),
+        var packet = tracked.Description!.Packet;
+        return new EntityStateInfo(serial, tracked.Position, tracked.Facing, tracked.Motion, tracked.Hp, packet.MoveSpeed, AttackRate(packet),
             tracked.Target, tracked.Sequence, tracked.SampleTimeMs);
     }
 
-    private static float AttackRate(CharacterInfo character)
-    {
-        var rate = BitConverter.UInt32BitsToSingle(character.Temp[CharacterInfo.TempAttackRate]);
-        return float.IsFinite(rate) && rate > 0f ? rate : 1f;
-    }
+    private static float AttackRate(EntityDescriptionPacket packet) =>
+        float.IsFinite(packet.AttackRate) && packet.AttackRate > 0f ? packet.AttackRate : 1f;
 
     private static string Key(uint code) => code != 0 && LegacyItemCode.TryFormat(code, out var key) ? key : "";
 
     private static Vector3 Position(int x, int y, int z) => new(PristonUnits.FromFixed(x), PristonUnits.FromFixed(y), PristonUnits.FromFixed(z));
 
-    private static RemoteEntityKind Kind(int state) => state switch
+    private static RemoteEntityKind Kind(DescribedKind kind) => kind switch
     {
-        CharacterState.User => RemoteEntityKind.Player,
-        CharacterState.Enemy => RemoteEntityKind.Monster,
-        CharacterState.Npc => RemoteEntityKind.Npc,
+        DescribedKind.Player => RemoteEntityKind.Player,
+        DescribedKind.Monster => RemoteEntityKind.Monster,
+        DescribedKind.Npc => RemoteEntityKind.Npc,
         _ => RemoteEntityKind.Unspecified
     };
 
@@ -560,7 +555,7 @@ internal sealed class PresenceDecoder
         _ => RemoteMoveState.Unspecified
     };
 
-    private sealed record Description(byte Revision, RemoteEntityKind Kind, CharacterInfo Character);
+    private sealed record Description(byte Revision, RemoteEntityKind Kind, EntityDescriptionPacket Packet);
 
     private sealed class Tracked
     {

@@ -163,7 +163,7 @@ public static class PresenceWire
         }
 
         var revision = source[offset++];
-        var template = (uint)Math.Min(VarInt.Read(source, ref offset), uint.MaxValue);
+        var template = VarInt.Read(source, ref offset) is var code && code <= uint.MaxValue ? (uint)code : throw new InvalidDataException("Presence template exceeds 32 bits.");
         var field = VarInt.UnZigZag(VarInt.Read(source, ref offset));
         return new PresenceEntry(serial, true, position, facing, motion, hp, maxHp, level, target, sequence, revision, template, field);
     }
