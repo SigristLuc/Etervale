@@ -220,7 +220,8 @@ Durable entry points (`Prepare*Async`, `Commit*Async`, `CheckNpcServiceAsync`, `
   the field takes that hundredth of experience and gold unless the scroll was used. Experience never drops below the
   level's start. The candidate stands up at half life (mana and stamina as they were) at the field's start point
   nearest to where it fell, or at a random start point of its town (Ricarten for Fighter to Pikeman and the assassin,
-  Pillai for the Morion classes); the record is stored, then the tick moves the player there, revives it with a 10 s
+  Pillai for the Morion classes), on the highest floor there (its height goes in the forced `FieldWarp`); the record is
+  stored, then the tick moves the player there, revives it with a 10 s
   guard and sends a revive event. A save while down (leaving the world, disconnecting) stores the town restart with its
   costs instead, so leaving neither skips the penalty nor brings the player back dead.
 - Field changes (`MoveToFieldAsync`): the requested position is never used. A gate keeps the current position

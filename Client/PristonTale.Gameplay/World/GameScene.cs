@@ -1281,6 +1281,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         }
         _skillClockMs = gameTime.TotalGameTime.TotalMilliseconds;
         DrainPresence(frameDt);
+        KeepOnFloor();
         UpdateSkills(gameTime);
         UpdateItemEffects(frameDt);
         ApplyPositionCorrection(frameDt);
@@ -1824,6 +1825,24 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             || TryGetFloorHeight(body.Position, out floor))
         {
             body.Height = floor - GroundTraversal.VisualOffset;
+        }
+    }
+
+    // A body with no floor under it (placed before its field's ground was loaded, such as a town restart into a field
+    // still streaming) lands on the floor nearest the server's height once that ground is there.
+    private void KeepOnFloor()
+    {
+        if (_playerBody is null || TryGetFloorHeightNear(_playerBody.Position, _playerBody.Height + GroundTraversal.VisualOffset, out _))
+        {
+            return;
+        }
+
+        var before = _playerBody.Height;
+        PlaceAtHeight(_playerBody, float.IsFinite(_serverCollisionHeight) ? _serverCollisionHeight : float.MaxValue);
+        if (_playerBody.Height != before)
+        {
+            ApplyPlayerWorld();
+            _camera?.SnapFollow(_playerBody.Position, _fieldCollision);
         }
     }
 
