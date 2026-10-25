@@ -7,7 +7,8 @@ using PristonTale.Simulation.World.Loot;
 namespace PristonTale.Gameplay.World.Remote;
 
 // pickedUp hears every drop the server handed over, for its sound.
-public sealed class GroundLootInteraction(Func<InventoryCommand, Task<InventoryOutcome>> submit, IClientLog log, Action<GroundDropView> pickedUp = null)
+public sealed class GroundLootInteraction(Func<InventoryCommand, Task<InventoryOutcome>> submit, IClientLog log, Action<GroundDropView> pickedUp = null,
+    Action<GroundDropView> sending = null)
 {
     private Guid _selected;
     private Task<InventoryOutcome> _pending;
@@ -71,6 +72,11 @@ public sealed class GroundLootInteraction(Func<InventoryCommand, Task<InventoryO
         var id = _selected;
         Cancel();
         _pendingDrop = ground.TryGetDrop(id, out var drop) ? drop : null;
+        if (_pendingDrop is not null)
+        {
+            sending?.Invoke(_pendingDrop);
+        }
+
         _pending = submit(new InventoryCommand(Guid.NewGuid(), owner.InventoryRevision, InventoryAction.Pickup, id, 0, 1, default));
         _ = ObserveAsync(_pending);
     }

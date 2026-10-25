@@ -120,6 +120,25 @@ public sealed class Inventory
     // True when an item of this footprint would fit somewhere.
     public bool HasRoom(int width, int height) => FindSpace(new ItemDefinition(0, "", ItemKind.Misc, GridWidth: width, GridHeight: height), _rows) >= 0;
 
+    // Whether some free place takes the item's footprint (without merging into a stack).
+    public bool HasRoomFor(ItemInstance item)
+    {
+        if (item is null)
+        {
+            return false;
+        }
+
+        for (var anchor = 0; anchor < Capacity; anchor++)
+        {
+            if (Fits(anchor, item.Definition, _rows))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public bool TryPlace(ItemInstance item, int anchor)
     {
         if (item is null || item.Count <= 0 || item.Count > item.Definition.MaxStack || Find(item.InstanceId) >= 0

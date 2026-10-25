@@ -47,6 +47,7 @@ public sealed class GameplayScreen : GameScreen
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
         _hud.RunToggleRequested += _scene.ToggleRun;
         _hud.ItemSound += _scene.PlayItemSound;
+        _scene.GroundItemPickupSent += _hud.HoldPickedItem;
         _hud.SummonAutomatic = _scene.SummonAutomatic;
         _hud.UseItem = _scene.UseItemAsync;
         _hud.Chat.PlayerName = _scene.Player.Name;
@@ -248,6 +249,7 @@ public sealed class GameplayScreen : GameScreen
             _hud.SummonModeRequested -= _scene.ToggleSummonMode;
             _hud.RunToggleRequested -= _scene.ToggleRun;
             _hud.ItemSound -= _scene.PlayItemSound;
+            _scene.GroundItemPickupSent -= _hud.HoldPickedItem;
         }
 
         _hud?.Dispose();

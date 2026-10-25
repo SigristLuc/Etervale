@@ -206,6 +206,15 @@ public sealed class GameplayHud : IDisposable
     // An item lifted, set, bought, sold, stored or taken back, by catalog key, for its sound.
     public event Action<string> ItemSound;
 
+    // A ground item picked up while the inventory is open comes to the cursor, as in the original.
+    public void HoldPickedItem(PristonTale.Simulation.World.Loot.GroundDropView drop)
+    {
+        if (!drop.Gold && _inventorySlide.FullyOpen)
+        {
+            _inventory.HoldNextNew(drop.CatalogKey);
+        }
+    }
+
     public HudQuestController Quests => _quests;
     public HudQuestWindow QuestWindow => _questWindow;
 

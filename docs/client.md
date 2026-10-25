@@ -326,14 +326,19 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   go to the chat, quest hints to its assistant tab ([chat-and-gm.md](chat-and-gm.md#client-chat-window)).
 - Inventory (`HudInventoryController`): a click picks a bag or equipped item (it leaves the grid and shows only on the cursor) and the next
   click puts it down (a drag
-  works too; right click or Escape cancels): a bag cell moves it (Shift splits, another stack merges) or unequips it, an
-  equipment slot equips it, the shop and warehouse take it, and outside the inventory window, with no shop, warehouse or
+  works too; right click or Escape cancels): a bag cell moves it (Shift splits, another stack merges) or unequips it into that cell, an
+  equipment slot equips it (the item worn there, or the two-handed weapon an off-hand item replaces, comes to the cursor;
+  a two-handed weapon put on the off-hand slot goes to the weapon hand), the shop and warehouse take it, and outside the inventory window, with no shop, warehouse or
   other HUD element under the pointer, it is thrown on the ground (`InventoryAction.Drop`; `ItemDropRules` keeps quest
   items, quest weapons and rings, the BI, MA and QW families and listed costumes in the bag). E or the I/II arrow at the bottom left shows the other bag page (`InventoryAction.SwapBagPage`: the
   page set aside is carried and weighed but out of reach; a bag item held on the cursor goes to the new page and stays
-  held, so it can be put down there). W or the A/B arrow beside the weapon slot swaps the weapon set
+  held, so it can be put down there). A ground item picked up with the window open comes to the cursor (one merged into a stack
+  does not). W or the A/B arrow beside the weapon slot swaps the weapon set (a held item stays on the
+  cursor; a held worn weapon or off-hand item goes along to the other set and only the other hand trades, unless that
+  would pair a two-handed weapon with an off-hand item: then it goes to the bag, stays on the cursor and both hands trade)
   (`InventoryAction.SwapWeaponSet`: the worn weapon and off-hand item trade places with the spare set, which is carried
-  and weighed but adds no stats; the worn set's arrow shows its art). Right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
+  and weighed but adds no stats; the worn set's arrow shows its art). A worn two-handed weapon is also drawn in the empty
+  off-hand slot, and a click there picks it. Right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
   slot first), drinks a potion or uses a usable item (`HudItemUseController`: the Teleport Core window, confirmations,
   the item-use request). One command in flight; it carries the `InventoryRevision` it was built from.
 - Step marks (`GameScene.Terrain.cs`, `PristonCollisionWorld.TryGetIceFloor` / `TryGetWaterHeight`): the stage's ice

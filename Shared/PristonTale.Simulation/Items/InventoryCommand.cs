@@ -40,12 +40,12 @@ public static class InventoryCommands
             InventoryAction.Split => character.Inventory.TrySplit(anchor, command.Destination, command.Count),
             InventoryAction.Merge => character.Inventory.TryMerge(anchor, command.Destination),
             InventoryAction.Equip => character.TryEquipFromInventory(anchor, command.Slot),
-            InventoryAction.Unequip => character.GetEquipped(command.Slot)?.InstanceId == command.ItemId && character.TryUnequip(command.Slot),
+            InventoryAction.Unequip => character.GetEquipped(command.Slot)?.InstanceId == command.ItemId && character.TryUnequip(command.Slot, command.Destination),
             InventoryAction.ConsumePotion => command.Count == 1 && anchor >= 0 && character.Life > 0
                 && character.Inventory[anchor]?.Definition is { Kind: ItemKind.Potion, Potion.IsValid: true }
                 && character.Inventory.ConsumeAt(anchor),
             InventoryAction.Drop => anchor >= 0 && ItemDropRules.CanDrop(character, character.Inventory[anchor]) && character.Inventory.TakeAt(anchor) is not null,
-            InventoryAction.SwapWeaponSet => character.TrySwapWeaponSet(),
+            InventoryAction.SwapWeaponSet => character.TrySwapWeaponSet(command.ItemId),
             InventoryAction.SwapBagPage => character.TrySwapBagPage(command.ItemId),
             _ => false
         };
@@ -66,6 +66,13 @@ public static class InventoryCommands
             case InventoryAction.Drop:
                 var carried = character.Inventory.Find(command.ItemId);
                 return carried >= 0 && !ItemDropRules.CanDrop(character, character.Inventory[carried]) ? ItemDropRules.Refusal : null;
+            case InventoryAction.SwapWeaponSet:
+                return command.ItemId != Guid.Empty && character.CarriedHandHasNoRoom(command.ItemId) ? ItemRuleMessages.NoRoomInBag : null;
+            case InventoryAction.SwapBagPage:
+                var held = character.Inventory.Find(command.ItemId);
+                return command.ItemId != Guid.Empty && held >= 0 && !character.SpareBag.HasRoomFor(character.Inventory[held])
+                    ? ItemRuleMessages.NoRoomOnOtherPage
+                    : null;
             default:
                 return null;
         }

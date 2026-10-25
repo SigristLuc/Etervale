@@ -239,8 +239,16 @@ public sealed class PlayerCharacter
     public int WeaponSet { get; private set; }
     public IReadOnlyDictionary<EquipmentSlot, ItemInstance> SpareHands => _spareHands;
 
-    public bool TrySwapWeaponSet()
+    // A worn weapon or off-hand item the player holds on the cursor (carried) goes along to the set coming into use: only
+    // the other hand trades with the spare set. When that would put a two-handed weapon with an off-hand item, the carried
+    // item leaves the hands for the bag (it stays on the cursor) and both hands trade, as the original's cursor item does.
+    public bool TrySwapWeaponSet(Guid carried = default)
     {
+        if (carried != Guid.Empty)
+        {
+            return TrySwapOtherHand(carried);
+        }
+
         var weapon = GetEquipped(EquipmentSlot.Weapon);
         var offHand = GetEquipped(EquipmentSlot.OffHand);
         var spareWeapon = _spareHands.GetValueOrDefault(EquipmentSlot.Weapon);
@@ -252,6 +260,53 @@ public sealed class PlayerCharacter
         SetSpare(EquipmentSlot.OffHand, offHand);
         Equip(EquipmentSlot.Weapon, spareWeapon);
         Equip(EquipmentSlot.OffHand, spareOffHand);
+        WeaponSet ^= 1;
+        return true;
+    }
+
+    // Whether the carried worn hand item must go to the bag on a set swap and the bag has no place for it.
+    public bool CarriedHandHasNoRoom(Guid carried) =>
+        CarriedHand(carried) is { } held && WouldConflict(held == EquipmentSlot.Weapon ? EquipmentSlot.OffHand : EquipmentSlot.Weapon)
+        && !Inventory.HasRoomFor(GetEquipped(held));
+
+    private EquipmentSlot? CarriedHand(Guid carried) =>
+        GetEquipped(EquipmentSlot.Weapon)?.InstanceId == carried ? EquipmentSlot.Weapon
+        : GetEquipped(EquipmentSlot.OffHand)?.InstanceId == carried ? EquipmentSlot.OffHand
+        : null;
+
+    private bool WouldConflict(EquipmentSlot other)
+    {
+        var spare = _spareHands.GetValueOrDefault(other);
+        var weapon = other == EquipmentSlot.Weapon ? spare : GetEquipped(EquipmentSlot.Weapon);
+        var offHand = other == EquipmentSlot.OffHand ? spare : GetEquipped(EquipmentSlot.OffHand);
+        return weapon?.Definition.TwoHanded == true && offHand is not null;
+    }
+
+    private bool TrySwapOtherHand(Guid carried)
+    {
+        if (CarriedHand(carried) is not { } held)
+        {
+            return false;
+        }
+
+        var other = held == EquipmentSlot.Weapon ? EquipmentSlot.OffHand : EquipmentSlot.Weapon;
+        if (WouldConflict(other))
+        {
+            if (!Inventory.TryAdd(GetEquipped(held)))
+            {
+                return false;
+            }
+
+            Equip(held, null);
+            return TrySwapWeaponSet();
+        }
+
+        var worn = GetEquipped(other);
+        var spare = _spareHands.GetValueOrDefault(other);
+        _equipment.Remove(other);
+        _spareHands.Remove(other);
+        SetSpare(other, worn);
+        Equip(other, spare);
         WeaponSet ^= 1;
         return true;
     }
@@ -466,10 +521,12 @@ public sealed class PlayerCharacter
     }
 
     // An equipped item cannot be taken off while the character carries more than the weight limit.
-    public bool TryUnequip(EquipmentSlot slot)
+    // The item goes to the bag cell asked for (anchor) when it fits there, else to the first free place.
+    public bool TryUnequip(EquipmentSlot slot, int anchor = -1)
     {
         var item = GetEquipped(slot);
-        if (item is null || Items.CarriedWeight.IsOverweight(this) || !Inventory.TryAdd(item))
+        if (item is null || Items.CarriedWeight.IsOverweight(this)
+            || !(anchor >= 0 && anchor < Inventory.Capacity && Inventory.TryPlace(item, anchor)) && !Inventory.TryAdd(item))
         {
             return false;
         }

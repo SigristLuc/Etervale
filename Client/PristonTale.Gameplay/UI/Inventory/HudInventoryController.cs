@@ -17,6 +17,11 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     private Guid _dragging;
     private bool _held;
     private Point _pressedAt;
+    private string _expectedKey;
+    private HashSet<Guid> _expectedKnown;
+    private long _expectedFrom;
+    private long _expectedUntilMs;
+    private Guid _holdAfter;
     private bool _pendingOperation;
     private volatile InventoryOutcome _completedOperation;
 
@@ -54,7 +59,92 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     }
 
     // Trades the worn weapon and off-hand item with the other set (the W key and the A/B arrows).
-    public void SwapWeaponSet() => Swap(InventoryAction.SwapWeaponSet);
+    // The next bag item of this catalog key that was not carried before (a picked-up ground item) comes to the cursor once
+    // the owner state shows it; a pickup merged into a stack brings nothing.
+    public void HoldNextNew(string catalogKey)
+    {
+        if (_state is null || _dragging != Guid.Empty)
+        {
+            return;
+        }
+
+        _expectedKey = catalogKey;
+        _expectedKnown = _state.Items.Select(static item => item.InstanceId).ToHashSet();
+        _expectedFrom = _state.InventoryRevision;
+        _expectedUntilMs = Environment.TickCount64 + ExpectedItemWaitMs;
+    }
+
+    // A refused pickup changes nothing; the expectation lapses instead of catching a later item of the same key.
+    private const long ExpectedItemWaitMs = 5000;
+
+    private void TakeExpectedItem(OwnerState state)
+    {
+        if (_expectedKey is not null && Environment.TickCount64 > _expectedUntilMs)
+        {
+            _expectedKey = null;
+            _expectedKnown = null;
+        }
+
+        if (_expectedKey is null || state.InventoryRevision == _expectedFrom)
+        {
+            return;
+        }
+
+        var picked = _dragging == Guid.Empty && !_pendingOperation
+            ? state.Items.FirstOrDefault(item => item.Slot < 0 && !_expectedKnown.Contains(item.InstanceId)
+                && string.Equals(item.CatalogKey, _expectedKey, StringComparison.OrdinalIgnoreCase))
+            : null;
+        if (picked is not null)
+        {
+            _dragging = picked.InstanceId;
+            _held = true;
+        }
+
+        _expectedKey = null;
+        _expectedKnown = null;
+    }
+
+    // The item an equip put out of its slot comes to the cursor once the owner state shows it in the bag, as the original
+    // swaps the cursor item with the worn one.
+    private void TakeDisplacedItem(OwnerState state)
+    {
+        if (_holdAfter == Guid.Empty || _pendingOperation || state.InventoryRevision < _settledRevision)
+        {
+            return;
+        }
+
+        if (_dragging == Guid.Empty && state.Items.FirstOrDefault(item => item.InstanceId == _holdAfter) is { Slot: < 0 } displaced)
+        {
+            _dragging = displaced.InstanceId;
+            _held = true;
+        }
+
+        _holdAfter = Guid.Empty;
+    }
+
+    // A worn two-handed weapon also shows in the empty off-hand slot, as the original draws it in both hands.
+    public static OwnedItemView TwoHandedShadow(OwnerState state)
+    {
+        var weapon = state?.Items.FirstOrDefault(static item => item.Slot == (int)EquipmentSlot.Weapon);
+        return weapon is not null && ItemEquipmentMetadata.IsTwoHanded(weapon.CatalogKey)
+            && !state.Items.Any(static item => item.Slot == (int)EquipmentSlot.OffHand)
+            ? weapon
+            : null;
+    }
+
+    // Whether the pointer is on the item, counting a worn two-handed weapon's off-hand slot.
+    private bool Covers(OwnedItemView item, Point pointer) =>
+        ItemBounds(item).Contains(pointer)
+        || item.InstanceId == TwoHandedShadow(_state)?.InstanceId && EquipmentBounds((int)EquipmentSlot.OffHand).Contains(pointer);
+
+    // A held item stays on the cursor: a bag item is untouched by the swap, and a held worn weapon or off-hand item goes
+    // along to the other set, so it can be put down there.
+    public void SwapWeaponSet()
+    {
+        var held = _state?.Items.FirstOrDefault(item => item.InstanceId == _dragging);
+        var carried = held is { Slot: (int)EquipmentSlot.Weapon or (int)EquipmentSlot.OffHand } ? held.InstanceId : Guid.Empty;
+        Swap(InventoryAction.SwapWeaponSet, keepHeld: held is not null, carried);
+    }
 
     // Shows the other bag page (the E key and the I/II arrows); a bag item held on the cursor goes along and stays held.
     public void SwapBagPage()
@@ -75,15 +165,23 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.SwapBagPage, carried.InstanceId, 0, 0, default));
     }
 
-    private void Swap(InventoryAction action)
+    private void Swap(InventoryAction action, bool keepHeld = false, Guid carried = default)
     {
         if (_state is null || _pendingOperation)
         {
             return;
         }
 
-        CancelDrag();
-        SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, action, Guid.Empty, 0, 0, default));
+        if (keepHeld)
+        {
+            _held = true;
+        }
+        else
+        {
+            CancelDrag();
+        }
+
+        SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, action, carried, 0, 0, default));
     }
 
     public void Update(OwnerState state, HudLayout layout, bool visible, KeyboardState keyboard, MouseState mouse)
@@ -96,6 +194,10 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             _completedOperation = null;
             _pendingOperation = false;
             _settledRevision = completed.Ok ? completed.Revision : long.MinValue;
+            if (!completed.Ok)
+            {
+                _holdAfter = Guid.Empty;
+            }
             Message = completed.Message;
             LastOk = completed.Ok;
             Completions++;
@@ -110,6 +212,12 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         if (Settling != Guid.Empty && !_pendingOperation && (state is null || state.InventoryRevision >= _settledRevision))
         {
             Settling = Guid.Empty;
+        }
+
+        if (visible && state is not null)
+        {
+            TakeExpectedItem(state);
+            TakeDisplacedItem(state);
         }
 
         if (!visible || state is null)
@@ -135,6 +243,11 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                 selected = item;
                 break;
             }
+        }
+
+        if (selected is null && TwoHandedShadow(_state) is { } shadow && Covers(shadow, pointer))
+        {
+            selected = shadow;
         }
 
         var rightClicked = mouse.RightButton == ButtonState.Pressed && _previousMouse.RightButton == ButtonState.Released;
@@ -202,7 +315,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             if (slot.HasValue)
             {
                 SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision,
-                    selected.Slot >= 0 ? InventoryAction.Unequip : InventoryAction.Equip, selected.InstanceId, 0, 0, slot.Value));
+                    selected.Slot >= 0 ? InventoryAction.Unequip : InventoryAction.Equip, selected.InstanceId, -1, 0, slot.Value));
             }
         }
 
@@ -211,7 +324,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             var identity = _dragging;
             var source = _state.Items.FirstOrDefault(item => item.InstanceId == identity);
             // Released on the item it was pressed on: the item stays picked for a click elsewhere (the original's way).
-            if (source is not null && ItemBounds(source).Contains(pointer) && ItemBounds(source).Contains(_pressedAt))
+            if (source is not null && Covers(source, pointer) && Covers(source, _pressedAt))
             {
                 _held = true;
                 return;
@@ -245,7 +358,8 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         {
             if (source.Slot >= 0)
             {
-                SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.Unequip, identity, 0, 0, (EquipmentSlot)source.Slot));
+                SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.Unequip, identity,
+                    HudInventoryLayout.CellAt(_origin, pointer), 0, (EquipmentSlot)source.Slot));
                 return;
             }
 
@@ -277,7 +391,13 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             {
                 if (source.Slot < 0)
                 {
-                    SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.Equip, identity, 0, 0, (EquipmentSlot)slot));
+                    // A two-handed weapon goes to the weapon hand whichever hand slot takes it; the item worn in that
+                    // slot (or the two-handed weapon an off-hand item replaces) comes to the cursor.
+                    var target = slot == (int)EquipmentSlot.OffHand && ItemEquipmentMetadata.IsTwoHanded(source.CatalogKey) ? (int)EquipmentSlot.Weapon : slot;
+                    var worn = _state.Items.FirstOrDefault(item => item.Slot == target)
+                        ?? (target == (int)EquipmentSlot.OffHand ? TwoHandedShadow(_state) : null);
+                    _holdAfter = worn?.InstanceId ?? Guid.Empty;
+                    SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.Equip, identity, 0, 0, (EquipmentSlot)target));
                 }
 
                 return;

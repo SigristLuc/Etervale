@@ -254,6 +254,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             : Task.FromResult(new PristonTale.Simulation.Items.InventoryOutcome(false, 0, "world connection unavailable"));
     }
     public event Action<ulong> NpcSelected;
+
+    // A ground item or gold the player asks to pick up, as the request leaves (before any owner state can show it).
+    public event Action<PristonTale.Simulation.World.Loot.GroundDropView> GroundItemPickupSent;
     private ulong _npcTargetId;
     private bool _npcMoveSent;
     private Vector2 _serverPlanarPosition;
@@ -450,7 +453,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _playerComposer = new PlayerActorComposer(actorScene, _actorLoader);
         _monsterComposer = new ModelActorComposer(actorScene, _actorLoader);
         _groundLoot = new GroundLootPresentation(actorScene, _actorLoader, _assetRoot, _log);
-        _lootInteraction = new GroundLootInteraction(ApplyInventoryAsync, _log, drop => _fieldAudio?.PlayItem(drop.CatalogKey, drop.Gold));
+        _lootInteraction = new GroundLootInteraction(ApplyInventoryAsync, _log, drop => _fieldAudio?.PlayItem(drop.CatalogKey, drop.Gold),
+            drop => GroundItemPickupSent?.Invoke(drop));
         _lootFloor = LootFloorAt;
     }
 

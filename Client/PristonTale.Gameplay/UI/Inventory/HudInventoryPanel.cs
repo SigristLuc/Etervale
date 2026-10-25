@@ -64,6 +64,18 @@ public sealed class HudInventoryPanel
             }
         }
 
+        var shadow = HudInventoryController.TwoHandedShadow(state);
+        if (shadow is not null && (controller.Dragging == shadow.InstanceId || controller.Settling == shadow.InstanceId))
+        {
+            shadow = null;
+        }
+
+        var offHand = HudInventoryLayout.Equipment(origin, (int)EquipmentSlot.OffHand);
+        if (shadow is not null)
+        {
+            painter.Sprite(HudInventoryLayout.Cover((int)EquipmentSlot.OffHand), offHand.X, offHand.Y);
+        }
+
         OwnedItemView hovered = null;
         OwnedItemView dragged = null;
         foreach (var item in state.Items)
@@ -80,6 +92,12 @@ public sealed class HudInventoryPanel
             }
         }
 
+        if (hovered is null && shadow is not null && interactive && offHand.Contains(pointer))
+        {
+            hovered = shadow;
+            painter.Fill(offHand, Selection);
+        }
+
         if (dragged is not null && interactive)
         {
             DrawPlacement(painter, origin, dragged, pointer, Usable(dragged, state));
@@ -91,6 +109,11 @@ public sealed class HudInventoryPanel
             {
                 DrawItem(painter, icons, item, Bounds(origin, item), Color.White);
             }
+        }
+
+        if (shadow is not null)
+        {
+            DrawItem(painter, icons, shadow, offHand, Color.White);
         }
 
         var set = HudInventoryLayout.WeaponSet(origin, state.WeaponSet);

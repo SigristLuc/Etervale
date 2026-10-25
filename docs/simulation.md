@@ -384,7 +384,10 @@ totals.
   (`UpgradeLevel > 0`) equip like any other.
 - `TryEquipFromInventory(anchor, slot)`: the copy must pass `CanWear`. A two-handed weapon first sends the off-hand item
   to the bag (first free place); an off-hand item first sends a held two-handed weapon there; then the item in the
-  slot takes the bag cell. Without room nothing changes. `InventoryCommands.Refusal` names an unusable item
+  slot takes the bag cell. Without room nothing changes.
+- `TrySwapWeaponSet(carried)`: a carried worn hand item stays worn and only the other hand trades with the spare set;
+  when that would pair a two-handed weapon with an off-hand item, the carried item goes to the bag and both hands trade
+  (`ItemRuleMessages.NoRoomInBag` when the bag has no place for it). `InventoryCommands.Refusal` names an unusable item
   (`ItemRuleMessages.CannotUse`).
 - `TryUnequip` needs inventory space and is refused while the character is overweight (`ItemRuleMessages.OverWeight`).
 - `ReceiveGroundLoot` refuses an item that would carry the character over the weight limit.

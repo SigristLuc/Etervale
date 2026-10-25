@@ -146,11 +146,31 @@ internal static class ProgressionAndOwnershipTests
         Assert.True(rearmed.TrySwapWeaponSet() && rearmed.WeaponSet == 0 && rearmed.GetEquipped(EquipmentSlot.Weapon)?.Definition.CatalogKey == "WA101"
             && rearmed.GetEquipped(EquipmentSlot.OffHand)?.Definition.CatalogKey == "DS101" && rearmed.SpareHands[EquipmentSlot.Weapon].Definition.CatalogKey == "WH101",
             "swapping back did not restore the first set");
+        var heldAxe = rearmed.GetEquipped(EquipmentSlot.Weapon)!.InstanceId;
+        Assert.True(rearmed.TrySwapWeaponSet(heldAxe) && rearmed.WeaponSet == 1 && rearmed.GetEquipped(EquipmentSlot.Weapon)?.InstanceId == heldAxe
+            && rearmed.GetEquipped(EquipmentSlot.OffHand) is null && rearmed.SpareHands[EquipmentSlot.OffHand].Definition.CatalogKey == "DS101"
+            && rearmed.SpareHands[EquipmentSlot.Weapon].Definition.CatalogKey == "WH101", "a held weapon did not go along to the other set");
         Assert.True(rearmed.BagPage == 1 && rearmed.Inventory[2]?.Count == 6 && rearmed.TrySwapBagPage() && rearmed.BagPage == 0
             && rearmed.Inventory[0]?.Count == 3 && rearmed.SpareBagItems().Single().Anchor == 2, "the other bag page was not saved");
         var carried = rearmed.Inventory[0]!.InstanceId;
         Assert.True(rearmed.TrySwapBagPage(carried) && rearmed.BagPage == 1 && rearmed.Inventory.Find(carried) >= 0
             && !rearmed.SpareBagItems().Any(), "an item held on the cursor did not travel to the other page");
+        var twoHanded = new ItemDefinition(ItemCodes.Parse("WP121"), "Scythe", ItemKind.Pole, EquipmentSlot.Weapon) { CatalogKey = "WP121", TwoHanded = true };
+        var reaper = classes.CreatePlayer(PlayerClass.Pikeman, "Reaper");
+        reaper.Equip(EquipmentSlot.Weapon, new ItemInstance(twoHanded));
+        reaper.TrySwapWeaponSet();
+        var buckler = new ItemInstance(shield);
+        reaper.Equip(EquipmentSlot.OffHand, buckler);
+        var heldShield = new InventoryCommand(Guid.NewGuid(), reaper.InventoryRevision, InventoryAction.SwapWeaponSet, buckler.InstanceId, 0, 0, default);
+        Assert.True(InventoryCommands.Apply(reaper, heldShield) && reaper.WeaponSet == 0 && reaper.GetEquipped(EquipmentSlot.Weapon)?.Definition == twoHanded
+            && reaper.GetEquipped(EquipmentSlot.OffHand) is null && reaper.Inventory.Find(buckler.InstanceId) >= 0 && !reaper.SpareHands.Any(),
+            "a shield held into a two-handed weapon's set did not leave the hands for the bag");
+        Assert.True(reaper.TryEquipFromInventory(reaper.Inventory.Find(buckler.InstanceId), EquipmentSlot.OffHand)
+            && reaper.GetEquipped(EquipmentSlot.OffHand)?.InstanceId == buckler.InstanceId && reaper.GetEquipped(EquipmentSlot.Weapon) is null
+            && reaper.Inventory.Find(reaper.OwnedItems().First(item => item.Definition == twoHanded).InstanceId) >= 0,
+            "a shield put on the two-handed weapon did not trade places with it");
+        Assert.True(rearmed.TryUnequip(EquipmentSlot.Weapon, 40) && rearmed.Inventory[40]?.InstanceId == heldAxe,
+            "an unequipped item did not land in the bag cell asked for");
         var corrupt = encoded with { Inventory = new JsonText("{\"Version\":2,\"Items\":[]}") };
         var repository = new MemoryCharacters(corrupt);
         var registry = new SessionRegistry();
