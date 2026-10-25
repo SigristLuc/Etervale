@@ -23,6 +23,8 @@ internal sealed partial class PresenceEncoder
     private static readonly float ItemRadius = MathF.Sqrt(0xC8000);
     // 5 Hz inside the high-detail range and 2 Hz out to the connect range; the original relayed players at about 2.2 Hz and monsters at 1.1 Hz.
     private const uint NearIntervalTicks = 4;
+    // Routing pays a binary search per known entity; scanning pays two lookups per event of the field.
+    private const int RouteThreshold = 2;
     private const uint FarIntervalTicks = 10;
     // Like the original per-receiver user limit, a crowd cannot exceed a per-receiver movement budget (about 40 KiB/s at 20 Hz).
     // Spawns and discrete changes always go out; position-only updates are ranked by how overdue they are.
@@ -50,6 +52,12 @@ internal sealed partial class PresenceEncoder
     private readonly List<CombatEventEntry> _events = new();
     private readonly List<SkillEventEntry> _skillEvents = new();
     private readonly List<StatusEffectEntry> _statusEvents = new();
+    // The events routed to this receiver this frame: (kind << 32 | index), then the indices of each kind in order.
+    private readonly List<long> _routes = new();
+    private readonly List<int> _routedCombat = new();
+    private readonly List<int> _routedSkills = new();
+    private readonly List<int> _routedStatuses = new();
+    private readonly List<int> _routedItems = new();
     private readonly List<GroundItemEntry> _newDrops = new();
     private readonly byte[] _scratch = new byte[FrameCodec.MaxFrameSize];
     private readonly byte[] _group = new byte[FrameCodec.MaxFrameSize];
@@ -318,10 +326,11 @@ internal sealed partial class PresenceEncoder
         _wire = null;
         _entities = [];
         SendRemovals(connection);
-        SendEvents(combat, connection);
-        SendSkillEvents(skills, connection);
-        SendStatusEvents(statuses, snapshot, connection, withSpawned: true);
-        SendItemEffects(items, connection);
+        var routed = RouteEvents(snapshot);
+        SendEvents(combat, connection, routed ? _routedCombat : null);
+        SendSkillEvents(skills, connection, routed ? _routedSkills : null);
+        SendStatusEvents(statuses, snapshot, connection, withSpawned: true, routed ? _routedStatuses : null);
+        SendItemEffects(items, connection, routed ? _routedItems : null);
         SendDrops(snapshot, self.Position, connection);
         SendOwner(snapshot.Owner, connection);
         SendPremium(snapshot.Owner, connection);
@@ -565,15 +574,83 @@ internal sealed partial class PresenceEncoder
         _removed.Clear();
     }
 
-    private void SendEvents(ReadOnlySpan<CombatEventView> combat, IPacketSink connection)
+    // The events of the entities this receiver knows, collected from the frame's routes instead of scanning every event of
+    // the field. False when scanning is cheaper (few events) or the snapshot's events are not the frame's own (merged
+    // copies for a receiver that fell behind).
+    private bool RouteEvents(in WorldSnapshot snapshot)
+    {
+        if (snapshot.Frame?.Routes is not { } routes || snapshot.EventSegments is { Length: > 0 }
+            || routes.EventCount <= (_known.Count + 1) * RouteThreshold
+            || !routes.Indexes(snapshot.Events, snapshot.SkillEvents, snapshot.StatusEvents, snapshot.ItemEffects))
+        {
+            return false;
+        }
+
+        _routes.Clear();
+        routes.Collect(_self, _routes);
+        foreach (var serial in _known.Keys)
+        {
+            if (serial != _self)
+            {
+                routes.Collect(serial, _routes);
+            }
+        }
+
+        // Sorted by kind, then by index: each kind keeps the field's event order, and an event naming two known entities
+        // appears twice in a row.
+        _routes.Sort();
+        _routedCombat.Clear();
+        _routedSkills.Clear();
+        _routedStatuses.Clear();
+        _routedItems.Clear();
+        var previous = -1L;
+        foreach (var route in _routes)
+        {
+            if (route == previous)
+            {
+                continue;
+            }
+
+            previous = route;
+            var index = (int)(uint)route;
+            switch ((EventRouteKind)(route >> 32))
+            {
+                case EventRouteKind.Combat:
+                    _routedCombat.Add(index);
+                    break;
+                case EventRouteKind.Skill:
+                    _routedSkills.Add(index);
+                    break;
+                case EventRouteKind.Status:
+                    _routedStatuses.Add(index);
+                    break;
+                case EventRouteKind.Item:
+                    _routedItems.Add(index);
+                    break;
+            }
+        }
+
+        return true;
+    }
+
+    private void SendEvents(ReadOnlySpan<CombatEventView> combat, IPacketSink connection, List<int>? routed = null)
     {
         _events.Clear();
-        foreach (var combatEvent in combat)
+        if (routed is not null)
         {
-            if (combatEvent.AttackerId == _self || combatEvent.TargetId == _self
-                || _known.ContainsKey(combatEvent.AttackerId) || _known.ContainsKey(combatEvent.TargetId))
+            foreach (var index in routed)
             {
-                _events.Add(WireMapping.Event(combatEvent));
+                _events.Add(WireMapping.Event(combat[index]));
+            }
+        }
+        else
+        {
+            foreach (var combatEvent in combat)
+            {
+                if (Relevant(combatEvent.AttackerId, combatEvent.TargetId))
+                {
+                    _events.Add(WireMapping.Event(combatEvent));
+                }
             }
         }
 
@@ -593,14 +670,24 @@ internal sealed partial class PresenceEncoder
     private bool Relevant(ulong first, ulong second) =>
         first == _self || second == _self || _known.ContainsKey(first) || second != 0 && _known.ContainsKey(second);
 
-    private void SendSkillEvents(ReadOnlySpan<SkillEventView> skills, IPacketSink connection)
+    private void SendSkillEvents(ReadOnlySpan<SkillEventView> skills, IPacketSink connection, List<int>? routed = null)
     {
         _skillEvents.Clear();
-        foreach (var skillEvent in skills)
+        if (routed is not null)
         {
-            if (Relevant(skillEvent.CasterId, skillEvent.TargetId))
+            foreach (var index in routed)
             {
-                _skillEvents.Add(WireMapping.SkillEvent(skillEvent));
+                _skillEvents.Add(WireMapping.SkillEvent(skills[index]));
+            }
+        }
+        else
+        {
+            foreach (var skillEvent in skills)
+            {
+                if (Relevant(skillEvent.CasterId, skillEvent.TargetId))
+                {
+                    _skillEvents.Add(WireMapping.SkillEvent(skillEvent));
+                }
             }
         }
 
@@ -618,14 +705,25 @@ internal sealed partial class PresenceEncoder
         }
     }
 
-    private void SendStatusEvents(ReadOnlySpan<StatusEventView> statuses, in WorldSnapshot snapshot, IPacketSink connection, bool withSpawned)
+    private void SendStatusEvents(ReadOnlySpan<StatusEventView> statuses, in WorldSnapshot snapshot, IPacketSink connection, bool withSpawned,
+        List<int>? routed = null)
     {
         _statusEvents.Clear();
-        foreach (var status in statuses)
+        if (routed is not null)
         {
-            if (Relevant(status.EntityId, 0))
+            foreach (var index in routed)
             {
-                _statusEvents.Add(WireMapping.Status(status));
+                _statusEvents.Add(WireMapping.Status(statuses[index]));
+            }
+        }
+        else
+        {
+            foreach (var status in statuses)
+            {
+                if (Relevant(status.EntityId, 0))
+                {
+                    _statusEvents.Add(WireMapping.Status(status));
+                }
             }
         }
 

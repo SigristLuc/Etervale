@@ -45,7 +45,8 @@ into it is described in [server.md](server.md); skill resolution details are in 
 | `World/WorldSnapshot.cs` | Published view types: `EntityView`, `CombatEventView`, `SkillEventView`, `StatusEventView`, `WorldSnapshot` |
 | `World/WorldOutbox.cs` | Per-connection coalescing channel between the tick and the edge; pins frames on read, keeps events per tick |
 | `World/SubscriberPresence.cs` | Spawn/state/remove diff of snapshots per subscriber (used by tests; the server encoder diffs itself) |
-| `World/PresenceFrame.cs` | `PresenceFrame` (one field tick's views and grid, reused across ticks, pinned by readers), `FieldPresenceFrames`, `ViewArrays` |
+| `World/PresenceFrame.cs` | `PresenceFrame` (one field tick's views, grid and event routes, reused across ticks, pinned by readers), `FieldPresenceFrames`, `ViewArrays` |
+| `World/EventRoutes.cs` | The tick's combat, skill, status and item events sorted by the entity ids they name |
 | `World/EntityGrid.cs` | Sorted 64-unit planar buckets, square counts, who-targets-or-owns-whom and the NPC list, rebuilt once per frame |
 | `World/FieldDescriptors.cs` | Field-wide descriptor revision of every entity, computed while the frame's views are filled |
 | `World/FieldStatusBook.cs` | The statuses running on the field's entities, for viewers that start seeing an entity later |
@@ -120,7 +121,8 @@ Lifecycle seen from the edge: `LoginAsync` -> `EnterWorldAsync` -> `TryBeginPlay
    shared by all fields.
 3. Field phase: `Parallel.ForEach` over every created field: `FieldInstance.Step` (which also updates the status book),
    then (only with players present) rent a `PresenceFrame`, fill its views with their descriptor revisions, rebuild its
-   grid, open it to readers, and write one `WorldSnapshot` over it, stamped per player with `OwnerState`, changed
+   grid, open it to readers, build one `WorldSnapshot` over it, index the snapshot's events in the frame's
+   `EventRoutes`, and write the snapshot, stamped per player with `OwnerState`, changed
    cooldowns and the quest update, to each connection's outbox.
 4. When membership changed: publish `PlayerCount` and per-field counts with `Volatile.Write` for the read model.
 

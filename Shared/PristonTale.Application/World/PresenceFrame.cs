@@ -32,6 +32,9 @@ public sealed class PresenceFrame
 
     public EntityView[] Views { get; private set; }
     public EntityGrid Grid { get; }
+
+    // The tick's events by the entities they name; rebuilt with the frame.
+    public EventRoutes Routes { get; } = new();
     public int Generation => _generation;
 
     // Set when a snapshot of this frame went to a writer that never releases it (a plain channel in tests); such a

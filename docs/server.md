@@ -208,6 +208,11 @@ tick, `PresenceEntries` (one or more), `RemoveObjects`, `CombatEvents`, `SkillEv
 statuses of entities the receiver starts seeing), `ItemEffects`, `GroundItems`/`GroundItemsRemoved`, `OwnerStatus` with `Inventory`
 parts and `Skills` when their revisions changed, `SkillCooldowns`, then `QuestJournal` and `QuestNotices` from the
 snapshot's quest update.
+Events go to a receiver when they name an entity it knows (or itself). When the field's tick has more events than
+twice the entities the receiver knows, the encoder collects them from the frame's `EventRoutes` (the tick's events
+sorted by the entity ids they name; one binary search per known entity) instead of scanning every event of the field;
+both ways give the same events in the field's order. A pump that fell behind gets merged copies of several ticks'
+events and scans them.
 In the quest arena (field 32) the encoder leaves out other players and monsters of other players' duels. View ranges,
 rates and the movement budget are in [protocol.md](protocol.md#server-capacity). A reliable-event overflow in the outbox
 (4096 queued events) ends the pump and closes the connection with `presence overflow`; the client must reconnect.

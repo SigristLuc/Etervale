@@ -17,6 +17,7 @@ internal static class PresencePipelineTests
     {
         yield return ("presence frames are reused only when no reader pins them and never while an outbox can still hand them out", FramesAsync);
         yield return ("an entry encoded once for all receivers is byte for byte what one receiver would encode", SharedWireAsync);
+        yield return ("events routed by the entities a receiver knows are the events a full scan finds, in the field's order", RoutedEventsAsync);
         yield return ("presence entries carry 64-bit ids and sequences, 32-bit life and world-wide positions at an eighth of a unit", EntriesAsync);
         yield return ("descriptor revisions are field-wide and rise only when what a description shows changes", RevisionsAsync);
         yield return ("a receiver in a crowd shows its nearest entities and never loses its NPCs, target, attackers or summons", CrowdCapAsync);
@@ -45,6 +46,31 @@ internal static class PresencePipelineTests
         frames.Published(reused);
         Assert.True(first.TryPin(first.Generation, 9), "the reused frame refused its new readers");
         first.Release(9);
+        return Task.CompletedTask;
+    }
+
+    private static Task RoutedEventsAsync()
+    {
+        static EntityView At(ulong id, float x) =>
+            new(id, id == 1 ? EntityKindView.Player : EntityKindView.Monster, false, new Vector3(x, 0, 0), 0f, MoveStateView.Idle, 1, 100, 100, default);
+        EntityView[] views = [At(1, 0), At(10, 20), At(11, 40), At(12, 60), At(98, 50_000), At(99, 50_020)];
+        // Far fights the receiver never sees, with its own monsters' events among them.
+        var combat = Enumerable.Range(0, 40).Select(index => new CombatEventView(99, 98, CombatEventKindView.Hit, damage: index)).ToList();
+        combat.Insert(5, new CombatEventView(10, 1, CombatEventKindView.Hit, damage: 1000));
+        combat.Insert(20, new CombatEventView(11, 12, CombatEventKindView.Hit, damage: 2000));
+        combat.Add(new CombatEventView(1, 1, CombatEventKindView.Heal, damage: 3000));
+        var events = combat.ToArray();
+        StatusEventView[] statuses = [new(98, 99, 7, StatusEventOpView.Add, 1, 0, 0, false, false, 1000, 1000, 0), new(12, 11, 8, StatusEventOpView.Add, 1, 0, 0, false, false, 1000, 1000, 0)];
+        var frame = new PresenceFrame(views.Length);
+        views.CopyTo(frame.Views, 0);
+        frame.Grid.Rebuild(frame.Views);
+        frame.Routes.Rebuild(events, [], statuses, []);
+        var routed = new WireRoundTrip(1).PushMerged(new WorldSnapshot(5, frame.Views, events, 3) { Grid = frame.Grid, Frame = frame, StatusEvents = statuses });
+        var scanned = new WireRoundTrip(1).PushMerged(new WorldSnapshot(5, views, events, 3) { StatusEvents = statuses });
+        Assert.True(routed.Events.Select(item => item.Damage).SequenceEqual([1000, 2000, 3000]), $"routed {string.Join(",", routed.Events.Select(item => item.Damage))}");
+        Assert.True(scanned.Events.Select(item => item.Damage).SequenceEqual([1000, 2000, 3000]), $"scanned {string.Join(",", scanned.Events.Select(item => item.Damage))}");
+        Assert.True(routed.StatusEffects.Select(item => item.StatusCode).SequenceEqual([8u]) && scanned.StatusEffects.Select(item => item.StatusCode).SequenceEqual([8u]),
+            "a status of an unseen entity was routed, or a seen one was lost");
         return Task.CompletedTask;
     }
 

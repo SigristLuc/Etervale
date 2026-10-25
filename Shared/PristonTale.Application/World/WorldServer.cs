@@ -528,6 +528,7 @@ public sealed partial class WorldServer
             ActiveStatuses = field.Statuses.Snapshot,
             FieldNowMs = field.NowMs
         };
+        frame.Routes.Rebuild(snapshot.Events, snapshot.SkillEvents, snapshot.StatusEvents, snapshot.ItemEffects);
         foreach (var entityId in field.PlayerIds)
         {
             if (_connections.TryGetValue(entityId, out var connection))

@@ -403,7 +403,9 @@ receives what, in which order and how often is specified in [server.md](server.m
 - Who sees whom is prepared once per field and tick, not per pair: a `PresenceFrame` holds the views of every entity
   with its field-wide descriptor revision, an `EntityGrid` (64-unit planar cells, sorted keys, one binary search per
   column), the index of who targets or owns whom, and the NPC list. Frames are reused tick after tick (a receiver
-  pins the frame it encodes from on striped counters), so the tick allocates no views, grids or encode buffers.
+  pins the frame it encodes from on striped counters), so the tick allocates no views, grids or encode buffers. The
+  frame also routes the tick's events by the entities they name (`EventRoutes`), so a receiver collects the events of
+  the entities it sees instead of scanning every event of its field.
 - Each receiver's `PresenceEncoder` (on its connection's pump, never on the tick) queries the grid, keeps at most 256
   other entities in view (the nearest, plus its NPCs, its attack target, whoever targets it and its summons; an entity
   already shown stays out to 1.15 times the cut-off), and sends an object only when it changed: spawns and discrete
@@ -449,6 +451,11 @@ beside them, a tenth cast an area skill every three seconds, monsters fight back
 The compact presence entries halved the spread traffic and cut the crowded traffic by about 60%: with the original
 play-data entries (84 bytes near, 40 far) the same runs sent 7.6 to 8.4 KiB/s spread and 54.6 to 60.2 KiB/s crowded, and
 5000 crowded encoded in 33.25 / 59.79 ms.
+
+Routing events by entity instead of scanning them, measured back to back on the same build and machine, cut the
+encoders' CPU per tick from 193 to 132 ms for 2000 crowded players and from 719 to 421 ms for 5000 (encode p50 33.7 to
+25.1 ms), with the same bytes sent. Run-to-run noise on this machine moves single percentiles by up to a third, so
+compare runs taken back to back.
 
 Before the shared frames, the crowd cap and the allocation work, the same benchmark measured 1000 crowded at 2.68 /
 35.81 ms tick and 34.83 / 116.88 ms encode with 98.7 KiB/s per client and 4.9 MiB allocated per tick, and 5000 crowded

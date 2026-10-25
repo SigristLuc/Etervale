@@ -71,6 +71,7 @@ internal sealed class WireRoundTrip
         {
             GroundAdded = updates.SelectMany(update => update.GroundAdded).ToList(),
             GroundRemoved = updates.SelectMany(update => update.GroundRemoved).ToList(),
+            StatusEffects = updates.SelectMany(update => update.StatusEffects).ToList(),
             Warp = updates.Select(update => update.Warp).LastOrDefault(warp => warp is not null)
         };
     }

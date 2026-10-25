@@ -12,15 +12,28 @@ internal sealed partial class PresenceEncoder
     private readonly List<ItemEffectEntry> _itemEffects = new();
     private long _premiumRevision = -1;
 
-    private void SendItemEffects(ReadOnlySpan<ItemEffectView> effects, IPacketSink connection)
+    private static ItemEffectEntry ItemEffect(in ItemEffectView effect) => new(effect.EntityId, effect.ItemCode, (byte)effect.Effect,
+        PristonUnits.ToFixed(effect.Position.X), PristonUnits.ToFixed(effect.Position.Y), PristonUnits.ToFixed(effect.Position.Z), effect.Variant,
+        effect.Target);
+
+    private void SendItemEffects(ReadOnlySpan<ItemEffectView> effects, IPacketSink connection, List<int>? routed = null)
     {
         _itemEffects.Clear();
-        foreach (var effect in effects)
+        if (routed is not null)
         {
-            if (Relevant(effect.EntityId, 0))
+            foreach (var index in routed)
             {
-                _itemEffects.Add(new ItemEffectEntry(effect.EntityId, effect.ItemCode, (byte)effect.Effect, PristonUnits.ToFixed(effect.Position.X),
-                    PristonUnits.ToFixed(effect.Position.Y), PristonUnits.ToFixed(effect.Position.Z), effect.Variant, effect.Target));
+                _itemEffects.Add(ItemEffect(effects[index]));
+            }
+        }
+        else
+        {
+            foreach (var effect in effects)
+            {
+                if (Relevant(effect.EntityId, 0))
+                {
+                    _itemEffects.Add(ItemEffect(effect));
+                }
             }
         }
 
