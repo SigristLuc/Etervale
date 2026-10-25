@@ -73,6 +73,7 @@ public sealed partial class GameScene
             if (frame != 0 && at > previous && at <= ticks)
             {
                 PlayFootstep();
+                LeaveStep(index);
             }
         }
     }

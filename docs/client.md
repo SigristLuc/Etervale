@@ -321,6 +321,13 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   equipment slot equips, right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
   slot first), drinks a potion or uses a usable item (`HudItemUseController`: the Teleport Core window, confirmations,
   the item-use request). One command in flight; it carries the `InventoryRevision` it was built from.
+- Step marks (`GameScene.Terrain.cs`, `PristonCollisionWorld.TryGetIceFloor` / `TryGetWaterHeight`): the stage's ice
+  floors are its solid faces of an ice material, its water the faces of a water or see-through (over 0.1) material
+  that do not collide. Wading in shallow water (the surface above the feet and less than 32 units up) splashes
+  `particle.water` half a unit over the surface at each step 8 units ahead and every 64 frames of 70 per second standing,
+  32 walking (8 ahead), 16 running (14 ahead), attacking or casting. Out of the water, each step in an ice field leaves a
+  footprint on an ice floor (`image/mk-r.tga` 3 units right and 5 ahead, `mk-l.tga` left), 12 x 12 units, tilted with
+  the ice, fading to a fifth over five seconds; at most 20 lie at a time. Local player only, as in the original.
 - Held items (`GameScene.HeldItems.cs`): the weapon and off-hand glow and the class-up lights of every drawn player
   ([effects.md](effects.md#held-item-glow)).
 - Wing warp map (`HudWingGate`): `WG_map.tga` (256 x 256) at (472, 120) with the icon of each stone the carried wing

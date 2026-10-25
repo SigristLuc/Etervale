@@ -314,6 +314,7 @@ specifications.AddRange(MonsterMovementTests.Cases());
 specifications.AddRange(DeathPenaltyTests.Cases());
 specifications.AddRange(WingGateTests.Cases());
 specifications.AddRange(HeldItemGlowTests.Cases());
+specifications.AddRange(TerrainMarksTests.Cases());
 specifications.AddRange(MonsterNavigationTests.Cases());
 specifications.AddRange(NetworkHardeningTests.Cases());
 specifications.AddRange(MultiplayerMovementTests.Cases());

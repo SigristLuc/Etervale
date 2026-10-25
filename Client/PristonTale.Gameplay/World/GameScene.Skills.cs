@@ -90,6 +90,7 @@ public sealed partial class GameScene : ISkillSceneHost
         _skillFx?.Update((float)gameTime.ElapsedGameTime.TotalSeconds, _skillClockMs);
         UpdateCostumeWings();
         UpdateHeldItems((float)gameTime.ElapsedGameTime.TotalSeconds);
+        UpdateTerrain((float)gameTime.ElapsedGameTime.TotalSeconds);
     }
 
     private void UpdateCostumeWings()
@@ -125,6 +126,7 @@ public sealed partial class GameScene : ISkillSceneHost
         if (_skillFx is not null && _camera is not null)
         {
             QueueBlobShadows();
+            QueueFootprints();
             _skillFx.Draw(_camera.View, _camera.Projection, _camera.Position, _renderer.SceneLinearDepth);
         }
     }
