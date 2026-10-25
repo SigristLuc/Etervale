@@ -138,11 +138,8 @@ internal sealed partial class ClientSession : IMovementVerdictSink
 
                     break;
                 }
-                case PristonOpcodes.ChatMessage:
-                    await SayAsync(ChatInputPacket.Read(memory.Span), party: false);
-                    break;
-                case PristonOpcodes.PartyChatMessage:
-                    await SayAsync(ChatInputPacket.Read(memory.Span), party: true);
+                case EtervaleOpcodes.ChatSay:
+                    await SayAsync(ChatSayPacket.Read(memory.Span));
                     break;
                 case PristonOpcodes.IdGetUserInfo:
                     await LoginAsync(CharCommand2.Read(memory.Span));

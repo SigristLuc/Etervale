@@ -109,21 +109,21 @@ internal static class WorldRewardsTests
     private static Task PresenceAsync()
     {
         var code = LegacyItemCode.Parse("WA101");
-        var drop = new GroundDropView(Guid.NewGuid(), code, "WA101", "Stone Axe", 1, false, new Vector3(12, 3, -24)) { Handle = 7 };
+        var drop = new GroundDropView(Guid.NewGuid(), code, "WA101", "Stone Axe", 1, false, new Vector3(12, 3, -24));
         EntityView Avatar(uint id) => new(id, EntityKindView.Player, false, Vector3.Zero, 0f, MoveStateView.Idle, 1, 10, 10, default);
         var snapshot = new WorldSnapshot(1, [Avatar(1), Avatar(2)], groundDrops: [new GroundDropState(drop, 1, false)]);
         var owner = new WireRoundTrip(1);
         var added = owner.PushMerged(snapshot).GroundAdded.Single();
-        Assert.True(added.Handle == 7 && added.Id == GroundDropHandle.ToGuid(7) && added.ItemCode == code && added.CatalogKey == "WA101"
-            && added.Name == "Stone Axe" && added.Amount == 1 && !added.Gold && added.Position == drop.Position, "ground loot changed over PLAYITEM");
+        Assert.True(added.Id == drop.Id && added.ItemCode == code && added.CatalogKey == "WA101"
+            && added.Name == "Stone Axe" && added.Amount == 1 && !added.Gold && added.Position == drop.Position, "ground loot changed over GroundItems");
         Assert.True(owner.PushMerged(snapshot).GroundAdded.Count == 0, "unchanged ground loot resent");
         Assert.True(new WireRoundTrip(2).PushMerged(snapshot).GroundAdded.Count == 0, "private loot leaked in presence");
         var outbox = new WorldOutbox();
         outbox.Writer.TryWrite(snapshot);
         outbox.Writer.TryWrite(new WorldSnapshot(2, [], groundDrops: snapshot.GroundDrops));
         Assert.True(outbox.Reader.TryRead(out var latest) && latest.GroundDrops.Single().View == drop, "latest roster lost loot");
-        Assert.True(owner.PushMerged(new WorldSnapshot(3, [Avatar(1)])).GroundRemoved.Single() == GroundDropHandle.ToGuid(7),
-            "pickup/expiry did not send DELITEM");
+        Assert.True(owner.PushMerged(new WorldSnapshot(3, [Avatar(1)])).GroundRemoved.Single() == drop.Id,
+            "pickup/expiry did not send GroundItemsRemoved");
         return Task.CompletedTask;
     }
 }

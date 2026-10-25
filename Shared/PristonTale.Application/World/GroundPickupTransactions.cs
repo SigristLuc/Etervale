@@ -9,7 +9,7 @@ internal static class GroundPickupTransactions
     public static PreparedCharacterOperation<InventoryOutcome> Prepare(PlayerSession session, WorldPlayer player, FieldInstance field, InventoryCommand command)
     {
         var original = player.Character;
-        var dropId = field.GroundLoot.ResolveClientId(command.ItemId);
+        var dropId = command.ItemId;
         if (command.ExpectedRevision != original.InventoryRevision || command.Count != 1
             || !field.GroundLoot.TryReserve(dropId, command.OperationId, player, out var drop, out var item))
         {

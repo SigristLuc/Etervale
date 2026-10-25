@@ -437,11 +437,10 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
-    // A typed line: party lines go on their own message, everything else (spoken lines, whispers, commands) on the chat
-    // message; the server adds the speaker's name.
+    // A typed line: party lines or everything else (spoken lines, whispers, commands); the server adds the speaker's name.
     internal void SendChat(string text, bool party)
     {
-        var input = new ChatInputPacket(party ? PristonOpcodes.PartyChatMessage : PristonOpcodes.ChatMessage, text);
+        var input = new ChatSayPacket(party, text);
         lock (_sendGate)
         {
             Connection.SendEncrypted(_scratch.AsSpan(0, input.Write(_scratch)));

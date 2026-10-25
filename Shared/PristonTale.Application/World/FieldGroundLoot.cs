@@ -11,8 +11,6 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
     public const float PickupReach = 32f;
     public const int Capacity = 1024;
     private readonly Dictionary<Guid, Entry> _entries = new();
-    private readonly Dictionary<uint, Guid> _handles = new();
-    private uint _nextHandle;
     private readonly List<Guid> _expired = [];
     private GroundDropState[] _snapshot = [];
     private bool _dirty;
@@ -43,18 +41,10 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
 
             bool gold = drop.Kind == DropKind.Gold;
             var id = Guid.NewGuid();
-            var handle = NextHandle();
             // A sealed puzzle piece lies on the ground as the lucky bag.
             var view = drop.Sealed
                 ? new GroundDropView(id, LegacyItemCode.Parse(Puzzles.LuckyBagIcon), Puzzles.LuckyBagIcon, Puzzles.LuckyBagName, drop.Amount, false, position)
-                {
-                    Handle = handle
-                }
-                : new GroundDropView(id, drop.ItemCode, gold ? "GG101" : definition!.CatalogKey, gold ? "Gold" : definition!.Name, drop.Amount, gold, position)
-                {
-                    Handle = handle
-                };
-            _handles.Add(handle, id);
+                : new GroundDropView(id, drop.ItemCode, gold ? "GG101" : definition!.CatalogKey, gold ? "Gold" : definition!.Name, drop.Amount, gold, position);
             // As on the original server, gold, life and stamina potions expire in 90s; mana and other items in 180s.
             bool shortLived = gold || definition?.CatalogKey.StartsWith("PL", StringComparison.OrdinalIgnoreCase) == true
                 || definition?.CatalogKey.StartsWith("PS", StringComparison.OrdinalIgnoreCase) == true;
@@ -79,11 +69,9 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
         }
 
         var id = Guid.NewGuid();
-        var handle = NextHandle();
         var view = item is null
-            ? new GroundDropView(id, 0u, "GG101", "Gold", gold, true, position) { Handle = handle }
-            : new GroundDropView(id, item.Definition.Code, item.Definition.CatalogKey, item.Definition.Name, item.Count, false, position) { Handle = handle };
-        _handles.Add(handle, id);
+            ? new GroundDropView(id, 0u, "GG101", "Gold", gold, true, position)
+            : new GroundDropView(id, item.Definition.Code, item.Definition.CatalogKey, item.Definition.Name, item.Count, false, position);
         bool shortLived = item is null || item.Definition.CatalogKey.StartsWith("PL", StringComparison.OrdinalIgnoreCase)
             || item.Definition.CatalogKey.StartsWith("PS", StringComparison.OrdinalIgnoreCase);
         _entries.Add(id, new Entry(view, item, ownerId, nowMs, nowMs + (shortLived ? 90_000 : 180_000)));
@@ -174,26 +162,10 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
         }
     }
 
-    // Clients address drops by the 32-bit handle carried in the ground item record's handle field; stored item ids stay random GUIDs.
-    public Guid ResolveClientId(Guid clientId) =>
-        GroundDropHandle.TryParse(clientId, out var handle) && _handles.TryGetValue(handle, out var id) ? id : clientId;
-
-    private uint NextHandle()
-    {
-        do
-        {
-            _nextHandle++;
-        }
-        while (_nextHandle == 0 || _handles.ContainsKey(_nextHandle));
-
-        return _nextHandle;
-    }
-
     private void RemoveEntry(Guid id)
     {
-        if (_entries.Remove(id, out var entry))
+        if (_entries.Remove(id))
         {
-            _handles.Remove(entry.View.Handle);
             _dirty = true;
         }
     }

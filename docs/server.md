@@ -165,8 +165,7 @@ the same switch.
 | Packet | Handler | Application call | Reply |
 | --- | --- | --- | --- |
 | `CHECK_NETSTATE` 1-5 | inline | `ChatAppService.Heartbeat` (the standing notice) | Echo with `SParam` = server `Environment.TickCount`. |
-| `CHATMESSAGE` | `ChatAsync` | `ChatAppService.SayAsync` (spoken line, player or game-master command) | Chat lines to the hearers ([chat-and-gm.md](chat-and-gm.md)). |
-| `PARTY_CHATMSG` | `ChatAsync` | `ChatAppService.PartyAsync` | Party line to the other party members. |
+| `ChatSay` | `SayAsync` | `ChatAppService.SayAsync` (spoken line, player or game-master command) or `PartyAsync` (party flag) | Chat lines to the hearers or the other party members ([chat-and-gm.md](chat-and-gm.md)). |
 | `ID_GETUSERINFO` | `LoginAsync` | `LoginThrottle.IsBlocked`, `AuthAppService.LoginAsync`, `ISessionRegistry.TryGet` | `ID_SETUSERINFO` + `SERVER_INFO`, or `FAILCONNECT` (`WParam` code, `EParam` 2). |
 | `ISRECORDDATA` | inline | `CharacterAppService.NameExistsAsync` | Echo, `WParam` 1 when the name exists. |
 | `INSRECORDDATA` | `CreateCharacterAsync` | `CharacterAppService.CreateCharacterAsync(token, name, LParam class, SParam face)` | New list on success, then echo. |
@@ -204,7 +203,7 @@ thread-pool task, separate from the receive loop, then releases the snapshot's f
 `WARPFIELD` on a field change (after removing everything known), the events of earlier ticks the pump fell behind on
 (each tick's events after its own `PresenceClock`), `PresenceClock` before the first timeline packet of the snapshot's
 tick, `PresenceEntries` (one or more), `RemoveObjects`, `CombatEvents`, `SkillEvents`, `StatusEffects` (with the running
-statuses of entities the receiver starts seeing), `ItemEffects`, `PLAYITEM`/`DELITEM`, `OwnerStatus` with `Inventory`
+statuses of entities the receiver starts seeing), `ItemEffects`, `GroundItems`/`GroundItemsRemoved`, `OwnerStatus` with `Inventory`
 parts and `Skills` when their revisions changed, `SkillCooldowns`, then `QuestJournal` and `QuestNotices` from the
 snapshot's quest update.
 In the quest arena (field 32) the encoder leaves out other players and monsters of other players' duels. View ranges,
@@ -233,7 +232,7 @@ of the regression suite ([testing.md](testing.md#multiplayer-propagation)):
 | Description (level, equipment, looks, village flag, owner, size) | Its viewers | A new field-wide revision in the next entry; the client asks for the new `PLAYERINFO` |
 | Combat, skill and item events | The players that know its attacker or target (and the player itself) | Once, in server order, on the tick they happened; never dropped (an outbox that queues more than 4096 closes the connection) |
 | Statuses | The players that know the entity | `Add`, `Refresh`, `Remove` and ticks as they happen; a player that starts seeing the entity gets its running statuses with the time left |
-| Ground drops | Players within about 905 units; private drops only to their owner | `PLAYITEM` when they enter range, `DELITEM` on pickup, expiry or leaving range |
+| Ground drops | Players within about 905 units; private drops only to their owner | `GroundItems` when they enter range, `GroundItemsRemoved` (batched) on pickup, expiry or leaving range |
 | Owner state, inventory, skills, cooldowns, premium timers, quests | The player itself | When their revisions change |
 | Corrections | The player itself | `WARPFIELD` with `EParam` 1; viewers only ever see the authoritative position |
 

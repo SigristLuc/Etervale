@@ -1,4 +1,3 @@
-using System.Text;
 using PristonTale.Protocol.Binary;
 
 namespace PristonTale.Protocol.Packets;
@@ -29,35 +28,11 @@ public static class NpcWire
         reader.Skip(2);
     }
 
-    internal static void Text(ref PacketWriter writer, string? value, int maxBytes)
-    {
-        var bytes = Encoding.UTF8.GetBytes(Fit(value ?? "", maxBytes));
-        writer.UInt16((ushort)bytes.Length);
-        writer.Bytes(bytes);
-    }
+    internal static void Text(ref PacketWriter writer, string? value, int maxBytes) => Utf8Text.Write(ref writer, value, maxBytes);
 
-    internal static string Text(ref PacketReader reader, int maxBytes)
-    {
-        var length = reader.UInt16();
-        if (length > maxBytes)
-        {
-            throw new InvalidDataException("NPC message text is longer than its field allows.");
-        }
+    internal static string Text(ref PacketReader reader, int maxBytes) => Utf8Text.Read(ref reader, maxBytes, "NPC message");
 
-        return Encoding.UTF8.GetString(reader.Bytes(length));
-    }
-
-    internal static int TextSize(string? value, int maxBytes) => 2 + Encoding.UTF8.GetByteCount(Fit(value ?? "", maxBytes));
-
-    private static string Fit(string value, int maxBytes)
-    {
-        while (Encoding.UTF8.GetByteCount(value) > maxBytes)
-        {
-            value = value[..^1];
-        }
-
-        return value;
-    }
+    internal static int TextSize(string? value, int maxBytes) => Utf8Text.Size(value, maxBytes);
 }
 
 public readonly record struct NpcServiceEntry(byte Kind, bool Available, int Value)

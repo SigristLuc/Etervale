@@ -33,7 +33,7 @@ internal sealed partial class PresenceEncoder
     private readonly WorldDataHolder _data;
     private readonly object _gate = new();
     private readonly Dictionary<uint, Known> _known = new();
-    private readonly Dictionary<uint, GroundDropView> _drops = new();
+    private readonly Dictionary<Guid, GroundDropView> _drops = new();
     private readonly List<int> _candidates = new();
     // The entities a receiver may show at once; the nearest win in a denser crowd.
     public const int MaxVisible = 256;
@@ -42,7 +42,8 @@ internal sealed partial class PresenceEncoder
     private readonly HashSet<int> _essential = new();
     private readonly Func<int, bool> _isShown;
     private readonly MotionCandidates _pending = new(MovementBudgetBytes / PresenceWire.MotionEntrySize(0));
-    private readonly HashSet<uint> _visibleDrops = new();
+    private readonly HashSet<Guid> _visibleDrops = new();
+    private readonly List<Guid> _goneDrops = new();
     private readonly List<uint> _removed = new();
     // Entities this receiver started seeing in the snapshot being encoded; their running statuses follow.
     private readonly List<uint> _spawned = new();
@@ -547,12 +548,10 @@ internal sealed partial class PresenceEncoder
         _removed.AddRange(_known.Keys.Where(serial => serial != _self));
         _known.Clear();
         SendRemovals(connection);
-        foreach (var drop in _drops.Values)
-        {
-            SendDropRemoval(connection, drop);
-        }
-
+        _goneDrops.Clear();
+        _goneDrops.AddRange(_drops.Keys);
         _drops.Clear();
+        SendDropRemovals(connection);
     }
 
     private void SendRemovals(IPacketSink connection)
@@ -699,8 +698,8 @@ internal sealed partial class PresenceEncoder
                 continue;
             }
 
-            _visibleDrops.Add(drop.View.Handle);
-            if (_drops.TryAdd(drop.View.Handle, drop.View))
+            _visibleDrops.Add(drop.View.Id);
+            if (_drops.TryAdd(drop.View.Id, drop.View))
             {
                 _newDrops.Add(WireMapping.Drop(drop.View));
             }
@@ -713,31 +712,33 @@ internal sealed partial class PresenceEncoder
             connection.Send(_scratch.AsSpan(0, GroundItemList.Write(_scratch, batch)));
         }
 
-        _removed.Clear();
-        foreach (var handle in _drops.Keys)
+        _goneDrops.Clear();
+        foreach (var id in _drops.Keys)
         {
-            if (!_visibleDrops.Contains(handle))
+            if (!_visibleDrops.Contains(id))
             {
-                _removed.Add(handle);
+                _goneDrops.Add(id);
             }
         }
 
-        foreach (var handle in _removed)
+        foreach (var id in _goneDrops)
         {
-            if (_drops.Remove(handle, out var drop))
-            {
-                SendDropRemoval(connection, drop);
-            }
+            _drops.Remove(id);
         }
 
-        _removed.Clear();
+        SendDropRemovals(connection);
     }
 
-    private void SendDropRemoval(IPacketSink connection, GroundDropView drop)
+    private void SendDropRemovals(IPacketSink connection)
     {
-        var action = new GroundItemAction(PristonOpcodes.DelItem, 1, PristonUnits.ToFixed(drop.Position.X), PristonUnits.ToFixed(drop.Position.Y),
-            PristonUnits.ToFixed(drop.Position.Z), drop.Handle);
-        connection.Send(_scratch.AsSpan(0, action.Write(_scratch)));
+        var gone = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_goneDrops);
+        for (var offset = 0; offset < gone.Length; offset += GroundItemRemovals.MaxItems)
+        {
+            var batch = gone.Slice(offset, Math.Min(GroundItemRemovals.MaxItems, gone.Length - offset));
+            connection.Send(_scratch.AsSpan(0, GroundItemRemovals.Write(_scratch, batch)));
+        }
+
+        _goneDrops.Clear();
     }
 
     private void SendOwner(OwnerState? owner, IPacketSink connection)

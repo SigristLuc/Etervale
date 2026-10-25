@@ -1,7 +1,6 @@
 namespace PristonTale.Simulation.Social;
 
-// Limits and timings of the chat that client and server share. Text is single-byte (Windows-1252), so characters and
-// bytes count the same.
+// Limits and timings of the chat that client and server share. Limits count characters; the wire carries UTF-8.
 public static class ChatRules
 {
     // The input line accepts this many characters, and the composed "Name: text" line is cut to it before sending.
@@ -11,7 +10,7 @@ public static class ChatRules
     public const int RelayLimit = 70;
     public const int RelayKeep = 68;
 
-    // The message field holds 256 bytes including its terminator.
+    // A line is cut to this many characters.
     public const int MessageCapacity = 255;
 
     // Spoken lines reach players closer than 0x48000 squared world units (about 543 units).

@@ -19,7 +19,6 @@ namespace PristonTale.Client.Net.Online;
 // (PresenceEntry.Revision) requests a fresh description.
 internal sealed class PresenceDecoder
 {
-    private const uint GoldCode = 0x05010100;
     private const long DescriptionRetryMs = 1000;
     // The receive loop decodes; the connection's timer retries descriptions.
     private readonly object _gate = new();
@@ -83,8 +82,8 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.EntityDescription => OnDescription(EntityDescriptionPacket.Read(packet)),
             EtervaleOpcodes.RemoveObjects => OnRemoved(RemoveObjectList.Read(packet)),
             EtervaleOpcodes.CombatEvents => OnCombatEvents(CombatEventList.Read(packet)),
-            PristonOpcodes.PlayItem => OnGroundItems(GroundItemList.Read(packet)),
-            PristonOpcodes.DelItem => OnGroundItemRemoved(GroundItemAction.Read(packet)),
+            EtervaleOpcodes.GroundItems => OnGroundItems(GroundItemList.Read(packet)),
+            EtervaleOpcodes.GroundItemsRemoved => Update([], []) with { GroundRemoved = GroundItemRemovals.Read(packet) },
             PristonOpcodes.WarpField => OnWarpField(TransCommand.Read(packet)),
             EtervaleOpcodes.OwnerStatus => OnOwnerStatus(OwnerStatusPacket.Read(packet)),
             EtervaleOpcodes.Inventory => OnInventory(InventoryPartPacket.Read(packet)),
@@ -101,21 +100,21 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.RestartOffer => OnRestartOffer(RestartOfferPacket.Read(packet)),
             EtervaleOpcodes.QuestJournal => Update([], []) with { Quest = QuestWireReader.ToView(QuestJournalPacket.Read(packet)) },
             EtervaleOpcodes.QuestNotices => OnQuestNotices(QuestNoticesPacket.Read(packet)),
-            PristonOpcodes.WhisperMessage or PristonOpcodes.ChatMessage => OnChat(ChatMessagePacket.Read(packet)),
+            EtervaleOpcodes.ChatLine => OnChat(ChatLinePacket.Read(packet)),
             PristonOpcodes.CloseClient => Update([], []) with { CloseRequested = true },
             _ => null
         };
         return update is not null || code is EtervaleOpcodes.PresenceEntries or EtervaleOpcodes.EntityDescription or EtervaleOpcodes.RemoveObjects
-            or EtervaleOpcodes.CombatEvents or PristonOpcodes.PlayItem or PristonOpcodes.DelItem or PristonOpcodes.WarpField
+            or EtervaleOpcodes.CombatEvents or EtervaleOpcodes.GroundItems or EtervaleOpcodes.GroundItemsRemoved or PristonOpcodes.WarpField
             or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills or EtervaleOpcodes.PresenceClock
             or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult
             or EtervaleOpcodes.ItemDetails or EtervaleOpcodes.OwnerItemStatus
             or EtervaleOpcodes.PremiumTimers or EtervaleOpcodes.ItemEffects or EtervaleOpcodes.RestartOffer or EtervaleOpcodes.QuestJournal or EtervaleOpcodes.QuestNotices
-            or PristonOpcodes.WhisperMessage or PristonOpcodes.ChatMessage or PristonOpcodes.CloseClient;
+            or EtervaleOpcodes.ChatLine or PristonOpcodes.CloseClient;
     }
 
-    private PresenceUpdate OnChat(ChatMessagePacket packet) =>
-        Update([], []) with { Chat = [new ChatLineInfo(packet.Ip, packet.ObjectSerial, packet.Message, packet.Code == PristonOpcodes.ChatMessage)] };
+    private PresenceUpdate OnChat(ChatLinePacket packet) =>
+        Update([], []) with { Chat = [new ChatLineInfo(packet.Kind, Serial(packet.Speaker), packet.Text)] };
 
     private PresenceUpdate OnQuestNotices(QuestNoticesPacket packet) =>
         Update([], []) with { QuestNotices = QuestWireReader.ToNotices(packet.Notices), QuestPrompt = QuestWireReader.ToPrompt(packet.Prompt) };
@@ -391,17 +390,12 @@ internal sealed class PresenceDecoder
         var added = new List<GroundDropView>(items.Length);
         foreach (var item in items)
         {
-            var gold = item.ItemCode == GoldCode;
-            var key = gold ? "GG101" : LegacyItemCode.TryFormat(item.ItemCode, out var code) ? code : "";
-            added.Add(new GroundDropView(GroundDropHandle.ToGuid(item.Handle), item.ItemCode, key, item.Name, item.Amount, gold,
-                Position(item.X, item.Y, item.Z)) { Handle = item.Handle });
+            var key = item.Gold ? "GG101" : LegacyItemCode.TryFormat(item.ItemCode, out var code) ? code : "";
+            added.Add(new GroundDropView(item.Id, item.ItemCode, key, item.Name, item.Amount, item.Gold, Position(item.X, item.Y, item.Z)));
         }
 
         return Update([], []) with { GroundAdded = added };
     }
-
-    public PresenceUpdate OnGroundItemRemoved(GroundItemAction action) =>
-        Update([], []) with { GroundRemoved = [GroundDropHandle.ToGuid(action.Handle)] };
 
     // WARPFIELD {WParam = FieldCode, SParam = x, LParam = z}; Etervale sets EParam = 1 when it rejects a report.
     public PresenceUpdate OnWarpField(TransCommand command)

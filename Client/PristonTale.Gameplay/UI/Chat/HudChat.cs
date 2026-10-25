@@ -52,12 +52,6 @@ public sealed class HudChat
 
     public void Receive(ChatLineInfo line, double nowMs)
     {
-        if (line.Direct)
-        {
-            Window.Log.Add(line.Text, line.Kind);
-            return;
-        }
-
         var (kind, _) = line.SpeakerId == 0 ? (RemoteEntityKind.Unspecified, 0u) : Lookup(line.SpeakerId);
         if (kind != RemoteEntityKind.Unspecified && line.Kind != HudChatLog.PartyKind)
         {

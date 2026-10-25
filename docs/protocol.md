@@ -32,8 +32,8 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Packets/RecordData.cs` | Character record (1776-byte fixed part), `RecordDataChunks.Split` and `RecordDataAssembler`. |
 | `Packets/UserCharacterList.cs` | `ID_SETUSERINFO` character list (1484 B, six 240-byte slots). |
 | `Packets/AttackDamagePacket.cs` | 92-byte `ATTACK_DAMAGE` with the damage checksum and damage cipher. |
-| `Packets/GroundItems.cs` | `PLAYITEM` list, `DELITEM`/`PUTITEM` action, chat message packet. |
-| `Packets/ChatInputPacket.cs`, `ChatChannelCode.cs` | The typed chat line the client sends; chat kinds on the wire. |
+| `Packets/GroundItemPackets.cs` | `GroundItems` and `GroundItemsRemoved`. |
+| `Packets/ChatPackets.cs`, `ChatChannelCode.cs` | `ChatSay` (typed line), `ChatLine` (received line); chat kinds on the wire. |
 | `Packets/EtervalePackets.cs` | Owner status, inventory parts, skills, inventory/progression commands and results, combat events, removals, presence clock. |
 | `Packets/ItemPackets.cs` | Owner item details (`ItemDetailEntry`, `ItemDetailsPartPacket`) and the equipment status (`OwnerItemStatusPacket`). |
 | `Packets/SkillPackets.cs` | Skill cast, cast result, skill events, status effects, cooldowns. |
@@ -125,9 +125,6 @@ request (`FAILCONNECT` -16, a record echo with `WParam` 0, or entry failure `Rej
 | `DescribeEntity` / `EntityDescription` (`0x45540901` / `0x45540902`) | C→S / S→C | Describes an unknown object or one whose description revision changed (see [Entity descriptions](#entity-descriptions)). Monsters and NPCs are cached by template; owned summons and crystal pets carry template 0 in their presence entries and are always described on their own. The client asks again after a second without an answer (the server drops requests beyond its bucket). |
 | `WARPFIELD` | S→C | `{WParam field, SParam x, LParam z}` confirms a field change; `EParam` = 1 marks a correction after a rejected report or a teleport. |
 | `ATTACK_DAMAGE` | C→S | Attack data packet with the original damage checksum and damage cipher keyed by the sender's serial. Monster: attack lock (`AttackState` bit 0 held, `AttackCount` = sequence). NPC: opens it. |
-| `PLAYITEM` / `DELITEM` | S→C | Ground items within the ground-item range (squared `0xC8000` units, about 905 units); up to 16 records per `PLAYITEM`. `lpStgArea` carries the drop handle and `type` the quantity. Private drops go only to their owner. |
-| `CHATMESSAGE` / `PARTY_CHATMSG` | C→S | A typed line `{size, code, text}` (size 9 + length; `ChatInputPacket`): spoken line or command, or a party line. |
-| `CHATMESSAGE` / `WHISPERMESSAGE` | S→C | `{size, code, kind, speaker serial, text}` (size 32 + length): a line over a character, or a line for the log only. Kinds and routing: [chat-and-gm.md](chat-and-gm.md#wire). |
 | `CLOSECLIENT` | S→C | Asks the client to quit (the end of a game master's shutdown countdown). |
 
 `Power` in `ATTACK_DAMAGE` is ignored. Field values that differ from the original:
@@ -194,6 +191,8 @@ keep the `{size, code}` header and the 8192-byte frame limit.
 | `0x45540503` | `QuestNotices` | S→C | Quest notices of the world tick and a quest dialog the world opened. |
 | `0x45540A00` / `0x45540A01` | `RestartRequest` / `RestartResult` | C→S / S→C | A dead player's restart (field, town, exit), correlated by operation id; a stored restart also sends a forced `WARPFIELD`. |
 | `0x45540A02` | `RestartOffer` | S→C | While the owner is dead, what a restart would cost, whenever it changes. |
+| `0x45540B00` / `0x45540B01` | `GroundItems` / `GroundItemsRemoved` | S→C | Drops entering and leaving the receiver's view: within the ground-item range (squared `0xC8000` units, about 905 units), private drops only to their owner. |
+| `0x45540C00` / `0x45540C01` | `ChatLine` / `ChatSay` | S→C / C→S | A chat line for the receiver; a typed line (spoken, command or party). Layouts and routing: [chat-and-gm.md](chat-and-gm.md#wire). |
 
 ### Owner, inventory and combat layouts
 
@@ -208,6 +207,8 @@ These bodies have no version header.
 | `Skills` | `int64 Revision, int32 Count`, then `{uint Code, int32 Rank}` | 20 + 8n |
 | `CombatEvents` | `int32 Count`, then entries of 56 bytes | 12 + 56n |
 | `RemoveObjects` | `int32 Count`, then `uint64 Serial` | 12 + 8n |
+| `GroundItems` | `uint16 Version (1), uint16 Flags, int32 Count`, then `{Guid Id, uint32 ItemCode, uint8 Flags (1 gold), uint8 0, uint16 0, int32 Amount, X, Y, Z, text Name (64 B)}` (1 to 64) | 16 + up to 106n |
+| `GroundItemsRemoved` | `uint16 Version (1), uint16 Flags, int32 Count`, then `Guid Id` | 16 + 16n |
 | `ItemDetails` | `uint16 Version (1), uint16 Flags, int64 Revision, int32 Part, Parts, Count`, then 220-byte entries (at most 24) | 32 + 220n |
 | `OwnerItemStatus` | `uint16 Version (1), uint16 Flags, int32 CarriedWeight, MaxWeight, CriticalChance, BlockChance, ShootingRange, AttackSpeed, PotionSpace, float LifeRegen, ManaRegen, StaminaRegen, MagicMastery, int16 Resistances[8]` | 72 |
 

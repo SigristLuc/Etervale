@@ -216,8 +216,9 @@ internal static class WireMapping
     }
 
     public static GroundItemEntry Drop(GroundDropView drop) => new(
-        drop.Handle,
+        drop.Id,
         drop.Gold ? LegacyItemCode.Parse("GG101") : drop.ItemCode,
+        drop.Gold,
         drop.Amount,
         PristonUnits.ToFixed(drop.Position.X),
         PristonUnits.ToFixed(drop.Position.Y),

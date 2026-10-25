@@ -16,7 +16,7 @@ internal sealed partial class ClientSession
     private long _packetsSent;
     private ChatLink? _chatLink;
 
-    private async Task SayAsync(ChatInputPacket input, bool party)
+    private async Task SayAsync(ChatSayPacket input)
     {
         var session = _session;
         if (session is null || _player is null)
@@ -24,7 +24,7 @@ internal sealed partial class ClientSession
             return;
         }
 
-        if (party)
+        if (input.Party)
         {
             await _services.Chat.PartyAsync(session.EntityId, input.Text);
         }
@@ -51,11 +51,10 @@ internal sealed partial class ClientSession
         }
     }
 
-    // A chat line always travels as the server's whisper message, which carries the kind and the speaker's serial.
     private void SendChat(ChatLine line)
     {
-        var packet = new ChatMessagePacket(PristonOpcodes.WhisperMessage, (uint)line.Kind, line.SpeakerId, line.Text);
-        SendLarge(packet.Write, ChatMessagePacket.HeaderSize + ChatMessagePacket.MessageLength + 16, encrypt: true);
+        var packet = new ChatLinePacket((byte)line.Kind, line.SpeakerId, line.Text);
+        SendLarge(packet.Write, ChatLinePacket.MaxSize, encrypt: true);
     }
 
     private sealed class ChatLink(ClientSession owner) : IChatLink

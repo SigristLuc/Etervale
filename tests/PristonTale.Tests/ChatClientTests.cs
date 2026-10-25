@@ -13,7 +13,7 @@ internal static class ChatClientTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("typed chat lines and server chat lines keep their classic layouts on the wire", WireAsync);
+        yield return ("typed and received chat lines carry UTF-8 text and 64-bit speakers", WireAsync);
         yield return ("the chat log files lines into the five tabs and the assistant page with their colours", LogAsync);
         yield return ("the chat input composes per tab, keeps a command history and follows the flood rules", InputAsync);
         yield return ("received lines become bubbles over characters in view, other lines go to the log, whispers open the window", ReceiveAsync);
@@ -23,37 +23,33 @@ internal static class ChatClientTests
     private static Task WireAsync()
     {
         var buffer = new byte[PristonFrameCodec.MaxFrameSize];
-        var size = new ChatInputPacket(PristonOpcodes.ChatMessage, "/:Bob hello").Write(buffer);
-        Assert.True(size == 9 + 11 && BitConverter.ToInt32(buffer, 0) == size && buffer[8] == (byte)'/' && buffer[size - 1] == 0,
-            "a typed line must be {size, code, text, NUL} with size 9 + length");
-        var read = ChatInputPacket.Read(buffer.AsSpan(0, size));
-        Assert.True(read == new ChatInputPacket(PristonOpcodes.ChatMessage, "/:Bob hello"), $"typed line read back as {read}");
-        var party = ChatInputPacket.Read(buffer.AsSpan(0, new ChatInputPacket(PristonOpcodes.PartyChatMessage, "pull").Write(buffer)));
-        Assert.True(party.Code == 0x48471015 && party.Text == "pull", "party lines use their own code");
-        buffer[size - 1] = (byte)'x';
-        var unterminated = false;
-        try
-        {
-            ChatInputPacket.Read(buffer.AsSpan(0, size));
-        }
-        catch (InvalidDataException)
-        {
-            unterminated = true;
-        }
+        var say = new ChatSayPacket(false, "/:Bob olá ✓");
+        var size = say.Write(buffer);
+        Assert.True(size == 8 + 4 + 2 + System.Text.Encoding.UTF8.GetByteCount(say.Text) && BitConverter.ToInt32(buffer, 0) == size,
+            "a typed line must be {header, version, channel, UTF-8 text}");
+        Assert.True(ChatSayPacket.Read(buffer.AsSpan(0, size)) == say, "typed line did not read back");
+        var party = ChatSayPacket.Read(buffer.AsSpan(0, new ChatSayPacket(true, "pull").Write(buffer)));
+        Assert.True(party.Party && party.Text == "pull", "party lines lost their channel");
+        size = say.Write(buffer);
+        buffer[10] = 2;
+        Assert.ThrowsAsync(() => Task.Run(() => ChatSayPacket.Read(buffer.AsSpan(0, size).ToArray()))).Wait();
+        var cut = new ChatSayPacket(false, new string('é', ChatWire.MaxTextBytes));
+        Assert.True(ChatSayPacket.Read(buffer.AsSpan(0, cut.Write(buffer))).Text.Length == ChatWire.MaxTextBytes / 2,
+            "a long line must be cut at a whole character");
 
-        Assert.True(unterminated, "an unterminated typed line was accepted");
         var decoder = new PresenceDecoder(new WorldRenderCatalog(), static _ => { });
-        var line = new ChatMessagePacket(PristonOpcodes.WhisperMessage, ChatChannelCode.Whisper, 0, "From> Ann: hi");
+        var line = new ChatLinePacket(ChatChannelCode.Whisper, 0, "From> Ann: hi");
         Assert.True(decoder.TryHandle(buffer.AsSpan(0, line.Write(buffer)), out var update)
-            && update!.Chat.Single() == new ChatLineInfo(1, 0, "From> Ann: hi", false), "a server chat line did not decode");
-        var spoken = new ChatMessagePacket(PristonOpcodes.WhisperMessage, ChatChannelCode.Player, 42, "Ann: hello");
-        Assert.True(spoken.Write(buffer) == 32 + "Ann: hello".Length, "server chat lines are sized 32 + the text length");
-        var direct = new ChatMessagePacket(PristonOpcodes.ChatMessage, ChatChannelCode.Server, 0, "direct");
-        Assert.True(decoder.TryHandle(buffer.AsSpan(0, direct.Write(buffer)), out update) && update!.Chat.Single().Direct, "a direct line lost its kind");
+            && update!.Chat.Single() == new ChatLineInfo(1, 0, "From> Ann: hi"), "a server chat line did not decode");
+        var spoken = new ChatLinePacket(ChatChannelCode.Player, 42, "Ann: olá");
+        Assert.True(decoder.TryHandle(buffer.AsSpan(0, spoken.Write(buffer)), out update)
+            && update!.Chat.Single() == new ChatLineInfo(0x80, 42, "Ann: olá"), "a spoken line lost its speaker or text");
+        var wide = new ChatLinePacket(ChatChannelCode.Player, 1UL << 40, "far");
+        Assert.True(ChatLinePacket.Read(buffer.AsSpan(0, wide.Write(buffer))).Speaker == 1UL << 40, "64-bit speakers round trip");
         var close = new TransCommand(PristonOpcodes.CloseClient, 0, 0);
         Assert.True(decoder.TryHandle(buffer.AsSpan(0, close.Write(buffer)), out update) && update!.CloseRequested, "the close request did not decode");
-        Assert.True(ChatChannelCode.Party == (uint)Application.Chat.ChatKind.Party && ChatChannelCode.Player == (uint)Application.Chat.ChatKind.Player
-            && ChatChannelCode.Assist == (uint)Application.Chat.ChatKind.Assist, "the wire channel codes and the chat kinds must stay equal");
+        Assert.True(ChatChannelCode.Party == (byte)Application.Chat.ChatKind.Party && ChatChannelCode.Player == (byte)Application.Chat.ChatKind.Player
+            && ChatChannelCode.Assist == (byte)Application.Chat.ChatKind.Assist, "the wire channel codes and the chat kinds must stay equal");
         return Task.CompletedTask;
     }
 
@@ -175,23 +171,23 @@ internal static class ChatClientTests
         };
         var whispers = 0;
         chat.WhisperArrived += () => whispers++;
-        chat.Receive(new ChatLineInfo(0x80, 2, "Bob: hi", false), 1000);
+        chat.Receive(new ChatLineInfo(0x80, 2, "Bob: hi"), 1000);
         Assert.True(chat.Bubbles.TryGet(2, out var bubble) && bubble == "Bob: hi" && chat.Window.Log.Newest(HudChatTab.All, 0).First() == new HudChatEntry("Bob: hi", 0x80),
             "a visible player's line must show over the player and in the log");
-        chat.Receive(new ChatLineInfo(0, 3, "Lena: welcome", false), 1000);
+        chat.Receive(new ChatLineInfo(0, 3, "Lena: welcome"), 1000);
         Assert.True(chat.Bubbles.TryGet(3, out _) && chat.Window.Log.Count(HudChatTab.All) == 1, "an NPC's line belongs over the NPC only");
-        chat.Receive(new ChatLineInfo(4, 2, "Bob: party", false), 1000);
+        chat.Receive(new ChatLineInfo(4, 2, "Bob: party"), 1000);
         Assert.True(chat.Bubbles.TryGet(2, out bubble) && bubble == "Bob: hi" && chat.Window.Log.Newest(HudChatTab.Party, 0).First().Text == "Bob: party",
             "party lines go to the log without a bubble");
-        chat.Receive(new ChatLineInfo(0x80, 9, "Far: away", false), 1000);
+        chat.Receive(new ChatLineInfo(0x80, 9, "Far: away"), 1000);
         Assert.True(!chat.Bubbles.TryGet(9, out _) && chat.Window.Log.Newest(HudChatTab.All, 0).First().Text == "Far: away", "a line from a speaker out of view");
         Assert.True(!chat.Window.Open && whispers == 0, "the window opened for an ordinary line");
-        chat.Receive(new ChatLineInfo(1, 0, "From> Bob: psst", false), 1000);
+        chat.Receive(new ChatLineInfo(1, 0, "From> Bob: psst"), 1000);
         Assert.True(chat.Window.Open && !chat.Window.Focused && whispers == 1, "a whisper must open the closed window with the sound");
-        chat.Receive(new ChatLineInfo(1, 0, "From> Bob: again", false), 1000);
+        chat.Receive(new ChatLineInfo(1, 0, "From> Bob: again"), 1000);
         Assert.True(whispers == 1, "the sound must play only when the window was closed");
-        chat.Receive(new ChatLineInfo(0, 0, "server", true), 1000);
-        Assert.True(chat.Window.Log.Newest(HudChatTab.All, 0).First() == new HudChatEntry("server", 0), "a direct line");
+        chat.Receive(new ChatLineInfo(0, 0, "server"), 1000);
+        Assert.True(chat.Window.Log.Newest(HudChatTab.All, 0).First() == new HudChatEntry("server", 0), "a server line");
         Assert.True(chat.NameColor(4, 0) == new Microsoft.Xna.Framework.Color(220, 255, 160) && chat.NameColor(3, 0) == new Microsoft.Xna.Framework.Color(180, 180, 255)
             && chat.NameColor(2, 2) == Microsoft.Xna.Framework.Color.White, "bubble name colours changed");
         Assert.True(HudChatWindow.WhisperPartner(new HudChatEntry("From> Bob: psst", 1)) == "Bob" && HudChatWindow.WhisperPartner(new HudChatEntry("To> Cid: x", 1)) == "Cid"

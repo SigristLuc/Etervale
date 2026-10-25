@@ -2,7 +2,7 @@ namespace PristonTale.Application.Chat;
 
 // The kind of a chat line; the value is the colour and filter code the client reads (the wire copy is
 // PristonTale.Protocol.Packets.ChatChannelCode).
-public enum ChatKind : uint
+public enum ChatKind : byte
 {
     // Replies to the player's own commands and other server lines (orange-red).
     Server = 0,

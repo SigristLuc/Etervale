@@ -35,7 +35,7 @@ How the tick calls these rules belongs to [application.md](application.md).
 | `World/Spawning/FieldSpawner.cs` | Population pass, idle despawn, scheduled bosses; `SpawnSeams.cs` holds `IPlayerProximity`, `ISpawnSink` |
 | `World/Spawning/SpawnCadence.cs` | Optional bitmask spawn cadence on a 70 Hz frame clock |
 | `World/Spawning/BossSpawnSchedule.cs` | Server-wide hourly boss pass at a random minute per day |
-| `World/Loot/` | `DropTable`, `DropRoller`, `KillReward` (experience and kill credit), `GroundDropView`/`GroundDropHandle` |
+| `World/Loot/` | `DropTable`, `DropRoller`, `KillReward` (experience and kill credit), `GroundDropView` |
 | `World/Motion/` | `MotionClip`, `MotionStateCode`, `MotionTiming`, `MotionTimingSet`/`MotionTimingCatalog`, player fallbacks |
 | `World/Motion/PlayerEquipmentTiming.cs` | Generated table of player attack clips by job and weapon key; do not hand-edit |
 | `World/Npcs/` | `NpcDefinition`, `NpcCatalog`, typed services (`NpcServiceKind`), service commands and replies, shop and warehouse rules, teleport routes, sound code map |
@@ -385,8 +385,7 @@ award wraps or throws). The server passes `World:ExperienceMultiplier`.
 and hit within the last 15 s (`FirstAttackerDisengageMs`).
 
 Drops settle on the floor within 32 units of the corpse. `DropTable.AllPlayersSeeDrops` makes a drop public at once;
-lifetimes and the owner window live in `FieldGroundLoot` ([application.md](application.md)). `GroundDropHandle` maps
-the 32-bit wire handle to a GUID whose other 12 bytes are zero.
+lifetimes and the owner window live in `FieldGroundLoot` ([application.md](application.md)).
 
 ## Motion timing
 

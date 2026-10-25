@@ -198,7 +198,7 @@ a pending buffer flushed by a single writer task (a backlog above 512 KiB closes
   status revisions match the received inventory and skills revisions. `OwnerItemDecoder` keeps the `ItemDetails` parts
   of a revision (attached to the items as `OwnedItemView.Details`) and the latest `OwnerItemStatus` (weight, critical,
   block, range, regeneration, resistances), folded into each published owner state.
-- Also decoded: `RemoveObjects`, `CombatEvents`, ground items (PLAYITEM/DELITEM), WARPFIELD, `PresenceClock` (sets the
+- Also decoded: `RemoveObjects`, `CombatEvents`, ground items (`GroundItems`/`GroundItemsRemoved`), WARPFIELD, `PresenceClock` (sets the
   server time stamped on later updates), skill events, status effects, cooldowns and cast results
   ([skills.md](skills.md)).
 

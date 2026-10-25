@@ -1,6 +1,6 @@
 # Chat and game masters
 
-The chat end to end: the chat window and speech bubbles on the client, the original chat messages on the wire, the
+The chat end to end: the chat window and speech bubbles on the client, the chat messages on the wire, the
 server's routing of spoken lines, whispers, trade, clan and party lines and notices, and the game-master commands with
 their account levels and audit trail. The server decides who hears a line and who may run a command; the client only
 composes, shows and limits what the player types.
@@ -28,7 +28,7 @@ composes, shows and limits what the player types.
 | `.../GameMasters/GameMasterServices.cs` | `GameMasterOptions`, `IServerOperations`, item-creation overrides |
 | `.../GameMasters/ShutdownCountdown.cs`, `CurrencyLedger.cs`, `GmGifts.cs` | Shutdown notices; gold that left the economy; durable item gifts |
 | `Shared/PristonTale.Application/World/WorldServer.Chat.cs`, `WorldServer.GameMasters.cs` | Tick-side reads and changes |
-| `Shared/PristonTale.Protocol/Packets/ChatInputPacket.cs`, `ChatChannelCode.cs` | The typed line the client sends; chat kinds on the wire |
+| `Shared/PristonTale.Protocol/Packets/ChatPackets.cs`, `ChatChannelCode.cs` | The typed line the client sends and the lines it receives; chat kinds on the wire |
 | `Server/PristonTale.Server/Net/ClientSession.Chat.cs` | `IChatLink` over the session: chat lines, forced warps, close requests |
 | `Server/PristonTale.Server/Net/GameServerControl.cs` | `IServerOperations` for the host: user limit, blocked logins, shutdown |
 | `Persistence/.../GameMasters/IGameMasterRepository.cs`, `Repositories/DapperGameMasterRepository.cs` | Level, audit, character moves |
@@ -40,18 +40,17 @@ composes, shows and limits what the player types.
 
 ## Wire
 
-Original messages only; no extension opcode is used.
+Bodies start with `uint16 Version = 1`; text is UTF-8 with a `uint16` byte length (at most 1024 bytes, cut at a whole
+character).
 
 | Direction | Message | Body |
 | --- | --- | --- |
-| Client to server | Chat message `0x48471001` | Size, code, NUL-terminated text (size 9 + length) |
-| Client to server | Party chat `0x48471015` | Same body; the text goes to the party |
-| Server to client | Chat message `0x48471001` | Size, code, kind, speaker serial, text (size 32 + length): a line over a character |
-| Server to client | Whisper message `0x48471005` | Same body: a line for the log only |
+| Client to server | `ChatSay` `0x45540C01` | `uint8 Party (0 spoken line or command, 1 party), uint8 0, text` |
+| Server to client | `ChatLine` `0x45540C00` | `uint8 Kind, uint8 0, uint64 Speaker (0 for server lines), text`: over the speaker when the receiver sees it, else in the log |
 | Server to client | Close client `0x484700E6` | The client saves nothing more and quits (the shutdown) |
 
 Kinds: 0 server, 1 whisper, 2 system, 3 notice, 4 party, 5 clan, 6 trade, 9 assistant; a player's spoken line carries
-`0x80`. Text uses the classic single-byte code page; the input refuses characters it cannot encode.
+`0x80`. The wire carries any character; the input accepts only what the HUD font draws (the single-byte code page).
 
 ## Server routing
 

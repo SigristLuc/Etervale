@@ -289,7 +289,7 @@ summon status ends. Charmed wild monsters become summons for the charm duration.
 
 - At most 1024 drops per field. Non-public drops (monster without `AllPlayersSeeDrops`) belong to the credited player
   for 5 s. Lifetime 90 s for gold and catalog keys starting `PL`/`PS`, 180 s otherwise.
-- Clients address drops by a 32-bit handle packed into a GUID (`GroundDropHandle`); `ResolveClientId` maps it back.
+- Clients address drops by the drop's GUID, which `GroundItems` carries and the pick-up command names.
 - Pickup reserves a drop by operation id (`TryReserve`, reach 32 units); a reserved drop does not expire. `Resolve`
   removes it on commit or releases it on abort. Inventory-delivered drops (`ToInventory`) throw `NotSupportedException`.
 - The reserved copy keeps the rolled values of the drop under the drop's id. A pickup that would carry the character

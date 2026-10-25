@@ -27,15 +27,9 @@ public static class PristonOpcodes
     public const uint AddExp = 0x48470031;
     public const uint PlayerInfo2 = 0x48470032;
     public const uint WarpField = 0x48470040;
-    public const uint PlayItem = 0x48470050;
-    public const uint DelItem = 0x48470051;
-    public const uint PutItem = 0x48470052;
     public const uint ServerInfo = 0x484700C0;
     public const uint CloseClient = 0x484700E6;
     public const uint SaveClient = 0x484700E8;
-    public const uint ChatMessage = 0x48471001;
-    public const uint WhisperMessage = 0x48471005;
-    public const uint PartyChatMessage = 0x48471015;
 
     public const uint AttackDamage = 0x50322000;
     public const uint AttackResult = 0x50322020;
@@ -90,4 +84,10 @@ public static class EtervaleOpcodes
     public const uint RestartRequest = 0x45540A00;
     public const uint RestartResult = 0x45540A01;
     public const uint RestartOffer = 0x45540A02;
+
+    public const uint GroundItems = 0x45540B00;
+    public const uint GroundItemsRemoved = 0x45540B01;
+
+    public const uint ChatLine = 0x45540C00;
+    public const uint ChatSay = 0x45540C01;
 }
