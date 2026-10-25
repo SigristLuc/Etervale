@@ -420,9 +420,9 @@ public sealed partial class FieldInstance
 
     private void DismissHelper(Duel duel)
     {
-        if (duel.HelperId != 0 && _monsters.Remove(duel.HelperId, out _))
+        if (duel.HelperId != 0)
         {
-            _combat.ForgetMonster(duel.HelperId);
+            RemoveMonster(duel.HelperId);
         }
 
         duel.HelperId = 0;
@@ -491,9 +491,6 @@ public sealed partial class FieldInstance
             }
         }
 
-        if (_monsters.Remove(opponentId, out _))
-        {
-            _combat.ForgetMonster(opponentId);
-        }
+        RemoveMonster(opponentId);
     }
 }

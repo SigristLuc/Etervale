@@ -26,11 +26,7 @@ public sealed partial class FieldInstance : IFieldMonsterSkillHost
     MonsterInstance IFieldMonsterSkillHost.SpawnMonster(MonsterDefinition definition, Vector3 position, float facing, int spawnPointIndex) =>
         ((ISpawnSink)this).Spawn(definition, position, spawnPointIndex, facing);
 
-    void IFieldMonsterSkillHost.RemoveMonster(uint entityId)
-    {
-        _monsters.Remove(entityId);
-        _combat.ForgetMonster(entityId);
-    }
+    void IFieldMonsterSkillHost.RemoveMonster(uint entityId) => RemoveMonster(entityId);
 
     bool IFieldMonsterSkillHost.ApplyStatus(uint entity, EffectSpec spec, float durationMs, uint source) =>
         _skills.ApplyMonsterStatus(entity, spec, durationMs, source);

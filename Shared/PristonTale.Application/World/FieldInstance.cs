@@ -191,8 +191,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         IReadOnlyList<MonsterInstance> expired = _spawner.MaintainDespawns(dtMs, _liveScratch, this);
         for (int i = 0; i < expired.Count; i++)
         {
-            _monsters.Remove(expired[i].EntityId, out _);
-            _combat.ForgetMonster(expired[i].EntityId);
+            RemoveMonster(expired[i].EntityId);
         }
 
         // The shared world clock emits one pass for all fields, independent of player entry.
@@ -597,7 +596,26 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
     IReadOnlyList<PreyCandidate> IFieldCombatHost.NearbyPlayers(Vector3 origin, float radius) => _prey.Nearby(origin, radius);
 
-    void IFieldCombatHost.DespawnMonster(uint entityId) => _monsters.Remove(entityId, out _);
+    void IFieldCombatHost.DespawnMonster(uint entityId)
+    {
+        if (_monsters.Remove(entityId, out _))
+        {
+            _ids.Release(entityId);
+        }
+    }
+
+    // Removes a monster from the field and its combat state and releases its id.
+    private bool RemoveMonster(uint entityId)
+    {
+        if (!_monsters.Remove(entityId, out _))
+        {
+            return false;
+        }
+
+        _combat.ForgetMonster(entityId);
+        _ids.Release(entityId);
+        return true;
+    }
 
     // Asked for every monster and spawn point each tick: during the spawner pass the prey index (players at the start of
     // the step, which they keep until the players' own step) answers it without visiting every player.

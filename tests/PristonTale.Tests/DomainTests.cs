@@ -20,6 +20,7 @@ internal static class DomainTests
     {
         yield return ("saved attributes survive entry/save and level-up grants allocation points", AttributesAsync);
         yield return ("session and character ownership are exclusive", SessionsAsync);
+        yield return ("monster ids wrap to the base of their range and skip ids still in use", MonsterIdsAsync);
         yield return ("world mailbox defers mutations and protects writer ownership", MailboxAsync);
         yield return ("field transfers use catalog placement and refresh respawn/village", TransfersAsync);
         yield return ("authoritative field transfer keeps a ground move in progress", RunningTransferAsync);
@@ -56,6 +57,20 @@ internal static class DomainTests
         var character = session.Character!;
         character.LevelUp();
         Assert.True(character.Attributes.Strength == 123 && character.StatPoints == 5, "level up redistributed attributes instead of granting points");
+    }
+
+    private static Task MonsterIdsAsync()
+    {
+        var ids = new EntityIdAllocator();
+        var first = ids.NextMonsterId();
+        var second = ids.NextMonsterId();
+        Assert.True(first == EntityIdAllocator.MonsterIdBase && second == first + 1, "monster ids do not start at the base");
+        ids.Release(second);
+        ids.Rewind(uint.MaxValue - 1);
+        Assert.True(ids.NextMonsterId() == uint.MaxValue, "the top of the range was skipped");
+        Assert.True(ids.NextMonsterId() == second, "the counter did not wrap to the base past the live id");
+        Assert.True(ids.LiveCount == 3, $"live ids {ids.LiveCount}");
+        return Task.CompletedTask;
     }
 
     private static async Task SessionsAsync()

@@ -53,7 +53,7 @@ into it is described in [server.md](server.md); skill resolution details are in 
 | `World/PlayerSkillCooldowns.cs` | Cooldowns on the field clock, rebased on field change, revisioned for snapshots |
 | `World/WorldData*.cs`, `FieldTerrainCatalog.cs` | Catalogs loaded at startup (`WorldDataAppService.BuildAsync`), held in volatile holders |
 | `World/WorldStatusReadModel.cs`, `ServerStatus.cs` | Lock-free player and per-field counts for status reporting |
-| `World/EntityIdAllocator.cs` | Thread-safe monster/NPC/summon ids from `0x4000_0000` |
+| `World/EntityIdAllocator.cs` | Thread-safe monster/NPC/summon ids from `0x4000_0000`; removed monsters release theirs, and the counter wraps to the base skipping live ids |
 
 The project references only `PristonTale.Simulation` and `PristonTale.Persistence.Abstractions`, and exposes internals
 to `PristonTale.Tests`. No sockets, packets, SQL or MonoGame.
@@ -80,7 +80,8 @@ outcome. Failure enums (`CreateCharacterFailure`, `EnterWorldFailure`, `LoginFai
 
 `SessionRegistry` (singleton) maps a GUID token (`"N"` format) to a `PlayerSession`. The player entity id is assigned
 at login from an interlocked counter starting at 1; monsters, NPCs and summons use `EntityIdAllocator` from
-`0x4000_0000`, so the two ranges never collide.
+`0x4000_0000`, so the two ranges never collide. Removing a monster from a field releases its id; at the top of the
+range the allocator starts again at the base and skips ids still in use, so a long uptime never reuses a live id.
 
 `PlayerSession` state (an int changed only by compare-exchange):
 
