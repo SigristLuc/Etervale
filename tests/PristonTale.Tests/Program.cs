@@ -68,6 +68,11 @@ if (args.Length == 4 && args[0] == "--capture-ranged-equipment")
     return 0;
 }
 
+if (args.Length == 2 && args[0] == "--verify-vfx-lifetimes")
+{
+    return VfxLingerProbe.Run(args[1]);
+}
+
 if (args.Length == 4 && args[0] == "--capture-ground-loot")
 {
     using var probe = new GroundLootCaptureProbe(args[1], args[2], args[3]);

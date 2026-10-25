@@ -104,8 +104,11 @@ Effect models draw before the quads with their own blend.
 | `parts` | array | [] | Original-style effect objects (the skill ports use them) |
 | `children` | array | [] | Other named effects started at an anchor |
 
-An instance stays alive while any layer runs or a one-shot is still due. `Stop()` ends emission: waiting parts and
-one-shots never start, layers that run until stopped end, finite ones finish.
+An instance stays alive while any layer runs or a one-shot is still due. Emission ends at `Stop()` or when `duration`
+runs out: waiting parts and one-shots never start, layers that run until stopped end, finite ones finish, and sequence
+particles that live until stopped (a lifetime of 60 s or more; converted scripts use 1000) keep only their last three
+seconds, as the original's fast stop does. `StopNow()` ends the instance at once and hides what it drew; a part's
+`carryEffect` ends that way when the part lands or dies, as the original hides a projectile's glow.
 
 ### Emitter, trail, light, sound
 
@@ -121,7 +124,8 @@ A key is `{ "t": 0..1, "v": [..] }` with non-decreasing `t`, sampled linearly an
 ### Child (`VfxChildDefinition`)
 
 `effect` (name), `anchor`, `bone`, `offset`, `delay`, `follow` (keep the child's spawn point on the anchor), `turn`
-(give it this effect's facing), `stopWithParent` (true), `pick`. The child is looked up by name on first use, so it may
+(give it this effect's facing), `stopWithParent` (true: the child stops when this effect's emission ends, by `Stop()`
+or by its duration), `pick`. The child is looked up by name on first use, so it may
 live in any file. Children (and sounds) that share a non-zero `pick` group start one member, drawn uniformly when the
 effect starts (one of three hit bursts, one of two cast sounds).
 

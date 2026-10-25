@@ -185,6 +185,7 @@ when reading those assets is authorized. GPU probes:
 | `--capture-vfx <assets> <content> <output-dir> [<name,name,...>]` | yes | Plays named effects of `assets/Effect/Vfx` (see below) |
 | `--verify-skill-motions <assets>` | no | Every skill rule's motions (index, length, events, class tag) against the class motion tables |
 | `--verify-monster-skills <assets>` | no | Monster skill windup and duration from real models |
+| `--verify-vfx-lifetimes <assets>` | no | Plays every effect of `Effect/Vfx` (duration up to 60 s) with a moving caster and target and lists those still alive 30 s after their duration; prints `0 of N` when none lingers |
 | `--verify-player-timing <assets>` | no | Per-class attack, damage and EAT timing against actor files |
 | `--verify-equipment <assets>` | no | Equipped attack clips against `PlayerEquipmentTiming` |
 | `--export-equipment-timings <assets> <output.cs>` | no | Writes the generated `PlayerEquipmentTiming.cs` (see Pitfalls) |

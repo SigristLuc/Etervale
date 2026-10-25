@@ -94,6 +94,23 @@ internal sealed class SequenceState
     private long _born;
     private int _lastNew;
 
+    // Particle scripts give particles that live until their effect stops a lifetime of a thousand seconds; when the effect
+    // stops, the original fast-forwards them to their last three seconds.
+    private const float UntilStoppedLifetime = 60f;
+    private const float StopTailSeconds = 3f;
+
+    public void EndUntilStopped()
+    {
+        for (var index = 0; index < Sequence.Source.Count; index++)
+        {
+            ref var particle = ref Particles[index];
+            if (Alive[index] && particle.Lifetime >= UntilStoppedLifetime && particle.Lifetime - particle.Age > StopTailSeconds)
+            {
+                particle.Age = particle.Lifetime - StopTailSeconds;
+            }
+        }
+    }
+
     public void Begin(CompiledSequence sequence)
     {
         Sequence = sequence;

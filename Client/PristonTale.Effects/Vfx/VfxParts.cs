@@ -229,9 +229,10 @@ internal sealed class PartState
             carried = null;
         }
 
+        // As the original hides a projectile's glow when it lands, the carried effect ends with its part.
         if (part.Phase != PartPhase.Live)
         {
-            carried?.Stop();
+            carried?.StopNow();
             _carried[index] = null;
             return;
         }
@@ -257,7 +258,7 @@ internal sealed class PartState
         {
             if (_carried[index] is { } carried && carried.Generation == _carriedGeneration[index])
             {
-                carried.Stop();
+                carried.StopNow();
             }
 
             _carried[index] = null;

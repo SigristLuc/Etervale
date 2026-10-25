@@ -180,6 +180,8 @@ public sealed class VfxInstance
     private bool[] _childrenFired = [];
     private uint _random;
     private bool _stopped;
+    private bool _cut;
+    private bool _emissionEnded;
     private bool _travelling;
     private Vector3 _travelFrom;
     private Vector3 _travelTo;
@@ -197,8 +199,16 @@ public sealed class VfxInstance
     public Vector3 TargetPosition { get; private set; }
     public Matrix Orientation { get; private set; }
 
-    // Ends emission now; live particles finish their lives.
+    // Ends emission now; live particles finish their lives (particles that live until stopped keep only their last
+    // seconds).
     public void Stop() => _stopped = true;
+
+    // Ends the effect at once and hides what it drew (a carried glow when its projectile lands).
+    public void StopNow()
+    {
+        _stopped = true;
+        _cut = true;
+    }
 
     // Moves the spawn point from one position to another over the given time (projectiles); a slight arc lifts the
     // middle of the flight. The effect stops emitting when it arrives.
@@ -229,6 +239,8 @@ public sealed class VfxInstance
         Age = 0f;
         Alive = true;
         _stopped = false;
+        _cut = false;
+        _emissionEnded = false;
         _travelling = false;
         _random = seed | 1u;
         CasterPosition = spawn.Point;
@@ -353,6 +365,13 @@ public sealed class VfxInstance
 
     internal void Update(float dt, IVfxAnchors anchors, IVfxServices? services, VfxSystem system)
     {
+        if (_cut)
+        {
+            CutChildren();
+            Alive = false;
+            return;
+        }
+
         Age += dt;
         if (_travelling)
         {
@@ -380,6 +399,15 @@ public sealed class VfxInstance
 
         var definition = Effect.Definition;
         var emitting = !_stopped && Age <= definition.Duration;
+        if (!emitting && !_emissionEnded)
+        {
+            _emissionEnded = true;
+            foreach (var sequence in SequenceStates)
+            {
+                sequence.EndUntilStopped();
+            }
+        }
+
         // Alive while a layer still runs or a one-shot is still due; an effect whose layers all ended does not wait
         // for its duration.
         var any = emitting && PendingOneShots(definition);
@@ -441,7 +469,8 @@ public sealed class VfxInstance
                 child.Spawn = child.Spawn with { Point = AnchorPosition(layer.Anchor, layer.Bone, VfxDefinition.Vec3(layer.Offset), anchors) };
             }
 
-            if (_stopped && layer.StopWithParent)
+            // A child that stops with its parent ends when the parent's emission ends: by Stop or by its duration.
+            if (!emitting && layer.StopWithParent)
             {
                 child.Stop();
             }
@@ -450,6 +479,18 @@ public sealed class VfxInstance
         }
 
         Alive = any;
+    }
+
+    private void CutChildren()
+    {
+        var children = Effect.Definition.Children;
+        for (var index = 0; index < _children.Length; index++)
+        {
+            if (_children[index] is { } child && child.Alive && children[index].StopWithParent)
+            {
+                child.StopNow();
+            }
+        }
     }
 
     private bool PendingOneShots(VfxDefinition definition)
