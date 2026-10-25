@@ -36,6 +36,7 @@ public sealed partial class VfxRenderer : IDisposable
     private readonly IndexBuffer _indices;
     private readonly List<Run> _runs = new(64);
     private readonly List<(float Distance, int Index)> _order = new(64);
+    private readonly List<GroundQuad> _ground = new(64);
     private readonly BlendState _shadow = new()
     {
         ColorSourceBlend = Blend.Zero,
@@ -92,6 +93,11 @@ public sealed partial class VfxRenderer : IDisposable
 
     public int LastDrawCalls { get; private set; }
 
+    // A flat quad drawn once with the next draw's effects in its blend's pass (blob shadows): its centre, the half extents
+    // of its two sides (u along the first, v along the second) and its colour.
+    public void AddGroundQuad(Texture2D texture, VfxBlend blend, Vector3 center, Vector3 halfU, Vector3 halfV, Vector4 color) =>
+        _ground.Add(new GroundQuad(texture, blend, center, halfU, halfV, color));
+
     public void Draw(VfxSystem system, Matrix view, Matrix projection, Vector3 cameraPosition, Texture2D? sceneDepth)
     {
         DrawModels(system, view, projection);
@@ -112,12 +118,21 @@ public sealed partial class VfxRenderer : IDisposable
         _inverseView = Matrix.Invert(view);
         for (var pass = 0; pass < 3; pass++)
         {
+            foreach (var quad in _ground)
+            {
+                if (PassOf(quad.Blend) == pass)
+                {
+                    AppendGround(quad);
+                }
+            }
+
             foreach (var (_, index) in _order)
             {
                 AppendInstance(instances[index], pass, right, up, cameraPosition);
             }
         }
 
+        _ground.Clear();
         LastQuadCount = _quadCount;
         LastDrawCalls = 0;
         if (_quadCount == 0)
@@ -262,6 +277,23 @@ public sealed partial class VfxRenderer : IDisposable
         _scratch[at + 2] = new VfxVertex { Position = p + x - y, Color = tint, TexCoord = new Vector2(u0 + du, v0 + dv), Params = parameters };
         _scratch[at + 3] = new VfxVertex { Position = p - x - y, Color = tint, TexCoord = new Vector2(u0, v0 + dv), Params = parameters };
     }
+
+    private void AppendGround(in GroundQuad quad)
+    {
+        if (!BeginQuad(quad.Texture, quad.Blend, out var at))
+        {
+            return;
+        }
+
+        var parameters = Vector2.Zero;
+        var p = quad.Center;
+        _scratch[at] = new VfxVertex { Position = p - quad.HalfU - quad.HalfV, Color = quad.Color, TexCoord = new Vector2(0f, 0f), Params = parameters };
+        _scratch[at + 1] = new VfxVertex { Position = p + quad.HalfU - quad.HalfV, Color = quad.Color, TexCoord = new Vector2(1f, 0f), Params = parameters };
+        _scratch[at + 2] = new VfxVertex { Position = p + quad.HalfU + quad.HalfV, Color = quad.Color, TexCoord = new Vector2(1f, 1f), Params = parameters };
+        _scratch[at + 3] = new VfxVertex { Position = p - quad.HalfU + quad.HalfV, Color = quad.Color, TexCoord = new Vector2(0f, 1f), Params = parameters };
+    }
+
+    private readonly record struct GroundQuad(Texture2D Texture, VfxBlend Blend, Vector3 Center, Vector3 HalfU, Vector3 HalfV, Vector4 Color);
 
     // A camera-facing ribbon through the trail's points, newest first.
     private void AppendTrail(TrailState trail, Vector3 camera)

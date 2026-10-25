@@ -301,7 +301,7 @@ model paths 160).
 | `EntityDescription` | `varuint Serial, uint8 Revision, uint8 Kind (1 player, 2 monster, 3 NPC), varuint Level, varuint MoveSpeed, float32 AttackRate, text Name, text Model`, then the player or template part |
 | Player part | `varuint Job, Tier, Face, Hair, text HeadModel, uint32 Weapon, Armor, OffHand (item codes, 0 none), uint8 Flags (1 village, 2 Phoenix), uint8 HelperPet, uint8 BigHead, glow WeaponGlow, glow OffHandGlow` |
 | Glow (`DescribedGlow`, 16 bytes) | `int8 Blink (0 none, below 0 steady), int16 R, G, B, A, float32 Scale, int8 Mix (-1 none), uint8 MixScroll, uint8 Flags (1 class-up light)` (`HeldItemGlow`) |
-| Template part | `varuint Template, float32 TemplateScale, varuint SoundCode, varint PortraitY, PortraitZ, uint8 Brood, varuint Owner, float32 InstanceScale, uint32 NpcServices, varuint Class` (the monster class: 1 boss, 200 hammer) |
+| Template part | `varuint Template, float32 TemplateScale, varuint SoundCode, varint PortraitY, PortraitZ, uint8 Brood, varuint Owner, float32 InstanceScale, uint32 NpcServices, varuint Class, varint ShadowSize` (the monster class: 1 boss, 200 hammer; the ground shadow -1 none, 0 small to 3 large) |
 
 An owned summon or crystal pet names its owner (64-bit) and its own scale (0 keeps the template's) and carries the user
 brood; NPC services are bit `1 << NpcServiceKind`. A description is encoded once per frame and entity for every

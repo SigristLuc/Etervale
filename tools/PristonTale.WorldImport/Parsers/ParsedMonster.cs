@@ -54,7 +54,7 @@ public sealed class ParsedMonster
 
     // *속성 적 (enemy) or anything else (a non-hostile creature); *크기 shadow size level, -1 none.
     public bool Hostile { get; init; } = true;
-    public int SizeLevel { get; init; } = -1;
+    public int SizeLevel { get; init; }
     public int MoveType { get; init; }
     public int SpecialAttackPct { get; init; }
     // *골드: gold dropped on death, min..max, with GoldPct percent chance.

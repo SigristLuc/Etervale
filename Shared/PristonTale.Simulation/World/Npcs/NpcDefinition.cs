@@ -45,7 +45,7 @@ public sealed record NpcDefinition(
     // A hostile character placed as an NPC, its level and shadow size (-1 none).
     public bool Hostile { get; init; }
     public int Level { get; init; }
-    public int ShadowSizeLevel { get; init; } = -1;
+    public int ShadowSizeLevel { get; init; }
 
     // The NPC appears only when the field's appearance draw modulo AppearCycle equals AppearSlot; a cycle of 0 always.
     public int AppearSlot { get; init; }

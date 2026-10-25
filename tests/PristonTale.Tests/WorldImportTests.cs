@@ -149,8 +149,9 @@ internal static class WorldImportTests
             Assert.True(item.MaxStack == 20 && item.PotionSpace == 3 && Math.Abs(item.MagicMastery - 1.5f) < 0.001f,
                 "linked item properties were not imported");
 
-            var monster = await connection.QuerySingleAsync<(int SoundCode, float ModelScale, int MoveSpeed)>(
-                "SELECT sound_code, model_scale, move_speed FROM monsters WHERE name = 'Wolf'");
+            var monster = await connection.QuerySingleAsync<(int SoundCode, float ModelScale, int MoveSpeed, int SizeLevel)>(
+                "SELECT sound_code, model_scale, move_speed, size_level FROM monsters WHERE name = 'Wolf'");
+            Assert.True(monster.SizeLevel == 0, "a monster without a size key does not cast the small shadow");
             Assert.True(monster.SoundCode == LegacyNpcSoundCode.Wolverine, "monster sound code was not imported");
             Assert.True(Math.Abs(monster.ModelScale - 1.4f) < 0.001f && monster.MoveSpeed == 12,
                 "monster scale or movement was not imported");

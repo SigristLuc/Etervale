@@ -331,12 +331,18 @@ internal sealed class PresenceDecoder
             if (description.Kind == RemoteEntityKind.Monster)
             {
                 _catalog.Register(new MonsterRenderInfo(template.Template, packet.Model, template.TemplateScale, packet.Name, packet.Level,
-                    (MonsterBrood)template.Brood, template.PortraitY, template.PortraitZ, (int)template.SoundCode, template.Class));
+                    (MonsterBrood)template.Brood, template.PortraitY, template.PortraitZ, (int)template.SoundCode, template.Class)
+                {
+                    ShadowSize = template.ShadowSize
+                });
             }
             else if (description.Kind == RemoteEntityKind.Npc)
             {
                 _catalog.Register(new NpcRenderInfo(template.Template, packet.Model, template.TemplateScale, packet.Name,
-                    new NpcServiceSet(template.NpcServices), (int)template.SoundCode, template.PortraitY, template.PortraitZ));
+                    new NpcServiceSet(template.NpcServices), (int)template.SoundCode, template.PortraitY, template.PortraitZ)
+                {
+                    ShadowSize = template.ShadowSize
+                });
             }
         }
 

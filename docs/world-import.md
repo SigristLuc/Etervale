@@ -174,7 +174,7 @@ Code lookups are case-insensitive: drop and shop references (often lower case) a
   `*두목` or `*보스` (no value) marks a boss; `*계급` sets the class number. `*스턴율`/`*스턴률`: flinch chance, default
   100.
 - `*속성 적` hostile (`hostile`), anything else not; `*크기` the shadow size (`size_level`: 소형 0, 중형 1, 중대형 2, 대형 3,
-  else -1); `*매직` magic resistance (`res_magic`); `*이동타입` (`move_type`); `*특수공격률` (`special_attack_pct`);
+  없음 or any other word -1, 0 without the key); `*매직` magic resistance (`res_magic`); `*이동타입` (`move_type`); `*특수공격률` (`special_attack_pct`);
   `*골드 <min> <max> <percent>` gold dropped on death on top of the drop table (`gold_min/max/pct`); `*예비모델` the model
   worn during the hammer event (`event_model`); `*이벤트코드`, `*이벤트정보` the event creature code and its field
   (`event_code`, `event_info`: code 100 walks at night).

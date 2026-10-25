@@ -124,6 +124,7 @@ public sealed partial class GameScene : ISkillSceneHost
     {
         if (_skillFx is not null && _camera is not null)
         {
+            QueueBlobShadows();
             _skillFx.Draw(_camera.View, _camera.Projection, _camera.Position, _renderer.SceneLinearDepth);
         }
     }

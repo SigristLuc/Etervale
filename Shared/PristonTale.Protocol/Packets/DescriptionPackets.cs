@@ -121,14 +121,15 @@ public sealed record DescribedTemplate(
     ulong Owner,
     float InstanceScale,
     uint NpcServices,
-    int Class = 0);
+    int Class = 0,
+    int ShadowSize = 0);
 
 // S->C: what a viewer needs to draw an entity, for one description revision. {header, uint16 Version = 1, uint16 Flags =
 // 0, varuint Serial, uint8 Revision, uint8 Kind, varuint Level, varuint MoveSpeed, float32 AttackRate, text Name, text
 // Model}, then for a player {varuint Job, Tier, Face, Hair, text HeadModel, uint32 Weapon, Armor, OffHand, uint8 Flags (1
 // village, 2 Phoenix), uint8 HelperPet, uint8 BigHead, glow WeaponGlow, glow OffHandGlow (DescribedGlow)}, else {varuint Template, float32 TemplateScale, varuint SoundCode,
 // varint PortraitY, PortraitZ, uint8 Brood, varuint Owner, float32 InstanceScale, uint32 NpcServices, varuint Class (the
-// monster class: 1 boss, 200 hammer)}. Text is UTF-8 with a
+// monster class: 1 boss, 200 hammer), varint ShadowSize (-1 none, 0 small to 3 large)}. Text is UTF-8 with a
 // uint16 byte length.
 public sealed record EntityDescriptionPacket(
     ulong Serial,
@@ -189,6 +190,7 @@ public sealed record EntityDescriptionPacket(
             writer.Single(template.InstanceScale);
             writer.UInt32(template.NpcServices);
             writer.VarUInt((uint)Math.Max(0, template.Class));
+            writer.VarInt(Math.Clamp(template.ShadowSize, -1, 3));
         }
 
         return writer.Finish();
@@ -242,8 +244,10 @@ public sealed record EntityDescriptionPacket(
                 var instanceScale = reader.Single();
                 var services = reader.UInt32();
                 var monsterClass = reader.VarUInt31();
+                var shadow = reader.VarInt();
                 return new EntityDescriptionPacket(serial, revision, kind, level, moveSpeed, attackRate, name, model, null,
-                    new DescribedTemplate(template, templateScale, sound, portraitY, portraitZ, brood, owner, instanceScale, services, monsterClass));
+                    new DescribedTemplate(template, templateScale, sound, portraitY, portraitZ, brood, owner, instanceScale, services, monsterClass,
+                        shadow));
             }
             default:
                 throw new InvalidDataException($"Description of unknown kind {(int)kind}.");

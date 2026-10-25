@@ -135,7 +135,7 @@ internal static class PresencePipelineTests
         var readPlayer = EntityDescriptionPacket.Read(buffer2.AsSpan(0, length2));
         Assert.True(readPlayer == player with { Player = readPlayer.Player } && readPlayer.Player == player.Player, "a player description did not round-trip");
         var summon = new EntityDescriptionPacket(0x4000_0002, 9, DescribedKind.Monster, 70, 3, 1f, "Metal Golem", "char/monster/Metalgolem/metalgolem.inx",
-            Template: new DescribedTemplate(0x3020, 1f, 0x3020, -8, 200, 4, uint.MaxValue + 5UL, 1.5f, 0));
+            Template: new DescribedTemplate(0x3020, 1f, 0x3020, -8, 200, 4, uint.MaxValue + 5UL, 1.5f, 0, 1, -1));
         length2 = summon.Write(buffer2);
         var readSummon = EntityDescriptionPacket.Read(buffer2.AsSpan(0, length2));
         Assert.True(readSummon.Template == summon.Template && readSummon.Name == summon.Name && readSummon.Level == 70 && length2 <= EntityDescriptionPacket.MaximumSize,

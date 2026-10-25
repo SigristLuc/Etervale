@@ -228,6 +228,10 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
   (`ActorReceiver`): their smooth-shaded low-polygon bodies would be cut by the hard facets of their own and each
   other's silhouettes; they still cast onto the stage.
 - `Ctrl+F5` toggles both in game; `PRISTON_SHADOW_DIAG=1` enables shadow diagnostics logging.
+- **Ground shadows** while shadow maps are off (`GameScene.Shadows.cs`): every character darkens the floor with
+  `image/bshadow.bmp` one unit above its feet, turned with it (`VfxRenderer.AddGroundQuad`, the darkening blend), by its
+  shadow size: half extents 12x10, 17x14, 26x20 or 38x30 units across and along it (players 1; a monster's or NPC's from
+  its description, none for -1); a dead character's shadow goes 40 frames of 70 per second into its death.
 
 ## Screen-space and image-based passes
 

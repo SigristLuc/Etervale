@@ -316,7 +316,8 @@ public sealed partial class RemoteEntityManager
             spawn.EntityId)
         {
             Level = info is MonsterRenderInfo monsterInfo ? monsterInfo.Level : 0,
-            MonsterClass = info is MonsterRenderInfo classInfo ? classInfo.Class : 0
+            MonsterClass = info is MonsterRenderInfo classInfo ? classInfo.Class : 0,
+            ShadowSize = info.ShadowSize
         };
         monster.SetRates(spawn.MoveSpeed, spawn.AttackRate);
         monster.MotionStarted += OnMotionStarted;
@@ -582,6 +583,18 @@ public sealed partial class RemoteEntityManager
                 && entity is RemoteEntity player)
             {
                 visit(entityId, player.Handles, appearance, !entity.IsDead);
+            }
+        }
+    }
+
+    // Every drawn character's ground shadow: its position, model yaw, size (0 small to 3 large) and whether it is dead.
+    public void ForEachShadow(Action<ulong, XnaVector3, float, int, bool> visit)
+    {
+        foreach (var (entityId, entity) in _entities)
+        {
+            if (entity.ShadowSize >= 0)
+            {
+                visit(entityId, entity.RenderPosition, entity.RenderFacing, entity.ShadowSize, entity.IsDead);
             }
         }
     }

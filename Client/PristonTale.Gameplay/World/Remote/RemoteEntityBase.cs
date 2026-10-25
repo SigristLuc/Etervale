@@ -75,6 +75,9 @@ public abstract class RemoteEntityBase
 
     public bool InVillage { get; set; }
 
+    // The ground shadow drawn while shadow maps are off: -1 none, 0 small to 3 large (players medium).
+    public int ShadowSize { get; init; } = 1;
+
     public event Action<RemoteEntityBase, PristonActorMotion> MotionStarted;
 
     public Vector3 RenderPosition => _renderPosition;

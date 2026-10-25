@@ -19,7 +19,7 @@ public sealed class ParsedNpc
     // *속성 적 makes the character hostile; *레벨 its level; *크기 its shadow size (-1 none).
     public bool Hostile { get; set; }
     public int Level { get; set; }
-    public int SizeLevel { get; set; } = -1;
+    public int SizeLevel { get; set; }
     // *출현간격 slot, cycle: the NPC appears only when the field's draw modulo the cycle equals the slot (cycle 0: always).
     public int AppearSlot { get; set; }
     public int AppearCycle { get; set; }

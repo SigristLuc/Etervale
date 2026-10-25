@@ -119,6 +119,9 @@ public sealed class VfxLibrary
         return new CompiledComponent(component, textures, null);
     }
 
+    // A texture by asset-relative path (the fallback texture when it is missing).
+    public Texture2D GetTexture(string path) => Texture(path);
+
     private Texture2D Texture(string path)
     {
         if (path.Length == 0)

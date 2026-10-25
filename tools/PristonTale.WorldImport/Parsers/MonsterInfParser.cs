@@ -42,7 +42,7 @@ public sealed class MonsterInfParser
         bool allSee = false;
         int maxItems = 0;
         var hostile = true;
-        int sizeLevel = -1, magic = 0, moveType = 0, specialAttack = 0, goldMin = 0, goldMax = 0, goldPct = 0;
+        int sizeLevel = 0, magic = 0, moveType = 0, specialAttack = 0, goldMin = 0, goldMax = 0, goldPct = 0;
         int eventCode = 0, eventInfo = 0;
         var eventModel = "";
         var unknown = new List<string>();
