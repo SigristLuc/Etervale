@@ -19,6 +19,7 @@ public static class CastleField
         ])
     {
         FieldCode = 33,
+        WarpGates = [new FieldWarpGate(32527, -30693, 774, 64, 32, "castle", 32739, -30474, 711, 0, 2)],
         Center = new FieldPoint(35225, -23847),
         StartPoints =
         [

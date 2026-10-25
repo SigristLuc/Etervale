@@ -833,6 +833,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _activeField = field;
         _currentField = field.Definition;
         _renderer.Underground = field.Definition.Underground;
+        // A field may clear part of the haze; sight cells (64 units each) push its start out.
+        _renderer.FieldHaze = 1f - Math.Clamp(field.Definition.HazeReduction, 0f, 1f);
+        _renderer.FieldSightDistance = field.Definition.SightCells * 64f;
         if (!field.Definition.Underground)
         {
             var backdrop = field.Definition.Backdrop;

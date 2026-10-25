@@ -4,9 +4,13 @@ public static class LostField
 {
     public static readonly FieldDef Definition = new(
         "lost", "Lost Island", FieldState.Ruin, FieldBackdrops.Desert,
-        "Field\\Lost\\lostisland.smd", [])
+        "Field\\Lost\\lostisland.smd",
+        [
+            "Field\\Lost\\wf_ani.smd"
+        ])
     {
         FieldCode = 37,
+        WarpGates = [new FieldWarpGate(-12610, -1349, 694, 64, 32, "lost", -12555, -1113, 668, 0, 2)],
         Center = new FieldPoint(-12555, -1113),
         Gates = [new FieldGate("Losttemple", -11586, 7704, 0)],
         BackMusicCode = "BGM_CODE_DESERT",

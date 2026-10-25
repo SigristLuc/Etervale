@@ -4,7 +4,20 @@ public static class ForeverFall4Field
 {
     public static readonly FieldDef Definition = new(
         "forever-fall-04", "Forever Fall 4", FieldState.Forest, FieldBackdrops.Fall,
-        "Field\\forever-fall\\forever-fall-04.smd", [])
+        "Field\\forever-fall\\forever-fall-04.smd",
+        [
+            "Field\\forever-fall\\4ani-01.smd",
+            "Field\\forever-fall\\4ani-02.smd",
+            "Field\\forever-fall\\4ani-03.smd",
+            "Field\\forever-fall\\4ani-04.smd",
+            "Field\\forever-fall\\4ani-05.smd",
+            "Field\\forever-fall\\4ani-06.smd",
+            "Field\\forever-fall\\4ani-07.smd",
+            "Field\\forever-fall\\4ani-08.smd",
+            "Field\\forever-fall\\4ani-09.smd",
+            "Field\\forever-fall\\4ani-10.smd",
+            "Field\\forever-fall\\4ani-11.smd"
+        ])
     {
         FieldCode = 17,
         Center = new FieldPoint(-1583, 37905),
@@ -29,13 +42,26 @@ public static class ForeverFall3Field
 {
     public static readonly FieldDef Definition = new(
         "forever-fall-03", "Forever Fall 3", FieldState.Forest, FieldBackdrops.Fall,
-        "Field\\forever-fall\\forever-fall-03.smd", [])
+        "Field\\forever-fall\\forever-fall-03.smd",
+        [
+            "Field\\forest\\3ani-01.smd",
+            "Field\\forest\\3ani-02.smd",
+            "Field\\forest\\3ani-03.smd",
+            "Field\\forest\\3ani-04.smd",
+            "Field\\forest\\3ani-05.smd",
+            "Field\\forest\\3ani-06.smd",
+            "Field\\forest\\3ani-07.smd"
+        ])
     {
         FieldCode = 18,
         Center = new FieldPoint(-5823, 43244),
         StartPoints = [new FieldPoint(-1516, 45437), new FieldPoint(-3586, 42886)],
         Gates = [new FieldGate("forever-fall-02", -2349, 49830, 0)],
-        WarpGates = [new FieldWarpGate(-6306, 43241, 779, 64, 32, "Mcave", 119025, 35680, 499, 0, 0)],
+        WarpGates =
+        [
+            new FieldWarpGate(-4730, 48107, 1173, 64, 32, "forever-fall-03", -4615, 48002, 1146, 0, 2),
+            new FieldWarpGate(-6306, 43241, 779, 64, 32, "Mcave", 119025, 35680, 499, 0, 0)
+        ],
         Ambients =
         [
             new FieldAmbient(new FieldVector(-3573, 861, 42603), 0, 15),
@@ -50,7 +76,14 @@ public static class ForeverFall2Field
 {
     public static readonly FieldDef Definition = new(
         "forever-fall-02", "Forever Fall 2", FieldState.Forest, FieldBackdrops.Fall,
-        "Field\\forever-fall\\forever-fall-02.smd", [])
+        "Field\\forever-fall\\forever-fall-02.smd",
+        [
+            "Field\\forever-fall\\2ani-01.smd",
+            "Field\\forever-fall\\2ani-02.smd",
+            "Field\\forever-fall\\2ani-03.smd",
+            "Field\\forest\\2ani-04.smd",
+            "Field\\forever-fall\\2ani-05.smd"
+        ])
     {
         FieldCode = 19,
         Center = new FieldPoint(1691, 52599),
@@ -79,7 +112,35 @@ public static class ForeverFall1Field
 {
     public static readonly FieldDef Definition = new(
         "forever-fall-01", "Forever Fall 1", FieldState.Forest, FieldBackdrops.Fall,
-        "Field\\forever-fall\\forever-fall-01.smd", [])
+        "Field\\forever-fall\\forever-fall-01.smd",
+        [
+            "Field\\forever-fall\\1ani-01.smd",
+            "Field\\forever-fall\\1ani-02.smd",
+            "Field\\forever-fall\\1ani-03.smd",
+            "Field\\forever-fall\\1ani-04.smd",
+            "Field\\forever-fall\\1ani-05.smd",
+            "Field\\forever-fall\\1ani-06.smd",
+            "Field\\forever-fall\\1ani-07.smd",
+            "Field\\forever-fall\\1ani-08.smd",
+            "Field\\forever-fall\\1ani-09.smd",
+            "Field\\forever-fall\\1ani-10.smd",
+            "Field\\forever-fall\\1ani-11.smd",
+            "Field\\forever-fall\\1ani-12.smd",
+            "Field\\forever-fall\\1ani-13.smd",
+            "Field\\forever-fall\\1ani-14.smd",
+            "Field\\forever-fall\\1ani-15.smd",
+            "Field\\forever-fall\\1ani-16.smd",
+            "Field\\forever-fall\\1ani-17.smd",
+            "Field\\forever-fall\\1ani-18.smd",
+            "Field\\forever-fall\\1ani-19.smd",
+            "Field\\forever-fall\\1ani-20.smd",
+            "Field\\forever-fall\\1ani-21.smd",
+            "Field\\forever-fall\\1ani-22.smd",
+            "Field\\forever-fall\\1ani-23.smd",
+            "Field\\forever-fall\\1ani-24.smd",
+            "Field\\forever-fall\\1ani-25.smd",
+            "Field\\forever-fall\\1ani-26.smd"
+        ])
     {
         FieldCode = 20,
         Center = new FieldPoint(2032, 71183),

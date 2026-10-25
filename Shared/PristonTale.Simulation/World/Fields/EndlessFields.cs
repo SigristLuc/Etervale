@@ -60,7 +60,28 @@ public static class Dungeon6Field
 {
     public static readonly FieldDef Definition = new(
         "dun-6", "Dungeon 6", FieldState.Dungeon, FieldBackdrops.Ruin2,
-        "Field\\dungeon\\Dun-6a.smd", [])
+        "Field\\dungeon\\Dun-6a.smd",
+        [
+            "Field\\dungeon\\Dun-6a-ani-001.smd",
+            "Field\\dungeon\\Dun-6a-ani-002.smd",
+            "Field\\dungeon\\Dun-6a-ani-003.smd",
+            "Field\\dungeon\\Dun-6a-ani-004.smd",
+            "Field\\dungeon\\Dun-6a-ani-005.smd",
+            "Field\\dungeon\\Dun-6a-ani-006.smd",
+            "Field\\dungeon\\Dun-6a-ani-007.smd",
+            "Field\\dungeon\\Dun-6a-ani-008.smd",
+            "Field\\dungeon\\Dun-6a-ani-009.smd",
+            "Field\\dungeon\\Dun-6a-ani-010.smd",
+            "Field\\dungeon\\Dun-6a-ani-011.smd",
+            "Field\\dungeon\\Dun-6a-ani-012.smd",
+            "Field\\dungeon\\Dun-6a-ani-013.smd",
+            "Field\\dungeon\\Dun-6a-ani-014.smd",
+            "Field\\dungeon\\Dun-6a-ani-015.smd",
+            "Field\\dungeon\\Dun-6a-ani-016.smd",
+            "Field\\dungeon\\Dun-6a-ani-017.smd",
+            "Field\\dungeon\\Dun-6a-ani-018.smd",
+            "Field\\dungeon\\Dun-6a-ani-019.smd"
+        ])
     {
         FieldCode = 41,
         Center = new FieldPoint(-3660, -45200),

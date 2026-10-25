@@ -26,6 +26,7 @@ public static class RicartenField
         ])
     {
         FieldCode = 3,
+        HazeReduction = 0.2f,
         Center = new FieldPoint(2596, -18738),
         StartPoints =
         [

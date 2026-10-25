@@ -268,6 +268,10 @@ public sealed partial class PristonRenderer : IDisposable
 
     public PristonDistanceFog DistanceFog { get; set; } = PristonDistanceFog.Atmospheric;
 
+    // The active field's share of the distance haze (1 - its haze reduction) and the extra sight before the haze starts.
+    public float FieldHaze { get; set; } = 1f;
+    public float FieldSightDistance { get; set; }
+
     // Sky captures rendered since the renderer was created; the fog refreshes its sky copy only on sky changes.
     public int SkyCaptureRefreshes => _skyCapture.Refreshes;
 
@@ -1351,7 +1355,10 @@ public sealed partial class PristonRenderer : IDisposable
             sunShadowsEnabled ? _shadowMap : _textureLoader.White,
             sunShadowsEnabled,
             _lampFactor,
-            DistanceFog with { Color = skyRadiance },
+            DistanceFog with
+            {
+                Color = skyRadiance, MaxOpacity = DistanceFog.MaxOpacity * FieldHaze, StartDistance = DistanceFog.StartDistance + FieldSightDistance
+            },
             DebugView,
             Exposure: displayScale,
             EmissionScale: _exposure.EmissionScale,

@@ -81,10 +81,12 @@ field; `WorldCatalog(IEnumerable<FieldDef>)` builds test catalogs. Lookups by `I
 | `State` (`FieldState`) | `Village` sets the player's in-village flag on entry; `Dungeon` sets `Underground` (no sky) |
 | `Center`, `StartPoints` | `StartPoints[0]` is the NPC teleport arrival; a field restart stands up at the start point nearest to the fall, a town restart at a random one; `Center` is the fallback |
 | `Gates` | Seamless boundaries to an adjacent field (`DestinationFieldId`, X/Z, angle) |
-| `WarpGates` | Portals: trigger X/Z/Y and Width/Height, destination field and X/Z/Y, `LimitLevel`, `SpecialEffect` |
+| `WarpGates` | Portals: trigger X/Z/Y and Width/Height, destination field and X/Z/Y, `LimitLevel`, `SpecialEffect` (1: a delayed warp with the return sparkle; 2: the town's wing warp gate stone, exit in its own field) |
 | `LimitLevel` | Minimum character level to enter (gates, warps and teleports) |
 | `Ambients`, `Lighting`, `Camera`, `DayNight`, `Backdrop`, `BackMusicCode`, `OnLoaded`, `OnUpdate` | Client presentation |
-| `ServerCode`, `FieldEvent` | Authored labels; no runtime rule reads them |
+| `FieldEvent` | `Nightmare` (Navisko): see Night and day |
+| `HazeReduction`, `SightCells` | The share of the distance haze the field clears (Ricarten 0.2) and the 64-unit cells of sight added before it starts (Ice Ura 1); client presentation |
+| `ServerCode` | Authored label; no runtime rule reads it |
 | `Spawns` | Defaults to empty and is not used by the server; spawn data comes from the database (see Spawning) |
 
 `WorldCatalog.Neighbours(field)` returns fields linked by a gate in either direction; the client uses it to stream

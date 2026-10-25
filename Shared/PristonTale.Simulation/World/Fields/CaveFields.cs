@@ -4,7 +4,25 @@ public static class TcaveField
 {
     public static readonly FieldDef Definition = new(
         "Tcave", "Tcave", FieldState.Dungeon, FieldBackdrops.Ruin2,
-        "Field\\cave\\Tcave.smd", [])
+        "Field\\cave\\Tcave.smd",
+        [
+            "Field\\cave\\Tcave_ani01.smd",
+            "Field\\cave\\Tcave_ani02.smd",
+            "Field\\cave\\Tcave_ani03.smd",
+            "Field\\cave\\Tcave_ani04.smd",
+            "Field\\cave\\Tcave_ani05.smd",
+            "Field\\cave\\Tcave_ani06.smd",
+            "Field\\cave\\Tcave_ani07.smd",
+            "Field\\cave\\Tcave_ani08.smd",
+            "Field\\cave\\Tcave_ani09.smd",
+            "Field\\cave\\Tcave_ani10.smd",
+            "Field\\cave\\Tcave_ani11.smd",
+            "Field\\cave\\Tcave_ani12.smd",
+            "Field\\cave\\Tcave_ani13.smd",
+            "Field\\cave\\Tcave_ani14.smd",
+            "Field\\cave\\Tcave_ani15.smd",
+            "Field\\cave\\Tcave_ani16.smd"
+        ])
     {
         FieldCode = 24,
         Center = new FieldPoint(120126, 26064),
@@ -23,7 +41,26 @@ public static class McaveField
 {
     public static readonly FieldDef Definition = new(
         "Mcave", "Mcave", FieldState.Dungeon, FieldBackdrops.Ruin2,
-        "Field\\cave\\Mcave.smd", [])
+        "Field\\cave\\Mcave.smd",
+        [
+            "Field\\cave\\Mcave_ani01.smd",
+            "Field\\cave\\Mcave_ani02.smd",
+            "Field\\cave\\Mcave_ani03.smd",
+            "Field\\cave\\Mcave_ani04.smd",
+            "Field\\cave\\Mcave_ani05.smd",
+            "Field\\cave\\Mcave_ani06.smd",
+            "Field\\cave\\Mcave_ani07.smd",
+            "Field\\cave\\Mcave_ani08.smd",
+            "Field\\cave\\Mcave_ani09.smd",
+            "Field\\cave\\Mcave_ani10.smd",
+            "Field\\cave\\Mcave_ani11.smd",
+            "Field\\cave\\Mcave_ani12.smd",
+            "Field\\cave\\Mcave_ani13.smd",
+            "Field\\cave\\Mcave_ani14.smd",
+            "Field\\cave\\Mcave_ani15.smd",
+            "Field\\cave\\Mcave_ani16.smd",
+            "Field\\cave\\Mcave_ani17.smd"
+        ])
     {
         FieldCode = 25,
         Center = new FieldPoint(119966, 35466),
@@ -42,7 +79,22 @@ public static class DcaveField
 {
     public static readonly FieldDef Definition = new(
         "Dcave", "Dcave", FieldState.Dungeon, FieldBackdrops.Ruin2,
-        "Field\\cave\\Dcave.smd", [])
+        "Field\\cave\\Dcave.smd",
+        [
+            "Field\\cave\\Dcave_ani01.smd",
+            "Field\\cave\\Dcave_ani02.smd",
+            "Field\\cave\\Dcave_ani03.smd",
+            "Field\\cave\\Dcave_ani04.smd",
+            "Field\\cave\\Dcave_ani05.smd",
+            "Field\\cave\\Dcave_ani06.smd",
+            "Field\\cave\\Dcave_ani07.smd",
+            "Field\\cave\\Dcave_ani08.smd",
+            "Field\\cave\\Dcave_ani09.smd",
+            "Field\\cave\\Dcave_ani10.smd",
+            "Field\\cave\\Dcave_ani11.smd",
+            "Field\\cave\\Dcave_ani12.smd",
+            "Field\\cave\\Dcave_ani13.smd"
+        ])
     {
         FieldCode = 26,
         Center = new FieldPoint(158814, 20070),

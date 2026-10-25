@@ -131,6 +131,10 @@ public sealed record FieldDef(
     public string BackMusicCode { get; init; } = string.Empty;
     public string ServerCode { get; init; } = string.Empty;
     public FieldEventKind FieldEvent { get; init; }
+
+    // How much of the distance haze the field clears (0..1), and the cells of sight it adds before the haze starts.
+    public float HazeReduction { get; init; }
+    public int SightCells { get; init; }
     public int LimitLevel { get; init; }
 
     // Dungeon state disables sky and daylight in favor of stage lighting.
