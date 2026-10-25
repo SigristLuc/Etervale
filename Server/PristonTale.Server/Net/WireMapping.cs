@@ -96,39 +96,6 @@ internal static class WireMapping
     }
 
     // Character info record embedded in the character record for the entering character.
-    public static CharacterInfo DescribeOwner(PlayerCharacter character, CharacterSummary summary, uint serial)
-    {
-        var owner = OwnerState.Capture(character);
-        var info = new CharacterInfo
-        {
-            Name = summary.Name,
-            ObjectSerial = serial,
-            State = CharacterState.User,
-            JobCode = (uint)summary.ClassId,
-            ChangeJob = (uint)summary.Tier,
-            Level = owner.Level,
-            Strength = owner.Strength,
-            Spirit = owner.Spirit,
-            Talent = owner.Talent,
-            Dexterity = owner.Agility,
-            Health = owner.Health,
-            AttackRating = owner.AttackRating,
-            AttackDamageMin = owner.DamageMin,
-            AttackDamageMax = owner.DamageMax,
-            Defence = owner.Defence,
-            Absorption = owner.Absorption,
-            MoveSpeed = owner.MoveSpeed,
-            ShootingRange = (int)owner.AttackRange,
-            StatePoint = owner.StatPoints
-        };
-        info.Temp[CharacterInfo.TempFaceAndHair] = (uint)(summary.FaceIndex & 0xFF) | (uint)(summary.HairIndex & 0xFF) << 8;
-        info.Temp[CharacterInfo.TempWeaponCode] = ItemCode(summary.WeaponKey);
-        info.Temp[CharacterInfo.TempArmorCode] = ItemCode(summary.ArmorKey);
-        info.Temp[CharacterInfo.TempOffHandCode] = ItemCode(summary.OffHandKey);
-        info.Temp[CharacterInfo.TempFlags] = summary.InVillage ? CharacterInfo.FlagInVillage : 0;
-        return info;
-    }
-
     public static UserCharacterEntry Entry(CharacterSummary summary) => new(
         summary.Name,
         "",

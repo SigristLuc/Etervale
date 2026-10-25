@@ -39,7 +39,6 @@ public sealed class GameServerConnection : IGameBackend
     private readonly CancellationTokenSource _lifetime = new();
     private readonly WorldRenderCatalog _catalog = new();
     private readonly PresenceDecoder _presence;
-    private readonly RecordDataAssembler _record = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<OperationResultPacket>> _operations = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<ItemUseResultPacket>> _itemUses = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<RestartResultPacket>> _restarts = new();
@@ -62,7 +61,7 @@ public sealed class GameServerConnection : IGameBackend
     private TaskCompletionSource<EnterWorldOutcome>? _enter;
     private TaskCompletionSource<bool>? _joined;
     private TaskCompletionSource<bool>? _left;
-    private RecordDataPacket? _entered;
+    private WorldEntryPacket? _entered;
     private int _versionLimit;
     private int _clientVersion = EnglishClientVersion;
     private string _account = "";
@@ -174,7 +173,7 @@ public sealed class GameServerConnection : IGameBackend
 
     public async Task<EnterWorldOutcome> EnterWorldAsync(string characterName, CancellationToken ct = default)
     {
-        if (!PristonText.IsRepresentable(characterName, CharCommand.NameLength))
+        if (characterName.Length == 0 || System.Text.Encoding.UTF8.GetByteCount(characterName) > WorldEntryWire.MaxNameBytes)
         {
             return EnterWorldOutcome.Denied(EnterWorldFailure.NotFound);
         }
@@ -184,8 +183,12 @@ public sealed class GameServerConnection : IGameBackend
         {
             var pending = new TaskCompletionSource<EnterWorldOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
             _enter = pending;
-            // GetRecordData {SParam = client version, Name}; the classic client sends it unencrypted.
-            Send(new CharCommand(PristonOpcodes.GetRecordData, 0, 0, _clientVersion, characterName), encrypt: false);
+            var request = new EnterWorldPacket(characterName);
+            lock (_sendGate)
+            {
+                Connection.SendEncrypted(_scratch.AsSpan(0, request.Write(_scratch)));
+            }
+
             return await pending.Task.WaitAsync(ct);
         }
         finally
@@ -207,11 +210,11 @@ public sealed class GameServerConnection : IGameBackend
             var entered = _entered ?? throw new InvalidOperationException("Enter the world before opening a play channel.");
             var pending = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             _joined = pending;
-            _presence.SelfSerial = entered.Character.ObjectSerial;
-            var info = new PlayerInfoPacket(entered.Character, entered.Character.ObjectSerial, entered.PosX, 0, entered.PosZ);
+            _presence.SelfSerial = (uint)entered.EntityId;
+            var join = new JoinWorldPacket(entered.EntityId);
             lock (_sendGate)
             {
-                Connection.Send(_scratch.AsSpan(0, info.Write(_scratch)));
+                Connection.SendEncrypted(_scratch.AsSpan(0, join.Write(_scratch)));
             }
 
             await pending.Task.WaitAsync(ct);
@@ -230,7 +233,11 @@ public sealed class GameServerConnection : IGameBackend
         {
             var pending = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             _left = pending;
-            Send(new TransCommand(EtervaleOpcodes.LeaveWorld), encrypt: true);
+            lock (_sendGate)
+            {
+                Connection.SendEncrypted(_scratch.AsSpan(0, new LeaveWorldPacket(Saved: false).Write(_scratch)));
+            }
+
             await pending.Task.WaitAsync(ct);
             _entered = null;
         }
@@ -605,14 +612,19 @@ public sealed class GameServerConnection : IGameBackend
             case PristonOpcodes.DelRecordData:
                 _characterReply?.TrySetResult(CharCommand2.Read(packet));
                 break;
-            case PristonOpcodes.RecordData:
-                OnRecordChunk(packet);
+            case EtervaleOpcodes.WorldEntry:
+                OnWorldEntry(WorldEntryPacket.Read(packet));
                 break;
-            case PristonOpcodes.Connected:
+            case EtervaleOpcodes.WorldJoined:
+                WorldJoinedPacket.Read(packet);
                 _joined?.TrySetResult(true);
                 break;
             case EtervaleOpcodes.LeaveWorld:
-                _left?.TrySetResult(true);
+                if (LeaveWorldPacket.Read(packet).Saved)
+                {
+                    _left?.TrySetResult(true);
+                }
+
                 break;
             case EtervaleOpcodes.InventoryResult:
             case EtervaleOpcodes.ProgressionResult:
@@ -750,15 +762,8 @@ public sealed class GameServerConnection : IGameBackend
 
     private void OnFailConnect(TransCommand failure)
     {
-        // FAILCONNECT {WParam = reason, EParam = 1/2 login, 3 = Etervale character-record load}.
-        if (failure.EParam == 3)
-        {
-            _enter?.TrySetResult(EnterWorldOutcome.Denied((EnterWorldFailure)failure.LParam));
-        }
-        else
-        {
-            _login?.Completion.TrySetResult(LoginOutcome.Denied((LoginFailure)failure.WParam));
-        }
+        // FAILCONNECT {WParam = reason, EParam = 1/2 login}.
+        _login?.Completion.TrySetResult(LoginOutcome.Denied((LoginFailure)failure.WParam));
     }
 
     private void OnCharacterList(UserCharacterList list)
@@ -786,18 +791,22 @@ public sealed class GameServerConnection : IGameBackend
             : LoginOutcome.Success(_account, $"welcome, {_account}"));
     }
 
-    private void OnRecordChunk(ReadOnlySpan<byte> chunk)
+    // Entity ids travel as 64-bit values; the world hands out 32-bit ones.
+    private void OnWorldEntry(WorldEntryPacket entry)
     {
-        var record = _record.Add(chunk);
-        if (record is null)
+        if (!entry.Entered)
         {
+            _enter?.TrySetResult(EnterWorldOutcome.Denied((EnterWorldFailure)entry.Status));
             return;
         }
 
-        var entered = RecordDataPacket.Read(record);
-        _entered = entered;
-        _enter?.TrySetResult(EnterWorldOutcome.Success(entered.FieldCode, entered.Character.ObjectSerial, PristonUnits.FromFixed(entered.PosX),
-            PristonUnits.FromFixed(entered.PosZ), $"entered field {entered.FieldCode}"));
+        if (entry.EntityId > uint.MaxValue)
+        {
+            throw new InvalidDataException($"Entity id {entry.EntityId} exceeds the 32-bit ids the world hands out.");
+        }
+
+        _entered = entry;
+        _enter?.TrySetResult(EnterWorldOutcome.Success(entry.Field, (uint)entry.EntityId, entry.X, entry.Z, $"entered field {entry.Field}"));
     }
 
     private static string ItemKey(uint code) => code != 0 && LegacyItemCode.TryFormat(code, out var key) ? key : "";
@@ -819,22 +828,6 @@ public sealed class GameServerConnection : IGameBackend
     }
 
     private void Send(TransCommand command, bool encrypt)
-    {
-        lock (_sendGate)
-        {
-            var span = _scratch.AsSpan(0, command.Write(_scratch));
-            if (encrypt)
-            {
-                Connection.SendEncrypted(span);
-            }
-            else
-            {
-                Connection.Send(span);
-            }
-        }
-    }
-
-    private void Send(CharCommand command, bool encrypt)
     {
         lock (_sendGate)
         {

@@ -230,8 +230,8 @@ clan and refuses (`ClanOnly`).
   status ends, and each hit the holder lands bursts the weapon-hit spark on the target with a white light.
 - The big head replaces the head model with the oversized one of the class (tier-0 head prefix, hair 1..3, look `b`
   or `t`); the descriptor carries it, so every client sees it.
-- Pets are client actors driven by the player's descriptor flags (`CharacterInfo.TempFlags`: Phoenix bit, helper pet
-  in bits 8-11, big head in bits 12-13); they follow their owner and play the strike the server announces.
+- Pets are client actors driven by the player's description (the Phoenix flag, the helper pet and the head look);
+  they follow their owner and play the strike the server announces.
 
 ## Pitfalls
 

@@ -160,9 +160,9 @@ frame.
 | Connect | First `LoginAsync` opens the socket and starts `RunAsync` (receive) and `HeartbeatAsync` (CHECK_NETSTATE every 4 s) | — |
 | Login | Encrypted GETUSERINFO (account, password); client version `EnglishClientVersion` = 3122 | Character list (IDSETUSERINFO) and SERVERINFO both arrived; version below the VERSION limit or FAILCONNECT is a denial |
 | Characters | `ListCharactersAsync` returns the list cached at login; create/delete send INSRECORDDATA/DELRECORDDATA | The matching reply opcode |
-| Enter world | GETRECORDDATA with the name | RECORDDATA chunks reassembled by `RecordDataAssembler`; FAILCONNECT with EParam 3 is a denial |
-| Open play | `OpenPlayChannel` -> `OnlinePlayChannel` sends PLAYERINFO for the entered character | CONNECTED |
-| Leave | Disposing the play channel sends the Etervale leave-world request | Its echo (5 s timeout) |
+| Enter world | `EnterWorld` with the name | `WorldEntry` (id, field, spawn point; a non-zero status is a denial) |
+| Open play | `OpenPlayChannel` -> `OnlinePlayChannel` sends `JoinWorld` with the entered id | `WorldJoined` |
+| Leave | Disposing the play channel sends `LeaveWorld` | The answer with Saved 1 (5 s timeout) |
 
 Correlation rules (the original protocol has no request ids):
 

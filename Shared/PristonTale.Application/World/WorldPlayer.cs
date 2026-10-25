@@ -39,7 +39,7 @@ public sealed class WorldPlayer
     private readonly PlayerCharacter _character;
     private bool _inVillage;
 
-    // The client owns locomotion and reports it with TransPlayData. Reports spend a distance budget that refills at
+    // The client owns locomotion and reports it with MovementReport. Reports spend a distance budget that refills at
     // 1.35 x run speed and holds at most two seconds of it plus 32 units, so many small reports in one tick cannot add
     // up to more than one long report could.
     private const float ReportSpeedTolerance = 1.35f;

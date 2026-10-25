@@ -157,11 +157,11 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                 case PristonOpcodes.DelRecordData:
                     await DeleteCharacterAsync(CharCommand2.Read(memory.Span));
                     break;
-                case PristonOpcodes.GetRecordData:
-                    await EnterWorldAsync(CharCommand.Read(memory.Span));
+                case EtervaleOpcodes.EnterWorld:
+                    await EnterWorldAsync(EnterWorldPacket.Read(memory.Span));
                     break;
-                case PristonOpcodes.PlayerInfo:
-                    await JoinWorldAsync(PlayerInfoPacket.Read(memory.Span));
+                case EtervaleOpcodes.JoinWorld:
+                    await JoinWorldAsync(JoinWorldPacket.Read(memory.Span));
                     break;
                 case EtervaleOpcodes.MovementReport:
                     ReportMovement(MovementReportPacket.Read(memory.Span));
@@ -171,9 +171,6 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                     break;
                 case EtervaleOpcodes.DescribeEntity:
                     DescribeObject(DescribeEntityPacket.Read(memory.Span));
-                    break;
-                case PristonOpcodes.RecordData:
-                    AcknowledgeClientSave(memory.Span);
                     break;
                 case EtervaleOpcodes.InventoryCommand:
                     await ApplyInventoryAsync(InventoryCommandPacket.Read(memory.Span));
@@ -198,7 +195,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                     break;
                 case EtervaleOpcodes.LeaveWorld:
                     await ClosePlayAsync();
-                    Send(new TransCommand(EtervaleOpcodes.LeaveWorld, 0, 1), encrypt: true);
+                    SendLarge(new LeaveWorldPacket(Saved: true).Write, LeaveWorldPacket.Size, encrypt: true);
                     break;
                 default:
                     // The original dispatcher also ignores codes it does not handle (PlayerInfo2, network-quality reports, ...).
@@ -229,8 +226,8 @@ internal sealed partial class ClientSession : IMovementVerdictSink
             case PristonOpcodes.IsRecordData:
                 Send(CharCommand2.Read(packet) with { WParam = 0, LParam = (int)CreateCharacterFailure.Rejected }, encrypt: true);
                 break;
-            case PristonOpcodes.GetRecordData:
-                Send(new TransCommand(PristonOpcodes.FailConnect, (int)EnterWorldFailure.Rejected, 0, 0, 3), encrypt: true);
+            case EtervaleOpcodes.EnterWorld:
+                SendEntryFailure(EnterWorldFailure.Rejected);
                 break;
         }
     }
@@ -324,33 +321,30 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         Send(request with { WParam = outcome.Ok ? 1 : 0 }, encrypt: true);
     }
 
-    private async Task EnterWorldAsync(CharCommand request)
+    private async Task EnterWorldAsync(EnterWorldPacket request)
     {
         var token = RequireToken();
         var outcome = await _services.Sessions.EnterWorldAsync(token, request.Name);
-        var summary = _characters.FirstOrDefault(candidate => string.Equals(candidate.Name, request.Name, StringComparison.OrdinalIgnoreCase));
-        if (!outcome.Ok || summary is null || _session?.Character is null)
+        if (!outcome.Ok || _session?.Character is null)
         {
-            // FAILCONNECT {WParam 0 = cannot connect, LParam = Etervale entry failure, EParam 3 = record load}.
-            Send(new TransCommand(PristonOpcodes.FailConnect, (int)(outcome.Ok ? EnterWorldFailure.Rejected : outcome.Failure), 0, 0, 3), encrypt: true);
+            SendEntryFailure(outcome.Ok ? EnterWorldFailure.Rejected : outcome.Failure);
             return;
         }
 
-        var character = WireMapping.DescribeOwner(_session.Character, summary, outcome.EntityId);
-        var record = new RecordDataPacket(character, outcome.FieldId, PristonUnits.ToFixed(outcome.SpawnX), PristonUnits.ToFixed(outcome.SpawnZ)).Build();
-        foreach (var chunk in RecordDataChunks.Split(record))
-        {
-            SendRaw(chunk, encrypt: true);
-        }
+        var entry = new WorldEntryPacket(0, outcome.EntityId, outcome.FieldId, outcome.SpawnX, outcome.SpawnZ);
+        SendLarge(entry.Write, WorldEntryPacket.Size, encrypt: true);
     }
 
-    private async Task JoinWorldAsync(PlayerInfoPacket request)
+    private void SendEntryFailure(EnterWorldFailure failure) =>
+        SendLarge(new WorldEntryPacket((byte)failure, 0, 0, 0, 0).Write, WorldEntryPacket.Size, encrypt: true);
+
+    private async Task JoinWorldAsync(JoinWorldPacket request)
     {
         var session = _session;
-        if (_player is not null || session?.Character is null || session.Loaded is null || request.ObjectSerial != session.EntityId
+        if (_player is not null || session?.Character is null || session.Loaded is null || request.EntityId != session.EntityId
             || !session.TryBeginPlay())
         {
-            throw new InvalidOperationException("PLAYERINFO before a successful GETRECORDDATA.");
+            throw new InvalidOperationException("JoinWorld before a successful EnterWorld.");
         }
 
         var player = WorldPlayerFactory.Create(session);
@@ -374,8 +368,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         _player = player;
         _outbox = outbox;
         _encoder = new PresenceEncoder(session.EntityId, _services.WorldData);
-        // CONNECTED {LParam = server milliseconds, WParam = object serial}.
-        Send(new TransCommand(PristonOpcodes.Connected, Environment.TickCount, (int)session.EntityId), encrypt: true);
+        SendLarge(new WorldJoinedPacket(session.EntityId, Environment.TickCount64).Write, WorldJoinedPacket.Size, encrypt: true);
         _pump = PumpAsync(outbox, _encoder);
         JoinChat(session);
     }
@@ -619,18 +612,6 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         }
     }
 
-    private void AcknowledgeClientSave(ReadOnlySpan<byte> chunk)
-    {
-        // The server owns the character record; an original client's autosave is acknowledged and discarded.
-        var reader = new PacketReader(chunk, RecordDataChunks.ChunkHeader);
-        var count = reader.Int32();
-        var total = reader.Int32();
-        if (total == 0 || count == total - 1)
-        {
-            Send(new TransCommand(PristonOpcodes.RecordResult, 0, 1), encrypt: true);
-        }
-    }
-
     private async Task ApplyInventoryAsync(InventoryCommandPacket request)
     {
         var command = new InventoryCommand(request.OperationId, request.ExpectedRevision, (InventoryAction)request.Action, request.ItemId,
@@ -801,8 +782,6 @@ internal sealed partial class ClientSession : IMovementVerdictSink
             SendSpan(_scratch.AsSpan(0, write(_scratch)), encrypt);
         }
     }
-
-    private void SendRaw(byte[] packet, bool encrypt) => SendSpan(packet, encrypt);
 
     private void SendSpan(ReadOnlySpan<byte> packet, bool encrypt)
     {

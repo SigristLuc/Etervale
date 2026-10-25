@@ -15,10 +15,9 @@ internal static class BinaryProtocolTests
         yield return ("Priston TCP header handles partial reads and rejects invalid lengths", HeaderAsync);
         yield return ("Priston packet cipher matches the default English client build", CipherAsync);
         yield return ("Priston server list preserves the classic field layout and counts", ServerListAsync);
-        yield return ("character info and PLAYERINFO keep the 32-bit x86 layout", CharacterInfoAsync);
         yield return ("character list is 1484 bytes with 240-byte character slots", CharacterListAsync);
         yield return ("movement reports, attack requests and field warps round-trip with 64-bit targets and sequences", PlayerActionsAsync);
-        yield return ("RECORDDATA chunks follow the original chunk totals", RecordChunksAsync);
+        yield return ("world entry, join and leave messages round-trip with 64-bit ids and UTF-8 names", WorldEntryAsync);
         yield return ("replay window rejects repeats and stale counters and survives the 16-bit wrap", ReplayWindowAsync);
         yield return ("TCP connection delivers encrypted and plain packets and coalesces sends", ConnectionAsync);
     }
@@ -100,31 +99,6 @@ internal static class BinaryProtocolTests
         return Task.CompletedTask;
     }
 
-    private static Task CharacterInfoAsync()
-    {
-        var character = new CharacterInfo { Name = "Gear", ModelName = "char\\tmABCD\\a001.ini", JobCode = 2, Level = 7, LifeCurrent = 90, LifeMax = 120 };
-        character.Temp[CharacterInfo.TempTemplateCode] = 0x1234;
-        character.Experience = 0x1_0000_0002;
-        var packet = new byte[PlayerInfoPacket.Size];
-        var written = new PlayerInfoPacket(character, 0x4000_0001, 256, 512, -768).Write(packet);
-        Assert.True(written == 504, "PLAYERINFO is not 504 bytes");
-        Assert.True(Encoding.ASCII.GetString(packet, 8, 4) == "Gear" && packet[40] == (byte)'c', "character info names moved");
-        Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(8 + 180)) == 2 && BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(8 + 184)) == 7,
-            "class code or Level offset changed");
-        Assert.True(BinaryPrimitives.ReadInt16LittleEndian(packet.AsSpan(8 + 292)) == 90 && BinaryPrimitives.ReadInt16LittleEndian(packet.AsSpan(8 + 294)) == 120,
-            "Life[2] offset changed");
-        Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(8 + 328)) == 0, "lpMonInfo slot is not a zero 32-bit pointer");
-        Assert.True(BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(8 + 316)) == 2 && BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(8 + 388)) == 1,
-            "Exp/Exp_High split changed");
-        Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(8 + 408)) == 0x1234, "dwTemp offset changed");
-        Assert.True(BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(472)) == 0x4000_0001 && BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(484)) == -768,
-            "PLAYERINFO trailer moved");
-        var decoded = PlayerInfoPacket.Read(packet);
-        Assert.True(decoded.Character.Name == "Gear" && decoded.Character.Experience == 0x1_0000_0002 && decoded.Z == -768,
-            "PLAYERINFO round trip changed fields");
-        return Task.CompletedTask;
-    }
-
     private static Task CharacterListAsync()
     {
         var entry = new UserCharacterEntry("Alpha", "", "", 6, 42, 0, 0x02010100, 3, 1024, -2048, 2, 1, 1, 0x01010300, 0, true);
@@ -160,23 +134,20 @@ internal static class BinaryProtocolTests
         return Task.CompletedTask;
     }
 
-    private static Task RecordChunksAsync()
+    private static Task WorldEntryAsync()
     {
-        var record = new RecordDataPacket(new CharacterInfo { Name = "Record", ObjectSerial = 5 }, 3, 1000, -1000).Build();
-        var chunks = RecordDataChunks.Split(record).ToArray();
-        Assert.True(record.Length == 1776 && chunks.Length == 1 && chunks[0].Length == 1776 + 32
-            && BinaryPrimitives.ReadInt32LittleEndian(chunks[0].AsSpan(12)) == 0, "single-chunk record must declare Total = 0");
-        var assembled = new RecordDataAssembler().Add(chunks[0]);
-        Assert.True(assembled is not null && RecordDataPacket.Read(assembled) is { FieldCode: 3, PosZ: -1000, Character.Name: "Record" },
-            "record round trip failed");
-
-        var large = new byte[20000];
-        BinaryPrimitives.WriteInt32LittleEndian(large, large.Length);
-        var parts = RecordDataChunks.Split(large).ToArray();
-        Assert.True(parts.Length == 3 && parts.All(part => BinaryPrimitives.ReadInt32LittleEndian(part.AsSpan(12)) == 3), "multi-chunk Total changed");
-        var assembler = new RecordDataAssembler();
-        Assert.True(assembler.Add(parts[2]) is null && assembler.Add(parts[0]) is null, "record completed before every chunk arrived");
-        Assert.True(assembler.Add(parts[1])?.SequenceEqual(large) == true, "out-of-order chunks were not reassembled");
+        var buffer = new byte[PristonFrameCodec.MaxFrameSize];
+        var enter = new EnterWorldPacket("Hélio");
+        Assert.True(EnterWorldPacket.Read(buffer.AsSpan(0, enter.Write(buffer))) == enter, "world entry request round trip changed the name");
+        var entry = new WorldEntryPacket(0, 0x1_0000_0005UL, 3, 1000.5f, -1000.25f);
+        var read = WorldEntryPacket.Read(buffer.AsSpan(0, entry.Write(buffer)));
+        Assert.True(read == entry && read.Entered, "world entry round trip changed fields");
+        Assert.True(!WorldEntryPacket.Read(buffer.AsSpan(0, new WorldEntryPacket(5, 0, 0, 0, 0).Write(buffer))).Entered, "a refused entry read as entered");
+        Assert.True(JoinWorldPacket.Read(buffer.AsSpan(0, new JoinWorldPacket(ulong.MaxValue).Write(buffer))).EntityId == ulong.MaxValue,
+            "world join lost its 64-bit id");
+        var joined = new WorldJoinedPacket(7, long.MaxValue);
+        Assert.True(WorldJoinedPacket.Read(buffer.AsSpan(0, joined.Write(buffer))) == joined, "world joined round trip changed fields");
+        Assert.True(LeaveWorldPacket.Read(buffer.AsSpan(0, new LeaveWorldPacket(true).Write(buffer))).Saved, "leave answer lost its saved flag");
         return Task.CompletedTask;
     }
 

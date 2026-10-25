@@ -31,7 +31,7 @@ layouts live in [protocol.md](protocol.md).
 | `Net/PresenceEncoder.cs` | Turns the receiver's `WorldSnapshot` into presence packets (presence entries, events, drops, owner state, the restart offer); the crowd cap, the movement budget and descriptions. |
 | `Net/SharedPresenceWire.cs` | Full and motion presence entries and entity descriptions of one presence frame, encoded once for every receiver. |
 | `Net/VisibleSet.cs`, `Net/MotionCandidates.cs` | The receiver's visible crowd (nearest 256 plus essentials, keep band) and its most overdue position updates. |
-| `Net/WireMapping.cs`, `Net/NpcWireMapping.cs`, `Net/QuestWireMapping.cs` | Authoritative views to wire structs (`CharacterInfo`, presence entries, events, NPC service state, quest messages). |
+| `Net/WireMapping.cs`, `Net/NpcWireMapping.cs`, `Net/QuestWireMapping.cs` | Authoritative views to wire structs (presence entries, descriptions, events, NPC service state, quest messages). |
 | `Net/NetworkLimits.cs` | `Network:*` settings with defaults and validation; IPv4-mapped address normalisation. |
 | `Net/ConnectionGuards.cs` | `PacketRateLimiter`, `TokenBucket`, `ConnectionLimiter`, `LoginThrottle`, `LogSampler`. |
 | `Application/README.md` | Placeholder rule: server-only orchestration goes here; use cases stay in `Shared/PristonTale.Application`. |
@@ -170,12 +170,11 @@ the same switch.
 | `ISRECORDDATA` | inline | `CharacterAppService.NameExistsAsync` | Echo, `WParam` 1 when the name exists. |
 | `INSRECORDDATA` | `CreateCharacterAsync` | `CharacterAppService.CreateCharacterAsync(token, name, LParam class, SParam face)` | New list on success, then echo. |
 | `DELRECORDDATA` | `DeleteCharacterAsync` | `CharacterAppService.DeleteCharacterAsync` | New list on success, then echo. |
-| `GETRECORDDATA` | `EnterWorldAsync` | `SessionAppService.EnterWorldAsync` | `RECORDDATA` chunks, or `FAILCONNECT` (`LParam` `EnterWorldFailure`, `EParam` 3). |
-| `PLAYERINFO` | `JoinWorldAsync` | `PlayerSession.TryBeginPlay`, `WorldPlayerFactory.Create`, `WorldServer.JoinAsync` | `CONNECTED`; starts the presence pump. |
+| `EnterWorld` | `EnterWorldAsync` | `SessionAppService.EnterWorldAsync` | `WorldEntry` (id, field and spawn point, or the `EnterWorldFailure`). |
+| `JoinWorld` | `JoinWorldAsync` | `PlayerSession.TryBeginPlay`, `WorldPlayerFactory.Create`, `WorldServer.JoinAsync` | `WorldJoined`; starts the presence pump. |
 | `MovementReport` | `ReportMovement` | `WorldServer.MoveToFieldAsync` or `TryReportMovement` | Forced `FieldWarp` correction when rejected. |
 | `AttackRequest` | `AttackAsync` | `WorldServer.InteractNpcAsync` (target is a known NPC) or `SetAttackTargetAsync` | `NpcResult`, or nothing (results arrive as presence). |
-| `GETPLAYERINFO` | `DescribeObject` | `PresenceEncoder.WriteDescription` | Plaintext `PLAYERINFO` when the serial is in view, from the last encoded frame. |
-| `RECORDDATA` | `AcknowledgeClientSave` | none (discarded) | `RECORDRESULT` `WParam` 1 after the last chunk. |
+| `DescribeEntity` | `DescribeObject` | `PresenceEncoder.DescriptionPacket` | Plaintext `EntityDescription` when the serial is in view, from the last encoded frame. |
 | `InventoryCommand` | `ApplyInventoryAsync` | `SessionAppService.ApplyInventoryAsync` | `InventoryResult`. |
 | `ProgressionCommand` | `ApplyProgressionAsync` | `SessionAppService.ApplyProgressionAsync` | `ProgressionResult`. |
 | `NpcServiceRequest` | `RequestNpcServiceAsync` | `NpcAppService.RequestAsync` | State messages, `NpcServiceResult`, and a forced `FieldWarp` for a teleport. |
@@ -189,7 +188,7 @@ Error handling inside `HandleAsync`:
 | Exception | Effect |
 | --- | --- |
 | `InvalidSessionException`, `InvalidOperationException` (includes `WorldBusyException`) | Packet dropped, sampled `Rejected` warning; the connection stays open. |
-| `DbException` | `ReplyStorageFailure`: login gets `FAILCONNECT` -16, record commands get an echo with `WParam` 0 and `CreateCharacterFailure.Rejected`, `GETRECORDDATA` gets `FAILCONNECT` with `EnterWorldFailure.Rejected`. |
+| `DbException` | `ReplyStorageFailure`: login gets `FAILCONNECT` -16, record commands get an echo with `WParam` 0 and `CreateCharacterFailure.Rejected`, `EnterWorld` gets a `WorldEntry` with `EnterWorldFailure.Rejected`. |
 | `InvalidDataException` (malformed packet from a `Read`) | Escapes to `PristonConnection`, which closes with `protocol: ...`. |
 | anything else | Ends the session; logged as `Client session ... failed`. |
 
@@ -198,7 +197,7 @@ result packet instead, so the client's pending operation always completes.
 
 ### Outbound presence
 
-After `CONNECTED`, `PumpAsync` reads the player's `WorldOutbox` and calls `PresenceEncoder.Encode` per snapshot on a
+After `WorldJoined`, `PumpAsync` reads the player's `WorldOutbox` and calls `PresenceEncoder.Encode` per snapshot on a
 thread-pool task, separate from the receive loop, then releases the snapshot's frame. Per snapshot, in order:
 `FieldWarp` on a field change (after removing everything known), the events of earlier ticks the pump fell behind on
 (each tick's events after its own `PresenceClock`), `PresenceClock` before the first timeline packet of the snapshot's
@@ -229,7 +228,7 @@ of the regression suite ([testing.md](testing.md#multiplayer-propagation)):
 | --- | --- | --- |
 | An entity (player, monster, summon, pet, NPC) | Players of the same field within the connect range (about 1086 units); kept to 1.15 times that range; hidden game masters and other players' duel opponents never | Spawn (a full presence entry, then `EntityDescription` on request) the tick it enters the receiver's view; `RemoveObjects` the tick it leaves, dies away, logs out, disconnects or changes field |
 | Position, facing, motion | Its viewers | Motion, HP, target and attack changes the tick they happen; positions at 5 Hz near (543 units), 2 Hz far, within 2048 bytes per receiver per tick, most overdue first |
-| Description (level, equipment, looks, village flag, owner, size) | Its viewers | A new field-wide revision in the next entry; the client asks for the new `PLAYERINFO` |
+| Description (level, equipment, looks, village flag, owner, size) | Its viewers | A new field-wide revision in the next entry; the client asks for the new `EntityDescription` |
 | Combat, skill and item events | The players that know its attacker or target (and the player itself) | Once, in server order, on the tick they happened; never dropped (an outbox that queues more than 4096 closes the connection) |
 | Statuses | The players that know the entity | `Add`, `Refresh`, `Remove` and ticks as they happen; a player that starts seeing the entity gets its running statuses with the time left |
 | Ground drops | Players within about 905 units; private drops only to their owner | `GroundItems` when they enter range, `GroundItemsRemoved` (batched) on pickup, expiry or leaving range |
@@ -251,8 +250,8 @@ of the regression suite ([testing.md](testing.md#multiplayer-propagation)):
 | Guard | Scope | Behaviour |
 | --- | --- | --- |
 | `ConnectionLimiter` | per remote address, process-wide | Refuses sockets above `MaxConnectionsPerIp`; released when the session ends. |
-| `PacketRateLimiter` | per connection, fixed window | Counts every decoded packet except `GETPLAYERINFO`; exceeding it closes with `packet flood`. Replayed encrypted packets are dropped before counting. |
-| `TokenBucket` | per connection | `GETPLAYERINFO` beyond the bucket is dropped (a 32-byte request costs a 504-byte reply). |
+| `PacketRateLimiter` | per connection, fixed window | Counts every decoded packet except `DescribeEntity`; exceeding it closes with `packet flood`. Replayed encrypted packets are dropped before counting. |
+| `TokenBucket` | per connection | `DescribeEntity` beyond the bucket is dropped (a few-byte request costs a description of up to a few hundred bytes). |
 | `LoginThrottle` | per account (case-insensitive) and per address | Only `BadCredentials` counts. A blocked attempt gets `FAILCONNECT` -16 before the password hash is computed. Success clears the account counter only. At most 65536 keys per map. |
 | Login timeout | per connection | Unauthenticated sockets close after `LoginTimeoutSeconds`. |
 | Second login | per connection | `ID_GETUSERINFO` after a successful login gets `FAILCONNECT` -4. |
@@ -312,7 +311,7 @@ or login timeout, packet flood, protocol error, send backlog, presence overflow,
   wrap the call itself, as `ReportMovement` and `CastSkillAsync` do.
 - An NPC click is recognised only when the `AttackRequest` target is an NPC the receiver's `PresenceEncoder` currently
   knows; an unknown serial becomes an attack target change.
-- Client-sent `RECORDDATA` is acknowledged and discarded: the server owns the record. `ClientSession` saves the
+- The server owns the character record; the client never sends one. `ClientSession` saves the
   character on `LeaveWorld` and on disconnect (`SessionAppService.SaveCharacterAsync`); inventory, progression and NPC
   transactions persist their own changes.
 

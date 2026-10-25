@@ -11,7 +11,7 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 - You add an opcode, a packet or a field, or change a layout or size.
 - A packet fails to decode, the connection closes with `protocol: ...`, or sizes disagree between client and server.
 - You need the meaning of a `TransCommand` parameter (`LParam`/`WParam`/`SParam`/`EParam`) for a given opcode.
-- You work on presence: play data, the presence clock, remote playback timing, view ranges or bandwidth.
+- You work on presence: presence entries, the presence clock, remote playback timing, view ranges or bandwidth.
 - You change server movement authority, skill cast validation or NPC service messages on the wire.
 - You measure or tune server capacity.
 
@@ -29,8 +29,7 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Packets/PristonUnits.cs` | `PristonUnits` (fixed point x256, 4096-per-turn angles), `MotionStateCode`. |
 | `Packets/PlayerActionPackets.cs` | `MovementReport`, `AttackRequest` and `FieldWarp`. |
 | `Packets/PresencePackets.cs` | `PresenceEntries`: `VarInt`, `PresenceMotion`, `PresenceEntry`, `PresenceWire` (entry codec), writer and reader. |
-| `Packets/CharacterInfo.cs` | 464-byte character info record, `dwTemp` slot constants, 504-byte `PLAYERINFO`. |
-| `Packets/RecordData.cs` | Character record (1776-byte fixed part), `RecordDataChunks.Split` and `RecordDataAssembler`. |
+| `Packets/WorldEntryPackets.cs` | `EnterWorld`, `WorldEntry`, `JoinWorld`, `WorldJoined` and `LeaveWorld`. |
 | `Packets/UserCharacterList.cs` | `ID_SETUSERINFO` character list (1484 B, six 240-byte slots). |
 | `Packets/GroundItemPackets.cs` | `GroundItems` and `GroundItemsRemoved`. |
 | `Packets/ChatPackets.cs`, `ChatChannelCode.cs` | `ChatSay` (typed line), `ChatLine` (received line); chat kinds on the wire. |
@@ -89,8 +88,8 @@ Deviations from the original transport:
 Which side encrypts what is a sender choice; receivers accept either form for every code. The server encrypts command
 replies, login, record and NPC/inventory/progression/skill-cast results and `FieldWarp`; presence traffic (presence
 entries, events, drops, owner state, removals, clock, entity descriptions) goes out in plaintext. The client encrypts
-login, character commands, heartbeats, `AttackRequest`, `SkillCast` and operation requests, and sends `GETRECORDDATA`,
-`PLAYERINFO`, `MovementReport` and `DescribeEntity` in plaintext.
+login, character commands, world entry, heartbeats, `AttackRequest`, `SkillCast` and operation requests, and sends
+`MovementReport` and `DescribeEntity` in plaintext.
 
 ## Login, character select and world entry
 
@@ -98,23 +97,21 @@ login, character commands, heartbeats, `AttackRequest`, `SkillCast` and operatio
 
 | Step | Packet | Notes |
 | --- | --- | --- |
-| Connect | S→C `VERSION` | `WParam` = minimum client version (167); `LParam` = players in the world when a game master's `/user_limit` is reached, else 0 (then only game masters may log in). The client reports its own version (3122) in `GETRECORDDATA`. |
+| Connect | S→C `VERSION` | `WParam` = minimum client version (167); `LParam` = players in the world when a game master's `/user_limit` is reached, else 0 (then only game masters may log in). |
 | Log in | C→S `ID_GETUSERINFO` (account command packet, 84 B) | `szId` = account, `szName` = password, as in the original. |
 | Success | S→C `ID_SETUSERINFO` (1484 B) and `SERVER_INFO` (152 B) | Character list and the one game server: name `Etervale`, the login socket's local IPv4 address and port. |
 | Failure | S→C `FAILCONNECT`, `EParam` = 2 | `WParam` uses the original codes: -2 bad credentials, -4 already logged in on this connection, -16 busy (throttled or storage failure), -24 account blocked. |
 | Name check | `ISRECORDDATA` echo | `WParam` = 1 when the name exists. |
 | Create | `INSRECORDDATA` echo | Request `LParam` = class code, `SParam` = face (unset in the original). Echo `WParam` = 1/0, `LParam` = `CreateCharacterFailure`. |
 | Delete | `DELRECORDDATA` echo | The original sends no reply; Etervale echoes the result in `WParam`. |
-| Select | C→S `GETRECORDDATA` (52 B) | `SParam` = client version, `szName` = character. |
-| Record | S→C `RECORDDATA` chunks | Character record with the character info record, field and position; `ItemCount` and `DataSize` are zero because inventory stays on the server. Chunking and `Total` follow the original record chunks (8160 data bytes per chunk; a record that fits one chunk declares `Total` = 0). |
-| Entry failure | S→C `FAILCONNECT` with `EParam` = 3 | `LParam` = `EnterWorldFailure`. |
-| Join | C→S `PLAYERINFO` (504 B), S→C `CONNECTED` | `PLAYERINFO.ObjectSerial` must equal the serial from the record. `CONNECTED` = {`LParam` server milliseconds, `WParam` object serial}. |
+| Select | C→S `EnterWorld` (`0x45540E00`) | `{uint16 Version = 1, uint16 0, text Name (64 B)}`. |
+| Entry | S→C `WorldEntry` (`0x45540E01`) | `{uint16 Version, uint8 Status (0 entered, else EnterWorldFailure), uint8 0, uint64 EntityId, int32 Field, int32 X, Z (x256)}`. The owner's stats, inventory and skills follow on the presence stream. |
+| Join | C→S `JoinWorld` (`0x45540E02`), S→C `WorldJoined` (`0x45540E03`) | `JoinWorld` = `{uint16 Version, uint16 0, uint64 EntityId}`, which must be the id from `WorldEntry`; `WorldJoined` = `{uint16 Version, uint16 0, uint64 EntityId, int64 ServerTimeMs}`. |
 | Heartbeat | `CHECK_NETSTATE` every 4 s | Client `LParam` = counter, `WParam` = client time; echoed with `SParam` = server time. The server closes connections silent for 60 s. |
-| Client save | C→S `RECORDDATA` | Acknowledged with `RECORDRESULT` (`WParam` = 1) after the last chunk and discarded; the server owns the record. |
-| Leave | `LeaveWorld` (extension) | Echoed with `WParam` = 1 after the server saved the character. |
+| Leave | `LeaveWorld` (`0x45540160`) | `{uint16 Version, uint8 Saved, uint8 0}`: the client sends Saved 0; the server answers with Saved 1 after it stored the character. |
 
 Successful creation and deletion send a fresh `ID_SETUSERINFO` before the echo. Storage failures answer the pending
-request (`FAILCONNECT` -16, a record echo with `WParam` 0, or entry failure `Rejected`) instead of closing.
+request (`FAILCONNECT` -16, a record echo with `WParam` 0, or a `WorldEntry` with `Rejected`) instead of closing.
 
 ## In-world messages
 
@@ -297,9 +294,8 @@ Every body starts with `{uint16 Version = 1, uint16 Flags = 0}`; text is UTF-8 w
 
 `Status` is `ItemUseStatus`; `Kind` is `PremiumEffectKind`; `Effect` is `ItemEffectKind` (1 firecracker with its roll
 in `Variant`, 2 mastery, 3 force orb, 4 learn, 5 pet strike with the pet kind in `ItemCode` and the target serial in
-`Variant`, 6 return sparkle at the given position, 7 head change, 8 drink, 9 gift box). Player descriptors carry the
-pets and the head look in `CharacterInfo.TempFlags` (bit 1 Phoenix, bits 8-11 helper pet, bits 12-13 head look: 1-2
-big head, 3 soccer ball). A sealed puzzle piece travels as the PZ100 code with the name "Lucky Bag". The puzzle
+`Variant`, 6 return sparkle at the given position, 7 head change, 8 drink, 9 gift box). Player descriptions carry the
+Phoenix flag, the helper pet and the head look (1-2 big head, 3 soccer ball). A sealed puzzle piece travels as the PZ100 code with the name "Lucky Bag". The puzzle
 collector's exchange is the NPC service action `Exchange` (40) on `QuestEvent`.
 Rules: [special-items.md](special-items.md).
 
@@ -562,9 +558,7 @@ when the received version has it.
   each frame will see descriptions silently dropped. A client must ask again for an object still undescribed (the
   Etervale client does after a second), or a crowd entering view at once never appears.
 - Two monsters of one template share a description only while both are wild: a summon's description names its owner.
-  Never send a summon's template in `dwAutoCharCode`, and never cache a user-brood description by template.
-- A `RECORDDATA` record that fits one chunk declares `Total` = 0, not 1. `RecordDataChunks.Split`,
-  `RecordDataAssembler.Add` and `ClientSession.AcknowledgeClientSave` all treat 0 as a single chunk; keep them aligned.
+  Never send a summon's template in its presence entry, and never cache a user-brood description by template.
 - `SERVER_INFO` uses the login socket's local address; behind NAT an original client would dial the private address.
 
 ## Related
