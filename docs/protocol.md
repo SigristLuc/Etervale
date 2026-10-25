@@ -217,7 +217,9 @@ A combat entry is `{uint64 Attacker, Target, byte Kind, byte Flags (1 critical, 
 float DurationMs, HitAtMs, int Damage, Resources, SoundCode, X, Y, Z, int16 Angle, int16 0}`. `Kind` is
 `CombatEventKindView`: 1 swing begin, 2 hit, 3 potion begin, 4 potion applied, 5 monster skill impact, 6 heal (amount
 in `Damage`), 7 evade, 8 revive (returned life in `Damage`), 9 block (a player blocked a monster's normal attack), 10 miss (a player's swing missed; its
-weapon's miss sound plays).
+weapon's miss sound plays), 11 level up (a player gained a level; everyone near plays the level-up burst), 12 skill learned
+(a player trained a skill rank; the skill-learn light and sound). The field emits 11 and 12 from `WorldPlayer.TakeProgressCues`
+once per tick for any change, whatever caused it.
 `Clip` is the motion-table slot of the clip a monster's swing plays (-1: the state's first clip); flag 4 marks a
 monster's skill swing and the hits of its skill. A monster drinking a potion or changing shape sends the original
 motions `Eat` and `Warp` in its presence entries.

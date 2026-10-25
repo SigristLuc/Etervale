@@ -6,6 +6,10 @@ namespace PristonTale.Effects.Vfx;
 // Quads and models of the part layers.
 public sealed partial class VfxRenderer
 {
+    private Vector3 _viewForward = -Vector3.UnitZ;
+    // World units per pixel of a 600-pixel-high view at unit depth.
+    private float _worldPerPixel;
+
     private void AppendParts(VfxInstance instance, int pass, Vector3 right, Vector3 up, Vector3 camera)
     {
         foreach (var state in instance.PartStates)
@@ -44,6 +48,13 @@ public sealed partial class VfxRenderer
                 var height = animated ? part.Player.Size * (part.Height / MathF.Max(1e-3f, part.Size)) : part.Height;
                 var angle = part.Rotation + (compiled.Animation is not null ? part.Player.Angle : 0f);
                 var position = part.Position;
+                if (source.SlideFrom != 0f)
+                {
+                    var slide = VfxScreenSlide.At(source.SlideFrom, (int)(part.Age * Legacy.BillboardSequence.TicksPerSecond));
+                    var depth = MathF.Max(1f, Vector3.Dot(position - camera, _viewForward)) * _worldPerPixel;
+                    position += right * (slide.X * depth) - up * (slide.Y * depth);
+                }
+
                 switch (source.Shape)
                 {
                     case VfxPartShape.Billboard:

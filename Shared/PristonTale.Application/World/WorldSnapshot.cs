@@ -121,6 +121,10 @@ public enum CombatEventKindView
     Block = 9,
     // A player's swing missed its target (its weapon's miss sound plays for everyone near).
     Miss = 10,
+    // A player gained a level: the level-up burst and chime for everyone near.
+    LevelUp = 11,
+    // A player trained a skill rank: the skill-learn light and sound for everyone near.
+    SkillLearned = 12,
 }
 
 public enum SkillEventPhaseView : byte

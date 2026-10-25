@@ -195,6 +195,39 @@ public sealed class WorldPlayer
         _character = character;
         _inVillage = inVillage;
         _appearance = appearance;
+        _cueLevel = character.Level;
+        _cueSkillRevision = character.Skills.Revision;
+        _cueRanks = TrainedRanks();
+    }
+
+    private int _cueLevel;
+    private long _cueSkillRevision;
+    private int _cueRanks;
+
+    // Whether the player gained a level or trained a skill rank since the last call, for the effects everyone near sees.
+    public void TakeProgressCues(out bool leveledUp, out bool learned)
+    {
+        leveledUp = _character.Level > _cueLevel;
+        _cueLevel = _character.Level;
+        learned = false;
+        if (_character.Skills.Revision != _cueSkillRevision)
+        {
+            _cueSkillRevision = _character.Skills.Revision;
+            var ranks = TrainedRanks();
+            learned = ranks > _cueRanks;
+            _cueRanks = ranks;
+        }
+    }
+
+    private int TrainedRanks()
+    {
+        var total = 0;
+        foreach (var rank in _character.Skills.Ranks.Values)
+        {
+            total += rank;
+        }
+
+        return total;
     }
 
     public ulong EntityId { get; }

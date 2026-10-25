@@ -22,6 +22,10 @@ public enum RemoteCombatEventKind
     Block = 9,
     // A player's swing missed its target.
     Miss = 10,
+    // A player gained a level.
+    LevelUp = 11,
+    // A player trained a skill rank.
+    SkillLearned = 12,
 }
 
 public sealed record CombatEventInfo(

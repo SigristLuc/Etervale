@@ -251,6 +251,16 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
             _combat.StepPlayerAttack(player);
             StepPlayer(player, nowMs);
+            player.TakeProgressCues(out var leveledUp, out var learned);
+            if (leveledUp)
+            {
+                EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKindView.LevelUp));
+            }
+
+            if (learned)
+            {
+                EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKindView.SkillLearned));
+            }
         }
 
         _skills.Step(dtMs);

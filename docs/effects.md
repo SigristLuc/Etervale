@@ -48,7 +48,7 @@ the client. `assets/` is not in Git, so the data is produced by `ptvfx import <a
 
 | Folder under `Effect/Vfx/` | Content | Source |
 |---|---|---|
-| `Common/` | Shared skill building blocks: hit flashes, impact bursts, weapon bands, stun stars | `tools/PristonTale.VfxImport/Authored/Common/` |
+| `Common/` | Shared skill building blocks: hit flashes, impact bursts, weapon bands, stun stars; `Progression.vfx.json`: the level-up burst (`vfx.player.levelup`: 20 streaks closing on the player, the burst flare and the sliding "LEVEL UP" title, light and chime) | `tools/PristonTale.VfxImport/Authored/Common/` |
 | `Classes/<Class>/` | One file per class with every effect its skill rules name | `tools/PristonTale.VfxImport/Authored/Classes/<Class>/` |
 | `Scripts/` | `script.<File>`: one per original effect group script (`Effect/NewEffect/*.lua`) | converted |
 | `Particles/` | `particle.<File>`: one per original particle script (`Effect/Particle/Script/*.part`) | converted |
@@ -160,7 +160,7 @@ seconds; a zero lifetime lives as long as its animation, model clip or flight, o
 | Image | `animation` (an `Effect/AnimationData` file: images, hold ticks, opacity, size, angle and blend come from it), `loop`, `sized` (start from `size` instead of the file's sizes), or `texture` with `frames`, `frameTime`, `pingPong`; `blend`, `color` (0..255), `size`, `height`, `growth`, `rotation`, `spin`, `width` (half width of strips) |
 | Model | `model`, `skeleton`, `modelStart`, `modelFrames`, `modelSpeed` (clip frames per second), `loopFrom`, `angles`, `tumble`, `scale`, `pulse` + `pulsePeriod`, `faceGoal` (face the velocity) |
 | Fade | `fade`: `Rise` (up over 25.5 % of the life, down at the same rate), `Fall` (down over the last 25.5 %), `InOut` (`fadeIn`, `fadeOut` seconds); `fadeOut` also times the fade after arriving |
-| Place | `anchor`, `bone`, `boneWorld` (full bone transform, offset in bone space), `offset`, `follow`, `turn` (true), `jitterMin`/`jitterMax`, `ring` radius with `ringStart` + `ringStep` x index or `ringRandom`, `shell` (ellipsoid radii) |
+| Place | `anchor`, `bone`, `boneWorld` (full bone transform, offset in bone space), `offset`, `follow`, `turn` (true), `jitterMin`/`jitterMax`, `ring` radius with `ringStart` + `ringStep` x index or `ringRandom`, `shell` (ellipsoid radii), `slideFrom` (a billboard sliding on the screen from that many pixels of a 600-pixel-high view, negative left, closing like `VfxScreenSlide`: 35 px every fourth tick, 3 fewer each time down to 4, rising 2 px a tick 45 ticks after it closed) |
 | Motion | `radial` (outward along the ring angle), `rise`, `velocityMin`/`velocityMax`, `burst` (along the shell direction), `gravity`, `swirl` (deg/s about the vertical), `moveTime` (stop after) |
 | Goal | `goal` (Caster, Target, Point) + `goalOffset`, `speed`, `reach`, `lift` (lob under `gravity`), `end`: `Vanish`, `LastFrame` (keep flying through the last frame or `fadeOut`), `Hold` (stop and fade out) |
 | Orbit | `orbitRadius`, `orbitSpeed`, `orbitTilt`, `orbitRise`, `orbitGrowth`, `orbitPhase` + `orbitPhaseStep`, `orbitAlternate`; with a goal the orbit starts at the goal's bearing and distance |

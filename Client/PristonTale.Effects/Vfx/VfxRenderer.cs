@@ -99,6 +99,8 @@ public sealed partial class VfxRenderer : IDisposable
         _runs.Clear();
         var right = new Vector3(view.M11, view.M21, view.M31);
         var up = new Vector3(view.M12, view.M22, view.M32);
+        _viewForward = -new Vector3(view.M13, view.M23, view.M33);
+        _worldPerPixel = projection.M22 > 0f ? 1f / (VfxScreenSlide.ViewPixels * 0.5f * projection.M22) : 0f;
         var instances = system.Instances;
         _order.Clear();
         for (var index = 0; index < instances.Count; index++)

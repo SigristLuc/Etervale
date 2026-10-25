@@ -175,6 +175,10 @@ public sealed record VfxPartDefinition
     // Orbit speed alternates direction by index.
     public bool OrbitAlternate { get; init; }
 
+    // A billboard sliding on the screen (a title closing in from the side): it starts SlideFrom pixels of a 600-pixel-high
+    // view to the side (negative left) and closes like VfxScreenSlide.
+    public float SlideFrom { get; init; }
+
     // Effect carried by each part: started at its birth, moved with it and stopped when it ends (a fire on a shot).
     public string CarryEffect { get; init; } = "";
     // Effect started every Every seconds at each live part (dust behind a bomb).

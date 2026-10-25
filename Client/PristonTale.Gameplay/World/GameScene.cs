@@ -577,6 +577,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 ObserveCombatSounds(update);
                 ObserveSkills(update);
                 ObserveItems(update);
+                ObserveProgression(update);
                 ObserveRestart(update);
                 PresenceObserved?.Invoke(update);
             }
