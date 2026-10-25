@@ -32,50 +32,30 @@ internal static class WireMapping
     // summons describe themselves (a summon's owner and size are its own), so they carry none.
     public static uint SharedTemplate(in EntityView view) => view.Kind == EntityKindView.Player || view.OwnerId != 0 ? 0u : view.TemplateId;
 
-    public static PlayBuffer Buffer(in EntityView view) => new(
-        PristonUnits.ToFixed(view.Position.X),
-        PristonUnits.ToFixed(view.Position.Y),
-        PristonUnits.ToFixed(view.Position.Z),
-        PristonUnits.FrameNone,
-        PristonUnits.ToAngle(view.Facing),
-        ActionCode(view.MoveState),
-        view.AttackTargetId);
+    public static byte Motion(MoveStateView state) => state switch
+    {
+        MoveStateView.Walking => PresenceMotion.Walk,
+        MoveStateView.Running => PresenceMotion.Run,
+        MoveStateView.Attack => PresenceMotion.Attack,
+        MoveStateView.Damage => PresenceMotion.Damage,
+        MoveStateView.Dead => PresenceMotion.Dead,
+        MoveStateView.Skill => PresenceMotion.Skill,
+        MoveStateView.Eat => PresenceMotion.Eat,
+        MoveStateView.Warp => PresenceMotion.Warp,
+        _ => PresenceMotion.Stand
+    };
 
-    public static TransPlayData PlayData(in EntityView view, int fieldCode, byte revision) => new(
-        view.EntityId,
-        view.AttackTargetId,
-        unchecked((int)view.AttackSequence),
-        ClampShort(view.Hp),
-        ClampShort(view.MaxHp),
-        SharedTemplate(view),
-        (short)fieldCode,
-        -1,
-        revision,
-        (byte)Math.Clamp(view.Level, 0, 255),
-        [Buffer(view)]);
+    // A full presence entry: the motion part plus life, level, target, attack sequence, description revision, shared
+    // template and field.
+    public static PresenceEntry Entry(in EntityView view, int fieldCode, byte revision) => new(
+        view.EntityId, true, view.Position, view.Facing, Motion(view.MoveState), view.Hp, view.MaxHp, view.Level, view.AttackTargetId,
+        view.AttackSequence, revision, SharedTemplate(view), fieldCode);
 
-    public static int WritePlayData(Span<byte> destination, in EntityView view, int fieldCode, byte revision) => TransPlayData.WriteSingle(
-        destination,
-        view.EntityId,
-        view.AttackTargetId,
-        unchecked((int)view.AttackSequence),
-        ClampShort(view.Hp),
-        ClampShort(view.MaxHp),
-        SharedTemplate(view),
-        (short)fieldCode,
-        -1,
-        revision,
-        (byte)Math.Clamp(view.Level, 0, 255),
-        Buffer(view));
+    public static int WriteFull(Span<byte> destination, in EntityView view, int fieldCode, byte revision) =>
+        PresenceWire.WriteFull(destination, Entry(view, fieldCode, revision));
 
-    public static PlayDataCoarse Coarse(in EntityView view) => new(
-        view.EntityId,
-        PristonUnits.ToFixed(view.Position.X),
-        PristonUnits.ToFixed(view.Position.Y),
-        PristonUnits.ToFixed(view.Position.Z),
-        PristonUnits.ToAngle(view.Facing),
-        ActionCode(view.MoveState),
-        SharedTemplate(view));
+    public static int WriteMotion(Span<byte> destination, in EntityView view) =>
+        PresenceWire.WriteMotion(destination, view.EntityId, view.Position, view.Facing, Motion(view.MoveState));
 
     // Character info record for an object description (PLAYERINFO reply to GETPLAYERINFO).
     public static CharacterInfo Describe(in EntityView view, WorldData data)

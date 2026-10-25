@@ -388,7 +388,7 @@ public static class RemoveObjectList
     }
 }
 
-// Server simulation clock for the presence entries that follow it on the connection: PlayDataGroup samples and
+// Server simulation clock for the presence entries that follow it on the connection: presence entries and
 // combat events until the next clock. Layout: {size, code, ushort Version, ushort Flags, uint ServerTick,
 // uint TickIntervalMs}. Readers accept newer versions that append fields.
 public readonly record struct PresenceClockPacket(uint ServerTick, uint TickIntervalMs)

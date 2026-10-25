@@ -18,7 +18,6 @@ internal static class BinaryProtocolTests
         yield return ("character info and PLAYERINFO keep the 32-bit x86 layout", CharacterInfoAsync);
         yield return ("character list is 1484 bytes with 240-byte character slots", CharacterListAsync);
         yield return ("ATTACK_DAMAGE uses the damage checksum and damage cipher keyed by the sender serial", AttackDamageAsync);
-        yield return ("PLAYDATAGROUP nests self-sized play data and PLAYDATA entries", PlayDataGroupAsync);
         yield return ("RECORDDATA chunks follow the original chunk totals", RecordChunksAsync);
         yield return ("replay window rejects repeats and stale counters and survives the 16-bit wrap", ReplayWindowAsync);
         yield return ("TCP connection delivers encrypted and plain packets and coalesces sends", ConnectionAsync);
@@ -158,30 +157,6 @@ internal static class BinaryProtocolTests
         }
 
         Assert.True(rejected, "a packet decoded with another serial passed the checksum");
-        return Task.CompletedTask;
-    }
-
-    private static Task PlayDataGroupAsync()
-    {
-        var detailed = new TransPlayData(9, 4, 77, 30, 60, 1001, 3, -1, 2, 15,
-            [new PlayBuffer(256, 0, -256, PristonUnits.FrameNone, 1024, MotionStateCode.Run, 4)]);
-        var coarse = new PlayDataCoarse(10, 512, 0, 512, 2048, MotionStateCode.Walk, 1002);
-        var buffer = new byte[PristonFrameCodec.MaxFrameSize];
-        var group = new PlayDataGroupWriter(buffer, 5);
-        var size = TransPlayData.SizeFor(1);
-        Assert.True(size == 84, "one-buffer play data packet is not 84 bytes");
-        group.Commit(detailed.Write(group.Reserve(size)));
-        group.Commit(coarse.Write(group.Reserve(PlayDataCoarse.Size)));
-        var packet = group.Finish().ToArray();
-        Assert.True(packet.Length == 16 + 84 + 40 && BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(8)) == 2, "PLAYDATAGROUP header changed");
-        Assert.True(BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(16 + 16)) == 1 && BinaryPrimitives.ReadInt16LittleEndian(packet.AsSpan(16 + 32)) == 3
-            && BinaryPrimitives.ReadInt32LittleEndian(packet.AsSpan(16 + 48)) == 256, "play data packet offsets changed");
-        var entries = new List<byte[]>();
-        PlayDataGroup.Read(packet, entry => entries.Add(entry.ToArray()));
-        var read = TransPlayData.Read(entries[0]);
-        Assert.True(read.ObjectSerial == 9 && read.Target == 4 && read.StartPosi == 77 && read.Hp == 30 && read.DescriptorRevision == 2 && read.Level == 15
-            && read.Buffers.Single() == detailed.Buffers[0], "detailed entry changed");
-        Assert.True(PlayDataCoarse.Read(entries[1]) == coarse, "coarse entry changed");
         return Task.CompletedTask;
     }
 

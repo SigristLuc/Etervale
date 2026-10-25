@@ -20,9 +20,7 @@ public static class PristonOpcodes
     public const uint CheckNetState4 = 0x48470090;
     public const uint CheckNetState5 = 0x48470091;
 
-    public const uint PlayData1 = 0x48470010;
     public const uint TransPlayData = 0x48470013;
-    public const uint PlayDataGroup = 0x48470014;
     public const uint PlayerInfo = 0x48470020;
     public const uint GetPlayerInfo = 0x48470021;
     public const uint FailConnect = 0x48470023;
@@ -84,6 +82,8 @@ public static class EtervaleOpcodes
     public const uint QuestResult = 0x45540501;
     public const uint QuestJournal = 0x45540502;
     public const uint QuestNotices = 0x45540503;
+
+    public const uint PresenceEntries = 0x45540900;
 
     public const uint RestartRequest = 0x45540A00;
     public const uint RestartResult = 0x45540A01;

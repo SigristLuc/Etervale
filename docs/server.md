@@ -28,10 +28,10 @@ layouts live in [protocol.md](protocol.md).
 | [Net/ClientSession.cs](../Server/PristonTale.Server/Net/ClientSession.cs) | Per-connection state machine: packet dispatch to application services and replies. |
 | `Net/ClientSession.Chat.cs` | The session's `IChatLink`: chat lines, forced warps, close requests and kicks from game masters. |
 | `Net/GameServerControl.cs` | `IServerOperations` for game masters: user limit, blocked logins, the shutdown countdown and host stop. |
-| `Net/PresenceEncoder.cs` | Turns the receiver's `WorldSnapshot` into presence packets (play data, events, drops, owner state); the crowd cap, the movement budget and descriptions. |
-| `Net/SharedPresenceWire.cs` | Play-data entries, coarse entries and `PLAYERINFO` descriptions of one presence frame, encoded once for every receiver. |
+| `Net/PresenceEncoder.cs` | Turns the receiver's `WorldSnapshot` into presence packets (presence entries, events, drops, owner state, the restart offer); the crowd cap, the movement budget and descriptions. |
+| `Net/SharedPresenceWire.cs` | Full and motion presence entries and `PLAYERINFO` descriptions of one presence frame, encoded once for every receiver. |
 | `Net/VisibleSet.cs`, `Net/MotionCandidates.cs` | The receiver's visible crowd (nearest 256 plus essentials, keep band) and its most overdue position updates. |
-| `Net/WireMapping.cs`, `Net/NpcWireMapping.cs`, `Net/QuestWireMapping.cs` | Authoritative views to wire structs (`CharacterInfo`, play data, events, NPC service state, quest messages). |
+| `Net/WireMapping.cs`, `Net/NpcWireMapping.cs`, `Net/QuestWireMapping.cs` | Authoritative views to wire structs (`CharacterInfo`, presence entries, events, NPC service state, quest messages). |
 | `Net/NetworkLimits.cs` | `Network:*` settings with defaults and validation; IPv4-mapped address normalisation. |
 | `Net/ConnectionGuards.cs` | `PacketRateLimiter`, `TokenBucket`, `ConnectionLimiter`, `LoginThrottle`, `LogSampler`. |
 | `Application/README.md` | Placeholder rule: server-only orchestration goes here; use cases stay in `Shared/PristonTale.Application`. |
@@ -203,7 +203,7 @@ After `CONNECTED`, `PumpAsync` reads the player's `WorldOutbox` and calls `Prese
 thread-pool task, separate from the receive loop, then releases the snapshot's frame. Per snapshot, in order:
 `WARPFIELD` on a field change (after removing everything known), the events of earlier ticks the pump fell behind on
 (each tick's events after its own `PresenceClock`), `PresenceClock` before the first timeline packet of the snapshot's
-tick, `PLAYDATAGROUP` (one or more), `RemoveObjects`, `CombatEvents`, `SkillEvents`, `StatusEffects` (with the running
+tick, `PresenceEntries` (one or more), `RemoveObjects`, `CombatEvents`, `SkillEvents`, `StatusEffects` (with the running
 statuses of entities the receiver starts seeing), `ItemEffects`, `PLAYITEM`/`DELITEM`, `OwnerStatus` with `Inventory`
 parts and `Skills` when their revisions changed, `SkillCooldowns`, then `QuestJournal` and `QuestNotices` from the
 snapshot's quest update.
@@ -228,7 +228,7 @@ of the regression suite ([testing.md](testing.md#multiplayer-propagation)):
 
 | What | Who receives it | How and when |
 | --- | --- | --- |
-| An entity (player, monster, summon, pet, NPC) | Players of the same field within the connect range (about 1086 units); kept to 1.15 times that range; hidden game masters and other players' duel opponents never | Spawn (`PLAYDATAGROUP` entry, then `PLAYERINFO` on request) the tick it enters the receiver's view; `RemoveObjects` the tick it leaves, dies away, logs out, disconnects or changes field |
+| An entity (player, monster, summon, pet, NPC) | Players of the same field within the connect range (about 1086 units); kept to 1.15 times that range; hidden game masters and other players' duel opponents never | Spawn (a full presence entry, then `PLAYERINFO` on request) the tick it enters the receiver's view; `RemoveObjects` the tick it leaves, dies away, logs out, disconnects or changes field |
 | Position, facing, motion | Its viewers | Motion, HP, target and attack changes the tick they happen; positions at 5 Hz near (543 units), 2 Hz far, within 2048 bytes per receiver per tick, most overdue first |
 | Description (level, equipment, looks, village flag, owner, size) | Its viewers | A new field-wide revision in the next entry; the client asks for the new `PLAYERINFO` |
 | Combat, skill and item events | The players that know its attacker or target (and the player itself) | Once, in server order, on the tick they happened; never dropped (an outbox that queues more than 4096 closes the connection) |

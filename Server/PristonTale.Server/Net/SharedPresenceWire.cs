@@ -3,21 +3,23 @@ using PristonTale.Protocol.Packets;
 
 namespace PristonTale.Server.Net;
 
-// The play-data entries of one presence frame, encoded once for every receiver of the frame. An entity's entry depends
-// only on its view, the field and its field-wide descriptor revision, so every encoder copies the same bytes; the first
-// encoder that needs an entry writes it while the others wait the few nanoseconds it takes.
+// The presence entries of one frame, encoded once for every receiver of the frame. An entity's entry depends only on its
+// view, the field and its field-wide descriptor revision, so every encoder copies the same bytes; the first encoder that
+// needs an entry writes it while the others wait the few nanoseconds it takes.
 internal sealed class SharedPresenceWire : IPresenceFrameAttachment
 {
-    private static readonly int DetailedSize = TransPlayData.SizeFor(1);
-    private const int CoarseSize = PlayDataCoarse.Size;
-    private const int DetailedBusy = 1;
-    private const int DetailedDone = 2;
-    private const int CoarseBusy = 4;
-    private const int CoarseDone = 8;
+    private const int FullSlot = PresenceWire.MaxFullEntrySize;
+    private const int MotionSlot = PresenceWire.MaxMotionEntrySize;
+    private const int FullBusy = 1;
+    private const int FullDone = 2;
+    private const int MotionBusy = 4;
+    private const int MotionDone = 8;
     private const int DescriptionBusy = 16;
     private const int DescriptionDone = 32;
-    private byte[] _detailed = [];
-    private byte[] _coarse = [];
+    private byte[] _full = [];
+    private byte[] _motion = [];
+    private int[] _fullLength = [];
+    private int[] _motionLength = [];
     private byte[]? _described;
     private int[] _state = [];
 
@@ -32,8 +34,10 @@ internal sealed class SharedPresenceWire : IPresenceFrameAttachment
         if (_state.Length < entityCount)
         {
             var capacity = entityCount + entityCount / 4 + 16;
-            _detailed = new byte[capacity * DetailedSize];
-            _coarse = new byte[capacity * CoarseSize];
+            _full = new byte[capacity * FullSlot];
+            _motion = new byte[capacity * MotionSlot];
+            _fullLength = new int[capacity];
+            _motionLength = new int[capacity];
             _described = null;
             _state = new int[capacity];
             return;
@@ -62,28 +66,28 @@ internal sealed class SharedPresenceWire : IPresenceFrameAttachment
         return entry;
     }
 
-    public ReadOnlySpan<byte> Detailed(int index, in EntityView view, int field)
+    public ReadOnlySpan<byte> Full(int index, in EntityView view, int field)
     {
-        var entry = _detailed.AsSpan(index * DetailedSize, DetailedSize);
-        if (Claim(index, DetailedBusy, DetailedDone))
+        var slot = _full.AsSpan(index * FullSlot, FullSlot);
+        if (Claim(index, FullBusy, FullDone))
         {
-            WireMapping.WritePlayData(entry, view, field, view.Revision);
-            Interlocked.Or(ref _state[index], DetailedDone);
+            _fullLength[index] = WireMapping.WriteFull(slot, view, field, view.Revision);
+            Interlocked.Or(ref _state[index], FullDone);
         }
 
-        return entry;
+        return slot[.._fullLength[index]];
     }
 
-    public ReadOnlySpan<byte> Coarse(int index, in EntityView view)
+    public ReadOnlySpan<byte> Motion(int index, in EntityView view)
     {
-        var entry = _coarse.AsSpan(index * CoarseSize, CoarseSize);
-        if (Claim(index, CoarseBusy, CoarseDone))
+        var slot = _motion.AsSpan(index * MotionSlot, MotionSlot);
+        if (Claim(index, MotionBusy, MotionDone))
         {
-            WireMapping.Coarse(view).Write(entry);
-            Interlocked.Or(ref _state[index], CoarseDone);
+            _motionLength[index] = WireMapping.WriteMotion(slot, view);
+            Interlocked.Or(ref _state[index], MotionDone);
         }
 
-        return entry;
+        return slot[.._motionLength[index]];
     }
 
     // True when the caller must encode the entry; otherwise returns once another encoder finished it.

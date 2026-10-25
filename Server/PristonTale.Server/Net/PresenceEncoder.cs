@@ -10,9 +10,10 @@ using PristonTale.Simulation.World.Loot;
 
 namespace PristonTale.Server.Net;
 
-// Turns one subscriber's share of a field snapshot into original Priston packets. It keeps the original's view
-// ranges and distance-weighted detail, but queries the field grid instead of scanning
-// every slot, sends an entity only when it changed, and lets the near ring update faster than the far ring.
+// Turns one subscriber's share of a field snapshot into presence messages. It keeps the original's view ranges and
+// distance-weighted detail, but queries the field grid instead of scanning every slot, sends an entity only when it
+// changed (a full entry for spawns and discrete changes, a motion entry for movement), and lets the near ring update
+// faster than the far ring.
 internal sealed partial class PresenceEncoder
 {
     // Squared view ranges in world units: connect 0x120000, high detail 0x48000, ground items 0xC8000.
@@ -40,7 +41,7 @@ internal sealed partial class PresenceEncoder
     private readonly List<int> _related = new();
     private readonly HashSet<int> _essential = new();
     private readonly Func<int, bool> _isShown;
-    private readonly MotionCandidates _pending = new(MovementBudgetBytes / PlayDataCoarse.Size);
+    private readonly MotionCandidates _pending = new(MovementBudgetBytes / PresenceWire.MotionEntrySize(0));
     private readonly HashSet<uint> _visibleDrops = new();
     private readonly List<uint> _removed = new();
     // Entities this receiver started seeing in the snapshot being encoded; their running statuses follow.
@@ -243,7 +244,7 @@ internal sealed partial class PresenceEncoder
             : null;
         _entities = snapshot.Entities;
         _pass++;
-        var group = new PlayDataGroupWriter(_group, ++_groupCounter);
+        var group = new PresenceEntriesWriter(_group, ++_groupCounter);
         _removed.Clear();
         _spawned.Clear();
         WriteEntity(ref group, connection, selfIndex, tick, field, near: true);
@@ -296,14 +297,14 @@ internal sealed partial class PresenceEncoder
         var budget = MovementBudgetBytes;
         foreach (var (index, _, near) in _pending.Ordered())
         {
-            var size = near ? TransPlayData.SizeFor(1) : PlayDataCoarse.Size;
+            var size = PresenceWire.MotionEntrySize(_entities[index].EntityId);
             if (budget < size)
             {
                 break;
             }
 
             budget -= size;
-            WriteMotion(ref group, connection, index, tick, field, near);
+            WriteMotion(ref group, connection, index, tick);
         }
 
         foreach (var (serial, known) in _known)
@@ -425,7 +426,7 @@ internal sealed partial class PresenceEncoder
 
     // Writes spawns and discrete changes immediately. Returns the age in ticks of a due position-only update, which the
     // caller schedules under the movement budget, or null when nothing else is due.
-    private uint? WriteEntity(ref PlayDataGroupWriter group, IPacketSink connection, int index, uint tick, int field, bool near)
+    private uint? WriteEntity(ref PresenceEntriesWriter group, IPacketSink connection, int index, uint tick, int field, bool near)
     {
         ref readonly var view = ref _entities[index];
         ref var known = ref CollectionsMarshal.GetValueRefOrAddDefault(_known, view.EntityId, out var exists);
@@ -434,7 +435,7 @@ internal sealed partial class PresenceEncoder
             var descriptor = view.Revision == 0 ? DescriptorHash(view) : 0;
             known = new Known(view, view.Revision == 0 ? (byte)1 : view.Revision, tick, descriptor, _pass);
             _spawned.Add(view.EntityId);
-            AppendDetailed(ref group, connection, index, field, known.Revision);
+            AppendFull(ref group, connection, index, field, known.Revision);
             return null;
         }
 
@@ -464,7 +465,7 @@ internal sealed partial class PresenceEncoder
         if (discrete)
         {
             known.Sent(view, tick);
-            AppendDetailed(ref group, connection, index, field, known.Revision);
+            AppendFull(ref group, connection, index, field, known.Revision);
             return null;
         }
 
@@ -477,58 +478,56 @@ internal sealed partial class PresenceEncoder
 
         if (view.EntityId == _self)
         {
-            WriteMotion(ref group, connection, index, tick, field, near: true);
+            WriteMotion(ref group, connection, index, tick);
             return null;
         }
 
         return age;
     }
 
-    private void WriteMotion(ref PlayDataGroupWriter group, IPacketSink connection, int index, uint tick, int field, bool near)
+    private void WriteMotion(ref PresenceEntriesWriter group, IPacketSink connection, int index, uint tick)
     {
         ref readonly var view = ref _entities[index];
         ref var known = ref CollectionsMarshal.GetValueRefOrNullRef(_known, view.EntityId);
         known.Sent(view, tick);
-        if (near)
-        {
-            AppendDetailed(ref group, connection, index, field, known.Revision);
-            return;
-        }
-
-        var size = PlayDataCoarse.Size;
-        EnsureSpace(ref group, connection, size);
-        var entry = group.Reserve(size);
+        EnsureSpace(ref group, connection, PresenceWire.MaxMotionEntrySize);
+        var entry = group.Reserve(PresenceWire.MaxMotionEntrySize);
+        int size;
         if (_wire is { } wire && view.Revision != 0)
         {
-            wire.Coarse(index, view).CopyTo(entry);
+            var shared = wire.Motion(index, view);
+            shared.CopyTo(entry);
+            size = shared.Length;
         }
         else
         {
-            WireMapping.Coarse(view).Write(entry);
+            size = WireMapping.WriteMotion(entry, view);
         }
 
         group.Commit(size);
     }
 
-    private void AppendDetailed(ref PlayDataGroupWriter group, IPacketSink connection, int index, int field, byte revision)
+    private void AppendFull(ref PresenceEntriesWriter group, IPacketSink connection, int index, int field, byte revision)
     {
         ref readonly var view = ref _entities[index];
-        var size = TransPlayData.SizeFor(1);
-        EnsureSpace(ref group, connection, size);
-        var entry = group.Reserve(size);
+        EnsureSpace(ref group, connection, PresenceWire.MaxFullEntrySize);
+        var entry = group.Reserve(PresenceWire.MaxFullEntrySize);
+        int size;
         if (_wire is { } wire && view.Revision != 0)
         {
-            wire.Detailed(index, view, field).CopyTo(entry);
+            var shared = wire.Full(index, view, field);
+            shared.CopyTo(entry);
+            size = shared.Length;
         }
         else
         {
-            WireMapping.WritePlayData(entry, view, field, revision);
+            size = WireMapping.WriteFull(entry, view, field, revision);
         }
 
         group.Commit(size);
     }
 
-    private void EnsureSpace(ref PlayDataGroupWriter group, IPacketSink connection, int size)
+    private void EnsureSpace(ref PresenceEntriesWriter group, IPacketSink connection, int size)
     {
         if (group.Free < size)
         {
@@ -536,7 +535,7 @@ internal sealed partial class PresenceEncoder
         }
     }
 
-    private void FlushGroup(ref PlayDataGroupWriter group, IPacketSink connection)
+    private void FlushGroup(ref PresenceEntriesWriter group, IPacketSink connection)
     {
         if (group.Count == 0)
         {

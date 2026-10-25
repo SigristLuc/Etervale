@@ -26,7 +26,8 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Binary/PristonText.cs` | Fixed `char[]` fields: Windows-1252, NUL-terminated (`Strict` throws, `Lenient` replaces with `?`). |
 | `Binary/PristonServerListCodec.cs` | `SERVER_INFO` (44-byte header, 108-byte entries, at most 8). |
 | `Packets/TransCommand.cs` | 24-byte command, 40-byte extended command, `CharCommand` (52 B) and `CharCommand2` (84 B). |
-| `Packets/PlayData.cs` | `PristonUnits`, `MotionStateCode`, play buffer, `TransPlayData`, `PlayDataCoarse`, `PLAYDATAGROUP`. |
+| `Packets/PlayData.cs` | `PristonUnits`, `MotionStateCode`, play buffer, `TransPlayData` (the client's movement report). |
+| `Packets/PresencePackets.cs` | `PresenceEntries`: `VarInt`, `PresenceMotion`, `PresenceEntry`, `PresenceWire` (entry codec), writer and reader. |
 | `Packets/CharacterInfo.cs` | 464-byte character info record, `dwTemp` slot constants, 504-byte `PLAYERINFO`. |
 | `Packets/RecordData.cs` | Character record (1776-byte fixed part), `RecordDataChunks.Split` and `RecordDataAssembler`. |
 | `Packets/UserCharacterList.cs` | `ID_SETUSERINFO` character list (1484 B, six 240-byte slots). |
@@ -120,7 +121,7 @@ request (`FAILCONNECT` -16, a record echo with `WParam` 0, or entry failure `Rej
 | Message | Direction | Use |
 | --- | --- | --- |
 | `TRANSPLAYDATA` | C→S | The client's own position, facing, motion (`angle[3]`), action target (`dwTargetSerial`) and field (`wArea[0]`). Sent every 200 ms while moving, on state changes (at most one per 50 ms) and every second while idle. |
-| `PLAYDATAGROUP` | S→C | Nearby objects: `{size, code, PlayDataCnt, dwSendCode}` followed by self-sized entries, each a play data packet with one play buffer (84 B) or the coarse `PLAYDATA1` entry (40 B). |
+| `PresenceEntries` (`0x45540900`) | S→C | Nearby objects as compact full or motion entries (see [Presence entries](#presence-entries)). |
 | `GETPLAYERINFO` / `PLAYERINFO` | C→S / S→C | Describes an unknown object or one whose `bUpdateInfo[0]` revision changed (`GETPLAYERINFO.WParam` = serial). Monsters and NPCs are cached by `dwAutoCharCode`, as in the original client; owned summons and crystal pets carry `dwAutoCharCode` 0 and are always described on their own. The client asks again after a second without an answer (the server drops requests beyond its bucket). |
 | `WARPFIELD` | S→C | `{WParam field, SParam x, LParam z}` confirms a field change; `EParam` = 1 marks a correction after a rejected report or a teleport. |
 | `ATTACK_DAMAGE` | C→S | Attack data packet with the original damage checksum and damage cipher keyed by the sender's serial. Monster: attack lock (`AttackState` bit 0 held, `AttackCount` = sequence). NPC: opens it. |
@@ -131,15 +132,14 @@ request (`FAILCONNECT` -16, a record echo with `WParam` 0, or entry failure `Rej
 
 `Power` in `ATTACK_DAMAGE` is ignored. Field values that differ from the original:
 
-- `angle[3]` holds motion state codes (`MotionStateCode`) instead of a model motion index; the server has no per-model
-  motion table. The original server already sends state codes in far `PLAYDATA1` entries.
-- `StartPosi` of the play data packet carries the low 32 bits of the attack request sequence.
+- `angle[3]` of the client's movement report holds motion state codes (`MotionStateCode`) instead of a model motion
+  index; the server has no per-model motion table.
 - `dwTemp[11]` of the character info record holds the template code, model scale, NPC services (bit `1 <<
   NpcServiceKind`), face and hair, equipped weapon, armour and off-hand item codes, the village flag and the attack
   animation rate (`CharacterInfo.Temp*` constants). A summon is described with the user brood, its owner's serial in
   `dwTemp[9]` and its own model scale (float bits, 0 keeps the template's) in `dwTemp[10]`. The character slot record
   uses `dwArmorCode` and `dwTemp[13]` for the same appearance data.
-- The play data header byte after the field codes is the descriptor revision (`bUpdateInfo[0]`, 1 to 255). The field
+- A full presence entry carries the descriptor revision (`bUpdateInfo[0]` of the description, 1 to 255). The field
   keeps one revision per entity for every viewer (`FieldDescriptors`) and increments it when level, max HP, template,
   speed, attack rate, equipment, looks (hair, face, pets, big head), village flag, tier, owner or scale change.
 
@@ -230,13 +230,13 @@ float DurationMs, HitAtMs, int Damage, Resources, SoundCode, X, Y, Z, int16 Angl
 in `Damage`), 7 evade, 8 revive (returned life in `Damage`), 9 block (a player blocked a monster's normal attack).
 `Clip` is the motion-table slot of the clip a monster's swing plays (-1: the state's first clip); flag 4 marks a
 monster's skill swing and the hits of its skill. A monster drinking a potion or changing shape sends the original
-motion codes `0x140` and `0x210` in its play data.
+motions `Eat` and `Warp` in its presence entries.
 
 ### Skills and status effects
 
 Every skill message body starts with `{uint16 Version, uint16 Flags}` (version 1, flags 0, unless stated); readers
 reject version 0, and `SkillCast` and `SkillCastResult` accept newer versions that append fields (the list messages
-check their length exactly). Positions are play-data fixed point (×256) and angles 4096 per turn, as in `PLAYDATAGROUP`.
+check their length exactly). Positions are fixed point (×256, `PristonUnits`) and angles 4096 per turn.
 
 | Message | Layout after the header | Size |
 | --- | --- | --- |
@@ -298,10 +298,24 @@ Rules: [special-items.md](special-items.md).
 
 `PresenceClock` is 20 bytes: `{int32 size, uint32 code, uint16 Version = 1, uint16 Flags = 0, uint32 ServerTick, uint32
 TickIntervalMs = 50}`. On a tick that produces timeline traffic for the receiver, the server sends it once, before the
-first `PLAYDATAGROUP`, `CombatEvents`, `SkillEvents` or `StatusEffects` of that tick, so every sample and event until
+first `PresenceEntries`, `CombatEvents`, `SkillEvents` or `StatusEffects` of that tick, so every sample and event until
 the next clock belongs to `ServerTick × TickIntervalMs` on the server timeline. Readers reject version 0 and a zero
-interval. The original `PLAYDATAGROUP` layout and its `dwSendCode` counter are unchanged; a client that ignores the
-extension places samples by arrival time.
+interval.
+
+### Presence entries
+
+`PresenceEntries` is `{int32 size, uint32 code, uint16 Version = 1, uint16 Flags = 0, uint32 Sequence, uint16 Count,
+uint16 0}` followed by `Count` entries that fill the message exactly. An entry is `{varuint Serial, uint8 Kind (bit 0
+full), int24 X, Y, Z (world units × 8), uint16 Facing (65536 per turn), uint8 Motion}`; a full entry adds `{varuint Hp,
+MaxHp, Level, Target, AttackSequence, uint8 Revision, varuint Template, zigzag varint FieldCode}`. `varuint` is
+little-endian base-128 (`VarInt`, up to 64 bits). `Motion` is `PresenceMotion` (0 stand, 1 walk, 2 run, 3 attack, 4
+damage, 5 dead, 6 skill, 7 eat, 8 warp). Positions cover the world's ±1,000,000 units at 1/8 of a unit.
+
+The server sends a full entry when an entity enters the receiver's view and whenever its motion, life, target, attack
+sequence or description revision changes; otherwise a motion entry (about 14 bytes) at the near or far rate. Ids,
+targets and the attack sequence are 64-bit on the wire; the world hands out 32-bit entity ids today and the client
+rejects larger ones. `Template` is the shared template code (monsters and NPCs that are not owned), 0 otherwise;
+`FieldCode` is -1 when not sent.
 
 The client plays remote objects back on that timeline
 (`Client/PristonTale.Gameplay/World/Remote/RemoteSnapshotBuffer.cs`): it keeps the timestamped samples of each object
@@ -396,7 +410,7 @@ receives what, in which order and how often is specified in [server.md](server.m
   object is forgotten beyond 1.15 times the connect range. Position updates share a budget of 2048 bytes per receiver
   per tick, ranked by how overdue they are (a bounded heap keeps only what the budget can carry), which plays the role
   of the original per-receiver user limit and round-robin cursor.
-- Play-data entries, coarse entries and `PLAYERINFO` descriptions are encoded once per frame and entity
+- Full and motion presence entries and `PLAYERINFO` descriptions are encoded once per frame and entity
   (`SharedPresenceWire`) and copied by every receiver that needs them.
 - Movement reports travel through the command queue as values (no closure or task per report); the verdict comes back
   through `IMovementVerdictSink`.
@@ -421,20 +435,25 @@ beside them, a tenth cast an area skill every three seconds, monsters fight back
 
 | Players | Layout | Tick p50 / p99 | Encode p50 / p99 (all receivers) | Out per client | Allocated per tick |
 | --- | --- | --- | --- | --- | --- |
-| 500 | spread | 1.92 / 4.48 ms | 1.65 / 3.56 ms | 7.6 KiB/s (389 B/tick) | 129 KiB |
-| 1000 | spread | 3.02 / 31.15 ms | 1.03 / 1.58 ms | 8.0 KiB/s (409 B/tick) | 208 KiB |
-| 2000 | spread | 3.65 / 10.17 ms | 2.14 / 7.66 ms | 8.1 KiB/s (414 B/tick) | 82 KiB |
-| 5000 | spread | 11.81 / 25.78 ms | 5.05 / 19.97 ms | 8.4 KiB/s (430 B/tick) | 197 KiB |
-| 500 | crowded | 1.51 / 5.88 ms | 3.80 / 16.58 ms | 54.6 KiB/s (2.7 KiB/tick) | 26 KiB |
-| 1000 | crowded | 3.56 / 31.44 ms | 7.61 / 20.70 ms | 55.6 KiB/s (2.8 KiB/tick) | 45 KiB |
-| 2000 | crowded | 7.00 / 31.40 ms | 15.75 / 31.07 ms | 58.1 KiB/s (2.9 KiB/tick) | 136 KiB |
-| 5000 | crowded | 13.17 / 79.36 ms | 33.25 / 59.79 ms | 60.2 KiB/s (3.0 KiB/tick) | 294 KiB |
+| 500 | spread | 2.02 / 4.92 ms | 1.79 / 4.80 ms | 3.6 KiB/s (187 B/tick) | 129 KiB |
+| 1000 | spread | 3.26 / 35.69 ms | 1.75 / 15.72 ms | 3.8 KiB/s (192 B/tick) | 64 KiB |
+| 2000 | spread | 3.98 / 9.66 ms | 2.13 / 3.87 ms | 3.9 KiB/s (200 B/tick) | 82 KiB |
+| 5000 | spread | 13.64 / 24.92 ms | 4.44 / 16.36 ms | 4.0 KiB/s (206 B/tick) | 197 KiB |
+| 500 | crowded | 2.22 / 15.45 ms | 3.41 / 6.73 ms | 21.3 KiB/s (1.1 KiB/tick) | 26 KiB |
+| 1000 | crowded | 4.77 / 16.72 ms | 7.29 / 11.20 ms | 22.2 KiB/s (1.1 KiB/tick) | 45 KiB |
+| 2000 | crowded | 7.96 / 44.97 ms | 12.70 / 27.52 ms | 23.6 KiB/s (1.2 KiB/tick) | 135 KiB |
+| 5000 | crowded | 10.84 / 38.64 ms | 25.99 / 42.23 ms | 24.4 KiB/s (1.2 KiB/tick) | 292 KiB |
+
+The compact presence entries halved the spread traffic and cut the crowded traffic by about 60%: with the original
+play-data entries (84 bytes near, 40 far) the same runs sent 7.6 to 8.4 KiB/s spread and 54.6 to 60.2 KiB/s crowded, and
+5000 crowded encoded in 33.25 / 59.79 ms.
 
 Before the shared frames, the crowd cap and the allocation work, the same benchmark measured 1000 crowded at 2.68 /
 35.81 ms tick and 34.83 / 116.88 ms encode with 98.7 KiB/s per client and 4.9 MiB allocated per tick, and 5000 crowded
 at 16 / 735 ms tick and 455 / 1584 ms encode with 354 KiB/s per client and an 8.6 GiB heap.
 
-The end-to-end load test (`tools/PristonTale.LoadTest --mode mixed`: half the bots walk, three in ten hunt the nearest
+The end-to-end load test below was measured with the original play-data entries, before the compact presence entries
+(`tools/PristonTale.LoadTest --mode mixed`: half the bots walk, three in ten hunt the nearest
 monster with basic attacks, two in ten cast Mechanic Bomb) ran against the imported world on Forest 1 with full stage
 collision, the server and every bot on the same machine. Crowded bots start inside a 500-unit square, spread bots on an
 80-unit grid; each run measured 60 s after the ramp:

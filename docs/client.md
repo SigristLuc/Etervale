@@ -184,7 +184,7 @@ a pending buffer flushed by a single writer task (a backlog above 512 KiB closes
 `HandleAsync` (receive thread) offers every packet to `PresenceDecoder.TryHandle` first; presence packets become a
 `PresenceUpdate` published to a bounded channel (4096, `TryWrite`; overflow throws and ends the connection).
 
-- PLAYDATAGROUP: detailed (TRANSPLAYDATA) and coarse (PLAYDATA1) entries update tracked objects. An unknown serial or a
+- `PresenceEntries`: full and motion entries update tracked objects (a motion entry never introduces one). An unknown serial or a
   changed descriptor revision triggers GETPLAYERINFO; an object is published as a spawn only once its PLAYERINFO
   description arrived. Coarse entries never introduce an object. The connection's one-second timer
   (`RetryDescriptions`, which shares the decoder's lock with the receive thread) asks again for every object still

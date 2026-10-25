@@ -14,9 +14,9 @@ using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Client.Net.Online;
 
-// Rebuilds the neutral presence model from original packets. Like the original client, an unknown
-// serial in PlayDataGroup triggers GetPlayerInfo; the object is published once its PlayerInfo description arrives,
-// and a changed descriptor revision (TransPlayData.DescriptorRevision) requests a fresh description.
+// Rebuilds the neutral presence model from the server's messages. An unknown serial in a presence message triggers
+// GetPlayerInfo; the object is published once its PlayerInfo description arrives, and a changed descriptor revision
+// (PresenceEntry.Revision) requests a fresh description.
 internal sealed class PresenceDecoder
 {
     private const uint GoldCode = 0x05010100;
@@ -79,7 +79,7 @@ internal sealed class PresenceDecoder
         var code = BinaryPrimitives.ReadUInt32LittleEndian(packet[4..]);
         update = code switch
         {
-            PristonOpcodes.PlayDataGroup => OnPlayDataGroup(packet),
+            EtervaleOpcodes.PresenceEntries => OnPresenceEntries(packet),
             PristonOpcodes.PlayerInfo => OnPlayerInfo(PlayerInfoPacket.Read(packet)),
             EtervaleOpcodes.RemoveObjects => OnRemoved(RemoveObjectList.Read(packet)),
             EtervaleOpcodes.CombatEvents => OnCombatEvents(CombatEventList.Read(packet)),
@@ -105,7 +105,7 @@ internal sealed class PresenceDecoder
             PristonOpcodes.CloseClient => Update([], []) with { CloseRequested = true },
             _ => null
         };
-        return update is not null || code is PristonOpcodes.PlayDataGroup or PristonOpcodes.PlayerInfo or EtervaleOpcodes.RemoveObjects
+        return update is not null || code is EtervaleOpcodes.PresenceEntries or PristonOpcodes.PlayerInfo or EtervaleOpcodes.RemoveObjects
             or EtervaleOpcodes.CombatEvents or PristonOpcodes.PlayItem or PristonOpcodes.DelItem or PristonOpcodes.WarpField
             or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills or EtervaleOpcodes.PresenceClock
             or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult
@@ -202,79 +202,82 @@ internal sealed class PresenceDecoder
         return null;
     }
 
-    public PresenceUpdate? OnPlayDataGroup(ReadOnlySpan<byte> packet)
+    public PresenceUpdate? OnPresenceEntries(ReadOnlySpan<byte> packet)
     {
-        _tick = BinaryPrimitives.ReadUInt32LittleEndian(packet[12..]);
         var spawns = new List<EntitySpawnInfo>();
         var states = new List<EntityStateInfo>();
-        PlayDataGroup.Read(packet, entry =>
+        _tick = PresenceEntriesReader.Read(packet, (in PresenceEntry entry) =>
         {
-            var code = BinaryPrimitives.ReadUInt32LittleEndian(entry[4..]);
-            if (code == PristonOpcodes.TransPlayData)
+            if (entry.Full)
             {
-                Apply(TransPlayData.Read(entry), spawns, states);
+                ApplyFull(entry, spawns, states);
             }
-            else if (code == PristonOpcodes.PlayData1)
+            else
             {
-                Apply(PlayDataCoarse.Read(entry), states);
+                ApplyMotion(entry, states);
             }
         });
         return spawns.Count == 0 && states.Count == 0 ? null : Update(spawns, states) with { ServerTimeMs = _clockMs };
     }
 
-    private void Apply(TransPlayData data, List<EntitySpawnInfo> spawns, List<EntityStateInfo> states)
+    // Entity ids travel as 64-bit values; the world hands out 32-bit ones (EntityIdAllocator).
+    private static uint Serial(ulong serial) =>
+        serial <= uint.MaxValue ? (uint)serial : throw new InvalidDataException($"Entity id {serial} exceeds the 32-bit ids the world hands out.");
+
+    private void ApplyFull(in PresenceEntry entry, List<EntitySpawnInfo> spawns, List<EntityStateInfo> states)
     {
-        var buffer = data.Buffers[^1];
-        if (!_objects.TryGetValue(data.ObjectSerial, out var tracked))
+        var serial = Serial(entry.Serial);
+        if (!_objects.TryGetValue(serial, out var tracked))
         {
             tracked = new Tracked();
-            _objects.Add(data.ObjectSerial, tracked);
+            _objects.Add(serial, tracked);
         }
 
-        if (data.ObjectSerial == SelfSerial && data.FieldCode >= 0)
+        if (serial == SelfSerial && entry.FieldCode >= 0)
         {
-            FieldId = data.FieldCode;
+            FieldId = entry.FieldCode;
         }
 
-        tracked.Hp = data.Hp;
-        tracked.MaxHp = data.MaxHp;
-        tracked.Target = data.Target;
-        tracked.Sequence = (uint)data.StartPosi;
-        tracked.Position = Position(buffer.X, buffer.Y, buffer.Z);
-        tracked.Facing = PristonUnits.FromAngle(buffer.AngleY);
-        tracked.Motion = MoveState(buffer.Action);
+        tracked.Hp = entry.Hp;
+        tracked.MaxHp = entry.MaxHp;
+        tracked.Target = Serial(entry.Target);
+        tracked.Sequence = entry.AttackSequence;
+        tracked.Position = entry.Position;
+        tracked.Facing = entry.Facing;
+        tracked.Motion = MoveState(entry.Motion);
         tracked.SampleTimeMs = _clockMs;
         tracked.HasState = true;
-        if (tracked.Description is null && data.AutoCharCode != 0 && _templates.TryGetValue(data.AutoCharCode, out var shared)
-            && shared.Revision == data.DescriptorRevision)
+        if (tracked.Description is null && entry.Template != 0 && _templates.TryGetValue(entry.Template, out var shared)
+            && shared.Revision == entry.Revision)
         {
             tracked.Description = shared;
         }
 
-        tracked.Revision = data.DescriptorRevision;
-        if (tracked.Description is null || tracked.Description.Revision != data.DescriptorRevision)
+        tracked.Revision = entry.Revision;
+        if (tracked.Description is null || tracked.Description.Revision != entry.Revision)
         {
-            RequestDescription(data.ObjectSerial, tracked, data.DescriptorRevision);
+            RequestDescription(serial, tracked, entry.Revision);
         }
 
-        Publish(data.ObjectSerial, tracked, spawns, states);
+        Publish(serial, tracked, spawns, states);
     }
 
-    private void Apply(PlayDataCoarse data, List<EntityStateInfo> states)
+    private void ApplyMotion(in PresenceEntry entry, List<EntityStateInfo> states)
     {
-        if (!_objects.TryGetValue(data.ObjectSerial, out var tracked) || !tracked.HasState)
+        var serial = Serial(entry.Serial);
+        if (!_objects.TryGetValue(serial, out var tracked) || !tracked.HasState)
         {
-            // A coarse entry never introduces an object; its next detailed entry does.
+            // A motion entry never introduces an object; its next full entry does.
             return;
         }
 
-        tracked.Position = Position(data.X, data.Y, data.Z);
-        tracked.Facing = PristonUnits.FromAngle(data.AngleY);
-        tracked.Motion = MoveState(data.Action);
+        tracked.Position = entry.Position;
+        tracked.Facing = entry.Facing;
+        tracked.Motion = MoveState(entry.Motion);
         tracked.SampleTimeMs = _clockMs;
         if (tracked.Published)
         {
-            states.Add(State(data.ObjectSerial, tracked));
+            states.Add(State(serial, tracked));
         }
     }
 
@@ -543,17 +546,17 @@ internal sealed class PresenceDecoder
         _ => RemoteEntityKind.Unspecified
     };
 
-    public static RemoteMoveState MoveState(short action) => action switch
+    public static RemoteMoveState MoveState(byte motion) => motion switch
     {
-        MotionStateCode.Stand => RemoteMoveState.Idle,
-        MotionStateCode.Walk => RemoteMoveState.Walking,
-        MotionStateCode.Run => RemoteMoveState.Running,
-        MotionStateCode.Attack => RemoteMoveState.Attack,
-        MotionStateCode.Damage => RemoteMoveState.Damage,
-        MotionStateCode.Dead => RemoteMoveState.Dead,
-        MotionStateCode.Skill => RemoteMoveState.Skill,
-        MotionStateCode.Eat => RemoteMoveState.Eat,
-        MotionStateCode.Warp => RemoteMoveState.Warp,
+        PresenceMotion.Stand => RemoteMoveState.Idle,
+        PresenceMotion.Walk => RemoteMoveState.Walking,
+        PresenceMotion.Run => RemoteMoveState.Running,
+        PresenceMotion.Attack => RemoteMoveState.Attack,
+        PresenceMotion.Damage => RemoteMoveState.Damage,
+        PresenceMotion.Dead => RemoteMoveState.Dead,
+        PresenceMotion.Skill => RemoteMoveState.Skill,
+        PresenceMotion.Eat => RemoteMoveState.Eat,
+        PresenceMotion.Warp => RemoteMoveState.Warp,
         _ => RemoteMoveState.Unspecified
     };
 

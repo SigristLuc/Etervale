@@ -17,6 +17,7 @@ internal static class PresencePipelineTests
     {
         yield return ("presence frames are reused only when no reader pins them and never while an outbox can still hand them out", FramesAsync);
         yield return ("an entry encoded once for all receivers is byte for byte what one receiver would encode", SharedWireAsync);
+        yield return ("presence entries carry 64-bit ids and sequences, 32-bit life and world-wide positions at an eighth of a unit", EntriesAsync);
         yield return ("descriptor revisions are field-wide and rise only when what a description shows changes", RevisionsAsync);
         yield return ("a receiver in a crowd shows its nearest entities and never loses its NPCs, target, attackers or summons", CrowdCapAsync);
         yield return ("events of ticks a slow reader fell behind on keep their own tick on the timeline", SegmentsAsync);
@@ -52,23 +53,54 @@ internal static class PresencePipelineTests
         var view = new EntityView(42, EntityKindView.Monster, false, new Vector3(-1234.5f, 17f, 999.25f), 1.1f, MoveStateView.Walking, 30, 77, 120, default,
             templateId: 9) { Revision = 3 };
         var wire = SharedPresenceWire.Create(4);
-        var direct = new byte[TransPlayData.SizeFor(1)];
-        WireMapping.WritePlayData(direct, view, 2, view.Revision);
-        Assert.True(wire.Detailed(1, view, 2).SequenceEqual(direct), "the shared detailed entry differs from a receiver's own");
-        Assert.True(wire.Detailed(1, view, 2).SequenceEqual(direct), "a second receiver got other bytes");
-        var record = new byte[direct.Length];
-        WireMapping.PlayData(view, 2, view.Revision).Write(record);
-        Assert.True(record.AsSpan().SequenceEqual(direct), "the single-buffer writer changed the play data layout");
-        var coarse = new byte[PlayDataCoarse.Size];
-        WireMapping.Coarse(view).Write(coarse);
-        Assert.True(wire.Coarse(1, view).SequenceEqual(coarse), "the shared coarse entry differs");
+        var direct = new byte[PresenceWire.MaxFullEntrySize];
+        var length = WireMapping.WriteFull(direct, view, 2, view.Revision);
+        Assert.True(wire.Full(1, view, 2).SequenceEqual(direct.AsSpan(0, length)), "the shared full entry differs from a receiver's own");
+        Assert.True(wire.Full(1, view, 2).SequenceEqual(direct.AsSpan(0, length)), "a second receiver got other bytes");
+        var motion = new byte[PresenceWire.MaxMotionEntrySize];
+        var motionLength = WireMapping.WriteMotion(motion, view);
+        Assert.True(wire.Motion(1, view).SequenceEqual(motion.AsSpan(0, motionLength)) && motionLength == PresenceWire.MotionEntrySize(42),
+            "the shared motion entry differs");
         var description = new byte[PlayerInfoPacket.Size];
         PresenceEncoder.DescriptionPacket(view, view.Revision, WorldData.Empty).Write(description);
         Assert.True(wire.Description(1, view, WorldData.Empty).SequenceEqual(description), "the shared description differs");
         wire.Reset(4);
         var moved = new EntityView(42, EntityKindView.Monster, false, Vector3.Zero, 0f, MoveStateView.Idle, 30, 77, 120, default, templateId: 9) { Revision = 3 };
-        WireMapping.WritePlayData(direct, moved, 2, moved.Revision);
-        Assert.True(wire.Detailed(1, moved, 2).SequenceEqual(direct), "a reset frame kept the previous tick's entry");
+        length = WireMapping.WriteFull(direct, moved, 2, moved.Revision);
+        Assert.True(wire.Full(1, moved, 2).SequenceEqual(direct.AsSpan(0, length)), "a reset frame kept the previous tick's entry");
+        return Task.CompletedTask;
+    }
+
+    private static Task EntriesAsync()
+    {
+        var entry = new PresenceEntry(uint.MaxValue, true, new Vector3(-999_999.875f, 1234.5f, 999_999.875f), 4.71f, PresenceMotion.Skill, 100_000, 2_000_000,
+            285, 0x4000_0001, ulong.MaxValue - 3, 255, 0x3020, -1);
+        var buffer = new byte[PresenceWire.HeaderSize + PresenceWire.MaxFullEntrySize + PresenceWire.MaxMotionEntrySize];
+        var writer = new PresenceEntriesWriter(buffer, 77);
+        var full = PresenceWire.WriteFull(writer.Reserve(PresenceWire.MaxFullEntrySize), entry);
+        writer.Commit(full);
+        var motion = PresenceWire.WriteMotion(writer.Reserve(PresenceWire.MaxMotionEntrySize), 1, new Vector3(10.125f, -3f, 7.5f), 0.5f, PresenceMotion.Run);
+        writer.Commit(motion);
+        var read = new List<PresenceEntry>();
+        var sequence = PresenceEntriesReader.Read(writer.Finish(), (in PresenceEntry value) => read.Add(value));
+        Assert.True(sequence == 77 && read.Count == 2 && full <= PresenceWire.MaxFullEntrySize && motion == PresenceWire.MotionEntrySize(1),
+            "the presence message lost entries or overran its sizes");
+        var back = read[0];
+        Assert.True(back.Full && back.Serial == uint.MaxValue && back.Hp == 100_000 && back.MaxHp == 2_000_000 && back.Level == 285
+            && back.Target == 0x4000_0001 && back.AttackSequence == ulong.MaxValue - 3 && back.Revision == 255 && back.Template == 0x3020
+            && back.FieldCode == -1 && back.Motion == PresenceMotion.Skill, $"a full entry did not round-trip: {back}");
+        Assert.True(Vector3.Distance(back.Position, entry.Position) <= 0.125f && MathF.Abs(back.Facing - entry.Facing) < 0.001f,
+            "positions or facing lost more than the wire's precision");
+        Assert.True(!read[1].Full && read[1].Position == new Vector3(10.125f, -3f, 7.5f) && read[1].Motion == PresenceMotion.Run, "a motion entry did not round-trip");
+        foreach (var value in new ulong[] { 0, 127, 128, 16_383, 16_384, uint.MaxValue, ulong.MaxValue })
+        {
+            var bytes = new byte[VarInt.MaxBytes64];
+            var size = VarInt.Write(bytes, value);
+            var offset = 0;
+            Assert.True(size == VarInt.Size(value) && VarInt.Read(bytes, ref offset) == value && offset == size, $"varint {value} did not round-trip");
+        }
+
+        Assert.True(VarInt.UnZigZag(VarInt.ZigZag(-1)) == -1 && VarInt.UnZigZag(VarInt.ZigZag(int.MinValue)) == int.MinValue, "zigzag lost the sign");
         return Task.CompletedTask;
     }
 
