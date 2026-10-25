@@ -146,14 +146,14 @@ public sealed record PremiumTimersPacket(long Revision, IReadOnlyList<PremiumTim
     }
 }
 
-public readonly record struct ItemEffectEntry(ulong Entity, uint ItemCode, byte Effect, int X, int Y, int Z, int Variant)
+public readonly record struct ItemEffectEntry(ulong Entity, uint ItemCode, byte Effect, int X, int Y, int Z, int Variant, ulong Target)
 {
-    public const int Size = 32;
+    public const int Size = 40;
 }
 
 // S->C, presence timeline: items whose use plays a visible effect around a player (firecrackers, mastery). {header,
 // int32 Count, entries {uint64 Entity, uint32 ItemCode, uint8 Effect, uint8 0, uint16 0, int32 X, Y, Z (x256),
-// int32 Variant}}.
+// int32 Variant, uint64 Target}}.
 public sealed record ItemEffectsPacket(IReadOnlyList<ItemEffectEntry> Effects)
 {
     public const int HeaderSize = 8 + 4 + 4;
@@ -179,6 +179,7 @@ public sealed record ItemEffectsPacket(IReadOnlyList<ItemEffectEntry> Effects)
             writer.Int32(effect.Y);
             writer.Int32(effect.Z);
             writer.Int32(effect.Variant);
+            writer.UInt64(effect.Target);
         }
 
         return writer.Finish();
@@ -201,7 +202,7 @@ public sealed record ItemEffectsPacket(IReadOnlyList<ItemEffectEntry> Effects)
             var code = reader.UInt32();
             var effect = reader.Byte();
             reader.Skip(3);
-            effects[index] = new ItemEffectEntry(entity, code, effect, reader.Int32(), reader.Int32(), reader.Int32(), reader.Int32());
+            effects[index] = new ItemEffectEntry(entity, code, effect, reader.Int32(), reader.Int32(), reader.Int32(), reader.Int32(), reader.UInt64());
         }
 
         return new ItemEffectsPacket(effects);

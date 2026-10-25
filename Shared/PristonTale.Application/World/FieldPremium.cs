@@ -135,7 +135,7 @@ internal sealed class FieldPremium
     private void Announce(WorldPlayer owner, PremiumEffectKind pet, uint target)
     {
         var position = _host.TryGetMonster(target, out var monster) ? monster.Position : owner.Position;
-        _host.AddItemEvent(new ItemEffectView(owner.EntityId, (uint)pet, ItemEffectKind.PetAttack, position, (int)target));
+        _host.AddItemEvent(new ItemEffectView(owner.EntityId, (uint)pet, ItemEffectKind.PetAttack, position, 0, target));
     }
 
     private void StepPets(Dictionary<uint, PetCycle> cycles)

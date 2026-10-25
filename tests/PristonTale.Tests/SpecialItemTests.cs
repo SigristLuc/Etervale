@@ -293,7 +293,7 @@ internal static class SpecialItemTests
         var timers = new PremiumTimersPacket(3, [new PremiumTimerEntry(2, 30, 100, 86400), new PremiumTimerEntry(7, 0, 5, 3600)]);
         var timersRead = PremiumTimersPacket.Read(buffer.AsSpan(0, timers.Write(buffer)));
         Assert.True(timersRead.Revision == 3 && timersRead.Timers.SequenceEqual(timers.Timers), "premium timers");
-        var effects = new ItemEffectsPacket([new ItemEffectEntry(5, 0x080B1700, 1, 256, 512, -768, 1234)]);
+        var effects = new ItemEffectsPacket([new ItemEffectEntry(5, 0x080B1700, 1, 256, 512, -768, 1234, 0), new ItemEffectEntry(6, 2, 5, 0, 0, 0, 0, 1UL << 40)]);
         var effectsRead = ItemEffectsPacket.Read(buffer.AsSpan(0, effects.Write(buffer)));
         Assert.True(effectsRead.Effects.SequenceEqual(effects.Effects), "item effects");
         return Task.CompletedTask;

@@ -20,7 +20,7 @@ internal sealed partial class PresenceEncoder
             if (Relevant(effect.EntityId, 0))
             {
                 _itemEffects.Add(new ItemEffectEntry(effect.EntityId, effect.ItemCode, (byte)effect.Effect, PristonUnits.ToFixed(effect.Position.X),
-                    PristonUnits.ToFixed(effect.Position.Y), PristonUnits.ToFixed(effect.Position.Z), effect.Variant));
+                    PristonUnits.ToFixed(effect.Position.Y), PristonUnits.ToFixed(effect.Position.Z), effect.Variant, effect.Target));
             }
         }
 

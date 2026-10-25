@@ -98,7 +98,7 @@ public sealed class PremiumPetPresentation : IDisposable
                 var pet = kind == PremiumEffectKind.PhoenixPet ? owner.Phoenix : owner.Helper;
                 if (pet is not null)
                 {
-                    pet.BeginAttack((uint)effect.Variant);
+                    pet.BeginAttack(effect.Target);
                 }
             }
         }

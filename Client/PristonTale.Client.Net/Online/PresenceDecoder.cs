@@ -183,7 +183,8 @@ internal sealed class PresenceDecoder
         for (var index = 0; index < effects.Length; index++)
         {
             var entry = packet.Effects[index];
-            effects[index] = new ItemEffectInfo(Serial(entry.Entity), entry.ItemCode, (ItemEffectKind)entry.Effect, Position(entry.X, entry.Y, entry.Z), entry.Variant);
+            effects[index] = new ItemEffectInfo(Serial(entry.Entity), entry.ItemCode, (ItemEffectKind)entry.Effect, Position(entry.X, entry.Y, entry.Z), entry.Variant,
+                Serial(entry.Target));
         }
 
         return Update([], []) with { ItemEffects = effects, ServerTimeMs = _clockMs };
