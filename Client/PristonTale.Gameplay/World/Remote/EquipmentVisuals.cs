@@ -19,6 +19,8 @@ public static class EquipmentVisuals
 
     public static IEnumerable<string> CatalogKeys => Items.Keys;
 
+    public static bool HasModel(string key) => Items.ContainsKey(key);
+
     public static int MotionIndex(string key) => Items.TryGetValue(key, out var item) ? item.Index : -1;
 
     public static string MeshPath(string key)

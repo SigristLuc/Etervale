@@ -401,6 +401,18 @@ Cygnus CA166-169 / CA266-269 `vfx.costume.wing.blue`, Aquila CA185-188 / CA285-2
 CA189-192 / CA289-292 `vfx.costume.wing.red`. The wing model hangs 2.42 below the wearer's origin plus its own height,
 turns with the wearer and is hidden in a village and on the dead. Costume bodies keep the class body.
 
+### Basic shots
+
+`PlayerShots` (`GameScene.Shots.cs`): a player's swing names its target and the attack clip's first event throws the
+shot, for every drawn player. A bow's arrow (`weapons/arrow.smd`, 8 units a frame of 70 per second) and a javelin
+itself (its own model, 6 a frame, its length along the flight; the held javelin is not drawn while it flies) fly in a
+straight line from the weapon toward the target's chest (24 above its feet); within 64 units across and 80 up of the
+target they fly 7 frames more and end, as they do after 120 frames. Magicians and priestesses shoot the Imp's fire ball
+(`vfx.monster.imp.attack.hit`) with a staff; other classes strike with it. A glowing bow or javelin sheds about 3.5
+sparks a frame along its flight (`Effect/ImageData/Particle/cc.tga`, additive, half its glow colour plus 128, fading to
+half that colour and out over 0.7 s). The flying weapons and sparks go through `VfxRenderer.AddModel` and
+`AddBillboard`; `VfxContent.LoadModel` reads a model no effect definition names.
+
 ### Held item glow
 
 `HeldItemGlow.For(item)` (Simulation) is what a held weapon or off-hand item shows; the server puts it in the player's
@@ -431,8 +443,7 @@ bow's along it).
 
 ## Limitations
 
-- There is no mixing yet, so no item carries a mixing colour; a basic ranged attack draws no arrow or javelin in
-  flight, so the coloured shot particle a glowing bow or javelin fires is not shown.
+- There is no mixing yet, so no item carries a mixing colour.
 - Monsters that fade out or darken as corpses keep their full colour; monster effects keep their authored size whatever
   the model size.
 - Skill events carry no critical flag (Double Crash's critical flash), no block, reflect or absorb event (the Divine

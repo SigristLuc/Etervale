@@ -119,6 +119,19 @@ public sealed class ActorLookPresenter
         _glowing.Add(handle);
     }
 
+    // Hides a held item this frame (a javelin in flight); it returns to its look once no longer hidden.
+    public void PaintHidden(ActorHandle handle)
+    {
+        if (!handle.IsValid)
+        {
+            return;
+        }
+
+        var look = _held.TryGetValue(handle, out var held) ? held : PristonActorAppearance.Normal;
+        _scene.SetActorAppearance(handle, look with { Opacity = 0f });
+        _glowing.Add(handle);
+    }
+
     // Returns the items that glowed last frame and not in this one to their look.
     public void EndGlowFrame()
     {

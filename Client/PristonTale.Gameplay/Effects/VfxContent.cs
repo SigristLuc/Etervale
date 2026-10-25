@@ -102,6 +102,30 @@ public sealed class VfxContent : IVfxResources, IDisposable
         return PristonFileResolver.Exists(Path.Combine(_assetRoot, path)) ? _textures.LoadTexture(_assetRoot, path) : null;
     }
 
+    // A static model outside the effect definitions (a thrown weapon), read on first use; null when it cannot be read.
+    public PristonMeshEffect? LoadModel(string path)
+    {
+        var key = $"{path}||1";
+        if (_models.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        PristonMeshEffect? model = null;
+        try
+        {
+            var mesh = new PristonSmdReader().ReadModel(Path.Combine(_assetRoot, path));
+            model = new PristonMeshEffect(_device, _content, _textures, mesh, mesh, 1);
+        }
+        catch (Exception exception) when (exception is InvalidDataException or IOException or ArgumentException)
+        {
+            _log.Warn($"[Effects] model {path} could not be built: {exception.Message}");
+        }
+
+        _models[key] = model;
+        return model;
+    }
+
     PristonMeshEffect? IVfxResources.Model(string path, string skeleton, int frames)
     {
         var key = $"{path}|{skeleton}|{frames}";

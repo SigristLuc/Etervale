@@ -1,0 +1,71 @@
+using Microsoft.Xna.Framework;
+using PristonTale.Client.Net.Presence;
+using PristonTale.Gameplay.Effects;
+using PristonTale.Gameplay.World.Remote;
+using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Items;
+
+namespace PristonTale.Gameplay.World;
+
+// The basic shots of every drawn player's bow, javelin or staff (PlayerShots): a swing names the target, the attack
+// clip's first event throws the shot, and a javelin in flight is not drawn in its thrower's hand.
+public sealed partial class GameScene
+{
+    private readonly PlayerShots _shots = new();
+    private Action<ulong, PlayerActorHandles, PlayerAppearanceInfo, Vector3> _shootRemote;
+    private Func<ulong, Vector3?> _shotTarget;
+
+    private void ObservePlayerSwings(PresenceUpdate update)
+    {
+        foreach (var combatEvent in update.Events)
+        {
+            if (combatEvent.Kind == RemoteCombatEventKind.SwingBegin)
+            {
+                _shots.ObserveSwing(combatEvent.AttackerId, combatEvent.TargetId);
+            }
+        }
+    }
+
+    private void UpdateShots(float seconds)
+    {
+        _shotTarget ??= ShotTarget;
+        if (_equipmentPresentation is not null && _playerBody is not null && !_playerController.IsDead)
+        {
+            Shoot(_remote.SelfEntityId, _equipmentPresentation.Handles, _equipmentPresentation.WeaponKey, _ownWeaponGlow,
+                _playerBody.Position + Vector3.Up * GroundTraversal.VisualOffset, _player is not null && StaffCaster((int)_player.Class.Class));
+        }
+
+        _remote.ForEachPlayer(_shootRemote ??= (entityId, handles, appearance, position) =>
+            Shoot(entityId, handles, appearance.WeaponKey, appearance.WeaponGlow, position, StaffCaster(appearance.JobCode)));
+        _shots.Update(seconds, _shotTarget);
+    }
+
+    // Magicians and priestesses shoot with a staff.
+    private static bool StaffCaster(int classCode) => classCode is (int)PlayerClass.Magician or (int)PlayerClass.Priestess;
+
+    private void Shoot(ulong entityId, PlayerActorHandles handles, string weaponKey, in HeldItemGlow glow, Vector3 position, bool staffCaster)
+    {
+        if (_shots.Throwing(entityId))
+        {
+            _looks.PaintHidden(handles.Weapon);
+        }
+
+        if (!_renderer.TryGetActorMotion(handles.Body, out var motion, out var ticks) || motion is null)
+        {
+            return;
+        }
+
+        var weapon = handles.Weapon.IsValid && _renderer.TryGetActorWorld(handles.Weapon, out var world) ? world : Matrix.CreateTranslation(position + Vector3.Up * 28f);
+        _shots.Hold(_skillFx, entityId, motion, ticks, weaponKey ?? "", weapon, glow, position, staffCaster, _shotTarget);
+    }
+
+    private Vector3? ShotTarget(ulong entityId)
+    {
+        if (_remote is not null && entityId == _remote.SelfEntityId && _playerBody is not null)
+        {
+            return _playerBody.Position + Vector3.Up * GroundTraversal.VisualOffset;
+        }
+
+        return _remote is not null && _remote.TryGetDrawnPosition(entityId, out var drawn) ? drawn : null;
+    }
+}

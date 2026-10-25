@@ -37,6 +37,8 @@ public sealed partial class VfxRenderer : IDisposable
     private readonly List<Run> _runs = new(64);
     private readonly List<(float Distance, int Index)> _order = new(64);
     private readonly List<GroundQuad> _ground = new(64);
+    private readonly List<Billboard> _billboards = new(256);
+    private readonly List<LooseModel> _looseModels = new(16);
     private readonly BlendState _shadow = new()
     {
         ColorSourceBlend = Blend.Zero,
@@ -98,9 +100,31 @@ public sealed partial class VfxRenderer : IDisposable
     public void AddGroundQuad(Texture2D texture, VfxBlend blend, Vector3 center, Vector3 halfU, Vector3 halfV, Vector4 color) =>
         _ground.Add(new GroundQuad(texture, blend, center, halfU, halfV, color));
 
+    // A camera-facing square drawn once with the next draw's effects in its blend's pass: its centre, half size and
+    // colour (0..255 sRGB channels, alpha 0..255).
+    public void AddBillboard(Texture2D texture, VfxBlend blend, Vector3 center, float halfSize, Vector4 color) =>
+        _billboards.Add(new Billboard(texture, blend, center, halfSize, Decode(color)));
+
+    // A model drawn once with the next draw's effects (a thrown weapon); world places its +Z front.
+    public void AddModel(PristonMeshEffect model, Matrix world, VfxBlend blend) => _looseModels.Add(new LooseModel(model, world, blend));
+
     public void Draw(VfxSystem system, Matrix view, Matrix projection, Vector3 cameraPosition, Texture2D? sceneDepth)
     {
         DrawModels(system, view, projection);
+        foreach (var loose in _looseModels)
+        {
+            var looseBlend = loose.Blend switch
+            {
+                VfxBlend.Alpha => BlendState.NonPremultiplied,
+                VfxBlend.Shadow => _shadow,
+                VfxBlend.InvShadow => _inverseShadow,
+                _ => BlendState.Additive
+            };
+            loose.Model.Draw(0, Matrix.CreateRotationY(MathHelper.Pi) * loose.World, view, projection, Vector4.One, looseBlend);
+            LastModelCount++;
+        }
+
+        _looseModels.Clear();
         _quadCount = 0;
         _runs.Clear();
         var right = new Vector3(view.M11, view.M21, view.M31);
@@ -126,6 +150,14 @@ public sealed partial class VfxRenderer : IDisposable
                 }
             }
 
+            foreach (var billboard in _billboards)
+            {
+                if (PassOf(billboard.Blend) == pass)
+                {
+                    AppendBillboard(billboard, right, up);
+                }
+            }
+
             foreach (var (_, index) in _order)
             {
                 AppendInstance(instances[index], pass, right, up, cameraPosition);
@@ -133,6 +165,7 @@ public sealed partial class VfxRenderer : IDisposable
         }
 
         _ground.Clear();
+        _billboards.Clear();
         LastQuadCount = _quadCount;
         LastDrawCalls = 0;
         if (_quadCount == 0)
@@ -292,6 +325,27 @@ public sealed partial class VfxRenderer : IDisposable
         _scratch[at + 2] = new VfxVertex { Position = p + quad.HalfU + quad.HalfV, Color = quad.Color, TexCoord = new Vector2(1f, 1f), Params = parameters };
         _scratch[at + 3] = new VfxVertex { Position = p - quad.HalfU + quad.HalfV, Color = quad.Color, TexCoord = new Vector2(0f, 1f), Params = parameters };
     }
+
+    private void AppendBillboard(in Billboard billboard, Vector3 right, Vector3 up)
+    {
+        if (!BeginQuad(billboard.Texture, billboard.Blend, out var at))
+        {
+            return;
+        }
+
+        var x = right * billboard.HalfSize;
+        var y = up * billboard.HalfSize;
+        var p = billboard.Center;
+        var parameters = Vector2.Zero;
+        _scratch[at] = new VfxVertex { Position = p - x + y, Color = billboard.Color, TexCoord = new Vector2(0f, 0f), Params = parameters };
+        _scratch[at + 1] = new VfxVertex { Position = p + x + y, Color = billboard.Color, TexCoord = new Vector2(1f, 0f), Params = parameters };
+        _scratch[at + 2] = new VfxVertex { Position = p + x - y, Color = billboard.Color, TexCoord = new Vector2(1f, 1f), Params = parameters };
+        _scratch[at + 3] = new VfxVertex { Position = p - x - y, Color = billboard.Color, TexCoord = new Vector2(0f, 1f), Params = parameters };
+    }
+
+    private readonly record struct Billboard(Texture2D Texture, VfxBlend Blend, Vector3 Center, float HalfSize, Vector4 Color);
+
+    private readonly record struct LooseModel(PristonMeshEffect Model, Matrix World, VfxBlend Blend);
 
     private readonly record struct GroundQuad(Texture2D Texture, VfxBlend Blend, Vector3 Center, Vector3 HalfU, Vector3 HalfV, Vector4 Color);
 

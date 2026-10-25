@@ -599,6 +599,18 @@ public sealed partial class RemoteEntityManager
         }
     }
 
+    // Every other drawn player: its actors, looks and drawn position.
+    public void ForEachPlayer(Action<ulong, PlayerActorHandles, PlayerAppearanceInfo, XnaVector3> visit)
+    {
+        foreach (var (entityId, appearance) in _playerAppearances)
+        {
+            if (_entities.TryGetValue(entityId, out var entity) && entity is RemoteEntity player && !entity.IsDead)
+            {
+                visit(entityId, player.Handles, appearance, entity.DrawnPosition);
+            }
+        }
+    }
+
     // The actors a skill look paints: a player's body, head and held items, or a monster's model; and whether the
     // player holds a shield.
     public bool TryGetLookHandles(ulong entityId, out PlayerActorHandles handles, out bool holdsShield)

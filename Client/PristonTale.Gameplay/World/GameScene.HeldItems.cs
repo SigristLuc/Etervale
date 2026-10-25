@@ -53,6 +53,7 @@ public sealed partial class GameScene
 
         _remote.ForEachHolder(_holdRemote ??= (entityId, handles, appearance, shown) =>
             Hold(entityId, handles, appearance.WeaponGlow, appearance.OffHandGlow, appearance.WeaponKey, shown));
+        UpdateShots(seconds);
         _looks.EndGlowFrame();
         _classUpLights.EndFrame();
     }
@@ -61,6 +62,7 @@ public sealed partial class GameScene
     {
         _looks.PaintGlow(handles.Weapon, weapon, _heldClockMs);
         _looks.PaintGlow(handles.OffHand, offHand, _heldClockMs);
+
         if (shown && weapon.ClassUp && weaponKey.Length > 0 && _renderer.TryGetActorWorld(handles.Weapon, out var world)
             && _renderer.TryGetActorReach(handles.Weapon, out var reach))
         {

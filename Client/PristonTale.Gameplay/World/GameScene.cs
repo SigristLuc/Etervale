@@ -1398,6 +1398,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         }
 
         ObserveMonsterSwings(update);
+        ObservePlayerSwings(update);
         foreach (var effect in update.Events)
         {
             if (effect.Kind != RemoteCombatEventKind.PotionApplied || _effects.Instances.Count >= 128)
