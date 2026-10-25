@@ -176,6 +176,7 @@ public sealed class WorldCatalog
             Dungeon3Field.Definition,
             Dungeon4Field.Definition,
             Dungeon5Field.Definition,
+            OfficeField.Definition,
             Iron1Field.Definition,
             Iron2Field.Definition,
             Ice1Field.Definition,
@@ -201,7 +202,8 @@ public sealed class WorldCatalog
             BossField.Definition,
             LostField.Definition,
             LosttempleField.Definition,
-            QuestArenaField.Definition
+            QuestArenaField.Definition,
+            Sod2Field.Definition
         ];
 
         _fieldsById = AllFields.ToDictionary(static field => field.Id);

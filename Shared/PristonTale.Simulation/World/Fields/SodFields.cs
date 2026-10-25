@@ -32,3 +32,17 @@ public static class Sod1Field
         ServerCode = "PLAY_SERVER_CODE_EXTEND"
     };
 }
+
+// The second stage of Bellatra's survival trial.
+public static class Sod2Field
+{
+    public static readonly FieldDef Definition = new(
+        "sod-2", "SoD 2", FieldState.Ruin, FieldBackdrops.Ruin2,
+        "Field\\Sod\\sod-2.smd", [])
+    {
+        FieldCode = 44,
+        Center = new FieldPoint(21600, 17000),
+        BackMusicCode = "BGM_CODE_CUSTOM",
+        ServerCode = "PLAY_SERVER_CODE_EXTEND"
+    };
+}

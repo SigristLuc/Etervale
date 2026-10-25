@@ -72,7 +72,8 @@ spawning and despawning; the monster skill area test uses the same value.
 
 `FieldDef` is a code-defined record, one static `Definition` per field in `World/Fields/`. `WorldCatalog()` lists every
 field; `WorldCatalog(IEnumerable<FieldDef>)` builds test catalogs. Lookups by `Id` (string, the stage base name such as
-`village-2`) and by `FieldCode` (int). The server keys live fields by `FieldCode`; both must be unique.
+`village-2`) and by `FieldCode` (int). The server keys live fields by `FieldCode`; both must be unique. All 45 fields of
+the original are there, the game room (`office`, 16, without a map) and Bellatra's second stage (`sod-2`, 44) included.
 
 | Member | Use |
 |---|---|
