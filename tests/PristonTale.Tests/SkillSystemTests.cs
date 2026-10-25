@@ -226,10 +226,10 @@ internal static class SkillSystemTests
         Assert.True(read.ServerTick == 55 && read.Cooldowns.SequenceEqual(cooldowns.Cooldowns), "cooldowns round trip");
 
         length = SkillEventList.Write(buffer, events);
-        buffer[16 + 12] = 9;
+        buffer[16 + 20] = 9;
         Assert.ThrowsAsync(() => Task.Run(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
         length = StatusEffectList.Write(buffer, statuses);
-        BitConverter.TryWriteBytes(buffer.AsSpan(16 + 24), 20000);
+        BitConverter.TryWriteBytes(buffer.AsSpan(16 + 32), 20000);
         Assert.ThrowsAsync(() => Task.Run(() => StatusEffectList.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
         length = SkillEventList.Write(buffer, events);
         BitConverter.TryWriteBytes(buffer.AsSpan(12), 3);

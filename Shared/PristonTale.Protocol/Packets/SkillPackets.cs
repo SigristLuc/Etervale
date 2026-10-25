@@ -6,11 +6,13 @@ namespace PristonTale.Protocol.Packets;
 // append fields after the ones they know. Positions are play-data fixed point and angles are 4096 per turn.
 // Flags (version 2) carry the command: 0 a new cast, 1 the release of a held charge, 2 and 3 order the caster's summon
 // to fight only its owner's target or to pick its own (SkillCastFlags).
-public readonly record struct SkillCastPacket(uint Sequence, uint SkillCode, uint TargetSerial, int X, int Y, int Z, short Angle, uint ClientTimeMs,
+// {header, uint16 Version = 3, uint16 Flags, uint32 Sequence, SkillCode, uint64 TargetSerial, int32 X, Y, Z, int16 Angle,
+// int16 0, uint32 ClientTimeMs}.
+public readonly record struct SkillCastPacket(uint Sequence, uint SkillCode, ulong TargetSerial, int X, int Y, int Z, short Angle, uint ClientTimeMs,
     ushort Flags = 0)
 {
-    public const ushort CurrentVersion = 2;
-    public const int Size = 8 + 4 + 4 * 3 + 4 * 3 + 4 + 4;
+    public const ushort CurrentVersion = 3;
+    public const int Size = 8 + 4 + 4 * 2 + 8 + 4 * 3 + 4 + 4;
 
     public int Write(Span<byte> destination)
     {
@@ -19,7 +21,7 @@ public readonly record struct SkillCastPacket(uint Sequence, uint SkillCode, uin
         writer.UInt16(Flags);
         writer.UInt32(Sequence);
         writer.UInt32(SkillCode);
-        writer.UInt32(TargetSerial);
+        writer.UInt64(TargetSerial);
         writer.Int32(X);
         writer.Int32(Y);
         writer.Int32(Z);
@@ -34,20 +36,20 @@ public readonly record struct SkillCastPacket(uint Sequence, uint SkillCode, uin
         var reader = new PacketReader(packet, Size);
         var version = reader.UInt16();
         var flags = reader.UInt16();
-        if (version == 0 || flags > SkillCastFlags.SummonAggressive)
+        if (version < CurrentVersion || flags > SkillCastFlags.SummonAggressive)
         {
-            throw new InvalidDataException("Skill cast has version 0 or an unknown command.");
+            throw new InvalidDataException("Skill cast has an older layout or an unknown command.");
         }
 
         var sequence = reader.UInt32();
         var code = reader.UInt32();
-        var target = reader.UInt32();
+        var target = reader.UInt64();
         var x = reader.Int32();
         var y = reader.Int32();
         var z = reader.Int32();
         var angle = reader.Int16();
         reader.Skip(2);
-        return new SkillCastPacket(sequence, code, target, x, y, z, angle, reader.UInt32(), version >= 2 ? flags : (ushort)0);
+        return new SkillCastPacket(sequence, code, target, x, y, z, angle, reader.UInt32(), flags);
     }
 }
 
@@ -152,9 +154,11 @@ public static class SkillEventFlags
     public const ushort ModeMask = 0x300;
 }
 
+// {uint64 Caster, Target, uint32 SkillCode, uint8 Phase, Rank, uint16 Flags, float32 DurationMs, HitAtMs, int32 X, Y, Z,
+// int16 Angle, uint16 TargetCount, int32 Radius, int32 0}.
 public readonly record struct SkillEventEntry(
-    uint Caster,
-    uint Target,
+    ulong Caster,
+    ulong Target,
     uint SkillCode,
     SkillEventPhase Phase,
     byte Rank,
@@ -168,12 +172,12 @@ public readonly record struct SkillEventEntry(
     ushort TargetCount,
     int Radius)
 {
-    public const int Size = 48;
+    public const int Size = 56;
 
     public void Write(ref PacketWriter writer)
     {
-        writer.UInt32(Caster);
-        writer.UInt32(Target);
+        writer.UInt64(Caster);
+        writer.UInt64(Target);
         writer.UInt32(SkillCode);
         writer.Byte((byte)Phase);
         writer.Byte(Rank);
@@ -191,8 +195,8 @@ public readonly record struct SkillEventEntry(
 
     public static SkillEventEntry Read(ref PacketReader reader)
     {
-        var caster = reader.UInt32();
-        var target = reader.UInt32();
+        var caster = reader.UInt64();
+        var target = reader.UInt64();
         var code = reader.UInt32();
         var phase = reader.Byte();
         if (phase is < (byte)SkillEventPhase.Start or > (byte)SkillEventPhase.Release)
@@ -215,7 +219,7 @@ public readonly record struct SkillEventEntry(
 // {size, code, Version, Flags, Count, entries}: skill starts and impacts on the presence timeline of the last clock.
 public static class SkillEventList
 {
-    public const ushort CurrentVersion = 2;
+    public const ushort CurrentVersion = 3;
     public const int HeaderSize = 8 + 4 + 4;
     public const int MaxEvents = (PristonFrameCodec.MaxFrameSize - HeaderSize) / SkillEventEntry.Size;
 
@@ -277,9 +281,11 @@ public static class StatusEffectFlags
 // One change of a modifier effect on an entity. The layout is source-agnostic: SourceKind tells items, player skills,
 // monster skills, consumables and auras apart, and Control carries the control states (stun, root, silence, slow,
 // hidden) the effect imposes. Value is the periodic amount for Tick entries and the main magnitude otherwise.
+// {uint64 Entity, Source, uint32 StatusCode, uint8 Op, Stacks, SourceKind, Control, uint16 Flags, int16 0, int32 DurationMs,
+// RemainingMs, Value}.
 public readonly record struct StatusEffectEntry(
-    uint Entity,
-    uint Source,
+    ulong Entity,
+    ulong Source,
     uint StatusCode,
     StatusEffectOp Op,
     byte Stacks,
@@ -290,12 +296,12 @@ public readonly record struct StatusEffectEntry(
     int RemainingMs,
     int Value)
 {
-    public const int Size = 32;
+    public const int Size = 40;
 
     public void Write(ref PacketWriter writer)
     {
-        writer.UInt32(Entity);
-        writer.UInt32(Source);
+        writer.UInt64(Entity);
+        writer.UInt64(Source);
         writer.UInt32(StatusCode);
         writer.Byte((byte)Op);
         writer.Byte(Stacks);
@@ -310,8 +316,8 @@ public readonly record struct StatusEffectEntry(
 
     public static StatusEffectEntry Read(ref PacketReader reader)
     {
-        var entity = reader.UInt32();
-        var source = reader.UInt32();
+        var entity = reader.UInt64();
+        var source = reader.UInt64();
         var code = reader.UInt32();
         var op = reader.Byte();
         if (op is < (byte)StatusEffectOp.Add or > (byte)StatusEffectOp.Tick)
@@ -338,7 +344,7 @@ public readonly record struct StatusEffectEntry(
 // {size, code, Version, Flags, Count, entries}: status changes on the presence timeline of the last clock.
 public static class StatusEffectList
 {
-    public const ushort CurrentVersion = 1;
+    public const ushort CurrentVersion = 2;
     public const int HeaderSize = 8 + 4 + 4;
     public const int MaxEntries = (PristonFrameCodec.MaxFrameSize - HeaderSize) / StatusEffectEntry.Size;
 

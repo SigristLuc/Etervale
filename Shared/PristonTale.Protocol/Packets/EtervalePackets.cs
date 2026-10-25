@@ -259,9 +259,11 @@ public static class CombatEventFlags
     public const byte Skill = 4;
 }
 
+// {uint64 Attacker, Target, uint8 Kind, Flags, int16 Clip, float32 DurationMs, HitAtMs, int32 Damage, Resources, SoundCode,
+// X, Y, Z, int16 Angle, int16 0}.
 public readonly record struct CombatEventEntry(
-    uint Attacker,
-    uint Target,
+    ulong Attacker,
+    ulong Target,
     byte Kind,
     byte Flags,
     float DurationMs,
@@ -275,12 +277,12 @@ public readonly record struct CombatEventEntry(
     short Angle,
     short Clip = -1)
 {
-    public const int Size = 48;
+    public const int Size = 56;
 
     public void Write(ref PacketWriter writer)
     {
-        writer.UInt32(Attacker);
-        writer.UInt32(Target);
+        writer.UInt64(Attacker);
+        writer.UInt64(Target);
         writer.Byte(Kind);
         writer.Byte(Flags);
         writer.Int16(Clip);
@@ -298,8 +300,8 @@ public readonly record struct CombatEventEntry(
 
     public static CombatEventEntry Read(ref PacketReader reader)
     {
-        var attacker = reader.UInt32();
-        var target = reader.UInt32();
+        var attacker = reader.UInt64();
+        var target = reader.UInt64();
         var kind = reader.Byte();
         var flags = reader.Byte();
         var clip = reader.Int16();
@@ -349,13 +351,14 @@ public static class CombatEventList
     }
 }
 
-// Objects leaving the receiver's interest area; the original client instead times them out after 4-30 seconds.
+// Objects leaving the receiver's interest area ({size, code, int32 Count, uint64 Serial...}); the original client instead
+// times them out after 4-30 seconds.
 public static class RemoveObjectList
 {
     public const int HeaderSize = 12;
-    public const int MaxSerials = (PristonFrameCodec.MaxFrameSize - HeaderSize) / 4;
+    public const int MaxSerials = (PristonFrameCodec.MaxFrameSize - HeaderSize) / 8;
 
-    public static int SizeFor(int count) => HeaderSize + count * 4;
+    public static int SizeFor(int count) => HeaderSize + count * 8;
 
     public static int Write(Span<byte> destination, ReadOnlySpan<uint> serials)
     {
@@ -363,25 +366,25 @@ public static class RemoveObjectList
         writer.Int32(serials.Length);
         foreach (var serial in serials)
         {
-            writer.UInt32(serial);
+            writer.UInt64(serial);
         }
 
         return writer.Finish();
     }
 
-    public static uint[] Read(ReadOnlySpan<byte> packet)
+    public static ulong[] Read(ReadOnlySpan<byte> packet)
     {
         var reader = new PacketReader(packet, HeaderSize);
         var count = reader.Int32();
-        if (count < 0 || count > MaxSerials || reader.Remaining != count * 4)
+        if (count < 0 || count > MaxSerials || reader.Remaining != count * 8)
         {
             throw new InvalidDataException("Object removal list has an invalid count.");
         }
 
-        var serials = new uint[count];
+        var serials = new ulong[count];
         for (var index = 0; index < count; index++)
         {
-            serials[index] = reader.UInt32();
+            serials[index] = reader.UInt64();
         }
 
         return serials;

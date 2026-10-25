@@ -524,11 +524,16 @@ internal sealed partial class ClientSession : IMovementVerdictSink
 
         var hasPoint = packet.X != 0 || packet.Y != 0 || packet.Z != 0;
         var point = new Vector3(PristonUnits.FromFixed(packet.X), PristonUnits.FromFixed(packet.Y), PristonUnits.FromFixed(packet.Z));
-        var request = new SkillCastRequest(packet.Sequence, packet.SkillCode, packet.TargetSerial, point, hasPoint, (SkillCastCommand)packet.Flags);
+        // The world hands out 32-bit ids; a wider target names no entity.
+        var knownTarget = packet.TargetSerial <= uint.MaxValue;
+        var request = new SkillCastRequest(packet.Sequence, packet.SkillCode, knownTarget ? (uint)packet.TargetSerial : 0, point, hasPoint,
+            (SkillCastCommand)packet.Flags);
         SkillCastOutcome outcome;
         try
         {
-            outcome = await _services.World.CastSkillAsync(session.FieldId, session.EntityId, request);
+            outcome = knownTarget
+                ? await _services.World.CastSkillAsync(session.FieldId, session.EntityId, request)
+                : SkillCastOutcome.Refused(request, SkillCastVerdict.InvalidTarget);
         }
         catch (WorldBusyException)
         {

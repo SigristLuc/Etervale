@@ -71,8 +71,10 @@ internal static class SkillWireTests
         var length = new SkillCastPacket(3, 0x03080002, 77, 0, 0, 0, 0, 0, 4).Write(buffer);
         Assert.ThrowsAsync(() => Task.Run(() => SkillCastPacket.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
         length = new SkillCastPacket(3, 0x03080002, 77, 0, 0, 0, 0, 0).Write(buffer);
-        BitConverter.TryWriteBytes(buffer.AsSpan(8), (ushort)1);
-        Assert.True(SkillCastPacket.Read(buffer.AsSpan(0, length)).Flags == SkillCastFlags.Cast, "a first-version cast lost its meaning");
+        BitConverter.TryWriteBytes(buffer.AsSpan(8), (ushort)2);
+        Assert.ThrowsAsync(() => Task.Run(() => SkillCastPacket.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
+        var wide = new SkillCastPacket(3, 0x03080002, 0x1_0000_0001UL, 0, 0, 0, 0, 0);
+        Assert.True(SkillCastPacket.Read(buffer.AsSpan(0, wide.Write(buffer))).TargetSerial == 0x1_0000_0001UL, "64-bit cast target round trip");
 
         var mode = (ushort)(2 << SkillEventFlags.ModeShift);
         SkillEventEntry[] events =
@@ -84,7 +86,7 @@ internal static class SkillWireTests
         ];
         length = SkillEventList.Write(buffer, events);
         Assert.True(SkillEventList.Read(buffer.AsSpan(0, length)).SequenceEqual(events), "release, charged, counter and mode events round trip");
-        buffer[16 + 12] = 5;
+        buffer[16 + 20] = 5;
         Assert.ThrowsAsync(() => Task.Run(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
 
         var classes = new Simulation.Characters.CharacterClassRegistry();

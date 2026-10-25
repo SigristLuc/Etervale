@@ -206,8 +206,8 @@ These bodies have no version header.
 | `InventoryResult` / `ProgressionResult` | `Guid OperationId, int32 Ok, int64 Revision, char Message[64]` | 100 |
 | `Inventory` | `int64 Revision, int32 Part, Parts, Count`, then items `{Guid, uint Code, int32 Kind, Count, Anchor, Slot, int16 Width, Height, char Name[32]}` | 28 + 72n |
 | `Skills` | `int64 Revision, int32 Count`, then `{uint Code, int32 Rank}` | 20 + 8n |
-| `CombatEvents` | `int32 Count`, then entries of 48 bytes | 12 + 48n |
-| `RemoveObjects` | `int32 Count`, then `uint Serial` | 12 + 4n |
+| `CombatEvents` | `int32 Count`, then entries of 56 bytes | 12 + 56n |
+| `RemoveObjects` | `int32 Count`, then `uint64 Serial` | 12 + 8n |
 | `ItemDetails` | `uint16 Version (1), uint16 Flags, int64 Revision, int32 Part, Parts, Count`, then 220-byte entries (at most 24) | 32 + 220n |
 | `OwnerItemStatus` | `uint16 Version (1), uint16 Flags, int32 CarriedWeight, MaxWeight, CriticalChance, BlockChance, ShootingRange, AttackSpeed, PotionSpace, float LifeRegen, ManaRegen, StaminaRegen, MagicMastery, int16 Resistances[8]` | 72 |
 
@@ -220,7 +220,7 @@ MoveSpeed, LifeRegen, ManaRegen, StaminaRegen, MagicMastery, SpecAbsorb, SpecMov
 SpecLifeRegen, SpecManaRegen, SpecStaminaRegen, int16 Resistances[8]}` (`ItemDetailEntry`). The client attaches the
 entries to the inventory of the same revision (`OwnedItemView.Details`) and folds the status into the owner state.
 
-A combat entry is `{uint Attacker, Target, byte Kind, byte Flags (1 critical, 2 killed, 4 monster skill), int16 Clip,
+A combat entry is `{uint64 Attacker, Target, byte Kind, byte Flags (1 critical, 2 killed, 4 monster skill), int16 Clip,
 float DurationMs, HitAtMs, int Damage, Resources, SoundCode, X, Y, Z, int16 Angle, int16 0}`. `Kind` is
 `CombatEventKindView`: 1 swing begin, 2 hit, 3 potion begin, 4 potion applied, 5 monster skill impact, 6 heal (amount
 in `Damage`), 7 evade, 8 revive (returned life in `Damage`), 9 block (a player blocked a monster's normal attack).
@@ -231,28 +231,28 @@ motions `Eat` and `Warp` in its presence entries.
 ### Skills and status effects
 
 Every skill message body starts with `{uint16 Version, uint16 Flags}` (version 1, flags 0, unless stated); readers
-reject version 0, and `SkillCast` and `SkillCastResult` accept newer versions that append fields (the list messages
-check their length exactly). Positions are fixed point (×256, `PristonUnits`) and angles 4096 per turn.
+reject version 0, `SkillCast` rejects versions before 3 (the 32-bit target), and `SkillCast` and `SkillCastResult`
+accept newer versions that append fields (the list messages check their length exactly). Entity ids are 64-bit. Positions are fixed point (×256, `PristonUnits`) and angles 4096 per turn.
 
 | Message | Layout after the header | Size |
 | --- | --- | --- |
-| `SkillCast` (version 2) | `uint Sequence, uint SkillCode, uint TargetSerial, int X, Y, Z, int16 Angle, int16 0, uint ClientTimeMs` | 44 |
+| `SkillCast` (version 3) | `uint Sequence, uint SkillCode, uint64 TargetSerial, int X, Y, Z, int16 Angle, int16 0, uint ClientTimeMs` | 48 |
 | `SkillCastResult` | `uint Sequence, uint SkillCode, byte Status, byte Rank, int16 0, uint CooldownMs, uint RemainingMs, int Mana, int Stamina, uint ServerTick` | 44 |
-| `SkillEvents` (version 2) | `int Count`, then `Count` skill entries of 48 bytes | 16 + 48n |
-| `StatusEffects` | `int Count`, then `Count` status entries of 32 bytes | 16 + 32n |
+| `SkillEvents` (version 3) | `int Count`, then `Count` skill entries of 56 bytes | 16 + 56n |
+| `StatusEffects` (version 2) | `int Count`, then `Count` status entries of 40 bytes | 16 + 40n |
 | `SkillCooldowns` | `uint ServerTick, int Count`, then `{uint SkillCode, uint RemainingMs, uint DurationMs}` (at most 256) | 20 + 12n |
 
 `SkillCast` flags carry the command (`SkillCastFlags`): 0 a new cast, 1 the release of the held charge of that skill, 2
 and 3 order the caster's summon of that skill to fight only the caster's target or to pick the nearest enemy; flags
-above 3 fail to decode, and a version 1 cast is always a new cast. A zero `X, Y, Z` means "no ground point". The server
+above 3 fail to decode. A target above the 32-bit ids the world hands out is refused as `InvalidTarget`. A zero `X, Y, Z` means "no ground point". The server
 writes 0 in `SkillCastResult.ServerTick`.
 
-A skill entry is `{uint Caster, Target, SkillCode, byte Phase (1 start, 2 impact, 3 cancel, 4 release), byte Rank,
+A skill entry is `{uint64 Caster, Target, uint SkillCode, byte Phase (1 start, 2 impact, 3 cancel, 4 release), byte Rank,
 uint16 Flags (1 area, 2 projectile, 4 self, 8 chain link from X, Y, Z to Target, 16 familiar strike, 32 support reaching
 another player, 64 counter strike, 128 full charge, bits 8-9 the resolution mode drawn for the cast), float DurationMs,
 HitAtMs, int X, Y, Z, int16 Angle, uint16 TargetCount, int Radius, int 0}`. A release entry gives the shortened
-remaining motion in `DurationMs` and the time to its next hit in `HitAtMs`. A status entry is `{uint Entity, Source,
-StatusCode, byte Op (1 add, 2 refresh, 3 remove, 4 tick), byte Stacks, byte SourceKind, byte Control, uint16 Flags (1
+remaining motion in `DurationMs` and the time to its next hit in `HitAtMs`. A status entry is `{uint64 Entity, Source,
+uint StatusCode, byte Op (1 add, 2 refresh, 3 remove, 4 tick), byte Stacks, byte SourceKind, byte Control, uint16 Flags (1
 harmful, 2 permanent), int16 0, int DurationMs, RemainingMs, Value}`. Permanent entries carry zero timers.
 
 The client sends only the skill, the target and its own position. The server takes rank, costs, range, facing and timing
@@ -280,7 +280,7 @@ Every body starts with `{uint16 Version = 1, uint16 Flags = 0}`; text is UTF-8 w
 | `ItemUseCommand` | `Guid OperationId, int64 ExpectedRevision, Guid ItemId, int32 Argument, text Text (64 B)` | 58 + text |
 | `ItemUseResult` | `Guid OperationId, int32 Ok, int64 Revision, uint16 Status, uint16 0, uint32 ItemCode, text Message (128 B)` | 50 + text |
 | `PremiumTimers` | `int64 Revision, int32 Count`, then `{uint8 Kind, uint8 0, uint16 0, int32 Value, uint32 RemainingSeconds, DurationSeconds}` (at most 32) | 24 + 16n |
-| `ItemEffects` | `int32 Count`, then `{uint32 Entity, ItemCode, uint8 Effect, uint8 0, uint16 0, int32 X, Y, Z, Variant}` (at most 64) | 16 + 28n |
+| `ItemEffects` | `int32 Count`, then `{uint64 Entity, uint32 ItemCode, uint8 Effect, uint8 0, uint16 0, int32 X, Y, Z, Variant}` (at most 64) | 16 + 32n |
 
 `Status` is `ItemUseStatus`; `Kind` is `PremiumEffectKind`; `Effect` is `ItemEffectKind` (1 firecracker with its roll
 in `Variant`, 2 mastery, 3 force orb, 4 learn, 5 pet strike with the pet kind in `ItemCode` and the target serial in

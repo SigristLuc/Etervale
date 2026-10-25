@@ -126,7 +126,7 @@ internal sealed class PresenceDecoder
         for (var index = 0; index < entries.Length; index++)
         {
             var entry = entries[index];
-            events[index] = new SkillEventInfo(entry.Caster, entry.Target, entry.SkillCode, entry.Phase, entry.Rank, entry.Flags, entry.DurationMs,
+            events[index] = new SkillEventInfo(Serial(entry.Caster), Serial(entry.Target), entry.SkillCode, entry.Phase, entry.Rank, entry.Flags, entry.DurationMs,
                 entry.HitAtMs, Position(entry.X, entry.Y, entry.Z), PristonUnits.FromAngle(entry.Angle), entry.TargetCount, entry.Radius);
         }
 
@@ -139,7 +139,7 @@ internal sealed class PresenceDecoder
         for (var index = 0; index < entries.Length; index++)
         {
             var entry = entries[index];
-            statuses[index] = new StatusEffectInfo(entry.Entity, entry.Source, entry.StatusCode, entry.Op, entry.Stacks, entry.SourceKind,
+            statuses[index] = new StatusEffectInfo(Serial(entry.Entity), Serial(entry.Source), entry.StatusCode, entry.Op, entry.Stacks, entry.SourceKind,
                 entry.Control, entry.Flags, entry.DurationMs, entry.RemainingMs, entry.Value);
         }
 
@@ -184,7 +184,7 @@ internal sealed class PresenceDecoder
         for (var index = 0; index < effects.Length; index++)
         {
             var entry = packet.Effects[index];
-            effects[index] = new ItemEffectInfo(entry.Entity, entry.ItemCode, (ItemEffectKind)entry.Effect, Position(entry.X, entry.Y, entry.Z), entry.Variant);
+            effects[index] = new ItemEffectInfo(Serial(entry.Entity), entry.ItemCode, (ItemEffectKind)entry.Effect, Position(entry.X, entry.Y, entry.Z), entry.Variant);
         }
 
         return Update([], []) with { ItemEffects = effects, ServerTimeMs = _clockMs };
@@ -354,11 +354,12 @@ internal sealed class PresenceDecoder
         return Update([Spawn(serial, tracked)], []);
     }
 
-    public PresenceUpdate OnRemoved(uint[] serials)
+    public PresenceUpdate OnRemoved(ulong[] serials)
     {
         var removed = new List<uint>(serials.Length);
-        foreach (var serial in serials)
+        foreach (var wide in serials)
         {
+            var serial = Serial(wide);
             if (_objects.Remove(serial, out var tracked) && tracked.Published)
             {
                 removed.Add(serial);
@@ -373,7 +374,7 @@ internal sealed class PresenceDecoder
         var events = new List<CombatEventInfo>(entries.Length);
         foreach (var entry in entries)
         {
-            events.Add(new CombatEventInfo(entry.Attacker, entry.Target, (RemoteCombatEventKind)entry.Kind, entry.DurationMs, entry.HitAtMs,
+            events.Add(new CombatEventInfo(Serial(entry.Attacker), Serial(entry.Target), (RemoteCombatEventKind)entry.Kind, entry.DurationMs, entry.HitAtMs,
                 entry.Damage, (entry.Flags & CombatEventFlags.Critical) != 0, (entry.Flags & CombatEventFlags.Killed) != 0, entry.Resources,
                 entry.SoundCode, Position(entry.X, entry.Y, entry.Z), PristonUnits.FromAngle(entry.Angle))
             {
