@@ -116,7 +116,7 @@ Bodies start with `uint16 Version = 1`; positions are fixed point (x256), entity
 | --- | --- | --- |
 | `MovementReport` | `uint8 Motion (0 stand, 1 walk, 2 run), uint8 0, int32 Field (-1 keeps the field), int32 X, Y, Z, uint16 Facing (65536 per turn), uint16 0, uint64 ActionTarget` | 40 |
 | `AttackRequest` | `uint8 Flags (1 held attack), uint8 0, uint64 Target (0 stops), uint64 Sequence` | 28 |
-| `FieldWarp` | `uint8 Flags (1 forced), uint8 0, int32 Field, int32 X, Z` (the client puts the owner on the floor) | 24 |
+| `FieldWarp` | `uint8 Flags (1 forced), uint8 0, int32 Field, int32 X, Y, Z` (the client puts the owner on the floor nearest Y) | 28 |
 | `CloseRequest` | `uint16 0` | 12 |
 
 

@@ -92,11 +92,12 @@ public readonly record struct AttackRequestPacket(ulong Target, bool Sustained, 
 }
 
 // S->C {header, uint16 Version = 1, uint8 Flags (1 forced: a correction, teleport or restart), uint8 0, int32 Field,
-// int32 X, Z (x256)}: the authoritative field and position of the owner; the client puts the owner on the floor there.
-public readonly record struct FieldWarpPacket(int Field, float X, float Z, bool Forced)
+// int32 X, Y, Z (x256)}: the authoritative field and position of the owner; the client puts the owner on its floor nearest
+// the height Y.
+public readonly record struct FieldWarpPacket(int Field, float X, float Y, float Z, bool Forced)
 {
     public const ushort CurrentVersion = 1;
-    public const int Size = 8 + 4 + 4 + 8;
+    public const int Size = 8 + 4 + 4 + 12;
     private const byte ForcedFlag = 1;
 
     public int Write(Span<byte> destination)
@@ -107,6 +108,7 @@ public readonly record struct FieldWarpPacket(int Field, float X, float Z, bool 
         writer.Byte(0);
         writer.Int32(Field);
         writer.Int32(PristonUnits.ToFixed(X));
+        writer.Int32(PristonUnits.ToFixed(Y));
         writer.Int32(PristonUnits.ToFixed(Z));
         return writer.Finish();
     }
@@ -122,6 +124,8 @@ public readonly record struct FieldWarpPacket(int Field, float X, float Z, bool 
         var flags = reader.Byte();
         reader.Skip(1);
         var field = reader.Int32();
-        return new FieldWarpPacket(field, PristonUnits.FromFixed(reader.Int32()), PristonUnits.FromFixed(reader.Int32()), (flags & ForcedFlag) != 0);
+        var x = PristonUnits.FromFixed(reader.Int32());
+        var y = PristonUnits.FromFixed(reader.Int32());
+        return new FieldWarpPacket(field, x, y, PristonUnits.FromFixed(reader.Int32()), (flags & ForcedFlag) != 0);
     }
 }

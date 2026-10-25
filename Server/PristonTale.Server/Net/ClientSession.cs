@@ -456,7 +456,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
 
     // A forced FieldWarp: the client puts its player on the floor at the new field and position.
     private void SendWarp(int fieldId, Vector3 position) =>
-        SendLarge(new FieldWarpPacket(fieldId, position.X, position.Z, Forced: true).Write, FieldWarpPacket.Size);
+        SendLarge(new FieldWarpPacket(fieldId, position.X, position.Y, position.Z, Forced: true).Write, FieldWarpPacket.Size);
 
     private async Task AttackAsync(AttackRequestPacket attack)
     {

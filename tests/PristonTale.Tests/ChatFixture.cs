@@ -27,7 +27,8 @@ internal sealed class ChatFixture
     private uint _tick;
     private long _accounts;
 
-    public ChatFixture(GameMasterOptions? options = null, IPartyRoster? parties = null, IClanRoster? clans = null)
+    public ChatFixture(GameMasterOptions? options = null, IPartyRoster? parties = null, IClanRoster? clans = null,
+        FieldTerrain? terrain = null, IReadOnlyList<FieldPoint>? startPoints = null)
     {
         var empty = WorldData.Empty;
         Data = new WorldDataHolder
@@ -37,9 +38,16 @@ internal sealed class ChatFixture
         };
         var catalog = new WorldCatalog([new FieldDef("fixture", "Fixture Field", FieldState.Forest, new FieldBackdrop("", "", ""), "", [])
         {
-            FieldCode = Field
+            FieldCode = Field,
+            StartPoints = startPoints ?? []
         }]);
-        World = new WorldServer(Data, catalog);
+        var terrains = new FieldTerrainCatalog();
+        if (terrain is not null)
+        {
+            terrains.Publish(new Dictionary<int, FieldTerrain> { [Field] = terrain });
+        }
+
+        World = new WorldServer(Data, catalog, terrain: terrains);
         Directory = new ChatDirectory();
         Server = new FakeServer();
         GameMasters = new GameMasterCommands(Directory, World, Data, options, Server, Audit)

@@ -397,8 +397,7 @@ internal sealed class PresenceDecoder
     {
         FieldId = warp.Field;
         _objects.TryGetValue(SelfSerial, out var self);
-        var y = self?.Position.Y ?? 0f;
-        var position = new Vector3(warp.X, y, warp.Z);
+        var position = new Vector3(warp.X, warp.Y, warp.Z);
         if (self is not null)
         {
             self.Position = position;

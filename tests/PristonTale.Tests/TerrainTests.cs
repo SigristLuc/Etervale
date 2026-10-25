@@ -17,6 +17,7 @@ internal static class TerrainTests
         yield return ("server stage collision reader matches the client SMD reader in Priston axes", ReaderParityAsync);
         yield return ("field terrain blocks walls and high steps, settles drops and spawns on the floor", TerrainStepAsync);
         yield return ("movement reports off the floor or through walls are rejected and take the floor height", ReportTerrainAsync);
+        yield return ("a player saved where the stage has no floor enters at the field's first start point", JoinWithoutFloorAsync);
         yield return ("many small movement reports in one tick share one distance budget", ReportBudgetAsync);
         yield return ("small movement reports cannot pass a wall but may cut a corner", ReportWallSegmentsAsync);
     }
@@ -71,6 +72,20 @@ internal static class TerrainTests
         Assert.True(FieldTerrain.None.TryStep(Vector3.Zero, new Vector3(5, 7, 5), out var free) && free == new Vector3(5, 7, 5),
             "a field without geometry changed movement");
         return Task.CompletedTask;
+    }
+
+    private static async Task JoinWithoutFloorAsync()
+    {
+        var terrain = new FieldTerrain(StageCollisionReader.Read(Stage(
+            [new(0, 40, 0), new(400, 40, 0), new(400, 40, 400), new(0, 40, 400)], [(0, 1, 2), (0, 2, 3)])));
+        Assert.True(!terrain.TryPlaceOnFloor(new Vector3(900, 0, 900), out _) && terrain.TryPlaceOnFloor(new Vector3(100, 0, 100), out var placed)
+            && placed.Y == 40, "the floor query accepted a point outside the stage or missed the floor");
+
+        var fixture = new ChatFixture(terrain: terrain, startPoints: [new FieldPoint(50, 150)]);
+        var lost = await fixture.JoinAsync("Lost", 900, 900);
+        var kept = await fixture.JoinAsync("Kept", 300, 200);
+        Assert.True(lost.Session.SpawnPosition == new Vector3(50, 40, 150), "a player saved off the stage did not enter at the start point");
+        Assert.True(kept.Session.SpawnPosition == new Vector3(300, 40, 200), "a player saved on the floor was moved");
     }
 
     private static Task ReportTerrainAsync()

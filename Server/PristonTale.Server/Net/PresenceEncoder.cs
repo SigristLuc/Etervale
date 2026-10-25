@@ -210,7 +210,7 @@ internal sealed partial class PresenceEncoder
 
             _field = field;
             // Confirms the authoritative field and position.
-            connection.Send(_scratch.AsSpan(0, new FieldWarpPacket(field, self.Position.X, self.Position.Z, Forced: false).Write(_scratch)));
+            connection.Send(_scratch.AsSpan(0, new FieldWarpPacket(field, self.Position.X, self.Position.Y, self.Position.Z, Forced: false).Write(_scratch)));
         }
 
         var tick = snapshot.ServerTick;

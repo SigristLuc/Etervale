@@ -82,7 +82,7 @@ internal static class BinaryProtocolTests
         buffer[10] = 2;
         Assert.ThrowsAsync(() => Task.Run(() => AttackRequestPacket.Read(buffer.AsSpan(0, AttackRequestPacket.Size).ToArray()))).Wait();
 
-        var warp = new FieldWarpPacket(21, 512.5f, -256.25f, true);
+        var warp = new FieldWarpPacket(21, 512.5f, 300.75f, -256.25f, true);
         Assert.True(FieldWarpPacket.Read(buffer.AsSpan(0, warp.Write(buffer))) == warp, "field warp round trip changed fields");
         return Task.CompletedTask;
     }

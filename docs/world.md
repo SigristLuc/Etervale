@@ -139,6 +139,7 @@ height. Constants: `StepUp = 10`, `BodyProbeHeight = 30`, `DropTolerance = 32`.
 | Method | Rule |
 |---|---|
 | `PlaceOnFloor(p)` | Highest floor under X/Z, any height. Used for spawns, summons, start and respawn points. |
+| `TryPlaceOnFloor(p, out q)` | As `PlaceOnFloor`, false where the stage has no floor. World entry uses it: a saved place without a floor enters at the field's first start point (or `Center`). |
 | `TryFloorNear(p, climb, out h)` | Highest floor at or below `p.Y + climb`. |
 | `SettleNear(p, tol)` | Snaps to a floor in `[p.Y - tol, p.Y + tol]`, else keeps `p`. Used for drops, knockback, warp arrival. |
 | `CrossesWall(a, b)` | Segment from `a` to `b` (at `a`'s height), both raised 30 units, hits any collision triangle. |

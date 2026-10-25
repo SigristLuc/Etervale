@@ -550,6 +550,12 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
         try
         {
+            // A warp to a field that was still loading lands once the field is in the world.
+            if (_pendingFieldWarp is { } held)
+            {
+                ApplyWarp(held);
+            }
+
             for (var processed = 0; processed < 64 && _presenceQueue.Reader.TryRead(out var update); processed++)
             {
                 _snapshotField = update.FieldId;
@@ -841,6 +847,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private const float SpecialWarpDelaySeconds = 2f;
     private float _warpCooldown;
     private FieldWarpGate _pendingWarp;
+    private WarpInfo _pendingFieldWarp;
+    // The server settles teleports within twice the drop tolerance of their height.
+    private const float WarpFloorTolerance = 64f;
     private float _pendingWarpDelay;
 
     private void UpdateWarps(float dtSeconds)
@@ -1120,6 +1129,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
     private void ApplyWarp(WarpInfo warp)
     {
+        _pendingFieldWarp = null;
         _serverPlanarPosition = new Vector2(warp.Position.X, warp.Position.Z);
         if (_playerBody is null)
         {
@@ -1131,6 +1141,10 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             var loaded = _fields.FirstOrDefault(candidate => candidate.Definition.Id == field.Id);
             if (loaded is null)
             {
+                // Held until the field is loaded; the player stays put meanwhile.
+                _pendingFieldWarp = warp;
+                _hasMoveTarget = false;
+                _followCursor = false;
                 RequestField(field);
                 return;
             }
@@ -1148,7 +1162,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             StopPredictedMovement();
             _playerBody.PlanarPosition = authoritative;
             _positionCorrection = Vector2.Zero;
-            TrackBodyHeight(_playerBody);
+            PlaceAtHeight(_playerBody, warp.Position.Y);
             ApplyPlayerWorld();
             _camera?.SnapFollow(_playerBody.Position, _fieldCollision);
             _reportDue = true;
@@ -1770,6 +1784,17 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         if (TryGetFloorHeight(body.Position, out var height))
         {
             body.Height = height - GroundTraversal.VisualOffset;
+        }
+    }
+
+    // The floor nearest the server's height for a teleport, which can land far above or below the old height; the highest
+    // floor when the server's height is not near one.
+    private void PlaceAtHeight(PhysicsBody body, float height)
+    {
+        if (_fieldCollision.TryGetFloorHeight(body.Position, height, WarpFloorTolerance, out var floor)
+            || TryGetFloorHeight(body.Position, out floor))
+        {
+            body.Height = floor - GroundTraversal.VisualOffset;
         }
     }
 

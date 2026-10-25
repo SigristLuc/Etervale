@@ -28,11 +28,24 @@ public sealed class FieldTerrain
     public bool HasGeometry => _mesh is not null;
 
     // Highest walkable surface under the point, for spawns, start points and respawns.
-    public Vector3 PlaceOnFloor(Vector3 position)
+    public Vector3 PlaceOnFloor(Vector3 position) => TryPlaceOnFloor(position, out var placed) ? placed : position;
+
+    // False when the stage has no floor under the point (outside the stage or over a hole).
+    public bool TryPlaceOnFloor(Vector3 position, out Vector3 placed)
     {
-        return _mesh is not null && _mesh.TryGetFloorHeight(position.X, position.Z, out var height)
-            ? position with { Y = height }
-            : position;
+        placed = position;
+        if (_mesh is null)
+        {
+            return true;
+        }
+
+        if (!_mesh.TryGetFloorHeight(position.X, position.Z, out var height))
+        {
+            return false;
+        }
+
+        placed = position with { Y = height };
+        return true;
     }
 
     public bool TryFloorNear(Vector3 position, float climb, out float height)
