@@ -306,7 +306,9 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
   `_sceneTargets.Begin` precedes `Profiler.BeginFrame`.
 - The sky capture is refreshed before the scene target is cleared, because binding another target may discard it.
 - MonoGame clears `DiscardContents` targets on bind; scene, shadow and LDR targets are `PreserveContents` on purpose.
-- Skinned meshes have the opposite winding of the stage and are always drawn two-sided.
+- Skinned meshes cull back faces like the stage (`PristonRasterizerStates.SingleSided`) unless the material is
+  two-sided; drawn two-sided, the inner and back faces of clothes show through as dark triangles and fight the front
+  faces while the model moves. Shadow casters draw two-sided.
 - Cut-outs must stay in the alpha-tested queue (pre-pass depth, motion, AO); moving foliage to the blended queue makes
   it take the depth, motion and fog of what is behind (ghosted canopies under TAA).
 - `_sunElevation` holds the sine of the elevation; thresholds such as `> -0.05` are in sine, not radians.

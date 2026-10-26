@@ -193,8 +193,8 @@ transmittance + in-scatter with the exact optical depth). Sources: `tests/Pristo
   luminance at night. Changing `EmissiveLuminance` (`PristonRenderer`) changes night glows, not day ones, and never
   characters or monsters.
 - The transient-light falloff (radial, original (1 - d/r)^2 range) differs from the stage-lamp inverse square on purpose.
-- Skinned meshes are drawn two-sided (their winding is opposite to the stage); `VisibleFaceNormal` in `Material.hlsli`
-  shades the side being seen, so do not reintroduce back-face culling for actors.
+- Skinned meshes cull back faces like the stage unless the material is two-sided; `VisibleFaceNormal` in
+  `Material.hlsli` shades the side being seen of two-sided faces.
 - Values shared between HLSL and C# with no compile-time link: `MAX_LOCAL_LIGHTS` (32, in `LightingDecl.hlsli` and
   `LightCull.fx`) / `PristonShaderLibrary.MaxLocalLightCount`, `MAX_BONES` (64) / `PristonShaderLibrary.MaxBones`,
   `TILE_SIZE` (16) / `PristonLightCulling.TileSize`, `BINS` (128) / `PristonAutoExposure.Bins`, `MAX_CASCADES` (4) /

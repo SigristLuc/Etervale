@@ -2398,11 +2398,9 @@ public sealed partial class PristonRenderer : IDisposable
 
         if (batch.IsSkinned)
         {
-            // GPU-skinned colour pass. Skinned/character meshes use the opposite winding
-            // to the static stage geometry, so back-face culling would erase them. Render
-            // them double-sided (as they were before stage culling was enabled); the cost
-            // is negligible for low-poly characters/props.
-            _stateCache.SetRasterizerState(PristonRasterizerStates.TwoSided);
+            // Back faces are culled unless the material is two-sided, as the original draws them: clothes and armour
+            // have inner and back faces that, drawn too, show through and fight the front faces as the model moves.
+            _stateCache.SetRasterizerState(batch.Material.TwoSided ? PristonRasterizerStates.TwoSided : PristonRasterizerStates.SingleSided);
             var uvScrollOffset = ComputeUvScrollOffset(batch.Material);
             var texture = batch.Material.SelectTexture(_renderTime);
             var effect = _shaders.SelectSkinnedSurface(

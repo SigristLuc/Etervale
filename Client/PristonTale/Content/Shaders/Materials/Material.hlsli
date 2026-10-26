@@ -39,9 +39,9 @@ float3 VisibleFaceNormal(float3 worldPosition, float3 view)
     return dot(face, view) < 0.0 ? -face : face;
 }
 
-// Legacy meshes are frequently single-sided with either winding and drawn without culling, so the side being seen is
-// shaded. Only a vertex normal on the far side of the visible face flips; a smooth normal that merely leans away from
-// the viewer near a silhouette is kept, or that edge would be lit as if it faced the opposite way.
+// Two-sided faces are seen from either side, so the side being seen is shaded. Only a vertex normal on the far side of
+// the visible face flips; a smooth normal that merely leans away from the viewer near a silhouette is kept, or that edge
+// would be lit as if it faced the opposite way.
 float3 OrientNormal(float3 normal, float3 visibleFace)
 {
     float3 n = SafeNormalize(normal);

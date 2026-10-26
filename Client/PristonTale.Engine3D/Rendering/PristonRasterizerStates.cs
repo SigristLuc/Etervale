@@ -4,7 +4,7 @@ namespace PristonTale.Engine3D.Rendering;
 
 internal static class PristonRasterizerStates
 {
-    // Static stage winding requires CullClockwiseFace after the SMD and view-space conversions.
+    // Stage and model winding requires CullClockwiseFace after the SMD and view-space conversions.
     public static readonly RasterizerState SingleSided = new()
     {
         CullMode = CullMode.CullClockwiseFace

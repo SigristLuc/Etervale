@@ -10,27 +10,31 @@ using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Tests;
 
 // Characters and a large monster in Navisko in the sun and beside a lamp at night, close to the camera, with the screen
-// space shadowing on and off and its occlusion view: shadows on the ground and on the bodies over consecutive frames.
+// space shadowing on and off and its occlusion view, a turning camera, and Navisko's NPCs where the town places them:
+// shadows and surfaces on the ground and on the bodies over consecutive frames.
 internal sealed class ShadowCaptureProbe : Game
 {
     private sealed record Shot(string Name, float Hour, int Frames, bool AtLamp, bool Close, Func<ClientSettings, ClientSettings> Settings,
-        bool SunMoves = false);
+        bool SunMoves = false, int Npc = -1, bool Orbit = false);
 
     private static readonly Shot[] Shots =
     [
         new("day", 14f, 3, false, false, static s => s),
         new("day-close", 14f, 3, false, true, static s => s),
-        new("day-close-noao", 14f, 1, false, true, static s => s with { AmbientOcclusion = false }),
         new("day-close-nocontact", 14f, 1, false, true, static s => s with { ContactShadows = false }),
-        new("day-close-none", 14f, 1, false, true, static s => s with { AmbientOcclusion = false, ContactShadows = false }),
         new("day-close-occlusion", 14f, 1, false, true, static s => s with { DebugView = PristonDebugView.AmbientOcclusion }),
         new("day-close-noshadow", 14f, 1, false, true, static s => s with { ShadowsEnabled = false }),
         new("night", 21.5f, 3, true, false, static s => s),
-        new("morning-moving", 8f, 3, false, false, static s => s, SunMoves: true)
+        new("morning-moving", 8f, 3, false, false, static s => s, SunMoves: true),
+        new("orbit", 15f, 40, false, false, static s => s, Orbit: true),
+        new("karina-afternoon", 16f, 20, false, true, static s => s, Npc: 0),
+        new("karina-wide", 16f, 20, false, false, static s => s, Npc: 0),
+        new("ariel", 16f, 20, false, true, static s => s, Npc: 1)
     ];
 
     // Hours the server's clock advances in one real second.
@@ -39,6 +43,13 @@ internal sealed class ShadowCaptureProbe : Game
     private const ulong Priestess = 1;
     private const ulong Atalanta = 2;
     private const ulong Babel = 3;
+
+    // Karina, Ariel, Casa and Sylpi where Navisko places them (the server's coordinates over 256, Z mirrored).
+    private static readonly (string Model, float X, float Z)[] NaviskoNpcs =
+    [
+        ("char/npc/SN-001/sn-001.inx", 5591526f / 256f, -262266f / 256f), ("char/npc/SN-002/sn-002.inx", 5537856f / 256f, -297657f / 256f),
+        ("char/npc/SN-003/sn-003.inx", 5501933f / 256f, -254241f / 256f), ("char/npc/SN-005/sn-005.inx", 5646992f / 256f, -298582f / 256f)
+    ];
 
     private readonly string _assetRoot;
     private readonly string _output;
@@ -98,7 +109,8 @@ internal sealed class ShadowCaptureProbe : Game
         var catalog = new WorldRenderCatalog(new Dictionary<uint, MonsterRenderInfo>
         {
             [1] = new(1, "char/monster/Bguardian/Bguardian.inx", 1.2f, "Babel", 104, Simulation.World.Monsters.MonsterBrood.Normal, 8, 25)
-        });
+        }, NaviskoNpcs.Select((npc, index) => new NpcRenderInfo((uint)(index + 1), npc.Model, 1f, npc.Model, NpcServiceSet.None))
+            .ToDictionary(static info => info.TemplateId));
         _remote = new RemoteEntityManager(actorScene, new PlayerActorComposer(actorScene, loader), new ModelActorComposer(actorScene, loader),
             new CharacterClassRegistry(), _assetRoot, catalog, ConsoleClientLog.Instance);
         Place(_sunSpot);
@@ -114,7 +126,10 @@ internal sealed class ShadowCaptureProbe : Game
             new(Atalanta, RemoteEntityKind.Player, false, Numeric(Floor(_collision, spot + new Vector3(-50f, 500f, -20f))), 2.2f, RemoteMoveState.Idle, 64,
                 64, new PlayerAppearanceInfo("Atalanta", (int)PlayerClass.Atalanta, 3, 1, 1, "", "", 90), 0),
             new(Babel, RemoteEntityKind.Monster, false, Numeric(Floor(_collision, spot + new Vector3(70f, 500f, -60f))), 3.6f, RemoteMoveState.Idle,
-                100, 100, null, 1, Name: "Babel", Level: 104)
+                100, 100, null, 1, Name: "Babel", Level: 104),
+            .. NaviskoNpcs.Select((_, index) => new EntitySpawnInfo((ulong)(10 + index), RemoteEntityKind.Npc, false,
+                Numeric(NpcSpot(index)), 0.6f, RemoteMoveState.Idle, 1, 1, null,
+                (uint)(index + 1)))
         ], [], [], []));
     }
 
@@ -158,7 +173,7 @@ internal sealed class ShadowCaptureProbe : Game
 
     protected override void Draw(GameTime gameTime)
     {
-        if (_shot < 0 || _shot >= Shots.Length || _remote.Count < 3 || _shotSeconds < 2.0)
+        if (_shot < 0 || _shot >= Shots.Length || _remote.Count < 3 + NaviskoNpcs.Length || _shotSeconds < 2.0)
         {
             GraphicsDevice.Clear(Color.Black);
             return;
@@ -167,9 +182,16 @@ internal sealed class ShadowCaptureProbe : Game
         var shot = Shots[_shot];
         using var target = new RenderTarget2D(GraphicsDevice, 960, 540, false, SurfaceFormat.Color, DepthFormat.Depth24Stencil8);
         GraphicsDevice.SetRenderTarget(target);
-        var eye = shot.Close ? _focus + new Vector3(35f, 45f, 55f) : _focus + new Vector3(80f, 80f, 150f);
+        var focus = shot.Npc >= 0 ? NpcSpot(shot.Npc) : _focus;
+        var eye = shot.Close ? focus + new Vector3(35f, 45f, 55f) : focus + new Vector3(80f, 80f, 150f);
+        if (shot.Orbit)
+        {
+            // A camera turning around the focus at a quarter turn in ten seconds, as a player turns it.
+            eye = focus + Vector3.Transform(eye - focus, Matrix.CreateRotationY((float)_shotSeconds * MathHelper.PiOver2 / 10f));
+        }
+
         _camera ??= new PristonCamera(eye, Vector3.Forward);
-        _camera.SetScriptedView(GraphicsDevice, eye, _focus + Vector3.Up * (shot.Close ? 30f : 25f));
+        _camera.SetScriptedView(GraphicsDevice, eye, focus + Vector3.Up * (shot.Close ? 30f : 25f));
         _renderer.Draw(_camera);
         _renderer.ComposeScene();
         GraphicsDevice.SetRenderTarget(null);
@@ -219,6 +241,8 @@ internal sealed class ShadowCaptureProbe : Game
     }
 
     protected override void UnloadContent() => _remote.Dispose();
+
+    private Vector3 NpcSpot(int index) => Floor(_collision, new Vector3(NaviskoNpcs[index].X, 5000f, NaviskoNpcs[index].Z));
 
     private static Vector3 Floor(PristonCollisionWorld collision, Vector3 point) =>
         collision.TryGetFloorHeight(point with { Y = point.Y + 500f }, out var height) ? point with { Y = height } : point;
