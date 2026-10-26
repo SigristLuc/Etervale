@@ -138,7 +138,7 @@ public sealed class HudIconCache : IDisposable
             throw new FileNotFoundException($"HUD item icon is missing for key '{key}'.", key);
         }
 
-        var image = PristonImageDecoder.Decode(PristonFileResolver.ReadAllBytes(path), ".bmp");
+        var image = PristonImageDecoder.Decode(PristonFileResolver.ReadAllBytes(path), ".bmp", bmpCoverage: true);
         if (!image.IsValid || image.Width > 256 || image.Height > 256)
         {
             throw new InvalidDataException($"Invalid HUD icon dimensions: {path}");

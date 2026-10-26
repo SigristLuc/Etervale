@@ -14,6 +14,7 @@ internal static class RenderTests
         yield return ("off-camera geometry remains eligible to cast shadows", ShadowAsync);
         yield return ("static mesh preparation computes topology and normals without a GPU", MeshAsync);
         yield return ("CPU image decoding handles invalid data without GPU resources", DecodeAsync);
+        yield return ("UI bitmaps of 32 bits keep their coverage and skip the black key; zeroed coverage stays opaque", BmpCoverageAsync);
         yield return ("PNG export cache separates opacity variants and basename collisions", ExportAsync);
     }
 
@@ -107,6 +108,45 @@ internal static class RenderTests
         var otherLayerUv = a with { Uv1 = Vector2.Zero };
         Assert.True(builder.PrepareStaticMesh([a, b, c, otherLayerUv, b, c]).Vertices.Length == 4, "corners with different stage UVs were welded");
         return Task.CompletedTask;
+    }
+
+    private static Task BmpCoverageAsync()
+    {
+        var covered = Bmp32((0, 0, 0, 255), (4, 4, 4, 0), (90, 60, 30, 128));
+        var world = PristonImageDecoder.Decode(covered, ".bmp");
+        Assert.True(!world.HasSourceAlpha && world.Pixels.All(static pixel => pixel.A == 255), "a world bitmap took coverage");
+        var ui = PristonImageDecoder.Decode(covered, ".bmp", bmpCoverage: true);
+        Assert.True(ui.HasSourceAlpha && ui.Pixels[1].A == 0 && ui.Pixels[2].A == 128, "the coverage was not read");
+        PristonUiPixels.Prepare(ui, PristonUiColorKey.Black);
+        Assert.True(ui.Pixels[0] == new Color(0, 0, 0, 255) && ui.Pixels[1].A == 0, "the black key replaced the coverage");
+
+        var zeroed = PristonImageDecoder.Decode(Bmp32((0, 0, 0, 0), (50, 50, 50, 0), (1, 2, 3, 0)), ".bmp", bmpCoverage: true);
+        PristonUiPixels.Prepare(zeroed, PristonUiColorKey.Black);
+        Assert.True(!zeroed.HasSourceAlpha && zeroed.Pixels[0].A == 0 && zeroed.Pixels[1].A == 255, "zeroed coverage did not fall back to the key");
+        return Task.CompletedTask;
+    }
+
+    private static byte[] Bmp32(params (byte R, byte G, byte B, byte A)[] row)
+    {
+        var bytes = new byte[54 + row.Length * 4];
+        bytes[0] = (byte)'B';
+        bytes[1] = (byte)'M';
+        BitConverter.GetBytes(bytes.Length).CopyTo(bytes, 2);
+        BitConverter.GetBytes(54).CopyTo(bytes, 10);
+        BitConverter.GetBytes(40).CopyTo(bytes, 14);
+        BitConverter.GetBytes(row.Length).CopyTo(bytes, 18);
+        BitConverter.GetBytes(1).CopyTo(bytes, 22);
+        BitConverter.GetBytes((short)1).CopyTo(bytes, 26);
+        BitConverter.GetBytes((short)32).CopyTo(bytes, 28);
+        for (var x = 0; x < row.Length; x++)
+        {
+            bytes[54 + x * 4] = row[x].B;
+            bytes[55 + x * 4] = row[x].G;
+            bytes[56 + x * 4] = row[x].R;
+            bytes[57 + x * 4] = row[x].A;
+        }
+
+        return bytes;
     }
 
     private static Task DecodeAsync()

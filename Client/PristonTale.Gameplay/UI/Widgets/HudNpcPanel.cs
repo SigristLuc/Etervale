@@ -49,10 +49,10 @@ public sealed class HudNpcPanel(
         offer.Kind is NpcServiceKind.QuestGiver or NpcServiceKind.QuestScript or NpcServiceKind.SkillMaster or NpcServiceKind.ItemAging
         || offer.Kind == NpcServiceKind.WarpGate && offer.Value <= 1;
 
-    // As in the original, an NPC whose only working service is a shop or a warehouse opens that window at once; the
-    // dialog appears when there is a choice to make, such as a quest beside the shop.
+    // As in the original, an NPC whose only working service is a shop, a warehouse or the aging opens that window at once.
     public NpcServiceOffer DirectService =>
-        Current is { Ok: true } && !CanTrain && _services.Length == 1 && _services[0].Kind is NpcServiceKind.Shop or NpcServiceKind.Warehouse
+        Current is { Ok: true } && !CanTrain && _services.Length == 1
+        && _services[0].Kind is NpcServiceKind.Shop or NpcServiceKind.Warehouse or NpcServiceKind.ItemAging
             ? _services[0]
             : null;
     public IReadOnlyList<TeleportOffer> Destinations { get; private set; } = [];
@@ -145,7 +145,7 @@ public sealed class HudNpcPanel(
     private static NpcServiceOffer[] Buttons(NpcInteraction interaction)
     {
         return interaction.Services
-            .Where(offer => offer.Kind != NpcServiceKind.SkillMaster && offer.Available && !IsQuestRole(offer))
+            .Where(offer => offer.Kind != NpcServiceKind.SkillMaster && offer.Available && (offer.Kind == NpcServiceKind.ItemAging || !IsQuestRole(offer)))
             .GroupBy(offer => HudNpcArt.Label(offer.Kind, offer.Value))
             .Select(group => group.First())
             .Take(ButtonColumns * MaxButtonRows)

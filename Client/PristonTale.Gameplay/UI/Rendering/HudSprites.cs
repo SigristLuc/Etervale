@@ -200,7 +200,7 @@ public sealed class HudSprites : IDisposable
             DecodedPristonImage image;
             try
             {
-                image = PristonImageDecoder.Decode(File.ReadAllBytes(file), extension);
+                image = PristonImageDecoder.Decode(File.ReadAllBytes(file), extension, bmpCoverage: true);
             }
             catch (Exception exception) when (exception is IOException or ArgumentException or IndexOutOfRangeException or InvalidDataException)
             {

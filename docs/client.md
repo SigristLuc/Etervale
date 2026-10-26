@@ -141,6 +141,7 @@ the back buffer), clear, `GameScene.Draw` (renderer, effects, `ComposeScene`), g
 | Remote actors | Composer `PrepareAsync` (`PristonActorLoader.Load` + `PrepareActorResourcesAsync`) | `RemoteEntityManager.Update` publishes one completed preparation per frame |
 | Ground loot models | `GroundLootPresentation` preparation tasks | `GroundLootPresentation.Update` |
 | HUD images and item icons | `HudSprites`/`HudIconCache` decode on the thread pool | Upload within a byte budget per `Update` (`HudSprites`: 512 KiB). The icon cache keeps only the last requested set (at most 512), so `GameplayHud.RequestIcons` always names the pack, the open shop and the open warehouse together |
+| UI bitmap transparency | `PristonImageDecoder.Decode(..., bmpCoverage: true)`, `PristonUiPixels.Prepare` | A 32-bit BMP whose fourth byte varies (not all 0, not all 255) carries its coverage, which replaces the black key (such as item `DA304`, drawn over a near-black background); other BMPs take exact black as transparent; world textures stay opaque |
 | Skill sounds | `SkillSoundBank` reads and decodes on a worker | Creates `SoundEffect`s in `Update`; a sound not ready is skipped |
 | Display settings file | `ClientSettingsStore` writer task | `QueueSave` only |
 
@@ -361,8 +362,8 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   Shift and double clicks walk), matching the server.
 - NPC dialog (`HudNpcPanel`): name, the NPC's line, one button per offered service (grey when `Available` is false;
   quest roles get none); skill masters get the skill master box, whose class-change button works when the quests offer
-  a rank-up; teleporter destinations replace the buttons. An NPC whose only working service is a shop or warehouse opens
-  it directly (`DirectService`). An NPC with a quest role also gets a quest `Talk` (`HudQuestController`); a quest
+  a rank-up; teleporter destinations replace the buttons. An NPC whose only working service is a shop, warehouse or the aging
+  opens it directly (`DirectService`); the aging NPC also keeps its quest role (the rank-up brew). An NPC with a quest role also gets a quest `Talk` (`HudQuestController`); a quest
   dialog it answers with takes the help box, and its confirmation box is modal.
 - `HudNpcServiceController`: one request in flight; `Open` replies set the open service and its state; `OutOfReach`,
   `NotOpen` and `Conflict` close it. While the shop is open, an inventory revision change triggers a quote refresh.

@@ -276,7 +276,7 @@ public sealed class PristonTextureLoader : IDisposable
             return new PreparedTexture(0, 0, []);
         }
 
-        var image = ReadImage(path);
+        var image = PristonImageDecoder.Decode(PristonFileResolver.ReadAllBytes(path), Path.GetExtension(path), bmpCoverage: true);
         if (!image.IsValid)
         {
             _log.Warn($"UI texture '{path}' is invalid; using shared white fallback.");

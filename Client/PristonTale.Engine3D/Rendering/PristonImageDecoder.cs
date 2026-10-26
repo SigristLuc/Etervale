@@ -13,7 +13,9 @@ public static class PristonImageDecoder
 {
     private const long MaximumPixels = 64_000_000;
 
-    public static DecodedPristonImage Decode(byte[] bytes, string extension)
+    // UI bitmaps pass bmpCoverage: the fourth byte of a 32-bit BMP is then its coverage, unless every byte is 0 (reserved
+    // data) or 255. World BMPs stay opaque.
+    public static DecodedPristonImage Decode(byte[] bytes, string extension, bool bmpCoverage = false)
     {
         if (extension.Equals(".tga", StringComparison.OrdinalIgnoreCase))
         {
@@ -22,7 +24,7 @@ public static class PristonImageDecoder
 
         if (bytes.Length >= 54 && (IsBitmapHeader(bytes) || bytes[0] == 'A' && bytes[1] == '8' || bytes[0] == 'C' && bytes[1] == '8'))
         {
-            return LoadBmp(bytes, out _);
+            return LoadBmp(bytes, bmpCoverage);
         }
 
         using var stream = new MemoryStream(bytes, writable: false);
@@ -44,9 +46,8 @@ public static class PristonImageDecoder
         return new DecodedPristonImage(image.Width, image.Height, pixels, true);
     }
 
-    private static DecodedPristonImage LoadBmp(byte[] source, out bool hasSourceAlpha)
+    private static DecodedPristonImage LoadBmp(byte[] source, bool coverage)
     {
-        hasSourceAlpha = false;
         var bytes = (byte[])source.Clone();
         var a8Header = bytes[0] == 'A' && bytes[1] == '8';
         if (a8Header)
@@ -83,8 +84,6 @@ public static class PristonImageDecoder
         var heightRaw = BitConverter.ToInt32(bytes, 22);
         var planes = BitConverter.ToUInt16(bytes, 26);
         var bitCount = BitConverter.ToUInt16(bytes, 28);
-        // PT treats BMPs as opaque, including 32-bit files with a zeroed alpha byte.
-        hasSourceAlpha = false;
         var compression = BitConverter.ToInt32(bytes, 30);
         var paletteCount = BitConverter.ToInt32(bytes, 46);
         if (width <= 0 || heightRaw == 0 || planes != 1 || compression != 0)
@@ -134,17 +133,35 @@ public static class PristonImageDecoder
         }
 
         var pixels = new Color[width * height];
+        var readCoverage = coverage && bitCount == 32;
+        bool anyCoverage = false, anyTransparency = false;
         for (var y = 0; y < height; y++)
         {
             var sourceY = topDown ? y : height - 1 - y;
             var row = pixelOffset + sourceY * rowStride;
             for (var x = 0; x < width; x++)
             {
-                pixels[y * width + x] = ReadBmpPixel(bytes, row, x, bitCount, palette);
+                var pixel = ReadBmpPixel(bytes, row, x, bitCount, palette);
+                if (readCoverage)
+                {
+                    pixel.A = bytes[row + x * 4 + 3];
+                    anyCoverage |= pixel.A != 0;
+                    anyTransparency |= pixel.A != 255;
+                }
+
+                pixels[y * width + x] = pixel;
             }
         }
 
-        return new DecodedPristonImage(width, height, pixels, hasSourceAlpha);
+        if (readCoverage && !anyCoverage)
+        {
+            for (var index = 0; index < pixels.Length; index++)
+            {
+                pixels[index].A = 255;
+            }
+        }
+
+        return new DecodedPristonImage(width, height, pixels, readCoverage && anyCoverage && anyTransparency);
     }
 
     private static Color ReadBmpPixel(byte[] bytes, int row, int x, int bitCount, Color[] palette)
