@@ -124,6 +124,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private bool _runFlag = true;
     // After a double click on the ground the player keeps walking toward the cursor until it is blocked or clicks again.
     private bool _followCursor;
+    private Vector2 _steerDirection;
     private bool _holdMove;
 
     private readonly AttackInputController _attackInput = new();
@@ -1514,13 +1515,21 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 _followCursor = doubleClick;
                 _reportDue = true;
                 _holdMove = true;
+                _steerDirection = Vector2.Zero;
             }
         }
 
-        // A press that started a walk keeps steering it while the button is held: the destination follows the floor under
-        // the cursor; on release the avatar finishes the walk to the last point.
+        // A press that started a walk keeps steering it toward the cursor while the button is held (SteerToCursor); on
+        // release the avatar stops where it is, unless a double click set it following the cursor.
         if (mouse.LeftButton == ButtonState.Released)
         {
+            if (_holdMove && !_followCursor && _hasMoveTarget)
+            {
+                _hasMoveTarget = false;
+                _reportDue = true;
+                ApplyPlayerCommand(_playerController.ApplyLocomotion(PristonActorMotion.Stand));
+            }
+
             _holdMove = false;
         }
         else if (_holdMove && !PointerCaptured && !SelfCasting && !_selfAttacking)
@@ -1657,20 +1666,30 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         return true;
     }
 
-    // Steering toward the cursor each frame ignores a cursor on or beside the player: there the direction flips from frame
-    // to frame and the avatar spins in place, so the walk keeps its previous destination.
+    // Steering follows the cursor as the original does: the walk direction is the cursor's offset from the screen centre
+    // turned by the camera's heading (screen up is the camera's flat forward), and the destination is put SteerLead ahead
+    // in that direction. The camera keeps the player at the centre, so the direction does not change as the player moves,
+    // a cursor close to the player keeps the walk going and a cursor swung behind turns it at once. Collision stops the
+    // walk at walls; a cursor at the very centre keeps the last direction.
     private void SteerToCursor(MouseState mouse)
     {
-        var previous = _moveTarget;
-        var hadTarget = _hasMoveTarget;
-        if (SetMoveTarget(mouse) && Vector2.DistanceSquared(_moveTarget, _playerBody.PlanarPosition) < SteerDeadZone * SteerDeadZone)
+        var offset = mouse.Position.ToVector2() - _graphicsDevice.Viewport.Bounds.Center.ToVector2();
+        var forward = new Vector2(_camera.FlatForward.X, _camera.FlatForward.Z);
+        var right = new Vector2(-forward.Y, forward.X);
+        var direction = offset.LengthSquared() < SteerDeadZonePixels * SteerDeadZonePixels ? _steerDirection : right * offset.X - forward * offset.Y;
+        if (direction == Vector2.Zero)
         {
-            _moveTarget = previous;
-            _hasMoveTarget = hadTarget;
+            return;
         }
+
+        direction.Normalize();
+        _steerDirection = direction;
+        _moveTarget = _playerBody.PlanarPosition + direction * SteerLead;
+        _hasMoveTarget = true;
     }
 
-    private const float SteerDeadZone = PlayerRadius * 2f;
+    private const float SteerDeadZonePixels = 2f;
+    private const float SteerLead = PlayerRadius * 8f;
 
     private bool TryCursorRay(MouseState mouse, out Ray ray)
     {

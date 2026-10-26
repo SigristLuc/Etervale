@@ -245,7 +245,7 @@ flip Z themselves.
 
 The client owns its own locomotion; the server validates and corrects.
 
-- Click-to-move: `UpdatePlayerInput` advances `DestinationMovement` at `Locomotion` walk/run speed derived from the
+- Hold-to-move: `UpdatePlayerInput` advances `DestinationMovement` at `Locomotion` walk/run speed derived from the
   server-reported move speed (local derived stats until the first self state), slides against field collision
   (`MoveWithCollision`) and entity neighbours (`ResolveEntityCollision`) and follows the floor (`GroundTraversal`).
   Target reachability is checked with `GroundTraversal.CanReachSurface`.
@@ -288,7 +288,7 @@ Renderer side of stage publication: [rendering.md](rendering.md).
 | Input | Where | Effect |
 |---|---|---|
 | Left click | `GameScene.UpdatePlayerInput` | In order: pick ground loot, cast the left socket skill, pick a monster (attack) or NPC (approach and talk), move |
-| Hold left button after a move click | same | The destination follows the floor under the cursor while held (not over the HUD, casting or attacking); on release the walk ends at the last point. Following the cursor (held or after a double click) ignores a cursor within two player radii, where the direction would flip every frame |
+| Hold left button on the ground | same | The player walks only while the button is held (not over the HUD, casting or attacking), and on release the player stops where it is. A single click on the ground does not walk to the clicked point. Following the cursor (held or after a double click) walks toward the cursor's offset from the screen centre turned by the camera heading (screen up is the camera's flat forward) and keeps the destination eight player radii ahead (`SteerToCursor`); the camera keeps the player at the centre, so the direction holds while the player moves, a cursor close to the player keeps the walk going and a cursor swung behind turns it at once; a cursor within 2 pixels of the centre keeps the last direction |
 | Double left click (350 ms) on the ground | same | Keep walking toward the cursor without holding the button, until blocked or the next click |
 | `R`, or the bar's walk/run button | `GameplayHud.RunToggleRequested` -> `GameScene.ToggleRun` | Walk/run setting (running at first) for every move: clicks, monster, NPC and item approaches. A player tracing a target or holding the button keeps its pace while its stamina is at a quarter or less and walks once it runs out; overweight only walks |
 | Shift held while running (game masters) | `GameScene.MovementSpeed` | Dash at 3000/256 units per original tick; `WorldJoined` carries the game master level and the server allows game masters that speed |
