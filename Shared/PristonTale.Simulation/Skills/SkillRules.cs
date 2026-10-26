@@ -122,6 +122,10 @@ public sealed partial record SkillDamageRule
     public int WeaponDivisor { get; init; }
     public int SpiritMinDivisor { get; init; }
     public int SpiritMaxDivisor { get; init; }
+
+    // A spell: its power grows with the caster's spirit or spell power, so the target's magic resistance applies to it.
+    public bool Magic => SpellPower || SpiritMinDivisor > 0 || SpiritMaxDivisor > 0;
+
     // Areas: percent of the rolled power each target in the area receives, plus MainPercent more for the main target.
     public int AreaPercent { get; init; } = 100;
     public int MainPercent { get; init; }

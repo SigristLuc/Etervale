@@ -110,11 +110,12 @@ public static class CombatResolver
 
     public static int ApplyCrit(int dmg, int bonusPercent = 0) => (dmg * (AttackProfile.CritMultiplierPercent + bonusPercent)) / 100;
 
-    public static int ApplyElement(int dmg, Element e, in ResistanceBlock r)
+    public static int ApplyElement(int dmg, Element e, in ResistanceBlock r) => ApplyResistance(dmg, r[e]);
+
+    // A resistance from -100 (double damage) to 100 (no damage) takes its percent of the damage.
+    public static int ApplyResistance(int dmg, int resistance)
     {
-        int rs = r[e];
-        if (rs >= 100) rs = 100;
-        if (rs <= -100) rs = -100;
+        var rs = Math.Clamp(resistance, -100, 100);
         return dmg - (dmg * rs) / 100;
     }
 

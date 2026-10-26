@@ -380,14 +380,19 @@ public static partial class SkillFormulas
     public static int PowerAgainst(int power, SkillRule rule, MonsterDefinition target, ModifierTotals attacker, ModifierTotals defender, int rank = 0) =>
         PowerAgainst(power, rule.Damage, target, attacker, defender, rank);
 
-    // Element resistance first (divided by the rule's divisor), then the brood bonus (the original area order),
-    // absorption and the dealt/taken scaling.
+    // Element resistance first (divided by the rule's divisor), then a spell's magic resistance, the brood bonus (the
+    // original area order), absorption and the dealt/taken scaling. Resistances run -100 (double damage) to 100 (none).
     public static int PowerAgainst(int power, SkillDamageRule damage, MonsterDefinition target, ModifierTotals attacker, ModifierTotals defender, int rank)
     {
         var resistances = ModifierRules.Resistances(defender, target.Combat.Resistances);
         var value = damage.ResistanceDivisor > 1
             ? power - power * Math.Clamp(resistances[damage.Element] / damage.ResistanceDivisor, -100, 100) / 100
             : CombatResolver.ApplyElement(power, damage.Element, resistances);
+        if (damage.Magic)
+        {
+            value = CombatResolver.ApplyResistance(value, target.MagicResistance);
+        }
+
         value = WithBroodBonus(value, damage, target, rank);
         value = CombatResolver.ApplyAbsorbMonster(value, target.Combat.Absorption + defender.Flat(StatKind.Absorption));
         return ModifierRules.ScaleDamage(value, attacker, defender);

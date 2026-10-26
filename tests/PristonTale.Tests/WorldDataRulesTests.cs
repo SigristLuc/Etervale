@@ -25,6 +25,7 @@ internal static class WorldDataRulesTests
         yield return ("the game clock runs a day in 19.2 minutes with night from 23:00 to 4:00", ClockAsync);
         yield return ("night creatures walk at night and come back when killed, their NPCs leave, and both turn at dawn", NightCreaturesAsync);
         yield return ("a nightmare field spawns only at night, its people turn into the night creature and return at dawn", NightmareAsync);
+        yield return ("a monster's magic resistance cuts a spell's damage from -100 (double) to 100 (only the least hit), not a weapon skill's", MagicResistanceAsync);
     }
 
     private static Task DeathGoldAsync()
@@ -182,6 +183,20 @@ internal static class WorldDataRulesTests
         field.Night = false;
         field.Step(0.05f);
         Assert.True(field.Npcs.Count == 1 && field.MonstersForInspection.All(monster => !monster.IsAlive), "dawn did not end the night");
+        return Task.CompletedTask;
+    }
+
+    private static Task MagicResistanceAsync()
+    {
+        var spell = new Simulation.Skills.SkillDamageRule { SpiritMinDivisor = 4, SpiritMaxDivisor = 2 };
+        var blade = new Simulation.Skills.SkillDamageRule();
+        var none = Simulation.Modifiers.ModifierTotals.Empty;
+        int Against(Simulation.Skills.SkillDamageRule rule, int resistance) =>
+            Simulation.Skills.SkillFormulas.PowerAgainst(400, rule, Monster(1, MonsterClass.Normal) with { MagicResistance = resistance }, none, none, 1);
+        Assert.True(spell.Magic && !blade.Magic, "a spell or a weapon skill is classed wrongly");
+        Assert.True(Against(spell, 0) == 400 && Against(spell, 50) == 200 && Against(spell, 100) == 1 && Against(spell, -100) == 800
+            && Against(spell, 150) == 1, $"magic resistance does not scale a spell's damage: {Against(spell, 0)} {Against(spell, 50)} {Against(spell, 100)} {Against(spell, -100)} {Against(spell, 150)}");
+        Assert.True(Against(blade, 50) == 400, "magic resistance cut a weapon skill");
         return Task.CompletedTask;
     }
 
