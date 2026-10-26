@@ -35,9 +35,10 @@ public sealed class ActorMotionController
         return new MotionCommand(IsOneShotBusy(motion) ? MotionCommandKind.Restart : MotionCommandKind.Set, motion);
     }
 
+    // A fall keeps its motion while the player walks; the landing replaces it.
     public MotionCommand ApplyLocomotion(PristonActorMotion motion)
     {
-        if (LocomotionFrozen || motion == Current)
+        if (LocomotionFrozen || motion == Current || Current == PristonActorMotion.FallDown)
         {
             return MotionCommand.None;
         }
