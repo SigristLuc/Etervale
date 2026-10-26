@@ -42,6 +42,18 @@ float ShadowDepthAt(float2 uv)
     return ShadowMap.SampleLevel(ShadowSampler, uv, 0).r;
 }
 
+// The lit share at uv: the four texels around it compared with the reference and weighted bilinearly, so an edge moves
+// continuously across a texel instead of in whole-texel steps. Gather returns (0, 1), (1, 1), (1, 0), (0, 0).
+float ShadowLitAt(float2 uv, float reference)
+{
+    float2 position = uv / ShadowTexel.xy - 0.5;
+    float2 base = floor(position);
+    float2 f = position - base;
+    float4 stored = ShadowMap.GatherRed(ShadowSampler, (base + 1.0) * ShadowTexel.xy);
+    float4 lit = float4(stored.x >= reference, stored.y >= reference, stored.z >= reference, stored.w >= reference);
+    return lerp(lerp(lit.w, lit.z, f.x), lerp(lit.x, lit.y, f.x), f.y);
+}
+
 // Visibility of one cascade. The atlas tile holds the orthographic light's z (Passes/Surface.fx ShadowCaster), which is
 // linear in light-space depth; D3D clip conventions (the Vulkan compiler flips Y), so uv = (x, -y) * 0.5 + 0.5.
 float CascadeVisibility(uint c, float3 worldPosition, float3 normal, float nl, float2x2 rotation, float receiverBias)
@@ -88,15 +100,14 @@ float CascadeVisibility(uint c, float3 worldPosition, float3 normal, float nl, f
         radius = clamp(penumbraWorld / texelWorld, 1.0, PcssMaxRadiusTexels);
     }
 
-    float occluded = 0.0;
+    float lit = 0.0;
     [unroll]
     for (int i = 0; i < 16; i++)
     {
-        float stored = ShadowDepthAt(clamp(centre + mul(PoissonDisk[i], rotation) * texel * radius, lo, hi));
-        occluded += reference > stored ? 1.0 : 0.0;
+        lit += ShadowLitAt(clamp(centre + mul(PoissonDisk[i], rotation) * texel * radius, lo, hi), reference);
     }
 
-    return 1.0 - occluded / 16.0;
+    return lit / 16.0;
 }
 
 // Sun visibility in [0, 1]: the cascade by view depth, blended into the next one over the blend band (picking one per

@@ -20,7 +20,7 @@ namespace PristonTale.Tests;
 internal sealed class ShadowCaptureProbe : Game
 {
     private sealed record Shot(string Name, float Hour, int Frames, bool AtLamp, bool Close, Func<ClientSettings, ClientSettings> Settings,
-        bool SunMoves = false, int Npc = -1, bool Orbit = false);
+        bool SunMoves = false, int Npc = -1, bool Orbit = false, bool Measure = false);
 
     private static readonly Shot[] Shots =
     [
@@ -32,6 +32,7 @@ internal sealed class ShadowCaptureProbe : Game
         new("night", 21.5f, 3, true, false, static s => s),
         new("morning-moving", 8f, 3, false, false, static s => s, SunMoves: true),
         new("orbit", 15f, 40, false, false, static s => s, Orbit: true),
+        new("brightness", 10f, 600, false, false, static s => s with { ShadowsEnabled = false }, SunMoves: true, Measure: true),
         new("karina-afternoon", 16f, 20, false, true, static s => s, Npc: 0),
         new("karina-wide", 16f, 20, false, false, static s => s, Npc: 0),
         new("ariel", 16f, 20, false, true, static s => s, Npc: 1)
@@ -39,6 +40,10 @@ internal sealed class ShadowCaptureProbe : Game
 
     // Hours the server's clock advances in one real second.
     private const float HoursPerSecond = 1000f / WorldClock.MinuteMs / 60f;
+
+    // The game's usual resolution: at a quarter of it a shadow texel covers too few pixels to show its steps.
+    private const int Width = 1920;
+    private const int Height = 1080;
 
     private const ulong Priestess = 1;
     private const ulong Atalanta = 2;
@@ -75,8 +80,8 @@ internal sealed class ShadowCaptureProbe : Game
         _output = output;
         _ = new GraphicsDeviceManager(this)
         {
-            PreferredBackBufferWidth = 960,
-            PreferredBackBufferHeight = 540,
+            PreferredBackBufferWidth = Width,
+            PreferredBackBufferHeight = Height,
             GraphicsProfile = GraphicsProfile.HiDef,
             SynchronizeWithVerticalRetrace = false
         };
@@ -180,7 +185,7 @@ internal sealed class ShadowCaptureProbe : Game
         }
 
         var shot = Shots[_shot];
-        using var target = new RenderTarget2D(GraphicsDevice, 960, 540, false, SurfaceFormat.Color, DepthFormat.Depth24Stencil8);
+        using var target = new RenderTarget2D(GraphicsDevice, Width, Height, false, SurfaceFormat.Color, DepthFormat.Depth24Stencil8);
         GraphicsDevice.SetRenderTarget(target);
         var focus = shot.Npc >= 0 ? NpcSpot(shot.Npc) : _focus;
         var eye = shot.Close ? focus + new Vector3(35f, 45f, 55f) : focus + new Vector3(80f, 80f, 150f);
@@ -195,18 +200,41 @@ internal sealed class ShadowCaptureProbe : Game
         _renderer.Draw(_camera);
         _renderer.ComposeScene();
         GraphicsDevice.SetRenderTarget(null);
-        var pixels = new Color[960 * 540];
+        var pixels = new Color[Width * Height];
         target.GetData(pixels);
         for (var index = 0; index < pixels.Length; index++)
         {
             pixels[index].A = 255;
         }
 
-        using var opaque = new Texture2D(GraphicsDevice, 960, 540);
+        if (shot.Measure)
+        {
+            // The mean brightness of the frame and of the ground in front, per frame: a pulse shows as a repeating step.
+            double all = 0d;
+            double ground = 0d;
+            for (var index = 0; index < pixels.Length; index++)
+            {
+                var luma = 0.2126 * pixels[index].R + 0.7152 * pixels[index].G + 0.0722 * pixels[index].B;
+                all += luma;
+                ground += index / Width >= Height * 7 / 10 ? luma : 0d;
+            }
+
+            Console.WriteLine($"Brightness {_frame} {all / pixels.Length:F3} {ground / (Width * (Height - Height * 7 / 10)):F3}");
+            if (++_frame >= shot.Frames)
+            {
+                _frame = 0;
+                _shotSeconds = 0;
+                _shot++;
+            }
+
+            return;
+        }
+
+        using var opaque = new Texture2D(GraphicsDevice, Width, Height);
         opaque.SetData(pixels);
         using (var stream = File.Create(Path.Combine(_output, $"{shot.Name}-{_frame}.png")))
         {
-            opaque.SaveAsPng(stream, 960, 540);
+            opaque.SaveAsPng(stream, Width, Height);
         }
 
         // The change from the previous frame, eight times brighter: what trembles while nothing moves.
@@ -225,7 +253,7 @@ internal sealed class ShadowCaptureProbe : Game
 
             opaque.SetData(difference);
             using var diffStream = File.Create(Path.Combine(_output, $"{shot.Name}-{_frame}-change.png"));
-            opaque.SaveAsPng(diffStream, 960, 540);
+            opaque.SaveAsPng(diffStream, Width, Height);
             Console.WriteLine($"Shadows {shot.Name}-{_frame}: {changed} pixels changed from the previous frame");
         }
 

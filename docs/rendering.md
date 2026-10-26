@@ -221,9 +221,10 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
   camera cast from their current pose (a caster a refresh old darkens a running character lit from behind). Characters
   and monsters receive the sun's shadow 40 units further along the light (`ActorShadowBias`), so their own thin
   low-polygon bodies do not shade themselves in flickering triangles while buildings and trees still shade them. Over a
-  cascade's blend band both cascades are sampled and blended, never one picked per pixel by noise. PCSS by day (light
-  radius tangent 0.01), PCF (1.5 texels) for the moon. Casters draw two-sided; the
-  wind/water displacement matches the lit pass.
+  cascade's blend band both cascades are sampled and blended, never one picked per pixel by noise. Each filter tap
+  compares the four texels around it and weights them bilinearly (`ShadowLitAt`), so an edge slides continuously as the
+  sun turns instead of stepping a whole texel at a time. PCSS by day (light radius tangent 0.01), PCF (1.5 texels) for
+  the moon. Casters draw two-sided; the wind/water displacement matches the lit pass.
 - **Lamp shadows** (`Lighting/PristonLampShadows.cs`): the `lampShadowCount` lamps nearest the focus (after the
   transient lights) keep a row of six 90-degree cube faces storing distance / radius. A lamp keeps its row while it
   stays near; new rows draw at once, the others on every frame a skinned caster's bounds meet the lamp's sphere (and once
