@@ -218,7 +218,9 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
   beyond toward the light. Cascades 0-1 refresh every update, 2 every second, 3 every fourth; a new light direction or a
   focus jump over 350 units refreshes all. Refresh rate `shadowUpdateRate` (`FixedRateRefreshScheduler`), halved by
   moonlight. Between refreshes cascades 0-1 still redraw every frame on their current fit, so the characters near the
-  camera cast from their current pose (a caster a refresh old darkens a running character lit from behind). PCSS by
+  camera cast from their current pose (a caster a refresh old darkens a running character lit from behind). Characters
+  and monsters receive the sun's shadow 40 units further along the light (`ActorShadowBias`), so their own thin
+  low-polygon bodies do not shade themselves in flickering triangles while buildings and trees still shade them. PCSS by
   day (light radius tangent 0.01), PCF (1.5 texels) for the moon. Casters draw two-sided; the
   wind/water displacement matches the lit pass.
 - **Lamp shadows** (`Lighting/PristonLampShadows.cs`): the `lampShadowCount` lamps nearest the focus (after the
@@ -226,7 +228,8 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
   stays near; new rows draw at once, the others on every frame a skinned caster's bounds meet the lamp's sphere (and once
   more after the last one left, to clear its shadow), so the shadows follow moving actors without steps. Only skinned
   batches (actors, animated props)
-  cast; the stage's own occlusion is in its authored light. Characters and monsters do not receive lamp shadows
+  cast; the stage's own occlusion is in its authored light. The edge takes sixteen Poisson taps turned per pixel (the
+  temporal anti-aliasing resolves the noise), not a few fixed taps that would print stepped copies of the silhouette. Characters and monsters do not receive lamp shadows
   (`ActorReceiver`): their smooth-shaded low-polygon bodies would be cut by the hard facets of their own and each
   other's silhouettes; they still cast onto the stage.
 - `Ctrl+F5` toggles both in game; `PRISTON_SHADOW_DIAG=1` enables shadow diagnostics logging.

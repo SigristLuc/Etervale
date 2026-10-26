@@ -13,6 +13,8 @@ static const float CascadeBlendBand = 0.12;
 static const float PcssSearchDepth = 600.0;
 static const float PcssMaxRadiusTexels = 9.0;
 // Lamp shadows: a soft source, so a wide kernel and a little bounce light left in them.
+// World units a character's own body is ignored by along the sun when it receives the sun's shadow.
+static const float ActorShadowBias = 40.0;
 static const float LampShadowStrength = 0.8;
 static const float LampShadowRadiusTexels = 2.5;
 
@@ -42,7 +44,7 @@ float ShadowDepthAt(float2 uv)
 
 // Visibility of one cascade. The atlas tile holds the orthographic light's z (Passes/Surface.fx ShadowCaster), which is
 // linear in light-space depth; D3D clip conventions (the Vulkan compiler flips Y), so uv = (x, -y) * 0.5 + 0.5.
-float CascadeVisibility(uint c, float3 worldPosition, float3 normal, float nl, float2x2 rotation)
+float CascadeVisibility(uint c, float3 worldPosition, float3 normal, float nl, float2x2 rotation, float receiverBias)
 {
     float texelWorld = CascadeTexelWorld[c];
     float depthRange = CascadeDepthRange[c];
@@ -55,7 +57,7 @@ float CascadeVisibility(uint c, float3 worldPosition, float3 normal, float nl, f
     float2 lo = tile.xy + texel;
     float2 hi = tile.xy + tile.zw - texel;
     float2 centre = tile.xy + local * tile.zw;
-    float reference = saturate(projected.z) - texelWorld * (0.5 + 1.5 * (1.0 - nl)) / depthRange;
+    float reference = saturate(projected.z) - (texelWorld * (0.5 + 1.5 * (1.0 - nl)) + receiverBias) / depthRange;
     float radius = ShadowTexel.z;
     [branch]
     if (ShadowParams.y > 0.5)
@@ -99,7 +101,9 @@ float CascadeVisibility(uint c, float3 worldPosition, float3 normal, float nl, f
 
 // Sun visibility in [0, 1]: the cascade by view depth, dithered into the next one over the blend band; the last
 // cascade fades out toward the end of the shadow distance.
-float SunShadow(float3 worldPosition, float3 normal, float nl, float viewDepth, float2 pixel)
+// receiverBias (world units) keeps a character's own thin, low-polygon body from shadowing itself in faceted triangles;
+// buildings and trees farther along the light still shade it.
+float SunShadow(float3 worldPosition, float3 normal, float nl, float viewDepth, float2 pixel, float receiverBias)
 {
     uint count = clamp((uint)ShadowParams.x, 1u, (uint)MAX_CASCADES);
     [branch]
@@ -135,7 +139,7 @@ float SunShadow(float3 worldPosition, float3 normal, float nl, float viewDepth, 
     float angle = noise * 2.0 * PI;
     float2 direction = float2(cos(angle), sin(angle));
     float2x2 rotation = float2x2(direction.x, -direction.y, direction.y, direction.x);
-    float visibility = CascadeVisibility(c, worldPosition, normal, nl, rotation);
+    float visibility = CascadeVisibility(c, worldPosition, normal, nl, rotation, receiverBias);
     return 1.0 - ShadowParams.w * (1.0 - visibility) * fade;
 }
 
@@ -175,12 +179,13 @@ float2 ScreenOcclusion(float2 pixel, float viewDepth)
 
 // The lamps' cube shadows (Lighting/PristonLampShadows.cs): six faces per lamp side by side in its row, each a 90-degree
 // view along a major axis (FaceForward, up FaceUp, as Matrix.CreateLookAt builds it), holding the distance to the lamp
-// over its radius. Four wide Poisson taps soften the edge; a share of the light stays in the shadow (bounce from the
+// over its radius. Sixteen Poisson taps turned per pixel (the temporal anti-aliasing integrates the noise) soften the
+// edge without the stepped copies of a few fixed taps; a share of the light stays in the shadow (bounce from the
 // lamp-lit surroundings).
 static const float3 FaceForward[6] = { float3(1, 0, 0), float3(-1, 0, 0), float3(0, 1, 0), float3(0, -1, 0), float3(0, 0, 1), float3(0, 0, -1) };
 static const float3 FaceUp[6] = { float3(0, 1, 0), float3(0, 1, 0), float3(0, 0, -1), float3(0, 0, 1), float3(0, 1, 0), float3(0, 1, 0) };
 
-float LampShadow(uint row, float3 fromLight, float radius, float nl)
+float LampShadow(uint row, float3 fromLight, float radius, float nl, float2 pixel)
 {
     float3 a = abs(fromLight);
     uint face = a.x >= a.y && a.x >= a.z ? (fromLight.x >= 0.0 ? 0 : 1)
@@ -200,14 +205,17 @@ float LampShadow(uint row, float3 fromLight, float radius, float nl)
     float2 origin = float2(face, row) * faceSize;
     float distance = length(fromLight) / radius;
     float reference = distance - (0.004 + 0.012 * (1.0 - nl));
+    float angle = PixelNoise(pixel) * 2.0 * PI;
+    float2 direction = float2(cos(angle), sin(angle));
+    float2x2 rotation = float2x2(direction.x, -direction.y, direction.y, direction.x);
     float lit = 0.0;
     [unroll]
-    for (int k = 0; k < 4; k++)
+    for (int k = 0; k < 16; k++)
     {
-        float2 offset = PoissonDisk[k * 4] * LampShadowRadiusTexels;
+        float2 offset = mul(PoissonDisk[k], rotation) * LampShadowRadiusTexels;
         float2 position = clamp(inner + offset, 1.0, faceSize - 1.0);
         float stored = LampShadowMap.SampleLevel(LampShadowSampler, (origin + position) * texel, 0).r;
-        lit += reference <= stored ? 0.25 : 0.0;
+        lit += reference <= stored ? 1.0 / 16.0 : 0.0;
     }
 
     return 1.0 - LampShadowStrength * (1.0 - lit);
@@ -291,7 +299,7 @@ void AddLocalLights(float3 worldPosition, float3 n, float3 v, float3 albedo, flo
         [branch]
         if (lampShadows && row >= 0.0)
         {
-            light *= LampShadow((uint)row, -toLight, radius, nl);
+            light *= LampShadow((uint)row, -toLight, radius, nl, pixel);
         }
 
         float3 diffuseLight = light * (LampWrap + (1.0 - LampWrap) * nl);

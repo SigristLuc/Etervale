@@ -170,6 +170,7 @@ when reading those assets is authorized. GPU probes:
 | `--capture-hud-target <assets> <content> <output-dir>` | yes | Ricarten at 14:00 with remote-roster entities; target frame, bar, resolutions |
 | `--capture-chat <assets> <content> <output-dir> [<background.png>]` | yes | Chat window open, closed, unfocused, per tab, assistant split and page, shrunk beside the inventory, at 1280x720 and scale 2; speech bubbles over players, an NPC and a monster |
 | `--capture-item-hud <assets> <content> <output-dir>` | yes | Premium timer column, hover and blink, Teleport Core pages and confirmation, item tooltips (orb, package, crystal, gift box, chocolate, castle stone, lucky bag), item effects, castle items and boosters in the effects bar, the puzzle board, finished puzzle and collector question |
+| `--capture-shadows <assets> <content> <output-dir>` | yes | Two characters beside Navisko's lamp nearest the start, by day and by night, four consecutive frames each: their shadows on the ground and on themselves |
 | `--capture-item-effects <assets> <content> <output-dir>` | yes | Ricarten at night: pets idle and striking, firecracker bursts, the skill-learn light, force orb glow and hit, a big head, crystal pets with their plates in the return sparkle, the soccer-ball head |
 | `--capture-login <assets> <content> <output-dir> <background.png>` | yes | Login screen edge cases (see below) |
 | `--capture-skills <assets> <content> <output-dir> [<hex,hex,...>]` | yes | Casts skills with the server timeline (see below) |
