@@ -16,10 +16,6 @@ public enum HudWorkActionKind
     Start
 }
 
-// The aging NPC's window in the shop frame. Items dragged from the inventory stay there (dimmed) until the aging starts:
-// the item to age in the item box, which shows grey hints of the sheltoms its level asks in the four rows of three, each
-// sheltom in a cell that asks it, and an aging stone or copper ore in the stone cell. The start button lights when every
-// asked sheltom is in place; the plate shows the price. A right click gives a placed item back.
 public sealed class HudAgingWindow
 {
     private static readonly Color Placement = Color.FromNonPremultiplied(160, 235, 255, 128);
@@ -28,6 +24,7 @@ public sealed class HudAgingWindow
     private readonly Guid[] _sheltoms = new Guid[HudCraftLayout.SheltomSlots];
     private Guid _item;
     private Guid _stone;
+    private int _pricePercent = 100;
     private OwnedItemView _hovered;
     private bool _startHovered;
     private bool _exitHovered;
@@ -38,12 +35,12 @@ public sealed class HudAgingWindow
     public Point Origin => HudStoreLayout.Origin(_slide.Offset);
     public Guid Item => _item;
 
-    // The materials in the order the request sends them: the sheltoms, then the stone.
     public Guid[] Materials => _sheltoms.Where(static id => id != Guid.Empty).Append(_stone).Where(static id => id != Guid.Empty).ToArray();
 
-    public void Show()
+    public void Show(int pricePercent = 100)
     {
         Clear();
+        _pricePercent = Math.Max(0, pricePercent);
         _slide.Open = true;
     }
 
@@ -65,10 +62,8 @@ public sealed class HudAgingWindow
 
     public bool Contains(Point pointer) => _slide.Visible && HudStoreLayout.Window(Origin).Contains(pointer);
 
-    // Items placed in the window are held there and do not move in the inventory.
     public bool Holds(Guid id) => id != Guid.Empty && (id == _item || id == _stone || Array.IndexOf(_sheltoms, id) >= 0);
 
-    // Forgets placed items the inventory no longer has.
     public void Sync(OwnerState state)
     {
         if (state is null)
@@ -147,7 +142,7 @@ public sealed class HudAgingWindow
         .Select((ordinal, slot) => ordinal == 0 || _sheltoms[slot] != Guid.Empty).All(static filled => filled);
 
     public long Price(OwnerState state) =>
-        MainItem(state) is { Details: { } details } ? AgingRules.Price(details.UpgradeLevel, details.Roll.Price) : 0;
+        MainItem(state) is { Details: { } details } ? AgingRules.Price(details.UpgradeLevel, details.Roll.Price, _pricePercent) : 0;
 
     public HudWorkActionKind Update(MouseState mouse, MouseState previous, Point pointer, OwnerState state, bool blocked)
     {

@@ -518,10 +518,9 @@ public sealed class PlayerCharacter
         _serviceOperations.Add(new AppliedServiceOperation(command, InventoryRevision));
     }
 
-    // Aging counts on worn copies change no stat; the owner's view of them follows this revision.
+    // Aging counts change no stat and so leave the inventory revision alone.
     public long AgingRevision { get; private set; }
 
-    // Counts an aging event on the worn copies the counter matures; true when one reached its goal.
     public bool TallyAging(Items.Aging.AgingCounter counter, int amount = 1)
     {
         var reached = false;
@@ -543,7 +542,6 @@ public sealed class PlayerCharacter
 
     public bool HasMaturedItem => OwnedItems().Any(Items.Aging.AgingRules.Matured);
 
-    // Gives every copy that reached its aging goal its level; true when one did.
     public bool MatureAgedItems()
     {
         var matured = false;

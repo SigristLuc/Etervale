@@ -86,8 +86,9 @@ internal sealed partial class ClientSession : IMovementVerdictSink
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         var players = _services.World.PlayerCount;
-        var hello = new ServerHelloPacket(ProtocolVersion.Current, ProtocolVersion.Minimum, _services.Control.Full(players) ? Math.Max(1, players) : 0);
-        SendLarge(hello.Write, ServerHelloPacket.Size);
+        var hello = new ServerHelloPacket(ProtocolVersion.Current, ProtocolVersion.Minimum, _services.Control.Full(players) ? Math.Max(1, players) : 0,
+            _services.Control.ServerName);
+        SendLarge(hello.Write, ServerHelloPacket.MaxSize);
         try
         {
             await _connection.RunAsync(HandleAsync, cancellationToken);

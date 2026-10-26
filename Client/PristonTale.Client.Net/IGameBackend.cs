@@ -7,6 +7,8 @@ public interface IGameBackend : IAsyncDisposable
 {
     string? SessionToken { get; }
 
+    string ServerName => "";
+
     // The protocol allows one login per connection: after a successful login or a closed connection, log in again
     // through a new backend.
     bool RequiresNewConnection { get; }

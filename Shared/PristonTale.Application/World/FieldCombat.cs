@@ -37,7 +37,6 @@ internal sealed class FieldCombat
 
     private readonly IFieldCombatHost _host;
     private readonly CombatRng _rng;
-    private readonly int _experienceMultiplier;
 
     private readonly Dictionary<ulong, MonsterDamageLog> _damageLogs = new();
     private readonly Dictionary<ulong, float> _corpseMsLeft = new();
@@ -49,8 +48,11 @@ internal sealed class FieldCombat
     {
         _host = host;
         _rng = rng;
-        _experienceMultiplier = experienceMultiplier;
+        ExperienceMultiplier = experienceMultiplier;
     }
+
+    public int ExperienceMultiplier { get; set; }
+    public int ExperienceEventPercent { get; set; }
 
     public ulong ExpFor(ulong playerId) => _expByPlayer.TryGetValue(playerId, out var e) ? e : 0;
 
@@ -294,7 +296,8 @@ internal sealed class FieldCombat
         if (credited != 0 && _host.TryGetPlayer(credited, out var creditedPlayer))
         {
             creditedTier = creditedPlayer.Character.Tier;
-            exp = KillReward.ExpForKill(monster.Def.ExpReward, monster.Def.Combat.Level, creditedPlayer.Level, _experienceMultiplier);
+            exp = KillReward.ExpForKill(monster.Def.ExpReward, monster.Def.Combat.Level, creditedPlayer.Level, ExperienceMultiplier,
+                ExperienceEventPercent);
             exp = PremiumRules.BoostExperience(exp, creditedPlayer.Character.Premium);
             _expByPlayer.TryGetValue(credited, out var total);
             _expByPlayer[credited] = exp > ulong.MaxValue - total ? ulong.MaxValue : total + exp;

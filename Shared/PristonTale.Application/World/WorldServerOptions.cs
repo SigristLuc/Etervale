@@ -1,3 +1,4 @@
+using PristonTale.Simulation.Items.Aging;
 using PristonTale.Simulation.World.Loot;
 
 namespace PristonTale.Application.World;
@@ -15,6 +16,10 @@ public sealed record WorldServerOptions
     public static readonly WorldServerOptions Default = new();
 
     public int ExperienceMultiplier { get; init; } = DefaultExperienceMultiplier;
+
+    public int ExperienceEventPercent { get; init; }
+
+    public AgingSettings Aging { get; init; } = AgingSettings.Default;
 
     // Game minutes added to the game clock, to start the server at another hour of the day.
     public int ClockOffsetMinutes { get; init; }
@@ -42,6 +47,11 @@ public sealed record WorldServerOptions
         if (CrystalEvent is < 0 or > 2)
         {
             throw new InvalidOperationException("World:CrystalEvent must be 0, 1 or 2.");
+        }
+
+        if (ExperienceEventPercent < 0 || Aging is null || Aging.PricePercent < 0 || Aging.FailurePercent < 0 || Aging.DoublePercent < 0)
+        {
+            throw new InvalidOperationException("Experience event and aging percentages must not be negative.");
         }
 
         return this;

@@ -95,8 +95,7 @@ internal static class GmItemCommands
         }
     }
 
-    // A copy aged to a level dropped at the game master: /AgingSetting code level [class number]. Only weapons, armours,
-    // robes, shields, gloves and boots take the levels; any other item drops as it is.
+    // /AgingSetting code level [class number]
     public static async Task Aged(GmCommandContext context)
     {
         var code = context.Word();

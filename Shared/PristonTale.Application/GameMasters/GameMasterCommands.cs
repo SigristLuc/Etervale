@@ -80,6 +80,7 @@ public sealed class GameMasterCommands
 {
     private const string Denied = "denied: level too low";
     private readonly Action<Exception>? _fault;
+    private GameMasterOptions _options = GameMasterOptions.Default;
 
     public GameMasterCommands(ChatDirectory directory, WorldServer world, WorldDataHolder worldData, GameMasterOptions? options = null,
         IServerOperations? server = null, IGameMasterRepository? repository = null, Action<Exception>? fault = null)
@@ -96,7 +97,13 @@ public sealed class GameMasterCommands
     public ChatDirectory Directory { get; }
     public WorldServer World { get; }
     public WorldDataHolder WorldData { get; }
-    public GameMasterOptions Options { get; }
+    public GameMasterOptions Options
+    {
+        get => Volatile.Read(ref _options);
+        set => Volatile.Write(ref _options, value ?? GameMasterOptions.Default);
+    }
+
+    public Settings.ServerSettingsAppService? Settings { get; set; }
     public IServerOperations Server { get; }
     public IGameMasterRepository? Repository { get; }
     public IAccountRepository? Accounts { get; init; }
@@ -130,6 +137,8 @@ public sealed class GameMasterCommands
         new("/kill", GameMasterLevel.Moderator, GmPlayerCommands.Kill),
         new("/open_warehouse", GameMasterLevel.Moderator, GmAccountCommands.OpenWarehouse),
         new("/shutdown", GameMasterLevel.Moderator, GmServerCommands.Shutdown),
+        new("/reload_settings", GameMasterLevel.Administrator, GmServerCommands.ReloadSettings),
+        new("/setting", GameMasterLevel.Administrator, GmServerCommands.Setting),
         new("/insert", GameMasterLevel.Moderator, GmAccountCommands.Insert),
         new("/usercode", GameMasterLevel.Guide, GmInformationCommands.UserBySerial),
         new("/userid", GameMasterLevel.Guide, GmInformationCommands.UserByAccount),

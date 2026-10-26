@@ -131,8 +131,9 @@ pass `--Assets:AllowMissingTerrain=true` to run fields without terrain checks.
 
 Configuration:
 
-- Server settings (`Server/PristonTale.Server/appsettings.json`, environment variables such as
-  `World__ExperienceMultiplier`, or command-line `--World:ExperienceMultiplier=1`): [docs/server.md](docs/server.md).
+- Server host settings (`Server/PristonTale.Server/appsettings.json`, environment variables such as `Network__Port`,
+  or command-line `--Network:Port=10010`) and the game settings in the `server_settings` table, read again every few
+  minutes: [docs/server.md](docs/server.md).
 - Client settings (`client-settings.json` under the local application data folder, `%LOCALAPPDATA%\PristonTale` on
   Windows): [docs/client-settings.md](docs/client-settings.md).
 

@@ -3,9 +3,7 @@ using PristonTale.Simulation.World.Monsters;
 
 namespace PristonTale.Application.World;
 
-// The field side of aging: worn aging copies count the holder's own landed attacks (once a tick; critical hits for the
-// critical weapons), blocks and blows taken against a monster within ten levels, and an aging ring counts the seconds it
-// is worn. A copy that reaches its goal asks the upkeep for its level, which is stored with the character.
+// A player's own attacks count once a tick. A copy that reaches its goal asks the upkeep for its level.
 public sealed partial class FieldInstance
 {
     private const float AgingSecondMs = 1000f;

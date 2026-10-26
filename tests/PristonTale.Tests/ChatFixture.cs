@@ -213,6 +213,8 @@ internal sealed class FakeServer : IServerOperations
 {
     public int OpenConnections => 5;
     public int UserLimit { get; set; }
+
+    public string ServerName { get; set; } = "";
     public int Shutdowns { get; private set; }
     public List<BlockedLogin> Blocked { get; } = [new BlockedLogin("guesser", 240_000)];
 

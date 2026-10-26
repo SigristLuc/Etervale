@@ -149,11 +149,9 @@ public sealed class ItemInstance
     // A dropped puzzle piece stays sealed as a lucky bag until its owner pays to reveal it.
     public bool Sealed { get; set; }
 
-    // The aging under way since the aging NPC worked the copy (null when none): its next level comes when the count
-    // reaches the goal.
     public Aging.AgingMaturity Maturity { get; set; }
 
-    // The highest sheltom of the mix that worked the copy (1 Lucidy .. 9 Celesto); 0 when it was never mixed.
+    // 1 Lucidy .. 9 Celesto; 0 never mixed.
     public int MixSheltom { get; set; }
 
     public bool Mixed => MixSheltom > 0;

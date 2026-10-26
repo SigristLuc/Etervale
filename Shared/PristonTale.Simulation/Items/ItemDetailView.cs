@@ -19,7 +19,6 @@ public sealed record ItemDetailView(
     bool TwoHanded,
     bool ClassAllowed)
 {
-    // The aging under way (count toward goal, 0 of 0 when none) and the mix's highest sheltom (0 never mixed).
     public int AgingCount { get; init; }
     public int AgingGoal { get; init; }
     public int MixSheltom { get; init; }

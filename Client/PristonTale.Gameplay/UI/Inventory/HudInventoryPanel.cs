@@ -29,7 +29,6 @@ public sealed class HudInventoryPanel
     // An extra tooltip line for the hovered item, such as what an open shop pays for it.
     public Func<OwnedItemView, string> Note { get; set; }
 
-    // Items a work window holds (they stay in the bag, dimmed and still).
     public Func<Guid, bool> Withheld { get; set; }
 
     public void Draw(HudPainter painter, Point origin, OwnerState state, HudInventoryController controller, HudItemIcons icons,

@@ -2,9 +2,14 @@ using PristonTale.Simulation.World.Ai;
 
 namespace PristonTale.Simulation.Items.Aging;
 
-// The aging under way on a copy: the count of its counter toward the goal, and the stone that was used (some stones keep
-// the level requirement when the level comes).
+// The stone is kept because some stones keep the level requirement when the level comes.
 public sealed record AgingMaturity(int Count, int Goal, AgingStone Stone);
+
+// Percentages of the original price, failure chances and double chances.
+public sealed record AgingSettings(int PricePercent = 100, int FailurePercent = 100, int DoublePercent = 100)
+{
+    public static readonly AgingSettings Default = new();
+}
 
 public enum AgingStone : byte
 {
@@ -16,8 +21,7 @@ public enum AgingStone : byte
     SuperiorCopperOre = 5
 }
 
-// What the aging NPC did: the copy was lost, went down one or two levels (it then matures back one), started its next
-// level, or gained a level at once and started the next.
+// A fall of one or two levels matures one level back.
 public enum AgingResult : byte
 {
     Destroyed = 0,
@@ -27,8 +31,6 @@ public enum AgingResult : byte
     Double = 4
 }
 
-// What makes an aging copy mature: its holder's attacks, critical hits or blocks, blows the holder takes, or (the ring)
-// seconds worn.
 public enum AgingCounter : byte
 {
     None = 0,
@@ -39,11 +41,6 @@ public enum AgingCounter : byte
     Time = 5
 }
 
-// The aging NPC: a weapon, shield, orb, armour, robe, gloves, boots or armlet (and the ring of family OR2 ordinal 1),
-// with the sheltoms its level asks and an optional aging stone, costs (level + 1) x its price / 2. The roll takes the
-// copy down or destroys it by its level's chance (lower with an aging stone or the super stones), else it may gain a
-// level at once (below +10); copper ores and the super stones turn a destruction into a fall. Every outcome but the loss
-// starts the next level: the copy matures when its counter reaches the goal of its level (a fall starts half way).
 public static class AgingRules
 {
     public const int MaxLevel = 20;
@@ -64,7 +61,7 @@ public static class AgingRules
         "OA231", "OA232", "OA233", "OA234", "DB131", "DB132", "DB133", "DB134", "QT107", "QT108"
     };
 
-    // The sheltoms (1 Lucidy .. 14 Ordo) each level asks, as the window lays them out in four rows of three.
+    // Laid out as the window shows them, in four rows of three.
     private static readonly int[][] Sheltoms =
     [
         [3, 3, 4, 4, 5], [3, 3, 4, 4, 5, 5], [3, 3, 4, 4, 5, 5, 6], [3, 3, 4, 4, 5, 5, 6, 6], [3, 3, 4, 4, 5, 5, 6, 6, 7],
@@ -92,7 +89,6 @@ public static class AgingRules
         (30, 50), (30, 40), (20, 30), (10, 20), (10, 20), (10, 20), (10, 20), (10, 20), (10, 20)
     ];
 
-    // The goal of each level's counter.
     private static readonly int[] AttackGoal =
         [100, 130, 169, 219, 284, 369, 479, 622, 808, 1049, 1362, 1769, 2297, 2983, 3874, 5031, 6534, 8486, 11021, 14313, 14313];
     private static readonly int[] CriticalGoal =
@@ -113,15 +109,13 @@ public static class AgingRules
     public static bool Ageable(ItemInstance item) =>
         Ageable(item.Definition.CatalogKey, item.Definition.Kind, item.Definition.UniqueItem, item.MixSheltom, item.Maturity is not null, item.UpgradeLevel);
 
-    // The same rule from what the owner's client knows of a copy.
     public static bool Ageable(string key, ItemKind kind, int unique, int mixSheltom, bool maturing, int level) =>
         (AgeableFamilies.Contains(Family(key)) || string.Equals(key, AgeableRing, StringComparison.OrdinalIgnoreCase))
         && !Refused.Contains(key) && unique == 0 && kind != ItemKind.Quest && mixSheltom == 0 && !maturing && level < MaxLevel;
 
-    // The sheltom ordinals (1..14) the copy's level asks.
     public static IReadOnlyList<int> SheltomsFor(int level) => Sheltoms[Math.Clamp(level, 0, Sheltoms.Length - 1)];
 
-    // A sheltom's ordinal (1..14), or 0 for anything else (the magic sheltoms do not age).
+    // The magic sheltoms do not age.
     public static int SheltomOrdinal(string key) =>
         Family(key) == "OS1" && int.TryParse(key.AsSpan(3), out var ordinal) && ordinal is >= 1 and <= 14 ? ordinal : 0;
 
@@ -135,11 +129,10 @@ public static class AgingRules
         _ => AgingStone.None
     };
 
-    public static long Price(ItemInstance item) => Price(item.UpgradeLevel, item.Roll.Price);
+    public static long Price(ItemInstance item, AgingSettings settings = null) => Price(item.UpgradeLevel, item.Roll.Price, settings?.PricePercent ?? 100);
 
-    public static long Price(int level, long price) => (level + 1) * price / 2;
+    public static long Price(int level, long price, int percent = 100) => (level + 1) * price / 2 * Math.Max(0, percent) / 100;
 
-    // True when the sheltoms are exactly those the level asks.
     public static bool SheltomsMatch(int level, IEnumerable<int> ordinals)
     {
         var wanted = SheltomsFor(level).Order().ToArray();
@@ -147,9 +140,10 @@ public static class AgingRules
         return wanted.SequenceEqual(given);
     }
 
-    // The outcome of one aging of a copy at its level with the stone, with the original's rolls.
-    public static AgingResult Roll(int level, AgingStone stone, ISimRng rng)
+    // Three draws of 0..100 (destroy, down, plus); the settings scale the failure and double chances.
+    public static AgingResult Roll(int level, AgingStone stone, ISimRng rng, AgingSettings settings = null)
     {
+        settings ??= AgingSettings.Default;
         var destroy = rng.NextInclusive(0, 100);
         var down = rng.NextInclusive(0, 100);
         var plus = rng.NextInclusive(0, 100);
@@ -161,6 +155,7 @@ public static class AgingRules
             AgingStone.SuperiorCopperOre => FailSuperiorOre[index],
             _ => FailPlain[index]
         };
+        fail = Math.Clamp(fail * settings.FailurePercent / 100, 0, 101);
 
         var result = AgingResult.Success;
         if (fail > destroy)
@@ -173,7 +168,7 @@ public static class AgingRules
             }
         }
         else if (stone is not (AgingStone.SuperAgingStone or AgingStone.SuperiorCopperOre) && level < 10
-                 && DoubleChance[index] * (stone == AgingStone.AgingStone ? 2 : 1) > plus)
+                 && DoubleChance[index] * (stone == AgingStone.AgingStone ? 2 : 1) * settings.DoublePercent / 100 > plus)
         {
             result = AgingResult.Double;
         }
@@ -187,7 +182,7 @@ public static class AgingRules
         return result;
     }
 
-    // Applies an outcome other than the loss: the level gained at once or lost, then the next level's aging begins.
+    // A fall starts the next maturity half way.
     public static void Apply(ItemInstance item, AgingResult result, AgingStone stone)
     {
         if (result == AgingResult.Destroyed)
@@ -208,7 +203,6 @@ public static class AgingRules
         item.Maturity = new AgingMaturity(result <= AgingResult.DownTwo ? goal / 2 : 0, goal, stone);
     }
 
-    // The counter that matures a copy of this family.
     public static AgingCounter CounterOf(ItemInstance item) => Family(item) switch
     {
         "WA1" or "WH1" or "WM1" => AgingCounter.Attack,
@@ -218,11 +212,9 @@ public static class AgingRules
         _ => string.Equals(item.Definition.CatalogKey, AgeableRing, StringComparison.OrdinalIgnoreCase) ? AgingCounter.Time : AgingCounter.None
     };
 
-    // The copy reached its goal and waits for its level.
     public static bool Matured(ItemInstance item) => item.Maturity is { Goal: > 0 } maturity && maturity.Count >= maturity.Goal;
 
-    // Counts events on a worn aging copy up to its goal without changing it otherwise; true when the goal was reached
-    // now. The level comes with Mature, in a stored change of the character.
+    // Stops at the goal; the level comes with Mature, in a stored change of the character.
     public static bool Tally(ItemInstance item, int amount = 1)
     {
         if (item.Maturity is not { Goal: > 0 } maturity || maturity.Count >= maturity.Goal || amount <= 0)
@@ -235,7 +227,6 @@ public static class AgingRules
         return count >= maturity.Goal;
     }
 
-    // A copy that reached its goal gains its level; true when it did.
     public static bool Mature(ItemInstance item)
     {
         if (!Matured(item))
@@ -248,7 +239,6 @@ public static class AgingRules
         return true;
     }
 
-    // Raises a weapon, armour, robe, shield, gloves or boots to a level at once, as made by a game master; other items stay.
     public static void AgeTo(ItemInstance item, int level)
     {
         if (Family(item) is not ("WA1" or "WC1" or "WH1" or "WM1" or "WP1" or "WS1" or "WS2" or "WT1" or "DA1" or "DB1" or "DG1" or "DS1" or "DA2"))
@@ -262,7 +252,6 @@ public static class AgingRules
         }
     }
 
-    // Counts events on an aging copy; true when the copy matured and gained its level.
     public static bool Count(ItemInstance item, int amount = 1)
     {
         if (item.Maturity is not { } maturity)
@@ -299,8 +288,8 @@ public static class AgingRules
         };
     }
 
-    // One level up: the family's gains, then the level; the level requirement rises on even levels unless the item asks
-    // level 100, 102 or 105 or the aging used the elder copper ore or a super stone.
+    // The level requirement rises on even levels unless the item asks level 100, 102 or 105 or the aging used the elder
+    // copper ore or a super stone.
     public static void LevelUp(ItemInstance item, AgingStone stone)
     {
         var level = item.UpgradeLevel;

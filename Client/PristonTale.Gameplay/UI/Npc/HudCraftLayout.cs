@@ -2,9 +2,6 @@ using Microsoft.Xna.Framework;
 
 namespace PristonTale.Gameplay.UI.Npc;
 
-// The original work windows of the aging and mixing NPCs in 800x600 design coordinates, inside the shop frame: the work
-// panel, the item box of 3x4 cells, the four rows of three sheltom cells, the stone cell, the start button and the price
-// plate.
 public static class HudCraftLayout
 {
     public const int CellSize = 22;
@@ -32,7 +29,6 @@ public static class HudCraftLayout
     public static Point PricePlate(Point origin) => new(origin.X + 200, origin.Y + 264);
     public static Rectangle PriceText(Point origin) => new(origin.X + 200, origin.Y + 273, 75, 14);
 
-    // An item of width x height cells centred in a box.
     public static Rectangle Centered(Rectangle box, int width, int height)
     {
         var size = new Point(width * CellSize, height * CellSize);

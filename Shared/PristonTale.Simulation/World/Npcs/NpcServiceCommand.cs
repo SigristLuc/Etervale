@@ -22,7 +22,6 @@ public enum NpcServiceAction : byte
     // The puzzle collector takes a finished puzzle for a reward.
     Exchange = 40,
 
-    // The aging NPC works an item (ItemId) with its sheltoms and an optional aging stone (Materials).
     Age = 50
 }
 
@@ -110,8 +109,7 @@ public sealed record NpcServiceReply(NpcServiceOutcome Outcome)
     public ItemWorkResult Work { get; init; }
 }
 
-// What a work on an item came to: the service's result code (AgingResult for the aging NPC) and the item it left (empty
-// when the item was lost).
+// Result is AgingResult for the aging NPC; ItemId is empty when the item was lost.
 public sealed record ItemWorkResult(byte Result, Guid ItemId, uint Code);
 
 public sealed record TeleportArrival(int FieldCode, System.Numerics.Vector3 Position);

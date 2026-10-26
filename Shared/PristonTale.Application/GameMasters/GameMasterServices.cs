@@ -21,6 +21,8 @@ public interface IServerOperations
     // Players a new connection may join beyond; 0 when unlimited.
     int UserLimit { get; set; }
 
+    string ServerName { get; set; }
+
     // Starts the shutdown countdown; false when one is already running.
     bool BeginShutdown();
 
@@ -38,6 +40,8 @@ public sealed class DetachedServer : IServerOperations
     public int OpenConnections => 0;
 
     public int UserLimit { get; set; }
+
+    public string ServerName { get; set; } = "";
 
     public bool ShutdownStarted { get; private set; }
 

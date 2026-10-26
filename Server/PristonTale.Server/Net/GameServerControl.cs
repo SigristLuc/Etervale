@@ -11,6 +11,7 @@ public sealed class GameServerControl(ChatDirectory chat, IHostApplicationLifeti
     private LoginThrottle? _logins;
     private int _userLimit;
     private int _shutdown;
+    private string _serverName = Application.Settings.ServerSettings.DefaultServerName;
 
     public ShutdownSchedule Schedule { get; init; } = ShutdownSchedule.Standard;
 
@@ -20,6 +21,12 @@ public sealed class GameServerControl(ChatDirectory chat, IHostApplicationLifeti
     {
         get => Volatile.Read(ref _userLimit);
         set => Volatile.Write(ref _userLimit, Math.Max(0, value));
+    }
+
+    public string ServerName
+    {
+        get => Volatile.Read(ref _serverName);
+        set => Volatile.Write(ref _serverName, value ?? "");
     }
 
     internal void Attach(Func<int> connections, LoginThrottle logins)

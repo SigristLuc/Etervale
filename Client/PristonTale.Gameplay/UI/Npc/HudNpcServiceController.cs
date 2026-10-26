@@ -24,7 +24,6 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
     public bool LastOk { get; private set; }
     public int Completions { get; private set; }
 
-    // The last completed request and what a work on an item came to.
     public NpcServiceCommand LastCommand { get; private set; }
     public ItemWorkResult LastWork { get; private set; }
     public int Opened { get; private set; }

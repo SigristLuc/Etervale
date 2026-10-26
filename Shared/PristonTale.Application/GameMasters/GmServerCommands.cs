@@ -42,6 +42,45 @@ internal static class GmServerCommands
         return Task.CompletedTask;
     }
 
+    public static async Task ReloadSettings(GmCommandContext context)
+    {
+        if (context.Commands.Settings is not { } settings)
+        {
+            context.Reply("The settings table is not available");
+            return;
+        }
+
+        var current = await settings.ReloadAsync();
+        context.Reply(Format("Settings reloaded ({0}, {1} problems)", current.ServerName, settings.Problems.Count));
+        foreach (var problem in settings.Problems.Take(5))
+        {
+            context.Reply(problem);
+        }
+    }
+
+    // "/setting name" shows a setting; "/setting name value" writes and applies it.
+    public static async Task Setting(GmCommandContext context)
+    {
+        var name = context.Word();
+        var value = context.Rest.Trim();
+        if (context.Commands.Settings is not { } settings
+            || Settings.ServerSettingCatalog.All.FirstOrDefault(setting => setting.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is not { } definition)
+        {
+            context.Reply(Format("Unknown setting {0}", name));
+            return;
+        }
+
+        if (value.Length == 0)
+        {
+            context.Reply(Format("{0} = {1}: {2}", definition.Name, settings.ValueOf(definition), definition.Description));
+            return;
+        }
+
+        context.Reply(await settings.SetAsync(definition.Name, value)
+            ? Format("{0} = {1}", definition.Name, value)
+            : Format("{0} refused for {1}", value, definition.Name));
+    }
+
     // Starts the countdown: notices, then a reminder every half minute (every five seconds in the last minute), then every
     // client is told to save and quit and the server stops.
     public static Task Shutdown(GmCommandContext context)

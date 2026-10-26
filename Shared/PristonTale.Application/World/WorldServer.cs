@@ -40,7 +40,7 @@ public sealed partial class WorldServer
     private readonly long _clockOrigin;
     private readonly BossSpawnSchedule _bossSchedule;
     private readonly FieldTerrainCatalog _terrain;
-    private readonly WorldServerOptions _options;
+    private WorldServerOptions _options;
     // Commands each player has waiting in the shared queue; entries are dropped when the player leaves the world.
     private readonly ConcurrentDictionary<ulong, PendingCommands> _pendingByPlayer = new();
 
@@ -99,11 +99,36 @@ public sealed partial class WorldServer
             terrain: _terrain.Get(fieldId));
         ConfigureQuests(field);
         field.State = _catalog.TryGetFieldByCode(fieldId, out var definition) ? definition.State : FieldState.Forest;
-        field.ItemEventRates = _options.ItemEvents;
+        ApplyOptions(field, _options);
         field.Event = _catalog.TryGetFieldByCode(fieldId, out var described) ? described.FieldEvent : FieldEventKind.None;
         field.DropLedger = DropLedgerFor(_worldData.Current.Items);
         _fields.Add(fieldId, field);
         return field;
+    }
+
+    public WorldServerOptions Options => Volatile.Read(ref _options);
+
+    public Task ApplyOptionsAsync(WorldServerOptions options)
+    {
+        var validated = options.Validated();
+        return EnqueueAsync(NoOwner, () =>
+        {
+            Volatile.Write(ref _options, validated);
+            foreach (var field in _fields.Values)
+            {
+                ApplyOptions(field, validated);
+            }
+
+            return true;
+        }, waitForCapacity: true);
+    }
+
+    private static void ApplyOptions(FieldInstance field, WorldServerOptions options)
+    {
+        field.ItemEventRates = options.ItemEvents;
+        field.ExperienceMultiplier = options.ExperienceMultiplier;
+        field.ExperienceEventPercent = options.ExperienceEventPercent;
+        field.Aging = options.Aging;
     }
 
     // The game clock in game milliseconds: the Unix time plus the configured offset (World:ClockOffsetMinutes game minutes).

@@ -121,7 +121,7 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
 | Moderator | `/>`, `/>>`, `/user_limit`, `/kick`, `/kill`, `/open_warehouse`, `/shutdown`, `/insert`, `/near`, `/call`, `/where` |
 | Moderator | `/field`, `/player_location` |
 | Operator | `/get_money`, `/AgingSetting` |
-| Administrator | `/init_premiumitem`, `/@get_perf`, `/@get`, `/@put`, `/GiveMeExp!`, `/expup`, `/GiveMeMoney!` |
+| Administrator | `/init_premiumitem`, `/@get_perf`, `/@get`, `/@put`, `/GiveMeExp!`, `/expup`, `/GiveMeMoney!`, `/reload_settings`, `/setting` |
 
 - Information: local time, boss minute, the issuer's force orb and premium timers, gold spent per sink, carried potions,
   connection packet counts, players and monsters, a player by serial, account or name, damage range, session.
@@ -142,8 +142,10 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
 - Accounts: `/insert account character` moves an offline character to the account's first free slot;
   `/open_warehouse [account]` lists the stored warehouse in the chat.
 - Experience: `/GiveMeExp! level` raises to a level, `/expup n` adds n points as a monster's award would.
-- `GameMasters:TestServer` or `GameMasters:DebugServer` lower `/GiveMeExp!`, `/expup` and `/GiveMeMoney!` to Guide; on a debug
-  server `/` and an item code drops that item; `GameMasters:PotionMonitor` (default on) enables `/get_potion`.
+- `server.test` or `server.debug` (settings table) lower `/GiveMeExp!`, `/expup` and `/GiveMeMoney!` to Guide; on a debug
+  server `/` and an item code drops that item; `gm.potion_monitor` (default on) enables `/get_potion`.
+- `/reload_settings` reads the settings table at once and lists the refused values; `/setting name` shows a row and its
+  meaning, `/setting name value` writes it (refused when the value is not valid) and applies the table.
 - Hidden game masters are left out of other players' presence. Game masters have no special name colour.
 
 ## How to
@@ -170,7 +172,7 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
 ## Related
 
 - [protocol.md](protocol.md): message framing and opcodes.
-- [server.md](server.md): `GameMasters:*` settings and the session.
+- [server.md](server.md): the settings table and the session.
 - [client.md](client.md): HUD structure and input.
 - [persistence.md](persistence.md): `gm_level`, `gm_audit`.
 - [tools.md](tools.md): `DevAccounts set-gm`, `gm-audit`, SmokeClient `--chat`.

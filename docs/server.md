@@ -52,8 +52,9 @@ registration order. An exception from any `StartAsync` stops the host before the
 | 2 | `WorldDataLoadService` | Loads items, monsters, NPCs, field spawns and motion timings from the database. | Repository errors only. An empty, un-imported database loads zero rows and starts an empty world. |
 | 3 | `FieldTerrainLoadService` | Loads the collision of all 43 fields of `WorldCatalog.AllFields` (the quest arena included) (`FieldDef.StageSmd`). | No assets directory, or any stage missing or unreadable, unless `Assets:AllowMissingTerrain=true`. |
 | 4 | `WorldTickService` | Starts the 20 Hz tick loop. | Never; a throwing tick is logged and the loop continues. |
-| 5 | `GameTcpServer` | Loads the TLS certificate, binds `[::]:<Network:Port>` (10009) dual-stack, backlog 512, and accepts. | The port is in use (the host stops). |
-| 6 | `QuestUpkeepService` | Stores the quest work the tick queues (quest drops, quest weapon growth and expiry). | Never; a failed upkeep is logged and retried on the field's next check. |
+| 5 | `ServerSettingsService` | Adds the missing `server_settings` rows with their defaults, reads the table and applies it on the tick, then reads it again every `server.settings_reload_minutes`. | The table cannot be read at start; later failures keep the settings in force. |
+| 6 | `GameTcpServer` | Loads the TLS certificate, binds `[::]:<Network:Port>` (10009) dual-stack, backlog 512, and accepts. | The port is in use (the host stops). |
+| 7 | `QuestUpkeepService` | Stores the quest work the tick queues (quest drops, quest weapon growth and expiry). | Never; a failed upkeep is logged and retried on the field's next check. |
 
 Terrain details:
 
@@ -82,7 +83,8 @@ All registrations are singletons in `HostingExtensions.AddPristonServer`.
 | Persistence | `AddPristonSqlite(path)` or `AddPristonPostgres(connectionString)` | Repositories, `IDbConnectionFactory`, `IDatabaseMigrator`, FluentMigrator runner. See [persistence.md](persistence.md). |
 | `WorldDataAppService`, `WorldDataHolder` | types | Catalog build and the swap-in holder read by the world and the encoders. |
 | `FieldTerrainCatalog` | type | Filled by `FieldTerrainLoadService`. |
-| `WorldServer` | factory with `WorldServerOptions` from `World:*` | Options are validated at registration (`WorldServerOptions.Validated`). |
+| `WorldServer` | factory with `WorldServerOptions` (only `World:MaxPendingCommandsPerPlayer` from the host) | The game settings arrive from the settings table through `ApplyOptionsAsync`. |
+| `ServerSettingsAppService` | factory | Reads the settings table and applies it to the world, `GameMasterCommands.Options` and `GameServerControl` (name, player limit). |
 | `IServerStatusReadModel` | `WorldStatusReadModel` | Registered for status queries; nothing in the server consumes it. |
 
 Hosted services are registered in the order of the startup table.
@@ -107,8 +109,8 @@ Hosted services are registered in the order of the startup table.
 ## Settings
 
 Sources, later ones winning: `appsettings.json`, `appsettings.{Environment}.json` (none exist), environment variables
-(`__` for `:`, e.g. `World__ExperienceMultiplier=1`), command line (`--World:ExperienceMultiplier=1`). A `Network:*`
-limit of `0` disables that limit; negative values stop startup.
+(`__` for `:`, e.g. `Network__Port=10010`), command line (`--Network:Port=10010`). A `Network:*` limit of `0` disables
+that limit; negative values stop startup. The game settings live in the database ([below](#server-settings-table)).
 
 | Key | Default | Read by | Meaning |
 | --- | --- | --- | --- |
@@ -117,12 +119,7 @@ limit of `0` disables that limit; negative values stop startup.
 | `ConnectionStrings:Postgres` | local compose string | `HostingExtensions` | Required when the provider is `Postgres`. |
 | `Assets:Root` | auto-detected `assets` | `FieldTerrainLoadService` | Directory holding the original asset tree with the field stages. |
 | `Assets:AllowMissingTerrain` | `false` | `FieldTerrainLoadService` | Start without an assets directory or with missing/unreadable stages. |
-| `World:ExperienceMultiplier` | 5 | `WorldServerOptions` | Server-wide bonus on monster experience; must be at least 1. |
 | `World:MaxPendingCommandsPerPlayer` | 64 | `WorldServerOptions` | Commands one player may have waiting for the tick; at least 1. |
-| `World:CrystalEvent` | 0 | `WorldServerOptions` | Crystal event: 0 off, 1 from 12:00 to 23:59 server time, 2 all day ([special-items.md](special-items.md)). |
-| `World:ClockOffsetMinutes` | 0 | `WorldServerOptions` | Game minutes added to the game clock (`WorldServer.GameClockMs` = Unix ms + offset x 800), to run the world at another hour. |
-| `World:ItemEvents:Mandoo` | false | `ItemEventRates` | Rice cakes replace drop rolls (SP101 4%, SP102 2%). |
-| `World:ItemEvents:ValentineDay`, `Watermelon`, `Valentine`, `CandyDays`, `WhiteDay`, `Puzzle`, `GiftBox` | 0 | `ItemEventRates` | Rate per 10000 drop rolls of each item event; 0 is off. |
 | `Network:Port` | 10009 | `GameTcpServer` | TCP game port, 0 to 65535; 0 binds a free port (in-process tests read it from `GameTcpServer.BoundPort`). The client always connects to 10009. |
 | `Network:Certificate:Path` | `data/server-certificate.pfx` | `ServerCertificate` | TLS certificate (PKCS#12); relative paths resolve from the solution root. Created self-signed when missing. |
 | `Network:Certificate:Password` | none | `ServerCertificate` | Password of the PKCS#12 file. |
@@ -137,14 +134,41 @@ limit of `0` disables that limit; negative values stop startup.
 | `Network:LoginFailureWindowSeconds` | 300 | `NetworkLimits` | Window of both failure counters. |
 | `Network:PlayerInfoBurst` | 512 | `NetworkLimits` | Token-bucket capacity for `DescribeEntity` requests. |
 | `Network:PlayerInfoPerSecond` | 128 | `NetworkLimits` | Token refill rate for `DescribeEntity`. |
-| `GameMasters:TestServer` | `false` | `GameMasterOptions` | Lets every game master use `/GiveMeExp!` and `/GiveMeMoney!`. |
-| `GameMasters:DebugServer` | `false` | `GameMasterOptions` | As `TestServer`, and `/` with an item code drops that item. |
-| `GameMasters:PotionMonitor` | `true` | `GameMasterOptions` | Enables `/get_potion`. |
-| `GameMasters:ServerCode` | 0 | `GameMasterOptions` | Server number that prefixes the game-master information replies. |
 | `Logging:LogLevel:Default` | `Information` | host | Standard .NET logging filter. |
 
 Fixed values that are not settings: idle timeout 60 s, housekeeping period 5 s, report period 30 s,
 tick rate 20 Hz, send backlog limit 512 KiB per connection (`FrameConnectionOptions.MaxPendingSendBytes`).
+
+## Server settings table
+
+The game settings are rows of `server_settings` (`name`, `value` as text, `description`, `updated_at`), described by
+`ServerSettingCatalog`. At start the server adds the missing rows with their defaults (existing values stay, the
+descriptions are refreshed); it reads the table again every `server.settings_reload_minutes` minutes, so an edited row
+takes effect without a restart. A value the catalog refuses (not a number, out of range) keeps the default and is
+logged as a warning; unknown rows are ignored. Game masters can read the table at once with `/reload_settings` and
+show or write one row with `/setting name [value]` ([chat-and-gm.md](chat-and-gm.md)).
+
+| Name | Default | Meaning |
+| --- | --- | --- |
+| `server.name` | `Etervale` | Up to 32 characters; sent in `ServerHello` and shown on the character screen. |
+| `server.code` | 0 | Server number that prefixes the game-master information replies. |
+| `server.max_users` | 0 | Players beyond which only game masters may log in; 0 for no limit. A game master's `/user_limit` lasts until this row changes. |
+| `server.test` | false | Every game master may use `/GiveMeExp!` and `/GiveMeMoney!`. |
+| `server.debug` | false | As `server.test`, and `/` with an item code drops that item. |
+| `server.settings_reload_minutes` | 5 | Minutes between two readings, 1 to 1440. |
+| `gm.potion_monitor` | true | Enables `/get_potion`. |
+| `experience.multiplier` | 5 | Times the monsters' experience, 1 to 1000. |
+| `experience.event_percent` | 0 | Experience event: 0 off, else +100% (any value up to 199), +200%, +300% or +400% (400 and above) on each kill. |
+| `world.clock_offset_minutes` | 0 | Game minutes added to the game clock (`WorldServer.GameClockMs` = Unix ms + offset x 800), -1440 to 1440. |
+| `events.crystal` | 0 | Crystal event: 0 off, 1 from 12:00 to 23:59 server time, 2 all day ([special-items.md](special-items.md)). |
+| `events.mandoo` | false | Rice cakes replace drop rolls (SP101 4%, SP102 2%). |
+| `events.valentine_day`, `watermelon`, `valentine`, `candy_days`, `white_day`, `puzzle`, `gift_box` | 0 | Rate per 10000 drop rolls of each item event, 0 to 10000; 0 is off. |
+| `aging.price_percent` | 100 | Aging price in percent of `(level + 1) * price / 2`; 0 makes aging free. The aging NPC's offer carries it to the client. |
+| `aging.failure_percent` | 100 | Aging failure chance (fall or loss) in percent of each level's chance; 0 never fails. |
+| `aging.double_percent` | 100 | Chance of a level at once below +10, in percent of each level's chance. |
+
+Settings apply on the tick (`WorldServer.ApplyOptionsAsync`): every open field and the fields opened later take the
+experience, item event and aging values.
 
 ## TCP edge
 

@@ -205,7 +205,6 @@ public sealed class GameplayHud : IDisposable
     // The quest fanfare: a quest started, moved on or ended.
     public event Action QuestFanfare;
 
-    // A work at the aging or mixing NPC ended: true for a success, false for a failure.
     public event Action<bool> CraftResult;
 
     // An item lifted, set, bought, sold, stored or taken back, by catalog key, for its sound.
@@ -1228,7 +1227,7 @@ public sealed class GameplayHud : IDisposable
                 break;
             case NpcServiceKind.ItemAging:
                 _npcOpen = false;
-                _aging.Show();
+                _aging.Show(_npc.Current?.Services.FirstOrDefault(static offer => offer.Kind == NpcServiceKind.ItemAging)?.Value ?? 100);
                 RequestIcons(_state);
                 OpenOnly(_inventorySlide);
                 break;
@@ -1279,7 +1278,6 @@ public sealed class GameplayHud : IDisposable
 
     private bool InterceptInventoryClick(OwnedItemView item)
     {
-        // An item placed in the aging window stays put until the window gives it back.
         if (_aging.Holds(item.InstanceId))
         {
             return true;
@@ -1374,7 +1372,6 @@ public sealed class GameplayHud : IDisposable
         }
     }
 
-    // The aging NPC's answer, with the original's messages and sounds; the window closes as the original's does.
     private void ShowAgingResult()
     {
         if (_services.LastCommand is not { Action: NpcServiceAction.Age })

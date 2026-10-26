@@ -12,7 +12,6 @@ public sealed record OwnedItemView(
 }
 public sealed record OwnedSkillView(uint Code, int Rank);
 
-// A worn aging copy's count toward the goal of its next level.
 public sealed record AgingProgressView(Guid InstanceId, int Count, int Goal);
 
 public sealed record OwnerState(
@@ -53,7 +52,6 @@ public sealed record OwnerState(
     public IReadOnlyList<PremiumTimer> PremiumTimers { get; init; } = Array.Empty<PremiumTimer>();
     public long PremiumClockSeconds { get; init; }
 
-    // The worn aging copies' counts and the revision they follow.
     public long AgingRevision { get; init; } = -1;
     public IReadOnlyList<AgingProgressView> Aging { get; init; } = Array.Empty<AgingProgressView>();
 

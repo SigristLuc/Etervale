@@ -8,7 +8,6 @@ using PristonTale.Simulation.Items.Aging;
 
 namespace PristonTale.Gameplay.UI.Inventory;
 
-// An aged copy's level and its count toward the next level (goal 0 once its aging finished).
 public readonly record struct AgingGauge(int Level, int Count, int Goal);
 
 // The original item box: the name, every stat the copy carries with the original labels, the requirements (red when the
@@ -51,7 +50,6 @@ public static class HudItemDetailTooltip
         var aged = Aged(details);
         if (aged)
         {
-            // Room for the gauge.
             lines.Add(("", ValueColor));
             lines.Add(("", ValueColor));
         }
@@ -109,7 +107,6 @@ public static class HudItemDetailTooltip
         return lines;
     }
 
-    // The gauge of an aged copy, with the owner's live count of a worn copy when the server sent one.
     public static AgingGauge? Gauge(OwnedItemView item, OwnerState owner)
     {
         if (item?.Details is not { } details || !Aged(details))
@@ -157,7 +154,6 @@ public static class HudItemDetailTooltip
         }
     }
 
-    // A maturing copy shows the bar filling toward its goal, a finished one the small plate; both carry the level.
     private static void DrawGauge(HudPainter painter, Rectangle bounds, AgingGauge gauge)
     {
         var center = bounds.X + bounds.Width / 2;

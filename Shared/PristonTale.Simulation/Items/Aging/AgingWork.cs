@@ -4,13 +4,11 @@ using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Simulation.Items.Aging;
 
-// One aging at the NPC, on a candidate copy of the character: the item from the inventory, exactly the sheltoms its
-// level asks and at most one aging stone, all from the inventory, and the price in gold. The materials and the price are
-// spent whatever the roll gives; a lost item leaves the inventory.
+// Runs on a candidate copy. The materials and the price are spent whatever the roll gives.
 public static class AgingWork
 {
     public static NpcServiceStatus TryAge(PlayerCharacter candidate, Guid itemId, IReadOnlyList<Guid> materials, ISimRng rng,
-        out ItemWorkResult work, out long price)
+        out ItemWorkResult work, out long price, AgingSettings settings = null)
     {
         work = null;
         price = 0;
@@ -58,7 +56,7 @@ public static class AgingWork
             return NpcServiceStatus.WrongMaterials;
         }
 
-        price = AgingRules.Price(item);
+        price = AgingRules.Price(item, settings);
         if (!candidate.TryChangeMoney(-price))
         {
             return NpcServiceStatus.NotEnoughGold;
@@ -69,7 +67,7 @@ public static class AgingWork
             inventory.ConsumeAt(inventory.Find(id));
         }
 
-        var result = AgingRules.Roll(item.UpgradeLevel, stone, rng);
+        var result = AgingRules.Roll(item.UpgradeLevel, stone, rng, settings);
         var code = item.Definition.Code;
         if (result == AgingResult.Destroyed)
         {

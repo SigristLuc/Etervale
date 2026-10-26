@@ -354,7 +354,7 @@ fight a summon that hits them, never pick it by sight). Summon skills are docume
 ## Night and day
 
 `WorldClock` (Simulation): one game minute lasts 800 ms, a day 19.2 real minutes; night runs from 23:00 to 4:00. The
-server keeps the clock (`WorldServer.GameClockMs`, the Unix time plus `World:ClockOffsetMinutes` game minutes) and sends
+server keeps the clock (`WorldServer.GameClockMs`, the Unix time plus `world.clock_offset_minutes` game minutes) and sends
 it in `WorldJoined`; each tick it sets `FieldInstance.Night` for every field.
 
 `FieldInstance.Night` (`FieldInstance.Night.cs`), applied at the first step and at each change:
@@ -415,7 +415,8 @@ picks; the field hands them to the credited player's quest upkeep instead of the
 
 `KillReward.ExpForKill(baseExp, monsterLevel, playerLevel, multiplier)`: `baseExp * multiplier`, then 100 / 85 / 70 /
 55 percent for a level gap of at most 10 / 20 / 30 / more, computed in 128 bits and saturated at `ulong.MaxValue` (no
-award wraps or throws). The server passes `World:ExperienceMultiplier`.
+award wraps or throws). The server passes `experience.multiplier` and the experience event (`experience.event_percent`: +100% up to 199, then
++200%, +300%, +400% from 400).
 `FirstAttackerStealsCredit`: the first attacker gets the kill over another killer if it dealt at least 40% of max life
 and hit within the last 15 s (`FirstAttackerDisengageMs`).
 
@@ -504,7 +505,8 @@ one to `Mcave`.
 - The NPC takes the item from the bag, exactly the sheltoms its level asks (`SheltomsFor`: five to twelve of Lucidy..Ordo,
   laid out in four rows of three) and at most one aging stone (`BI110` aging stone, `BI111` copper ore, `BI160` elder
   copper ore, `BI161` super aging stone, `BI185` superior copper ore), for `(level + 1) * price / 2` gold. Materials and
-  gold are spent whatever the roll gives (`WrongMaterials`, `NotEnoughGold` otherwise).
+  gold are spent whatever the roll gives (`WrongMaterials`, `NotEnoughGold` otherwise). `aging.price_percent`,
+  `aging.failure_percent` and `aging.double_percent` scale the price and the chances (`AgingSettings`).
 - The roll (`Roll`, three draws of 0..100: destroy, down, plus): a failure by the level's chance (none to +4, 95% at +18
   and +19; lower with the aging stone, the super stone and the superior ore) falls one or two levels or loses the item
   by the level's split; otherwise below +10 the level may come at once (doubled chance with the aging stone, never with

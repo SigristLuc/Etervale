@@ -32,7 +32,8 @@ into it is described in [server.md](server.md); skill resolution details are in 
 | [`World/WorldServer.cs`](../Shared/PristonTale.Application/World/WorldServer.cs) | Command queue, tick, field registry, connections, prepare/commit entry points |
 | `World/WorldServer.Npc.cs` | NPC interaction, NPC service check/prepare/commit, teleport arrival |
 | `World/WorldServer.Quests.cs`, `World/FieldInstance.Quests.cs`, `World/QuestTransactions.cs`, `World/PlayerQuestState.cs` | Quest prepare/commit, upkeep requests, quest travel; kill credit, quest drops, timers and arena duels on the field |
-| `World/WorldServerOptions.cs` | `ExperienceMultiplier`, `MaxPendingCommandsPerPlayer`; `WorldBusyException` |
+| `World/WorldServerOptions.cs` | `ExperienceMultiplier`, `ExperienceEventPercent`, `ClockOffsetMinutes`, `CrystalEvent`, `ItemEvents`, `Aging`, `MaxPendingCommandsPerPlayer`; `WorldBusyException` |
+| `Settings/` | `ServerSettings`, `ServerSettingCatalog` (every row of the settings table), `ServerSettingsAppService` (read, apply, write) |
 | [`World/FieldInstance.cs`](../Shared/PristonTale.Application/World/FieldInstance.cs) | One live field: players, monsters, NPCs, spawner, AI, collision index, step order, views |
 | `World/FieldCombat.cs` | Basic attack and monster attack resolution, damage log, kill payout, corpses |
 | `World/FieldMonsterSkills.cs`, `FieldInstance.MonsterSkills.cs`, `FieldSkills.MonsterStatuses.cs` | Monster skill authority: swing start rules and events, skill blows, statuses, curses, boss lives and reinforcements, potions, shape changes (see [world.md](world.md#monster-skills)) |
@@ -252,7 +253,7 @@ Player basic attack:
    applies damage, boss retarget, emits `Hit` (attacker id is the summon/familiar when `sourceEntityId` is set), flinch
    roll, or on death `OnMonsterDeath`.
 6. Kill credit goes to the killer unless the first attacker (latched at full HP) dealt enough damage and hit within
-   `KillReward.FirstAttackerDisengageMs` (15000). Experience is `KillReward.ExpForKill(..., ExperienceMultiplier)`
+   `KillReward.FirstAttackerDisengageMs` (15000). Experience is `KillReward.ExpForKill(..., ExperienceMultiplier, ExperienceEventPercent)`
    awarded to the credited player; drops are rolled; the corpse despawns after `CorpseDespawnMs` (5710).
 7. `KillPayout` drops are placed at the corpse, settled on the floor (`FieldGroundLoot.Place`); each item copy is made
    there with `ItemRoller.Create` from the field's stream (see [simulation.md](simulation.md#items)).
@@ -446,7 +447,7 @@ Add an NPC service or action:
 ## Related
 
 - [architecture.md](architecture.md) - layering and the process/threading overview
-- [server.md](server.md) - host, TCP edge, configuration (`World:*` settings)
+- [server.md](server.md) - host, TCP edge, configuration and the settings table
 - [protocol.md](protocol.md) - packets for inventory, progression, NPC services, skills, presence
 - [skills.md](skills.md) - skill data and `FieldSkills` resolution
 - [simulation.md](simulation.md) - characters, items, combat formulas, modifiers, regeneration

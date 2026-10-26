@@ -113,7 +113,6 @@ public sealed class PristonAudioLibrary : IDisposable
     // Played when a whisper or notice opens the closed chat window.
     public SoundEffect WhisperSound { get; private set; }
 
-    // Played when an aging or a mixture fails (a success plays the quest fanfare, the same sound).
     public SoundEffect CraftFailureSound { get; private set; }
     public bool MusicEnabled { get; private set; } = true;
     public bool SoundEnabled { get; private set; } = true;

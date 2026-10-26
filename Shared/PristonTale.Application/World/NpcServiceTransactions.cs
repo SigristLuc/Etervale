@@ -154,7 +154,8 @@ internal static class NpcServiceTransactions
                 status = Simulation.Items.Usable.PuzzleExchange.TryExchange(candidate, items, field.ItemRng, out _);
                 break;
             case NpcServiceAction.Age:
-                status = Simulation.Items.Aging.AgingWork.TryAge(candidate, command.ItemId, command.Materials ?? [], field.ItemRng, out work, out _);
+                status = Simulation.Items.Aging.AgingWork.TryAge(candidate, command.ItemId, command.Materials ?? [], field.ItemRng, out work, out _,
+                    field.Aging);
                 break;
             default:
                 status = NpcServiceStatus.Rejected;

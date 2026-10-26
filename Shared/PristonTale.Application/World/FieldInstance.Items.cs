@@ -26,6 +26,20 @@ public sealed partial class FieldInstance
         set => _combat.EventRates = value;
     }
 
+    internal int ExperienceMultiplier
+    {
+        get => _combat.ExperienceMultiplier;
+        set => _combat.ExperienceMultiplier = value;
+    }
+
+    internal int ExperienceEventPercent
+    {
+        get => _combat.ExperienceEventPercent;
+        set => _combat.ExperienceEventPercent = value;
+    }
+
+    internal Simulation.Items.Aging.AgingSettings Aging { get; set; } = Simulation.Items.Aging.AgingSettings.Default;
+
     internal DailyDropLedger? DropLedger
     {
         get => _combat.DropLedger;

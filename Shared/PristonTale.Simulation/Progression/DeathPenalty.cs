@@ -36,7 +36,6 @@ public static class DeathPenalty
         return ring >= 8 ? FieldDivisor : ring >= 6 || QuestRewards.ReducedDeathPenalty(character) ? ReducedDivisor : StandardDivisor;
     }
 
-    // The highest level of the aging rings worn (0 without one).
     public static int AgedRingLevel(PlayerCharacter character)
     {
         var level = 0;

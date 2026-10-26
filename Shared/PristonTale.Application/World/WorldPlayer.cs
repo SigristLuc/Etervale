@@ -84,7 +84,6 @@ public sealed class WorldPlayer
     // Quest work waiting for the next upkeep, notices and dialogs for the owner, and duel bookkeeping.
     public PlayerQuestState QuestState { get; } = new();
 
-    // Aging bookkeeping: the tick an attack last counted, worn time not yet counted, and the next matured-copy check.
     internal long AgingCountedAtMs { get; set; } = -1;
     internal float AgingWornMs { get; set; }
     internal long AgingCheckAtMs { get; set; }

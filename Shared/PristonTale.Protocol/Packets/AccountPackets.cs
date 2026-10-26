@@ -27,12 +27,14 @@ public static class AccountWire
     }
 }
 
-// S->C on connect {header, uint16 Version = 1, uint16 0, uint32 Protocol, MinimumProtocol, int32 FullPlayers}: FullPlayers
-// is the number of players in the world when a game master's player limit is reached (then only game masters may log
-// in), else 0.
-public readonly record struct ServerHelloPacket(uint Protocol, uint MinimumProtocol, int FullPlayers)
+// S->C on connect {header, uint16 Version = 1, uint16 0, uint32 Protocol, MinimumProtocol, int32 FullPlayers, text
+// ServerName (32 B)}: FullPlayers is the number of players in the world when the player limit is reached (then only game
+// masters may log in), else 0.
+public readonly record struct ServerHelloPacket(uint Protocol, uint MinimumProtocol, int FullPlayers, string ServerName = "")
 {
     public const int Size = 8 + 4 + 12;
+    public const int MaxServerNameBytes = 32;
+    public const int MaxSize = Size + 2 + MaxServerNameBytes;
 
     public int Write(Span<byte> destination)
     {
@@ -42,6 +44,7 @@ public readonly record struct ServerHelloPacket(uint Protocol, uint MinimumProto
         writer.UInt32(Protocol);
         writer.UInt32(MinimumProtocol);
         writer.Int32(FullPlayers);
+        Utf8Text.Write(ref writer, ServerName, MaxServerNameBytes);
         return writer.Finish();
     }
 
@@ -50,7 +53,8 @@ public readonly record struct ServerHelloPacket(uint Protocol, uint MinimumProto
         var reader = new PacketReader(packet, Size);
         AccountWire.ReadVersion(ref reader, "Server hello");
         reader.Skip(2);
-        return new ServerHelloPacket(reader.UInt32(), reader.UInt32(), reader.Int32());
+        var hello = new ServerHelloPacket(reader.UInt32(), reader.UInt32(), reader.Int32());
+        return reader.Remaining > 0 ? hello with { ServerName = Utf8Text.Read(ref reader, MaxServerNameBytes, "Server hello") } : hello;
     }
 }
 

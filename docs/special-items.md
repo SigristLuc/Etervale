@@ -135,7 +135,7 @@ use starts a three-second delay; billing crystals (GP117-120) and soul stones re
 user (one of the eight points 48 units around him), lives 4 min plus 2 s per owner level (levels 1-99) with 3 more
 life per level, does not follow, hunts the nearest wild monster in its sight and never another pet, credits its owner
 with the kill's experience and drops, and dies when it expires or the owner leaves the field. A Web pet's blow slows
-its target to half speed for 36 frames (not Kelvezu). Players may keep any number of pets. `World:CrystalEvent` (0 off,
+its target to half speed for 36 frames (not Kelvezu). Players may keep any number of pets. `events.crystal` (0 off,
 1 from 12:00 to 23:59, 2 all day) switches crystals to their event monsters. A crystal whose drawn monster the world
 data lacks is refused and kept; the data's soul monsters are absent, so soul stones refuse.
 
@@ -189,7 +189,7 @@ Crystal 500, Celesto 10; an unknown reward gives 30 Mystic Mana Potions. The exc
 
 ### Item events
 
-`World:ItemEvents:*` (`ItemEventRates`, per 10000, all off by default) make event items replace a monster's main drop
+The `events.*` settings (`ItemEventRates`, per 10000, all off by default) make event items replace a monster's main drop
 rolls, tried in this order: `Mandoo` (on/off: SP101 4%, SP102 2%), `ValentineDay` (CH101 70% / CH102 30%),
 `Watermelon` (SP115), `Valentine` (SP135), `CandyDays` (SP136), `WhiteDay` (CH103 70% / CH104 30%), `Puzzle` (a sealed
 piece by the drop weights 743, 723, 704, 650, 650, 650, 380, 500 per set) and `GiftBox` (the box of the monster's
@@ -255,4 +255,4 @@ clan and refuses (`ClanOnly`).
 - [client.md](client.md) - HUD and scene
 - [testing.md](testing.md) - `SpecialItemTests`, `MonsterCrystalTests`, `CastleItemTests`, `EventItemTests`,
   `PuzzleTests`, `--capture-item-hud`, `--capture-item-effects`
-- [server.md](server.md) - `World:CrystalEvent`, `World:ItemEvents:*`
+- [server.md](server.md) - the `events.*` settings
