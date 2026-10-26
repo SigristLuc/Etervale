@@ -140,9 +140,11 @@ The server validates client reports instead of trusting them (`WorldPlayer.Repor
   cannot add up to more than one long report could.
 - During a swing, flinch or potion, drift beyond 192 units is rejected and smaller drift is ignored. Reports from a dead
   player are ignored without a correction.
-- With the field's stage loaded, a report up to 48 units long follows the wall slide and may end at most 8 units from
-  the reported point; a longer report may not cross a wall. A report is rejected when no walkable floor lies under it
-  within 64 units of climb; the accepted height is the floor height.
+- With the field's stage loaded, a report is walked in pieces of at most 48 units; each follows the wall slide and may
+  end at most 8 units from its point on the reported path. The height follows the floor and falls off ledges at 560
+  units a second since the last accepted report, so it can stay above the floor while the player falls. A report is
+  rejected when a step finds no walkable floor within 64 units of climb (unless the player is falling) or when it ends
+  over no floor. The client sends a report when a fall begins and when it lands.
 
 A rejected report is answered with a forced `FieldWarp` (at most every 300 ms). A field change in the report is
 accepted only when the player stands at a warp gate or field gate leading to that field and meets its level limit

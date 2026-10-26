@@ -260,9 +260,11 @@ The client owns its own locomotion; the server validates and corrects.
   held warp can be replaced by the unforced warp that confirms the field, and a restart can move the player across
   before the field loads, so activating the field always places the height. A body left with no floor under it (placed
   before its field's ground was there) is put on the floor nearest the server's height each frame (`KeepOnFloor`).
-- A body more than 8 units above its floor falls 8 units a frame at 70 Hz (`GroundFall`, applied in `KeepOnFloor`, as in
-  the original). A drop of more than 32 units plays FallDown; touching the floor snaps to it and plays FallStand, or
-  FallDamage after more than 200 units (motion only, no damage). Walking off a ledge keeps the height
+- A body more than 8 units above its floor falls 8 units a frame at 70 Hz (`GroundFall` over the shared
+  `Falling`, applied in `KeepOnFloor`, as in the original); the start and the landing of a fall each send a movement
+  report, so the server's straight line between reports follows the way off the ledge. A drop of more than 32 units
+  plays FallDown; touching the floor snaps to it and plays FallStand, or FallDamage after more than 200 units (motion
+  only, no damage). Walking off a ledge keeps the height
   (`CommitGroundMovement`) so the body falls the same way; the player keeps moving across while FallDown holds against
   Walk and Run (`ActorMotionController.ApplyLocomotion`). A warp placement ends a fall without a landing motion; a dead
   player falls without motions. FallStand and FallDamage return to Stand when they finish.

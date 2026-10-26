@@ -51,12 +51,13 @@ public sealed class WorldPlayer
     private const float MaxBudgetSeconds = 2f;
     private const float BusyCorrectionDistance = 192f;
     private const long StaleMotionMs = 1500;
-    // Reports may climb this much at once (a long report over stairs); falls of any height are accepted. The client
+    // Each piece of a report may climb this much (stairs between reports); falls of any height are accepted. The client
     // still steps at most GroundTraversal.StepUp (10 units) per frame; only server-moved monsters climb 20.
     private const float ReportClimb = 64f;
-    // Every report is checked against walls. One up to this long follows the client's wall slide and may end this far
-    // from the reported point (a corner cut between reports); the server then keeps the slid point on its side of the
-    // wall. Longer reports may not cross a wall at all.
+    // Every report is walked in pieces no longer than this, each following the client's wall slide from the floor the
+    // last piece stood on, so the rising ground of a ramp is not taken for a wall. A piece may end this far from its
+    // point on the reported path (a corner cut between reports); the server then keeps the slid point on its side of
+    // the wall.
     private const float WallCheckDistance = 48f;
     private const float CornerCutTolerance = 8f;
     private long _lastReportMs = -1;
@@ -317,30 +318,24 @@ public sealed class WorldPlayer
         }
 
         // The classic server only flagged players found off the floor; Etervale rejects the report instead.
+        // A player off a ledge falls as the client shows it (Falling) from the last accepted report, so the walls below are
+        // checked at the height the player is falling past rather than at the floor it will land on.
         terrain ??= FieldTerrain.None;
-        var planar = new Vector3(position.X, Position.Y, position.Z);
-        var reached = planar;
-        if (distance > WallCheckDistance)
+        var pieces = Math.Max(1, (int)MathF.Ceiling(distance / WallCheckDistance));
+        var fallSeconds = _lastReportMs < 0 ? float.PositiveInfinity : Math.Max(0L, nowMs - _lastReportMs) / 1000f / pieces;
+        var reached = Position;
+        for (var piece = 1; piece <= pieces; piece++)
         {
-            if (terrain.CrossesWall(Position, planar))
+            var along = piece / (float)pieces;
+            var target = new Vector3(Position.X + (dx * along), reached.Y, Position.Z + (dz * along));
+            var slid = terrain.Slide(reached, target);
+            float missX = slid.X - target.X;
+            float missZ = slid.Z - target.Z;
+            if ((missX * missX) + (missZ * missZ) > CornerCutTolerance * CornerCutTolerance
+                || !TryFollowFloor(terrain, reached, slid, fallSeconds, piece == pieces, out reached))
             {
                 return MovementVerdict.Rejected;
             }
-        }
-        else if (distance > 0f)
-        {
-            reached = terrain.Slide(Position, planar);
-            float missX = reached.X - planar.X;
-            float missZ = reached.Z - planar.Z;
-            if ((missX * missX) + (missZ * missZ) > CornerCutTolerance * CornerCutTolerance)
-            {
-                return MovementVerdict.Rejected;
-            }
-        }
-
-        if (!terrain.TryFloorNear(reached, ReportClimb, out var floor))
-        {
-            return MovementVerdict.Rejected;
         }
 
         _moveBudget -= distance;
@@ -352,13 +347,47 @@ public sealed class WorldPlayer
         }
 
         _lastReportMs = nowMs;
-        Position = new Vector3(reached.X, floor, reached.Z);
+        Position = reached;
         Facing = facing;
 
         // A character over the weight limit only walks, whatever the client reports.
         var runs = running && !CarriedWeight.IsOverweight(_character);
         MoveState = !moving ? MoveStateView.Idle : runs ? MoveStateView.Running : MoveStateView.Walking;
         return MovementVerdict.Accepted;
+    }
+
+    // Walks one piece in steps of the snap distance, as the client follows the ground each frame: a floor within the
+    // snap distance below is stood on, a deeper one is fallen toward for the piece's share of the time. A falling body
+    // may pass over ground with no floor (water, a gap between ledges), but the report must end over a floor.
+    private static bool TryFollowFloor(FieldTerrain terrain, Vector3 from, Vector3 to, float seconds, bool last, out Vector3 reached)
+    {
+        reached = from;
+        var length = new Vector2(to.X - from.X, to.Z - from.Z).Length();
+        var steps = Math.Max(1, (int)MathF.Ceiling(length / Falling.SnapDistance));
+        var stepSeconds = seconds / steps;
+        var height = from.Y;
+        var airborne = !terrain.TryFloorNear(from, ReportClimb, out var start) || Falling.IsAirborne(from.Y, start);
+        for (var step = 1; step <= steps; step++)
+        {
+            var point = Vector3.Lerp(from, to, step / (float)steps) with { Y = height };
+            if (!terrain.TryFloorNear(point, ReportClimb, out var floor))
+            {
+                if (!airborne || (last && step == steps) || !float.IsFinite(stepSeconds))
+                {
+                    return false;
+                }
+
+                height -= Falling.UnitsPerSecond * stepSeconds;
+                reached = point with { Y = height };
+                continue;
+            }
+
+            airborne = Falling.IsAirborne(height, floor);
+            height = airborne ? Falling.Step(height, floor, stepSeconds) : floor;
+            reached = point with { Y = height };
+        }
+
+        return true;
     }
 
     private float RefillMoveBudget(long nowMs)
