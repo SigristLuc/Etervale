@@ -19,12 +19,22 @@ public sealed record ItemDetailView(
     bool TwoHanded,
     bool ClassAllowed)
 {
+    // The aging under way (count toward goal, 0 of 0 when none) and the mix's highest sheltom (0 never mixed).
+    public int AgingCount { get; init; }
+    public int AgingGoal { get; init; }
+    public int MixSheltom { get; init; }
+
     public static ItemDetailView Of(ItemInstance item, PlayerCharacter owner)
     {
         var definition = item.Definition;
-        return new ItemDetailView(item.DurabilityCurrent, item.DurabilityMax, item.UpgradeLevel, item.Roll, definition.Critical,
-            definition.BaseStats.AttackSpeed, definition.ShootingRange, definition.PotionSpace, definition.MagicMastery, CarriedWeight.Of(definition, 1),
-            definition.UniqueItem, definition.TwoHanded, ItemUsability.ClassAllowed(owner, definition));
+        return new ItemDetailView(item.DurabilityCurrent, item.DurabilityMax, item.UpgradeLevel, item.Roll, item.Critical,
+            definition.BaseStats.AttackSpeed + item.Roll.AttackSpeedBonus, definition.ShootingRange, definition.PotionSpace, definition.MagicMastery,
+            CarriedWeight.Of(definition, 1), definition.UniqueItem, definition.TwoHanded, ItemUsability.ClassAllowed(owner, definition))
+        {
+            AgingCount = item.Maturity?.Count ?? 0,
+            AgingGoal = item.Maturity?.Goal ?? 0,
+            MixSheltom = item.MixSheltom
+        };
     }
 
     public bool MeetsLevel(int level) => level >= Roll.RequiredLevel;

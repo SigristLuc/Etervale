@@ -291,6 +291,11 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _fieldAudio?.PlayQuestFanfare();
     }
 
+    public void PlayCraftResult(bool success)
+    {
+        _fieldAudio?.PlayCraftResult(success);
+    }
+
     public void PlayWhisper()
     {
         _fieldAudio?.PlayWhisper();

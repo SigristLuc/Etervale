@@ -65,6 +65,7 @@ internal sealed partial class PresenceEncoder
     private OwnerState? _owner;
     private long _inventoryRevision = -1;
     private long _skillsRevision = -1;
+    private long _agingRevision = -1;
     private uint _groupCounter;
     private uint _clockTick;
     private bool _clockPending;
@@ -860,6 +861,14 @@ internal sealed partial class PresenceEncoder
                 var packet = new InventoryPartPacket(owner.InventoryRevision, part, parts, slice);
                 connection.Send(_scratch.AsSpan(0, packet.Write(_scratch)));
             }
+        }
+
+        if (owner.AgingRevision != _agingRevision)
+        {
+            _agingRevision = owner.AgingRevision;
+            var entries = owner.Aging.Take(AgingProgressPacket.MaxEntries)
+                .Select(static view => new AgingProgressEntry(view.InstanceId, view.Count, view.Goal)).ToArray();
+            connection.Send(_scratch.AsSpan(0, new AgingProgressPacket(entries).Write(_scratch)));
         }
 
         if (owner.SkillsRevision != _skillsRevision)

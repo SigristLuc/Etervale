@@ -347,7 +347,9 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   aged or normal colour), attack power, weapon speed, range, critical, defence, attack rating, absorb (with the catalog
   correction, one decimal), block, speed, integrity, the eight resistances, regeneration, added pools, potion storage,
   the requirements (orange when met, red when not), then the class specialization header and its bonuses in green, the
-  shop price and the action hint.
+  shop price and the action hint. An aged copy shows its gauge under the name: the bar (`Aging/Bar.bmp`) filling toward
+  the goal while it matures (with the live count from `AgingProgress` for worn copies), else the small plate
+  (`Aging/Aging.bmp`), with `+level` in black; the stats its aging raises are light blue (119, 200, 254).
 - Premium timers (`HudPremiumTimers`) form the column at x 8 under the running-effects bar; usable items have their
   own tooltips (`HudUsableTooltip`). Details: [special-items.md](special-items.md).
 - Status window: attribute buttons send `ProgressionCommand` with `ProgressionRevision`; the organic, poison, fire,
@@ -367,7 +369,13 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
 - Shop (`HudShopWindow`): buy, sell (click or drop an inventory item on the shop), repair, repair all; opens next to the
   inventory. Stock fills pages in authored order, each item at the first free place down the columns from the left; an
   item that does not fit starts the next page. Warehouse (`HudWarehouseWindow`): grid drag/drop between warehouse and inventory sends Deposit, Move and
-  Withdraw with the warehouse revision. Server rules: [application.md](application.md), [world.md](world.md).
+  Withdraw with the warehouse revision. Aging (`HudAgingWindow`, layout `HudCraftLayout`, art `HudCraftArt`): the shop
+  frame with the aging title and the work panel; an inventory item dropped on it goes to the item box (refused with
+  "Item can't be aged"), a sheltom to a cell whose grey hint asks it, a stone or ore to the stone cell. Placed items stay
+  in the bag, dimmed and fixed; a right click gives one back. The plate shows `(level + 1) * price / 2`; the start button
+  lights when every asked sheltom is in place and sends `Age` with the materials. The result shows the original message
+  (+1, +2, -1, -2 or failed) with the drink sound or `sheltom-failure.wav`, and the window closes as the original's does.
+  Server rules: [application.md](application.md), [world.md](world.md).
 - Target frame (`HudCombat.DrawTarget`, `TargetSelection`): a clicked monster or NPC owns the frame; otherwise the
   hovered entity. The frame stays after an attack is cancelled and closes when the entity is removed or has been dead
   for 0x50 frames at 70 Hz. With `classicTargetHealthBar` false (default) the bar shows with level and life

@@ -461,12 +461,12 @@ only with `MoveRange > 0` and a walk clip, with a 25% chance at the end of each 
 | Type | Contract |
 |---|---|
 | `NpcServiceKind` | Stored in `npc_services.kind`, sent in the dialog and as bit `1 << kind`; append only. Argument meanings per member. |
-| `NpcServiceAvailability.IsAvailable` | Running services: `Shop`, `Warehouse`, `SkillMaster`, `Teleporter` with a known route. Others are offered but unavailable. |
+| `NpcServiceAvailability.IsAvailable` | Running services: `Shop`, `Warehouse`, `SkillMaster`, quest givers and scripts, `ItemAging`, the wing exchange, the puzzle collector, `Teleporter` with a known route. Others are offered but unavailable. |
 | `NpcInteraction` | Dialog reply; `Reach = 96` planar units for NPC service requests |
-| `NpcServiceCommand` | `OperationId` (idempotency), NPC, service, action, expected revisions, item, `Anchor`, `Count`, `Amount` |
+| `NpcServiceCommand` | `OperationId` (idempotency), NPC, service, action, expected revisions, item, `Anchor`, `Count`, `Amount`, `Materials` (compared by value) |
 | `NpcServiceAction` | Persisted in the operation history and sent on the wire; append only. `IsDurable` is false for Open, Close, Refresh. |
 | `NpcServiceStatus` | Outcome codes on the wire (`Ok` ... `NotOpen`, `OverWeight`); append only |
-| `NpcServiceReply` | Outcome plus the view after it: shop catalog, quotes, warehouse, teleport destinations, arrival |
+| `NpcServiceReply` | Outcome plus the view after it: shop catalog, quotes, warehouse, teleport destinations, arrival, the work on an item (`ItemWorkResult`) |
 
 Shop rules (`NpcShopRules`):
 
@@ -492,6 +492,40 @@ Teleport routes (`TeleportRoutes`): route 0 means route 1. Route 1: index 1 fiel
 `LimitLevel` applies; arrival is its first start point (or `Center`) placed on the floor. The cave destinations are the
 fields that hold the cave entrances: field 0 (`fore-3`) has the warp gate to `Tcave`, field 18 (`forever-fall-03`) the
 one to `Mcave`.
+
+## Aging
+
+`AgingRules` and `AgingWork` (Simulation, `Items/Aging/`) hold the rules; `NpcServiceTransactions` runs an aging
+(`NpcServiceAction.Age`) on a candidate copy; `FieldInstance.Aging` counts maturity in the field.
+
+- Ageable: axes, claws, hammers, staves, poles, bows, swords, javelins, armours, robes, shields, orbs, gloves, boots,
+  armlets and the aging ring `OR201`; not unique items, quest items, costumes and timed items of those families, mixed
+  copies, copies still maturing or copies at +20.
+- The NPC takes the item from the bag, exactly the sheltoms its level asks (`SheltomsFor`: five to twelve of Lucidy..Ordo,
+  laid out in four rows of three) and at most one aging stone (`BI110` aging stone, `BI111` copper ore, `BI160` elder
+  copper ore, `BI161` super aging stone, `BI185` superior copper ore), for `(level + 1) * price / 2` gold. Materials and
+  gold are spent whatever the roll gives (`WrongMaterials`, `NotEnoughGold` otherwise).
+- The roll (`Roll`, three draws of 0..100: destroy, down, plus): a failure by the level's chance (none to +4, 95% at +18
+  and +19; lower with the aging stone, the super stone and the superior ore) falls one or two levels or loses the item
+  by the level's split; otherwise below +10 the level may come at once (doubled chance with the aging stone, never with
+  the super stones). Copper ores and super stones turn a loss into a fall (81% one level).
+- Every outcome but the loss starts the next level's maturity (`AgingMaturity`: count, goal, stone): a success at 0, a
+  fall half way, a doubling after gaining a level. The goal follows the family's counter: attacks (axes, hammers,
+  staves, bows, javelins), critical hits (claws, poles, swords), blocks (shields), blows taken (armours, robes, orbs,
+  boots, gloves, armlets), or 1200 worn seconds (the ring).
+- Counting (`FieldInstance.Aging`): the holder's own landed hit on a wild monster within ten levels counts once a tick
+  (`Critical` on a critical hit, else `Attack`); a block counts for the shield and a blow taken for the armour, orb,
+  boots, gloves and armlets; a worn ring counts each second. Counts live on the worn copies (`AgingRevision`) and are
+  saved with the character; a copy that reaches its goal waits for the upkeep (`QuestTransactions.PrepareUpkeep` calls
+  `MatureAgedItems`), which stores the level. A copy checked every five seconds asks again when a commit replaced it.
+- A level (`LevelUp`): axes and hammers damage +1 (+2 from +10, +3 from +20), attack rating +10; claws, poles and swords
+  damage, attack rating +5 and critical +1 on odd levels; staves damage, attack rating +10, mana +10; bows and javelins
+  damage and critical on odd levels; shields block +1 on odd levels and absorb; orbs, boots and gloves defence +10%,
+  armours and robes +5%, with absorb; armlets defence +10% and attack rating +5; worn families lose durability. Even
+  levels raise the level requirement unless the item asks 100, 102 or 105 or the aging used the elder ore or a super
+  stone. A fall (`LevelDown`) takes the same values back.
+- The aging ring worn at +6 lowers the death's share to a fiftieth, at +8 to a hundredth (`DeathPenalty.Divisor`).
+- `/AgingSetting code level [class]` (game master level 3) drops a weapon or armour already at the level.
 
 ## Wing warp gates
 
@@ -532,7 +566,7 @@ Soldier_D have no sound folder and stay silent.
 - `FieldCombat`: `ApplyFlinchOnHit`, `ApplyBossRetargetOnHit`, `MonsterAttackReach.CanLandBasic`, `KillReward`,
   `DropRoller.Roll`.
 - `WorldPlayer.ReportMovement`: `FieldTerrain.CrossesWall`, `Slide`, `TryFloorNear`.
-- `NpcServiceTransactions`: `NpcShopRules`, `MoneyLimits`, `WarehouseStorage`, `TeleportRoutes`,
+- `NpcServiceTransactions`: `NpcShopRules`, `MoneyLimits`, `WarehouseStorage`, `TeleportRoutes`, `AgingWork`,
   `NpcServiceAvailability`.
 
 Each `FieldInstance` owns a `CombatRng` seeded with its field code (shared by brain, spawner and drops) and is created

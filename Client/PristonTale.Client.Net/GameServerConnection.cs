@@ -414,7 +414,8 @@ public sealed class GameServerConnection : IGameBackend
         try
         {
             var packet = new NpcServiceRequestPacket(command.OperationId, command.NpcEntityId, (byte)command.Service, (byte)command.Action,
-                command.ExpectedRevision, command.ExpectedStorageRevision, command.ItemCode, command.ItemId, command.Anchor, command.Count, command.Amount);
+                command.ExpectedRevision, command.ExpectedStorageRevision, command.ItemCode, command.ItemId, command.Anchor, command.Count, command.Amount,
+                command.Materials);
             lock (_sendGate)
             {
                 Connection.Send(_scratch.AsSpan(0, packet.Write(_scratch)));
@@ -716,6 +717,7 @@ public sealed class GameServerConnection : IGameBackend
             case EtervaleOpcodes.ShopQuotes:
             case EtervaleOpcodes.Warehouse:
             case EtervaleOpcodes.TeleportList:
+            case EtervaleOpcodes.ItemWork:
             case EtervaleOpcodes.NpcServiceResult:
                 OnServiceMessage(code, packet);
                 break;
@@ -784,6 +786,16 @@ public sealed class GameServerConnection : IGameBackend
 
                 break;
             }
+            case EtervaleOpcodes.ItemWork:
+            {
+                var work = ItemWorkPacket.Read(packet);
+                if (_serviceRequests.TryGetValue(work.OperationId, out var request))
+                {
+                    request.Work = new ItemWorkResult(work.Result, work.ItemId, work.Code);
+                }
+
+                break;
+            }
             case EtervaleOpcodes.NpcServiceResult:
             {
                 var result = NpcServiceResultPacket.Read(packet);
@@ -795,7 +807,8 @@ public sealed class GameServerConnection : IGameBackend
                         Catalog = request.Catalog,
                         Quotes = request.Quotes,
                         Warehouse = request.Warehouse,
-                        Destinations = request.Destinations
+                        Destinations = request.Destinations,
+                        Work = request.Work
                     });
                 }
 
@@ -916,5 +929,6 @@ public sealed class GameServerConnection : IGameBackend
         public ShopQuotes? Quotes { get; set; }
         public WarehouseView? Warehouse { get; set; }
         public IReadOnlyList<TeleportOffer>? Destinations { get; set; }
+        public ItemWorkResult? Work { get; set; }
     }
 }

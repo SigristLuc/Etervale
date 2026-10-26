@@ -112,6 +112,9 @@ public sealed class PristonAudioLibrary : IDisposable
 
     // Played when a whisper or notice opens the closed chat window.
     public SoundEffect WhisperSound { get; private set; }
+
+    // Played when an aging or a mixture fails (a success plays the quest fanfare, the same sound).
+    public SoundEffect CraftFailureSound { get; private set; }
     public bool MusicEnabled { get; private set; } = true;
     public bool SoundEnabled { get; private set; } = true;
     public int AmbientCount => _ambients.Length;
@@ -133,6 +136,7 @@ public sealed class PristonAudioLibrary : IDisposable
             library.PortalWarpSound = library.Load(assetRoot, "wav/Effects/Skill/Learn_Skill.wav", byPath);
             library.QuestFanfareSound = library.Load(assetRoot, "image/Sinimage/Sound/drink2.wav", byPath);
             library.WhisperSound = library.Load(assetRoot, "wav/Effects/event/hosound.wav", byPath);
+            library.CraftFailureSound = library.Load(assetRoot, "image/Sinimage/Sound/sheltom-failure.wav", byPath);
             foreach (var (code, path) in FieldMusicFiles)
             {
                 library._fieldMusic.Add(code, library.Load(assetRoot, path, byPath));

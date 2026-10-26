@@ -17,6 +17,7 @@ public static class EtervaleOpcodes
     public const uint ShopQuotes = 0x45540134;
     public const uint Warehouse = 0x45540135;
     public const uint TeleportList = 0x45540136;
+    public const uint ItemWork = 0x45540137;
     public const uint CombatEvents = 0x45540140;
     public const uint RemoveObjects = 0x45540150;
     public const uint LeaveWorld = 0x45540160;
@@ -30,6 +31,7 @@ public static class EtervaleOpcodes
 
     public const uint ItemDetails = 0x45540300;
     public const uint OwnerItemStatus = 0x45540301;
+    public const uint AgingProgress = 0x45540302;
     public const uint ItemUseCommand = 0x45540400;
     public const uint ItemUseResult = 0x45540401;
     public const uint PremiumTimers = 0x45540402;

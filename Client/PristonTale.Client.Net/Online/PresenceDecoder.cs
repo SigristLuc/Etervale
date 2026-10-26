@@ -95,6 +95,7 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.SkillCastResult => OnSkillCastResult(SkillCastResultPacket.Read(packet)),
             EtervaleOpcodes.ItemDetails => OnItemDetails(ItemDetailsPartPacket.Read(packet)),
             EtervaleOpcodes.OwnerItemStatus => OnOwnerItemStatus(OwnerItemStatusPacket.Read(packet)),
+            EtervaleOpcodes.AgingProgress => OnAgingProgress(AgingProgressPacket.Read(packet)),
             EtervaleOpcodes.PremiumTimers => OnPremiumTimers(PremiumTimersPacket.Read(packet)),
             EtervaleOpcodes.ItemEffects => OnItemEffects(ItemEffectsPacket.Read(packet)),
             EtervaleOpcodes.RestartOffer => OnRestartOffer(RestartOfferPacket.Read(packet)),
@@ -108,7 +109,7 @@ internal sealed class PresenceDecoder
             or EtervaleOpcodes.CombatEvents or EtervaleOpcodes.GroundItems or EtervaleOpcodes.GroundItemsRemoved or EtervaleOpcodes.FieldWarp
             or EtervaleOpcodes.OwnerStatus or EtervaleOpcodes.Inventory or EtervaleOpcodes.Skills or EtervaleOpcodes.PresenceClock
             or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult
-            or EtervaleOpcodes.ItemDetails or EtervaleOpcodes.OwnerItemStatus
+            or EtervaleOpcodes.ItemDetails or EtervaleOpcodes.OwnerItemStatus or EtervaleOpcodes.AgingProgress
             or EtervaleOpcodes.PremiumTimers or EtervaleOpcodes.ItemEffects or EtervaleOpcodes.RestartOffer or EtervaleOpcodes.QuestJournal or EtervaleOpcodes.QuestNotices
             or EtervaleOpcodes.ChatLine or EtervaleOpcodes.CloseRequest;
     }
@@ -434,6 +435,12 @@ internal sealed class PresenceDecoder
     {
         _ownerItems.OnStatus(status);
         return null;
+    }
+
+    public PresenceUpdate? OnAgingProgress(AgingProgressPacket progress)
+    {
+        _ownerItems.OnAging(progress);
+        return OwnerUpdate();
     }
 
     public PresenceUpdate? OnInventory(InventoryPartPacket part)

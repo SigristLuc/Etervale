@@ -339,6 +339,7 @@ public sealed class Inventory
     {
         return left.Definition.IsStackable && left.Definition == right.Definition
             && left.UpgradeLevel == right.UpgradeLevel && left.DurabilityCurrent == right.DurabilityCurrent
-            && left.DurabilityMax == right.DurabilityMax && left.Roll == right.Roll;
+            && left.DurabilityMax == right.DurabilityMax && left.Roll == right.Roll && left.Maturity == right.Maturity
+            && left.MixSheltom == right.MixSheltom;
     }
 }

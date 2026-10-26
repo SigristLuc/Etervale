@@ -12,6 +12,9 @@ public sealed record OwnedItemView(
 }
 public sealed record OwnedSkillView(uint Code, int Rank);
 
+// A worn aging copy's count toward the goal of its next level.
+public sealed record AgingProgressView(Guid InstanceId, int Count, int Goal);
+
 public sealed record OwnerState(
     int Level, ulong Experience, ulong LevelStart, ulong NextLevel,
     long Money, int Hp, int MaxHp, int Mp, int MaxMp, int Sp, int MaxSp,
@@ -50,6 +53,10 @@ public sealed record OwnerState(
     public IReadOnlyList<PremiumTimer> PremiumTimers { get; init; } = Array.Empty<PremiumTimer>();
     public long PremiumClockSeconds { get; init; }
 
+    // The worn aging copies' counts and the revision they follow.
+    public long AgingRevision { get; init; } = -1;
+    public IReadOnlyList<AgingProgressView> Aging { get; init; } = Array.Empty<AgingProgressView>();
+
     public static OwnerState Capture(PlayerCharacter character, OwnerState previous = null, long nowSeconds = 0)
     {
         var attributes = character.Attributes;
@@ -70,7 +77,7 @@ public sealed record OwnerState(
             && previous.BlockChance == Combat.CombatProfileFactory.ForPlayerDefender(character).BlockChance
             && previous.AttackSpeed == character.Derived.AttackSpeed
             && previous.Resistances == Combat.CombatProfileFactory.Resistances(character)
-            && previous.PremiumRevision == character.Premium.Revision)
+            && previous.PremiumRevision == character.Premium.Revision && previous.AgingRevision == character.AgingRevision)
         {
             return previous;
         }
@@ -131,7 +138,12 @@ public sealed record OwnerState(
             PremiumRevision = character.Premium.Revision,
             PremiumTimers = previous is not null && previous.PremiumRevision == character.Premium.Revision ? previous.PremiumTimers
                 : Array.AsReadOnly(character.Premium.Timers.ToArray()),
-            PremiumClockSeconds = previous is not null && previous.PremiumRevision == character.Premium.Revision ? previous.PremiumClockSeconds : nowSeconds
+            PremiumClockSeconds = previous is not null && previous.PremiumRevision == character.Premium.Revision ? previous.PremiumClockSeconds : nowSeconds,
+            AgingRevision = character.AgingRevision,
+            Aging = previous is not null && previous.AgingRevision == character.AgingRevision && previous.InventoryRevision == character.InventoryRevision
+                ? previous.Aging
+                : Array.AsReadOnly(character.Equipment.Values.Where(static item => item.Maturity is not null)
+                    .Select(static item => new AgingProgressView(item.InstanceId, item.Maturity.Count, item.Maturity.Goal)).ToArray())
         };
     }
 

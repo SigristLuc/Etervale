@@ -91,6 +91,14 @@ public sealed class FieldAudioController : IDisposable
         }
     }
 
+    public void PlayCraftResult(bool success)
+    {
+        if (_library.SoundEnabled)
+        {
+            (success ? _library.QuestFanfareSound : _library.CraftFailureSound).Play(1f, 0f, 0f);
+        }
+    }
+
     internal static int SelectFieldAmbientCode(FieldDef field, float timeOfDay)
     {
         ArgumentNullException.ThrowIfNull(field);

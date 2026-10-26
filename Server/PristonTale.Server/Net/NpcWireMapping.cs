@@ -45,6 +45,11 @@ internal static class NpcWireMapping
             send(new TeleportListPacket(operation, npc, entries).Write);
         }
 
+        if (reply.Work is { } work)
+        {
+            send(new ItemWorkPacket(operation, npc, request.Service, work.Result, work.ItemId, work.Code).Write);
+        }
+
         var outcome = reply.Outcome;
         send(new NpcServiceResultPacket(operation, npc, request.Service, request.Action, (ushort)outcome.Status, outcome.Ok, outcome.Revision,
             outcome.StorageRevision, outcome.Message).Write);

@@ -112,7 +112,8 @@ internal static class QuestTransactions
         };
     }
 
-    // The quest upkeep: stores the kill's quest drops, grows or expires the quest weapon and clears leftovers.
+    // The upkeep: stores the kill's quest drops, grows or expires the quest weapon, clears leftovers and gives the aging
+    // copies that reached their goal their level.
     public static PreparedQuestOperation PrepareUpkeep(PlayerSession session, WorldPlayer player, FieldInstance field, ItemCatalog items, ISimRng rng,
         long nowUnixMs)
     {
@@ -121,6 +122,7 @@ internal static class QuestTransactions
         var candidate = original.CloneForInventoryOperation();
         var context = new QuestContext(candidate, QuestNpc.None, new CatalogQuestItemSource(items), rng, nowUnixMs, field.FieldId);
         QuestDrops.Upkeep(context, drops);
+        candidate.MatureAgedItems();
         var outcome = new QuestOutcome(true, QuestStatus.Ok, "", candidate.Quests.Revision, null, context.Notices);
         if (candidate.Quests.Revision == original.Quests.Revision && candidate.InventoryRevision == original.InventoryRevision)
         {

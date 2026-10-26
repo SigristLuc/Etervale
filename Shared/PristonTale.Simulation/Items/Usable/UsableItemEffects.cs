@@ -64,7 +64,7 @@ public static class UsableItemEffects
             case UsableItemAction.AgingMastery:
                 if (AgingTarget(character, rule.Argument) is { } item)
                 {
-                    item.UpgradeLevel++;
+                    Aging.AgingRules.Count(item, item.Maturity.Goal);
                     character.TouchInventory();
                 }
 
@@ -172,7 +172,8 @@ public static class UsableItemEffects
         }
     }
 
-    // The aged item an Aging Master finishes: 0 weapon, 1 shield or orb, 2 armor or robe, 3 armlet, 4 gloves, 5 boots.
+    // The aging an Aging Master finishes on the worn item: 0 weapon, 1 shield or orb, 2 armor or robe, 3 armlet, 4 gloves,
+    // 5 boots. Only an item whose aging is under way matures.
     private static ItemInstance AgingTarget(PlayerCharacter character, int group)
     {
         var slot = group switch
@@ -185,7 +186,7 @@ public static class UsableItemEffects
             _ => EquipmentSlot.Boots
         };
         var item = character.GetEquipped(slot);
-        if (item is null || item.UpgradeLevel <= 0)
+        if (item?.Maturity is not { Goal: > 0 })
         {
             return null;
         }

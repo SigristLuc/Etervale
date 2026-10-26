@@ -30,9 +30,9 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Packets/GroundItemPackets.cs` | `GroundItems` and `GroundItemsRemoved`. |
 | `Packets/ChatPackets.cs`, `ChatChannelCode.cs` | `ChatSay` (typed line), `ChatLine` (received line); chat kinds on the wire. |
 | `Packets/EtervalePackets.cs` | Owner status, inventory parts, skills, inventory/progression commands and results, combat events, removals, presence clock. |
-| `Packets/ItemPackets.cs` | Owner item details (`ItemDetailEntry`, `ItemDetailsPartPacket`) and the equipment status (`OwnerItemStatusPacket`). |
+| `Packets/ItemPackets.cs` | Owner item details (`ItemDetailEntry`, `ItemDetailsPartPacket`), the equipment status (`OwnerItemStatusPacket`) and the aging progress (`AgingProgressPacket`). |
 | `Packets/SkillPackets.cs` | Skill cast, cast result, skill events, status effects, cooldowns. |
-| `Packets/NpcPackets.cs` | NPC result, service request/result, shop catalog and quotes, warehouse, teleport list. |
+| `Packets/NpcPackets.cs` | NPC result, service request/result, shop catalog and quotes, warehouse, teleport list, item work result. |
 | [Transport/FrameConnection.cs](../Shared/PristonTale.Protocol/Transport/FrameConnection.cs) | One TLS stream: receive loop and coalesced single-writer send. |
 | `Transport/TlsTransport.cs` | Server and client handshakes, `ServerCertificatePolicy` (system trust, loopback, pin). |
 | `Transport/IPacketSink.cs` | `Send`; implemented by `FrameConnection` and test sinks. |
@@ -163,11 +163,12 @@ Every message code has the high word `0x4554` ("ET"); every message keeps the `{
 | `0x45540110` / `0x45540111` | `InventoryCommand` / `InventoryResult` | C→S / S→C | Transactional inventory operation, correlated by operation id. A ground pickup (`InventoryAction.Pickup`) names the drop in `ItemId`. |
 | `0x45540120` / `0x45540121` | `ProgressionCommand` / `ProgressionResult` | C→S / S→C | Attribute allocation and skill learning. |
 | `0x45540130` | `NpcResult` | S→C | Completes an NPC click: name, typed services with availability and the line the NPC says. |
-| `0x45540131` / `0x45540132` | `NpcServiceRequest` / `NpcServiceResult` | C→S / S→C | One typed NPC service request (open, close, refresh, buy, sell, repair, warehouse moves and gold, teleport), correlated by operation id. |
+| `0x45540131` / `0x45540132` | `NpcServiceRequest` / `NpcServiceResult` | C→S / S→C | One typed NPC service request (open, close, refresh, buy, sell, repair, warehouse moves and gold, teleport, puzzle exchange, aging), correlated by operation id. |
 | `0x45540133` | `ShopCatalog` | S→C | The NPC's stock with server prices (at most 96), sent before the result of a shop open. |
 | `0x45540134` | `ShopQuotes` | S→C | Sell price and repair cost of every owned item at the inventory revision (at most 128). |
 | `0x45540135` | `Warehouse` | S→C | The account warehouse: revision, gold, weight and items by grid cell (at most 100). |
 | `0x45540136` | `TeleportList` | S→C | A teleporter's destinations with price and minimum level (at most 16). |
+| `0x45540137` | `ItemWork` | S→C | What a work on an item (an aging) came to, sent before its result. |
 | `0x45540140` | `CombatEvents` | S→C | Resolved swings, hits, potions and monster skill impacts. The original lets each client roll its own hits. |
 | `0x45540150` | `RemoveObjects` | S→C | Serials leaving the receiver's view. The original client times objects out after 4-30 seconds. |
 | `0x45540160` | `LeaveWorld` | C→S, echo | Leave the world after the server saves the character. |
@@ -179,6 +180,7 @@ Every message code has the high word `0x4554` ("ET"); every message keeps the `{
 | `0x45540204` | `SkillCooldowns` | S→C | The owner's running cooldowns whenever the set changes. |
 | `0x45540300` | `ItemDetails` | S→C | The values of every owned item copy at an inventory revision, in parts sent before its `Inventory` parts. |
 | `0x45540301` | `OwnerItemStatus` | S→C | Carried and maximum weight, critical, block, range, attack speed, belt capacity, regeneration, magic mastery and the eight resistances; sent before every `OwnerStatus`. |
+| `0x45540302` | `AgingProgress` | S→C | The counts of the owner's worn aging copies toward their goals, whenever a count moves. |
 | `0x45540400` / `0x45540401` | `ItemUseCommand` / `ItemUseResult` | C→S / S→C | Use of one carried item, correlated by operation id; a travel item also sends a forced `FieldWarp`. |
 | `0x45540402` | `PremiumTimers` | S→C | The owner's running premium timers whenever they change. |
 | `0x45540403` | `ItemEffects` | S→C | Item effects around players (firecrackers, learn ring, mastery, pet strikes), on the presence timeline. |
@@ -205,13 +207,15 @@ These bodies have no version header.
 | `RemoveObjects` | `int32 Count`, then `uint64 Serial` | 12 + 8n |
 | `GroundItems` | `uint16 Version (1), uint16 Flags, int32 Count`, then `{Guid Id, uint32 ItemCode, uint8 Flags (1 gold), uint8 0, uint16 0, int32 Amount, X, Y, Z, text Name (64 B)}` (1 to 64) | 16 + up to 106n |
 | `GroundItemsRemoved` | `uint16 Version (1), uint16 Flags, int32 Count`, then `Guid Id` | 16 + 16n |
-| `ItemDetails` | `uint16 Version (1), uint16 Flags, int64 Revision, int32 Part, Parts, Count`, then 220-byte entries (at most 24) | 32 + 220n |
+| `ItemDetails` | `uint16 Version (1), uint16 Flags, int64 Revision, int32 Part, Parts, Count`, then 232-byte entries (at most 24) | 32 + 232n |
 | `OwnerItemStatus` | `uint16 Version (1), uint16 Flags, int32 CarriedWeight, MaxWeight, CriticalChance, BlockChance, ShootingRange, AttackSpeed, PotionSpace, float LifeRegen, ManaRegen, StaminaRegen, MagicMastery, int16 Resistances[8]` | 72 |
+| `AgingProgress` | `uint16 Version (1), uint16 Count`, then `{Guid InstanceId, int32 Count, Goal}` (at most 16) | 12 + 24n |
 
 An item details entry is `{Guid InstanceId, int32 DurabilityCurrent, DurabilityMax, UpgradeLevel, DamageMin, DamageMax,
 AttackRating, Defence, AddLife, AddMana, AddStamina, RequiredLevel, RequiredStrength, RequiredSpirit, RequiredTalent,
 RequiredAgility, RequiredHealth, Price, Critical, AttackSpeed, ShootingRange, PotionSpace, Weight, UniqueItem, Flags
-(1 two-handed, 2 the owner's class may use it), uint SpecJob, int32 SpecDefence, SpecAttackSpeed, SpecCritical,
+(1 two-handed, 2 the owner's class may use it), AgingCount, AgingGoal (0 of 0 when the copy is not maturing),
+MixSheltom (the mix's highest sheltom, 0 never mixed), uint SpecJob, int32 SpecDefence, SpecAttackSpeed, SpecCritical,
 SpecShootingRange, SpecLevelLife, SpecLevelMana, SpecLevelAttackRating, SpecLevelDamage, float Absorb, Block,
 MoveSpeed, LifeRegen, ManaRegen, StaminaRegen, MagicMastery, SpecAbsorb, SpecMoveSpeed, SpecBlock, SpecMagicMastery,
 SpecLifeRegen, SpecManaRegen, SpecStaminaRegen, int16 Resistances[8]}` (`ItemDetailEntry`). The client attaches the
@@ -349,16 +353,21 @@ to 64 bytes, item names 40, messages 128, dialog lines 256), and counts are 32-b
   Available, uint16 0, int32 Value}, int32 LineCount, text lines}` (at most 32 services and 20 lines). `Kind` is
   `NpcServiceKind`, `Value` the authored argument (class-change group, teleport route, mix mode, quest code...). One
   dialog line is sent, chosen at random as the original does.
-- `NpcServiceRequest` (92 bytes): `{Guid OperationId, uint64 NpcSerial, uint8 Service, uint8 Action, uint16 0, int64
-  ExpectedRevision, int64 ExpectedStorageRevision, uint32 ItemCode, Guid ItemId, int32 Anchor, int32 Count, int64
-  Amount}`. The client names a stock entry, an owned item, a grid cell (-1 = first free) or a destination index; it
-  never sends an item, a price or a total. The original buy and warehouse layouts, which carry a whole client-built item
+- `NpcServiceRequest` (92 bytes, more with materials): `{Guid OperationId, uint64 NpcSerial, uint8 Service, uint8
+  Action, uint16 0, int64 ExpectedRevision, int64 ExpectedStorageRevision, uint32 ItemCode, Guid ItemId, int32 Anchor,
+  int32 Count, int64 Amount}`, then for a work on an item `{uint8 Count (1..16), Guid Materials[Count]}` (one unit of an
+  owned item per entry). The client names a stock entry, an owned item, a grid cell (-1 = first free), a destination
+  index or the materials; it never sends an item, a price or a total. The original buy and warehouse layouts, which carry a whole client-built item
   or warehouse, are not used.
 - `NpcServiceResult`: `{Guid OperationId, uint64 NpcSerial, uint8 Service, uint8 Action, uint16 Status, int32 Ok, int64
   Revision, int64 StorageRevision, text Message}`. `Status` is `NpcServiceStatus` (`NotAvailable` for services Etervale
   does not run, `OutOfReach`, `Rejected`, `Stale`, `NotEnoughGold`, `NoSpace`, `GoldLimit`, `Busy`, `StorageFailed`,
-  `Conflict`, `NotOpen`). The state messages a request produces (`ShopCatalog`, `ShopQuotes`, `Warehouse`,
-  `TeleportList`) carry the same operation id and precede the result. A teleport also sends a forced `FieldWarp`.
+  `Conflict`, `NotOpen`, `OverWeight`, `WrongPuzzle`, `WrongMaterials`). The state messages a request produces
+  (`ShopCatalog`, `ShopQuotes`, `Warehouse`, `TeleportList`, `ItemWork`) carry the same operation id and precede the
+  result.
+- `ItemWork`: `{uint16 Version, uint16 0, Guid OperationId, uint64 NpcSerial, uint8 Service, uint8 Result, uint16 0,
+  Guid ItemId, uint32 Code}`. For the aging NPC `Result` is `AgingResult` (0 lost, 1 down one, 2 down two, 3 success,
+  4 doubled) and `ItemId` is empty when the item was lost. A teleport also sends a forced `FieldWarp`.
 
 The server checks every request against the NPC in the player's field (alive, within 96 units, offering the service),
 writes durable changes before applying them and records the operation id with the character, so a retried request

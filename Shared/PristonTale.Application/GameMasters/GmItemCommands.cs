@@ -95,6 +95,30 @@ internal static class GmItemCommands
         }
     }
 
+    // A copy aged to a level dropped at the game master: /AgingSetting code level [class number]. Only weapons, armours,
+    // robes, shields, gloves and boots take the levels; any other item drops as it is.
+    public static async Task Aged(GmCommandContext context)
+    {
+        var code = context.Word();
+        var level = Math.Clamp(ChatCommandText.ToNumber(context.Word()), 0, Simulation.Items.Aging.AgingRules.MaxLevel);
+        var job = ChatCommandText.ToNumber(context.Word());
+        if (FindByCode(context, code) is not { } definition)
+        {
+            context.Reply(Format("Unknown item code {0}", code));
+            return;
+        }
+
+        var spec = Enum.IsDefined((PlayerClass)job) && job is >= 1 and <= 8 ? ItemRoller.JobBitFor((PlayerClass)job) : 0u;
+        var overrides = spec != 0 && ItemRoller.CanTakeSpec(definition, spec) ? new ItemRollOverrides(spec) : ItemRollOverrides.None;
+        var dropped = await context.Commands.World.DropAsync(context.Issuer.EntityId, rng =>
+        {
+            var item = ItemRoller.Create(definition, 1, rng, overrides);
+            Simulation.Items.Aging.AgingRules.AgeTo(item, level);
+            return item;
+        }, 0);
+        context.Reply(dropped ? Format("+{0} aged item {1} created", level, code) : Format("No field to drop {0} on", code));
+    }
+
     // An item copy into another player's bag, written to storage before the player receives it.
     public static async Task Gift(GmCommandContext context)
     {

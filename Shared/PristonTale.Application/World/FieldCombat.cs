@@ -136,6 +136,7 @@ internal sealed class FieldCombat
         if (sourceEntityId == 0 && !monster.IsSummon)
         {
             PlayerHitLanded?.Invoke(player, monster, damage);
+            FieldInstance.AgingAttack(player, monster, crit, nowMs);
         }
 
         monster.ApplyDamage(damage);
@@ -215,6 +216,7 @@ internal sealed class FieldCombat
         {
             _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, target.EntityId, CombatEventKindView.Block));
             SkillCombat?.Blocked(attacker, target);
+            FieldInstance.AgingBlock(target, attacker);
         }
 
         var damage = 0;
@@ -227,6 +229,7 @@ internal sealed class FieldCombat
             damage = SkillCombat?.Defend(attacker, target, damage, false) ?? damage;
             damage = CastleItems.Defend(attacker.Def.SoundCode, target.Character.Effects, damage);
             target.ApplyDamage(damage);
+            FieldInstance.AgingBlow(target, attacker);
             _host.EmitCombatEvent(new CombatEventView(
                 attacker.EntityId, target.EntityId, CombatEventKindView.Hit,
                 damage: damage, crit: result.Crit, killed: target.IsDead));

@@ -518,6 +518,48 @@ public sealed class PlayerCharacter
         _serviceOperations.Add(new AppliedServiceOperation(command, InventoryRevision));
     }
 
+    // Aging counts on worn copies change no stat; the owner's view of them follows this revision.
+    public long AgingRevision { get; private set; }
+
+    // Counts an aging event on the worn copies the counter matures; true when one reached its goal.
+    public bool TallyAging(Items.Aging.AgingCounter counter, int amount = 1)
+    {
+        var reached = false;
+        foreach (var item in _equipment.Values)
+        {
+            var before = item.Maturity;
+            if (before is not null && Items.Aging.AgingRules.CounterOf(item) == counter)
+            {
+                reached |= Items.Aging.AgingRules.Tally(item, amount);
+                if (!ReferenceEquals(before, item.Maturity))
+                {
+                    AgingRevision++;
+                }
+            }
+        }
+
+        return reached;
+    }
+
+    public bool HasMaturedItem => OwnedItems().Any(Items.Aging.AgingRules.Matured);
+
+    // Gives every copy that reached its aging goal its level; true when one did.
+    public bool MatureAgedItems()
+    {
+        var matured = false;
+        foreach (var item in OwnedItems())
+        {
+            matured |= Items.Aging.AgingRules.Mature(item);
+        }
+
+        if (matured)
+        {
+            OnInventoryChanged();
+        }
+
+        return matured;
+    }
+
     public ItemInstance FindOwnedItem(Guid instanceId)
     {
         var anchor = Inventory.Find(instanceId);

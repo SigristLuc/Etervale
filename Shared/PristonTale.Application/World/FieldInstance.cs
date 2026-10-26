@@ -280,6 +280,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         Premium.Step(_players.Values);
 
         _combat.TickCorpses(dtMs);
+        StepAging(dtMs, nowMs);
         StepQuests(dtMs, nowMs);
         GroundLoot.Step(nowMs);
         Statuses.Apply(_skills.StatusEvents, nowMs);

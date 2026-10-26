@@ -120,7 +120,8 @@ public sealed record NpcDialogPacket(ulong NpcSerial, bool Ok, string Name, stri
 }
 
 // C→S request for one NPC service, correlated by OperationId. Item, anchor, count and amount fields are read only by
-// the actions that use them; the client never sends items, prices or totals.
+// the actions that use them; the client never sends items, prices or totals. A work on an item appends its materials:
+// {uint8 Count, Guid[Count]} (absent when none).
 public sealed record NpcServiceRequestPacket(
     Guid OperationId,
     ulong NpcSerial,
@@ -132,9 +133,20 @@ public sealed record NpcServiceRequestPacket(
     Guid ItemId,
     int Anchor,
     int Count,
-    long Amount)
+    long Amount,
+    Guid[]? Materials = null)
 {
     public const int Size = 8 + 4 + 16 + 8 + 4 + 8 + 8 + 4 + 16 + 4 + 4 + 8;
+    public const int MaxMaterials = 16;
+    public const int MaxSize = Size + 1 + 16 * MaxMaterials;
+
+    public bool Equals(NpcServiceRequestPacket? other) =>
+        other is not null && OperationId == other.OperationId && NpcSerial == other.NpcSerial && Service == other.Service && Action == other.Action
+        && ExpectedRevision == other.ExpectedRevision && ExpectedStorageRevision == other.ExpectedStorageRevision && ItemCode == other.ItemCode
+        && ItemId == other.ItemId && Anchor == other.Anchor && Count == other.Count && Amount == other.Amount
+        && (Materials ?? []).AsSpan().SequenceEqual(other.Materials ?? []);
+
+    public override int GetHashCode() => HashCode.Combine(OperationId, NpcSerial, Service, Action, ItemId, Amount);
 
     public int Write(Span<byte> destination)
     {
@@ -152,6 +164,20 @@ public sealed record NpcServiceRequestPacket(
         writer.Int32(Anchor);
         writer.Int32(Count);
         writer.Int64(Amount);
+        if (Materials is { Length: > 0 } materials)
+        {
+            if (materials.Length > MaxMaterials)
+            {
+                throw new ArgumentException("Too many materials.");
+            }
+
+            writer.Byte((byte)materials.Length);
+            foreach (var material in materials)
+            {
+                writer.Guid(material);
+            }
+        }
+
         return writer.Finish();
     }
 
@@ -164,8 +190,26 @@ public sealed record NpcServiceRequestPacket(
         var service = r.Byte();
         var action = r.Byte();
         r.Skip(2);
-        return new NpcServiceRequestPacket(operation, serial, service, action, r.Int64(), r.Int64(), r.UInt32(), r.Guid(), r.Int32(), r.Int32(),
+        var request = new NpcServiceRequestPacket(operation, serial, service, action, r.Int64(), r.Int64(), r.UInt32(), r.Guid(), r.Int32(), r.Int32(),
             r.Int64());
+        if (r.Remaining == 0)
+        {
+            return request;
+        }
+
+        var count = r.Byte();
+        if (count is 0 or > MaxMaterials || r.Remaining != count * 16)
+        {
+            throw new InvalidDataException("Invalid NPC service materials.");
+        }
+
+        var materials = new Guid[count];
+        for (var index = 0; index < count; index++)
+        {
+            materials[index] = r.Guid();
+        }
+
+        return request with { Materials = materials };
     }
 }
 
@@ -206,6 +250,39 @@ public sealed record NpcServiceResultPacket(Guid OperationId, ulong NpcSerial, b
         var storage = r.Int64();
         return new NpcServiceResultPacket(operation, serial, service, action, status, ok, revision, storage,
             NpcWire.Text(ref r, NpcWire.MaxMessageBytes));
+    }
+}
+
+// S→C what a work on an item came to, sent before the result: {header, Guid OperationId, uint64 NpcSerial, uint8 Service,
+// uint8 Result, uint16 0, Guid ItemId (empty when the item was lost), uint32 Code}.
+public sealed record ItemWorkPacket(Guid OperationId, ulong NpcSerial, byte Service, byte Result, Guid ItemId, uint Code)
+{
+    public const int Size = 8 + 4 + 16 + 8 + 4 + 16 + 4;
+
+    public int Write(Span<byte> destination)
+    {
+        var writer = new PacketWriter(destination, EtervaleOpcodes.ItemWork);
+        NpcWire.Header(ref writer);
+        writer.Guid(OperationId);
+        writer.UInt64(NpcSerial);
+        writer.Byte(Service);
+        writer.Byte(Result);
+        writer.UInt16(0);
+        writer.Guid(ItemId);
+        writer.UInt32(Code);
+        return writer.Finish();
+    }
+
+    public static ItemWorkPacket Read(ReadOnlySpan<byte> packet)
+    {
+        var r = new PacketReader(packet, Size);
+        NpcWire.ReadHeader(ref r);
+        var operation = r.Guid();
+        var serial = r.UInt64();
+        var service = r.Byte();
+        var result = r.Byte();
+        r.Skip(2);
+        return new ItemWorkPacket(operation, serial, service, result, r.Guid(), r.UInt32());
     }
 }
 

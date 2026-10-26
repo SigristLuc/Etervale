@@ -42,6 +42,7 @@ public sealed class GameplayScreen : GameScreen
         _scene.PresenceObserved += _hud.StringEffect.Observe;
         _scene.PresenceObserved += _hud.ObserveQuests;
         _hud.QuestFanfare += _scene.PlayQuestFanfare;
+        _hud.CraftResult += _scene.PlayCraftResult;
         _scene.NpcSelected += _hud.OpenNpc;
         _scene.SkillNotice += _hud.Chat.System;
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
@@ -243,6 +244,7 @@ public sealed class GameplayScreen : GameScreen
             _hud.Chat.CloseRequested -= RequestExit;
             _hud.Restart.ExitRequested -= RequestExit;
             _hud.QuestFanfare -= _scene.PlayQuestFanfare;
+            _hud.CraftResult -= _scene.PlayCraftResult;
             _scene.NpcSelected -= _hud.OpenNpc;
             _scene.SkillNotice -= _hud.Chat.System;
             _hud.SummonModeRequested -= _scene.ToggleSummonMode;

@@ -185,19 +185,19 @@ internal static class NpcServiceTests
 
     private static async Task ShopAsync()
     {
-        var fixture = await Fixture.CreateAsync(1000, [new NpcService(NpcServiceKind.Shop), new NpcService(NpcServiceKind.ItemAging)]);
+        var fixture = await Fixture.CreateAsync(1000, [new NpcService(NpcServiceKind.Shop), new NpcService(NpcServiceKind.Clan)]);
         var (world, npc, session, service) = (fixture.World, fixture.NpcId, fixture.Session, fixture.Npc);
         var interaction = await Advance(world, world.InteractNpcAsync(session, npc));
-        Assert.True(interaction.Ok && interaction.Offers(NpcServiceKind.Shop) && !interaction.Offers(NpcServiceKind.ItemAging)
+        Assert.True(interaction.Ok && interaction.Offers(NpcServiceKind.Shop) && !interaction.Offers(NpcServiceKind.Clan)
             && interaction.Dialog.Count == 1 && Fixture.Lines.Contains(interaction.Dialog[0]), "typed dialog differs");
 
         var open = await Advance(world, service.RequestAsync(session.SessionToken, new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Shop,
             NpcServiceAction.Open)));
         Assert.True(open.Outcome.Ok && open.Catalog!.Single(offer => offer.Code == AxeCode).Price == 60 && open.Quotes is not null,
             "shop catalog does not carry server prices");
-        var aging = await Advance(world, service.RequestAsync(session.SessionToken, new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.ItemAging,
+        var clan = await Advance(world, service.RequestAsync(session.SessionToken, new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Clan,
             NpcServiceAction.Open)));
-        Assert.True(aging.Outcome.Status == NpcServiceStatus.NotAvailable, "an unported service did not answer not available");
+        Assert.True(clan.Outcome.Status == NpcServiceStatus.NotAvailable, "an unported service did not answer not available");
 
         var character = session.Character!;
         var buy = new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Shop, NpcServiceAction.Buy, character.InventoryRevision, ItemCode: AxeCode);

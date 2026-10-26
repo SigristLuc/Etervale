@@ -136,7 +136,9 @@ public sealed class ItemInstance
             DurabilityCurrent = DurabilityCurrent,
             DurabilityMax = DurabilityMax,
             Roll = Roll,
-            Sealed = Sealed
+            Sealed = Sealed,
+            Maturity = Maturity,
+            MixSheltom = MixSheltom
         };
     }
 
@@ -146,6 +148,15 @@ public sealed class ItemInstance
 
     // A dropped puzzle piece stays sealed as a lucky bag until its owner pays to reveal it.
     public bool Sealed { get; set; }
+
+    // The aging under way since the aging NPC worked the copy (null when none): its next level comes when the count
+    // reaches the goal.
+    public Aging.AgingMaturity Maturity { get; set; }
+
+    // The highest sheltom of the mix that worked the copy (1 Lucidy .. 9 Celesto); 0 when it was never mixed.
+    public int MixSheltom { get; set; }
+
+    public bool Mixed => MixSheltom > 0;
 
     public int DurabilityCurrent { get; set; }
     public int DurabilityMax { get; set; }
@@ -162,7 +173,9 @@ public sealed class ItemInstance
     public string DisplayName => UpgradeLevel > 0 ? $"+{UpgradeLevel} {Definition.Name}" : Definition.Name;
 
     public ItemStatBlock TotalStats =>
-        new(_roll.DamageMin, _roll.DamageMax, _roll.Defence, _roll.AttackRating, Definition.BaseStats.AttackSpeed, 0, 0, 0, 0, 0);
+        new(_roll.DamageMin, _roll.DamageMax, _roll.Defence, _roll.AttackRating, Definition.BaseStats.AttackSpeed + _roll.AttackSpeedBonus, 0, 0, 0, 0, 0);
+
+    public int Critical => Definition.Critical + _roll.CriticalBonus;
 
     public int Price => _roll.Price;
 }

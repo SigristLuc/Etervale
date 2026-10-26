@@ -43,6 +43,7 @@ public sealed class GameplayHud : IDisposable
     private readonly HudNpcServiceController _services;
     private readonly HudShopWindow _shop = new();
     private readonly HudWarehouseWindow _warehouse = new();
+    private readonly HudAgingWindow _aging = new();
     private readonly HudQuestController _quests;
     private readonly HudQuestDocuments _questDocuments;
     private readonly HudQuestDialog _questDialog = new();
@@ -101,6 +102,7 @@ public sealed class GameplayHud : IDisposable
         _sprites = new HudSprites(context.GraphicsDevice, context.AssetRoot, context.Log);
         _sprites.Request(HudArt.Static);
         _sprites.Request(HudNpcArt.All);
+        _sprites.Request(HudCraftArt.All);
         _sprites.Request(HudArt.BlockText);
         _sprites.Request(HudQuestArt.All);
         _painter = new HudPainter(context.SpriteBatch, context.Font, _sprites);
@@ -125,6 +127,7 @@ public sealed class GameplayHud : IDisposable
         _inventory.ItemSound = key => ItemSound?.Invoke(key);
         _services.Succeeded = ServiceSound;
         _inventoryPanel.Note = InventoryNote;
+        _inventoryPanel.Withheld = _aging.Holds;
         _sprites.Request(HudChatWindow.Art);
         _sprites.Request(HudChatBubbles.Art);
         _chat.Lookup = id => (Combat.KindOf(id, out var owner), owner);
@@ -202,6 +205,9 @@ public sealed class GameplayHud : IDisposable
     // The quest fanfare: a quest started, moved on or ended.
     public event Action QuestFanfare;
 
+    // A work at the aging or mixing NPC ended: true for a success, false for a failure.
+    public event Action<bool> CraftResult;
+
     // An item lifted, set, bought, sold, stored or taken back, by catalog key, for its sound.
     public event Action<string> ItemSound;
 
@@ -256,7 +262,7 @@ public sealed class GameplayHud : IDisposable
 
         _npc.Dismiss();
         var closed = _npcOpen || _settingsOpen || _systemMenu || _skills.TrainingPending
-            || _inventorySlide.Open || _statusSlide.Open || _skillSlide.Open || _shop.IsOpen || _warehouse.IsOpen
+            || _inventorySlide.Open || _statusSlide.Open || _skillSlide.Open || _shop.IsOpen || _warehouse.IsOpen || _aging.IsOpen
             || _questWindow.Open || _quests.Dialog is not null || _quests.SkillResetBox;
         CloseServices();
         closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming || _wingGate.IsOpen || _wingGate.Confirming;
@@ -308,6 +314,7 @@ public sealed class GameplayHud : IDisposable
         _skillSlide.Advance(elapsedSeconds);
         _shop.Advance(elapsedSeconds);
         _warehouse.Advance(elapsedSeconds);
+        _aging.Advance(elapsedSeconds);
         _questWindow.Advance(elapsedSeconds);
         ForwardMessages();
         ApplyQuests();
@@ -371,9 +378,14 @@ public sealed class GameplayHud : IDisposable
         }
 
         var warehouseAction = _warehouse.Update(mouse, _previousMouse, pointer, InventoryCellAt, _services.Pending || _settingsOpen);
+        var agingAction = _aging.Update(mouse, _previousMouse, pointer, state, _services.Pending || _settingsOpen);
         if (warehouseAction.Kind != HudWarehouseActionKind.None)
         {
             ApplyWarehouseAction(state, warehouseAction);
+        }
+        else if (agingAction != HudWorkActionKind.None)
+        {
+            ApplyAgingAction(state, agingAction);
         }
         else if (clicked)
         {
@@ -434,6 +446,7 @@ public sealed class GameplayHud : IDisposable
         {
             _serviceCompletions = _services.Completions;
             Report(_services.LastOk, _services.Message);
+            ShowAgingResult();
         }
 
         if (_itemUse.Completions != _itemUseCompletions)
@@ -848,7 +861,7 @@ public sealed class GameplayHud : IDisposable
             return true;
         }
 
-        if (_shop.Contains(pointer) || _warehouse.Contains(pointer))
+        if (_shop.Contains(pointer) || _warehouse.Contains(pointer) || _aging.Contains(pointer))
         {
             return true;
         }
@@ -926,6 +939,12 @@ public sealed class GameplayHud : IDisposable
             _warehouse.Draw(_painter, _icons, pointer, incoming, _warehouse.FullyOpen && !_settingsOpen);
         }
 
+        if (_aging.Visible)
+        {
+            var incoming = _inventory.Dragging == Guid.Empty ? null : _state?.Items.FirstOrDefault(item => item.InstanceId == _inventory.Dragging);
+            _aging.Draw(_painter, _icons, pointer, _state, incoming, _aging.FullyOpen && !_settingsOpen);
+        }
+
         _painter.Flush();
         var left = _bindings.LeftSkillId == HudSkillBindings.BasicAttackId;
         _bar.Draw(_painter, layout, _state, new HudBarView(World.TimeOfDay, World.Running, _mapVisible, left, RightAttackEnabled,
@@ -993,6 +1012,11 @@ public sealed class GameplayHud : IDisposable
         if (_warehouse.FullyOpen)
         {
             _warehouse.DrawOverlay(_painter, layout, _icons, pointer);
+        }
+
+        if (_aging.FullyOpen)
+        {
+            _aging.DrawOverlay(_painter, layout, pointer, _state);
         }
 
         if (_inventorySlide.FullyOpen)
@@ -1117,6 +1141,13 @@ public sealed class GameplayHud : IDisposable
             _warehouse.Hide();
         }
 
+        if (_services.Open != NpcServiceKind.ItemAging && _aging.IsOpen)
+        {
+            _aging.Hide();
+        }
+
+        _aging.Sync(state);
+
         if (_warehouse.IsOpen && _services.Warehouse is { } view && !ReferenceEquals(view, _warehouse.View))
         {
             _warehouse.Refresh(view);
@@ -1195,6 +1226,12 @@ public sealed class GameplayHud : IDisposable
             case NpcServiceKind.Teleporter:
                 _npc.ShowDestinations(_services.Destinations);
                 break;
+            case NpcServiceKind.ItemAging:
+                _npcOpen = false;
+                _aging.Show();
+                RequestIcons(_state);
+                OpenOnly(_inventorySlide);
+                break;
             case NpcServiceKind.QuestEvent:
                 if (_puzzle.Offer(_state, _services.NpcId, _services.NpcName) is { } help)
                 {
@@ -1221,6 +1258,7 @@ public sealed class GameplayHud : IDisposable
         _services.Close();
         _shop.Hide();
         _warehouse.Hide();
+        _aging.Hide();
     }
 
     private void ClickShop(OwnerState state, Point pointer)
@@ -1241,6 +1279,12 @@ public sealed class GameplayHud : IDisposable
 
     private bool InterceptInventoryClick(OwnedItemView item)
     {
+        // An item placed in the aging window stays put until the window gives it back.
+        if (_aging.Holds(item.InstanceId))
+        {
+            return true;
+        }
+
         if (!_shop.FullyOpen || _shop.Mode == HudShopMode.Buy || _state is null)
         {
             return false;
@@ -1267,6 +1311,16 @@ public sealed class GameplayHud : IDisposable
         if (_shop.FullyOpen && _shop.Contains(pointer))
         {
             _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Shop, NpcServiceAction.Sell, _state.InventoryRevision, itemId: itemId);
+            return true;
+        }
+
+        if (_aging.FullyOpen && _aging.Place(_state.Items.FirstOrDefault(item => item.InstanceId == itemId), pointer, _state) is { } refusal)
+        {
+            if (refusal.Length > 0)
+            {
+                _notice.Show(refusal);
+            }
+
             return true;
         }
 
@@ -1298,6 +1352,57 @@ public sealed class GameplayHud : IDisposable
                     itemId: action.ItemId, anchor: action.Anchor);
                 break;
         }
+    }
+
+    private void ApplyAgingAction(OwnerState state, HudWorkActionKind action)
+    {
+        switch (action)
+        {
+            case HudWorkActionKind.Exit:
+                CloseServices();
+                break;
+            case HudWorkActionKind.Start when state is not null:
+                if (state.Money < _aging.Price(state))
+                {
+                    _notice.Show("Not enough gold");
+                    break;
+                }
+
+                _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.ItemAging, NpcServiceAction.Age, state.InventoryRevision,
+                    itemId: _aging.Item, materials: _aging.Materials);
+                break;
+        }
+    }
+
+    // The aging NPC's answer, with the original's messages and sounds; the window closes as the original's does.
+    private void ShowAgingResult()
+    {
+        if (_services.LastCommand is not { Action: NpcServiceAction.Age })
+        {
+            return;
+        }
+
+        if (_services.LastWork is not { } work)
+        {
+            if (!_services.LastOk)
+            {
+                CraftResult?.Invoke(false);
+            }
+
+            return;
+        }
+
+        var result = (Simulation.Items.Aging.AgingResult)work.Result;
+        _notice.Show(result switch
+        {
+            Simulation.Items.Aging.AgingResult.Destroyed => "Item aging has failed",
+            Simulation.Items.Aging.AgingResult.DownOne => "Aging level has been decreased by -1",
+            Simulation.Items.Aging.AgingResult.DownTwo => "Aging level has been decreased by -2",
+            Simulation.Items.Aging.AgingResult.Double => "Aging level has been increased by +2",
+            _ => "Aging level has been increased by +1"
+        });
+        CraftResult?.Invoke(result >= Simulation.Items.Aging.AgingResult.Success);
+        CloseServices();
     }
 
     private int InventoryCellAt(Point pointer)

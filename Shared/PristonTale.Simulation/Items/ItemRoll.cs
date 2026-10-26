@@ -26,6 +26,10 @@ public sealed record ItemRoll(
     uint SpecJob,
     ItemSpecBonus Spec)
 {
+    // Critical and attack speed the copy gained over its kind's (aging, mixing).
+    public int CriticalBonus { get; init; }
+    public int AttackSpeedBonus { get; init; }
+
     public bool SpecializedFor(JobBitCode job) => (SpecJob & (uint)job) != 0;
 }
 

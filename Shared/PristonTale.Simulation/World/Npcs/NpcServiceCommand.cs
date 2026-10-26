@@ -20,7 +20,10 @@ public enum NpcServiceAction : byte
     WithdrawGold = 24,
     Teleport = 30,
     // The puzzle collector takes a finished puzzle for a reward.
-    Exchange = 40
+    Exchange = 40,
+
+    // The aging NPC works an item (ItemId) with its sheltoms and an optional aging stone (Materials).
+    Age = 50
 }
 
 public enum NpcServiceStatus : ushort
@@ -38,11 +41,13 @@ public enum NpcServiceStatus : ushort
     Conflict = 10,
     NotOpen = 11,
     OverWeight = 12,
-    WrongPuzzle = 13
+    WrongPuzzle = 13,
+    WrongMaterials = 14
 }
 
 // ItemCode names a stock entry to buy; ItemId an owned item. Anchor is a destination cell (-1 = first free) or, for a
-// teleport, the destination index. Amount is gold for the gold actions.
+// teleport, the destination index. Amount is gold for the gold actions. Materials are the owned items a work on ItemId
+// uses up (one unit per entry).
 public sealed record NpcServiceCommand(
     Guid OperationId,
     ulong NpcEntityId,
@@ -54,7 +59,20 @@ public sealed record NpcServiceCommand(
     Guid ItemId = default,
     int Anchor = -1,
     int Count = 1,
-    long Amount = 0);
+    long Amount = 0,
+    Guid[] Materials = null)
+{
+    public const int MaxMaterials = 16;
+
+    // Value equality over the materials too, so a replayed operation id with other materials is a conflict.
+    public bool Equals(NpcServiceCommand other) =>
+        other is not null && OperationId == other.OperationId && NpcEntityId == other.NpcEntityId && Service == other.Service
+        && Action == other.Action && ExpectedRevision == other.ExpectedRevision && ExpectedStorageRevision == other.ExpectedStorageRevision
+        && ItemCode == other.ItemCode && ItemId == other.ItemId && Anchor == other.Anchor && Count == other.Count && Amount == other.Amount
+        && (Materials ?? []).AsSpan().SequenceEqual(other.Materials ?? []);
+
+    public override int GetHashCode() => HashCode.Combine(OperationId, NpcEntityId, Service, Action, ItemId, Anchor, Amount, Materials?.Length ?? 0);
+}
 
 public static class NpcServiceActions
 {
@@ -89,6 +107,11 @@ public sealed record NpcServiceReply(NpcServiceOutcome Outcome)
     public WarehouseView Warehouse { get; init; }
     public IReadOnlyList<TeleportOffer> Destinations { get; init; }
     public TeleportArrival Arrival { get; init; }
+    public ItemWorkResult Work { get; init; }
 }
+
+// What a work on an item came to: the service's result code (AgingResult for the aging NPC) and the item it left (empty
+// when the item was lost).
+public sealed record ItemWorkResult(byte Result, Guid ItemId, uint Code);
 
 public sealed record TeleportArrival(int FieldCode, System.Numerics.Vector3 Position);

@@ -120,7 +120,7 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
 | Guide | `/show_blackuser`, `/reset_blackuser`, `/free_blackuser`, `/hide`, `/show`, `/grant` |
 | Moderator | `/>`, `/>>`, `/user_limit`, `/kick`, `/kill`, `/open_warehouse`, `/shutdown`, `/insert`, `/near`, `/call`, `/where` |
 | Moderator | `/field`, `/player_location` |
-| Operator | `/get_money` |
+| Operator | `/get_money`, `/AgingSetting` |
 | Administrator | `/init_premiumitem`, `/@get_perf`, `/@get`, `/@put`, `/GiveMeExp!`, `/expup`, `/GiveMeMoney!` |
 
 - Information: local time, boss minute, the issuer's force orb and premium timers, gold spent per sink, carried potions,
@@ -131,7 +131,8 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
   player until that player leaves the world.
 - Items: `/@get code` or `/@get "name"` drops an item (`code#U<n>` or a named unique's name makes that named unique,
   `code#Q` the quest variant), `/@get_perf code [class]` its best copy, `/@put name code` writes
-  a copy into a player's bag before delivering it; `/specific job` and `/Performance value` force the class and middle
+  a copy into a player's bag before delivering it, `/AgingSetting code level [class 1-8]` drops a weapon or armour aged
+  to the level; `/specific job` and `/Performance value` force the class and middle
   roll of items made in the next minute; `/init_premiumitem n` ends a premium timer.
 - Monsters: `/monster name [count]` spawns up to 21 (only the highest level drops items), `/mymonster name` a pet for
   four minutes, `/event_monster name minutes permille` replaces spawns by chance, `/set_absorb serial value`, `/talk
@@ -159,8 +160,7 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
 - The client shows its own spoken and party lines at once; the server never echoes them back.
 - The standing notice is delivered on the heartbeat, not on the command.
 - Not ported because Etervale has no such system: siege and castle commands, billing and PC-room time, event levels,
-  client checksum commands, party management commands, aging settings (`/AgingSetting`: Etervale has no aging yet),
-  item-age revision, the wishing fountain, Bellatra (`/sod_view`, `/sod_enter`), billing time (`/time`), couple rings and
+  client checksum commands, party management commands, item-age revision, the wishing fountain, Bellatra (`/sod_view`, `/sod_enter`), billing time (`/time`), couple rings and
   only one game master pet at a time. The classic password elevation is replaced by the stored level.
 - The classic client's own commands: `/field` and `/player_location` (and `/expup`) are server commands here, since the
   server owns position and experience; `/save` has no counterpart (every change is stored as it happens); the lighting

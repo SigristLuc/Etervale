@@ -57,6 +57,9 @@ public sealed partial class WorldServer
             case Simulation.World.Npcs.NpcServiceAction.Teleport:
                 Currency.Record(CurrencySink.Teleports, spent);
                 break;
+            case Simulation.World.Npcs.NpcServiceAction.Age:
+                Currency.Record(CurrencySink.Aging, spent);
+                break;
         }
     }
 

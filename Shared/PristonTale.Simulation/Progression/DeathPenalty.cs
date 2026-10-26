@@ -9,7 +9,8 @@ namespace PristonTale.Simulation.Progression;
 public readonly record struct RestartOffer(bool FieldOpen, bool Scroll, ulong ExperienceShare, long GoldShare);
 
 // What dying costs. From level 11 a death takes a share of the level's experience span and of the carried gold (a
-// thirty-third, a fiftieth from level 85 after the level 85 quest, nothing in the castle field), and standing up again in
+// thirty-third, a fiftieth from level 85 after the level 85 quest or wearing the aging ring at +6, a hundredth wearing it
+// at +8, nothing in the castle field), and standing up again in
 // the field where the player fell takes a hundredth more. A Resurrection Scroll carried at death is used up instead and
 // waives both. Experience never drops below the start of the current level.
 public static class DeathPenalty
@@ -24,8 +25,31 @@ public static class DeathPenalty
     public const float RestartGuardMs = 10_000f;
 
     // The divisor of a death's share; 0 takes nothing.
-    public static int Divisor(PlayerCharacter character, FieldState field) =>
-        field == FieldState.Castle ? 0 : QuestRewards.ReducedDeathPenalty(character) ? ReducedDivisor : StandardDivisor;
+    public static int Divisor(PlayerCharacter character, FieldState field)
+    {
+        if (field == FieldState.Castle)
+        {
+            return 0;
+        }
+
+        var ring = AgedRingLevel(character);
+        return ring >= 8 ? FieldDivisor : ring >= 6 || QuestRewards.ReducedDeathPenalty(character) ? ReducedDivisor : StandardDivisor;
+    }
+
+    // The highest level of the aging rings worn (0 without one).
+    public static int AgedRingLevel(PlayerCharacter character)
+    {
+        var level = 0;
+        foreach (var slot in (ReadOnlySpan<EquipmentSlot>)[EquipmentSlot.RingLeft, EquipmentSlot.RingRight])
+        {
+            if (character.Equipment.TryGetValue(slot, out var ring) && Items.Aging.AgingRules.CounterOf(ring) == Items.Aging.AgingCounter.Time)
+            {
+                level = Math.Max(level, ring.UpgradeLevel);
+            }
+        }
+
+        return level;
+    }
 
     // The share of the level's experience span a divisor takes (the last level spans up to the experience ceiling).
     public static ulong ExperienceShare(int level, int divisor)

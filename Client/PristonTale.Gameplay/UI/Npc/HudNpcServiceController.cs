@@ -23,13 +23,17 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
 
     public bool LastOk { get; private set; }
     public int Completions { get; private set; }
+
+    // The last completed request and what a work on an item came to.
+    public NpcServiceCommand LastCommand { get; private set; }
+    public ItemWorkResult LastWork { get; private set; }
     public int Opened { get; private set; }
 
     // Every service request the server carried out, for its sound.
     public Action<NpcServiceCommand> Succeeded { get; set; }
 
     public bool Request(ulong npcId, string npcName, NpcServiceKind service, NpcServiceAction action, long expectedRevision = 0,
-        uint itemCode = 0, Guid itemId = default, int anchor = -1, int count = 1, long amount = 0)
+        uint itemCode = 0, Guid itemId = default, int anchor = -1, int count = 1, long amount = 0, Guid[] materials = null)
     {
         // NPC serial 0 names the mobile shop a used item opens; every other service needs an NPC.
         if (_pending is not null || request is null || npcId == 0 && service != NpcServiceKind.Shop)
@@ -39,7 +43,7 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
 
         var storageRevision = Warehouse?.Revision ?? 0;
         var command = new NpcServiceCommand(Guid.NewGuid(), npcId, service, action, expectedRevision, storageRevision, itemCode, itemId, anchor, count,
-            amount);
+            amount, materials);
         if (action == NpcServiceAction.Open)
         {
             NpcName = npcName;
@@ -87,6 +91,8 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
 
         Message = outcome.Ok ? Describe(command, outcome) : outcome.Message;
         LastOk = outcome.Ok;
+        LastCommand = command;
+        LastWork = reply.Work;
         Completions++;
         if (outcome.Ok)
         {

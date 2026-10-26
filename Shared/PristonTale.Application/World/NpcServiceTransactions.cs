@@ -107,6 +107,7 @@ internal static class NpcServiceTransactions
         var fieldId = field.FieldId;
         var position = player.Position;
         TeleportArrival? arrival = null;
+        ItemWorkResult? work = null;
         var carryLimit = MoneyLimits.CarryLimit(candidate.Level, candidate.Tier);
         NpcServiceStatus status;
         switch (command.Action)
@@ -152,6 +153,9 @@ internal static class NpcServiceTransactions
             case NpcServiceAction.Exchange:
                 status = Simulation.Items.Usable.PuzzleExchange.TryExchange(candidate, items, field.ItemRng, out _);
                 break;
+            case NpcServiceAction.Age:
+                status = Simulation.Items.Aging.AgingWork.TryAge(candidate, command.ItemId, command.Materials ?? [], field.ItemRng, out work, out _);
+                break;
             default:
                 status = NpcServiceStatus.Rejected;
                 break;
@@ -165,7 +169,7 @@ internal static class NpcServiceTransactions
         candidate.RecordServiceOperation(command);
         var snapshot = CharacterRecordFactory.Capture(session.Loaded!, candidate, fieldId, position);
         var outcome = Done(candidate, storage ?? session.Warehouse, "committed");
-        var reply = State(command, candidate, storage, outcome) with { Arrival = arrival };
+        var reply = State(command, candidate, storage, outcome) with { Arrival = arrival, Work = work };
         return new PreparedNpcOperation(original, candidate, snapshot, reply, candidate.Money - original.Money, storage,
             session.Warehouse?.Revision ?? 0);
     }
@@ -283,6 +287,7 @@ internal static class NpcServiceTransactions
             or NpcServiceAction.WithdrawGold => service == NpcServiceKind.Warehouse,
         NpcServiceAction.Teleport => service == NpcServiceKind.Teleporter,
         NpcServiceAction.Exchange => service == NpcServiceKind.QuestEvent,
+        NpcServiceAction.Age => service == NpcServiceKind.ItemAging,
         _ => false
     };
 
@@ -293,6 +298,7 @@ internal static class NpcServiceTransactions
         NpcServiceStatus.GoldLimit => "you cannot carry more gold",
         NpcServiceStatus.OverWeight => ItemRuleMessages.OverWeight,
         NpcServiceStatus.WrongPuzzle => "The puzzle is wrong",
+        NpcServiceStatus.WrongMaterials => "These are not the sheltoms the aging asks",
         _ => "the NPC refused"
     };
 

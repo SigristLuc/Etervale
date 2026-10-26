@@ -462,7 +462,7 @@ internal sealed class HudCaptureProbe : Game
                 [Offer(NpcServiceKind.QuestGiver, 1015, false), Offer(NpcServiceKind.Warehouse, 0, true)],
                 ["Here is the key. Just take it and do not touch my things."], ""),
             TeleporterNpc => new NpcInteraction(true, id, "Clever Newter",
-                [Offer(NpcServiceKind.QuestGiver, 2201, false), Offer(NpcServiceKind.Teleporter, 1, true), Offer(NpcServiceKind.ItemAging, 0, false),
+                [Offer(NpcServiceKind.QuestGiver, 2201, false), Offer(NpcServiceKind.Teleporter, 1, true), Offer(NpcServiceKind.ItemAging, 0, true),
                     Offer(NpcServiceKind.ItemMix, 200, false)],
                 ["I have researched and studied for the prosperity of Pillai all my life. Teleporting is not free, though."], ""),
             _ => new NpcInteraction(true, id, "스킬마스터 베르칸", [Offer(NpcServiceKind.QuestGiver, 1003, false), Offer(NpcServiceKind.SkillMaster, 4, true)],

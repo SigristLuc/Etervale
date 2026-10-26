@@ -3,11 +3,11 @@ using PristonTale.Protocol.Binary;
 namespace PristonTale.Protocol.Packets;
 
 // The values of one owned item copy that the owner's tooltips and equipment rules need: durability, rolled stats,
-// requirements, price, class specialization and the fixed values of its kind. Flags: bit 0 two-handed, bit 1 the
-// owner's class may use the item.
+// requirements, price, class specialization, the fixed values of its kind, the aging under way and the mix's highest
+// sheltom. Flags: bit 0 two-handed, bit 1 the owner's class may use the item.
 public sealed record ItemDetailEntry
 {
-    public const int Size = 16 + 4 * 33 + 4 * 14 + 2 * 8;
+    public const int Size = 16 + 4 * 36 + 4 * 14 + 2 * 8;
     public const int FlagTwoHanded = 1;
     public const int FlagClassAllowed = 2;
 
@@ -36,6 +36,9 @@ public sealed record ItemDetailEntry
     public int Weight { get; init; }
     public int UniqueItem { get; init; }
     public int Flags { get; init; }
+    public int AgingCount { get; init; }
+    public int AgingGoal { get; init; }
+    public int MixSheltom { get; init; }
     public uint SpecJob { get; init; }
     public int SpecDefence { get; init; }
     public int SpecAttackSpeed { get; init; }
@@ -68,7 +71,7 @@ public sealed record ItemDetailEntry
         writer.Guid(InstanceId);
         foreach (var value in (ReadOnlySpan<int>)[DurabilityCurrent, DurabilityMax, UpgradeLevel, DamageMin, DamageMax, AttackRating, Defence,
             AddLife, AddMana, AddStamina, RequiredLevel, RequiredStrength, RequiredSpirit, RequiredTalent, RequiredAgility, RequiredHealth, Price,
-            Critical, AttackSpeed, ShootingRange, PotionSpace, Weight, UniqueItem, Flags])
+            Critical, AttackSpeed, ShootingRange, PotionSpace, Weight, UniqueItem, Flags, AgingCount, AgingGoal, MixSheltom])
         {
             writer.Int32(value);
         }
@@ -95,7 +98,7 @@ public sealed record ItemDetailEntry
     public static ItemDetailEntry Read(ref PacketReader r)
     {
         var id = r.Guid();
-        var ints = new int[24];
+        var ints = new int[27];
         for (var index = 0; index < ints.Length; index++)
         {
             ints[index] = r.Int32();
@@ -127,7 +130,7 @@ public sealed record ItemDetailEntry
             AttackRating = ints[5], Defence = ints[6], AddLife = ints[7], AddMana = ints[8], AddStamina = ints[9], RequiredLevel = ints[10],
             RequiredStrength = ints[11], RequiredSpirit = ints[12], RequiredTalent = ints[13], RequiredAgility = ints[14], RequiredHealth = ints[15],
             Price = ints[16], Critical = ints[17], AttackSpeed = ints[18], ShootingRange = ints[19], PotionSpace = ints[20], Weight = ints[21],
-            UniqueItem = ints[22], Flags = ints[23],
+            UniqueItem = ints[22], Flags = ints[23], AgingCount = ints[24], AgingGoal = ints[25], MixSheltom = ints[26],
             SpecJob = specJob,
             SpecDefence = spec[0], SpecAttackSpeed = spec[1], SpecCritical = spec[2], SpecShootingRange = spec[3], SpecLevelLife = spec[4],
             SpecLevelMana = spec[5], SpecLevelAttackRating = spec[6], SpecLevelDamage = spec[7],
@@ -264,5 +267,56 @@ public sealed record OwnerItemStatusPacket(
 
         return new OwnerItemStatusPacket(values[0], values[1], values[2], values[3], values[4], values[5], values[6], floats[0], floats[1], floats[2],
             floats[3], resistances);
+    }
+}
+
+public readonly record struct AgingProgressEntry(Guid InstanceId, int Count, int Goal);
+
+// The counts of the owner's worn aging copies toward their goals: {uint16 version, uint16 count, entries {Guid, int32
+// Count, int32 Goal}}. Sent when a count moves; the item details carry the same values at each inventory revision.
+public sealed record AgingProgressPacket(AgingProgressEntry[] Entries)
+{
+    public const ushort CurrentVersion = 1;
+    public const int MaxEntries = 16;
+    public const int EntrySize = 16 + 4 + 4;
+    public const int HeaderSize = 8 + 4;
+
+    public int Write(Span<byte> destination)
+    {
+        var writer = new PacketWriter(destination, EtervaleOpcodes.AgingProgress);
+        var count = Math.Min(Entries.Length, MaxEntries);
+        writer.UInt16(CurrentVersion);
+        writer.UInt16((ushort)count);
+        for (var index = 0; index < count; index++)
+        {
+            writer.Guid(Entries[index].InstanceId);
+            writer.Int32(Entries[index].Count);
+            writer.Int32(Entries[index].Goal);
+        }
+
+        return writer.Finish();
+    }
+
+    public static AgingProgressPacket Read(ReadOnlySpan<byte> packet)
+    {
+        var r = new PacketReader(packet, HeaderSize);
+        if (r.UInt16() != CurrentVersion)
+        {
+            throw new InvalidDataException("Aging progress has an invalid version.");
+        }
+
+        var count = r.UInt16();
+        if (count > MaxEntries || packet.Length != HeaderSize + count * EntrySize)
+        {
+            throw new InvalidDataException("Aging progress has an invalid size.");
+        }
+
+        var entries = new AgingProgressEntry[count];
+        for (var index = 0; index < count; index++)
+        {
+            entries[index] = new AgingProgressEntry(r.Guid(), r.Int32(), r.Int32());
+        }
+
+        return new AgingProgressPacket(entries);
     }
 }

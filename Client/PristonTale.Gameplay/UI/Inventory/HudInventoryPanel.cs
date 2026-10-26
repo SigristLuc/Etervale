@@ -29,6 +29,9 @@ public sealed class HudInventoryPanel
     // An extra tooltip line for the hovered item, such as what an open shop pays for it.
     public Func<OwnedItemView, string> Note { get; set; }
 
+    // Items a work window holds (they stay in the bag, dimmed and still).
+    public Func<Guid, bool> Withheld { get; set; }
+
     public void Draw(HudPainter painter, Point origin, OwnerState state, HudInventoryController controller, HudItemIcons icons,
         Point pointer, bool interactive)
     {
@@ -80,7 +83,7 @@ public sealed class HudInventoryPanel
 
         foreach (var item in state.Items)
         {
-            var tint = controller.Dragging == item.InstanceId ? Color.White * 0.4f : Color.White;
+            var tint = controller.Dragging == item.InstanceId || Withheld?.Invoke(item.InstanceId) == true ? Color.White * 0.4f : Color.White;
             DrawItem(painter, icons, item, Bounds(origin, item), tint);
         }
 
@@ -175,7 +178,8 @@ public sealed class HudInventoryPanel
             return;
         }
 
-        HudItemDetailTooltip.Draw(painter, layout, pointer, HudItemDetailTooltip.Lines(named, _state, note, action));
+        HudItemDetailTooltip.Draw(painter, layout, pointer, HudItemDetailTooltip.Lines(named, _state, note, action),
+            HudItemDetailTooltip.Gauge(item, _state));
     }
 
     public static Rectangle Bounds(Point origin, OwnedItemView item) =>

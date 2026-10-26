@@ -120,6 +120,7 @@ public sealed class GameMasterCommands
         new("/@get_perf", GameMasterLevel.Administrator, GmItemCommands.Perfect),
         new("/@get", GameMasterLevel.Administrator, GmItemCommands.Create),
         new("/@put", GameMasterLevel.Administrator, GmItemCommands.Gift),
+        new("/AgingSetting", GameMasterLevel.Operator, GmItemCommands.Aged),
         new("/get_potion", GameMasterLevel.Guide, GmInformationCommands.Potions) { Enabled = static options => options.PotionMonitor },
         new("/>", GameMasterLevel.Moderator, GmServerCommands.Notice),
         new("/netlog", GameMasterLevel.Guide, GmInformationCommands.NetLog),
