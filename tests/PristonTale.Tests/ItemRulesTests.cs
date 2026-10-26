@@ -359,14 +359,14 @@ internal static class ItemRulesTests
         CharacterStateCodec.Restore(restored, encoded, catalog);
         Assert.True(restored.Inventory[0].Roll == rolled.Roll && restored.Inventory[0].DurabilityMax == rolled.DurabilityMax, "the copy's values were not saved");
 
-        var legacy = encoded with
+        var older = encoded with
         {
             Inventory = new JsonText(
                 $"{{\"Version\":1,\"Items\":[{{\"InstanceId\":\"{Guid.NewGuid()}\",\"Code\":{definition.Code},\"Count\":1,\"Anchor\":0,\"Slot\":null," +
                 "\"UpgradeLevel\":2,\"DurabilityCurrent\":0,\"DurabilityMax\":0,\"JobSpecMask\":2}]}")
         };
         var old = classes.CreatePlayer(PlayerClass.Fighter, record.Name);
-        CharacterStateCodec.Restore(old, legacy, catalog);
+        CharacterStateCodec.Restore(old, older, catalog);
         var copy = old.Inventory[0];
         Assert.True(copy.Roll.DamageMin == 10 && copy.Roll.SpecJob == (uint)JobBitCode.Fighter && copy.UpgradeLevel == 2, "an older save did not take the shop form");
         return Task.CompletedTask;

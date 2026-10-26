@@ -1,5 +1,5 @@
 using Microsoft.Xna.Framework.Graphics;
-using PristonTale.Effects.Legacy;
+using PristonTale.Effects.Scripts;
 using PristonTale.Engine3D.Rendering;
 
 namespace PristonTale.Effects.Vfx;

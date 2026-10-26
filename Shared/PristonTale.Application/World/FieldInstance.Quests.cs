@@ -267,7 +267,7 @@ public sealed partial class FieldInstance
         opponent.MinimumLife = master ? QuestArena.YieldLife(combat.MaxLife) : opponent.Potions > 0 ? 1 : 0;
         _monsters[opponent.EntityId] = opponent;
         _duels[opponent.EntityId] = new Duel(player.EntityId, duel.Quest, nowMs + QuestArena.OpponentLifetimeMs, master,
-            definition.SoundCode == LegacyNpcSoundCode.MagicMaster);
+            definition.SoundCode == CharacterSoundCodes.MagicMaster);
         player.QuestState.DuelOpponentId = opponent.EntityId;
         return opponent;
     }
@@ -394,8 +394,8 @@ public sealed partial class FieldInstance
     // The skill master calls a metal golem or a wolverine, the magic master a fire elemental; one helper at a time.
     private void CallHelper(MonsterInstance opponent, Duel duel, WorldPlayer player)
     {
-        var sound = duel.MagicMaster ? LegacyNpcSoundCode.FireElemental
-            : _rng.NextExclusive(0, 2) == 0 ? LegacyNpcSoundCode.MetalGolem : LegacyNpcSoundCode.SummonedWolverine;
+        var sound = duel.MagicMaster ? CharacterSoundCodes.FireElemental
+            : _rng.NextExclusive(0, 2) == 0 ? CharacterSoundCodes.MetalGolem : CharacterSoundCodes.SummonedWolverine;
         MonsterDefinition? definition = null;
         foreach (var candidate in _catalog.All)
         {

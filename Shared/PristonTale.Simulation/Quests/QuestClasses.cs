@@ -76,7 +76,7 @@ public static class QuestClasses
 
     // The master the third rank-up duels: the Tempskron classes face the skill master, the Morion ones the magic master.
     public static int DuelMasterSound(PlayerCharacter character) =>
-        IsTempskron(character) ? World.Npcs.LegacyNpcSoundCode.SkillMaster : World.Npcs.LegacyNpcSoundCode.MagicMaster;
+        IsTempskron(character) ? World.Npcs.CharacterSoundCodes.SkillMaster : World.Npcs.CharacterSoundCodes.MagicMaster;
 }
 
 public enum QuestWeaponHunt : byte

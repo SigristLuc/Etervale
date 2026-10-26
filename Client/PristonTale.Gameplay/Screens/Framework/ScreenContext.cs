@@ -23,7 +23,7 @@ public sealed class ScreenContext
         PristonTale.Engine3D.Rendering.PresentationSettings presentation = null,
         PristonTale.Gameplay.UI.Rendering.HudAtlas uiAtlas = null,
         PristonTale.Engine3D.Rendering.PristonSkyLibrary sky = null,
-        PristonTale.Gameplay.Effects.LegacyEffectLibrary effects = null,
+        PristonTale.Gameplay.Effects.EffectLibrary effects = null,
         PristonAudioLibrary audio = null,
         Action renewBackend = null)
     {
@@ -44,7 +44,7 @@ public sealed class ScreenContext
     }
 
     public PristonTale.Engine3D.Rendering.PristonSkyLibrary Sky { get; }
-    public PristonTale.Gameplay.Effects.LegacyEffectLibrary Effects { get; }
+    public PristonTale.Gameplay.Effects.EffectLibrary Effects { get; }
     public PristonAudioLibrary Audio { get; }
     public GraphicsDevice GraphicsDevice { get; }
     public ContentManager Content { get; }

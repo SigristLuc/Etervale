@@ -21,7 +21,7 @@ public static class PristonFormatConstants
 
 public enum PristonSmdHeaderKind
 {
-    LegacyModel,
+    Version62Model,
     BinaryModel,
     StageVersion72,
     StageVersion73,
@@ -239,7 +239,7 @@ public sealed record PristonMaterial(
         }
     }
 
-    // Textureless materials are skipped; a white fallback would expose hidden legacy geometry.
+    // Textureless materials are skipped; a white fallback would expose hidden original geometry.
     public bool HasNoRenderableTexture => TextureCounter == 0 && !HasAnimatedTexture;
 
     public bool IsSelfIllum => SelfIllum != 0f;

@@ -167,9 +167,9 @@ public static class CharacterStateCodec
         return item;
     }
 
-    private static SavedItems ReadItems(JsonText json, JsonValueKind legacyKind)
+    private static SavedItems ReadItems(JsonText json, JsonValueKind blankKind)
     {
-        if (IsLegacyEmpty(json, legacyKind))
+        if (IsBlank(json, blankKind))
         {
             return new SavedItems(1, []);
         }
@@ -185,7 +185,7 @@ public static class CharacterStateCodec
 
     private static SavedSkills ReadSkills(JsonText json)
     {
-        if (IsLegacyEmpty(json, JsonValueKind.Array))
+        if (IsBlank(json, JsonValueKind.Array))
         {
             return new SavedSkills(1, 0, 0, []);
         }
@@ -199,7 +199,7 @@ public static class CharacterStateCodec
         return state;
     }
 
-    internal static bool IsLegacyEmpty(JsonText json, JsonValueKind expected)
+    internal static bool IsBlank(JsonText json, JsonValueKind expected)
     {
         if (string.IsNullOrWhiteSpace(json.Value) || json.Value.Length > 65536)
         {

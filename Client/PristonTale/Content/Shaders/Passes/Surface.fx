@@ -5,7 +5,7 @@
 //    SV_Target1 for the temporal anti-aliasing: the screen motion (uv now minus uv in the previous frame), the previous
 //    and the current view depth; without that target bound the write is discarded;
 //  - Sky (static only): the sky dome layers, display-referred colour with the layer opacity, blended into the 8-bit
-//    sky target with their legacy blend modes (Passes/SkyComposite.fx brings the result into the scene);
+//    sky target with their original blend modes (Passes/SkyComposite.fx brings the result into the scene);
 //  - ShadowCaster / ShadowCasterMasked: the sun's cascades, the light's projected z into the R32F atlas;
 //  - ShadowClear (static only): clears one cascade's tile of the atlas.
 #include "../Core/Common.hlsli"
@@ -110,7 +110,7 @@ struct CasterOut
     float Alpha : TEXCOORD2;
 };
 
-// The legacy reflection sphere map: the eye vector reflected about the normal, both in camera space, so the highlight
+// The original reflection sphere map: the eye vector reflected about the normal, both in camera space, so the highlight
 // follows the camera.
 float2 ReflexUv(float3 worldPosition, float3 worldNormal)
 {
@@ -249,7 +249,7 @@ float4 ShadeSurface(VSOut i, bool masked)
     }
 
     float a = SpecularAntiAliasedAlpha(s.Normal, max(s.Roughness * s.Roughness, 0.002));
-    // Emission: the legacy display-referred colour at its authored level by day (EmissionScale >= 1 / Exposure), a
+    // Emission: the original display-referred colour at its authored level by day (EmissionScale >= 1 / Exposure), a
     // brighter light source at night.
     float emission = (MaterialBlink > 0.5 ? BlinkPulse : 1.0) * EmissionScale;
     // Characters and monsters are not light sources: their self-illuminated parts show the texture at its display level
@@ -290,7 +290,7 @@ float4 ShadeSurface(VSOut i, bool masked)
         // The authored light (vertex colour) is the art's sky visibility: it occludes the sky's reflections too.
         float visibility = occlusion.x * saturate(Luminance(i.Color.rgb));
         AddAmbient(s.Normal, v, s.Albedo, s.F0, s.Metallic, s.Roughness, occlusion.x, visibility, lighting);
-        // The legacy shine (a sphere-mapped reflection texture on armour and weapons) reflects the sky and a quarter of
+        // The original shine (a sphere-mapped reflection texture on armour and weapons) reflects the sky and a quarter of
         // the sun, occluded and shadowed like the surface itself: it does not glow in the shade.
         float3 environment = lerp(GroundAmbient, SkyAmbient, 0.75) * visibility + SunColor * (0.25 * shadow);
         lighting.Specular += s.Reflection * environment;
@@ -299,7 +299,7 @@ float4 ShadeSurface(VSOut i, bool masked)
     }
 
     radiance += RimColor * (rim / Exposure);
-    // Gameplay tints add (or take away) light in the legacy display units, like the original colour adjustment.
+    // Gameplay tints add (or take away) light in the original display units, like the original colour adjustment.
     radiance = max(radiance + s.Albedo * (ActorTint.rgb / Exposure), 0.0);
     [branch]
     if (DebugView > 0.5)

@@ -1,4 +1,4 @@
-// Unlit textured geometry in the HDR scene (PristonUnlitEffect): particles, lamp glows, legacy mesh effects and the
+// Unlit textured geometry in the HDR scene (PristonUnlitEffect): particles, lamp glows, original mesh effects and the
 // return-scroll effect. Texture and vertex colour are sRGB-encoded and decoded exactly; Tint scales the result into
 // radiance, so additive effects add light in linear space. VertexPositionColorTexture input.
 #include "../Core/Common.hlsli"
@@ -12,7 +12,7 @@ cbuffer UnlitVertexConstants : register(b0)
 cbuffer UnlitPixelConstants : register(b0)
 {
     float4 Tint;              // rgb radiance scale (linear), a opacity
-    float Exposure;           // the scene's exposure: the legacy effect colours are display-referred
+    float Exposure;           // the scene's exposure: the original effect colours are display-referred
     float DisplayOutput;      // 1: write display-referred sRGB into an 8-bit target; 0: HDR radiance
     float2 UnlitPadding;
 };

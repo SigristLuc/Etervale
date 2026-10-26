@@ -1,10 +1,10 @@
 using Microsoft.Xna.Framework;
-using PristonTale.Effects.Legacy;
+using PristonTale.Effects.Scripts;
 using PristonTale.Effects.Particles;
 
 namespace PristonTale.Tests;
 
-internal static class LegacyParticleTests
+internal static class ParticleScriptTests
 {
     private const string Script = """
         particlesystem "Attack" 1.00 {
@@ -34,11 +34,11 @@ internal static class LegacyParticleTests
 
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("legacy particle scripts preserve events, units, blend and rectangular billboards", TimelineAsync);
-        yield return ("legacy particle emission is finite and stable across frame rates and hitches", EmissionAsync);
-        yield return ("legacy particle compiler rejects unsupported or unbounded scripts", ValidationAsync);
-        yield return ("legacy particle gravity, delay, loops, plane and oriented offsets match their contracts", ExtendedAsync);
-        yield return ("legacy particle random channels remain stable without frame allocations", RandomAsync);
+        yield return ("original particle scripts preserve events, units, blend and rectangular billboards", TimelineAsync);
+        yield return ("original particle emission is finite and stable across frame rates and hitches", EmissionAsync);
+        yield return ("original particle compiler rejects unsupported or unbounded scripts", ValidationAsync);
+        yield return ("original particle gravity, delay, loops, plane and oriented offsets match their contracts", ExtendedAsync);
+        yield return ("original particle random channels remain stable without frame allocations", RandomAsync);
     }
 
     // A basis whose forward is the direction, staying orthonormal near vertical directions.
@@ -67,7 +67,7 @@ internal static class LegacyParticleTests
             Assert.Near(0, Vector3.Distance(actual, direction), .0001f);
             Assert.Near(1, basis.Right.Length(), .0001f);
         }
-        var definition = new EmitterDefinition { MaxParticles = 6, LegacySequence = sequence };
+        var definition = new EmitterDefinition { MaxParticles = 6, ScriptSequence = sequence };
         var emitter = new ParticleEmitter(definition, Vector3.Zero, 12);
         emitter.Update(.3f, Vector3.Zero);
         Assert.True(emitter.AliveCount == 0, "delay was ignored");
@@ -78,16 +78,16 @@ internal static class LegacyParticleTests
         return Task.CompletedTask;
     }
 
-    private static LegacyParticleSequence Read(string script = Script)
+    private static ParticleSequence Read(string script = Script)
     {
         using var reader = new StringReader(script);
-        return LegacyParticleScript.Read(reader).Single();
+        return ParticleScript.Read(reader).Single();
     }
 
     private static Task TimelineAsync()
     {
         var sequence = Read();
-        Assert.True(sequence.Texture == "effect/particle/flare.tga", "legacy slashes were not normalized");
+        Assert.True(sequence.Texture == "effect/particle/flare.tga", "original slashes were not normalized");
         var particle = new Particle { Age = 1.5f };
         sequence.Initialize(ref particle, new Vector3(5, 7, 9), new Random(1));
         sequence.Evaluate(ref particle);
@@ -103,7 +103,7 @@ internal static class LegacyParticleTests
 
     private static Task EmissionAsync()
     {
-        var definition = new EmitterDefinition { MaxParticles = 2, LegacySequence = Read() };
+        var definition = new EmitterDefinition { MaxParticles = 2, ScriptSequence = Read() };
         var oneStep = new ParticleEmitter(definition, Vector3.Zero, 123);
         var manySteps = new ParticleEmitter(definition, Vector3.Zero, 123);
         Assert.True(oneStep.AliveCount == 0, "script converted to immediate burst");

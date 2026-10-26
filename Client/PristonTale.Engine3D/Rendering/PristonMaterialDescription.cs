@@ -21,11 +21,11 @@ internal enum PristonLayerMode
     Multiply = 1,
     // Added to the albedo (a lit glow layer, often scrolling).
     Add = 2,
-    // Sphere-map reflection added to the specular radiance (the legacy shine of armour and weapons).
+    // Sphere-map reflection added to the specular radiance (the original shine of armour and weapons).
     Reflection = 3
 }
 
-// The material model's inputs for one legacy material, decided once at load time by PristonMaterialAdapter. Translucency
+// The material model's inputs for one original material, decided once at load time by PristonMaterialAdapter. Translucency
 // is the share of the sun that passes through a thin surface lit from behind (leaves, cloth cut-outs).
 internal sealed record PristonMaterialDescription(
     PristonShadingModel ShadingModel,

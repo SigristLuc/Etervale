@@ -306,7 +306,7 @@ specifications.AddRange(ProgressionAndOwnershipTests.Cases());
 specifications.AddRange(OutboxTests.Cases());
 specifications.AddRange(InventoryTransactionTests.Cases());
 specifications.AddRange(PotionTests.Cases());
-specifications.AddRange(LegacyParticleTests.Cases());
+specifications.AddRange(ParticleScriptTests.Cases());
 specifications.AddRange(TransientLightTests.Cases());
 specifications.AddRange(SpawnGateTests.Cases());
 specifications.AddRange(SpawnScheduleTests.Cases());

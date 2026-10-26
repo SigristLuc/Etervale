@@ -45,12 +45,12 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private PlayerEquipmentPresentation _equipmentPresentation;
     private ModelActorComposer _monsterComposer;
     private PristonCamera _camera;
-    private readonly PristonTale.Gameplay.Effects.LegacyEffectLibrary _effectLibrary;
+    private readonly PristonTale.Gameplay.Effects.EffectLibrary _effectLibrary;
     private readonly PristonTale.Effects.EffectsEngine _effects;
     private readonly FieldAudioController _fieldAudio;
     private readonly NpcAudioController _npcAudio;
     private readonly PristonAudioLibrary _audio;
-    private PristonTale.Gameplay.Effects.LegacyReturnEffect _returnEffect;
+    private PristonTale.Gameplay.Effects.ReturnEffect _returnEffect;
     private readonly List<LoadedField> _fields = [];
     private readonly FieldCollisionQuery _fieldCollision;
     private readonly List<EntityNeighbour> _entityNeighbours = [];
@@ -165,7 +165,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private readonly PresentationSettings _presentation;
 
     public GameScene(GraphicsDevice graphicsDevice, ContentManager content, IClientLog log = null, PristonSkyLibrary sky = null,
-        PristonTale.Gameplay.Effects.LegacyEffectLibrary effects = null, PresentationSettings presentation = null, PristonAudioLibrary audio = null)
+        PristonTale.Gameplay.Effects.EffectLibrary effects = null, PresentationSettings presentation = null, PristonAudioLibrary audio = null)
     {
         _presentation = presentation;
         _sky = sky;
@@ -440,7 +440,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _renderer = new PristonRenderer(_graphicsDevice, _content, _log, _presentation) { Sky = _sky };
         if (_effects is not null)
         {
-            _returnEffect = new PristonTale.Gameplay.Effects.LegacyReturnEffect(_graphicsDevice, _effectLibrary, _renderer.TransientLights);
+            _returnEffect = new PristonTale.Gameplay.Effects.ReturnEffect(_graphicsDevice, _effectLibrary, _renderer.TransientLights);
         }
 
         CreateSkillPresentation();

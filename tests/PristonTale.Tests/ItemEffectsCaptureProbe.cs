@@ -58,9 +58,9 @@ internal sealed class ItemEffectsCaptureProbe : Game
     private PristonSkyLibrary _sky = null!;
     private PristonCamera _camera = null!;
     private RemoteEntityManager _remote = null!;
-    private LegacyEffectLibrary _library = null!;
+    private EffectLibrary _library = null!;
     private EffectsEngine _effects = null!;
-    private LegacyItemEffects _items = null!;
+    private ItemUseEffects _items = null!;
     private PremiumPetPresentation _pets = null!;
     private SkillPresentation _skills = null!;
     private ForceOrbPresentation _orbs = null!;
@@ -70,7 +70,7 @@ internal sealed class ItemEffectsCaptureProbe : Game
     private int _shot;
     private double _seconds;
     private bool _begun;
-    private LegacyReturnEffect _return = null!;
+    private ReturnEffect _return = null!;
     private SpriteBatch _batch = null!;
     private SpriteFont _font = null!;
     private Texture2D _pixel = null!;
@@ -132,16 +132,16 @@ internal sealed class ItemEffectsCaptureProbe : Game
             new(KickerId, RemoteEntityKind.Player, false, Numeric(Floor(collision, _focus + new Vector3(-40f, 0f, -70f))), 0.6f, RemoteMoveState.Idle, 900,
                 1000, new PlayerAppearanceInfo("Kicker", 1, 0, 0, 0, "", "", 52) { BigHead = CharacterHead.SoccerLook }, 0)
         ], [], [], []));
-        _library = LegacyEffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assetRoot, ConsoleClientLog.Instance);
+        _library = EffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assetRoot, ConsoleClientLog.Instance);
         _effects = new EffectsEngine(GraphicsDevice, Content);
         _sounds = new SkillSoundBank(_assetRoot, ConsoleClientLog.Instance) { Enabled = false };
-        _items = new LegacyItemEffects(_library, _assetRoot, _effects, _renderer.TransientLights, _sounds);
+        _items = new ItemUseEffects(_library, _assetRoot, _effects, _renderer.TransientLights, _sounds);
         _skills = new SkillPresentation(GraphicsDevice, Content, _library, _renderer.TransientLights, new SceneHost(this), _sounds, ConsoleClientLog.Instance);
         _library.Vfx.CompileAll();
         ItemVfx.Register(_skills.Library);
         _orbs = new ForceOrbPresentation(_skills, _library, _assetRoot, _effects, _renderer.TransientLights);
         _pets = new PremiumPetPresentation(actorScene, loader, _assetRoot, _library, _effects, _renderer.TransientLights, _sounds, ConsoleClientLog.Instance);
-        _return = new LegacyReturnEffect(GraphicsDevice, _library, _renderer.TransientLights);
+        _return = new ReturnEffect(GraphicsDevice, _library, _renderer.TransientLights);
         _batch = new SpriteBatch(GraphicsDevice);
         _font = Content.Load<SpriteFont>("Fonts/UI");
         _pixel = new Texture2D(GraphicsDevice, 1, 1);

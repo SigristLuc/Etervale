@@ -1,5 +1,5 @@
 // The first pass of the HDR scene (PristonSceneTargets): it fills every scene target, so no clear is needed.
-//  - SkyComposite: the sky dome behind the scene. The dome's layers are display-referred art blended with their legacy
+//  - SkyComposite: the sky dome behind the scene. The dome's layers are display-referred art blended with their original
 //    modes (additive glows, alpha clouds) into an 8-bit sRGB target, as they were authored to be composed; this pass
 //    decodes that image into the scene at its authored display level (divided by the frame's nominal display scale,
 //    which the final pass applies again);

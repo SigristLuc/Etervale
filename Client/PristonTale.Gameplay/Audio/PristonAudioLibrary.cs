@@ -11,20 +11,20 @@ public sealed class PristonAudioLibrary : IDisposable
 {
     private static readonly (int Code, string Directory)[] NpcSoundBankDirectories =
     [
-        (LegacyNpcSoundCode.Wolverine, "wav/Effects/monster/Wolverin"),
-        (LegacyNpcSoundCode.Fury, "wav/Effects/monster/Fury"),
-        (LegacyNpcSoundCode.Morif, "wav/Effects/NPC/morif"),
-        (LegacyNpcSoundCode.MollyWolf, "wav/Effects/NPC/mollywolf"),
-        (LegacyNpcSoundCode.SkillMaster, "wav/Effects/NPC/SkillMaster"),
-        (LegacyNpcSoundCode.MagicMaster, "wav/Effects/NPC/MagicMaster"),
-        (LegacyNpcSoundCode.CastleDoor, "wav/Effects/NPC/castledoor"),
-        (LegacyNpcSoundCode.CastleCrystalRed, "wav/Effects/NPC/crystal_r"),
-        (LegacyNpcSoundCode.CastleCrystalGreen, "wav/Effects/NPC/crystal_g"),
-        (LegacyNpcSoundCode.CastleCrystalBlue, "wav/Effects/NPC/crystal_b"),
-        (LegacyNpcSoundCode.CastleTower, "wav/Effects/NPC/tower-b"),
-        (LegacyNpcSoundCode.CastleSoldierA, "wav/Effects/NPC/Soldier_A"),
-        (LegacyNpcSoundCode.CastleSoldierB, "wav/Effects/NPC/Soldier_B"),
-        (LegacyNpcSoundCode.CastleSoldierC, "wav/Effects/NPC/Soldier_C")
+        (CharacterSoundCodes.Wolverine, "wav/Effects/monster/Wolverin"),
+        (CharacterSoundCodes.Fury, "wav/Effects/monster/Fury"),
+        (CharacterSoundCodes.Morif, "wav/Effects/NPC/morif"),
+        (CharacterSoundCodes.MollyWolf, "wav/Effects/NPC/mollywolf"),
+        (CharacterSoundCodes.SkillMaster, "wav/Effects/NPC/SkillMaster"),
+        (CharacterSoundCodes.MagicMaster, "wav/Effects/NPC/MagicMaster"),
+        (CharacterSoundCodes.CastleDoor, "wav/Effects/NPC/castledoor"),
+        (CharacterSoundCodes.CastleCrystalRed, "wav/Effects/NPC/crystal_r"),
+        (CharacterSoundCodes.CastleCrystalGreen, "wav/Effects/NPC/crystal_g"),
+        (CharacterSoundCodes.CastleCrystalBlue, "wav/Effects/NPC/crystal_b"),
+        (CharacterSoundCodes.CastleTower, "wav/Effects/NPC/tower-b"),
+        (CharacterSoundCodes.CastleSoldierA, "wav/Effects/NPC/Soldier_A"),
+        (CharacterSoundCodes.CastleSoldierB, "wav/Effects/NPC/Soldier_B"),
+        (CharacterSoundCodes.CastleSoldierC, "wav/Effects/NPC/Soldier_C")
     ];
 
     private static readonly (string Code, string Path)[] FieldMusicFiles =
@@ -217,7 +217,7 @@ public sealed class PristonAudioLibrary : IDisposable
             return false;
         }
 
-        return _talkSounds.TryGetValue(LegacyTalkSound.GetSoundCode(message), out sound);
+        return _talkSounds.TryGetValue(TalkSound.GetSoundCode(message), out sound);
     }
 
     public void ApplySettings(ClientSettings settings)

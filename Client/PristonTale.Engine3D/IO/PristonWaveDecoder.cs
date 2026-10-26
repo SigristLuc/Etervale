@@ -33,7 +33,7 @@ public static class PristonWaveDecoder
 
         if (!bytes[..4].SequenceEqual("JODO"u8))
         {
-            throw new InvalidDataException("Unsupported legacy WAVE signature.");
+            throw new InvalidDataException("Unsupported original WAVE signature.");
         }
 
         "RIFF"u8.CopyTo(bytes);

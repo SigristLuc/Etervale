@@ -12,7 +12,7 @@ namespace PristonTale.Gameplay.Effects;
 // use's roll; hair tints, force orbs, ether cores, crystal summons and head changes play the skill-learn sound (their
 // light is ItemVfx.Learn or the return sparkle), skill masters, boosters and puzzle reveals the drink sound, and an
 // opened gift box the eat sound under an orange light.
-public sealed class LegacyItemEffects
+public sealed class ItemUseEffects
 {
     public const string LearnSound = "wav/Effects/Skill/Learn_Skill.wav";
     public const string DrinkSound = "Image/SinImage/Sound/drink2.wav";
@@ -33,7 +33,7 @@ public sealed class LegacyItemEffects
     private readonly List<Burst> _bursts = new();
     private readonly Random _random = new();
 
-    public LegacyItemEffects(LegacyEffectLibrary library, string assetRoot, EffectsEngine engine, PristonTransientLights lights, SkillSoundBank sounds)
+    public ItemUseEffects(EffectLibrary library, string assetRoot, EffectsEngine engine, PristonTransientLights lights, SkillSoundBank sounds)
     {
         _engine = engine;
         _lights = lights;
@@ -137,7 +137,7 @@ public sealed class LegacyItemEffects
         }
     }
 
-    private static EffectDefinition Billboards(LegacyBillboardAnimation animation, string name, int count, float size, FloatRange speed, float spread,
+    private static EffectDefinition Billboards(BillboardAnimation animation, string name, int count, float size, FloatRange speed, float spread,
         Vector3 gravity)
     {
         if (animation is null)

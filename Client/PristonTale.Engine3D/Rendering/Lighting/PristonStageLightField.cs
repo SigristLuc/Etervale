@@ -74,7 +74,7 @@ internal sealed class PristonStageLightField
             var c = positions[face.C];
             var normal = Vector3.Cross(b - a, c - a);
             var length = normal.Length();
-            // Legacy winding varies: a floor faces up either way.
+            // Original winding varies: a floor faces up either way.
             if (length < 1e-4f || MathF.Abs(normal.Y) / length < FloorFacing)
             {
                 continue;

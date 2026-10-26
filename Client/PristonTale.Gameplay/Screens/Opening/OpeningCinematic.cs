@@ -55,11 +55,11 @@ internal sealed class OpeningCinematic : IDisposable
     private readonly PristonActorLoader _actorLoader;
 
     private readonly PristonRenderer _renderer;
-    private readonly LegacyEffectLibrary _effectLibrary;
+    private readonly EffectLibrary _effectLibrary;
     private readonly VfxRenderer _effects;
     private VfxSystem _effectSystem;
     private readonly Random _particleRandom = new(0x5054);
-    private LegacyMeteorEffects _terrainFire;
+    private MeteorEffects _terrainFire;
     private PristonCamera _camera;
     private PristonCameraPath _cameraPath;
     private float _pathTicks;
@@ -73,7 +73,7 @@ internal sealed class OpeningCinematic : IDisposable
     private readonly string _assetRoot;
 
     public OpeningCinematic(GraphicsDevice graphicsDevice, ContentManager content, IClientLog log,
-        Func<string, string> assetPath, string assetRoot, PristonSkyLibrary sky = null, PresentationSettings presentation = null, LegacyEffectLibrary effects = null)
+        Func<string, string> assetPath, string assetRoot, PristonSkyLibrary sky = null, PresentationSettings presentation = null, EffectLibrary effects = null)
     {
         _graphicsDevice = graphicsDevice;
         _log = log;
@@ -108,7 +108,7 @@ internal sealed class OpeningCinematic : IDisposable
             // The converted scripts are registered here, while loading, so the flight never waits for them.
             _effectLibrary.Vfx.CompileAll();
             _effectSystem = new VfxSystem(new NoAnchors(), new SceneLights(_renderer), _effectLibrary.Vfx.Library);
-            _terrainFire = new LegacyMeteorEffects(new SystemScriptEffects(_effectSystem, _effectLibrary.Vfx.Library), _renderer.TransientLights, collision);
+            _terrainFire = new MeteorEffects(new SystemScriptEffects(_effectSystem, _effectLibrary.Vfx.Library), _renderer.TransientLights, collision);
         }
         _renderer.ConfigureFieldLighting(intensity: 4f, rangeScale: 1f, overrideLights: null, glowIntensity: 1f, glowScale: 1f);
         _renderer.AddStage(stage, LoadScenery());

@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
-using PristonTale.Effects.Legacy;
+using PristonTale.Effects.Scripts;
 using PristonTale.Effects.Vfx;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;

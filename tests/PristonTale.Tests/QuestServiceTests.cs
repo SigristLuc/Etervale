@@ -220,7 +220,7 @@ internal static class QuestServiceTests
 
     private static async Task ArenaAsync()
     {
-        var master = Monster(50, "Skill Master", 0, life: 1000, level: 60) with { SoundCode = LegacyNpcSoundCode.SkillMaster };
+        var master = Monster(50, "Skill Master", 0, life: 1000, level: 60) with { SoundCode = CharacterSoundCodes.SkillMaster };
         var world = await QuestWorld.CreateAsync(PlayerClass.Fighter, 60, 2, [new NpcService(NpcServiceKind.SkillMaster, 4)], [master], null,
             strongWeapon: true);
         var (quests, token, npc) = (world.Quests, world.Session.SessionToken, world.NpcId);

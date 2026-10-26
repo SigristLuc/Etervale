@@ -15,7 +15,7 @@ public interface IScriptEffect
 }
 
 // Starts original particle scripts by name: the converted effects ("particle.<name>" under Effect/Vfx) of the game's skill
-// presentation, of a scene's own effect system (the opening flight), or the legacy engine reading the scripts directly.
+// presentation, of a scene's own effect system (the opening flight), or the original engine reading the scripts directly.
 public interface IScriptEffects
 {
     IScriptEffect Spawn(string script, Vector3 position, Matrix orientation);
@@ -60,9 +60,9 @@ public sealed class SystemScriptEffects(VfxSystem system, VfxLibrary library) : 
     }
 }
 
-public sealed class LegacyScriptEffects(LegacyEffectLibrary library, EffectsEngine engine, string assetRoot) : IScriptEffects
+public sealed class EngineScriptEffects(EffectLibrary library, EffectsEngine engine, string assetRoot) : IScriptEffects
 {
-    // The legacy engine stops spawning beyond this many live effects.
+    // The original engine stops spawning beyond this many live effects.
     public const int Budget = 128;
 
     public IScriptEffect Spawn(string script, Vector3 position, Matrix orientation)

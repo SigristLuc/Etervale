@@ -13,7 +13,7 @@ internal static class GltfExportTests
         yield return ("glTF stage export preserves converted geometry, UVs, vertex alpha and alpha cutoff", StageAsync);
         yield return ("glTF rigid animation preserves authored key times", RigidAnimationAsync);
         yield return ("glTF actor export preserves skin bind data, multiple roots and exclusive clip end", ActorAsync);
-        yield return ("glTF animation preserves legacy rotation-before-scale transforms", RotationBeforeScaleAsync);
+        yield return ("glTF animation preserves original rotation-before-scale transforms", RotationBeforeScaleAsync);
         yield return ("glTF texture decoding follows the Engine3D decoder", ImageDecodeAsync);
         yield return ("glTF blend materials follow reference blend coverage and lighting", BlendMaterialAsync);
         yield return ("glTF T-pose raises biped arms laterally and carries shoulder guards", TPoseAsync);
@@ -493,16 +493,16 @@ internal static class GltfExportTests
         Assert.True(!bitmap.HasSourceAlpha, "BMP alpha handling diverged from Engine3D");
         Assert.True(bitmap.Rgba[3] == 255, "the exporter preserved the unused BMP alpha byte");
 
-        var legacy = Bitmap32(10, 20, 30, 0);
-        BitConverter.GetBytes(0).CopyTo(legacy, 10);
+        var original = Bitmap32(10, 20, 30, 0);
+        BitConverter.GetBytes(0).CopyTo(original, 10);
         for (var index = 0; index < 14; index++)
         {
-            legacy[index] = unchecked((byte)(legacy[index] + index * index));
+            original[index] = unchecked((byte)(original[index] + index * index));
         }
 
-        legacy[0] = (byte)'A';
-        legacy[1] = (byte)'8';
-        var inferred = ImageDecode.Decode(legacy, ".bmp");
+        original[0] = (byte)'A';
+        original[1] = (byte)'8';
+        var inferred = ImageDecode.Decode(original, ".bmp");
         Assert.True(
             inferred.IsValid && inferred.Rgba.Take(3).SequenceEqual(new byte[] { 10, 20, 30 }),
             "A8 BMPs with a zero bfOffBits must read pixels after the DIB header");

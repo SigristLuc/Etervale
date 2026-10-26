@@ -116,13 +116,13 @@ public sealed class FieldAudioController : IDisposable
         var attenuation = (int)((distanceSquared - innerRadiusSquared) / 1100f);
         attenuation = Math.Clamp(attenuation, 0, 400);
 
-        var legacyVolume = 400 - attenuation;
-        if (legacyVolume <= 100)
+        var originalVolume = 400 - attenuation;
+        if (originalVolume <= 100)
         {
             return 0f;
         }
 
-        var playbackVolume = Math.Min(legacyVolume + 100, 399);
+        var playbackVolume = Math.Min(originalVolume + 100, 399);
         return playbackVolume / 400f;
     }
 

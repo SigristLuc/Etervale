@@ -135,7 +135,7 @@ public static class FuryOfPhantomQuest
 
     private static void EnterArena(QuestContext context, int battleState)
     {
-        context.Duel = new QuestArenaDuel(Code, LegacyNpcSoundCode.Fury, DuelLevel(battleState));
+        context.Duel = new QuestArenaDuel(Code, CharacterSoundCodes.Fury, DuelLevel(battleState));
         context.Travel = new QuestTravel(QuestTravelKind.Arena, QuestArena.FieldCode, QuestArena.EntryX, QuestArena.EntryZ);
     }
 

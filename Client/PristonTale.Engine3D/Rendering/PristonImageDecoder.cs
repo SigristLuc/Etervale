@@ -48,8 +48,8 @@ public static class PristonImageDecoder
     {
         hasSourceAlpha = false;
         var bytes = (byte[])source.Clone();
-        var legacyHeader = bytes[0] == 'A' && bytes[1] == '8';
-        if (legacyHeader)
+        var a8Header = bytes[0] == 'A' && bytes[1] == '8';
+        if (a8Header)
         {
             for (var i = 0; i < 14; i++)
             {
@@ -64,8 +64,8 @@ public static class PristonImageDecoder
             return DecodedPristonImage.Empty;
         }
 
-        // Some legacy 8-bit alpha files leave bfOffBits zero; their pixels follow the DIB header and palette.
-        if (legacyHeader && pixelOffset == 0)
+        // Some original 8-bit alpha files leave bfOffBits zero; their pixels follow the DIB header and palette.
+        if (a8Header && pixelOffset == 0)
         {
             var inferredBitCount = BitConverter.ToUInt16(bytes, 28);
             var colorsUsed = BitConverter.ToInt32(bytes, 46);

@@ -152,7 +152,7 @@ internal static class WorldImportTests
             var monster = await connection.QuerySingleAsync<(int SoundCode, float ModelScale, int MoveSpeed, int SizeLevel)>(
                 "SELECT sound_code, model_scale, move_speed, size_level FROM monsters WHERE name = 'Wolf'");
             Assert.True(monster.SizeLevel == 0, "a monster without a size key does not cast the small shadow");
-            Assert.True(monster.SoundCode == LegacyNpcSoundCode.Wolverine, "monster sound code was not imported");
+            Assert.True(monster.SoundCode == CharacterSoundCodes.Wolverine, "monster sound code was not imported");
             Assert.True(Math.Abs(monster.ModelScale - 1.4f) < 0.001f && monster.MoveSpeed == 12,
                 "monster scale or movement was not imported");
             Assert.True(await connection.ExecuteScalarAsync<int>(
@@ -177,7 +177,7 @@ internal static class WorldImportTests
             var npcs = WorldDataFactory.ToNpcDefinitions(await repository.GetAllNpcsAsync()).Definitions;
             Assert.True(items.Count == 2 && items.Single(static item => item.CatalogKey == "WA101").MaxStack == 20,
                 "runtime item catalog lost the imported stack size or an item family");
-            Assert.True(monsters.Single().SoundCode == LegacyNpcSoundCode.Wolverine,
+            Assert.True(monsters.Single().SoundCode == CharacterSoundCodes.Wolverine,
                 "runtime monster catalog lost the imported sound code");
             Assert.True(Math.Abs(monsters.Single().ModelScale - 1.4f) < 0.001f,
                 "runtime monster catalog lost the imported model scale");

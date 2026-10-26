@@ -69,7 +69,7 @@ public static class KeyMaps
 
     // Monster (.inf) character tokens.
 
-    public const string CharName = "*이름";            // Legacy identity used by spawn references.
+    public const string CharName = "*이름";            // Korean identity used by spawn references.
     public const string CharDisplayName = "*Name";     // Display label authored in the supplied monster files.
     public const string CharModel = "*모양파일";       // quoted model file
     public const string CharDialog = "*대화";          // dialog line (at most 20)

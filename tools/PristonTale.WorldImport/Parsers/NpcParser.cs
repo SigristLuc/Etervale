@@ -126,7 +126,7 @@ public sealed class NpcParser
     {
         if (KeyMaps.CharSound.Contains(key, StringComparer.Ordinal))
         {
-            npc.SoundCode = LegacyNpcSoundCode.Resolve(t.NextWord());
+            npc.SoundCode = CharacterSoundCodes.Resolve(t.NextWord());
             return true;
         }
 

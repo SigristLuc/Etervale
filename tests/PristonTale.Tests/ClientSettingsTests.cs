@@ -9,8 +9,8 @@ internal static class ClientSettingsTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("settings validate limits without restricting valid monitor modes", ValidationAsync);
-        yield return ("older settings inherit the current shadow refresh default", LegacyDefaultsAsync);
-        yield return ("legacy boolean distance fog settings load as fog modes", LegacyDistanceFogAsync);
+        yield return ("older settings inherit the current shadow refresh default", OlderDefaultsAsync);
+        yield return ("older boolean distance fog settings load as fog modes", BooleanDistanceFogAsync);
         yield return ("settings persistence drains the latest snapshot on shutdown", PersistenceAsync);
         yield return ("invalid and future settings documents survive attempted saves", PreserveInvalidAsync);
         yield return ("settings write failures are observable without faulting gameplay", WriteFailureAsync);
@@ -42,7 +42,7 @@ internal static class ClientSettingsTests
         return Task.CompletedTask;
     }
 
-    private static async Task LegacyDefaultsAsync()
+    private static async Task OlderDefaultsAsync()
     {
         var path = Path.Combine(Path.GetTempPath(), "priston-settings-" + Guid.NewGuid().ToString("N") + ".json");
         try
@@ -62,7 +62,7 @@ internal static class ClientSettingsTests
         }
     }
 
-    private static async Task LegacyDistanceFogAsync()
+    private static async Task BooleanDistanceFogAsync()
     {
         foreach (var (json, expected) in new[]
         {

@@ -43,7 +43,7 @@ public static class MonsterOffensiveSkill
 
         if (skill.SkillRange == 0)
         {
-            // Explicit bounded single-target reach. Do not preserve the legacy packet's act=1 distance bypass.
+            // Explicit bounded single-target reach. Do not preserve the original packet's act=1 distance bypass.
             return distanceSquared < MonsterAttackReach.RangedImpactDistanceSquared;
         }
 

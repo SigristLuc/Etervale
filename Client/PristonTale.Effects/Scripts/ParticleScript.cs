@@ -3,13 +3,13 @@ using System.Text.RegularExpressions;
 using Microsoft.Xna.Framework;
 using PristonTale.Effects.Rendering;
 
-namespace PristonTale.Effects.Legacy;
+namespace PristonTale.Effects.Scripts;
 
-public static partial class LegacyParticleScript
+public static partial class ParticleScript
 {
-    public static IReadOnlyList<LegacyParticleSequence> Read(TextReader reader)
+    public static IReadOnlyList<ParticleSequence> Read(TextReader reader)
     {
-        var result = new List<LegacyParticleSequence>();
+        var result = new List<ParticleSequence>();
         var properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var events = new List<(string Key, string Value)>();
         bool system = false;
@@ -110,7 +110,7 @@ public static partial class LegacyParticleScript
         return result;
     }
 
-    private static LegacyParticleSequence Compile(Dictionary<string, string> properties, List<(string Key, string Value)> sourceEvents)
+    private static ParticleSequence Compile(Dictionary<string, string> properties, List<(string Key, string Value)> sourceEvents)
     {
         foreach (string key in properties.Keys)
         {
@@ -153,7 +153,7 @@ public static partial class LegacyParticleScript
             throw new InvalidDataException("Particle texture must remain inside Effect/Particle.");
         }
 
-        var events = new List<LegacyParticleEvent>();
+        var events = new List<ParticleEvent>();
         foreach (var entry in sourceEvents)
         {
             string key = entry.Key;
@@ -203,13 +203,13 @@ public static partial class LegacyParticleScript
                 property = "partangle";
             }
 
-            if (time is < 0 or > 60 || !Enum.TryParse<LegacyParticleProperty>(property, true, out var kind) || !Enum.IsDefined(kind))
+            if (time is < 0 or > 60 || !Enum.TryParse<ParticleProperty>(property, true, out var kind) || !Enum.IsDefined(kind))
             {
                 throw new InvalidDataException($"Invalid particle event: {entry.Key}");
             }
 
-            int dimensions = kind == LegacyParticleProperty.Color ? 4 : 1;
-            if (kind is LegacyParticleProperty.PartAngle or LegacyParticleProperty.Velocity)
+            int dimensions = kind == ParticleProperty.Color ? 4 : 1;
+            if (kind is ParticleProperty.PartAngle or ParticleProperty.Velocity)
             {
                 dimensions = 3;
             }
@@ -222,10 +222,10 @@ public static partial class LegacyParticleScript
                     throw new InvalidDataException("Nonzero X/Y particle rotations are not supported.");
                 }
 
-                value = new LegacyParticleRange(new Vector4(0, 0, value.Min.X, 0), new Vector4(0, 0, value.Max.X, 0));
+                value = new ParticleRange(new Vector4(0, 0, value.Min.X, 0), new Vector4(0, 0, value.Max.X, 0));
             }
-            if ((kind == LegacyParticleProperty.Velocity && fade)
-                || (kind == LegacyParticleProperty.PartAngle && (value.Min.X != 0 || value.Max.X != 0 || value.Min.Y != 0 || value.Max.Y != 0)))
+            if ((kind == ParticleProperty.Velocity && fade)
+                || (kind == ParticleProperty.PartAngle && (value.Min.X != 0 || value.Max.X != 0 || value.Min.Y != 0 || value.Max.Y != 0)))
             {
                 throw new InvalidDataException("Velocity fades and non-billboard rotations require a separate implementation.");
             }
@@ -235,10 +235,10 @@ public static partial class LegacyParticleScript
                 throw new InvalidDataException("Duplicate particle event time for the same property.");
             }
 
-            events.Add(new LegacyParticleEvent(kind, time, fade, value));
+            events.Add(new ParticleEvent(kind, time, fade, value));
         }
 
-        return new LegacyParticleSequence
+        return new ParticleSequence
         {
             Texture = texture,
             Count = (int)count,
@@ -254,7 +254,7 @@ public static partial class LegacyParticleScript
         };
     }
 
-    private static LegacyParticleRange Range(string expression, int dimensions)
+    private static ParticleRange Range(string expression, int dimensions)
     {
         string value = expression.Trim();
         if (dimensions > 1)
@@ -329,7 +329,7 @@ public static partial class LegacyParticleScript
             max[index] = high;
         }
 
-        return new LegacyParticleRange(new Vector4(min[0], min[1], min[2], min[3]), new Vector4(max[0], max[1], max[2], max[3]));
+        return new ParticleRange(new Vector4(min[0], min[1], min[2], min[3]), new Vector4(max[0], max[1], max[2], max[3]));
     }
 
     private static float Number(string value)

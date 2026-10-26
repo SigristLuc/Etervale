@@ -13,7 +13,7 @@ public sealed class ItemTxtParser
     {
         var lines = SourceTextReader.ReadChain(path);
 
-        string code = "", displayName = "", legacyName = "", englishName = "", brazilianName = "";
+        string code = "", displayName = "", koreanName = "", englishName = "", brazilianName = "";
         long unique = 0, jobMask = 0;
         int durMin = 0, durMax = 0, weight = 0, price = 0;
         int dmgMinLow = 0, dmgMinHigh = 0, dmgMaxLow = 0, dmgMaxHigh = 0;
@@ -73,7 +73,7 @@ public sealed class ItemTxtParser
                     break;
 
                 case KeyMaps.ItemName:
-                    legacyName = t.NextValueOrQuoted();
+                    koreanName = t.NextValueOrQuoted();
                     break;
                 case var english when english.Equals("*E_NAME", StringComparison.OrdinalIgnoreCase):
                     englishName = t.NextValueOrQuoted().Trim();
@@ -162,7 +162,7 @@ public sealed class ItemTxtParser
         var item = new ParsedItem
         {
             Code = code,
-            Name = SelectDisplayName(displayName, englishName, string.IsNullOrWhiteSpace(brazilianName) ? legacyName : brazilianName, code),
+            Name = SelectDisplayName(displayName, englishName, string.IsNullOrWhiteSpace(brazilianName) ? koreanName : brazilianName, code),
             Kind = KeyMaps.ClassifyKind(code),
             UniqueItem = unique,
             MaxStack = maxStack,
@@ -202,7 +202,7 @@ public sealed class ItemTxtParser
         return item;
     }
 
-    private static string SelectDisplayName(string displayName, string englishName, string legacyName, string code)
+    private static string SelectDisplayName(string displayName, string englishName, string koreanName, string code)
     {
         if (!string.IsNullOrWhiteSpace(displayName))
         {
@@ -214,9 +214,9 @@ public sealed class ItemTxtParser
             return englishName;
         }
 
-        if (!string.IsNullOrWhiteSpace(legacyName))
+        if (!string.IsNullOrWhiteSpace(koreanName))
         {
-            return legacyName;
+            return koreanName;
         }
 
         return code;

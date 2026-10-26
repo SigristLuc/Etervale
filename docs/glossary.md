@@ -1,6 +1,6 @@
 # Glossary
 
-Domain terms, abbreviations and legacy format names used in the code and the other docs. Each entry names the doc
+Domain terms, abbreviations and original format names used in the code and the other docs. Each entry names the doc
 that explains it in depth.
 
 ## Read this when
@@ -122,7 +122,7 @@ that explains it in depth.
 | `.zhoon` | Name/locale file linked from item, monster and NPC definitions | world-import.md |
 | `.inf` / `.npc` / `.txt` | Monster, NPC and item definition files | world-import.md |
 | `.spm` / `.spp` / `.spc` | Field spawn table / binary spawn points / binary fixed-NPC placements | world-import.md |
-| SMD / SMB / INX | Legacy stage-or-model mesh / skeleton / model-info and motion table files | rendering.md |
+| SMD / SMB / INX | Original stage-or-model mesh / skeleton / model-info and motion table files | rendering.md |
 | `.vfx.json` | Etervale's data-driven visual effect definition | effects.md |
 | `JsonText` | JSON column wrapper: TEXT on SQLite, `jsonb` on PostgreSQL | persistence.md |
 
@@ -132,7 +132,7 @@ that explains it in depth.
 |---|---|---|
 | EV100 | Exposure value at ISO 100 used by the camera model | rendering.md |
 | Pre-exposure | Multiplier applied to scene radiance so a white lit surface is near 1 | rendering.md |
-| Legacy light level | Authored light value, mapped to illuminance as level^1.4 × 10 lux | rendering.md |
+| Original light level | Authored light value, mapped to illuminance as level^1.4 × 10 lux | rendering.md |
 | Mesopic vision | Final-pass blend of dim pixels toward scotopic luminance in the night hue | rendering.md |
 | Floor light | Actor tint from the stage's authored vertex light under its feet | rendering.md |
 | Depth pre-pass | Depth, normals and motion of opaque surfaces and cut-outs; needed by AO, SSR, volumetric light, soft particles | rendering.md |

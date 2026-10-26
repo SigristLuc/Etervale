@@ -29,16 +29,16 @@ internal static class PristonPhotometry
     public const float TwilightFalloffDegrees = 1.6f;
 
     // The game's night is lit for play, about ten times a full moon: the night levels of the day/night gradient (and the
-    // stage lamps) are taken as legacy light levels of NightReferenceIlluminance lux each, mapped by LegacyLevelExponent.
+    // stage lamps) are taken as original light levels of NightReferenceIlluminance lux each, mapped by LevelExponent.
     public const float NightReferenceIlluminance = 10f;
     // Light levels authored for a renderer that multiplied the sRGB texel by the summed light: exponent 1.4 keeps the
     // ratio of lamps, moonlight and night sky that the game was tuned with once they are added in linear light.
-    public const float LegacyLevelExponent = 1.4f;
+    public const float LevelExponent = 1.4f;
 
     // Bounce light reaching downward-facing surfaces: a mid-grey ground.
     public const float GroundAlbedo = 0.2f;
 
-    // Displayed exposure relative to the incident reading: a day key slightly above the meter (the legacy textures are
+    // Displayed exposure relative to the incident reading: a day key slightly above the meter (the original textures are
     // dark), and below DimStartEv a darkening that approaches MaxDimStops (1 - exp(-(DimStartEv - EV) / DimScaleEv)):
     // a low sun reads as evening rather than a second noon, and the night stays dark instead of adapting to day level.
     public const float DayKeyStops = 0.5f;
@@ -66,11 +66,11 @@ internal static class PristonPhotometry
         return DayKeyStops - MaxDimStops * (1f - MathF.Exp(-(DimStartEv - ev100) / DimScaleEv));
     }
 
-    public static float LegacyLevelToIlluminance(float level) =>
-        level <= 0f ? 0f : MathF.Pow(level, LegacyLevelExponent) * NightReferenceIlluminance;
+    public static float LevelToIlluminance(float level) =>
+        level <= 0f ? 0f : MathF.Pow(level, LevelExponent) * NightReferenceIlluminance;
 
-    public static Vector3 LegacyLevelToIlluminance(Vector3 level) =>
-        new(LegacyLevelToIlluminance(level.X), LegacyLevelToIlluminance(level.Y), LegacyLevelToIlluminance(level.Z));
+    public static Vector3 LevelToIlluminance(Vector3 level) =>
+        new(LevelToIlluminance(level.X), LevelToIlluminance(level.Y), LevelToIlluminance(level.Z));
 
     // Kasten and Young (1989) relative optical air mass at an apparent elevation in radians.
     public static float AirMass(float elevation)

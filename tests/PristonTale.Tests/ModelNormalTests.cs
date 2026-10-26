@@ -20,7 +20,7 @@ internal static class ModelNormalTests
             corners[i] = new Vector3((i & 1) == 0 ? -10 : 10, (i & 2) == 0 ? -10 : 10, (i & 4) == 0 ? -10 : 10);
         }
 
-        // The legacy defect: one vertex per corner whose normal averages three perpendicular faces, half of them inverted.
+        // The original defect: one vertex per corner whose normal averages three perpendicular faces, half of them inverted.
         var vertices = corners.Select((position, i) => new PristonModelVertex(position, Vector3.Normalize(i % 2 == 0 ? position : -position))).ToArray();
         int[][] quads = [[0, 1, 3, 2], [4, 6, 7, 5], [0, 4, 5, 1], [2, 3, 7, 6], [0, 2, 6, 4], [1, 5, 7, 3]];
         var faces = new List<PristonModelFace>();

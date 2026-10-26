@@ -122,7 +122,7 @@ and its account warehouse are always written together, so a gold or item move be
   bonuses). An item saved without one (older rows) restores in its shop form with its saved `JobSpecMask`;
   `RolledBonus` is read and ignored. Saved equipment only needs to fit its slot (`PlayerCharacter.CanHold`): a worn item
   whose requirements are no longer met is restored worn.
-- `[]` (inventory, skills, warehouse) and `{}` (equipment) are the empty legacy values and restore as empty state.
+- `[]` (inventory, skills, warehouse) and `{}` (equipment) are the blank values and restore as empty state.
 - An inventory item whose saved anchor no longer fits its footprint moves to the first free cell.
 - `SavedItem.Unique` is 2 for the quest variant of a code (quest weapons, the rank-up ring, Fury rewards); such an item
   restores as the code's quest variant, or as the regular definition when the catalog has no variant.
@@ -145,7 +145,7 @@ FluentMigrator scans `PristonTale.Persistence` for `[Migration(n)]` classes. Ver
 | 23 | `M023ItemFootprints` | `item_templates.grid_width`, `grid_height` (default 1), the inventory footprint; re-import afterwards |
 | 24 | `M024WorldDataFields` | `monsters.hostile`, `size_level`, `res_magic`, `move_type`, `special_attack_pct`, `gold_min/max/pct`, `event_model`, `event_code`, `event_info`; `npcs.hostile`, `level`, `size_level`, `appear_slot`, `appear_cycle`; `item_templates.glow_r/g/b/a`, `glow_blink`, `glow_scale`, `display_effect`, `daily_drop_limit`, `set_code`, `set_pieces`; the `item_sets` table; re-import afterwards |
 
-Legacy upgrade path: databases from the earlier migration set at version 12 upgrade in place. Databases at
+Upgrade path: databases from the earlier migration set at version 12 upgrade in place. Databases at
 versions 1-11 make `M013Baseline` throw; bring them to 12 with the previous release or back up and recreate them.
 After upgrading, run `import` again so existing rows receive the new columns (display names, services, portrait data).
 
@@ -295,7 +295,7 @@ old rows (`UnmappedMemberHandling.Disallow`); bump `Version` and add a conversio
   process; the SQLite int and float handlers would also apply to PostgreSQL parameters.
 - A saved item whose code is missing from the runtime catalog makes the character or warehouse fail to load. Item
   codes removed from the source, or whose key is malformed (`item_code_mask = 0`), affect existing saves.
-- `M013Baseline.Down` drops every table, including on a database that came through the legacy upgrade branch.
+- `M013Baseline.Down` drops every table, including on a database that came through the upgrade branch.
 - `M015NpcServices` checks `npcs.display_name` before adding it because `M014PortraitData` already adds it.
 - `svc_*` columns and their codes are still written by the importer; the runtime reads them only for an NPC with no
   `npc_services` rows. Keep them in sync with `NpcParser.BuildServices` until they are removed.

@@ -373,12 +373,12 @@ public static class WorldDataFactory
                 .Where(static s => Enum.IsDefined((NpcServiceKind)s.Kind))
                 .Select(static s => new NpcService((NpcServiceKind)s.Kind, s.Value, s.Value2, s.Text ?? ""))
                 .ToList()
-            : LegacyServices(r);
+            : FlagServices(r);
         services.RemoveAll(service => service.Kind == NpcServiceKind.Shop && shop.IsEmpty);
         return services;
     }
 
-    private static List<NpcService> LegacyServices(NpcRecord r)
+    private static List<NpcService> FlagServices(NpcRecord r)
     {
         var services = new List<NpcService>();
         if (r.SvcQuest) services.Add(new NpcService(NpcServiceKind.QuestScript, r.QuestCode, r.QuestParam));

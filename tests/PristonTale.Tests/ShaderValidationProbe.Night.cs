@@ -48,7 +48,7 @@ internal sealed partial class ShaderValidationProbe
         var sh = new Vector4[PristonEnvironmentLighting.ShEntries];
         night.Sh.GetData<Vector4>(sh.AsSpan());
         var up = new Vector3(sh[0].X, sh[0].Y, sh[0].Z) * 0.282095f + new Vector3(sh[1].X, sh[1].Y, sh[1].Z) * (0.488603f * 2f / 3f);
-        // A dark rough dielectric (albedo 0.05, the legacy terrain's) seen at n.v = 0.5, reflecting toward the dome's moon.
+        // A dark rough dielectric (albedo 0.05, the original terrain's) seen at n.v = 0.5, reflecting toward the dome's moon.
         var eye = new Vector3(0f, 500f, -866.5f);
         var albedo = SrgbToLinear(63f / 255f);
         using var dark = Texture(new Color(63, 63, 63, 255));

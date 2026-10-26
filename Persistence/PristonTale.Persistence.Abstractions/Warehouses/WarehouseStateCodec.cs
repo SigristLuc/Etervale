@@ -20,7 +20,7 @@ public static class WarehouseStateCodec
         }
 
         var storage = new WarehouseStorage(record.Revision, record.Money);
-        if (CharacterStateCodec.IsLegacyEmpty(record.Items, JsonValueKind.Array))
+        if (CharacterStateCodec.IsBlank(record.Items, JsonValueKind.Array))
         {
             return storage;
         }

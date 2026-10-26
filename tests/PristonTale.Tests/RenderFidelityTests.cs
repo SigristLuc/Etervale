@@ -12,7 +12,7 @@ internal static class RenderFidelityTests
         yield return ("cutout mip chains preserve the base alpha-test coverage", MipChainCoverageAsync);
         yield return ("vertex animation clock wraps on a common period without a phase jump", VertexClockAsync);
         yield return ("frame profiler accumulates CPU sections without GPU timers", ProfilerAsync);
-        yield return ("legacy light levels map to illuminance by the calibrated power curve", LegacyLightAsync);
+        yield return ("original light levels map to illuminance by the calibrated power curve", LightLevelsAsync);
     }
 
     private static Task VertexClockAsync()
@@ -30,18 +30,18 @@ internal static class RenderFidelityTests
             Assert.True(delta < frequency * 0.002, $"frequency {frequency} jumps by {delta} across the clock wrap");
         }
 
-        var legacyWrap = Math.Abs(Math.Sin(1.7 * 99.999) - Math.Sin(1.7 * 0.0));
-        Assert.True(legacyWrap > 0.1, "the old 100 s wrap no longer reproduces the jump this test guards against");
+        var oldWrap = Math.Abs(Math.Sin(1.7 * 99.999) - Math.Sin(1.7 * 0.0));
+        Assert.True(oldWrap > 0.1, "the old 100 s wrap no longer reproduces the jump this test guards against");
         return Task.CompletedTask;
     }
 
-    private static Task LegacyLightAsync()
+    private static Task LightLevelsAsync()
     {
         static float Radiance(float level) =>
-            PristonTale.Engine3D.Rendering.Lighting.PristonPhotometry.LegacyLevelToIlluminance(level)
+            PristonTale.Engine3D.Rendering.Lighting.PristonPhotometry.LevelToIlluminance(level)
             / PristonTale.Engine3D.Rendering.Lighting.PristonPhotometry.NightReferenceIlluminance;
         Assert.Near(1f, Radiance(1f), 1e-5f);
-        Assert.Near(MathF.Pow(0.5f, PristonTale.Engine3D.Rendering.Lighting.PristonPhotometry.LegacyLevelExponent), Radiance(0.5f), 1e-5f);
+        Assert.Near(MathF.Pow(0.5f, PristonTale.Engine3D.Rendering.Lighting.PristonPhotometry.LevelExponent), Radiance(0.5f), 1e-5f);
         Assert.True(Radiance(1.05f) > 1f && Radiance(0f) == 0f && Radiance(-1f) == 0f, "levels above 1 or at 0 lost their curve");
         // Mixed light keeps more of its level than the sum of fully decoded parts would.
         var mixed = Radiance(0.16f) + Radiance(0.52f);

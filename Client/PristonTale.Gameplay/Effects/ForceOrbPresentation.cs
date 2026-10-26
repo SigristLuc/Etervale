@@ -19,7 +19,7 @@ public sealed class ForceOrbPresentation
     private readonly EffectDefinition _hit;
     private readonly Dictionary<ulong, Glow> _active = new();
 
-    public ForceOrbPresentation(SkillPresentation skills, LegacyEffectLibrary library, string assetRoot, EffectsEngine engine, PristonTransientLights lights)
+    public ForceOrbPresentation(SkillPresentation skills, EffectLibrary library, string assetRoot, EffectsEngine engine, PristonTransientLights lights)
     {
         _skills = skills;
         _engine = engine;

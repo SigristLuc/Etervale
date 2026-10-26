@@ -741,7 +741,7 @@ internal static class GltfSceneExport
         public string[] Names { get; }
         public NodeBuilder[] Nodes { get; }
 
-        // Static nodes whose legacy matrix carries shear keep only their TRS part; the residual linear
+        // Static nodes whose original matrix carries shear keep only their TRS part; the residual linear
         // part is baked into their vertices so glTF node matrices stay TRS-decomposable.
         public Matrix?[] VertexBake { get; }
 
@@ -860,7 +860,7 @@ internal static class GltfSceneExport
             resolved[index] = true;
         }
 
-        // Legacy bones may combine a parent's non-uniform scale with their own rotation. glTF TRS cannot
+        // Original bones may combine a parent's non-uniform scale with their own rotation. glTF TRS cannot
         // hold the resulting shear, so those bones are found up front and exported through an SVD carrier.
         private void FindShearedNodes(Matrix[] absoluteBind)
         {
@@ -1067,7 +1067,7 @@ internal static class GltfSceneExport
         }
 
         // Carrier bones are written as rotation-then-scale (R*S); plain glTF nodes apply S*R, so both
-        // orders must reproduce the legacy matrix before a bone may skip the SVD carrier.
+        // orders must reproduce the original matrix before a bone may skip the SVD carrier.
         private bool IsTrs(Matrix local, int index)
         {
             // Translation is copied exactly, so only the linear part decides whether shear is present.
@@ -1189,7 +1189,7 @@ internal static class GltfSceneExport
             largest = Math.Max(largest, sigma[axis]);
         }
 
-        // Legacy rigs hide parts by scaling bones to zero; collapsed axes keep a tiny scale so the
+        // Original rigs hide parts by scaling bones to zero; collapsed axes keep a tiny scale so the
         // hierarchy stays invertible while remaining visually identical.
         var floor = Math.Max(largest * CollapsedAxisScale, 1e-9);
         if (Determinant(v) < 0d)

@@ -9,7 +9,7 @@ internal static class TransientLightTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("legacy combat lights preserve power, radius, decay and bounded selection", PoolAsync);
+        yield return ("original combat lights preserve power, radius, decay and bounded selection", PoolAsync);
         yield return ("transient lights advance without FPS dependence or frame allocations", FramesAsync);
         yield return ("Dark Mage meteor preserves original offsets and speed", MeteorAsync);
     }
@@ -82,7 +82,7 @@ internal static class TransientLightTests
     private static Task MeteorAsync()
     {
         var target = new Vector3(10, 20, 30);
-        var trajectory = LegacyMeteorEffects.Trajectory(target);
+        var trajectory = MeteorEffects.Trajectory(target);
         Assert.Near(10, trajectory.Start.X);
         Assert.Near(20 + 130000f / 256, trajectory.Start.Y);
         Assert.Near(30 - 51000f / 256, trajectory.Start.Z);

@@ -132,7 +132,7 @@ internal sealed class PristonMaterialRuntime
             if (AlphaTest && Transparency <= SolidTransparencyThreshold)
                 return BlendState.Opaque;
 
-            // These follow the legacy blend table (PristonBlendType); several modes are not alpha blends.
+            // These follow the original blend table (PristonBlendType); several modes are not alpha blends.
             return BlendType switch
             {
                 1 => BlendState.NonPremultiplied, // Alpha:     SrcAlpha, InvSrcAlpha

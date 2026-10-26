@@ -4,7 +4,7 @@ using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Effects.Effects;
 using PristonTale.Effects.Particles;
-using PristonTale.Effects.Legacy;
+using PristonTale.Effects.Scripts;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.IO;
@@ -12,19 +12,19 @@ using PristonTale.Engine3D.Rendering;
 
 namespace PristonTale.Gameplay.Effects;
 
-public sealed record LegacyBillboardAnimation(
+public sealed record BillboardAnimation(
     IReadOnlyList<Texture2D> Textures,
     ParticleAnimation Animation);
 
-public sealed class LegacyEffectLibrary : IDisposable
+public sealed class EffectLibrary : IDisposable
 {
     private readonly PristonTextureLoader _textures;
     private readonly ContentManager _content;
     private readonly EffectDefinition[] _potions = new EffectDefinition[3];
     private readonly Dictionary<string, EffectDefinition> _scripts = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, LegacyBillboardAnimation> _animations = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, BillboardAnimation> _animations = new(StringComparer.OrdinalIgnoreCase);
 
-    private LegacyEffectLibrary(GraphicsDevice device, ContentManager content, IClientLog log)
+    private EffectLibrary(GraphicsDevice device, ContentManager content, IClientLog log)
     {
         _content = content;
         _textures = new PristonTextureLoader(device, log);
@@ -33,17 +33,17 @@ public sealed class LegacyEffectLibrary : IDisposable
 
     // The effect definitions under Effect/Vfx, prepared on a worker from the moment the library loads.
     public VfxContent Vfx { get; private set; }
-    public LegacyBillboardAnimation ReturnParticle { get; private set; }
-    public LegacyBillboardAnimation ReturnRay { get; private set; }
+    public BillboardAnimation ReturnParticle { get; private set; }
+    public BillboardAnimation ReturnRay { get; private set; }
 
     public EffectDefinition Potion(int index) => _potions[index];
 
     // The shaders the library's effects draw with come from content.
     public ContentManager Content => _content;
 
-    public static LegacyEffectLibrary LoadBootstrap(GraphicsDevice device, ContentManager content, string assetRoot, IClientLog log)
+    public static EffectLibrary LoadBootstrap(GraphicsDevice device, ContentManager content, string assetRoot, IClientLog log)
     {
-        var library = new LegacyEffectLibrary(device, content, log);
+        var library = new EffectLibrary(device, content, log);
         try
         {
             library.Vfx = new VfxContent(device, content, library._textures, assetRoot, log);
@@ -78,9 +78,9 @@ public sealed class LegacyEffectLibrary : IDisposable
             }
 
             var returnParticle = library.LoadAnimation(assetRoot, "ReturnParticle1.ini");
-            library.ReturnParticle = new LegacyBillboardAnimation(returnParticle.Textures, returnParticle.Animation);
+            library.ReturnParticle = new BillboardAnimation(returnParticle.Textures, returnParticle.Animation);
             var returnRay = library.LoadAnimation(assetRoot, "Return1.ini");
-            library.ReturnRay = new LegacyBillboardAnimation(returnRay.Textures, returnRay.Animation);
+            library.ReturnRay = new BillboardAnimation(returnRay.Textures, returnRay.Animation);
             return library;
         }
         catch
@@ -120,18 +120,18 @@ public sealed class LegacyEffectLibrary : IDisposable
     }
 
     // An original billboard animation (Effect/AnimationData/<name>) by name, cached; null when it cannot be read.
-    public LegacyBillboardAnimation Animation(string root, string name)
+    public BillboardAnimation Animation(string root, string name)
     {
         if (_animations.TryGetValue(name, out var cached))
         {
             return cached;
         }
 
-        LegacyBillboardAnimation animation = null;
+        BillboardAnimation animation = null;
         try
         {
             var loaded = LoadAnimation(root, name);
-            animation = new LegacyBillboardAnimation(loaded.Textures, loaded.Animation);
+            animation = new BillboardAnimation(loaded.Textures, loaded.Animation);
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or KeyNotFoundException or FormatException)
         {
@@ -141,18 +141,18 @@ public sealed class LegacyEffectLibrary : IDisposable
         return animation;
     }
 
-    public static IReadOnlyList<LegacyParticleSequence> ReadParticleSequences(string root, string name)
+    public static IReadOnlyList<ParticleSequence> ReadParticleSequences(string root, string name)
     {
         using var stream = PristonFileResolver.OpenRead(Path.Combine(root, "Effect", "Particle", "Script", name + ".part"));
         using var reader = new StreamReader(stream, Encoding.Latin1);
-        return LegacyParticleScript.Read(reader);
+        return PristonTale.Effects.Scripts.ParticleScript.Read(reader);
     }
 
     private EffectDefinition LoadParticleScript(string root, string name)
     {
         using var stream = PristonFileResolver.OpenRead(Path.Combine(root, "Effect", "Particle", "Script", name + ".part"));
         using var reader = new StreamReader(stream, Encoding.Latin1);
-        var sequences = LegacyParticleScript.Read(reader);
+        var sequences = PristonTale.Effects.Scripts.ParticleScript.Read(reader);
         var emitters = new EmitterDefinition[sequences.Count];
         for (int index = 0; index < sequences.Count; index++)
         {
@@ -167,7 +167,7 @@ public sealed class LegacyEffectLibrary : IDisposable
                 MaxParticles = sequence.Count,
                 Frames = [_textures.LoadTexture(root, sequence.Texture)],
                 Blend = sequence.Blend,
-                LegacySequence = sequence
+                ScriptSequence = sequence
             };
         }
 
@@ -236,7 +236,7 @@ public sealed class LegacyEffectLibrary : IDisposable
     private static Dictionary<string, string> ReadSection(string path, string section)
     {
         using var stream = PristonFileResolver.OpenRead(path);
-        // Directives and paths are ASCII; legacy comments may be CP949. Do not reinterpret their bytes as UTF-8.
+        // Directives and paths are ASCII; original comments may be CP949. Do not reinterpret their bytes as UTF-8.
         using var reader = new StreamReader(stream, Encoding.Latin1);
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var active = false;

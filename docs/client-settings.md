@@ -19,7 +19,7 @@ the in-game Settings panel, and how a change reaches the display, the renderer a
 |---|---|
 | [`ClientSettings.cs`](../Client/PristonTale.Engine3D/Rendering/ClientSettings.cs) | The record: fields and defaults, `Validate`, `WithQuality` (presets), `HasSameRendering`, `HasSameDisplay`, `FrameLimit`. |
 | `Client/PristonTale.Engine3D/Rendering/GraphicsOptions.cs` | Enums `GraphicsQuality`, `AntiAliasingMode`, `TonemapperMode`, `BloomQuality`, `ShadowFilterMode` (serialized by name). |
-| `Client/PristonTale.Engine3D/Rendering/DistanceFogMode.cs` | `DistanceFogMode` and its converter (accepts legacy booleans). |
+| `Client/PristonTale.Engine3D/Rendering/DistanceFogMode.cs` | `DistanceFogMode` and its converter (accepts older booleans). |
 | `Client/PristonTale.Engine3D/Rendering/PristonFrameContext.cs` | `PristonDebugView`; `PristonDistanceFog.For` (fog mode to fog parameters). |
 | `Client/PristonTale.Engine3D/IO/ClientSettingsStore.cs` | Load, version check, read-only protection of unreadable files, asynchronous atomic save. |
 | `Client/PristonTale.Engine3D/Rendering/PresentationSettings.cs` | Shared state between the UI and the display controller: `Requested`, confirmation flags, `ApplyRendering` and the `RenderingChanged` event. |
@@ -29,7 +29,7 @@ the in-game Settings panel, and how a change reaches the display, the renderer a
 | `Client/PristonTale.Gameplay/UI/Widgets/HudSettingsPanel.cs` | The in-game Settings panel (system menu, entry Settings). |
 | `Client/PristonTale.Gameplay/UI/DisplayConfirmation.cs` | Confirm (Enter or button) / revert (Escape or button) prompt of a display change. |
 | `Client/PristonTale.Engine3D/Rendering/PristonRenderer.cs` (`ApplyQuality`) | Reads the rendering fields when `RenderingChanged` fires. |
-| `tests/PristonTale.Tests/ClientSettingsTests.cs`, `PhotorealTests.cs` | Validation, legacy fog booleans, persistence, invalid documents, pacing; preset contents. |
+| `tests/PristonTale.Tests/ClientSettingsTests.cs`, `PhotorealTests.cs` | Validation, older fog booleans, persistence, invalid documents, pacing; preset contents. |
 
 ## File location and lifecycle
 
@@ -98,7 +98,7 @@ renderer through `PresentationSettings.ApplyRendering` and apply at once.
 | `imageBasedLighting` | bool, `true` | | | Sky-dome irradiance (spherical harmonics) and prefiltered reflections, refreshed every 250 ms; `false`: hemispherical sky/ground ambient. |
 | `screenSpaceReflections` | bool, `false` | | | Screen-space reflections of smooth surfaces (water, ice) over the sky reflection; needs the depth pre-pass; skipped when no smooth surface is visible. |
 | `volumetricLight` | bool, `true` | | | Sunlight scattered by a thin height fog, with shadow shafts, at quarter resolution up to the distance-fog start; by day only, needs the depth pre-pass and sun shadows. |
-| `distanceFog` | `Atmospheric` (default), `Classic`, `Off`; legacy `true`/`false` | defined enum | | `Atmospheric`: from 2208 units the surface fades toward the captured sky, at most 85 %, with forward scattering toward the sun. `Classic` is accepted for old files and draws exactly as `Atmospheric`. `true` reads as `Atmospheric`, `false` as `Off`; saving writes the name. |
+| `distanceFog` | `Atmospheric` (default), `Classic`, `Off`; older `true`/`false` | defined enum | | `Atmospheric`: from 2208 units the surface fades toward the captured sky, at most 85 %, with forward scattering toward the sun. `Classic` is accepted for old files and draws exactly as `Atmospheric`. `true` reads as `Atmospheric`, `false` as `Off`; saving writes the name. |
 | `calibrationSpheres` | bool, `false` | | | Look development: an 18 % grey and a chrome sphere beside the camera focus. |
 | `debugView` | `Shaded` (default), `Albedo`, `VertexColour`, `Normals`, `Lighting`, `Overdraw`, `ExposureFalseColour`, `Roughness`, `Metallic`, `AmbientOcclusion`, `Specular` | defined enum | | Development views. `AmbientOcclusion`: occlusion in red, contact shadows in green. `Specular`: specular light alone. `ExposureFalseColour`: EV100 false colour in the final pass. `Overdraw`: additive, no sky, pre-pass or TAA. |
 

@@ -1,6 +1,6 @@
 # Effects and VFX
 
-Particle and skill-effect runtime of the client: `Client/PristonTale.Effects/` (native VFX system, legacy particle
+Particle and skill-effect runtime of the client: `Client/PristonTale.Effects/` (native VFX system, original particle
 engine), the effect data under `<assetRoot>/Effect/Vfx/`, the converter `tools/PristonTale.VfxImport` (`ptvfx`) that
 writes that data, and the gameplay glue in `Client/PristonTale.Gameplay/Effects/` that turns skill events into effects.
 
@@ -11,7 +11,7 @@ writes that data, and the gameplay glue in `Client/PristonTale.Gameplay/Effects/
 - Adding a field to the `.vfx.json` format, a builtin texture, or a new layer behaviour.
 - Debugging an effect that is invisible, a white square, stuck alive, at the wrong position or on the wrong bone.
 - Working on skill looks on actors (tints, translucency, shield swaps, enlarged weapons, afterimages) or costume wings.
-- Working on potion or character-select effects that use the legacy `EffectsEngine`.
+- Working on potion or character-select effects that use the original `EffectsEngine`.
 
 ## Code map
 
@@ -26,8 +26,8 @@ writes that data, and the gameplay glue in `Client/PristonTale.Gameplay/Effects/
 | [`Client/PristonTale.Effects/Vfx/VfxSystem.cs`](../Client/PristonTale.Effects/Vfx/VfxSystem.cs) | `VfxSystem`, `VfxInstance`, emitter and trail simulation, `IVfxAnchors`, `IVfxServices` |
 | `Client/PristonTale.Effects/Vfx/VfxRenderer*.cs` | Quads of every layer in one dynamic vertex buffer; effect models through their own draws |
 | `Client/PristonTale.Effects/Vfx/VfxBuiltinTextures.cs` | Procedural `builtin:` sprite textures |
-| `Client/PristonTale.Effects/Legacy/BillboardSequence.cs` | Original animated billboards (`Effect/AnimationData/*.ini`) and their tick-exact player |
-| `Client/PristonTale.Effects/Legacy/`, `EffectsEngine.cs`, `Effects/`, `Particles/`, `Rendering/` | Legacy particle engine used by potions, character select and the combat-effects probe |
+| `Client/PristonTale.Effects/Scripts/BillboardSequence.cs` | Original animated billboards (`Effect/AnimationData/*.ini`) and their tick-exact player |
+| `Client/PristonTale.Effects/Scripts/`, `EffectsEngine.cs`, `Effects/`, `Particles/`, `Rendering/` | Original particle engine used by potions, character select and the combat-effects probe |
 | [`Client/PristonTale.Gameplay/Effects/VfxContent.cs`](../Client/PristonTale.Gameplay/Effects/VfxContent.cs) | Loads the catalog, models, animations and textures on a worker; registers them on the game thread in 2 ms slices |
 | [`Client/PristonTale.Gameplay/Effects/SkillPresentation.cs`](../Client/PristonTale.Gameplay/Effects/SkillPresentation.cs) | Implements `IVfxServices`, maps skill events and statuses to effects |
 | `Client/PristonTale.Gameplay/Effects/ScriptEffects.cs` | `IScriptEffects`: monster and meteor code start converted scripts (`particle.<name>`) through the skill presentation or a scene's own `VfxSystem` (the opening flight) |
@@ -61,7 +61,7 @@ Files load in ordinal order of their relative path. A name defined again replace
 an error by the catalog, so shipped data keeps names unique). A file that cannot be read, parsed or validated is
 reported (`[Effects] <file>: <reason>`) and skipped as a whole; the other files still load.
 
-Loading: `LegacyEffectLibrary.LoadBootstrap` creates `VfxContent`, whose worker reads the catalog, parses effect models
+Loading: `EffectLibrary.LoadBootstrap` creates `VfxContent`, whose worker reads the catalog, parses effect models
 (with their sibling `.smb` skeleton), reads animated billboards and decodes every texture. `SkillPresentation.Update`
 then registers prepared definitions on the game thread for at most 2 ms per frame and never waits for the worker;
 effects requested before their registration are skipped. Probes, tools and the opening's load call
@@ -117,7 +117,7 @@ seconds, as the original's fast stop does. `StopNow()` ends the instance at once
 |---|---|
 | emitter | `texture`, `frameColumns`/`frameRows` (1), `blend`, `intensity` (1), `softness` (16), `anchor` (Point), `bone`, `offset`, `local`, `delay`, `emitTime` (0 = whole duration), `rate`, `burst`, `maxParticles` (64), `lifetime` [1,1], `speed`, `direction` [0,1,0], `spread` deg, `shape` (Point/Sphere/Ring/Disc), `radius`, `gravity`, `drag`, `size` keys (half extent), `color` keys (linear RGBA), `rotation`, `spin`, `align` (Camera/Ground/Velocity), `stretch` (0.02) |
 | trail | `texture`, `blend`, `intensity`, `anchor` (Caster), `bone`, `offset`, `width` (12, full), `lifetime` (0.25 per point), `delay`, `emitTime`, `color` keys head -> tail |
-| light | `anchor`, `offset` [0,30,0], `color` [r,g,b] 0..1, `power` (160), `decay` (4 per tick), `delay`; legacy light units (radius power/2, brightness power x colour / 256) |
+| light | `anchor`, `offset` [0,30,0], `color` [r,g,b] 0..1, `power` (160), `decay` (4 per tick), `delay`; original light units (radius power/2, brightness power x colour / 256) |
 | sound | `path` (asset-relative wave), `variants` (further takes; each play picks one of `path` and these at random), `delay`, `volume` (1), `pick`; played at the caster |
 
 A key is `{ "t": 0..1, "v": [..] }` with non-decreasing `t`, sampled linearly and clamped.

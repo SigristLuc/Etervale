@@ -38,7 +38,7 @@ shows comes from server snapshots.
 | `Persistence/PristonTale.Persistence` | library | Dapper repositories, FluentMigrator migrations |
 | `Persistence/PristonTale.Persistence.Sqlite`, `.Postgres` | library | Provider wiring (`AddPristonSqlite`, `AddPristonPostgres`) |
 | `Server/PristonTale.Server` | exe | Generic host, DI composition, hosted services (migrations, catalog and terrain load, tick, TCP server), TCP edge mapping packets to application calls |
-| `Client/PristonTale.Engine3D` | library | Legacy asset formats, IO, renderer, lighting, post-processing, sky, client settings |
+| `Client/PristonTale.Engine3D` | library | Original asset formats, IO, renderer, lighting, post-processing, sky, client settings |
 | `Client/PristonTale.Effects` | library | Particles and data-driven VFX |
 | `Client/PristonTale.Client.Net` | library | Client side of the protocol: connection, presence decoding, world catalog from the server |
 | `Client/PristonTale.Gameplay` | library | Screens, game scene, HUD and windows, remote actors, audio, skill presentation |
@@ -87,11 +87,11 @@ Consequences:
 | Packet to command mapping, connection policy | `Server/PristonTale.Server/Net` |
 | SQL, schema change | `Persistence/` (migration + repository + both providers) |
 | Parsing authored `GameServer` files into the catalog tables | `tools/PristonTale.WorldImport` |
-| Legacy model, stage and animation formats, GPU work | `Client/PristonTale.Engine3D` |
+| Original model, stage and animation formats, GPU work | `Client/PristonTale.Engine3D` |
 | Particle scripts and VFX data | `Client/PristonTale.Effects`, `<assetRoot>/Effect/Vfx` written by `tools/PristonTale.VfxImport` |
 | HUD, windows, input, presentation of server events | `Client/PristonTale.Gameplay` |
 
-Original asset paths are resolved with `PristonFileResolver`; do not build legacy paths by hand.
+Original asset paths are resolved with `PristonFileResolver`; do not build original paths by hand.
 
 ## Server threading model
 

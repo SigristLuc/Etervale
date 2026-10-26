@@ -1,9 +1,9 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Effects.Particles;
 
-namespace PristonTale.Effects.Legacy;
+namespace PristonTale.Effects.Scripts;
 
-public enum LegacyParticleProperty
+public enum ParticleProperty
 {
     Size,
     SizeExt,
@@ -12,7 +12,7 @@ public enum LegacyParticleProperty
     PartAngle
 }
 
-public readonly record struct LegacyParticleRange(Vector4 Min, Vector4 Max)
+public readonly record struct ParticleRange(Vector4 Min, Vector4 Max)
 {
     public Vector4 Sample(uint seed)
     {
@@ -33,10 +33,10 @@ public readonly record struct LegacyParticleRange(Vector4 Min, Vector4 Max)
     }
 }
 
-public readonly record struct LegacyParticleEvent(
-    LegacyParticleProperty Property, float Time, bool Fade, LegacyParticleRange Value);
+public readonly record struct ParticleEvent(
+    ParticleProperty Property, float Time, bool Fade, ParticleRange Value);
 
-public sealed class LegacyParticleSequence
+public sealed class ParticleSequence
 {
     public required string Texture { get; init; }
     public required int Count { get; init; }
@@ -47,9 +47,9 @@ public sealed class LegacyParticleSequence
     public bool GroundPlane { get; init; }
     public PristonTale.Effects.Rendering.ParticleBlendMode Blend { get; init; }
     public required float EmitRate { get; init; }
-    public required LegacyParticleRange Lifetime { get; init; }
-    public required LegacyParticleRange Radius { get; init; }
-    public required IReadOnlyList<LegacyParticleEvent> Events { get; init; }
+    public required ParticleRange Lifetime { get; init; }
+    public required ParticleRange Radius { get; init; }
+    public required IReadOnlyList<ParticleEvent> Events { get; init; }
 
     public void Initialize(ref Particle particle, Vector3 origin, Random random)
     {
@@ -68,19 +68,19 @@ public sealed class LegacyParticleSequence
     {
         float age = particle.Age;
         uint seed = particle.ScriptSeed;
-        var size = Sample(LegacyParticleProperty.Size, age, seed, Vector4.One).X;
-        var extension = Sample(LegacyParticleProperty.SizeExt, age, seed, Vector4.Zero).X;
+        var size = Sample(ParticleProperty.Size, age, seed, Vector4.One).X;
+        var extension = Sample(ParticleProperty.SizeExt, age, seed, Vector4.Zero).X;
         particle.Size = MathF.Max(0, size) * .5f;
         particle.Height = MathF.Max(0, extension == 0 ? size : extension) * .5f;
-        var color = Sample(LegacyParticleProperty.Color, age, seed, new Vector4(255));
+        var color = Sample(ParticleProperty.Color, age, seed, new Vector4(255));
         particle.Color = new Color(Vector4.Clamp(color / 255f, Vector4.Zero, Vector4.One));
-        float angle = Sample(LegacyParticleProperty.PartAngle, age, seed, Vector4.Zero).Z;
+        float angle = Sample(ParticleProperty.PartAngle, age, seed, Vector4.Zero).Z;
         particle.Rotation = ((int)angle & 4095) * (MathHelper.TwoPi / 4096f);
         var displacement = IntegrateVelocity(age, seed);
         particle.Position = particle.Origin + Vector3.TransformNormal(new Vector3(displacement.X, displacement.Y, -displacement.Z), orientation ?? Matrix.Identity);
     }
 
-    private Vector4 Sample(LegacyParticleProperty property, float age, uint seed, Vector4 initial)
+    private Vector4 Sample(ParticleProperty property, float age, uint seed, Vector4 initial)
     {
         float previousTime = 0;
         var previous = initial;
@@ -118,7 +118,7 @@ public sealed class LegacyParticleSequence
         for (int index = 0; index < Events.Count; index++)
         {
             var entry = Events[index];
-            if (entry.Property != LegacyParticleProperty.Velocity)
+            if (entry.Property != ParticleProperty.Velocity)
             {
                 continue;
             }

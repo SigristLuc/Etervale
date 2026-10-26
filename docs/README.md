@@ -9,7 +9,7 @@ where to look. Setup, build and run commands are in the root [README.md](../READ
 1. Find your task in the routing table below and open the listed doc.
 2. Every area doc has the same shape: scope, `Read this when`, `Code map`, topic sections, `How to`, `Pitfalls`,
    `Related`. Read the code map first; open source files only after it narrows the search.
-3. Use [glossary.md](glossary.md) for domain terms and legacy format names.
+3. Use [glossary.md](glossary.md) for domain terms and original format names.
 4. When you change behavior, a contract, a data format, a setting or a command, update the doc that describes it in the
    same change. A doc that disagrees with the code is a bug.
 
@@ -18,7 +18,7 @@ where to look. Setup, build and run commands are in the root [README.md](../READ
 | Doc | Covers |
 |---|---|
 | [architecture.md](architecture.md) | Projects, dependency direction, where each kind of rule goes, server and client threading, path of a player action |
-| [glossary.md](glossary.md) | Domain terms, abbreviations and legacy formats |
+| [glossary.md](glossary.md) | Domain terms, abbreviations and original formats |
 | [simulation.md](simulation.md) | `Shared/PristonTale.Simulation` core: characters, classes, items, combat, modifiers, progression |
 | [world.md](world.md) | Simulation world rules: fields, terrain, AI, spawning, loot, motion, NPCs, physics, `Shared/PristonTale.Geometry` |
 | [skills.md](skills.md) | Skill system end to end: class skill data, server resolution, opcodes, client skill UI and VFX hooks |
@@ -31,7 +31,7 @@ where to look. Setup, build and run commands are in the root [README.md](../READ
 | [persistence.md](persistence.md) | Repositories, migrations, schema, SQLite and PostgreSQL providers |
 | [world-import.md](world-import.md) | `tools/PristonTale.WorldImport`: authored data formats, parsers, catalog import, verify |
 | [client.md](client.md) | Client app, screens, game scene, HUD and windows, remote actors, audio, client networking |
-| [rendering.md](rendering.md) | `Client/PristonTale.Engine3D`: legacy formats, renderer passes, lighting, shadows, post-processing |
+| [rendering.md](rendering.md) | `Client/PristonTale.Engine3D`: original formats, renderer passes, lighting, shadows, post-processing |
 | [shaders.md](shaders.md) | Shader library under `Client/PristonTale/Content/Shaders` |
 | [effects.md](effects.md) | `Client/PristonTale.Effects` and the VFX JSON format |
 | [client-settings.md](client-settings.md) | Every `client-settings.json` field, presets and validation |
@@ -81,5 +81,5 @@ The MonoGame fork documents itself in [monogame/README.md](../monogame/README.md
 - English only; prose wrapped at 120 characters.
 - Describe the current state. No dates, changelogs or review notes; Git history is the record of changes.
 - Name code by repository-relative path and type or member name, not by line number.
-- Never cite the original source; describe legacy behavior and formats in Etervale's own terms (see AGENTS.md).
+- Never cite the original source; describe original behavior and formats in Etervale's own terms (see AGENTS.md).
 - Keep each fact in one doc and link to it from the others.

@@ -26,7 +26,7 @@ public sealed record SavedPremium(int Version, SavedPremiumTimer[] Timers, Appli
     // Expired timers are dropped while loading; an unknown kind or version is corrupt data.
     public static void Restore(PlayerCharacter character, JsonText json, long nowSeconds)
     {
-        if (CharacterStateCodec.IsLegacyEmpty(json, JsonValueKind.Object))
+        if (CharacterStateCodec.IsBlank(json, JsonValueKind.Object))
         {
             character.Premium.Restore([]);
             character.ItemUses.Restore([]);

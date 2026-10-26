@@ -25,7 +25,7 @@ public sealed class M013Baseline : Migration
     {
         if (Schema.Table("accounts").Exists())
         {
-            Execute.WithConnection(VerifyLegacyBaseline);
+            Execute.WithConnection(VerifyEarlierBaseline);
             Alter.Table("item_templates")
                 .AddColumn("max_stack").AsInt32().NotNullable().WithDefaultValue(1)
                 .AddColumn("potion_space").AsInt32().NotNullable().WithDefaultValue(0)
@@ -481,7 +481,7 @@ public sealed class M013Baseline : Migration
             .WithColumn("details_json").AsString().NotNullable();
     }
 
-    private static void VerifyLegacyBaseline(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction)
+    private static void VerifyEarlierBaseline(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction)
     {
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
@@ -490,7 +490,7 @@ public sealed class M013Baseline : Migration
         if (count != 1)
         {
             throw new InvalidOperationException(
-                "The database uses an intermediate legacy schema. Back it up and recreate it, or run the previous release through migration 12 before upgrading.");
+                "The database uses an intermediate earlier schema. Back it up and recreate it, or run the previous release through migration 12 before upgrading.");
         }
     }
 }

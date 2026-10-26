@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace PristonTale.Engine3D.Rendering;
 
-// The legacy texture-stage operations a material layer can declare; PristonMaterialAdapter maps them onto the material
+// The original texture-stage operations a material layer can declare; PristonMaterialAdapter maps them onto the material
 // model's layer modes.
 internal enum PristonStageOperation
 {

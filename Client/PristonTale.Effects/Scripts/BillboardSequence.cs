@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace PristonTale.Effects.Legacy;
+namespace PristonTale.Effects.Scripts;
 
 public readonly record struct BillboardFrame(int Image, int DelayTicks, int Alpha, int Size, float AngleDegrees);
 

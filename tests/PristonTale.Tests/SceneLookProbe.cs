@@ -42,7 +42,7 @@ internal sealed partial class SceneLookProbe : Game
     private PristonActor[] _actorAssets = [];
     private OpeningCinematic? _opening;
     private PristonSkyLibrary? _sky;
-    private LegacyEffectLibrary? _effects;
+    private EffectLibrary? _effects;
     private bool _built;
     private int _frames;
 
@@ -85,7 +85,7 @@ internal sealed partial class SceneLookProbe : Game
         {
             var log = PristonTale.Engine3D.Diagnostics.ConsoleClientLog.Instance;
             _sky = PristonSkyLibrary.LoadBootstrap(GraphicsDevice, _root, log);
-            _effects = LegacyEffectLibrary.LoadBootstrap(GraphicsDevice, Content, _root, log);
+            _effects = EffectLibrary.LoadBootstrap(GraphicsDevice, Content, _root, log);
             _opening = new OpeningCinematic(GraphicsDevice, Content, log, relative => Path.Combine(_root, relative), _root, _sky,
                 _presentation, _effects);
             _opening.Load();

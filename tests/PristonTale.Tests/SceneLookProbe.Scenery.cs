@@ -10,7 +10,7 @@ namespace PristonTale.Tests;
 // on an animated scenery model beside it with the same orientation (drawn by the skinned surface path, as actors are),
 // under the noon and the 17:00 sun. Fails when the animated quad's luminance or saturation differs from the stage
 // quad's (the animated scenery drawn at full white beside the darker stage read as grey chrome), or when its specular
-// light alone (the Specular debug view) is brighter than the stage quad's: no chrome on a legacy non-metal.
+// light alone (the Specular debug view) is brighter than the stage quad's: no chrome on a original non-metal.
 internal sealed partial class SceneLookProbe
 {
     private const string SceneryTexture = "metal_w.BMP";

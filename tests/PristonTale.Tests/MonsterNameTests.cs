@@ -46,7 +46,7 @@ internal static class MonsterNameTests
             Assert.True(record.DropConfig?.MonsterName == "호피", "drop association was lost");
 
             var (definitions, codes) = WorldDataFactory.ToMonsterDefinitions(records);
-            Assert.True(definitions.Single().Name == "HOPY", "catalog still exposes the legacy identity");
+            Assert.True(definitions.Single().Name == "HOPY", "catalog still exposes the Korean identity");
             var fields = await repository.GetAllFieldSpawnsAsync();
             var spawns = WorldDataFactory.ToFieldSpawnData(fields.Single(), codes, new Dictionary<string, int>());
             Assert.True(spawns.SpawnTable.Single().MonsterCode == definitions.Single().Code, "localized name broke spawn identity");

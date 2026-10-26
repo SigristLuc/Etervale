@@ -119,7 +119,7 @@ namespace PristonTale.VfxImport
         {
             try
             {
-                // Calls and keywords are ASCII; comments may be in a legacy code page.
+                // Calls and keywords are ASCII; comments may be in a original code page.
                 var definition = convert(File.ReadAllText(file, Encoding.Latin1));
                 definition.Validate();
                 var directory = Path.Combine(output, folder);

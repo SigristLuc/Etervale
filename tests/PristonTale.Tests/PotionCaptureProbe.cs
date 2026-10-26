@@ -10,7 +10,7 @@ internal sealed class PotionCaptureProbe : Game
 {
     private readonly string _assets;
     private readonly string _output;
-    private LegacyEffectLibrary _library = null!;
+    private EffectLibrary _library = null!;
     private EffectsEngine _effects = null!;
     private RenderTarget2D _target = null!;
     private readonly float[] _times = [0.15f, 0.45f, 0.8f, 1.2f];
@@ -34,7 +34,7 @@ internal sealed class PotionCaptureProbe : Game
     protected override void LoadContent()
     {
         Directory.CreateDirectory(_output);
-        _library = LegacyEffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assets, ConsoleClientLog.Instance);
+        _library = EffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assets, ConsoleClientLog.Instance);
         // No HDR scene here: the particles write display-referred colour straight into the 8-bit capture.
         _effects = new EffectsEngine(GraphicsDevice, Content) { DisplayOutput = true };
         _target = new RenderTarget2D(GraphicsDevice, 960, 540, false, SurfaceFormat.Color, DepthFormat.Depth24);

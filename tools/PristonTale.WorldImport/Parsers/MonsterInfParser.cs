@@ -130,7 +130,7 @@ public sealed class MonsterInfParser
                     break;
                 case "*효과음":
                 case "*소리":
-                    soundCode = LegacyNpcSoundCode.Resolve(t.NextWord());
+                    soundCode = CharacterSoundCodes.Resolve(t.NextWord());
                     break;
                 case KeyMaps.MonLevel: level = t.NextInt(); break;
                 case KeyMaps.MonBoss:

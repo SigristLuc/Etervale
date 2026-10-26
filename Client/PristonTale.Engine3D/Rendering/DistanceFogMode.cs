@@ -34,7 +34,7 @@ internal sealed class DistanceFogModeJsonConverter : JsonConverter<DistanceFogMo
             return mode;
         }
 
-        throw new JsonException("distanceFog must be Off, Classic, Atmospheric or a legacy boolean.");
+        throw new JsonException("distanceFog must be Off, Classic, Atmospheric or an older boolean.");
     }
 
     public override void Write(Utf8JsonWriter writer, DistanceFogMode value, JsonSerializerOptions options)

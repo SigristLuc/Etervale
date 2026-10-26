@@ -115,7 +115,7 @@ public sealed record VfxLightDefinition
     public VfxAnchor Anchor { get; init; } = VfxAnchor.Point;
     public float[] Offset { get; init; } = [0f, 30f, 0f];
     public float[] Color { get; init; } = [1f, 1f, 1f];
-    // Legacy light units: power sets the radius (power / 2, at least 64) and brightness, decay the fade per 1/70 s.
+    // Original light units: power sets the radius (power / 2, at least 64) and brightness, decay the fade per 1/70 s.
     public int Power { get; init; } = 160;
     public int Decay { get; init; } = 4;
     public float Delay { get; init; }

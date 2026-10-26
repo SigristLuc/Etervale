@@ -43,14 +43,14 @@ public sealed partial class VfxRenderer
                 }
 
                 var tint = Decode(color);
-                var animated = compiled.Animation is { } animation && animation.Channels != Legacy.BillboardChannels.Opacity;
+                var animated = compiled.Animation is { } animation && animation.Channels != Scripts.BillboardChannels.Opacity;
                 var width = animated ? part.Player.Size : part.Size;
                 var height = animated ? part.Player.Size * (part.Height / MathF.Max(1e-3f, part.Size)) : part.Height;
                 var angle = part.Rotation + (compiled.Animation is not null ? part.Player.Angle : 0f);
                 var position = part.Position;
                 if (source.SlideFrom != 0f)
                 {
-                    var slide = VfxScreenSlide.At(source.SlideFrom, (int)(part.Age * Legacy.BillboardSequence.TicksPerSecond));
+                    var slide = VfxScreenSlide.At(source.SlideFrom, (int)(part.Age * Scripts.BillboardSequence.TicksPerSecond));
                     var depth = MathF.Max(1f, Vector3.Dot(position - camera, _viewForward)) * _worldPerPixel;
                     position += right * (slide.X * depth) - up * (slide.Y * depth);
                 }

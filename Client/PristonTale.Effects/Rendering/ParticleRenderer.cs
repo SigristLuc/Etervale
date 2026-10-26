@@ -65,7 +65,7 @@ public sealed class ParticleRenderer : IDisposable
 
     private void AppendEmitter(in EmitterRenderView view, Vector3 right, Vector3 up)
     {
-        if (view.Definition.LegacySequence?.GroundPlane == true)
+        if (view.Definition.ScriptSequence?.GroundPlane == true)
         {
             right = Vector3.Right;
             up = Vector3.Forward;
@@ -93,7 +93,7 @@ public sealed class ParticleRenderer : IDisposable
             var cos = (float)Math.Cos(p.Rotation);
             var sin = (float)Math.Sin(p.Rotation);
             var rRight = right * (cos * p.Size) + up * (sin * p.Size);
-            float height = view.Definition.LegacySequence is null ? p.Size : p.Height;
+            float height = view.Definition.ScriptSequence is null ? p.Size : p.Height;
             var rUp = up * (cos * height) - right * (sin * height);
             var pos = p.Position;
             var col = p.Color;

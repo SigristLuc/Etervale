@@ -38,7 +38,7 @@ public sealed class PremiumPetPresentation : IDisposable
     private readonly Dictionary<string, EffectDefinition> _scripts = new(StringComparer.Ordinal);
     private readonly Random _random = new();
 
-    public PremiumPetPresentation(IActorScene scene, PristonActorLoader loader, string assetRoot, LegacyEffectLibrary library, EffectsEngine engine,
+    public PremiumPetPresentation(IActorScene scene, PristonActorLoader loader, string assetRoot, EffectLibrary library, EffectsEngine engine,
         PristonTransientLights lights, SkillSoundBank sounds, IClientLog log)
     {
         _scene = scene;

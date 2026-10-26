@@ -1902,7 +1902,7 @@ public sealed partial class PristonRenderer : IDisposable
         if (Underground)
         {
             sunIlluminance = Vector3.Zero;
-            skyIlluminance = PristonPhotometry.LegacyLevelToIlluminance(UndergroundAmbient);
+            skyIlluminance = PristonPhotometry.LevelToIlluminance(UndergroundAmbient);
             lampFactor = 1f;
             skyColor = new Vector3(0.02f, 0.02f, 0.03f);
             horizontal = PristonPhotometry.Luminance(skyIlluminance);
@@ -1931,7 +1931,7 @@ public sealed partial class PristonRenderer : IDisposable
         {
             var light = _activeLights[index];
             var scale = index < transientCount ? transientScale : LampLevelScale;
-            var illuminance = PristonPhotometry.LegacyLevelToIlluminance(light.Color * light.Intensity) * scale;
+            var illuminance = PristonPhotometry.LevelToIlluminance(light.Color * light.Intensity) * scale;
             _activeLights[index] = light with { Color = illuminance * radianceScale, Intensity = 1f };
         }
 
@@ -2316,7 +2316,7 @@ public sealed partial class PristonRenderer : IDisposable
     private bool _smoothSurfaceVisible;
     private const float SmoothRoughness = 0.3f;
 
-    // Surfaces of the opaque and alpha-tested queues that write their depth (also the legacy alpha-blended ground, whose
+    // Surfaces of the opaque and alpha-tested queues that write their depth (also the original alpha-blended ground, whose
     // blending keeps its depth write) and every cut-out outside the blended queue (foliage, also the late-flagged
     // leaves: PristonMaterialRuntimeFactory.Classify; their depth, motion and occlusion come from the pre-pass's alpha
     // test, and the lit pass blends only the front-most leaf): the depth pre-pass draws them, and the lit pass shades

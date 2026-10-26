@@ -11,7 +11,7 @@ namespace PristonTale.Gameplay.World;
 // Item use from the HUD, the premium timers the server sends and the item effects played around players.
 public sealed partial class GameScene
 {
-    private LegacyItemEffects _itemEffects;
+    private ItemUseEffects _itemEffects;
     private PremiumPetPresentation _pets;
     private ForceOrbPresentation _forceOrbs;
 
@@ -29,7 +29,7 @@ public sealed partial class GameScene
     {
         if (_itemEffects is null && _effects is not null && _effectLibrary is not null && _renderer is not null)
         {
-            _itemEffects = new LegacyItemEffects(_effectLibrary, _assetRoot ?? "", _effects, _renderer.TransientLights, _skillSounds);
+            _itemEffects = new ItemUseEffects(_effectLibrary, _assetRoot ?? "", _effects, _renderer.TransientLights, _skillSounds);
         }
 
         if (_forceOrbs is null && _effects is not null && _skillFx is not null)

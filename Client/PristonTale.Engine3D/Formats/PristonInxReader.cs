@@ -5,12 +5,12 @@ namespace PristonTale.Engine3D.Formats;
 
 public sealed class PristonInxReader
 {
-    // INX variants differ only in the item code list width: modern uses short[52], legacy uses byte[52].
+    // INX variants differ only in the item code list width: modern uses short[52], original uses byte[52].
     // The remaining container layout is identical.
-    private const int ModelInfoSizeModern = 95268; // 172-byte motion record (item code list = short[52])
-    private const int ModelInfoSizeLegacy = 67084; // 120-byte motion record (item code list = byte[52])
-    private const int ItemCodeListSizeModern = 104;
-    private const int ItemCodeListSizeLegacy = 52;
+    private const int ModelInfoSizeShortCodes = 95268; // 172-byte motion record (item code list = short[52])
+    private const int ModelInfoSizeByteCodes = 67084; // 120-byte motion record (item code list = byte[52])
+    private const int ItemCodeListSizeShortCodes = 104;
+    private const int ItemCodeListSizeByteCodes = 52;
     private const int ModelGroupSize = 68;
     private const int MotionInfoOffset = 396;
     private const int ModelInfoTailSize =
@@ -45,10 +45,10 @@ public sealed class PristonInxReader
         var data = PristonFileResolver.ReadAllBytes(path);
         var itemCodeListSize = data.Length switch
         {
-            ModelInfoSizeModern => ItemCodeListSizeModern,
-            ModelInfoSizeLegacy => ItemCodeListSizeLegacy,
+            ModelInfoSizeShortCodes => ItemCodeListSizeShortCodes,
+            ModelInfoSizeByteCodes => ItemCodeListSizeByteCodes,
             _ => throw new InvalidDataException(
-                $"{path} is not a supported Priston INX. Size {data.Length}, expected {ModelInfoSizeModern} or {ModelInfoSizeLegacy}.")
+                $"{path} is not a supported Priston INX. Size {data.Length}, expected {ModelInfoSizeShortCodes} or {ModelInfoSizeByteCodes}.")
         };
 
         var cursor = new BinaryCursor(data);
@@ -296,7 +296,7 @@ public sealed class PristonInxReader
         var itemCodeTable = new int[PristonFormatConstants.MotionItemCapacity];
         for (var item = 0; item < PristonFormatConstants.MotionItemCapacity; item++)
         {
-            itemCodeTable[item] = itemCodeListSize == ItemCodeListSizeModern
+            itemCodeTable[item] = itemCodeListSize == ItemCodeListSizeShortCodes
                 ? cursor.Int16()
                 : cursor.Byte();
         }

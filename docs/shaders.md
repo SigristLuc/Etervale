@@ -34,7 +34,7 @@ Each `.fx` in `Passes/` builds to `Effects/<Name>` (the asset name the C# owner 
 | Asset | Source | Techniques | C# owner | Computes |
 |---|---|---|---|---|
 | `Effects/StaticSurface`, `Effects/SkinnedSurface` | `Surface.fx` (`SKINNED` define for the second) | `Prepass`, `PrepassMasked`, `Opaque`, `Masked`, `Sky` and `ShadowClear` (static only), `ShadowCaster`, `ShadowCasterMasked` | `PristonShaderLibrary` | Stage, scenery, sky-layer and actor surfaces: depth pre-pass, lit HDR forward pass with motion output, sun and lamp shadow casters. |
-| `Effects/Unlit` | `Unlit.fx` | `Unlit` | `PristonUnlitEffect` (`GlowRenderer`, `PristonMeshEffect`, Effects `ParticleRenderer`, Gameplay `LegacyReturnEffect`) | Unlit textured `VertexPositionColorTexture` geometry; sRGB decode, `Tint` scales into radiance. |
+| `Effects/Unlit` | `Unlit.fx` | `Unlit` | `PristonUnlitEffect` (`GlowRenderer`, `PristonMeshEffect`, Effects `ParticleRenderer`, Gameplay `ReturnEffect`) | Unlit textured `VertexPositionColorTexture` geometry; sRGB decode, `Tint` scales into radiance. |
 | `Effects/Vfx` | `Vfx.fx` | `Vfx` | `PristonVfxEffect` (Effects `VfxRenderer`) | Skill and combat sprites in linear colour with the soft-particle fade against the pre-pass linear depth; `Mode` selects radiance, squared radiance (colour blends) or a multiplier / inverse multiplier for darkening blends. |
 | `Effects/SkyComposite` | `SkyComposite.fx` | `SkyComposite`, `Background` | `PristonSceneTargets` | First pass of every scene: decodes the 8-bit sky dome (or a flat radiance) into all scene targets, sky motion marker and depth. |
 | `Effects/AmbientOcclusion` | `AmbientOcclusion.fx` | `Occlusion`, `Blur` | `Post/PristonScreenOcclusion` | Half-resolution GTAO (two slices, three horizon steps each way) and contact shadows toward the sun; 4x4 depth-aware blur. Output x AO, y contact visibility, z view depth. |
@@ -94,7 +94,7 @@ Material codes (`MaterialDecl.hlsli`, mirrored by `PristonMaterialDescription.cs
   nominal display scale (`PristonFrameContext.Exposure`), so they show at their authored level when the automatic
   exposure sits at the light model's reading. Self-illumination at night is a light source of fixed luminance
   (`EmissionScale`), except on characters and monsters, which stay at the display level.
-- Legacy textures and vertex colours are sRGB-encoded 8-bit values and are decoded exactly in the shader. VFX vertex
+- Original textures and vertex colours are sRGB-encoded 8-bit values and are decoded exactly in the shader. VFX vertex
   colours are the exception: already linear.
 - The vertex colour scales the albedo in linear light on both paths: stage geometry carries its authored light; scenery
   models take the stage's light per texture (`PristonStageBakedLight`); skinned actors take the floor light through the
@@ -102,7 +102,7 @@ Material codes (`MaterialDecl.hlsli`, mirrored by `PristonMaterialDescription.cs
 - Stage lamps fall off with the inverse square from `LampReferenceDistance` = 150 units (`Shading.hlsli`), constant
   inside `LampMinDistance`, windowed to zero at the radius by (1 - (d/r)^4)^2. Transient combat lights stay radial
   (normal-independent).
-- The legacy sphere-mapped shine (layer mode 3) reflects the sky and a quarter of the sun, occluded and shadowed, and
+- The original sphere-mapped shine (layer mode 3) reflects the sky and a quarter of the sun, occluded and shadowed, and
   counts as specular light.
 - The sky dome is reflected at most at its visible level; the rest of the sky light is a uniform fill over the upper
   hemisphere in the sky light's colour (irradiance and reflections alike), so the dark night dome's horizon glow and
@@ -187,12 +187,12 @@ transmittance + in-scatter with the exact optical depth). Sources: `tests/Pristo
 - Uniform initialisers and sampler-state defaults on uniforms are dropped; set values from C#.
 - The surface effect's whole stage cbuffer re-uploads on any parameter change; redundant `SetValue` calls cost GPU
   bandwidth, not just CPU.
-- The sky layers are display-referred art blended with legacy modes into an 8-bit target and decoded by
+- The sky layers are display-referred art blended with original modes into an 8-bit target and decoded by
   `SkyComposite.fx`; do not move them into the HDR target or their additive glows change.
 - Self-illuminated and additive materials take shading model 1; their brightness is display-referred by day and a fixed
   luminance at night. Changing `EmissiveLuminance` (`PristonRenderer`) changes night glows, not day ones, and never
   characters or monsters.
-- The transient-light falloff (radial, legacy (1 - d/r)^2 range) differs from the stage-lamp inverse square on purpose.
+- The transient-light falloff (radial, original (1 - d/r)^2 range) differs from the stage-lamp inverse square on purpose.
 - Skinned meshes are drawn two-sided (their winding is opposite to the stage); `VisibleFaceNormal` in `Material.hlsli`
   shades the side being seen, so do not reintroduce back-face culling for actors.
 - Values shared between HLSL and C# with no compile-time link: `MAX_LOCAL_LIGHTS` (32, in `LightingDecl.hlsli` and

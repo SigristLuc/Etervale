@@ -54,7 +54,7 @@ public sealed class ParticleEmitter
             dt = 0f;
         }
 
-        if (_definition.LegacySequence is { } script)
+        if (_definition.ScriptSequence is { } script)
         {
             UpdateScript(script, dt, origin);
             return;
@@ -108,7 +108,7 @@ public sealed class ParticleEmitter
         }
     }
 
-    private void UpdateScript(PristonTale.Effects.Legacy.LegacyParticleSequence script, float dt, Vector3 origin)
+    private void UpdateScript(PristonTale.Effects.Scripts.ParticleSequence script, float dt, Vector3 origin)
     {
         double previousAge = _scriptAge;
         _scriptAge += dt;

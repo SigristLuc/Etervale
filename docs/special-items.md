@@ -37,7 +37,7 @@ and draws the result.
 | `Shared/PristonTale.Protocol/Packets/ItemUsePackets.cs` | `ItemUseCommand`, `ItemUseResult`, `PremiumTimers`, `ItemEffects` |
 | `Client/PristonTale.Gameplay/UI/Inventory/HudItemUseController.cs`, `HudTeleportCore.cs`, `HudUsableTooltip.cs` | Right-click use, Teleport Core window, confirmations, tooltips |
 | `Client/PristonTale.Gameplay/UI/Widgets/HudPremiumTimers.cs` | The premium timer column |
-| `Client/PristonTale.Gameplay/Effects/LegacyItemEffects.cs` | Firecrackers and item sounds on the legacy particle engine |
+| `Client/PristonTale.Gameplay/Effects/ItemUseEffects.cs` | Firecrackers and item sounds on the original particle engine |
 | `Client/PristonTale.Gameplay/Effects/ItemVfx.cs`, `ForceOrbPresentation.cs` | Skill-learn light, force orb weapon glow and hit spark |
 | `Client/PristonTale.Gameplay/World/Remote/PremiumPetPresentation.cs` | Pet actors, their animation and strikes |
 | `Client/PristonTale.Gameplay/World/GameScene.Items.cs` | Item use, timers and item effects in the scene |

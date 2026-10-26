@@ -6,7 +6,7 @@ using PristonTale.Engine3D.Rendering.Lighting;
 
 namespace PristonTale.Tests;
 
-// The legacy material adapter: what each kind of legacy material becomes in the material model.
+// The original material adapter: what each kind of original material becomes in the material model.
 internal static class MaterialAdapterTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
@@ -23,17 +23,17 @@ internal static class MaterialAdapterTests
 
     private static Task FoliageAsync()
     {
-        var plain = PristonMaterialAdapter.Describe(LegacyMaterial(), null);
+        var plain = PristonMaterialAdapter.Describe(StageMaterial(), null);
         Assert.True(PristonMaterialAdapter.WithShape(plain, alphaTest: true, twoSided: true).Translucency > 0f, "foliage is not translucent");
         Assert.True(PristonMaterialAdapter.WithShape(plain, alphaTest: true, twoSided: false).Translucency == 0f, "one-sided cut-outs transmit");
-        var emissive = PristonMaterialAdapter.Describe(LegacyMaterial(selfIllum: 1f), null);
+        var emissive = PristonMaterialAdapter.Describe(StageMaterial(selfIllum: 1f), null);
         Assert.True(PristonMaterialAdapter.WithShape(emissive, alphaTest: true, twoSided: true).Translucency == 0f, "emission transmits");
         return Task.CompletedTask;
     }
 
     private static Task LateCutoutAsync()
     {
-        var leaf = LegacyMaterial(flags: PristonMaterialSurfaceFlags.RenderLast) with { TextureName = "leaf.tga", TwoSided = true };
+        var leaf = StageMaterial(flags: PristonMaterialSurfaceFlags.RenderLast) with { TextureName = "leaf.tga", TwoSided = true };
         var (alphaTest, transparent) = PristonMaterialRuntimeFactory.Classify(leaf);
         Assert.True(alphaTest && !transparent, "a late-flagged foliage cut-out is drawn in the blended queue");
         Assert.True(PristonMaterialRuntimeFactory.Classify(leaf with { Transparency = 0.4f }).Transparent, "a see-through cut-out left the blended queue");
@@ -44,8 +44,8 @@ internal static class MaterialAdapterTests
 
     private static Task StageBakedLightAsync()
     {
-        var metal = LegacyMaterial() with { TextureName = "metal.bmp" };
-        var wood = LegacyMaterial() with { TextureName = "wood.bmp" };
+        var metal = StageMaterial() with { TextureName = "metal.bmp" };
+        var wood = StageMaterial() with { TextureName = "wood.bmp" };
         var dark = new Color(100, 100, 100);
         var vertices = new[]
         {
@@ -56,15 +56,15 @@ internal static class MaterialAdapterTests
         var stage = new PristonStage("fixture.smd", [metal, wood], vertices, [new(0, 1, 2, 0, -1), new(3, 4, 5, 1, -1)], [], [], default);
         var light = PristonStageBakedLight.For(stage);
         Assert.True(light.For(metal) == dark && light.For(wood) == Color.White, $"per-texture light {light.For(metal)} / {light.For(wood)}");
-        var unknown = light.For(LegacyMaterial() with { TextureName = "cloth.bmp" });
+        var unknown = light.For(StageMaterial() with { TextureName = "cloth.bmp" });
         // The mean of 100/255 and white in linear light, encoded again: about 198.
         Assert.True(unknown.R is >= 196 and <= 200 && unknown.R == unknown.G && unknown.G == unknown.B, $"stage mean light {unknown}");
         Assert.True(PristonStageBakedLight.None.For(metal) == Color.White, "without a stage the scenery is not lit at full white");
         return Task.CompletedTask;
     }
 
-    // A legacy material with one texture; the parameters the adapter reads are set by name.
-    public static PristonMaterial LegacyMaterial(
+    // A original material with one texture; the parameters the adapter reads are set by name.
+    public static PristonMaterial StageMaterial(
         uint blendType = PristonBlendType.Alpha,
         float selfIllum = 0f,
         PristonMaterialSurfaceFlags flags = PristonMaterialSurfaceFlags.None) =>
@@ -72,11 +72,11 @@ internal static class MaterialAdapterTests
 
     // The description the GPU probe draws with: a plain or self-illuminated material, with an optional second layer.
     public static PristonMaterialDescription Describe(bool selfIllum, PristonMaterialLayer? layer) =>
-        PristonMaterialAdapter.Describe(LegacyMaterial(selfIllum: selfIllum ? 1f : 0f), layer!);
+        PristonMaterialAdapter.Describe(StageMaterial(selfIllum: selfIllum ? 1f : 0f), layer!);
 
     private static Task PlainAsync()
     {
-        var description = PristonMaterialAdapter.Describe(LegacyMaterial(), null);
+        var description = PristonMaterialAdapter.Describe(StageMaterial(), null);
         Assert.True(description.ShadingModel == PristonShadingModel.Lit && description.LayerMode == PristonLayerMode.None,
             $"plain material became {description.ShadingModel}/{description.LayerMode}");
         Assert.True(description.Metallic == 0f && description.Roughness == PristonMaterialAdapter.DefaultRoughness
@@ -89,10 +89,10 @@ internal static class MaterialAdapterTests
     {
         foreach (var material in new[]
                  {
-                     LegacyMaterial(selfIllum: 1f),
-                     LegacyMaterial(PristonBlendType.Lamp),
-                     LegacyMaterial(PristonBlendType.AddColor),
-                     LegacyMaterial(PristonBlendType.Color)
+                     StageMaterial(selfIllum: 1f),
+                     StageMaterial(PristonBlendType.Lamp),
+                     StageMaterial(PristonBlendType.AddColor),
+                     StageMaterial(PristonBlendType.Color)
                  })
         {
             var description = PristonMaterialAdapter.Describe(material, null);
@@ -100,7 +100,7 @@ internal static class MaterialAdapterTests
                 $"blend {material.BlendType} self-illum {material.SelfIllum} became {description.ShadingModel} x{description.EmissiveStrength}");
         }
 
-        var blinking = PristonMaterialAdapter.Describe(LegacyMaterial(selfIllum: 1f, flags: PristonMaterialSurfaceFlags.Blinking), null);
+        var blinking = PristonMaterialAdapter.Describe(StageMaterial(selfIllum: 1f, flags: PristonMaterialSurfaceFlags.Blinking), null);
         Assert.True(blinking.Blink, "blinking emission lost its pulse");
         return Task.CompletedTask;
     }
@@ -109,7 +109,7 @@ internal static class MaterialAdapterTests
     {
         foreach (var blend in new[] { PristonBlendType.Shadow, PristonBlendType.InverseShadow })
         {
-            var description = PristonMaterialAdapter.Describe(LegacyMaterial(blend), null);
+            var description = PristonMaterialAdapter.Describe(StageMaterial(blend), null);
             Assert.True(description.ShadingModel == PristonShadingModel.ColorFactor, $"blend {blend} became {description.ShadingModel}");
         }
 
@@ -130,7 +130,7 @@ internal static class MaterialAdapterTests
         foreach (var (operation, formState, mode, strength) in cases)
         {
             // A layer without a texture adds nothing; the operation decides only for a loaded layer.
-            var missing = PristonMaterialAdapter.Describe(LegacyMaterial(), new PristonMaterialLayer(texture, operation, formState));
+            var missing = PristonMaterialAdapter.Describe(StageMaterial(), new PristonMaterialLayer(texture, operation, formState));
             Assert.True(missing.LayerMode == PristonLayerMode.None, $"{operation} without a texture still uses the layer");
         }
 
@@ -146,10 +146,10 @@ internal static class MaterialAdapterTests
 
     private static Task SurfaceKindsAsync()
     {
-        var water = PristonMaterialAdapter.Describe(LegacyMaterial(flags: PristonMaterialSurfaceFlags.Water), null);
+        var water = PristonMaterialAdapter.Describe(StageMaterial(flags: PristonMaterialSurfaceFlags.Water), null);
         Assert.True(water.Roughness == PristonMaterialAdapter.WaterRoughness && water.Reflectance == PristonMaterialAdapter.WaterReflectance,
             "water is not smooth with the reflectance of water");
-        var ice = PristonMaterialAdapter.Describe(LegacyMaterial(flags: PristonMaterialSurfaceFlags.Ice), null);
+        var ice = PristonMaterialAdapter.Describe(StageMaterial(flags: PristonMaterialSurfaceFlags.Ice), null);
         Assert.True(ice.Roughness == PristonMaterialAdapter.IceRoughness, "ice lost its roughness");
         var shine = PristonMaterialAdapter.DescribeLayer(PristonStageOperation.Add, PristonMaterialRuntime.ReflexFormState);
         Assert.True(shine.Mode == PristonLayerMode.Reflection, "the sphere-mapped shine is not a reflection");

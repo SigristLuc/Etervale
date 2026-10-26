@@ -3,7 +3,7 @@ using PristonTale.Engine3D.Formats;
 
 namespace PristonTale.Engine3D.Rendering;
 
-// Legacy model files store vertex normals averaged across perpendicular faces and sometimes pointing inward. Strong
+// Original model files store vertex normals averaged across perpendicular faces and sometimes pointing inward. Strong
 // sun and sky light turn those into bright-to-dark gradients across flat faces, so skinned and animated meshes get
 // normals rebuilt from their posed geometry, like the static stage. A corner shares its normal only with faces at the
 // same posed position within the crease angle, then the normal returns to its bone's local space, where the vertex

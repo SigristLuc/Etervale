@@ -31,7 +31,7 @@ internal sealed class VfxCaptureProbe : Game, IVfxAnchors, IVfxServices
     private readonly string[] _effects;
     private readonly List<string> _failures = [];
     private PristonRenderer _renderer = null!;
-    private LegacyEffectLibrary _library = null!;
+    private EffectLibrary _library = null!;
     private VfxSystem _system = null!;
     private VfxRenderer _vfx = null!;
     private PristonCamera _camera = null!;
@@ -61,7 +61,7 @@ internal sealed class VfxCaptureProbe : Game, IVfxAnchors, IVfxServices
     {
         Directory.CreateDirectory(_output);
         _target = new RenderTarget2D(GraphicsDevice, 960, 540, false, SurfaceFormat.Color, DepthFormat.Depth24);
-        _library = LegacyEffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assets, ConsoleClientLog.Instance);
+        _library = EffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assets, ConsoleClientLog.Instance);
         _library.Vfx.CompileAll();
         _renderer = new PristonRenderer(GraphicsDevice, Content) { ShadowsEnabled = false, DayLengthSeconds = 0 };
         _renderer.SetTimeOfDay(12f);

@@ -46,7 +46,7 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
     private PristonRenderer _renderer = null!;
     private PlayerActorComposer _composer = null!;
     private ActorLookPresenter _looks = null!;
-    private LegacyEffectLibrary _library = null!;
+    private EffectLibrary _library = null!;
     private SkillPresentation _presentation = null!;
     private PristonCamera _camera = null!;
     private RenderTarget2D _target = null!;
@@ -87,7 +87,7 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
     {
         Directory.CreateDirectory(_output);
         _target = new RenderTarget2D(GraphicsDevice, 960, 540, false, SurfaceFormat.Color, DepthFormat.Depth24);
-        _library = LegacyEffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assets, ConsoleClientLog.Instance);
+        _library = EffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assets, ConsoleClientLog.Instance);
         _renderer = new PristonRenderer(GraphicsDevice, Content) { ShadowsEnabled = true, DayLengthSeconds = 0 };
         _renderer.SetTimeOfDay(17.5f);
         var material = new PristonMaterial(true, 1, 0, 1, true, new Vector3(0.08f, 0.08f, 0.09f), 0, 1, PristonMaterialSurfaceFlags.None, "", "", [], [], 0, 0, 0);

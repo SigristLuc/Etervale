@@ -1,6 +1,6 @@
 namespace PristonTale.Simulation.World.Npcs;
 
-public static class LegacyNpcSoundCode
+public static class CharacterSoundCodes
 {
     public const int Wolverine = 0x11E0;
     public const int SummonedWolverine = 0x3010;

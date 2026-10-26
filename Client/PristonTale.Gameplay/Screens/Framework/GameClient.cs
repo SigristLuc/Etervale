@@ -27,7 +27,7 @@ public sealed class GameClient : IDisposable
     private SpriteFont _font;
     private HudAtlas _uiAtlas;
     private PristonSkyLibrary _sky;
-    private PristonTale.Gameplay.Effects.LegacyEffectLibrary _effects;
+    private PristonTale.Gameplay.Effects.EffectLibrary _effects;
     private PristonAudioLibrary _audio;
     private readonly PresentationSettings _presentation;
     private DisplayConfirmation _displayConfirmation;
@@ -61,7 +61,7 @@ public sealed class GameClient : IDisposable
         _font = font;
         _uiAtlas = HudAtlas.LoadBootstrap(_graphicsDevice, _assetRoot, ConsoleClientLog.Instance);
         _sky = PristonSkyLibrary.LoadBootstrap(_graphicsDevice, _assetRoot, ConsoleClientLog.Instance);
-        _effects = PristonTale.Gameplay.Effects.LegacyEffectLibrary.LoadBootstrap(_graphicsDevice, _content, _assetRoot, ConsoleClientLog.Instance);
+        _effects = PristonTale.Gameplay.Effects.EffectLibrary.LoadBootstrap(_graphicsDevice, _content, _assetRoot, ConsoleClientLog.Instance);
         _audio = PristonAudioLibrary.LoadBootstrap(_assetRoot, ConsoleClientLog.Instance);
         _audio.ApplySettings(_presentation.Requested);
         _backend = new GameServerConnection(_serverAddress);

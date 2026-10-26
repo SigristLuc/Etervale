@@ -2,7 +2,7 @@ using System.Text;
 
 namespace PristonTale.Gameplay.Audio;
 
-public static class LegacyTalkSound
+public static class TalkSound
 {
     private static readonly Encoding Cp949 = CreateCp949();
 

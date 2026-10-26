@@ -42,7 +42,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     private static readonly TimeSpan CompileBudget = TimeSpan.FromMilliseconds(2);
 
     private readonly ISkillSceneHost _host;
-    private readonly LegacyEffectLibrary _legacy;
+    private readonly EffectLibrary _effectLibrary;
     private readonly PristonTransientLights _lights;
     private readonly SkillSoundBank _sounds;
     private readonly IClientLog _log;
@@ -54,15 +54,15 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     private readonly Random _soundRandom = new();
     private bool _effectSoundsLoaded;
 
-    public SkillPresentation(GraphicsDevice device, ContentManager content, LegacyEffectLibrary legacy, PristonTransientLights lights, ISkillSceneHost host,
+    public SkillPresentation(GraphicsDevice device, ContentManager content, EffectLibrary library, PristonTransientLights lights, ISkillSceneHost host,
         SkillSoundBank sounds, IClientLog log)
     {
         _host = host;
-        _legacy = legacy;
+        _effectLibrary = library;
         _lights = lights;
         _sounds = sounds;
         _log = log;
-        Library = legacy.Vfx.Library;
+        Library = library.Vfx.Library;
         System = new VfxSystem(host, this, Library);
         Renderer = new VfxRenderer(device, content);
         Statuses.Added += OnStatusAdded;
@@ -121,7 +121,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
 
     public void Update(float seconds, double nowMs)
     {
-        if (!_legacy.Vfx.Ready && _legacy.Vfx.Compile(CompileBudget) || _legacy.Vfx.Ready && !_effectSoundsLoaded)
+        if (!_effectLibrary.Vfx.Ready && _effectLibrary.Vfx.Compile(CompileBudget) || _effectLibrary.Vfx.Ready && !_effectSoundsLoaded)
         {
             _effectSoundsLoaded = true;
             _sounds.Preload(Library.Names.SelectMany(name => Library.TryGet(name, out var effect) ? effect.Definition.Sounds.SelectMany(sound => sound.AllPaths) : []));

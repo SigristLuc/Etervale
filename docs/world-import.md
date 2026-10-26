@@ -178,7 +178,7 @@ Code lookups are case-insensitive: drop and shop references (often lower case) a
   `*골드 <min> <max> <percent>` gold dropped on death on top of the drop table (`gold_min/max/pct`); `*예비모델` the model
   worn during the hammer event (`event_model`); `*이벤트코드`, `*이벤트정보` the event creature code and its field
   (`event_code`, `event_info`: code 100 walks at night).
-- Sound keys resolve through `LegacyNpcSoundCode.Resolve`; `*모델크기` is the model scale; `*화면보정 <height>
+- Sound keys resolve through `CharacterSoundCodes.Resolve`; `*모델크기` is the model scale; `*화면보정 <height>
   <distance>` is the target-frame portrait correction.
 - Quest keys: `*구별코드` is the classification code quest hunts count (`quest_code`); `*이벤트아이템 <code>` an item
   every kill hands out (`event_item`, rewritten to the stored code casing; an unknown code keeps its authored text and
@@ -379,7 +379,7 @@ migrates before running a command.
 - `--assets` is not required inside the repository: the default finds the repository `assets/` from the executable
   path. Pass it explicitly when running a published copy.
 - The default database without `--sqlite`/`--postgres` is a temporary file, not `data/pristontale.db`.
-- On a legacy-upgraded database, NPC display names and services stay empty until `import` runs again.
+- On an upgraded earlier database, NPC display names and services stay empty until `import` runs again.
 
 ## Related
 

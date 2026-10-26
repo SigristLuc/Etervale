@@ -3,16 +3,16 @@ using PristonTale.Engine3D.Formats;
 
 namespace PristonTale.Engine3D.Rendering;
 
-// Converts a legacy material into the inputs of the material model (PristonMaterialDescription). The legacy format
+// Converts a original material into the inputs of the material model (PristonMaterialDescription). The original format
 // describes fixed-function texture stages and blend modes; the assets use (measured over every .smd/.smb, weighted by
 // faces) a modulating base stage everywhere, at most one further stage in practice (a multiplied detail or light map on
 // stage geometry, an additive sphere-mapped shine on armour and weapons, an additive scrolling glow on a few stage
-// surfaces) and a third multiplied stage on nine materials only, which is not carried over. The legacy assets carry no
+// surfaces) and a third multiplied stage on nine materials only, which is not carried over. The original assets carry no
 // roughness or metalness, so each kind of surface gets a fixed, plausible value.
 internal static class PristonMaterialAdapter
 {
     // Skin, cloth, hair, leather, wood and stone: rough dielectrics. Only water, ice and the authored shine are smoother;
-    // nothing legacy is metallic (the assets carry no metalness).
+    // nothing original is metallic (the assets carry no metalness).
     public const float DefaultRoughness = 0.85f;
     public const float DielectricReflectance = 0.04f;
     public const float WaterRoughness = 0.12f;
@@ -81,7 +81,7 @@ internal static class PristonMaterialAdapter
     private static (PristonLayerMode Mode, float Strength) DescribeLayer(PristonMaterialLayer layer) =>
         layer?.Texture is null ? (PristonLayerMode.None, 1f) : DescribeLayer(layer.Operation, layer.FormState);
 
-    // What a loaded second layer contributes, by its legacy stage operation and texture form state.
+    // What a loaded second layer contributes, by its original stage operation and texture form state.
     internal static (PristonLayerMode Mode, float Strength) DescribeLayer(PristonStageOperation operation, uint formState) =>
         operation switch
         {
@@ -94,7 +94,7 @@ internal static class PristonMaterialAdapter
         };
 }
 
-// Legacy blend modes of a material (BlendType), by their effect on the colour behind the surface.
+// Original blend modes of a material (BlendType), by their effect on the colour behind the surface.
 internal static class PristonBlendType
 {
     public const uint Alpha = 1;

@@ -226,7 +226,7 @@ public sealed class PristonSmdReader
         var headerName = DecodeFixedString(headerBytes);
         if (string.Equals(headerName, PristonFormatConstants.ModelHeader, StringComparison.Ordinal))
         {
-            return PristonSmdHeaderKind.LegacyModel;
+            return PristonSmdHeaderKind.Version62Model;
         }
 
         if (string.Equals(headerName, PristonFormatConstants.StageHeader, StringComparison.Ordinal))
@@ -255,7 +255,7 @@ public sealed class PristonSmdReader
 
     private static bool IsModelHeader(PristonSmdHeaderKind kind)
     {
-        return kind is PristonSmdHeaderKind.LegacyModel or PristonSmdHeaderKind.BinaryModel;
+        return kind is PristonSmdHeaderKind.Version62Model or PristonSmdHeaderKind.BinaryModel;
     }
 
     private static bool IsStageHeader(PristonSmdHeaderKind kind)

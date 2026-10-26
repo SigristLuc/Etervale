@@ -46,5 +46,5 @@ public sealed record EmitterDefinition
 
     public ParticleAnimation? Animation { get; init; }
     public bool PotionMotion { get; init; }
-    public PristonTale.Effects.Legacy.LegacyParticleSequence? LegacySequence { get; init; }
+    public PristonTale.Effects.Scripts.ParticleSequence? ScriptSequence { get; init; }
 }

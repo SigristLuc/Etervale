@@ -16,10 +16,10 @@ internal sealed class CombatEffectsCaptureProbe : Game
     private readonly string _output;
     private readonly float[] _times = [0, .3f, .8f, 1.05f, 1.4f, 2.2f];
     private PristonRenderer _renderer = null!;
-    private LegacyEffectLibrary _library = null!;
+    private EffectLibrary _library = null!;
     private EffectsEngine _effects = null!;
-    private LegacyMeteorEffects _meteors = null!;
-    private LegacyReturnEffect _return = null!;
+    private MeteorEffects _meteors = null!;
+    private ReturnEffect _return = null!;
     private PristonCamera _camera = null!;
     private RenderTarget2D _target = null!;
     private int _sample;
@@ -45,7 +45,7 @@ internal sealed class CombatEffectsCaptureProbe : Game
     {
         Directory.CreateDirectory(_output);
         _target = new RenderTarget2D(GraphicsDevice, 960, 540, false, SurfaceFormat.Color, DepthFormat.Depth24);
-        _library = LegacyEffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assets, ConsoleClientLog.Instance);
+        _library = EffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assets, ConsoleClientLog.Instance);
         _effects = new EffectsEngine(GraphicsDevice, Content, 812);
         Assert.True(Content.Load<Effect>("Effects/StaticSurface").Parameters["LocalLightCount"] is not null,
             "capture requires the rebuilt production shader");
@@ -62,10 +62,10 @@ internal sealed class CombatEffectsCaptureProbe : Game
              new(new Vector3(400, 0, 400), new Color(80, 80, 80)), new(new Vector3(400, 0, -400), new Color(80, 80, 80))],
             [new(0, 1, 2, 0, -1), new(0, 2, 3, 0, -1)], [], [], new BoundingBox(new Vector3(-400, 0, -400), new Vector3(400, 0, 400)));
         _renderer.AddStage(stage, Array.Empty<PristonModel>());
-        var scripts = new LegacyScriptEffects(_library, _effects, _assets);
-        _meteors = new LegacyMeteorEffects(scripts, _renderer.TransientLights, new PristonCollisionWorld(stage));
+        var scripts = new EngineScriptEffects(_library, _effects, _assets);
+        _meteors = new MeteorEffects(scripts, _renderer.TransientLights, new PristonCollisionWorld(stage));
         _camera = new PristonCamera(Vector3.Zero, Vector3.Forward);
-        _return = new LegacyReturnEffect(GraphicsDevice, _library, _renderer.TransientLights);
+        _return = new ReturnEffect(GraphicsDevice, _library, _renderer.TransientLights);
         _meteors.Clear();
         _effects.Clear();
     }

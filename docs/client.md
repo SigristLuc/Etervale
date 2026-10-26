@@ -40,8 +40,8 @@ rendering internals, skill presentation and VFX data have their own documents (s
 | `Client/PristonTale.Gameplay/UI/Npc/` | NPC service controller, shop and warehouse windows, store layout, NPC art |
 | `Client/PristonTale.Gameplay/UI/Quests/` | Quest controller, quest dialog and yes/no boxes, quest window, quest texts and art (see [quests.md](quests.md#client)) |
 | `Client/PristonTale.Gameplay/UI/Rendering/` | `HudSprites` (original UI images), `HudIconCache` (item icons), `HudAtlas` (login atlas), `HudPainter`/`HudCanvas` |
-| `Client/PristonTale.Gameplay/Audio/` | `PristonAudioLibrary` (bootstrap sound load), `FieldAudioController` (music, field and positional ambience), `NpcAudioController`, `LegacyTalkSound`, `CombatSounds` and `CharacterSoundBanks` (character, weapon and footstep sounds), `MonsterSoundCues`, `ItemSoundRules` (item sounds) |
-| `Client/PristonTale.Gameplay/Effects/` | Effect glue: `LegacyEffectLibrary`, `VfxContent` (effect data from `<assetRoot>/Effect/Vfx`, loaded off the game thread), `SkillPresentation`, `ScriptEffects`, `SkillSoundBank`, `SkillState`, combat text, meteor, monster mesh and return effects ([effects.md](effects.md)) |
+| `Client/PristonTale.Gameplay/Audio/` | `PristonAudioLibrary` (bootstrap sound load), `FieldAudioController` (music, field and positional ambience), `NpcAudioController`, `TalkSound`, `CombatSounds` and `CharacterSoundBanks` (character, weapon and footstep sounds), `MonsterSoundCues`, `ItemSoundRules` (item sounds) |
+| `Client/PristonTale.Gameplay/Effects/` | Effect glue: `EffectLibrary`, `VfxContent` (effect data from `<assetRoot>/Effect/Vfx`, loaded off the game thread), `SkillPresentation`, `ScriptEffects`, `SkillSoundBank`, `SkillState`, combat text, meteor, monster mesh and return effects ([effects.md](effects.md)) |
 | [`Client/PristonTale.Client.Net/GameServerConnection.cs`](../Client/PristonTale.Client.Net/GameServerConnection.cs) | TCP session: connect, login, characters, world entry, request correlation, heartbeat, receive dispatch |
 | `Client/PristonTale.Client.Net/IGameBackend.cs`, `IPlayChannel.cs` | Contracts the screens use: account and character requests; in-world commands and the presence stream |
 | `Client/PristonTale.Client.Net/Online/` | `OnlinePlayChannel` (world session lifetime), `PresenceDecoder` (wire packets to `PresenceUpdate`) |
@@ -58,7 +58,7 @@ rendering internals, skill presentation and VFX data have their own documents (s
    "tcp://localhost:10009", presentation)`. The server address is the `Game1.ServerAddress` constant; there is no
    setting for it.
 4. `GameClient.LoadContent` loads, synchronously on the game thread: the UI font, `HudAtlas.LoadBootstrap`,
-   `PristonSkyLibrary.LoadBootstrap`, `LegacyEffectLibrary.LoadBootstrap`, `PristonAudioLibrary.LoadBootstrap`. It then
+   `PristonSkyLibrary.LoadBootstrap`, `EffectLibrary.LoadBootstrap`, `PristonAudioLibrary.LoadBootstrap`. It then
    creates the single `GameServerConnection` (not connected yet), the `ScreenContext` and the first screen,
    `OpeningScreen`.
 
@@ -387,7 +387,7 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   character-select music (`StartImage/...`), field music by BGM code (`wav/BGM`, `wav/Sod/BGM`), field ambience loops
   and positional ambience (`wav/Ambient`), NPC motion banks per sound code, and hashed NPC talk lines
   (`wav/Talk/<code>.wav`; optional, playback disabled when absent).
-- `LegacyTalkSound.GetSoundCode` hashes the CP949 bytes of an NPC line (ASCII letters uppercased) into the talk file
+- `TalkSound.GetSoundCode` hashes the CP949 bytes of an NPC line (ASCII letters uppercased) into the talk file
   code.
 - `FieldAudioController.SelectField` picks music by `FieldDef.BackMusicCode` (3.6 s fade); field ambience depends on the
   field state and, in forests, the time of day; positional ambience uses the original distance falloff.

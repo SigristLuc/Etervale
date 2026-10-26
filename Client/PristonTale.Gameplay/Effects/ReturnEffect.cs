@@ -6,9 +6,9 @@ using PristonTale.Engine3D.Rendering.Lighting;
 
 namespace PristonTale.Gameplay.Effects;
 
-public sealed class LegacyReturnEffect : IDisposable
+public sealed class ReturnEffect : IDisposable
 {
-    private const int LegacyTicksPerSecond = 70;
+    private const int TicksPerSecond = 70;
     private const float FixedScale = 1f / 256f;
     private const int FullTurn = 4096;
     private const int ParticleCount = 40;
@@ -17,8 +17,8 @@ public sealed class LegacyReturnEffect : IDisposable
 
     private readonly GraphicsDevice _device;
     private readonly PristonTransientLights _lights;
-    private readonly LegacyBillboardAnimation _particleAnimation;
-    private readonly LegacyBillboardAnimation _rayAnimation;
+    private readonly BillboardAnimation _particleAnimation;
+    private readonly BillboardAnimation _rayAnimation;
     private readonly PristonUnlitEffect _effect;
     private readonly ParticleState[] _particles = new ParticleState[ParticleCount];
     private readonly RayState[] _rays = new RayState[RayCount];
@@ -33,9 +33,9 @@ public sealed class LegacyReturnEffect : IDisposable
     private bool _secondLight;
     private bool _thirdLight;
 
-    public LegacyReturnEffect(
+    public ReturnEffect(
         GraphicsDevice device,
-        LegacyEffectLibrary library,
+        EffectLibrary library,
         PristonTransientLights lights)
     {
         ArgumentNullException.ThrowIfNull(device);
@@ -86,7 +86,7 @@ public sealed class LegacyReturnEffect : IDisposable
         }
 
         _ageSeconds += seconds;
-        var tick = (int)MathF.Floor(_ageSeconds * LegacyTicksPerSecond);
+        var tick = (int)MathF.Floor(_ageSeconds * TicksPerSecond);
         if (!_secondLight && _previousTick < 100 && tick >= 100)
         {
             _lights.Add(_origin + Vector3.Up * (5000f * FixedScale), new Color(250, 250, 250), 200, 1);
@@ -149,7 +149,7 @@ public sealed class LegacyReturnEffect : IDisposable
 
     private void InitializeParticles()
     {
-        var exitTicks = (int)MathF.Ceiling(_particleAnimation.Animation.ExitDuration * LegacyTicksPerSecond);
+        var exitTicks = (int)MathF.Ceiling(_particleAnimation.Animation.ExitDuration * TicksPerSecond);
         for (var index = 0; index < ParticleCount; index++)
         {
             var upper = index < ParticleCount / 2;
@@ -178,7 +178,7 @@ public sealed class LegacyReturnEffect : IDisposable
 
     private void InitializeRays()
     {
-        var exitTicks = (int)MathF.Ceiling(_rayAnimation.Animation.ExitDuration * LegacyTicksPerSecond);
+        var exitTicks = (int)MathF.Ceiling(_rayAnimation.Animation.ExitDuration * TicksPerSecond);
         for (var index = 0; index < RayCount; index++)
         {
             var stretch = index < 25;
@@ -203,7 +203,7 @@ public sealed class LegacyReturnEffect : IDisposable
 
     private void BuildParticleVertices(Vector3 right, Vector3 up)
     {
-        var ticks = _ageSeconds * LegacyTicksPerSecond;
+        var ticks = _ageSeconds * TicksPerSecond;
         for (var index = 0; index < _particles.Length; index++)
         {
             ref readonly var particle = ref _particles[index];
@@ -213,8 +213,8 @@ public sealed class LegacyReturnEffect : IDisposable
                 continue;
             }
 
-            var age = localTicks / LegacyTicksPerSecond;
-            var exitAt = particle.Life / (float)LegacyTicksPerSecond;
+            var age = localTicks / TicksPerSecond;
+            var exitAt = particle.Life / (float)TicksPerSecond;
             if (age > exitAt + _particleAnimation.Animation.ExitDuration)
             {
                 continue;
@@ -224,7 +224,7 @@ public sealed class LegacyReturnEffect : IDisposable
             var offset = particle.Velocity * motionTicks;
             offset.Y += particle.InitialY + particle.Gravity * motionTicks * (motionTicks + 1) * 0.5f;
             var accumulatedAngle = particle.AngleStep * motionTicks * (motionTicks + 1) / 2;
-            offset = RotateLegacyY(offset, accumulatedAngle);
+            offset = RotateOriginalY(offset, accumulatedAngle);
             var position = _origin + ToWorld(offset);
             var sample = _particleAnimation.Animation.Sample(age, exitAt);
             var color = AnimationColor(sample.Alpha);
@@ -241,7 +241,7 @@ public sealed class LegacyReturnEffect : IDisposable
 
     private void BuildRayVertices(Vector3 cameraPosition, Vector3 fallbackRight)
     {
-        var ticks = _ageSeconds * LegacyTicksPerSecond;
+        var ticks = _ageSeconds * TicksPerSecond;
         for (var index = 0; index < _rays.Length; index++)
         {
             ref readonly var ray = ref _rays[index];
@@ -251,8 +251,8 @@ public sealed class LegacyReturnEffect : IDisposable
                 continue;
             }
 
-            var age = localTicks / LegacyTicksPerSecond;
-            var exitAt = ray.TravelTicks / (float)LegacyTicksPerSecond;
+            var age = localTicks / TicksPerSecond;
+            var exitAt = ray.TravelTicks / (float)TicksPerSecond;
             if (age > exitAt + _rayAnimation.Animation.ExitDuration)
             {
                 continue;
@@ -327,10 +327,10 @@ public sealed class LegacyReturnEffect : IDisposable
             }
         }
 
-        throw new InvalidOperationException("Return ray did not converge within its bounded legacy lifetime.");
+        throw new InvalidOperationException("Return ray did not converge within its bounded original lifetime.");
     }
 
-    private static Vector3 RotateLegacyY(Vector3 value, int angle)
+    private static Vector3 RotateOriginalY(Vector3 value, int angle)
     {
         var radians = angle * MathHelper.TwoPi / FullTurn;
         var sine = MathF.Sin(radians);
@@ -341,9 +341,9 @@ public sealed class LegacyReturnEffect : IDisposable
             value.X * sine + value.Z * cosine);
     }
 
-    private static Vector3 ToWorld(Vector3 legacyFixed)
+    private static Vector3 ToWorld(Vector3 fixedPosition)
     {
-        return new Vector3(legacyFixed.X, legacyFixed.Y, -legacyFixed.Z) * FixedScale;
+        return new Vector3(fixedPosition.X, fixedPosition.Y, -fixedPosition.Z) * FixedScale;
     }
 
     private static Color AnimationColor(float alpha)

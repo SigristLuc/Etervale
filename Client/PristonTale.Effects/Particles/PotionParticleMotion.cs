@@ -25,7 +25,7 @@ public static class PotionParticleMotion
         var y = (particle.Velocity.Y * ticks + particle.AccelerationY * ticks * (ticks + 1f) * 0.5f) / 256f;
         var angle = ticks * particle.OrbitStep * MathHelper.TwoPi / 4096f;
         var (sin, cos) = MathF.SinCos(angle);
-        // Legacy world Z is inverted by the scene coordinate mapping.
+        // Original world Z is inverted by the scene coordinate mapping.
         return particle.Origin + new Vector3(x * cos - z * sin, y, -(x * sin + z * cos));
     }
 }

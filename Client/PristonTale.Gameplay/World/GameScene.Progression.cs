@@ -15,7 +15,7 @@ public sealed partial class GameScene
     // A wolverine leaving at dawn warps out in the return sparkle with the skill-learn sound.
     private void OnMonsterWarp(MonsterActorView monster)
     {
-        if (monster.SoundCode != LegacyNpcSoundCode.Wolverine)
+        if (monster.SoundCode != CharacterSoundCodes.Wolverine)
         {
             return;
         }

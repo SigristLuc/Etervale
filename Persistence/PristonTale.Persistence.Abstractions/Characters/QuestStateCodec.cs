@@ -58,7 +58,7 @@ public static class QuestStateCodec
     public static QuestJournal Read(JsonText json)
     {
         var journal = new QuestJournal();
-        if (CharacterStateCodec.IsLegacyEmpty(json, JsonValueKind.Object))
+        if (CharacterStateCodec.IsBlank(json, JsonValueKind.Object))
         {
             return journal;
         }

@@ -139,7 +139,7 @@ internal static class SpecialItemTests
             "offline time did not count or the expired timer survived");
         var empty = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Empty");
         SavedPremium.Restore(empty, JsonText.EmptyObject, 0);
-        Assert.True(empty.Premium.Timers.Count == 0, "legacy empty premium column");
+        Assert.True(empty.Premium.Timers.Count == 0, "blank premium column");
     }
 
     private static async Task ExperiencePotionAsync()

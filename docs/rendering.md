@@ -1,6 +1,6 @@
 # Rendering (Engine3D)
 
-`Client/PristonTale.Engine3D/`: the legacy model, stage, animation and camera-path readers, asset path resolution,
+`Client/PristonTale.Engine3D/`: the original model, stage, animation and camera-path readers, asset path resolution,
 client collision queries, the HDR renderer (scene, lighting, shadows, sky, post chain) and its diagnostics. Shader
 sources are in [shaders.md](shaders.md); option fields in [client-settings.md](client-settings.md).
 
@@ -8,7 +8,7 @@ sources are in [shaders.md](shaders.md); option fields in [client-settings.md](c
 
 - Changing pass order, a render target, the light model, exposure, shadows, fog, IBL, SSR, volumetric light or AA.
 - A surface is too bright/dark, shimmers, ghosts under TAA, or loses its shadow or occlusion.
-- Loading a new legacy asset kind, or a stage/model/texture fails to load or looks wrong.
+- Loading a new original asset kind, or a stage/model/texture fails to load or looks wrong.
 - Field streaming hitches (GPU upload steps) or a frame costs too much (statistics, profiler, `--benchmark-render`).
 - Adding something that draws into the HDR scene (effects, portraits, tools).
 - Touching the boundary with the MonoGame Vulkan fork.
@@ -31,7 +31,7 @@ sources are in [shaders.md](shaders.md); option fields in [client-settings.md](c
 | [`Rendering/PristonRenderer.cs`](../Client/PristonTale.Engine3D/Rendering/PristonRenderer.cs) | The renderer: stage/actor residency, animation, light selection, frame graph (`Draw`), post chain (`ComposeScene`). `PristonRenderer.Portrait.cs`: actor portraits with a studio light. |
 | `Rendering/PristonSceneTargets.cs` | HDR scene, motion, pre-pass targets; sky composition; caller target capture and restore. |
 | `Rendering/PristonShaderLibrary.cs` | Surface effects, frame constants, technique selection. |
-| `Rendering/PristonMaterial*.cs`, `PristonMaterialAdapter.cs` | Legacy material to runtime material: queue classification, textures and layers, roughness/reflectance/shading model. |
+| `Rendering/PristonMaterial*.cs`, `PristonMaterialAdapter.cs` | Original material to runtime material: queue classification, textures and layers, roughness/reflectance/shading model. |
 | `Rendering/PristonTextureLoader.cs`, `PristonImageDecoder.cs`, `PristonMipChain.cs` | Texture decode off-thread, mip chain with alpha-coverage preservation, GPU upload. |
 | `Rendering/RenderBatch.cs`, `RenderStageHandle.cs`, `RenderQueueBuilder.cs`, `PristonRenderQueue.cs`, `BatchUploader.cs`, `PristonGpuMesh*.cs` | Batches, per-stage residency, culling and sorting, dynamic-buffer uploads. |
 | `Rendering/PristonModelAnimator.cs`, `AnimatedModelRuntime.cs`, `PristonSkinPalette.cs`, `PristonModelNormals.cs`, `PristonMotionSelection.cs` | Keyframe evaluation, animated scenery, bone palettes (current and previous pose), rebuilt normals, motion clip choice. |
@@ -58,7 +58,7 @@ float targets. Display limits of the platform (primary monitor only, desktop ref
 - All GPU work and every `PristonRenderer` member run on the main (game) thread. `Update` advances time of day,
   transient lights, sky-profile blending (2 s cross-fade) and animation; `Draw` renders the scene.
 - Callers draw in this order (`Client/PristonTale.Gameplay/World/GameScene.Draw`): `PristonRenderer.Draw(camera)` ->
-  effects that add to the HDR scene (monster mesh effects, return effect, legacy particles, skill VFX) ->
+  effects that add to the HDR scene (monster mesh effects, return effect, original particles, skill VFX) ->
   `PristonRenderer.ComposeScene()` -> UI in sRGB. The HDR scene stays bound between `Draw` and `ComposeScene`.
 - Asset preparation is off-thread: `PrepareStageTexturesAsync` / `PrepareActorResourcesAsync` decode textures (two
   decode slots) and build actor geometry on the thread pool; the field streamer
@@ -74,7 +74,7 @@ float targets. Display limits of the platform (primary monitor only, desktop ref
   may reallocate the sun shadow atlas (releasing the old one first) and reload the colour-grade LUT from disk.
 - `ResetTemporalState()` after camera cuts and teleports: drops TAA history and snaps exposure.
 
-## Legacy formats
+## Original formats
 
 Described in Etervale's terms; readers keep every field, including padding, for round-trip checks.
 
@@ -91,7 +91,7 @@ Described in Etervale's terms; readers keep every field, including padding, for 
   cell is 64 units).
 - Animation time is in ticks of 160 per frame. Stage props advance 2000 ticks per second and start one frame in
   (160); actor motions use 160000/33 ticks per second scaled by the motion's playback rate.
-- Materials: a TGA or opacity-mapped texture is a cut-out (alpha test at 60/255). Legacy blend types 2-6 draw late
+- Materials: a TGA or opacity-mapped texture is a cut-out (alpha test at 60/255). Original blend types 2-6 draw late
   (blended queue) unless the material is an opaque cut-out; one layer above the base is carried over (multiply, add or
   sphere-map shine); there is no roughness or metalness in the data (`PristonMaterialAdapter` assigns 0.85 rough
   dielectric, water 0.12, ice 0.3, shine 0.4).
@@ -157,7 +157,7 @@ and lamps at full.
 | Scene colour + depth | HalfVector4, Depth24 | Pre-exposed linear radiance; MSAA when `Msaa`; `PreserveContents`, filled by `SkyComposite`. |
 | Motion | HalfVector4 | TAA only: uv motion, previous view depth, view depth (negative on cut-outs). |
 | Linear depth, normals | R32F, RGBA8 | Pre-pass only; `SceneLinearDepth` exposes the depth to effects (null without pre-pass). |
-| Sky | 8-bit sRGB | Dome layers with legacy blends, decoded into the scene. |
+| Sky | 8-bit sRGB | Dome layers with original blends, decoded into the scene. |
 | Sun shadow atlas | R32F + D24, `shadowMapSize` | 2x2 tiles from two cascades; falls back by halves to 1024 if allocation fails. |
 | Lamp shadow atlas | R32F | One row per lamp, six faces of `lampShadowTileSize`. |
 | TAA history | 2 x HalfVector4 | Compressed colour and view depth, ping-pong. |
@@ -176,12 +176,12 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
   reddened per channel by spectral extinction (the low sun turns orange).
 - **Sky:** 1200 lux at the horizon plus 20000 x sin(elevation)^0.8, falling by e every 1.6 degrees below the horizon;
   cooler than the gradient's ambient when the sun is high.
-- **Night:** the day/night gradient (`DayNightSettings.DefaultGradient`) gives legacy light levels; a level becomes
-  illuminance as level^1.4 x 10 lux (`LegacyLevelToIlluminance`), at half scale for moon and night sky. The moon
+- **Night:** the day/night gradient (`DayNightSettings.DefaultGradient`) gives original light levels; a level becomes
+  illuminance as level^1.4 x 10 lux (`LevelToIlluminance`), at half scale for moon and night sky. The moon
   shines from a fixed high direction with the colour of sunlight; the night's blue is applied by mesopic vision in the
   final pass ([shaders.md](shaders.md)), so specular light keeps the colour of the diffuse light.
 - **Ground bounce:** 0.2 albedo of the horizontal illuminance for downward surfaces.
-- **Stage lamps:** authored colour as a legacy level x 2, inverse-square from a shared 150-unit reference, windowed to
+- **Stage lamps:** authored colour as a original level x 2, inverse-square from a shared 150-unit reference, windowed to
   zero at the authored range (600 when unset), scaled by the field's lamp intensity and range and by the lamp factor
   (off above 4 degrees of sun elevation, full at 2 degrees below). Lamps flagged as lens lights get coronas only
   unless also dynamic.
@@ -285,7 +285,7 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
 - **Change a lighting constant:** the CPU side lives in `PristonPhotometry`, `PristonDayNightCycle` or the constants at
   the top of `PristonRenderer`; mirrored shader values are listed in [shaders.md](shaders.md#pitfalls). Re-run
   `--verify-shaders`, the render tests and `--benchmark-render` captures by day and at 21:00.
-- **Support a new legacy asset variant:** extend the reader in `Formats/`, keep unknown bytes in metadata, resolve paths
+- **Support a new original asset variant:** extend the reader in `Formats/`, keep unknown bytes in metadata, resolve paths
   through `PristonFileResolver`, add a fixture test (`BinaryCursorTests`, `RenderTests`), and describe the format here
   without citing the original source.
 - **Add a streaming step:** yield a `StreamingWork` with a `StreamingStep` from `StageUploadSteps`; keep each step one

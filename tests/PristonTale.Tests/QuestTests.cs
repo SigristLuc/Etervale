@@ -335,7 +335,7 @@ internal static class QuestTests
         Drop(fighter, QuestItems.RoyalAmulet, monsterCode: holder, source: QuestDropSource.EventItem);
         Assert.True(Talk(fighter, HomeMaster).Prompt is { State: 6 }, "the master did not take the amulet step");
         var duel = Expect(fighter, HomeMaster, QuestAction.Proceed, QuestCode.RankUpMasterTrial, 6, "the duel did not open");
-        Assert.True(duel.Duel is { Quest: QuestCode.RankUpMasterTrial, SoundCode: LegacyNpcSoundCode.SkillMaster }
+        Assert.True(duel.Duel is { Quest: QuestCode.RankUpMasterTrial, SoundCode: CharacterSoundCodes.SkillMaster }
             && duel.Travel is { Kind: QuestTravelKind.Arena, FieldCode: QuestArena.FieldCode } && !QuestInventory.Has(fighter, QuestItems.RoyalAmulet),
             "the duel request differs");
 
@@ -350,7 +350,7 @@ internal static class QuestTests
             && !Talk(fighter, HomeMaster).ClassChangeOffered, "the final tier differs");
 
         var morion = Character(PlayerClass.Magician, "Mage", 60, tier: 2);
-        Assert.True(QuestClasses.DuelMasterSound(morion) == LegacyNpcSoundCode.MagicMaster, "Morion classes do not duel the magic master");
+        Assert.True(QuestClasses.DuelMasterSound(morion) == CharacterSoundCodes.MagicMaster, "Morion classes do not duel the magic master");
         return Task.CompletedTask;
     }
 
@@ -373,7 +373,7 @@ internal static class QuestTests
             Assert.True(Talk(hero, npc).Prompt is { Followup: QuestFollowup.Confirm } prompt && prompt.State == battle, $"battle {battle} dialog differs");
             var enter = Expect(hero, npc, QuestAction.Accept, QuestCode.FuryOfPhantom, battle, $"battle {battle} did not open");
             var fighting = battle == 3 ? 4 : battle + 1;
-            Assert.True(hero.Quests.Active.State == fighting && enter.Duel is { SoundCode: LegacyNpcSoundCode.Fury } duel && duel.Level == level
+            Assert.True(hero.Quests.Active.State == fighting && enter.Duel is { SoundCode: CharacterSoundCodes.Fury } duel && duel.Level == level
                 && enter.Travel?.FieldCode == QuestArena.FieldCode, $"battle {battle} duel differs");
             var won = Context(hero, field: QuestArena.FieldCode);
             Assert.True(FuryOfPhantomQuest.OnDuelWon(won) && won.Prompt is { Document: "100LVQuest_Victory" }, "the Fury victory dialog differs");

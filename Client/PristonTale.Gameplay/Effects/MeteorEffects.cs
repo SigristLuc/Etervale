@@ -6,7 +6,7 @@ using PristonTale.Engine3D.Rendering.Lighting;
 
 namespace PristonTale.Gameplay.Effects;
 
-public sealed class LegacyMeteorEffects
+public sealed class MeteorEffects
 {
     public const int Capacity = 16;
     public const float Speed = 8f * 70f;
@@ -16,7 +16,7 @@ public sealed class LegacyMeteorEffects
     private readonly IPristonCollisionQuery _collision;
     public int Count { get; private set; }
 
-    public LegacyMeteorEffects(IScriptEffects effects, PristonTransientLights lights, IPristonCollisionQuery collision)
+    public MeteorEffects(IScriptEffects effects, PristonTransientLights lights, IPristonCollisionQuery collision)
     {
         _effects = effects;
         _lights = lights;

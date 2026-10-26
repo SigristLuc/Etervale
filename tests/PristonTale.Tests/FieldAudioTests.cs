@@ -11,7 +11,7 @@ internal static class FieldAudioTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("legacy JODO ambience is normalized without changing RIFF audio", WaveHeaderAsync);
+        yield return ("original JODO ambience is normalized without changing RIFF audio", WaveHeaderAsync);
         yield return ("field ambience uses the original radius and distance volume curve", ProximityVolumeAsync);
         yield return ("continuous field ambience follows original state code and day night rules", FieldAmbientSelectionAsync);
         yield return ("field catalogue preserves all 72 authored positional ambience sources", FieldCatalogueAsync);
@@ -71,11 +71,11 @@ internal static class FieldAudioTests
     private static Task CharacterBanksAsync()
     {
         var codes = CharacterSoundBanks.Directories.Select(bank => bank.Code).ToHashSet();
-        Assert.True(codes.Contains(0x1600) && codes.Contains(LegacyNpcSoundCode.Wolverine) && codes.Contains(LegacyNpcSoundCode.Morif)
+        Assert.True(codes.Contains(0x1600) && codes.Contains(CharacterSoundCodes.Wolverine) && codes.Contains(CharacterSoundCodes.Morif)
             && Enumerable.Range(1, 10).All(codes.Contains), "a monster, NPC or class bank is missing");
         foreach (var keyword in (string[])["Greedy", "Hestian", "ISoldier", "Lizard_Papa", "UndeadStalker", "Yagditha"])
         {
-            var code = LegacyNpcSoundCode.Resolve(keyword);
+            var code = CharacterSoundCodes.Resolve(keyword);
             Assert.True(code >= 0x6000 && codes.Contains(code), $"the newer monster sound {keyword} has no code or bank");
         }
 
@@ -93,9 +93,9 @@ internal static class FieldAudioTests
 
     private static Task WaveHeaderAsync()
     {
-        var legacy = CreateWaveHeader("JODO");
-        PristonWaveDecoder.NormalizeHeader(legacy);
-        Assert.True(legacy.AsSpan(0, 4).SequenceEqual("RIFF"u8), "legacy WAVE signature was not normalized");
+        var original = CreateWaveHeader("JODO");
+        PristonWaveDecoder.NormalizeHeader(original);
+        Assert.True(original.AsSpan(0, 4).SequenceEqual("RIFF"u8), "original WAVE signature was not normalized");
 
         var riff = CreateWaveHeader("RIFF");
         var expected = riff.ToArray();
@@ -197,10 +197,10 @@ internal static class FieldAudioTests
 
     private static Task NpcSoundCodesAsync()
     {
-        Assert.True(LegacyNpcSoundCode.Resolve("WOLVERLIN") == LegacyNpcSoundCode.Wolverine, "Wolverine NPC bank resolved to the earlier monster duplicate");
-        Assert.True(LegacyNpcSoundCode.Resolve("fury") == LegacyNpcSoundCode.Fury, "NPC sound lookup became case-sensitive");
-        Assert.True(LegacyNpcSoundCode.Resolve("SKILLMASTER") == LegacyNpcSoundCode.SkillMaster, "skill-master NPC bank was not preserved");
-        Assert.True(LegacyNpcSoundCode.Resolve("unknown-bank") == 0, "unknown NPC bank invented a sound code");
+        Assert.True(CharacterSoundCodes.Resolve("WOLVERLIN") == CharacterSoundCodes.Wolverine, "Wolverine NPC bank resolved to the earlier monster duplicate");
+        Assert.True(CharacterSoundCodes.Resolve("fury") == CharacterSoundCodes.Fury, "NPC sound lookup became case-sensitive");
+        Assert.True(CharacterSoundCodes.Resolve("SKILLMASTER") == CharacterSoundCodes.SkillMaster, "skill-master NPC bank was not preserved");
+        Assert.True(CharacterSoundCodes.Resolve("unknown-bank") == 0, "unknown NPC bank invented a sound code");
         return Task.CompletedTask;
     }
 
@@ -216,9 +216,9 @@ internal static class FieldAudioTests
 
     private static Task NpcTalkSoundCodeAsync()
     {
-        Assert.True(LegacyTalkSound.GetSoundCode("Hello") == 285541489u, "ASCII talk checksum differs from the classic implementation");
-        Assert.True(LegacyTalkSound.GetSoundCode("크릉.. 크릉") == 4127925336u, "CP949 Wolverine talk checksum differs from the classic implementation");
-        Assert.True(LegacyTalkSound.GetSoundCode("요즘 말이지") == 2534093287u, "CP949 NPC talk checksum differs from the classic implementation");
+        Assert.True(TalkSound.GetSoundCode("Hello") == 285541489u, "ASCII talk checksum differs from the classic implementation");
+        Assert.True(TalkSound.GetSoundCode("크릉.. 크릉") == 4127925336u, "CP949 Wolverine talk checksum differs from the classic implementation");
+        Assert.True(TalkSound.GetSoundCode("요즘 말이지") == 2534093287u, "CP949 NPC talk checksum differs from the classic implementation");
         return Task.CompletedTask;
     }
 
