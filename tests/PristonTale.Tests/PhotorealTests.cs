@@ -173,6 +173,13 @@ internal static class PhotorealTests
         var second = shadows.Assign(moved, 0);
         Assert.True(shadows.Rows[0] == rowOfSecond && shadows.Rows[2] == -1, "a lamp that stayed lost its row");
         Assert.True((second & (1 << shadows.Rows[1])) != 0, "a new lamp was not drawn at once");
+
+        var occupied = true;
+        var steady = shadows.Assign(moved, 0, (_, _) => occupied);
+        Assert.True(steady == 0b11 && shadows.Assign(moved, 0, (_, _) => occupied) == 0b11, "lamps with actors were not redrawn every frame");
+        occupied = false;
+        Assert.True(shadows.Assign(moved, 0, (_, _) => occupied) == 0b11 && shadows.Assign(moved, 0, (_, _) => occupied) == 0,
+            "an emptied lamp was not cleared once and then left alone");
         return Task.CompletedTask;
     }
 

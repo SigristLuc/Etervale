@@ -1322,7 +1322,9 @@ public sealed partial class PristonRenderer : IDisposable
         }
 
         var lightViewProjection = Matrix.Identity;
-        _lampShadowRedraw = ShadowsEnabled && _lampFactor > 0.01f ? _lampShadows.Assign(lighting.PointLights, lighting.TransientLightCount) : 0;
+        _lampShadowRedraw = ShadowsEnabled && _lampFactor > 0.01f
+            ? _lampShadows.Assign(lighting.PointLights, lighting.TransientLightCount, _lampHasCasters ??= LampHasCasters)
+            : 0;
         var lampShadows = _lampShadows.Atlas is not null && ShadowsEnabled && _lampFactor > 0.01f
             ? new PristonLampShadowFrame(_lampShadows.Atlas, _lampShadows.Rows, _lampShadows.FaceSize, _lampShadows.Lamps)
             : default;
@@ -2079,6 +2081,22 @@ public sealed partial class PristonRenderer : IDisposable
     }
 
     private readonly BoundingFrustum _shadowCasterFrustum = new(Matrix.Identity);
+    private Func<Vector3, float, bool> _lampHasCasters;
+
+    private bool LampHasCasters(Vector3 position, float radius)
+    {
+        var sphere = new BoundingSphere(position, radius);
+        var items = _renderQueueBuilder.Queue.ShadowCasters;
+        for (var i = 0; i < items.Count; i++)
+        {
+            if (items[i].Batch.IsSkinned && sphere.Intersects(items[i].Batch.Bounds))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     // skinnedOnly: actors and animated props only (the lamps' cube faces).
     private void DrawShadowQueueItems(IReadOnlyList<PristonRenderQueueItem<RenderBatch>> items, Matrix lightViewProjection, bool skinnedOnly = false)

@@ -1,15 +1,16 @@
+using Microsoft.Xna.Framework;
 using PristonTale.Application.World;
 using PristonTale.Simulation.World;
 
 namespace PristonTale.Gameplay.World;
 
 // The wing warp stones (WingGates): stepping on one holds the player on it and opens the wing warp map; walking off it
-// closes the map, and the map opens again only after the player left the stone. A trip the server accepts lands with a
-// forced FieldWarp, where the return sparkle and the warp sound play.
+// closes the map, and the map opens again only after the player left the stone. As in the original, a chosen trip shows
+// the return sparkle and plays the warp sound on the stone, and the trip itself leaves two seconds later.
 public sealed partial class GameScene
 {
+    private const int WingTripDelayMs = 2000;
     private FieldWarpGate _wingStone;
-    private volatile bool _wingTripLanding;
 
     // The player stepped on a stone of this field; the screen opens the wing warp map.
     public event Action<int> WingGateEntered;
@@ -26,14 +27,14 @@ public sealed partial class GameScene
             return new WingGateOutcome(WingGateStatus.Rejected, destination);
         }
 
-        _wingTripLanding = true;
-        var outcome = await _playChannel.TravelWingGateAsync(destination, _presenceCts.Token);
-        if (!outcome.Ok)
+        if (_playerBody is not null)
         {
-            _wingTripLanding = false;
+            _returnEffect?.Start(_playerBody.Position + Vector3.Up * GroundTraversal.VisualOffset);
+            _fieldAudio?.PlayPortalWarp();
         }
 
-        return outcome;
+        await Task.Delay(WingTripDelayMs, _presenceCts.Token);
+        return await _playChannel.TravelWingGateAsync(destination, _presenceCts.Token);
     }
 
     private void UpdateWingStone()

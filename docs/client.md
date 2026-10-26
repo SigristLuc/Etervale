@@ -261,8 +261,8 @@ The client owns its own locomotion; the server validates and corrects.
   under the player (`UpdateActiveField`); warp gates are detected in `UpdateWarps` (level limit checked), and
   special-effect warp gates hold the player for 2 s with the return effect and portal sound before switching. A wing
   warp stone (`GameScene.WingGates.cs`) holds the player on it and opens the wing warp map; walking off closes it, and
-  it opens again only after the player left the stone. A trip the server accepts plays the return sparkle and the
-  portal sound where its forced `FieldWarp` lands the player. The
+  it opens again only after the player left the stone. Choosing a destination plays the return sparkle and the portal
+  sound on the stone, and the request leaves two seconds later, as the original's wing trip does. The
   server learns the new field code from the next report, which a field change sends at once.
 - `ActorMotionController`: `ApplyLocomotion` is ignored while Damage, Dead or Eat freeze locomotion;
   `ApplyAuthoritative` always wins.
@@ -299,7 +299,9 @@ Renderer side of stage publication: [rendering.md](rendering.md).
 | `,` / `.` / `P` | same | Online the sky follows the server's game clock: shift it -1 h / +1 h on this screen, or hold it; offline time of day -1 h / +1 h / toggle the day cycle (150 s) |
 | `Ctrl+1`..`Ctrl+7` | `GameplayScreen.UpdateMotionKeys` | Force Stand, Walk, Run, Attack, Damage, Dead, Skill on the local avatar |
 
-`GameplayHud.PointerCaptured` (pointer over a HUD element or dragging) disables world clicks, hover picking and camera
+`GameplayHud.PointerCaptured` (pointer over a HUD element or dragging, or any of the NPC and quest dialogs, message
+boxes, the wing warp map, the Teleport Core list, the warehouse, aging and mixing windows open, as the original stops the
+character under them) disables world clicks, hover picking and camera
 mouse input for that frame. Keys are polled with `Keyboard.GetState()` and edge-detected against the previous frame per
 consumer. Typed characters come from the window's text input (`Game1` to `GameClient.TypeCharacter` to
 `ScreenContext.TypedText`) and reach `TextInputField` on the login and name forms and the chat input line.

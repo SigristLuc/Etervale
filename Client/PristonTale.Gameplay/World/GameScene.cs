@@ -1221,12 +1221,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             ApplyPlayerWorld();
             _camera?.SnapFollow(_playerBody.Position, _fieldCollision);
             _reportDue = true;
-            if (_wingTripLanding)
-            {
-                _wingTripLanding = false;
-                _returnEffect?.Start(_playerBody.Position + Vector3.Up * GroundTraversal.VisualOffset);
-                _fieldAudio?.PlayPortalWarp();
-            }
         }
     }
 

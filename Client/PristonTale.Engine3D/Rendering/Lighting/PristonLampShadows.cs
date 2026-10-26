@@ -6,9 +6,9 @@ namespace PristonTale.Engine3D.Rendering.Lighting;
 
 // Omnidirectional shadows that actors cast from the stage lamps nearest the camera focus: each lamp keeps a row of an
 // R32F atlas with its six cube faces (90-degree views along the axes, Shaders/Lighting/Shading.hlsli LampShadow),
-// holding the distance to the lamp over its radius. A lamp keeps its row while it stays among the nearest, so its faces are redrawn only when
-// it is new and then in turn with the others (one lamp every other frame), which keeps moving actors' shadows current at
-// a fraction of the cost.
+// holding the distance to the lamp over its radius. A lamp keeps its row while it stays among the nearest; its faces are
+// redrawn when it is new and on every frame an actor is within its radius (once more after the last one left, to clear
+// its shadow), so the shadows follow the actors smoothly and empty lamps cost nothing.
 internal sealed class PristonLampShadows : IDisposable
 {
     public const int MaxLamps = 4;
@@ -31,9 +31,8 @@ internal sealed class PristonLampShadows : IDisposable
     private readonly float[] _rowRadii = new float[MaxLamps];
     private readonly bool[] _rowUsed = new bool[MaxLamps];
     private readonly bool[] _rowClaimed = new bool[MaxLamps];
+    private readonly bool[] _rowOccupied = new bool[MaxLamps];
     private RenderTarget2D _atlas;
-    private int _nextRefresh;
-    private uint _frame;
 
     public PristonLampShadows(GraphicsDevice device, IClientLog log)
     {
@@ -85,8 +84,9 @@ internal sealed class PristonLampShadows : IDisposable
     }
 
     // Gives the nearest lamps (lights from firstLamp on, nearest first) a row, keeping the rows of lamps that stay.
-    // Returns the rows to draw this frame as a bit mask: new lamps, and one of the others in turn.
-    public int Assign(IReadOnlyList<PristonPointLight> lights, int firstLamp)
+    // Returns the rows to draw this frame as a bit mask: new lamps, and lamps whose sphere holds a caster now or held one
+    // at the last drawing.
+    public int Assign(IReadOnlyList<PristonPointLight> lights, int firstLamp, Func<Vector3, float, bool> hasCasters = null)
     {
         Array.Fill(Rows, -1);
         if (Lamps == 0)
@@ -117,19 +117,13 @@ internal sealed class PristonLampShadows : IDisposable
         for (var row = 0; row < Lamps; row++)
         {
             _rowUsed[row] = _rowClaimed[row];
-        }
-
-        // The rows in turn, one every other frame.
-        _frame++;
-        for (var step = 0; step < Lamps && _frame % 2 == 0; step++)
-        {
-            var row = (_nextRefresh + step) % Lamps;
-            if (_rowClaimed[row] && (redraw & (1 << row)) == 0)
+            var occupied = _rowClaimed[row] && hasCasters is not null && hasCasters(_rowPositions[row], _rowRadii[row]);
+            if (occupied || _rowClaimed[row] && _rowOccupied[row])
             {
                 redraw |= 1 << row;
-                _nextRefresh = row + 1;
-                break;
             }
+
+            _rowOccupied[row] = occupied;
         }
 
         return redraw;

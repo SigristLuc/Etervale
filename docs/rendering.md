@@ -223,7 +223,9 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
   wind/water displacement matches the lit pass.
 - **Lamp shadows** (`Lighting/PristonLampShadows.cs`): the `lampShadowCount` lamps nearest the focus (after the
   transient lights) keep a row of six 90-degree cube faces storing distance / radius. A lamp keeps its row while it
-  stays near; new rows draw at once, the others one every other frame. Only skinned batches (actors, animated props)
+  stays near; new rows draw at once, the others on every frame a skinned caster's bounds meet the lamp's sphere (and once
+  more after the last one left, to clear its shadow), so the shadows follow moving actors without steps. Only skinned
+  batches (actors, animated props)
   cast; the stage's own occlusion is in its authored light. Characters and monsters do not receive lamp shadows
   (`ActorReceiver`): their smooth-shaded low-polygon bodies would be cut by the hard facets of their own and each
   other's silhouettes; they still cast onto the stage.

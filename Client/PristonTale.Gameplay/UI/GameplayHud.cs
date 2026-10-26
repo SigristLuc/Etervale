@@ -856,8 +856,20 @@ public sealed class GameplayHud : IDisposable
         }
     }
 
+    // As in the original, a dialog, a message box, the warp map or a work window keeps every click from the world; the
+    // status, inventory, skill and shop windows keep only their own area.
+    private bool BlocksWorld =>
+        _npcOpen || _quests.Dialog is not null || _quests.Confirming || _quests.SkillResetBox || _skills.TrainingPending
+        || _wingGate.IsOpen || _wingGate.Confirming || _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming
+        || _warehouse.IsOpen || _aging.IsOpen || _mix.IsOpen;
+
     private bool Captures(HudLayout layout, Point pointer, Point design)
     {
+        if (BlocksWorld)
+        {
+            return true;
+        }
+
         if (_itemUse.Captures(pointer) || _wingGate.Captures(pointer) || _puzzle.Captures(pointer) || _premium.Contains(pointer))
         {
             return true;
