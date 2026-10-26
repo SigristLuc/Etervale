@@ -33,8 +33,9 @@ the in-game Settings panel, and how a change reaches the display, the renderer a
 
 ## File location and lifecycle
 
-- Path: `Environment.SpecialFolder.LocalApplicationData/PristonTale/client-settings.json` (`%LOCALAPPDATA%\PristonTale`
-  on Windows). `PristonTale --settings PATH` uses another file (`Client/PristonTale/Program.cs`).
+- Path: `client-settings.json` beside the client executable (`AppContext.BaseDirectory`); the game never stores
+  settings in a per-user profile folder. `PristonTale --settings PATH` uses another file (`Client/PristonTale/Program.cs`).
+  A missing file is created with every key at its default.
 - JSON: camelCase property names, case-sensitive, indented on save. Enums are written and read by name.
 - Load (`ClientSettingsStore.Load`, on the main thread before the window is created):
   - no file: defaults, and the defaults are queued for saving;

@@ -210,18 +210,6 @@ public sealed class GameplayScreen : GameScreen
         {
             _scene.CycleRenderDebugView();
         }
-        if (Pressed(keyboard, Keys.OemComma))
-        {
-            _scene.AdvanceTimeOfDay(-1f);
-        }
-        if (Pressed(keyboard, Keys.OemPeriod))
-        {
-            _scene.AdvanceTimeOfDay(1f);
-        }
-        if (Pressed(keyboard, Keys.P))
-        {
-            _scene.ToggleClockHold();
-        }
     }
 
     private bool Pressed(KeyboardState keyboard, Keys key) =>

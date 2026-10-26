@@ -99,17 +99,20 @@ float CascadeVisibility(uint c, float3 worldPosition, float3 normal, float nl, f
     return 1.0 - occluded / 16.0;
 }
 
-// Sun visibility in [0, 1]: the cascade by view depth, dithered into the next one over the blend band; the last
-// cascade fades out toward the end of the shadow distance.
+// Sun visibility in [0, 1]: the cascade by view depth, blended into the next one over the blend band (picking one per
+// pixel by noise made the two cascades' edges flicker against each other); the last cascade fades out toward the end of
+// the shadow distance.
 // receiverBias (world units) keeps a character's own thin, low-polygon body from shadowing itself in faceted triangles;
 // buildings and trees farther along the light still shade it.
-float SunShadow(float3 worldPosition, float3 normal, float nl, float viewDepth, float2 pixel, float receiverBias)
+// contact is the screen-space contact shadow's visibility; the darker of it and the map wins, so a surface both shade is
+// not darkened twice.
+float SunShadow(float3 worldPosition, float3 normal, float nl, float viewDepth, float2 pixel, float receiverBias, float contact)
 {
     uint count = clamp((uint)ShadowParams.x, 1u, (uint)MAX_CASCADES);
     [branch]
     if (ShadowParams.w <= 0.0 || nl <= 0.0 || viewDepth >= CascadeSplits[count - 1])
     {
-        return 1.0;
+        return contact;
     }
 
     uint c = 0;
@@ -123,12 +126,13 @@ float SunShadow(float3 worldPosition, float3 normal, float nl, float viewDepth, 
     float split = CascadeSplits[c];
     float start = c == 0 ? 0.0 : CascadeSplits[c - 1];
     float band = (split - viewDepth) / max((split - start) * CascadeBlendBand, 1.0e-3);
+    float next = 0.0;
     float fade = 1.0;
     if (band < 1.0)
     {
         if (c + 1 < count)
         {
-            c += noise > band ? 1 : 0;
+            next = 1.0 - saturate(band);
         }
         else
         {
@@ -140,7 +144,13 @@ float SunShadow(float3 worldPosition, float3 normal, float nl, float viewDepth, 
     float2 direction = float2(cos(angle), sin(angle));
     float2x2 rotation = float2x2(direction.x, -direction.y, direction.y, direction.x);
     float visibility = CascadeVisibility(c, worldPosition, normal, nl, rotation, receiverBias);
-    return 1.0 - ShadowParams.w * (1.0 - visibility) * fade;
+    [branch]
+    if (next > 0.0)
+    {
+        visibility = lerp(visibility, CascadeVisibility(c + 1, worldPosition, normal, nl, rotation, receiverBias), next);
+    }
+
+    return min(1.0 - ShadowParams.w * (1.0 - visibility) * fade, contact);
 }
 
 // The screen-space occlusion at a pixel (Passes/AmbientOcclusion.fx): x ambient occlusion, y contact shadow visibility.

@@ -281,8 +281,11 @@ float4 ShadeSurface(VSOut i, bool masked)
         // A translucent surface lit from behind looks up its shadow on the sun's side.
         bool transmits = Translucency > 0.0 && back > nl;
         float3 shadowNormal = transmits ? -s.Normal : s.Normal;
+        // Actors take no contact shadows: the march across their own thin bodies left dark patches that changed with the
+        // view and the pose.
+        bool actor = ActorReceiver > 0.5;
         float shadow = SunShadow(i.WorldPosition, shadowNormal, max(nl, transmits ? back : 0.0), i.ViewDepth, i.Position.xy,
-            ActorReceiver > 0.5 ? ActorShadowBias : 0.0) * occlusion.y;
+            actor ? ActorShadowBias : 0.0, actor ? 1.0 : occlusion.y);
         AddDirectLight(SunDirection, SunColor * shadow, s.Normal, v, s.Albedo, s.F0, s.Metallic, a, lighting.Diffuse, lighting.Specular);
         // Transmission through leaves: diffuse through the blade, stronger looking toward the sun (forward scattering).
         float forward = pow(saturate(dot(-v, SunDirection)), 4.0);

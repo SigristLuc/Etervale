@@ -33,8 +33,8 @@ public sealed class ClientSettingsStore
         _writer = Task.Run(WriteLoopAsync);
     }
 
-    public static string DefaultPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PristonTale", "client-settings.json");
+    // Beside the executable: the game keeps its settings with itself, never in a per-user profile folder.
+    public static string DefaultPath => Path.Combine(AppContext.BaseDirectory, "client-settings.json");
 
     public string LastError => Volatile.Read(ref _lastError);
 

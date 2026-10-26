@@ -299,8 +299,6 @@ public sealed partial class PristonRenderer : IDisposable
 
     public void SetTimeOfDay(float hours) => _dayNight.SetTime(hours);
 
-    public void AdvanceTimeOfDay(float hours) => _dayNight.Advance(hours);
-
     public void ConfigureDayNight(DayNightSettings settings) => _dayNight.Configure(settings);
 
     public void ConfigureFieldLighting(
@@ -1463,8 +1461,7 @@ public sealed partial class PristonRenderer : IDisposable
                     frame.Projection,
                     -Vector3.Normalize(lighting.Sun.Direction),
                     _ambientOcclusion,
-                    contact,
-                    frame.Shadows.NoiseOffset);
+                    contact);
                 Profiler.End(RenderSection.AmbientOcclusion);
                 var strength = new Vector2(_ambientOcclusion ? 1f : 0f, contact ? 1f : 0f);
                 frame = frame with { Shadows = frame.Shadows with { Occlusion = occlusion, OcclusionStrength = strength } };

@@ -50,8 +50,8 @@ rendering internals, skill presentation and VFX data have their own documents (s
 
 ## Startup
 
-1. `Program` builds `Game1` with an optional settings path (default `ClientSettingsStore.DefaultPath`, the local
-   application data folder, `PristonTale/client-settings.json`; fields in [client-settings.md](client-settings.md)).
+1. `Program` builds `Game1` with an optional settings path (default `ClientSettingsStore.DefaultPath`,
+   `client-settings.json` beside the executable; fields in [client-settings.md](client-settings.md)).
 2. `Game1` constructor: HiDef device, `PreferMultiSampling = false` (the renderer owns its multisampled HDR target),
    `IsFixedTimeStep = false`, resizable window, `Content.RootDirectory = "Content"`.
 3. `Game1.LoadContent` creates `PresentationController` and `GameClient(GraphicsDevice, Content, ResolveAssetRoot(),
@@ -296,7 +296,6 @@ Renderer side of stage publication: [rendering.md](rendering.md).
 | `Enter`, `Page Up`/`Page Down`, `Up`/`Down` | `HudChat.Update` | Open the chat input or send its line, scroll the chat, recall commands; while typing, HUD, binding, debug and motion keys and the `A` labels are suppressed |
 | `Esc` | `Game1` | Close the chat window first, then HUD panels, else quit |
 | `Ctrl+F3` / `Ctrl+F5` / `Ctrl+F10` | `GameplayScreen.UpdateDebugKeys` | Toggle render stats in the window title / toggle shadows / cycle `PristonDebugView` |
-| `,` / `.` / `P` | same | Online the sky follows the server's game clock: shift it -1 h / +1 h on this screen, or hold it; offline time of day -1 h / +1 h / toggle the day cycle (150 s) |
 | `Ctrl+1`..`Ctrl+7` | `GameplayScreen.UpdateMotionKeys` | Force Stand, Walk, Run, Attack, Damage, Dead, Skill on the local avatar |
 
 `GameplayHud.PointerCaptured` (pointer over a HUD element or dragging, or any of the NPC and quest dialogs, message

@@ -13,13 +13,32 @@ using PristonTale.Simulation.World;
 
 namespace PristonTale.Tests;
 
-// Characters in Navisko by day and by night, close to the camera: their shadows on the ground and on their own bodies over
-// consecutive frames, to see shadow edges, self-shadowed facets and flicker.
+// Characters and a large monster in Navisko in the sun and beside a lamp at night, close to the camera, with the screen
+// space shadowing on and off and its occlusion view: shadows on the ground and on the bodies over consecutive frames.
 internal sealed class ShadowCaptureProbe : Game
 {
-    private sealed record Shot(string Name, float Hour, int Frames);
+    private sealed record Shot(string Name, float Hour, int Frames, bool AtLamp, bool Close, Func<ClientSettings, ClientSettings> Settings,
+        bool SunMoves = false);
 
-    private static readonly Shot[] Shots = [new("day", 14f, 4), new("night", 21.5f, 4)];
+    private static readonly Shot[] Shots =
+    [
+        new("day", 14f, 3, false, false, static s => s),
+        new("day-close", 14f, 3, false, true, static s => s),
+        new("day-close-noao", 14f, 1, false, true, static s => s with { AmbientOcclusion = false }),
+        new("day-close-nocontact", 14f, 1, false, true, static s => s with { ContactShadows = false }),
+        new("day-close-none", 14f, 1, false, true, static s => s with { AmbientOcclusion = false, ContactShadows = false }),
+        new("day-close-occlusion", 14f, 1, false, true, static s => s with { DebugView = PristonDebugView.AmbientOcclusion }),
+        new("day-close-noshadow", 14f, 1, false, true, static s => s with { ShadowsEnabled = false }),
+        new("night", 21.5f, 3, true, false, static s => s),
+        new("morning-moving", 8f, 3, false, false, static s => s, SunMoves: true)
+    ];
+
+    // Hours the server's clock advances in one real second.
+    private const float HoursPerSecond = 1000f / WorldClock.MinuteMs / 60f;
+
+    private const ulong Priestess = 1;
+    private const ulong Atalanta = 2;
+    private const ulong Babel = 3;
 
     private readonly string _assetRoot;
     private readonly string _output;
@@ -29,11 +48,15 @@ internal sealed class ShadowCaptureProbe : Game
     private PristonSkyLibrary _sky = null!;
     private PristonCamera _camera = null!;
     private RemoteEntityManager _remote = null!;
+    private PristonCollisionWorld _collision = null!;
+    private Vector3 _sunSpot;
+    private Vector3 _lampSpot;
     private Vector3 _focus;
-    private Vector3 _eye;
-    private int _shot;
+    private int _shot = -1;
     private int _frame;
     private double _seconds;
+    private double _shotSeconds;
+    private Color[]? _previous;
 
     public ShadowCaptureProbe(string assetRoot, string contentRoot, string output)
     {
@@ -56,7 +79,6 @@ internal sealed class ShadowCaptureProbe : Game
         var field = new WorldCatalog().AllFields.Single(candidate => candidate.Id == "village-1");
         _sky = PristonSkyLibrary.LoadBootstrap(GraphicsDevice, _assetRoot);
         _renderer = new PristonRenderer(GraphicsDevice, Content, presentation: _presentation) { Sky = _sky, DayLengthSeconds = 0 };
-        _renderer.SetTimeOfDay(Shots[0].Hour);
         _renderer.SkyProfiles = new PristonSkyProfiles(PristonSkyProfiles.Resolve(field.Backdrop.Day),
             PristonSkyProfiles.Resolve(field.Backdrop.Glow), PristonSkyProfiles.Resolve(field.Backdrop.Night));
         var reader = new PristonSmdReader();
@@ -64,58 +86,79 @@ internal sealed class ShadowCaptureProbe : Game
         var models = field.StageObjectSmds.Select(path => reader.ReadModel(Resolve(path))).ToArray();
         _renderer.PrepareStageTexturesAsync(stage, models).GetAwaiter().GetResult();
         _renderer.AddStage(stage, models);
-        var collision = new PristonCollisionWorld(stage);
+        _collision = new PristonCollisionWorld(stage);
         var start = field.StartPoints[0];
-        _focus = new Vector3(start.X, 0f, -start.Z);
-        _focus.Y = collision.TryGetFloorHeight(_focus with { Y = 5000f }, out var floor) ? floor : 0f;
-        // Beside the stage lamp nearest the start, so its shadows show at night.
+        _sunSpot = Floor(_collision, new Vector3(start.X, 5000f, -start.Z));
         var lamp = stage.Lights.Where(static light => light.Range > 50f)
-            .MinBy(light => Vector2.DistanceSquared(new Vector2(light.Position.X, light.Position.Z), new Vector2(_focus.X, _focus.Z)));
-        if (lamp is not null)
-        {
-            Console.WriteLine($"Lamp at {lamp.Position} range {lamp.Range}");
-            _focus = Floor(collision, new Vector3(lamp.Position.X + 60f, lamp.Position.Y, lamp.Position.Z + 40f));
-        }
-
-        _eye = _focus + new Vector3(60f, 55f, 110f);
-        _camera = new PristonCamera(_eye, Vector3.Normalize(_focus - _eye));
+            .MinBy(light => Vector2.DistanceSquared(new Vector2(light.Position.X, light.Position.Z), new Vector2(_sunSpot.X, _sunSpot.Z)));
+        _lampSpot = lamp is null ? _sunSpot : Floor(_collision, new Vector3(lamp.Position.X + 60f, lamp.Position.Y, lamp.Position.Z + 40f));
 
         var loader = new PristonActorLoader();
         var actorScene = new RendererActorScene(_renderer);
+        var catalog = new WorldRenderCatalog(new Dictionary<uint, MonsterRenderInfo>
+        {
+            [1] = new(1, "char/monster/Bguardian/Bguardian.inx", 1.2f, "Babel", 104, Simulation.World.Monsters.MonsterBrood.Normal, 8, 25)
+        });
         _remote = new RemoteEntityManager(actorScene, new PlayerActorComposer(actorScene, loader), new ModelActorComposer(actorScene, loader),
-            new CharacterClassRegistry(), _assetRoot, new WorldRenderCatalog(new Dictionary<uint, MonsterRenderInfo>()), ConsoleClientLog.Instance);
+            new CharacterClassRegistry(), _assetRoot, catalog, ConsoleClientLog.Instance);
+        Place(_sunSpot);
+    }
+
+    private void Place(Vector3 spot)
+    {
+        _focus = spot;
         _remote.Apply(new PresenceUpdate(1,
         [
-            new(1, RemoteEntityKind.Player, false, Numeric(_focus), 0.4f, RemoteMoveState.Idle, 64, 64,
+            new(Priestess, RemoteEntityKind.Player, false, Numeric(spot), 0.4f, RemoteMoveState.Idle, 64, 64,
                 new PlayerAppearanceInfo("Priestess", (int)PlayerClass.Priestess, 3, 0, 0, "", "", 90), 0),
-            new(2, RemoteEntityKind.Player, false, Numeric(Floor(collision, _focus + new Vector3(-50f, 0f, -20f))), 2.2f, RemoteMoveState.Idle, 64, 64,
-                new PlayerAppearanceInfo("Atalanta", (int)PlayerClass.Atalanta, 3, 1, 1, "", "", 90), 0)
+            new(Atalanta, RemoteEntityKind.Player, false, Numeric(Floor(_collision, spot + new Vector3(-50f, 500f, -20f))), 2.2f, RemoteMoveState.Idle, 64,
+                64, new PlayerAppearanceInfo("Atalanta", (int)PlayerClass.Atalanta, 3, 1, 1, "", "", 90), 0),
+            new(Babel, RemoteEntityKind.Monster, false, Numeric(Floor(_collision, spot + new Vector3(70f, 500f, -60f))), 3.6f, RemoteMoveState.Idle,
+                100, 100, null, 1, Name: "Babel", Level: 104)
         ], [], [], []));
     }
 
     protected override void Update(GameTime gameTime)
     {
-        if (_timeout.Elapsed > TimeSpan.FromMinutes(3))
+        if (_timeout.Elapsed > TimeSpan.FromMinutes(4))
         {
             throw new TimeoutException("Shadow capture did not finish.");
         }
 
-        if (_shot >= Shots.Length)
+        if (_shot < 0 || _frame == 0 && _shotSeconds == 0)
         {
-            Exit();
-            return;
+            _shot = Math.Max(_shot, 0);
+            if (_shot >= Shots.Length)
+            {
+                Exit();
+                return;
+            }
+
+            var shot = Shots[_shot];
+            _presentation.ApplyRendering(shot.Settings(new ClientSettings()));
+            _renderer.SetTimeOfDay(shot.Hour);
+            var spot = shot.AtLamp ? _lampSpot : _sunSpot;
+            if (spot != _focus)
+            {
+                Place(spot);
+            }
         }
 
         const float step = 1f / 60f;
         _seconds += step;
-        _renderer.SetTimeOfDay(Shots[_shot].Hour);
+        _shotSeconds += step;
+        if (_shot < Shots.Length && Shots[_shot].SunMoves)
+        {
+            _renderer.SetTimeOfDay(Shots[_shot].Hour + (float)_shotSeconds * HoursPerSecond);
+        }
+
         _remote.Update(step);
         _renderer.Update(new GameTime(TimeSpan.FromSeconds(_seconds), TimeSpan.FromSeconds(step)));
     }
 
     protected override void Draw(GameTime gameTime)
     {
-        if (_shot >= Shots.Length || _remote.Count < 2 || _seconds < 3.0)
+        if (_shot < 0 || _shot >= Shots.Length || _remote.Count < 3 || _shotSeconds < 2.0)
         {
             GraphicsDevice.Clear(Color.Black);
             return;
@@ -124,7 +167,9 @@ internal sealed class ShadowCaptureProbe : Game
         var shot = Shots[_shot];
         using var target = new RenderTarget2D(GraphicsDevice, 960, 540, false, SurfaceFormat.Color, DepthFormat.Depth24Stencil8);
         GraphicsDevice.SetRenderTarget(target);
-        _camera.SetScriptedView(GraphicsDevice, _eye, _focus + Vector3.Up * 25f);
+        var eye = shot.Close ? _focus + new Vector3(35f, 45f, 55f) : _focus + new Vector3(80f, 80f, 150f);
+        _camera ??= new PristonCamera(eye, Vector3.Forward);
+        _camera.SetScriptedView(GraphicsDevice, eye, _focus + Vector3.Up * (shot.Close ? 30f : 25f));
         _renderer.Draw(_camera);
         _renderer.ComposeScene();
         GraphicsDevice.SetRenderTarget(null);
@@ -142,12 +187,34 @@ internal sealed class ShadowCaptureProbe : Game
             opaque.SaveAsPng(stream, 960, 540);
         }
 
+        // The change from the previous frame, eight times brighter: what trembles while nothing moves.
+        if (_frame > 0 && _previous is not null)
+        {
+            var changed = 0;
+            var difference = new Color[pixels.Length];
+            for (var index = 0; index < pixels.Length; index++)
+            {
+                var delta = Math.Max(Math.Abs(pixels[index].R - _previous[index].R),
+                    Math.Max(Math.Abs(pixels[index].G - _previous[index].G), Math.Abs(pixels[index].B - _previous[index].B)));
+                changed += delta > 6 ? 1 : 0;
+                var shade = (byte)Math.Min(255, delta * 8);
+                difference[index] = new Color(shade, shade, shade, (byte)255);
+            }
+
+            opaque.SetData(difference);
+            using var diffStream = File.Create(Path.Combine(_output, $"{shot.Name}-{_frame}-change.png"));
+            opaque.SaveAsPng(diffStream, 960, 540);
+            Console.WriteLine($"Shadows {shot.Name}-{_frame}: {changed} pixels changed from the previous frame");
+        }
+
+        _previous = pixels;
         Console.WriteLine($"Shadows {shot.Name}-{_frame}: captured");
         if (++_frame >= shot.Frames)
         {
+            _previous = null;
             _frame = 0;
+            _shotSeconds = 0;
             _shot++;
-            _seconds = 0;
         }
     }
 

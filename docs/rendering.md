@@ -220,8 +220,9 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
   moonlight. Between refreshes cascades 0-1 still redraw every frame on their current fit, so the characters near the
   camera cast from their current pose (a caster a refresh old darkens a running character lit from behind). Characters
   and monsters receive the sun's shadow 40 units further along the light (`ActorShadowBias`), so their own thin
-  low-polygon bodies do not shade themselves in flickering triangles while buildings and trees still shade them. PCSS by
-  day (light radius tangent 0.01), PCF (1.5 texels) for the moon. Casters draw two-sided; the
+  low-polygon bodies do not shade themselves in flickering triangles while buildings and trees still shade them. Over a
+  cascade's blend band both cascades are sampled and blended, never one picked per pixel by noise. PCSS by day (light
+  radius tangent 0.01), PCF (1.5 texels) for the moon. Casters draw two-sided; the
   wind/water displacement matches the lit pass.
 - **Lamp shadows** (`Lighting/PristonLampShadows.cs`): the `lampShadowCount` lamps nearest the focus (after the
   transient lights) keep a row of six 90-degree cube faces storing distance / radius. A lamp keeps its row while it
@@ -241,8 +242,10 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
 ## Screen-space and image-based passes
 
 - **GTAO and contact shadows** (`Post/PristonScreenOcclusion.cs`): radius 90 units, at most 48 half-res pixels; contact
-  march 40 units toward the sun with 12-unit thickness, sun only. The lit pass upsamples by depth; AO also gives
-  specular occlusion.
+  march 24 units toward the sun with 12-unit thickness and a fixed per-pixel jitter, sun only. The lit pass upsamples by
+  depth; AO also gives specular occlusion. The sun's visibility is the darker of the contact shadow and the cascades,
+  so a surface both shade is not darkened twice; characters and monsters take no contact shadows (the march across
+  their thin bodies left dark patches that moved with the view and the pose).
 - **Image-based lighting** (`Lighting/PristonEnvironmentLighting.cs`): dome faces at 64 px, SH irradiance scaled to the
   light model's sky light (dome at most at its visible level, a uniform fill for the rest), five GGX levels from a
   128-px octahedral base (64 samples), split-sum table with multiple-scattering compensation. Off:

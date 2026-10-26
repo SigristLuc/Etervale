@@ -15,7 +15,7 @@ internal sealed class PristonScreenOcclusion : IDisposable
     public const float FalloffShare = 0.4f;
     public const float MaxRadiusPixels = 48f;
     // Length of the contact-shadow march toward the sun and the thickness a depth sample is assumed to have.
-    public const float ContactLength = 40f;
+    public const float ContactLength = 24f;
     public const float ContactThickness = 12f;
 
     private readonly GraphicsDevice _device;
@@ -62,7 +62,7 @@ internal sealed class PristonScreenOcclusion : IDisposable
 
     // view and projection: the camera of the pre-pass; towardSun: unit vector toward the sun (or the moon).
     public Texture2D Run(Texture2D depth, Texture2D normals, Matrix view, Matrix projection, Vector3 towardSun,
-        bool ambientOcclusion, bool contactShadows, float noiseOffset)
+        bool ambientOcclusion, bool contactShadows)
     {
         var width = Math.Max(depth.Width / 2, 1);
         var height = Math.Max(depth.Height / 2, 1);
@@ -76,7 +76,7 @@ internal sealed class PristonScreenOcclusion : IDisposable
         _size.SetValue(new Vector4(width, height, 1f / width, 1f / height));
         _projection.SetValue(new Vector4(tanX, tanY, height * 0.5f / tanY, 0f));
         _radius.SetValue(new Vector4(Radius, FalloffShare, MaxRadiusPixels, ambientOcclusion ? 1f : 0f));
-        _contact.SetValue(new Vector4(ContactLength, ContactThickness, contactShadows ? 1f : 0f, noiseOffset));
+        _contact.SetValue(new Vector4(ContactLength, ContactThickness, contactShadows ? 1f : 0f, 0f));
         _right.SetValue(new Vector3(view.M11, view.M21, view.M31));
         _up.SetValue(new Vector3(view.M12, view.M22, view.M32));
         _forward.SetValue(-new Vector3(view.M13, view.M23, view.M33));

@@ -28,6 +28,7 @@ internal static class RemotePlaybackTests
         yield return ("remote clock follows early packets quickly, late packets slowly and resynchronises", ClockAsync);
         yield return ("remote Walk/Run without ground motion shows Stand and clip rate follows ground speed", LocomotionAsync);
         yield return ("remote player walk rate keeps the original frame step at nominal speed", PlayerRateAsync);
+        yield return ("a remote monster killed mid-swing, mid-flinch or between samples shows its death clip", DeathAsync);
         yield return ("target frame follows the trace, keeps it after ground clicks and closes like the original", TargetSelectionAsync);
         yield return ("target HP bar is modern by default and classic only after a full-life attack", TargetHealthBarAsync);
         yield return ("presence clock extension round-trips and stamps decoded samples", PresenceClockAsync);
@@ -186,6 +187,45 @@ internal static class RemotePlaybackTests
         monster.SetTarget(now, new Vector3(x, 0, 0), 0f, RemoteMoveState.Attack, 10);
         Run(400);
         Assert.True(scene.LastMotion == PristonActorMotion.Attack, "server attack state lost to the locomotion safeguard");
+        return Task.CompletedTask;
+    }
+
+    private static Task DeathAsync()
+    {
+        foreach (var (name, states, swing) in new (string, RemoteMoveState[], bool)[]
+        {
+            ("mid-swing", [RemoteMoveState.Attack, RemoteMoveState.Dead], true),
+            ("mid-skill", [RemoteMoveState.Skill, RemoteMoveState.Dead], true),
+            ("mid-flinch", [RemoteMoveState.Damage, RemoteMoveState.Dead], false),
+            ("walking", [RemoteMoveState.Walking, RemoteMoveState.Dead], false),
+            ("one frame", [RemoteMoveState.Damage, RemoteMoveState.Dead], false)
+        })
+        {
+            var scene = new RecordingScene();
+            var monster = new RemoteModelEntity(scene, ActorHandle.None, 1f, 0, Vector3.Zero, 0f, RemoteMoveState.Idle, 10);
+            var now = 1000d;
+            var step = name == "one frame" ? 0d : 50d;
+            foreach (var state in states)
+            {
+                monster.SetTarget(now, Vector3.Zero, 0f, state, state == RemoteMoveState.Dead ? 0 : 5);
+                if (swing && state != RemoteMoveState.Dead)
+                {
+                    monster.ApplyCombatEvent(new CombatEventInfo(1, 2, RemoteCombatEventKind.SwingBegin, 800f, 300f, 0, false, false) { Clip = 3 }, now);
+                }
+
+                now += step;
+            }
+
+            monster.ApplyCombatEvent(new CombatEventInfo(2, 1, RemoteCombatEventKind.Hit, 0f, 0f, 9, false, true), now);
+            for (var tick = 0; tick < 20; tick++)
+            {
+                now += 50;
+                monster.Update(0.05f, now);
+            }
+
+            Assert.True(monster.Motion == PristonActorMotion.Dead && scene.LastMotion == PristonActorMotion.Dead, $"death clip not shown {name}: {scene.LastMotion}");
+        }
+
         return Task.CompletedTask;
     }
 

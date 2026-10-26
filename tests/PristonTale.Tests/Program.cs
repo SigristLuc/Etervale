@@ -390,6 +390,7 @@ specifications.AddRange(SkillChargeTests.Cases());
 specifications.AddRange(SkillCompanionTests.Cases());
 specifications.AddRange(SpecialItemTests.Cases());
 specifications.AddRange(MonsterCrystalTests.Cases());
+specifications.AddRange(SummonAllianceTests.Cases());
 specifications.AddRange(CastleItemTests.Cases());
 specifications.AddRange(EventItemTests.Cases());
 specifications.AddRange(PuzzleTests.Cases());

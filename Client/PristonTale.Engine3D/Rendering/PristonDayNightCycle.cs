@@ -77,8 +77,6 @@ internal sealed class PristonDayNightCycle
 
     public void SetTime(float hours) => TimeOfDay = Wrap24(hours);
 
-    public void Advance(float hours) => TimeOfDay = Wrap24(TimeOfDay + hours);
-
     public PristonSkyState Evaluate()
     {
         if (TimeOfDay == _cachedTime)

@@ -14,7 +14,7 @@ cbuffer AmbientOcclusionConstants : register(b0)
     float4 AoSize;            // xy size of the half-resolution target (px), zw 1 / size
     float4 AoProjection;      // x tan(half fov x), y tan(half fov y), z pixels per world unit at depth 1 (half res)
     float4 AoRadius;          // x world radius, y falloff share of the radius, z max radius (px), w 1 = ambient occlusion on
-    float4 ContactParams;     // x march length (world), y thickness (world), z 1 = contact shadows on, w frame noise offset
+    float4 ContactParams;     // x march length (world), y thickness (world), z 1 = contact shadows on
     float3 CameraRight;       // world basis of the camera
     float AoPadding0;
     float3 CameraUp;
@@ -142,8 +142,9 @@ float ContactShadow(float2 pixel, float3 p, float3 n)
         return 1.0;
     }
 
-    float2 q = pixel + ContactParams.w * 5.588238;
-    float jitter = frac(52.9829189 * frac(dot(q, float2(0.06711056, 0.00583715))));
+    // A fixed jitter per pixel: one moving every frame shimmered wherever the temporal history was rejected (a turning
+    // camera, moving actors).
+    float jitter = frac(52.9829189 * frac(dot(pixel, float2(0.06711056, 0.00583715))));
     float3 start = p + n * (0.002 * length(p));
     float3 stepWorld = toSun * (ContactParams.x / ContactSteps);
     float occlusion = 0.0;
