@@ -199,7 +199,7 @@ These bodies have no version header.
 | `InventoryCommand` | `Guid OperationId, int64 ExpectedRevision, int32 Action, Guid ItemId, int32 Destination, Count, Slot` | 64 |
 | `ProgressionCommand` | `Guid OperationId, int64 ExpectedRevision, int32 Action, Attribute, Amount, uint SkillCode, uint64 NpcSerial` | 56 |
 | `InventoryResult` / `ProgressionResult` | `Guid OperationId, int32 Ok, int64 Revision, text Message (128 B)` | 38 + text |
-| `Inventory` | `int64 Revision, int32 Part, Parts, Count`, then items `{Guid, uint Code, int32 Kind, Count, Anchor, Slot, int16 Width, Height, text Name (64 B)}` (at most 64 per part) | 28 + up to 106n |
+| `Inventory` | `int64 Revision, int32 Part, Parts, Count`, then items `{Guid, uint Code, int32 Kind, Count, Anchor, Slot, int16 Width, Height, text Name (64 B)}` (at most 64 per part); `Slot` is -1 for a bag item, the `EquipmentSlot` for a worn one and 100 + slot for a potion belt stack (`OwnedItemView.BeltSlotBase`) | 28 + up to 106n |
 | `Skills` | `int64 Revision, int32 Count`, then `{uint Code, int32 Rank}` | 20 + 8n |
 | `CombatEvents` | `int32 Count`, then entries of 56 bytes | 12 + 56n |
 | `RemoveObjects` | `int32 Count`, then `uint64 Serial` | 12 + 8n |

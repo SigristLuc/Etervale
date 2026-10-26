@@ -67,6 +67,9 @@ public static class HudInventoryLayout
     // The bag-page arrows at the window's bottom left: I on the left, II on the right, with the same art as the set arrows.
     public static Rectangle BagPage(Point origin, int page) => new(origin.X + (page == 0 ? 26 : 48), origin.Y + 572, 22, 19);
 
+    // The potion belt's three 26x26 slots on the bar (the 1, 2 and 3 keys), always at the bar's place.
+    public static Rectangle Belt(Point origin, int slot) => new(origin.X + 495 + 26 * slot, origin.Y + 565, 26, 26);
+
     public static Rectangle Close(Point origin) => new(origin.X + 266, origin.Y + 572, 22, 19);
     public static Rectangle Money(Point origin) => new(origin.X + 147, origin.Y + 574, 110, 18);
     public static Rectangle Weight(Point origin) => new(origin.X + 326, origin.Y + 471, 80, 15);

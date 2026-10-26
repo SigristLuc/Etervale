@@ -377,7 +377,7 @@ public sealed class GameplayHud : IDisposable
         var typing = _chat.KeyboardCaptured;
         if (!typing)
         {
-            UpdateKeys(keyboard);
+            UpdateKeys(keyboard, pointer);
         }
 
         var warehouseAction = _warehouse.Update(mouse, _previousMouse, pointer, InventoryCellAt, _services.Pending || _settingsOpen);
@@ -502,7 +502,7 @@ public sealed class GameplayHud : IDisposable
     // A status, skill or inventory window shrinks the chat window above it.
     private bool SideWindowOpen => _inventorySlide.Visible || _statusSlide.Visible || _skillSlide.Visible;
 
-    private void UpdateKeys(KeyboardState keyboard)
+    private void UpdateKeys(KeyboardState keyboard, Point pointer)
     {
         if (keyboard.IsKeyDown(Keys.LeftControl) || keyboard.IsKeyDown(Keys.RightControl))
         {
@@ -547,6 +547,15 @@ public sealed class GameplayHud : IDisposable
         if (Pressed(keyboard, Keys.E))
         {
             _inventory.SwapBagPage();
+        }
+
+        var shift = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
+        for (var slot = 0; slot < PlayerCharacter.BeltSlots; slot++)
+        {
+            if (Pressed(keyboard, Keys.D1 + slot))
+            {
+                _inventory.UseBeltSlot(slot, shift, _inventorySlide.FullyOpen && !_settingsOpen, pointer);
+            }
         }
     }
 
@@ -952,6 +961,7 @@ public sealed class GameplayHud : IDisposable
         var left = _bindings.LeftSkillId == HudSkillBindings.BasicAttackId;
         _bar.Draw(_painter, layout, _state, new HudBarView(World.TimeOfDay, World.Running, _mapVisible, left, RightAttackEnabled,
             _hoveredButton, pressed && _hoveredButton is not null, _hoveredToggle));
+        _inventoryPanel.DrawBelt(_painter, HudInventoryLayout.Origin(layout), _state, _inventory, _icons, pointer, _inventorySlide.FullyOpen && !_settingsOpen);
         _skillHud.DrawSockets(_painter, layout.BottomOffset, _bindings.LeftSkillId, _bindings.RightSkillId, Cooldowns, SkillClockMs);
         if (Statuses is not null && SelfId != 0)
         {
@@ -1268,7 +1278,7 @@ public sealed class GameplayHud : IDisposable
             return false;
         }
 
-        if (_shop.Mode == HudShopMode.Sell && item.Slot >= 0)
+        if (item.BeltSlot >= 0 || _shop.Mode == HudShopMode.Sell && item.Worn)
         {
             return true;
         }

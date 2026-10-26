@@ -24,9 +24,10 @@ public sealed record SavedItem(
 
 // Spare keeps what is carried out of use: in the inventory column the other bag page's items (BagPage is the page in use,
 // 0 for I, 1 for II), in the equipment column the inactive weapon set's weapon and off-hand item (WeaponSet is the worn
-// set, 0 for A, 1 for B).
+// set, 0 for A, 1 for B). Belt holds the potion belt's stacks in the inventory column, Anchor being the slot (0..2).
 public sealed record SavedItems(int Version, SavedItem[] Items, long Revision = 0, AppliedInventoryOperation[]? Operations = null,
-    AppliedServiceOperation[]? ServiceOperations = null, SavedItem[]? Spare = null, int WeaponSet = 0, int BagPage = 0);
+    AppliedServiceOperation[]? ServiceOperations = null, SavedItem[]? Spare = null, int WeaponSet = 0, int BagPage = 0,
+    SavedItem[]? Belt = null);
 public sealed record SavedSkill(uint Code, int Rank, int Uses = 0);
 public sealed record SavedSkills(int Version, int Points, int ElitePoints, SavedSkill[] Skills,
     long Revision = 0, AppliedProgressionOperation[]? Operations = null);
@@ -67,6 +68,20 @@ public static class CharacterStateCodec
 
         character.RestoreBagPage(inventory.BagPage,
             (inventory.Spare ?? []).Select(saved => (saved.Anchor, RestoreItem(saved, catalog, identities))).ToArray());
+
+        if ((inventory.Belt ?? []).Any(static saved => saved is null || saved.Slot.HasValue))
+        {
+            throw new InvalidDataException("Invalid saved belt.");
+        }
+
+        try
+        {
+            character.RestoreBelt((inventory.Belt ?? []).Select(saved => (saved.Anchor, RestoreItem(saved, catalog, identities))).ToArray());
+        }
+        catch (ArgumentException exception)
+        {
+            throw new InvalidDataException("Invalid saved belt.", exception);
+        }
 
         foreach (var saved in equipment.Items)
         {
@@ -123,8 +138,9 @@ public static class CharacterStateCodec
         }
 
         var spare = character.SpareBagItems().Select(static pair => CaptureItem(pair.Item, pair.Anchor, null)).ToArray();
+        var belt = character.BeltItems().Select(static pair => CaptureItem(pair.Item, pair.Slot, null)).ToArray();
         return new SavedItems(1, items.ToArray(), character.InventoryRevision, character.InventoryOperations.ToArray(),
-            character.ServiceOperations.ToArray(), spare.Length > 0 ? spare : null, BagPage: character.BagPage);
+            character.ServiceOperations.ToArray(), spare.Length > 0 ? spare : null, BagPage: character.BagPage, Belt: belt.Length > 0 ? belt : null);
     }
 
     public static SavedItems CaptureEquipment(PlayerCharacter character)
@@ -220,9 +236,13 @@ public static class CharacterStateCodec
         return state;
     }
 
+    // A saved item with its roll takes about 1 KB, so both bag pages and the belt full (147 items) plus the operation
+    // histories come to roughly 190 KB; the bound leaves room above that.
+    public const int MaxStateLength = 262144;
+
     internal static bool IsLegacyEmpty(JsonText json, JsonValueKind expected)
     {
-        if (string.IsNullOrWhiteSpace(json.Value) || json.Value.Length > 65536)
+        if (string.IsNullOrWhiteSpace(json.Value) || json.Value.Length > MaxStateLength)
         {
             throw new InvalidDataException("Invalid owned-state JSON size.");
         }

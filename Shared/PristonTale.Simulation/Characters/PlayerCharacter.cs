@@ -9,7 +9,7 @@ using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Simulation.Characters;
 
-public sealed class PlayerCharacter
+public sealed partial class PlayerCharacter
 {
     private readonly Dictionary<EquipmentSlot, ItemInstance> _equipment = new();
     private readonly Dictionary<EquipmentSlot, ItemInstance> _spareHands = new();
@@ -32,6 +32,7 @@ public sealed class PlayerCharacter
         Stamina = MaxStamina;
         Class.OnSpawn(this);
         Inventory.Changed += OnInventoryChanged;
+        Belt.Changed += OnInventoryChanged;
     }
 
     public CharacterClass Class { get; }
@@ -118,7 +119,7 @@ public sealed class PlayerCharacter
 
         if (item is not null)
         {
-            return gold == 0 && Items.CarriedWeight.CanTake(this, Items.CarriedWeight.Of(item)) && Inventory.TryAdd(item);
+            return gold == 0 && Items.CarriedWeight.CanTake(this, Items.CarriedWeight.Of(item)) && TryCarry(item);
         }
 
         if (gold <= 0 || !TryChangeMoney(gold))
@@ -695,7 +696,8 @@ public sealed class PlayerCharacter
             return Inventory[anchor];
         }
 
-        foreach (var equipped in _equipment.Values.Concat(_spareHands.Values).Concat(SpareBagItems().Select(static pair => pair.Item)))
+        foreach (var equipped in _equipment.Values.Concat(_spareHands.Values).Concat(SpareBagItems().Select(static pair => pair.Item))
+            .Concat(BeltItems().Select(static pair => pair.Item)))
         {
             if (equipped.InstanceId == instanceId)
             {
@@ -727,6 +729,11 @@ public sealed class PlayerCharacter
         }
 
         foreach (var (_, item) in SpareBagItems())
+        {
+            yield return item;
+        }
+
+        foreach (var (_, item) in BeltItems())
         {
             yield return item;
         }
@@ -771,6 +778,7 @@ public sealed class PlayerCharacter
 
         clone.RestoreWeaponSet(WeaponSet, _spareHands.Select(static spare => (spare.Key, spare.Value.Copy(1, preserveId: true))));
         clone.RestoreBagPage(BagPage, SpareBagItems().Select(static pair => (pair.Anchor, pair.Item.Copy(pair.Item.Count, preserveId: true))));
+        clone.RestoreBelt(BeltItems().Select(static pair => (pair.Slot, pair.Item.Copy(pair.Item.Count, preserveId: true))));
 
         foreach (var skill in Skills.Ranks)
         {
@@ -946,6 +954,10 @@ public sealed class PlayerCharacter
             _equipment.Add(equipped.Key, equipped.Value);
         }
 
+        Belt.Changed -= OnInventoryChanged;
+        candidate.Belt.Changed -= candidate.OnInventoryChanged;
+        Belt = candidate.Belt;
+        Belt.Changed += OnInventoryChanged;
         BagPage = candidate.BagPage;
         SpareBag = candidate.SpareBag;
         WeaponSet = candidate.WeaponSet;

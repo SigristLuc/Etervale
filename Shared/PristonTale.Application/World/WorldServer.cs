@@ -370,13 +370,12 @@ public sealed partial class WorldServer
             var outcome = new InventoryOutcome(true, candidate.InventoryRevision, "committed");
             if (command.Action == InventoryAction.ConsumePotion)
             {
-                var anchor = original.Inventory.Find(command.ItemId);
-                return new PreparedPotionOperation(original, candidate, snapshot, outcome, original.Inventory[anchor]!.Definition.Potion!);
+                return new PreparedPotionOperation(original, candidate, snapshot, outcome, original.FindCarried(command.ItemId)!.Definition.Potion!);
             }
 
             if (command.Action == InventoryAction.Drop)
             {
-                return new PreparedDropOperation(original, candidate, snapshot, outcome, original.Inventory[original.Inventory.Find(command.ItemId)]!,
+                return new PreparedDropOperation(original, candidate, snapshot, outcome, original.FindCarried(command.ItemId)!,
                     connection.FieldId);
             }
 

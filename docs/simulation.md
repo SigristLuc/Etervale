@@ -321,6 +321,8 @@ totals.
   family number is `(first * 26 + second) * 36 + third + 1` (letters A-Z = 0-25; third character 0-9 then A-Z = 10-35),
   case-insensitively; `TryFormat` is the inverse. Every well-formed key has a code, so a new item family needs no
   registration. `ItemCodes.Family` compares families (`Family(code) == Family("WM1")`).
+- `MaxStack` is the authored stack size, except that potions stack to `ItemDefinition.PotionMaxStack` (999) whatever
+  their files say (`ItemDefinition.StackLimit`); their carried weight, one per potion, is the real limit.
 - `ItemKind` is persisted as an integer: append new values at the end only.
 - Equippable means `EquipSlot` is set, which only `ItemEquipmentMetadata` does by family, and it also overrides the
   imported kind:
@@ -375,6 +377,25 @@ totals.
 - `TryPlace`, `TryMove`, `TrySplit` (new instance id), `TryMerge`, `TryExchange` (put a replacement at the same anchor
   or first fit), `TakeAt`, `ConsumeAt`. Every change bumps `Version` and raises `Changed`.
 
+### Potion belt
+
+`PlayerCharacter.Belt` (`PlayerCharacter.Belt.cs`) is a 3x1 `Inventory` of potion stacks, drunk with the 1, 2 and 3 keys.
+It is carried, weighed, saved and cloned with the bag, and holds only potions (`BeltHolds`: kind `Potion` with valid
+restore ranges). The belt capacity is `Derived.PotionSpace`, a limit per slot set by the worn bracelet's `PotionSpace`
+(else 2). Bag stacks are not limited by it.
+
+- `TryMoveToBelt(id, slot)`: from the bag or another slot. An empty slot takes up to the capacity and a slot of the same
+  potion is topped up to it; the rest stays where it was. A slot of another potion trades places with the moved stack
+  when the whole stack fits; otherwise the slot's stack goes to the bag (refused without room) and the slot takes
+  `PotionSpace` potions of the moved stack.
+- `TryMoveFromBelt(id, anchor)`: onto a bag stack of the same potion it merges up to the stack limit; onto a free place it
+  goes there; anchor -1 uses `Inventory.TryAdd`.
+- `TryCarry(stack)`: how bought (`NpcShopRules.TryBuy` without an anchor) and picked-up (`ReceiveGroundLoot`) items
+  arrive. A potion first tops up the slots of the same potion, then fills the first empty slot, and the rest joins the
+  bag; when the bag cannot take the rest nothing changes. Other items go to `Inventory.TryAdd`.
+- `SettleBelt`: after the capacity falls, the excess of each slot goes to the bag while it has room; a slot without room
+  keeps its potions and takes no more until it is drunk below the capacity.
+
 ### Equipment rules (`PlayerCharacter.CanEquip`)
 
 - `CanHold`: count 1, matching slot (rings fit either ring slot), the same instance not in another slot, and no
@@ -400,8 +421,12 @@ totals.
   kind (plus NPC service operations) are kept for idempotent replay and persisted with the character.
 - `InventoryRevision` counts changes, not commands: one equip can bump it more than once. Clients must adopt the
   revision returned in the outcome.
-- `InventoryAction.ConsumePotion` only removes one potion; the restore is applied later by the Application when the
-  eat motion reaches its event (`WorldPlayer`). `Pickup` is handled by `GroundPickupTransactions`, not here.
+- `InventoryAction.ConsumePotion` only removes one potion, from the bag or the belt; the restore is applied later by the
+  Application when the eat motion reaches its event (`WorldPlayer`). `Drop` also takes a belt stack. `Pickup` is
+  handled by `GroundPickupTransactions`, not here.
+- `ToBelt` (`Destination` = belt slot) and `FromBelt` (`Destination` = bag anchor, -1 for the first place) move potion
+  stacks between the bag and the belt (see [Potion belt](#potion-belt)). A successful `Equip`, `Unequip` or
+  `SwapWeaponSet` then calls `SettleBelt`.
 - The Application validates on a copy: `CloneForInventoryOperation` (inventory, equipment, progress, skills, pools,
   histories), applies the command, persists the snapshot, then `CommitInventoryOperation` adopts the candidate's
   inventory and equipment, or replays the progression command on the original (see [application.md](application.md)).

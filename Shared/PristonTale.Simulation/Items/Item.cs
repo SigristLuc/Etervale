@@ -97,6 +97,11 @@ public sealed record ItemDefinition(
     // The unique marker of a code's quest variant (UniqueItem), kept apart from the regular definition.
     public const int QuestUnique = 2;
 
+    // Potions stack in the bag whatever their authored stack size; the carried weight (one per potion) limits them.
+    public const int PotionMaxStack = 999;
+
+    public static int StackLimit(ItemKind kind, int authored) => kind == ItemKind.Potion ? Math.Max(PotionMaxStack, authored) : Math.Max(1, authored);
+
     // Saved items name a named unique by this base plus its variant number.
     public const int NamedUniqueBase = 1000;
 

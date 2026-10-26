@@ -339,7 +339,13 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   (`InventoryAction.SwapWeaponSet`: the worn weapon and off-hand item trade places with the spare set, which is carried
   and weighed but adds no stats; the worn set's arrow shows its art). A worn two-handed weapon is also drawn in the empty
   off-hand slot, and a click there picks it. Right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
-  slot first), drinks a potion or uses a usable item (`HudItemUseController`: the Teleport Core window, confirmations,
+  slot first), drinks a potion or uses a usable item. The potion belt's three slots sit on the bar
+  (`HudInventoryLayout.Belt`, drawn by `HudInventoryPanel.DrawBelt` with or without the window): 1, 2 and 3 drink the
+  slot's potion, Shift+1/2/3 sends the bag potion under the pointer to that slot, a right click on a slot drinks, and
+  with the window open a potion stack is put on a slot or a belt stack taken back to the bag like any other item
+  (`InventoryAction.ToBelt`, `FromBelt`); belt stacks never go to the shop or warehouse. A potion's count, even 1, is
+  drawn at its cell's top-left corner with a faint dark outline, on the belt and in the bag; other stacks show counts
+  above 1 at the bottom-right. Usable items go through `HudItemUseController` (the Teleport Core window, confirmations,
   the item-use request). One command in flight; it carries the `InventoryRevision` it was built from.
 - Step marks (`GameScene.Terrain.cs`, `PristonCollisionWorld.TryGetIceFloor` / `TryGetWaterHeight`): the stage's ice
   floors are its solid faces of an ice material, its water the faces of a water or see-through (over 0.1) material

@@ -70,7 +70,7 @@ public sealed class Inventory
         var remaining = stack.Count;
         foreach (var existing in _slots)
         {
-            if (existing is not null && Compatible(existing, stack))
+            if (existing is not null && CanStack(existing, stack))
             {
                 remaining -= Math.Min(remaining, Math.Max(0, definition.MaxStack - existing.Count));
             }
@@ -96,7 +96,7 @@ public sealed class Inventory
         remaining = stack.Count;
         foreach (var existing in _slots)
         {
-            if (existing is not null && Compatible(existing, stack))
+            if (existing is not null && CanStack(existing, stack))
             {
                 var amount = Math.Min(remaining, Math.Max(0, definition.MaxStack - existing.Count));
                 existing.Count += amount;
@@ -236,7 +236,7 @@ public sealed class Inventory
     public bool TryMerge(int from, int to)
     {
         if (from == to || from < 0 || to < 0 || from >= Capacity || to >= Capacity
-            || _slots[from] is not { } source || _slots[to] is not { } destination || !Compatible(source, destination))
+            || _slots[from] is not { } source || _slots[to] is not { } destination || !CanStack(source, destination))
         {
             return false;
         }
@@ -297,6 +297,31 @@ public sealed class Inventory
         return true;
     }
 
+    // Adds delta to the stack at index within 0..its stack limit; a stack brought to zero leaves the grid.
+    public bool TryChangeCount(int index, int delta)
+    {
+        if (index < 0 || index >= Capacity || _slots[index] is not { } item || delta == 0)
+        {
+            return false;
+        }
+
+        var count = item.Count + delta;
+        if (count < 0 || count > item.Definition.MaxStack)
+        {
+            return false;
+        }
+
+        if (count == 0)
+        {
+            TakeAt(index);
+            return true;
+        }
+
+        item.Count = count;
+        NotifyChanged();
+        return true;
+    }
+
     private int FindSpace(ItemDefinition definition, ReadOnlySpan<uint> rows)
     {
         for (var index = 0; index < Capacity; index++)
@@ -354,7 +379,8 @@ public sealed class Inventory
         Changed?.Invoke();
     }
 
-    private static bool Compatible(ItemInstance left, ItemInstance right)
+    // Two stacks join when the item stacks and both copies are alike in every saved value.
+    public static bool CanStack(ItemInstance left, ItemInstance right)
     {
         return left.Definition.IsStackable && left.Definition == right.Definition
             && left.UpgradeLevel == right.UpgradeLevel && left.DurabilityCurrent == right.DurabilityCurrent

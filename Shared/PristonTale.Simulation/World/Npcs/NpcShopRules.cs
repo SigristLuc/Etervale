@@ -73,7 +73,7 @@ public static class NpcShopRules
         }
 
         var item = new ItemInstance(definition, count);
-        var placed = anchor >= 0 ? character.Inventory.TryPlace(item, anchor) : character.Inventory.TryAdd(item);
+        var placed = anchor >= 0 ? character.Inventory.TryPlace(item, anchor) : character.TryCarry(item);
         if (!placed)
         {
             return NpcServiceStatus.NoSpace;

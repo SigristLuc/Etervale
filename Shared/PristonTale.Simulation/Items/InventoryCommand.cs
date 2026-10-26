@@ -13,7 +13,11 @@ public enum InventoryAction
     Pickup,
     Drop,
     SwapWeaponSet,
-    SwapBagPage
+    SwapBagPage,
+    // Destination is the belt slot (0..2).
+    ToBelt,
+    // Destination is the bag anchor, or -1 for the first place that takes the stack.
+    FromBelt
 }
 
 public sealed record InventoryCommand(Guid OperationId, long ExpectedRevision, InventoryAction Action,
@@ -34,21 +38,29 @@ public static class InventoryCommands
         }
 
         var anchor = character.Inventory.Find(command.ItemId);
-        return command.Action switch
+        var applied = command.Action switch
         {
             InventoryAction.Move => character.Inventory.TryMove(anchor, command.Destination),
             InventoryAction.Split => character.Inventory.TrySplit(anchor, command.Destination, command.Count),
             InventoryAction.Merge => character.Inventory.TryMerge(anchor, command.Destination),
             InventoryAction.Equip => character.TryEquipFromInventory(anchor, command.Slot),
             InventoryAction.Unequip => character.GetEquipped(command.Slot)?.InstanceId == command.ItemId && character.TryUnequip(command.Slot, command.Destination),
-            InventoryAction.ConsumePotion => command.Count == 1 && anchor >= 0 && character.Life > 0
-                && character.Inventory[anchor]?.Definition is { Kind: ItemKind.Potion, Potion.IsValid: true }
-                && character.Inventory.ConsumeAt(anchor),
-            InventoryAction.Drop => anchor >= 0 && ItemDropRules.CanDrop(character, character.Inventory[anchor]) && character.Inventory.TakeAt(anchor) is not null,
+            InventoryAction.ConsumePotion => command.Count == 1 && character.Life > 0 && character.TryConsumePotion(command.ItemId),
+            InventoryAction.Drop => character.TryDropCarried(command.ItemId),
             InventoryAction.SwapWeaponSet => character.TrySwapWeaponSet(command.ItemId),
             InventoryAction.SwapBagPage => character.TrySwapBagPage(command.ItemId),
+            InventoryAction.ToBelt => character.TryMoveToBelt(command.ItemId, command.Destination),
+            InventoryAction.FromBelt => character.TryMoveFromBelt(command.ItemId, command.Destination),
             _ => false
         };
+
+        // Equipment changes can lower the belt capacity.
+        if (applied && command.Action is InventoryAction.Equip or InventoryAction.Unequip or InventoryAction.SwapWeaponSet)
+        {
+            character.SettleBelt();
+        }
+
+        return applied;
     }
 
     // The item rule that refuses a command, for the player's message; null when the command fails for another reason.
@@ -64,8 +76,7 @@ public static class InventoryCommands
             case InventoryAction.Unequip:
                 return CarriedWeight.IsOverweight(character) ? ItemRuleMessages.OverWeight : null;
             case InventoryAction.Drop:
-                var carried = character.Inventory.Find(command.ItemId);
-                return carried >= 0 && !ItemDropRules.CanDrop(character, character.Inventory[carried]) ? ItemDropRules.Refusal : null;
+                return character.FindCarried(command.ItemId) is { } carried && !ItemDropRules.CanDrop(character, carried) ? ItemDropRules.Refusal : null;
             case InventoryAction.SwapWeaponSet:
                 return command.ItemId != Guid.Empty && character.CarriedHandHasNoRoom(command.ItemId) ? ItemRuleMessages.NoRoomInBag : null;
             case InventoryAction.SwapBagPage:
@@ -73,6 +84,13 @@ public static class InventoryCommands
                 return command.ItemId != Guid.Empty && held >= 0 && !character.SpareBag.HasRoomFor(character.Inventory[held])
                     ? ItemRuleMessages.NoRoomOnOtherPage
                     : null;
+            case InventoryAction.ToBelt:
+                return character.FindCarried(command.ItemId) is { } potion && PlayerCharacter.BeltHolds(potion) && command.Destination is >= 0 and < PlayerCharacter.BeltSlots
+                    && character.Belt[command.Destination] is { } slotted && Inventory.CanStack(slotted, potion) && slotted.Count >= character.Derived.PotionSpace
+                    ? ItemRuleMessages.BeltFull
+                    : null;
+            case InventoryAction.FromBelt:
+                return command.Destination < 0 && character.Belt.Find(command.ItemId) >= 0 ? ItemRuleMessages.NoRoomInBag : null;
             default:
                 return null;
         }

@@ -9,6 +9,12 @@ public sealed record OwnedItemView(
 {
     // The copy's values for tooltips and equipment rules; null until the owner receives them.
     public ItemDetailView Details { get; init; }
+
+    // Slot is -1 for a bag item, the EquipmentSlot for a worn one and BeltSlotBase plus the slot for a belt stack.
+    public const int BeltSlotBase = 100;
+    public bool InBag => Slot < 0;
+    public bool Worn => Slot is >= 0 and < BeltSlotBase;
+    public int BeltSlot => Slot >= BeltSlotBase ? Slot - BeltSlotBase : -1;
 }
 public sealed record OwnedSkillView(uint Code, int Rank);
 
@@ -99,6 +105,11 @@ public sealed record OwnerState(
             foreach (var pair in character.Equipment)
             {
                 captured.Add(Project(pair.Value, -1, (int)pair.Key, character));
+            }
+
+            foreach (var (slot, item) in character.BeltItems())
+            {
+                captured.Add(Project(item, -1, OwnedItemView.BeltSlotBase + slot, character));
             }
 
             items = captured.AsReadOnly();
