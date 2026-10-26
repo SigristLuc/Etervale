@@ -40,6 +40,8 @@ public sealed partial class FieldInstance
 
     internal Simulation.Items.Aging.AgingSettings Aging { get; set; } = Simulation.Items.Aging.AgingSettings.Default;
 
+    internal Simulation.Items.Mixing.MixingSettings Mixing { get; set; } = Simulation.Items.Mixing.MixingSettings.Default;
+
     internal DailyDropLedger? DropLedger
     {
         get => _combat.DropLedger;

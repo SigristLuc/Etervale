@@ -462,7 +462,7 @@ only with `MoveRange > 0` and a walk clip, with a 25% chance at the end of each 
 | Type | Contract |
 |---|---|
 | `NpcServiceKind` | Stored in `npc_services.kind`, sent in the dialog and as bit `1 << kind`; append only. Argument meanings per member. |
-| `NpcServiceAvailability.IsAvailable` | Running services: `Shop`, `Warehouse`, `SkillMaster`, quest givers and scripts, `ItemAging`, the wing exchange, the puzzle collector, `Teleporter` with a known route. Others are offered but unavailable. |
+| `NpcServiceAvailability.IsAvailable` | Running services: `Shop`, `Warehouse`, `SkillMaster`, quest givers and scripts, `ItemAging`, `ItemMix`, the wing exchange, the puzzle collector, `Teleporter` with a known route. Others are offered but unavailable. |
 | `NpcInteraction` | Dialog reply; `Reach = 96` planar units for NPC service requests |
 | `NpcServiceCommand` | `OperationId` (idempotency), NPC, service, action, expected revisions, item, `Anchor`, `Count`, `Amount`, `Materials` (compared by value) |
 | `NpcServiceAction` | Persisted in the operation history and sent on the wire; append only. `IsDurable` is false for Open, Close, Refresh. |
@@ -529,6 +529,26 @@ one to `Mcave`.
 - The aging ring worn at +6 lowers the death's share to a fiftieth, at +8 to a hundredth (`DeathPenalty.Divisor`).
 - `/AgingSetting code level [class]` (game master level 3) drops a weapon or armour already at the level.
 
+## Mixing and alchemy
+
+`MixFormulas`, `MixingWork` (Simulation, `Items/Mixing/`) hold the rules; `NpcServiceTransactions` runs `Mix` and
+`Refine` for the `ItemMix` service (value 1 the mixer, 200 the alchemist).
+
+- Mix: an item from the bag that can be worn, never aged nor mixed, not a quest, timed or clan item, with up to twelve
+  sheltoms (Lucidy .. Ordo), for the item's price (`mixing.price_percent`). The sheltoms and the gold are spent whatever
+  the result. The first of the 103 formulas (`MixFormulas.Table`) whose families hold the item's family (axes to
+  javelins, armours and robes, shields, orbs) and whose counts of the nine sheltoms Lucidy .. Celesto are exactly those
+  placed adds its bonuses: elements add their value; other stats add a whole value or a percent of the copy's own value.
+  The copy records its highest sheltom (`MixSheltom`) and the stats the mix raised (`MixStats`); without a formula the
+  mix fails and the item stays as it was. A mixed copy can no longer be aged or mixed.
+- Reconstruction: two seals of one kind and nothing else, for an item whose level requirement is in the seal's band
+  (SE101 0..105, SE102 40..79, SE103 0..39, SE104 0..80), rebuilds the item as a newly rolled copy under the same identity.
+  With the respec stone (`BI190`) half the rebuilds take the owner's class specialization, the others never take it.
+- Alchemy: each sheltom from Lucidy to the eleventh becomes the force orb of its rank, for 200, 500, 1000, 2000, 4000,
+  5000, 10000, 20000, 30000, 40000 or 50000 gold (`alchemy.price_percent`); the later and the magic sheltoms are refused.
+- Results (`MixResult`): 0 failed, 1 mixed, 2 reconstructed, 3 refined. A mixed copy whose highest sheltom is Devine to
+  Mirage glows in the mixing colours (`HeldItemGlow`).
+
 ## Wing warp gates
 
 `WingGates` (Simulation) holds the rules; `WingGateTransactions` (Application) runs a trip on the tick. Ten fields
@@ -568,7 +588,7 @@ Soldier_D have no sound folder and stay silent.
 - `FieldCombat`: `ApplyFlinchOnHit`, `ApplyBossRetargetOnHit`, `MonsterAttackReach.CanLandBasic`, `KillReward`,
   `DropRoller.Roll`.
 - `WorldPlayer.ReportMovement`: `FieldTerrain.CrossesWall`, `Slide`, `TryFloorNear`.
-- `NpcServiceTransactions`: `NpcShopRules`, `MoneyLimits`, `WarehouseStorage`, `TeleportRoutes`, `AgingWork`,
+- `NpcServiceTransactions`: `NpcShopRules`, `MoneyLimits`, `WarehouseStorage`, `TeleportRoutes`, `AgingWork`, `MixingWork`,
   `NpcServiceAvailability`.
 
 Each `FieldInstance` owns a `CombatRng` seeded with its field code (shared by brain, spawner and drops) and is created

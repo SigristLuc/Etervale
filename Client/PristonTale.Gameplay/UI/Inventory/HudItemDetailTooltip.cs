@@ -5,6 +5,7 @@ using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Aging;
+using PristonTale.Simulation.Items.Mixing;
 
 namespace PristonTale.Gameplay.UI.Inventory;
 
@@ -27,6 +28,8 @@ public static class HudItemDetailTooltip
     public static readonly Color PriceColor = new(247, 243, 193);
     public static readonly Color HintColor = new(200, 200, 200);
     public static readonly Color AgingColor = new(119, 200, 254);
+    public static readonly Color MixedNameColor = new(150, 255, 255);
+    public static readonly Color MixedColor = new(110, 165, 250);
     private const int GaugeWidth = 130;
     private const int GaugeFill = 125;
 
@@ -45,7 +48,8 @@ public static class HudItemDetailTooltip
         }
 
         var roll = details.Roll;
-        var nameColor = details.UniqueItem != 0 ? UniqueColor : details.UpgradeLevel > 0 ? AgedColor : NameColor;
+        var nameColor = details.UniqueItem != 0 ? UniqueColor : details.MixSheltom > 0 ? MixedNameColor : details.UpgradeLevel > 0 ? AgedColor : NameColor;
+        var mixed = details.MixStats;
         lines.Add((item.Name, nameColor));
         var aged = Aged(details);
         if (aged)
@@ -56,17 +60,19 @@ public static class HudItemDetailTooltip
 
         var family = aged && details.UpgradeLevel > 0 ? AgingRules.Family(item.CatalogKey) : "";
         Add(lines, roll.DamageMin != 0 || roll.DamageMax != 0, "Attack Power:  ", $"{roll.DamageMin}-{roll.DamageMax}",
-            Raised(family, "WA1", "WC1", "WH1", "WM1", "WP1", "WS1", "WS2", "WT1"));
-        Add(lines, details.AttackSpeed != 0, "Weapon Speed:  ", Whole(details.AttackSpeed));
+            Raised(family, "WA1", "WC1", "WH1", "WM1", "WP1", "WS1", "WS2", "WT1") ?? Mixed(mixed, MixStat.DamageMin | MixStat.DamageMax));
+        Add(lines, details.AttackSpeed != 0, "Weapon Speed:  ", Whole(details.AttackSpeed), Mixed(mixed, MixStat.AttackSpeed));
         Add(lines, details.ShootingRange != 0, "Range:  ", Whole(details.ShootingRange));
-        Add(lines, details.Critical != 0, "Critical:  ", details.Critical + "%", Raised(family, "WC1", "WP1", "WS1", "WT1", "WS2"));
-        Add(lines, roll.Defence != 0, "Defense Rating:  ", Whole(roll.Defence), Raised(family, "OM1", "DA1", "DA2", "DB1", "DG1", "OA2"));
+        Add(lines, details.Critical != 0, "Critical:  ", details.Critical + "%",
+            Raised(family, "WC1", "WP1", "WS1", "WT1", "WS2") ?? Mixed(mixed, MixStat.Critical));
+        Add(lines, roll.Defence != 0, "Defense Rating:  ", Whole(roll.Defence),
+            Raised(family, "OM1", "DA1", "DA2", "DB1", "DG1", "OA2") ?? Mixed(mixed, MixStat.Defence));
         Add(lines, roll.AttackRating != 0, "Attack Rating:  ", Whole(roll.AttackRating),
-            Raised(family, "WA1", "WC1", "WM1", "WH1", "WP1", "WS2", "OA2"));
+            Raised(family, "WA1", "WC1", "WM1", "WH1", "WP1", "WS2", "OA2") ?? Mixed(mixed, MixStat.AttackRating));
         Add(lines, roll.Absorb != 0, "Absorb Rating:  ", Tenths(roll.Absorb + ItemAbsorbCorrection.For(item.CatalogKey)),
-            Raised(family, "OM1", "DA1", "DS1", "DA2", "DB1", "DG1"));
-        Add(lines, roll.Block != 0, "Block Rating:  ", (int)roll.Block + "%", Raised(family, "DS1"));
-        Add(lines, roll.MoveSpeed != 0, "Speed:  ", Tenths(roll.MoveSpeed));
+            Raised(family, "OM1", "DA1", "DS1", "DA2", "DB1", "DG1") ?? Mixed(mixed, MixStat.Absorb));
+        Add(lines, roll.Block != 0, "Block Rating:  ", (int)roll.Block + "%", Raised(family, "DS1") ?? Mixed(mixed, MixStat.Block));
+        Add(lines, roll.MoveSpeed != 0, "Speed:  ", Tenths(roll.MoveSpeed), Mixed(mixed, MixStat.MoveSpeed));
         Add(lines, details.DurabilityCurrent != 0 || details.DurabilityMax != 0, "Integrity:  ", $"{details.DurabilityCurrent}/{details.DurabilityMax}",
             Raised(family, "WA1", "WH1", "WS1", "DS1", "OM1", "DA1", "DA2", "DB1", "DG1", "OA2"));
         var resistances = roll.Resistances;
@@ -74,16 +80,16 @@ public static class HudItemDetailTooltip
             resistances.Water, resistances.Wind];
         for (var element = 0; element < elements.Length; element++)
         {
-            Add(lines, elements[element] != 0, ResistanceLabels[element], Whole(elements[element]));
+            Add(lines, elements[element] != 0, ResistanceLabels[element], Whole(elements[element]), Mixed(mixed, ElementStats[element]));
         }
 
         var forceOrb = item.Kind == ItemKind.ForceOrb;
-        Add(lines, roll.LifeRegen != 0 && !forceOrb, "HP Regen:  ", Tenths(roll.LifeRegen));
-        Add(lines, roll.ManaRegen != 0 && !forceOrb, "MP Regen: ", Tenths(roll.ManaRegen));
-        Add(lines, roll.StaminaRegen != 0 && !forceOrb, "STM Regen: ", Tenths(roll.StaminaRegen));
-        Add(lines, roll.AddLife != 0, "Add. HP: ", Whole(roll.AddLife));
-        Add(lines, roll.AddMana != 0, "Add. MP:  ", Whole(roll.AddMana), Raised(family, "WM1", "WS1", "WT1"));
-        Add(lines, roll.AddStamina != 0, "Add. STM:  ", Whole(roll.AddStamina));
+        Add(lines, roll.LifeRegen != 0 && !forceOrb, "HP Regen:  ", Tenths(roll.LifeRegen), Mixed(mixed, MixStat.LifeRegen));
+        Add(lines, roll.ManaRegen != 0 && !forceOrb, "MP Regen: ", Tenths(roll.ManaRegen), Mixed(mixed, MixStat.ManaRegen));
+        Add(lines, roll.StaminaRegen != 0 && !forceOrb, "STM Regen: ", Tenths(roll.StaminaRegen), Mixed(mixed, MixStat.StaminaRegen));
+        Add(lines, roll.AddLife != 0, "Add. HP: ", Whole(roll.AddLife), Mixed(mixed, MixStat.Life));
+        Add(lines, roll.AddMana != 0, "Add. MP:  ", Whole(roll.AddMana), Raised(family, "WM1", "WS1", "WT1") ?? Mixed(mixed, MixStat.Mana));
+        Add(lines, roll.AddStamina != 0, "Add. STM:  ", Whole(roll.AddStamina), Mixed(mixed, MixStat.Stamina));
         Add(lines, details.PotionSpace != 0, "Potion Storage:  ", Whole(details.PotionSpace));
 
         var level = owner?.Level ?? 0;
@@ -178,8 +184,13 @@ public static class HudItemDetailTooltip
 
     private static bool Aged(ItemDetailView details) => details.UpgradeLevel > 0 || details.AgingGoal > 0;
 
-    private static Color Raised(string family, params string[] families) =>
-        family.Length > 0 && Array.IndexOf(families, family) >= 0 ? AgingColor : ValueColor;
+    private static Color? Raised(string family, params string[] families) =>
+        family.Length > 0 && Array.IndexOf(families, family) >= 0 ? AgingColor : null;
+
+    private static Color? Mixed(MixStat mixed, MixStat stats) => (mixed & stats) != 0 ? MixedColor : null;
+
+    private static readonly MixStat[] ElementStats =
+        [MixStat.Organic, MixStat.None, MixStat.Fire, MixStat.Ice, MixStat.Lightning, MixStat.Poison, MixStat.None, MixStat.None];
 
     private static void AddSpecialization(List<(string, Color)> lines, ItemRoll roll, bool forceOrb)
     {

@@ -138,7 +138,8 @@ public sealed class ItemInstance
             Roll = Roll,
             Sealed = Sealed,
             Maturity = Maturity,
-            MixSheltom = MixSheltom
+            MixSheltom = MixSheltom,
+            MixStats = MixStats
         };
     }
 
@@ -153,6 +154,8 @@ public sealed class ItemInstance
 
     // 1 Lucidy .. 9 Celesto; 0 never mixed.
     public int MixSheltom { get; set; }
+
+    public Mixing.MixStat MixStats { get; set; }
 
     public bool Mixed => MixSheltom > 0;
 

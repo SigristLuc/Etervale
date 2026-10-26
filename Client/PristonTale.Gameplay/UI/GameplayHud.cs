@@ -44,6 +44,8 @@ public sealed class GameplayHud : IDisposable
     private readonly HudShopWindow _shop = new();
     private readonly HudWarehouseWindow _warehouse = new();
     private readonly HudAgingWindow _aging = new();
+    private readonly HudMixWindow _mix = new();
+    private Simulation.Items.Mixing.MixFormula _mixFormula;
     private readonly HudQuestController _quests;
     private readonly HudQuestDocuments _questDocuments;
     private readonly HudQuestDialog _questDialog = new();
@@ -127,7 +129,7 @@ public sealed class GameplayHud : IDisposable
         _inventory.ItemSound = key => ItemSound?.Invoke(key);
         _services.Succeeded = ServiceSound;
         _inventoryPanel.Note = InventoryNote;
-        _inventoryPanel.Withheld = _aging.Holds;
+        _inventoryPanel.Withheld = id => _aging.Holds(id) || _mix.Holds(id);
         _sprites.Request(HudChatWindow.Art);
         _sprites.Request(HudChatBubbles.Art);
         _chat.Lookup = id => (Combat.KindOf(id, out var owner), owner);
@@ -261,7 +263,7 @@ public sealed class GameplayHud : IDisposable
 
         _npc.Dismiss();
         var closed = _npcOpen || _settingsOpen || _systemMenu || _skills.TrainingPending
-            || _inventorySlide.Open || _statusSlide.Open || _skillSlide.Open || _shop.IsOpen || _warehouse.IsOpen || _aging.IsOpen
+            || _inventorySlide.Open || _statusSlide.Open || _skillSlide.Open || _shop.IsOpen || _warehouse.IsOpen || _aging.IsOpen || _mix.IsOpen
             || _questWindow.Open || _quests.Dialog is not null || _quests.SkillResetBox;
         CloseServices();
         closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming || _wingGate.IsOpen || _wingGate.Confirming;
@@ -314,6 +316,7 @@ public sealed class GameplayHud : IDisposable
         _shop.Advance(elapsedSeconds);
         _warehouse.Advance(elapsedSeconds);
         _aging.Advance(elapsedSeconds);
+        _mix.Advance(elapsedSeconds);
         _questWindow.Advance(elapsedSeconds);
         ForwardMessages();
         ApplyQuests();
@@ -378,6 +381,7 @@ public sealed class GameplayHud : IDisposable
 
         var warehouseAction = _warehouse.Update(mouse, _previousMouse, pointer, InventoryCellAt, _services.Pending || _settingsOpen);
         var agingAction = _aging.Update(mouse, _previousMouse, pointer, state, _services.Pending || _settingsOpen);
+        var mixAction = _mix.Update(mouse, _previousMouse, pointer, state, _services.Pending || _settingsOpen);
         if (warehouseAction.Kind != HudWarehouseActionKind.None)
         {
             ApplyWarehouseAction(state, warehouseAction);
@@ -385,6 +389,10 @@ public sealed class GameplayHud : IDisposable
         else if (agingAction != HudWorkActionKind.None)
         {
             ApplyAgingAction(state, agingAction);
+        }
+        else if (mixAction != HudWorkActionKind.None)
+        {
+            ApplyMixAction(state, mixAction);
         }
         else if (clicked)
         {
@@ -446,6 +454,7 @@ public sealed class GameplayHud : IDisposable
             _serviceCompletions = _services.Completions;
             Report(_services.LastOk, _services.Message);
             ShowAgingResult();
+            ShowMixResult();
         }
 
         if (_itemUse.Completions != _itemUseCompletions)
@@ -860,7 +869,7 @@ public sealed class GameplayHud : IDisposable
             return true;
         }
 
-        if (_shop.Contains(pointer) || _warehouse.Contains(pointer) || _aging.Contains(pointer))
+        if (_shop.Contains(pointer) || _warehouse.Contains(pointer) || _aging.Contains(pointer) || _mix.Contains(pointer))
         {
             return true;
         }
@@ -944,6 +953,12 @@ public sealed class GameplayHud : IDisposable
             _aging.Draw(_painter, _icons, pointer, _state, incoming, _aging.FullyOpen && !_settingsOpen);
         }
 
+        if (_mix.Visible)
+        {
+            var incoming = _inventory.Dragging == Guid.Empty ? null : _state?.Items.FirstOrDefault(item => item.InstanceId == _inventory.Dragging);
+            _mix.Draw(_painter, _icons, pointer, _state, incoming, _mix.FullyOpen && !_settingsOpen);
+        }
+
         _painter.Flush();
         var left = _bindings.LeftSkillId == HudSkillBindings.BasicAttackId;
         _bar.Draw(_painter, layout, _state, new HudBarView(World.TimeOfDay, World.Running, _mapVisible, left, RightAttackEnabled,
@@ -1016,6 +1031,11 @@ public sealed class GameplayHud : IDisposable
         if (_aging.FullyOpen)
         {
             _aging.DrawOverlay(_painter, layout, pointer, _state);
+        }
+
+        if (_mix.FullyOpen)
+        {
+            _mix.DrawOverlay(_painter, layout, pointer, _state);
         }
 
         if (_inventorySlide.FullyOpen)
@@ -1146,6 +1166,12 @@ public sealed class GameplayHud : IDisposable
         }
 
         _aging.Sync(state);
+        if (_services.Open != NpcServiceKind.ItemMix && _mix.IsOpen)
+        {
+            _mix.Hide();
+        }
+
+        _mix.Sync(state);
 
         if (_warehouse.IsOpen && _services.Warehouse is { } view && !ReferenceEquals(view, _warehouse.View))
         {
@@ -1227,10 +1253,19 @@ public sealed class GameplayHud : IDisposable
                 break;
             case NpcServiceKind.ItemAging:
                 _npcOpen = false;
-                _aging.Show(_npc.Current?.Services.FirstOrDefault(static offer => offer.Kind == NpcServiceKind.ItemAging)?.Value ?? 100);
+                _aging.Show(_npc.Current?.Services.FirstOrDefault(static offer => offer.Kind == NpcServiceKind.ItemAging)?.PricePercent ?? 100);
                 RequestIcons(_state);
                 OpenOnly(_inventorySlide);
                 break;
+            case NpcServiceKind.ItemMix:
+            {
+                _npcOpen = false;
+                var offer = _npc.Current?.Services.FirstOrDefault(static offer => offer.Kind == NpcServiceKind.ItemMix);
+                _mix.Show(offer?.Value == Simulation.Items.Mixing.MixingWork.AlchemyMode, offer?.PricePercent ?? 100);
+                RequestIcons(_state);
+                OpenOnly(_inventorySlide);
+                break;
+            }
             case NpcServiceKind.QuestEvent:
                 if (_puzzle.Offer(_state, _services.NpcId, _services.NpcName) is { } help)
                 {
@@ -1258,6 +1293,7 @@ public sealed class GameplayHud : IDisposable
         _shop.Hide();
         _warehouse.Hide();
         _aging.Hide();
+        _mix.Hide();
     }
 
     private void ClickShop(OwnerState state, Point pointer)
@@ -1278,7 +1314,7 @@ public sealed class GameplayHud : IDisposable
 
     private bool InterceptInventoryClick(OwnedItemView item)
     {
-        if (_aging.Holds(item.InstanceId))
+        if (_aging.Holds(item.InstanceId) || _mix.Holds(item.InstanceId))
         {
             return true;
         }
@@ -1312,7 +1348,8 @@ public sealed class GameplayHud : IDisposable
             return true;
         }
 
-        if (_aging.FullyOpen && _aging.Place(_state.Items.FirstOrDefault(item => item.InstanceId == itemId), pointer, _state) is { } refusal)
+        var dropped = _state.Items.FirstOrDefault(item => item.InstanceId == itemId);
+        if ((_aging.FullyOpen ? _aging.Place(dropped, pointer, _state) : _mix.FullyOpen ? _mix.Place(dropped, pointer, _state) : null) is { } refusal)
         {
             if (refusal.Length > 0)
             {
@@ -1370,6 +1407,56 @@ public sealed class GameplayHud : IDisposable
                     itemId: _aging.Item, materials: _aging.Materials);
                 break;
         }
+    }
+
+    private void ApplyMixAction(OwnerState state, HudWorkActionKind action)
+    {
+        switch (action)
+        {
+            case HudWorkActionKind.Exit:
+                CloseServices();
+                break;
+            case HudWorkActionKind.Start when state is not null:
+                if (state.Money < _mix.Price(state))
+                {
+                    _notice.Show("Not enough gold");
+                    break;
+                }
+
+                _mixFormula = _mix.Formula(state);
+                _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.ItemMix, _mix.Alchemy ? NpcServiceAction.Refine : NpcServiceAction.Mix,
+                    state.InventoryRevision, itemId: _mix.Item, materials: _mix.Materials);
+                break;
+        }
+    }
+
+    private void ShowMixResult()
+    {
+        if (_services.LastCommand is not { Action: NpcServiceAction.Mix or NpcServiceAction.Refine })
+        {
+            return;
+        }
+
+        if (_services.LastWork is not { } work)
+        {
+            if (!_services.LastOk)
+            {
+                CraftResult?.Invoke(false);
+            }
+
+            return;
+        }
+
+        var result = (Simulation.Items.Mixing.MixResult)work.Result;
+        _notice.Show(result switch
+        {
+            Simulation.Items.Mixing.MixResult.Mixed => "Item Mixture Result: " + string.Join(", ", _mixFormula?.Description ?? []),
+            Simulation.Items.Mixing.MixResult.Reconstructed => "The item was re-constructed.",
+            Simulation.Items.Mixing.MixResult.Refined => "The sheltoms were refined into force orbs.",
+            _ => "Item Mixture has failed"
+        });
+        CraftResult?.Invoke(result != Simulation.Items.Mixing.MixResult.Failed);
+        CloseServices();
     }
 
     private void ShowAgingResult()

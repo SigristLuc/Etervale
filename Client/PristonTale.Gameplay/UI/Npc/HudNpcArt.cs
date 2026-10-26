@@ -53,7 +53,7 @@ public static class HudNpcArt
         NpcServiceKind.WarpGate => "Warp gate",
         NpcServiceKind.Teleporter => "Teleport",
         NpcServiceKind.ItemAging => "Aging",
-        NpcServiceKind.ItemMix => value == 200 ? "Alchemy" : "Mixing",
+        NpcServiceKind.ItemMix => value == Simulation.Items.Mixing.MixingWork.AlchemyMode ? "Alchemy" : "Mixing",
         NpcServiceKind.Smelting => "Smelting",
         NpcServiceKind.Manufacture => "Crafting",
         NpcServiceKind.MixtureReset => "Mixture reset",

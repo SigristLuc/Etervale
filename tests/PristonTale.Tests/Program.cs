@@ -391,6 +391,7 @@ specifications.AddRange(QuestServiceTests.Cases());
 specifications.AddRange(QuestHudTests.Cases());
 specifications.AddRange(AgingTests.Cases());
 specifications.AddRange(ServerSettingsTests.Cases());
+specifications.AddRange(MixingTests.Cases());
 // --filter <text> runs only the cases whose name contains the text.
 var filterIndex = Array.IndexOf(args, "--filter");
 if (filterIndex >= 0 && filterIndex + 1 < args.Length)

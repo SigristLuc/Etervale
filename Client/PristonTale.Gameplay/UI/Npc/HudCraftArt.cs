@@ -12,6 +12,9 @@ public static class HudCraftArt
     public const string MixTitle = Craft + "Title.bmp";
     public const string AgingTitle = Aging + "Aging_Title.bmp";
     public const string AgingStartInfo = Aging + "ButtonInfo.bmp";
+    public const string AlchemyTitle = Shop + "title_alchemy.bmp";
+    public const string AlchemyPanel = Shop + "shop_alchemy.bmp";
+    public const string AlchemyStartInfo = Shop + "Bt_alchemy.bmp";
 
     public const string AgingBar = Aging + "Bar.bmp";
     public const string AgingFill = Aging + "Bar_.bmp";
@@ -21,7 +24,8 @@ public static class HudCraftArt
 
     public static readonly string[] All =
     [
-        Panel, StartButton, MixStartInfo, MixTitle, AgingTitle, AgingStartInfo, AgingBar, AgingFill, AgingPlate,
+        Panel, StartButton, MixStartInfo, MixTitle, AgingTitle, AgingStartInfo, AlchemyTitle, AlchemyPanel, AlchemyStartInfo, AgingBar, AgingFill,
+        AgingPlate,
         .. Enumerable.Range(1, 14).Select(SheltomHint)
     ];
 }

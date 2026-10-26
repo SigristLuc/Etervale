@@ -422,6 +422,7 @@ appearance (`PlayerAppearanceView.WeaponGlow`, `OffHandGlow`) and description, s
 - An item aged +4 to +20 (`UpgradeLevel`) takes its level's colour with blink 9 instead: +4 light purple, +5 yellow,
   +6 green, +7 blue, +8 purple, +9 orange, +10 red, +11 teal, +12 light green, +13 purple, +14 deep pink, +15 sky blue,
   +16 light orange, +17 brown, +18 blue violet, +19 light yellow, +20 white.
+- A mixed copy whose highest sheltom is Devine (6) to Mirage (10) takes the matching mixing colour with blink 9.
 - A colour of the aging table (from +7) or of the mixing table brings its item mix texture (`mixS_01..05`,
   `mixM_01..05` under `image/sinImage/Items/DropItem`) and scroll form (8..14), whatever gave the colour.
 - `ItemDefinition.DisplayEffect` non-zero: the class-up light.

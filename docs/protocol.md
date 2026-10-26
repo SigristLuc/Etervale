@@ -207,7 +207,7 @@ These bodies have no version header.
 | `RemoveObjects` | `int32 Count`, then `uint64 Serial` | 12 + 8n |
 | `GroundItems` | `uint16 Version (1), uint16 Flags, int32 Count`, then `{Guid Id, uint32 ItemCode, uint8 Flags (1 gold), uint8 0, uint16 0, int32 Amount, X, Y, Z, text Name (64 B)}` (1 to 64) | 16 + up to 106n |
 | `GroundItemsRemoved` | `uint16 Version (1), uint16 Flags, int32 Count`, then `Guid Id` | 16 + 16n |
-| `ItemDetails` | `uint16 Version (1), uint16 Flags, int64 Revision, int32 Part, Parts, Count`, then 232-byte entries (at most 24) | 32 + 232n |
+| `ItemDetails` | `uint16 Version (1), uint16 Flags, int64 Revision, int32 Part, Parts, Count`, then 236-byte entries (at most 24) | 32 + 236n |
 | `OwnerItemStatus` | `uint16 Version (1), uint16 Flags, int32 CarriedWeight, MaxWeight, CriticalChance, BlockChance, ShootingRange, AttackSpeed, PotionSpace, float LifeRegen, ManaRegen, StaminaRegen, MagicMastery, int16 Resistances[8]` | 72 |
 | `AgingProgress` | `uint16 Version (1), uint16 Count`, then `{Guid InstanceId, int32 Count, Goal}` (at most 16) | 12 + 24n |
 
@@ -215,7 +215,7 @@ An item details entry is `{Guid InstanceId, int32 DurabilityCurrent, DurabilityM
 AttackRating, Defence, AddLife, AddMana, AddStamina, RequiredLevel, RequiredStrength, RequiredSpirit, RequiredTalent,
 RequiredAgility, RequiredHealth, Price, Critical, AttackSpeed, ShootingRange, PotionSpace, Weight, UniqueItem, Flags
 (1 two-handed, 2 the owner's class may use it), AgingCount, AgingGoal (0 of 0 when the copy is not maturing),
-MixSheltom (the mix's highest sheltom, 0 never mixed), uint SpecJob, int32 SpecDefence, SpecAttackSpeed, SpecCritical,
+MixSheltom (the mix's highest sheltom, 0 never mixed), MixStats (`MixStat` bits of the stats the mix raised), uint SpecJob, int32 SpecDefence, SpecAttackSpeed, SpecCritical,
 SpecShootingRange, SpecLevelLife, SpecLevelMana, SpecLevelAttackRating, SpecLevelDamage, float Absorb, Block,
 MoveSpeed, LifeRegen, ManaRegen, StaminaRegen, MagicMastery, SpecAbsorb, SpecMoveSpeed, SpecBlock, SpecMagicMastery,
 SpecLifeRegen, SpecManaRegen, SpecStaminaRegen, int16 Resistances[8]}` (`ItemDetailEntry`). The client attaches the
@@ -350,7 +350,7 @@ to 64 bytes, item names 40, messages 128, dialog lines 256), and counts are 32-b
 `AttackRequest` on the NPC serial; the server answers with `NpcResult`.
 
 - `NpcResult`: `{uint64 NpcSerial, int32 Ok, text Name, text Message, int32 ServiceCount, services {uint8 Kind, uint8
-  Available, uint16 0, int32 Value}, int32 LineCount, text lines}` (at most 32 services and 20 lines). `Kind` is
+  Available, uint16 PricePercent, int32 Value}, int32 LineCount, text lines}` (at most 32 services and 20 lines). `Kind` is
   `NpcServiceKind`, `Value` the authored argument (class-change group, teleport route, mix mode, quest code...). One
   dialog line is sent, chosen at random as the original does.
 - `NpcServiceRequest` (92 bytes, more with materials): `{Guid OperationId, uint64 NpcSerial, uint8 Service, uint8
@@ -367,7 +367,9 @@ to 64 bytes, item names 40, messages 128, dialog lines 256), and counts are 32-b
   result.
 - `ItemWork`: `{uint16 Version, uint16 0, Guid OperationId, uint64 NpcSerial, uint8 Service, uint8 Result, uint16 0,
   Guid ItemId, uint32 Code}`. For the aging NPC `Result` is `AgingResult` (0 lost, 1 down one, 2 down two, 3 success,
-  4 doubled) and `ItemId` is empty when the item was lost. A teleport also sends a forced `FieldWarp`.
+  4 doubled) and `ItemId` is empty when the item was lost; for the mixing NPC it is `MixResult` (0 failed, 1 mixed,
+  2 reconstructed, 3 refined, `ItemId` empty after refining). `PricePercent` of a dialog service is the server's price
+  setting of the aging, mixing and alchemy services (100 for the others). A teleport also sends a forced `FieldWarp`.
 
 The server checks every request against the NPC in the player's field (alive, within 96 units, offering the service),
 writes durable changes before applying them and records the operation id with the character, so a retried request

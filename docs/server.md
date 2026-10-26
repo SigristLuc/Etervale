@@ -166,6 +166,8 @@ show or write one row with `/setting name [value]` ([chat-and-gm.md](chat-and-gm
 | `aging.price_percent` | 100 | Aging price in percent of `(level + 1) * price / 2`; 0 makes aging free. The aging NPC's offer carries it to the client. |
 | `aging.failure_percent` | 100 | Aging failure chance (fall or loss) in percent of each level's chance; 0 never fails. |
 | `aging.double_percent` | 100 | Chance of a level at once below +10, in percent of each level's chance. |
+| `mixing.price_percent` | 100 | Price of a mix or a reconstruction in percent of the item's price; carried to the client in the mixer's offer. |
+| `alchemy.price_percent` | 100 | Price of turning sheltoms into force orbs, in percent of the price per sheltom. |
 
 Settings apply on the tick (`WorldServer.ApplyOptionsAsync`): every open field and the fields opened later take the
 experience, item event and aging values.

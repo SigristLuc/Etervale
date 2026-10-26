@@ -350,7 +350,8 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   the requirements (orange when met, red when not), then the class specialization header and its bonuses in green, the
   shop price and the action hint. An aged copy shows its gauge under the name: the bar (`Aging/Bar.bmp`) filling toward
   the goal while it matures (with the live count from `AgingProgress` for worn copies), else the small plate
-  (`Aging/Aging.bmp`), with `+level` in black; the stats its aging raises are light blue (119, 200, 254).
+  (`Aging/Aging.bmp`), with `+level` in black; the stats its aging raises are light blue (119, 200, 254). A mixed copy's
+  name is cyan (150, 255, 255) and the stats its mix raised are blue (110, 165, 250).
 - Premium timers (`HudPremiumTimers`) form the column at x 8 under the running-effects bar; usable items have their
   own tooltips (`HudUsableTooltip`). Details: [special-items.md](special-items.md).
 - Status window: attribute buttons send `ProgressionCommand` with `ProgressionRevision`; the organic, poison, fire,
@@ -376,6 +377,11 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   in the bag, dimmed and fixed; a right click gives one back. The plate shows `(level + 1) * price / 2`; the start button
   lights when every asked sheltom is in place and sends `Age` with the materials. The result shows the original message
   (+1, +2, -1, -2 or failed) with the drink sound or `sheltom-failure.wav`, and the window closes as the original's does.
+  Mixing (`HudMixWindow`): the same frame with the mixing title and panel, or the alchemist's panel and title; an item
+  in the item box (mixing only), sheltoms or seals in the twelve cells (alchemy: sheltoms up to the eleventh), the respec
+  stone in the stone cell. The plate shows the item's price or the alchemy prices, both scaled by the offer's
+  `PricePercent`; the result shows what the mix added (the formula's lines), the reconstruction, the refining or the
+  failure.
   Server rules: [application.md](application.md), [world.md](world.md).
 - Target frame (`HudCombat.DrawTarget`, `TargetSelection`): a clicked monster or NPC owns the frame; otherwise the
   hovered entity. The frame stays after an attack is cancelled and closes when the entity is removed or has been dead

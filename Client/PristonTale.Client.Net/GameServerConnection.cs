@@ -713,7 +713,8 @@ public sealed class GameServerConnection : IGameBackend
                 var dialog = NpcDialogPacket.Read(packet);
                 if (_npcRequests.TryGetValue(dialog.NpcSerial, out var request))
                 {
-                    var offers = dialog.Services.Select(entry => new NpcServiceOffer((NpcServiceKind)entry.Kind, entry.Value, entry.Available)).ToArray();
+                    var offers = dialog.Services
+                        .Select(entry => new NpcServiceOffer((NpcServiceKind)entry.Kind, entry.Value, entry.Available, entry.PricePercent)).ToArray();
                     request.Completion.TrySetResult(new NpcInteraction(dialog.Ok, dialog.NpcSerial, dialog.Name, offers, dialog.Lines, dialog.Message));
                 }
 

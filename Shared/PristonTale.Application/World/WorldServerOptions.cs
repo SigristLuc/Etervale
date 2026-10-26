@@ -21,6 +21,8 @@ public sealed record WorldServerOptions
 
     public AgingSettings Aging { get; init; } = AgingSettings.Default;
 
+    public Simulation.Items.Mixing.MixingSettings Mixing { get; init; } = Simulation.Items.Mixing.MixingSettings.Default;
+
     // Game minutes added to the game clock, to start the server at another hour of the day.
     public int ClockOffsetMinutes { get; init; }
 

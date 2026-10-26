@@ -22,7 +22,11 @@ public enum NpcServiceAction : byte
     // The puzzle collector takes a finished puzzle for a reward.
     Exchange = 40,
 
-    Age = 50
+    Age = 50,
+
+    // The mixing NPC: Mix works ItemId with sheltoms (or reconstructs it with seals); Refine turns sheltoms into force orbs.
+    Mix = 51,
+    Refine = 52
 }
 
 public enum NpcServiceStatus : ushort

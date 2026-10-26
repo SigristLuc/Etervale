@@ -97,7 +97,8 @@ internal sealed class OwnerItemDecoder
         {
             AgingCount = e.AgingCount,
             AgingGoal = e.AgingGoal,
-            MixSheltom = e.MixSheltom
+            MixSheltom = e.MixSheltom,
+            MixStats = (Simulation.Items.Mixing.MixStat)e.MixStats
         };
     }
 }

@@ -22,6 +22,7 @@ public sealed record ItemDetailView(
     public int AgingCount { get; init; }
     public int AgingGoal { get; init; }
     public int MixSheltom { get; init; }
+    public Mixing.MixStat MixStats { get; init; }
 
     public static ItemDetailView Of(ItemInstance item, PlayerCharacter owner)
     {
@@ -32,7 +33,8 @@ public sealed record ItemDetailView(
         {
             AgingCount = item.Maturity?.Count ?? 0,
             AgingGoal = item.Maturity?.Goal ?? 0,
-            MixSheltom = item.MixSheltom
+            MixSheltom = item.MixSheltom,
+            MixStats = item.MixStats
         };
     }
 

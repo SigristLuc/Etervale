@@ -49,10 +49,11 @@ public sealed class HudNpcPanel(
         offer.Kind is NpcServiceKind.QuestGiver or NpcServiceKind.QuestScript or NpcServiceKind.SkillMaster or NpcServiceKind.ItemAging
         || offer.Kind == NpcServiceKind.WarpGate && offer.Value <= 1;
 
-    // As in the original, an NPC whose only working service is a shop, a warehouse or the aging opens that window at once.
+    // As in the original, an NPC whose only working service is a shop, a warehouse, the aging or the mixing opens that
+    // window at once.
     public NpcServiceOffer DirectService =>
         Current is { Ok: true } && !CanTrain && _services.Length == 1
-        && _services[0].Kind is NpcServiceKind.Shop or NpcServiceKind.Warehouse or NpcServiceKind.ItemAging
+        && _services[0].Kind is NpcServiceKind.Shop or NpcServiceKind.Warehouse or NpcServiceKind.ItemAging or NpcServiceKind.ItemMix
             ? _services[0]
             : null;
     public IReadOnlyList<TeleportOffer> Destinations { get; private set; } = [];

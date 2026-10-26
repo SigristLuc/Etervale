@@ -518,7 +518,9 @@ internal sealed partial class ClientSession : IMovementVerdictSink
     private async Task InteractNpcAsync(PlayerSession session, ulong npc)
     {
         var interaction = await _services.World.InteractNpcAsync(session, npc);
-        var services = interaction.Services.Select(offer => new NpcServiceEntry((byte)offer.Kind, offer.Available, offer.Value)).ToArray();
+        var services = interaction.Services
+            .Select(offer => new NpcServiceEntry((byte)offer.Kind, offer.Available, offer.Value, (ushort)Math.Clamp(offer.PricePercent, 0, ushort.MaxValue)))
+            .ToArray();
         var dialog = new NpcDialogPacket(npc, interaction.Ok, interaction.Name, interaction.Message, services, interaction.Dialog);
         SendLarge(dialog.Write, FrameCodec.MaxFrameSize);
     }

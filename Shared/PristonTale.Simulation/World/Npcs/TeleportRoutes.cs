@@ -46,7 +46,7 @@ public static class NpcServiceAvailability
     public static bool IsAvailable(NpcService service) => service.Kind switch
     {
         NpcServiceKind.Shop or NpcServiceKind.Warehouse or NpcServiceKind.SkillMaster or NpcServiceKind.QuestGiver or NpcServiceKind.QuestScript
-            or NpcServiceKind.ItemAging => true,
+            or NpcServiceKind.ItemAging or NpcServiceKind.ItemMix => true,
         // The wing exchange (value 0 or 1) runs as a quest.
         NpcServiceKind.WarpGate => service.Value <= 1,
         NpcServiceKind.Teleporter => TeleportRoutes.IsAvailable(service.Value),

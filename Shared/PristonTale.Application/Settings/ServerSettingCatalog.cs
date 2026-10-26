@@ -57,7 +57,11 @@ public static class ServerSettingCatalog
             "Chance of an aging failing (falling a level or losing the item) in percent of the original's chance at each level; 0 never fails.",
             static (s, v) => World(s, s.World with { Aging = s.World.Aging with { FailurePercent = v } })),
         Int("aging.double_percent", 100, 0, 10_000, "Chance of an aging below +10 giving the level at once, in percent of the original's chance.",
-            static (s, v) => World(s, s.World with { Aging = s.World.Aging with { DoublePercent = v } }))
+            static (s, v) => World(s, s.World with { Aging = s.World.Aging with { DoublePercent = v } })),
+        Int("mixing.price_percent", 100, 0, 10_000, "Price of a mix or a reconstruction in percent of the item's price; 0 makes it free.",
+            static (s, v) => World(s, s.World with { Mixing = s.World.Mixing with { PricePercent = v } })),
+        Int("alchemy.price_percent", 100, 0, 10_000, "Price of turning sheltoms into force orbs, in percent of the original's price per sheltom.",
+            static (s, v) => World(s, s.World with { Mixing = s.World.Mixing with { AlchemyPricePercent = v } }))
     ];
 
     public static IReadOnlyList<ServerSettingSeed> Seeds { get; } =

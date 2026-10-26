@@ -1,7 +1,8 @@
 namespace PristonTale.Simulation.World.Npcs;
 
 // One typed service of a clicked NPC as the server offers it; Available is false for services Etervale does not run yet.
-public sealed record NpcServiceOffer(NpcServiceKind Kind, int Value, bool Available);
+// PricePercent is the server's price setting for the services that work items (aging, mixing, alchemy).
+public sealed record NpcServiceOffer(NpcServiceKind Kind, int Value, bool Available, int PricePercent = 100);
 
 public sealed record NpcInteraction(bool Ok, ulong EntityId, string Name, IReadOnlyList<NpcServiceOffer> Services, IReadOnlyList<string> Dialog,
     string Message)

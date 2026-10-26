@@ -157,6 +157,14 @@ internal static class NpcServiceTransactions
                 status = Simulation.Items.Aging.AgingWork.TryAge(candidate, command.ItemId, command.Materials ?? [], field.ItemRng, out work, out _,
                     field.Aging);
                 break;
+            case NpcServiceAction.Mix:
+                status = Simulation.Items.Mixing.MixingWork.TryMix(candidate, command.ItemId, command.Materials ?? [], field.ItemRng, out work, out _,
+                    field.Mixing);
+                break;
+            case NpcServiceAction.Refine:
+                status = Simulation.Items.Mixing.MixingWork.TryRefine(candidate, command.Materials ?? [], items, field.ItemRng, out work, out _,
+                    field.Mixing);
+                break;
             default:
                 status = NpcServiceStatus.Rejected;
                 break;
@@ -289,6 +297,7 @@ internal static class NpcServiceTransactions
         NpcServiceAction.Teleport => service == NpcServiceKind.Teleporter,
         NpcServiceAction.Exchange => service == NpcServiceKind.QuestEvent,
         NpcServiceAction.Age => service == NpcServiceKind.ItemAging,
+        NpcServiceAction.Mix or NpcServiceAction.Refine => service == NpcServiceKind.ItemMix,
         _ => false
     };
 
@@ -299,7 +308,7 @@ internal static class NpcServiceTransactions
         NpcServiceStatus.GoldLimit => "you cannot carry more gold",
         NpcServiceStatus.OverWeight => ItemRuleMessages.OverWeight,
         NpcServiceStatus.WrongPuzzle => "The puzzle is wrong",
-        NpcServiceStatus.WrongMaterials => "These are not the sheltoms the aging asks",
+        NpcServiceStatus.WrongMaterials => "These materials do not fit this work",
         _ => "the NPC refused"
     };
 

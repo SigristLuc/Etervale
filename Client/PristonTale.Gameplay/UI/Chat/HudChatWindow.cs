@@ -26,8 +26,11 @@ public sealed class HudChatWindow
 
     // Lines wrap at 44 six-pixel characters.
     public const int WrapPixels = 44 * 6;
-    public const int InputPixels = 282;
     public const int MessageX = 16;
+
+    // The typed line starts after the 22-pixel chat button drawn at x 7.
+    public const int InputX = 32;
+    public const int InputPixels = 266;
     private static readonly Color InputColor = Color.White;
     private readonly List<(Rectangle Bounds, HudChatEntry Entry)> _drawnLines = new();
 
@@ -192,7 +195,7 @@ public sealed class HudChatWindow
                 visible = visible[1..];
             }
 
-            painter.Text(visible, MessageX, 584 - lift + bottom - (Math.Max(12, HudPainter.LineHeight) - 12) / 2, InputColor);
+            painter.Text(visible, InputX, 584 - lift + bottom - (Math.Max(12, HudPainter.LineHeight) - 12) / 2, InputColor);
         }
 
         painter.Flush();

@@ -35,7 +35,7 @@ public static class NpcWire
     internal static int TextSize(string? value, int maxBytes) => Utf8Text.Size(value, maxBytes);
 }
 
-public readonly record struct NpcServiceEntry(byte Kind, bool Available, int Value)
+public readonly record struct NpcServiceEntry(byte Kind, bool Available, int Value, ushort PricePercent = 100)
 {
     public const int Size = 8;
 }
@@ -67,7 +67,7 @@ public sealed record NpcDialogPacket(ulong NpcSerial, bool Ok, string Name, stri
         {
             writer.Byte(service.Kind);
             writer.Byte(service.Available ? (byte)1 : (byte)0);
-            writer.UInt16(0);
+            writer.UInt16(service.PricePercent);
             writer.Int32(service.Value);
         }
 
@@ -99,8 +99,8 @@ public sealed record NpcDialogPacket(ulong NpcSerial, bool Ok, string Name, stri
         {
             var kind = reader.Byte();
             var available = reader.Byte() != 0;
-            reader.Skip(2);
-            services[index] = new NpcServiceEntry(kind, available, reader.Int32());
+            var percent = reader.UInt16();
+            services[index] = new NpcServiceEntry(kind, available, reader.Int32(), percent);
         }
 
         var lineCount = reader.Int32();

@@ -22,16 +22,20 @@ public sealed partial class WorldServer
 
             var definition = npc.Definition;
             var offers = definition.Services
-                .Select(service => new NpcServiceOffer(service.Kind, OfferValue(service), NpcServiceAvailability.IsAvailable(service)))
+                .Select(service => new NpcServiceOffer(service.Kind, service.Value, NpcServiceAvailability.IsAvailable(service), PricePercent(service)))
                 .ToArray();
             string[] line = definition.Dialog.Count == 0 ? [] : [definition.Dialog[_dialogRandom.Next(definition.Dialog.Count)]];
             return new NpcInteraction(true, npc.EntityId, definition.Label, offers, line, "");
         });
     }
 
-    // The aging offer's value is the server's aging price percent, for the client's price plate.
-    private int OfferValue(NpcService service) =>
-        service.Kind == NpcServiceKind.ItemAging ? _options.Aging.PricePercent : service.Value;
+    private int PricePercent(NpcService service) => service.Kind switch
+    {
+        NpcServiceKind.ItemAging => _options.Aging.PricePercent,
+        NpcServiceKind.ItemMix when service.Value == Simulation.Items.Mixing.MixingWork.AlchemyMode => _options.Mixing.AlchemyPricePercent,
+        NpcServiceKind.ItemMix => _options.Mixing.PricePercent,
+        _ => 100
+    };
 
     public Task<NpcServiceOutcome> CheckNpcServiceAsync(PlayerSession session, NpcServiceCommand command)
     {

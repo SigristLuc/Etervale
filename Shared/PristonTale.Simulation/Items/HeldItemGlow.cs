@@ -73,6 +73,13 @@ public readonly record struct HeldItemGlow(short R, short G, short B, short A, i
             held = held with { R = aged.R, G = aged.G, B = aged.B, A = aged.A, Blink = AgedBlink };
         }
 
+        // A mix whose highest sheltom is Devine or above glows in its colour.
+        if (item.MixSheltom is >= 6 and <= 10)
+        {
+            var mixed = MixedColors[item.MixSheltom - 5];
+            held = held with { R = mixed.R, G = mixed.G, B = mixed.B, A = mixed.A, Blink = AgedBlink };
+        }
+
         if (!held.Glows)
         {
             return held with { R = 0, G = 0, B = 0, A = 0, Scale = 0f };

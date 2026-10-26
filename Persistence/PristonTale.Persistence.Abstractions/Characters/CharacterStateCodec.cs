@@ -22,7 +22,8 @@ public sealed record SavedItem(
     int Unique = 0,
     bool Sealed = false,
     Simulation.Items.Aging.AgingMaturity? Maturity = null,
-    int MixSheltom = 0);
+    int MixSheltom = 0,
+    Simulation.Items.Mixing.MixStat MixStats = Simulation.Items.Mixing.MixStat.None);
 
 public sealed record SavedItems(int Version, SavedItem[] Items, long Revision = 0, AppliedInventoryOperation[]? Operations = null,
     AppliedServiceOperation[]? ServiceOperations = null);
@@ -143,7 +144,7 @@ public static class CharacterStateCodec
     {
         return new SavedItem(item.InstanceId, item.Definition.Code, item.Count, anchor, slot, item.UpgradeLevel,
             item.DurabilityCurrent, item.DurabilityMax, item.JobSpecMask, default, item.Roll,
-            item.Definition.SavedUnique, item.Sealed, item.Maturity, item.MixSheltom);
+            item.Definition.SavedUnique, item.Sealed, item.Maturity, item.MixSheltom, item.MixStats);
     }
 
     internal static ItemInstance RestoreItem(SavedItem saved, ItemCatalog catalog, HashSet<Guid> identities)
@@ -163,7 +164,8 @@ public static class CharacterStateCodec
             DurabilityMax = saved.DurabilityMax,
             Sealed = saved.Sealed,
             Maturity = saved.Maturity,
-            MixSheltom = Math.Max(0, saved.MixSheltom)
+            MixSheltom = Math.Max(0, saved.MixSheltom),
+            MixStats = saved.MixStats
         };
 
         // Copies saved before per-copy values existed take the shop form of their item with the saved specialization.

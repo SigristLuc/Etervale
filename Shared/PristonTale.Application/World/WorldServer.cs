@@ -129,6 +129,7 @@ public sealed partial class WorldServer
         field.ExperienceMultiplier = options.ExperienceMultiplier;
         field.ExperienceEventPercent = options.ExperienceEventPercent;
         field.Aging = options.Aging;
+        field.Mixing = options.Mixing;
     }
 
     // The game clock in game milliseconds: the Unix time plus the configured offset (World:ClockOffsetMinutes game minutes).
