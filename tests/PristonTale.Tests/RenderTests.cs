@@ -14,6 +14,7 @@ internal static class RenderTests
         yield return ("off-camera geometry remains eligible to cast shadows", ShadowAsync);
         yield return ("static mesh preparation computes topology and normals without a GPU", MeshAsync);
         yield return ("stage normals are smoothed across materials and faces sharing a position, not across a wall", StageNormalsAsync);
+        yield return ("a stage face that is never drawn does not bend the drawn ground's normals", HiddenStageNormalsAsync);
         yield return ("CPU image decoding handles invalid data without GPU resources", DecodeAsync);
         yield return ("UI bitmaps of 32 bits keep their coverage and skip the black key; zeroed coverage stays opaque", BmpCoverageAsync);
         yield return ("PNG export cache separates opacity variants and basename collisions", ExportAsync);
@@ -117,6 +118,19 @@ internal static class RenderTests
         Assert.True(ground.Y > 0.99f && shared.Y > 0.9f && shared.X < -0.01f, $"the ridge corner was not smoothed toward the second face: {shared}");
         Assert.True(Vector3.Distance(normals[2], normals[3]) < 1e-4f, "the same position in two materials kept different normals");
         Assert.True(MathF.Abs(normals[6].Y) < 1e-4f && MathF.Abs(normals[6].X) > 0.99f, $"the wall took the ground's normal: {normals[6]}");
+        return Task.CompletedTask;
+    }
+
+    private static Task HiddenStageNormalsAsync()
+    {
+        // A flat ground face and, on its far edge, a collision-only ramp rising 30 degrees.
+        Vector3[] positions = [new(0, 0, 0), new(100, 0, 0), new(0, 0, 100), new(100, 0, 100), new(200, 57.7f, 0), new(200, 57.7f, 100)];
+        PristonStageFace[] faces = [new(0, 2, 1, 0, -1), new(1, 3, 4, 1, -1), new(4, 3, 5, 1, -1)];
+        var all = PristonStageNormals.Compute(faces, positions);
+        var drawn = PristonStageNormals.Compute(faces, positions, static face => face.MaterialIndex == 0);
+        Assert.True(all[2].Y < 0.999f, $"the fixture's ramp does not bend the ground when drawn: {all[2]}");
+        Assert.True(drawn[2].Y > 0.9999f, $"a hidden ramp bent the ground's corner: {drawn[2]}");
+        Assert.True(drawn[3] == Vector3.Zero, "a face that is not drawn received a normal");
         return Task.CompletedTask;
     }
 

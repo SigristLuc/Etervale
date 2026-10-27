@@ -7,20 +7,22 @@ namespace PristonTale.Engine3D.Rendering;
 // carries no vertex normals, and normals averaged only inside one material broke at every material and UV boundary,
 // so the sun lit neighbouring ground triangles differently. A corner averages the area-weighted normals of the faces
 // that touch its position and lean at most CreaseDegrees from its own face, so ground stays smooth and walls keep their
-// edge with the floor.
+// edge with the floor. Faces never drawn (collision-only materials) take no part: a hidden ramp or blocker sharing the
+// ground's vertices bent its normal.
 internal static class PristonStageNormals
 {
     public const float CreaseDegrees = 60f;
 
-    // One normal per face corner: index face * 3 + corner (A, B, C), zero for a face that is skipped or degenerate.
-    public static Vector3[] Compute(IReadOnlyList<PristonStageFace> faces, IReadOnlyList<Vector3> positions)
+    // One normal per face corner: index face * 3 + corner (A, B, C), zero for a face that is skipped, degenerate or not
+    // drawn.
+    public static Vector3[] Compute(IReadOnlyList<PristonStageFace> faces, IReadOnlyList<Vector3> positions, Func<PristonStageFace, bool> drawn = null)
     {
         var weighted = new Vector3[faces.Count];
         var unit = new Vector3[faces.Count];
         var byPosition = new Dictionary<Vector3, List<int>>();
         for (var face = 0; face < faces.Count; face++)
         {
-            if (!TryCorners(faces[face], positions, out var a, out var b, out var c))
+            if (drawn?.Invoke(faces[face]) == false || !TryCorners(faces[face], positions, out var a, out var b, out var c))
             {
                 continue;
             }
