@@ -351,6 +351,7 @@ specifications.AddRange(EffectLoadingTests.Cases());
 specifications.AddRange(PassiveSkillTests.Cases());
 specifications.AddRange(AnimationFallbackTests.Cases());
 specifications.AddRange(ModelNormalTests.Cases());
+specifications.AddRange(PhysiqueRepairTests.Cases());
 specifications.AddRange(EquipmentTests.Cases());
 specifications.AddRange(RangedEquipmentTests.Cases());
 specifications.AddRange(WorldRewardsTests.Cases());
