@@ -196,7 +196,8 @@ first `Order`; `Query` returns candidates sorted by `Order`, which keeps neighbo
   with one gets an event form after every authored monster in the catalog (`EventFormCode`: the same monster, normal
   class, wearing that model). `MagicResistance` (-100..100) cuts a spell's damage like an element resistance (100 none
   but the least hit, -100 double): a spell is a damage rule whose power grows with spirit or spell power
-  (`SkillDamageRule.Magic`), applied after its element's resistance (`SkillFormulas.PowerAgainst`). `MoveType` and
+  (`SkillDamageRule.Magic`), applied after its element's resistance (`SkillFormulas.PowerAgainst`; the main target's
+  own spell hit of an area skill, `MainSpellPowerAgainst`, skips it). `MoveType` and
   `SpecialAttackPercent` are kept as authored (the original reads them and never uses them).
 - `Combat.MeleeRange` is the attack reach; `Combat.DamageStunPercent` the flinch chance; `Ai.SightRadius` the notice
   radius; `Ai.Iq` enables running; `Ai.GroupSize` the spawn group. `Ai.MoveSpeed` is only sent to clients for

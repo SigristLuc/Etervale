@@ -271,7 +271,7 @@ internal sealed partial class FieldSkills
             power = crit ? CombatResolver.ApplyCrit(power) : power;
         }
 
-        var damage = SkillFormulas.PowerAgainst(power, main, cast.Rank, monster.Def, character.Effects.Totals, monster.Effects.Totals);
+        var damage = SkillFormulas.MainSpellPowerAgainst(power, main, cast.Rank, monster.Def, character.Effects.Totals, monster.Effects.Totals);
         Pay(caster, monster, SkillFormulas.WithUndeadBonus(damage, character.Effects.Totals, monster.Def), crit);
     }
 

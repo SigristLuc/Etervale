@@ -63,14 +63,14 @@ public static partial class SkillFormulas
         return percent != 0 && MatchesBrood(damage.BonusBroods, target) ? percent : 0;
     }
 
-    // What a resolved power deals to a monster: brood bonus, element resistance (divided by the rule's divisor), the
-    // monster's absorption in percent and the damage-dealt and damage-taken modifiers.
-    public static int PowerAgainst(int power, SkillDamageRule damage, int rank, MonsterDefinition target, ModifierTotals attacker, ModifierTotals defender,
-        Element? element = null)
+    // What the main target's own spell hit of an area skill deals: brood bonus first, then element resistance (divided by
+    // the rule's divisor), absorption in percent and the dealt/taken scaling; unlike PowerAgainst, no magic resistance.
+    public static int MainSpellPowerAgainst(int power, SkillDamageRule damage, int rank, MonsterDefinition target, ModifierTotals attacker,
+        ModifierTotals defender)
     {
-        var value = WithBroodBonus(power, damage, rank, target);
+        var value = WithBroodBonus(power, damage, target, rank);
         var resistances = ModifierRules.Resistances(defender, target.Combat.Resistances);
-        var resistance = resistances[element ?? damage.Element] / Math.Max(1, damage.ResistanceDivisor);
+        var resistance = resistances[damage.Element] / Math.Max(1, damage.ResistanceDivisor);
         value -= value * Math.Clamp(resistance, -100, 100) / 100;
         value = CombatResolver.ApplyAbsorbMonster(value, target.Combat.Absorption + defender.Flat(StatKind.Absorption));
         return ModifierRules.ScaleDamage(value, attacker, defender);

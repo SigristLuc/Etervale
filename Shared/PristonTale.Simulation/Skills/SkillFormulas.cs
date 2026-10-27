@@ -292,8 +292,6 @@ public static partial class SkillFormulas
     public static int WithBroodBonus(int damage, SkillRule rule, MonsterDefinition target, int rank = 0) =>
         WithBroodBonus(damage, rule.Damage, target, rank);
 
-    public static int WithBroodBonus(int damage, SkillDamageRule rule, int rank, MonsterDefinition target) => WithBroodBonus(damage, rule, target, rank);
-
     public static int WithBroodBonus(int damage, SkillDamageRule rule, MonsterDefinition target, int rank)
     {
         if (rule is null || damage <= 0 || !BroodMatches(rule, target))
