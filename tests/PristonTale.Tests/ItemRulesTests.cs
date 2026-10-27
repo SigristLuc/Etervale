@@ -22,6 +22,7 @@ internal static class ItemRulesTests
     {
         yield return ("every wearable family equips in its own slot, aged copies included", WearableSlotsAsync);
         yield return ("every item key has its own code, so new item families need no registration", CodesAsync);
+        yield return ("an item's kind follows its key the same way for the importer and the runtime", KindsAsync);
         yield return ("unmet requirements refuse equipping and a worn item that stops meeting them adds nothing", RequirementsAsync);
         yield return ("a two-handed weapon sends the off-hand item to the bag and an off-hand item sends a held two-handed weapon there", TwoHandedAsync);
         yield return ("drops roll every value inside its authored range and specialize four times in ten", DropRollsAsync);
@@ -91,6 +92,18 @@ internal static class ItemRulesTests
     }
 
     // Every key of two letters, a letter or digit and two digits has its own code, whatever its family, and formats back.
+    private static Task KindsAsync()
+    {
+        foreach (var (key, kind) in new[] { ("OM101", ItemKind.Orb), ("WV101", ItemKind.Vambrace), ("WS101", ItemKind.Bow), ("WS201", ItemKind.Sword),
+            ("OA201", ItemKind.Bracelet), ("DA401", ItemKind.Armor), ("OS105", ItemKind.Sheltom), ("PL101", ItemKind.Potion), ("FO101", ItemKind.ForceOrb),
+            ("QT101", ItemKind.Quest), ("MA101", ItemKind.Material), ("GP101", ItemKind.Misc), ("WR101", ItemKind.Misc) })
+        {
+            Assert.True(ItemKinds.Classify(key) == kind, $"{key} is {ItemKinds.Classify(key)}, not {kind}");
+        }
+
+        return Task.CompletedTask;
+    }
+
     private static Task CodesAsync()
     {
         var codes = new HashSet<uint>();

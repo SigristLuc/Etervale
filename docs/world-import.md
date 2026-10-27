@@ -20,7 +20,7 @@ catalog tables, and the authored file formats it reads. Also covers the small `t
 | [Program.cs](../tools/PristonTale.WorldImport/Program.cs) | CLI: option parsing, defaults, provider setup, migration, report and `verify` output |
 | [Importer.cs](../tools/PristonTale.WorldImport/Importer.cs) | Parse all sources, choose catalog entries, write every table in one transaction |
 | `tools/PristonTale.WorldImport/Tokenizer.cs` | Line tokenizer of the `*key value` text format; C-style integer and float parsing |
-| `tools/PristonTale.WorldImport/KeyMaps.cs` | Every recognised Korean key, value literals, resistance index maps, `ClassifyKind` |
+| `tools/PristonTale.WorldImport/KeyMaps.cs` | Every recognised Korean key, value literals, resistance index maps |
 | `tools/PristonTale.WorldImport/Cp949.cs` | CP949 decoding (registers `CodePagesEncodingProvider`) |
 | `tools/PristonTale.WorldImport/ImportReport.cs` | Counters and warnings printed after `import` |
 | `tools/PristonTale.WorldImport/Parsers/SourceTextReader.cs` | Reads a text file and follows its linked-file chain |
@@ -125,7 +125,7 @@ Item, monster, NPC and spawn-table files share one line format, decoded as CP949
 | `*발생제한` | `daily_drop_limit`: drops of the item per day across the server (0 unlimited) |
 | `*세트아이템 <set> <pieces>` | `set_code`, `set_pieces`; the comment line above it states the bonus (`item_sets`) |
 
-`kind` comes from the code prefix (`KeyMaps.ClassifyKind`); the files have no kind key.
+`kind` comes from the item key (`ItemKinds.Classify` in Simulation, the table the runtime uses); the files have no kind key.
 
 A file whose `*유니크` value is 2 is the quest variant of its code (the quest weapons, the rank-up rings, the Fury of
 Phantom rewards): besides the catalog entry, the first such file in path order is written to `item_templates` under

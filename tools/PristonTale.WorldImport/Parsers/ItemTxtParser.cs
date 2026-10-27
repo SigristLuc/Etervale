@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Items;
 
 namespace PristonTale.WorldImport.Parsers;
 
@@ -163,7 +164,7 @@ public sealed class ItemTxtParser
         {
             Code = code,
             Name = SelectDisplayName(displayName, englishName, string.IsNullOrWhiteSpace(brazilianName) ? koreanName : brazilianName, code),
-            Kind = KeyMaps.ClassifyKind(code),
+            Kind = ItemKinds.Classify(code),
             UniqueItem = unique,
             MaxStack = maxStack,
             PotionSpace = potionSpace,

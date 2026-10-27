@@ -45,6 +45,7 @@ progression, regeneration and movement rates. `World/`, `Physics/` and `Skills/`
 | `Items/InventoryCommand.cs` | `InventoryCommand` and `InventoryCommands.Apply` |
 | `Items/ItemCodes.cs` | Catalog key (`WA101`) to 32-bit item code and back, for every item family |
 | `Items/ItemEquipmentMetadata.cs` | Kind and slot by catalog family; the two-handed list taken from the item table |
+| `Items/ItemKinds.cs` | `Classify`: the kind of any item key (wearable families, then the non-wearable groups); the importer stores it |
 | `Items/ItemClassRestrictions.cs` | Class/gender restriction masks for armor, robes and orbs by catalog key |
 | `Items/ItemCatalog.cs`, `PotionDefinition.cs` | Definition lookup by code; potion restore ranges |
 | `Items/Usable/` | Usable item rules, premium timers and their effects, pets, scrolls, force orbs ([special-items.md](special-items.md)) |

@@ -240,49 +240,6 @@ public static class KeyMaps
     public static readonly string[] SpmInterval = ["*출현간격", "*DELAY"];          // interval+ms
     public static readonly string[] SpmPerWave = ["*출현수", "*MAX_ACTOR"];          // monsters per wave
 
-    // There is no kind token in the data: the kind follows the family prefix of the 5-character item key, by its
-    // first two characters except where one group holds two kinds (WS1 bows, WS2 swords, OA2 bracelets).
-    public static ItemKind ClassifyKind(string code)
-    {
-        if (string.IsNullOrEmpty(code))
-            return ItemKind.Misc;
-        var category = code.Length >= 3 ? code[..3].ToUpperInvariant() : code.ToUpperInvariant();
-        if (category == "WS1")
-            return ItemKind.Bow;
-        if (category == "WS2")
-            return ItemKind.Sword;
-        if (category == "OA2")
-            return ItemKind.Bracelet;
-        var p = code.Length >= 2 ? code[..2].ToUpperInvariant() : code.ToUpperInvariant();
-        return p switch
-        {
-            "WA" => ItemKind.Axe,            // Axes
-            "WC" => ItemKind.Claw,           // Claws
-            "WH" => ItemKind.Hammer,         // Hammer
-            "WM" => ItemKind.Staff,          // magic staff
-            "WD" => ItemKind.Dagger,
-            "WN" => ItemKind.Phantom,
-            "WP" => ItemKind.Pole,           // Poles
-            "WS" => ItemKind.Sword,          // WS1 bows are handled above; other WS codes are swords
-            "WT" => ItemKind.ThrowingWeapon, // Throwing
-            "DA" => ItemKind.Armor,          // body armour
-            "DB" => ItemKind.Boots,          // boots
-            "DG" => ItemKind.Gloves,         // gloves
-            "DS" => ItemKind.Shield,         // shields
-            "OA" => ItemKind.Amulet,         // OA1 amulets; OA2 armlets are handled above
-            "OM" => ItemKind.Amulet,
-            "OR" => ItemKind.Ring,           // rings
-            "FO" => ItemKind.ForceOrb,       // force orb
-            "OS" => ItemKind.Sheltom,        // Sheltom
-            "PM" => ItemKind.Potion,         // Mana potion
-            "PL" => ItemKind.Potion,         // Life potion
-            "PS" => ItemKind.Potion,         // Stamina potion
-            "QT" => ItemKind.Quest,          // quest item
-            "MA" => ItemKind.Material,       // crafting material
-            _ => ItemKind.Misc,
-        };
-    }
-
     // The eight-element ResistanceBlock order, for documentation/iteration.
     public static readonly string[] ElementOrder =
         ["bionic", "earth", "fire", "ice", "lighting", "poison", "water", "wind"];
