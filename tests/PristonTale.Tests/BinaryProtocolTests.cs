@@ -17,10 +17,59 @@ internal static class BinaryProtocolTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("frame header handles partial reads and rejects invalid lengths", HeaderAsync);
+        yield return ("malformed UTF-8 text and overlong or out-of-range variable-length integers are refused", MalformedAsync);
         yield return ("hello, login, character list and commands and heartbeats round-trip with UTF-8 text", AccountAsync);
         yield return ("movement reports, attack requests and field warps round-trip with 64-bit targets and sequences", PlayerActionsAsync);
         yield return ("world entry, join and leave messages round-trip with 64-bit ids and UTF-8 names", WorldEntryAsync);
         yield return ("TLS connections deliver frames in order, coalesce sends and check the server certificate", ConnectionAsync);
+    }
+
+    private static Task MalformedAsync()
+    {
+        var buffer = new byte[64];
+        var writer = new PacketWriter(buffer, EtervaleOpcodes.ChatSay);
+        writer.UInt16(3);
+        writer.Bytes([0xC3, 0x28, 0x41]);
+        var packet = buffer.AsSpan(0, writer.Finish()).ToArray();
+        Assert.True(Refused(() =>
+        {
+            var reader = new PacketReader(packet, packet.Length);
+            Utf8Text.Read(ref reader, 64, "Chat line");
+        }), "a malformed UTF-8 sequence was accepted");
+
+        var written = new PacketWriter(buffer, EtervaleOpcodes.ChatSay);
+        Utf8Text.Write(ref written, "Olá, mundo", 64);
+        var text = buffer.AsSpan(0, written.Finish()).ToArray();
+        var back = new PacketReader(text, text.Length);
+        Assert.True(Utf8Text.Read(ref back, 64, "Chat line") == "Olá, mundo", "UTF-8 text did not round-trip");
+
+        foreach (var bad in new byte[][] { [0x80, 0x00], [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x02] })
+        {
+            Assert.True(Refused(() =>
+            {
+                var offset = 0;
+                VarInt.Read(bad, ref offset);
+            }), $"variable-length integer {Convert.ToHexString(bad)} was accepted");
+        }
+
+        var maximum = new byte[10];
+        var length = VarInt.Write(maximum, ulong.MaxValue);
+        var at = 0;
+        Assert.True(length == 10 && VarInt.Read(maximum, ref at) == ulong.MaxValue, "the largest value did not round-trip");
+        return Task.CompletedTask;
+    }
+
+    private static bool Refused(Action read)
+    {
+        try
+        {
+            read();
+            return false;
+        }
+        catch (InvalidDataException)
+        {
+            return true;
+        }
     }
 
     private static Task HeaderAsync()

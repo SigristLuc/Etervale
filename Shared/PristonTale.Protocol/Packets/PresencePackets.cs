@@ -45,6 +45,12 @@ public static class VarInt
             }
 
             var part = source[offset++];
+            // The tenth byte holds only bit 63, and a last byte of zero after the first would be an overlong encoding.
+            if (shift == 63 && part > 1 || part == 0 && shift > 0)
+            {
+                throw new InvalidDataException("Variable-length integer is out of range or not minimal.");
+            }
+
             value |= (ulong)(part & 0x7F) << shift;
             if ((part & 0x80) == 0)
             {

@@ -53,7 +53,7 @@ search finds; they are not part of the build.
 | Positions | Fixed point, world units × 256 (`PristonUnits.ToFixed`, `FixedShift` 8). |
 | Angles | Skill messages: 4096 per turn (`PristonUnits.ToAngle`); presence and movement: `uint16`, 65536 per turn. |
 | Entity ids | 64-bit (`uint64` or `varuint`) on the wire and in memory; players count from 1, monsters, NPCs and summons from `2^32`. |
-| Text | UTF-8 with a `uint16` byte length, cut at a whole character to the field's byte limit (`Utf8Text`). |
+| Text | UTF-8 with a `uint16` byte length, cut at a whole character to the field's byte limit (`Utf8Text`); malformed UTF-8 is refused. |
 | Item identity | Item codes derived from the item key (`ItemCodes`), e.g. gold is `GG101`. |
 | Reading | `PacketReader` requires `size == span length` and `size >= minimum`; trailing bytes are accepted. Overruns throw `InvalidDataException`. |
 | Versioned bodies | Messages with `{uint16 Version, uint16 Flags}` reject version 0. Fixed-size bodies accept newer versions that append fields; list bodies check their length exactly. |
@@ -329,7 +329,7 @@ interval.
 uint16 0}` followed by `Count` entries that fill the message exactly. An entry is `{varuint Serial, uint8 Kind (bit 0
 full), int24 X, Y, Z (world units × 8), uint16 Facing (65536 per turn), uint8 Motion}`; a full entry adds `{varuint Hp,
 MaxHp, Level, Target, AttackSequence, uint8 Revision, varuint Template, zigzag varint FieldCode}`. `varuint` is
-little-endian base-128 (`VarInt`, up to 64 bits). `Motion` is `PresenceMotion` (0 stand, 1 walk, 2 run, 3 attack, 4
+little-endian base-128 (`VarInt`, up to 64 bits; an overlong encoding or a tenth byte above 1 is refused). `Motion` is `PresenceMotion` (0 stand, 1 walk, 2 run, 3 attack, 4
 damage, 5 dead, 6 skill, 7 eat, 8 warp, 9 yahoo). Positions cover the world's ±1,000,000 units at 1/8 of a unit.
 
 The server sends a full entry when an entity enters the receiver's view and whenever its motion, life, target, attack
