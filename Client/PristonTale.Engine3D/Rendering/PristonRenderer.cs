@@ -3947,6 +3947,7 @@ public sealed partial class PristonRenderer : IDisposable
                 PristonActorMotion.Damage or
                 PristonActorMotion.Skill or
                 PristonActorMotion.Eat or
+                PristonActorMotion.FallStand or
                 PristonActorMotion.FallDamage or
                 PristonActorMotion.Yahoo or
                 PristonActorMotion.Restart or

@@ -13,12 +13,21 @@ public sealed partial class WorldServer
     // Touched only by the tick thread: the town start point a restart lands on.
     private readonly Random _restartRandom = new();
 
+    // The place carries the floor height there, so the client's FieldWarp lands on the same floor.
     public Task<PreparedRestartOperation?> PrepareRestartAsync(PlayerSession session, RestartCommand command)
     {
         return EnqueueAsync<PreparedRestartOperation?>(session.EntityId, () =>
-            TryGetPlaying(session, out var connection) && _fields.TryGetValue(connection.FieldId, out var field)
-                ? RestartTransactions.Prepare(session, connection.Player, field, _catalog, command, _restartRandom)
-                : null);
+        {
+            if (!TryGetPlaying(session, out var connection) || !_fields.TryGetValue(connection.FieldId, out var field)
+                || RestartTransactions.Prepare(session, connection.Player, field, _catalog, command, _restartRandom) is not { } prepared)
+            {
+                return null;
+            }
+
+            return prepared.Candidate is null || !_catalog.TryGetFieldByCode(prepared.FieldId, out _)
+                ? prepared
+                : prepared with { Position = GetField(prepared.FieldId).Terrain.PlaceOnFloor(prepared.Position with { Y = 0f }) };
+        });
     }
 
     // Exempt from the player's quota: the restart is already stored.

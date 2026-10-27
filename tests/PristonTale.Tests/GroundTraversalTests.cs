@@ -3,6 +3,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.IO;
 using PristonTale.Engine3D.Physics;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Gameplay.Combat;
 using PristonTale.Gameplay.World;
 using PristonTale.Simulation.World.Fields;
 
@@ -16,6 +17,36 @@ internal static class GroundTraversalTests
         yield return ("ground traversal climbs connected ramps and blocks unsupported steps", ContinuityAsync);
         yield return ("collision DDA ray and segment queries do not allocate per call", CollisionQueriesDoNotAllocateAsync);
         yield return ("player visual position restores the original two-unit floor offset", PlayerVisualPositionAsync);
+        yield return ("a player above its floor falls eight units a frame and lands with the original motions", FallAsync);
+    }
+
+    private static Task FallAsync()
+    {
+        Assert.True(!GroundFall.IsAirborne(108, 100), "eight units above the floor counted as a fall");
+        Assert.True(GroundFall.IsAirborne(108.5f, 100), "more than eight units above the floor did not fall");
+        Assert.Near(92, GroundFall.Step(100, 0, 1f / 70f));
+        Assert.Near(0, GroundFall.Step(5, 0, 1f / 70f));
+
+        var feet = 613f + 400f;
+        var frames = 0;
+        while (GroundFall.IsAirborne(feet, 613f))
+        {
+            feet = GroundFall.Step(feet, 613f, 1f / 70f);
+            frames++;
+        }
+
+        Assert.True(frames is 49 or 50, $"a 400-unit fall took {frames} frames at 70 Hz");
+        Assert.True(feet >= 613f && feet - 613f <= GroundFall.SnapDistance, "fall stopped away from the floor");
+        Assert.True(GroundFall.Landing(200) == PristonActorMotion.FallStand, "a 200-unit fall landed hard");
+        Assert.True(GroundFall.Landing(201) == PristonActorMotion.FallDamage, "a fall over 200 units landed soft");
+
+        var motion = new ActorMotionController();
+        motion.ApplyAuthoritative(PristonActorMotion.FallDown);
+        Assert.True(motion.ApplyLocomotion(PristonActorMotion.Walk).Kind == MotionCommandKind.None, "walking replaced the fall motion");
+        Assert.True(!motion.LocomotionFrozen, "a fall stopped the player from walking");
+        motion.ApplyAuthoritative(PristonActorMotion.FallStand);
+        Assert.True(motion.ApplyLocomotion(PristonActorMotion.Walk).Motion == PristonActorMotion.Walk, "walking did not follow the landing");
+        return Task.CompletedTask;
     }
 
     public static void InspectRicarten(string assetRoot)
