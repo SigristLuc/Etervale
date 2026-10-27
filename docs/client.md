@@ -185,7 +185,8 @@ a pending buffer flushed by a single writer task (a backlog above 512 KiB closes
 ### Presence decoding
 
 `HandleAsync` (receive thread) offers every packet to `PresenceDecoder.TryHandle` first; presence packets become a
-`PresenceUpdate` published to a bounded channel (4096; when full the receive loop waits, so TCP pushes back on the server).
+`PresenceUpdate` published to a bounded channel (4096; when full the receive loop waits, so TCP pushes back on the
+server).
 
 - `PresenceEntries`: full and motion entries update tracked objects (a motion entry never introduces one). An unknown serial or a
   changed descriptor revision triggers `DescribeEntity`; an object is published as a spawn only once its `EntityDescription`

@@ -196,8 +196,9 @@ Level `L`, attributes `Str Spi Tal Agi Hlt`; float arithmetic, truncated at the 
 
 Life, mana and stamina are truncated to whole numbers (32-bit, never narrowed), then gain
 `(int)(items.LevelLife + items.AddLife)`, the mana `(int)(items.AddMana)` for mana function 1 and
-`(int)(items.LevelMana + items.AddMana)` otherwise, and the stamina `(int)items.AddStamina`. `CarriedWeight` is `CarriedWeight.Of(character)`: every owned item, worn ones included; a
-potion weighs one per unit, other items their weight per unit, gold nothing.
+`(int)(items.LevelMana + items.AddMana)` otherwise, and the stamina `(int)items.AddStamina`. `CarriedWeight` is
+`CarriedWeight.Of(character)`: every owned item, worn ones included; a potion weighs one per unit, other items their
+weight per unit, gold nothing.
 
 ### Weapon damage (`WeaponDamage.Compute`)
 
