@@ -77,7 +77,7 @@ public sealed class ForceOrbPresentation
 
             if (glow.RenewMs <= nowMs && position(entity) is { } at && _skills is not null)
             {
-                glow.Instance?.Stop();
+                glow.Instance.Stop();
                 glow.Instance = _skills.Spawn(ItemVfx.OrbGlow(glow.Index), entity, entity, at);
                 glow.RenewMs = nowMs + (ItemVfx.GlowSeconds - 1f) * 1000d;
             }
@@ -88,7 +88,7 @@ public sealed class ForceOrbPresentation
     {
         if (_active.Remove(entity, out var glow))
         {
-            glow.Instance?.Stop();
+            glow.Instance.Stop();
         }
     }
 
@@ -97,6 +97,6 @@ public sealed class ForceOrbPresentation
         public int Index { get; } = index;
         public double EndMs { get; } = endMs;
         public double RenewMs { get; set; }
-        public VfxInstance Instance { get; set; }
+        public VfxHandle Instance { get; set; }
     }
 }

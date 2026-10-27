@@ -105,8 +105,7 @@ public sealed class ClassUpLights
 
     private sealed class Holder
     {
-        private readonly VfxInstance[] _effects = new VfxInstance[4];
-        private readonly int[] _generations = new int[4];
+        private readonly VfxHandle[] _effects = new VfxHandle[4];
         private float _frames;
         private bool _growing;
 
@@ -139,15 +138,12 @@ public sealed class ClassUpLights
             for (var part = 0; part < 2; part++)
             {
                 var slot = light * 2 + part;
-                var effect = _effects[slot];
-                if (effect is null || effect.Generation != _generations[slot] || !effect.Alive)
+                if (!_effects[slot].Alive)
                 {
-                    effect = skills.SpawnAt(part == 0 ? Light : Trail, point, Matrix.Identity);
-                    _effects[slot] = effect;
-                    _generations[slot] = effect?.Generation ?? 0;
+                    _effects[slot] = skills.SpawnAt(part == 0 ? Light : Trail, point, Matrix.Identity);
                 }
 
-                effect?.MoveTo(point);
+                _effects[slot].MoveTo(point);
             }
         }
 
@@ -155,12 +151,8 @@ public sealed class ClassUpLights
         {
             for (var slot = 0; slot < _effects.Length; slot++)
             {
-                if (_effects[slot] is { } effect && effect.Generation == _generations[slot])
-                {
-                    effect.Stop();
-                }
-
-                _effects[slot] = null;
+                _effects[slot].Stop();
+                _effects[slot] = default;
             }
         }
     }

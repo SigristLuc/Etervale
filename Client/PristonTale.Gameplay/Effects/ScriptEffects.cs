@@ -25,38 +25,33 @@ public sealed class VfxScriptEffects(Func<SkillPresentation> presentation) : ISc
 {
     public IScriptEffect Spawn(string script, Vector3 position, Matrix orientation)
     {
-        var instance = presentation()?.SpawnAt(ParticlePrefix + script, position, orientation);
-        return instance is null ? null : new Handle(instance);
+        return presentation()?.SpawnAt(ParticlePrefix + script, position, orientation) is { Spawned: true } instance
+            ? new VfxScriptHandle(instance)
+            : null;
     }
 
     public const string ParticlePrefix = "particle.";
+}
 
-    private sealed class Handle(VfxInstance instance) : IScriptEffect
-    {
-        public void MoveTo(Vector3 position) => instance.MoveTo(position);
+internal sealed class VfxScriptHandle(VfxHandle instance) : IScriptEffect
+{
+    public void MoveTo(Vector3 position) => instance.MoveTo(position);
 
-        public void Stop() => instance.Stop();
-    }
+    public void Stop() => instance.Stop();
 }
 
 public sealed class SystemScriptEffects(VfxSystem system, VfxLibrary library) : IScriptEffects
 {
     public IScriptEffect Spawn(string script, Vector3 position, Matrix orientation)
     {
-        if (!library.TryGet(VfxScriptEffects.ParticlePrefix + script, out var effect) || system.Spawn(effect, new VfxSpawn(0, 0, position, 0f)) is not { } instance)
+        if (!library.TryGet(VfxScriptEffects.ParticlePrefix + script, out var effect)
+            || system.Spawn(effect, new VfxSpawn(0, 0, position, 0f)) is not { Spawned: true } instance)
         {
             return null;
         }
 
         instance.SetOrientation(orientation);
-        return new Handle(instance);
-    }
-
-    private sealed class Handle(VfxInstance instance) : IScriptEffect
-    {
-        public void MoveTo(Vector3 position) => instance.MoveTo(position);
-
-        public void Stop() => instance.Stop();
+        return new VfxScriptHandle(instance);
     }
 }
 

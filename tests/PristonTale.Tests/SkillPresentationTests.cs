@@ -220,7 +220,7 @@ internal static class SkillPresentationTests
         });
         var anchors = new Anchors();
         var system = new VfxSystem(anchors);
-        var instance = system.Spawn(burst, new VfxSpawn(0, 0, Vector3.Zero, 0f))!;
+        var instance = system.Spawn(burst, new VfxSpawn(0, 0, Vector3.Zero, 0f)).Instance!;
         system.Update(0.01f);
         Assert.True(system.ParticleCount == 10, $"burst emitted {system.ParticleCount}");
         for (var frame = 0; frame < 120; frame++)
@@ -229,7 +229,7 @@ internal static class SkillPresentationTests
         }
 
         Assert.True(system.Instances.Count == 0 && !instance.Alive, "finished effect stayed alive");
-        var moving = system.Spawn(stream, new VfxSpawn(0, 0, Vector3.Zero, 0f))!;
+        var moving = system.Spawn(stream, new VfxSpawn(0, 0, Vector3.Zero, 0f)).Instance!;
         moving.Travel(Vector3.Zero, new Vector3(300, 0, 0), 0.5f);
         var peak = 0;
         for (var frame = 0; frame < 30; frame++)

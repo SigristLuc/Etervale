@@ -171,9 +171,13 @@ Use `carryEffect` for converted particle scripts that stream until stopped; `eve
 
 ## Runtime: `VfxSystem`
 
-- `Spawn(CompiledVfx, VfxSpawn(CasterId, TargetId, Point, Facing))` returns a pooled instance, or null at 1024 live
-  instances. `Update(seconds)` clamps the step to 0.1 s, refreshes caster and target positions, updates every layer,
-  fires one-shots and children, and returns dead instances to the pool.
+- `Spawn(CompiledVfx, VfxSpawn(CasterId, TargetId, Point, Facing))` returns a `VfxHandle` to a pooled instance (not
+  `Spawned` at 1024 live instances). The handle carries the instance's generation: once the effect ends and the
+  instance runs another, the handle's `Alive` is false and its `Stop`, `MoveTo` and `Travel` reach nothing.
+  `Update(seconds)` clamps the step to 0.1 s, refreshes caster and target positions, updates every layer, fires
+  one-shots and children, and returns dead instances to the pool.
+- Children, end, every and carry effects are looked up by name and cached once found; a name missing while the
+  definitions are still registering is looked up again on the next spawn.
 - `Travel(from, to, seconds, arc)` moves `Point` (projectiles, chain links, companion strikes) and stops the instance on
   arrival; parts with `follow` ride it, parts with a `goal` fly on their own and finish their flight after a stop.
 - Anchors: `Point` is the spawn point; `Caster`/`Target` the entity position, replaced by a bone through

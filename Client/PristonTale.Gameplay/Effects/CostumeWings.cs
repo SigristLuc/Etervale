@@ -8,7 +8,7 @@ namespace PristonTale.Gameplay.Effects;
 // and is not shown in a village or on the dead.
 public sealed class CostumeWings
 {
-    private readonly Dictionary<ulong, (string Effect, VfxInstance Instance, int Generation)> _worn = new();
+    private readonly Dictionary<ulong, (string Effect, VfxHandle Instance)> _worn = new();
     private readonly HashSet<ulong> _seen = new();
     private readonly List<ulong> _gone = new();
 
@@ -40,20 +40,16 @@ public sealed class CostumeWings
         }
 
         _seen.Add(entityId);
-        if (!_worn.TryGetValue(entityId, out var worn) || worn.Effect != effect || worn.Instance.Generation != worn.Generation || !worn.Instance.Alive)
+        if (!_worn.TryGetValue(entityId, out var worn) || worn.Effect != effect || !worn.Instance.Alive)
         {
-            if (_worn.ContainsKey(entityId) && worn.Instance.Generation == worn.Generation)
-            {
-                worn.Instance.Stop();
-            }
-
-            if (skills.Spawn(effect, entityId, entityId, position) is not { } instance)
+            worn.Instance.Stop();
+            if (skills.Spawn(effect, entityId, entityId, position) is not { Spawned: true } instance)
             {
                 _worn.Remove(entityId);
                 return;
             }
 
-            worn = (effect, instance, instance.Generation);
+            worn = (effect, instance);
             _worn[entityId] = worn;
         }
 
@@ -68,10 +64,7 @@ public sealed class CostumeWings
         {
             if (!_seen.Contains(entity))
             {
-                if (worn.Instance.Generation == worn.Generation)
-                {
-                    worn.Instance.Stop();
-                }
+                worn.Instance.Stop();
 
                 _gone.Add(entity);
             }

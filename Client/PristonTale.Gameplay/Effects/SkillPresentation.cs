@@ -50,8 +50,8 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     private readonly SkillSoundBank _sounds;
     private readonly IClientLog _log;
     private readonly List<Pending> _pending = new(32);
-    private readonly Dictionary<ulong, VfxInstance> _projectiles = new();
-    private readonly List<VfxInstance> _castEffects = new();
+    private readonly Dictionary<ulong, VfxHandle> _projectiles = new();
+    private readonly List<(ulong CasterId, VfxHandle Effect)> _castEffects = new();
     // Impacts each caster's current cast has had (per-hit sounds and effects).
     private readonly Dictionary<ulong, int> _impacts = new();
     private readonly Random _soundRandom = new();
@@ -169,21 +169,22 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     }
 
     // Starts a named effect at a point with a full orientation (scripts carried by other effects, monster skills).
-    public VfxInstance SpawnAt(string name, Vector3 point, Matrix orientation)
+    public VfxHandle SpawnAt(string name, Vector3 point, Matrix orientation)
     {
-        if (!Library.TryGet(name, out var effect) || System.Spawn(effect, new VfxSpawn(0, 0, point, 0f)) is not { } instance)
+        if (!Library.TryGet(name, out var effect))
         {
-            return null;
+            return default;
         }
 
-        instance.SetOrientation(orientation);
-        return instance;
+        var handle = System.Spawn(effect, new VfxSpawn(0, 0, point, 0f));
+        handle.SetOrientation(orientation);
+        return handle;
     }
 
     // Spawns a named effect directly (probes, previews).
-    public VfxInstance Spawn(string name, ulong casterId, ulong targetId, Vector3 point, float facing = 0f)
+    public VfxHandle Spawn(string name, ulong casterId, ulong targetId, Vector3 point, float facing = 0f)
     {
-        return Library.TryGet(name, out var effect) ? System.Spawn(effect, new VfxSpawn(casterId, targetId, point, facing)) : null;
+        return Library.TryGet(name, out var effect) ? System.Spawn(effect, new VfxSpawn(casterId, targetId, point, facing)) : default;
     }
 
     void IVfxServices.AddLight(Vector3 position, Color color, int power, int decay) => _lights?.Add(position, color, power, decay);
@@ -244,9 +245,9 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         Looks.Cast(skillEvent, rule, nowMs);
         var position = Position(skillEvent.CasterId, skillEvent.Position);
         var facing = -skillEvent.Facing;
-        if (rule.CastEffect.Length > 0 && Spawn(rule.CastEffect, skillEvent.CasterId, skillEvent.TargetId, position, facing) is { } cast)
+        if (rule.CastEffect.Length > 0 && Spawn(rule.CastEffect, skillEvent.CasterId, skillEvent.TargetId, position, facing) is { Spawned: true } cast)
         {
-            _castEffects.Add(cast);
+            _castEffects.Add((skillEvent.CasterId, cast));
         }
 
         _sounds.Play(rule.CastSound, position, _host.ListenerPosition);
@@ -266,7 +267,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         var to = Position(skillEvent.TargetId, skillEvent.Position);
         var planar = new Vector2(to.X - from.X, to.Z - from.Z).Length();
         var seconds = SkillProjectile.FlightMs(planar) / 1000f;
-        if (Spawn(rule.ProjectileEffect, skillEvent.CasterId, skillEvent.TargetId, from, -skillEvent.Facing) is { } projectile)
+        if (Spawn(rule.ProjectileEffect, skillEvent.CasterId, skillEvent.TargetId, from, -skillEvent.Facing) is { Spawned: true } projectile)
         {
             projectile.Travel(from, to, MathF.Max(0.05f, seconds), rule.ProjectileArc);
             _projectiles[skillEvent.CasterId] = projectile;
@@ -429,12 +430,12 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
 
         for (var index = _castEffects.Count - 1; index >= 0; index--)
         {
-            var effect = _castEffects[index];
+            var (caster, effect) = _castEffects[index];
             if (!effect.Alive)
             {
                 _castEffects.RemoveAt(index);
             }
-            else if (effect.Spawn.CasterId == casterId)
+            else if (caster == casterId)
             {
                 effect.Stop();
                 _castEffects.RemoveAt(index);
@@ -502,17 +503,13 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
 
     private void OnStatusAdded(ulong entityId, StatusEntry entry)
     {
-        entry.Presentation = SpawnAura(entityId, entry);
+        entry.Aura = SpawnAura(entityId, entry);
     }
 
     private void OnStatusRemoved(ulong entityId, StatusEntry entry)
     {
-        if (entry.Presentation is VfxInstance aura)
-        {
-            aura.Stop();
-        }
-
-        entry.Presentation = null;
+        entry.Aura.Stop();
+        entry.Aura = default;
     }
 
     // Aura effects are finite; one that ran out while its status is still active starts again. A status that arrived before
@@ -521,20 +518,20 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     {
         foreach (var (entity, entry) in Statuses.All())
         {
-            if (entry.Presentation is null or VfxInstance { Alive: false } && entry.RemainingMs(nowMs) > 500d)
+            if (!entry.Aura.Alive && entry.RemainingMs(nowMs) > 500d)
             {
-                entry.Presentation = SpawnAura(entity, entry);
+                entry.Aura = SpawnAura(entity, entry);
             }
         }
     }
 
     // Effects that draw an element (enchants, companions) report it as the status value; their aura has a variant per
     // element ("<aura>.ice") when one is defined.
-    private VfxInstance SpawnAura(ulong entityId, StatusEntry entry)
+    private VfxHandle SpawnAura(ulong entityId, StatusEntry entry)
     {
         if (!SkillRuleCatalog.TryGet(entry.Code, out var rule) || rule.BuffEffect.Length == 0 || !_host.TryGetPosition(entityId, out var position))
         {
-            return null;
+            return default;
         }
 
         var name = rule.BuffEffect;

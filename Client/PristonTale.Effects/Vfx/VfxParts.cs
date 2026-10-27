@@ -119,9 +119,8 @@ internal sealed class PartState
     public Vector3[] Trail = [];
     public float Timer;
     private Matrix _turn;
-    // The carried effect of each part and the generation it was started at (instances are pooled and reused).
-    private VfxInstance?[] _carried = [];
-    private int[] _carriedGeneration = [];
+    // The carried effect of each part.
+    private VfxHandle[] _carried = [];
 
     public void Begin(CompiledPart part, ref uint random)
     {
@@ -140,8 +139,7 @@ internal sealed class PartState
 
         if (_carried.Length != count)
         {
-            _carried = new VfxInstance?[count];
-            _carriedGeneration = new int[count];
+            _carried = new VfxHandle[count];
         }
         else
         {
@@ -223,31 +221,24 @@ internal sealed class PartState
     private void Carry(ref VfxPart part, int index, VfxInstance instance, VfxSystem system)
     {
         var carried = _carried[index];
-        if (carried is not null && (carried.Generation != _carriedGeneration[index] || !carried.Alive))
-        {
-            _carried[index] = null;
-            carried = null;
-        }
 
         // As the original hides a projectile's glow when it lands, the carried effect ends with its part.
         if (part.Phase != PartPhase.Live)
         {
-            carried?.StopNow();
-            _carried[index] = null;
+            carried.StopNow();
+            _carried[index] = default;
             return;
         }
 
-        if (carried is not null)
+        if (carried.Alive)
         {
             carried.MoveTo(part.Position);
             return;
         }
 
-        if (part.Age <= 0.1f && system.Resolve(Part.Source.CarryEffect, ref Part.CarryEffect, ref Part.CarryResolved) is { } effect
-            && system.SpawnFrom(instance, effect, part.Position) is { } started)
+        if (part.Age <= 0.1f && system.Resolve(Part.Source.CarryEffect, ref Part.CarryEffect, ref Part.CarryResolved) is { } effect)
         {
-            _carried[index] = started;
-            _carriedGeneration[index] = started.Generation;
+            _carried[index] = system.SpawnFrom(instance, effect, part.Position);
         }
     }
 
@@ -256,12 +247,8 @@ internal sealed class PartState
     {
         for (var index = 0; index < _carried.Length; index++)
         {
-            if (_carried[index] is { } carried && carried.Generation == _carriedGeneration[index])
-            {
-                carried.StopNow();
-            }
-
-            _carried[index] = null;
+            _carried[index].StopNow();
+            _carried[index] = default;
         }
     }
 

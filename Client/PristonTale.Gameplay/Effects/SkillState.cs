@@ -1,3 +1,4 @@
+using PristonTale.Effects.Vfx;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Modifiers;
@@ -64,7 +65,7 @@ public sealed class StatusEntry
     public double EndMs { get; set; }
     public int Stacks { get; set; }
     public int Value { get; set; }
-    public object Presentation { get; set; }
+    public VfxHandle Aura { get; set; }
 
     public double RemainingMs(double nowMs) => Permanent ? double.PositiveInfinity : Math.Max(0d, EndMs - nowMs);
 }

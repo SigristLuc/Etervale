@@ -16,6 +16,26 @@ internal static class VfxLayerTests
         yield return ("parts wait for their delays, start on their ring and end with their life", PartRingAsync);
         yield return ("parts fly to their goal, start their end effect there and fade out", PartGoalAsync);
         yield return ("orbiting parts with a goal sweep at the goal's distance and bearing", PartOrbitAsync);
+        yield return ("a handle reaches only its own effect once the pooled instance runs another", HandleAsync);
+    }
+
+    private static Task HandleAsync()
+    {
+        var (library, system) = Setup(new VfxDefinition
+        {
+            Name = "test.short",
+            Duration = 0.2f,
+            Parts = [new VfxPartDefinition { Texture = "x.bmp", Count = 1, Lifetime = [0.1f, 0.1f] }]
+        });
+        library.TryGet("test.short", out var effect);
+        var first = system.Spawn(effect, new VfxSpawn(0, 0, Vector3.Zero, 0f));
+        Run(system, 1f);
+        var second = system.Spawn(effect, new VfxSpawn(0, 0, Vector3.Zero, 0f));
+        Assert.True(!first.Alive && second.Alive && ReferenceEquals(first.Instance, null), "the ended effect's handle still reaches the pooled instance");
+        first.StopNow();
+        Run(system, 0.05f);
+        Assert.True(second.Alive, "a stale handle stopped the effect that reused its instance");
+        return Task.CompletedTask;
     }
 
     private static (VfxLibrary Library, VfxSystem System) Setup(params VfxDefinition[] definitions)
@@ -38,7 +58,7 @@ internal static class VfxLayerTests
             Parts = [new VfxPartDefinition { Texture = "x.bmp", Count = 4, DelayStep = 0.1f, Ring = [10f, 10f], RingStep = 90f, Lifetime = [0.3f, 0.3f] }]
         });
         library.TryGet("test.ring", out var effect);
-        var instance = system.Spawn(effect, new VfxSpawn(0, 0, new Vector3(5f, 0f, 0f), 0f))!;
+        var instance = system.Spawn(effect, new VfxSpawn(0, 0, new Vector3(5f, 0f, 0f), 0f)).Instance!;
         Run(system, 0.05f);
         Assert.True(instance.PartStates[0].LiveCount == 1, "only the first part is due");
         Run(system, 0.3f);
@@ -71,7 +91,7 @@ internal static class VfxLayerTests
         library.Register(new VfxDefinition { Name = "test.boom", Duration = 1f, Parts = [new VfxPartDefinition { Texture = "x.bmp", Lifetime = [0.4f, 0.4f] }] });
         var system = new VfxSystem(anchors, null, library);
         library.TryGet("test.shot", out var effect);
-        var shot = system.Spawn(effect, new VfxSpawn(1, 2, Vector3.Zero, 0f))!;
+        var shot = system.Spawn(effect, new VfxSpawn(1, 2, Vector3.Zero, 0f)).Instance!;
         Run(system, 0.3f);
         Assert.True(system.Instances.All(static instance => instance.Effect.Name != "test.boom"), "the end effect started before arrival");
         Run(system, 0.25f);
@@ -103,7 +123,7 @@ internal static class VfxLayerTests
         });
         var system = new VfxSystem(anchors, null, library);
         library.TryGet("test.sweep", out var effect);
-        var sweep = system.Spawn(effect, new VfxSpawn(1, 2, Vector3.Zero, 0f))!;
+        var sweep = system.Spawn(effect, new VfxSpawn(1, 2, Vector3.Zero, 0f)).Instance!;
         system.Update(0.001f);
         var start = sweep.PartStates[0].Parts[0].Position;
         Assert.True(Vector3.Distance(start, anchors.Target) < 0.2f, $"the sweep starts at the target, not at {start}");
@@ -144,7 +164,7 @@ internal static class VfxLayerTests
             ]
         });
         library.TryGet("test.quad", out var effect);
-        var instance = system.Spawn(effect, new VfxSpawn(0, 0, Vector3.Zero, 0f))!;
+        var instance = system.Spawn(effect, new VfxSpawn(0, 0, Vector3.Zero, 0f)).Instance!;
         Run(system, 0.1f);
         var quad = instance.ComponentStates[0];
         // Nine of the ten frames apply the ramp: the first frame only starts the clock.
@@ -179,7 +199,7 @@ internal static class VfxLayerTests
             ]
         });
         library.TryGet("test.pool", out var effect);
-        var instance = system.Spawn(effect, new VfxSpawn(0, 0, new Vector3(100f, 0f, 0f), 0f))!;
+        var instance = system.Spawn(effect, new VfxSpawn(0, 0, new Vector3(100f, 0f, 0f), 0f)).Instance!;
         Run(system, 1f);
         var pool = instance.ComponentStates[0];
         var live = pool.Particles.Count(static particle => particle.Live);
@@ -223,7 +243,7 @@ internal static class VfxLayerTests
             ]
         });
         library.TryGet("test.sequence", out var effect);
-        var instance = system.Spawn(effect, new VfxSpawn(0, 0, Vector3.Zero, 0f))!;
+        var instance = system.Spawn(effect, new VfxSpawn(0, 0, Vector3.Zero, 0f)).Instance!;
         Run(system, 0.1f);
         var stream = instance.SequenceStates[0];
         Assert.True(stream.LiveCount == 5, $"{stream.LiveCount} live of a pool of 5");
@@ -264,7 +284,7 @@ internal static class VfxLayerTests
         });
         var system = new VfxSystem(anchors, null, library);
         library.TryGet("test.parent", out var parent);
-        var instance = system.Spawn(parent, new VfxSpawn(1, 0, Vector3.Zero, 0f))!;
+        var instance = system.Spawn(parent, new VfxSpawn(1, 0, Vector3.Zero, 0f)).Instance!;
         Run(system, 0.1f);
         Assert.True(system.Instances.Count == 1, "the child started before its delay");
         Run(system, 0.2f);

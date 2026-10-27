@@ -37,9 +37,9 @@ public sealed class SkillEffectSink(SkillPresentation effects) : IMonsterEffectS
     public bool Defines(string name) => effects.Library.TryGet(name, out _);
 
     public IMonsterEffect Spawn(string name, ulong casterId, ulong targetId, Vector3 point, float facing) =>
-        effects.Spawn(name, casterId, targetId, point, facing) is { } instance ? new Running(instance) : null;
+        effects.Spawn(name, casterId, targetId, point, facing) is { Spawned: true } instance ? new Running(instance) : null;
 
-    private sealed class Running(VfxInstance instance) : IMonsterEffect
+    private sealed class Running(VfxHandle instance) : IMonsterEffect
     {
         public void Stop() => instance.Stop();
     }

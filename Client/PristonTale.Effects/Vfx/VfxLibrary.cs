@@ -61,12 +61,13 @@ public sealed class VfxLibrary
 
     public bool TryGet(string name, out CompiledVfx effect) => _effects.TryGetValue(name, out effect!);
 
+    // Only a found child is cached: definitions register over several frames, so one missing now may arrive later.
     internal CompiledVfx? Child(CompiledVfx parent, int index)
     {
-        if (!parent.ChildrenResolved[index])
+        if (!parent.ChildrenResolved[index] && TryGet(parent.Definition.Children[index].Effect, out var child))
         {
             parent.ChildrenResolved[index] = true;
-            parent.Children[index] = TryGet(parent.Definition.Children[index].Effect, out var child) ? child : null;
+            parent.Children[index] = child;
         }
 
         return parent.Children[index];
