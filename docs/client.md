@@ -343,7 +343,9 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
 - Inventory (`HudInventoryController`): left drag moves, Shift-drag splits, drop on another stack merges, drop on an
   equipment slot equips, right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
   slot first), drinks a potion or uses a usable item (`HudItemUseController`: the Teleport Core window, confirmations,
-  the item-use request). One command in flight; it carries the `InventoryRevision` it was built from.
+  the item-use request). One command in flight; it carries the `InventoryRevision` it was built from. A modal
+  (`GameplayHud.ModalOpen`: NPC or quest dialog, yes/no box, skill training box, warp map, Teleport Core list,
+  confirmation) stops the bag and the warehouse, aging and mix windows; those work windows still trade with the bag.
 - Step marks (`GameScene.Terrain.cs`, `PristonCollisionWorld.TryGetIceFloor` / `TryGetWaterHeight`): the stage's ice
   floors are its solid faces of an ice material, its water the faces of a water or see-through (over 0.1) material
   that do not collide. Wading in shallow water (the surface above the feet and less than 32 units up) splashes

@@ -384,9 +384,10 @@ public sealed class GameplayHud : IDisposable
             UpdateKeys(keyboard);
         }
 
-        var warehouseAction = _warehouse.Update(mouse, _previousMouse, pointer, InventoryCellAt, _services.Pending || _settingsOpen);
-        var agingAction = _aging.Update(mouse, _previousMouse, pointer, state, _services.Pending || _settingsOpen);
-        var mixAction = _mix.Update(mouse, _previousMouse, pointer, state, _services.Pending || _settingsOpen);
+        var workLocked = _services.Pending || _settingsOpen || ModalOpen;
+        var warehouseAction = _warehouse.Update(mouse, _previousMouse, pointer, InventoryCellAt, workLocked);
+        var agingAction = _aging.Update(mouse, _previousMouse, pointer, state, workLocked);
+        var mixAction = _mix.Update(mouse, _previousMouse, pointer, state, workLocked);
         if (warehouseAction.Kind != HudWarehouseActionKind.None)
         {
             ApplyWarehouseAction(state, warehouseAction);
@@ -409,7 +410,7 @@ public sealed class GameplayHud : IDisposable
         var hoveredSkill = _skillSlide.FullyOpen && _skillMaster == 0 ? _skills.HoveredSkill(skillOrigin, pointer) : 0;
         _bindings.Update(typing ? default : keyboard, mouse, hoveredSkill);
         PointerCaptured = Captures(layout, pointer, design) || _chat.Window.Contains(layout, pointer, SideWindowOpen) || _inventory.Dragging != Guid.Empty || _warehouse.Dragging != Guid.Empty;
-        _inventory.Update(state, layout, _inventorySlide.FullyOpen && !_settingsOpen, keyboard, mouse);
+        _inventory.Update(state, layout, _inventorySlide.FullyOpen && !_settingsOpen && !ModalOpen, keyboard, mouse);
         _previousKeyboard = keyboard;
         _previousMouse = mouse;
     }
@@ -866,12 +867,14 @@ public sealed class GameplayHud : IDisposable
         }
     }
 
-    // As in the original, a dialog, a message box, the warp map or a work window keeps every click from the world; the
-    // status, inventory, skill and shop windows keep only their own area.
-    private bool BlocksWorld =>
+    // A dialog, a message box or the warp map: it takes every click, the bag's included.
+    private bool ModalOpen =>
         _npcOpen || _quests.Dialog is not null || _quests.Confirming || _quests.SkillResetBox || _skills.TrainingPending
-        || _wingGate.IsOpen || _wingGate.Confirming || _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming
-        || _warehouse.IsOpen || _aging.IsOpen || _mix.IsOpen;
+        || _wingGate.IsOpen || _wingGate.Confirming || _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming;
+
+    // As in the original, a modal or a work window keeps every click from the world (the work windows still trade items
+    // with the bag); the status, inventory, skill and shop windows keep only their own area.
+    private bool BlocksWorld => ModalOpen || _warehouse.IsOpen || _aging.IsOpen || _mix.IsOpen;
 
     private bool Captures(HudLayout layout, Point pointer, Point design)
     {

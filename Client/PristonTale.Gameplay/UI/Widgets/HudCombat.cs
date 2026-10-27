@@ -288,7 +288,8 @@ public sealed partial class HudCombat
     private static void DrawHealthBar(HudPainter painter, Rectangle bar, int life, int maximum)
     {
         painter.Stretch(HudArt.EnergyBack, bar, new Rectangle(0, 0, StateBarWidth, 15));
-        if (life > 0)
+        // A maximum of 0 (a spawn without one) draws the empty bar.
+        if (life > 0 && maximum > 0)
         {
             var percent = (int)((long)Math.Min(life, maximum) * StateBarSize / maximum);
             painter.Stretch(HudArt.EnergyFill, new Rectangle(bar.X, bar.Y, (percent + 3) * bar.Width / StateBarWidth, bar.Height),
