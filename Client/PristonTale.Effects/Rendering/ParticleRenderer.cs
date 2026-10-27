@@ -134,7 +134,7 @@ public sealed class ParticleRenderer : IDisposable
 
         // Shared render state for all particle batches: occluded by prior scene depth (DepthRead =
         // test on, write off), no culling so both quad faces draw, linear-clamp sampling.
-        _device.DepthStencilState = DepthStencilState.DepthRead;
+        _device.DepthStencilState = PristonDepth.Read;
         _device.RasterizerState = RasterizerState.CullNone;
 
         for (var k = 0; k < _commands.Count; k++)

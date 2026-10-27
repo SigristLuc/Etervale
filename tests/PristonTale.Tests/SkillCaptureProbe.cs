@@ -226,7 +226,7 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
         {
             // The effects alone on a dark backdrop: the exposed stage hides additive light.
             GraphicsDevice.SetRenderTarget(_target);
-            GraphicsDevice.Clear(new Color(18, 18, 22));
+            GraphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, new Color(18, 18, 22).ToVector4(), PristonDepth.Clear, 0);
             Renderer().DisplayOutput = true;
             _presentation.Draw(_camera.View, _camera.Projection, _camera.Position, null!);
             Renderer().DisplayOutput = false;

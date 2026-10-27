@@ -16,6 +16,7 @@ internal static class PhotorealTests
         yield return ("the sun is low and warm at 18:00 and the moon lights the night", DaylightAsync);
         yield return ("incident exposure shows a white surface under the metered light at the day key", ExposureAsync);
         yield return ("temporal jitter is centred and the projection moves by whole clip offsets", JitterAsync);
+        yield return ("scene depth is reversed: the near plane is 1, the far plane 0, and both planes are recoverable", ReversedDepthAsync);
         yield return ("colour grade cube files parse and interpolate trilinearly", CubeLutAsync);
         yield return ("shadow cascades keep their size as the camera turns and snap to whole texels", CascadesAsync);
         yield return ("lamp shadow rows stay with their lamps and refresh in turn", LampRowsAsync);
@@ -129,6 +130,39 @@ internal static class PhotorealTests
         var after = Vector4.Transform(point, jittered);
         Assert.Near(before.X / before.W + offset.X, after.X / after.W, 1e-5f);
         Assert.Near(before.Y / before.W + offset.Y, after.Y / after.W, 1e-5f);
+        return Task.CompletedTask;
+    }
+
+    private static Task ReversedDepthAsync()
+    {
+        const float near = 1f;
+        const float far = 20000f;
+        var projection = PristonDepth.Perspective(1f, 16f / 9f, near, far);
+        float Depth(float distance, Matrix matrix)
+        {
+            var clip = Vector4.Transform(new Vector4(0f, 0f, -distance, 1f), matrix);
+            return clip.Z / clip.W;
+        }
+
+        Assert.Near(1f, Depth(near, projection), 1e-6f);
+        Assert.Near(0f, Depth(far, projection), 1e-6f);
+        Assert.True(Depth(200f, projection) > Depth(201f, projection), "nearer is not greater");
+        Assert.Near(near, PristonDepth.NearPlane(projection), 1e-3f);
+        Assert.Near(far, PristonDepth.FarPlane(projection), 1f);
+
+        // x, y and w match the ordinary projection, so screen positions and everything built on them are unchanged.
+        var ordinary = Matrix.CreatePerspectiveFieldOfView(1f, 16f / 9f, near, far);
+        var point = new Vector4(3f, -2f, -50f, 1f);
+        var reversed = Vector4.Transform(point, projection);
+        var expected = Vector4.Transform(point, ordinary);
+        Assert.Near(expected.X / expected.W, reversed.X / reversed.W, 1e-6f);
+        Assert.Near(expected.Y / expected.W, reversed.Y / reversed.W, 1e-6f);
+
+        // The sky's projection never clips at distance and stays inside the depth range.
+        var sky = PristonDepth.InfiniteFar(projection);
+        var distant = Depth(1.0e7f, sky);
+        Assert.True(distant > 0f && distant < 1e-6f, $"the infinite-far sky depth is {distant}");
+        Assert.Near(1f, Depth(near, sky), 1e-6f);
         return Task.CompletedTask;
     }
 

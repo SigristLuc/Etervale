@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using PristonTale.Engine3D.Rendering;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -15,7 +16,7 @@ internal static class CursorPicking
     {
         ray = default;
         var far = viewport.Unproject(
-            new Vector3(cursor.X, cursor.Y, 1f),
+            new Vector3(cursor.X, cursor.Y, PristonDepth.FarDepth),
             projection,
             view,
             Matrix.Identity);

@@ -48,7 +48,7 @@ internal sealed class CharacterSelectPortrait : IDisposable
         distance = MathF.Max(distance, 10f);
         var cameraPosition = center + Vector3.Backward * distance;
         var view = Matrix.CreateLookAt(cameraPosition, center, Vector3.Up);
-        var projection = Matrix.CreatePerspectiveFieldOfView(
+        var projection = PristonDepth.Perspective(
             VerticalFieldOfView,
             aspect,
             0.1f,
@@ -57,7 +57,7 @@ internal sealed class CharacterSelectPortrait : IDisposable
         _graphicsDevice.SetRenderTarget(_target);
         try
         {
-            _graphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Transparent, 1f, 0);
+            _graphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Transparent, PristonDepth.Clear, 0);
             renderer.DrawActorPortrait(activeHandles, view, projection, cameraPosition, center);
         }
         finally
@@ -82,7 +82,7 @@ internal sealed class CharacterSelectPortrait : IDisposable
             height,
             false,
             SurfaceFormat.Color,
-            DepthFormat.Depth24,
+            PristonDepth.Format,
             0,
             RenderTargetUsage.PreserveContents);
     }

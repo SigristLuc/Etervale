@@ -123,14 +123,6 @@ public sealed partial class PristonRenderer : IDisposable
     private bool _volumetricLight = true;
     private bool _imageBasedLighting = true;
     private int _lampShadowRedraw;
-    // The lit pass over surfaces the depth pre-pass already wrote: test against their depth, do not write it again.
-    private static readonly DepthStencilState PrepassedDepth = new()
-    {
-        Name = "PristonPrepassedDepth",
-        DepthBufferEnable = true,
-        DepthBufferWriteEnable = false,
-        DepthBufferFunction = CompareFunction.LessEqual
-    };
     // Clearing a cascade tile writes far depth whatever the tile held.
     private static readonly DepthStencilState ShadowClearDepth = new()
     {
@@ -1418,10 +1410,7 @@ public sealed partial class PristonRenderer : IDisposable
             var skyView = frame.View;
             skyView.Translation = Vector3.Zero;
             skyView.Translation = Vector3.TransformNormal(-skyPosition, skyView);
-            var skyProjection = frame.Projection;
-            var nearPlane = skyProjection.M43 / skyProjection.M33;
-            skyProjection.M33 = -1f;
-            skyProjection.M43 = -nearPlane;
+            var skyProjection = PristonDepth.InfiniteFar(frame.Projection);
             _shaders.ApplyFrame(CreateSkyFrame(frame, skyView, skyProjection, skyPosition));
             _stateCache.SetDepthStencilState(DepthStencilState.None);
             skyBatchCount = DrawSkyLayers(
@@ -1441,7 +1430,7 @@ public sealed partial class PristonRenderer : IDisposable
         Profiler.End(RenderSection.Sky);
 
         _stateCache.InvalidateDeviceState();
-        _stateCache.SetDepthStencilState(DepthStencilState.Default);
+        _stateCache.SetDepthStencilState(PristonDepth.Write);
         _shaders.ApplyFrame(frame);
         _prepassDrawn = false;
         if (_sceneTargets.Prepass)
@@ -1476,8 +1465,8 @@ public sealed partial class PristonRenderer : IDisposable
         if (lighting.PointLights.Count > 0)
         {
             Profiler.Begin(RenderSection.LightCulling);
-            var near = frame.Projection.M43 / frame.Projection.M33;
-            var far = frame.Projection.M43 / (frame.Projection.M33 + 1f);
+            var near = PristonDepth.NearPlane(frame.Projection);
+            var far = PristonDepth.FarPlane(frame.Projection);
             var tiles = _lightCulling.Run(lighting.PointLights, frame.View, frame.Projection, near, far, _sceneTargets.Width,
                 _sceneTargets.Height, _prepassDrawn ? _sceneTargets.LinearDepth : null, _textureLoader.White);
             Profiler.End(RenderSection.LightCulling);
@@ -1504,7 +1493,7 @@ public sealed partial class PristonRenderer : IDisposable
             _calibration ??= new PristonCalibrationSpheres(_textureLoader.White);
             _calibration.Place(camera.Target);
             _stateCache.SetBlendState(BlendState.Opaque);
-            _stateCache.SetDepthStencilState(DepthStencilState.Default);
+            _stateCache.SetDepthStencilState(PristonDepth.Write);
             DrawBatch(_calibration.Grey, ref staticBatches, ref dynamicBatches, ref drawCalls, ref triangles, ref staticVertices,
                 ref staticIndices, ref normalBatches, ref twoSidedBatches, ref visibleStaticMeshDiagnostics);
             DrawBatch(_calibration.Chrome, ref staticBatches, ref dynamicBatches, ref drawCalls, ref triangles, ref staticVertices,
@@ -2259,7 +2248,8 @@ public sealed partial class PristonRenderer : IDisposable
             else if (_prepassDrawn && !_drawingTransparent && Prepassed(batch))
             {
                 _stateCache.SetBlendState(batch.Material.BlendState);
-                _stateCache.SetDepthStencilState(PrepassedDepth);
+                // The lit pass over surfaces the depth pre-pass already wrote: test against their depth, do not write it.
+                _stateCache.SetDepthStencilState(PristonDepth.Read);
             }
             else
             {
@@ -2268,7 +2258,7 @@ public sealed partial class PristonRenderer : IDisposable
                 var writesDepth = batch.Material.WritesDepth && !translucent;
                 var blend = translucent && ReferenceEquals(batch.Material.BlendState, BlendState.Opaque) ? BlendState.NonPremultiplied : batch.Material.BlendState;
                 _stateCache.SetBlendState(TemporalBlend(blend, writesDepth));
-                _stateCache.SetDepthStencilState(writesDepth ? DepthStencilState.Default : DepthStencilState.DepthRead);
+                _stateCache.SetDepthStencilState(writesDepth ? PristonDepth.Write : PristonDepth.Read);
             }
 
             DrawBatch(
@@ -2352,7 +2342,7 @@ public sealed partial class PristonRenderer : IDisposable
         _sceneTargets.BindPrepass();
         _stateCache.InvalidateDeviceState();
         _stateCache.SetBlendState(PrepassBlend);
-        _stateCache.SetDepthStencilState(DepthStencilState.Default);
+        _stateCache.SetDepthStencilState(PristonDepth.Write);
         _prepassMode = true;
         _smoothSurfaceVisible = false;
         var unused = 0;

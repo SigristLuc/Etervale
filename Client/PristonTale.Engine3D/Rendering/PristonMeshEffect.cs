@@ -86,7 +86,7 @@ public sealed class PristonMeshEffect : IDisposable
         _effect.Alpha = MathHelper.Clamp(tint.W, 0, 1);
         _effect.DiffuseColor = new Vector3(Math.Max(0, tint.X), Math.Max(0, tint.Y), Math.Max(0, tint.Z));
         _device.BlendState = blend;
-        _device.DepthStencilState = DepthStencilState.DepthRead;
+        _device.DepthStencilState = PristonDepth.Read;
         _device.RasterizerState = RasterizerState.CullNone;
         foreach (var batch in _frames[Math.Clamp(frame, 0, FrameCount - 1)])
         {

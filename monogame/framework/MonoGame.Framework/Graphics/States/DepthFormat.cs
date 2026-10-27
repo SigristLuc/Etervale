@@ -24,6 +24,11 @@ namespace Microsoft.Xna.Framework.Graphics
         /// <summary>
         /// 32-bit depth-stencil buffer. Where 24-bit depth and 8-bit for stencil used.
         /// </summary>
-		Depth24Stencil8
+		Depth24Stencil8,
+        /// <summary>
+        /// 32-bit floating-point depth buffer without stencil. With a reversed depth range (1 at the near plane) its
+        /// precision is nearly even from the near plane to the far plane.
+        /// </summary>
+		Depth32Float
     }
 }

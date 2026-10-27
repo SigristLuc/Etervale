@@ -81,6 +81,7 @@ enum class MGDepthFormat : mgint
     Depth16 = 1,
     Depth24 = 2,
     Depth24Stencil8 = 3,
+    Depth32Float = 4,
 };
 
 enum class MGClearOptions : mgint

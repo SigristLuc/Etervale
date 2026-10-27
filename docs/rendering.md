@@ -158,7 +158,7 @@ and lamps at full.
 
 | Target | Format | Notes |
 |---|---|---|
-| Scene colour + depth | HalfVector4, Depth24 | Pre-exposed linear radiance; MSAA when `Msaa`; `PreserveContents`, filled by `SkyComposite`. |
+| Scene colour + depth | HalfVector4, Depth32Float (reversed) | Pre-exposed linear radiance; MSAA when `Msaa`; `PreserveContents`, filled by `SkyComposite`. |
 | Motion | HalfVector4 | TAA only: uv motion, previous view depth, view depth (negative on cut-outs). |
 | Linear depth, normals | R32F, RGBA8 | Pre-pass only; `SceneLinearDepth` exposes the depth to effects (null without pre-pass). |
 | Sky | 8-bit sRGB | Dome layers with original blends, decoded into the scene. |
@@ -262,7 +262,8 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
 ## Anti-aliasing
 
 - **TAA** (`Post/PristonTemporalAntiAliasing.cs`): Halton (2, 3) jitter of 8 samples; current weight 0.08 at rest to
-  0.25 at 8 px/frame; variance clip gamma 1.25; depth tolerance 0.06; motion of skinned actors from the previous bone
+  0.25 at 8 px/frame; variance clip gamma 1.25 over the 3x3 neighbourhood (a 5-tap cross left jittered stone and
+  gold trims shimmering); depth tolerance 0.06; motion of skinned actors from the previous bone
   palette (`PristonSkinPalette` keeps the previous pose, stamped per motion frame), of wind and water from the previous
   animation time. Volumetric and AO noise rotate per frame only with TAA.
 - **MSAA:** scene target multisampled (2-4), the back buffer never.
@@ -307,6 +308,11 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
 ## Pitfalls
 
 - `Draw` leaves the HDR scene bound; anything drawn before `ComposeScene` lands in it, and the UI must come after.
+- Scene depth is reversed (`PristonDepth`): 1 at the near plane, cleared to 0, tested with `GreaterEqual`, in a 32-bit
+  float buffer. A camera, portrait or effect projection comes from `PristonDepth.Perspective`, and a scene draw uses
+  `PristonDepth.Write`/`Read`; MonoGame's `DepthStencilState.Default`/`DepthRead` and `Clear(Color)` (depth 1) reject
+  everything there. Shadow maps keep the ordinary range. A 24-bit buffer with the near plane at 1 could not separate
+  the original models' layered faces at range, and they flickered under the jitter.
 - Binding a render target ends the Vulkan render pass; the profiler resets timestamps only outside one, so
   `_sceneTargets.Begin` precedes `Profiler.BeginFrame`.
 - The sky capture is refreshed before the scene target is cleared, because binding another target may discard it.

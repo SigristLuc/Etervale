@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Effects;
 using PristonTale.Engine3D.Diagnostics;
+using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Effects;
 
 namespace PristonTale.Tests;
@@ -51,10 +52,10 @@ internal sealed class PotionCaptureProbe : Game
         var elapsed = new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(_times[_sample]));
         _effects.Update(elapsed);
         GraphicsDevice.SetRenderTarget(_target);
-        GraphicsDevice.Clear(new Color(18, 22, 25));
+        GraphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, new Color(18, 22, 25).ToVector4(), PristonDepth.Clear, 0);
         var camera = new Vector3(0, 95, 240);
         _effects.Draw(Matrix.CreateLookAt(camera, new Vector3(0, 35, 0), Vector3.Up),
-            Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, 960f / 540f, 1, 1000), camera);
+            PristonDepth.Perspective(MathHelper.PiOver4, 960f / 540f, 1, 1000), camera);
         GraphicsDevice.SetRenderTarget(null);
         const string name = "potions";
         var path = Path.Combine(_output, $"{name}-{_sample}.png");

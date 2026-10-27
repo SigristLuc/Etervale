@@ -229,7 +229,7 @@ public sealed partial class PristonRenderer
 
         _stateCache.BeginFrame();
         _stateCache.InvalidateDeviceState();
-        _stateCache.SetDepthStencilState(DepthStencilState.Default);
+        _stateCache.SetDepthStencilState(PristonDepth.Write);
         _stateCache.SetSamplerState0(PristonSamplerStates.AnisotropicWrap);
         _shaders.ApplyFrame(frame);
 

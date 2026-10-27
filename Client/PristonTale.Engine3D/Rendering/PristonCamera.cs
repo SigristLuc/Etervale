@@ -136,7 +136,7 @@ public sealed class PristonCamera
         _projectionHeight = height;
         var aspect = width / (float)height;
         var verticalFieldOfView = VerticalFieldOfView(_fieldOfViewRadians, _settings.MaxHorizontalFieldOfViewDegrees, aspect);
-        Projection = Matrix.CreatePerspectiveFieldOfView(verticalFieldOfView, aspect, _settings.NearPlane, _settings.FarPlane);
+        Projection = PristonDepth.Perspective(verticalFieldOfView, aspect, _settings.NearPlane, _settings.FarPlane);
     }
 
     internal static float VerticalFieldOfView(float verticalRadians, float maxHorizontalDegrees, float aspect)

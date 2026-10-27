@@ -123,7 +123,7 @@ public sealed class ReturnEffect : IDisposable
         _effect.View = view;
         _effect.Projection = projection;
         _device.BlendState = BlendState.Additive;
-        _device.DepthStencilState = DepthStencilState.DepthRead;
+        _device.DepthStencilState = PristonDepth.Read;
         _device.RasterizerState = RasterizerState.CullNone;
         DrawBuffers(_particleAnimation.Textures, _particleVertices, _particleVertexCounts);
         DrawBuffers(_rayAnimation.Textures, _rayVertices, _rayVertexCounts);

@@ -264,7 +264,7 @@ internal sealed class MonsterSkillCaptureProbe : Game, ISkillSceneHost, IMonster
         if (_frame > 0)
         {
             GraphicsDevice.SetRenderTarget(_target);
-            GraphicsDevice.Clear(new Color(18, 18, 22));
+            GraphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, new Color(18, 18, 22).ToVector4(), PristonDepth.Clear, 0);
             _presentation.Renderer.DisplayOutput = true;
             _presentation.Draw(_camera.View, _camera.Projection, _camera.Position, null!);
             _presentation.Renderer.DisplayOutput = false;

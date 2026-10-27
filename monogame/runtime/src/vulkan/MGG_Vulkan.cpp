@@ -791,6 +791,8 @@ static VkFormat ToVkFormat(MGDepthFormat format)
 #else
 		return VkFormat::VK_FORMAT_D24_UNORM_S8_UINT;
 #endif
+	case MGDepthFormat::Depth32Float:
+		return VkFormat::VK_FORMAT_D32_SFLOAT;
 	default:
 		return VkFormat::VK_FORMAT_UNDEFINED;
 	}
@@ -7106,7 +7108,7 @@ MG_EXPORT void MGG_GraphicsDevice_GetNativeHandles(const MGG_GraphicsDevice* dev
 // MGG.EnsureRuntimeVersion) checks before anything else: a library built from other sources (the official package, or
 // a stale build of the fork) would fail later at the first missing export, or worse, call an export whose arguments
 // changed. Bumped with every change of an exported function (monogame/issues/002-runtime-version.md).
-#define MGVK_ETERVALE_RUNTIME_VERSION 4
+#define MGVK_ETERVALE_RUNTIME_VERSION 5
 
 MG_EXPORT mgint MGG_Etervale_RuntimeVersion()
 {

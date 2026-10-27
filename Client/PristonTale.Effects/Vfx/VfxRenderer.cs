@@ -183,7 +183,7 @@ public sealed partial class VfxRenderer : IDisposable
         _vertices.SetData(_scratch, 0, _quadCount * 4, SetDataOptions.Discard);
         _device.SetVertexBuffer(_vertices);
         _device.Indices = _indices;
-        _device.DepthStencilState = DepthStencilState.DepthRead;
+        _device.DepthStencilState = PristonDepth.Read;
         _device.RasterizerState = RasterizerState.CullNone;
         _effect.ViewProjection = view * projection;
         _effect.Depth = sceneDepth;

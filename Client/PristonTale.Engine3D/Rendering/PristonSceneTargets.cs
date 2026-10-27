@@ -168,12 +168,12 @@ internal sealed class PristonSceneTargets : IDisposable
         _device.Clear(background);
     }
 
-    // Starts the scene: clears depth and stencil and fills every scene target with the sky dome composed by BeginSky
+    // Starts the scene: clears depth (PristonDepth) and fills every scene target with the sky dome composed by BeginSky
     // (sky true) or a flat radiance, behind everything.
     public void Fill(bool sky, float displayScale, Vector3 backgroundRadiance)
     {
         BindTemporal();
-        _device.Clear(ClearOptions.DepthBuffer | ClearOptions.Stencil, Vector4.Zero, 1f, 0);
+        _device.Clear(ClearOptions.DepthBuffer, Vector4.Zero, PristonDepth.Clear, 0);
         _device.BlendState = BlendState.Opaque;
         _skyComposite.CurrentTechnique = sky ? _skyTechnique : _backgroundTechnique;
         if (sky)
@@ -254,7 +254,7 @@ internal sealed class PristonSceneTargets : IDisposable
             height,
             false,
             SurfaceFormat.HalfVector4,
-            DepthFormat.Depth24Stencil8,
+            PristonDepth.Format,
             multiSampleCount,
             RenderTargetUsage.PreserveContents);
         _requestedSamples = multiSampleCount;

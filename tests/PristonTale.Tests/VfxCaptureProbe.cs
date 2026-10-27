@@ -114,7 +114,7 @@ internal sealed class VfxCaptureProbe : Game, IVfxAnchors, IVfxServices
 
         // The exposed scene reads almost white, which hides additive light; the same frame on a dark backdrop shows it.
         GraphicsDevice.SetRenderTarget(_target);
-        GraphicsDevice.Clear(new Color(18, 18, 22));
+        GraphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, new Color(18, 18, 22).ToVector4(), PristonDepth.Clear, 0);
         _vfx.DisplayOutput = true;
         _vfx.Draw(_system, _camera.View, _camera.Projection, _camera.Position, null);
         _vfx.DisplayOutput = false;

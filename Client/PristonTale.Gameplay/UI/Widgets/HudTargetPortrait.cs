@@ -135,7 +135,7 @@ public sealed class HudTargetPortrait : IDisposable
         var camera = Camera(_anchor, world, subject, frame, layout.Height);
         EnsureTarget(frame.Width * layout.Scale, frame.Height * layout.Scale);
         var view = Matrix.CreateLookAt(camera.Position, camera.Target, camera.Up);
-        var projection = Matrix.CreatePerspectiveFieldOfView(camera.FieldOfView, camera.AspectRatio, camera.Near, camera.Far);
+        var projection = PristonDepth.Perspective(camera.FieldOfView, camera.AspectRatio, camera.Near, camera.Far);
         var light = Lighting(camera);
         var restore = _device.RenderTargetCount == 1;
         if (restore)
@@ -146,7 +146,7 @@ public sealed class HudTargetPortrait : IDisposable
         _device.SetRenderTarget(_target);
         try
         {
-            _device.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Transparent, 1f, 0);
+            _device.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Transparent, PristonDepth.Clear, 0);
             renderer.DrawActorPortrait(handles, view, projection, camera.Position, light);
         }
         finally
@@ -173,7 +173,7 @@ public sealed class HudTargetPortrait : IDisposable
         }
 
         _target?.Dispose();
-        _target = new RenderTarget2D(_device, width, height, false, SurfaceFormat.Color, DepthFormat.Depth24, MultiSampleCount,
+        _target = new RenderTarget2D(_device, width, height, false, SurfaceFormat.Color, PristonDepth.Format, MultiSampleCount,
             RenderTargetUsage.PreserveContents);
     }
 

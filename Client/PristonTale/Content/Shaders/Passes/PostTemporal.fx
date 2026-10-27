@@ -1,8 +1,9 @@
 // Temporal anti-aliasing resolve (PristonTemporalAntiAliasing), on the pre-exposed HDR scene before bloom and exposure.
 // After Karis, "High Quality Temporal Supersampling" (SIGGRAPH 2014), Salvi, "An Excursion in Temporal Supersampling"
 // (GDC 2016) and Pedersen, "Temporal Reprojection Anti-Aliasing in INSIDE" (GDC 2016):
-//  - current sample: Gaussian reconstruction around the unjittered pixel centre from the 5-tap cross, which also gives
-//    the variance box (YCoCg) of the neighbourhood;
+//  - current sample: Gaussian reconstruction around the unjittered pixel centre from the 3x3 neighbourhood, which also
+//    gives the variance box (YCoCg). A 5-tap cross gave a box too tight for jittered high-frequency texture (stone, gold
+//    trims): the history was clipped nearly every frame and the pixel followed the jitter, a visible shimmer;
 //  - motion: of the closest surface among the centre and its four diagonals (silhouettes keep their own motion).
 //    Surfaces write their motion (Passes/Surface.fx: skinned actors from their previous bone palette, wind and water from
 //    the previous animation time, everything from the previous view-projection); the sky marker reprojects the view
@@ -48,7 +49,11 @@ static const float SkyDepth = 60000.0;       // the history's depth of sky pixel
 static const float FoliageWeight = 0.3;
 static const float FoliageGamma = 0.9;
 static const float2 Diagonals[4] = { float2(-1, -1), float2(1, -1), float2(-1, 1), float2(1, 1) };
-static const float2 Cross[5] = { float2(0, 0), float2(-1, 0), float2(1, 0), float2(0, -1), float2(0, 1) };
+static const float2 Neighbourhood[9] =
+{
+    float2(0, 0), float2(-1, 0), float2(1, 0), float2(0, -1), float2(0, 1),
+    float2(-1, -1), float2(1, -1), float2(-1, 1), float2(1, 1)
+};
 
 float3 Compress(float3 c)
 {
@@ -154,23 +159,23 @@ ResolveOut PS_Resolve(FullscreenOut i)
     float3 lo = 1.0e9;
     float3 hi = -1.0e9;
     [unroll]
-    for (uint k = 0; k < 5; k++)
+    for (uint k = 0; k < 9; k++)
     {
-        float3 raw = SceneAt(centreUv + Cross[k] * texel);
+        float3 raw = SceneAt(centreUv + Neighbourhood[k] * texel);
         float3 ycc = RgbToYCoCg(Compress(raw));
         m1 += ycc;
         m2 += ycc * ycc;
         lo = min(lo, ycc);
         hi = max(hi, ycc);
-        float2 d = centreTexel + 0.5 + Cross[k] - JitterParams.xy - pixel;
+        float2 d = centreTexel + 0.5 + Neighbourhood[k] - JitterParams.xy - pixel;
         float w = exp(-JitterParams.z * dot(d, d));
         filtered += raw * w;
         weightSum += w;
     }
 
     filtered = Compress(filtered / weightSum);
-    float3 mean = m1 / 5.0;
-    float3 sigma = sqrt(max(m2 / 5.0 - mean * mean, 0.0));
+    float3 mean = m1 / 9.0;
+    float3 sigma = sqrt(max(m2 / 9.0 - mean * mean, 0.0));
 
     // 2. The closest surface of the centre and its diagonals, and the depth range around the pixel.
     bool foliage;

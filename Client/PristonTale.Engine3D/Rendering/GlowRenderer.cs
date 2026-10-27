@@ -66,7 +66,7 @@ internal sealed class GlowRenderer : IDisposable
         _graphicsDevice.BlendState = BlendState.Additive;
         // Depth-TEST so walls/trees in front of a lamp occlude its glow (no more "glow through
         // walls"), but depth-WRITE off (DepthRead) since it's an additive transparent billboard.
-        _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+        _graphicsDevice.DepthStencilState = PristonDepth.Read;
         _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
         _effect.Apply();

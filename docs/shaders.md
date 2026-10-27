@@ -42,7 +42,7 @@ Each `.fx` in `Passes/` builds to `Effects/<Name>` (the asset name the C# owner 
 | `Effects/Environment` | `Environment.fx` | `Irradiance` (compute), `Octahedral`, `Prefilter` | `Lighting/PristonEnvironmentLighting` | Order-2 SH irradiance of the dome's six faces (Lanczos-windowed), HDR octahedral map, five GGX-prefiltered levels in one atlas. |
 | `Effects/Reflections` | `Reflections.fx` | `Copy`, `Reflect` | `Post/PristonScreenReflections` | Scene copy, then 24 jittered screen-space steps plus binary refinement; adds Fresnel x confidence x (hit - environment). |
 | `Effects/Volumetric` | `Volumetric.fx` | `March`, `Accumulate`, `Composite` | `Lighting/PristonVolumetricLight` | Quarter-resolution height-fog in-scatter (16 shadowed segments, exact optical depth), reprojected accumulation, joint bilateral composite. |
-| `Effects/PostTemporal` | `PostTemporal.fx` | `Resolve` | `Post/PristonTemporalAntiAliasing` | TAA resolve on pre-exposed HDR: Gaussian current sample, closest-depth motion, Catmull-Rom history clipped to a YCoCg variance box, depth disocclusion. |
+| `Effects/PostTemporal` | `PostTemporal.fx` | `Resolve` | `Post/PristonTemporalAntiAliasing` | TAA resolve on pre-exposed HDR: Gaussian current sample and variance box over 3x3, closest-depth motion, Catmull-Rom history clipped to a YCoCg variance box, depth disocclusion. |
 | `Effects/PostExposure` | `PostExposure.fx` | `Histogram`, `Adapt` (compute) | `Post/PristonAutoExposure` | 128-bin log2 luminance histogram (2^-12 to 2^20 cd/m^2), percentile average, blend with the incident reading, asymmetric adaptation; state buffer read by the final pass. |
 | `Effects/PostBloom` | `PostBloom.fx` | `DownsampleKaris`, `Downsample`, `Upsample` | `Post/PristonBloom` | Dual-filter pyramid without threshold; first downsample Karis-weighted; convex upsample blend. |
 | `Effects/PostFinal` | `PostFinal.fx` | `Tonemap`, `Fxaa` | `Post/PristonPostProcessor` | Sharpening, scene + bloom, mesopic vision, exposure, PBR Neutral/AgX/ACES, sRGB, 3D LUT grade, dither, luma in alpha; FXAA on the 8-bit image. |
@@ -131,7 +131,8 @@ Material codes (`MaterialDecl.hlsli`, mirrored by `PristonMaterialDescription.cs
   `StructuredBuffer` take t registers in any stage, `RW*` resources u registers in compute shaders only
   (`monogame/issues/005-compute-and-uav.md`, `006-structured-buffers.md`, `007-mgcb-profiles.md`,
   `008-shader-model-6.5.md`).
-- **Clip space and uv:** D3D clip space, +Y up, depth 0 to 1 (XNA projection matrices produce it directly). Render
+- **Clip space and uv:** D3D clip space, +Y up, depth 0 to 1. Scene and portrait depth is reversed, 1 at the near
+  plane (`PristonDepth.Perspective`); shadow casters use the ordinary XNA range. Render
   target and texture coordinates start top-left, so a projected position maps to uv = (x, -y) * 0.5 + 0.5 (sun shadow
   lookup, full-screen triangle).
 - **Matrices** are XNA row-vector matrices used as `mul(v, M)`. World space is Y-up, in Priston units.

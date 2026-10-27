@@ -129,6 +129,10 @@ public partial class GraphicsDeviceManager
                 windowCreateInfo.DepthSize = 24;
                 windowCreateInfo.StencilSize = 8;
                 break;
+            case DepthFormat.Depth32Float:
+                windowCreateInfo.DepthSize = 32;
+                windowCreateInfo.StencilSize = 0;
+                break;
             default:
                 throw new NotSupportedException();
         }
