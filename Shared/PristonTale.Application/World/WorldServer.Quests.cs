@@ -66,7 +66,7 @@ public sealed partial class WorldServer
 
             operation.Original.CommitQuestOperation(operation.Candidate, operation.Tier, operation.StatPoints, operation.SkillPoints,
                 operation.EliteSkillPoints, operation.MoneyDelta, operation.ResetSkills);
-            if (!_connections.TryGetValue(session.EntityId, out var connection) || !ReferenceEquals(connection.Session, session))
+            if (!TryGetOwnConnection(session, out var connection))
             {
                 return true;
             }
@@ -120,7 +120,7 @@ public sealed partial class WorldServer
     {
         return EnqueueAsync(NoOwner, () =>
         {
-            if (_connections.TryGetValue(session.EntityId, out var connection) && ReferenceEquals(connection.Session, session))
+            if (TryGetOwnConnection(session, out var connection))
             {
                 connection.Player.QuestState.ReturnDrops(operation.Drops);
                 connection.Player.QuestState.UpkeepSignaled = false;
@@ -135,7 +135,7 @@ public sealed partial class WorldServer
     {
         return EnqueueAsync(NoOwner, () =>
         {
-            if (_connections.TryGetValue(session.EntityId, out var connection) && ReferenceEquals(connection.Session, session))
+            if (TryGetOwnConnection(session, out var connection))
             {
                 connection.Player.QuestState.UpkeepSignaled = false;
             }

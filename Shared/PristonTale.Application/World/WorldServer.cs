@@ -314,6 +314,15 @@ public sealed partial class WorldServer
     public int PlayerCount => Volatile.Read(ref _playerCount);
 
     // Tick-thread state: callers must not run concurrently with Tick.
+    // Tick only. The session's connection while the session owns it, which a commit or an abort still needs after the
+    // player started leaving.
+    private bool TryGetOwnConnection(PlayerSession session, out Connection connection) =>
+        _connections.TryGetValue(session.EntityId, out connection!) && ReferenceEquals(connection.Session, session);
+
+    // Tick only. The session's connection while its character plays in the world.
+    private bool TryGetPlaying(PlayerSession session, out Connection connection) =>
+        TryGetOwnConnection(session, out connection) && session.IsPlaying && session.Character is not null;
+
     internal long FieldNowMs(int fieldId) => _fields.TryGetValue(fieldId, out var field) ? field.NowMs : 0;
 
     internal FieldInstance? FieldFor(int fieldId) => _fields.GetValueOrDefault(fieldId);
@@ -323,8 +332,7 @@ public sealed partial class WorldServer
     {
         return EnqueueAsync<PreparedCharacterOperation<ProgressionOutcome>?>(session.EntityId, () =>
         {
-            if (!session.IsPlaying || session.Character is null || session.Loaded is null
-                || !_connections.TryGetValue(session.EntityId, out var connection) || !ReferenceEquals(connection.Session, session))
+            if (session.Loaded is null || !TryGetPlaying(session, out var connection))
             {
                 return null;
             }
@@ -355,13 +363,12 @@ public sealed partial class WorldServer
     {
         return EnqueueAsync<PreparedCharacterOperation<InventoryOutcome>?>(session.EntityId, () =>
         {
-            if (!session.IsPlaying || session.Character is null || session.Loaded is null
-                || !_connections.TryGetValue(session.EntityId, out var connection) || !ReferenceEquals(connection.Session, session))
+            if (session.Loaded is null || !TryGetPlaying(session, out var connection))
             {
                 return null;
             }
 
-            var original = session.Character;
+            var original = connection.Player.Character;
             foreach (var applied in original.InventoryOperations)
             {
                 if (applied.Command.OperationId == command.OperationId)
@@ -424,8 +431,7 @@ public sealed partial class WorldServer
 
                 pickup.Ground.Resolve(pickup.DropId, pickup.OperationId, committed: true);
             }
-            if (operation is PreparedPotionOperation potion && _connections.TryGetValue(session.EntityId, out var connection)
-                && ReferenceEquals(connection.Session, session))
+            if (operation is PreparedPotionOperation potion && TryGetOwnConnection(session, out var connection))
             {
                 connection.Player.QueuePotion(potion.Potion);
             }

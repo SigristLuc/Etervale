@@ -93,7 +93,7 @@ public sealed partial class WorldServer
 
     private void Arrive(PlayerSession session, TeleportArrival arrival)
     {
-        if (!_connections.TryGetValue(session.EntityId, out var connection) || !ReferenceEquals(connection.Session, session)
+        if (!TryGetOwnConnection(session, out var connection)
             || !_catalog.TryGetFieldByCode(arrival.FieldCode, out var destination))
         {
             session.FieldId = arrival.FieldCode;
@@ -117,18 +117,5 @@ public sealed partial class WorldServer
             FieldId = arrival.FieldCode
         };
         UpdatePlacement(session, arrival.FieldCode, position, inVillage);
-    }
-
-    private bool TryGetPlaying(PlayerSession session, out Connection connection)
-    {
-        if (session.IsPlaying && session.Character is not null && _connections.TryGetValue(session.EntityId, out var found)
-            && ReferenceEquals(found.Session, session))
-        {
-            connection = found;
-            return true;
-        }
-
-        connection = null!;
-        return false;
     }
 }

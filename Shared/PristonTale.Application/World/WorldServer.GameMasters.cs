@@ -350,13 +350,12 @@ public sealed partial class WorldServer
     {
         return EnqueueAsync<PreparedCharacterOperation<bool>?>(requesterId, () =>
         {
-            if (!session.IsPlaying || session.Character is null || session.Loaded is null
-                || !_connections.TryGetValue(session.EntityId, out var connection) || !ReferenceEquals(connection.Session, session))
+            if (session.Loaded is null || !TryGetPlaying(session, out var connection))
             {
                 return null;
             }
 
-            var original = session.Character;
+            var original = connection.Player.Character;
             var candidate = original.CloneForInventoryOperation();
             if (!candidate.ReceiveGroundLoot(make(_fields[connection.FieldId].Rng), 0))
             {
