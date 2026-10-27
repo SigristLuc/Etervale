@@ -217,6 +217,9 @@ public sealed class WorldPlayer
 
     private float _flinchMsLeft;
 
+    // The length of the damage motion: the class fallback until the field sets the body's authored clip (FieldInstance.Add).
+    public float FlinchMs { get; set; }
+
     // A skill motion owns the avatar like a swing; FieldSkills fires its hits from the elapsed time.
     private float _castElapsedMs;
     private float _castDurationMs;
@@ -275,6 +278,7 @@ public sealed class WorldPlayer
         EntityId = entityId;
         Position = position;
         _character = character;
+        FlinchMs = MotionTiming.DurationMs(PlayerMotionFallback.GetClip(character.Class.Class, MotionStateCode.Damage).Frames, MotionTiming.DamageRateFactor);
         _inVillage = inVillage;
         _appearance = appearance;
         _cueLevel = character.Level;
@@ -667,8 +671,7 @@ public sealed class WorldPlayer
             if (Action == PlayerActionState.Idle && amount > 1)
             {
                 Action = PlayerActionState.Flinch;
-                var clip = PlayerMotionFallback.GetClip(_character.Class.Class, MotionStateCode.Damage);
-                _flinchMsLeft = MotionTiming.DurationMs(clip.Frames, MotionTiming.DamageRateFactor);
+                _flinchMsLeft = FlinchMs;
                 MoveState = MoveStateView.Damage;
             }
         }

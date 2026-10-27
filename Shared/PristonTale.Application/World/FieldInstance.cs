@@ -113,7 +113,11 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     public bool TryGetNpc(ulong entityId, [MaybeNullWhen(false)] out WorldNpc npc) => _npcs.TryGetValue(entityId, out npc);
     public IEnumerable<ulong> PlayerIds => _players.Keys;
 
-    public void Add(WorldPlayer player) => _players[player.EntityId] = player;
+    public void Add(WorldPlayer player)
+    {
+        _players[player.EntityId] = player;
+        player.FlinchMs = PlayerActionTiming(player, MotionStateCode.Damage, MotionTiming.DamageRateFactor).DurationMs;
+    }
     public void Remove(ulong entityId)
     {
         if (_players.TryGetValue(entityId, out var leaving))

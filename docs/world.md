@@ -444,7 +444,8 @@ INX motion tables are extracted by the importer (`MotionTableExtractor`) into th
 
 Player action timing (`FieldInstance.PlayerActionTiming`): start from `PlayerMotionFallback.GetClip(class, state)`,
 replace with the job body's catalog clip, and for attacks replace with `PlayerEquipmentTiming.TryGet(job, weaponKey)`.
-Attack rate is `Character.AttackRate`. The hit lands at event 0, or at the clip end if there is none.
+Attack rate is `Character.AttackRate`. The hit lands at event 0, or at the clip end if there is none. The flinch lasts
+the damage clip found this way (`WorldPlayer.FlinchMs`, set when the player enters a field).
 
 `PlayerEquipmentTiming.cs` is generated from the shipped INX files by the test runner
 (`--export-equipment-timings <assetsRoot> <outputFile>`; `--verify-equipment <assetsRoot>` checks it).
