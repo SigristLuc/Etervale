@@ -32,7 +32,7 @@ internal sealed class ShadowCaptureProbe : Game
         new("night", 21.5f, 3, true, false, static s => s),
         new("morning-moving", 8f, 3, false, false, static s => s, SunMoves: true),
         new("orbit", 15f, 40, false, false, static s => s, Orbit: true),
-        new("brightness", 10f, 600, false, false, static s => s with { ShadowsEnabled = false }, SunMoves: true, Measure: true),
+        new("brightness", 10f, 600, false, false, static s => s, SunMoves: true, Measure: true),
         new("karina-afternoon", 16f, 20, false, true, static s => s, Npc: 0),
         new("karina-wide", 16f, 20, false, false, static s => s, Npc: 0),
         new("ariel", 16f, 20, false, true, static s => s, Npc: 1)
@@ -49,17 +49,23 @@ internal sealed class ShadowCaptureProbe : Game
     private const ulong Atalanta = 2;
     private const ulong Babel = 3;
 
-    // Karina, Ariel, Casa and Sylpi where Navisko places them (the server's coordinates over 256, Z mirrored).
-    private static readonly (string Model, float X, float Z)[] NaviskoNpcs =
+    // Karina, Ariel, Casa and Sylpi where Navisko places them: the server's coordinates over 256 and its heading in
+    // 4096ths of a turn, both mirrored in Z as the client receives them.
+    private static readonly (string Model, float X, float Z, float Facing)[] NaviskoNpcs =
     [
-        ("char/npc/SN-001/sn-001.inx", 5591526f / 256f, -262266f / 256f), ("char/npc/SN-002/sn-002.inx", 5537856f / 256f, -297657f / 256f),
-        ("char/npc/SN-003/sn-003.inx", 5501933f / 256f, -254241f / 256f), ("char/npc/SN-005/sn-005.inx", 5646992f / 256f, -298582f / 256f)
+        ("char/npc/SN-001/sn-001.inx", 5591526f / 256f, -262266f / 256f, ClientFacing(2014)),
+        ("char/npc/SN-002/sn-002.inx", 5537856f / 256f, -297657f / 256f, ClientFacing(5772)),
+        ("char/npc/SN-003/sn-003.inx", 5501933f / 256f, -254241f / 256f, ClientFacing(5363)),
+        ("char/npc/SN-005/sn-005.inx", 5646992f / 256f, -298582f / 256f, ClientFacing(2517))
     ];
+
+    // A shot that takes longer than this is stuck (an actor that never loaded, a device that stopped presenting).
+    private static readonly TimeSpan ShotTimeout = TimeSpan.FromMinutes(2);
 
     private readonly string _assetRoot;
     private readonly string _output;
     private readonly PresentationSettings _presentation = new();
-    private readonly System.Diagnostics.Stopwatch _timeout = System.Diagnostics.Stopwatch.StartNew();
+    private readonly System.Diagnostics.Stopwatch _shotTime = System.Diagnostics.Stopwatch.StartNew();
     private PristonRenderer _renderer = null!;
     private PristonSkyLibrary _sky = null!;
     private PristonCamera _camera = null!;
@@ -73,6 +79,7 @@ internal sealed class ShadowCaptureProbe : Game
     private double _seconds;
     private double _shotSeconds;
     private Color[]? _previous;
+    private Color[] _pixels = new Color[Width * Height];
 
     public ShadowCaptureProbe(string assetRoot, string contentRoot, string output)
     {
@@ -132,17 +139,19 @@ internal sealed class ShadowCaptureProbe : Game
                 64, new PlayerAppearanceInfo("Atalanta", (int)PlayerClass.Atalanta, 3, 1, 1, "", "", 90), 0),
             new(Babel, RemoteEntityKind.Monster, false, Numeric(Floor(_collision, spot + new Vector3(70f, 500f, -60f))), 3.6f, RemoteMoveState.Idle,
                 100, 100, null, 1, Name: "Babel", Level: 104),
-            .. NaviskoNpcs.Select((_, index) => new EntitySpawnInfo((ulong)(10 + index), RemoteEntityKind.Npc, false,
-                Numeric(NpcSpot(index)), 0.6f, RemoteMoveState.Idle, 1, 1, null,
+            .. NaviskoNpcs.Select((npc, index) => new EntitySpawnInfo((ulong)(10 + index), RemoteEntityKind.Npc, false,
+                Numeric(NpcSpot(index)), npc.Facing, RemoteMoveState.Idle, 1, 1, null,
                 (uint)(index + 1)))
         ], [], [], []));
     }
 
     protected override void Update(GameTime gameTime)
     {
-        if (_timeout.Elapsed > TimeSpan.FromMinutes(4))
+        if (_shotTime.Elapsed > ShotTimeout)
         {
-            throw new TimeoutException("Shadow capture did not finish.");
+            var name = _shot >= 0 && _shot < Shots.Length ? Shots[_shot].Name : "loading";
+            throw new TimeoutException(
+                $"Shadow capture shot {name} did not finish: {_remote.Count} of {3 + NaviskoNpcs.Length} actors loaded, frame {_frame}.");
         }
 
         if (_shot < 0 || _frame == 0 && _shotSeconds == 0)
@@ -154,6 +163,7 @@ internal sealed class ShadowCaptureProbe : Game
                 return;
             }
 
+            _shotTime.Restart();
             var shot = Shots[_shot];
             _presentation.ApplyRendering(shot.Settings(new ClientSettings()));
             _renderer.SetTimeOfDay(shot.Hour);
@@ -200,13 +210,8 @@ internal sealed class ShadowCaptureProbe : Game
         _renderer.Draw(_camera);
         _renderer.ComposeScene();
         GraphicsDevice.SetRenderTarget(null);
-        var pixels = new Color[Width * Height];
+        var pixels = _pixels;
         target.GetData(pixels);
-        for (var index = 0; index < pixels.Length; index++)
-        {
-            pixels[index].A = 255;
-        }
-
         if (shot.Measure)
         {
             // The mean brightness of the frame and of the ground in front, per frame: a pulse shows as a repeating step.
@@ -228,6 +233,11 @@ internal sealed class ShadowCaptureProbe : Game
             }
 
             return;
+        }
+
+        for (var index = 0; index < pixels.Length; index++)
+        {
+            pixels[index].A = 255;
         }
 
         using var opaque = new Texture2D(GraphicsDevice, Width, Height);
@@ -257,7 +267,8 @@ internal sealed class ShadowCaptureProbe : Game
             Console.WriteLine($"Shadows {shot.Name}-{_frame}: {changed} pixels changed from the previous frame");
         }
 
-        _previous = pixels;
+        // The next frame reads into the other buffer, so this one stays the previous frame.
+        (_previous, _pixels) = (pixels, _previous ?? new Color[Width * Height]);
         Console.WriteLine($"Shadows {shot.Name}-{_frame}: captured");
         if (++_frame >= shot.Frames)
         {
@@ -269,6 +280,13 @@ internal sealed class ShadowCaptureProbe : Game
     }
 
     protected override void UnloadContent() => _remote.Dispose();
+
+    // The client's yaw for a server heading, mirrored in Z as the game scene mirrors every presence facing.
+    private static float ClientFacing(int angle)
+    {
+        var facing = (angle & 4095) * (MathF.Tau / 4096f);
+        return MathF.Atan2(MathF.Sin(facing), -MathF.Cos(facing));
+    }
 
     private Vector3 NpcSpot(int index) => Floor(_collision, new Vector3(NaviskoNpcs[index].X, 5000f, NaviskoNpcs[index].Z));
 

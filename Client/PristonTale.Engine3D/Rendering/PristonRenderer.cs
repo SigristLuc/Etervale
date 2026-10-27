@@ -2394,13 +2394,12 @@ public sealed partial class PristonRenderer : IDisposable
             twoSidedBatches++;
         }
 
+        // Back faces are culled unless the material is two-sided, as the original draws them: clothes and armour have inner
+        // and back faces that, drawn too, show through and fight the front faces as the model moves.
         _stateCache.SetRasterizerState(batch.Material.TwoSided ? PristonRasterizerStates.TwoSided : PristonRasterizerStates.SingleSided);
 
         if (batch.IsSkinned)
         {
-            // Back faces are culled unless the material is two-sided, as the original draws them: clothes and armour
-            // have inner and back faces that, drawn too, show through and fight the front faces as the model moves.
-            _stateCache.SetRasterizerState(batch.Material.TwoSided ? PristonRasterizerStates.TwoSided : PristonRasterizerStates.SingleSided);
             var uvScrollOffset = ComputeUvScrollOffset(batch.Material);
             var texture = batch.Material.SelectTexture(_renderTime);
             var effect = _shaders.SelectSkinnedSurface(

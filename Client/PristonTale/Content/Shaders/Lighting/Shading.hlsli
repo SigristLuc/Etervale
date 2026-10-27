@@ -37,21 +37,23 @@ float PixelNoise(float2 pixel)
     return frac(52.9829189 * frac(dot(p, float2(0.06711056, 0.00583715))));
 }
 
-float ShadowDepthAt(float2 uv)
-{
-    return ShadowMap.SampleLevel(ShadowSampler, uv, 0).r;
-}
-
-// The lit share at uv: the four texels around it compared with the reference and weighted bilinearly, so an edge moves
-// continuously across a texel instead of in whole-texel steps. Gather returns (0, 1), (1, 1), (1, 0), (0, 0).
-float ShadowLitAt(float2 uv, float reference)
+// The four texels around uv and their bilinear weights, in Gather's order (0, 1), (1, 1), (1, 0), (0, 0); the weights sum
+// to 1, so a texel's share changes continuously as uv crosses it instead of in whole-texel steps.
+float4 ShadowGatherAt(float2 uv, out float4 weights)
 {
     float2 position = uv / ShadowTexel.xy - 0.5;
     float2 base = floor(position);
     float2 f = position - base;
-    float4 stored = ShadowMap.GatherRed(ShadowSampler, (base + 1.0) * ShadowTexel.xy);
-    float4 lit = float4(stored.x >= reference, stored.y >= reference, stored.z >= reference, stored.w >= reference);
-    return lerp(lerp(lit.w, lit.z, f.x), lerp(lit.x, lit.y, f.x), f.y);
+    weights = float4((1.0 - f.x) * f.y, f.x * f.y, f.x * (1.0 - f.y), (1.0 - f.x) * (1.0 - f.y));
+    return ShadowMap.GatherRed(ShadowSampler, (base + 1.0) * ShadowTexel.xy);
+}
+
+// The lit share at uv: the four texels around it compared with the reference and weighted bilinearly.
+float ShadowLitAt(float2 uv, float reference)
+{
+    float4 weights;
+    float4 stored = ShadowGatherAt(uv, weights);
+    return dot(float4(stored >= reference), weights);
 }
 
 // Visibility of one cascade. The atlas tile holds the orthographic light's z (Passes/Surface.fx ShadowCaster), which is
@@ -71,11 +73,15 @@ float CascadeVisibility(uint c, float3 worldPosition, float3 normal, float nl, f
     float2 centre = tile.xy + local * tile.zw;
     float reference = saturate(projected.z) - (texelWorld * (0.5 + 1.5 * (1.0 - nl)) + receiverBias) / depthRange;
     float radius = ShadowTexel.z;
+    float presence = 1.0;
     [branch]
     if (ShadowParams.y > 0.5)
     {
         // PCSS (Fernando 2005) for a directional light: blockers within the reach of the widest penumbra, then a
         // filter as wide as the penumbra their mean depth gives, (receiver - blocker) * tan(light radius).
+        // Blockers are counted by the same bilinear weights as the filter taps, and the filtered result fades in over the
+        // first texel's worth of them: a point-sampled search switched a pixel from fully lit to filtered as a blocker
+        // texel entered or left it, so the outer penumbra edge still stepped a whole texel at a time.
         float lightTan = ShadowParams.z;
         float search = clamp(PcssSearchDepth * lightTan / texelWorld, 1.5, PcssMaxRadiusTexels);
         float blockerSum = 0.0;
@@ -83,21 +89,21 @@ float CascadeVisibility(uint c, float3 worldPosition, float3 normal, float nl, f
         [unroll]
         for (int b = 0; b < 16; b++)
         {
-            float stored = ShadowDepthAt(clamp(centre + mul(PoissonDisk[b], rotation) * texel * search, lo, hi));
-            if (stored < reference)
-            {
-                blockerSum += stored;
-                blockers += 1.0;
-            }
+            float4 weights;
+            float4 stored = ShadowGatherAt(clamp(centre + mul(PoissonDisk[b], rotation) * texel * search, lo, hi), weights);
+            float4 blocking = float4(stored < reference) * weights;
+            blockerSum += dot(blocking, stored);
+            blockers += dot(blocking, 1.0);
         }
 
-        if (blockers < 0.5)
+        if (blockers <= 0.0)
         {
             return 1.0;
         }
 
         float penumbraWorld = (reference - blockerSum / blockers) * depthRange * lightTan;
         radius = clamp(penumbraWorld / texelWorld, 1.0, PcssMaxRadiusTexels);
+        presence = saturate(blockers);
     }
 
     float lit = 0.0;
@@ -107,7 +113,7 @@ float CascadeVisibility(uint c, float3 worldPosition, float3 normal, float nl, f
         lit += ShadowLitAt(clamp(centre + mul(PoissonDisk[i], rotation) * texel * radius, lo, hi), reference);
     }
 
-    return lit / 16.0;
+    return lerp(1.0, lit / 16.0, presence);
 }
 
 // Sun visibility in [0, 1]: the cascade by view depth, blended into the next one over the blend band (picking one per
