@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.IO;
+using PristonTale.Assets;
 
 namespace PristonTale.Engine3D.Rendering;
 
@@ -64,7 +65,7 @@ public sealed class PristonSkyLibrary : IDisposable
                     relative = "Effect/Sky/losttemple/day/space.smd";
                 }
 
-                var path = PristonFileResolver.Resolve(Path.Combine(root, relative));
+                var path = AssetFiles.Resolve(Path.Combine(root, relative));
                 var key = (path, layer.Color);
                 if (!cache.TryGetValue(key, out var prepared))
                 {

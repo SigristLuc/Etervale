@@ -7,6 +7,7 @@ using PristonTale.Gameplay.Combat;
 using PristonTale.Gameplay.World;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Contracts.Motion;
+using PristonTale.Assets;
 
 namespace PristonTale.Tests;
 
@@ -76,7 +77,7 @@ internal static class GroundTraversalTests
     public static void InspectRicarten(string assetRoot)
     {
         var relativePath = RicartenField.Definition.StageSmd.Replace('\\', Path.DirectorySeparatorChar);
-        var path = PristonFileResolver.Resolve(Path.Combine(assetRoot, relativePath));
+        var path = AssetFiles.Resolve(Path.Combine(assetRoot, relativePath));
         var world = new PristonCollisionWorld(new PristonSmdReader().ReadStage(path));
         bool Floor(Vector3 point, float reference, out float height)
         {

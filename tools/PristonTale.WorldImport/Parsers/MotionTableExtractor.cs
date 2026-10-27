@@ -1,6 +1,7 @@
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.IO;
 using PristonTale.Simulation.World.Motion;
+using PristonTale.Assets;
 
 namespace PristonTale.WorldImport.Parsers;
 
@@ -12,7 +13,7 @@ public sealed record ExtractedMotionSlot(
 // The INX motion-timing pass: read each distinct model's INX from the
 // game assets and extract its motion table — the raw clip windows + ×160 event offsets the authoritative
 // world host schedules combat from. Mirrors the client's resolution EXACTLY: read via
-// PristonInxReader (all file access through PristonFileResolver — the data
+// PristonInxReader (all file access through AssetFiles — the data
 // uses Windows casing + \); a model whose INX carries no usable motions (player class bodies)
 // borrows its MotionFile → .inx table (the PristonActorLoader.ResolveMotionInfo
 // convention); usable slot = State != 0 && EndFrame > StartFrame, scanning from the
@@ -50,7 +51,7 @@ public sealed class MotionTableExtractor
             return true;
 
         var modelDiskPath = Path.Combine(_assetRoot, modelKey);
-        if (!PristonFileResolver.Exists(modelDiskPath))
+        if (!AssetFiles.Exists(modelDiskPath))
         {
             failure = $"inx not found: {modelKey}";
             return false;
@@ -75,7 +76,7 @@ public sealed class MotionTableExtractor
             if (!_tables.ContainsKey(tableKey))
             {
                 var linkDiskPath = Path.Combine(_assetRoot, tableKey);
-                if (!PristonFileResolver.Exists(linkDiskPath))
+                if (!AssetFiles.Exists(linkDiskPath))
                 {
                     failure = $"motion table inx not found: {tableKey} (for {modelKey})";
                     return false;

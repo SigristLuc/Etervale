@@ -1,6 +1,7 @@
 using PristonTale.Engine3D.IO;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Units;
+using PristonTale.Assets;
 
 namespace PristonTale.Engine3D.Formats;
 
@@ -139,7 +140,7 @@ public sealed class PristonActorLoader
             throw new InvalidDataException("Empty Priston actor source path.");
 
         var changed = Path.ChangeExtension(sourcePath, extension);
-        var resolved = PristonFileResolver.Resolve(Path.Combine(assetRoot, changed));
+        var resolved = AssetFiles.Resolve(Path.Combine(assetRoot, changed));
         if (File.Exists(resolved))
             return resolved;
 
@@ -153,7 +154,7 @@ public sealed class PristonActorLoader
             return false;
 
         var changed = Path.ChangeExtension(sourcePath, extension);
-        var resolved = PristonFileResolver.Resolve(Path.Combine(assetRoot, changed));
+        var resolved = AssetFiles.Resolve(Path.Combine(assetRoot, changed));
         if (!File.Exists(resolved))
             return false;
 

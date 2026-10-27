@@ -58,9 +58,9 @@ registration order. An exception from any `StartAsync` stops the host before the
 
 Terrain details:
 
-- Assets root: `Assets:Root` when non-empty, otherwise `AssetPath.FindAssetsRoot()`, which looks for an `assets`
+- Assets root: `Assets:Root` when non-empty, otherwise `AssetFiles.FindAssetsRoot()`, which looks for an `assets`
   directory in the working directory and its ancestors, then in the executable directory and its ancestors.
-- Stage paths are resolved case-insensitively with either separator (`AssetPath.Resolve`), parsed with
+- Stage paths are resolved case-insensitively with either separator (`AssetFiles.ResolveFile`, `Shared/PristonTale.Assets`), parsed with
   `StageCollisionReader.Read` and published once with `FieldTerrainCatalog.Publish`, keyed by field code.
 - With `Assets:AllowMissingTerrain=true`, failures become a warning and those fields use `FieldTerrain.None` (no floor
   or wall checks). Use it only for tests and development.

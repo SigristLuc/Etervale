@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.IO;
+using PristonTale.Assets;
 
 namespace PristonTale.Engine3D.Rendering;
 
@@ -11,7 +12,7 @@ public static class PristonSkyManifest
 {
     public static IReadOnlyList<PristonSkyLayer[]> Read(string path)
     {
-        using var stream = PristonFileResolver.OpenRead(path);
+        using var stream = AssetFiles.OpenRead(path);
         using var reader = new StreamReader(stream, Encoding.Latin1);
         return Parse(reader);
     }

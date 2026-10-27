@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Contracts.Motion;
+using PristonTale.Assets;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -21,7 +22,7 @@ public sealed class ModelActorComposer(IActorScene scene, PristonActorLoader act
 
     public Task PrepareAsync(string assetRoot, string modelInxPath)
     {
-        var path = AssetPath(assetRoot, modelInxPath);
+        var path = AssetFiles.Combine(assetRoot, modelInxPath);
         if (!_prepared.TryGetValue(path, out var preparation))
         {
             preparation = Task.Run(async () =>
@@ -38,7 +39,7 @@ public sealed class ModelActorComposer(IActorScene scene, PristonActorLoader act
 
     public ComposedModelActor Compose(string assetRoot, string modelInxPath, Matrix world, MotionCode motion)
     {
-        var path = AssetPath(assetRoot, modelInxPath);
+        var path = AssetFiles.Combine(assetRoot, modelInxPath);
         if (!_prepared.TryGetValue(path, out var preparation) || !preparation.IsCompletedSuccessfully)
         {
             throw new InvalidOperationException("model actor must be prepared before composition");
@@ -47,11 +48,5 @@ public sealed class ModelActorComposer(IActorScene scene, PristonActorLoader act
         var actor = preparation.Result;
         var handle = _scene.AddActor(new PristonActorInstance(actor, world, motion));
         return new ComposedModelActor(handle, actor.Info);
-    }
-
-    private static string AssetPath(string assetRoot, string relativePath)
-    {
-        var normalized = relativePath.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
-        return Path.Combine(assetRoot, normalized);
     }
 }

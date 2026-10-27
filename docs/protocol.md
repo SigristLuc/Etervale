@@ -444,7 +444,7 @@ receives what, in which order and how often is specified in [server.md](server.m
   through `IMovementVerdictSink`.
 - Sockets use .NET asynchronous I/O (IOCP on Windows) with pooled buffers and coalesced writes; the writer and the
   presence pump wait without allocating.
-- Every field's stage collision (`Shared/PristonTale.Geometry`) is loaded at startup, as the original server does: 42
+- Every field's stage collision (`Shared/PristonTale.Assets` reader, `Geometry` mesh) is loaded at startup, as the original server does: 42
   stages, about 1.93 million collision triangles and 179 MiB, in under a second. Monsters step like the original
   server's next-move check (slide along walls with two side probes, climb 20 units, collide only with other monsters);
   NPCs stop at walls and steps above 10 units; spawns, respawns and drops settle on the floor. The client builds its

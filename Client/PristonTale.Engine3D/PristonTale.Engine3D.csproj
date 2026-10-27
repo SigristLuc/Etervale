@@ -13,6 +13,7 @@
 
     <ItemGroup>
         <ProjectReference Include="../../Shared/PristonTale.Geometry/PristonTale.Geometry.csproj" />
+        <ProjectReference Include="..\..\Shared\PristonTale.Assets\PristonTale.Assets.csproj" />
         <ProjectReference Include="..\..\Shared\PristonTale.Contracts\PristonTale.Contracts.csproj" />
     </ItemGroup>
 

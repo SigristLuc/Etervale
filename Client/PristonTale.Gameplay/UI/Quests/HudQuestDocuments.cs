@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.IO;
 using PristonTale.Gameplay.UI.Rendering;
+using PristonTale.Assets;
 
 namespace PristonTale.Gameplay.UI.Quests;
 
@@ -198,9 +199,9 @@ public sealed partial class HudQuestDocuments(string assetRoot, IClientLog log)
         try
         {
             var path = Path.Combine(assetRoot, relativePath);
-            if (PristonFileResolver.Exists(path))
+            if (AssetFiles.Exists(path))
             {
-                lines = Decode(PristonFileResolver.ReadAllBytes(path));
+                lines = Decode(AssetFiles.ReadAllBytes(path));
             }
             else
             {

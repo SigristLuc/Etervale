@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.IO;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Assets;
 
 namespace PristonTale.Gameplay.UI.Rendering;
 
@@ -189,7 +190,7 @@ public sealed class HudSprites : IDisposable
         for (var index = 0; index < paths.Length; index++)
         {
             var path = paths[index];
-            var file = PristonFileResolver.Resolve(Path.Combine(assetRoot, path.Replace('/', Path.DirectorySeparatorChar)));
+            var file = AssetFiles.Resolve(Path.Combine(assetRoot, path.Replace('/', Path.DirectorySeparatorChar)));
             if (!File.Exists(file))
             {
                 result[index] = new Prepared(path, DecodedPristonImage.Empty, true);

@@ -31,7 +31,8 @@ shows comes from server snapshots.
 | Project | Kind | Owns |
 |---|---|---|
 | `Shared/PristonTale.Contracts` | library, no deps | Codes every layer shares, declared once: `MotionState` (the server's motion, the world view, the presence wire byte, the client's playback) and `MotionCode` (a model's motion table code, read by the renderer and the server's timing) with `MotionCodes.Of` between them; `EntityKind` (world view, descriptions, client, collision); `ChatKind` (server lines, wire, chat log); combat, skill and status codes (`CombatEventKind`, `SkillCastVerdict`, `SkillCastCommand`, `SkillEventPhase`, `SkillEventFlags`, `StatusEffectOp`); the outcomes the client reads (login, characters, world entry, restart, wing trips); `GameUnits`, the authored units (8.8 fixed point, 4096 angles per turn, 70 ticks per second, 160 ticks and 33 ms per animation frame) |
-| `Shared/PristonTale.Geometry` | library, Contracts | Pure geometry used by simulation and renderer |
+| `Shared/PristonTale.Geometry` | library, no deps | Pure geometry used by simulation and renderer |
+| `Shared/PristonTale.Assets` | library, Contracts, Geometry | Asset access without MonoGame, for the server, the client and the tools: `AssetFiles` (case-insensitive resolution of original paths, assets root discovery), `Cp949` (authored Korean text), `StageCollisionReader` (the collision triangles of a stage `.smd`) |
 | `Shared/PristonTale.Simulation` | library | Game rules and data models: characters, classes, items, combat, modifiers, progression, skills, world rules (fields, AI, spawning, loot, motion, NPCs), physics. No IO, no transport, no MonoGame |
 | `Shared/PristonTale.Protocol` | library, no deps | Wire format: framing, TLS transport, messages and codecs, Etervale opcodes |
 | `Shared/PristonTale.Application` | library | Transport-free use cases (auth, characters, sessions, NPC services) and the authoritative `WorldServer` with its tick |
@@ -50,20 +51,20 @@ shows comes from server snapshots.
 
 ## Dependency graph
 
-Project references, from the `.csproj` files. Keep this direction; never add a reverse edge. Contracts references
-nothing; Geometry references only Contracts.
+Project references, from the `.csproj` files. Keep this direction; never add a reverse edge. Contracts and Geometry
+reference nothing.
 
 | Project | References |
 |---|---|
-| Geometry | Contracts |
+| Assets | Contracts, Geometry |
 | Protocol | Contracts |
 | Simulation | Contracts, Geometry |
 | Persistence.Abstractions | Simulation |
 | Persistence | Persistence.Abstractions, Simulation |
 | Persistence.Sqlite / .Postgres | Persistence |
 | Application | Simulation, Persistence.Abstractions |
-| Server | Application, Protocol, Simulation, Persistence.Sqlite, Persistence.Postgres |
-| Engine3D | Contracts, Geometry, MonoGame framework |
+| Server | Application, Protocol, Simulation, Assets, Persistence.Sqlite, Persistence.Postgres |
+| Engine3D | Contracts, Geometry, Assets, MonoGame framework |
 | Effects | Engine3D, MonoGame framework |
 | Client.Net | Protocol, Simulation (no Application: the client never ships the server's authority) |
 | Gameplay | Engine3D, Effects, Simulation, Client.Net, MonoGame framework |
@@ -98,7 +99,7 @@ Consequences:
 | Particle scripts and VFX data | `Client/PristonTale.Effects`, `<assetRoot>/Effect/Vfx` written by `tools/PristonTale.VfxImport` |
 | HUD, windows, input, presentation of server events | `Client/PristonTale.Gameplay` |
 
-Original asset paths are resolved with `PristonFileResolver`; do not build original paths by hand.
+Original asset paths are resolved with `AssetFiles`; do not build original paths by hand.
 
 ## Server threading model
 

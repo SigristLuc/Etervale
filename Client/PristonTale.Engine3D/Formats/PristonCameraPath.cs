@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.IO;
 using PristonTale.Contracts.Units;
+using PristonTale.Assets;
 
 namespace PristonTale.Engine3D.Formats;
 
@@ -66,7 +67,7 @@ public sealed class PristonCameraPath
 
     public static PristonCameraPath ReadCam(string path)
     {
-        var bytes = PristonFileResolver.ReadAllBytes(path);
+        var bytes = AssetFiles.ReadAllBytes(path);
         var cursor = new BinaryCursor(bytes);
         cursor.Require(HeaderSize);
 

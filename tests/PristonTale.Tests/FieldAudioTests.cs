@@ -4,6 +4,7 @@ using PristonTale.Engine3D.IO;
 using PristonTale.Gameplay.Audio;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Assets;
 
 namespace PristonTale.Tests;
 
@@ -44,7 +45,7 @@ internal static class FieldAudioTests
         {
             foreach (var file in ItemSoundRules.Files)
             {
-                Assert.True(File.Exists(PristonFileResolver.Resolve(Path.Combine(root, ItemSoundRules.Directory + file))), $"item sound {file} is missing");
+                Assert.True(File.Exists(AssetFiles.Resolve(Path.Combine(root, ItemSoundRules.Directory + file))), $"item sound {file} is missing");
             }
         }
 
@@ -84,7 +85,7 @@ internal static class FieldAudioTests
         {
             foreach (var (code, directory) in CharacterSoundBanks.Directories)
             {
-                Assert.True(Directory.Exists(PristonFileResolver.Resolve(Path.Combine(root, directory))), $"bank 0x{code:X4} has no folder {directory}");
+                Assert.True(Directory.Exists(AssetFiles.Resolve(Path.Combine(root, directory))), $"bank 0x{code:X4} has no folder {directory}");
             }
         }
 

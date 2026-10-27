@@ -18,6 +18,7 @@ using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.WorldImport;
 using PristonTale.Contracts.World;
+using PristonTale.Assets;
 
 namespace PristonTale.Tests;
 

@@ -1,6 +1,5 @@
 using System.Numerics;
 using PristonTale.Application.World;
-using PristonTale.Geometry;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.World;
@@ -11,6 +10,7 @@ using PristonTale.Simulation.World.Spawning;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
+using PristonTale.Assets;
 
 namespace PristonTale.Tests;
 

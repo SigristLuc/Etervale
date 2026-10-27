@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using PristonTale.Application.World;
-using PristonTale.Geometry;
 using PristonTale.Simulation.World;
+using PristonTale.Assets;
 
 namespace PristonTale.Server.Hosting;
 
@@ -18,7 +18,7 @@ public sealed class FieldTerrainLoadService(
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         var allowMissing = configuration.GetValue("Assets:AllowMissingTerrain", false);
-        var root = configuration["Assets:Root"] is { Length: > 0 } configured ? configured : AssetPath.FindAssetsRoot();
+        var root = configuration["Assets:Root"] is { Length: > 0 } configured ? configured : AssetFiles.FindAssetsRoot();
         if (root is null || !Directory.Exists(root))
         {
             if (!allowMissing)
@@ -37,7 +37,7 @@ public sealed class FieldTerrainLoadService(
         var failures = new ConcurrentBag<string>();
         await Parallel.ForEachAsync(world.AllFields, cancellationToken, async (field, ct) =>
         {
-            var path = string.IsNullOrEmpty(field.StageSmd) ? null : AssetPath.Resolve(root, field.StageSmd);
+            var path = string.IsNullOrEmpty(field.StageSmd) ? null : AssetFiles.ResolveFile(root, field.StageSmd);
             if (path is null)
             {
                 failures.Add($"field {field.Id} ({field.FieldCode}): stage '{field.StageSmd}' not found");

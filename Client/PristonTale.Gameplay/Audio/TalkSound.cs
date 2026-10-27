@@ -1,15 +1,13 @@
-using System.Text;
+using PristonTale.Assets;
 
 namespace PristonTale.Gameplay.Audio;
 
 public static class TalkSound
 {
-    private static readonly Encoding Cp949 = CreateCp949();
-
     public static uint GetSoundCode(string message)
     {
         ArgumentNullException.ThrowIfNull(message);
-        return GetSoundCode(Cp949.GetBytes(message));
+        return GetSoundCode(Cp949.Encoding.GetBytes(message));
     }
 
     internal static uint GetSoundCode(ReadOnlySpan<byte> message)
@@ -29,11 +27,5 @@ public static class TalkSound
         }
 
         return unchecked((quadratic << 24) | ((uint)message.Length << 16) | weighted);
-    }
-
-    private static Encoding CreateCp949()
-    {
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        return Encoding.GetEncoding(949);
     }
 }

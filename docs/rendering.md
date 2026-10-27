@@ -24,7 +24,6 @@ sources are in [shaders.md](shaders.md); option fields in [client-settings.md](c
 | `Formats/PristonCameraPath.cs` | Cinematic camera paths (`.cam`) of the opening. |
 | `Formats/PristonFormats.cs` | Format records (`PristonStage`, `PristonModel`, `PristonMaterial`, `PristonStageLight`, motions) and `PristonFormatConstants`. |
 | `Formats/BinaryUtil.cs`, `PristonAssetCache.cs` | Bounds-checked `BinaryCursor`; case-insensitive cache of parsed stages and models. |
-| `IO/PristonFileResolver.cs` | Case-insensitive path resolution for original asset names (use it for every original asset path). |
 | `IO/ClientSettingsStore.cs` | `client-settings.json` persistence ([client-settings.md](client-settings.md)). |
 | `IO/PristonWaveDecoder.cs` | WAV decoding for the audio library. |
 | `IO/ItemIconFiles.cs` | Item inventory sprites (`it<KEY>.bmp`) by key and the inventory cells a sprite covers (22 pixels each); used by the HUD and the world importer. |
@@ -319,7 +318,7 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
   the top of `PristonRenderer`; mirrored shader values are listed in [shaders.md](shaders.md#pitfalls). Re-run
   `--verify-shaders`, the render tests and `--benchmark-render` captures by day and at 21:00.
 - **Support a new original asset variant:** extend the reader in `Formats/`, keep unknown bytes in metadata, resolve paths
-  through `PristonFileResolver`, add a fixture test (`BinaryCursorTests`, `RenderTests`), and describe the format here
+  through `AssetFiles`, add a fixture test (`BinaryCursorTests`, `RenderTests`), and describe the format here
   without citing the original source.
 - **Add a streaming step:** yield a `StreamingWork` with a `StreamingStep` from `StageUploadSteps`; keep each step one
   indivisible GPU call; do CPU work in `Task.Run` and yield `StreamingWork.Wait` while polling.

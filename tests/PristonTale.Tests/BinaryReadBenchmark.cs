@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.IO;
+using PristonTale.Assets;
 
 namespace PristonTale.Tests;
 
@@ -33,7 +34,7 @@ internal static class BinaryReadBenchmark
         });
         GC.KeepAlive(matrixSum);
 
-        var stagePath = PristonFileResolver.Resolve(Path.Combine(assetRoot, "Field/forest/fore-1.smd"));
+        var stagePath = AssetFiles.Resolve(Path.Combine(assetRoot, "Field/forest/fore-1.smd"));
         Measure("fore-1-stage", 10, () =>
         {
             var stage = new PristonSmdReader().ReadStage(stagePath);

@@ -1,3 +1,4 @@
+using PristonTale.Assets;
 #nullable enable
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -99,7 +100,7 @@ public sealed class VfxContent : IVfxResources, IDisposable
 
     Texture2D? IVfxResources.Texture(string path)
     {
-        return PristonFileResolver.Exists(Path.Combine(_assetRoot, path)) ? _textures.LoadTexture(_assetRoot, path) : null;
+        return AssetFiles.Exists(Path.Combine(_assetRoot, path)) ? _textures.LoadTexture(_assetRoot, path) : null;
     }
 
     // A static model outside the effect definitions (a thrown weapon), read on first use; null when it cannot be read.
@@ -204,7 +205,7 @@ public sealed class VfxContent : IVfxResources, IDisposable
     {
         try
         {
-            return BillboardSequence.Read(name, path => PristonFileResolver.OpenRead(Path.Combine(_assetRoot, path)));
+            return BillboardSequence.Read(name, path => AssetFiles.OpenRead(Path.Combine(_assetRoot, path)));
         }
         catch (Exception exception) when (exception is IOException or InvalidDataException or FormatException or UnauthorizedAccessException
             or OverflowException)
@@ -239,7 +240,7 @@ public sealed class VfxContent : IVfxResources, IDisposable
     private void QueueTexture(string texture, HashSet<string> textures, List<Task> decoding)
     {
         if (texture.Length > 0 && !texture.StartsWith(VfxBuiltinTextures.Prefix, StringComparison.OrdinalIgnoreCase) && textures.Add(texture)
-            && PristonFileResolver.Exists(Path.Combine(_assetRoot, texture)))
+            && AssetFiles.Exists(Path.Combine(_assetRoot, texture)))
         {
             decoding.Add(_textures.PrepareTextureAsync(_assetRoot, texture));
         }
@@ -258,7 +259,7 @@ public sealed class VfxContent : IVfxResources, IDisposable
             else
             {
                 var sibling = Path.ChangeExtension(path, ".smb");
-                if (PristonFileResolver.Exists(Path.Combine(_assetRoot, sibling)))
+                if (AssetFiles.Exists(Path.Combine(_assetRoot, sibling)))
                 {
                     bones = reader.ReadModel(Path.Combine(_assetRoot, sibling));
                 }
@@ -304,7 +305,7 @@ public sealed class VfxContent : IVfxResources, IDisposable
         var directory = Path.GetDirectoryName(mesh.Path) ?? ".";
         string Resolve(string name)
         {
-            if (string.IsNullOrWhiteSpace(name) || PristonFileResolver.Exists(Path.Combine(directory, name))
+            if (string.IsNullOrWhiteSpace(name) || AssetFiles.Exists(Path.Combine(directory, name))
                 || !effectTextures.TryGetValue(Path.GetFileName(name), out var found))
             {
                 return name;

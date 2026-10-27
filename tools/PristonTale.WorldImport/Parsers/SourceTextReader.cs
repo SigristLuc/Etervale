@@ -1,3 +1,5 @@
+using PristonTale.Assets;
+
 namespace PristonTale.WorldImport.Parsers;
 
 public sealed record SourceLine(string Path, int Number, string Text);
@@ -31,7 +33,7 @@ public static class SourceTextReader
                 var tokenizer = new Tokenizer(line);
                 tokenizer.NextWord();
                 var linked = tokenizer.NextValueOrQuoted();
-                next = ResolveRelative(baseDirectory, linked);
+                next = AssetFiles.ResolveFile(baseDirectory, linked);
                 break;
             }
 
@@ -44,45 +46,5 @@ public static class SourceTextReader
         }
 
         return result;
-    }
-
-    private static string? ResolveRelative(string directory, string linked)
-    {
-        var parts = linked.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var current = directory;
-
-        foreach (var part in parts)
-        {
-            var direct = Path.Combine(current, part);
-            if (Directory.Exists(direct))
-            {
-                current = direct;
-                continue;
-            }
-
-            if (File.Exists(direct))
-            {
-                return direct;
-            }
-
-            if (!Directory.Exists(current))
-            {
-                return null;
-            }
-
-            var directoryMatch = Directory.EnumerateDirectories(current)
-                .FirstOrDefault(candidate => string.Equals(Path.GetFileName(candidate), part, StringComparison.OrdinalIgnoreCase));
-
-            if (directoryMatch is not null)
-            {
-                current = directoryMatch;
-                continue;
-            }
-
-            return Directory.EnumerateFiles(current)
-                .FirstOrDefault(candidate => string.Equals(Path.GetFileName(candidate), part, StringComparison.OrdinalIgnoreCase));
-        }
-
-        return null;
     }
 }

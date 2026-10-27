@@ -67,10 +67,11 @@ rendering internals, skill presentation and VFX data have their own documents (s
 - `Game1.ResolveAssetRoot` walks up from `AppContext.BaseDirectory` and returns the first ancestor's `assets/`
   directory; if none exists it falls back to `<base>/../../../../assets`. Running from `Client/PristonTale/bin/...`
   finds the repository's `assets/`.
-- Every asset path is relative to that root (`ScreenContext.AssetRoot`, `GameScreen.AssetPath`). Original assets are
-  read through `PristonFileResolver` (`Client/PristonTale.Engine3D/IO/PristonFileResolver.cs`), which resolves
-  separators and rebuilds the real casing component by component, caching hits; use it (`Resolve`, `Exists`,
-  `ReadAllBytes`, `OpenRead`) instead of `File.*` for any path into `assets/`.
+- Every asset path is relative to that root (`ScreenContext.AssetRoot`, `GameScreen.AssetPath`). `GameScreen.AssetPath` and the
+  scene join with `AssetFiles.Combine`. Original assets are read through `AssetFiles`
+  (`Shared/PristonTale.Assets/AssetFiles.cs`), which resolves separators and rebuilds the real casing component by
+  component, caching hits; use it (`Resolve`, `ResolveFile`, `Exists`, `ReadAllBytes`, `OpenRead`) instead of `File.*`
+  for any path into `assets/`.
 - Field definitions (stage `.smd`, scenery models, gates, warp gates, lighting, camera, music) come from the shared
   `WorldCatalog` in `Shared/PristonTale.Simulation/World/WorldDefinitions.cs`, not from the server. Monster and NPC
   models come from the server (`WorldRenderCatalog`, below).
@@ -529,7 +530,7 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
 ### Load a new kind of asset in game
 
 Prepare it off-thread (`Task.Run` plus a renderer `Prepare*Async` for textures) and publish it from `Update` within a
-budget; never read files in `Update`/`Draw` after `BeginRemotePresence`. Resolve paths with `PristonFileResolver`.
+budget; never read files in `Update`/`Draw` after `BeginRemotePresence`. Resolve paths with `AssetFiles`.
 
 ## Pitfalls
 

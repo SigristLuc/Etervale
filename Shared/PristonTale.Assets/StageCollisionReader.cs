@@ -2,8 +2,9 @@ using System.Buffers.Binary;
 using System.Numerics;
 using System.Text;
 using PristonTale.Contracts.Units;
+using PristonTale.Geometry;
 
-namespace PristonTale.Geometry;
+namespace PristonTale.Assets;
 
 // Reads only what collision needs from a stage SMD: the file header, the stage header counts, each material record's
 // MeshState and the stage vertices and faces. Positions are Priston world units

@@ -3,6 +3,7 @@ using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.IO;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Simulation.Items;
+using PristonTale.Assets;
 
 namespace PristonTale.Gameplay.Audio;
 
@@ -211,7 +212,7 @@ public sealed class CombatSounds : IDisposable
     // The .wav files of a folder as asset-relative paths.
     private IEnumerable<string> Files(string relativeDirectory)
     {
-        var directory = PristonFileResolver.Resolve(Path.Combine(_assetRoot, relativeDirectory));
+        var directory = AssetFiles.Resolve(Path.Combine(_assetRoot, relativeDirectory));
         if (!Directory.Exists(directory))
         {
             return [];

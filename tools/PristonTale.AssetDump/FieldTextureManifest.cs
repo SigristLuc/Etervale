@@ -6,6 +6,7 @@ using PristonTale.Engine3D.Rendering;
 using PristonTale.GltfExport;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Fields;
+using PristonTale.Assets;
 
 namespace PristonTale.AssetDump;
 
@@ -76,7 +77,7 @@ internal static class FieldTextureManifest
         var entries = new List<TextureEntry>();
         foreach (var pair in textures.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
         {
-            var bytes = PristonFileResolver.ReadAllBytes(pair.Key);
+            var bytes = AssetFiles.ReadAllBytes(pair.Key);
             var hash = Convert.ToHexString(SHA256.HashData(bytes));
             var image = PristonImageDecoder.Decode(bytes, Path.GetExtension(pair.Key));
             if (!image.IsValid)
@@ -132,12 +133,12 @@ internal static class FieldTextureManifest
     {
         var reader = new PristonSmdReader();
         var references = new List<Reference>();
-        var stagePath = PristonFileResolver.Resolve(Path.Combine(root, field.StageSmd));
+        var stagePath = AssetFiles.Resolve(Path.Combine(root, field.StageSmd));
         var stage = reader.ReadStage(stagePath);
         Collect(Path.GetDirectoryName(stagePath)!, PristonMaterialUsage.ForStage(stage), references);
         foreach (var model in field.StageObjectSmds)
         {
-            var modelPath = PristonFileResolver.Resolve(Path.Combine(root, model));
+            var modelPath = AssetFiles.Resolve(Path.Combine(root, model));
             Collect(Path.GetDirectoryName(modelPath)!, PristonMaterialUsage.ForModel(reader.ReadModel(modelPath)), references);
         }
 

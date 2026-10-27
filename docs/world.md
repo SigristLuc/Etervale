@@ -2,7 +2,7 @@
 
 Shared world rules the authoritative server runs: fields and their catalog, stage collision and ground queries,
 movement checks, monsters and their AI, spawning, loot, motion timing and NPC services. Covers
-`Shared/PristonTale.Simulation/World/`, `Shared/PristonTale.Simulation/Physics/` and `Shared/PristonTale.Geometry/`.
+`Shared/PristonTale.Simulation/World/`, `Shared/PristonTale.Simulation/Physics/`, `Shared/PristonTale.Geometry/` and `Shared/PristonTale.Assets/`.
 How the tick calls these rules belongs to [application.md](application.md).
 
 ## Read this when
@@ -42,12 +42,12 @@ How the tick calls these rules belongs to [application.md](application.md).
 | `Physics/EntityCollision.cs` | Circle-vs-circle blocking between bodies (players, monsters, NPCs) along a swept segment |
 | `Physics/EntityCollisionRadii.cs`, `EntityNeighbour.cs` | Body radii (by `EntityKind`) and neighbour records |
 | `Physics/SpatialIndex.cs` | XZ hash grid of entity positions with deterministic query order |
-| [`Geometry/StageCollisionReader.cs`](../Shared/PristonTale.Geometry/StageCollisionReader.cs) | Reads collision triangles from a stage `.smd` |
+| [`Assets/StageCollisionReader.cs`](../Shared/PristonTale.Assets/StageCollisionReader.cs) | Reads collision triangles from a stage `.smd` |
 | `Geometry/CollisionMesh.cs` | Immutable triangle grid: floor height, floor raycast, segment trace |
-| `Geometry/AssetPath.cs` | Case-insensitive asset path resolution and assets root discovery |
+| `Assets/AssetFiles.cs` | Case-insensitive asset path resolution and assets root discovery |
 
-`PristonTale.Geometry` has no dependencies and is referenced by `PristonTale.Simulation` and the client's
-`PristonTale.Engine3D` (`Physics/PristonCollisionWorld.cs` wraps the same `CollisionMesh` in MonoGame space).
+`PristonTale.Geometry` has no dependencies and is referenced by `PristonTale.Simulation`, `PristonTale.Assets` and
+the client's `PristonTale.Engine3D` (`Physics/PristonCollisionWorld.cs` wraps the same `CollisionMesh` in MonoGame space).
 
 ## Coordinates and units
 

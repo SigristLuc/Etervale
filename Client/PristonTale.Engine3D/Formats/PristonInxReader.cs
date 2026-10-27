@@ -1,5 +1,6 @@
 using System.Text;
 using PristonTale.Engine3D.IO;
+using PristonTale.Assets;
 
 namespace PristonTale.Engine3D.Formats;
 
@@ -42,7 +43,7 @@ public sealed class PristonInxReader
 
     private static PristonModelInfo Parse(string path)
     {
-        var data = PristonFileResolver.ReadAllBytes(path);
+        var data = AssetFiles.ReadAllBytes(path);
         var itemCodeListSize = data.Length switch
         {
             ModelInfoSizeShortCodes => ItemCodeListSizeShortCodes,

@@ -8,6 +8,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World;
 using PristonTale.WorldImport.Parsers;
+using PristonTale.Assets;
 
 namespace PristonTale.WorldImport;
 

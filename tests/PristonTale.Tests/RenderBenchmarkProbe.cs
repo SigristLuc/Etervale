@@ -20,6 +20,7 @@ using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Assets;
 
 namespace PristonTale.Tests;
 
@@ -604,5 +605,5 @@ internal sealed class RenderBenchmarkProbe : Game
         return Matrix.CreateScale(scale) * Matrix.CreateRotationY(facing) * Matrix.CreateTranslation(position);
     }
 
-    private string Resolve(string relative) => PristonFileResolver.Resolve(Path.Combine(_assetRoot, relative));
+    private string Resolve(string relative) => AssetFiles.Resolve(Path.Combine(_assetRoot, relative));
 }

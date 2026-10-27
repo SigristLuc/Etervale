@@ -21,7 +21,6 @@ catalog tables, and the authored file formats it reads. Also covers the small `t
 | [Importer.cs](../tools/PristonTale.WorldImport/Importer.cs) | Parse all sources, choose catalog entries, write every table in one transaction |
 | `tools/PristonTale.WorldImport/Tokenizer.cs` | Line tokenizer of the `*key value` text format; C-style integer and float parsing |
 | `tools/PristonTale.WorldImport/KeyMaps.cs` | Every recognised Korean key, value literals, resistance index maps |
-| `tools/PristonTale.WorldImport/Cp949.cs` | CP949 decoding (registers `CodePagesEncodingProvider`) |
 | `tools/PristonTale.WorldImport/ImportReport.cs` | Counters and warnings printed after `import` |
 | `tools/PristonTale.WorldImport/Parsers/SourceTextReader.cs` | Reads a text file and follows its linked-file chain |
 | `tools/PristonTale.WorldImport/Parsers/ItemTxtParser.cs` | Item definition files → `ParsedItem` |
@@ -35,7 +34,7 @@ catalog tables, and the authored file formats it reads. Also covers the small `t
 | `tools/PristonTale.DevAccounts/Program.cs` | Creates accounts, load-test accounts and characters |
 
 The importer project is not in `PristonTale.sln`; build it separately. It references the persistence providers,
-Simulation, and `PristonTale.Engine3D` (for `PristonInxReader` and `PristonFileResolver`); it never initializes
+Simulation, `PristonTale.Assets` (`AssetFiles`, `Cp949`) and `PristonTale.Engine3D` (for `PristonInxReader`); it never initializes
 graphics. `tests/PristonTale.Tests` references it.
 
 ## Commands
@@ -256,7 +255,7 @@ several share an identity.
 (`CharacterClassRegistry` default visuals).
 
 - Key: `MotionTimingCatalog.NormalizeKey` (extension `.inx`, forward slashes, lower case); the file is
-  `<assets>/<key>`, opened through `PristonFileResolver`.
+  `<assets>/<key>`, opened through `AssetFiles`.
 - Clips are motion entries from `PristonFormatConstants.CharacterMotionBase` on with `State != 0` and
   `EndFrame > StartFrame`; `slot` keeps the entry index. Up to four event frames and the repeat flag are stored.
 - A model INX without usable clips borrows the table of its linked motion file (player bodies share one biped table);
@@ -352,7 +351,7 @@ migrates before running a command.
 1. Schema: a structural migration with a parent table keyed by the authored identity, child tables with identity keys,
    cascading foreign keys and parent indexes ([persistence.md](persistence.md)).
 2. Parser: `Parsers/<Kind>Parser.cs` returning `Parsed<Kind>`. Use `SourceTextReader.ReadChain` for linked text files,
-   `Tokenizer` for lines, `Cp949` for bytes, `BinaryPrimitives` little-endian for binary records; tokens in
+   `Tokenizer` for lines, `Cp949` (`Shared/PristonTale.Assets`) for bytes, `BinaryPrimitives` little-endian for binary records; tokens in
    `KeyMaps`. Keep identities verbatim if other files reference them.
 3. Importer: a `Parse<Kind>` method that enumerates with `EnumerateFiles`, chooses the catalog entry, and calls
    `CreateVariant` (kind at most 16 characters); a `Write<Kind>Async` in the transaction, after the tables it
@@ -386,6 +385,6 @@ migrates before running a command.
 - [persistence.md](persistence.md): schema, migrations, providers, repository reads.
 - [world.md](world.md): spawning, NPCs, loot and motion at runtime.
 - [simulation.md](simulation.md): item and monster definitions.
-- [rendering.md](rendering.md): INX format and `PristonFileResolver`.
+- [rendering.md](rendering.md): INX format; [architecture.md](architecture.md): `AssetFiles`.
 - [tools.md](tools.md): other tools.
 - [testing.md](testing.md): running the regression suite.

@@ -10,6 +10,7 @@ using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Units;
+using PristonTale.Assets;
 
 namespace PristonTale.Gameplay.Screens.Opening;
 
@@ -122,7 +123,7 @@ internal sealed class OpeningCinematic : IDisposable
         _camera = new PristonCamera(_fallbackTarget, Vector3.Forward, OpeningCameraSettings);
 
         var camFile = _assetPath(CameraPathFile);
-        if (PristonFileResolver.Exists(camFile))
+        if (AssetFiles.Exists(camFile))
         {
             _cameraPath = PristonCameraPath.ReadCam(camFile);
             _cameraPath.AddWarpFrame(WarpFrameStart, WarpFrameEnd);
@@ -225,7 +226,7 @@ internal sealed class OpeningCinematic : IDisposable
         foreach (var (relative, world) in SceneryModels)
         {
             var path = _assetPath(relative);
-            if (!PristonFileResolver.Exists(path))
+            if (!AssetFiles.Exists(path))
             {
                 _log.Warn($"[Opening] scenery missing, skipped: {relative}");
                 continue;
@@ -248,7 +249,7 @@ internal sealed class OpeningCinematic : IDisposable
         {
             var meshPath = _assetPath(mesh);
             var skeletonPath = _assetPath(skeleton);
-            if (!PristonFileResolver.Exists(meshPath) || !PristonFileResolver.Exists(skeletonPath))
+            if (!AssetFiles.Exists(meshPath) || !AssetFiles.Exists(skeletonPath))
             {
                 _log.Warn($"[Opening] NPC missing, skipped: {mesh}");
                 continue;

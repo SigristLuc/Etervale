@@ -6,6 +6,7 @@ using PristonTale.Persistence.Sqlite;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.WorldImport;
+using PristonTale.Assets;
 
 namespace PristonTale.Tests;
 

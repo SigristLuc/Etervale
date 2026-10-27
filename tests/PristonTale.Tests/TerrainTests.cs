@@ -4,9 +4,9 @@ using System.Text;
 using PristonTale.Application.World;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Physics;
-using PristonTale.Geometry;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World;
+using PristonTale.Assets;
 
 namespace PristonTale.Tests;
 

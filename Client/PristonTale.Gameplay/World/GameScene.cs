@@ -23,6 +23,7 @@ using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
 using PristonTale.Engine3D;
+using PristonTale.Assets;
 
 namespace PristonTale.Gameplay.World;
 
@@ -466,9 +467,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
     private LoadedField LoadFieldResources(string assetRoot, FieldDef field)
     {
-        var stage = _reader.ReadStage(AssetPath(assetRoot, field.StageSmd));
+        var stage = _reader.ReadStage(AssetFiles.Combine(assetRoot, field.StageSmd));
         var animationModels = field.StageObjectSmds
-            .Select(path => AssetPath(assetRoot, path))
+            .Select(path => AssetFiles.Combine(assetRoot, path))
             .Select(_reader.ReadModel)
             .ToArray();
         var collision = new PristonCollisionWorld(stage);
@@ -1466,12 +1467,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             DrawSkillEffects();
             _renderer.ComposeScene();
         }
-    }
-
-    private static string AssetPath(string assetRoot, string relativePath)
-    {
-        var normalized = relativePath.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
-        return Path.Combine(assetRoot, normalized);
     }
 
     private static Vector2 SpawnPlanarPosition(FieldDef field)

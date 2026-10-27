@@ -29,6 +29,7 @@
     <ProjectReference Include="..\..\Persistence\PristonTale.Persistence\PristonTale.Persistence.csproj" />
     <ProjectReference Include="..\..\Persistence\PristonTale.Persistence.Abstractions\PristonTale.Persistence.Abstractions.csproj" />
     <ProjectReference Include="..\..\Shared\PristonTale.Simulation\PristonTale.Simulation.csproj" />
+    <ProjectReference Include="..\..\Shared\PristonTale.Assets\PristonTale.Assets.csproj" />
     <!-- Engine3D for the INX motion-table pass (PristonInxReader + PristonFileResolver); precedent:
          PristonTale.GltfExport takes the same dependency. A tool never initializes graphics. -->
     <ProjectReference Include="..\..\Client\PristonTale.Engine3D\PristonTale.Engine3D.csproj" />

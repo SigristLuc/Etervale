@@ -20,6 +20,7 @@ using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Assets;
 
 namespace PristonTale.Tests;
 
@@ -310,5 +311,5 @@ internal sealed class HudTargetCaptureProbe : Game
 
     private static System.Numerics.Vector3 Numeric(Vector3 value) => new(value.X, value.Y, value.Z);
 
-    private string Resolve(string relative) => PristonFileResolver.Resolve(Path.Combine(_assetRoot, relative.Replace('\\', '/')));
+    private string Resolve(string relative) => AssetFiles.Resolve(Path.Combine(_assetRoot, relative.Replace('\\', '/')));
 }

@@ -5,6 +5,7 @@ using PristonTale.Engine3D.IO;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
+using PristonTale.Assets;
 
 namespace PristonTale.Gameplay.Audio;
 
@@ -251,7 +252,7 @@ public sealed class PristonAudioLibrary : IDisposable
         var grouped = new Dictionary<(int SoundCode, MotionCode Motion), List<SoundEffect>>();
         foreach (var (soundCode, relativeDirectory) in NpcSoundBankDirectories)
         {
-            var directory = PristonFileResolver.Resolve(Path.Combine(assetRoot, relativeDirectory));
+            var directory = AssetFiles.Resolve(Path.Combine(assetRoot, relativeDirectory));
             var paths = Directory.EnumerateFiles(directory, "*.wav", SearchOption.TopDirectoryOnly)
                 .Order(StringComparer.OrdinalIgnoreCase);
             foreach (var path in paths)
@@ -283,7 +284,7 @@ public sealed class PristonAudioLibrary : IDisposable
     private void LoadTalkSounds(string assetRoot, Dictionary<string, SoundEffect> byPath, IClientLog log)
     {
         var relativeDirectory = Path.Combine("wav", "Talk");
-        var directory = PristonFileResolver.Resolve(Path.Combine(assetRoot, relativeDirectory));
+        var directory = AssetFiles.Resolve(Path.Combine(assetRoot, relativeDirectory));
         if (!Directory.Exists(directory))
         {
             log.Info("[Audio] wav/Talk is absent; hashed NPC voice playback is disabled until the original voice archive is supplied.");

@@ -1,4 +1,5 @@
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Assets;
 
 namespace PristonTale.Engine3D.IO;
 
@@ -10,7 +11,7 @@ public static class ItemIconFiles
     // Catalog key to sprite path. DropItem holds model texture sheets whose names collide with the sprites.
     public static Dictionary<string, string> Index(string assetRoot)
     {
-        var root = PristonFileResolver.Resolve(Path.Combine(assetRoot, "image", "Sinimage", "Items"));
+        var root = AssetFiles.Resolve(Path.Combine(assetRoot, "image", "Sinimage", "Items"));
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (!Directory.Exists(root))
         {
@@ -39,7 +40,7 @@ public static class ItemIconFiles
     // The inventory cells a sprite covers; a partial cell is the sprite's margin and does not count.
     public static bool TryFootprint(string path, out int width, out int height)
     {
-        var image = PristonImageDecoder.Decode(PristonFileResolver.ReadAllBytes(path), ".bmp");
+        var image = PristonImageDecoder.Decode(AssetFiles.ReadAllBytes(path), ".bmp");
         width = Math.Max(1, image.Width / CellPixels);
         height = Math.Max(1, image.Height / CellPixels);
         return image.IsValid;

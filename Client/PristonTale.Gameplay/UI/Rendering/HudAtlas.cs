@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.IO;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Assets;
 
 namespace PristonTale.Gameplay.UI.Rendering;
 
@@ -140,7 +141,7 @@ public sealed class HudAtlas : IDisposable
             RespectRequiredConstructorParameters = true
         };
         var manifest = JsonSerializer.Deserialize<HudAtlasManifest>(
-            PristonFileResolver.ReadAllBytes(Path.Combine(root, "Manifests", "atlas.json")), options);
+            AssetFiles.ReadAllBytes(Path.Combine(root, "Manifests", "atlas.json")), options);
         if (manifest is null || manifest.Version != 1 || manifest.Textures is null
             || manifest.Textures.Length is < 1 or > 4 || manifest.Regions is null || manifest.MagentaKeyTextures is null
             || manifest.Gauges is null || manifest.Gauges.Count > 4)
@@ -157,7 +158,7 @@ public sealed class HudAtlas : IDisposable
                 throw new InvalidDataException("HUD texture must be a filename within Hud/Textures.");
             }
 
-            var bytes = PristonFileResolver.ReadAllBytes(Path.Combine(root, "Textures", name));
+            var bytes = AssetFiles.ReadAllBytes(Path.Combine(root, "Textures", name));
             var image = PristonImageDecoder.Decode(bytes, Path.GetExtension(name));
             if (!image.IsValid || image.Width > 2048 || image.Height > 2048)
             {

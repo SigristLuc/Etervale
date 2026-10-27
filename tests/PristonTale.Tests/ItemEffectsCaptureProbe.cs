@@ -20,6 +20,7 @@ using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Skills;
+using PristonTale.Assets;
 
 namespace PristonTale.Tests;
 
@@ -356,5 +357,5 @@ internal sealed class ItemEffectsCaptureProbe : Game
 
     private static System.Numerics.Vector3 Numeric(Vector3 value) => new(value.X, value.Y, value.Z);
 
-    private string Resolve(string relative) => PristonFileResolver.Resolve(Path.Combine(_assetRoot, relative.Replace('\\', '/')));
+    private string Resolve(string relative) => AssetFiles.Resolve(Path.Combine(_assetRoot, relative.Replace('\\', '/')));
 }

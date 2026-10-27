@@ -66,7 +66,7 @@ The MonoGame fork documents itself in [monogame/README.md](../monogame/README.md
 
 | Path | Content |
 |---|---|
-| `Shared/` | Geometry, Simulation, Protocol, Application (shared by server and client) |
+| `Shared/` | Contracts, Geometry, Assets, Simulation, Protocol, Application (shared by server and client) |
 | `Server/` | Game server host |
 | `Persistence/` | Storage abstractions, repositories, migrations, providers |
 | `Client/` | Engine3D, Effects, Client.Net, Gameplay, the client executable |

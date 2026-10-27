@@ -60,6 +60,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PristonTale.VfxImport", "to
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PristonTale.Contracts", "Shared\PristonTale.Contracts\PristonTale.Contracts.csproj", "{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PristonTale.Assets", "Shared\PristonTale.Assets\PristonTale.Assets.csproj", "{68321899-78E6-4C8A-AF55-50E6E0529FFB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -346,6 +348,18 @@ Global
 		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Release|x64.Build.0 = Release|Any CPU
 		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Release|x86.ActiveCfg = Release|Any CPU
 		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Release|x86.Build.0 = Release|Any CPU
+		{68321899-78E6-4C8A-AF55-50E6E0529FFB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68321899-78E6-4C8A-AF55-50E6E0529FFB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68321899-78E6-4C8A-AF55-50E6E0529FFB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{68321899-78E6-4C8A-AF55-50E6E0529FFB}.Debug|x64.Build.0 = Debug|Any CPU
+		{68321899-78E6-4C8A-AF55-50E6E0529FFB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{68321899-78E6-4C8A-AF55-50E6E0529FFB}.Debug|x86.Build.0 = Debug|Any CPU
+		{68321899-78E6-4C8A-AF55-50E6E0529FFB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68321899-78E6-4C8A-AF55-50E6E0529FFB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68321899-78E6-4C8A-AF55-50E6E0529FFB}.Release|x64.ActiveCfg = Release|Any CPU
+		{68321899-78E6-4C8A-AF55-50E6E0529FFB}.Release|x64.Build.0 = Release|Any CPU
+		{68321899-78E6-4C8A-AF55-50E6E0529FFB}.Release|x86.ActiveCfg = Release|Any CPU
+		{68321899-78E6-4C8A-AF55-50E6E0529FFB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -374,5 +388,6 @@ Global
 		{4602BCFE-457B-4182-8991-6F10BAB7769D} = {45BB4F10-548B-779B-1B10-C91C292B9D7C}
 		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
+		{68321899-78E6-4C8A-AF55-50E6E0529FFB} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
 	EndGlobalSection
 EndGlobal

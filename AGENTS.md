@@ -31,7 +31,7 @@ documentation before editing.
 - Keep shared gameplay rules in `Shared/PristonTale.Simulation` and online authority in
   `Shared/PristonTale.Application`. Keep MonoGame in the client, transport mapping at the network edges, and SQL in
   persistence.
-- Use `PristonFileResolver` for original asset paths. Check version and encoding before extracting behavior from
+- Use `AssetFiles` (`Shared/PristonTale.Assets`) for original asset paths. Check version and encoding before extracting behavior from
   local reference material.
 - Never cite the original source in this repository: no file names, paths, line numbers, function or struct names
   from it in code, comments, identifiers, messages, tests or documentation, and no mention of where local reference

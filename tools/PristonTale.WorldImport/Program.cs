@@ -4,6 +4,7 @@ using PristonTale.Persistence.Abstractions;
 using PristonTale.Persistence.Postgres;
 using PristonTale.Persistence.Sqlite;
 using PristonTale.WorldImport;
+using PristonTale.Assets;
 
 Cp949.Encoding.GetType(); // force CP949 provider registration up front
 // The report names Korean keys and texts.

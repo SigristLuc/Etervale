@@ -8,7 +8,4 @@
   <ItemGroup>
     <InternalsVisibleTo Include="PristonTale.Tests" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\PristonTale.Contracts\PristonTale.Contracts.csproj" />
-  </ItemGroup>
 </Project>

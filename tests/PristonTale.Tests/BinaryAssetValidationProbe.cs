@@ -1,6 +1,7 @@
 using System.Text;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.IO;
+using PristonTale.Assets;
 
 namespace PristonTale.Tests;
 
@@ -123,7 +124,7 @@ internal static class BinaryAssetValidationProbe
     private static bool HasStageSignature(string path)
     {
         Span<byte> header = stackalloc byte[24];
-        using var stream = PristonFileResolver.OpenRead(path);
+        using var stream = AssetFiles.OpenRead(path);
         stream.ReadExactly(header);
         var terminator = header.IndexOf((byte)0);
         if (terminator < 0)

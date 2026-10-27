@@ -3,6 +3,7 @@ using PristonTale.Engine3D.IO;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Motion;
 using PristonTale.Contracts.Motion;
+using PristonTale.Assets;
 
 namespace PristonTale.Tests;
 
@@ -21,7 +22,7 @@ internal static class MonsterSkillTimingProbe
         var loader = new PristonActorLoader();
         foreach (var model in models)
         {
-            var path = PristonFileResolver.Resolve(Path.Combine(root, model.Path));
+            var path = AssetFiles.Resolve(Path.Combine(root, model.Path));
             var actor = loader.Load(root, path);
             var motion = actor.Info.Motions.Skip(PristonFormatConstants.CharacterMotionBase)
                 .First(value => (MotionCode)value.State == MotionCode.Skill && value.EndFrame > value.StartFrame);

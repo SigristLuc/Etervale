@@ -3,6 +3,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Physics;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Simulation.World;
+using PristonTale.Assets;
 
 namespace PristonTale.Gameplay.World.Streaming;
 
@@ -53,8 +54,8 @@ internal sealed class FieldResourceStreamer : IDisposable
         var renderer = _renderer;
         _fieldLoads.Add(field.Id, Task.Run(async () =>
         {
-            var stage = _reader.ReadStage(AssetPath(root, field.StageSmd));
-            var models = field.StageObjectSmds.Select(path => _reader.ReadModel(AssetPath(root, path))).ToArray();
+            var stage = _reader.ReadStage(AssetFiles.Combine(root, field.StageSmd));
+            var models = field.StageObjectSmds.Select(path => _reader.ReadModel(AssetFiles.Combine(root, path))).ToArray();
             var collision = new PristonCollisionWorld(stage);
             await renderer.PrepareStageTexturesAsync(stage, models);
             var elapsed = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
@@ -159,12 +160,6 @@ internal sealed class FieldResourceStreamer : IDisposable
         }
 
         return null;
-    }
-
-    private static string AssetPath(string assetRoot, string relativePath)
-    {
-        var normalized = relativePath.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
-        return Path.Combine(assetRoot, normalized);
     }
 
     private async Task ObservePreparationAsync(Task preparation)

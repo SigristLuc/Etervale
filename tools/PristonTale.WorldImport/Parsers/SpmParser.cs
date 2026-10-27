@@ -1,3 +1,5 @@
+using PristonTale.Assets;
+
 namespace PristonTale.WorldImport.Parsers;
 
 // Parses one field .spm text file (the monster-spawn config) with the original spawn-table rules.

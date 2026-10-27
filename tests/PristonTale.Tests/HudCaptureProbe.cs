@@ -23,6 +23,7 @@ using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Skills;
+using PristonTale.Assets;
 
 namespace PristonTale.Tests;
 
@@ -224,7 +225,7 @@ internal sealed class HudCaptureProbe : Game
         };
 
         // Diagnostic bootstrap only: the Ricarten stage supplies the authored minimap rectangle.
-        var stage = new PristonSmdReader().ReadStage(PristonFileResolver.Resolve(Path.Combine(_assetRoot, "Field", "Ricarten", "village-2.smd")));
+        var stage = new PristonSmdReader().ReadStage(AssetFiles.Resolve(Path.Combine(_assetRoot, "Field", "Ricarten", "village-2.smd")));
         var map = stage.AuthoredMapRectangle;
         var center = new Vector3((map.Left + map.Right) / 512f, 0, -(map.Top + map.Bottom) / 512f);
         _world = new HudWorldView("village-2", false, map, center, new Vector3(0.6f, 0, -0.8f), 13, false);

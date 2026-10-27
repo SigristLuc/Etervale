@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.IO;
 using PristonTale.Contracts.Units;
+using PristonTale.Assets;
 
 namespace PristonTale.Engine3D.Formats;
 
@@ -70,7 +71,7 @@ public sealed class PristonSmdReader
 
     private static PristonStage ParseStage(string path)
     {
-        var data = PristonFileResolver.ReadAllBytes(path);
+        var data = AssetFiles.ReadAllBytes(path);
         var cursor = new BinaryCursor(data);
         var header = ReadHeader(cursor);
         if (!IsStageHeader(header.Kind))
@@ -140,7 +141,7 @@ public sealed class PristonSmdReader
 
     private static PristonModel ParseModel(string path)
     {
-        var data = PristonFileResolver.ReadAllBytes(path);
+        var data = AssetFiles.ReadAllBytes(path);
         var cursor = new BinaryCursor(data);
         var header = ReadHeader(cursor);
         var stageSignatureWithModelLayout = IsStageHeader(header.Kind) && header.ObjectCount > 0 && LooksLikeModelLayout(data, header, requireObjectHead: true);

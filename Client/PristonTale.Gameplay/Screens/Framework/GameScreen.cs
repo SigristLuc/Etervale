@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using PristonTale.Assets;
 
 namespace PristonTale.Gameplay.Screens.Framework;
 
@@ -25,9 +26,5 @@ public abstract class GameScreen : IDisposable
 
     protected static string Fallback(string value, string ifEmpty) => string.IsNullOrWhiteSpace(value) ? ifEmpty : value;
 
-    protected string AssetPath(string relativePath)
-    {
-        var normalized = relativePath.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
-        return Path.Combine(Context.AssetRoot, normalized);
-    }
+    protected string AssetPath(string relativePath) => AssetFiles.Combine(Context.AssetRoot, relativePath);
 }

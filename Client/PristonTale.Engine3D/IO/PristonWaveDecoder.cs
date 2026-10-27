@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using PristonTale.Assets;
 
 namespace PristonTale.Engine3D.IO;
 
@@ -8,7 +9,7 @@ public static class PristonWaveDecoder
 
     public static Stream OpenRead(string path)
     {
-        var bytes = PristonFileResolver.ReadAllBytes(path);
+        var bytes = AssetFiles.ReadAllBytes(path);
         NormalizeHeader(bytes);
         return new MemoryStream(bytes, writable: false);
     }

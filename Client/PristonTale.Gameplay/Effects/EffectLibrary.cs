@@ -10,6 +10,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.IO;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Contracts.Units;
+using PristonTale.Assets;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -96,7 +97,7 @@ public sealed class EffectLibrary : IDisposable
     // An effect texture under the asset root, or null when the file is missing.
     public Texture2D LoadTexture(string root, string path)
     {
-        return PristonFileResolver.Exists(Path.Combine(root, path)) ? _textures.LoadTexture(root, path) : null;
+        return AssetFiles.Exists(Path.Combine(root, path)) ? _textures.LoadTexture(root, path) : null;
     }
 
     // An original particle script by name, cached; null when the script is missing or uses unsupported constructs.
@@ -144,21 +145,21 @@ public sealed class EffectLibrary : IDisposable
 
     public static IReadOnlyList<ParticleSequence> ReadParticleSequences(string root, string name)
     {
-        using var stream = PristonFileResolver.OpenRead(Path.Combine(root, "Effect", "Particle", "Script", name + ".part"));
+        using var stream = AssetFiles.OpenRead(Path.Combine(root, "Effect", "Particle", "Script", name + ".part"));
         using var reader = new StreamReader(stream, Encoding.Latin1);
         return PristonTale.Effects.Scripts.ParticleScript.Read(reader);
     }
 
     private EffectDefinition LoadParticleScript(string root, string name)
     {
-        using var stream = PristonFileResolver.OpenRead(Path.Combine(root, "Effect", "Particle", "Script", name + ".part"));
+        using var stream = AssetFiles.OpenRead(Path.Combine(root, "Effect", "Particle", "Script", name + ".part"));
         using var reader = new StreamReader(stream, Encoding.Latin1);
         var sequences = PristonTale.Effects.Scripts.ParticleScript.Read(reader);
         var emitters = new EmitterDefinition[sequences.Count];
         for (int index = 0; index < sequences.Count; index++)
         {
             var sequence = sequences[index];
-            if (!PristonFileResolver.Exists(Path.Combine(root, sequence.Texture)))
+            if (!AssetFiles.Exists(Path.Combine(root, sequence.Texture)))
             {
                 throw new FileNotFoundException("Required particle texture is missing.", sequence.Texture);
             }
@@ -198,7 +199,7 @@ public sealed class EffectLibrary : IDisposable
         for (var index = 0; index < textures.Length; index++)
         {
             var image = $"{stem}{index + 1}{extension}";
-            if (!PristonFileResolver.Exists(Path.Combine(root, image)))
+            if (!AssetFiles.Exists(Path.Combine(root, image)))
             {
                 throw new FileNotFoundException("Required effect texture is missing.", image);
             }
@@ -236,7 +237,7 @@ public sealed class EffectLibrary : IDisposable
 
     private static Dictionary<string, string> ReadSection(string path, string section)
     {
-        using var stream = PristonFileResolver.OpenRead(path);
+        using var stream = AssetFiles.OpenRead(path);
         // Directives and paths are ASCII; original comments may be CP949. Do not reinterpret their bytes as UTF-8.
         using var reader = new StreamReader(stream, Encoding.Latin1);
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

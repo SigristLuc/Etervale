@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.IO;
+using PristonTale.Assets;
 
 namespace PristonTale.Engine3D.Rendering;
 
@@ -276,7 +277,7 @@ public sealed class PristonTextureLoader : IDisposable
             return new PreparedTexture(0, 0, []);
         }
 
-        var image = PristonImageDecoder.Decode(PristonFileResolver.ReadAllBytes(path), Path.GetExtension(path), bmpCoverage: true);
+        var image = PristonImageDecoder.Decode(AssetFiles.ReadAllBytes(path), Path.GetExtension(path), bmpCoverage: true);
         if (!image.IsValid)
         {
             _log.Warn($"UI texture '{path}' is invalid; using shared white fallback.");
@@ -329,7 +330,7 @@ public sealed class PristonTextureLoader : IDisposable
 
     private static DecodedPristonImage ReadImage(string path)
     {
-        return PristonImageDecoder.Decode(PristonFileResolver.ReadAllBytes(path), Path.GetExtension(path));
+        return PristonImageDecoder.Decode(AssetFiles.ReadAllBytes(path), Path.GetExtension(path));
     }
 
     private static string CacheKey(string directory, string name, string opacity)
@@ -340,7 +341,7 @@ public sealed class PristonTextureLoader : IDisposable
     internal static string ResolvePath(string directory, string name)
     {
         var normalized = name.Replace('\\', Path.DirectorySeparatorChar);
-        var resolved = PristonFileResolver.Resolve(Path.Combine(directory, normalized));
+        var resolved = AssetFiles.Resolve(Path.Combine(directory, normalized));
         if (File.Exists(resolved))
         {
             return resolved;
@@ -357,7 +358,7 @@ public sealed class PristonTextureLoader : IDisposable
 
         )
         {
-            var candidate = PristonFileResolver.Resolve(stem + extension);
+            var candidate = AssetFiles.Resolve(stem + extension);
             if (File.Exists(candidate))
             {
                 return candidate;
