@@ -10,7 +10,7 @@ public sealed class HudPainter : IDisposable
     // The original used 14-16 px Comic Sans through GDI TextOut, whose y is the top of a cell with ~2 px leading.
     public const float TextScale = 0.7f;
     public const int LineHeight = 16;
-    private const float CapTop = 2f;
+    public const float CapTop = 2f;
 
     private readonly record struct TextRun(string Value, Vector2 Position, Color Color, bool Shadow, Vector2 ShadowOffset, float Scale);
 
@@ -22,6 +22,7 @@ public sealed class HudPainter : IDisposable
     private readonly List<TextRun> _text = new(128);
     private readonly float _textShift;
     private readonly float _capCropping;
+    private (float Capitals, float Descent)? _letterHeights;
     private Matrix _transform = Matrix.Identity;
     private bool _active;
 
@@ -197,6 +198,30 @@ public sealed class HudPainter : IDisposable
     public int MeasureAt(string value, float scale) => string.IsNullOrEmpty(value) ? 0 : (int)MathF.Ceiling(_font.MeasureString(value).X * scale);
 
     public int TextHeightAt(float scale) => (int)MathF.Ceiling(_font.LineSpacing * scale);
+
+    // The capitals' height and the descenders' depth below the baseline at a scale, in pixels: text drawn at y has the top
+    // of its capitals at y + CapTop. The line spacing also holds the gap to the next line, so a box sized by it leaves
+    // the text high.
+    public (float Capitals, float Descent) LetterHeightsAt(float scale)
+    {
+        if (_letterHeights is null)
+        {
+            var glyphs = _font.GetGlyphs();
+            var baseline = glyphs.TryGetValue('M', out var capital) ? capital.Cropping.Y + capital.BoundsInTexture.Height : _font.LineSpacing;
+            var descent = 0f;
+            foreach (var character in "gjpqy")
+            {
+                if (glyphs.TryGetValue(character, out var glyph))
+                {
+                    descent = MathF.Max(descent, glyph.Cropping.Y + glyph.BoundsInTexture.Height - baseline);
+                }
+            }
+
+            _letterHeights = (baseline - _capCropping, descent);
+        }
+
+        return (_letterHeights.Value.Capitals * scale, _letterHeights.Value.Descent * scale);
+    }
 
     public string Fit(string value, int width)
     {

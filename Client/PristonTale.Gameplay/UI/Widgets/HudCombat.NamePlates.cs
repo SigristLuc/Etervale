@@ -8,16 +8,15 @@ namespace PristonTale.Gameplay.UI.Widgets;
 // Name boxes over the scene: an NPC's name always within 768 units of the camera, a monster's only while it is under the
 // cursor or is the clicked target. Summons carry their own plates (SummonPlates). Farther boxes draw first; the hovered
 // and the clicked one draw last. Classic (classicNamePlates) is the original's: the speech bubble frame (highlighted
-// under the cursor), the HUD text size and the life bar while the cursor is on the monster. Otherwise the box is a
-// tight translucent fill with smaller text, and the bar shows once the monster was clicked or the local player swung at
-// it, not for the cursor alone.
+// under the cursor), the HUD text size and the life bar while the cursor is on the monster. Otherwise the same frame
+// holds smaller text, and the bar shows once the monster was clicked or the local player swung at it, not for the
+// cursor alone.
 public sealed partial class HudCombat
 {
     private const float NpcPlateDepth = 12 * 64;
     // Classic: the frame's top this far above the head point. Compact: the fill's bottom this far above it.
     private const int ClassicPlateLift = 36;
     private const int PlateLift = 12;
-    private const int PlatePadX = 4;
     private const int PlatePadY = 1;
     private const float PlateTextScale = 0.6f;
     // The original's 100x16 life bar drawn at 0.6 x 0.7.
@@ -60,7 +59,7 @@ public sealed partial class HudCombat
             }
             else
             {
-                DrawPlate(painter, layout, Name(id), x, y, color, monster && ShowsPlateBar(false, id == hovered, id == traced, entity.Attacked) ? entity : null);
+                DrawPlate(painter, layout, Name(id), x, y, color, id == hovered, monster && ShowsPlateBar(false, id == hovered, id == traced, entity.Attacked) ? entity : null);
             }
         }
     }
@@ -88,10 +87,16 @@ public sealed partial class HudCombat
         }
     }
 
-    private static void DrawPlate(HudPainter painter, HudLayout layout, string name, int anchorX, int anchorY, Color color, Entity bar)
+    // The original's speech bubble frame around the smaller text, the capitals centred inside with room for descenders.
+    private static void DrawPlate(HudPainter painter, HudLayout layout, string name, int anchorX, int anchorY, Color color, bool hovered, Entity bar)
     {
-        var width = painter.MeasureAt(name, PlateTextScale) + PlatePadX * 2;
-        var height = painter.TextHeightAt(PlateTextScale) + PlatePadY * 2;
+        var textWidth = painter.MeasureAt(name, PlateTextScale);
+        var (capitals, descent) = painter.LetterHeightsAt(PlateTextScale);
+        var pad = (int)MathF.Ceiling(descent) + PlatePadY;
+        var content = (int)MathF.Ceiling(capitals) + pad * 2;
+        // The frame: a 4-pixel top and 2-pixel bottom border around the content, 9 pixels each side of the text.
+        var width = textWidth + 18;
+        var height = content + 6;
         var x = anchorX - width / 2;
         var y = anchorY - PlateLift - height;
         if (x < 0 || y < 0 || x + width > layout.Width || y + height + 1 + PlateBarHeight > layout.Height)
@@ -100,9 +105,9 @@ public sealed partial class HudCombat
         }
 
         painter.Flush();
-        painter.Stretch(HudChatBubbles.Frame[4], new Rectangle(x, y, width, height), new Rectangle(0, 0, 16, 16));
+        HudChatBubbles.DrawFrame(painter, x, y, textWidth, content - 6, 1, tail: false, selected: hovered);
         painter.Flush();
-        painter.Text(name, x + PlatePadX, y + PlatePadY, color, PlateTextScale);
+        painter.Text(name, x + 9, (int)(y + 4 + pad - HudPainter.CapTop), color, PlateTextScale);
         if (bar is not null)
         {
             DrawHealthBar(painter, new Rectangle(anchorX - PlateBarWidth / 2, y + height + 1, PlateBarWidth, PlateBarHeight), bar.Hp, bar.Spawn.MaxHp);

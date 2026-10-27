@@ -414,8 +414,9 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   hovered or the clicked target (`TargetSelection.HoveredId`, `TracedId`), in (255, 210, 210), or (255, 230, 200) when
   clicked. Farther
   boxes draw first, the hovered and clicked ones last; a box that would leave the screen is skipped. With
-  `classicNamePlates` false (default) the box is the speech bubbles' translucent fill around the name at text scale 0.6
-  (`HudPainter.Text` with a scale), and the 60x11 life bar (`DrawHealthBar`, the target frame's colours) shows under a
+  `classicNamePlates` false (default) the box is the speech bubble frame without its tail, highlighted under the cursor,
+  around the name at text scale 0.6 (`HudPainter.Text` with a scale), the capitals centred inside with room for
+  descenders (`HudPainter.LetterHeightsAt`), and the 60x11 life bar (`DrawHealthBar`, the target frame's colours) shows under a
   monster once it was clicked or the local player swung at it (`Entity.Attacked`, set by `NoteAttack`); when true the
   box is the speech bubble frame without its tail at the HUD text size, highlighted under the cursor, and the bar shows
   while the cursor is on the monster (`ShowsPlateBar`).
