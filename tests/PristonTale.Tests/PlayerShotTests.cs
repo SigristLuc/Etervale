@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Simulation.Items;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -13,7 +14,7 @@ internal static class PlayerShotTests
         yield return ("a glowing bow sheds sparks, a javelin hides in the hand while it flies, a staff strikes for a fighter", WeaponsAsync);
     }
 
-    private static readonly PristonMotionInfo Attack = new((uint)PristonActorMotion.Attack, 10, 40, [800u], 0, 0, 0, 1, 0, 0);
+    private static readonly PristonMotionInfo Attack = new((uint)MotionCode.Attack, 10, 40, [800u], 0, 0, 0, 1, 0, 0);
 
     private static Vector3? Target(ulong id) => id == 2 ? new Vector3(0f, 0f, -200f) : null;
 

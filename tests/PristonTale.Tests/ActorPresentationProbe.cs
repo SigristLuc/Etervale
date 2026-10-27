@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -105,7 +106,7 @@ internal sealed class ActorPresentationProbe : Game
                 ? new Vector3((_published / 2 % 4 - 1.5f) * 75, 0, _published / 8 * 90)
                 : new Vector3((_published % 3 - 1) * 90, 0, _published / 3 * 110);
             var world = Matrix.CreateRotationY(MathHelper.Pi) * Matrix.CreateTranslation(position);
-            var handle = _renderer.AddActor(new PristonActorInstance(actors[_published], world, PristonActorMotion.Stand));
+            var handle = _renderer.AddActor(new PristonActorInstance(actors[_published], world, MotionCode.Stand));
             _actors.Add((handle, world));
             if (_jobHeads)
             {

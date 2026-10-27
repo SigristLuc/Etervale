@@ -1,20 +1,5 @@
 namespace PristonTale.Simulation.World.Motion;
 
-public static class MotionStateCode
-{
-    public const int Stand = 0x40;
-    public const int Walk = 0x50;
-    public const int Run = 0x60;
-    public const int Attack = 0x100;
-    public const int Damage = 0x110;
-    public const int Dead = 0x120;
-    public const int Eat = 0x140;
-    public const int Skill = 0x150;
-    public const int Restart = 0x200;
-    public const int Warp = 0x210;
-    public const int Yahoo = 0x220;
-}
-
 public readonly record struct MotionClip(
     int StartFrame,
     int EndFrame,

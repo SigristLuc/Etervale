@@ -1,4 +1,5 @@
 using PristonTale.Engine3D.Formats;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Engine3D.Rendering;
 
@@ -6,7 +7,7 @@ public readonly record struct PristonMotionContext(int ItemIndex, uint JobMask, 
 
 public static class PristonMotionSelection
 {
-    public static PristonMotionInfo Select(PristonModelInfo info, PristonActorMotion state, PristonMotionContext context)
+    public static PristonMotionInfo Select(PristonModelInfo info, MotionCode state, PristonMotionContext context)
     {
         PristonMotionInfo fallback = null;
         PristonMotionInfo unrestricted = null;

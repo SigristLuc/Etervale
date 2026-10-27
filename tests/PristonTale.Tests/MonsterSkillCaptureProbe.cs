@@ -13,6 +13,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World.Monsters.Skills;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -145,7 +146,7 @@ internal sealed class MonsterSkillCaptureProbe : Game, ISkillSceneHost, IMonster
 
         if (_case < 0)
         {
-            _player = _players.Compose(_assets, _playerVisuals, 0, World(PlayerPosition, MathF.PI, 1f), PristonActorMotion.Stand);
+            _player = _players.Compose(_assets, _playerVisuals, 0, World(PlayerPosition, MathF.PI, 1f), MotionCode.Stand);
             Begin(0);
         }
     }
@@ -170,7 +171,7 @@ internal sealed class MonsterSkillCaptureProbe : Game, ISkillSceneHost, IMonster
         _frame = 0;
         _time = 0f;
         var current = _cases[index];
-        _monster = _monsters.Compose(_assets, current.Model, World(MonsterPosition, Facing, current.Scale), PristonActorMotion.Stand).Handle;
+        _monster = _monsters.Compose(_assets, current.Model, World(MonsterPosition, Facing, current.Scale), MotionCode.Stand).Handle;
         _warmup = 30;
     }
 

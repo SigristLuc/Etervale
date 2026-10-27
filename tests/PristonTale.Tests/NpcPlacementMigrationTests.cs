@@ -4,6 +4,7 @@ using PristonTale.Persistence.Abstractions;
 using PristonTale.Persistence.Abstractions.WorldData;
 using PristonTale.Persistence.Sqlite;
 using PristonTale.Simulation.World.Motion;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -84,7 +85,7 @@ internal static class NpcPlacementMigrationTests
             Assert.True(
                 catalog.TryGet("char\\npc\\TN-010\\TN-010.ini", out var motions),
                 "runtime motion catalog did not resolve the imported NPC model");
-            Assert.True(motions.TryGetClip(MotionStateCode.Walk, out _), "runtime motion catalog omitted the Walk clip");
+            Assert.True(motions.TryGetClip(MotionCode.Walk, out _), "runtime motion catalog omitted the Walk clip");
             Assert.True(
                 await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM pragma_foreign_key_check") == 0,
                 "the baseline broke foreign keys");

@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Formats;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Engine3D.Rendering;
 
@@ -145,7 +146,7 @@ public sealed partial class PristonRenderer
     // appearance's scale about the bone.
     private static Matrix AttachedWorld(ActorRuntime actor, ActorRuntime parent)
     {
-        var index = actor.CheerBone >= 0 && parent.Motion?.State == (uint)PristonActorMotion.Yahoo ? actor.CheerBone : actor.ParentBone;
+        var index = actor.CheerBone >= 0 && parent.Motion?.State == (uint)MotionCode.Yahoo ? actor.CheerBone : actor.ParentBone;
         var bone = parent.SampleSkeleton()[index] * parent.World;
         return actor.Shade is { Scale: not 1f } shade ? Matrix.CreateScale(shade.Scale) * bone : bone;
     }

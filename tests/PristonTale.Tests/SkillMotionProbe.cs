@@ -2,6 +2,7 @@ using System.Numerics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -27,7 +28,7 @@ internal static class SkillMotionProbe
             for (var index = 0; index < motions.Count; index++)
             {
                 var motion = motions[index];
-                if (motion.State == (uint)PristonActorMotion.Skill)
+                if (motion.State == (uint)MotionCode.Skill)
                 {
                     Console.WriteLine($"{playerClass} clip {index}: frames {motion.EndFrame - motion.StartFrame} events [{string.Join(',', Events(motion))}]"
                         + $" tags [{string.Join(',', motion.SkillCodes.Where(static code => code != 0))}] items [{string.Join(',', motion.ItemIndices)}]");
@@ -92,10 +93,10 @@ internal static class SkillMotionProbe
         var clipEvents = Events(clip);
         var report = $"{line} frames {length} events [{string.Join(',', clipEvents)}] tags [{string.Join(',', clip.SkillCodes.Where(static code => code != 0))}]";
         Console.WriteLine(report);
-        if (clip.State != (uint)PristonActorMotion.Skill || !clip.SkillCodes.Any(tags.Contains) || length != frames
+        if (clip.State != (uint)MotionCode.Skill || !clip.SkillCodes.Any(tags.Contains) || length != frames
             || !events.SequenceEqual(clipEvents.Take(events.Length)))
         {
-            var candidates = Enumerable.Range(0, motions.Count).Where(candidate => motions[candidate].State == (uint)PristonActorMotion.Skill
+            var candidates = Enumerable.Range(0, motions.Count).Where(candidate => motions[candidate].State == (uint)MotionCode.Skill
                 && motions[candidate].SkillCodes.Contains(tag))
                 .Select(candidate => $"{candidate}:{motions[candidate].EndFrame - motions[candidate].StartFrame}:[{string.Join(',', Events(motions[candidate]))}]");
             failures.Add(report + " mismatch; candidates " + string.Join(' ', candidates));

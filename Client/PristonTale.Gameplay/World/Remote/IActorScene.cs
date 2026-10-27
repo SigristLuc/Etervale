@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -19,11 +20,11 @@ public interface IActorScene
         return false;
     }
 
-    void SetActorMotion(ActorHandle handle, PristonActorMotion motion);
+    void SetActorMotion(ActorHandle handle, MotionCode motion);
     void SetActorMotionIndex(ActorHandle handle, int motionIndex);
     int ResolveSkillMotion(ActorHandle handle, int motionIndex) => motionIndex;
     void SeekActorMotion(ActorHandle handle, int framesFromStart) { }
-    void RestartActorMotion(ActorHandle handle, PristonActorMotion motion);
+    void RestartActorMotion(ActorHandle handle, MotionCode motion);
     void SetActorPlaybackRate(ActorHandle handle, float rateFactor);
     void RemoveActor(ActorHandle handle);
     void SetActorAppearance(ActorHandle handle, in PristonActorAppearance appearance) { }

@@ -4,6 +4,7 @@ using PristonTale.Effects.Vfx;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Simulation.Items;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -65,7 +66,7 @@ public sealed class PlayerShots
         var start = (float)motion.StartFrame * 160f;
         var previous = _clips.TryGetValue(attackerId, out var last) && ReferenceEquals(last.Motion, motion) && ticks >= last.Ticks ? last.Ticks : start;
         _clips[attackerId] = (motion, ticks);
-        if (motion.State != (uint)PristonActorMotion.Attack || motion.EventFrames.Count == 0 || weaponKey.Length < 3)
+        if (motion.State != (uint)MotionCode.Attack || motion.EventFrames.Count == 0 || weaponKey.Length < 3)
         {
             return;
         }

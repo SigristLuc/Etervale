@@ -3,6 +3,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.GltfExport;
 using SharpGLTF.Schema2;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -588,7 +589,7 @@ internal static class GltfExportTests
         }
 
         motions[PristonFormatConstants.CharacterMotionBase] = new PristonMotionInfo(
-            (uint)PristonActorMotion.Stand,
+            (uint)MotionCode.Stand,
             0,
             2,
             [],

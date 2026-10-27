@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.Audio;
 
@@ -39,10 +40,10 @@ public sealed class NpcAudioController(PristonAudioLibrary library) : IDisposabl
             return;
         }
 
-        PlayMotion(soundCode, PristonActorMotion.Stand, sourcePosition, listenerPosition, allowStand: true);
+        PlayMotion(soundCode, MotionCode.Stand, sourcePosition, listenerPosition, allowStand: true);
     }
 
-    public void PlayMotion(int soundCode, PristonActorMotion motion, Vector3 sourcePosition, Vector3 listenerPosition)
+    public void PlayMotion(int soundCode, MotionCode motion, Vector3 sourcePosition, Vector3 listenerPosition)
     {
         PlayMotion(soundCode, motion, sourcePosition, listenerPosition, allowStand: false);
     }
@@ -63,24 +64,24 @@ public sealed class NpcAudioController(PristonAudioLibrary library) : IDisposabl
 
     private void PlayMotion(
         int soundCode,
-        PristonActorMotion motion,
+        MotionCode motion,
         Vector3 sourcePosition,
         Vector3 listenerPosition,
         bool allowStand)
     {
-        if (!library.SoundEnabled || soundCode == 0 || motion == PristonActorMotion.Stand && !allowStand)
+        if (!library.SoundEnabled || soundCode == 0 || motion == MotionCode.Stand && !allowStand)
         {
             return;
         }
 
-        var lookupMotion = motion == PristonActorMotion.Run ? PristonActorMotion.Walk : motion;
+        var lookupMotion = motion == MotionCode.Run ? MotionCode.Walk : motion;
         if (!library.TryGetNpcSound(soundCode, lookupMotion, out var variants))
         {
             return;
         }
 
         var volume = ProximityVolume(sourcePosition, listenerPosition);
-        if (volume <= 0f || lookupMotion == PristonActorMotion.Walk && volume < 0.75f)
+        if (volume <= 0f || lookupMotion == MotionCode.Walk && volume < 0.75f)
         {
             return;
         }

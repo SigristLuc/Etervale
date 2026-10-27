@@ -1,4 +1,5 @@
 using PristonTale.Engine3D.IO;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Engine3D.Formats;
 
@@ -46,7 +47,7 @@ public sealed class PristonActorLoader
     {
         var endFrame = (uint)Math.Max(1, skeletonLastFrameTicks / 160);
         var idle = new PristonMotionInfo(
-            State: (uint)PristonActorMotion.Stand,
+            State: (uint)MotionCode.Stand,
             StartFrame: 0,
             EndFrame: endFrame,
             EventFrames: [],

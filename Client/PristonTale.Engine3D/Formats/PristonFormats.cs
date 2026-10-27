@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Engine3D.Formats;
 
@@ -114,38 +115,6 @@ public sealed class PristonStageAreaIndex
         var cell = normalizedX * Width + normalizedZ;
         return _faceIndices.AsSpan(_offsets[cell], _offsets[cell + 1] - _offsets[cell]);
     }
-}
-
-public enum PristonActorMotion : uint
-{
-    Any = 0,
-    Stand = 0x40,
-    Walk = 0x50,
-    Run = 0x60,
-    FallDown = 0x80,
-    Attack = 0x100,
-    Damage = 0x110,
-    Dead = 0x120,
-    Sometime = 0x130,
-    Eat = 0x140,
-    Skill = 0x150,
-    FallStand = 0x170,
-    FallDamage = 0x180,
-    Restart = 0x200,
-    Warp = 0x210,
-    Yahoo = 0x220,
-    Hammer = 0x300,
-
-    TalkAh = 0x400,
-    TalkEe = 0x410,
-    TalkOh = 0x420,
-    TalkEyeBlink = 0x430,
-    TalkSmile = 0x440,
-    TalkAnger = 0x450,
-    TalkSorrow = 0x460,
-    TalkStartled = 0x470,
-    TalkNeutral = 0x480,
-    TalkSpecial = 0x490
 }
 
 [Flags]
@@ -501,7 +470,7 @@ public sealed record PristonActor(
 public sealed record PristonActorInstance(
     PristonActor Actor,
     Matrix World,
-    PristonActorMotion Motion)
+    MotionCode Motion)
 {
     public PristonMotionContext MotionContext { get; init; } = new(-1, 0, 0);
 

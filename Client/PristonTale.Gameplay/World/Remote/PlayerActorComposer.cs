@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -52,7 +53,7 @@ public readonly record struct PlayerActorHandles(ActorHandle Body, ActorHandle H
 public interface IPlayerActorComposer
 {
     Task PrepareAsync(string assetRoot, CharacterVisualSet visuals, int faceIndex) => Task.CompletedTask;
-    PlayerActorHandles Compose(string assetRoot, CharacterVisualSet visuals, int faceIndex, Matrix world, PristonActorMotion motion);
+    PlayerActorHandles Compose(string assetRoot, CharacterVisualSet visuals, int faceIndex, Matrix world, MotionCode motion);
 }
 
 public sealed class PlayerActorComposer(IActorScene scene, PristonActorLoader actorLoader) : IPlayerActorComposer
@@ -98,12 +99,12 @@ public sealed class PlayerActorComposer(IActorScene scene, PristonActorLoader ac
         return new Prepared(body, head, weapon, offHand);
     }
 
-    public PlayerActorHandles Compose(string assetRoot, CharacterVisualSet visuals, int faceIndex, Matrix world, PristonActorMotion motion)
+    public PlayerActorHandles Compose(string assetRoot, CharacterVisualSet visuals, int faceIndex, Matrix world, MotionCode motion)
     {
         return Compose(assetRoot, visuals, faceIndex, world, motion, visibleInMainPass: true);
     }
 
-    public PlayerActorHandles ComposePortrait(string assetRoot, CharacterVisualSet visuals, int faceIndex, PristonActorMotion motion)
+    public PlayerActorHandles ComposePortrait(string assetRoot, CharacterVisualSet visuals, int faceIndex, MotionCode motion)
     {
         return Compose(assetRoot, visuals, faceIndex, Matrix.Identity, motion, visibleInMainPass: false);
     }
@@ -113,7 +114,7 @@ public sealed class PlayerActorComposer(IActorScene scene, PristonActorLoader ac
         CharacterVisualSet visuals,
         int faceIndex,
         Matrix world,
-        PristonActorMotion motion,
+        MotionCode motion,
         bool visibleInMainPass)
     {
         var prepared = ResolvePrepared(assetRoot, visuals, faceIndex);
@@ -142,7 +143,7 @@ public sealed class PlayerActorComposer(IActorScene scene, PristonActorLoader ac
             {
                 handles = handles with
                 {
-                    Weapon = _scene.AddActor(new PristonActorInstance(prepared.Weapon, world, PristonActorMotion.Stand)
+                    Weapon = _scene.AddActor(new PristonActorInstance(prepared.Weapon, world, MotionCode.Stand)
                     {
                         VisibleInMainPass = visibleInMainPass
                     })
@@ -156,7 +157,7 @@ public sealed class PlayerActorComposer(IActorScene scene, PristonActorLoader ac
             {
                 handles = handles with
                 {
-                    OffHand = _scene.AddActor(new PristonActorInstance(prepared.OffHand, world, PristonActorMotion.Stand)
+                    OffHand = _scene.AddActor(new PristonActorInstance(prepared.OffHand, world, MotionCode.Stand)
                     {
                         VisibleInMainPass = visibleInMainPass
                     })
@@ -178,7 +179,7 @@ public sealed class PlayerActorComposer(IActorScene scene, PristonActorLoader ac
         CharacterVisualSet visuals,
         int faceIndex,
         Matrix world,
-        PristonActorMotion motion,
+        MotionCode motion,
         bool visibleInMainPass = true)
     {
         var prepared = ResolvePrepared(assetRoot, visuals, faceIndex);

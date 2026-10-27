@@ -7,6 +7,7 @@ using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Motion;
 using PristonTale.Simulation.World.Spawning;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -42,14 +43,14 @@ internal sealed class MonsterSkillField
     {
         var clips = new List<KeyValuePair<int, MotionClip>>
         {
-            new(MotionStateCode.Attack, new MotionClip(0, 30, 1600, 0, 0, 0, false) { Slot = 2, Key = 'A' }),
-            new(MotionStateCode.Skill, new MotionClip(100, 130, 1600, 0, 0, 0, false) { Slot = 3, Key = 'J' }),
-            new(MotionStateCode.Eat, new MotionClip(200, 220, 0, 0, 0, 0, false) { Slot = 5 }),
-            new(MotionStateCode.Warp, new MotionClip(300, 330, 0, 0, 0, 0, false) { Slot = 6 })
+            new((int)MotionCode.Attack, new MotionClip(0, 30, 1600, 0, 0, 0, false) { Slot = 2, Key = 'A' }),
+            new((int)MotionCode.Skill, new MotionClip(100, 130, 1600, 0, 0, 0, false) { Slot = 3, Key = 'J' }),
+            new((int)MotionCode.Eat, new MotionClip(200, 220, 0, 0, 0, 0, false) { Slot = 5 }),
+            new((int)MotionCode.Warp, new MotionClip(300, 330, 0, 0, 0, 0, false) { Slot = 6 })
         };
         if (twoSkills)
         {
-            clips.Add(new(MotionStateCode.Skill, new MotionClip(400, 460, 3200, 6400, 0, 0, false) { Slot = 4, Key = 'K' }));
+            clips.Add(new((int)MotionCode.Skill, new MotionClip(400, 460, 3200, 6400, 0, 0, false) { Slot = 4, Key = 'K' }));
         }
 
         return MotionTimingSet.Build(clips);

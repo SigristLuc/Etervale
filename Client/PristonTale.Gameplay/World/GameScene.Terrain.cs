@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Effects.Vfx;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Simulation.World;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World;
 
@@ -78,9 +79,9 @@ public sealed partial class GameScene
 
             var (mask, ahead) = _playerController.Current switch
             {
-                PristonActorMotion.Walk => (0x1F, 8f),
-                PristonActorMotion.Run => (0xF, 14f),
-                PristonActorMotion.Attack or PristonActorMotion.Skill => (0xF, 0f),
+                MotionCode.Walk => (0x1F, 8f),
+                MotionCode.Run => (0xF, 14f),
+                MotionCode.Attack or MotionCode.Skill => (0xF, 0f),
                 _ => (0x3F, 0f)
             };
             if ((_terrainCounter & mask) == 0)

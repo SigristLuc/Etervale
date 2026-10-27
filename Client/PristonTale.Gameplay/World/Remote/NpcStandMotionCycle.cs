@@ -1,4 +1,5 @@
 using PristonTale.Engine3D.Formats;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -30,9 +31,9 @@ internal sealed class NpcStandMotionCycle
         }
     }
 
-    public NpcStandMotionUpdate Update(float deltaSeconds, PristonActorMotion authoritativeMotion)
+    public NpcStandMotionUpdate Update(float deltaSeconds, MotionCode authoritativeMotion)
     {
-        if (authoritativeMotion != PristonActorMotion.Stand || _standIndices.Length == 0)
+        if (authoritativeMotion != MotionCode.Stand || _standIndices.Length == 0)
         {
             _active = false;
             _motionIndex = -1;
@@ -96,7 +97,7 @@ internal sealed class NpcStandMotionCycle
         for (var index = 0; index < count; index++)
         {
             var motion = info.Motions[index];
-            if (motion.State != (uint)PristonActorMotion.Stand || motion.EndFrame <= motion.StartFrame)
+            if (motion.State != (uint)MotionCode.Stand || motion.EndFrame <= motion.StartFrame)
             {
                 continue;
             }

@@ -8,6 +8,7 @@ using PristonTale.Gameplay.Effects;
 using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.Skills;
 using NumVector3 = System.Numerics.Vector3;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World;
 
@@ -472,7 +473,7 @@ public sealed partial class GameScene : ISkillSceneHost
     }
 
     float ISkillSceneHost.AttackRateOf(ulong entityId) =>
-        entityId == _remote?.SelfEntityId ? PlayerRateFor(PristonActorMotion.Attack) : _remote?.AttackRateOf(entityId) ?? 1f;
+        entityId == _remote?.SelfEntityId ? PlayerRateFor(MotionCode.Attack) : _remote?.AttackRateOf(entityId) ?? 1f;
 
     void ISkillSceneHost.PlaySkillMotion(ulong entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)
     {
@@ -496,7 +497,7 @@ public sealed partial class GameScene : ISkillSceneHost
         _hasMoveTarget = false;
         if (plan.Motion == SkillMotion.Skill)
         {
-            _ = _playerController.Retrigger(PristonActorMotion.Skill);
+            _ = _playerController.Retrigger(MotionCode.Skill);
             var clip = _renderer.ResolveSkillMotion(_playerBodyActor, plan.MotionIndex);
             _renderer.SetActorMotionIndex(_playerBodyActor, clip);
             _renderer.SetActorMotionIndex(_playerHeadActor, clip);
@@ -505,8 +506,8 @@ public sealed partial class GameScene : ISkillSceneHost
             return;
         }
 
-        ApplyPlayerCommand(_playerController.Retrigger(PristonActorMotion.Attack));
-        var attackRate = PlayerRateFor(PristonActorMotion.Attack) * rate;
+        ApplyPlayerCommand(_playerController.Retrigger(MotionCode.Attack));
+        var attackRate = PlayerRateFor(MotionCode.Attack) * rate;
         _renderer.SetActorPlaybackRate(_playerBodyActor, attackRate);
         _renderer.SetActorPlaybackRate(_playerHeadActor, attackRate);
     }
@@ -515,9 +516,9 @@ public sealed partial class GameScene : ISkillSceneHost
     // after it would keep the motions-from-0x100 rules (no floor following, no falls) until the next step.
     private void EndSkillMotion()
     {
-        if (_playerController.Current == PristonActorMotion.Skill && !SelfCasting)
+        if (_playerController.Current == MotionCode.Skill && !SelfCasting)
         {
-            ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.Stand));
+            ApplyPlayerCommand(_playerController.ApplyAuthoritative(MotionCode.Stand));
         }
     }
 

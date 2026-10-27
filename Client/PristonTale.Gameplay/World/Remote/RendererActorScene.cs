@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -17,11 +18,11 @@ public sealed class RendererActorScene(PristonRenderer renderer) : IActorScene
     public void SetActorWorld(ActorHandle handle, Matrix world) => _renderer.SetActorWorld(handle, world);
     public void SetActorColorAdd(ActorHandle handle, Vector3 colorAdd) => _renderer.SetActorColorAdd(handle, colorAdd);
     public bool TryGetActorMotion(ActorHandle handle, out PristonMotionInfo motion, out float ticks) => _renderer.TryGetActorMotion(handle, out motion, out ticks);
-    public void SetActorMotion(ActorHandle handle, PristonActorMotion motion) => _renderer.SetActorMotion(handle, motion);
+    public void SetActorMotion(ActorHandle handle, MotionCode motion) => _renderer.SetActorMotion(handle, motion);
     public void SetActorMotionIndex(ActorHandle handle, int motionIndex) => _renderer.SetActorMotionIndex(handle, motionIndex);
     public int ResolveSkillMotion(ActorHandle handle, int motionIndex) => _renderer.ResolveSkillMotion(handle, motionIndex);
     public void SeekActorMotion(ActorHandle handle, int framesFromStart) => _renderer.SeekActorMotion(handle, framesFromStart);
-    public void RestartActorMotion(ActorHandle handle, PristonActorMotion motion) => _renderer.RestartActorMotion(handle, motion);
+    public void RestartActorMotion(ActorHandle handle, MotionCode motion) => _renderer.RestartActorMotion(handle, motion);
     public void SetActorPlaybackRate(ActorHandle handle, float rateFactor) => _renderer.SetActorPlaybackRate(handle, rateFactor);
     public void RemoveActor(ActorHandle handle) => _renderer.RemoveActor(handle);
     public void SetActorAppearance(ActorHandle handle, in PristonActorAppearance appearance) => _renderer.SetActorAppearance(handle, appearance);

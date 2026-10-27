@@ -1,13 +1,14 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World.Remote;
 
 public interface IModelActorComposer
 {
     Task PrepareAsync(string assetRoot, string modelInxPath) => Task.CompletedTask;
-    ComposedModelActor Compose(string assetRoot, string modelInxPath, Matrix world, PristonActorMotion motion);
+    ComposedModelActor Compose(string assetRoot, string modelInxPath, Matrix world, MotionCode motion);
 }
 
 public readonly record struct ComposedModelActor(ActorHandle Handle, PristonModelInfo Info);
@@ -35,7 +36,7 @@ public sealed class ModelActorComposer(IActorScene scene, PristonActorLoader act
         return preparation;
     }
 
-    public ComposedModelActor Compose(string assetRoot, string modelInxPath, Matrix world, PristonActorMotion motion)
+    public ComposedModelActor Compose(string assetRoot, string modelInxPath, Matrix world, MotionCode motion)
     {
         var path = AssetPath(assetRoot, modelInxPath);
         if (!_prepared.TryGetValue(path, out var preparation) || !preparation.IsCompletedSuccessfully)

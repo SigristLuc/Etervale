@@ -1081,7 +1081,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         return new DayNightSettings { Gradient = keys, DayLengthSeconds = d.DayLengthSeconds, StartTimeOfDay = d.StartTimeOfDay };
     }
 
-    private void SetPlayerMotion(PristonActorMotion motion)
+    private void SetPlayerMotion(MotionCode motion)
     {
         if (_renderer == null || !_playerBodyActor.IsValid)
             return;
@@ -1092,7 +1092,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _renderer.SetActorPlaybackRate(_playerHeadActor, rate);
     }
 
-    private void RestartPlayerMotion(PristonActorMotion motion)
+    private void RestartPlayerMotion(MotionCode motion)
     {
         if (_renderer == null || !_playerBodyActor.IsValid)
             return;
@@ -1115,7 +1115,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             PlayPlayerMotionSound((int)_player.Class.Class, command.Motion, _playerBody.Position);
     }
 
-    public void DebugForceMotion(PristonActorMotion motion)
+    public void DebugForceMotion(MotionCode motion)
         => ApplyPlayerCommand(_playerController.ApplyAuthoritative(motion));
 
     public int PlayerServerHp => _selfHp;
@@ -1139,39 +1139,39 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         // The client owns locomotion; server echoes lag behind it, so only FieldWarp moves the local avatar.
         _serverPlanarPosition = new Vector2(state.Position.X, state.Position.Z);
         _serverCollisionHeight = state.Position.Y;
-        var wire = RemoteEntityBase.ToActorMotion(state.MoveState);
+        var wire = MotionCodes.Of(state.MoveState);
         bool wasDead = _playerController.IsDead;
         switch (wire)
         {
-            case PristonActorMotion.Eat:
-            case PristonActorMotion.Yahoo:
+            case MotionCode.Eat:
+            case MotionCode.Yahoo:
                 ApplyPlayerCommand(_playerController.ApplyAuthoritative(wire));
                 break;
 
-            case PristonActorMotion.Attack:
-                ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.Attack));
+            case MotionCode.Attack:
+                ApplyPlayerCommand(_playerController.ApplyAuthoritative(MotionCode.Attack));
                 break;
 
-            case PristonActorMotion.Skill:
+            case MotionCode.Skill:
                 // The skill presentation plays the cast's own clip from the server's skill event.
                 break;
 
-            case PristonActorMotion.Damage:
+            case MotionCode.Damage:
                 {
-                    var command = _playerController.ApplyAuthoritative(PristonActorMotion.Damage);
+                    var command = _playerController.ApplyAuthoritative(MotionCode.Damage);
                     if (command.Kind == MotionCommandKind.None && state.Hp < previousHp)
                     {
-                        command = _playerController.Retrigger(PristonActorMotion.Damage);
+                        command = _playerController.Retrigger(MotionCode.Damage);
                     }
 
                     ApplyPlayerCommand(command);
                     break;
                 }
 
-            case PristonActorMotion.Dead:
+            case MotionCode.Dead:
                 if (!wasDead)
                 {
-                    ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.Dead));
+                    ApplyPlayerCommand(_playerController.ApplyAuthoritative(MotionCode.Dead));
                     ClearAttackTarget();
                     _hasMoveTarget = false;
                 }
@@ -1182,10 +1182,10 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 {
                     RespawnAt(state.Position);
                 }
-                else if (_playerController.Current is PristonActorMotion.Damage or PristonActorMotion.Attack or PristonActorMotion.Eat
-                         or PristonActorMotion.Yahoo)
+                else if (_playerController.Current is MotionCode.Damage or MotionCode.Attack or MotionCode.Eat
+                         or MotionCode.Yahoo)
                 {
-                    ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.Stand));
+                    ApplyPlayerCommand(_playerController.ApplyAuthoritative(MotionCode.Stand));
                 }
 
                 break;
@@ -1272,16 +1272,16 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     {
         if (combatEvent.Kind == RemoteCombatEventKind.PotionBegin)
         {
-            ApplyPlayerCommand(_playerController.Retrigger(PristonActorMotion.Eat));
+            ApplyPlayerCommand(_playerController.Retrigger(MotionCode.Eat));
         }
         else if (combatEvent.Kind == RemoteCombatEventKind.SwingBegin && !_playerController.LocomotionFrozen)
         {
             _selfAttacking = true;
-            ApplyPlayerCommand(_playerController.Retrigger(PristonActorMotion.Attack));
+            ApplyPlayerCommand(_playerController.Retrigger(MotionCode.Attack));
         }
-        else if (combatEvent.Kind == RemoteCombatEventKind.Hit && !combatEvent.Killed && _playerController.Current == PristonActorMotion.Damage)
+        else if (combatEvent.Kind == RemoteCombatEventKind.Hit && !combatEvent.Killed && _playerController.Current == MotionCode.Damage)
         {
-            ApplyPlayerCommand(_playerController.Retrigger(PristonActorMotion.Damage));
+            ApplyPlayerCommand(_playerController.Retrigger(MotionCode.Damage));
         }
     }
 
@@ -1293,10 +1293,10 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         EndFall(landed: false);
         ApplyPlayerWorld();
         _camera?.SnapFollow(_playerBody.Position, _fieldCollision);
-        ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.Restart));
+        ApplyPlayerCommand(_playerController.ApplyAuthoritative(MotionCode.Restart));
     }
 
-    private float PlayerRateFor(PristonActorMotion motion)
+    private float PlayerRateFor(MotionCode motion)
     {
         if (_player == null)
         {
@@ -1306,9 +1306,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         var d = _player.Derived;
         return motion switch
         {
-            PristonActorMotion.Walk => AnimationRate.MoveRate(Locomotion.BaseTranslation(_serverMoveSpeed ?? d.MoveSpeed)),
-            PristonActorMotion.Run => AnimationRate.MoveRate((Locomotion.BaseTranslation(_serverMoveSpeed ?? d.MoveSpeed) * 460) >> 8),
-            PristonActorMotion.Attack or PristonActorMotion.Skill => _serverMoveSpeed.HasValue ? _serverAttackRate : AnimationRate.AttackRate(d.AttackSpeed),
+            MotionCode.Walk => AnimationRate.MoveRate(Locomotion.BaseTranslation(_serverMoveSpeed ?? d.MoveSpeed)),
+            MotionCode.Run => AnimationRate.MoveRate((Locomotion.BaseTranslation(_serverMoveSpeed ?? d.MoveSpeed) * 460) >> 8),
+            MotionCode.Attack or MotionCode.Skill => _serverMoveSpeed.HasValue ? _serverAttackRate : AnimationRate.AttackRate(d.AttackSpeed),
             _ => 1f,
         };
     }
@@ -1364,7 +1364,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _currentField?.OnUpdate?.Invoke(this, dt);
     }
 
-    private void OnNpcMotionStarted(int soundCode, PristonActorMotion motion, Vector3 sourcePosition)
+    private void OnNpcMotionStarted(int soundCode, MotionCode motion, Vector3 sourcePosition)
     {
         if (_npcAudio is not null && _playerBody is not null)
         {
@@ -1381,8 +1381,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         }
 
         var current = _playerController.Current;
-        var moving = current is PristonActorMotion.Walk or PristonActorMotion.Run;
-        var running = current == PristonActorMotion.Run;
+        var moving = current is MotionCode.Walk or MotionCode.Run;
+        var running = current == MotionCode.Run;
         var target = _attackInput.TargetId;
         var fieldCode = _activeField.Definition.FieldCode;
         var elapsed = _reportClockMs - _lastReportMs;
@@ -1589,11 +1589,11 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             {
                 _hasMoveTarget = false;
                 _positionCorrection = Vector2.Zero;
-                ApplyPlayerCommand(_playerController.ApplyLocomotion(PristonActorMotion.Stand));
+                ApplyPlayerCommand(_playerController.ApplyLocomotion(MotionCode.Stand));
             }
             else
             {
-                var motion = running ? PristonActorMotion.Run : PristonActorMotion.Walk;
+                var motion = running ? MotionCode.Run : MotionCode.Walk;
                 ApplyPlayerCommand(_playerController.ApplyLocomotion(motion));
             }
         }
@@ -1774,7 +1774,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _positionCorrection = Vector2.Zero;
         if (!SelfCasting)
         {
-            ApplyPlayerCommand(_playerController.ApplyLocomotion(PristonActorMotion.Stand));
+            ApplyPlayerCommand(_playerController.ApplyLocomotion(MotionCode.Stand));
         }
     }
 
@@ -1842,9 +1842,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         if (!_remote.TryGetTarget(_attackInput.TargetId, out var targetPos, out var targetDead) || targetDead)
         {
             ClearAttackTarget();
-            if (_playerController.Current == PristonActorMotion.Attack)
+            if (_playerController.Current == MotionCode.Attack)
             {
-                ApplyPlayerCommand(_playerController.ApplyLocomotion(PristonActorMotion.Stand));
+                ApplyPlayerCommand(_playerController.ApplyLocomotion(MotionCode.Stand));
             }
 
             return;
@@ -1861,7 +1861,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             }
 
             ApplyPlayerWorld();
-            ApplyPlayerCommand(_playerController.ApplyLocomotion(PristonActorMotion.Stand));
+            ApplyPlayerCommand(_playerController.ApplyLocomotion(MotionCode.Stand));
 
             return;
         }
@@ -1875,7 +1875,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         CommitGroundMovement(ResolveEntityCollision(current, slid));
         _playerForward = new Vector3(dir.X, 0f, dir.Y);
         ApplyPlayerWorld();
-        ApplyPlayerCommand(_playerController.ApplyLocomotion(_runMode ? PristonActorMotion.Run : PristonActorMotion.Walk));
+        ApplyPlayerCommand(_playerController.ApplyLocomotion(_runMode ? MotionCode.Run : MotionCode.Walk));
     }
 
     private void UpdateBodyHeight(PhysicsBody body)
@@ -1913,7 +1913,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         {
             // As in the original, the floor is followed only below the motions from 0x100 up (attacks, potions, damage,
             // skills, landings, death): the body holds its height until they end, so a fall never cuts one short.
-            if (_playerController.Current < PristonActorMotion.Attack)
+            if (_playerController.Current < MotionCode.Attack)
             {
                 Fall(feet, floor, dt);
             }
@@ -1940,12 +1940,12 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     // controller follows it so the landing releases the player.
     private void FinishLanding()
     {
-        if (_playerController.Current is PristonActorMotion.FallStand or PristonActorMotion.FallDamage
+        if (_playerController.Current is MotionCode.FallStand or MotionCode.FallDamage
             && _renderer is not null && _playerBodyActor.IsValid
             && _renderer.TryGetActorMotion(_playerBodyActor, out var motion, out _)
-            && (PristonActorMotion)motion.State != _playerController.Current)
+            && (MotionCode)motion.State != _playerController.Current)
         {
-            ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.Stand));
+            ApplyPlayerCommand(_playerController.ApplyAuthoritative(MotionCode.Stand));
         }
     }
 
@@ -1977,9 +1977,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             _reportDue = true;
         }
 
-        if (feet - floor > GroundFall.MotionDistance && _playerController.Current != PristonActorMotion.FallDown)
+        if (feet - floor > GroundFall.MotionDistance && _playerController.Current != MotionCode.FallDown)
         {
-            ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.FallDown));
+            ApplyPlayerCommand(_playerController.ApplyAuthoritative(MotionCode.FallDown));
         }
 
         _playerBody.Height = GroundFall.Step(feet, floor, dt) - GroundTraversal.VisualOffset;
@@ -1990,9 +1990,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private void EndFall(bool landed, float fallen = 0f)
     {
         _fallTop = float.NaN;
-        if (_playerController.Current == PristonActorMotion.FallDown)
+        if (_playerController.Current == MotionCode.FallDown)
         {
-            ApplyPlayerCommand(_playerController.ApplyAuthoritative(landed ? GroundFall.Landing(fallen) : PristonActorMotion.Stand));
+            ApplyPlayerCommand(_playerController.ApplyAuthoritative(landed ? GroundFall.Landing(fallen) : MotionCode.Stand));
         }
     }
 

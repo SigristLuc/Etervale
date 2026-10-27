@@ -11,6 +11,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -67,9 +68,9 @@ internal static class PotionTests
             && !player.HasPendingPotion, "potion revived a dead player");
 
         var motion = new ActorMotionController();
-        Assert.True(motion.ApplyAuthoritative(PristonActorMotion.Eat).Kind == MotionCommandKind.Restart, "EAT was not a one-shot");
-        Assert.True(motion.ApplyLocomotion(PristonActorMotion.Run).Kind == MotionCommandKind.None, "locomotion overrode EAT");
-        motion.ApplyAuthoritative(PristonActorMotion.Stand);
+        Assert.True(motion.ApplyAuthoritative(MotionCode.Eat).Kind == MotionCommandKind.Restart, "EAT was not a one-shot");
+        Assert.True(motion.ApplyLocomotion(MotionCode.Run).Kind == MotionCommandKind.None, "locomotion overrode EAT");
+        motion.ApplyAuthoritative(MotionCode.Stand);
         Assert.True(!motion.LocomotionFrozen, "EAT completion did not release input");
         return Task.CompletedTask;
     }

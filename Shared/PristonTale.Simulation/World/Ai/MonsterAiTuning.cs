@@ -2,6 +2,7 @@ using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Simulation.World.Motion;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Simulation.World.Ai;
 
@@ -81,9 +82,9 @@ public sealed class MonsterAiTuning
         RunCycleMs = LocomotionCycleFallbackMs;
         if (timing != null)
         {
-            AttackClips = ActionClips(timing.ClipsForState(MotionStateCode.Attack), lateHit: false);
+            AttackClips = ActionClips(timing.ClipsForState(MotionCode.Attack), lateHit: false);
             SkillClips = MonsterSkillRules.HasSkill(def)
-                ? ActionClips(timing.ClipsForState(MotionStateCode.Skill), MonsterSkillRules.HasLateSkillHit(def))
+                ? ActionClips(timing.ClipsForState(MotionCode.Skill), MonsterSkillRules.HasLateSkillHit(def))
                 : [];
             if (SkillClips.Count > 0)
             {
@@ -92,28 +93,28 @@ public sealed class MonsterAiTuning
                 CanCastOffensiveSkill = SkillDurationMs > 0f;
             }
 
-            if (timing.TryGetClip(MotionStateCode.Eat, out MotionClip eat))
+            if (timing.TryGetClip(MotionCode.Eat, out MotionClip eat))
             {
                 EatDurationMs = MotionTiming.DurationMs(eat.Frames, 1f);
             }
 
-            if (timing.TryGetClip(MotionStateCode.Warp, out MotionClip warp))
+            if (timing.TryGetClip(MotionCode.Warp, out MotionClip warp))
             {
                 WarpDurationMs = MotionTiming.DurationMs(warp.Frames, 1f);
             }
 
-            if (timing.TryGetClip(MotionStateCode.Walk, out MotionClip walk))
+            if (timing.TryGetClip(MotionCode.Walk, out MotionClip walk))
             {
                 WalkCycleMs = MotionTiming.DurationMs(walk.Frames, 1f);
             }
 
-            if (timing.TryGetClip(MotionStateCode.Run, out MotionClip run))
+            if (timing.TryGetClip(MotionCode.Run, out MotionClip run))
             {
                 HasRunClip = true;
                 RunCycleMs = MotionTiming.DurationMs(run.Frames, 1f);
             }
 
-            if (timing.TryGetClip(MotionStateCode.Attack, out MotionClip attack))
+            if (timing.TryGetClip(MotionCode.Attack, out MotionClip attack))
             {
                 CooldownMs = MotionTiming.DurationMs(attack.Frames, 1f);
                 WindupMs = attack.TryGetEventTicks(0, out uint ev)
@@ -121,12 +122,12 @@ public sealed class MonsterAiTuning
                     : CooldownMs;
             }
 
-            if (timing.TryGetClip(MotionStateCode.Damage, out MotionClip damage))
+            if (timing.TryGetClip(MotionCode.Damage, out MotionClip damage))
             {
                 FlinchDurationMs = MotionTiming.DurationMs(damage.Frames, MotionTiming.DamageRateFactor);
             }
 
-            if (timing.TryGetClip(MotionStateCode.Dead, out MotionClip dead))
+            if (timing.TryGetClip(MotionCode.Dead, out MotionClip dead))
             {
                 DieDurationMs = MotionTiming.DurationMs(dead.Frames, 1f);
             }

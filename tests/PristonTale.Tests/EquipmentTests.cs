@@ -73,14 +73,14 @@ internal static class EquipmentTests
     {
         var empty = new PristonMotionInfo(0, 0, 0, [], 0, 0, 0, 0, 0, 0);
         var slots = Enumerable.Repeat(empty, 10).ToList();
-        var city = new PristonMotionInfo((uint)PristonActorMotion.Stand, 1, 11, [], 1, 1, 1, 1, 0, 0) { ItemIndices = [255] };
+        var city = new PristonMotionInfo((uint)MotionCode.Stand, 1, 11, [], 1, 1, 1, 1, 0, 0) { ItemIndices = [255] };
         var armed = city with { StartFrame = 20, EndFrame = 40, MapPosition = 2, ItemIndices = [15] };
         var wrongJob = armed with { StartFrame = 50, JobCodeBit = 2 };
         slots.AddRange([city, wrongJob, armed]);
         var group = new PristonModelGroup(0, []);
         var info = new PristonModelInfo("", "", "", "", group, group, group, slots, (uint)slots.Count, "", "", "", [], 0);
-        Assert.True(PristonMotionSelection.Select(info, PristonActorMotion.Stand, new(15, 1, 2)) == armed, "job/item mask ignored");
-        Assert.True(PristonMotionSelection.Select(info, PristonActorMotion.Stand, new(15, 1, 1)) == city, "village must select the unarmed sentinel");
+        Assert.True(PristonMotionSelection.Select(info, MotionCode.Stand, new(15, 1, 2)) == armed, "job/item mask ignored");
+        Assert.True(PristonMotionSelection.Select(info, MotionCode.Stand, new(15, 1, 1)) == city, "village must select the unarmed sentinel");
         return Task.CompletedTask;
     }
 
@@ -150,7 +150,7 @@ internal static class EquipmentTests
         public int Published { get; private set; }
         public bool FailPublication { get; set; }
         public Task PrepareAsync(string root, CharacterVisualSet visuals, int face) => Preparation;
-        public PlayerActorHandles Compose(string root, CharacterVisualSet visuals, int face, Matrix world, PristonActorMotion motion)
+        public PlayerActorHandles Compose(string root, CharacterVisualSet visuals, int face, Matrix world, MotionCode motion)
         {
             if (FailPublication)
             {
@@ -174,9 +174,9 @@ internal static class EquipmentTests
         }
         public ActorHandle AddActor(PristonActorInstance instance) => Create();
         public void SetActorWorld(ActorHandle handle, Matrix world) { }
-        public void SetActorMotion(ActorHandle handle, PristonActorMotion motion) { }
+        public void SetActorMotion(ActorHandle handle, MotionCode motion) { }
         public void SetActorMotionIndex(ActorHandle handle, int motionIndex) { }
-        public void RestartActorMotion(ActorHandle handle, PristonActorMotion motion) { }
+        public void RestartActorMotion(ActorHandle handle, MotionCode motion) { }
         public void SetActorPlaybackRate(ActorHandle handle, float rate) { }
         public void RemoveActor(ActorHandle handle) => Live.Remove(handle);
     }

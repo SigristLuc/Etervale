@@ -8,6 +8,7 @@ using PristonTale.Engine3D.Rendering;
 using PristonTale.Engine3D.Rendering.Lighting;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Simulation.Items.Usable;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -190,7 +191,7 @@ public sealed class PremiumPetPresentation : IDisposable
         }
 
         pet.Position = owner + new Vector3(30f, OwnerHeight + 10f, 30f);
-        pet.Handle = _scene.AddActor(new PristonActorInstance(preparation.Result, Matrix.CreateTranslation(pet.Position), PristonActorMotion.Stand));
+        pet.Handle = _scene.AddActor(new PristonActorInstance(preparation.Result, Matrix.CreateTranslation(pet.Position), MotionCode.Stand));
         _scene.SetActorPlaybackRate(pet.Handle, 0f);
         pet.HasActor = true;
         return true;

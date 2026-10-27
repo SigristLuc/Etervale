@@ -8,6 +8,7 @@ using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering.Lighting;
 using PristonTale.Engine3D.Rendering.Post;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Engine3D.Rendering;
 
@@ -310,7 +311,7 @@ public sealed partial class PristonRenderer : IDisposable
     public bool Underground { get; set; }
     public Vector3 UndergroundAmbient { get; set; } = new(0.30f, 0.30f, 0.34f);
 
-    public void SetActorMotion(ActorHandle handle, PristonActorMotion motion)
+    public void SetActorMotion(ActorHandle handle, MotionCode motion)
     {
         if (!TryResolveActor(handle, out var runtime))
         {
@@ -337,7 +338,7 @@ public sealed partial class PristonRenderer : IDisposable
         UpdateActor(runtime);
     }
 
-    public void RestartActorMotion(ActorHandle handle, PristonActorMotion motion)
+    public void RestartActorMotion(ActorHandle handle, MotionCode motion)
     {
         if (!TryResolveActor(handle, out var runtime))
             return;
@@ -463,7 +464,7 @@ public sealed partial class PristonRenderer : IDisposable
         }
 
         next.PlaybackRate = previous.PlaybackRate;
-        next.ForceMotion((PristonActorMotion)previous.Motion.State);
+        next.ForceMotion((MotionCode)previous.Motion.State);
         float span = (previous.Motion.EndFrame - previous.Motion.StartFrame) * 160f;
         float phase = span > 0 ? (previous.Frame - previous.Motion.StartFrame * 160f) / span : 0;
         next.SetFrame((next.Motion.StartFrame + phase * (next.Motion.EndFrame - next.Motion.StartFrame)) * 160f);
@@ -3497,9 +3498,9 @@ public sealed partial class PristonRenderer : IDisposable
             0);
     }
 
-    private static PristonMotionInfo SelectActorMotion(PristonActor actor, PristonActorMotion desiredMotion, PristonMotionContext context)
+    private static PristonMotionInfo SelectActorMotion(PristonActor actor, MotionCode desiredMotion, PristonMotionContext context)
     {
-        if (desiredMotion == PristonActorMotion.Any)
+        if (desiredMotion == MotionCode.Any)
         {
             return SelectActorMotion(actor);
         }
@@ -3931,7 +3932,7 @@ public sealed partial class PristonRenderer : IDisposable
             ShadowBatches.Add(batch);
         }
 
-        public void SetMotion(PristonActorMotion motion)
+        public void SetMotion(MotionCode motion)
         {
             var resolved = SelectActorMotion(Instance.Actor, motion, Instance.MotionContext);
             if (resolved == Motion)
@@ -3940,7 +3941,7 @@ public sealed partial class PristonRenderer : IDisposable
             Frame = StartTicks(Motion);
         }
 
-        public void ForceMotion(PristonActorMotion motion)
+        public void ForceMotion(MotionCode motion)
         {
             Motion = SelectActorMotion(Instance.Actor, motion, Instance.MotionContext);
             Frame = StartTicks(Motion);
@@ -3996,7 +3997,7 @@ public sealed partial class PristonRenderer : IDisposable
             {
                 if (ReturnsToStand(Motion))
                 {
-                    Motion = SelectActorMotion(Instance.Actor, PristonActorMotion.Stand, Instance.MotionContext);
+                    Motion = SelectActorMotion(Instance.Actor, MotionCode.Stand, Instance.MotionContext);
                     Frame = StartTicks(Motion);
                 }
                 else
@@ -4021,30 +4022,30 @@ public sealed partial class PristonRenderer : IDisposable
         // Only one-shots driven by gameplay return to Stand; unlisted motions hold their final pose.
         private static bool ReturnsToStand(PristonMotionInfo motion)
         {
-            var state = (PristonActorMotion)motion.State;
+            var state = (MotionCode)motion.State;
             return state is
-                PristonActorMotion.Attack or
-                PristonActorMotion.Damage or
-                PristonActorMotion.Skill or
-                PristonActorMotion.Eat or
-                PristonActorMotion.FallStand or
-                PristonActorMotion.FallDamage or
-                PristonActorMotion.Yahoo or
-                PristonActorMotion.Restart or
-                PristonActorMotion.Hammer;
+                MotionCode.Attack or
+                MotionCode.Damage or
+                MotionCode.Skill or
+                MotionCode.Eat or
+                MotionCode.FallStand or
+                MotionCode.FallDamage or
+                MotionCode.Yahoo or
+                MotionCode.Restart or
+                MotionCode.Hammer;
         }
 
         private float RateFactor()
         {
-            var state = (PristonActorMotion)Motion.State;
+            var state = (MotionCode)Motion.State;
             return state switch
             {
-                PristonActorMotion.Walk or
-                PristonActorMotion.Run or
-                PristonActorMotion.Attack or
-                PristonActorMotion.Skill => PlaybackRate,
-                PristonActorMotion.Damage or
-                PristonActorMotion.Eat => DamageEatRateFactor,
+                MotionCode.Walk or
+                MotionCode.Run or
+                MotionCode.Attack or
+                MotionCode.Skill => PlaybackRate,
+                MotionCode.Damage or
+                MotionCode.Eat => DamageEatRateFactor,
                 _ => 1f,
             };
         }

@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -117,7 +118,7 @@ internal static class BinaryCursorTests
         WriteAscii(bytes, 196, 16, "BodyH");
 
         var motion = motionOffset;
-        WriteUInt32(bytes, motion, (uint)PristonActorMotion.Stand);
+        WriteUInt32(bytes, motion, (uint)MotionCode.Stand);
         WriteUInt32(bytes, motion + 4, 0x11223344u);
         WriteUInt32(bytes, motion + 8, 7);
         WriteUInt32(bytes, motion + 12, 0x55667788u);

@@ -7,6 +7,7 @@ using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Gameplay.Screens.CharacterSelect;
 using PristonTale.Gameplay.Screens.Opening;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -157,7 +158,7 @@ internal sealed partial class SceneLookProbe : Game
                 for (var i = 0; i < _actorAssets.Length; i++)
                 {
                     var world = Matrix.CreateTranslation((i - 1) * 90f, 0f, 0f);
-                    _actors.Add((_renderer.AddActor(new PristonActorInstance(_actorAssets[i], world, PristonActorMotion.Stand)), world));
+                    _actors.Add((_renderer.AddActor(new PristonActorInstance(_actorAssets[i], world, MotionCode.Stand)), world));
                 }
             }
 

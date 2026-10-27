@@ -11,6 +11,7 @@ using PristonTale.Gameplay.World.Remote;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -133,7 +134,7 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
 
         if (_cast < 0)
         {
-            _dummy = _composer.Compose(_assets, _visuals[^1], 0, World(TargetPosition, MathHelper.Pi), PristonActorMotion.Stand);
+            _dummy = _composer.Compose(_assets, _visuals[^1], 0, World(TargetPosition, MathHelper.Pi), MotionCode.Stand);
             BeginCast(0);
         }
     }
@@ -312,7 +313,7 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
         _frame = 0;
         _time = 0f;
         var facing = MathF.Atan2(TargetPosition.X - CasterPosition.X, TargetPosition.Z - CasterPosition.Z);
-        _caster = _composer.Compose(_assets, _visuals[index], 0, World(CasterPosition, facing), PristonActorMotion.Stand);
+        _caster = _composer.Compose(_assets, _visuals[index], 0, World(CasterPosition, facing), MotionCode.Stand);
         _warmup = 30;
     }
 
@@ -407,8 +408,8 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
             return;
         }
 
-        _renderer.RestartActorMotion(_caster.Body, PristonActorMotion.Attack);
-        _renderer.RestartActorMotion(_caster.Head, PristonActorMotion.Attack);
+        _renderer.RestartActorMotion(_caster.Body, MotionCode.Attack);
+        _renderer.RestartActorMotion(_caster.Head, MotionCode.Attack);
         _renderer.SetActorPlaybackRate(_caster.Body, rate);
         _renderer.SetActorPlaybackRate(_caster.Head, rate);
     }

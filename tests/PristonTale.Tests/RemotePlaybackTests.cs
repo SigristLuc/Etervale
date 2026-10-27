@@ -163,7 +163,7 @@ internal static class RemotePlaybackTests
 
         monster.SetTarget(now, Vector3.Zero, 0f, MotionState.Walk, 10);
         Run(400);
-        Assert.True(monster.Motion == PristonActorMotion.Walk && scene.LastMotion == PristonActorMotion.Stand,
+        Assert.True(monster.Motion == MotionCode.Walk && scene.LastMotion == MotionCode.Stand,
             "a Walk state without ground motion was shown walking");
 
         var x = 0f;
@@ -178,16 +178,16 @@ internal static class RemotePlaybackTests
         }
 
         Move(6, 14, MotionState.Walk);
-        Assert.True(scene.LastMotion == PristonActorMotion.Walk, "ground motion did not resume the walk clip");
+        Assert.True(scene.LastMotion == MotionCode.Walk, "ground motion did not resume the walk clip");
         Assert.Near(1f, scene.LastRate, 0.02f);
         Move(6, 7, MotionState.Walk);
         Assert.Near(0.5f, scene.LastRate, 0.02f);
         Move(6, 28, MotionState.Run);
-        Assert.True(scene.LastMotion == PristonActorMotion.Run, "run state was not shown");
+        Assert.True(scene.LastMotion == MotionCode.Run, "run state was not shown");
         Assert.Near(1f, scene.LastRate, 0.02f);
         monster.SetTarget(now, new Vector3(x, 0, 0), 0f, MotionState.Attack, 10);
         Run(400);
-        Assert.True(scene.LastMotion == PristonActorMotion.Attack, "server attack state lost to the locomotion safeguard");
+        Assert.True(scene.LastMotion == MotionCode.Attack, "server attack state lost to the locomotion safeguard");
         return Task.CompletedTask;
     }
 
@@ -224,7 +224,7 @@ internal static class RemotePlaybackTests
                 monster.Update(0.05f, now);
             }
 
-            Assert.True(monster.Motion == PristonActorMotion.Dead && scene.LastMotion == PristonActorMotion.Dead, $"death clip not shown {name}: {scene.LastMotion}");
+            Assert.True(monster.Motion == MotionCode.Dead && scene.LastMotion == MotionCode.Dead, $"death clip not shown {name}: {scene.LastMotion}");
         }
 
         return Task.CompletedTask;
@@ -247,7 +247,7 @@ internal static class RemotePlaybackTests
             }
         }
 
-        Assert.True(scene.LastMotion == PristonActorMotion.Walk, "walking player was not shown walking");
+        Assert.True(scene.LastMotion == MotionCode.Walk, "walking player was not shown walking");
         Assert.Near(AnimationRate.MoveRate(Locomotion.BaseTranslation(1)), scene.LastRate, 0.01f);
         return Task.CompletedTask;
     }
@@ -390,19 +390,19 @@ internal static class RemotePlaybackTests
 
     private sealed class RecordingScene : IActorScene
     {
-        public PristonActorMotion LastMotion { get; private set; } = PristonActorMotion.Stand;
+        public MotionCode LastMotion { get; private set; } = MotionCode.Stand;
         public float LastRate { get; private set; } = 1f;
         public ActorHandle AddActor(PristonActorInstance instance) => ActorHandle.None;
         public void SetActorWorld(ActorHandle handle, Matrix world)
         {
         }
 
-        public void SetActorMotion(ActorHandle handle, PristonActorMotion motion) => LastMotion = motion;
+        public void SetActorMotion(ActorHandle handle, MotionCode motion) => LastMotion = motion;
         public void SetActorMotionIndex(ActorHandle handle, int motionIndex)
         {
         }
 
-        public void RestartActorMotion(ActorHandle handle, PristonActorMotion motion) => LastMotion = motion;
+        public void RestartActorMotion(ActorHandle handle, MotionCode motion) => LastMotion = motion;
         public void SetActorPlaybackRate(ActorHandle handle, float rateFactor) => LastRate = rateFactor;
         public void RemoveActor(ActorHandle handle)
         {

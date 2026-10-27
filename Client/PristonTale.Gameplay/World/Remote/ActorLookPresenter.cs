@@ -3,6 +3,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Simulation.Items;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -229,7 +230,7 @@ public sealed class ActorLookPresenter
             return false;
         }
 
-        extras.Shield = _scene.AddActor(new PristonActorInstance(loading.Result, Matrix.Identity, PristonActorMotion.Stand));
+        extras.Shield = _scene.AddActor(new PristonActorInstance(loading.Result, Matrix.Identity, MotionCode.Stand));
         _scene.AttachActor(extras.Shield, handles.Body, ShieldBone);
         return true;
     }

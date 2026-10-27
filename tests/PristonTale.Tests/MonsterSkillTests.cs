@@ -35,8 +35,8 @@ internal static class MonsterSkillTests
     };
 
     private static MotionTimingSet Timing(uint impact = 1600) => MotionTimingSet.Build([
-        new(MotionStateCode.Attack, new MotionClip(0, 10, 800, 0, 0, 0, false)),
-        new(MotionStateCode.Skill, new MotionClip(100, 130, impact, 0, 0, 0, false))
+        new((int)MotionCode.Attack, new MotionClip(0, 10, 800, 0, 0, 0, false)),
+        new((int)MotionCode.Skill, new MotionClip(100, 130, impact, 0, 0, 0, false))
     ]);
 
     private static Task SelectionAsync()
@@ -59,7 +59,7 @@ internal static class MonsterSkillTests
         foreach (var late in new[] { MonsterSounds.Babel, MonsterSounds.DeathKnight })
         {
             var lateTuning = new MonsterAiTuning(definition with { SoundCode = late },
-                MotionTimingSet.Build([new(MotionStateCode.Skill, new MotionClip(0, 165, 1600, 0, 0, 0, false))]));
+                MotionTimingSet.Build([new((int)MotionCode.Skill, new MotionClip(0, 165, 1600, 0, 0, 0, false))]));
             Assert.Near(120f * 1000f / 70f, lateTuning.SkillWindupMs, .5f);
         }
 

@@ -1,3 +1,4 @@
+using PristonTale.Contracts.Motion;
 using System.Collections.Generic;
 
 namespace PristonTale.Simulation.World.Motion;
@@ -51,10 +52,10 @@ public sealed class MotionTimingSet
         return new MotionTimingSet(first, all);
     }
 
-    public bool TryGetClip(int stateCode, out MotionClip clip) => _firstByState.TryGetValue(stateCode, out clip);
+    public bool TryGetClip(MotionCode state, out MotionClip clip) => _firstByState.TryGetValue((int)state, out clip);
 
-    public IReadOnlyList<MotionClip> ClipsForState(int stateCode)
+    public IReadOnlyList<MotionClip> ClipsForState(MotionCode state)
     {
-        return _allByState.TryGetValue(stateCode, out var clips) ? clips : Array.Empty<MotionClip>();
+        return _allByState.TryGetValue((int)state, out var clips) ? clips : Array.Empty<MotionClip>();
     }
 }

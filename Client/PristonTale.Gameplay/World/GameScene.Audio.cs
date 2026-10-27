@@ -4,6 +4,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Gameplay.Audio;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World;
 
@@ -136,7 +137,7 @@ public sealed partial class GameScene
     }
 
     // A player entering damage or death plays its class's sound where it stands.
-    private void PlayPlayerMotionSound(int classCode, PristonActorMotion motion, Vector3 position)
+    private void PlayPlayerMotionSound(int classCode, MotionCode motion, Vector3 position)
     {
         if (_combatSounds is null || _playerBody is null)
         {
@@ -145,8 +146,8 @@ public sealed partial class GameScene
 
         var cue = motion switch
         {
-            PristonActorMotion.Damage => CharacterSoundCue.Damage,
-            PristonActorMotion.Dead => CharacterSoundCue.Dead,
+            MotionCode.Damage => CharacterSoundCue.Damage,
+            MotionCode.Dead => CharacterSoundCue.Dead,
             _ => (CharacterSoundCue?)null
         };
         if (cue is { } sound)
@@ -155,7 +156,7 @@ public sealed partial class GameScene
         }
     }
 
-    private void OnRemotePlayerMotionStarted(int classCode, PristonActorMotion motion, Vector3 position) =>
+    private void OnRemotePlayerMotionStarted(int classCode, MotionCode motion, Vector3 position) =>
         PlayPlayerMotionSound(classCode, motion, position);
 
     // The local player's step on the floor of its field: stone in towns and ruins, dungeon stone, soft ground in forests

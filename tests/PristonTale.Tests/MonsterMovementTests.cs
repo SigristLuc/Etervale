@@ -44,15 +44,15 @@ internal static class MonsterMovementTests
     private static Task NoRunClipAsync()
     {
         var definition = Definition();
-        var walkOnly = new MonsterAiTuning(definition, MotionTimingSet.Build([new(MotionStateCode.Walk, new MotionClip(10, 30, 0, 0, 0, 0, true))]));
+        var walkOnly = new MonsterAiTuning(definition, MotionTimingSet.Build([new((int)MotionCode.Walk, new MotionClip(10, 30, 0, 0, 0, 0, true))]));
         var both = new MonsterAiTuning(definition, MotionTimingSet.Build([
-            new(MotionStateCode.Walk, new MotionClip(10, 30, 0, 0, 0, 0, true)),
-            new(MotionStateCode.Run, new MotionClip(40, 60, 0, 0, 0, 0, true))
+            new((int)MotionCode.Walk, new MotionClip(10, 30, 0, 0, 0, 0, true)),
+            new((int)MotionCode.Run, new MotionClip(40, 60, 0, 0, 0, 0, true))
         ]));
         Assert.True(!walkOnly.HasRunClip && !walkOnly.CanRun, "a model without a run clip may run");
         Assert.True(both.HasRunClip && both.CanRun, "a clever model with a run clip may not run");
         Assert.True(!new MonsterAiTuning(definition with { Ai = definition.Ai with { Iq = 5 } }, MotionTimingSet.Build([
-            new(MotionStateCode.Run, new MotionClip(40, 60, 0, 0, 0, 0, true))
+            new((int)MotionCode.Run, new MotionClip(40, 60, 0, 0, 0, 0, true))
         ])).CanRun, "a dull monster runs");
 
         var brain = new SummonBrain(new CombatRng(1));
@@ -102,7 +102,7 @@ internal static class MonsterMovementTests
     private static Task SpawnWalkAsync()
     {
         var definition = Definition();
-        var timing = MotionTimingSet.Build([new(MotionStateCode.Walk, new MotionClip(10, 30, 0, 0, 0, 0, true))]);
+        var timing = MotionTimingSet.Build([new((int)MotionCode.Walk, new MotionClip(10, 30, 0, 0, 0, 0, true))]);
         var tuning = new MonsterAiTuning(definition, timing);
         var home = new Vector3(4500, 0, -12000);
         var monster = new MonsterInstance(2, definition, home, MathF.PI / 2, 0);
@@ -132,8 +132,8 @@ internal static class MonsterMovementTests
     {
         var definition = Definition();
         var timing = MotionTimingSet.Build([
-            new(MotionStateCode.Walk, new MotionClip(0, 10, 0, 0, 0, 0, true)),
-            new(MotionStateCode.Run, new MotionClip(0, 10, 0, 0, 0, 0, true))
+            new((int)MotionCode.Walk, new MotionClip(0, 10, 0, 0, 0, 0, true)),
+            new((int)MotionCode.Run, new MotionClip(0, 10, 0, 0, 0, 0, true))
         ]);
         var tuning = new MonsterAiTuning(definition, timing);
         var monster = new MonsterInstance(2, definition, Vector3.Zero, 0, 0)
@@ -180,8 +180,8 @@ internal static class MonsterMovementTests
     {
         var definition = Definition();
         var timing = MotionTimingSet.Build([
-            new(MotionStateCode.Walk, new MotionClip(0, 10, 0, 0, 0, 0, true)),
-            new(MotionStateCode.Run, new MotionClip(0, 10, 0, 0, 0, 0, true))
+            new((int)MotionCode.Walk, new MotionClip(0, 10, 0, 0, 0, 0, true)),
+            new((int)MotionCode.Run, new MotionClip(0, 10, 0, 0, 0, 0, true))
         ]);
         var tuning = new MonsterAiTuning(definition, timing);
         var monster = new MonsterInstance(2, definition, Vector3.Zero, 0, 0)

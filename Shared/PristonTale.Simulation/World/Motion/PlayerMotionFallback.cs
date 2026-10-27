@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Simulation.World.Motion;
 
@@ -10,7 +11,7 @@ public static class PlayerMotionFallback
 
     public const int FlinchFrames = 22;
 
-    public static MotionClip GetClip(PlayerClass playerClass, int state)
+    public static MotionClip GetClip(PlayerClass playerClass, MotionCode state)
     {
         var (attackEvent, damageFrames, eatEvent) = playerClass switch
         {
@@ -25,10 +26,10 @@ public static class PlayerMotionFallback
         // Clip timing uses spans and event offsets; frame windows are normalized to a zero origin.
         return state switch
         {
-            MotionStateCode.Attack => new MotionClip(0, 40, attackEvent, 0, 0, 0, false),
-            MotionStateCode.Damage => new MotionClip(0, damageFrames, 0, 0, 0, 0, false),
-            MotionStateCode.Eat => new MotionClip(0, 20, eatEvent, 0, 0, 0, false),
-            MotionStateCode.Yahoo => new MotionClip(0, 50, 0, 0, 0, 0, false),
+            MotionCode.Attack => new MotionClip(0, 40, attackEvent, 0, 0, 0, false),
+            MotionCode.Damage => new MotionClip(0, damageFrames, 0, 0, 0, 0, false),
+            MotionCode.Eat => new MotionClip(0, 20, eatEvent, 0, 0, 0, false),
+            MotionCode.Yahoo => new MotionClip(0, 50, 0, 0, 0, 0, false),
             _ => throw new ArgumentOutOfRangeException(nameof(state))
         };
     }

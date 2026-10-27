@@ -279,7 +279,7 @@ public sealed class WorldPlayer
         EntityId = entityId;
         Position = position;
         _character = character;
-        FlinchMs = MotionTiming.DurationMs(PlayerMotionFallback.GetClip(character.Class.Class, MotionStateCode.Damage).Frames, MotionTiming.DamageRateFactor);
+        FlinchMs = MotionTiming.DurationMs(PlayerMotionFallback.GetClip(character.Class.Class, MotionCode.Damage).Frames, MotionTiming.DamageRateFactor);
         _inVillage = inVillage;
         _appearance = appearance;
         _cueLevel = character.Level;

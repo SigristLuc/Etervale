@@ -34,8 +34,8 @@ public sealed class WorldNpc
         Facing = facing;
         MoveState = MotionState.Stand;
         _moveRange = MathF.Max(0f, definition.MoveRange);
-        _standClips = motionTimings?.ClipsForState(MotionStateCode.Stand) ?? Array.Empty<MotionClip>();
-        _canWalk = _moveRange > 0f && motionTimings?.TryGetClip(MotionStateCode.Walk, out _) == true;
+        _standClips = motionTimings?.ClipsForState(MotionCode.Stand) ?? Array.Empty<MotionClip>();
+        _canWalk = _moveRange > 0f && motionTimings?.TryGetClip(MotionCode.Walk, out _) == true;
         _randomState = (uint)(entityId ^ entityId >> 32) ^ unchecked((uint)definition.Code * 0x9E3779B9u) ^ 0xA341316Cu;
         if (_randomState == 0)
         {

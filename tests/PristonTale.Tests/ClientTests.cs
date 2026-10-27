@@ -115,14 +115,14 @@ internal static class ClientTests
         var cast = new CombatEventInfo(2, 1, RemoteCombatEventKind.SwingBegin, 1980, 957, 0, false, false);
         remote.ApplyCombatEvent(cast, now);
         Settle();
-        Assert.True(scene.Restarts == 3 && remote.Motion == PristonActorMotion.Skill, "skill entry restarted basic attack");
+        Assert.True(scene.Restarts == 3 && remote.Motion == MotionCode.Skill, "skill entry restarted basic attack");
         remote.ApplyCombatEvent(cast, now);
         Settle();
-        Assert.True(scene.Restarts == 4 && remote.Motion == PristonActorMotion.Skill, "repeated skill did not restart its own motion");
+        Assert.True(scene.Restarts == 4 && remote.Motion == MotionCode.Skill, "repeated skill did not restart its own motion");
         remote.SetTarget(now, Vector3.Zero, 0, MotionState.Walk, 100);
         Settle();
         Settle();
-        Assert.True(remote.ShownMotion == PristonActorMotion.Stand, "Walk without ground motion was shown walking");
+        Assert.True(remote.ShownMotion == MotionCode.Stand, "Walk without ground motion was shown walking");
         Assert.Near(1f, scene.LastRate);
         return Task.CompletedTask;
     }
@@ -132,15 +132,15 @@ internal static class ClientTests
         var motions = Enumerable.Range(0, 13)
             .Select(static _ => Motion(0, 0, 0))
             .ToArray();
-        motions[10] = Motion((uint)PristonActorMotion.Walk, 11, 41);
-        motions[11] = Motion((uint)PristonActorMotion.Stand, 50, 90);
-        motions[12] = Motion((uint)PristonActorMotion.Stand, 100, 160);
+        motions[10] = Motion((uint)MotionCode.Walk, 11, 41);
+        motions[11] = Motion((uint)MotionCode.Stand, 50, 90);
+        motions[12] = Motion((uint)MotionCode.Stand, 100, 160);
         var warehouseInfo = ModelInfo("TN-010.inx", motions);
         var cycle = new NpcStandMotionCycle(warehouseInfo, 91);
         var selected = new HashSet<int>();
         for (var index = 0; index < 32; index++)
         {
-            var update = cycle.Update(2f, PristonActorMotion.Stand);
+            var update = cycle.Update(2f, MotionCode.Stand);
             Assert.True(update.MotionChanged, "completed NPC Stand cycle did not select another concrete clip");
             Assert.True(update.MotionIndex is 11 or 12, "NPC idle selected Walk or an empty reserved INX slot");
             selected.Add(update.MotionIndex);
@@ -155,7 +155,7 @@ internal static class ClientTests
             NpcMotionRates = weightedRates,
             NpcMotionSelection = Enumerable.Repeat(12, PristonFormatConstants.MotionRateSelectionCount).ToArray()
         };
-        var weighted = new NpcStandMotionCycle(weightedInfo, 17).Update(0f, PristonActorMotion.Stand);
+        var weighted = new NpcStandMotionCycle(weightedInfo, 17).Update(0f, MotionCode.Stand);
         Assert.True(weighted.MotionIndex == 12, "expanded Win32 NPC motion-rate table was ignored");
 
         var scene = new FakeScene();
@@ -307,13 +307,13 @@ internal static class ClientTests
         public int Composed { get; private set; }
         public Task PrepareAsync(string root, CharacterVisualSet visuals, int face) => Ready.Task;
         public Task PrepareAsync(string root, string model) => Ready.Task;
-        public PlayerActorHandles Compose(string root, CharacterVisualSet visuals, int face, Matrix world, PristonActorMotion motion)
+        public PlayerActorHandles Compose(string root, CharacterVisualSet visuals, int face, Matrix world, MotionCode motion)
         {
             Composed++;
             return new PlayerActorHandles(ActorHandle.None, ActorHandle.None);
         }
 
-        public ComposedModelActor Compose(string root, string model, Matrix world, PristonActorMotion motion)
+        public ComposedModelActor Compose(string root, string model, Matrix world, MotionCode motion)
         {
             Composed++;
             return new ComposedModelActor(ActorHandle.None, null);
@@ -330,13 +330,13 @@ internal static class ClientTests
         public void SetActorWorld(ActorHandle handle, Matrix world)
         {
         }
-        public void SetActorMotion(ActorHandle handle, PristonActorMotion motion) => Commands++;
+        public void SetActorMotion(ActorHandle handle, MotionCode motion) => Commands++;
         public void SetActorMotionIndex(ActorHandle handle, int motionIndex)
         {
             ExactMotionIndices.Add(motionIndex);
             Commands++;
         }
-        public void RestartActorMotion(ActorHandle handle, PristonActorMotion motion)
+        public void RestartActorMotion(ActorHandle handle, MotionCode motion)
         {
             Restarts++;
             Commands++;

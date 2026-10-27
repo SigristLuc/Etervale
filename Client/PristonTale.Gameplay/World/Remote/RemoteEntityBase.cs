@@ -31,7 +31,7 @@ public abstract class RemoteEntityBase
     private float _renderFacing;
     private MotionCommand _pendingMotion = MotionCommand.None;
     private bool _pendingMotionStartsSound;
-    private PristonActorMotion _shownMotion;
+    private MotionCode _shownMotion;
     private float _appliedRate = float.NaN;
     private int _lastHp;
     private int _moveSpeed = 1;
@@ -60,7 +60,7 @@ public abstract class RemoteEntityBase
         _track = new RemoteSnapshotBuffer(new RemoteSample(timeMs, position, facing, moveState, hp));
         _renderPosition = position;
         _renderFacing = facing;
-        _ = _controller.ApplyAuthoritative(ToActorMotion(moveState));
+        _ = _controller.ApplyAuthoritative(MotionCodes.Of(moveState));
         _shownMotion = _controller.Current;
         _lastHp = hp;
         SoundCode = soundCode;
@@ -81,7 +81,7 @@ public abstract class RemoteEntityBase
     // The ground shadow drawn while shadow maps are off: -1 none, 0 small to 3 large (players medium).
     public int ShadowSize { get; init; } = 1;
 
-    public event Action<RemoteEntityBase, PristonActorMotion> MotionStarted;
+    public event Action<RemoteEntityBase, MotionCode> MotionStarted;
 
     public Vector3 RenderPosition => _renderPosition;
 
@@ -95,9 +95,9 @@ public abstract class RemoteEntityBase
 
     public float PlanarSpeed => _planarSpeed;
 
-    public PristonActorMotion Motion => _controller.Current;
+    public MotionCode Motion => _controller.Current;
 
-    public PristonActorMotion ShownMotion => _shownMotion;
+    public MotionCode ShownMotion => _shownMotion;
 
     public bool IsDead => _controller.IsDead;
 
@@ -125,17 +125,17 @@ public abstract class RemoteEntityBase
             var startsSound = _pendingMotionStartsSound;
             _pendingMotion = MotionCommand.None;
             _pendingMotionStartsSound = false;
-            if (command.Motion == PristonActorMotion.Skill && _skillMotionIndex >= 0)
+            if (command.Motion == MotionCode.Skill && _skillMotionIndex >= 0)
             {
                 ApplyMotionIndex(_skillMotionIndex);
             }
-            else if (command.Motion is PristonActorMotion.Attack or PristonActorMotion.Skill && _clipIndex >= 0 && !SkillOverride)
+            else if (command.Motion is MotionCode.Attack or MotionCode.Skill && _clipIndex >= 0 && !SkillOverride)
             {
                 ApplyMotionIndex(_clipIndex);
             }
-            else if (command.Motion == PristonActorMotion.Skill && _skillAttackClip)
+            else if (command.Motion == MotionCode.Skill && _skillAttackClip)
             {
-                ApplyMotionCommand(new MotionCommand(MotionCommandKind.Restart, PristonActorMotion.Attack));
+                ApplyMotionCommand(new MotionCommand(MotionCommandKind.Restart, MotionCode.Attack));
             }
             else
             {
@@ -173,28 +173,14 @@ public abstract class RemoteEntityBase
         _skillAttackClip = attackClip;
         _skillMotionIndex = attackClip ? -1 : motionIndex;
         _skillRate = attackClip ? _attackRate * rate : rate;
-        _ = _controller.ApplyAuthoritative(PristonActorMotion.Skill);
-        _pendingMotion = new MotionCommand(MotionCommandKind.Restart, PristonActorMotion.Skill);
+        _ = _controller.ApplyAuthoritative(MotionCode.Skill);
+        _pendingMotion = new MotionCommand(MotionCommandKind.Restart, MotionCode.Skill);
         _pendingMotionStartsSound = false;
     }
 
     protected abstract void ApplyPlaybackRate(float rate);
 
     public abstract void Dispose();
-
-    public static PristonActorMotion ToActorMotion(MotionState moveState) => moveState switch
-    {
-        MotionState.Walk => PristonActorMotion.Walk,
-        MotionState.Run => PristonActorMotion.Run,
-        MotionState.Attack => PristonActorMotion.Attack,
-        MotionState.Damage => PristonActorMotion.Damage,
-        MotionState.Dead => PristonActorMotion.Dead,
-        MotionState.Skill => PristonActorMotion.Skill,
-        MotionState.Eat => PristonActorMotion.Eat,
-        MotionState.Warp => PristonActorMotion.Warp,
-        MotionState.Yahoo => PristonActorMotion.Yahoo,
-        _ => PristonActorMotion.Stand,
-    };
 
     public void SetRates(int moveSpeed, float attackRate)
     {
@@ -241,8 +227,8 @@ public abstract class RemoteEntityBase
 
     private void ApplySampleState(in RemoteSample sample)
     {
-        var motion = ToActorMotion(sample.MoveState);
-        if (motion == PristonActorMotion.Skill && SkillOverride)
+        var motion = MotionCodes.Of(sample.MoveState);
+        if (motion == MotionCode.Skill && SkillOverride)
         {
             _lastHp = sample.Hp;
             return;
@@ -250,11 +236,11 @@ public abstract class RemoteEntityBase
 
         var command = _controller.ApplyAuthoritative(motion);
         if (command.Kind == MotionCommandKind.None
-            && motion == PristonActorMotion.Damage
-            && _controller.Current == PristonActorMotion.Damage
+            && motion == MotionCode.Damage
+            && _controller.Current == MotionCode.Damage
             && sample.Hp < _lastHp)
         {
-            command = _controller.Retrigger(PristonActorMotion.Damage);
+            command = _controller.Retrigger(MotionCode.Damage);
         }
 
         QueueMotion(command, startsSound: true);
@@ -265,22 +251,22 @@ public abstract class RemoteEntityBase
     {
         if (combatEvent.Kind == RemoteCombatEventKind.PotionBegin)
         {
-            QueueMotion(_controller.Retrigger(PristonActorMotion.Eat), startsSound: true);
+            QueueMotion(_controller.Retrigger(MotionCode.Eat), startsSound: true);
         }
-        else if (combatEvent.Kind == RemoteCombatEventKind.SwingBegin && Motion is PristonActorMotion.Attack or PristonActorMotion.Skill)
+        else if (combatEvent.Kind == RemoteCombatEventKind.SwingBegin && Motion is MotionCode.Attack or MotionCode.Skill)
         {
             QueueMotion(_controller.Retrigger(Motion), startsSound: true);
             _clipIndex = combatEvent.Clip;
         }
-        else if (combatEvent.Kind == RemoteCombatEventKind.Hit && !combatEvent.Killed && Motion == PristonActorMotion.Damage)
+        else if (combatEvent.Kind == RemoteCombatEventKind.Hit && !combatEvent.Killed && Motion == MotionCode.Damage)
         {
-            QueueMotion(_controller.Retrigger(PristonActorMotion.Damage), startsSound: true);
+            QueueMotion(_controller.Retrigger(MotionCode.Damage), startsSound: true);
         }
     }
 
     private void UpdateStall(double elapsedMs)
     {
-        var locomotion = _controller.Current is PristonActorMotion.Walk or PristonActorMotion.Run;
+        var locomotion = _controller.Current is MotionCode.Walk or MotionCode.Run;
         _stallMs = locomotion && _planarSpeed < StallSpeed ? _stallMs + elapsedMs : 0d;
         var stalled = locomotion && _stallMs >= StallDelayMs;
         if (stalled == _stalled)
@@ -302,18 +288,18 @@ public abstract class RemoteEntityBase
             return;
         }
 
-        if (_stalled && command.Motion is PristonActorMotion.Walk or PristonActorMotion.Run)
+        if (_stalled && command.Motion is MotionCode.Walk or MotionCode.Run)
         {
-            command = new MotionCommand(MotionCommandKind.Set, PristonActorMotion.Stand);
+            command = new MotionCommand(MotionCommandKind.Set, MotionCode.Stand);
         }
 
-        if (command.Motion != PristonActorMotion.Skill)
+        if (command.Motion != MotionCode.Skill)
         {
             _skillMotionIndex = -1;
             _skillAttackClip = false;
         }
 
-        if (command.Motion is not (PristonActorMotion.Attack or PristonActorMotion.Skill))
+        if (command.Motion is not (MotionCode.Attack or MotionCode.Skill))
         {
             _clipIndex = -1;
         }
@@ -336,37 +322,37 @@ public abstract class RemoteEntityBase
             return;
         }
 
-        if (_shownMotion == PristonActorMotion.Walk)
+        if (_shownMotion == MotionCode.Walk)
         {
             _learnedWalkSpeed = Math.Max(_learnedWalkSpeed, Math.Min(pose.PlanarSpeed, ModelWalkSpeed * LearnedSpeedLimit));
         }
-        else if (_shownMotion == PristonActorMotion.Run)
+        else if (_shownMotion == MotionCode.Run)
         {
             _learnedRunSpeed = Math.Max(_learnedRunSpeed, Math.Min(pose.PlanarSpeed, ModelRunSpeed * LearnedSpeedLimit));
         }
     }
 
-    protected float RemoteRateFor(PristonActorMotion motion)
+    protected float RemoteRateFor(MotionCode motion)
     {
         return motion switch
         {
-            PristonActorMotion.Walk or PristonActorMotion.Run => BaseLocomotionRate(motion) * LocomotionScale(motion),
-            PristonActorMotion.Skill when SkillOverride => _skillRate,
-            PristonActorMotion.Attack or PristonActorMotion.Skill => _attackRate,
+            MotionCode.Walk or MotionCode.Run => BaseLocomotionRate(motion) * LocomotionScale(motion),
+            MotionCode.Skill when SkillOverride => _skillRate,
+            MotionCode.Attack or MotionCode.Skill => _attackRate,
             _ => 1f
         };
     }
 
     // The clip plays at its original rate at the entity's nominal speed and slows or speeds up with the real ground speed.
-    private float LocomotionScale(PristonActorMotion motion)
+    private float LocomotionScale(MotionCode motion)
     {
         var reference = ReferenceSpeed(motion);
         return reference > 0f ? Math.Clamp(_planarSpeed / reference, MinLocomotionScale, MaxLocomotionScale) : 1f;
     }
 
-    private float ReferenceSpeed(PristonActorMotion motion)
+    private float ReferenceSpeed(MotionCode motion)
     {
-        var walk = motion == PristonActorMotion.Walk;
+        var walk = motion == MotionCode.Walk;
         if (Kind == RemoteEntityKind.Player)
         {
             return walk ? Locomotion.WalkUnitsPerSecond(_moveSpeed, InVillage) : Locomotion.RunUnitsPerSecond(_moveSpeed);
@@ -375,7 +361,7 @@ public abstract class RemoteEntityBase
         return walk ? Math.Max(ModelWalkSpeed, _learnedWalkSpeed) : Math.Max(ModelRunSpeed, _learnedRunSpeed);
     }
 
-    private float BaseLocomotionRate(PristonActorMotion motion)
+    private float BaseLocomotionRate(MotionCode motion)
     {
         if (Kind != RemoteEntityKind.Player)
         {
@@ -383,6 +369,6 @@ public abstract class RemoteEntityBase
         }
 
         var translation = Locomotion.BaseTranslation(_moveSpeed);
-        return motion == PristonActorMotion.Walk ? AnimationRate.MoveRate(translation) : AnimationRate.MoveRate((translation * 460) >> 8);
+        return motion == MotionCode.Walk ? AnimationRate.MoveRate(translation) : AnimationRate.MoveRate((translation * 460) >> 8);
     }
 }

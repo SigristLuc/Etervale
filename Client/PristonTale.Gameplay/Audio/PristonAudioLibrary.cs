@@ -4,6 +4,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.IO;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.Audio;
 
@@ -93,7 +94,7 @@ public sealed class PristonAudioLibrary : IDisposable
     private readonly Dictionary<string, SoundEffect> _fieldMusic = new(StringComparer.Ordinal);
     private readonly SoundEffect[] _ambients = new SoundEffect[AmbientFiles.Length];
     private readonly SoundEffect[] _fieldAmbients = new SoundEffect[FieldAmbientFiles.Length];
-    private readonly Dictionary<(int SoundCode, PristonActorMotion Motion), SoundEffect[]> _npcSounds = [];
+    private readonly Dictionary<(int SoundCode, MotionCode Motion), SoundEffect[]> _npcSounds = [];
     private readonly Dictionary<uint, SoundEffect> _talkSounds = [];
     private readonly List<SoundEffect> _owned = [];
     private readonly Dictionary<string, SoundEffect> _itemSounds = new(StringComparer.OrdinalIgnoreCase);
@@ -207,7 +208,7 @@ public sealed class PristonAudioLibrary : IDisposable
         return _fieldAmbients[code];
     }
 
-    public bool TryGetNpcSound(int soundCode, PristonActorMotion motion, out SoundEffect[] variants)
+    public bool TryGetNpcSound(int soundCode, MotionCode motion, out SoundEffect[] variants)
     {
         return _npcSounds.TryGetValue((soundCode, motion), out variants);
     }
@@ -247,7 +248,7 @@ public sealed class PristonAudioLibrary : IDisposable
 
     private void LoadNpcSoundBanks(string assetRoot, Dictionary<string, SoundEffect> byPath)
     {
-        var grouped = new Dictionary<(int SoundCode, PristonActorMotion Motion), List<SoundEffect>>();
+        var grouped = new Dictionary<(int SoundCode, MotionCode Motion), List<SoundEffect>>();
         foreach (var (soundCode, relativeDirectory) in NpcSoundBankDirectories)
         {
             var directory = PristonFileResolver.Resolve(Path.Combine(assetRoot, relativeDirectory));
@@ -304,48 +305,48 @@ public sealed class PristonAudioLibrary : IDisposable
         }
     }
 
-    private static bool TryGetMotion(string fileName, out PristonActorMotion motion)
+    private static bool TryGetMotion(string fileName, out MotionCode motion)
     {
         if (fileName.StartsWith("attack", StringComparison.OrdinalIgnoreCase))
         {
-            motion = PristonActorMotion.Attack;
+            motion = MotionCode.Attack;
             return true;
         }
 
         if (fileName.StartsWith("damage", StringComparison.OrdinalIgnoreCase))
         {
-            motion = PristonActorMotion.Damage;
+            motion = MotionCode.Damage;
             return true;
         }
 
         if (fileName.StartsWith("dead", StringComparison.OrdinalIgnoreCase))
         {
-            motion = PristonActorMotion.Dead;
+            motion = MotionCode.Dead;
             return true;
         }
 
         if (fileName.StartsWith("neutral", StringComparison.OrdinalIgnoreCase))
         {
-            motion = PristonActorMotion.Stand;
+            motion = MotionCode.Stand;
             return true;
         }
 
         if (fileName.StartsWith("move", StringComparison.OrdinalIgnoreCase))
         {
-            motion = PristonActorMotion.Walk;
+            motion = MotionCode.Walk;
             return true;
         }
 
         if (fileName.StartsWith("disappear", StringComparison.OrdinalIgnoreCase)
             || fileName.StartsWith("change", StringComparison.OrdinalIgnoreCase))
         {
-            motion = PristonActorMotion.Warp;
+            motion = MotionCode.Warp;
             return true;
         }
 
         if (fileName.StartsWith("skill", StringComparison.OrdinalIgnoreCase))
         {
-            motion = PristonActorMotion.Skill;
+            motion = MotionCode.Skill;
             return true;
         }
 

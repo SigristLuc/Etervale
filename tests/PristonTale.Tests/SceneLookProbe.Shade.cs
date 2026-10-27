@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.IO;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -66,7 +67,7 @@ internal sealed partial class SceneLookProbe
         foreach (var spot in new[] { ShadeSpot, OpenSpot })
         {
             var world = Matrix.CreateTranslation(spot);
-            _actors.Add((_renderer.AddActor(new PristonActorInstance(_shadeActor!, world, PristonActorMotion.Stand)), world));
+            _actors.Add((_renderer.AddActor(new PristonActorInstance(_shadeActor!, world, MotionCode.Stand)), world));
         }
     }
 

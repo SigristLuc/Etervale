@@ -6,6 +6,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Loot;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -100,7 +101,7 @@ public sealed class GroundLootPresentation(IActorScene scene, PristonActorLoader
                 entry.Offset = -RestingHeight(actor.Mesh.Bounds, entry.Rotation);
                 try
                 {
-                    entry.Handle = scene.AddActor(new PristonActorInstance(actor, World(entry), PristonActorMotion.Stand));
+                    entry.Handle = scene.AddActor(new PristonActorInstance(actor, World(entry), MotionCode.Stand));
                 }
                 catch (Exception exception)
                 {

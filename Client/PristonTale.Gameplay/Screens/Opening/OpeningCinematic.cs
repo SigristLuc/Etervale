@@ -8,6 +8,7 @@ using PristonTale.Engine3D.IO;
 using PristonTale.Engine3D.Physics;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Effects;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.Screens.Opening;
 
@@ -255,7 +256,7 @@ internal sealed class OpeningCinematic : IDisposable
             try
             {
                 var actor = _actorLoader.LoadSkinned(meshPath, skeletonPath);
-                _renderer.AddActor(new PristonActorInstance(actor, Matrix.Identity, PristonActorMotion.Any));
+                _renderer.AddActor(new PristonActorInstance(actor, Matrix.Identity, MotionCode.Any));
             }
             catch (Exception ex)
             {

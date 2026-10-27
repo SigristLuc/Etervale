@@ -36,7 +36,7 @@ How the tick calls these rules belongs to [application.md](application.md).
 | `World/Spawning/SpawnCadence.cs` | Optional bitmask spawn cadence on a 70 Hz frame clock |
 | `World/Spawning/BossSpawnSchedule.cs` | Server-wide hourly boss pass at a random minute per day |
 | `World/Loot/` | `DropTable`, `DropRoller`, `KillReward` (experience and kill credit), `GroundDropView` |
-| `World/Motion/` | `MotionClip`, `MotionStateCode`, `MotionTiming`, `MotionTimingSet`/`MotionTimingCatalog`, player fallbacks |
+| `World/Motion/` | `MotionClip`, `MotionTiming`, `MotionTimingSet`/`MotionTimingCatalog`, player fallbacks |
 | `World/Motion/PlayerEquipmentTiming.cs` | Generated table of player attack clips by job and weapon key; do not hand-edit |
 | `World/Npcs/` | `NpcDefinition`, `NpcCatalog`, typed services (`NpcServiceKind`), service commands and replies, shop and warehouse rules, teleport routes, sound code map |
 | `Physics/EntityCollision.cs` | Circle-vs-circle blocking between bodies (players, monsters, NPCs) along a swept segment |
@@ -437,8 +437,9 @@ INX motion tables are extracted by the importer (`MotionTableExtractor`) into th
 - `MotionTiming.DurationMs(frames, rate) = frames * 33 / rate`;
   `EventOffsetMs(ticks, rate) = ticks * 33 / (160 * rate)`.
   `DamageRateFactor = 92 / 80` is used for flinch clips and the potion (`Eat`) clip.
-- `MotionStateCode`: Stand 0x40, Walk 0x50, Run 0x60, Attack 0x100, Damage 0x110, Dead 0x120, Eat 0x140, Skill 0x150,
-  Restart 0x200.
+- `MotionCode` (`Shared/PristonTale.Contracts`, shared with the renderer): Stand 0x40, Walk 0x50, Run 0x60, Attack 0x100,
+  Damage 0x110, Dead 0x120, Eat 0x140, Skill 0x150, Restart 0x200, Warp 0x210, Yahoo 0x220, and the talk codes from
+  0x400. `MotionCodes.Of(MotionState)` is the one mapping from a motion state to its clip code.
 - `MotionTimingSet.TryGetClip(state)` returns the first clip of the state (the one the client plays);
   `ClipsForState` returns all (NPC stand variants). Zero-length clips are dropped.
 

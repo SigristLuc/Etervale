@@ -21,9 +21,9 @@ internal static class NpcMovementTests
     {
         var timings = MotionTimingSet.Build(
         [
-            new KeyValuePair<int, MotionClip>(MotionStateCode.Walk, Clip(0, 30)),
-            new KeyValuePair<int, MotionClip>(MotionStateCode.Stand, Clip(40, 80)),
-            new KeyValuePair<int, MotionClip>(MotionStateCode.Stand, Clip(90, 150))
+            new KeyValuePair<int, MotionClip>((int)MotionCode.Walk, Clip(0, 30)),
+            new KeyValuePair<int, MotionClip>((int)MotionCode.Stand, Clip(40, 80)),
+            new KeyValuePair<int, MotionClip>((int)MotionCode.Stand, Clip(90, 150))
         ]);
         var definition = new NpcDefinition(1, "Warehouse", "char/npc/TN-010/TN-010.inx", [new NpcService(NpcServiceKind.Warehouse)])
         {
@@ -65,7 +65,7 @@ internal static class NpcMovementTests
     {
         var timings = MotionTimingSet.Build(
         [
-            new KeyValuePair<int, MotionClip>(MotionStateCode.Stand, Clip(0, 40))
+            new KeyValuePair<int, MotionClip>((int)MotionCode.Stand, Clip(0, 40))
         ]);
         var definition = new NpcDefinition(1, "Smith", "char/npc/TN-003/TN-003.inx", [new NpcService(NpcServiceKind.Shop)]);
         var field = Field(definition, timings);

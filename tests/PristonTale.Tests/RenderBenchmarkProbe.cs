@@ -38,7 +38,7 @@ internal sealed class RenderBenchmarkProbe : Game
         Distribution UpdateMs, Distribution DrawMs, Distribution PresentMs, double AllocatedBytesPerFrame,
         int SunShadowUpdates, int LampShadowMapUpdates, long ShadowDrawCalls, PristonRenderStats LastFrame,
         Dictionary<string, double> CpuSectionsMs, Dictionary<string, double> GpuSectionsMs, int GpuResultsMissed);
-    private sealed record PreparedActor(PristonActor Actor, Matrix World, PristonActorMotion Motion);
+    private sealed record PreparedActor(PristonActor Actor, Matrix World, MotionCode Motion);
     private sealed record PreparedScene(PristonStage Stage, PristonModel[] Models, Vector3 Focus, PreparedActor[] Actors);
 
     private const int SampleCapacity = 360_000;
@@ -559,8 +559,8 @@ internal sealed class RenderBenchmarkProbe : Game
         var collision = new PristonCollisionWorld(stage);
         var result = new List<PreparedActor>(26);
         var playerWorld = ActorWorld(collision, focus, Vector2.Zero, 0f, 1f);
-        result.Add(new PreparedActor(body, playerWorld, PristonActorMotion.Run));
-        result.Add(new PreparedActor(head, playerWorld, PristonActorMotion.Run));
+        result.Add(new PreparedActor(body, playerWorld, MotionCode.Run));
+        result.Add(new PreparedActor(head, playerWorld, MotionCode.Run));
 
         for (var entity = 0; entity < 24; entity++)
         {
@@ -572,11 +572,11 @@ internal sealed class RenderBenchmarkProbe : Game
             var motion = template.Monster
                 ? (entity % 3) switch
                 {
-                    0 => PristonActorMotion.Walk,
-                    1 => PristonActorMotion.Run,
-                    _ => PristonActorMotion.Attack
+                    0 => MotionCode.Walk,
+                    1 => MotionCode.Run,
+                    _ => MotionCode.Attack
                 }
-                : PristonActorMotion.Stand;
+                : MotionCode.Stand;
             var scale = template.Monster && entity % templates.Count == templates.Count - 1 ? 0.75f : 1f;
             result.Add(new PreparedActor(template.Actor, ActorWorld(collision, focus, offset, angle + MathHelper.Pi, scale), motion));
         }

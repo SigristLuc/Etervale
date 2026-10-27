@@ -6,6 +6,7 @@ using SharpGLTF.Geometry.VertexTypes;
 using SharpGLTF.Materials;
 using SharpGLTF.Scenes;
 using SharpGLTF.Schema2;
+using PristonTale.Contracts.Motion;
 
 using StageMesh = SharpGLTF.Geometry.MeshBuilder<SharpGLTF.Geometry.VertexTypes.VertexPositionNormal, SharpGLTF.Geometry.VertexTypes.VertexColor1Texture1, SharpGLTF.Geometry.VertexTypes.VertexEmpty>;
 using StageVB = SharpGLTF.Geometry.VertexBuilder<SharpGLTF.Geometry.VertexTypes.VertexPositionNormal, SharpGLTF.Geometry.VertexTypes.VertexColor1Texture1, SharpGLTF.Geometry.VertexTypes.VertexEmpty>;
@@ -641,8 +642,8 @@ internal static class GltfSceneExport
             var startTicks = (int)startTicksLong;
             var endTicks = (int)endTicksLong;
 
-            var baseName = Enum.IsDefined(typeof(PristonActorMotion), motion.State)
-                ? ((PristonActorMotion)motion.State).ToString()
+            var baseName = Enum.IsDefined(typeof(MotionCode), motion.State)
+                ? ((MotionCode)motion.State).ToString()
                 : $"State_0x{motion.State:X}";
             var name = baseName;
             if (usedNames.TryGetValue(baseName, out var duplicateCount))

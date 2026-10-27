@@ -30,7 +30,7 @@ internal static class MonsterBossSkillTests
     {
         var babel = MonsterSkillField.Monster(MonsterSounds.Babel, rating: 0, attack: 2, life: 1_000_000);
         var timing = Simulation.World.Motion.MotionTimingSet.Build([
-            new(Simulation.World.Motion.MotionStateCode.Attack, new Simulation.World.Motion.MotionClip(0, 55, 2880, 5280, 0, 0, false) { Slot = 2 })
+            new((int)MotionCode.Attack, new Simulation.World.Motion.MotionClip(0, 55, 2880, 5280, 0, 0, false) { Slot = 2 })
         ]);
         var world = new MonsterSkillField(timing, babel);
         world.AddPlayer(1, new Vector3(50, 0, 0), level: 1);

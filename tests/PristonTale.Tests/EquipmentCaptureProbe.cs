@@ -4,6 +4,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -86,10 +87,10 @@ internal sealed class EquipmentCaptureProbe : Game
             var avatar = _avatars[_published++];
             var motion = _phase switch
             {
-                2 => PristonActorMotion.Attack,
-                3 when _ranged => PristonActorMotion.Walk,
-                4 when _ranged => PristonActorMotion.Run,
-                _ => PristonActorMotion.Stand
+                2 => MotionCode.Attack,
+                3 when _ranged => MotionCode.Walk,
+                4 when _ranged => MotionCode.Run,
+                _ => MotionCode.Stand
             };
             _handles.Add(_composer.Compose(_root, avatar.Visuals, 0, avatar.World, motion));
             return;

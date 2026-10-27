@@ -91,9 +91,9 @@ internal static class YahooTests
     private static Task ClientAndWireAsync()
     {
         var motion = new ActorMotionController();
-        Assert.True(motion.ApplyAuthoritative(PristonActorMotion.Yahoo).Kind == MotionCommandKind.Restart && motion.LocomotionFrozen,
+        Assert.True(motion.ApplyAuthoritative(MotionCode.Yahoo).Kind == MotionCommandKind.Restart && motion.LocomotionFrozen,
             "the cheer was not a one-shot that holds the player");
-        Assert.True(motion.ApplyLocomotion(PristonActorMotion.Walk).Kind == MotionCommandKind.None, "walking cut the cheer");
+        Assert.True(motion.ApplyLocomotion(MotionCode.Walk).Kind == MotionCommandKind.None, "walking cut the cheer");
 
         var buffer = new byte[PresenceWire.HeaderSize + PresenceWire.MaxMotionEntrySize];
         var writer = new PresenceEntriesWriter(buffer, 1);

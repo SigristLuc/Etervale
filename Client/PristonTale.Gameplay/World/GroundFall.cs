@@ -1,5 +1,6 @@
 using PristonTale.Engine3D.Formats;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World;
 
@@ -15,6 +16,6 @@ public static class GroundFall
 
     public static float Step(float feet, float floor, float dt) => Falling.Step(feet, floor, dt);
 
-    public static PristonActorMotion Landing(float fallen) =>
-        fallen > HardLandingDistance ? PristonActorMotion.FallDamage : PristonActorMotion.FallStand;
+    public static MotionCode Landing(float fallen) =>
+        fallen > HardLandingDistance ? MotionCode.FallDamage : MotionCode.FallStand;
 }

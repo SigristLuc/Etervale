@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
 using PristonTale.AssetDump;
+using PristonTale.Contracts.Motion;
 
 if (args.Length == 4 && args[0] == "--export-field-textures")
 {
@@ -291,7 +292,7 @@ void DumpInx(PristonModelInfo info)
         Console.WriteLine($"  {"slot",-5} {"state",-10} {"start",8} {"end",8} {"repeat",7}  event frames (raw ×160 → authored)");
         foreach (var (slot, m) in usable)
         {
-            var name = Enum.IsDefined((PristonActorMotion)m.State) ? ((PristonActorMotion)m.State).ToString() : "";
+            var name = Enum.IsDefined((MotionCode)m.State) ? ((MotionCode)m.State).ToString() : "";
             var events = string.Join(", ", m.EventFrames
                 .Where(e => e != 0)
                 .Select(e => $"{e} → f{m.StartFrame + (e / 160)}"));

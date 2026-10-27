@@ -30,7 +30,7 @@ shows comes from server snapshots.
 
 | Project | Kind | Owns |
 |---|---|---|
-| `Shared/PristonTale.Contracts` | library, no deps | Codes every layer shares, declared once (`MotionState`: the server's motion, the world view, the presence wire byte and the client's playback) |
+| `Shared/PristonTale.Contracts` | library, no deps | Codes every layer shares, declared once: `MotionState` (the server's motion, the world view, the presence wire byte, the client's playback) and `MotionCode` (a model's motion table code, read by the renderer and the server's timing) with `MotionCodes.Of` between them |
 | `Shared/PristonTale.Geometry` | library, no deps | Pure geometry used by simulation and renderer |
 | `Shared/PristonTale.Simulation` | library | Game rules and data models: characters, classes, items, combat, modifiers, progression, skills, world rules (fields, AI, spawning, loot, motion, NPCs), physics. No IO, no transport, no MonoGame |
 | `Shared/PristonTale.Protocol` | library, no deps | Wire format: framing, TLS transport, messages and codecs, Etervale opcodes |
@@ -62,7 +62,7 @@ reference nothing.
 | Persistence.Sqlite / .Postgres | Persistence |
 | Application | Simulation, Persistence.Abstractions |
 | Server | Application, Protocol, Simulation, Persistence.Sqlite, Persistence.Postgres |
-| Engine3D | Geometry, MonoGame framework |
+| Engine3D | Contracts, Geometry, MonoGame framework |
 | Effects | Engine3D, MonoGame framework |
 | Client.Net | Protocol, Simulation, Application |
 | Gameplay | Engine3D, Effects, Simulation, Client.Net, MonoGame framework |

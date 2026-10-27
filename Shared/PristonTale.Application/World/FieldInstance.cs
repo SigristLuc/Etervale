@@ -14,6 +14,7 @@ using PristonTale.Simulation.World.Motion;
 using PristonTale.Simulation.World.Spawning;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Application.World;
 
@@ -116,7 +117,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     public void Add(WorldPlayer player)
     {
         _players[player.EntityId] = player;
-        player.FlinchMs = PlayerActionTiming(player, MotionStateCode.Damage, MotionTiming.DamageRateFactor).DurationMs;
+        player.FlinchMs = PlayerActionTiming(player, MotionCode.Damage, MotionTiming.DamageRateFactor).DurationMs;
     }
     public void Remove(ulong entityId)
     {
@@ -263,7 +264,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
             if (player.HasPendingYahoo && !player.IsBusy)
             {
-                player.BeginPendingYahoo(PlayerActionTiming(player, MotionStateCode.Yahoo, 1f).DurationMs);
+                player.BeginPendingYahoo(PlayerActionTiming(player, MotionCode.Yahoo, 1f).DurationMs);
             }
 
             _combat.StepPlayerAttack(player);
@@ -459,15 +460,15 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     public (float DurationMs, float HitAtMs) PlayerSwingTiming(WorldPlayer player)
     {
         var rate = player.Character.AttackRate;
-        return PlayerActionTiming(player, MotionStateCode.Attack, rate);
+        return PlayerActionTiming(player, MotionCode.Attack, rate);
     }
 
     private (float DurationMs, float HitAtMs) PlayerPotionTiming(WorldPlayer player)
     {
-        return PlayerActionTiming(player, MotionStateCode.Eat, MotionTiming.DamageRateFactor);
+        return PlayerActionTiming(player, MotionCode.Eat, MotionTiming.DamageRateFactor);
     }
 
-    private (float DurationMs, float HitAtMs) PlayerActionTiming(WorldPlayer player, int state, float rate)
+    private (float DurationMs, float HitAtMs) PlayerActionTiming(WorldPlayer player, MotionCode state, float rate)
     {
         var timing = PlayerTimingFor(player.Appearance.JobCode);
         var clip = PlayerMotionFallback.GetClip(player.Character.Class.Class, state);
@@ -477,7 +478,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         }
 
         string weaponKey = player.Character.GetEquipped(EquipmentSlot.Weapon)?.Definition.CatalogKey ?? "";
-        if (state == MotionStateCode.Attack && PlayerEquipmentTiming.TryGet(player.Appearance.JobCode, weaponKey, out var equipped))
+        if (state == MotionCode.Attack && PlayerEquipmentTiming.TryGet(player.Appearance.JobCode, weaponKey, out var equipped))
         {
             clip = equipped;
         }

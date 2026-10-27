@@ -7,6 +7,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Physics;
 using XnaVector3 = Microsoft.Xna.Framework.Vector3;
 using NumVector3 = System.Numerics.Vector3;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -58,10 +59,10 @@ public sealed partial class RemoteEntityManager
 
     public ulong SelfEntityId => _selfEntityId;
 
-    public event Action<int, PristonActorMotion, XnaVector3> NpcMotionStarted;
+    public event Action<int, MotionCode, XnaVector3> NpcMotionStarted;
 
     // Another player entered a motion: its class code, the motion and where it stands.
-    public event Action<int, PristonActorMotion, XnaVector3> PlayerMotionStarted;
+    public event Action<int, MotionCode, XnaVector3> PlayerMotionStarted;
 
     public int PendingMonsterCount => _pendingModels.Count;
 
@@ -227,7 +228,7 @@ public sealed partial class RemoteEntityManager
 
         var world = Microsoft.Xna.Framework.Matrix.CreateRotationY(seedFacing)
                     * Microsoft.Xna.Framework.Matrix.CreateTranslation(position);
-        var motion = RemoteEntityBase.ToActorMotion(spawn.MoveState);
+        var motion = MotionCodes.Of(spawn.MoveState);
         visuals = ResolvePlayerHead(visuals, spawn.Player);
         var handles = new PlayerActorHandles(ActorHandle.None, ActorHandle.None);
         try
@@ -299,7 +300,7 @@ public sealed partial class RemoteEntityManager
 
         var scale = spawn.ModelScale > 0f ? spawn.ModelScale : info.ModelScale;
         var world = Microsoft.Xna.Framework.Matrix.CreateScale(scale) * Microsoft.Xna.Framework.Matrix.CreateRotationY(spawn.Facing) * Microsoft.Xna.Framework.Matrix.CreateTranslation(position);
-        var motion = RemoteEntityBase.ToActorMotion(spawn.MoveState);
+        var motion = MotionCodes.Of(spawn.MoveState);
         var composed = _monsterComposer.Compose(_assetRoot, info.ModelInxPath, world, motion);
         var monster = new RemoteModelEntity(
             _scene,
@@ -424,7 +425,7 @@ public sealed partial class RemoteEntityManager
         entity.Dispose();
     }
 
-    private void OnMotionStarted(RemoteEntityBase entity, PristonActorMotion motion)
+    private void OnMotionStarted(RemoteEntityBase entity, MotionCode motion)
     {
         if (entity.Kind == RemoteEntityKind.Npc && entity.SoundCode != 0)
         {

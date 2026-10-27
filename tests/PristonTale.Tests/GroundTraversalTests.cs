@@ -6,6 +6,7 @@ using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Combat;
 using PristonTale.Gameplay.World;
 using PristonTale.Simulation.World.Fields;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -37,21 +38,21 @@ internal static class GroundTraversalTests
 
         Assert.True(frames is 49 or 50, $"a 400-unit fall took {frames} frames at 70 Hz");
         Assert.True(feet >= 613f && feet - 613f <= GroundFall.SnapDistance, "fall stopped away from the floor");
-        Assert.True(GroundFall.Landing(200) == PristonActorMotion.FallStand, "a 200-unit fall landed hard");
-        Assert.True(GroundFall.Landing(201) == PristonActorMotion.FallDamage, "a fall over 200 units landed soft");
+        Assert.True(GroundFall.Landing(200) == MotionCode.FallStand, "a 200-unit fall landed hard");
+        Assert.True(GroundFall.Landing(201) == MotionCode.FallDamage, "a fall over 200 units landed soft");
 
         var motion = new ActorMotionController();
-        motion.ApplyAuthoritative(PristonActorMotion.FallDown);
-        Assert.True(motion.ApplyLocomotion(PristonActorMotion.Walk).Kind == MotionCommandKind.None, "walking replaced the fall motion");
+        motion.ApplyAuthoritative(MotionCode.FallDown);
+        Assert.True(motion.ApplyLocomotion(MotionCode.Walk).Kind == MotionCommandKind.None, "walking replaced the fall motion");
         Assert.True(!motion.LocomotionFrozen, "a fall stopped the player from walking");
-        foreach (var landing in new[] { PristonActorMotion.FallStand, PristonActorMotion.FallDamage })
+        foreach (var landing in new[] { MotionCode.FallStand, MotionCode.FallDamage })
         {
             // A landing holds the player until its clip ends and the actor is back to Stand.
             motion.ApplyAuthoritative(landing);
             Assert.True(motion.LocomotionFrozen, $"{landing} let the player walk");
-            Assert.True(motion.ApplyLocomotion(PristonActorMotion.Walk).Kind == MotionCommandKind.None, $"walking replaced {landing}");
-            motion.ApplyAuthoritative(PristonActorMotion.Stand);
-            Assert.True(motion.ApplyLocomotion(PristonActorMotion.Walk).Motion == PristonActorMotion.Walk, "walking did not follow the landing");
+            Assert.True(motion.ApplyLocomotion(MotionCode.Walk).Kind == MotionCommandKind.None, $"walking replaced {landing}");
+            motion.ApplyAuthoritative(MotionCode.Stand);
+            Assert.True(motion.ApplyLocomotion(MotionCode.Walk).Motion == MotionCode.Walk, "walking did not follow the landing");
         }
 
         // A steep slope crossed in one long frame is followed; a ledge between two samples is a fall.

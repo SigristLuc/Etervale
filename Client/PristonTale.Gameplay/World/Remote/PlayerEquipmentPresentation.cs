@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -74,7 +75,7 @@ public sealed class PlayerEquipmentPresentation
         }
     }
 
-    public bool Update(OwnerState owner, bool village, Matrix world, PristonActorMotion motion)
+    public bool Update(OwnerState owner, bool village, Matrix world, MotionCode motion)
     {
         if (owner is null || _basePlayerVisuals is null || _playerComposer is null)
         {

@@ -100,8 +100,8 @@ internal static class MonsterSkillStatusTests
         var other = MonsterSkillField.Timing(twoSkills: true);
         foreach (var (key, drains) in new[] { ('J', false), ('K', true) })
         {
-            var timing = Simulation.World.Motion.MotionTimingSet.Build(other.ClipsForState(Simulation.World.Motion.MotionStateCode.Skill)
-                .Where(clip => clip.Key == key).Select(clip => new KeyValuePair<int, Simulation.World.Motion.MotionClip>(Simulation.World.Motion.MotionStateCode.Skill, clip)));
+            var timing = Simulation.World.Motion.MotionTimingSet.Build(other.ClipsForState(MotionCode.Skill)
+                .Where(clip => clip.Key == key).Select(clip => new KeyValuePair<int, Simulation.World.Motion.MotionClip>((int)MotionCode.Skill, clip)));
             var world = new MonsterSkillField(timing, definition);
             var player = world.AddPlayer(1, new Vector3(50, 0, 0), Simulation.Characters.PlayerClass.Magician);
             var mana = player.Character.Mana;

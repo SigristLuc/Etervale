@@ -5,6 +5,7 @@ using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Gameplay.World;
 using PristonTale.Gameplay.UI;
 using PristonTale.Gameplay.UI.Widgets;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.Screens.Gameplay;
 
@@ -169,31 +170,31 @@ public sealed class GameplayScreen : GameScreen
 
         if (Pressed(keyboard, Keys.D1))
         {
-            _scene.DebugForceMotion(PristonActorMotion.Stand);
+            _scene.DebugForceMotion(MotionCode.Stand);
         }
         if (Pressed(keyboard, Keys.D2))
         {
-            _scene.DebugForceMotion(PristonActorMotion.Walk);
+            _scene.DebugForceMotion(MotionCode.Walk);
         }
         if (Pressed(keyboard, Keys.D3))
         {
-            _scene.DebugForceMotion(PristonActorMotion.Run);
+            _scene.DebugForceMotion(MotionCode.Run);
         }
         if (Pressed(keyboard, Keys.D4))
         {
-            _scene.DebugForceMotion(PristonActorMotion.Attack);
+            _scene.DebugForceMotion(MotionCode.Attack);
         }
         if (Pressed(keyboard, Keys.D5))
         {
-            _scene.DebugForceMotion(PristonActorMotion.Damage);
+            _scene.DebugForceMotion(MotionCode.Damage);
         }
         if (Pressed(keyboard, Keys.D6))
         {
-            _scene.DebugForceMotion(PristonActorMotion.Dead);
+            _scene.DebugForceMotion(MotionCode.Dead);
         }
         if (Pressed(keyboard, Keys.D7))
         {
-            _scene.DebugForceMotion(PristonActorMotion.Skill);
+            _scene.DebugForceMotion(MotionCode.Skill);
         }
     }
 

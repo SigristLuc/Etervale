@@ -7,6 +7,7 @@ using PristonTale.Engine3D.Physics;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.Screens.CharacterSelect;
 
@@ -141,7 +142,7 @@ internal sealed class CharacterSelectScene
                 visuals,
                 summary.FaceIndex,
                 SlotWorld(slot),
-                PristonActorMotion.Stand);
+                MotionCode.Stand);
             ApplySelectPose(handles);
             _placed.Add(new Placed(summary, slot, handles));
         }
@@ -192,7 +193,7 @@ internal sealed class CharacterSelectScene
                 visuals,
                 0,
                 SlotWorld(JobCharacterPos[i]),
-                PristonActorMotion.Stand);
+                MotionCode.Stand);
             ApplySelectPose(handles);
             _jobActors.Add(new JobActor(jobs[i], i, visuals, handles));
         }
@@ -228,7 +229,7 @@ internal sealed class CharacterSelectScene
             _assetRoot,
             _facePreviewVisuals,
             faceIndex,
-            PristonActorMotion.Stand);
+            MotionCode.Stand);
         ApplySelectPose(_facePreview);
         SetHandlesColorAdd(_facePreview, Vector3.Zero);
     }
@@ -296,7 +297,7 @@ internal sealed class CharacterSelectScene
 
             _jobMoveX = destinationX;
             _jobMoveZ = destinationZ;
-            PlaceJobActor(job, (destinationX, destinationZ), PristonActorMotion.Stand, 0f);
+            PlaceJobActor(job, (destinationX, destinationZ), MotionCode.Stand, 0f);
         }
 
         _jobMoverIndex = -1;
@@ -320,7 +321,7 @@ internal sealed class CharacterSelectScene
         _jobTargetZ = targetZ;
         _jobMoverReturning = returning;
         _jobPhase = JobMovePhase.TurnToHeading;
-        PlaceJobActor(_jobActors[actorIndex], (startX, startZ), PristonActorMotion.Stand, _jobMoveYaw);
+        PlaceJobActor(_jobActors[actorIndex], (startX, startZ), MotionCode.Stand, _jobMoveYaw);
     }
 
     public void UpdateRun(float dt)
@@ -340,7 +341,7 @@ internal sealed class CharacterSelectScene
                     var to = new Vector2(_jobTargetX - _jobMoveX, _jobTargetZ - _jobMoveZ);
                     var headingYaw = to.LengthSquared() > 1e-4f ? MathF.Atan2(to.X, -to.Y) : _jobMoveYaw;
                     _jobMoveYaw = ApproachAngle(_jobMoveYaw, headingYaw, turn);
-                    PlaceJobActor(job, (_jobMoveX, _jobMoveZ), PristonActorMotion.Stand, _jobMoveYaw);
+                    PlaceJobActor(job, (_jobMoveX, _jobMoveZ), MotionCode.Stand, _jobMoveYaw);
                     if (MathF.Abs(MathHelper.WrapAngle(headingYaw - _jobMoveYaw)) <= JobYawSettleEpsilon)
                     {
                         _jobPhase = JobMovePhase.Running;
@@ -369,7 +370,7 @@ internal sealed class CharacterSelectScene
                             _jobMoveX = 0f;
                             _jobMoveZ = JobRestZ;
                         }
-                        PlaceJobActor(job, (_jobMoveX, _jobMoveZ), PristonActorMotion.Stand, _jobMoveYaw);
+                        PlaceJobActor(job, (_jobMoveX, _jobMoveZ), MotionCode.Stand, _jobMoveYaw);
                         _jobPhase = JobMovePhase.TurnToCamera;
                         break;
                     }
@@ -378,18 +379,18 @@ internal sealed class CharacterSelectScene
                     _jobMoveX += dir.X * step;
                     _jobMoveZ += dir.Y * step;
                     _jobMoveYaw = ApproachAngle(_jobMoveYaw, MathF.Atan2(dir.X, -dir.Y), turn);
-                    PlaceJobActor(job, (_jobMoveX, _jobMoveZ), PristonActorMotion.Run, _jobMoveYaw);
+                    PlaceJobActor(job, (_jobMoveX, _jobMoveZ), MotionCode.Run, _jobMoveYaw);
                     break;
                 }
 
             case JobMovePhase.TurnToCamera:
                 {
                     _jobMoveYaw = ApproachAngle(_jobMoveYaw, 0f, turn);
-                    PlaceJobActor(job, (_jobMoveX, _jobMoveZ), PristonActorMotion.Stand, _jobMoveYaw);
+                    PlaceJobActor(job, (_jobMoveX, _jobMoveZ), MotionCode.Stand, _jobMoveYaw);
                     if (MathF.Abs(_jobMoveYaw) <= JobYawSettleEpsilon)
                     {
                         _jobMoveYaw = 0f;
-                        PlaceJobActor(job, (_jobMoveX, _jobMoveZ), PristonActorMotion.Stand, 0f);
+                        PlaceJobActor(job, (_jobMoveX, _jobMoveZ), MotionCode.Stand, 0f);
                         _jobMoverIndex = -1;
                         _jobPhase = JobMovePhase.None;
                     }
@@ -407,10 +408,10 @@ internal sealed class CharacterSelectScene
 
         var job = _jobActors[jobIndex];
         var world = CurrentJobActorWorld(jobIndex);
-        var motion = _jobPhase == JobMovePhase.Running ? PristonActorMotion.Run : PristonActorMotion.Stand;
+        var motion = _jobPhase == JobMovePhase.Running ? MotionCode.Run : MotionCode.Stand;
         _actorScene.RemoveActor(job.Handles.Head);
         var head = _playerComposer.ComposeHead(_assetRoot, job.Visuals, faceIndex, world, motion);
-        if (motion == PristonActorMotion.Stand)
+        if (motion == MotionCode.Stand)
         {
             ApplySelectPose(head);
         }
@@ -428,7 +429,7 @@ internal sealed class CharacterSelectScene
                 _facePreviewVisuals,
                 faceIndex,
                 Matrix.Identity,
-                PristonActorMotion.Stand,
+                MotionCode.Stand,
                 visibleInMainPass: false);
             ApplySelectPose(previewHead);
             _facePreview = _facePreview with { Head = previewHead };
@@ -574,11 +575,11 @@ internal sealed class CharacterSelectScene
         return brood == CharacterBrood.Morion ? MorionJobs : TempscronJobs;
     }
 
-    private void PlaceJobActor(JobActor job, (float X, float Z) slot, PristonActorMotion motion, float yaw)
+    private void PlaceJobActor(JobActor job, (float X, float Z) slot, MotionCode motion, float yaw)
     {
         var world = SlotWorld(slot, yaw);
         SetHandlesWorld(job.Handles, world);
-        if (motion == PristonActorMotion.Stand)
+        if (motion == MotionCode.Stand)
         {
             ApplySelectPose(job.Handles);
             return;
@@ -609,7 +610,7 @@ internal sealed class CharacterSelectScene
         }
         catch (Exception exception) when (exception is ArgumentOutOfRangeException or InvalidDataException)
         {
-            _actorScene.SetActorMotion(handle, PristonActorMotion.Stand);
+            _actorScene.SetActorMotion(handle, MotionCode.Stand);
         }
     }
 
