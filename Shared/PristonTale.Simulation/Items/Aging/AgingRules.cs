@@ -279,6 +279,7 @@ public static class AgingRules
             return RingGoal;
         }
 
+        // Bows and javelins count critical hits (CounterOf) toward the attack table's goal, as in the original.
         return Family(item) switch
         {
             "WC1" or "WS2" or "WP1" => CriticalGoal[level],

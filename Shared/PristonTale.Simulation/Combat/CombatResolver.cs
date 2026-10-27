@@ -98,8 +98,11 @@ public static class CombatResolver
 
     public static int RollBaseDamage(CombatRng rng, in AttackProfile a) => rng.Range(a.DamageMin, a.DamageMax);
 
+    // value x percent / 100 in 64 bits, saturated: damage is 32-bit and the percents stack.
+    public static int PercentOf(int value, int percent) => (int)Math.Clamp((long)value * percent / 100, int.MinValue, int.MaxValue);
+
     public static int ApplySkill(int dmg, in AttackProfile a) =>
-        dmg + (dmg * a.SkillMultiplierPercent) / 100 + a.SkillFlatAdd;
+        dmg + PercentOf(dmg, a.SkillMultiplierPercent) + a.SkillFlatAdd;
 
     public static bool RollCrit(CombatRng rng, in AttackProfile a, in DefenderProfile d)
     {
@@ -108,7 +111,7 @@ public static class CombatResolver
         return rng.RollPercent() < chance;
     }
 
-    public static int ApplyCrit(int dmg, int bonusPercent = 0) => (dmg * (AttackProfile.CritMultiplierPercent + bonusPercent)) / 100;
+    public static int ApplyCrit(int dmg, int bonusPercent = 0) => PercentOf(dmg, AttackProfile.CritMultiplierPercent + bonusPercent);
 
     public static int ApplyElement(int dmg, Element e, in ResistanceBlock r) => ApplyResistance(dmg, r[e]);
 
@@ -116,7 +119,7 @@ public static class CombatResolver
     public static int ApplyResistance(int dmg, int resistance)
     {
         var rs = Math.Clamp(resistance, -100, 100);
-        return dmg - (dmg * rs) / 100;
+        return dmg - PercentOf(dmg, rs);
     }
 
     public static bool RollBlock(CombatRng rng, in DefenderProfile d, int attackerLevel, bool hasShield)
@@ -129,7 +132,7 @@ public static class CombatResolver
 
     public static int ApplyAbsorbMonster(int dmg, int absorption)
     {
-        dmg -= (dmg * absorption) / 100;
+        dmg -= PercentOf(dmg, absorption);
         if (dmg <= 0) dmg = 1;
         return dmg;
     }
@@ -148,7 +151,7 @@ public static class CombatResolver
         int dmg = RollBaseDamage(rng, a);
 
         dmg = ApplySkill(dmg, a);
-        dmg += dmg * a.ExtraPercent / 100;
+        dmg += PercentOf(dmg, a.ExtraPercent);
 
         bool crit = RollCrit(rng, a, d);
         if (crit)

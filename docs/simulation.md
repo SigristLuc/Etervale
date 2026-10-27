@@ -178,7 +178,7 @@ Level `L`, attributes `Str Spi Tal Agi Hlt`; float arithmetic, truncated at the 
 | AttackRating | `trunc(items.AR + Agi*3.1 + L*1.9 + Tal*1.5) + items.LevelAttackRating` |
 | Defence | `Agi/2 + Tal/4 + L*1.4 + items.Defence` |
 | Absorption | `trunc(Defence/100 + L/10 + items.Absorb + (Str+Tal)/40) + 1 + min(2, items.AbsorbItems/2)` (truncated defence) |
-| MaxWeight | `(short)(Str*2 + Hlt*1.5 + L*3 + 60)` |
+| MaxWeight | `(int)(Str*2 + Hlt*1.5 + L*3 + 60)` |
 | MoveSpeed | `trunc((Tal + Hlt + L + 60) / 150 - carried/MaxWeight + items.MoveSpeed) + 1` |
 | MaxLife fn 1 / 2 | `L*2.1 + Hlt*2.4 + Str*0.8 - 10` / `L*2.1 + Hlt*2.2 + Str*0.6 - 5` |
 | MaxLife fn 3 / 4 / 5 | `L*1.8 + Hlt*2.1 + Str*0.3` / `L*1.5 + Hlt*2.1` / `L*1.5 + Hlt*1.9` |
@@ -194,9 +194,9 @@ Level `L`, attributes `Str Spi Tal Agi Hlt`; float arithmetic, truncated at the 
 | LifeRegen, ManaRegen, StaminaRegen | item regeneration in points per second, added by `Regeneration` |
 | PotionSpace | the last worn item's belt capacity, else 2 |
 
-Life, mana and stamina are cast through `short`, then gain `(short)(items.LevelLife + items.AddLife)`, the mana
-`(short)(items.AddMana)` for mana function 1 and `(short)(items.LevelMana + items.AddMana)` otherwise, and the stamina
-`(short)items.AddStamina`. `CarriedWeight` is `CarriedWeight.Of(character)`: every owned item, worn ones included; a
+Life, mana and stamina are truncated to whole numbers (32-bit, never narrowed), then gain
+`(int)(items.LevelLife + items.AddLife)`, the mana `(int)(items.AddMana)` for mana function 1 and
+`(int)(items.LevelMana + items.AddMana)` otherwise, and the stamina `(int)items.AddStamina`. `CarriedWeight` is `CarriedWeight.Of(character)`: every owned item, worn ones included; a
 potion weighs one per unit, other items their weight per unit, gold nothing.
 
 ### Weapon damage (`WeaponDamage.Compute`)

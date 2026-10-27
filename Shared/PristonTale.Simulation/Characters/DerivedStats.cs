@@ -52,19 +52,17 @@ public readonly record struct DerivedStats(
 
         int attackRating = (int)(items.AttackRating + fDex * 3.1f + fLevel * 1.9f + fTal * 1.5f) + items.LevelAttackRating;
 
-        // Defence — float division
         int defence = (int)(fDex / 2f + fTal / 4f + fLevel * 1.4f + items.Defence);
 
         // Absorption uses the truncated defence; every two items with an absorb of their own add one, at most two.
         int absorption = (int)(defence / 100f + fLevel / 10f + items.Absorb + (fStr + fTal) / 40f) + 1 + Math.Min(2, items.AbsorbItems / 2);
 
-        int maxWeight = (short)(fStr * 2f + fHlt * 1.5f + fLevel * 3f + 60f);
+        int maxWeight = (int)(fStr * 2f + fHlt * 1.5f + fLevel * 3f + 60f);
 
         // Move speed loses the carried share of the weight limit; boots and specializations add their speed.
         float weightShare = maxWeight > 0 ? carriedWeight / (float)maxWeight : 0f;
         int moveSpeed = (int)((fTal + fHlt + fLevel + 60f) / 150f - weightShare + items.MoveSpeed) + 1;
 
-        // Max HP — branch on LifeFunction
         float life = fn.LifeFunction switch
         {
             1 => fLevel * 2.1f + fHlt * 2.4f + fStr * 0.8f - 10f,
@@ -73,23 +71,22 @@ public readonly record struct DerivedStats(
             4 => fLevel * 1.5f + fHlt * 2.1f,
             _ => fLevel * 1.5f + fHlt * 1.9f, // 5
         };
-        int maxLife = (short)life;
-        maxLife += (short)(items.LevelLife + items.AddLife);
+        int maxLife = (int)life;
+        maxLife += (int)(items.LevelLife + items.AddLife);
 
-        // Max MP — branch on ManaFunction
         float mana = fn.ManaFunction switch
         {
             1 => fLevel * 1.5f + fSpi * 3.8f,
             2 => fLevel * 0.9f + fSpi * 2.7f,
             _ => fLevel * 0.6f + fSpi * 2.2f, // 3
         };
-        int maxMana = (short)mana;
+        int maxMana = (int)mana;
         // The first mana function gains only the added mana, not the level bonus of a specialization.
-        maxMana += (short)(fn.ManaFunction == 1 ? items.AddMana : items.LevelMana + items.AddMana);
+        maxMana += (int)(fn.ManaFunction == 1 ? items.AddMana : items.LevelMana + items.AddMana);
 
-        // Max SP — universal; (Str+Tal)/2 is float division here
-        int maxStamina = (short)(fHlt * 1.4f + (fStr + fTal) / 2f + fLevel * 2.3f + 80f + fSpi);
-        maxStamina += (short)items.AddStamina;
+        // (Str + Tal) / 2 divides as float here.
+        int maxStamina = (int)(fHlt * 1.4f + (fStr + fTal) / 2f + fLevel * 2.3f + 80f + fSpi);
+        maxStamina += (int)items.AddStamina;
 
         // Bare-hand melee damage — integer division on the raw int stats. WeaponDamage replaces it when a
         // weapon is equipped.
