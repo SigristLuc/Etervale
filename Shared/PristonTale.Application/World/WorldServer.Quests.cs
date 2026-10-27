@@ -177,22 +177,10 @@ public sealed partial class WorldServer
             return;
         }
 
-        var player = connection.Player;
-        var target = GetField(travel.FieldCode);
-        var position = target.Terrain.PlaceOnFloor(QuestTransactions.TravelPoint(destination, travel));
+        var position = GetField(travel.FieldCode).Terrain.PlaceOnFloor(QuestTransactions.TravelPoint(destination, travel));
         var inVillage = destination.State == FieldState.Village;
-        if (connection.FieldId != travel.FieldCode)
-        {
-            TransferPlayer(player, _fields[connection.FieldId], target);
-            _membershipChanged = true;
-            _connections[player.EntityId] = connection with
-            {
-                FieldId = travel.FieldCode
-            };
-        }
-
-        player.EnterField(position, inVillage);
-        UpdatePlacement(connection.Session, travel.FieldCode, position, inVillage);
+        Relocate(connection, travel.FieldCode, position, inVillage);
+        connection.Player.EnterField(position, inVillage);
     }
 
     // The quest arena is left on entry: a character saved there starts in its home town.

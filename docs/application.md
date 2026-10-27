@@ -445,8 +445,11 @@ Add an NPC service or action:
   same operation id.
 - `CommitInventoryOperation` does not copy money; gold changes are applied as deltas (`TryChangeMoney`). Copying the
   whole candidate would erase tick-side changes made during storage IO.
-- Field clocks are per instance. Anything stored as an absolute field time (cooldowns) must be rebased when a
-  player changes field; `MoveToFieldAsync` does this, the NPC teleport path (`Arrive`) does not.
+- Field clocks are per instance. Anything stored as an absolute field time (cooldowns, statuses) must be rebased when
+  a player changes field; `TransferPlayer` does both. Every move between fields goes through `WorldServer.Relocate`
+  (gates and warps, NPC and item teleports, wing gates, quest travel, restarts, game-master moves): it transfers only
+  when the field differs, updates the connection and the session's placement, and the caller then stands the player
+  (`EnterField`, `CrossGate` or a restart).
 - `FieldInstance` mutates only during its own step or in the command phase; never call into a field from another
   field's step (they run in parallel).
 - `SessionRegistry.Remove` releases the character claim; a session that leaves the world is closing (state 4) and

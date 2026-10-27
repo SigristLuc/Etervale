@@ -223,9 +223,9 @@ public sealed partial class WorldServer
             }
 
             // The request's placement never becomes authoritative. Gates retain position; warps use catalog exits.
-            TransferPlayer(player, _fields[oldFieldId], GetField(newFieldId));
             var inVillage = destination.State == FieldState.Village;
             var terrain = GetField(newFieldId).Terrain;
+            Relocate(connection, newFieldId, arrival.Position, inVillage);
             if (arrival.IsWarp)
             {
                 // Warp exits carry an authored height; settle on the floor at or just below it rather than on a roof.
@@ -235,12 +235,7 @@ public sealed partial class WorldServer
             {
                 player.CrossGate(inVillage);
             }
-            _membershipChanged = true;
-            _connections[player.EntityId] = connection with
-            {
-                FieldId = newFieldId
-            };
-            UpdatePlacement(connection.Session, newFieldId, arrival.Position, inVillage);
+
             return true;
         });
     }
@@ -613,6 +608,20 @@ public sealed partial class WorldServer
 
     // Moves a player between field instances on the command phase: its cooldowns and running statuses follow it onto the
     // destination's clock.
+    // Tick only. Puts the connection's player in fieldCode (moving it from its field when that differs) and records where
+    // the session now is; the caller then stands the player at position (EnterField, CrossGate or a restart).
+    private void Relocate(Connection connection, int fieldCode, Vector3 position, bool inVillage)
+    {
+        if (connection.FieldId != fieldCode)
+        {
+            TransferPlayer(connection.Player, _fields[connection.FieldId], GetField(fieldCode));
+            _connections[connection.Player.EntityId] = connection with { FieldId = fieldCode };
+        }
+
+        _membershipChanged = true;
+        UpdatePlacement(connection.Session, fieldCode, position, inVillage);
+    }
+
     private static void TransferPlayer(WorldPlayer player, FieldInstance from, FieldInstance to)
     {
         var statuses = from.Statuses.Take(player.EntityId);

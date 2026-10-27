@@ -125,15 +125,11 @@ public sealed partial class WorldServer
                 return null;
             }
 
-            var player = connection.Player;
-            var target = GetField(destination.FieldId);
-            TransferPlayer(player, _fields[connection.FieldId], target);
-            var position = onFloor ? target.Terrain.PlaceOnFloor(requested) : target.Terrain.SettleNear(requested, FieldTerrain.DropTolerance * 2f);
+            var terrain = GetField(destination.FieldId).Terrain;
+            var position = onFloor ? terrain.PlaceOnFloor(requested) : terrain.SettleNear(requested, FieldTerrain.DropTolerance * 2f);
             var inVillage = definition.State == FieldState.Village;
-            player.EnterField(position, inVillage);
-            _membershipChanged = true;
-            _connections[player.EntityId] = connection with { FieldId = destination.FieldId };
-            UpdatePlacement(connection.Session, destination.FieldId, position, inVillage);
+            Relocate(connection, destination.FieldId, position, inVillage);
+            connection.Player.EnterField(position, inVillage);
             return new GmPlacement(destination.FieldId, position);
         });
     }

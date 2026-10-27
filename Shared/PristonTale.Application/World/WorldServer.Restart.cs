@@ -59,20 +59,12 @@ public sealed partial class WorldServer
             }
 
             var player = connection.Player;
-            var target = GetField(operation.FieldId);
-            if (connection.FieldId != operation.FieldId)
-            {
-                TransferPlayer(player, _fields[connection.FieldId], target);
-                _membershipChanged = true;
-                _connections[player.EntityId] = connection with { FieldId = operation.FieldId };
-            }
-
-            var position = operation.Position;
             var inVillage = destination.State == FieldState.Village;
-            player.EnterField(position, inVillage);
+            Relocate(connection, operation.FieldId, operation.Position, inVillage);
+            player.EnterField(operation.Position, inVillage);
             player.Restart(candidate.Life, DeathPenalty.RestartGuardMs);
-            target.EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKind.Revive, damage: player.Life));
-            UpdatePlacement(session, operation.FieldId, position, inVillage);
+            GetField(operation.FieldId).EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKind.Revive,
+                damage: player.Life));
             return true;
         }, waitForCapacity: true);
     }
