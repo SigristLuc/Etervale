@@ -3,14 +3,16 @@ using PristonTale.Engine3D.Formats;
 
 namespace PristonTale.Engine3D.Rendering;
 
-// Original model files store vertex normals averaged across perpendicular faces and sometimes pointing inward. Strong
-// sun and sky light turn those into bright-to-dark gradients across flat faces, so skinned and animated meshes get
-// normals rebuilt from their posed geometry, like the static stage. A corner shares its normal only with faces at the
-// same posed position within the crease angle, then the normal returns to its bone's local space, where the vertex
-// shader's bone transform brings it back.
+// Original model files store one smooth normal per vertex, averaged across perpendicular faces. Strong sun and sky light
+// turn those into bright-to-dark gradients across flat faces, so skinned and animated meshes get normals rebuilt from
+// their posed geometry, like the static stage. A corner shares its normal only with faces at the same posed position
+// within the crease angle, then the normal returns to its bone's local space, where the vertex shader's bone transform
+// brings it back.
 internal static class PristonModelNormals
 {
     private const float CreaseCosine = 0.5f;
+    // A smooth position leaves out the faces turned away from the face (the back of a two-sided sheet).
+    private const float BackFaceCosine = -0.5f;
     private const float PositionWeld = 0.01f;
 
     public static Dictionary<PristonModelFace, Vector3[]>[] Build(PristonModel model, Func<int, int, Matrix> vertexPose)
@@ -66,6 +68,44 @@ internal static class PristonModelNormals
             }
         }
 
+        var facesAtEdge = new Dictionary<(int, int), List<int>>();
+        for (var faceIndex = 0; faceIndex < faces.Count; faceIndex++)
+        {
+            foreach (var edge in Edges(faces[faceIndex], welded))
+            {
+                if (!facesAtEdge.TryGetValue(edge, out var list))
+                {
+                    facesAtEdge.Add(edge, list = []);
+                }
+
+                list.Add(faceIndex);
+            }
+        }
+
+        // A face creased against the faces across all three of its edges is a fold of a low-polygon body (a monster's
+        // neck), not a hard surface, where every facet keeps a triangle in its plane across its diagonal: alone it shaded
+        // as one flat, darker triangle. The positions of the fold and of the faces across its edges are smooth, every face
+        // there taking all of them, as the file's own smooth normals are, so the bend shades without a facet.
+        var smooth = new bool[welds.Count];
+        for (var faceIndex = 0; faceIndex < faces.Count; faceIndex++)
+        {
+            var own = unitNormals[faceIndex];
+            if (own == Vector3.Zero || Edges(faces[faceIndex], welded).Any(edge =>
+                    facesAtEdge[edge].Any(neighbour => neighbour != faceIndex && Vector3.Dot(unitNormals[neighbour], own) >= CreaseCosine)))
+            {
+                continue;
+            }
+
+            foreach (var edge in Edges(faces[faceIndex], welded))
+            {
+                foreach (var neighbour in facesAtEdge[edge])
+                {
+                    var face = faces[neighbour];
+                    smooth[welded[face.A]] = smooth[welded[face.B]] = smooth[welded[face.C]] = true;
+                }
+            }
+        }
+
         var corners = new Dictionary<PristonModelFace, Vector3[]>(faces.Count, ReferenceEqualityComparer.Instance);
         for (var faceIndex = 0; faceIndex < faces.Count; faceIndex++)
         {
@@ -76,12 +116,14 @@ internal static class PristonModelNormals
             for (var corner = 0; corner < 3; corner++)
             {
                 var vertexIndex = vertices[corner];
+                var position = welded[vertexIndex];
                 var sum = Vector3.Zero;
                 if (own != Vector3.Zero)
                 {
-                    foreach (var neighbour in facesAtPosition[welded[vertexIndex]])
+                    foreach (var neighbour in facesAtPosition[position])
                     {
-                        if (Vector3.Dot(unitNormals[neighbour], own) >= CreaseCosine)
+                        var cosine = Vector3.Dot(unitNormals[neighbour], own);
+                        if (cosine >= CreaseCosine || smooth[position] && cosine > BackFaceCosine)
                         {
                             sum += areaNormals[neighbour];
                         }
@@ -109,6 +151,16 @@ internal static class PristonModelNormals
         }
 
         return authored.LengthSquared() > 1e-6f ? Vector3.Normalize(authored) : Vector3.Up;
+    }
+
+    private static IEnumerable<(int, int)> Edges(PristonModelFace face, int[] welded)
+    {
+        var a = welded[face.A];
+        var b = welded[face.B];
+        var c = welded[face.C];
+        yield return (Math.Min(a, b), Math.Max(a, b));
+        yield return (Math.Min(b, c), Math.Max(b, c));
+        yield return (Math.Min(c, a), Math.Max(c, a));
     }
 
     private static int Quantize(float value) => (int)MathF.Round(value / PositionWeld);

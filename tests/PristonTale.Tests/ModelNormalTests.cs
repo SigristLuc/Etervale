@@ -10,6 +10,7 @@ internal static class ModelNormalTests
     {
         yield return ("skinned model normals follow posed faces instead of averaged or inverted authored normals", CubeAsync);
         yield return ("skinned model normals smooth gentle folds and keep hard edges", FoldAsync);
+        yield return ("a low-polygon fold creased against every face across its edges shades smooth, not as a flat triangle", LoneFoldAsync);
     }
 
     private static Task CubeAsync()
@@ -74,6 +75,36 @@ internal static class ModelNormalTests
         return Task.CompletedTask;
     }
 
+    private static Task LoneFoldAsync()
+    {
+        // A triangle on the plane y = 0 with a face across each edge bent 70 degrees down, as a monster's neck folds:
+        // every neighbour is beyond the crease angle, yet the triangle and its neighbours share each corner's normal.
+        Vector3[] inner = [new(0, 0, 0), new(10, 0, 0), new(5, 0, 8.66f)];
+        var centre = (inner[0] + inner[1] + inner[2]) / 3f;
+        var tilt = MathHelper.ToRadians(70f);
+        var positions = new List<Vector3>(inner);
+        List<PristonModelFace> faces = [];
+        var below = centre - Vector3.UnitY * 20f;
+        faces.Add(Away(inner, 0, 1, 2, below));
+        for (var edge = 0; edge < 3; edge++)
+        {
+            var a = edge;
+            var b = (edge + 1) % 3;
+            var middle = (inner[a] + inner[b]) / 2f;
+            var outward = Vector3.Normalize(middle - centre);
+            positions.Add(middle + 8f * (outward * MathF.Cos(tilt) - Vector3.UnitY * MathF.Sin(tilt)));
+            faces.Add(Away(positions.ToArray(), a, b, positions.Count - 1, below));
+        }
+
+        var vertices = positions.Select(position => new PristonModelVertex(position, Vector3.Up)).ToArray();
+        var normals = PristonModelNormals.Build(Model(vertices, faces), (_, _) => Matrix.Identity)[0];
+        var fold = normals[faces[0]][Array.IndexOf([faces[0].A, faces[0].B, faces[0].C], 0)];
+        var neighbour = normals[faces[1]][Array.IndexOf([faces[1].A, faces[1].B, faces[1].C], 0)];
+        Assert.True(Vector3.Dot(fold, Vector3.Up) < 0.99f, $"the folded triangle kept its flat normal {fold}");
+        Assert.True(Vector3.Dot(fold, neighbour) > 0.9999f, $"the fold's corner {fold} differs from its neighbour's {neighbour}");
+        return Task.CompletedTask;
+    }
+
     private static PristonModel Model(PristonModelVertex[] vertices, List<PristonModelFace> faces)
     {
         var obj = new PristonModelObject("fixture", "", false, Matrix.Identity, Vector3.Zero,
@@ -86,6 +117,13 @@ internal static class ModelNormalTests
         var centre = (positions[a] + positions[b] + positions[c]) / 3f;
         var normal = Vector3.Cross(positions[b] - positions[a], positions[c] - positions[a]);
         return Vector3.Dot(normal, centre) >= 0f ? new PristonModelFace(a, b, c, 0, -1) : new PristonModelFace(a, c, b, 0, -1);
+    }
+
+    private static PristonModelFace Away(Vector3[] positions, int a, int b, int c, Vector3 inside)
+    {
+        var normal = Vector3.Cross(positions[b] - positions[a], positions[c] - positions[a]);
+        var centre = (positions[a] + positions[b] + positions[c]) / 3f;
+        return Vector3.Dot(normal, centre - inside) >= 0f ? new PristonModelFace(a, b, c, 0, -1) : new PristonModelFace(a, c, b, 0, -1);
     }
 
     private static PristonModelFace Upward(Vector3[] positions, int a, int b, int c)

@@ -106,7 +106,10 @@ Described in Etervale's terms; readers keep every field, including padding, for 
   transparency), animated scenery groups sharing bone palettes, a static shadow aggregate per grid cell, the stage's
   lights split into ground lights and glow (corona) lights, `PristonStageBakedLight` and `PristonStageLightField`.
 - Actors (`AddActor`) get GPU resources shared per `PristonActor`, a bone palette (at most 64 bones,
-  `PristonShaderLibrary.MaxBones`), rebuilt normals, and can be attached to a parent bone (`AttachActor`).
+  `PristonShaderLibrary.MaxBones`), rebuilt normals, and can be attached to a parent bone (`AttachActor`). The normals
+  come from the bind-pose faces: a corner averages the faces within 60 degrees of its own, so hard surfaces keep their
+  edges, except around a fold (a face creased against the faces across all three of its edges, the bend of a
+  low-polygon body), where every face around a position is averaged so the bend shades without a flat triangle.
 - Gameplay looks (`PristonRenderer.Appearance.cs`): `SetActorAppearance(handle, PristonActorAppearance)` sets a signed
   light tint (`Tint`, 1 = a white light added to the lit colour, negative takes light away; the surface shader's
   `ActorTint`), `Opacity` (below 1 the actor's batches move to the transparent queue, blend over the scene without

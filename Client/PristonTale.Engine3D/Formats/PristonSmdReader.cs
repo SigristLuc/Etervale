@@ -799,7 +799,7 @@ public sealed class PristonSmdReader
         var vertices = new List<PristonModelVertex>(vertexCount);
         for (var index = 0; index < vertexCount; index++)
         {
-            vertices.Add(ReadModelVertex(cursor));
+            vertices.Add(ReadModelVertex(cursor, (head & ObjHeadTypeNewNormal) != 0));
         }
 
         var faces = new List<PristonModelFace>(faceCount);
@@ -917,14 +917,27 @@ public sealed class PristonSmdReader
         };
     }
 
-    private static PristonModelVertex ReadModelVertex(BinaryCursor cursor)
+    // With ObjHeadTypeNewNormal in the object's head the normal field holds the normal's end point (position + normal),
+    // in the position's fixed-point units.
+    private static PristonModelVertex ReadModelVertex(BinaryCursor cursor, bool normalEndpoints)
     {
         var start = cursor.Position;
-        var rawX = cursor.Int32() / PristonFormatConstants.FixedScale;
-        var rawY = cursor.Int32() / PristonFormatConstants.FixedScale;
-        var rawZ = cursor.Int32() / PristonFormatConstants.FixedScale;
-        var position = ToMonoGameModelPosition(rawX, rawY, rawZ);
-        var normal = ToMonoGameModelPosition(cursor.Int32(), cursor.Int32(), cursor.Int32());
+        var fixedX = cursor.Int32();
+        var fixedY = cursor.Int32();
+        var fixedZ = cursor.Int32();
+        var position = ToMonoGameModelPosition(fixedX / PristonFormatConstants.FixedScale, fixedY / PristonFormatConstants.FixedScale,
+            fixedZ / PristonFormatConstants.FixedScale);
+        var normalX = (long)cursor.Int32();
+        var normalY = (long)cursor.Int32();
+        var normalZ = (long)cursor.Int32();
+        if (normalEndpoints)
+        {
+            normalX -= fixedX;
+            normalY -= fixedY;
+            normalZ -= fixedZ;
+        }
+
+        var normal = ToMonoGameModelPosition(normalX, normalY, normalZ);
         if (normal.LengthSquared() > 0.0001f)
         {
             normal.Normalize();
