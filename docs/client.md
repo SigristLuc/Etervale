@@ -136,7 +136,7 @@ the back buffer), clear, `GameScene.Draw` (renderer, effects, `ComposeScene`), g
 |---|---|---|
 | Server requests (login, characters, inventory, progression, NPC, services) | `Task` from `IGameBackend`/`IPlayChannel` | Poll `IsCompleted` each `Update`, or read a `volatile` result set by a continuation (`HudInventoryController`) |
 | Upstream sends (movement, attack, skill cast) | `SendUpstream` attaches a fault logger; the connection enqueues into its send buffer | Fire and forget |
-| Presence stream | `GameServerConnection` receive loop -> bounded channel -> `GameScene.ReadPresenceAsync` (`Task.Run`) -> `_presenceQueue` | `DrainPresence` reads at most 64 updates per frame |
+| Presence stream | `GameServerConnection` receive loop -> bounded channel -> `GameScene.ReadPresenceAsync` (`Task.Run`) -> `_presenceQueue` | `DrainPresence` reads at most 64 updates per frame; a failing update is logged and skipped, the rest still apply |
 | Field streaming | `FieldResourceStreamer.Request`: stage and model parse, collision build, `PrepareStageTexturesAsync` on `Task.Run` | `Update` publishes through `AddStageIncrementally`: up to 32 steps and a 2 ms soft budget per frame |
 | Remote actors | Composer `PrepareAsync` (`PristonActorLoader.Load` + `PrepareActorResourcesAsync`) | `RemoteEntityManager.Update` publishes one completed preparation per frame |
 | Ground loot models | `GroundLootPresentation` preparation tasks | `GroundLootPresentation.Update` |

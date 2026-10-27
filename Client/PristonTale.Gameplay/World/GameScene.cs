@@ -565,13 +565,13 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             return;
         }
 
-        var pending = _pendingCatalog;
-        if (pending != null)
+        if (Interlocked.Exchange(ref _pendingCatalog, null) is { } pending)
         {
-            _pendingCatalog = null;
             _remote.SetCatalog(pending);
         }
 
+        // Each step is logged and skipped on failure, so one bad update does not hold back the frame's other updates or the
+        // remote playback.
         try
         {
             // A warp to a field that was still loading lands once the field is in the world.
@@ -579,38 +579,58 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             {
                 ApplyWarp(held);
             }
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"[Remote] held warp failed: {ex}");
+        }
 
-            for (var processed = 0; processed < 64 && _presenceQueue.Reader.TryRead(out var update); processed++)
+        for (var processed = 0; processed < 64 && _presenceQueue.Reader.TryRead(out var update); processed++)
+        {
+            try
             {
-                _snapshotField = update.FieldId;
-                if (update.Owner is not null)
-                {
-                    Owner = update.Owner;
-                }
-                var remapped = RemapToWorld(update);
-                _remote.Apply(remapped);
-                if (remapped.Warp is { } warp)
-                {
-                    ApplyWarp(warp);
-                }
-
-                _groundLoot.Apply(update);
-                ObserveEffects(update);
-                ObserveCombatSounds(update);
-                ObserveSkills(update);
-                ObserveItems(update);
-                ObserveProgression(update);
-                ObserveRestart(update);
-                PresenceObserved?.Invoke(update);
+                ApplyPresence(update);
             }
+            catch (Exception ex)
+            {
+                _log.Error($"[Remote] presence update failed: {ex}");
+            }
+        }
 
+        try
+        {
             _remote.Update(dt);
             _groundLoot.Update(_lootFloor);
         }
         catch (Exception ex)
         {
-            _log.Error($"[Remote] presence drain failed: {ex}");
+            _log.Error($"[Remote] playback update failed: {ex}");
         }
+    }
+
+    private void ApplyPresence(PresenceUpdate update)
+    {
+        _snapshotField = update.FieldId;
+        if (update.Owner is not null)
+        {
+            Owner = update.Owner;
+        }
+
+        var remapped = RemapToWorld(update);
+        _remote.Apply(remapped);
+        if (remapped.Warp is { } warp)
+        {
+            ApplyWarp(warp);
+        }
+
+        _groundLoot.Apply(update);
+        ObserveEffects(update);
+        ObserveCombatSounds(update);
+        ObserveSkills(update);
+        ObserveItems(update);
+        ObserveProgression(update);
+        ObserveRestart(update);
+        PresenceObserved?.Invoke(update);
     }
 
     private static PresenceUpdate RemapToWorld(PresenceUpdate u)
