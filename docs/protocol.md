@@ -329,8 +329,9 @@ interval.
 uint16 0}` followed by `Count` entries that fill the message exactly. An entry is `{varuint Serial, uint8 Kind (bit 0
 full), int24 X, Y, Z (world units × 8), uint16 Facing (65536 per turn), uint8 Motion}`; a full entry adds `{varuint Hp,
 MaxHp, Level, Target, AttackSequence, uint8 Revision, varuint Template, zigzag varint FieldCode}`. `varuint` is
-little-endian base-128 (`VarInt`, up to 64 bits; an overlong encoding or a tenth byte above 1 is refused). `Motion` is `PresenceMotion` (0 stand, 1 walk, 2 run, 3 attack, 4
-damage, 5 dead, 6 skill, 7 eat, 8 warp, 9 yahoo). Positions cover the world's ±1,000,000 units at 1/8 of a unit.
+little-endian base-128 (`VarInt`, up to 64 bits; an overlong encoding or a tenth byte above 1 is refused). `Motion`
+is `PresenceMotion` (0 stand, 1 walk, 2 run, 3 attack, 4 damage, 5 dead, 6 skill, 7 eat, 8 warp, 9 yahoo). Positions
+cover the world's ±1,000,000 units at 1/8 of a unit.
 
 The server sends a full entry when an entity enters the receiver's view and whenever its motion, life, target, attack
 sequence or description revision changes; otherwise a motion entry (about 14 bytes) at the near or far rate. Ids,
