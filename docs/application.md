@@ -320,7 +320,7 @@ A prepared operation with `Snapshot == null` is final (rejection or replay) and 
 | Operation | Prepare | Commit applies |
 | --- | --- | --- |
 | Inventory move/split/merge/equip/unequip | `WorldServer.PrepareInventoryAsync` -> `InventoryCommands.Apply`; a refusal names the item rule (`InventoryCommands.Refusal`) | inventory, equipment, histories |
-| `ConsumePotion` | same; refused when dead or a potion is pending (`PreparedPotionOperation`) | inventory, then `QueuePotion`; the field starts the eat motion and restores at the clip event |
+| `ConsumePotion` | same; refused when dead or a potion is pending (`PreparedPotionOperation`) | inventory, then `QueuePotion`; the field starts the eat motion and restores at the clip event; a warp before the event drinks it again where the player arrives |
 | `Pickup` | `GroundPickupTransactions.Prepare` (`PreparedPickupOperation`) | inventory, gold via `TryChangeMoney`, drop removed |
 | Progression (attributes, learn skill) | `ProgressionTransactions.Prepare`; learning needs a reachable skill master | re-applies the command to the live character (`ApplyProgression`) |
 | NPC services | `NpcServiceTransactions.Prepare` (`PreparedNpcOperation`) | inventory, gold delta, open warehouse, teleport arrival |

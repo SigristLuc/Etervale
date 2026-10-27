@@ -47,6 +47,19 @@ internal static class PotionTests
         Assert.True(player.TickPotion(100, random) == PotionResource.None && character.Life == 1 && !player.HasPendingPotion,
             "potion restored twice or stayed busy");
 
+        character.Life = 1;
+        player.QueuePotion(potion);
+        player.BeginPendingPotion(600, 500);
+        player.TickPotion(100, random);
+        player.Teleport(new Vector3(10, 0, 10));
+        Assert.True(player.HasPendingPotion && player.BeginPendingPotion(600, 500) && player.TickPotion(600, random) != PotionResource.None
+            && character.Life == character.MaxLife, "a warp before the potion restored lost the paid potion");
+        player.QueuePotion(potion);
+        player.BeginPendingPotion(600, 500);
+        player.TickPotion(550, random);
+        player.Teleport(new Vector3(20, 0, 20));
+        Assert.True(!player.HasPendingPotion, "a potion that already restored was kept for another drink after a warp");
+
         player.QueuePotion(potion);
         player.BeginPendingPotion(600, 500);
         player.ApplyDamage(10000);

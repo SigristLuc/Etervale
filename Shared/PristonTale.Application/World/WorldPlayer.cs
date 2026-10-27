@@ -524,7 +524,12 @@ public sealed class WorldPlayer
         ClearAttackTarget();
         _lastReportMs = -1;
         _budgetMs = -1;
-        _pendingPotion = null;
+        // A paid potion that has not restored yet is drunk again where the player arrives; one that already restored is done.
+        if (Action == PlayerActionState.Eat && _potionApplied)
+        {
+            _pendingPotion = null;
+        }
+
         _yahooPending = false;
         Action = PlayerActionState.Idle;
         MoveState = MoveStateView.Idle;
