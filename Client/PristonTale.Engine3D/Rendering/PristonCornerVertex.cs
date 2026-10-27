@@ -3,8 +3,9 @@ using PristonTale.Engine3D.Formats;
 
 namespace PristonTale.Engine3D.Rendering;
 
-// One triangle corner before vertex welding: the authored colour and the UV of every blended texture stage.
-internal readonly record struct PristonCornerVertex(Vector3 Position, Color Color, Vector2 Uv0, Vector2 Uv1, Vector2 Uv2)
+// One triangle corner before vertex welding: the authored colour, the UV of every blended texture stage and, for stages,
+// the normal computed over the whole stage (PristonStageNormals); a zero normal is averaged from the welded faces instead.
+internal readonly record struct PristonCornerVertex(Vector3 Position, Color Color, Vector2 Uv0, Vector2 Uv1, Vector2 Uv2, Vector3 Normal = default)
 {
     public static void AddTriangle(
         List<PristonCornerVertex> target,
@@ -15,12 +16,15 @@ internal readonly record struct PristonCornerVertex(Vector3 Position, Color Colo
         Color colorB,
         Color colorC,
         IReadOnlyList<PristonTexLink> links,
-        int firstLink)
+        int firstLink,
+        Vector3 normalA = default,
+        Vector3 normalB = default,
+        Vector3 normalC = default)
     {
         var stages = PristonStageLinks.Resolve(links, firstLink);
-        target.Add(new PristonCornerVertex(a, colorA, stages.Stage0.A, stages.Stage1.A, stages.Stage2.A));
-        target.Add(new PristonCornerVertex(b, colorB, stages.Stage0.B, stages.Stage1.B, stages.Stage2.B));
-        target.Add(new PristonCornerVertex(c, colorC, stages.Stage0.C, stages.Stage1.C, stages.Stage2.C));
+        target.Add(new PristonCornerVertex(a, colorA, stages.Stage0.A, stages.Stage1.A, stages.Stage2.A, normalA));
+        target.Add(new PristonCornerVertex(b, colorB, stages.Stage0.B, stages.Stage1.B, stages.Stage2.B, normalB));
+        target.Add(new PristonCornerVertex(c, colorC, stages.Stage0.C, stages.Stage1.C, stages.Stage2.C, normalC));
     }
 }
 
