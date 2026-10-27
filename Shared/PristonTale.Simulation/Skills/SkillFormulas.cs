@@ -5,6 +5,7 @@ using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Motion;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Simulation.Skills;
 

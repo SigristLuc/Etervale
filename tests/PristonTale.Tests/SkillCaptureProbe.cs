@@ -12,6 +12,7 @@ using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Skills;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 

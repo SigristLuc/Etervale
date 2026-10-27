@@ -1,4 +1,5 @@
 using PristonTale.Protocol.Binary;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Protocol.Packets;
 
@@ -271,7 +272,7 @@ public static class CombatEventFlags
 public readonly record struct CombatEventEntry(
     ulong Attacker,
     ulong Target,
-    byte Kind,
+    CombatEventKind Kind,
     byte Flags,
     float DurationMs,
     float HitAtMs,
@@ -290,7 +291,7 @@ public readonly record struct CombatEventEntry(
     {
         writer.UInt64(Attacker);
         writer.UInt64(Target);
-        writer.Byte(Kind);
+        writer.Byte((byte)Kind);
         writer.Byte(Flags);
         writer.Int16(Clip);
         writer.Single(DurationMs);
@@ -309,7 +310,7 @@ public readonly record struct CombatEventEntry(
     {
         var attacker = reader.UInt64();
         var target = reader.UInt64();
-        var kind = reader.Byte();
+        var kind = (CombatEventKind)reader.Byte();
         var flags = reader.Byte();
         var clip = reader.Int16();
         var entry = new CombatEventEntry(attacker, target, kind, flags, reader.Single(), reader.Single(), reader.Int32(), reader.Int32(),

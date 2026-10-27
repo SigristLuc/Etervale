@@ -12,6 +12,7 @@ using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Tests;
 
@@ -171,8 +172,8 @@ internal static class PotionTests
         {
             foreach (var effect in snapshot.Events)
             {
-                begin += effect.Kind == CombatEventKindView.PotionBegin ? 1 : 0;
-                applied += effect.Kind == CombatEventKindView.PotionApplied && effect.Resources == 1 ? 1 : 0;
+                begin += effect.Kind == CombatEventKind.PotionBegin ? 1 : 0;
+                applied += effect.Kind == CombatEventKind.PotionApplied && effect.Resources == 1 ? 1 : 0;
             }
         }
 

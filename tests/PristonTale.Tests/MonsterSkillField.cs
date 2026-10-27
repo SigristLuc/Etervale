@@ -8,6 +8,7 @@ using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Motion;
 using PristonTale.Simulation.World.Spawning;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Tests;
 
@@ -114,10 +115,10 @@ internal sealed class MonsterSkillField
     }
 
     public IEnumerable<CombatEventView> Swings(ulong attacker) =>
-        Events.Where(value => value.Kind == CombatEventKindView.SwingBegin && value.AttackerId == attacker);
+        Events.Where(value => value.Kind == CombatEventKind.SwingBegin && value.AttackerId == attacker);
 
     public IEnumerable<CombatEventView> HitsOn(ulong target) =>
-        Events.Where(value => value.Kind == CombatEventKindView.Hit && value.TargetId == target);
+        Events.Where(value => value.Kind == CombatEventKind.Hit && value.TargetId == target);
 
     public MonsterInstance? MonsterOf(int soundCode) => ((IFieldSkillHost)Field).Monsters.FirstOrDefault(m => m.Def.SoundCode == soundCode && m.IsAlive);
 

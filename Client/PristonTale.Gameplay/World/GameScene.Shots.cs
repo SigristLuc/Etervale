@@ -4,6 +4,7 @@ using PristonTale.Gameplay.Effects;
 using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Gameplay.World;
 
@@ -19,7 +20,7 @@ public sealed partial class GameScene
     {
         foreach (var combatEvent in update.Events)
         {
-            if (combatEvent.Kind == RemoteCombatEventKind.SwingBegin)
+            if (combatEvent.Kind == CombatEventKind.SwingBegin)
             {
                 _shots.ObserveSwing(combatEvent.AttackerId, combatEvent.TargetId);
             }

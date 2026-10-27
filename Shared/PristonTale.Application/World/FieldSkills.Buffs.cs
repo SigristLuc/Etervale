@@ -3,6 +3,7 @@ using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Application.World;
 
@@ -125,8 +126,8 @@ internal sealed partial class FieldSkills
             var power = Math.Max(1, _rng.Range(low, Math.Max(low, high)));
             var dealt = SkillFormulas.PowerAgainst(power, damageRule, attacker.Def, defender.Character.Effects.Totals, attacker.Effects.Totals, rank);
             Pay(defender, attacker, dealt, false);
-            _skillEvents.Add(new SkillEventView(defender.EntityId, attacker.EntityId, rule.Code, SkillEventPhaseView.Impact, rank,
-                SkillEventFlagsView.Counter, 0f, 0f, attacker.Position, defender.Facing, 1, 0f));
+            _skillEvents.Add(new SkillEventView(defender.EntityId, attacker.EntityId, rule.Code, SkillEventPhase.Impact, rank,
+                SkillEventFlags.Counter, 0f, 0f, attacker.Position, defender.Facing, 1, 0f));
             return;
         }
     }
@@ -244,10 +245,10 @@ internal sealed partial class FieldSkills
         var effect = change.Effect;
         var op = change.Kind switch
         {
-            EffectChangeKind.Added => StatusEventOpView.Add,
-            EffectChangeKind.Refreshed => StatusEventOpView.Refresh,
-            EffectChangeKind.Ticked => StatusEventOpView.Tick,
-            _ => StatusEventOpView.Remove
+            EffectChangeKind.Added => StatusEffectOp.Add,
+            EffectChangeKind.Refreshed => StatusEffectOp.Refresh,
+            EffectChangeKind.Ticked => StatusEffectOp.Tick,
+            _ => StatusEffectOp.Remove
         };
         var value = change.Kind == EffectChangeKind.Ticked ? change.Periodic.Amount : StatusValue(change.Entity, effect);
         var permanent = effect.Permanent;

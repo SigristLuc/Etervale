@@ -13,6 +13,7 @@ using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Client.Net.Online;
 
@@ -378,7 +379,7 @@ internal sealed class PresenceDecoder
         var events = new List<CombatEventInfo>(entries.Length);
         foreach (var entry in entries)
         {
-            events.Add(new CombatEventInfo(entry.Attacker, entry.Target, (RemoteCombatEventKind)entry.Kind, entry.DurationMs, entry.HitAtMs,
+            events.Add(new CombatEventInfo(entry.Attacker, entry.Target, entry.Kind, entry.DurationMs, entry.HitAtMs,
                 entry.Damage, (entry.Flags & CombatEventFlags.Critical) != 0, (entry.Flags & CombatEventFlags.Killed) != 0, entry.Resources,
                 entry.SoundCode, Position(entry.X, entry.Y, entry.Z), PristonUnits.FromAngle(entry.Angle))
             {

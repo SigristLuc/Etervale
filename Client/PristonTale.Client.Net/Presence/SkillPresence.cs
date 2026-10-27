@@ -1,5 +1,6 @@
 using System.Numerics;
 using PristonTale.Protocol.Packets;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Client.Net.Presence;
 
@@ -10,7 +11,7 @@ public sealed record SkillEventInfo(
     uint SkillCode,
     SkillEventPhase Phase,
     int Rank,
-    ushort Flags,
+    SkillEventFlags Flags,
     float DurationMs,
     float HitAtMs,
     Vector3 Position,
@@ -43,12 +44,12 @@ public sealed record SkillCooldownSnapshot(double? ServerTimeMs, IReadOnlyList<S
 public sealed record SkillCastResultInfo(
     uint Sequence,
     uint SkillCode,
-    SkillCastStatus Status,
+    SkillCastVerdict Status,
     int Rank,
     int CooldownMs,
     int RemainingMs,
     int Mana,
     int Stamina)
 {
-    public bool Accepted => Status == SkillCastStatus.Accepted;
+    public bool Accepted => Status == SkillCastVerdict.Accepted;
 }

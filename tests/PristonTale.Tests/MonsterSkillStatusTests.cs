@@ -5,6 +5,7 @@ using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Tests;
 
@@ -28,7 +29,7 @@ internal static class MonsterSkillStatusTests
     private static MonsterInstance CastOnce(MonsterSkillField world, MonsterDefinition definition, ulong target)
     {
         var monster = world.Spawn(definition, Vector3.Zero, target);
-        world.StepUntil(() => world.Events.Any(value => value.Kind == CombatEventKindView.MonsterSkillImpact && value.AttackerId == monster.EntityId), 40,
+        world.StepUntil(() => world.Events.Any(value => value.Kind == CombatEventKind.MonsterSkillImpact && value.AttackerId == monster.EntityId), 40,
             "the skill never landed");
         return monster;
     }

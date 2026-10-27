@@ -8,6 +8,8 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 
@@ -57,12 +59,12 @@ internal static class PresencePipelineTests
             new(id, id == 1 ? EntityKind.Player : EntityKind.Monster, false, new Vector3(x, 0, 0), 0f, MotionState.Stand, 1, 100, 100, default);
         EntityView[] views = [At(1, 0), At(10, 20), At(11, 40), At(12, 60), At(98, 50_000), At(99, 50_020)];
         // Far fights the receiver never sees, with its own monsters' events among them.
-        var combat = Enumerable.Range(0, 40).Select(index => new CombatEventView(99, 98, CombatEventKindView.Hit, damage: index)).ToList();
-        combat.Insert(5, new CombatEventView(10, 1, CombatEventKindView.Hit, damage: 1000));
-        combat.Insert(20, new CombatEventView(11, 12, CombatEventKindView.Hit, damage: 2000));
-        combat.Add(new CombatEventView(1, 1, CombatEventKindView.Heal, damage: 3000));
+        var combat = Enumerable.Range(0, 40).Select(index => new CombatEventView(99, 98, CombatEventKind.Hit, damage: index)).ToList();
+        combat.Insert(5, new CombatEventView(10, 1, CombatEventKind.Hit, damage: 1000));
+        combat.Insert(20, new CombatEventView(11, 12, CombatEventKind.Hit, damage: 2000));
+        combat.Add(new CombatEventView(1, 1, CombatEventKind.Heal, damage: 3000));
         var events = combat.ToArray();
-        StatusEventView[] statuses = [new(98, 99, 7, StatusEventOpView.Add, 1, 0, 0, false, false, 1000, 1000, 0), new(12, 11, 8, StatusEventOpView.Add, 1, 0, 0, false, false, 1000, 1000, 0)];
+        StatusEventView[] statuses = [new(98, 99, 7, StatusEffectOp.Add, 1, 0, 0, false, false, 1000, 1000, 0), new(12, 11, 8, StatusEffectOp.Add, 1, 0, 0, false, false, 1000, 1000, 0)];
         var frame = new PresenceFrame(views.Length);
         views.CopyTo(frame.Views, 0);
         frame.Grid.Rebuild(frame.Views);
@@ -201,7 +203,7 @@ internal static class PresencePipelineTests
         var self = new EntityView(1, EntityKind.Player, false, Vector3.Zero, 0f, MotionState.Stand, 1, 100, 100,
             new PlayerAppearanceView("Self", 2, 0, 0, 0, "", ""));
         var outbox = new WorldOutbox();
-        CombatEventView Hit(int damage) => new(1, 1, CombatEventKindView.Hit, damage: damage);
+        CombatEventView Hit(int damage) => new(1, 1, CombatEventKind.Hit, damage: damage);
         Assert.True(outbox.Writer.TryWrite(new WorldSnapshot(10, [self], [Hit(5)], 3)), "first tick refused");
         Assert.True(outbox.Writer.TryWrite(new WorldSnapshot(11, [self], [], 3)), "second tick refused");
         Assert.True(outbox.Writer.TryWrite(new WorldSnapshot(12, [self], [Hit(7)], 3)), "third tick refused");
@@ -237,20 +239,20 @@ internal static class PresencePipelineTests
     private static Task StatusBookAsync()
     {
         var book = new FieldStatusBook();
-        StatusEventView Status(ulong entity, StatusEventOpView op, int remaining, bool permanent = false) =>
+        StatusEventView Status(ulong entity, StatusEffectOp op, int remaining, bool permanent = false) =>
             new(entity, 9, 0x01010003, op, 1, 1, 0, false, permanent, 10000, remaining, 5);
-        book.Apply([Status(1, StatusEventOpView.Add, 10000), Status(2, StatusEventOpView.Add, 4000)], 1000);
+        book.Apply([Status(1, StatusEffectOp.Add, 10000), Status(2, StatusEffectOp.Add, 4000)], 1000);
         Assert.True(book.Snapshot.For(1).Single().At(4000).RemainingMs == 7000, "a running status did not count down");
-        book.Apply([Status(1, StatusEventOpView.Tick, 0)], 2000);
+        book.Apply([Status(1, StatusEffectOp.Tick, 0)], 2000);
         Assert.True(book.Snapshot.For(1).Length == 1, "a periodic tick changed the book");
         var carried = book.Take(1);
         Assert.True(book.Snapshot.For(1).IsEmpty && carried.Length == 1, "a leaving entity kept its statuses in the field");
         var other = new FieldStatusBook();
         other.Carry(1, carried, 5000, 200);
         Assert.True(other.Snapshot.For(1).Single().At(700).RemainingMs == 5500, "a carried status was not rebased onto the new field clock");
-        book.Apply([Status(2, StatusEventOpView.Remove, 0)], 3000);
+        book.Apply([Status(2, StatusEffectOp.Remove, 0)], 3000);
         Assert.True(book.Snapshot.For(2).IsEmpty, "a removed status stayed");
-        book.Apply([Status(3, StatusEventOpView.Add, 1000)], 3000);
+        book.Apply([Status(3, StatusEffectOp.Add, 1000)], 3000);
         book.Prune(9000, id => id == 3);
         Assert.True(book.Snapshot.For(3).IsEmpty, "an ended status survived pruning");
         return Task.CompletedTask;

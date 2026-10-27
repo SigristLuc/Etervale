@@ -14,6 +14,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Tests;
 
@@ -212,13 +213,13 @@ internal static class RemotePlaybackTests
                 monster.SetTarget(now, Vector3.Zero, 0f, state, state == MotionState.Dead ? 0 : 5);
                 if (swing && state != MotionState.Dead)
                 {
-                    monster.ApplyCombatEvent(new CombatEventInfo(1, 2, RemoteCombatEventKind.SwingBegin, 800f, 300f, 0, false, false) { Clip = 3 }, now);
+                    monster.ApplyCombatEvent(new CombatEventInfo(1, 2, CombatEventKind.SwingBegin, 800f, 300f, 0, false, false) { Clip = 3 }, now);
                 }
 
                 now += step;
             }
 
-            monster.ApplyCombatEvent(new CombatEventInfo(2, 1, RemoteCombatEventKind.Hit, 0f, 0f, 9, false, true), now);
+            monster.ApplyCombatEvent(new CombatEventInfo(2, 1, CombatEventKind.Hit, 0f, 0f, 9, false, true), now);
             for (var tick = 0; tick < 20; tick++)
             {
                 now += 50;
@@ -313,8 +314,8 @@ internal static class RemotePlaybackTests
             new(4, EntityKind.Npc, false, default, 0, MotionState.Stand, 100, 100, null, 7)
         ], [], [],
         [
-            new(1, 2, RemoteCombatEventKind.SwingBegin, 800, 400, 0, false, false),
-            new(1, 3, RemoteCombatEventKind.SwingBegin, 800, 400, 0, false, false)
+            new(1, 2, CombatEventKind.SwingBegin, 800, 400, 0, false, false),
+            new(1, 3, CombatEventKind.SwingBegin, 800, 400, 0, false, false)
         ]));
         Assert.True(combat.ShowsHealthBar(2, classic: false) && combat.ShowsHealthBar(3, classic: false), "modern mode hid a monster bar");
         Assert.True(combat.ShowsHealthBar(2, classic: true), "classic mode hid the bar after a full-life attack");

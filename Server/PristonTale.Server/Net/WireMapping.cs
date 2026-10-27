@@ -6,6 +6,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Server.Net;
 
@@ -118,7 +119,7 @@ internal static class WireMapping
             flags |= CombatEventFlags.Skill;
         }
 
-        return new CombatEventEntry(view.AttackerId, view.TargetId, (byte)view.Kind, flags, view.DurationMs, view.HitAtMs, view.Damage,
+        return new CombatEventEntry(view.AttackerId, view.TargetId, view.Kind, flags, view.DurationMs, view.HitAtMs, view.Damage,
             view.Resources, view.SourceSoundCode, PristonUnits.ToFixed(view.Position.X), PristonUnits.ToFixed(view.Position.Y),
             PristonUnits.ToFixed(view.Position.Z), PristonUnits.ToAngle(view.Facing), (short)Math.Clamp(view.Clip, -1, short.MaxValue));
     }
@@ -127,9 +128,9 @@ internal static class WireMapping
         view.CasterId,
         view.TargetId,
         view.SkillCode,
-        (SkillEventPhase)view.Phase,
+        view.Phase,
         (byte)Math.Clamp(view.Rank, 0, 255),
-        (ushort)view.Flags,
+        view.Flags,
         view.DurationMs,
         view.HitAtMs,
         PristonUnits.ToFixed(view.Position.X),
@@ -154,7 +155,7 @@ internal static class WireMapping
 
         var duration = view.Permanent ? 0 : Math.Max(0, view.DurationMs);
         var remaining = view.Permanent ? 0 : Math.Clamp(view.RemainingMs, 0, duration);
-        return new StatusEffectEntry(view.EntityId, view.SourceId, view.StatusCode, (StatusEffectOp)view.Op, (byte)Math.Clamp(view.Stacks, 0, 255),
+        return new StatusEffectEntry(view.EntityId, view.SourceId, view.StatusCode, view.Op, (byte)Math.Clamp(view.Stacks, 0, 255),
             view.SourceKind, view.Control, flags, duration, remaining, view.Value);
     }
 

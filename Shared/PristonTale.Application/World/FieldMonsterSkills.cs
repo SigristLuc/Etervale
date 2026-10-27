@@ -7,6 +7,7 @@ using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Application.World;
 
@@ -125,7 +126,7 @@ internal sealed class FieldMonsterSkills
         }
 
         _host.EmitCombatEvent(new CombatEventView(monster.EntityId, monster.AllyTargetId != 0 ? monster.AllyTargetId : monster.TargetId,
-            CombatEventKindView.SwingBegin, monster.ActionDurationMs, monster.ActionHitAtMs)
+            CombatEventKind.SwingBegin, monster.ActionDurationMs, monster.ActionHitAtMs)
         {
             Clip = monster.ActionSlot,
             Skill = monster.AttackIsSkill
@@ -238,7 +239,7 @@ internal sealed class FieldMonsterSkills
         {
             var max = monster.Def.Combat.MaxLife;
             monster.Life = Math.Min(max, monster.Life + MonsterLifeRules.PotionHeal(monster.Def));
-            _host.EmitCombatEvent(new CombatEventView(monster.EntityId, monster.EntityId, CombatEventKindView.PotionApplied, resources: 1));
+            _host.EmitCombatEvent(new CombatEventView(monster.EntityId, monster.EntityId, CombatEventKind.PotionApplied, resources: 1));
         }
         else if (completed == MotionState.Warp && ChangeInto(monster) is { } into)
         {
@@ -436,7 +437,7 @@ internal sealed class FieldMonsterSkills
 
         monster.AliveMs = -1f;
         var skill = monster.Def.Skill;
-        _host.EmitCombatEvent(new CombatEventView(monster.EntityId, monster.TargetId, CombatEventKindView.MonsterSkillImpact,
+        _host.EmitCombatEvent(new CombatEventView(monster.EntityId, monster.TargetId, CombatEventKind.MonsterSkillImpact,
             sourceSoundCode: monster.Def.SoundCode, position: monster.Position, facing: monster.Facing));
         var candidates = _host.NearbyPlayers(monster.Position, MonsterOffensiveSkill.QueryRadius(skill));
         for (var index = 0; index < candidates.Count; index++)
@@ -452,7 +453,7 @@ internal sealed class FieldMonsterSkills
         {
             var damage = _rng.Range(skill.SkillDamage.Min, Math.Max(skill.SkillDamage.Min, skill.SkillDamage.Max)) * 2;
             fought.ApplyDamage(damage);
-            _host.EmitCombatEvent(new CombatEventView(monster.EntityId, fought.EntityId, CombatEventKindView.Hit, damage: damage, killed: !fought.IsAlive)
+            _host.EmitCombatEvent(new CombatEventView(monster.EntityId, fought.EntityId, CombatEventKind.Hit, damage: damage, killed: !fought.IsAlive)
             {
                 Skill = true
             });
@@ -469,7 +470,7 @@ internal sealed class FieldMonsterSkills
 
         attacker.SkillImpactPending = false;
         _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, attacker.AllyTargetId != 0 ? attacker.AllyTargetId : targetId,
-            CombatEventKindView.MonsterSkillImpact, sourceSoundCode: attacker.Def.SoundCode, position: attacker.SkillOrigin, facing: attacker.SkillFacing));
+            CombatEventKind.MonsterSkillImpact, sourceSoundCode: attacker.Def.SoundCode, position: attacker.SkillOrigin, facing: attacker.SkillFacing));
         if (attacker.AllyTargetId != 0 || !MonsterSkillRules.DealsSkillDamage(attacker.Def))
         {
             return;
@@ -529,7 +530,7 @@ internal sealed class FieldMonsterSkills
         damage = Combat?.SkillCombat?.Defend(attacker, target, damage, true) ?? damage;
         damage = CastleItems.Defend(attacker.Def.SoundCode, target.Character.Effects, damage);
         target.ApplyDamage(damage);
-        _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, target.EntityId, CombatEventKindView.Hit, damage: damage, killed: target.IsDead)
+        _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, target.EntityId, CombatEventKind.Hit, damage: damage, killed: target.IsDead)
         {
             Skill = true
         });
@@ -561,7 +562,7 @@ internal sealed class FieldMonsterSkills
             }
 
             other.ApplyDamage(damage);
-            _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, other.EntityId, CombatEventKindView.Hit, damage: damage, killed: !other.IsAlive)
+            _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, other.EntityId, CombatEventKind.Hit, damage: damage, killed: !other.IsAlive)
             {
                 Skill = true
             });

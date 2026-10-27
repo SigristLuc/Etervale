@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Application.World;
 
@@ -19,14 +20,14 @@ internal sealed class FieldStatusBook
         for (var index = 0; index < events.Count; index++)
         {
             var status = events[index];
-            if (status.Op == StatusEventOpView.Tick)
+            if (status.Op == StatusEffectOp.Tick)
             {
                 continue;
             }
 
             var current = _entries.TryGetValue(status.EntityId, out var list) ? list : ImmutableArray<ActiveStatusView>.Empty;
             var position = IndexOf(current, status);
-            if (status.Op == StatusEventOpView.Remove)
+            if (status.Op == StatusEffectOp.Remove)
             {
                 if (position >= 0)
                 {
@@ -37,7 +38,7 @@ internal sealed class FieldStatusBook
                 continue;
             }
 
-            var entry = new ActiveStatusView(status with { Op = StatusEventOpView.Add }, nowMs);
+            var entry = new ActiveStatusView(status with { Op = StatusEffectOp.Add }, nowMs);
             current = position >= 0 ? current.SetItem(position, entry) : current.Add(entry);
             _entries = _entries.SetItem(status.EntityId, current);
         }

@@ -8,6 +8,7 @@ using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.VfxImport;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 

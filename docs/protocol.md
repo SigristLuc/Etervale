@@ -227,7 +227,7 @@ entries to the inventory of the same revision (`OwnedItemView.Details`) and fold
 
 A combat entry is `{uint64 Attacker, Target, byte Kind, byte Flags (1 critical, 2 killed, 4 monster skill), int16 Clip,
 float DurationMs, HitAtMs, int Damage, Resources, SoundCode, X, Y, Z, int16 Angle, int16 0}`. `Kind` is
-`CombatEventKindView`: 1 swing begin, 2 hit, 3 potion begin, 4 potion applied, 5 monster skill impact, 6 heal (amount
+`CombatEventKind` (Contracts): 1 swing begin, 2 hit, 3 potion begin, 4 potion applied, 5 monster skill impact, 6 heal (amount
 in `Damage`), 7 evade, 8 revive (returned life in `Damage`), 9 block (a player blocked a monster's normal attack), 10 miss (a player's swing missed; its
 weapon's miss sound plays), 11 level up (a player gained a level; everyone near plays the level-up burst), 12 skill learned
 (a player trained a skill rank; the skill-learn light and sound). The field emits 11 and 12 from `WorldPlayer.TakeProgressCues`
@@ -250,7 +250,7 @@ accept newer versions that append fields (the list messages check their length e
 | `StatusEffects` (version 2) | `int Count`, then `Count` status entries of 40 bytes | 16 + 40n |
 | `SkillCooldowns` | `uint ServerTick, int Count`, then `{uint SkillCode, uint RemainingMs, uint DurationMs}` (at most 256) | 20 + 12n |
 
-`SkillCast` flags carry the command (`SkillCastFlags`): 0 a new cast, 1 the release of the held charge of that skill, 2
+`SkillCast` flags carry the command (`SkillCastCommand`): 0 a new cast, 1 the release of the held charge of that skill, 2
 and 3 order the caster's summon of that skill to fight only the caster's target or to pick the nearest enemy; flags
 above 3 fail to decode. A zero `X, Y, Z` means "no ground point". The server
 writes 0 in `SkillCastResult.ServerTick`.
@@ -268,8 +268,8 @@ from its own state and the class skill files (`Shared/PristonTale.Simulation/Ski
 refuses a cast that is unlearned, of another class, cooling down, short of mana or stamina, without the required weapon
 or shield, out of range (rule range plus 24 units, `FieldSkills.RangeSlack`), aimed at a missing or dead target, cast in
 a village, or sent while the player is dead, busy or stunned; `AlreadyActive` (14) refuses a buff whose effect, or one
-it cannot combine with, is already running on its holder. `Status` is the refusal reason (`SkillCastStatus`, the wire
-copy of `SkillCastVerdict`). An accepted cast spends mana and stamina, starts the cooldown, puts the caster in the skill
+it cannot combine with, is already running on its holder. `Status` is the refusal reason (`SkillCastVerdict`, from
+Contracts like the other skill and combat codes). An accepted cast spends mana and stamina, starts the cooldown, puts the caster in the skill
 motion and emits a `Start` event whose `DurationMs` and `HitAtMs` are the motion's length and first event at the
 server's rates; the hits resolve at the motion's event times (projectiles after their flight at 900 units per second,
 `SkillProjectile.UnitsPerSecond`) and emit an `Impact` event with the number of targets hit, then the usual
@@ -564,8 +564,9 @@ when the received version has it.
   EntrySize` exactly, so appending anything to them breaks every deployed reader; make readers version-aware first or
   add a new opcode.
 - A malformed packet that makes a `Read` throw closes the whole connection (`protocol: ...`).
-- `SkillCastStatus` (wire) and `SkillCastVerdict` (simulation), and `CombatEventKindView` and the client's combat kinds,
-  are separate enums cast by value; `SkillWireTests` pins them. Change both sides together.
+- Combat, skill and status codes (`CombatEventKind`, `SkillCastVerdict`, `SkillCastCommand`, `SkillEventPhase`,
+  `SkillEventFlags`, `StatusEffectOp`) are declared once in `Shared/PristonTale.Contracts` and used on both sides of
+  the wire as they are; append values, never renumber.
 - `DescribeEntity` is outside the packet flood count but has its own token bucket; a client that requests every serial
   each frame will see descriptions silently dropped. A client must ask again for an object still undescribed (the
   Etervale client does after a second), or a crowd entering view at once never appears.

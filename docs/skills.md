@@ -24,7 +24,8 @@ Monster skills are a separate system (see [world.md](world.md)); they share only
 | `Shared/PristonTale.Simulation/Skills/SkillRuleMechanics.cs` | Second half of the rule records: range/damage modes, motion variants, allies, enchant, absorb, reflect, guard, pulse, charm, resurrect; `ForRank`, `HitFrames` |
 | `Shared/PristonTale.Simulation/Skills/Skill.cs` | `Skill` definition, `JobTier`, `SkillCategory`, `SkillMouseUse`; rank-indexed mana and stamina |
 | `Shared/PristonTale.Simulation/Skills/SkillFormulas.cs`, `SkillFormulas.Mechanics.cs` | Shared formulas: cost, cooldown, proficiency, caster checks, range, motion timing, charge timing, damage, heal, duration, chances |
-| `Shared/PristonTale.Simulation/Skills/SkillCastVerdict.cs` | `SkillCastVerdict` (wire status numbering), `SkillCastCommand`, `SkillCastRequest`, `SkillCastOutcome` |
+| `Shared/PristonTale.Simulation/Skills/SkillCastRequest.cs` | `SkillCastRequest`, `SkillCastOutcome` |
+| `Shared/PristonTale.Contracts/Skills/SkillCodes.cs` | `SkillCastVerdict`, `SkillCastCommand`, `SkillEventPhase`, `SkillEventFlags` (with `Mode`/`WithMode`), `StatusEffectOp`: one declaration for the server, the wire and the client |
 | `Shared/PristonTale.Simulation/Skills/LearnedSkills.cs` | Per-character ranks (1..10) and use counter (0..10000) |
 | `Shared/PristonTale.Simulation/Skills/PassiveSkills.cs`, `PassiveSkillEffects.cs` | Passives: `values` tables read by derived stats and combat; `modifiers` passives synced as permanent effects |
 | `Shared/PristonTale.Simulation/Skills/SkillProjectile.cs` | Projectile flight speed (900 units/s), shared by server damage time and client projectile VFX |
@@ -34,7 +35,7 @@ Monster skills are a separate system (see [world.md](world.md)); they share only
 | `Shared/PristonTale.Application/World/FieldSkills.<Mechanic>.cs` | One partial per mechanic: `Damage`, `Areas`, `Buffs`, `Allies`, `Defense`, `Companions`, `Charge`, `Charm`, `Resurrection`, `Summons` |
 | `Shared/PristonTale.Application/World/PlayerSkillCooldowns.cs` | Per-player server cooldowns on the field clock; `Rebase` on field change; snapshot on change |
 | `Shared/PristonTale.Application/World/ProgressionTransactions.cs` | `LearnSkill` command: skill-master reach check, then `PlayerCharacter.ApplyProgression` |
-| `Shared/PristonTale.Protocol/Packets/SkillPackets.cs` | Wire records: `SkillCastPacket`, `SkillCastFlags`, `SkillCastStatus`, `SkillEventEntry`/`Flags`, `StatusEffectEntry`, `SkillCooldownsPacket` |
+| `Shared/PristonTale.Protocol/Packets/SkillPackets.cs` | Wire records: `SkillCastPacket`, `SkillEventEntry`, `StatusEffectEntry`, `SkillCooldownsPacket` |
 | `Server/PristonTale.Server/Net/ClientSession.cs` (`CastSkillAsync`), `WireMapping.cs` | Wire edge: packet to `SkillCastRequest`, outcome to `SkillCastResultPacket`, views to entries |
 | `Client/PristonTale.Client.Net/Presence/SkillPresence.cs`, `Online/PresenceDecoder.cs` | Client-side decoded skill events, statuses, cooldowns, cast results |
 | [GameScene.Skills.cs](../Client/PristonTale.Gameplay/World/GameScene.Skills.cs) | Mouse-socket casts, walk into range, local pre-checks, charge release, summon mode toggle, refusal notices |
@@ -311,9 +312,7 @@ Etervale extension opcodes `SkillCast` (C→S), `SkillCastResult`, `SkillEvents`
 `ProgressionCommand`/`ProgressionResult`. Layouts, flags, phases and status ops are in [protocol.md](protocol.md).
 
 - The client sends only skill code, target serial, its position and a command flag; the server re-derives everything.
-- `SkillCastStatus` mirrors `SkillCastVerdict` numerically (0 accepted .. 14 `AlreadyActive`); keep them in sync.
-- `SkillEventFlagsView` (Application) and `SkillEventFlags` (Protocol) share bit values; `WireMapping` casts
-  numerically.
+- The verdict, command, phase, event flags and status operation are the Contracts enums on every side; append values.
 - Statuses carry `SourceKind`: `PlayerSkill`, `Item`, or `MonsterSkill` for the slows, poison, stuns, curses and lent
   power of monster skills ([world.md](world.md#monster-skills)); the value is the main modifier, or the drawn element
   (as an integer) for enchants and familiars.
@@ -331,7 +330,7 @@ Input and cast flow (`GameScene.Skills.cs`, `HudSkillBindings`, `GameplayHud`):
   notice instead of sending. The avatar walks until within the client's `CastRange - 8`, faces the target and sends.
   An unanswered cast locks the avatar for at most 1500 ms. Refusals map to notices in `OnCastResolved`. When the lock
   ends, the local motion controller returns from `Skill` to `Stand` (`EndSkillMotion`), so the floor is followed again.
-- Charge: an accepted charge skill records its button; releasing it while casting sends `SkillCastFlags.Release`.
+- Charge: an accepted charge skill records its button; releasing it while casting sends `SkillCastCommand.Release`.
 - Summons: double-clicking (0.4 s) a summon's buff icon sends `SummonAggressive`/`SummonPassive`; a new call resets
   to the rule's `aggressive`.
 
@@ -399,8 +398,8 @@ Add a new mechanic or rule field:
    mechanic); a new `SkillKind` needs a case in `FieldSkills.Resolve` and in `Complete`. Combat-side hooks go through
    `IPlayerSkillCombat` (`FieldSkills.Defense.cs`).
 4. Tooltip lines in `HudSkillDetails`; presentation in `SkillPresentation` if it needs a new visual cue.
-5. A new event flag or verdict: `SkillEventFlagsView`/`SkillCastVerdict`, `SkillEventFlags`/`SkillCastStatus` in
-   `SkillPackets.cs`, `WireMapping`, client notice in `OnCastResolved`, and [protocol.md](protocol.md).
+5. A new event flag or verdict: append it in `Contracts/Skills/SkillCodes.cs`, add the client notice in
+   `OnCastResolved`, and document it in [protocol.md](protocol.md).
 6. A new test file registered in `tests/PristonTale.Tests/Program.cs`; update this doc.
 
 Change learning rules: `SkillLearning` (prices, gates), `PlayerCharacter.LevelUp` (point grants),

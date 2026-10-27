@@ -400,7 +400,7 @@ Add a player command (tick-only, not durable):
 1. Add a public method on `WorldServer` that calls `EnqueueAsync(entityId, ...)` with the player's entity id so it
    counts against the quota; validate the connection and field inside the closure; never await inside it.
 2. Put field-local logic on `FieldInstance` (or `FieldSkills`/`FieldCombat`) and emit results as events if other
-   players must see them; add a `CombatEventKindView`/`SkillEventPhaseView` value only together with its encoding.
+   players must see them; add a `CombatEventKind`/`SkillEventPhase` value (Contracts) only together with its encoding.
 3. Map the packet in `Server/PristonTale.Server/Net/ClientSession.cs`, catch `WorldBusyException`, and document the
    opcode in [protocol.md](protocol.md) and the edge in [server.md](server.md).
 4. Add a regression case in `tests/PristonTale.Tests` (e.g. `NetworkHardeningTests.cs` for quota behaviour) and

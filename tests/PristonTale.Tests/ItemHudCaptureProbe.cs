@@ -14,6 +14,7 @@ using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 
@@ -353,7 +354,7 @@ internal sealed class ItemHudCaptureProbe : Game
     private static StatusBook CastleBuffs()
     {
         var book = new StatusBook();
-        void Add(uint code, int duration, int remaining) => book.Apply(new StatusEffectInfo(1, 1, code, PristonTale.Protocol.Packets.StatusEffectOp.Add, 1, 1, 0,
+        void Add(uint code, int duration, int remaining) => book.Apply(new StatusEffectInfo(1, 1, code, StatusEffectOp.Add, 1, 1, 0,
             0, duration, remaining, 0), BuffClockMs);
         Add(CastleItems.StatusBase + 1, 30_000, 20_000);
         Add(CastleItems.StatusBase + 6, 60_000, 45_000);
@@ -365,7 +366,7 @@ internal sealed class ItemHudCaptureProbe : Game
     private static StatusBook ItemBuffs()
     {
         var book = new StatusBook();
-        void Add(uint code, int duration, int remaining) => book.Apply(new StatusEffectInfo(1, 1, code, PristonTale.Protocol.Packets.StatusEffectOp.Add, 1, 1, 0,
+        void Add(uint code, int duration, int remaining) => book.Apply(new StatusEffectInfo(1, 1, code, StatusEffectOp.Add, 1, 1, 0,
             0, duration, remaining, 0), BuffClockMs);
         Add(ItemScrolls.For(ScrollEffectKind.Invulnerability).StatusCode, 30_000, 12_000);
         Add(ItemScrolls.For(ScrollEffectKind.Critical).StatusCode, 3_600_000, 3_000_000);

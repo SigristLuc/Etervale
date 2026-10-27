@@ -8,6 +8,7 @@ using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Simulation.World.Motion;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Tests;
 
@@ -136,13 +137,13 @@ internal static class MonsterSkillTests
         target.Teleport(new Vector3(500, 0, 0));
         var targetHp = target.Hp;
         var bystanderHp = bystander.Hp;
-        world.StepUntil(() => world.Events.Any(value => value.Kind == CombatEventKindView.MonsterSkillImpact), 20, "skill never hit");
+        world.StepUntil(() => world.Events.Any(value => value.Kind == CombatEventKind.MonsterSkillImpact), 20, "skill never hit");
         Assert.True(target.Hp == targetHp && bystander.Hp < bystanderHp, "area followed escaping target or missed another player");
-        var effect = world.Events.Single(value => value.Kind == CombatEventKindView.MonsterSkillImpact);
+        var effect = world.Events.Single(value => value.Kind == CombatEventKind.MonsterSkillImpact);
         Assert.True(effect.SourceSoundCode == 0x1100 && effect.Position == origin && effect.TargetId == 1, "impact lost its origin, family or target");
         Assert.True(world.HitsOn(2).All(value => value.Skill), "skill hits were not marked as skill");
         world.Combat(monster, new MonsterAttackEvent(monster.EntityId, 1, true));
-        Assert.True(world.Events.Count(value => value.Kind == CombatEventKindView.MonsterSkillImpact) == 1, "replayed impact repeated");
+        Assert.True(world.Events.Count(value => value.Kind == CombatEventKind.MonsterSkillImpact) == 1, "replayed impact repeated");
 
         var interrupted = new MonsterSkillField(definition);
         interrupted.AddPlayer(1, new Vector3(50, 0, 0));
@@ -150,7 +151,7 @@ internal static class MonsterSkillTests
         interrupted.StepUntil(() => caster.Motion == MotionState.Skill, 5, "skill never started");
         MonsterAiBrain.ApplyFlinchOnHit(caster, new CombatRng(1), 5000, false, 700);
         interrupted.Step(20);
-        Assert.True(!interrupted.Events.Any(value => value.Kind == CombatEventKindView.MonsterSkillImpact), "flinched caster still emitted an impact");
+        Assert.True(!interrupted.Events.Any(value => value.Kind == CombatEventKind.MonsterSkillImpact), "flinched caster still emitted an impact");
         return Task.CompletedTask;
     }
 
@@ -171,7 +172,7 @@ internal static class MonsterSkillTests
 
             var before = target.Hp;
             var neighbourHp = neighbour.Hp;
-            world.StepUntil(() => world.Events.Any(value => value.Kind == CombatEventKindView.MonsterSkillImpact), 20, "skill never hit");
+            world.StepUntil(() => world.Events.Any(value => value.Kind == CombatEventKind.MonsterSkillImpact), 20, "skill never hit");
             Assert.True((target.Hp < before) != escape, "single-target skill ignored escape or reach");
             Assert.True(neighbour.Hp == neighbourHp, "single-target skill damaged a bystander");
         }
@@ -191,13 +192,13 @@ internal static class MonsterSkillTests
         {
             world.Field.Step(MonsterSkillField.Tick);
             var events = world.Field.SnapshotEvents() ?? [];
-            if (!events.Any(value => value.Kind == CombatEventKindView.SwingBegin && value.AttackerId == monster.EntityId))
+            if (!events.Any(value => value.Kind == CombatEventKind.SwingBegin && value.AttackerId == monster.EntityId))
             {
                 continue;
             }
 
             var presence = round.PushMerged(new WorldSnapshot(tick, world.Field.BuildViews(), events, 7));
-            var swing = presence.Events.Single(value => value.Kind == RemoteCombatEventKind.SwingBegin && value.AttackerId == monster.EntityId);
+            var swing = presence.Events.Single(value => value.Kind == CombatEventKind.SwingBegin && value.AttackerId == monster.EntityId);
             Assert.True(swing.Skill && swing.Clip is 3 or 4, "presence lost the swing's clip or skill flag");
             var clip = swing.Clip == 3 ? 990f : 1980f;
             Assert.Near(clip, swing.DurationMs, 1f);

@@ -13,6 +13,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Fields;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Application.World;
 

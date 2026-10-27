@@ -2,6 +2,8 @@ using System.Numerics;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Application.World;
 
@@ -174,12 +176,12 @@ internal sealed partial class FieldSkills
         amount = Math.Max(0, amount + amount * percent / 100);
         var before = target.Hp;
         target.Heal(amount);
-        _host.EmitCombatEvent(new CombatEventView(caster.EntityId, target.EntityId, CombatEventKindView.Heal, damage: target.Hp - before));
+        _host.EmitCombatEvent(new CombatEventView(caster.EntityId, target.EntityId, CombatEventKind.Heal, damage: target.Hp - before));
     }
 
     private void EmitAllyImpact(WorldPlayer caster, WorldPlayer ally, SkillRule rule, int rank)
     {
-        _skillEvents.Add(new SkillEventView(caster.EntityId, ally.EntityId, rule.Code, SkillEventPhaseView.Impact, rank, SkillEventFlagsView.Ally, 0f, 0f,
+        _skillEvents.Add(new SkillEventView(caster.EntityId, ally.EntityId, rule.Code, SkillEventPhase.Impact, rank, SkillEventFlags.Ally, 0f, 0f,
             ally.Position, caster.Facing, 1, 0f));
     }
 

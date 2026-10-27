@@ -7,6 +7,7 @@ using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Client.Net;
 
@@ -48,8 +49,8 @@ public interface IPlayChannel : IAsyncDisposable
     // by sequence. point is the aimed ground position in PT-global coordinates, or null for an entity or self cast.
     Task SendSkillCastAsync(uint sequence, uint skillCode, ulong targetEntityId, Vector3? point, CancellationToken ct = default);
 
-    // A command about a running skill (SkillCastFlags: the release of a held charge, an order to the summon).
-    Task SendSkillCommandAsync(uint sequence, uint skillCode, ushort command, CancellationToken ct = default) => Task.CompletedTask;
+    // A command about a running skill (SkillCastCommand: the release of a held charge, an order to the summon).
+    Task SendSkillCommandAsync(uint sequence, uint skillCode, SkillCastCommand command, CancellationToken ct = default) => Task.CompletedTask;
 
     // A line typed in the chat window (party: the party channel); replies arrive as PresenceUpdate.Chat.
     Task SendChatAsync(string text, bool party, CancellationToken ct = default) => Task.CompletedTask;

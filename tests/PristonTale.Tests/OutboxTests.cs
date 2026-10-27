@@ -3,6 +3,7 @@ using PristonTale.Application.World;
 using PristonTale.Gameplay.UI;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Tests;
 
@@ -21,12 +22,12 @@ internal static class OutboxTests
     {
         var first = new WorldOutbox();
         var second = new WorldOutbox();
-        var events = new[] { new CombatEventView(1, 2, CombatEventKindView.Hit, damage: 7) };
+        var events = new[] { new CombatEventView(1, 2, CombatEventKind.Hit, damage: 7) };
         var published = new WorldSnapshot(1, [], events);
         first.Writer.TryWrite(published);
         second.Writer.TryWrite(published);
         Assert.True(first.Reader.TryRead(out var delivered) && ReferenceEquals(delivered.Events, events), "single batch was copied per subscriber");
-        first.Writer.TryWrite(new WorldSnapshot(2, [], [new CombatEventView(1, 2, CombatEventKindView.Hit, damage: 3)]));
+        first.Writer.TryWrite(new WorldSnapshot(2, [], [new CombatEventView(1, 2, CombatEventKind.Hit, damage: 3)]));
         first.Reader.TryRead(out _);
         Assert.True(second.Reader.TryRead(out var untouched) && ReferenceEquals(untouched.Events, events)
             && untouched.Events[0].Damage == 7, "another subscriber changed a published batch");
@@ -39,7 +40,7 @@ internal static class OutboxTests
         for (uint tick = 1; tick <= 100; tick++)
         {
             Assert.True(outbox.Writer.TryWrite(new WorldSnapshot(tick, [],
-                [new CombatEventView(tick, 1, CombatEventKindView.Hit, damage: (int)tick)])), "outbox rejected bounded event count");
+                [new CombatEventView(tick, 1, CombatEventKind.Hit, damage: (int)tick)])), "outbox rejected bounded event count");
         }
 
         Assert.True(outbox.Reader.TryRead(out var snapshot) && snapshot.ServerTick == 100, "obsolete position roster retained");
@@ -56,7 +57,7 @@ internal static class OutboxTests
     private static async Task SaturationAsync()
     {
         var outbox = new WorldOutbox(1);
-        var snapshot = new WorldSnapshot(1, [], [new CombatEventView(1, 2, CombatEventKindView.Hit)]);
+        var snapshot = new WorldSnapshot(1, [], [new CombatEventView(1, 2, CombatEventKind.Hit)]);
         Assert.True(outbox.Writer.TryWrite(snapshot) && !outbox.Writer.TryWrite(snapshot), "event capacity not enforced");
         Assert.True(outbox.Reader.TryRead(out var accepted) && accepted.Events.Length == 1, "previously accepted event was lost");
         await Assert.ThrowsAsync(async () => await outbox.Reader.WaitToReadAsync());

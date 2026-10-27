@@ -6,6 +6,7 @@ using PristonTale.Gameplay.Combat;
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -250,16 +251,16 @@ public abstract class RemoteEntityBase
 
     private void ApplyCombatEventNow(CombatEventInfo combatEvent)
     {
-        if (combatEvent.Kind == RemoteCombatEventKind.PotionBegin)
+        if (combatEvent.Kind == CombatEventKind.PotionBegin)
         {
             QueueMotion(_controller.Retrigger(MotionCode.Eat), startsSound: true);
         }
-        else if (combatEvent.Kind == RemoteCombatEventKind.SwingBegin && Motion is MotionCode.Attack or MotionCode.Skill)
+        else if (combatEvent.Kind == CombatEventKind.SwingBegin && Motion is MotionCode.Attack or MotionCode.Skill)
         {
             QueueMotion(_controller.Retrigger(Motion), startsSound: true);
             _clipIndex = combatEvent.Clip;
         }
-        else if (combatEvent.Kind == RemoteCombatEventKind.Hit && !combatEvent.Killed && Motion == MotionCode.Damage)
+        else if (combatEvent.Kind == CombatEventKind.Hit && !combatEvent.Killed && Motion == MotionCode.Damage)
         {
             QueueMotion(_controller.Retrigger(MotionCode.Damage), startsSound: true);
         }

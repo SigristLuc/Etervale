@@ -3,6 +3,7 @@ using PristonTale.Effects.Vfx;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 

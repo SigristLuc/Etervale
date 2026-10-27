@@ -1,6 +1,7 @@
 using System.Numerics;
 using PristonTale.Application.Sessions;
 using PristonTale.Simulation.Items.Usable;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Application.World;
 
@@ -138,7 +139,7 @@ public sealed partial class WorldServer
                 break;
             case UsableItemAction.Restoration:
                 player.Revive(player.MaxHp / 2, ItemUseTransactions.RestorationGuardMs);
-                field.EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKindView.Revive, damage: player.Hp));
+                field.EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKind.Revive, damage: player.Hp));
                 effect = ItemEffectKind.Return;
                 break;
             case UsableItemAction.Food when operation.Food is { } food:

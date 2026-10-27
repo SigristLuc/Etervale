@@ -3,6 +3,7 @@ using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 

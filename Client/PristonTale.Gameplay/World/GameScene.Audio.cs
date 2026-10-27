@@ -5,6 +5,7 @@ using PristonTale.Gameplay.Audio;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Gameplay.World;
 
@@ -91,16 +92,16 @@ public sealed partial class GameScene
         {
             switch (combatEvent.Kind)
             {
-                case RemoteCombatEventKind.Hit or RemoteCombatEventKind.Miss when !combatEvent.Skill:
+                case CombatEventKind.Hit or CombatEventKind.Miss when !combatEvent.Skill:
                     if (SwingOf(combatEvent.AttackerId) is { } swing)
                     {
-                        var outcome = combatEvent.Kind == RemoteCombatEventKind.Miss ? WeaponSoundOutcome.Miss
+                        var outcome = combatEvent.Kind == CombatEventKind.Miss ? WeaponSoundOutcome.Miss
                             : combatEvent.Critical ? WeaponSoundOutcome.Critical : WeaponSoundOutcome.Hit;
                         _combatSounds.PlayWeapon(swing.WeaponKey, swing.ClassCode, outcome, swing.Position, listener);
                     }
 
                     break;
-                case RemoteCombatEventKind.Revive:
+                case CombatEventKind.Revive:
                     var risen = combatEvent.TargetId == _remote.SelfEntityId ? listener
                         : _remote.TryGetDrawnPosition(combatEvent.TargetId, out var drawn) ? drawn : (Vector3?)null;
                     if (risen is { } at)

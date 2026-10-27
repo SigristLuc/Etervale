@@ -8,6 +8,7 @@ using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Spawning;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Tests;
 
@@ -128,7 +129,7 @@ internal static class MonsterCombatTests
         for (var tick = 0; tick < 300; tick++)
         {
             field.Step(0.05f);
-            attackEntries += (field.SnapshotEvents() ?? []).Count(value => value.Kind == CombatEventKindView.SwingBegin && value.AttackerId == monster.EntityId);
+            attackEntries += (field.SnapshotEvents() ?? []).Count(value => value.Kind == CombatEventKind.SwingBegin && value.AttackerId == monster.EntityId);
         }
 
         Assert.True(attackEntries >= 3, $"short melee stopped outside its reach: distance={monster.Position.Length()}, swings={attackEntries}");

@@ -6,6 +6,7 @@ using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
 
 // Headless load generator over the original Priston protocol. Each bot logs in, creates a character when the account
 // has none, enters the world and then walks, hunts monsters with basic attacks or casts a skill at them, reporting
@@ -306,7 +307,7 @@ internal sealed class BotWorld(ulong self)
 
             foreach (var combat in update.Events)
             {
-                if (combat.Kind == RemoteCombatEventKind.Hit && combat.AttackerId == self)
+                if (combat.Kind == CombatEventKind.Hit && combat.AttackerId == self)
                 {
                     Interlocked.Increment(ref stats.Hits);
                 }

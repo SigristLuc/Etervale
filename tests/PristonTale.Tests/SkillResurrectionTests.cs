@@ -2,6 +2,8 @@ using System.Numerics;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 
@@ -29,7 +31,7 @@ internal static class SkillResurrectionTests
             Assert.True(fallen.IsDead, "fixture did not kill the ally");
             SkillFixtures.Accept("resurrection", field, priest, 0x07040002);
             var events = SkillFixtures.FinishCollect(field, priest);
-            revived = !fallen.IsDead && events.Any(value => value.Kind == Application.World.CombatEventKindView.Revive && value.TargetId == fallen.EntityId);
+            revived = !fallen.IsDead && events.Any(value => value.Kind == CombatEventKind.Revive && value.TargetId == fallen.EntityId);
             if (!revived)
             {
                 SkillFixtures.Wait(field, 18f);

@@ -18,6 +18,8 @@ using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 
@@ -208,7 +210,7 @@ internal sealed class ItemEffectsCaptureProbe : Game
 
     private void ForceOrbHit()
     {
-        var hit = new CombatEventInfo(SelfId, HopyId, RemoteCombatEventKind.Hit, 500f, 250f, 120, false, false);
+        var hit = new CombatEventInfo(SelfId, HopyId, CombatEventKind.Hit, 500f, 250f, 120, false, false);
         _orbs.Observe(new PresenceUpdate(4, [], [], [], [hit]), Anchor, _seconds * 1000d);
     }
 

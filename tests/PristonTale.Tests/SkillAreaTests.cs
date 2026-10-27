@@ -4,6 +4,8 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 
@@ -32,8 +34,8 @@ internal static class SkillAreaTests
         for (var tick = 0; tick < 100; tick++)
         {
             field.Step(0.05f);
-            hits.AddRange((field.SnapshotEvents() ?? []).Where(value => value.Kind == CombatEventKindView.Hit));
-            links += field.SnapshotSkillEvents().Count(value => (value.Flags & SkillEventFlagsView.Chain) != 0);
+            hits.AddRange((field.SnapshotEvents() ?? []).Where(value => value.Kind == CombatEventKind.Hit));
+            links += field.SnapshotSkillEvents().Count(value => (value.Flags & SkillEventFlags.Chain) != 0);
         }
 
         var struck = hits.Select(value => value.TargetId).ToHashSet();
@@ -54,7 +56,7 @@ internal static class SkillAreaTests
         }
 
         SkillFixtures.Accept("Divine Lightning", field, priest, 0x07020002);
-        var hits = SkillFixtures.FinishCollect(field, priest).Count(value => value.Kind == CombatEventKindView.Hit);
+        var hits = SkillFixtures.FinishCollect(field, priest).Count(value => value.Kind == CombatEventKind.Hit);
         Assert.True(hits == 3, $"rank 1 struck {hits} enemies instead of 3");
         return Task.CompletedTask;
     }

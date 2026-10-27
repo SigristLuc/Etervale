@@ -10,6 +10,7 @@ using PristonTale.Simulation.Skills;
 using NumVector3 = System.Numerics.Vector3;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Gameplay.World;
 
@@ -165,14 +166,14 @@ public sealed partial class GameScene : ISkillSceneHost
             _castLockUntilMs = 0d;
             SkillNotice?.Invoke(result.Status switch
             {
-                Protocol.Packets.SkillCastStatus.Cooldown => "The skill is not ready yet.",
-                Protocol.Packets.SkillCastStatus.NotEnoughMana => "Not enough mana.",
-                Protocol.Packets.SkillCastStatus.NotEnoughStamina => "Not enough stamina.",
-                Protocol.Packets.SkillCastStatus.OutOfRange => "The target is out of range.",
-                Protocol.Packets.SkillCastStatus.WeaponNotAllowed => "This skill needs another weapon.",
-                Protocol.Packets.SkillCastStatus.InVillage => "Skills cannot be used in town.",
-                Protocol.Packets.SkillCastStatus.AlreadyActive => "That effect is still active.",
-                Protocol.Packets.SkillCastStatus.InvalidTarget => "There is no valid target for this skill.",
+                SkillCastVerdict.Cooldown => "The skill is not ready yet.",
+                SkillCastVerdict.NotEnoughMana => "Not enough mana.",
+                SkillCastVerdict.NotEnoughStamina => "Not enough stamina.",
+                SkillCastVerdict.OutOfRange => "The target is out of range.",
+                SkillCastVerdict.WeaponNotAllowed => "This skill needs another weapon.",
+                SkillCastVerdict.InVillage => "Skills cannot be used in town.",
+                SkillCastVerdict.AlreadyActive => "That effect is still active.",
+                SkillCastVerdict.InvalidTarget => "There is no valid target for this skill.",
                 _ => "The skill cannot be used now."
             });
         }
@@ -344,7 +345,7 @@ public sealed partial class GameScene : ISkillSceneHost
         _chargeSkill = 0;
         if (SelfCasting && _playChannel is not null)
         {
-            SendUpstream(_playChannel.SendSkillCommandAsync(++_castSequence, code, Protocol.Packets.SkillCastFlags.Release, _presenceCts.Token),
+            SendUpstream(_playChannel.SendSkillCommandAsync(++_castSequence, code, SkillCastCommand.Release, _presenceCts.Token),
                 "skill release");
         }
     }
@@ -359,7 +360,7 @@ public sealed partial class GameScene : ISkillSceneHost
 
         var aggressive = !_summonAggressive.GetValueOrDefault(skillCode, rule.Summon.Aggressive);
         _summonAggressive[skillCode] = aggressive;
-        var command = aggressive ? Protocol.Packets.SkillCastFlags.SummonAggressive : Protocol.Packets.SkillCastFlags.SummonPassive;
+        var command = aggressive ? SkillCastCommand.SummonAggressive : SkillCastCommand.SummonPassive;
         SendUpstream(_playChannel.SendSkillCommandAsync(++_castSequence, skillCode, command, _presenceCts.Token), "summon mode");
         SkillNotice?.Invoke(aggressive ? $"{rule.Name}: attacks any enemy nearby." : $"{rule.Name}: attacks only your target.");
     }

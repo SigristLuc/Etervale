@@ -21,6 +21,7 @@ using PristonTale.Simulation.World.Motion;
 using NumVector3 = System.Numerics.Vector3;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Gameplay.World;
 
@@ -1271,16 +1272,16 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
     private void OnSelfCombatEvent(CombatEventInfo combatEvent)
     {
-        if (combatEvent.Kind == RemoteCombatEventKind.PotionBegin)
+        if (combatEvent.Kind == CombatEventKind.PotionBegin)
         {
             ApplyPlayerCommand(_playerController.Retrigger(MotionCode.Eat));
         }
-        else if (combatEvent.Kind == RemoteCombatEventKind.SwingBegin && !_playerController.LocomotionFrozen)
+        else if (combatEvent.Kind == CombatEventKind.SwingBegin && !_playerController.LocomotionFrozen)
         {
             _selfAttacking = true;
             ApplyPlayerCommand(_playerController.Retrigger(MotionCode.Attack));
         }
-        else if (combatEvent.Kind == RemoteCombatEventKind.Hit && !combatEvent.Killed && _playerController.Current == MotionCode.Damage)
+        else if (combatEvent.Kind == CombatEventKind.Hit && !combatEvent.Killed && _playerController.Current == MotionCode.Damage)
         {
             ApplyPlayerCommand(_playerController.Retrigger(MotionCode.Damage));
         }
@@ -1433,7 +1434,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         ObservePlayerSwings(update);
         foreach (var effect in update.Events)
         {
-            if (effect.Kind != RemoteCombatEventKind.PotionApplied || _effects.Instances.Count >= 128)
+            if (effect.Kind != CombatEventKind.PotionApplied || _effects.Instances.Count >= 128)
             {
                 continue;
             }

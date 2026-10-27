@@ -4,6 +4,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Tests;
 
@@ -69,7 +70,7 @@ internal static class SkillEnchantTests
         for (var tick = 0; tick < 12 * 20; tick++)
         {
             field.Step(0.05f);
-            foreach (var hit in (field.SnapshotEvents() ?? []).Where(value => value.Kind == CombatEventKindView.Hit && value.AttackerId == mage.EntityId))
+            foreach (var hit in (field.SnapshotEvents() ?? []).Where(value => value.Kind == CombatEventKind.Hit && value.AttackerId == mage.EntityId))
             {
                 strikes++;
                 targets.Add(hit.TargetId);

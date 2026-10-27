@@ -7,6 +7,7 @@ using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 
@@ -265,7 +266,7 @@ internal static class SkillPresentationTests
     private static Task BooksAsync()
     {
         var cooldowns = new SkillCooldownBook();
-        cooldowns.Apply(new SkillCastResultInfo(1, 0x08010002, SkillCastStatus.Accepted, 1, 10000, 10000, 0, 0), 1000);
+        cooldowns.Apply(new SkillCastResultInfo(1, 0x08010002, SkillCastVerdict.Accepted, 1, 10000, 10000, 0, 0), 1000);
         Assert.True(!cooldowns.Ready(0x08010002, 5000) && Math.Abs(cooldowns.Fraction(0x08010002, 6000) - 0.5f) < 0.001f, "cooldown sweep");
         cooldowns.Apply(new SkillCooldownSnapshot(0, []), 6000);
         Assert.True(cooldowns.Ready(0x08010002, 6000), "snapshot without the skill did not clear it");

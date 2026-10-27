@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Application.World;
 
@@ -33,8 +34,8 @@ internal sealed partial class FieldSkills
         var remaining = charge.FullDurationMs - shift - elapsed;
         player.ShortenCast(charge.FullDurationMs - shift);
         var nextHit = cast.HitsAtMs.Length > 0 ? MathF.Max(0f, cast.HitsAtMs[0] - elapsed) : remaining;
-        _pendingStarts.Add(new SkillEventView(player.EntityId, cast.TargetId, cast.Rule.Code, SkillEventPhaseView.Release, cast.Rank,
-            SkillEventFlagsView.None, MathF.Max(0f, remaining), nextHit, cast.Aim, player.Facing, 0, 0f));
+        _pendingStarts.Add(new SkillEventView(player.EntityId, cast.TargetId, cast.Rule.Code, SkillEventPhase.Release, cast.Rank,
+            SkillEventFlags.None, MathF.Max(0f, remaining), nextHit, cast.Aim, player.Facing, 0, 0f));
         return new SkillCastOutcome(request.Sequence, request.SkillCode, SkillCastVerdict.Accepted, cast.Rank, 0, 0, player.Character.Mana,
             player.Character.Stamina);
     }

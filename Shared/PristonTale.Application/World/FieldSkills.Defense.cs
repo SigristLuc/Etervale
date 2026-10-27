@@ -2,6 +2,7 @@ using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Application.World;
 
@@ -55,7 +56,7 @@ internal sealed partial class FieldSkills : IPlayerSkillCombat
             return false;
         }
 
-        _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, target.EntityId, CombatEventKindView.Evade));
+        _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, target.EntityId, CombatEventKind.Evade));
         return true;
     }
 

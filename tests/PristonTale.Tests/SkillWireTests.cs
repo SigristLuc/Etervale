@@ -5,6 +5,8 @@ using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Skills;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 
@@ -19,29 +21,8 @@ internal static class SkillWireTests
 
     private static Task WireAsync()
     {
-        foreach (var verdict in Enum.GetValues<SkillCastVerdict>())
-        {
-            Assert.True(Enum.IsDefined((SkillCastStatus)verdict) && ((SkillCastStatus)verdict).ToString() == verdict.ToString(),
-                $"verdict {verdict} has no wire status");
-        }
-
-        foreach (var kind in Enum.GetValues<CombatEventKindView>())
-        {
-            Assert.True(((RemoteCombatEventKind)kind).ToString() == kind.ToString(), $"combat kind {kind} differs in the client");
-        }
-
-        Assert.True((ushort)SkillEventFlagsView.Chain == SkillEventFlags.Chain && (ushort)SkillEventFlagsView.Companion == SkillEventFlags.Companion
-            && (ushort)SkillEventFlagsView.Ally == SkillEventFlags.Ally && (ushort)SkillEventFlagsView.Counter == SkillEventFlags.Counter
-            && (ushort)SkillEventFlagsView.Charged == SkillEventFlags.Charged
-            && (ushort)(SkillEventFlagsView.Mode1 | SkillEventFlagsView.Mode2) == SkillEventFlags.ModeMask
-            && (ushort)SkillEventFlagsView.Mode1 == 1 << SkillEventFlags.ModeShift, "skill event flags differ from the wire");
-        foreach (var command in Enum.GetValues<SkillCastCommand>())
-        {
-            Assert.True((ushort)command <= SkillCastFlags.SummonAggressive, $"cast command {command} has no wire flag");
-        }
-
         var buffer = new byte[FrameCodec.MaxFrameSize];
-        var result = new SkillCastResultPacket(9, 0x06040002, SkillCastStatus.AlreadyActive, 10, 0, 0, 0, 0, 0);
+        var result = new SkillCastResultPacket(9, 0x06040002, SkillCastVerdict.AlreadyActive, 10, 0, 0, 0, 0, 0);
         Assert.True(SkillCastResultPacket.Read(buffer.AsSpan(0, result.Write(buffer))) == result, "already-active result round trip");
         SkillEventEntry[] events =
         [
@@ -53,8 +34,8 @@ internal static class SkillWireTests
         Assert.True(SkillEventList.Read(buffer.AsSpan(0, length)).SequenceEqual(events), "chain, companion and ally events round trip");
         CombatEventEntry[] combat =
         [
-            new(4, 1, (byte)CombatEventKindView.Evade, 0, 0f, 0f, 0, 0, 0, 0, 0, 0, 0),
-            new(1, 2, (byte)CombatEventKindView.Revive, 0, 0f, 0f, 840, 0, 0, 100, 0, -200, 0)
+            new(4, 1, CombatEventKind.Evade, 0, 0f, 0f, 0, 0, 0, 0, 0, 0, 0),
+            new(1, 2, CombatEventKind.Revive, 0, 0f, 0f, 840, 0, 0, 100, 0, -200, 0)
         ];
         length = CombatEventList.Write(buffer, combat);
         Assert.True(CombatEventList.Read(buffer.AsSpan(0, length)).SequenceEqual(combat), "evade and revive events round trip");
@@ -64,13 +45,13 @@ internal static class SkillWireTests
     private static Task CommandsAsync()
     {
         var buffer = new byte[FrameCodec.MaxFrameSize];
-        foreach (var flags in new[] { SkillCastFlags.Cast, SkillCastFlags.Release, SkillCastFlags.SummonPassive, SkillCastFlags.SummonAggressive })
+        foreach (var flags in new[] { SkillCastCommand.Cast, SkillCastCommand.Release, SkillCastCommand.SummonPassive, SkillCastCommand.SummonAggressive })
         {
             var cast = new SkillCastPacket(3, 0x03080002, 77, 256, 0, -512, 1024, 4000, flags);
             Assert.True(SkillCastPacket.Read(buffer.AsSpan(0, cast.Write(buffer))) == cast, $"cast command {flags} round trip");
         }
 
-        var length = new SkillCastPacket(3, 0x03080002, 77, 0, 0, 0, 0, 0, 4).Write(buffer);
+        var length = new SkillCastPacket(3, 0x03080002, 77, 0, 0, 0, 0, 0, (SkillCastCommand)4).Write(buffer);
         Assert.ThrowsAsync(() => Task.Run(() => SkillCastPacket.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
         length = new SkillCastPacket(3, 0x03080002, 77, 0, 0, 0, 0, 0).Write(buffer);
         BitConverter.TryWriteBytes(buffer.AsSpan(8), (ushort)2);
@@ -78,13 +59,13 @@ internal static class SkillWireTests
         var wide = new SkillCastPacket(3, 0x03080002, 0x1_0000_0001UL, 0, 0, 0, 0, 0);
         Assert.True(SkillCastPacket.Read(buffer.AsSpan(0, wide.Write(buffer))).TargetSerial == 0x1_0000_0001UL, "64-bit cast target round trip");
 
-        var mode = (ushort)(2 << SkillEventFlags.ModeShift);
+        var mode = SkillEventFlags.None.WithMode(2);
         SkillEventEntry[] events =
         [
             new(1, 5, 0x03080002, SkillEventPhase.Release, 5, 0, 900f, 120f, 0, 0, 0, 0, 0, 0),
             new(1, 5, 0x03080002, SkillEventPhase.Impact, 5, SkillEventFlags.Charged, 0f, 0f, 0, 0, 0, 0, 1, 0),
             new(1, 6, 0x01040004, SkillEventPhase.Impact, 3, SkillEventFlags.Counter, 0f, 0f, 0, 0, 0, 0, 1, 0),
-            new(1, 6, 0x04040001, SkillEventPhase.Impact, 4, (ushort)(SkillEventFlags.Area | mode), 0f, 0f, 0, 0, 0, 0, 2, 75)
+            new(1, 6, 0x04040001, SkillEventPhase.Impact, 4, SkillEventFlags.Area | mode, 0f, 0f, 0, 0, 0, 0, 2, 75)
         ];
         length = SkillEventList.Write(buffer, events);
         Assert.True(SkillEventList.Read(buffer.AsSpan(0, length)).SequenceEqual(events), "release, charged, counter and mode events round trip");

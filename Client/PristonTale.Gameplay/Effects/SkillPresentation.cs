@@ -9,6 +9,8 @@ using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Rendering.Lighting;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -320,7 +322,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
             return perHit == SkillRule.Silent ? "" : perHit;
         }
 
-        var mode = (skillEvent.Flags & SkillEventFlags.ModeMask) >> SkillEventFlags.ModeShift;
+        var mode = skillEvent.Flags.Mode();
         if ((skillEvent.Flags & SkillEventFlags.Charged) != 0 && rule.Charge?.Full is { ImpactEffect.Length: > 0 } full)
         {
             return full.ImpactEffect;
@@ -446,7 +448,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     private void ObserveCombat(CombatEventInfo combat)
     {
         var self = _host.SelfId;
-        if (combat.Kind == RemoteCombatEventKind.Evade)
+        if (combat.Kind == CombatEventKind.Evade)
         {
             if (combat.TargetId == self && TryAbove(combat.TargetId, out var evaded))
             {
@@ -456,7 +458,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
             return;
         }
 
-        if (combat.Kind == RemoteCombatEventKind.Revive)
+        if (combat.Kind == CombatEventKind.Revive)
         {
             if (_host.TryGetPosition(combat.TargetId, out var risen))
             {
@@ -466,7 +468,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
             return;
         }
 
-        if (combat.Kind == RemoteCombatEventKind.Heal)
+        if (combat.Kind == CombatEventKind.Heal)
         {
             if (combat.Damage > 0 && TryAbove(combat.TargetId, out var healed))
             {
@@ -476,7 +478,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
             return;
         }
 
-        if (combat.Kind != RemoteCombatEventKind.Hit || combat.Damage <= 0 || combat.AttackerId != self && combat.TargetId != self)
+        if (combat.Kind != CombatEventKind.Hit || combat.Damage <= 0 || combat.AttackerId != self && combat.TargetId != self)
         {
             return;
         }

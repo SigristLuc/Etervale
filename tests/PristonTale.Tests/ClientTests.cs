@@ -13,6 +13,7 @@ using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Tests;
 
@@ -33,7 +34,7 @@ internal static class ClientTests
     private static Task PresenceAsync()
     {
         var origin = new System.Numerics.Vector3(120, 35, -400);
-        var impact = new CombatEventView(9, 1, CombatEventKindView.MonsterSkillImpact,
+        var impact = new CombatEventView(9, 1, CombatEventKind.MonsterSkillImpact,
             sourceSoundCode: 0x18E0, position: origin, facing: 1.2f);
         var entity = new EntityView(2, EntityKind.Monster, false, origin, 1.2f, MotionState.Skill,
             10, 45, 60, default, templateId: 1);
@@ -44,7 +45,7 @@ internal static class ClientTests
         Assert.True(update.FieldId == 3 && update.Spawns.Single(spawn => spawn.EntityId == 2).MoveState == MotionState.Skill,
             "TCP presence dropped field or skill motion");
         Assert.True(update.Spawns.Single(spawn => spawn.EntityId == 1).IsSelf, "own avatar was not marked as self");
-        Assert.True(update.Events.Single().Position == origin && update.Events.Single().Kind == RemoteCombatEventKind.MonsterSkillImpact,
+        Assert.True(update.Events.Single().Position == origin && update.Events.Single().Kind == CombatEventKind.MonsterSkillImpact,
             "TCP presence dropped skill impact data");
         Assert.True(update.Spawns.All(spawn => spawn.ServerTimeMs == 8 * 50), "presence samples lost the server tick stamp");
         return Task.CompletedTask;
@@ -95,7 +96,7 @@ internal static class ClientTests
             }
         }
 
-        var swing = new CombatEventInfo(2, 1, RemoteCombatEventKind.SwingBegin, 800, 400, 0, false, false);
+        var swing = new CombatEventInfo(2, 1, CombatEventKind.SwingBegin, 800, 400, 0, false, false);
         remote.SetRates(5, 1.75f);
         remote.ApplyCombatEvent(swing, now);
         Settle();
@@ -113,7 +114,7 @@ internal static class ClientTests
         Settle();
         Assert.True(scene.Restarts == 2, "second swing event was lost");
         remote.SetTarget(now, Vector3.Zero, 0, MotionState.Skill, 100);
-        var cast = new CombatEventInfo(2, 1, RemoteCombatEventKind.SwingBegin, 1980, 957, 0, false, false);
+        var cast = new CombatEventInfo(2, 1, CombatEventKind.SwingBegin, 1980, 957, 0, false, false);
         remote.ApplyCombatEvent(cast, now);
         Settle();
         Assert.True(scene.Restarts == 3 && remote.Motion == MotionCode.Skill, "skill entry restarted basic attack");

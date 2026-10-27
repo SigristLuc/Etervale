@@ -4,6 +4,8 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 
@@ -86,14 +88,14 @@ internal static class SkillAllyTests
         hurt.Character.Life = 10;
         away.Character.Life = 10;
         SkillFixtures.Accept("Grand Healing", field, priest, 0x07020004);
-        var heals = SkillFixtures.FinishCollect(field, priest).Where(value => value.Kind == CombatEventKindView.Heal).ToList();
+        var heals = SkillFixtures.FinishCollect(field, priest).Where(value => value.Kind == CombatEventKind.Heal).ToList();
         Assert.True(heals.Count == 1 && heals[0].TargetId == hurt.EntityId && heals[0].Damage >= 40, "Grand Healing healed outside its rule");
 
         hurt.Character.Effects.Apply(new EffectSpec(0x07040004, EffectSourceKind.PlayerSkill, false, [StatModifier.Percent(StatKind.HealingTaken, -50)]), 9, 60000f);
         hurt.Character.Life = 10;
         SkillFixtures.Wait(field, 20f);
         SkillFixtures.Accept("second Grand Healing", field, priest, 0x07020004);
-        var lowered = SkillFixtures.FinishCollect(field, priest).Single(value => value.Kind == CombatEventKindView.Heal);
+        var lowered = SkillFixtures.FinishCollect(field, priest).Single(value => value.Kind == CombatEventKind.Heal);
         var weapon = SkillFormulas.WeaponItemDamage(priest.Character);
         var maximum = 50 + weapon.Max / 3 + priest.Character.Attributes.Spirit / 6;
         Assert.True(lowered.Damage <= maximum / 2 + 1, $"healing taken did not lower the heal ({lowered.Damage} of at most {maximum})");

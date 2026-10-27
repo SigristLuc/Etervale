@@ -6,6 +6,7 @@ using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Tests;
 
@@ -40,7 +41,7 @@ internal static class MonsterBossSkillTests
         world.StepUntil(() => world.Swings(monster.EntityId).Count() >= 30, 2000, "babel stopped swinging");
         var swings = world.Swings(monster.EntityId).Count();
         var blows = world.Events.Count(value => value.AttackerId == monster.EntityId && value.TargetId == 1
-            && value.Kind is CombatEventKindView.Hit or CombatEventKindView.Block);
+            && value.Kind is CombatEventKind.Hit or CombatEventKind.Block);
         Assert.True(blows > swings * 1.3, $"babel struck {blows} times in {swings} swings");
         Assert.True(world.HitsOn(2).Any(), "babel never splashed the player beside its target");
         Assert.True(!world.HitsOn(3).Any(), "babel splashed a player far from its target");
@@ -105,7 +106,7 @@ internal static class MonsterBossSkillTests
         world.StepUntil(() => monster.Motion == MotionState.Eat, 80, "a hurt monster never drank");
         Assert.True(monster.Potions == potions - 1, "drinking did not spend a potion");
         world.StepUntil(() => monster.Motion != MotionState.Eat, 40, "the drink never ended");
-        Assert.True(monster.Life >= 700 && world.Events.Any(value => value.Kind == CombatEventKindView.PotionApplied && value.AttackerId == monster.EntityId),
+        Assert.True(monster.Life >= 700 && world.Events.Any(value => value.Kind == CombatEventKind.PotionApplied && value.AttackerId == monster.EntityId),
             "the potion did not heal half the life");
 
         var dry = MonsterSkillField.Monster(0x1000, rating: 0) with { PotionCount = 3, PotionPercent = 0 };
@@ -173,7 +174,7 @@ internal static class MonsterBossSkillTests
         world.Step();
         Assert.True(near.Hp < nearLife && away.Hp == awayLife, "the explosion missed its range");
         world.Step(5);
-        Assert.True(world.Events.Count(value => value.Kind == CombatEventKindView.MonsterSkillImpact) == 1, "the explosion repeated");
+        Assert.True(world.Events.Count(value => value.Kind == CombatEventKind.MonsterSkillImpact) == 1, "the explosion repeated");
 
         world = new MonsterSkillField(mystic);
         world.AddPlayer(1, new Vector3(800, 0, 0));

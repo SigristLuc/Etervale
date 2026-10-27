@@ -8,6 +8,7 @@ using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Client.Net.Online;
 
@@ -110,7 +111,7 @@ internal sealed class OnlinePlayChannel : IPlayChannel
         _connection.SendYahooKey();
     }
 
-    public async Task SendSkillCommandAsync(uint sequence, uint skillCode, ushort command, CancellationToken ct = default)
+    public async Task SendSkillCommandAsync(uint sequence, uint skillCode, SkillCastCommand command, CancellationToken ct = default)
     {
         await _start.WaitAsync(ct);
         _connection.SendSkillCast(sequence, skillCode, 0, null, command);

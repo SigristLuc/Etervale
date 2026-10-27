@@ -19,6 +19,7 @@ using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Server.Net;
 
@@ -509,7 +510,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
 
         var hasPoint = packet.X != 0 || packet.Y != 0 || packet.Z != 0;
         var point = new Vector3(PristonUnits.FromFixed(packet.X), PristonUnits.FromFixed(packet.Y), PristonUnits.FromFixed(packet.Z));
-        var request = new SkillCastRequest(packet.Sequence, packet.SkillCode, packet.TargetSerial, point, hasPoint, (SkillCastCommand)packet.Flags);
+        var request = new SkillCastRequest(packet.Sequence, packet.SkillCode, packet.TargetSerial, point, hasPoint, packet.Command);
         SkillCastOutcome outcome;
         try
         {
@@ -525,7 +526,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
             LogRejected(EtervaleOpcodes.SkillCast, $"skill {packet.SkillCode:X8}: {outcome.Verdict}");
         }
 
-        var result = new SkillCastResultPacket(outcome.Sequence, outcome.SkillCode, (SkillCastStatus)outcome.Verdict, (byte)Math.Clamp(outcome.Rank, 0, 255),
+        var result = new SkillCastResultPacket(outcome.Sequence, outcome.SkillCode, outcome.Verdict, (byte)Math.Clamp(outcome.Rank, 0, 255),
             (uint)Math.Max(0, outcome.CooldownMs), (uint)Math.Max(0, outcome.RemainingMs), outcome.Mana, outcome.Stamina, 0);
         SendLarge(result.Write, SkillCastResultPacket.Size);
     }

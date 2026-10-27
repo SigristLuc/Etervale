@@ -2,6 +2,7 @@ using PristonTale.Effects.Vfx;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Modifiers;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -16,7 +17,7 @@ public sealed class SkillCooldownBook
         {
             _running[result.SkillCode] = (nowMs + result.CooldownMs, result.CooldownMs);
         }
-        else if (result.Status == SkillCastStatus.Cooldown && result.RemainingMs > 0)
+        else if (result.Status == SkillCastVerdict.Cooldown && result.RemainingMs > 0)
         {
             var duration = _running.TryGetValue(result.SkillCode, out var known) ? Math.Max(known.DurationMs, result.RemainingMs) : result.RemainingMs;
             _running[result.SkillCode] = (nowMs + result.RemainingMs, duration);

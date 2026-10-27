@@ -3,6 +3,7 @@ using PristonTale.Application.Sessions;
 using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.World;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Application.World;
 
@@ -69,7 +70,7 @@ public sealed partial class WorldServer
             var inVillage = destination.State == FieldState.Village;
             player.EnterField(position, inVillage);
             player.Restart(candidate.Life, DeathPenalty.RestartGuardMs);
-            target.EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKindView.Revive, damage: player.Hp));
+            target.EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKind.Revive, damage: player.Hp));
             UpdatePlacement(session, operation.FieldId, position, inVillage);
             return true;
         }, waitForCapacity: true);

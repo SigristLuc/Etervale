@@ -9,6 +9,7 @@ using XnaVector3 = Microsoft.Xna.Framework.Vector3;
 using NumVector3 = System.Numerics.Vector3;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -124,7 +125,7 @@ public sealed partial class RemoteEntityManager
 
         foreach (var combatEvent in update.Events)
         {
-            var entityId = combatEvent.Kind == RemoteCombatEventKind.SwingBegin ? combatEvent.AttackerId : combatEvent.TargetId;
+            var entityId = combatEvent.Kind == CombatEventKind.SwingBegin ? combatEvent.AttackerId : combatEvent.TargetId;
             if (entityId == _selfEntityId)
             {
                 _onSelfCombatEvent?.Invoke(combatEvent);

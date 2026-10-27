@@ -3,6 +3,7 @@ using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Application.World;
 
@@ -186,8 +187,8 @@ internal sealed partial class FieldSkills
 
         for (var link = 1; link < _targets.Count; link++)
         {
-            _skillEvents.Add(new SkillEventView(caster.EntityId, _targets[link]!.EntityId, cast.Rule.Code, SkillEventPhaseView.Impact, cast.Rank,
-                SkillEventFlagsView.Chain | SkillEventFlagsView.Area, 0f, 0f, _targets[link - 1]!.Position, 0f, link, linkLength));
+            _skillEvents.Add(new SkillEventView(caster.EntityId, _targets[link]!.EntityId, cast.Rule.Code, SkillEventPhase.Impact, cast.Rank,
+                SkillEventFlags.Chain | SkillEventFlags.Area, 0f, 0f, _targets[link - 1]!.Position, 0f, link, linkLength));
         }
     }
 

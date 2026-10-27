@@ -7,6 +7,7 @@ using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Application.World;
 
@@ -362,7 +363,7 @@ public sealed partial class FieldInstance
             opponent.Potions--;
             var heal = QuestArena.PotionHeal(maxLife, duel.MagicMaster);
             opponent.Life = Math.Min(maxLife, opponent.Life + heal);
-            EmitCombatEvent(new CombatEventView(opponent.EntityId, opponent.EntityId, CombatEventKindView.Heal, damage: heal));
+            EmitCombatEvent(new CombatEventView(opponent.EntityId, opponent.EntityId, CombatEventKind.Heal, damage: heal));
             if (!duel.Master && opponent.Potions == 0)
             {
                 // Fury falls for good once its potions are gone.

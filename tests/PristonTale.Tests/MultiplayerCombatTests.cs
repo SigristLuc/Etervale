@@ -8,6 +8,8 @@ using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.World.Monsters;
 using static PristonTale.Tests.MultiplayerMovementTests;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 
@@ -57,13 +59,13 @@ internal static class MultiplayerCombatTests
         await hunt;
         var kill = await b.WaitAsync(world => world.Combat.Select(entry => entry.Event).FirstOrDefault(value => value.Killed && value.TargetId == dummy.Id),
             "the killing blow", 12000);
-        Assert.True(kill.AttackerId == a.Serial && kill.Kind == RemoteCombatEventKind.Hit, "the kill was credited to another attacker");
+        Assert.True(kill.AttackerId == a.Serial && kill.Kind == CombatEventKind.Hit, "the kill was credited to another attacker");
         await hunt;
         var seenByA = a.World.Read(world => Blows(world, a.Serial, dummy.Id))!;
         var seenByB = b.World.Read(world => Blows(world, a.Serial, dummy.Id))!;
         Assert.True(seenByA.Count > 1 && seenByA.SequenceEqual(seenByB), $"the players saw different blows: {string.Join(",", seenByA)} / {string.Join(",", seenByB)}");
-        Assert.True(seenByA.Where(blow => blow.Kind == RemoteCombatEventKind.Hit).Sum(blow => blow.Damage) >= 12, "the hits do not add up to the dummy's life");
-        Assert.True(a.World.Read(world => world.Combat.Any(entry => entry.Event.Kind == RemoteCombatEventKind.SwingBegin && entry.Event.AttackerId == a.Serial)),
+        Assert.True(seenByA.Where(blow => blow.Kind == CombatEventKind.Hit).Sum(blow => blow.Damage) >= 12, "the hits do not add up to the dummy's life");
+        Assert.True(a.World.Read(world => world.Combat.Any(entry => entry.Event.Kind == CombatEventKind.SwingBegin && entry.Event.AttackerId == a.Serial)),
             "the swings were not shown");
 
         foreach (var viewer in new[] { a, b })
@@ -108,7 +110,7 @@ internal static class MultiplayerCombatTests
         foreach (var viewer in new[] { a, b })
         {
             await viewer.WaitUntilAsync(world => world.Skills.Any(value => value.SkillCode == FireBolt && value.Phase == SkillEventPhase.Impact)
-                && world.Combat.Any(entry => entry.Event.AttackerId == a.Serial && entry.Event.TargetId == dummy.Id && entry.Event.Kind == RemoteCombatEventKind.Hit),
+                && world.Combat.Any(entry => entry.Event.AttackerId == a.Serial && entry.Event.TargetId == dummy.Id && entry.Event.Kind == CombatEventKind.Hit),
                 "the bolt's impact and hit");
         }
 
@@ -134,7 +136,7 @@ internal static class MultiplayerCombatTests
         await using var c = await Enter(server, "PreyC", Spot + new Vector3(0f, 0f, -420f));
         var clients = new[] { a, b, c };
         var hunter = await a.WaitAsync(world => world.Entities.Values.FirstOrDefault(entity => entity.TemplateId == HunterCode), "the hunter");
-        await a.WaitUntilAsync(world => world.Combat.Count(entry => entry.Event.AttackerId == hunter.Id && entry.Event.Kind == RemoteCombatEventKind.Hit) >= 2,
+        await a.WaitUntilAsync(world => world.Combat.Count(entry => entry.Event.AttackerId == hunter.Id && entry.Event.Kind == CombatEventKind.Hit) >= 2,
             "the hunter's hits", 12000);
         await Task.Delay(500);
 

@@ -10,6 +10,7 @@ using PristonTale.Simulation.World.Monsters;
 using static PristonTale.Tests.MultiplayerMovementTests;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 

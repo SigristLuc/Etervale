@@ -1,37 +1,12 @@
 using System.Numerics;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Client.Net.Presence;
-
-public enum RemoteCombatEventKind
-{
-    Unspecified = 0,
-
-    SwingBegin = 1,
-
-    Hit = 2,
-    PotionBegin = 3,
-    PotionApplied = 4,
-    MonsterSkillImpact = 5,
-    // A skill or periodic effect restored life; Damage carries the amount.
-    Heal = 6,
-    // The target evaded a monster's attack through a skill effect.
-    Evade = 7,
-    // A dead player rose again (a revive skill); Damage carries the life it returns with.
-    Revive = 8,
-    // A player blocked a monster's normal attack; no damage reaches them.
-    Block = 9,
-    // A player's swing missed its target.
-    Miss = 10,
-    // A player gained a level.
-    LevelUp = 11,
-    // A player trained a skill rank.
-    SkillLearned = 12,
-}
 
 public sealed record CombatEventInfo(
     ulong AttackerId,
     ulong TargetId,
-    RemoteCombatEventKind Kind,
+    CombatEventKind Kind,
     float DurationMs,
     float HitAtMs,
     int Damage,

@@ -6,6 +6,7 @@ using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Application.World;
 

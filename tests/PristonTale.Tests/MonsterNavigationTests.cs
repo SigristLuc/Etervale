@@ -10,6 +10,7 @@ using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Spawning;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Tests;
 
@@ -248,7 +249,7 @@ internal static class MonsterNavigationTests
                 _field.Step(0.05f);
                 foreach (var combat in _field.SnapshotEvents() ?? [])
                 {
-                    if (combat.Kind == CombatEventKindView.SwingBegin && _previous.ContainsKey(combat.AttackerId))
+                    if (combat.Kind == CombatEventKind.SwingBegin && _previous.ContainsKey(combat.AttackerId))
                     {
                         Swings++;
                         _swings[combat.AttackerId] = SwingsBy(combat.AttackerId) + 1;

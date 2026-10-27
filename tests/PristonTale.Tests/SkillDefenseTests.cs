@@ -5,6 +5,8 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 
@@ -39,7 +41,7 @@ internal static class SkillDefenseTests
             SkillFixtures.Strike(field, monster, archer);
         }
 
-        return (field.SnapshotEvents() ?? []).Count(value => value.Kind == CombatEventKindView.Evade);
+        return (field.SnapshotEvents() ?? []).Count(value => value.Kind == CombatEventKind.Evade);
     }
 
     private static Task EvasionMasteryAsync()
@@ -72,7 +74,7 @@ internal static class SkillDefenseTests
         }
 
         var lost = monster.Def.Combat.MaxLife - monster.Life;
-        Assert.True(lost > 0 && field.SnapshotSkillEvents().Any(value => (value.Flags & SkillEventFlagsView.Counter) != 0),
+        Assert.True(lost > 0 && field.SnapshotSkillEvents().Any(value => (value.Flags & SkillEventFlags.Counter) != 0),
             "a blocked attack did not bring the counter strike");
         return Task.CompletedTask;
     }
@@ -143,7 +145,7 @@ internal static class SkillDefenseTests
         {
             knight.Character.Life = knight.Character.MaxLife / 2;
             SkillFixtures.Strike(field, monster, knight);
-            heals += (field.SnapshotEvents() ?? []).Count(value => value.Kind == CombatEventKindView.Heal && value.TargetId == knight.EntityId && value.Damage == 90);
+            heals += (field.SnapshotEvents() ?? []).Count(value => value.Kind == CombatEventKind.Heal && value.TargetId == knight.EntityId && value.Damage == 90);
             field.Step(0.001f);
         }
 
@@ -158,7 +160,7 @@ internal static class SkillDefenseTests
         {
             atalanta.Character.Life = atalanta.Character.MaxLife;
             SkillFixtures.Strike(field, monster, atalanta);
-            evaded += (field.SnapshotEvents() ?? []).Count(value => value.Kind == CombatEventKindView.Evade);
+            evaded += (field.SnapshotEvents() ?? []).Count(value => value.Kind == CombatEventKind.Evade);
             field.Step(0.001f);
         }
 

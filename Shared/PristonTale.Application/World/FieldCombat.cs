@@ -11,6 +11,7 @@ using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Application.World;
 
@@ -87,7 +88,7 @@ internal sealed class FieldCombat
         (float durationMs, float hitAtMs) = _host.PlayerSwingTiming(player);
         player.BeginSwing(targetId, monster.Position, durationMs, hitAtMs);
         _host.EmitCombatEvent(new CombatEventView(
-            player.EntityId, targetId, CombatEventKindView.SwingBegin, durationMs, hitAtMs));
+            player.EntityId, targetId, CombatEventKind.SwingBegin, durationMs, hitAtMs));
     }
 
     public KillPayout? ResolvePlayerSwingHit(WorldPlayer player, ulong targetId, long nowMs)
@@ -107,7 +108,7 @@ internal sealed class FieldCombat
         {
             if (!result.Hit)
             {
-                _host.EmitCombatEvent(new CombatEventView(player.EntityId, targetId, CombatEventKindView.Miss));
+                _host.EmitCombatEvent(new CombatEventView(player.EntityId, targetId, CombatEventKind.Miss));
             }
 
             return null;
@@ -147,7 +148,7 @@ internal sealed class FieldCombat
         MonsterAiBrain.ApplyBossRetargetOnHit(monster, sourceEntityId != 0 ? sourceEntityId : player.EntityId);
 
         _host.EmitCombatEvent(new CombatEventView(
-            sourceEntityId != 0 ? sourceEntityId : player.EntityId, monster.EntityId, CombatEventKindView.Hit,
+            sourceEntityId != 0 ? sourceEntityId : player.EntityId, monster.EntityId, CombatEventKind.Hit,
             damage: damage, crit: crit, killed: !monster.IsAlive));
 
         if (!monster.IsAlive)
@@ -216,7 +217,7 @@ internal sealed class FieldCombat
         HitResult result = CombatResolver.ResolveMonsterAttack(_rng, atk, def, CombatProfileFactory.HasShield(target.Character));
         if (result.Blocked)
         {
-            _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, target.EntityId, CombatEventKindView.Block));
+            _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, target.EntityId, CombatEventKind.Block));
             SkillCombat?.Blocked(attacker, target);
             FieldInstance.AgingBlock(target, attacker);
         }
@@ -233,7 +234,7 @@ internal sealed class FieldCombat
             target.ApplyDamage(damage);
             FieldInstance.AgingBlow(target, attacker);
             _host.EmitCombatEvent(new CombatEventView(
-                attacker.EntityId, target.EntityId, CombatEventKindView.Hit,
+                attacker.EntityId, target.EntityId, CombatEventKind.Hit,
                 damage: damage, crit: result.Crit, killed: target.IsDead));
             if (attacker.Def.Class == MonsterClass.Hammer)
             {
@@ -264,7 +265,7 @@ internal sealed class FieldCombat
         var roll = FieldMonsterSkills.AgainstMonster(attacker, summon, _rng.Range(range.Min, Math.Max(range.Min, range.Max)));
         var damage = MonsterSkillRules.KillsMonsters(attacker.Def) ? roll : CombatResolver.ApplyAbsorbMonster(roll, summon.Def.Combat.Absorption);
         summon.ApplyDamage(damage);
-        _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, summon.EntityId, CombatEventKindView.Hit, damage: damage, killed: !summon.IsAlive)
+        _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, summon.EntityId, CombatEventKind.Hit, damage: damage, killed: !summon.IsAlive)
         {
             Skill = skill
         });

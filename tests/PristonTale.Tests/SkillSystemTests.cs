@@ -13,6 +13,8 @@ using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Spawning;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 
@@ -208,7 +210,7 @@ internal static class SkillSystemTests
         var buffer = new byte[FrameCodec.MaxFrameSize];
         var cast = new SkillCastPacket(7, 0x08010002, 99, 256, -512, 1024, 300, 12345);
         Assert.True(SkillCastPacket.Read(buffer.AsSpan(0, cast.Write(buffer))) == cast, "cast round trip");
-        var result = new SkillCastResultPacket(7, 0x08010002, SkillCastStatus.Cooldown, 3, 17150, 900, 40, 70, 88);
+        var result = new SkillCastResultPacket(7, 0x08010002, SkillCastVerdict.Cooldown, 3, 17150, 900, 40, 70, 88);
         Assert.True(SkillCastResultPacket.Read(buffer.AsSpan(0, result.Write(buffer))) == result, "cast result round trip");
         SkillEventEntry[] events =
         [
@@ -285,15 +287,15 @@ internal static class SkillSystemTests
         Assert.True(outcome.Accepted && player.Character.Mana == manaBefore - 25, "mana not spent on the server");
         field.Step(0.05f);
         var start = field.SnapshotSkillEvents().Single();
-        Assert.True(start.Phase == SkillEventPhaseView.Start && start.HitAtMs > 0 && start.DurationMs > start.HitAtMs, "start timing missing");
+        Assert.True(start.Phase == SkillEventPhase.Start && start.HitAtMs > 0 && start.DurationMs > start.HitAtMs, "start timing missing");
         var lifeBefore = monster.Life;
         var impactTick = -1;
         var hits = new List<CombatEventView>();
         for (var tick = 1; tick < 60 && impactTick < 0; tick++)
         {
             field.Step(0.05f);
-            hits.AddRange((field.SnapshotEvents() ?? []).Where(value => value.Kind == CombatEventKindView.Hit && value.AttackerId == player.EntityId));
-            if (field.SnapshotSkillEvents().Any(value => value.Phase == SkillEventPhaseView.Impact))
+            hits.AddRange((field.SnapshotEvents() ?? []).Where(value => value.Kind == CombatEventKind.Hit && value.AttackerId == player.EntityId));
+            if (field.SnapshotSkillEvents().Any(value => value.Phase == SkillEventPhase.Impact))
             {
                 impactTick = tick;
             }
@@ -317,8 +319,8 @@ internal static class SkillSystemTests
         for (var tick = 0; tick < 20 * 60; tick++)
         {
             field.Step(0.05f);
-            added.AddRange(field.SnapshotStatusEvents().Where(value => value.Op == StatusEventOpView.Add));
-            removed.AddRange(field.SnapshotStatusEvents().Where(value => value.Op == StatusEventOpView.Remove));
+            added.AddRange(field.SnapshotStatusEvents().Where(value => value.Op == StatusEffectOp.Add));
+            removed.AddRange(field.SnapshotStatusEvents().Where(value => value.Op == StatusEffectOp.Remove));
             if (tick == 100)
             {
                 Assert.True(player.Character.Derived.Absorption >= absorption + 3, "absorb buff did not change derived stats");
@@ -350,8 +352,8 @@ internal static class SkillSystemTests
         var view = new EntityView(1, EntityKind.Player, true, Vector3.Zero, 0, MotionState.Skill, 10, 100, 100, default);
         var snapshot = new WorldSnapshot(5, [view], fieldId: 3)
         {
-            SkillEvents = [new SkillEventView(1, 1, 0x05010002, SkillEventPhaseView.Start, 2, SkillEventFlagsView.SelfCast, 900f, 400f, Vector3.Zero, 0f, 0, 0f)],
-            StatusEvents = [new StatusEventView(1, 1, 0x05010002, StatusEventOpView.Add, 1, 2, 0, false, false, 5000, 5000, 12)],
+            SkillEvents = [new SkillEventView(1, 1, 0x05010002, SkillEventPhase.Start, 2, SkillEventFlags.SelfCast, 900f, 400f, Vector3.Zero, 0f, 0, 0f)],
+            StatusEvents = [new StatusEventView(1, 1, 0x05010002, StatusEffectOp.Add, 1, 2, 0, false, false, 5000, 5000, 12)],
             Cooldowns = [new SkillCooldownView(0x05010002, 17000, 17150)]
         };
         var updates = round.Push(snapshot);

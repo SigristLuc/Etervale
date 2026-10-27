@@ -5,6 +5,7 @@ using PristonTale.Client.Net.WorldCatalog;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
@@ -102,12 +103,12 @@ public sealed partial class HudCombat
 
         foreach (var combat in update.Events)
         {
-            if (combat.Kind == RemoteCombatEventKind.SwingBegin && combat.AttackerId == _self && _self != 0)
+            if (combat.Kind == CombatEventKind.SwingBegin && combat.AttackerId == _self && _self != 0)
             {
                 NoteAttack(combat.TargetId);
             }
 
-            if (combat.Kind != RemoteCombatEventKind.Hit || combat.AttackerId != _self && combat.TargetId != _self)
+            if (combat.Kind != CombatEventKind.Hit || combat.AttackerId != _self && combat.TargetId != _self)
             {
                 continue;
             }

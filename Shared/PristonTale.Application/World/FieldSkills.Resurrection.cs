@@ -1,5 +1,6 @@
 using System.Numerics;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Application.World;
 
@@ -39,7 +40,7 @@ internal sealed partial class FieldSkills
         }
 
         fallen.Revive(fallen.MaxHp * resurrect.LifePercent / 100, resurrect.GuardTenths * 100f);
-        _host.EmitCombatEvent(new CombatEventView(caster.EntityId, fallen.EntityId, CombatEventKindView.Revive, damage: fallen.Hp));
+        _host.EmitCombatEvent(new CombatEventView(caster.EntityId, fallen.EntityId, CombatEventKind.Revive, damage: fallen.Hp));
         return true;
     }
 }

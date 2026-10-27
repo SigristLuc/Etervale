@@ -21,6 +21,8 @@ using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 
@@ -241,9 +243,9 @@ internal sealed class HudCaptureProbe : Game
                 Name: "Lena")
         ], [], [],
         [
-            new(1, 2, RemoteCombatEventKind.Hit, 0, 0, 8, false, false),
-            new(2, 1, RemoteCombatEventKind.Hit, 0, 0, 3, false, false),
-            new(1, 2, RemoteCombatEventKind.Hit, 0, 0, 11, true, false)
+            new(1, 2, CombatEventKind.Hit, 0, 0, 8, false, false),
+            new(2, 1, CombatEventKind.Hit, 0, 0, 3, false, false),
+            new(1, 2, CombatEventKind.Hit, 0, 0, 11, true, false)
         ]));
         _hud.TargetId = 2;
         if (_backgroundPath is not null)
@@ -442,7 +444,7 @@ internal sealed class HudCaptureProbe : Game
     private static PristonTale.Gameplay.Effects.StatusBook BuffBook()
     {
         var book = new PristonTale.Gameplay.Effects.StatusBook();
-        void Add(uint code, int duration, int remaining, ushort flags = 0) => book.Apply(new StatusEffectInfo(1, 1, code, PristonTale.Protocol.Packets.StatusEffectOp.Add, 1, 1, 0,
+        void Add(uint code, int duration, int remaining, ushort flags = 0) => book.Apply(new StatusEffectInfo(1, 1, code, StatusEffectOp.Add, 1, 1, 0,
             flags, duration, remaining, 0), BuffClockMs);
         Add(0x01010001, 60_000, 20_000);
         Add(MetalGolem, 360_000, 300_000);

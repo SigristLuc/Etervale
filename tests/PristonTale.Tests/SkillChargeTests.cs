@@ -3,6 +3,8 @@ using PristonTale.Application.World;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 
@@ -38,18 +40,18 @@ internal static class SkillChargeTests
         Assert.True(early.Cast(ChargingStrike, command: SkillCastCommand.Release).Verdict == SkillCastVerdict.Rejected, "a second release was accepted");
         var finished = early.Run(200, () => !early.Player.IsCasting);
         Assert.True(finished > 0 && (releaseTick + finished) * 50f < timing.FullDurationMs - 500f, "an early release did not shorten the motion");
-        Assert.True(early.Skills.Any(value => value.Phase == SkillEventPhaseView.Release && value.SkillCode == ChargingStrike), "the release was not shown");
-        var partial = early.Skills.Where(value => value.Phase == SkillEventPhaseView.Impact && value.SkillCode == ChargingStrike).ToArray();
-        Assert.True(partial.Length == 3 && partial.All(value => (value.Flags & SkillEventFlagsView.Charged) == 0), "a partial charge struck as a full one");
+        Assert.True(early.Skills.Any(value => value.Phase == SkillEventPhase.Release && value.SkillCode == ChargingStrike), "the release was not shown");
+        var partial = early.Skills.Where(value => value.Phase == SkillEventPhase.Impact && value.SkillCode == ChargingStrike).ToArray();
+        Assert.True(partial.Length == 3 && partial.All(value => (value.Flags & SkillEventFlags.Charged) == 0), "a partial charge struck as a full one");
         var struck = early.Combat.Where(value => value.TargetId == earlyTarget.EntityId).Select(value => value.Kind).ToArray();
-        Assert.True(struck.Length > 0 && struck.All(kind => kind == CombatEventKindView.Hit), $"the partial strikes were not resolved: {string.Join(",", struck)}");
+        Assert.True(struck.Length > 0 && struck.All(kind => kind == CombatEventKind.Hit), $"the partial strikes were not resolved: {string.Join(",", struck)}");
 
         var (held, _) = Begin();
         var total = held.Run(400, () => !held.Player.IsCasting);
         Assert.True(total * 50f >= timing.FullDurationMs - 100f, "a held charge ended early");
-        var full = held.Skills.Where(value => value.Phase == SkillEventPhaseView.Impact && value.SkillCode == ChargingStrike).ToArray();
-        Assert.True(full.Length == 3 && full.All(value => (value.Flags & SkillEventFlagsView.Charged) != 0), "a held charge did not strike fully");
-        Assert.True(!held.Skills.Any(value => value.Phase == SkillEventPhaseView.Release), "a held charge reported a release");
+        var full = held.Skills.Where(value => value.Phase == SkillEventPhase.Impact && value.SkillCode == ChargingStrike).ToArray();
+        Assert.True(full.Length == 3 && full.All(value => (value.Flags & SkillEventFlags.Charged) != 0), "a held charge did not strike fully");
+        Assert.True(!held.Skills.Any(value => value.Phase == SkillEventPhase.Release), "a held charge reported a release");
 
         var (late, _) = Begin();
         late.Run((int)MathF.Ceiling((timing.FullMs + 60f) / 50f));

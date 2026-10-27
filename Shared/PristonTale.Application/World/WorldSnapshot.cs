@@ -3,6 +3,8 @@ using System.Numerics;
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Application.World;
 
@@ -105,65 +107,13 @@ public readonly struct EntityView
     public ulong AttackSequence { get; }
 }
 
-public enum CombatEventKindView
-{
-    SwingBegin = 1,
-
-    Hit = 2,
-    PotionBegin = 3,
-    PotionApplied = 4,
-    MonsterSkillImpact = 5,
-    // A skill or periodic effect restored life; Damage carries the amount.
-    Heal = 6,
-    // The target evaded a monster's attack through a skill effect.
-    Evade = 7,
-    // A dead player rose again (a revive skill); Damage carries the life it returns with.
-    Revive = 8,
-    // A player blocked a monster's normal attack; no damage reaches them.
-    Block = 9,
-    // A player's swing missed its target (its weapon's miss sound plays for everyone near).
-    Miss = 10,
-    // A player gained a level: the level-up burst and chime for everyone near.
-    LevelUp = 11,
-    // A player trained a skill rank: the skill-learn light and sound for everyone near.
-    SkillLearned = 12,
-}
-
-public enum SkillEventPhaseView : byte
-{
-    Start = 1,
-    Impact = 2,
-    Cancel = 3,
-    // A held charge was released: the motion jumps ahead; DurationMs and HitAtMs give the new remaining timeline.
-    Release = 4
-}
-
-[Flags]
-public enum SkillEventFlagsView : ushort
-{
-    None = 0,
-    Area = 1,
-    Projectile = 2,
-    SelfCast = 4,
-    // A chain link, a strike of the caster's familiar, a buff given to another player, a counter strike of a shield
-    // buff and a fully charged resolution.
-    Chain = 8,
-    Companion = 16,
-    Ally = 32,
-    Counter = 64,
-    Charged = 128,
-    // Two bits: the resolution mode picked for the cast (Mode1 = 256, Mode2 = 512).
-    Mode1 = 256,
-    Mode2 = 512
-}
-
 public readonly record struct SkillEventView(
     ulong CasterId,
     ulong TargetId,
     uint SkillCode,
-    SkillEventPhaseView Phase,
+    SkillEventPhase Phase,
     int Rank,
-    SkillEventFlagsView Flags,
+    SkillEventFlags Flags,
     float DurationMs,
     float HitAtMs,
     Vector3 Position,
@@ -171,19 +121,11 @@ public readonly record struct SkillEventView(
     int TargetCount,
     float Radius);
 
-public enum StatusEventOpView : byte
-{
-    Add = 1,
-    Refresh = 2,
-    Remove = 3,
-    Tick = 4
-}
-
 public readonly record struct StatusEventView(
     ulong EntityId,
     ulong SourceId,
     uint StatusCode,
-    StatusEventOpView Op,
+    StatusEffectOp Op,
     int Stacks,
     byte SourceKind,
     byte Control,
@@ -198,7 +140,7 @@ public readonly record struct SkillCooldownView(uint SkillCode, int RemainingMs,
 public readonly struct CombatEventView
 {
     public CombatEventView(
-        ulong attackerId, ulong targetId, CombatEventKindView kind,
+        ulong attackerId, ulong targetId, CombatEventKind kind,
         float durationMs = 0f, float hitAtMs = 0f, int damage = 0, bool crit = false, bool killed = false, int resources = 0,
         int sourceSoundCode = 0, Vector3 position = default, float facing = 0f)
     {
@@ -218,7 +160,7 @@ public readonly struct CombatEventView
 
     public ulong AttackerId { get; }
     public ulong TargetId { get; }
-    public CombatEventKindView Kind { get; }
+    public CombatEventKind Kind { get; }
     public float DurationMs { get; }
     public float HitAtMs { get; }
     public int Damage { get; }

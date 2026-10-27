@@ -16,6 +16,8 @@ using PristonTale.Simulation.World.Npcs;
 using PristonTale.Simulation.Skills;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Application.World;
 
@@ -252,14 +254,14 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
             var restored = player.TickPotion(dtMs, _rng);
             if (restored != PotionResource.None)
             {
-                EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKindView.PotionApplied, resources: (int)restored));
+                EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKind.PotionApplied, resources: (int)restored));
             }
 
             if (player.HasPendingPotion && !player.IsBusy)
             {
                 var timing = PlayerPotionTiming(player);
                 player.BeginPendingPotion(timing.DurationMs, timing.HitAtMs);
-                EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKindView.PotionBegin,
+                EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKind.PotionBegin,
                     timing.DurationMs, timing.HitAtMs));
             }
 
@@ -273,12 +275,12 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
             player.TakeProgressCues(out var leveledUp, out var learned);
             if (leveledUp)
             {
-                EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKindView.LevelUp));
+                EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKind.LevelUp));
             }
 
             if (learned)
             {
-                EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKindView.SkillLearned));
+                EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKind.SkillLearned));
             }
         }
 
@@ -364,7 +366,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
             {
                 summon.SwingJustBegan = false;
                 var tuning = TuningFor(summon.Def);
-                _events.Add(new CombatEventView(summon.EntityId, summon.TargetId, CombatEventKindView.SwingBegin,
+                _events.Add(new CombatEventView(summon.EntityId, summon.TargetId, CombatEventKind.SwingBegin,
                     summon.AttackIsSkill ? tuning.SkillDurationMs : tuning.CooldownMs, summon.AttackIsSkill ? tuning.SkillWindupMs : tuning.WindupMs));
             }
 

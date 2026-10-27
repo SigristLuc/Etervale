@@ -1,15 +1,16 @@
 using PristonTale.Protocol.Binary;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Protocol.Packets;
 
 // Etervale skill messages. Every body starts with {ushort Version, ushort Flags}; readers accept newer versions that
 // append fields after the ones they know. Positions are play-data fixed point and angles are 4096 per turn.
-// Flags (version 2) carry the command: 0 a new cast, 1 the release of a held charge, 2 and 3 order the caster's summon
-// to fight only its owner's target or to pick its own (SkillCastFlags).
+// Flags (version 2) carry the SkillCastCommand: 0 a new cast, 1 the release of a held charge, 2 and 3 order the caster's
+// summon to fight only its owner's target or to pick its own.
 // {header, uint16 Version = 3, uint16 Flags, uint32 Sequence, SkillCode, uint64 TargetSerial, int32 X, Y, Z, int16 Angle,
 // int16 0, uint32 ClientTimeMs}.
 public readonly record struct SkillCastPacket(uint Sequence, uint SkillCode, ulong TargetSerial, int X, int Y, int Z, short Angle, uint ClientTimeMs,
-    ushort Flags = 0)
+    SkillCastCommand Command = SkillCastCommand.Cast)
 {
     public const ushort CurrentVersion = 3;
     public const int Size = 8 + 4 + 4 * 2 + 8 + 4 * 3 + 4 + 4;
@@ -18,7 +19,7 @@ public readonly record struct SkillCastPacket(uint Sequence, uint SkillCode, ulo
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.SkillCast);
         writer.UInt16(CurrentVersion);
-        writer.UInt16(Flags);
+        writer.UInt16((ushort)Command);
         writer.UInt32(Sequence);
         writer.UInt32(SkillCode);
         writer.UInt64(TargetSerial);
@@ -35,8 +36,8 @@ public readonly record struct SkillCastPacket(uint Sequence, uint SkillCode, ulo
     {
         var reader = new PacketReader(packet, Size);
         var version = reader.UInt16();
-        var flags = reader.UInt16();
-        if (version < CurrentVersion || flags > SkillCastFlags.SummonAggressive)
+        var command = reader.UInt16();
+        if (version < CurrentVersion || command > (ushort)SkillCastCommand.SummonAggressive)
         {
             throw new InvalidDataException("Skill cast has an older layout or an unknown command.");
         }
@@ -49,39 +50,12 @@ public readonly record struct SkillCastPacket(uint Sequence, uint SkillCode, ulo
         var z = reader.Int32();
         var angle = reader.Int16();
         reader.Skip(2);
-        return new SkillCastPacket(sequence, code, target, x, y, z, angle, reader.UInt32(), flags);
+        return new SkillCastPacket(sequence, code, target, x, y, z, angle, reader.UInt32(), (SkillCastCommand)command);
     }
 }
 
-public static class SkillCastFlags
-{
-    public const ushort Cast = 0;
-    public const ushort Release = 1;
-    public const ushort SummonPassive = 2;
-    public const ushort SummonAggressive = 3;
-}
-
-public enum SkillCastStatus : byte
-{
-    Accepted = 0,
-    NotLearned = 1,
-    NotCastable = 2,
-    Cooldown = 3,
-    NotEnoughMana = 4,
-    NotEnoughStamina = 5,
-    InvalidTarget = 6,
-    OutOfRange = 7,
-    Busy = 8,
-    Dead = 9,
-    WeaponNotAllowed = 10,
-    Stale = 11,
-    InVillage = 12,
-    Rejected = 13,
-    AlreadyActive = 14
-}
-
 // Answer to the caster's own SkillCast, correlated by Sequence. CooldownMs is the full cooldown that started.
-public readonly record struct SkillCastResultPacket(uint Sequence, uint SkillCode, SkillCastStatus Status, byte Rank, uint CooldownMs, uint RemainingMs,
+public readonly record struct SkillCastResultPacket(uint Sequence, uint SkillCode, SkillCastVerdict Status, byte Rank, uint CooldownMs, uint RemainingMs,
     int Mana, int Stamina, uint ServerTick)
 {
     public const ushort CurrentVersion = 1;
@@ -114,44 +88,14 @@ public readonly record struct SkillCastResultPacket(uint Sequence, uint SkillCod
         var status = reader.Byte();
         var rank = reader.Byte();
         reader.Skip(2);
-        if (!Enum.IsDefined((SkillCastStatus)status))
+        if (!Enum.IsDefined((SkillCastVerdict)status))
         {
             throw new InvalidDataException("Skill cast result has an unknown status.");
         }
 
-        return new SkillCastResultPacket(sequence, code, (SkillCastStatus)status, rank, reader.UInt32(), reader.UInt32(), reader.Int32(), reader.Int32(),
+        return new SkillCastResultPacket(sequence, code, (SkillCastVerdict)status, rank, reader.UInt32(), reader.UInt32(), reader.Int32(), reader.Int32(),
             reader.UInt32());
     }
-}
-
-public enum SkillEventPhase : byte
-{
-    // The caster begins the skill motion; the impact follows HitAtMs after this event's server time.
-    Start = 1,
-    // The skill's effect resolves at the position; damage and heals follow as combat events.
-    Impact = 2,
-    // The cast ended before its impact (death, field change).
-    Cancel = 3,
-    // A held charge was released early: the motion jumps ahead; DurationMs and HitAtMs give the remaining timeline.
-    Release = 4
-}
-
-public static class SkillEventFlags
-{
-    public const ushort Area = 1;
-    public const ushort Projectile = 2;
-    public const ushort SelfCast = 4;
-    // A link of a chain: the impact runs from the previous link's target (Position) to Target.
-    public const ushort Chain = 8;
-    // A strike of the caster's familiar (a falcon, orbs, a spirit or phantom weapon) at Target.
-    public const ushort Companion = 16;
-    // A support effect reached an ally (Target) other than the caster.
-    public const ushort Ally = 32;
-    // A shield's counter strike, a fully charged resolution; two bits name the cast's mode.
-    public const ushort Counter = 64;
-    public const ushort Charged = 128;
-    public const ushort ModeShift = 8;
-    public const ushort ModeMask = 0x300;
 }
 
 // {uint64 Caster, Target, uint32 SkillCode, uint8 Phase, Rank, uint16 Flags, float32 DurationMs, HitAtMs, int32 X, Y, Z,
@@ -162,7 +106,7 @@ public readonly record struct SkillEventEntry(
     uint SkillCode,
     SkillEventPhase Phase,
     byte Rank,
-    ushort Flags,
+    SkillEventFlags Flags,
     float DurationMs,
     float HitAtMs,
     int X,
@@ -181,7 +125,7 @@ public readonly record struct SkillEventEntry(
         writer.UInt32(SkillCode);
         writer.Byte((byte)Phase);
         writer.Byte(Rank);
-        writer.UInt16(Flags);
+        writer.UInt16((ushort)Flags);
         writer.Single(DurationMs);
         writer.Single(HitAtMs);
         writer.Int32(X);
@@ -204,7 +148,7 @@ public readonly record struct SkillEventEntry(
             throw new InvalidDataException("Skill event has an unknown phase.");
         }
 
-        var entry = new SkillEventEntry(caster, target, code, (SkillEventPhase)phase, reader.Byte(), reader.UInt16(), reader.Single(), reader.Single(),
+        var entry = new SkillEventEntry(caster, target, code, (SkillEventPhase)phase, reader.Byte(), (SkillEventFlags)reader.UInt16(), reader.Single(), reader.Single(),
             reader.Int32(), reader.Int32(), reader.Int32(), reader.Int16(), reader.UInt16(), reader.Int32());
         reader.Skip(4);
         if (!float.IsFinite(entry.DurationMs) || !float.IsFinite(entry.HitAtMs) || entry.DurationMs < 0f || entry.HitAtMs < 0f)
@@ -260,15 +204,6 @@ public static class SkillEventList
 
         return events;
     }
-}
-
-public enum StatusEffectOp : byte
-{
-    Add = 1,
-    Refresh = 2,
-    Remove = 3,
-    // A periodic effect applied its value (damage or restore) this tick.
-    Tick = 4
 }
 
 public static class StatusEffectFlags

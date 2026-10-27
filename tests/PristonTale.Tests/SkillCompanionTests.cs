@@ -1,6 +1,7 @@
 using System.Numerics;
 using PristonTale.Application.World;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Tests;
 
@@ -16,7 +17,7 @@ internal static class SkillCompanionTests
     }
 
     private static int Strikes(SkillScenario scenario, uint code) =>
-        scenario.Skills.Count(value => value.SkillCode == code && (value.Flags & SkillEventFlagsView.Companion) != 0);
+        scenario.Skills.Count(value => value.SkillCode == code && (value.Flags & SkillEventFlags.Companion) != 0);
 
     private static Task FalconAsync()
     {
@@ -32,7 +33,7 @@ internal static class SkillCompanionTests
         archer.Run(20 * 10);
         var strikes = Strikes(archer, Falcon);
         Assert.True(strikes is >= 3 and <= 5, $"{strikes} falcon strikes in ten seconds at a 2.2 s interval");
-        var struck = archer.Skills.Where(value => value.SkillCode == Falcon && (value.Flags & SkillEventFlagsView.Companion) != 0);
+        var struck = archer.Skills.Where(value => value.SkillCode == Falcon && (value.Flags & SkillEventFlags.Companion) != 0);
         Assert.True(struck.All(value => value.TargetId == prey.EntityId), "the falcon struck another enemy than its owner's target");
 
         var changes = new List<Simulation.Modifiers.EffectChange>();
@@ -51,7 +52,7 @@ internal static class SkillCompanionTests
         Assert.True(mechanic.Cast(MagneticSphere).Accepted, "Magnetic Sphere refused");
         mechanic.Run(60, () => mechanic.Character.Effects.TryGet(MagneticSphere, out _));
         mechanic.Run(20 * 13);
-        var strikes = mechanic.Skills.Where(value => value.SkillCode == MagneticSphere && (value.Flags & SkillEventFlagsView.Companion) != 0).ToArray();
+        var strikes = mechanic.Skills.Where(value => value.SkillCode == MagneticSphere && (value.Flags & SkillEventFlags.Companion) != 0).ToArray();
         Assert.True(strikes.Length == 2 && strikes.All(value => value.TargetId == near.EntityId), $"{strikes.Length} orb strikes on the near enemy in 13 s");
         var dealt = near.Def.Combat.MaxLife - near.Life;
         Assert.True(dealt is >= 2 and <= 2 * 40 && far.Life == far.Def.Combat.MaxLife, $"orb damage {dealt} outside rank 1 or the far enemy was hit");

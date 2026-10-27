@@ -6,6 +6,8 @@ using PristonTale.Effects.Vfx;
 using PristonTale.Engine3D.Rendering.Lighting;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Items.Usable;
+using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -51,7 +53,7 @@ public sealed class ForceOrbPresentation
 
         foreach (var hit in update.Events)
         {
-            if (hit.Kind == RemoteCombatEventKind.Hit && _active.ContainsKey(hit.AttackerId) && position(hit.TargetId) is { } target)
+            if (hit.Kind == CombatEventKind.Hit && _active.ContainsKey(hit.AttackerId) && position(hit.TargetId) is { } target)
             {
                 var at = target + Vector3.Up * 22f;
                 if (_hit is not null && _engine.Instances.Count < 128)

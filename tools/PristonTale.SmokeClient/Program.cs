@@ -3,6 +3,7 @@ using PristonTale.Client.Net.Presence;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Quests;
+using PristonTale.Contracts.Skills;
 
 // smoke [address] [account] [password] [--character NAME] [--skill CODE] [--chat TEXT]
 // Without --character a new Mechanician is created and its skill cast must be answered (refused: unlearned, in town).

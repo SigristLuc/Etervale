@@ -19,6 +19,7 @@ using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Skills;
 
 namespace PristonTale.Client.Net;
 
@@ -477,7 +478,7 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
-    internal void SendSkillCast(uint sequence, uint skillCode, ulong target, Vector3? point, ushort command = SkillCastFlags.Cast)
+    internal void SendSkillCast(uint sequence, uint skillCode, ulong target, Vector3? point, SkillCastCommand command = SkillCastCommand.Cast)
     {
         var aimed = point ?? Vector3.Zero;
         var cast = new SkillCastPacket(sequence, skillCode, target, PristonUnits.ToFixed(aimed.X), PristonUnits.ToFixed(aimed.Y), PristonUnits.ToFixed(aimed.Z),
