@@ -36,14 +36,11 @@ public static class EquipmentVisuals
     public static CharacterVisualSet Apply(CharacterVisualSet defaults, string armor, string weapon, string offHand, bool village, uint jobMask)
     {
         string body = defaults.Body.InxExtensionPath;
-        // Premium costume bodies (CA) keep the class body; their wings are an effect (CostumeWings).
-        if (!string.IsNullOrEmpty(armor) && !armor.StartsWith("CA", StringComparison.OrdinalIgnoreCase))
+        // Premium costume bodies (CA) keep the class body; their wings are an effect (CostumeWings). An armour without a
+        // body in the table also keeps it, so one unknown item cannot stop the frame that draws its wearer.
+        if (!string.IsNullOrEmpty(armor) && !armor.StartsWith("CA", StringComparison.OrdinalIgnoreCase)
+            && EquipmentVisualTables.ArmorSlots.TryGetValue(armor, out var index))
         {
-            if (!EquipmentVisualTables.ArmorSlots.TryGetValue(armor, out var index))
-            {
-                throw new InvalidDataException($"Invalid armor catalog key '{armor}'.");
-            }
-
             if ((uint)defaults.ArmorTableIndex >= (uint)EquipmentVisualTables.Armors.Length)
             {
                 throw new InvalidDataException($"Invalid armor table index {defaults.ArmorTableIndex}.");

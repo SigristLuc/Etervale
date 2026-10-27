@@ -470,7 +470,7 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   armour or robe wears the body of its catalog ordinal (`ArmorSlots`: ordinals from 26 sit sixteen slots further, so
   DA126-129 wear the 25th-28th bodies, DA301/401 the 29th, DA302-304/402-404 the 30th-32nd and DA131+ the costume
   bodies) from its class row (A, B, C, D, mA, mB, mC, mD, E, mE; 75 slots each); premium costumes (`CA`) keep the class
-  body and wear wings.
+  body and wear wings, and an armour missing from `ArmorSlots` keeps the class body.
 - Progression (`GameScene.Progression`): a `LevelUp` combat event plays `vfx.player.levelup` (with the level-up chime) at
   the player, a `SkillLearned` event the skill-learn light (`ItemVfx.Learn`) and sound, for every client near.
 - Item sounds (`ItemSoundRules`, `image/Sinimage/Sound`): an item sounds by catalog family (three characters of its key,
