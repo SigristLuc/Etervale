@@ -11,46 +11,23 @@ namespace PristonTale.Application.Services;
 public sealed record WingGateReply(WingGateOutcome Outcome, TeleportArrival? Arrival = null);
 
 // A trip through the wing warp gates: the tick prepares the fee and the place, the character is stored, then the tick
-// applies it. The session's SaveGate admits one durable operation at a time.
+// applies it (DurableOperations).
 public sealed class WingGateAppService(ISessionRegistry sessions, ICharacterRepository characters, WorldServer world)
 {
+    private readonly DurableOperations _durable = new(characters);
+
     public async Task<WingGateReply> TravelAsync(string sessionToken, WingGateCommand command, CancellationToken ct = default)
     {
-        if (!sessions.TryGet(sessionToken, out var session))
-        {
-            return new WingGateReply(new WingGateOutcome(WingGateStatus.Rejected, command.Destination));
-        }
-
-        if (!await session.SaveGate.WaitAsync(0, ct))
-        {
-            return new WingGateReply(new WingGateOutcome(WingGateStatus.Busy, command.Destination));
-        }
-
-        try
-        {
-            var prepared = await world.PrepareWingGateAsync(session, command);
-            if (prepared is null)
+        using var lease = await _durable.AdmitAsync(sessions, sessionToken, ct);
+        return await lease.RunAsync(
+            session => world.PrepareWingGateAsync(session, command),
+            world.CommitWingGateAsync,
+            prepared => new WingGateReply(prepared.Outcome, prepared.Arrival),
+            failure => new WingGateReply(new WingGateOutcome(failure switch
             {
-                return new WingGateReply(new WingGateOutcome(WingGateStatus.Rejected, command.Destination));
-            }
-
-            if (prepared.Snapshot is null)
-            {
-                return new WingGateReply(prepared.Outcome);
-            }
-
-            // Finish an admitted trip despite cancellation.
-            if (!await characters.UpdateAsync(prepared.Snapshot.Encode(), CancellationToken.None))
-            {
-                return new WingGateReply(new WingGateOutcome(WingGateStatus.StorageFailed, command.Destination));
-            }
-
-            await world.CommitWingGateAsync(session, prepared);
-            return new WingGateReply(prepared.Outcome, prepared.Arrival);
-        }
-        finally
-        {
-            session.SaveGate.Release();
-        }
+                DurableFailure.Busy => WingGateStatus.Busy,
+                DurableFailure.StorageFailed => WingGateStatus.StorageFailed,
+                _ => WingGateStatus.Rejected
+            }, command.Destination)));
     }
 }

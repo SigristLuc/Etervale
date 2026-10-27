@@ -7,8 +7,8 @@ using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Application.Services;
 
-// Typed NPC services outside the tick: the world validates and prepares, storage is written here, then the world commits.
-// Every request holds the character's save gate, so saves and other economic operations never interleave with it.
+// Typed NPC services outside the tick: the world validates and prepares, storage is written here, then the world commits
+// (DurableOperations).
 public sealed class NpcAppService(
     ISessionRegistry sessions,
     ICharacterRepository characters,
@@ -16,6 +16,8 @@ public sealed class NpcAppService(
     WorldServer world,
     WorldDataHolder worldData)
 {
+    private readonly DurableOperations _durable = new(characters);
+
     public Task<NpcInteraction> InteractAsync(string sessionToken, ulong npcId)
     {
         if (!sessions.TryGet(sessionToken, out var session))
@@ -28,62 +30,46 @@ public sealed class NpcAppService(
 
     public async Task<NpcServiceReply> RequestAsync(string sessionToken, NpcServiceCommand command, CancellationToken ct = default)
     {
-        if (!sessions.TryGet(sessionToken, out var session))
+        using var lease = await _durable.AdmitAsync(sessions, sessionToken, ct);
+        if (lease.Failure is null && command.Service == NpcServiceKind.Warehouse && command.Action == NpcServiceAction.Open
+            && await OpenWarehouseAsync(lease.Session, command, ct) is { } opened)
         {
-            return Failed(NpcServiceStatus.Rejected, "invalid session");
+            return opened;
         }
 
-        if (!await session.SaveGate.WaitAsync(0, ct))
+        return await lease.RunAsync(
+            session => world.PrepareNpcServiceAsync(session, command),
+            world.CommitNpcServiceAsync,
+            prepared => prepared.Reply,
+            failure => failure switch
+            {
+                DurableFailure.NoSession => Failed(NpcServiceStatus.Rejected, "invalid session"),
+                DurableFailure.Busy => Failed(NpcServiceStatus.Busy, "save or character operation pending; retry"),
+                DurableFailure.StorageFailed => Failed(NpcServiceStatus.StorageFailed, "storage rejected operation; character unchanged"),
+                DurableFailure.Conflict => Failed(NpcServiceStatus.Conflict, "the warehouse changed elsewhere; open it again"),
+                _ => Failed(NpcServiceStatus.Rejected, "character is not playing")
+            },
+            StoreAsync);
+    }
+
+    // The character, and the warehouse with it when the service changed it. A warehouse stored elsewhere since this
+    // session read it is a conflict, and the session drops its copy.
+    private async Task<DurableFailure?> StoreAsync(PlayerSession session, PreparedNpcOperation prepared)
+    {
+        var record = prepared.Snapshot!.Encode();
+        if (prepared.Warehouse is null)
         {
-            return Failed(NpcServiceStatus.Busy, "save or character operation pending; retry");
+            return await characters.UpdateAsync(record, CancellationToken.None) ? null : DurableFailure.StorageFailed;
         }
 
-        try
+        if (await warehouses.SaveWithCharacterAsync(record, WarehouseStateCodec.Capture(session.AccountId, prepared.Warehouse),
+                prepared.ExpectedWarehouseRevision, CancellationToken.None))
         {
-            if (command.Service == NpcServiceKind.Warehouse && command.Action == NpcServiceAction.Open)
-            {
-                var opened = await OpenWarehouseAsync(session, command, ct);
-                if (opened is not null)
-                {
-                    return opened;
-                }
-            }
-
-            var prepared = await world.PrepareNpcServiceAsync(session, command);
-            if (prepared is null)
-            {
-                return Failed(NpcServiceStatus.Rejected, "character is not playing");
-            }
-
-            if (prepared.Snapshot is null)
-            {
-                return prepared.Reply;
-            }
-
-            // Finish an admitted transaction despite cancellation. Retrying its operation id recovers the outcome.
-            var record = prepared.Snapshot.Encode();
-            var stored = prepared.Warehouse is null
-                ? await characters.UpdateAsync(record, CancellationToken.None)
-                : await warehouses.SaveWithCharacterAsync(record, WarehouseStateCodec.Capture(session.AccountId, prepared.Warehouse),
-                    prepared.ExpectedWarehouseRevision, CancellationToken.None);
-            if (!stored)
-            {
-                if (prepared.Warehouse is not null)
-                {
-                    session.Warehouse = null;
-                    return Failed(NpcServiceStatus.Conflict, "the warehouse changed elsewhere; open it again");
-                }
-
-                return Failed(NpcServiceStatus.StorageFailed, "storage rejected operation; character unchanged");
-            }
-
-            await world.CommitNpcServiceAsync(session, prepared);
-            return prepared.Reply;
+            return null;
         }
-        finally
-        {
-            session.SaveGate.Release();
-        }
+
+        session.Warehouse = null;
+        return DurableFailure.Conflict;
     }
 
     // The warehouse is read from storage on every open, after the NPC and its reach are confirmed.

@@ -21,6 +21,7 @@ public sealed class SessionAppService
     private readonly ICharacterRepository _characters;
     private readonly WorldCatalog _world;
     private readonly WorldServer? _host;
+    private readonly DurableOperations _durable;
     private readonly WorldDataHolder _worldData;
     private readonly TimeProvider _clock;
 
@@ -36,6 +37,7 @@ public sealed class SessionAppService
         _sessions = sessions;
         _classes = classes;
         _characters = characters;
+        _durable = new DurableOperations(characters);
         _world = world;
         _host = host;
         _worldData = worldData ?? new WorldDataHolder();
@@ -207,55 +209,21 @@ public sealed class SessionAppService
         Func<PlayerSession, PreparedCharacterOperation<TOutcome>, Task<bool>> commit,
         Func<string, TOutcome> rejected, CancellationToken ct)
     {
-        if (_host is null || !_sessions.TryGet(token, out var session))
+        if (_host is null)
         {
             return rejected("invalid session");
         }
 
-        // One admitted mutation per character; saves and all economic operations share this gate.
-        if (!await session.SaveGate.WaitAsync(0, ct))
-        {
-            return rejected("save or character operation pending; retry");
-        }
-
-        PreparedCharacterOperation<TOutcome>? prepared = null;
-        bool stored = false;
-        try
-        {
-            prepared = await prepare(session);
-            if (prepared is null)
+        // A pickup that was not stored puts its ground item back.
+        using var lease = await _durable.AdmitAsync(_sessions, token, ct);
+        return await lease.RunAsync(prepare, commit, prepared => prepared.Outcome,
+            failure => rejected(failure switch
             {
-                return rejected("character is not playing");
-            }
-
-            if (prepared.Snapshot is null)
-            {
-                return prepared.Outcome;
-            }
-
-            // Finish an admitted transaction despite cancellation. Retrying its UUID recovers the outcome.
-            if (!await _characters.UpdateAsync(prepared.Snapshot.Encode(), CancellationToken.None))
-            {
-                return rejected("storage rejected operation; character unchanged");
-            }
-
-            stored = true;
-            await commit(session, prepared);
-            return prepared.Outcome;
-        }
-        finally
-        {
-            try
-            {
-                if (!stored && prepared is PreparedPickupOperation)
-                {
-                    await _host.AbortCharacterOperationAsync(prepared);
-                }
-            }
-            finally
-            {
-                session.SaveGate.Release();
-            }
-        }
+                DurableFailure.NoSession => "invalid session",
+                DurableFailure.Busy => "save or character operation pending; retry",
+                DurableFailure.StorageFailed => "storage rejected operation; character unchanged",
+                _ => "character is not playing"
+            }),
+            abort: (_, prepared) => prepared is PreparedPickupOperation ? _host.AbortCharacterOperationAsync(prepared) : Task.CompletedTask);
     }
 }

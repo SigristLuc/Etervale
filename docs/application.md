@@ -42,7 +42,8 @@ into it is described in [server.md](server.md); skill resolution details are in 
 | `World/WorldNpc.cs` | Placed NPC with deterministic wander |
 | `World/FieldGroundLoot.cs` | Ground drops per field: ownership window, expiry, reservation for pickup, client handles |
 | `World/FieldTransition.cs` | Authorizes gate and warp field changes |
-| `World/*Transactions.cs`, `World/Prepared*Operation.cs` | Prepare side of durable operations (pickup, progression, NPC services, quests) |
+| `World/*Transactions.cs`, `World/Prepared*Operation.cs` | Prepare side of durable operations (pickup, progression, NPC services, quests); `PreparedOperation` is the base |
+| `Services/DurableOperations.cs` | `DurableOperations`, `DurableLease`, `DurableFailure`: the admit, prepare, store, commit and abort runner every durable service uses |
 | `World/WorldSnapshot.cs` | Published view types: `EntityView`, `CombatEventView`, `SkillEventView`, `StatusEventView`, `WorldSnapshot` |
 | `World/WorldOutbox.cs` | Per-connection coalescing channel between the tick and the edge; pins frames on read, keeps events per tick |
 | `World/SubscriberPresence.cs` | Spawn/state/remove diff of snapshots per subscriber (used by tests; the server encoder diffs itself) |
@@ -305,15 +306,20 @@ summon status ends. Charmed wild monsters become summons for the charm duration.
 
 ## Durable operations
 
-Every change to a character's durable state uses prepare, persist, commit under the session's `SaveGate`:
+Every change to a character's durable state uses prepare, persist, commit under the session's `SaveGate`, through one
+runner (`Services/DurableOperations.cs`): `AdmitAsync` takes the gate and returns a `DurableLease` (released on
+`Dispose`), and `lease.RunAsync(prepare, commit, reply, failed, store?, abort?)` runs the steps below. Every prepared
+record derives from `PreparedOperation` (`Original`, `Candidate`, `Snapshot`). A service maps `DurableFailure`
+(`NoSession`, `Busy`, `NotPlaying`, `StorageFailed`, `Conflict`) to its own reply; work that must happen under the gate
+before preparing (the warehouse read on open) runs between admission and `RunAsync`.
 
 | Step | Where | What |
 | --- | --- | --- |
-| Admit | caller thread | `SaveGate.WaitAsync(0)`; busy if held |
+| Admit | caller thread | `DurableOperations.AdmitAsync`: `SaveGate.WaitAsync(0)` (the quest upkeep waits 2 s); busy if held |
 | Prepare | tick (player-owned command) | verify session/connection, replay check, clone (`CloneForInventoryOperation`), apply to the candidate, record the operation, `CharacterRecordFactory.Capture` -> `CharacterSaveSnapshot` |
-| Persist | caller thread | `ICharacterRepository.UpdateAsync` or `IWarehouseRepository.SaveWithCharacterAsync`, always with `CancellationToken.None` once admitted |
+| Persist | caller thread | `ICharacterRepository.UpdateAsync`, or the service's `store` (NPC: `IWarehouseRepository.SaveWithCharacterAsync`, a refusal is `Conflict`), always with `CancellationToken.None` once admitted |
 | Commit | tick (exempt command) | apply the candidate's domain to the live character; throws if the session's character changed |
-| Abort | tick (exempt) | only pickups: release the ground reservation when storage failed |
+| Abort | tick (exempt) | the service's `abort`, whenever a snapshot was not stored (a storage exception included): pickups release the ground reservation, the quest upkeep returns its drops |
 
 A prepared operation with `Snapshot == null` is final (rejection or replay) and nothing is written.
 
@@ -409,11 +415,12 @@ Add a player command (tick-only, not durable):
 Add a durable character operation:
 
 1. Command, outcome and applied-history types in Simulation with an `OperationId` and expected revision.
-2. A `*Transactions.Prepare` that returns a `PreparedCharacterOperation<T>` (replay check first, clone, apply,
+2. A `*Transactions.Prepare` that returns a `PreparedOperation` (usually `PreparedCharacterOperation<T>`) (replay check first, clone, apply,
    record, capture snapshot), a `WorldServer.Prepare*Async` (player-owned) and `Commit*Async` (exempt, merges only
    the operation's domain, throws on ownership change).
-3. A `SessionAppService` method built on `ApplyDurableAsync`; if it reserves world resources, release them in
-   `AbortCharacterOperationAsync`.
+3. A service method that admits with `DurableOperations.AdmitAsync` and calls `lease.RunAsync` (inventory and
+   progression go through `SessionAppService.ApplyDurableAsync`); if it reserves world resources, release them in its
+   `abort`.
 4. Persist the new history in `CharacterRecordFactory.Capture`/`CharacterStateCodec` ([persistence.md](persistence.md)).
 
 Add an NPC service or action:

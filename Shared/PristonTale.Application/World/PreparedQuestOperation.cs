@@ -4,14 +4,14 @@ using PristonTale.Simulation.Quests;
 
 namespace PristonTale.Application.World;
 
-// A validated quest request or quest upkeep. A null Candidate means nothing is written and Outcome is final; otherwise
-// the snapshot is stored before the commit applies the candidate's journal and items, the progression deltas and any
-// travel or duel the quest opened.
+// A validated quest request or quest upkeep. The commit applies the candidate's journal and items, the progression
+// deltas and any travel or duel the quest opened.
 public sealed record PreparedQuestOperation(
     PlayerCharacter Original,
     PlayerCharacter? Candidate,
     CharacterSaveSnapshot? Snapshot,
     QuestOutcome Outcome)
+    : PreparedCharacterOperation<QuestOutcome>(Original, Candidate, Snapshot, Outcome)
 {
     public short Tier { get; init; }
     public int StatPoints { get; init; }
