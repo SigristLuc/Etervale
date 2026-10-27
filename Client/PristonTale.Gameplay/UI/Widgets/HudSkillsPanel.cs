@@ -329,7 +329,7 @@ public sealed class HudSkillsPanel(SpriteFont font, HudSprites sprites)
 
             if (entry.Skill.MouseUse != SkillMouseUse.None && SkillRuleCatalog.TryGet(entry.Skill.Code, out var rule))
             {
-                var cooldown = SkillFormulas.CooldownMs(rule, shownRank, state.Talent, 0) / 1000f;
+                var cooldown = SkillFormulas.CooldownMs(rule, shownRank, state.Talent, (int)state.MagicMastery, 0) / 1000f;
                 cost += $" | Recharge {cooldown:0.#} s";
                 if (rank > 0)
                 {

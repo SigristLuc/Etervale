@@ -217,7 +217,7 @@ internal static class ItemRulesTests
         var armor = new ItemInstance(Def("DA102", record => record with { AbsorbMin = 1.0f, DefenceMin = 20 }));
         var boots = new ItemInstance(Def("DB103", record => record with { AbsorbMin = 0.5f, SpeedMin = 1.5f }));
         var shield = new ItemInstance(Def("DS101", record => record with { BlockMin = 10.5f }));
-        var axe = new ItemInstance(Def("WA101", record => record with { CriticalHit = 30, DamageMinLow = 5, DamageMinHigh = 6, DamageMaxLow = 9, DamageMaxHigh = 10 }));
+        var axe = new ItemInstance(Def("WA101", record => record with { CriticalHit = 30, DamageMinLow = 5, DamageMinHigh = 6, DamageMaxLow = 9, DamageMaxHigh = 10, MagicMastery = 3f }));
         var amulet = new ItemInstance(Def("OA101", record => record with { CriticalHit = 30, AddManaMin = 12 }));
         var ring = new ItemInstance(Def("OR101", record => record with { ResFireMin = 10, AddLifeMin = 20, LifeRegenMin = 1.2f, AddStaminaMin = 7 }));
         axe.Roll = axe.Roll with
@@ -244,6 +244,7 @@ internal static class ItemRulesTests
         Assert.Near(0.4f, derived.ManaRegen, 0.001f);
         Assert.True(derived.MaxStamina == bare.MaxStamina + 7 && derived.MaxMana == bare.MaxMana + 12, "added pools are missing");
         Assert.True(derived.MoveSpeed >= bare.MoveSpeed + 1, "boot speed does not raise the move speed");
+        Assert.Near(3f, derived.MagicMastery, 0.001f);
         var weapon = WeaponDamage.Compute(character);
         var attributes = character.Attributes;
         var expectedMax = 4 + 9 * (attributes.Strength + 130) / 130 + (attributes.Talent + attributes.Agility) / 40 + 10 / 6 + 10 / 5;

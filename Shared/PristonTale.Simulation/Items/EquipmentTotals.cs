@@ -72,7 +72,11 @@ public sealed record EquipmentTotals
             totals.ManaRegen += roll.ManaRegen;
             totals.StaminaRegen += roll.StaminaRegen;
             // The last worn item with a magic mastery sets it; the specialization bonuses add to that.
-            totals.MagicMastery = item.Definition.MagicMastery;
+            if (item.Definition.MagicMastery != 0)
+            {
+                totals.MagicMastery = item.Definition.MagicMastery;
+            }
+
             totals.AddLife += roll.AddLife;
             totals.AddMana += roll.AddMana;
             totals.AddStamina += roll.AddStamina;

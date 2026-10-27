@@ -191,7 +191,7 @@ internal static class ClassSkillDataTests
                     var timing = SkillFormulas.Timing(rule, rank, 1f, (800f, 400f));
                     Assert.True(timing.DurationMs > 0 && timing.HitsAtMs.Length > 0 && timing.HitsAtMs.All(hit => hit > 0 && hit <= timing.DurationMs + 1),
                         $"{skill.Name} rank {rank} timing is invalid");
-                    var cooldown = SkillFormulas.CooldownMs(rule, rank, 0, 0);
+                    var cooldown = SkillFormulas.CooldownMs(rule, rank, 0, 0, 0);
                     Assert.True(cooldown is >= 490 and <= 17150, $"{skill.Name} rank {rank} cooldown {cooldown} left the gauge");
                 }
 

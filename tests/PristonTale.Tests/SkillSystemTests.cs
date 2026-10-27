@@ -71,11 +71,12 @@ internal static class SkillSystemTests
     private static Task CooldownAsync()
     {
         SkillRuleCatalog.TryGet(0x08010002, out var fireBolt);
-        Assert.True(SkillFormulas.CooldownMs(fireBolt, 1, 0, 0) == 17150, "low mastery is not the gauge's longest fill");
+        Assert.True(SkillFormulas.CooldownMs(fireBolt, 1, 0, 0, 0) == 17150, "low mastery is not the gauge's longest fill");
         // Talent 150 gives proficiency 5000: M = 84 + 2 - 50 = 36 -> still the 36-70 bracket.
-        Assert.True(SkillFormulas.CooldownMs(fireBolt, 1, 150, 0) == 17150, "M 36 left the slowest bracket");
-        Assert.True(SkillFormulas.CooldownMs(fireBolt, 1, 150, 300) == 8330, "M 33 should fill in 8.33 s");
-        Assert.True(SkillFormulas.CooldownMs(fireBolt, 1, 150, 5000) == 490, "full proficiency should reach the 0.49 s floor");
+        Assert.True(SkillFormulas.CooldownMs(fireBolt, 1, 150, 0, 0) == 17150, "M 36 left the slowest bracket");
+        Assert.True(SkillFormulas.CooldownMs(fireBolt, 1, 150, 0, 300) == 8330, "M 33 should fill in 8.33 s");
+        Assert.True(SkillFormulas.CooldownMs(fireBolt, 1, 0, 50, 300) == 8330, "item mastery did not count toward proficiency");
+        Assert.True(SkillFormulas.CooldownMs(fireBolt, 1, 150, 0, 5000) == 490, "full proficiency should reach the 0.49 s floor");
         Assert.True(SkillFormulas.UsesAfterCast(0, 5, 0, 1) == 100 && SkillFormulas.UsesAfterCast(0, 4, 0, 1) == 0, "use counter changed");
         Assert.True(SkillFormulas.UsesAfterCast(0, 6, 0, 4) == 100 && SkillFormulas.UsesAfterCast(0, 5, 0, 4) == 0, "rank did not lengthen the streak");
         Assert.True(SkillFormulas.UsesAfterCast(0, 9, 8, 1) == 100 && SkillFormulas.UsesAfterCast(0, 17, 15, 3) == 100, "window position streak changed");

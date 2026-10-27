@@ -29,7 +29,7 @@ public static partial class SkillFormulas
     // Proficiency = min(talent / 3 + item mastery, 50) x 100 + uses (100 per completed use streak), at most 10000.
     // Mastery units M = base + perRank x rank - proficiency / 100, clamped to 1..70. The 35-step gauge then fills one
     // step every max(1, 35 / floor(70 / M)) ticks: from 0.49 s (M 1-3) to 17.15 s (M 36-70).
-    public static int CooldownMs(SkillRule rule, int rank, int talent, int uses, int itemMastery = 0)
+    public static int CooldownMs(SkillRule rule, int rank, int talent, int itemMastery, int uses)
     {
         if (rule.MasteryBase == 0 && rule.MasteryPerRank == 0)
         {
