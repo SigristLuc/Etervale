@@ -55,57 +55,14 @@ public sealed record OwnerState(
     public long AgingRevision { get; init; } = -1;
     public IReadOnlyList<AgingProgressView> Aging { get; init; } = Array.Empty<AgingProgressView>();
 
+    // Built in full and compared with the previous capture as a record: every member counts, and the lists are reused
+    // while their revision holds, so an unchanged owner returns the previous instance (which the encoder skips).
     public static OwnerState Capture(PlayerCharacter character, OwnerState previous = null, long nowSeconds = 0)
     {
         var attributes = character.Attributes;
-        if (previous is not null && previous.Level == character.Level && previous.Experience == character.Experience
-            && previous.Money == character.Money && previous.Hp == character.Life && previous.MaxHp == character.MaxLife
-            && previous.Mp == character.Mana && previous.MaxMp == character.MaxMana
-            && previous.Sp == character.Stamina && previous.MaxSp == character.MaxStamina
-            && previous.StatPoints == character.StatPoints && previous.SkillPoints == character.SkillPoints
-            && previous.Tier == character.Tier && previous.EliteSkillPoints == character.EliteSkillPoints
-            && previous.Strength == attributes.Strength && previous.Spirit == attributes.Spirit && previous.Talent == attributes.Talent
-            && previous.Agility == attributes.Agility && previous.Health == attributes.Health
-            && previous.AttackRating == character.Derived.AttackRating && previous.MoveSpeed == character.Derived.MoveSpeed
-            && previous.Defence == character.Derived.Defence && previous.Absorption == character.Derived.Absorption
-            && previous.InventoryRevision == character.InventoryRevision
-            && previous.ProgressionRevision == character.ProgressionRevision && previous.SkillsRevision == character.Skills.Revision
-            && previous.CarriedWeight == character.Derived.CarriedWeight && previous.MaxWeight == character.Derived.MaxWeight
-            && previous.CriticalChance == Combat.CombatProfileFactory.CriticalChance(character)
-            && previous.BlockChance == Combat.CombatProfileFactory.ForPlayerDefender(character).BlockChance
-            && previous.AttackSpeed == character.Derived.AttackSpeed
-            && previous.Resistances == Combat.CombatProfileFactory.Resistances(character)
-            && previous.PremiumRevision == character.Premium.Revision && previous.AgingRevision == character.AgingRevision)
-        {
-            return previous;
-        }
-
-        IReadOnlyList<OwnedItemView> items;
-        if (previous is not null && previous.InventoryRevision == character.InventoryRevision)
-        {
-            items = previous.Items;
-        }
-        else
-        {
-            var captured = new List<OwnedItemView>();
-            for (var anchor = 0; anchor < character.Inventory.Capacity; anchor++)
-            {
-                if (character.Inventory[anchor] is { } item)
-                {
-                    captured.Add(Project(item, anchor, -1, character));
-                }
-            }
-
-            foreach (var pair in character.Equipment)
-            {
-                captured.Add(Project(pair.Value, -1, (int)pair.Key, character));
-            }
-
-            items = captured.AsReadOnly();
-        }
-
+        var items = previous is not null && previous.InventoryRevision == character.InventoryRevision ? previous.Items : ProjectItems(character);
         var damage = Combat.WeaponDamage.Compute(character);
-        return new OwnerState(character.Level, character.Experience,
+        var current = new OwnerState(character.Level, character.Experience,
             ExperienceTable.ForLevel(Math.Clamp(character.Level, 1, ExperienceTable.MaximumLevel)),
             ExperienceTable.ForLevel(Math.Clamp(character.Level + 1, 1, ExperienceTable.MaximumLevel)),
             character.Money, character.Life, character.MaxLife, character.Mana, character.MaxMana, character.Stamina, character.MaxStamina,
@@ -143,6 +100,26 @@ public sealed record OwnerState(
                 : Array.AsReadOnly(character.Equipment.Values.Where(static item => item.Maturity is not null)
                     .Select(static item => new AgingProgressView(item.InstanceId, item.Maturity.Count, item.Maturity.Goal)).ToArray())
         };
+        return current == previous ? previous : current;
+    }
+
+    private static IReadOnlyList<OwnedItemView> ProjectItems(PlayerCharacter character)
+    {
+        var captured = new List<OwnedItemView>();
+        for (var anchor = 0; anchor < character.Inventory.Capacity; anchor++)
+        {
+            if (character.Inventory[anchor] is { } item)
+            {
+                captured.Add(Project(item, anchor, -1, character));
+            }
+        }
+
+        foreach (var pair in character.Equipment)
+        {
+            captured.Add(Project(pair.Value, -1, (int)pair.Key, character));
+        }
+
+        return captured.AsReadOnly();
     }
 
     private static OwnedItemView Project(ItemInstance item, int anchor, int slot, PlayerCharacter owner)

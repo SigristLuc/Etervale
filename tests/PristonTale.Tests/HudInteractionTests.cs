@@ -1,3 +1,4 @@
+using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
@@ -162,6 +163,9 @@ internal static class HudInteractionTests
             var state = OwnerState.Capture(character);
             Assert.True(state.AttackRating > 0 && state.MoveSpeed > 0, "owner projection omitted derived combat statistics");
             Assert.True(ReferenceEquals(state, OwnerState.Capture(character, state)), "unchanged derived values invalidated owner cache");
+            character.Effects.Apply(new EffectSpec(0x0A00_0003, EffectSourceKind.Item, false, [StatModifier.Flat(StatKind.DamageMax, 10)]), 0, 60_000f);
+            var buffed = OwnerState.Capture(character, state);
+            Assert.True(!ReferenceEquals(state, buffed) && buffed.DamageMax == state.DamageMax + 10, "a buff that changes only the damage left the owner state stale");
             var item = new OwnedItemView(Guid.NewGuid(), 1, "Weapon", ItemKind.Axe, 1, 0, -1, 2, 3);
             state = state with { Items = new[] { item }, InventoryRevision = 7 };
             InventoryCommand? sent = null;

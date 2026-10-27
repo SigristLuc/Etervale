@@ -447,7 +447,8 @@ server steps it per player in `FieldSkills.StepEffects` and resets it on death. 
 - `Shared/PristonTale.Application` drives everything on the authoritative tick (`FieldCombat`, `FieldSkills.*`,
   `WorldPlayer`, transactions); see [application.md](application.md).
 - The client uses `Locomotion`, `AnimationRate`, `DestinationMovement`, `CharacterHead` and `OwnerState`
-  (`OwnerState.Capture` reuses unchanged lists by revision); see [client.md](client.md).
+  (`OwnerState.Capture` reuses unchanged lists by revision and returns the previous instance when the new capture is
+  equal as a record, so the encoder sends only changes); see [client.md](client.md).
 
 ## How to
 
