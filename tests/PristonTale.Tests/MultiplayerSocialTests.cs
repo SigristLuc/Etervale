@@ -1,6 +1,7 @@
 using System.Numerics;
 using PristonTale.Protocol.Packets;
 using static PristonTale.Tests.MultiplayerMovementTests;
+using PristonTale.Contracts.Social;
 
 namespace PristonTale.Tests;
 
@@ -28,7 +29,7 @@ internal static class MultiplayerSocialTests
         await a.SayAsync("hello there");
         var heard = await near.WaitAsync(world => world.Chat.FirstOrDefault(line => line.Text.Contains("hello there", StringComparison.Ordinal)),
             "the spoken line");
-        Assert.True(heard.SpeakerId == a.Serial && (heard.Kind & ChatChannelCode.Player) != 0, $"the line came as {heard}");
+        Assert.True(heard.SpeakerId == a.Serial && (heard.Kind & ChatKind.Player) != 0, $"the line came as {heard}");
         await Task.Delay(400);
         Assert.True(!far.World.Read(world => world.Chat.Any(line => line.Text.Contains("hello there", StringComparison.Ordinal))),
             "a player beyond speaking range heard the line");
@@ -36,7 +37,7 @@ internal static class MultiplayerSocialTests
         await a.SayAsync("/:Distant meet me at the gate");
         var whisper = await far.WaitAsync(world => world.Chat.FirstOrDefault(line => line.Text.Contains("meet me at the gate", StringComparison.Ordinal)),
             "the whisper");
-        Assert.True(whisper.Kind == ChatChannelCode.Whisper && whisper.Text.StartsWith("From> Talker", StringComparison.Ordinal), $"the whisper came as {whisper}");
+        Assert.True(whisper.Kind == ChatKind.Whisper && whisper.Text.StartsWith("From> Talker", StringComparison.Ordinal), $"the whisper came as {whisper}");
         await a.WaitUntilAsync(world => world.Chat.Any(line => line.Text.StartsWith("To> Distant", StringComparison.Ordinal)), "the whisper's echo");
         await Task.Delay(400);
         Assert.True(!near.World.Read(world => world.Chat.Any(line => line.Text.Contains("meet me at the gate", StringComparison.Ordinal))),

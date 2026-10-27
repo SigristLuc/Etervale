@@ -28,7 +28,7 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Packets/PresencePackets.cs` | `PresenceEntries`: `VarInt`, `PresenceEntry`, `PresenceWire` (entry codec), writer and reader. |
 | `Packets/WorldEntryPackets.cs` | `EnterWorld`, `WorldEntry`, `JoinWorld`, `WorldJoined` and `LeaveWorld`. |
 | `Packets/GroundItemPackets.cs` | `GroundItems` and `GroundItemsRemoved`. |
-| `Packets/ChatPackets.cs`, `ChatChannelCode.cs` | `ChatSay` (typed line), `ChatLine` (received line); chat kinds on the wire. |
+| `Packets/ChatPackets.cs` | `ChatSay` (typed line), `ChatLine` (received line, kind `ChatKind` from Contracts). |
 | `Packets/EtervalePackets.cs` | Owner status, inventory parts, skills, inventory/progression commands and results, combat events, removals, presence clock. |
 | `Packets/ItemPackets.cs` | Owner item details (`ItemDetailEntry`, `ItemDetailsPartPacket`), the equipment status (`OwnerItemStatusPacket`) and the aging progress (`AgingProgressPacket`). |
 | `Packets/SkillPackets.cs` | Skill cast, cast result, skill events, status effects, cooldowns. |

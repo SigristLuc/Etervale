@@ -1,6 +1,7 @@
 using PristonTale.Application.Chat;
 using PristonTale.Application.GameMasters;
 using PristonTale.Simulation.Social;
+using PristonTale.Contracts.Social;
 
 namespace PristonTale.Tests;
 

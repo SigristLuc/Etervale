@@ -29,7 +29,8 @@ composes, shows and limits what the player types.
 | `.../GameMasters/GameMasterServices.cs` | `GameMasterOptions`, `IServerOperations`, item-creation overrides |
 | `.../GameMasters/ShutdownCountdown.cs`, `CurrencyLedger.cs`, `GmGifts.cs` | Shutdown notices; gold that left the economy; durable item gifts |
 | `Shared/PristonTale.Application/World/WorldServer.Chat.cs`, `WorldServer.GameMasters.cs` | Tick-side reads and changes |
-| `Shared/PristonTale.Protocol/Packets/ChatPackets.cs`, `ChatChannelCode.cs` | The typed line the client sends and the lines it receives; chat kinds on the wire |
+| `Shared/PristonTale.Protocol/Packets/ChatPackets.cs` | The typed line the client sends and the lines it receives |
+| `Shared/PristonTale.Contracts/Social/ChatKind.cs` | The kind of a chat line, used by the server, the wire and the chat log |
 | `Server/PristonTale.Server/Net/ClientSession.Chat.cs` | `IChatLink` over the session: chat lines, forced warps, close requests |
 | `Server/PristonTale.Server/Net/GameServerControl.cs` | `IServerOperations` for the host: user limit, blocked logins, shutdown |
 | `Persistence/.../GameMasters/IGameMasterRepository.cs`, `Repositories/DapperGameMasterRepository.cs` | Level, audit, character moves |
@@ -159,7 +160,7 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
 
 - Add a game-master command: add a row to `GameMasterCommands.Table` (order matters for shared prefixes), write the
   handler in the matching `Gm*Commands` class, add a case to `GameMasterCommandTests` and the level table above.
-- Route a new chat kind: add it to `ChatKind`, `ChatChannelCode`, `HudChatLog` (tab and colour) and the tables above.
+- Route a new chat kind: add it to `ChatKind` (Contracts), `HudChatLog` (tab and colour) and the tables above.
 - Check live: `DevAccounts set-gm`, start the server on a spare port, then
   `SmokeClient tcp://localhost:<port> <user> <pw> --chat "/localtime"` and `DevAccounts gm-audit`.
 

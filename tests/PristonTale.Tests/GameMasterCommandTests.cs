@@ -10,6 +10,7 @@ using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.World;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Social;
 
 namespace PristonTale.Tests;
 

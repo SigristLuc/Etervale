@@ -53,7 +53,7 @@ internal sealed partial class ClientSession
 
     private void SendChat(ChatLine line)
     {
-        var packet = new ChatLinePacket((byte)line.Kind, line.SpeakerId, line.Text);
+        var packet = new ChatLinePacket(line.Kind, line.SpeakerId, line.Text);
         SendLarge(packet.Write, ChatLinePacket.MaxSize);
     }
 

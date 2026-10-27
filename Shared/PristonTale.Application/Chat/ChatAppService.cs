@@ -2,6 +2,7 @@ using System.Globalization;
 using PristonTale.Application.GameMasters;
 using PristonTale.Application.World;
 using PristonTale.Simulation.Social;
+using PristonTale.Contracts.Social;
 
 namespace PristonTale.Application.Chat;
 

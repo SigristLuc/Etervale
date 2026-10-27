@@ -14,6 +14,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Social;
 
 namespace PristonTale.Tests;
 
@@ -109,20 +110,20 @@ internal sealed class ChatCaptureProbe : Game
     private static void Fill(HudChat chat)
     {
         var log = chat.Window.Log;
-        log.Add("Notice> Welcome to Etervale. Double experience this weekend!", HudChatLog.NoticeKind);
-        log.Add("Rosalind: anyone going to the Bamboo Forest? I need two more for the hunt near the river", HudChatLog.PlayerKind);
-        log.Add("Panzer: count me in", HudChatLog.OwnKind);
-        log.Add("Notice> The servers will be going down soon due to maintenance", HudChatLog.NoticeKind);
-        log.Add("Merchant Kay: Selling a +4 Dragon Axe, whisper me", HudChatLog.TradeKind);
-        log.Add("From> Rosalind: meet me at the fountain", HudChatLog.WhisperKind);
-        log.Add("To> Rosalind: on my way", HudChatLog.WhisperKind);
-        log.Add("Gnome: party pull in 5", HudChatLog.PartyKind);
-        log.Add("Ironwood> clan war at nine", HudChatLog.ClanKind);
-        log.Add("Rosalind is currently online", HudChatLog.ServerKind);
-        log.Add("Bought.", HudChatLog.ServerKind);
-        log.Add("Kill 10 Hopy near the windmill.", HudChatLog.AssistKind);
-        log.Add("Report back to the Bargon of Ricarten.", HudChatLog.AssistKind);
-        log.Add("Rosalind: see you there", HudChatLog.PlayerKind);
+        log.Add("Notice> Welcome to Etervale. Double experience this weekend!", ChatKind.Notice);
+        log.Add("Rosalind: anyone going to the Bamboo Forest? I need two more for the hunt near the river", ChatKind.Player);
+        log.Add("Panzer: count me in", ChatKind.Player);
+        log.Add("Notice> The servers will be going down soon due to maintenance", ChatKind.Notice);
+        log.Add("Merchant Kay: Selling a +4 Dragon Axe, whisper me", ChatKind.Trade);
+        log.Add("From> Rosalind: meet me at the fountain", ChatKind.Whisper);
+        log.Add("To> Rosalind: on my way", ChatKind.Whisper);
+        log.Add("Gnome: party pull in 5", ChatKind.Party);
+        log.Add("Ironwood> clan war at nine", ChatKind.Clan);
+        log.Add("Rosalind is currently online", ChatKind.Server);
+        log.Add("Bought.", ChatKind.Server);
+        log.Add("Kill 10 Hopy near the windmill.", ChatKind.Assist);
+        log.Add("Report back to the Bargon of Ricarten.", ChatKind.Assist);
+        log.Add("Rosalind: see you there", ChatKind.Player);
     }
 
     protected override void Update(GameTime gameTime)

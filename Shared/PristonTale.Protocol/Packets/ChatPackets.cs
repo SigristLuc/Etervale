@@ -1,4 +1,5 @@
 using PristonTale.Protocol.Binary;
+using PristonTale.Contracts.Social;
 
 namespace PristonTale.Protocol.Packets;
 
@@ -49,9 +50,9 @@ public readonly record struct ChatSayPacket(bool Party, string Text)
     }
 }
 
-// S->C {header, uint16 Version = 1, uint8 Kind (ChatChannelCode), uint8 0, uint64 Speaker (0 for server lines), text Text}:
+// S->C {header, uint16 Version = 1, uint8 Kind (ChatKind), uint8 0, uint64 Speaker (0 for server lines), text Text}:
 // one chat line for this receiver.
-public readonly record struct ChatLinePacket(byte Kind, ulong Speaker, string Text)
+public readonly record struct ChatLinePacket(ChatKind Kind, ulong Speaker, string Text)
 {
     public const int MaxSize = ChatWire.HeaderSize + 8 + 2 + ChatWire.MaxTextBytes;
 
@@ -59,7 +60,7 @@ public readonly record struct ChatLinePacket(byte Kind, ulong Speaker, string Te
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.ChatLine);
         writer.UInt16(ChatWire.CurrentVersion);
-        writer.Byte(Kind);
+        writer.Byte((byte)Kind);
         writer.Byte(0);
         writer.UInt64(Speaker);
         Utf8Text.Write(ref writer, Text, ChatWire.MaxTextBytes);
@@ -70,7 +71,7 @@ public readonly record struct ChatLinePacket(byte Kind, ulong Speaker, string Te
     {
         var reader = new PacketReader(packet, ChatWire.HeaderSize + 8 + 2);
         ChatWire.ReadVersion(ref reader, "Chat line");
-        var kind = reader.Byte();
+        var kind = (ChatKind)reader.Byte();
         reader.Skip(1);
         var speaker = reader.UInt64();
         return new ChatLinePacket(kind, speaker, Utf8Text.Read(ref reader, ChatWire.MaxTextBytes, "Chat line"));

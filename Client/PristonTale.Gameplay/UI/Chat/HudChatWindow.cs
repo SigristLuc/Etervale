@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Gameplay.UI.Rendering;
+using PristonTale.Contracts.Social;
 
 namespace PristonTale.Gameplay.UI.Chat;
 
@@ -135,7 +136,7 @@ public sealed class HudChatWindow
     // The other side of a whisper line ("From> name: ..." or "To> name: ...").
     public static string WhisperPartner(HudChatEntry entry)
     {
-        if (entry.Kind != HudChatLog.WhisperKind)
+        if (entry.Kind != ChatKind.Whisper)
         {
             return null;
         }

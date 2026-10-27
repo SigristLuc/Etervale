@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using PristonTale.Contracts.Social;
 
 namespace PristonTale.Gameplay.UI.Chat;
 
@@ -13,7 +14,7 @@ public enum HudChatTab
     Assist = 5
 }
 
-public readonly record struct HudChatEntry(string Text, uint Kind);
+public readonly record struct HudChatEntry(string Text, ChatKind Kind);
 
 // The chat history the window shows: one ring of 64 lines per tab. A line lands in the tab of its kind; clan, party,
 // trade and whisper lines also land in All, and server, system and notice lines also land in those four tabs. The
@@ -24,20 +25,6 @@ public sealed class HudChatLog
 
     // The scroll position stops this many lines before the oldest kept line.
     public const int ScrollLimit = Capacity - 32;
-
-    // The colour and tab codes of server lines (the first field of the chat message).
-    public const uint ServerKind = 0;
-    public const uint WhisperKind = 1;
-    public const uint SystemKind = 2;
-    public const uint NoticeKind = 3;
-    public const uint PartyKind = 4;
-    public const uint ClanKind = 5;
-    public const uint TradeKind = 6;
-    public const uint AssistKind = 9;
-    public const uint PlayerKind = 0x80;
-
-    // The local player's own spoken line.
-    public const uint OwnKind = 256;
 
     private static readonly Color ServerColor = new(255, 128, 96);
     private static readonly Color WhisperColor = new(150, 190, 255);
@@ -58,29 +45,29 @@ public sealed class HudChatLog
     // Lines added since the start; a change tells the window to show the newest line.
     public int Added { get; private set; }
 
-    public static Color ColorOf(uint kind) => kind switch
+    public static Color ColorOf(ChatKind kind) => kind switch
     {
-        ServerKind => ServerColor,
-        WhisperKind or SystemKind => WhisperColor,
-        NoticeKind => NoticeColor,
-        PartyKind => PartyColor,
-        ClanKind => ClanColor,
-        TradeKind => TradeColor,
-        AssistKind => AssistColor,
+        ChatKind.Server => ServerColor,
+        ChatKind.Whisper or ChatKind.System => WhisperColor,
+        ChatKind.Notice => NoticeColor,
+        ChatKind.Party => PartyColor,
+        ChatKind.Clan => ClanColor,
+        ChatKind.Trade => TradeColor,
+        ChatKind.Assist => AssistColor,
         _ => DefaultColor
     };
 
-    public static HudChatTab TabOf(uint kind) => kind switch
+    public static HudChatTab TabOf(ChatKind kind) => kind switch
     {
-        ClanKind => HudChatTab.Clan,
-        PartyKind => HudChatTab.Party,
-        TradeKind => HudChatTab.Trade,
-        WhisperKind => HudChatTab.Whisper,
-        AssistKind => HudChatTab.Assist,
+        ChatKind.Clan => HudChatTab.Clan,
+        ChatKind.Party => HudChatTab.Party,
+        ChatKind.Trade => HudChatTab.Trade,
+        ChatKind.Whisper => HudChatTab.Whisper,
+        ChatKind.Assist => HudChatTab.Assist,
         _ => HudChatTab.All
     };
 
-    public void Add(string text, uint kind)
+    public void Add(string text, ChatKind kind)
     {
         var entry = new HudChatEntry(text, kind);
         var tab = TabOf(kind);
@@ -90,7 +77,8 @@ public sealed class HudChatLog
             Push(HudChatTab.All, entry);
         }
 
-        if (tab == HudChatTab.All && kind < 10)
+        // Server, system and notice lines show in every tab; spoken lines only in All.
+        if (tab == HudChatTab.All && kind != ChatKind.Player)
         {
             for (var shared = HudChatTab.Clan; shared <= HudChatTab.Whisper; shared++)
             {
