@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Gameplay.UI.Chat;
+using PristonTale.Simulation.Social;
 
 namespace PristonTale.Gameplay.World;
 
@@ -13,8 +14,26 @@ public sealed partial class GameScene
     // The chat input has the keyboard: letters must not act as game keys (the ground labels' A key).
     public bool KeyboardCaptured { get; set; }
 
-    public Task SendChatAsync(string text, bool party) =>
-        _playChannel is not null ? _playChannel.SendChatAsync(text, party, _presenceCts.Token) : Task.CompletedTask;
+    // Space cheers until this tick count; the server keeps its own window and checks the stamina.
+    private long _yahooKeyUntilMs = long.MinValue;
+
+    public Task SendChatAsync(string text, bool party)
+    {
+        if (!party && YahooRules.IsWord(text))
+        {
+            _yahooKeyUntilMs = Environment.TickCount64 + YahooRules.KeyWindowMs;
+        }
+
+        return _playChannel is not null ? _playChannel.SendChatAsync(text, party, _presenceCts.Token) : Task.CompletedTask;
+    }
+
+    public void PressYahooKey()
+    {
+        if (_playChannel is not null && Environment.TickCount64 < _yahooKeyUntilMs)
+        {
+            _ = _playChannel.SendYahooKeyAsync(_presenceCts.Token);
+        }
+    }
 
     // The screen point over an entity's head and its depth from the camera, or null when it is behind the camera or not
     // drawn.

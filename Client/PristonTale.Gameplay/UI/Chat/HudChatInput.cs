@@ -174,6 +174,7 @@ public sealed class HudChatInput
             HudChatTab.Clan => new HudChatSend(HudChatSendKind.Command, "/CLAN> " + typed, typed),
             HudChatTab.Party => new HudChatSend(HudChatSendKind.Party, typed, playerName + ": " + typed),
             HudChatTab.Trade => new HudChatSend(HudChatSendKind.Command, "/TRADE> " + typed, typed),
+            _ when YahooRules.IsWord(typed) => new HudChatSend(HudChatSendKind.Command, typed, typed),
             _ => new HudChatSend(HudChatSendKind.Spoken, typed, ChatRules.Compose(playerName, typed))
         };
     }

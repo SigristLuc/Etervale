@@ -7,7 +7,7 @@ namespace PristonTale.Application.Chat;
 
 // The chat on the server. A spoken line reaches the players near the speaker with the speaker's name in front; lines
 // that start with a slash are commands: whispers, the trade and clan channels, whisper refusal, the boss minute, then the
-// game-master commands. A slash line is never spoken. Runs on the caller's thread; positions come from the tick.
+// game-master commands. A slash line is never spoken, nor is a yahoo word, which cheers instead. Runs on the caller's thread; positions come from the tick.
 public sealed class ChatAppService
 {
     private const string WhisperRefused = "Unable to send private messages";
@@ -38,6 +38,20 @@ public sealed class ChatAppService
         text = ChatRules.WithoutRoute(ChatRules.ClipToCapacity(ChatCommandText.Clean(text)));
         if (text.Length == 0)
         {
+            return;
+        }
+
+        if (YahooRules.IsWord(text))
+        {
+            try
+            {
+                await World.YahooAsync(entityId, key: false);
+            }
+            catch (WorldBusyException)
+            {
+                // A full tick queue drops the cheer, as it drops a spoken line.
+            }
+
             return;
         }
 

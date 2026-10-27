@@ -110,7 +110,7 @@ running kind is refused, so timers never stack.
 | Aging masters BI136-138, BI162-164 | The worn aged item (weapon, shield or orb, armor, armlet, gloves, boots) gains one level |
 | Gravity Scroll BI184 | Carrying capacity +50, at most five |
 | Big-head potion BI109 | Big head for 600 s |
-| Firecracker BI123 | Four rockets half a second apart; the roll picks each burst's shape |
+| Firecracker BI123 | Four rockets half a second apart; the roll picks each burst's shape; the player cheers (Yahoo) after the motion in progress |
 | Mobile shop BI142 | A shop that buys and repairs until closed (NPC serial 0) |
 
 Aging and mixing materials (BI110, 111, 160, 161, 185, 189, 190) and the passive resurrection scroll are not used
@@ -170,7 +170,7 @@ since. They show in the running-effects bar (`Booster_01..04.tga`), not the prem
   item's authored life, mana and stamina ranges (`PotionDefinition` on any item with restore ranges).
 - Gift boxes SP105 (grade 1) to SP110 (grade 6) and the tiger capsule SP134: need room for a 2 x 2 item and ten free
   weight (five for the capsule); the player eats the box and the prize, drawn out of 10000 (`GiftBoxes`), lands in the
-  inventory. Grades 1-3 give Mystic Mana Potions x10, 4-5 Great, 6 Medium; all give Teleport Cores, crystals, force
+  inventory. The capsule ends its eating motion at the event and cheers (Yahoo). Grades 1-3 give Mystic Mana Potions x10, 4-5 Great, 6 Medium; all give Teleport Cores, crystals, force
   orbs, a 3 h package, Mana Recharging and Vampiric Cuspid.
 - SP140 soccer-ball potion: the soccer-ball head (big-head look 3, one model per class) for 3 h of real time, refused
   while another head change runs; starting and ending guard for 5 s with the level-up burst.

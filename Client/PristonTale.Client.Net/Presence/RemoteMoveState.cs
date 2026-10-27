@@ -12,4 +12,5 @@ public enum RemoteMoveState
     Skill = 7,
     Eat = 8,
     Warp = 9,
+    Yahoo = 10,
 }

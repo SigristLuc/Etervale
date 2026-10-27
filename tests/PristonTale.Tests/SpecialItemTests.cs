@@ -30,7 +30,7 @@ internal static class SpecialItemTests
         yield return ("a Teleport Core checks the level, moves the player to the field and is consumed only then", TeleportCoreAsync);
         yield return ("stones reset stats and skills, hair tints refuse the same hair, skill masters train the tier", ProgressionItemsAsync);
         yield return ("scrolls and force orbs start item effects; Eternal Life guards and Fatal Edge excludes Avert", ScrollsAndOrbsAsync);
-        yield return ("a firecracker publishes its effect to the field and the mobile shop sells without an NPC", FirecrackerAndShopAsync);
+        yield return ("a firecracker publishes its effect to the field and cheers, and the mobile shop sells without an NPC", FirecrackerAndShopAsync);
         yield return ("item use, result, premium timer and item effect messages round-trip", WireAsync);
         yield return ("vampiric items heal per attack and helper pets and the Phoenix strike the owner's target", PetsAndLeechAsync);
         yield return ("presence carries premium timers, item effects and the pets of a player's descriptor", PresenceAsync);
@@ -266,6 +266,7 @@ internal static class SpecialItemTests
         harness.Tick(2);
         Assert.True(harness.ItemEffects().Any(effect => effect.Effect == ItemEffectKind.Firecracker && effect.EntityId == harness.Player.EntityId),
             "firecracker effect was not published");
+        Assert.True(harness.Player.MoveState == MoveStateView.Yahoo, $"the firecracker did not cheer: {harness.Player.MoveState}");
 
         var shop = harness.Use(new ItemUseCommand(Guid.NewGuid(), character.InventoryRevision, harness.Id("BI142")));
         await harness.AdvanceAsync(shop);

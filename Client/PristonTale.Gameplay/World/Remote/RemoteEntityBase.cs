@@ -189,6 +189,7 @@ public abstract class RemoteEntityBase
         RemoteMoveState.Skill => PristonActorMotion.Skill,
         RemoteMoveState.Eat => PristonActorMotion.Eat,
         RemoteMoveState.Warp => PristonActorMotion.Warp,
+        RemoteMoveState.Yahoo => PristonActorMotion.Yahoo,
         _ => PristonActorMotion.Stand,
     };
 

@@ -5,6 +5,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.Combat;
+using PristonTale.Simulation.Social;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Motion;
 
@@ -28,6 +29,8 @@ public enum PlayerActionState
     Eat = 3,
 
     Cast = 4,
+
+    Yahoo = 5,
 }
 
 public sealed class WorldPlayer
@@ -83,8 +86,16 @@ public sealed class WorldPlayer
     private float _potionDurationMs;
     private float _potionEventMs;
     private bool _potionApplied;
+    private bool _potionCheers;
 
     public bool HasPendingPotion => _pendingPotion is not null || Action == PlayerActionState.Eat;
+
+    // A queued cheer starts once the motion in progress ends (FieldInstance gives it the clip's length).
+    private bool _yahooPending;
+    private float _yahooMsLeft;
+    private long _yahooKeyUntilMs = long.MinValue;
+
+    public bool HasPendingYahoo => _yahooPending;
 
     // Quest work waiting for the next upkeep, notices and dialogs for the owner, and duel bookkeeping.
     public PlayerQuestState QuestState { get; } = new();
@@ -93,12 +104,69 @@ public sealed class WorldPlayer
     internal float AgingWornMs { get; set; }
     internal long AgingCheckAtMs { get; set; }
 
-    public void QueuePotion(PotionDefinition potion)
+    // A potion that cheers (the tiger capsule) ends its eating motion at the event frame and cheers instead.
+    public void QueuePotion(PotionDefinition potion, bool cheers = false)
     {
         if (!IsDead && !HasPendingPotion)
         {
             _pendingPotion = potion;
+            _potionCheers = cheers;
         }
+    }
+
+    public void QueueYahoo()
+    {
+        if (!IsDead)
+        {
+            _yahooPending = true;
+        }
+    }
+
+    // A yahoo word in the chat (key false) opens the Space window and cheers; Space (key true) cheers inside the window
+    // for its stamina. Either one cheers only from standing, walking or running.
+    public bool AskYahoo(bool key, long nowMs)
+    {
+        if (!key)
+        {
+            _yahooKeyUntilMs = nowMs + YahooRules.KeyWindowMs;
+        }
+        else if (nowMs >= _yahooKeyUntilMs)
+        {
+            return false;
+        }
+
+        if (IsDead || IsBusy || _yahooPending || MoveState is not (MoveStateView.Idle or MoveStateView.Walking or MoveStateView.Running))
+        {
+            return false;
+        }
+
+        if (key)
+        {
+            var cost = YahooRules.KeyStaminaCost(_character.MaxStamina);
+            if (_character.Stamina <= cost)
+            {
+                return false;
+            }
+
+            _character.Stamina -= cost;
+        }
+
+        _yahooPending = true;
+        return true;
+    }
+
+    public bool BeginPendingYahoo(float durationMs)
+    {
+        if (IsDead || IsBusy || !_yahooPending)
+        {
+            return false;
+        }
+
+        _yahooPending = false;
+        Action = PlayerActionState.Yahoo;
+        MoveState = MoveStateView.Yahoo;
+        _yahooMsLeft = MathF.Max(1f, durationMs);
+        return true;
     }
 
     public bool BeginPendingPotion(float durationMs, float eventMs)
@@ -130,6 +198,11 @@ public sealed class WorldPlayer
         {
             _potionApplied = true;
             restored = _pendingPotion.Restore(_character, random);
+            if (_potionCheers)
+            {
+                _potionElapsedMs = _potionDurationMs;
+                _yahooPending = true;
+            }
         }
 
         if (_potionElapsedMs >= _potionDurationMs)
@@ -312,7 +385,7 @@ public sealed class WorldPlayer
         float distance = MathF.Sqrt(dx * dx + dz * dz);
         if (IsBusy || _character.Effects.Has(Simulation.Modifiers.ControlFlags.Stun))
         {
-            // Swings, flinches, potions and stuns own the avatar; small drift is tolerated, large drift is corrected.
+            // Swings, flinches, potions, cheers and stuns own the avatar; small drift is tolerated, large drift is corrected.
             return distance > BusyCorrectionDistance ? MovementVerdict.Rejected : MovementVerdict.Ignored;
         }
 
@@ -448,6 +521,7 @@ public sealed class WorldPlayer
         _lastReportMs = -1;
         _budgetMs = -1;
         _pendingPotion = null;
+        _yahooPending = false;
         Action = PlayerActionState.Idle;
         MoveState = MoveStateView.Idle;
     }
@@ -502,6 +576,16 @@ public sealed class WorldPlayer
             case PlayerActionState.Flinch:
                 _flinchMsLeft -= dtMs;
                 if (_flinchMsLeft <= 0f)
+                {
+                    Action = PlayerActionState.Idle;
+                    MoveState = MoveStateView.Idle;
+                }
+
+                return false;
+
+            case PlayerActionState.Yahoo:
+                _yahooMsLeft -= dtMs;
+                if (_yahooMsLeft <= 0f)
                 {
                     Action = PlayerActionState.Idle;
                     MoveState = MoveStateView.Idle;
@@ -570,6 +654,7 @@ public sealed class WorldPlayer
             _character.Life = 0;
             IsDead = true;
             _pendingPotion = null;
+            _yahooPending = false;
             Action = PlayerActionState.Idle;
             _attackTargetId = 0;
             _attackSustained = false;

@@ -111,6 +111,7 @@ public sealed partial class WorldServer
                 effect = ItemEffectKind.Learn;
                 break;
             case UsableItemAction.Firecracker:
+                player.QueueYahoo();
                 effect = ItemEffectKind.Firecracker;
                 break;
             case UsableItemAction.SkillMastery:
@@ -146,7 +147,7 @@ public sealed partial class WorldServer
             case UsableItemAction.GiftBox:
                 if (operation.Food is { } meal)
                 {
-                    player.QueuePotion(meal);
+                    player.QueuePotion(meal, cheers: rule.Argument == GiftBoxes.TigerCapsule);
                 }
 
                 effect = ItemEffectKind.GiftBox;

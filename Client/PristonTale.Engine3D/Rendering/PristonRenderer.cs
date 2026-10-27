@@ -517,32 +517,32 @@ public sealed partial class PristonRenderer : IDisposable
     // Effects drawn between Draw and ComposeScene may sample it for soft particles.
     public Texture2D SceneLinearDepth => _prepassDrawn ? _sceneTargets.LinearDepth : null;
 
-    public void AttachActor(ActorHandle child, ActorHandle parent, string boneName)
+    // cheerBoneName: the bone the child hangs from while the parent plays Yahoo (a weapon put on the back), or null.
+    public void AttachActor(ActorHandle child, ActorHandle parent, string boneName, string cheerBoneName = null)
     {
         if (!TryResolveActor(child, out var item) || !TryResolveActor(parent, out var owner) || child == parent)
         {
             throw new ArgumentException("Invalid equipment attachment handles.");
         }
 
-        int bone = -1;
+        item.Parent = parent;
+        item.ParentBone = FindAttachBone(owner, boneName);
+        item.CheerBone = cheerBoneName is null ? -1 : FindAttachBone(owner, cheerBoneName);
+        item.World = AttachedWorld(item, owner);
+        UpdateActor(item);
+    }
+
+    private static int FindAttachBone(ActorRuntime owner, string boneName)
+    {
         for (int index = 0; index < owner.Instance.Actor.Skeleton.Objects.Count; index++)
         {
             if (owner.Instance.Actor.Skeleton.Objects[index].Name.Equals(boneName, StringComparison.OrdinalIgnoreCase))
             {
-                bone = index;
-                break;
+                return index;
             }
         }
 
-        if (bone < 0)
-        {
-            throw new InvalidDataException($"Equipment bone '{boneName}' is missing from '{owner.Instance.Actor.Skeleton.Path}'.");
-        }
-
-        item.Parent = parent;
-        item.ParentBone = bone;
-        item.World = owner.SampleSkeleton()[bone] * owner.World;
-        UpdateActor(item);
+        throw new InvalidDataException($"Equipment bone '{boneName}' is missing from '{owner.Instance.Actor.Skeleton.Path}'.");
     }
 
     private bool TryResolveActor(ActorHandle handle, out ActorRuntime runtime)
@@ -3853,6 +3853,7 @@ public sealed partial class PristonRenderer : IDisposable
         public Matrix World { get; set; }
         public ActorHandle Parent { get; set; } = ActorHandle.None;
         public int ParentBone { get; set; }
+        public int CheerBone { get; set; } = -1;
         public ActorGpuResource GpuResource { get; set; }
 
         public bool Alive { get; set; } = true;

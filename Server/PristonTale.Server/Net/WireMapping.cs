@@ -21,6 +21,7 @@ internal static class WireMapping
         MoveStateView.Skill => MotionStateCode.Skill,
         MoveStateView.Eat => MotionStateCode.Eat,
         MoveStateView.Warp => MotionStateCode.Warp,
+        MoveStateView.Yahoo => MotionStateCode.Yahoo,
         _ => MotionStateCode.Stand
     };
 
@@ -42,6 +43,7 @@ internal static class WireMapping
         MoveStateView.Skill => PresenceMotion.Skill,
         MoveStateView.Eat => PresenceMotion.Eat,
         MoveStateView.Warp => PresenceMotion.Warp,
+        MoveStateView.Yahoo => PresenceMotion.Yahoo,
         _ => PresenceMotion.Stand
     };
 

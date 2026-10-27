@@ -12,6 +12,7 @@ public static class MotionStateCode
     public const int Skill = 0x150;
     public const int Restart = 0x200;
     public const int Warp = 0x210;
+    public const int Yahoo = 0x220;
 }
 
 public readonly record struct MotionClip(

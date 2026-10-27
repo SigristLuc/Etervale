@@ -154,6 +154,14 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                 case EtervaleOpcodes.AttackRequest:
                     await AttackAsync(AttackRequestPacket.Read(memory.Span));
                     break;
+                case EtervaleOpcodes.YahooKey:
+                    YahooKeyPacket.Read(memory.Span);
+                    if (_player is not null && _session is { } cheering)
+                    {
+                        _ = _services.World.YahooAsync(cheering.EntityId, key: true);
+                    }
+
+                    break;
                 case EtervaleOpcodes.DescribeEntity:
                     DescribeObject(DescribeEntityPacket.Read(memory.Span));
                     break;

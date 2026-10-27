@@ -47,6 +47,7 @@ public sealed class GameplayScreen : GameScreen
         _scene.SkillNotice += _hud.Chat.System;
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
         _hud.RunToggleRequested += _scene.ToggleRun;
+        _hud.YahooKeyPressed += _scene.PressYahooKey;
         _hud.ItemSound += _scene.PlayItemSound;
         _hud.SummonAutomatic = _scene.SummonAutomatic;
         _hud.UseItem = _scene.UseItemAsync;
@@ -239,6 +240,7 @@ public sealed class GameplayScreen : GameScreen
             _scene.SkillNotice -= _hud.Chat.System;
             _hud.SummonModeRequested -= _scene.ToggleSummonMode;
             _hud.RunToggleRequested -= _scene.ToggleRun;
+            _hud.YahooKeyPressed -= _scene.PressYahooKey;
             _hud.ItemSound -= _scene.PlayItemSound;
         }
 

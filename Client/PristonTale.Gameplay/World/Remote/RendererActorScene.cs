@@ -11,7 +11,8 @@ public sealed class RendererActorScene(PristonRenderer renderer) : IActorScene
     public Task PrepareActorResourcesAsync(PristonActor actor) => _renderer.PrepareActorResourcesAsync(actor);
 
     public void CopyActorPlayback(ActorHandle source, ActorHandle destination) => _renderer.CopyActorPlayback(source, destination);
-    public void AttachActor(ActorHandle child, ActorHandle parent, string boneName) => _renderer.AttachActor(child, parent, boneName);
+    public void AttachActor(ActorHandle child, ActorHandle parent, string boneName, string cheerBoneName = null) =>
+        _renderer.AttachActor(child, parent, boneName, cheerBoneName);
     public ActorHandle AddActor(PristonActorInstance instance) => _renderer.AddActor(instance);
     public void SetActorWorld(ActorHandle handle, Matrix world) => _renderer.SetActorWorld(handle, world);
     public void SetActorColorAdd(ActorHandle handle, Vector3 colorAdd) => _renderer.SetActorColorAdd(handle, colorAdd);

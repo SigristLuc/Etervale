@@ -497,6 +497,14 @@ public sealed class GameServerConnection : IGameBackend
         }
     }
 
+    internal void SendYahooKey()
+    {
+        lock (_sendGate)
+        {
+            Connection.Send(_scratch.AsSpan(0, YahooKeyPacket.Write(_scratch)));
+        }
+    }
+
     internal IAsyncEnumerable<PresenceUpdate> ReadPresenceAsync(CancellationToken ct) => _presenceUpdates.Reader.ReadAllAsync(ct);
 
     private FrameConnection Connection

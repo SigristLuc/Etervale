@@ -104,6 +104,12 @@ internal sealed class OnlinePlayChannel : IPlayChannel
         _connection.SendChat(text, party);
     }
 
+    public async Task SendYahooKeyAsync(CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendYahooKey();
+    }
+
     public async Task SendSkillCommandAsync(uint sequence, uint skillCode, ushort command, CancellationToken ct = default)
     {
         await _start.WaitAsync(ct);

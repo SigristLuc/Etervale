@@ -565,6 +565,7 @@ internal sealed class PresenceDecoder
         PresenceMotion.Skill => RemoteMoveState.Skill,
         PresenceMotion.Eat => RemoteMoveState.Eat,
         PresenceMotion.Warp => RemoteMoveState.Warp,
+        PresenceMotion.Yahoo => RemoteMoveState.Yahoo,
         _ => RemoteMoveState.Unspecified
     };
 

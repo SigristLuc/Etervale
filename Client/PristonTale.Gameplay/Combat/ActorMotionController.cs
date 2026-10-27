@@ -24,7 +24,7 @@ public sealed class ActorMotionController
 
     // A landing holds the player until its clip ends, as every motion from 0x100 up does in the original.
     public bool LocomotionFrozen => Current is PristonActorMotion.Damage or PristonActorMotion.Dead or PristonActorMotion.Eat
-        or PristonActorMotion.FallStand or PristonActorMotion.FallDamage;
+        or PristonActorMotion.FallStand or PristonActorMotion.FallDamage or PristonActorMotion.Yahoo;
 
     public MotionCommand ApplyAuthoritative(PristonActorMotion motion)
     {
@@ -65,5 +65,6 @@ public sealed class ActorMotionController
         PristonActorMotion.Damage or
         PristonActorMotion.Skill or
         PristonActorMotion.Eat or
+        PristonActorMotion.Yahoo or
         PristonActorMotion.Restart;
 }

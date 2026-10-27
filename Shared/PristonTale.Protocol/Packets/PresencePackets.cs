@@ -72,6 +72,7 @@ public static class PresenceMotion
     public const byte Skill = 6;
     public const byte Eat = 7;
     public const byte Warp = 8;
+    public const byte Yahoo = 9;
 }
 
 // What the receiver learns about one entity. A motion entry carries the position, facing and motion only; a full entry

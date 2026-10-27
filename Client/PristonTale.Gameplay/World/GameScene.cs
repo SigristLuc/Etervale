@@ -1116,7 +1116,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         switch (wire)
         {
             case PristonActorMotion.Eat:
-                ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.Eat));
+            case PristonActorMotion.Yahoo:
+                ApplyPlayerCommand(_playerController.ApplyAuthoritative(wire));
                 break;
 
             case PristonActorMotion.Attack:
@@ -1153,7 +1154,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 {
                     RespawnAt(state.Position);
                 }
-                else if (_playerController.Current is PristonActorMotion.Damage or PristonActorMotion.Attack or PristonActorMotion.Eat)
+                else if (_playerController.Current is PristonActorMotion.Damage or PristonActorMotion.Attack or PristonActorMotion.Eat
+                         or PristonActorMotion.Yahoo)
                 {
                     ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.Stand));
                 }

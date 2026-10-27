@@ -129,3 +129,28 @@ public readonly record struct FieldWarpPacket(int Field, float X, float Y, float
         return new FieldWarpPacket(field, x, y, PristonUnits.FromFixed(reader.Int32()), (flags & ForcedFlag) != 0);
     }
 }
+
+// C->S {header, uint16 Version = 1, uint16 0}: Space pressed while the yahoo window a chat word opened is still running.
+// The server checks the window, the motion and the stamina itself; the cheer shows on the presence timeline.
+public static class YahooKeyPacket
+{
+    public const ushort CurrentVersion = 1;
+    public const int Size = 8 + 4;
+
+    public static int Write(Span<byte> destination)
+    {
+        var writer = new PacketWriter(destination, EtervaleOpcodes.YahooKey);
+        writer.UInt16(CurrentVersion);
+        writer.UInt16(0);
+        return writer.Finish();
+    }
+
+    public static void Read(ReadOnlySpan<byte> packet)
+    {
+        var reader = new PacketReader(packet, Size);
+        if (reader.UInt16() == 0)
+        {
+            throw new InvalidDataException("Yahoo key has version 0.");
+        }
+    }
+}

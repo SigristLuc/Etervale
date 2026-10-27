@@ -28,6 +28,7 @@ public static class PlayerMotionFallback
             MotionStateCode.Attack => new MotionClip(0, 40, attackEvent, 0, 0, 0, false),
             MotionStateCode.Damage => new MotionClip(0, damageFrames, 0, 0, 0, 0, false),
             MotionStateCode.Eat => new MotionClip(0, 20, eatEvent, 0, 0, 0, false),
+            MotionStateCode.Yahoo => new MotionClip(0, 50, 0, 0, 0, 0, false),
             _ => throw new ArgumentOutOfRangeException(nameof(state))
         };
     }

@@ -147,7 +147,9 @@ public sealed class PlayerActorComposer(IActorScene scene, PristonActorLoader ac
                         VisibleInMainPass = visibleInMainPass
                     })
                 };
-                _scene.AttachActor(handles.Weapon, handles.Body, EquipmentVisuals.WeaponBone(visuals.WeaponKey, visuals.InVillage));
+                var held = EquipmentVisuals.WeaponBone(visuals.WeaponKey, visuals.InVillage);
+                var back = EquipmentVisuals.WeaponBone(visuals.WeaponKey, village: true);
+                _scene.AttachActor(handles.Weapon, handles.Body, held, back == held ? null : back);
             }
 
             if (prepared.OffHand is not null)

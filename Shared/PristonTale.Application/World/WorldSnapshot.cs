@@ -6,7 +6,7 @@ namespace PristonTale.Application.World;
 
 public enum EntityKindView { Player, Monster, Npc }
 
-public enum MoveStateView { Idle, Walking, Running, Attack, Damage, Dead, Skill, Eat, Warp }
+public enum MoveStateView { Idle, Walking, Running, Attack, Damage, Dead, Skill, Eat, Warp, Yahoo }
 
 public readonly struct PlayerAppearanceView
 {

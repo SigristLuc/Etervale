@@ -50,4 +50,11 @@ public sealed partial class WorldServer
             return (string?)null;
         });
     }
+
+    // A yahoo word in the chat (key false) or Space inside its window (key true); false when the player may not cheer now.
+    public Task<bool> YahooAsync(ulong entityId, bool key)
+    {
+        return EnqueueAsync(entityId, () =>
+            _connections.TryGetValue(entityId, out var connection) && connection.Player.AskYahoo(key, _clock.GetUtcNow().ToUnixTimeMilliseconds()));
+    }
 }

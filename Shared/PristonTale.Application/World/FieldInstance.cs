@@ -257,6 +257,11 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
                     timing.DurationMs, timing.HitAtMs));
             }
 
+            if (player.HasPendingYahoo && !player.IsBusy)
+            {
+                player.BeginPendingYahoo(PlayerActionTiming(player, MotionStateCode.Yahoo, 1f).DurationMs);
+            }
+
             _combat.StepPlayerAttack(player);
             StepPlayer(player, nowMs);
             player.TakeProgressCues(out var leveledUp, out var learned);

@@ -54,5 +54,8 @@ public interface IPlayChannel : IAsyncDisposable
     // A line typed in the chat window (party: the party channel); replies arrive as PresenceUpdate.Chat.
     Task SendChatAsync(string text, bool party, CancellationToken ct = default) => Task.CompletedTask;
 
+    // Space inside the minute a yahoo word opened; the cheer arrives on the presence timeline.
+    Task SendYahooKeyAsync(CancellationToken ct = default) => Task.CompletedTask;
+
     IAsyncEnumerable<PresenceUpdate> ReadAllAsync(CancellationToken ct = default);
 }

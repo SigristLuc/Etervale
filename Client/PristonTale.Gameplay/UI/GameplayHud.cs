@@ -200,6 +200,8 @@ public sealed class GameplayHud : IDisposable
     // R or the bar's walk/run button.
     public event Action RunToggleRequested;
 
+    public event Action YahooKeyPressed;
+
     // The fighting mode the player chose for a running summon skill (true: automatic), or null for other skills.
     public Func<uint, bool?> SummonAutomatic { get; set; }
     private uint _lastBuffClicked;
@@ -549,6 +551,11 @@ public sealed class GameplayHud : IDisposable
         if (Pressed(keyboard, Keys.R))
         {
             RunToggleRequested?.Invoke();
+        }
+
+        if (Pressed(keyboard, Keys.Space))
+        {
+            YahooKeyPressed?.Invoke();
         }
     }
 

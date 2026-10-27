@@ -109,6 +109,7 @@ closing.
 | `AttackRequest` (`0x45540D01`) | C→S | The clicked target and the request sequence. Monster: attack lock (held or one swing). NPC: opens it. |
 | `CloseRequest` (`0x45540D03`) | S→C | Asks the client to quit (the end of a game master's shutdown countdown). |
 | `WingGateRequest` / `WingGateResult` (`0x45540D04` / `0x45540D05`) | C→S / S→C | A trip from a warp stone to a stone of the wing warp map, correlated by operation id; a trip that warped also sends a forced `FieldWarp` ([world.md](world.md#wing-warp-gates)). |
+| `YahooKey` (`0x45540D06`) | C→S | Space within the minute a yahoo word opened; the server checks the window, the motion and the stamina, and the cheer shows as the presence motion `yahoo` ([chat-and-gm.md](chat-and-gm.md#server-routing)). |
 
 ### Player actions
 
@@ -120,6 +121,7 @@ Bodies start with `uint16 Version = 1`; positions are fixed point (x256), entity
 | `AttackRequest` | `uint8 Flags (1 held attack), uint8 0, uint64 Target (0 stops), uint64 Sequence` | 28 |
 | `FieldWarp` | `uint8 Flags (1 forced), uint8 0, int32 Field, int32 X, Y, Z` (the client puts the owner on the floor nearest Y) | 28 |
 | `CloseRequest` | `uint16 0` | 12 |
+| `YahooKey` | `uint16 0` | 12 |
 | `WingGateRequest` | `uint16 0, Guid OperationId, uint8 Destination (map index 0..8), uint8 0, uint16 0` | 32 |
 | `WingGateResult` | `uint16 0, Guid OperationId, uint8 Status (WingGateStatus: 0 warped, 1 rejected, 2 not at a stone, 3 beyond the wing, 4 level too low, 5 not enough gold, 6 busy, 7 storage failed), uint8 Destination, uint16 0, int64 Fee` | 40 |
 
@@ -328,7 +330,7 @@ uint16 0}` followed by `Count` entries that fill the message exactly. An entry i
 full), int24 X, Y, Z (world units × 8), uint16 Facing (65536 per turn), uint8 Motion}`; a full entry adds `{varuint Hp,
 MaxHp, Level, Target, AttackSequence, uint8 Revision, varuint Template, zigzag varint FieldCode}`. `varuint` is
 little-endian base-128 (`VarInt`, up to 64 bits). `Motion` is `PresenceMotion` (0 stand, 1 walk, 2 run, 3 attack, 4
-damage, 5 dead, 6 skill, 7 eat, 8 warp). Positions cover the world's ±1,000,000 units at 1/8 of a unit.
+damage, 5 dead, 6 skill, 7 eat, 8 warp, 9 yahoo). Positions cover the world's ±1,000,000 units at 1/8 of a unit.
 
 The server sends a full entry when an entity enters the receiver's view and whenever its motion, life, target, attack
 sequence or description revision changes; otherwise a motion entry (about 14 bytes) at the near or far rate. Ids,

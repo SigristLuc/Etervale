@@ -69,6 +69,10 @@ Kinds: 0 server, 1 whisper, 2 system, 3 notice, 4 party, 5 clan, 6 trade, 9 assi
   `name is currently offline, or cannot be found`; a receiver with `/disable_whisper` gets the sender
   `Unable to send private messages` (`/enable_whisper` undoes it).
 - `/bosstime` answers `Boss Time: XX:mm` with the minute bosses appear.
+- A line that is only `yahoo`, `/yahoo` or `Yes!` (any case) is not spoken: the player cheers (the Yahoo motion, the
+  weapon on the back) from standing, walking or running. For a minute after, Space (`YahooKey`) cheers again for 3% of
+  the maximum stamina, refused while stamina is not above that (`YahooRules`). A firecracker cheers after the motion in
+  progress, and the tiger capsule cheers at its eating event.
 - Party and clan lines go through `IPartyRoster` and `IClanRoster`. Etervale has no party or clan system yet; the
   default rosters are empty, so these lines reach nobody until those systems register real rosters.
 - English builds had no chat profanity filter, so none is applied.
