@@ -79,8 +79,10 @@ Consumers: `Server/PristonTale.Server/Hosting/HostingExtensions.cs` (provider se
 - `DefaultTypeMap.MatchNamesWithUnderscores = true` is set by both providers: `snake_case` columns map to
   `PascalCase` members.
 - Records are positional. Dapper picks a constructor whose parameter count equals the column count and whose
-  parameter names match the columns in order. The selected column list must therefore follow the constructor order.
-  `item_templates` and `monsters` are read with `SELECT *`, so their physical column order is part of the contract.
+  parameter names match the columns in order. The selected column list must therefore follow the constructor order;
+  every read names its columns (no `SELECT *`), so the physical column order of a table is not part of the contract.
+  Child tables are read `ORDER BY id`, the order the importer wrote them in, so drop and spawn tables keep their order
+  on both providers.
 - JSON columns bind as `JsonText`, never as `string`: each provider registers a `JsonText` handler (`TEXT` on SQLite,
   `NpgsqlDbType.Jsonb` on PostgreSQL). A plain string parameter against a `jsonb` column fails on PostgreSQL.
 - SQL is shared by both providers: `INSERT ... RETURNING`, `INSERT ... ON CONFLICT ... DO UPDATE`, `excluded.*`,
@@ -251,8 +253,7 @@ value stops startup.
    applied migration; `M013Baseline` has already run on existing databases.
 2. Record in `Persistence/PristonTale.Persistence.Abstractions/WorldData/`: append a constructor parameter with a
    default, at the end, so constructor order equals column order on new and upgraded databases.
-3. Repository `DapperWorldDataRepository`: add the column to the explicit select lists (`npcs`, `fields`, child
-   tables). `item_templates` and `monsters` use `SELECT *` and follow the column order.
+3. Repository `DapperWorldDataRepository`: add the column to the explicit select list, in constructor order.
 4. Importer `tools/PristonTale.WorldImport`: parsed DTO in `Parsers/Parsed*.cs`, the parser, and both the column
    list and the `ON CONFLICT ... DO UPDATE SET` list of the upsert in `Importer.Write*Async`.
 5. Runtime catalog: map it in `WorldDataFactory` into the Simulation definition (`ItemDefinition`,
@@ -288,8 +289,7 @@ old rows (`UnmappedMemberHandling.Disallow`); bump `Version` and add a conversio
 
 ## Pitfalls
 
-- Column order is a contract for `SELECT *` reads: a column added out of constructor order breaks `item_templates`
-  or `monsters` mapping at server start.
+- A select list out of constructor order breaks the record mapping at server start.
 - Runtime monster and NPC codes are recomputed from `ORDER BY name` at every catalog build. Adding or renaming a
   monster shifts the codes of later names; never store them.
 - `GetAllMotionSlotsAsync` must return rows ordered by `(motion_table_key, slot)`; `ToMotionTimings` groups

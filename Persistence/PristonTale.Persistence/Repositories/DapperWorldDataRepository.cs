@@ -11,12 +11,28 @@ public sealed class DapperWorldDataRepository(IDbConnectionFactory connectionFac
         await using var connection = await connectionFactory.OpenAsync(ct);
 
         var items = (await connection.QueryAsync<ItemTemplateRecord>(new CommandDefinition(
-            "SELECT * FROM item_templates", cancellationToken: ct))).ToList();
+            """
+            SELECT
+                code, item_code_mask, name, kind, durability_min, durability_max, weight, price, damage_min_low,
+                damage_min_high, damage_max_low, damage_max_high, attack_rating_min, attack_rating_max,
+                critical_hit, defence_min, defence_max, block_min, block_max, absorb_min, absorb_max, speed_min,
+                speed_max, mana_regen_min, mana_regen_max, life_regen_min, life_regen_max, stamina_regen_min,
+                stamina_regen_max, add_mana_min, add_mana_max, add_life_min, add_life_max, add_stamina_min,
+                add_stamina_max, req_level, req_strength, req_spirit, req_talent, req_dexterity, req_health,
+                restore_stamina_min, restore_stamina_max, restore_mana_min, restore_mana_max, restore_life_min,
+                restore_life_max, shooting_range, attack_speed, job_mask, unique_item, res_bionic_min,
+                res_bionic_max, res_earth_min, res_earth_max, res_fire_min, res_fire_max, res_ice_min, res_ice_max,
+                res_lighting_min, res_lighting_max, res_poison_min, res_poison_max, res_water_min, res_water_max,
+                res_wind_min, res_wind_max, max_stack, potion_space, magic_mastery, grid_width, grid_height,
+                glow_r, glow_g, glow_b, glow_a, glow_blink, glow_scale, display_effect, daily_drop_limit, set_code,
+                set_pieces
+            FROM item_templates
+            """, cancellationToken: ct))).ToList();
         if (items.Count == 0)
             return items;
 
         var specials = (await connection.QueryAsync<ItemTemplateSpecialRecord>(new CommandDefinition(
-                "SELECT id, item_code, bonus_code, value0, value1 FROM item_template_special", cancellationToken: ct)))
+                "SELECT id, item_code, bonus_code, value0, value1 FROM item_template_special ORDER BY id", cancellationToken: ct)))
             .ToLookup(static s => s.ItemCode);
         var jobRandom = (await connection.QueryAsync<ItemTemplateJobRandomRecord>(new CommandDefinition(
                 "SELECT id, item_code, ordinal, job_bit_code FROM item_template_job_random ORDER BY ordinal",
@@ -46,7 +62,18 @@ public sealed class DapperWorldDataRepository(IDbConnectionFactory connectionFac
 
         // Runtime monster IDs derive from this deterministic order.
         var monsters = (await connection.QueryAsync<MonsterRecord>(new CommandDefinition(
-            "SELECT * FROM monsters ORDER BY name", cancellationToken: ct))).ToList();
+            """
+            SELECT
+                name, model, level, attack_min, attack_max, attack_speed, attack_range, accuracy, defence,
+                absorb_pct, block_pct, hp, sight, skill_damage_min, skill_damage_max, skill_distance, skill_range,
+                skill_rating_pct, skill_curse_code, move_speed, move_range, iq, group_min, group_max, exp,
+                active_hour, nature, brood, class, res_bionic, res_earth, res_fire, res_ice, res_lighting,
+                res_poison, res_water, res_wind, stun_pct, display_name, sound_code, model_scale,
+                portrait_offset_y, portrait_offset_z, quest_code, event_item, potion_count, potion_percent,
+                hostile, size_level, res_magic, move_type, special_attack_pct, gold_min, gold_max, gold_pct,
+                event_model, event_code, event_info
+            FROM monsters ORDER BY name
+            """, cancellationToken: ct))).ToList();
         if (monsters.Count == 0)
             return monsters;
 
@@ -54,11 +81,11 @@ public sealed class DapperWorldDataRepository(IDbConnectionFactory connectionFac
                 "SELECT monster_name, max_items_per_kill, all_players_see FROM monster_drops", cancellationToken: ct)))
             .ToDictionary(static c => c.MonsterName);
         var dropItems = (await connection.QueryAsync<MonsterDropItemRecord>(new CommandDefinition(
-                "SELECT id, monster_name, kind, weight, item_code, gold_min, gold_max FROM monster_drop_items",
+                "SELECT id, monster_name, kind, weight, item_code, gold_min, gold_max FROM monster_drop_items ORDER BY id",
                 cancellationToken: ct)))
             .ToLookup(static d => d.MonsterName);
         var dropsPlus = (await connection.QueryAsync<MonsterDropPlusRecord>(new CommandDefinition(
-                "SELECT id, monster_name, weight, item_code FROM monster_drops_plus", cancellationToken: ct)))
+                "SELECT id, monster_name, weight, item_code FROM monster_drops_plus ORDER BY id", cancellationToken: ct)))
             .ToLookup(static d => d.MonsterName);
 
         return monsters
@@ -120,16 +147,16 @@ public sealed class DapperWorldDataRepository(IDbConnectionFactory connectionFac
                 cancellationToken: ct)))
             .ToLookup(static p => p.FieldCode);
         var spawns = (await connection.QueryAsync<FieldMonsterSpawnRecord>(new CommandDefinition(
-                "SELECT id, field_code, monster_name, weight FROM field_monster_spawns", cancellationToken: ct)))
+                "SELECT id, field_code, monster_name, weight FROM field_monster_spawns ORDER BY id", cancellationToken: ct)))
             .ToLookup(static s => s.FieldCode);
         var bosses = (await connection.QueryAsync<FieldBossSpawnRecord>(new CommandDefinition(
                 """
                 SELECT id, field_code, boss_monster_name, escort_monster_name, escort_count, spawn_hours
-                FROM field_boss_spawns
+                FROM field_boss_spawns ORDER BY id
                 """, cancellationToken: ct)))
             .ToLookup(static b => b.FieldCode);
         var fixedNpcs = (await connection.QueryAsync<FieldFixedNpcRecord>(new CommandDefinition(
-                "SELECT id, field_code, npc_name, x, z, angle, y FROM field_fixed_npcs", cancellationToken: ct)))
+                "SELECT id, field_code, npc_name, x, z, angle, y FROM field_fixed_npcs ORDER BY id", cancellationToken: ct)))
             .ToLookup(static n => n.FieldCode);
 
         return fields
