@@ -3,14 +3,18 @@ using PristonTale.Engine3D.Formats;
 
 namespace PristonTale.Engine3D.Rendering;
 
-// Original model files store one smooth normal per vertex, averaged across perpendicular faces. Strong sun and sky light
-// turn those into bright-to-dark gradients across flat faces, so skinned and animated meshes get normals rebuilt from
-// their posed geometry, like the static stage. A corner shares its normal only with faces at the same posed position
-// within the crease angle, then the normal returns to its bone's local space, where the vertex shader's bone transform
-// brings it back.
+// Original model files store one smooth normal per vertex, which is how the original shades a body, but averaged across
+// perpendicular faces too, where strong sun and sky light turn it into bright-to-dark gradients across flat faces. So a
+// skinned or animated mesh's corner keeps the file's normal while it stays within AuthoredCosine of the normal rebuilt
+// from the posed faces around it (the faces at the same position within the crease angle), and takes the rebuilt one
+// beyond: a hard edge the file averaged across, or a broken normal. The rebuilt normal returns to its bone's local space,
+// where the file's already is and where the vertex shader's bone transform brings it back.
 internal static class PristonModelNormals
 {
     private const float CreaseCosine = 0.5f;
+    // 40 degrees: a hard edge's averaged normal lies 45 (two faces) to 55 degrees (a box corner) off each face, the bends
+    // of a low-polygon body's smooth surface within it.
+    private const float AuthoredCosine = 0.766f;
     // A smooth position leaves out the faces turned away from the face (the back of a two-sided sheet).
     private const float BackFaceCosine = -0.5f;
     private const float PositionWeld = 0.01f;
@@ -130,13 +134,28 @@ internal static class PristonModelNormals
                     }
                 }
 
-                normals[corner] = ToBoneSpace(sum, poses[vertexIndex], obj.Vertices[vertexIndex].Normal);
+                normals[corner] = CornerNormal(sum, poses[vertexIndex], obj.Vertices[vertexIndex].Normal);
             }
 
             corners[face] = normals;
         }
 
         return corners;
+    }
+
+    private static Vector3 CornerNormal(Vector3 posedNormal, Matrix pose, Vector3 authored)
+    {
+        if (authored.LengthSquared() > 1e-6f && posedNormal.LengthSquared() > 1e-12f)
+        {
+            var posedAuthored = Vector3.TransformNormal(authored, pose);
+            if (posedAuthored.LengthSquared() > 1e-12f &&
+                Vector3.Dot(Vector3.Normalize(posedAuthored), Vector3.Normalize(posedNormal)) >= AuthoredCosine)
+            {
+                return Vector3.Normalize(authored);
+            }
+        }
+
+        return ToBoneSpace(posedNormal, pose, authored);
     }
 
     private static Vector3 ToBoneSpace(Vector3 posedNormal, Matrix pose, Vector3 authored)

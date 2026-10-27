@@ -11,6 +11,7 @@ internal static class ModelNormalTests
         yield return ("skinned model normals follow posed faces instead of averaged or inverted authored normals", CubeAsync);
         yield return ("skinned model normals smooth gentle folds and keep hard edges", FoldAsync);
         yield return ("a low-polygon fold creased against every face across its edges shades smooth, not as a flat triangle", LoneFoldAsync);
+        yield return ("a low-polygon body keeps the file's smooth normals across bends beyond the crease angle", AuthoredBodyAsync);
     }
 
     private static Task CubeAsync()
@@ -55,7 +56,7 @@ internal static class ModelNormalTests
             var tilt = MathHelper.ToRadians(degrees);
             var far = new Vector3(0, MathF.Sin(tilt) * 10, MathF.Cos(tilt) * 10);
             Vector3[] positions = [new(-10, 0, 0), new(10, 0, 0), new(-10, 0, -10), new(10, 0, -10), new Vector3(-10, 0, 0) + far, new Vector3(10, 0, 0) + far];
-            var vertices = positions.Select(position => new PristonModelVertex(position, Vector3.Up)).ToArray();
+            var vertices = positions.Select(position => new PristonModelVertex(position, Vector3.Zero)).ToArray();
             List<PristonModelFace> faces = [Upward(positions, 0, 2, 3), Upward(positions, 0, 3, 1), Upward(positions, 0, 1, 5), Upward(positions, 0, 5, 4)];
             var normals = PristonModelNormals.Build(Model(vertices, faces), (_, _) => Matrix.Identity)[0];
             var flat = normals[faces[0]][0];
@@ -96,12 +97,51 @@ internal static class ModelNormalTests
             faces.Add(Away(positions.ToArray(), a, b, positions.Count - 1, below));
         }
 
-        var vertices = positions.Select(position => new PristonModelVertex(position, Vector3.Up)).ToArray();
+        var vertices = positions.Select(position => new PristonModelVertex(position, Vector3.Zero)).ToArray();
         var normals = PristonModelNormals.Build(Model(vertices, faces), (_, _) => Matrix.Identity)[0];
         var fold = normals[faces[0]][Array.IndexOf([faces[0].A, faces[0].B, faces[0].C], 0)];
         var neighbour = normals[faces[1]][Array.IndexOf([faces[1].A, faces[1].B, faces[1].C], 0)];
         Assert.True(Vector3.Dot(fold, Vector3.Up) < 0.99f, $"the folded triangle kept its flat normal {fold}");
         Assert.True(Vector3.Dot(fold, neighbour) > 0.9999f, $"the fold's corner {fold} differs from its neighbour's {neighbour}");
+        return Task.CompletedTask;
+    }
+
+    private static Task AuthoredBodyAsync()
+    {
+        // A pentagonal prism, its sides 72 degrees apart, with the file's radial normals (36 degrees off each side): the
+        // sides share each edge's normal, as the original shades a coarse limb, instead of five flat facets.
+        var positions = new List<Vector3>();
+        for (var side = 0; side < 5; side++)
+        {
+            var angle = side * MathF.Tau / 5f;
+            positions.Add(new Vector3(MathF.Cos(angle) * 10f, 0f, MathF.Sin(angle) * 10f));
+            positions.Add(new Vector3(MathF.Cos(angle) * 10f, 20f, MathF.Sin(angle) * 10f));
+        }
+
+        var vertices = positions.Select(position => new PristonModelVertex(position, Vector3.Normalize(position with { Y = 0f }))).ToArray();
+        var axis = new Vector3(0f, 10f, 0f);
+        List<PristonModelFace> faces = [];
+        for (var side = 0; side < 5; side++)
+        {
+            var next = (side + 1) % 5;
+            var corners = positions.ToArray();
+            faces.Add(Away(corners, side * 2, next * 2, next * 2 + 1, axis));
+            faces.Add(Away(corners, side * 2, next * 2 + 1, side * 2 + 1, axis));
+        }
+
+        var pose = Matrix.CreateRotationY(0.7f) * Matrix.CreateTranslation(30, 0, -12);
+        var normals = PristonModelNormals.Build(Model(vertices, faces), (_, _) => pose)[0];
+        foreach (var face in faces)
+        {
+            var indices = new[] { face.A, face.B, face.C };
+            for (var corner = 0; corner < 3; corner++)
+            {
+                var expected = vertices[indices[corner]].Normal;
+                Assert.True(Vector3.Dot(normals[face][corner], expected) > 0.9999f,
+                    $"a coarse body's corner {normals[face][corner]} left the file's smooth normal {expected}");
+            }
+        }
+
         return Task.CompletedTask;
     }
 
