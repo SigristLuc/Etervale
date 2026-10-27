@@ -20,6 +20,8 @@ internal static class TerrainTests
         yield return ("a player saved where the stage has no floor enters at the field's first start point", JoinWithoutFloorAsync);
         yield return ("many small movement reports in one tick share one distance budget", ReportBudgetAsync);
         yield return ("small movement reports cannot pass a wall but may cut a corner", ReportWallSegmentsAsync);
+        yield return ("a long movement report climbs a ramp but not through a wall beyond it", ReportRampAsync);
+        yield return ("a falling player keeps its height between reports and may fall over a gap, not walk into one", ReportFallAsync);
     }
 
     private static Task ReaderParityAsync()
@@ -160,6 +162,61 @@ internal static class TerrainTests
         Assert.True(cutter.ReportMovement(new Vector3(256, 4, 146), 0f, true, false, 0, 500, terrain) == MovementVerdict.Accepted,
             "a report cutting a pillar corner by a unit was rejected");
         Assert.True(cutter.Position.X < 250f || cutter.Position.Z < 150f, $"the server kept a point inside the pillar: {cutter.Position}");
+        return Task.CompletedTask;
+    }
+
+    private static Task ReportRampAsync()
+    {
+        // Ground to x 100, a ramp rising 100 units to x 250, a plateau beyond it and a wall across the plateau at x 400.
+        var terrain = new FieldTerrain(StageCollisionReader.Read(Stage(
+            [new(0, 0, 0), new(100, 0, 0), new(100, 0, 400), new(0, 0, 400),
+             new(100, 0, 0), new(250, 100, 0), new(250, 100, 400), new(100, 0, 400),
+             new(250, 100, 0), new(600, 100, 0), new(600, 100, 400), new(250, 100, 400),
+             new(400, 100, 0), new(400, 100, 400), new(400, 400, 400), new(400, 400, 0)],
+            [(0, 1, 2), (0, 2, 3), (4, 5, 6), (4, 6, 7), (8, 9, 10), (8, 10, 11), (12, 13, 14), (12, 14, 15)])));
+        var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Ramp");
+        var player = new WorldPlayer(1, new Vector3(60, 0, 200), character, false, default);
+        Assert.True(player.ReportMovement(new Vector3(60, 0, 200), 0f, false, false, 0, 500, terrain) == MovementVerdict.Accepted,
+            "a standing report was rejected");
+        Assert.True(player.ReportMovement(new Vector3(240, 0, 200), 0f, true, true, 0, 3000, terrain) == MovementVerdict.Accepted,
+            "a long report up a ramp was taken for a wall");
+        Assert.True(MathF.Abs(player.Position.X - 240) < 0.01f && MathF.Abs(player.Position.Y - 93.33f) < 0.1f,
+            $"the ramp report did not stand on the ramp: {player.Position}");
+        Assert.True(player.ReportMovement(new Vector3(300, 0, 200), 0f, true, true, 0, 4000, terrain) == MovementVerdict.Accepted
+            && player.Position.Y == 100, "a report onto the plateau was rejected or missed its floor");
+        Assert.True(player.ReportMovement(new Vector3(450, 100, 200), 0f, true, true, 0, 5000, terrain) == MovementVerdict.Rejected
+            && player.Position.X == 300, "a long report crossed the wall beyond the ramp");
+        return Task.CompletedTask;
+    }
+
+    private static Task ReportFallAsync()
+    {
+        // A ledge 300 high to x 100 over ground to x 140, water (no floor) to x 170, then ground again.
+        var terrain = new FieldTerrain(StageCollisionReader.Read(Stage(
+            [new(0, 300, 0), new(100, 300, 0), new(100, 300, 400), new(0, 300, 400),
+             new(0, 0, 0), new(140, 0, 0), new(140, 0, 400), new(0, 0, 400),
+             new(170, 0, 0), new(400, 0, 0), new(400, 0, 400), new(170, 0, 400)],
+            [(0, 1, 2), (0, 2, 3), (4, 5, 6), (4, 6, 7), (8, 9, 10), (8, 10, 11)])));
+        var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Fall");
+        var player = new WorldPlayer(1, new Vector3(90, 300, 200), character, false, default);
+        Assert.True(player.ReportMovement(new Vector3(90, 300, 200), 0f, false, false, 0, 1000, terrain) == MovementVerdict.Accepted
+            && player.Position.Y == 300, "a report on the ledge was rejected or left it");
+        Assert.True(player.ReportMovement(new Vector3(120, 0, 200), 0f, true, true, 0, 1100, terrain) == MovementVerdict.Accepted,
+            "walking off the ledge was rejected");
+        // The 0.1 s are spread along the path, a third of which is still on the ledge.
+        Assert.True(player.Position.Y < 300 - Falling.SnapDistance && player.Position.Y >= 300 - Falling.UnitsPerSecond * 0.1f,
+            $"the server did not fall at most 0.1 s worth off the ledge: {player.Position.Y}");
+        Assert.True(player.ReportMovement(new Vector3(200, 0, 200), 0f, true, true, 0, 1300, terrain) == MovementVerdict.Accepted,
+            "falling over the water to the far ground was rejected");
+        Assert.True(player.Position.X == 200 && player.Position.Y > 0 && player.Position.Y < 300, $"the fall over the water ended at {player.Position}");
+        Assert.True(player.ReportMovement(new Vector3(200, 0, 200), 0f, false, false, 0, 1600, terrain) == MovementVerdict.Accepted
+            && player.Position.Y == 0, "the fall did not land on the ground");
+
+        var walker = new WorldPlayer(2, new Vector3(180, 0, 200), character, false, default);
+        Assert.True(walker.ReportMovement(new Vector3(180, 0, 200), 0f, false, false, 0, 1000, terrain) == MovementVerdict.Accepted,
+            "a report on the ground was rejected");
+        Assert.True(walker.ReportMovement(new Vector3(130, 0, 200), 0f, true, true, 0, 1300, terrain) == MovementVerdict.Rejected
+            && walker.Position.X == 180, "walking on the ground across the water was accepted");
         return Task.CompletedTask;
     }
 

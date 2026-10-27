@@ -262,8 +262,9 @@ The client owns its own locomotion; the server validates and corrects.
   left with no floor under it (placed before its field's ground was there) is put on the floor nearest the server's
   height each frame (`KeepOnFloor`). A warp gate's authored destination height is a hint: the body stands on the floor
   nearest it.
-- A body more than 8 units above its floor falls 8 units a frame at 70 Hz (`GroundFall`, applied in `KeepOnFloor`, as in
-  the original); within 8 units it stands on the floor. As in the original, the floor is followed only below the motions
+- A body more than 8 units above its floor falls 8 units a frame at 70 Hz (`GroundFall` over the shared `Falling`, applied
+  in `KeepOnFloor`, as in the original); within 8 units it stands on the floor. The start and the landing of a fall each
+  send a movement report, so the server's straight line between reports follows the way off the ledge. As in the original, the floor is followed only below the motions
   from 0x100 up (attacks, potions, damage, skills, landings, death): the body holds its height until they end, so a fall
   never cuts one short. A drop of more than 32 units plays FallDown; touching the floor plays FallStand, or FallDamage
   after more than 200 units (motion only, no damage). A landing holds the player like the other motions from 0x100 up

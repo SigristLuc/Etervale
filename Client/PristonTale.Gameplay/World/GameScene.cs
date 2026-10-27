@@ -1921,14 +1921,18 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             if (float.IsFinite(_fallTop))
             {
                 EndFall(landed: true, _fallTop - floor);
+                _reportDue = true;
             }
 
             return;
         }
 
+        // The server checks walls on a straight line between reports; reporting where the fall begins and ends keeps that
+        // line on the path the player took off the ledge.
         if (!float.IsFinite(_fallTop))
         {
             _fallTop = feet;
+            _reportDue = true;
         }
 
         if (feet - floor > GroundFall.MotionDistance && _playerController.Current != PristonActorMotion.FallDown)

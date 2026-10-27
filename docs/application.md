@@ -204,9 +204,12 @@ Durable entry points (`Prepare*Async`, `Commit*Async`, `CheckNpcServiceAsync`, `
 
 - Movement is client-owned and validated: a distance budget refills at 1.35 x run speed (village walk speed while the
   character carries more than its weight limit; start 0.5 s, cap 2 s, +32 units slack); an overweight character's
-  running report counts as walking; reports over 48 units must not cross a wall, shorter ones follow the wall slide
-  within 8 units; the
-  floor must be within 64 units of climb. Height is always the server's floor. Busy players (swing, flinch, eat,
+  running report counts as walking; a report is walked in pieces of at most 48 units, each following the wall slide
+  within 8 units from the height the last piece reached, so a ramp's rising ground is not a wall. Within a piece the
+  height follows the floor in 8-unit steps: a floor within 8 units below is stood on, a deeper one is fallen toward at
+  `Falling.UnitsPerSecond` (560) for the time since the last accepted report, and a falling player may pass over ground
+  with no floor; each step's floor must be within 64 units of climb and the report must end over a floor. The kept
+  height is the server's, never the client's. Busy players (swing, flinch, eat,
   cast) ignore drift up to 192 units and reject larger. A move without an action target drops the attack lock.
 - Motion stops showing after 1.5 s without reports. Death clears actions and potion; the player stays down until it
   restarts (below) or a revive reaches it. `Revive` brings a player back in place with a damage guard.

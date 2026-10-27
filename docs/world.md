@@ -161,7 +161,7 @@ startup unless `Assets:AllowMissingTerrain=true`, which leaves those fields on `
 
 | Mover | Rule | Code |
 |---|---|---|
-| Player (server check of a report) | Distance budget, wall check or slide, a floor at most 64 units above; height comes from the server floor | `WorldPlayer.ReportMovement` (Application) |
+| Player (server check of a report) | Distance budget, wall slide in 48-unit pieces, a floor at most 64 units above each step; height follows the floor and falls (`Falling`) | `WorldPlayer.ReportMovement` (Application) |
 | Wild monster and summon | `MonsterStepping.Step` against stage and other monsters only | `FieldInstance.MoveMonster` |
 | NPC | `EntityCollision.Resolve` against all bodies, then `FieldTerrain.TryStep` | `FieldInstance.StepNpc` |
 | Local player (client prediction) | `EntityCollision.Resolve` with player radius, then client terrain | `Client/PristonTale.Gameplay/World/GameScene.cs` |
@@ -587,7 +587,7 @@ Soldier_D have no sound folder and stay silent.
   `IStepOccupancy` (monster occupancy) and the prey view (`IPreyView`).
 - `FieldCombat`: `ApplyFlinchOnHit`, `ApplyBossRetargetOnHit`, `MonsterAttackReach.CanLandBasic`, `KillReward`,
   `DropRoller.Roll`.
-- `WorldPlayer.ReportMovement`: `FieldTerrain.CrossesWall`, `Slide`, `TryFloorNear`.
+- `WorldPlayer.ReportMovement`: `FieldTerrain.Slide`, `TryFloorNear`, `Falling.Step`.
 - `NpcServiceTransactions`: `NpcShopRules`, `MoneyLimits`, `WarehouseStorage`, `TeleportRoutes`, `AgingWork`, `MixingWork`,
   `NpcServiceAvailability`.
 
