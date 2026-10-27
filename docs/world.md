@@ -40,7 +40,7 @@ How the tick calls these rules belongs to [application.md](application.md).
 | `World/Motion/PlayerEquipmentTiming.cs` | Generated table of player attack clips by job and weapon key; do not hand-edit |
 | `World/Npcs/` | `NpcDefinition`, `NpcCatalog`, typed services (`NpcServiceKind`), service commands and replies, shop and warehouse rules, teleport routes, sound code map |
 | `Physics/EntityCollision.cs` | Circle-vs-circle blocking between bodies (players, monsters, NPCs) along a swept segment |
-| `Physics/EntityCollisionRadii.cs`, `EntityNeighbour.cs`, `EntityCollisionKind.cs` | Body radii and neighbour records |
+| `Physics/EntityCollisionRadii.cs`, `EntityNeighbour.cs` | Body radii (by `EntityKind`) and neighbour records |
 | `Physics/SpatialIndex.cs` | XZ hash grid of entity positions with deterministic query order |
 | [`Geometry/StageCollisionReader.cs`](../Shared/PristonTale.Geometry/StageCollisionReader.cs) | Reads collision triangles from a stage `.smd` |
 | `Geometry/CollisionMesh.cs` | Immutable triangle grid: floor height, floor raycast, segment trace |

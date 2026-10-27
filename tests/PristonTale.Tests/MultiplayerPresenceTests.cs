@@ -9,6 +9,7 @@ using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.World.Monsters;
 using static PristonTale.Tests.MultiplayerMovementTests;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -77,7 +78,7 @@ internal static class MultiplayerPresenceTests
         {
             var summon = await viewer.WaitAsync(world => world.Entities.Values.FirstOrDefault(entity => entity.TemplateId == GolemCode && entity.Id != wild.Id
                 && entity.Spawns > 0 && entity.OwnerId != 0), "the owned golem");
-            Assert.True(summon.OwnerId == a.Serial && summon.Kind == RemoteEntityKind.Monster, $"{viewer.Name} saw the summon owned by {summon.OwnerId}");
+            Assert.True(summon.OwnerId == a.Serial && summon.Kind == EntityKind.Monster, $"{viewer.Name} saw the summon owned by {summon.OwnerId}");
         }
 
         await Task.Delay(300);

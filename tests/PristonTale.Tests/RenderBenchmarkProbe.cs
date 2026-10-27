@@ -19,6 +19,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -221,7 +222,7 @@ internal sealed class RenderBenchmarkProbe : Game
         }));
         _hud.Combat.Observe(new PresenceUpdate(
             1,
-            [new EntitySpawnInfo(2, RemoteEntityKind.Monster, false, default, 0, MotionState.Attack, 35, 50, null, 1)],
+            [new EntitySpawnInfo(2, EntityKind.Monster, false, default, 0, MotionState.Attack, 35, 50, null, 1)],
             [],
             [],
             []));

@@ -1,13 +1,7 @@
 using PristonTale.Protocol.Binary;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Protocol.Packets;
-
-public enum DescribedKind : byte
-{
-    Player = 1,
-    Monster = 2,
-    Npc = 3
-}
 
 internal static class DescriptionWire
 {
@@ -134,7 +128,7 @@ public sealed record DescribedTemplate(
 public sealed record EntityDescriptionPacket(
     ulong Serial,
     byte Revision,
-    DescribedKind Kind,
+    EntityKind Kind,
     int Level,
     int MoveSpeed,
     float AttackRate,
@@ -160,7 +154,7 @@ public sealed record EntityDescriptionPacket(
         writer.Single(AttackRate);
         NpcWire.Text(ref writer, Name, DescriptionWire.MaxNameBytes);
         NpcWire.Text(ref writer, Model, DescriptionWire.MaxModelBytes);
-        if (Kind == DescribedKind.Player)
+        if (Kind == EntityKind.Player)
         {
             var player = Player ?? throw new InvalidOperationException("A player description needs its looks.");
             writer.VarUInt((ulong)Math.Max(0, player.Job));
@@ -202,7 +196,7 @@ public sealed record EntityDescriptionPacket(
         DescriptionWire.ReadHeader(ref reader);
         var serial = reader.VarUInt();
         var revision = reader.Byte();
-        var kind = (DescribedKind)reader.Byte();
+        var kind = (EntityKind)reader.Byte();
         var level = reader.VarUInt31();
         var moveSpeed = reader.VarUInt31();
         var attackRate = reader.Single();
@@ -210,7 +204,7 @@ public sealed record EntityDescriptionPacket(
         var model = NpcWire.Text(ref reader, DescriptionWire.MaxModelBytes);
         switch (kind)
         {
-            case DescribedKind.Player:
+            case EntityKind.Player:
             {
                 var job = reader.VarUInt31();
                 var tier = reader.VarUInt31();
@@ -232,7 +226,7 @@ public sealed record EntityDescriptionPacket(
                         OffHandGlow = offHandGlow
                     });
             }
-            case DescribedKind.Monster or DescribedKind.Npc:
+            case EntityKind.Monster or EntityKind.Npc:
             {
                 var template = reader.VarUInt32();
                 var templateScale = reader.Single();

@@ -1,4 +1,5 @@
 using PristonTale.Simulation.World.Loot;
+
 namespace PristonTale.Application.World;
 
 public sealed class SubscriberPresence

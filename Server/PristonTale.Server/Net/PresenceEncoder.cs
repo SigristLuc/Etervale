@@ -8,6 +8,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Server.Net;
 
@@ -85,7 +86,7 @@ internal sealed partial class PresenceEncoder
         _isShown = index => _known.ContainsKey(_entities[index].EntityId);
     }
 
-    public EntityKindView? KindOf(ulong serial)
+    public EntityKind? KindOf(ulong serial)
     {
         lock (_gate)
         {
@@ -417,7 +418,7 @@ internal sealed partial class PresenceEncoder
 
     // The duel arena is solo: a player sees only the opponent and helper of its own duel.
     private bool HiddenInArena(int field, in EntityView view) =>
-        field == QuestArena.FieldCode && view.Kind != EntityKindView.Npc && (view.Kind == EntityKindView.Player || view.DuelPlayerId != _self);
+        field == QuestArena.FieldCode && view.Kind != EntityKind.Npc && (view.Kind == EntityKind.Player || view.DuelPlayerId != _self);
 
     private void SendSized(IPacketSink connection, Func<Span<byte>, int> write, int capacity)
     {
@@ -922,7 +923,7 @@ internal sealed partial class PresenceEncoder
         public uint Pass;
         public int Descriptor;
         public MotionState MoveState;
-        public EntityKindView Kind;
+        public EntityKind Kind;
         public byte Revision;
 
         public Known(in EntityView view, byte revision, uint tick, int descriptor, uint pass)

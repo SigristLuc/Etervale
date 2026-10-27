@@ -15,6 +15,7 @@ using PristonTale.Simulation.World.Spawning;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Simulation.Skills;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Application.World;
 
@@ -697,7 +698,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
     private static EntityView ToMonsterView(MonsterInstance m) => new(
         m.EntityId,
-        EntityKindView.Monster,
+        EntityKind.Monster,
         isSelf: false,
         m.Position,
         m.Facing,

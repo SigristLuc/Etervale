@@ -9,6 +9,7 @@ using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.Skills;
 using NumVector3 = System.Numerics.Vector3;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Gameplay.World;
 
@@ -187,7 +188,7 @@ public sealed partial class GameScene : ISkillSceneHost
         }
 
         ulong target = 0;
-        var kind = RemoteEntityKind.Monster;
+        var kind = EntityKind.Monster;
         if (TryCursorRay(mouse, out var ray) && _remote.TryPick(ray, _remote.SelfEntityId, out var picked, out var pickedKind))
         {
             target = picked;
@@ -200,7 +201,7 @@ public sealed partial class GameScene : ISkillSceneHost
             case SkillTarget.None:
                 return RequestCast(code, rule, 0, null);
             case SkillTarget.Enemy:
-                if (target == 0 || kind != RemoteEntityKind.Monster)
+                if (target == 0 || kind != EntityKind.Monster)
                 {
                     return false;
                 }
@@ -208,7 +209,7 @@ public sealed partial class GameScene : ISkillSceneHost
                 _targetSelection.Trace(target);
                 return RequestCast(code, rule, target, null);
             case SkillTarget.Ally:
-                return RequestCast(code, rule, target != 0 && kind == RemoteEntityKind.Player ? target : 0, null);
+                return RequestCast(code, rule, target != 0 && kind == EntityKind.Player ? target : 0, null);
             default:
                 return false;
         }

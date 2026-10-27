@@ -12,6 +12,7 @@ using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Client.Net.Online;
 
@@ -320,7 +321,7 @@ internal sealed class PresenceDecoder
             return null;
         }
 
-        var description = new Description(packet.Revision, Kind(packet.Kind), packet);
+        var description = new Description(packet.Revision, packet.Kind, packet);
         tracked.Description = description;
         if (packet.Template is { } template)
         {
@@ -330,7 +331,7 @@ internal sealed class PresenceDecoder
                 _templates[template.Template] = description;
             }
 
-            if (description.Kind == RemoteEntityKind.Monster)
+            if (description.Kind == EntityKind.Monster)
             {
                 _catalog.Register(new MonsterRenderInfo(template.Template, packet.Model, template.TemplateScale, packet.Name, packet.Level,
                     (MonsterBrood)template.Brood, template.PortraitY, template.PortraitZ, (int)template.SoundCode, template.Class)
@@ -338,7 +339,7 @@ internal sealed class PresenceDecoder
                     ShadowSize = template.ShadowSize
                 });
             }
-            else if (description.Kind == RemoteEntityKind.Npc)
+            else if (description.Kind == EntityKind.Npc)
             {
                 _catalog.Register(new NpcRenderInfo(template.Template, packet.Model, template.TemplateScale, packet.Name,
                     new NpcServiceSet(template.NpcServices), (int)template.SoundCode, template.PortraitY, template.PortraitZ)
@@ -547,16 +548,8 @@ internal sealed class PresenceDecoder
 
     private static Vector3 Position(int x, int y, int z) => new(PristonUnits.FromFixed(x), PristonUnits.FromFixed(y), PristonUnits.FromFixed(z));
 
-    private static RemoteEntityKind Kind(DescribedKind kind) => kind switch
-    {
-        DescribedKind.Player => RemoteEntityKind.Player,
-        DescribedKind.Monster => RemoteEntityKind.Monster,
-        DescribedKind.Npc => RemoteEntityKind.Npc,
-        _ => RemoteEntityKind.Unspecified
-    };
 
-
-    private sealed record Description(byte Revision, RemoteEntityKind Kind, EntityDescriptionPacket Packet);
+    private sealed record Description(byte Revision, EntityKind Kind, EntityDescriptionPacket Packet);
 
     private sealed class Tracked
     {

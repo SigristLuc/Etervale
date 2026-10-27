@@ -4,6 +4,7 @@ using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Motion;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Application.World;
 
@@ -123,7 +124,7 @@ public sealed class WorldNpc
     {
         return new EntityView(
             EntityId,
-            EntityKindView.Npc,
+            EntityKind.Npc,
             false,
             Position,
             Facing,

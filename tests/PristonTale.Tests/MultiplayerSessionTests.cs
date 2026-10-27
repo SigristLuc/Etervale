@@ -2,6 +2,7 @@ using System.Numerics;
 using PristonTale.Application.Services;
 using PristonTale.Client.Net.Presence;
 using static PristonTale.Tests.MultiplayerMovementTests;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -83,6 +84,6 @@ internal static class MultiplayerSessionTests
         await b.WaitUntilAsync(world => world.Entities.ContainsKey(winner.Serial), "the winner");
         await Task.Delay(300);
         Assert.True(b.World.Read(world => world.Entities.Values.Count(entity => entity.Player?.Name == "Contested")) == 1, "the viewer shows two avatars");
-        Assert.True(b.World.Read(world => world.Entities[winner.Serial].Kind) == RemoteEntityKind.Player, "the winner is not a player");
+        Assert.True(b.World.Read(world => world.Entities[winner.Serial].Kind) == EntityKind.Player, "the winner is not a player");
     }
 }

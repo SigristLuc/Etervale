@@ -17,6 +17,7 @@ using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.WorldImport;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -450,7 +451,7 @@ internal static class NpcServiceTests
             var player = WorldPlayerFactory.Create(session);
             await Advance(world, world.JoinAsync(3, player, outbox.Writer, session));
             Assert.True(outbox.Reader.TryRead(out var snapshot), "roster missing");
-            var placed = snapshot.Entities.Single(entity => entity.Kind == EntityKindView.Npc);
+            var placed = snapshot.Entities.Single(entity => entity.Kind == EntityKind.Npc);
             return new Fixture
             {
                 World = world,

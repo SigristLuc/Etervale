@@ -11,6 +11,7 @@ using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -188,7 +189,7 @@ internal static class ProgressionTransactionTests
         var player = WorldPlayerFactory.Create(session);
         await AdvanceAsync(world, world.JoinAsync(3, player, outbox.Writer, session));
         Assert.True(outbox.Reader.TryRead(out var snapshot), "initial roster missing");
-        var placed = snapshot.Entities.Single(entity => entity.Kind == EntityKindView.Npc);
+        var placed = snapshot.Entities.Single(entity => entity.Kind == EntityKind.Npc);
         Assert.True(placed.Position == new Vector3(100, 0, 100) && Math.Abs(placed.Facing - MathF.PI / 2) < 0.001, "SPC fixed-point placement is wrong");
         Assert.True((await AdvanceAsync(world, world.InteractNpcAsync(session, placed.EntityId))).Ok, "nearby NPC interaction rejected");
         var skill = ClassSkillCatalog.For(PlayerClass.Mechanician).Where(static skill => skill.Tier == JobTier.Job1).ToArray()[0];

@@ -20,6 +20,7 @@ using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Motion;
 using NumVector3 = System.Numerics.Vector3;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Gameplay.World;
 
@@ -1696,7 +1697,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         {
             return false;
         }
-        if (kind == RemoteEntityKind.Npc)
+        if (kind == EntityKind.Npc)
         {
             _lootInteraction.Cancel();
             ClearAttackTarget();
@@ -1706,7 +1707,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             StopPredictedMovement();
             return true;
         }
-        if (kind != RemoteEntityKind.Monster)
+        if (kind != EntityKind.Monster)
         {
             return false;
         }
@@ -1744,7 +1745,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private void UpdateTargetSelection(GameTime gameTime)
     {
         ulong hovered = 0;
-        var hoveredKind = RemoteEntityKind.Unspecified;
+        var hoveredKind = EntityKind.None;
         if (_remote is not null && _camera is not null && !PointerCaptured && CameraInputEnabled && TryCursorRay(Mouse.GetState(), out var ray)
             && _remote.TryPick(ray, _remote.SelfEntityId, out var entityId, out var kind))
         {

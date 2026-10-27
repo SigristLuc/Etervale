@@ -5,6 +5,7 @@ using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Loot;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Server.Net;
 
@@ -16,7 +17,7 @@ internal static class WireMapping
 
     // The template code clients use to share one description among monsters and NPCs of a kind. Players and owned
     // summons describe themselves (a summon's owner and size are its own), so they carry none.
-    public static uint SharedTemplate(in EntityView view) => view.Kind == EntityKindView.Player || view.OwnerId != 0 ? 0u : view.TemplateId;
+    public static uint SharedTemplate(in EntityView view) => view.Kind == EntityKind.Player || view.OwnerId != 0 ? 0u : view.TemplateId;
 
 
     // A full presence entry: the motion part plus life, level, target, attack sequence, description revision, shared
@@ -39,7 +40,7 @@ internal static class WireMapping
     {
         switch (view.Kind)
         {
-            case EntityKindView.Player:
+            case EntityKind.Player:
             {
                 var appearance = view.Appearance;
                 var looks = new DescribedPlayer(appearance.JobCode, appearance.Tier, appearance.FaceIndex, appearance.HairIndex, appearance.ModelName2 ?? "",
@@ -49,29 +50,29 @@ internal static class WireMapping
                     WeaponGlow = Glow(appearance.WeaponGlow),
                     OffHandGlow = Glow(appearance.OffHandGlow)
                 };
-                return new EntityDescriptionPacket(view.EntityId, revision, DescribedKind.Player, view.Level, view.MoveSpeed, view.AttackRate,
+                return new EntityDescriptionPacket(view.EntityId, revision, EntityKind.Player, view.Level, view.MoveSpeed, view.AttackRate,
                     appearance.Name ?? "", appearance.ModelName ?? "", looks);
             }
-            case EntityKindView.Monster when data.Monsters.TryGet((int)view.TemplateId, out var monster):
+            case EntityKind.Monster when data.Monsters.TryGet((int)view.TemplateId, out var monster):
             {
                 // An owned summon fights on its owner's side: the original marks it with the user brood.
                 var owned = view.OwnerId != 0;
                 var template = new DescribedTemplate(view.TemplateId, monster.ModelScale, (uint)monster.SoundCode, monster.PortraitOffsetY,
                     monster.PortraitOffsetZ, (byte)(owned ? Simulation.World.Monsters.MonsterBrood.User : monster.Brood), view.OwnerId,
                     owned ? view.ModelScale : 0f, 0, (int)monster.Class, monster.ShadowSizeLevel);
-                return new EntityDescriptionPacket(view.EntityId, revision, DescribedKind.Monster, view.Level, view.MoveSpeed, view.AttackRate,
+                return new EntityDescriptionPacket(view.EntityId, revision, EntityKind.Monster, view.Level, view.MoveSpeed, view.AttackRate,
                     monster.Name ?? "", monster.ModelInxPath ?? "", Template: template);
             }
-            case EntityKindView.Npc when data.Npcs.TryGet((int)view.TemplateId, out var npc):
+            case EntityKind.Npc when data.Npcs.TryGet((int)view.TemplateId, out var npc):
             {
                 var template = new DescribedTemplate(view.TemplateId, npc.ModelScale, (uint)npc.SoundCode, npc.PortraitOffsetY, npc.PortraitOffsetZ, 0, 0, 0f,
                     npc.ServiceSet.Bits, 0, npc.ShadowSizeLevel);
-                return new EntityDescriptionPacket(view.EntityId, revision, DescribedKind.Npc, view.Level, view.MoveSpeed, view.AttackRate,
+                return new EntityDescriptionPacket(view.EntityId, revision, EntityKind.Npc, view.Level, view.MoveSpeed, view.AttackRate,
                     npc.Label ?? "", npc.ModelInxPath ?? "", Template: template);
             }
             default:
                 // A template missing from the catalog is still described by kind and code.
-                return new EntityDescriptionPacket(view.EntityId, revision, view.Kind == EntityKindView.Npc ? DescribedKind.Npc : DescribedKind.Monster,
+                return new EntityDescriptionPacket(view.EntityId, revision, view.Kind,
                     view.Level, view.MoveSpeed, view.AttackRate, "", "", Template: new DescribedTemplate(view.TemplateId, 1f, 0, 0, 0, 0, view.OwnerId, 0f, 0));
         }
     }

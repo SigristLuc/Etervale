@@ -19,6 +19,7 @@ using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -135,19 +136,19 @@ internal sealed class HudTargetCaptureProbe : Game
             new CharacterClassRegistry(), _assetRoot, catalog, ConsoleClientLog.Instance);
         _spawns = new PresenceUpdate(1,
         [
-            new(SelfId, RemoteEntityKind.Player, true, Numeric(_focus), 0, MotionState.Stand, 64, 64,
+            new(SelfId, EntityKind.Player, true, Numeric(_focus), 0, MotionState.Stand, 64, 64,
                 new PlayerAppearanceInfo("Panzer", 2, 0, 0, 0, "", "", 12), 0),
-            new(HopyId, RemoteEntityKind.Monster, false, Numeric(Floor(collision, _focus + new Vector3(70f, 0f, 40f))), 2.4f,
+            new(HopyId, EntityKind.Monster, false, Numeric(Floor(collision, _focus + new Vector3(70f, 0f, 40f))), 2.4f,
                 MotionState.Stand, 31, 50, null, 1, Name: "Hopy", Level: 3),
-            new(SkeletonId, RemoteEntityKind.Monster, false, Numeric(Floor(collision, _focus + new Vector3(150f, 0f, -40f))), 2.0f,
+            new(SkeletonId, EntityKind.Monster, false, Numeric(Floor(collision, _focus + new Vector3(150f, 0f, -40f))), 2.0f,
                 MotionState.Stand, 180, 200, null, 2, Name: "Skeleton", Level: 12),
-            new(NpcId, RemoteEntityKind.Npc, false, Numeric(Floor(collision, _focus + new Vector3(-60f, 0f, -80f))), 3.0f,
+            new(NpcId, EntityKind.Npc, false, Numeric(Floor(collision, _focus + new Vector3(-60f, 0f, -80f))), 3.0f,
                 MotionState.Stand, 0, 0, null, 1, Name: "Ricarten Guard", Level: 100),
-            new(BonelessNpcId, RemoteEntityKind.Npc, false, Numeric(Floor(collision, _focus + new Vector3(-150f, 0f, 20f))), 0.5f,
+            new(BonelessNpcId, EntityKind.Npc, false, Numeric(Floor(collision, _focus + new Vector3(-150f, 0f, 20f))), 0.5f,
                 MotionState.Stand, 0, 0, null, 2, Name: "Helper Pria", Level: 1),
-            new(CraftsmanId, RemoteEntityKind.Npc, false, Numeric(Floor(collision, _focus + new Vector3(-100f, 0f, 120f))), 1.5f,
+            new(CraftsmanId, EntityKind.Npc, false, Numeric(Floor(collision, _focus + new Vector3(-100f, 0f, 120f))), 1.5f,
                 MotionState.Stand, 0, 0, null, 3, Name: "Mixing Craftsman, Morald", Level: 1),
-            new(PlayerId, RemoteEntityKind.Player, false, Numeric(Floor(collision, _focus + new Vector3(10f, 0f, 90f))), 2.6f,
+            new(PlayerId, EntityKind.Player, false, Numeric(Floor(collision, _focus + new Vector3(10f, 0f, 90f))), 2.6f,
                 MotionState.Stand, 900, 1000, new PlayerAppearanceInfo("Lyra", 8, 0, 1, 0, "", "", 37), 0)
         ], [], [], []);
         _remote.Apply(_spawns);

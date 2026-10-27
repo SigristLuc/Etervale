@@ -12,6 +12,7 @@ using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Spawning;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -346,7 +347,7 @@ internal static class SkillSystemTests
     private static Task WireAsync()
     {
         var round = new WireRoundTrip(1);
-        var view = new EntityView(1, EntityKindView.Player, true, Vector3.Zero, 0, MotionState.Skill, 10, 100, 100, default);
+        var view = new EntityView(1, EntityKind.Player, true, Vector3.Zero, 0, MotionState.Skill, 10, 100, 100, default);
         var snapshot = new WorldSnapshot(5, [view], fieldId: 3)
         {
             SkillEvents = [new SkillEventView(1, 1, 0x05010002, SkillEventPhaseView.Start, 2, SkillEventFlagsView.SelfCast, 900f, 400f, Vector3.Zero, 0f, 0, 0f)],

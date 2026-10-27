@@ -9,6 +9,7 @@ using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Spawning;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -256,7 +257,7 @@ internal static class MonsterNavigationTests
 
                 foreach (var view in _field.BuildViews())
                 {
-                    if (view.Kind != EntityKindView.Monster || !_previous.TryGetValue(view.EntityId, out var before))
+                    if (view.Kind != EntityKind.Monster || !_previous.TryGetValue(view.EntityId, out var before))
                     {
                         continue;
                     }

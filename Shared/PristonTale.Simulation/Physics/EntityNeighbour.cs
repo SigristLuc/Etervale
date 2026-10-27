@@ -1,4 +1,5 @@
 using System.Numerics;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Simulation.Physics;
 
@@ -13,7 +14,7 @@ public readonly struct EntityNeighbour
         Radius = radius;
     }
 
-    public EntityNeighbour(Vector3 position, EntityCollisionKind kind)
+    public EntityNeighbour(Vector3 position, EntityKind kind)
     {
         Position = position;
         Radius = EntityCollisionRadii.ForKind(kind);

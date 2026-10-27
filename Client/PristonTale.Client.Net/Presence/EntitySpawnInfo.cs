@@ -1,11 +1,12 @@
 using System.Numerics;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Client.Net.Presence;
 
 public sealed record EntitySpawnInfo(
     ulong EntityId,
-    RemoteEntityKind Kind,
+    EntityKind Kind,
     bool IsSelf,
     Vector3 Position,
     float Facing,

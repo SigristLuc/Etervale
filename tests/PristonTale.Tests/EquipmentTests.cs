@@ -10,6 +10,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Motion;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -117,7 +118,7 @@ internal static class EquipmentTests
         var composer = new FakeComposer(scene);
         var roster = new RemoteEntityManager(scene, composer, new ModelActorComposer(scene, new PristonActorLoader()), new CharacterClassRegistry(), "");
         var appearance = new PlayerAppearanceInfo("Gear", 2, 0, 0, 0, "", "", 1);
-        var spawn = new EntitySpawnInfo(7, RemoteEntityKind.Player, false, System.Numerics.Vector3.Zero, 0, MotionState.Stand, 100, 100, appearance, 0);
+        var spawn = new EntitySpawnInfo(7, EntityKind.Player, false, System.Numerics.Vector3.Zero, 0, MotionState.Stand, 100, 100, appearance, 0);
         void Apply(EntitySpawnInfo descriptor) => roster.Apply(new PresenceUpdate(1, [descriptor], [], [], []));
         Apply(spawn);
         roster.Update(0);

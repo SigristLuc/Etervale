@@ -6,6 +6,7 @@ using PristonTale.Gameplay.UI.Chat;
 using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Social;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -163,10 +164,10 @@ internal static class ChatClientTests
         var chat = new HudChat { SelfId = 1 };
         chat.Lookup = id => id switch
         {
-            2 => (RemoteEntityKind.Player, 0u),
-            3 => (RemoteEntityKind.Npc, 0u),
-            4 => (RemoteEntityKind.Monster, 2u),
-            _ => (RemoteEntityKind.Unspecified, 0u)
+            2 => (EntityKind.Player, 0u),
+            3 => (EntityKind.Npc, 0u),
+            4 => (EntityKind.Monster, 2u),
+            _ => (EntityKind.None, 0u)
         };
         var whispers = 0;
         chat.WhisperArrived += () => whispers++;

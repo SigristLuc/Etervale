@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Social;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Gameplay.UI.Chat;
 
@@ -24,7 +25,7 @@ public sealed class HudChat
     public Func<string, bool, Task> Send { get; set; }
 
     // What the client knows of an entity in view (HudCombat): its kind and a summon's owner.
-    public Func<ulong, (RemoteEntityKind Kind, ulong OwnerId)> Lookup { get; set; } = static _ => (RemoteEntityKind.Unspecified, 0);
+    public Func<ulong, (EntityKind Kind, ulong OwnerId)> Lookup { get; set; } = static _ => (EntityKind.None, 0);
 
     public string PlayerName { get; set; } = "";
     public ulong SelfId { get; set; }
@@ -52,11 +53,11 @@ public sealed class HudChat
 
     public void Receive(ChatLineInfo line, double nowMs)
     {
-        var (kind, _) = line.SpeakerId == 0 ? (RemoteEntityKind.Unspecified, 0u) : Lookup(line.SpeakerId);
-        if (kind != RemoteEntityKind.Unspecified && line.Kind != HudChatLog.PartyKind)
+        var (kind, _) = line.SpeakerId == 0 ? (EntityKind.None, 0u) : Lookup(line.SpeakerId);
+        if (kind != EntityKind.None && line.Kind != HudChatLog.PartyKind)
         {
             Bubbles.Say(line.SpeakerId, line.Text, nowMs, ChatRules.OtherBubbleMs);
-            if (kind == RemoteEntityKind.Player)
+            if (kind == EntityKind.Player)
             {
                 Window.Log.Add(line.Text, HudChatLog.PlayerKind);
             }
@@ -176,16 +177,16 @@ public sealed class HudChat
     // selected speaker is drawn brighter.
     public Color NameColor(ulong id, ulong hovered)
     {
-        var (kind, owner) = id == SelfId ? (RemoteEntityKind.Player, 0u) : Lookup(id);
+        var (kind, owner) = id == SelfId ? (EntityKind.Player, 0u) : Lookup(id);
         if (id == hovered)
         {
-            return kind == RemoteEntityKind.Monster && owner == 0 ? HoveredMonster : HoveredName;
+            return kind == EntityKind.Monster && owner == 0 ? HoveredMonster : HoveredName;
         }
 
         return kind switch
         {
-            RemoteEntityKind.Monster => owner != 0 ? PartyName : MonsterName,
-            RemoteEntityKind.Npc => NpcName,
+            EntityKind.Monster => owner != 0 ? PartyName : MonsterName,
+            EntityKind.Npc => NpcName,
             _ => PlayerNameColor
         };
     }

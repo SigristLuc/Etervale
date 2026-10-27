@@ -4,6 +4,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Combat;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -15,13 +16,13 @@ public sealed class RemoteModelEntity : RemoteEntityBase
     private readonly NpcStandMotionCycle _standMotionCycle;
 
     public RemoteModelEntity(IActorScene scene, ActorHandle actor, float scale, double timeMs, Vector3 position, float facing, MotionState moveState,
-        int hp, RemoteEntityKind kind = RemoteEntityKind.Monster, int soundCode = 0, PristonModelInfo modelInfo = null, ulong entityId = 0)
+        int hp, EntityKind kind = EntityKind.Monster, int soundCode = 0, PristonModelInfo modelInfo = null, ulong entityId = 0)
         : base(kind, timeMs, position, facing, moveState, hp, soundCode)
     {
         _scene = scene;
         _actor = actor;
         _scale = scale <= 0f ? 1f : scale;
-        if (kind == RemoteEntityKind.Npc && modelInfo is not null)
+        if (kind == EntityKind.Npc && modelInfo is not null)
         {
             _standMotionCycle = new NpcStandMotionCycle(modelInfo, entityId);
         }

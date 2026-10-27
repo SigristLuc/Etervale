@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Gameplay.World;
 
@@ -19,7 +20,7 @@ public sealed partial class GameScene
     // The outline's width share at this distance from the camera.
     public static float OutlineStrength(float distance) => Math.Clamp(1f - (distance - OutlineFullDistance) / OutlineFadeDistance, 0f, 1f);
 
-    private void UpdateOutline(ulong hovered, RemoteEntityKind kind)
+    private void UpdateOutline(ulong hovered, EntityKind kind)
     {
         if (_renderer is null || _remote is null || _camera is null)
         {
@@ -33,7 +34,7 @@ public sealed partial class GameScene
 
         _outlinedId = hovered;
         var classic = _presentation?.Requested.ClassicNamePlates == true;
-        if (hovered == 0 || (kind == RemoteEntityKind.Npc && !classic) || !_remote.TryGetDrawnPosition(hovered, out var position))
+        if (hovered == 0 || (kind == EntityKind.Npc && !classic) || !_remote.TryGetDrawnPosition(hovered, out var position))
         {
             return;
         }
@@ -42,8 +43,8 @@ public sealed partial class GameScene
         var strength = OutlineStrength(distance);
         var color = kind switch
         {
-            RemoteEntityKind.Monster => MonsterOutline,
-            RemoteEntityKind.Npc => NpcOutline,
+            EntityKind.Monster => MonsterOutline,
+            EntityKind.Npc => NpcOutline,
             _ => Vector3.One
         };
         SetEntityOutline(hovered, color, strength);

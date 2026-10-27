@@ -12,6 +12,7 @@ using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -34,9 +35,9 @@ internal static class ClientTests
         var origin = new System.Numerics.Vector3(120, 35, -400);
         var impact = new CombatEventView(9, 1, CombatEventKindView.MonsterSkillImpact,
             sourceSoundCode: 0x18E0, position: origin, facing: 1.2f);
-        var entity = new EntityView(2, EntityKindView.Monster, false, origin, 1.2f, MotionState.Skill,
+        var entity = new EntityView(2, EntityKind.Monster, false, origin, 1.2f, MotionState.Skill,
             10, 45, 60, default, templateId: 1);
-        var self = new EntityView(1, EntityKindView.Player, false, origin, 0f, MotionState.Stand, 1, 100, 100,
+        var self = new EntityView(1, EntityKind.Player, false, origin, 0f, MotionState.Stand, 1, 100, 100,
             new PlayerAppearanceView("Self", 2, 0, 0, 0, "", ""));
         var snapshot = new WorldSnapshot(8, [self, entity], [impact], 3);
         var update = new WireRoundTrip(1).PushMerged(snapshot);
@@ -51,7 +52,7 @@ internal static class ClientTests
 
     private static Task CrowdBudgetAsync()
     {
-        EntityView Walker(int id, float offset) => new((uint)id, EntityKindView.Player, false, new System.Numerics.Vector3(id + offset, 0, id % 20 * 10f), 0f,
+        EntityView Walker(int id, float offset) => new((uint)id, EntityKind.Player, false, new System.Numerics.Vector3(id + offset, 0, id % 20 * 10f), 0f,
             MotionState.Walk, 1, 100, 100, new PlayerAppearanceView("W" + id, 2, 0, 0, 0, "", ""));
         // The largest crowd a receiver shows at once: the receiver and MaxVisible others.
         var crowd = Server.Net.PresenceEncoder.MaxVisible + 1;
@@ -168,7 +169,7 @@ internal static class ClientTests
             0f,
             MotionState.Stand,
             1,
-            RemoteEntityKind.Npc,
+            EntityKind.Npc,
             modelInfo: warehouseInfo,
             entityId: 91);
         npc.Update(0f, 0);
@@ -203,7 +204,7 @@ internal static class ClientTests
             1);
         var spawn = new EntitySpawnInfo(
             2,
-            RemoteEntityKind.Player,
+            EntityKind.Player,
             false,
             System.Numerics.Vector3.Zero,
             0,
@@ -252,10 +253,10 @@ internal static class ClientTests
         var origin = new System.Numerics.Vector3(0, 7, 0);
         manager.Apply(new PresenceUpdate(1,
         [
-            new(1, RemoteEntityKind.Player, true, origin, 0, MotionState.Stand, 100, 100, appearance, 0),
-            new(2, RemoteEntityKind.Monster, false, origin + new System.Numerics.Vector3(40, 0, 0), 0, MotionState.Stand, 10, 10, null, 1),
-            new(3, RemoteEntityKind.Npc, false, origin + new System.Numerics.Vector3(0, 0, 40), 0, MotionState.Stand, 1, 1, null, 2),
-            new(4, RemoteEntityKind.Player, false, origin + new System.Numerics.Vector3(-25, 0, 0), 0, MotionState.Stand, 100, 100, appearance, 0)
+            new(1, EntityKind.Player, true, origin, 0, MotionState.Stand, 100, 100, appearance, 0),
+            new(2, EntityKind.Monster, false, origin + new System.Numerics.Vector3(40, 0, 0), 0, MotionState.Stand, 10, 10, null, 1),
+            new(3, EntityKind.Npc, false, origin + new System.Numerics.Vector3(0, 0, 40), 0, MotionState.Stand, 1, 1, null, 2),
+            new(4, EntityKind.Player, false, origin + new System.Numerics.Vector3(-25, 0, 0), 0, MotionState.Stand, 100, 100, appearance, 0)
         ], [], [], []));
         var neighbours = new List<PristonTale.Simulation.Physics.EntityNeighbour>();
         manager.CollectNeighbours(1, neighbours);

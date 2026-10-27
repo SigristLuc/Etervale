@@ -13,6 +13,7 @@ using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -306,10 +307,10 @@ internal static class RemotePlaybackTests
         var appearance = new PlayerAppearanceInfo("Self", 1, 0, 0, 0, "", "", 1);
         combat.Observe(new PresenceUpdate(1,
         [
-            new(1, RemoteEntityKind.Player, true, default, 0, MotionState.Stand, 64, 64, appearance, 0),
-            new(2, RemoteEntityKind.Monster, false, default, 0, MotionState.Stand, 50, 50, null, 1, Name: "Hopy", Level: 3),
-            new(3, RemoteEntityKind.Monster, false, default, 0, MotionState.Stand, 20, 50, null, 1),
-            new(4, RemoteEntityKind.Npc, false, default, 0, MotionState.Stand, 100, 100, null, 7)
+            new(1, EntityKind.Player, true, default, 0, MotionState.Stand, 64, 64, appearance, 0),
+            new(2, EntityKind.Monster, false, default, 0, MotionState.Stand, 50, 50, null, 1, Name: "Hopy", Level: 3),
+            new(3, EntityKind.Monster, false, default, 0, MotionState.Stand, 20, 50, null, 1),
+            new(4, EntityKind.Npc, false, default, 0, MotionState.Stand, 100, 100, null, 7)
         ], [], [],
         [
             new(1, 2, RemoteCombatEventKind.SwingBegin, 800, 400, 0, false, false),

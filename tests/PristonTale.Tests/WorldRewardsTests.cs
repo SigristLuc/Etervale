@@ -11,6 +11,7 @@ using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Spawning;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -111,7 +112,7 @@ internal static class WorldRewardsTests
     {
         var code = ItemCodes.Parse("WA101");
         var drop = new GroundDropView(Guid.NewGuid(), code, "WA101", "Stone Axe", 1, false, new Vector3(12, 3, -24));
-        EntityView Avatar(ulong id) => new(id, EntityKindView.Player, false, Vector3.Zero, 0f, MotionState.Stand, 1, 10, 10, default);
+        EntityView Avatar(ulong id) => new(id, EntityKind.Player, false, Vector3.Zero, 0f, MotionState.Stand, 1, 10, 10, default);
         var snapshot = new WorldSnapshot(1, [Avatar(1), Avatar(2)], groundDrops: [new GroundDropState(drop, 1, false)]);
         var owner = new WireRoundTrip(1);
         var added = owner.PushMerged(snapshot).GroundAdded.Single();

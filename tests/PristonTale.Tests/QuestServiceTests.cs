@@ -17,6 +17,7 @@ using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
 using static PristonTale.Tests.QuestFixture;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -116,14 +117,14 @@ internal static class QuestServiceTests
     private static Task PresenceAsync()
     {
         var origin = new Vector3(QuestArena.EntryX, 0, QuestArena.EntryZ);
-        var self = new EntityView(1, EntityKindView.Player, true, origin, 0f, MotionState.Stand, 60, 100, 100, new PlayerAppearanceView("Self", 2, 2, 0, 0, "", ""));
-        var other = new EntityView(2, EntityKindView.Player, false, origin + new Vector3(30, 0, 0), 0f, MotionState.Stand, 60, 100, 100,
+        var self = new EntityView(1, EntityKind.Player, true, origin, 0f, MotionState.Stand, 60, 100, 100, new PlayerAppearanceView("Self", 2, 2, 0, 0, "", ""));
+        var other = new EntityView(2, EntityKind.Player, false, origin + new Vector3(30, 0, 0), 0f, MotionState.Stand, 60, 100, 100,
             new PlayerAppearanceView("Other", 2, 2, 0, 0, "", ""));
-        var mine = new EntityView(3, EntityKindView.Monster, false, origin + new Vector3(0, 0, 40), 0f, MotionState.Stand, 60, 900, 1000, default, 50)
+        var mine = new EntityView(3, EntityKind.Monster, false, origin + new Vector3(0, 0, 40), 0f, MotionState.Stand, 60, 900, 1000, default, 50)
         {
             DuelPlayerId = 1
         };
-        var theirs = new EntityView(4, EntityKindView.Monster, false, origin + new Vector3(0, 0, -40), 0f, MotionState.Stand, 60, 900, 1000, default, 50)
+        var theirs = new EntityView(4, EntityKind.Monster, false, origin + new Vector3(0, 0, -40), 0f, MotionState.Stand, 60, 900, 1000, default, 50)
         {
             DuelPlayerId = 2
         };
@@ -186,8 +187,8 @@ internal static class QuestServiceTests
         world.Player.Teleport(Vector3.Zero);
 
         character.Quests.Active = character.Quests.Active with { Kills = 19 };
-        var target = world.WaitFor(snapshot => snapshot.Entities.Any(entity => entity.Kind == EntityKindView.Monster))
-            .Entities.First(entity => entity.Kind == EntityKindView.Monster);
+        var target = world.WaitFor(snapshot => snapshot.Entities.Any(entity => entity.Kind == EntityKind.Monster))
+            .Entities.First(entity => entity.Kind == EntityKind.Monster);
         await world.Advance(server.SetAttackTargetAsync(3, world.Session.EntityId, target.EntityId, true));
         var credited = world.WaitFor(snapshot => snapshot.Quest?.View is { State: 2 });
         Assert.True(credited.Quest!.View!.Kills == 20 && credited.Quest.Notices.Any(n => n.Text == QuestTexts.TwentyBargons)
@@ -236,8 +237,8 @@ internal static class QuestServiceTests
         var travel = await world.Advance(quests.RequestAsync(token, new QuestCommand(Guid.NewGuid(), npc, QuestAction.Proceed, QuestCode.RankUpMasterTrial, 6, 0)));
         Assert.True(travel.Ok && character.Quests.Active.State == 7 && !QuestInventory.Has(character, QuestItems.RoyalAmulet), "the duel step failed");
         var arena = world.WaitFor(snapshot => snapshot.FieldId == QuestArena.FieldCode
-            && snapshot.Entities.Any(entity => entity.Kind == EntityKindView.Monster && entity.DuelPlayerId == world.Session.EntityId));
-        var opponent = arena.Entities.Single(entity => entity.Kind == EntityKindView.Monster);
+            && snapshot.Entities.Any(entity => entity.Kind == EntityKind.Monster && entity.DuelPlayerId == world.Session.EntityId));
+        var opponent = arena.Entities.Single(entity => entity.Kind == EntityKind.Monster);
         Assert.True(opponent.MaxHp == 1000, "the opponent did not scale with the player");
         Assert.True(world.Characters.Record.FieldId == 3 || world.Characters.Record.FieldId == QuestArena.FieldCode, "the record field differs");
 
@@ -322,7 +323,7 @@ internal static class QuestServiceTests
                 NpcId = 0
             };
             await world.Advance(server.JoinAsync(3, player, outbox.Writer, session));
-            var roster = world.WaitFor(snapshot => snapshot.Entities.Any(entity => entity.Kind == EntityKindView.Npc));
+            var roster = world.WaitFor(snapshot => snapshot.Entities.Any(entity => entity.Kind == EntityKind.Npc));
             return new QuestWorld
             {
                 Server = server,
@@ -331,7 +332,7 @@ internal static class QuestServiceTests
                 Player = player,
                 Characters = characters,
                 Outbox = outbox,
-                NpcId = roster.Entities.First(entity => entity.Kind == EntityKindView.Npc).EntityId,
+                NpcId = roster.Entities.First(entity => entity.Kind == EntityKind.Npc).EntityId,
                 _tick = world._tick
             };
         }

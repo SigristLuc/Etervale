@@ -1,3 +1,5 @@
+using PristonTale.Contracts.World;
+
 namespace PristonTale.Simulation.Physics;
 
 public static class EntityCollisionRadii
@@ -8,13 +10,13 @@ public static class EntityCollisionRadii
 
     public static float PairDistance(float moverRadius, float neighbourRadius) => MathF.Min(moverRadius, neighbourRadius);
 
-    public static float ForKind(EntityCollisionKind kind)
+    public static float ForKind(EntityKind kind)
     {
         return kind switch
         {
-            EntityCollisionKind.Player => Player,
-            EntityCollisionKind.Monster => Monster,
-            EntityCollisionKind.Npc => Npc,
+            EntityKind.Player => Player,
+            EntityKind.Monster => Monster,
+            EntityKind.Npc => Npc,
             _ => Monster
         };
     }

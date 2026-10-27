@@ -5,6 +5,7 @@ using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Combat;
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -53,7 +54,7 @@ public abstract class RemoteEntityBase
 
     private bool SkillOverride => _skillMotionIndex >= 0 || _skillAttackClip;
 
-    protected RemoteEntityBase(RemoteEntityKind kind, double timeMs, Vector3 position, float facing, MotionState moveState, int hp,
+    protected RemoteEntityBase(EntityKind kind, double timeMs, Vector3 position, float facing, MotionState moveState, int hp,
         int soundCode = 0)
     {
         Kind = kind;
@@ -66,7 +67,7 @@ public abstract class RemoteEntityBase
         SoundCode = soundCode;
     }
 
-    public RemoteEntityKind Kind { get; }
+    public EntityKind Kind { get; }
 
     // The entity's id (set for players, whose motions play their class's sounds).
     public ulong EntityId { get; init; }
@@ -317,7 +318,7 @@ public abstract class RemoteEntityBase
 
     private void LearnSpeed(in RemotePose pose)
     {
-        if (pose.Kind != RemotePoseKind.Interpolated || !pose.SteadyState || Kind == RemoteEntityKind.Player)
+        if (pose.Kind != RemotePoseKind.Interpolated || !pose.SteadyState || Kind == EntityKind.Player)
         {
             return;
         }
@@ -353,7 +354,7 @@ public abstract class RemoteEntityBase
     private float ReferenceSpeed(MotionCode motion)
     {
         var walk = motion == MotionCode.Walk;
-        if (Kind == RemoteEntityKind.Player)
+        if (Kind == EntityKind.Player)
         {
             return walk ? Locomotion.WalkUnitsPerSecond(_moveSpeed, InVillage) : Locomotion.RunUnitsPerSecond(_moveSpeed);
         }
@@ -363,7 +364,7 @@ public abstract class RemoteEntityBase
 
     private float BaseLocomotionRate(MotionCode motion)
     {
-        if (Kind != RemoteEntityKind.Player)
+        if (Kind != EntityKind.Player)
         {
             return 1f;
         }

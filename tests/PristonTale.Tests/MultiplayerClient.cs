@@ -5,6 +5,7 @@ using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -337,7 +338,7 @@ internal sealed class ObservedWorld
 internal sealed class ObservedEntity(ulong id)
 {
     public ulong Id { get; } = id;
-    public RemoteEntityKind Kind { get; private set; }
+    public EntityKind Kind { get; private set; }
     public Vector3 Position { get; private set; }
     public float Facing { get; private set; }
     public MotionState Motion { get; private set; }

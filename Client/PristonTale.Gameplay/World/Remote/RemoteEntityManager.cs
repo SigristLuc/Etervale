@@ -8,6 +8,7 @@ using PristonTale.Simulation.Physics;
 using XnaVector3 = Microsoft.Xna.Framework.Vector3;
 using NumVector3 = System.Numerics.Vector3;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -163,12 +164,12 @@ public sealed partial class RemoteEntityManager
         }
 
         Task preparation = null;
-        if (spawn.Kind == RemoteEntityKind.Player && spawn.Player is not null && TryResolveVisuals(spawn.Player.JobCode, out var visuals))
+        if (spawn.Kind == EntityKind.Player && spawn.Player is not null && TryResolveVisuals(spawn.Player.JobCode, out var visuals))
         {
             visuals = ResolvePlayerHead(visuals, spawn.Player);
             preparation = _playerComposer.PrepareAsync(_assetRoot, visuals, spawn.Player.FaceIndex);
         }
-        else if (spawn.Kind is RemoteEntityKind.Monster or RemoteEntityKind.Npc)
+        else if (spawn.Kind is EntityKind.Monster or EntityKind.Npc)
         {
             var info = ModelInfo(spawn);
             if (info is not null && !string.IsNullOrEmpty(info.ModelInxPath))
@@ -190,11 +191,11 @@ public sealed partial class RemoteEntityManager
 
         switch (spawn.Kind)
         {
-            case RemoteEntityKind.Player:
+            case EntityKind.Player:
                 ApplyPlayerSpawn(spawn);
                 break;
-            case RemoteEntityKind.Monster:
-            case RemoteEntityKind.Npc:
+            case EntityKind.Monster:
+            case EntityKind.Npc:
                 ApplyModelSpawn(spawn);
                 break;
         }
@@ -273,7 +274,7 @@ public sealed partial class RemoteEntityManager
 
     private ModelRenderInfo ModelInfo(EntitySpawnInfo spawn)
     {
-        if (spawn.Kind == RemoteEntityKind.Monster)
+        if (spawn.Kind == EntityKind.Monster)
         {
             return _catalog.GetMonster(spawn.TemplateId);
         }
@@ -312,7 +313,7 @@ public sealed partial class RemoteEntityManager
             spawn.MoveState,
             spawn.Hp,
             spawn.Kind,
-            spawn.Kind == RemoteEntityKind.Npc ? ((NpcRenderInfo)info).SoundCode : ((MonsterRenderInfo)info).SoundCode,
+            spawn.Kind == EntityKind.Npc ? ((NpcRenderInfo)info).SoundCode : ((MonsterRenderInfo)info).SoundCode,
             composed.Info,
             spawn.EntityId)
         {
@@ -386,7 +387,7 @@ public sealed partial class RemoteEntityManager
         into.Clear();
         foreach (var (id, entity) in _entities)
         {
-            if (entity is RemoteModelEntity { Kind: RemoteEntityKind.Monster } monster && monster.Actor.IsValid)
+            if (entity is RemoteModelEntity { Kind: EntityKind.Monster } monster && monster.Actor.IsValid)
             {
                 into.Add(new PristonTale.Gameplay.Effects.MonsterActorView(id, monster.Actor, monster.SoundCode, monster.Level, monster.Scale,
                     monster.DrawnPosition, monster.RenderFacing, monster.IsDead, monster.MonsterClass == HammerClass));
@@ -427,11 +428,11 @@ public sealed partial class RemoteEntityManager
 
     private void OnMotionStarted(RemoteEntityBase entity, MotionCode motion)
     {
-        if (entity.Kind == RemoteEntityKind.Npc && entity.SoundCode != 0)
+        if (entity.Kind == EntityKind.Npc && entity.SoundCode != 0)
         {
             NpcMotionStarted?.Invoke(entity.SoundCode, motion, entity.DrawnPosition);
         }
-        else if (entity.Kind == RemoteEntityKind.Player && _playerAppearances.TryGetValue(entity.EntityId, out var appearance))
+        else if (entity.Kind == EntityKind.Player && _playerAppearances.TryGetValue(entity.EntityId, out var appearance))
         {
             PlayerMotionStarted?.Invoke(appearance.JobCode, motion, entity.DrawnPosition);
         }
@@ -440,7 +441,7 @@ public sealed partial class RemoteEntityManager
     // The class, equipped weapon and drawn position of another player, for its swing sounds.
     public bool TryGetPlayerAudio(ulong entityId, out int classCode, out string weaponKey, out XnaVector3 position)
     {
-        if (_entities.TryGetValue(entityId, out var entity) && entity.Kind == RemoteEntityKind.Player
+        if (_entities.TryGetValue(entityId, out var entity) && entity.Kind == EntityKind.Player
             && _playerAppearances.TryGetValue(entityId, out var appearance))
         {
             classCode = appearance.JobCode;
@@ -499,18 +500,18 @@ public sealed partial class RemoteEntityManager
     private const float PlayerPickRadius = 40f;
     private const float NpcPickRadius = 40f;
 
-    private static float PickRadius(RemoteEntityKind kind) => kind switch
+    private static float PickRadius(EntityKind kind) => kind switch
     {
-        RemoteEntityKind.Monster => MonsterPickRadius,
-        RemoteEntityKind.Player => PlayerPickRadius,
-        RemoteEntityKind.Npc => NpcPickRadius,
+        EntityKind.Monster => MonsterPickRadius,
+        EntityKind.Player => PlayerPickRadius,
+        EntityKind.Npc => NpcPickRadius,
         _ => 0f,
     };
 
-    public bool TryPick(Microsoft.Xna.Framework.Ray ray, ulong selfId, out ulong entityId, out RemoteEntityKind kind)
+    public bool TryPick(Microsoft.Xna.Framework.Ray ray, ulong selfId, out ulong entityId, out EntityKind kind)
     {
         entityId = 0;
-        kind = RemoteEntityKind.Unspecified;
+        kind = EntityKind.None;
         var bestDistance = float.MaxValue;
         foreach (var (id, entity) in _entities)
         {
@@ -671,7 +672,7 @@ public sealed partial class RemoteEntityManager
 
     public bool TryGetNpcAudioSource(ulong entityId, out int soundCode, out XnaVector3 position)
     {
-        if (_entities.TryGetValue(entityId, out var entity) && entity.Kind == RemoteEntityKind.Npc)
+        if (_entities.TryGetValue(entityId, out var entity) && entity.Kind == EntityKind.Npc)
         {
             soundCode = entity.SoundCode;
             position = entity.DrawnPosition;

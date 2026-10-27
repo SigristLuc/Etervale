@@ -1,4 +1,5 @@
 using System.Numerics;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Application.World;
 
@@ -51,7 +52,7 @@ public sealed class EntityGrid
             _keys[index] = KeyOf(entity.Position);
             _indices[index] = index;
             _byId[entity.EntityId] = index;
-            if (entity.Kind == EntityKindView.Npc)
+            if (entity.Kind == EntityKind.Npc)
             {
                 _npcs.Add(index);
             }

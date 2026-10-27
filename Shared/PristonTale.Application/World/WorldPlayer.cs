@@ -9,6 +9,7 @@ using PristonTale.Simulation.Social;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Motion;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Application.World;
 
@@ -745,7 +746,7 @@ public sealed class WorldPlayer
     }
 
     public EntityView ToView() => new(
-        EntityId, EntityKindView.Player, isSelf: false, Position, Facing, MoveState,
+        EntityId, EntityKind.Player, isSelf: false, Position, Facing, MoveState,
         Level, Hp, MaxHp, Appearance,
         moveSpeed: _character.Derived.MoveSpeed,
         attackRate: _character.AttackRate,

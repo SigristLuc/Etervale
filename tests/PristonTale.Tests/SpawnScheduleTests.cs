@@ -7,6 +7,7 @@ using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Spawning;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -145,7 +146,7 @@ internal static class SpawnScheduleTests
     private static void AssertMonsterCount(WorldOutbox outbox, int expected)
     {
         Assert.True(outbox.Reader.TryRead(out var snapshot), "host emitted no snapshot");
-        Assert.True(snapshot.Entities.Count(entity => entity.Kind == EntityKindView.Monster) == expected,
+        Assert.True(snapshot.Entities.Count(entity => entity.Kind == EntityKind.Monster) == expected,
             $"expected {expected} scheduled monsters");
     }
 

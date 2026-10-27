@@ -13,6 +13,7 @@ using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -82,10 +83,10 @@ internal sealed class ChatCaptureProbe : Game
         _hud.Combat.SetCatalog(new WorldRenderCatalog());
         _hud.Combat.Observe(new PresenceUpdate(1,
         [
-            new(1, RemoteEntityKind.Player, true, default, 0, MotionState.Stand, 64, 64, new PlayerAppearanceInfo("Panzer", 2, 0, 0, 0, "", "", 1), 0),
-            new(2, RemoteEntityKind.Player, false, default, 0, MotionState.Stand, 80, 80, new PlayerAppearanceInfo("Rosalind", 5, 0, 0, 0, "", "", 1), 0),
-            new(3, RemoteEntityKind.Npc, false, default, 0, MotionState.Stand, 0, 0, null, 1, Name: "Lena"),
-            new(4, RemoteEntityKind.Monster, false, default, 0, MotionState.Stand, 30, 30, null, 1, Name: "Hopy")
+            new(1, EntityKind.Player, true, default, 0, MotionState.Stand, 64, 64, new PlayerAppearanceInfo("Panzer", 2, 0, 0, 0, "", "", 1), 0),
+            new(2, EntityKind.Player, false, default, 0, MotionState.Stand, 80, 80, new PlayerAppearanceInfo("Rosalind", 5, 0, 0, 0, "", "", 1), 0),
+            new(3, EntityKind.Npc, false, default, 0, MotionState.Stand, 0, 0, null, 1, Name: "Lena"),
+            new(4, EntityKind.Monster, false, default, 0, MotionState.Stand, 30, 30, null, 1, Name: "Hopy")
         ], [], [], []));
         _hud.SelfId = 1;
         _hud.Chat.SelfId = 1;

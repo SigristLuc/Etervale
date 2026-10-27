@@ -18,6 +18,7 @@ using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Server.Net;
 
@@ -487,7 +488,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         }
 
         var target = attack.Target;
-        if (target != 0 && _encoder.KindOf(target) == EntityKindView.Npc)
+        if (target != 0 && _encoder.KindOf(target) == EntityKind.Npc)
         {
             await InteractNpcAsync(session, target);
             return;

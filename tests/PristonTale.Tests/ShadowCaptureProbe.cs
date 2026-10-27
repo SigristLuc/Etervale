@@ -12,6 +12,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -134,13 +135,13 @@ internal sealed class ShadowCaptureProbe : Game
         _focus = spot;
         _remote.Apply(new PresenceUpdate(1,
         [
-            new(Priestess, RemoteEntityKind.Player, false, Numeric(spot), 0.4f, MotionState.Stand, 64, 64,
+            new(Priestess, EntityKind.Player, false, Numeric(spot), 0.4f, MotionState.Stand, 64, 64,
                 new PlayerAppearanceInfo("Priestess", (int)PlayerClass.Priestess, 3, 0, 0, "", "", 90), 0),
-            new(Atalanta, RemoteEntityKind.Player, false, Numeric(Floor(_collision, spot + new Vector3(-50f, 500f, -20f))), 2.2f, MotionState.Stand, 64,
+            new(Atalanta, EntityKind.Player, false, Numeric(Floor(_collision, spot + new Vector3(-50f, 500f, -20f))), 2.2f, MotionState.Stand, 64,
                 64, new PlayerAppearanceInfo("Atalanta", (int)PlayerClass.Atalanta, 3, 1, 1, "", "", 90), 0),
-            new(Babel, RemoteEntityKind.Monster, false, Numeric(Floor(_collision, spot + new Vector3(70f, 500f, -60f))), 3.6f, MotionState.Stand,
+            new(Babel, EntityKind.Monster, false, Numeric(Floor(_collision, spot + new Vector3(70f, 500f, -60f))), 3.6f, MotionState.Stand,
                 100, 100, null, 1, Name: "Babel", Level: 104),
-            .. NaviskoNpcs.Select((npc, index) => new EntitySpawnInfo((ulong)(10 + index), RemoteEntityKind.Npc, false,
+            .. NaviskoNpcs.Select((npc, index) => new EntitySpawnInfo((ulong)(10 + index), EntityKind.Npc, false,
                 Numeric(NpcSpot(index)), npc.Facing, MotionState.Stand, 1, 1, null,
                 (uint)(index + 1)))
         ], [], [], []));

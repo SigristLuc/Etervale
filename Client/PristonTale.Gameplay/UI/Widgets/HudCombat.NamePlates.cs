@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Gameplay.UI.Chat;
 using PristonTale.Gameplay.UI.Rendering;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
@@ -37,7 +38,7 @@ public sealed partial class HudCombat
         {
             var focus = id == hovered || id == traced;
             var kind = entity.Spawn.Kind;
-            var shown = kind == RemoteEntityKind.Npc || (kind == RemoteEntityKind.Monster && focus && entity.Hp > 0 && entity.Spawn.OwnerId == 0);
+            var shown = kind == EntityKind.Npc || (kind == EntityKind.Monster && focus && entity.Hp > 0 && entity.Spawn.OwnerId == 0);
             if (shown && project(id) is { } point && (focus || point.Depth < NpcPlateDepth))
             {
                 _plates.Add((id, point, focus));
@@ -49,7 +50,7 @@ public sealed partial class HudCombat
         foreach (var (id, point, _) in _plates)
         {
             var entity = _entities[id];
-            var monster = entity.Spawn.Kind == RemoteEntityKind.Monster;
+            var monster = entity.Spawn.Kind == EntityKind.Monster;
             var color = !monster ? PlateNpc : id == traced ? PlateTracedMonster : PlateMonster;
             var x = (int)(point.Screen.X / scale);
             var y = (int)(point.Screen.Y / scale);

@@ -10,6 +10,7 @@ using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -57,13 +58,13 @@ internal static class GroundPickupTransactionTests
         for (uint tick = 0; tick < 100; tick++)
         {
             world.Tick(0.05f, tick);
-            if (outbox.Reader.TryRead(out snapshot) && snapshot.Entities.Any(entity => entity.Kind == EntityKindView.Monster))
+            if (outbox.Reader.TryRead(out snapshot) && snapshot.Entities.Any(entity => entity.Kind == EntityKind.Monster))
             {
                 break;
             }
         }
 
-        var target = snapshot.Entities.Single(entity => entity.Kind == EntityKindView.Monster);
+        var target = snapshot.Entities.Single(entity => entity.Kind == EntityKind.Monster);
         await AdvanceAsync(world, world.SetAttackTargetAsync(3, session.EntityId, target.EntityId, true));
         for (uint tick = 0; tick < 800; tick++)
         {

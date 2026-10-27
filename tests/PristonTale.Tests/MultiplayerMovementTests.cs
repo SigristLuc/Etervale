@@ -2,6 +2,7 @@ using System.Numerics;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -32,7 +33,7 @@ internal static class MultiplayerMovementTests
         foreach (var viewer in new[] { b, c })
         {
             var seen = await viewer.WaitAsync(world => world.Entities.GetValueOrDefault(a.Serial), "the mover spawn");
-            Assert.True(seen.Kind == RemoteEntityKind.Player && seen.Player?.Name == "Mover" && seen.Level == 10, $"{viewer.Name} spawned the mover wrongly");
+            Assert.True(seen.Kind == EntityKind.Player && seen.Player?.Name == "Mover" && seen.Level == 10, $"{viewer.Name} spawned the mover wrongly");
             Assert.True(Vector3.Distance(Planar(seen.Position), Planar(camp)) < PositionTolerance, $"{viewer.Name} spawned the mover away from its position");
         }
 

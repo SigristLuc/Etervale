@@ -4,6 +4,7 @@ using PristonTale.Client.Net.Presence;
 using PristonTale.Client.Net.WorldCatalog;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
@@ -53,12 +54,12 @@ public sealed partial class HudCombat
     public void SetCatalog(WorldRenderCatalog catalog) => _catalog = catalog;
 
     // What the client knows of an entity in view: its kind and a summon's owner (Unspecified when not in view).
-    public RemoteEntityKind KindOf(ulong id, out ulong ownerId)
+    public EntityKind KindOf(ulong id, out ulong ownerId)
     {
         ownerId = 0;
         if (!_entities.TryGetValue(id, out var entity))
         {
-            return RemoteEntityKind.Unspecified;
+            return EntityKind.None;
         }
 
         ownerId = entity.Spawn.OwnerId;
@@ -71,7 +72,7 @@ public sealed partial class HudCombat
         positions.Clear();
         foreach (var entity in _entities.Values)
         {
-            if (entity.Spawn.Kind == RemoteEntityKind.Npc)
+            if (entity.Spawn.Kind == EntityKind.Npc)
             {
                 positions.Add(entity.Position);
             }
@@ -138,12 +139,12 @@ public sealed partial class HudCombat
     // As in the original, only an attack that finds the monster at full life enables the classic bar.
     public void NoteAttack(ulong target)
     {
-        if (_entities.TryGetValue(target, out var attacked) && attacked.Spawn.Kind == RemoteEntityKind.Monster)
+        if (_entities.TryGetValue(target, out var attacked) && attacked.Spawn.Kind == EntityKind.Monster)
         {
             attacked.Attacked = true;
         }
 
-        if (_entities.TryGetValue(target, out var entity) && entity.Spawn.Kind == RemoteEntityKind.Monster && entity.Spawn.MaxHp > 0
+        if (_entities.TryGetValue(target, out var entity) && entity.Spawn.Kind == EntityKind.Monster && entity.Spawn.MaxHp > 0
             && entity.Hp == entity.Spawn.MaxHp)
         {
             entity.StateBarEnabled = true;
@@ -186,7 +187,7 @@ public sealed partial class HudCombat
     public bool ShowsHealthBar(ulong target, bool classic)
     {
         // NPCs show only their name, as in the original: they cannot be fought, so a life bar would mislead.
-        if (!_entities.TryGetValue(target, out var entity) || entity.Spawn.MaxHp <= 0 || entity.Spawn.Kind == RemoteEntityKind.Npc)
+        if (!_entities.TryGetValue(target, out var entity) || entity.Spawn.MaxHp <= 0 || entity.Spawn.Kind == EntityKind.Npc)
         {
             return false;
         }
@@ -218,8 +219,8 @@ public sealed partial class HudCombat
 
         var (y, z) = entity.Spawn.Kind switch
         {
-            RemoteEntityKind.Monster when _catalog.GetMonster(entity.Spawn.TemplateId) is { } monster => (monster.PortraitOffsetY, monster.PortraitOffsetZ),
-            RemoteEntityKind.Npc when _catalog.GetNpc(entity.Spawn.TemplateId) is { } npc => (npc.PortraitOffsetY, npc.PortraitOffsetZ),
+            EntityKind.Monster when _catalog.GetMonster(entity.Spawn.TemplateId) is { } monster => (monster.PortraitOffsetY, monster.PortraitOffsetZ),
+            EntityKind.Npc when _catalog.GetNpc(entity.Spawn.TemplateId) is { } npc => (npc.PortraitOffsetY, npc.PortraitOffsetZ),
             _ => (0, 0)
         };
         subject = new HudPortraitSubject(target, y, z);
@@ -253,15 +254,15 @@ public sealed partial class HudCombat
         painter.ColorBox(frame.Portrait, 60, 68, 74, 255);
         painter.Stretch(HudArt.TargetBox, box);
         painter.Image(portrait, frame.Portrait);
-        if (entity.Spawn.Kind == RemoteEntityKind.Monster && BroodIcon(_catalog.GetMonster(entity.Spawn.TemplateId)?.Brood ?? MonsterBrood.Normal) is { } icon)
+        if (entity.Spawn.Kind == EntityKind.Monster && BroodIcon(_catalog.GetMonster(entity.Spawn.TemplateId)?.Brood ?? MonsterBrood.Normal) is { } icon)
         {
             painter.Stretch(icon, frame.Brood);
         }
 
         var color = entity.Spawn.Kind switch
         {
-            RemoteEntityKind.Monster => MonsterColor,
-            RemoteEntityKind.Npc => NpcColor,
+            EntityKind.Monster => MonsterColor,
+            EntityKind.Npc => NpcColor,
             _ => Color.White
         };
         // The original centres the name on the frame without clipping it; it only has to stay on screen.
@@ -339,7 +340,7 @@ public sealed partial class HudCombat
             return entity.Spawn.Name;
         }
 
-        return entity.Spawn.Kind == RemoteEntityKind.Npc
+        return entity.Spawn.Kind == EntityKind.Npc
             ? _catalog.GetNpc(entity.Spawn.TemplateId)?.Name ?? "NPC"
             : _catalog.GetMonster(entity.Spawn.TemplateId)?.Name ?? "Monster";
     }
