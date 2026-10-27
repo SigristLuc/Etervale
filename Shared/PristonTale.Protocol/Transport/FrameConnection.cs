@@ -33,6 +33,8 @@ public sealed class FrameConnection : IPacketSink, IAsyncDisposable
     private byte[] _pending;
     private int _pendingLength;
     private bool _signalled;
+    // Taken bytes are on their way to the stream; FlushAndCloseAsync waits for them too.
+    private bool _writing;
     private bool _closed;
     private long _bytesSent;
     private long _bytesReceived;
@@ -220,10 +222,16 @@ public sealed class FrameConnection : IPacketSink, IAsyncDisposable
 
                     _pending.AsSpan(0, length).CopyTo(writing);
                     _pendingLength = 0;
+                    _writing = true;
                 }
 
                 await _stream.WriteAsync(writing.AsMemory(0, length), _lifetime.Token);
                 await _stream.FlushAsync(_lifetime.Token);
+                lock (_sendGate)
+                {
+                    _writing = false;
+                }
+
                 Interlocked.Add(ref _bytesSent, length);
             }
         }
@@ -245,7 +253,7 @@ public sealed class FrameConnection : IPacketSink, IAsyncDisposable
         {
             lock (_sendGate)
             {
-                if (_pendingLength == 0 && !_signalled)
+                if (_pendingLength == 0 && !_signalled && !_writing)
                 {
                     break;
                 }
@@ -303,6 +311,7 @@ public sealed class FrameConnection : IPacketSink, IAsyncDisposable
         {
             ArrayPool<byte>.Shared.Return(_pending);
             _pending = [];
+            _pendingLength = 0;
         }
     }
 }
