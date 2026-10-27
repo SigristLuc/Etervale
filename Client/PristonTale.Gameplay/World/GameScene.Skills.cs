@@ -471,6 +471,9 @@ public sealed partial class GameScene : ISkillSceneHost
         _renderer.SetActorPlaybackRate(_playerHeadActor, rate);
     }
 
+    float ISkillSceneHost.AttackRateOf(ulong entityId) =>
+        entityId == _remote?.SelfEntityId ? PlayerRateFor(PristonActorMotion.Attack) : _remote?.AttackRateOf(entityId) ?? 1f;
+
     void ISkillSceneHost.PlaySkillMotion(ulong entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)
     {
         if (_remote is null)

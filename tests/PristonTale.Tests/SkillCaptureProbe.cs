@@ -388,6 +388,8 @@ internal sealed class SkillCaptureProbe : Game, ISkillSceneHost
         _looks.Apply(entityId, handles, Casts[_cast].OffHand.StartsWith("DS", StringComparison.Ordinal) && entityId == CasterId, look);
     }
 
+    public float AttackRateOf(ulong entityId) => 1f;
+
     public void PlaySkillMotion(ulong entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)
     {
         if (entityId != CasterId)

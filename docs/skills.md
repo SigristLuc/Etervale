@@ -260,7 +260,9 @@ Example (real entry, Mechanician window index 1):
 - Mana: `mana[rank]` scaled by `SkillManaCost` percent plus flat, not below 0. Stamina has no modifiers.
 - Timing (`Timing`, `Plan`, `MotionRate`): skill clips play at the fixed frame step / 80, or at the caster's attack
   rate + 0.125 per speed step, times the two percents; frames last 33 ms at rate 1 (`MotionTiming`). Weapon-clip
-  skills repeat the caster's swing `loops` times. `ChargeTiming` gives the window start, full time and full-charge hits.
+  skills repeat the caster's swing `loops` times, sped up by `WeaponClipSpeedup` (that rate over the attack rate; the
+  client applies the same speed-up to each caster's attack rate). `ChargeTiming` gives the window start, full time and
+  full-charge hits.
 - The client uses the same functions for tooltips, cast range and motion playback, so client and server must ship the
   same data.
 

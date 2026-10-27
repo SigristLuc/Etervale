@@ -35,6 +35,8 @@ public abstract class RemoteEntityBase
     private int _lastHp;
     private int _moveSpeed = 1;
     private float _attackRate = 1f;
+
+    public float AttackRate => _attackRate;
     private float _planarSpeed;
     private float _learnedWalkSpeed;
     private float _learnedRunSpeed;

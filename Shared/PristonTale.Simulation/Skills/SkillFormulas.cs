@@ -24,7 +24,7 @@ public static partial class SkillFormulas
     // The original gauge advances once per 14 ms tick.
     public const int CooldownTickMs = 14;
     private const int Gauge = 35;
-    private const float FrameStepAtRateOne = 80f;
+    public const float FrameStepAtRateOne = 80f;
 
     // Proficiency = min(talent / 3 + item mastery, 50) x 100 + uses (100 per completed use streak), at most 10000.
     // Mastery units M = base + perRank x rank - proficiency / 100, clamped to 1..70. The 35-step gauge then fills one
@@ -187,6 +187,9 @@ public static partial class SkillFormulas
         return (Math.Max(0.1f, attackRate) + 0.125f * steps) * rule.MotionRatePercent / 100f * rule.MotionSpeedPercent / 100f;
     }
 
+    // How many times faster than a plain swing a weapon-clip skill plays the caster's attack clip.
+    public static float WeaponClipSpeedup(SkillRule rule, int rank, float attackRate) => MotionRate(rule, rank, attackRate) / Math.Max(0.1f, attackRate);
+
     // The playback rate of a skill clip at rank 1 (see MotionRate).
     public static float SkillClipRate(SkillRule rule, float attackRate) => MotionRate(rule, 1, attackRate);
 
@@ -199,7 +202,7 @@ public static partial class SkillFormulas
         if (plan.Motion == SkillMotion.Attack)
         {
             var loops = Math.Max(1, rule.At(rule.Loops, rank));
-            var speedup = rate / Math.Max(0.1f, attackRate);
+            var speedup = WeaponClipSpeedup(rule, rank, attackRate);
             var clip = attackClip.DurationMs / speedup;
             var hit = attackClip.HitAtMs / speedup;
             var hits = new float[loops];

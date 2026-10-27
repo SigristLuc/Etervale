@@ -320,6 +320,8 @@ internal sealed class MonsterSkillCaptureProbe : Game, ISkillSceneHost, IMonster
     public bool TryGetBoneWorld(ulong entityId, string bone, out Matrix world) =>
         _renderer.TryGetActorBoneWorld(entityId == MonsterId ? _monster : _player.Body, bone, out world);
 
+    public float AttackRateOf(ulong entityId) => 1f;
+
     public void PlaySkillMotion(ulong entityId, SkillMotionPlan plan, float durationMs, float rate, int loop)
     {
     }

@@ -23,6 +23,9 @@ public interface ISkillSceneHost : IVfxAnchors
     // the playback rate; for a weapon clip it multiplies the caster's attack rate.
     void PlaySkillMotion(ulong entityId, SkillMotionPlan plan, float durationMs, float rate, int loop);
 
+    // The caster's attack playback rate (1 when unknown); weapon-clip skills speed it up.
+    float AttackRateOf(ulong entityId);
+
     // A released charge: the caster's skill clip jumps to the frame and plays on at the rate.
     void SeekSkillMotion(ulong entityId, int framesFromStart, float rate) { }
 
@@ -282,7 +285,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         var remainingFrames = Math.Max(1, plan.Frames - charge.FullFrame);
         var rate = skillEvent.DurationMs > 0f
             ? Math.Clamp(remainingFrames * Simulation.World.Motion.MotionTiming.MsPerFrame / skillEvent.DurationMs, 0.1f, 8f)
-            : charge.ReleaseSpeed / 80f;
+            : charge.ReleaseSpeed / SkillFormulas.FrameStepAtRateOne;
         _host.SeekSkillMotion(skillEvent.CasterId, charge.FullFrame, rate);
         if (rule.Projectile && rule.ProjectileEffect.Length > 0)
         {
@@ -578,8 +581,8 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
     }
 
     // Skill clips: the playback rate that makes the clip last the duration the server scheduled. Weapon clips: the
-    // speed-up the skill applies on top of the caster's attack rate.
-    private static float MotionRate(SkillRule rule, SkillEventInfo skillEvent)
+    // speed-up the server applied on top of the caster's attack rate (SkillFormulas.WeaponClipSpeedup).
+    private float MotionRate(SkillRule rule, SkillEventInfo skillEvent)
     {
         var plan = SkillFormulas.Plan(rule, skillEvent.Rank);
         if (plan.Motion == SkillMotion.Skill && plan.Frames > 0 && skillEvent.DurationMs > 0f)
@@ -587,14 +590,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
             return Math.Clamp(plan.Frames * Simulation.World.Motion.MotionTiming.MsPerFrame / skillEvent.DurationMs, 0.1f, 8f);
         }
 
-        // A weapon clip multiplies the caster's own attack rate: the skill's speed steps (1.0 = one attack rate) and its
-        // rate percent; a fixed frame step is relative to the plain attack rate.
-        if (plan.Speed > 0)
-        {
-            return plan.Speed / 80f;
-        }
-
-        return (1f + 0.125f * rule.At(rule.AttackSpeedSteps, skillEvent.Rank)) * rule.MotionRatePercent / 100f;
+        return SkillFormulas.WeaponClipSpeedup(rule, skillEvent.Rank, _host.AttackRateOf(skillEvent.CasterId));
     }
 
     public void Dispose()

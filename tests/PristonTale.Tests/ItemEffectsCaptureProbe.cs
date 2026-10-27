@@ -330,6 +330,8 @@ internal sealed class ItemEffectsCaptureProbe : Game
         {
         }
 
+        public float AttackRateOf(ulong entityId) => 1f;
+
         public bool TryGetPosition(ulong entityId, out Vector3 position) => probe._remote.TryGetDrawnPosition(entityId, out position);
 
         public bool TryGetBone(ulong entityId, string bone, out Vector3 position)

@@ -655,6 +655,8 @@ public sealed partial class RemoteEntityManager
         return handle.IsValid;
     }
 
+    public float AttackRateOf(ulong entityId) => _entities.TryGetValue(entityId, out var entity) ? entity.AttackRate : 1f;
+
     public bool PlaySkillMotion(ulong entityId, int motionIndex, float rate, bool attackClip)
     {
         if (!_entities.TryGetValue(entityId, out var entity) || entity.IsDead)
