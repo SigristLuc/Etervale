@@ -14,6 +14,12 @@ internal sealed class RenderQueueBuilder
         return Build(batches, [], frame, includeShadowCasters: true);
     }
 
+    // A visible batch that draws into shadow maps on its own (not through a static aggregate).
+    public static bool CastsShadow(RenderBatch batch) =>
+        !batch.ShadowCoveredByAggregate
+        && batch.Shade is null or { Shadowed: true }
+        && (batch.Material.CastsShadow || batch.ForceCastsShadow);
+
     public int Build(
         IReadOnlyList<RenderBatch> batches,
         IReadOnlyList<RenderBatch> shadowBatches,
@@ -34,10 +40,7 @@ internal sealed class RenderQueueBuilder
 
             var sortKey = batch.Material.SortKey;
             var sortDepth = SortDepth(frame.CameraPosition, batch.Bounds);
-            if (includeShadowCasters
-                && !batch.ShadowCoveredByAggregate
-                && batch.Shade is null or { Shadowed: true }
-                && (batch.Material.CastsShadow || batch.ForceCastsShadow))
+            if (includeShadowCasters && CastsShadow(batch))
             {
                 _queue.AddShadowCaster(batch, sortKey, sortDepth);
             }

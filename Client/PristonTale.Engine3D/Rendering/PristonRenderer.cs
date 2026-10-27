@@ -714,10 +714,11 @@ public sealed partial class PristonRenderer : IDisposable
         var lightField = Task.Run(() => PristonStageLightField.Build(stage));
         var animatedPreparation = Task.Run(() =>
         {
-            var prepared = new Dictionary<PristonModel, PreparedAnimatedModel>();
+            // By reference: a cached model listed twice is prepared once, and the record is not hashed by value.
+            var prepared = new Dictionary<PristonModel, PreparedAnimatedModel>(ReferenceEqualityComparer.Instance);
             foreach (var model in models)
             {
-                if (model.IsAnimated)
+                if (model.IsAnimated && !prepared.ContainsKey(model))
                 {
                     prepared.Add(model, PrepareAnimatedModel(model, Matrix.Identity, bakedLight));
                 }
@@ -2081,13 +2082,24 @@ public sealed partial class PristonRenderer : IDisposable
     private readonly BoundingFrustum _shadowCasterFrustum = new(Matrix.Identity);
     private Func<Vector3, float, bool> _lampHasCasters;
 
+    // Reads the batches, not the queue: a frame that redraws no shadow leaves the queue without casters, and underground
+    // (no sun) the lamps would then never see a character walk into their reach again.
     private bool LampHasCasters(Vector3 position, float radius)
     {
         var sphere = new BoundingSphere(position, radius);
-        var items = _renderQueueBuilder.Queue.ShadowCasters;
-        for (var i = 0; i < items.Count; i++)
+        for (var i = 0; i < _renderBatches.Count; i++)
         {
-            if (items[i].Batch.IsSkinned && sphere.Intersects(items[i].Batch.Bounds))
+            var batch = _renderBatches[i];
+            if (batch.IsSkinned && batch.Shade is not { Hidden: true } && RenderQueueBuilder.CastsShadow(batch) && sphere.Intersects(batch.Bounds))
+            {
+                return true;
+            }
+        }
+
+        for (var i = 0; i < _shadowBatches.Count; i++)
+        {
+            var batch = _shadowBatches[i];
+            if (batch.IsSkinned && batch.Shade is not { Shadowed: false } && sphere.Intersects(batch.Bounds))
             {
                 return true;
             }
