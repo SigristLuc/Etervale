@@ -17,6 +17,7 @@ composes, shows and limits what the player types.
 | Path | Responsibility |
 | --- | --- |
 | `Shared/PristonTale.Simulation/Social/ChatRules.cs` | Limits (78 typed, 70 relayed, 255 per message), spoken range, bubble and flood timings, `Compose`, `Shorten` |
+| `Shared/PristonTale.Simulation/Social/ChatFloodGuard.cs` | The flood rules for one speaker, used by the chat input and by the server |
 | `Shared/PristonTale.Application/Chat/ChatAppService.cs` | Spoken and party lines, player commands, whispers, the standing notice on heartbeat |
 | `Shared/PristonTale.Application/Chat/ChatDirectory.cs` | Players in the world by entity, name and account; level, whisper refusal, notice state |
 | `Shared/PristonTale.Application/Chat/ChatLine.cs`, `IChatLink.cs` | `ChatKind`, the line a player receives, the session-side delivery port |
@@ -92,8 +93,10 @@ Kinds: 0 server, 1 whisper, 2 system, 3 notice, 4 party, 5 clan, 6 trade, 9 assi
   or with a leading `@`, it goes as party chat. After a whisper the input keeps `/:name ` for the next line. The classic
   routing marks `~/` (every server) and `` `/ `` (the data server) are dropped before a command is sent, and the server
   drops them too (`ChatRules.WithoutRoute`): one server answers every command.
-- Flood rules: more than 10 lines less than 2 s apart freeze the chat for 7 s with an overhead complaint; the same
-  spoken line again within 5 s is not sent.
+- Flood rules (`ChatFloodGuard`): more than 10 lines less than 2 s apart freeze the chat for 7 s with an overhead
+  complaint; the same spoken line again within 5 s is not sent. The server runs the same guard per member on the lines
+  that reach other players (spoken, party, trade, clan; channel lines only count toward the 10 lines) and drops what
+  it refuses, so a client that skips the check gains nothing.
 - The first whisper or notice while the window is closed opens it and plays the whisper chime.
 - Refusals from inventory, skill training, NPC services and item use show in the notice strip; their confirmations and
   skill notices go to the chat as server lines; quest hints and key-binding refusals go to the assistant tab.

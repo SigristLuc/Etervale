@@ -1,3 +1,4 @@
+using PristonTale.Simulation.Social;
 using System.Collections.Concurrent;
 using PristonTale.Application.Sessions;
 
@@ -37,6 +38,9 @@ public sealed class ChatMember
         get => Volatile.Read(ref _gmLevel);
         set => Volatile.Write(ref _gmLevel, value);
     }
+
+    // Fed only by this member's connection, one line at a time.
+    public ChatFloodGuard Flood { get; } = new();
 
     public bool WhisperRefused
     {

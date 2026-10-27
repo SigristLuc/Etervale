@@ -57,7 +57,7 @@ internal sealed class ChatFixture
             Warehouses = Warehouses,
             NowMs = () => NowMs
         };
-        Chat = new ChatAppService(Directory, World, GameMasters, parties, clans);
+        Chat = new ChatAppService(Directory, World, GameMasters, parties, clans) { NowMs = () => NowMs };
     }
 
     public static readonly MonsterDefinition Hopy = new(1, "Hopy", MonsterFaction.Enemy, MonsterClass.Normal, MonsterBrood.Normal,

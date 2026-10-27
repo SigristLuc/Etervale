@@ -26,6 +26,12 @@ public sealed class ChatAppService
     public ChatDirectory Directory { get; }
     public WorldServer World { get; }
     public GameMasterCommands GameMasters { get; }
+    public Func<long> NowMs { get; init; } = static () => Environment.TickCount64;
+
+    // The client's flood rules, checked again on lines that reach other players. A party, trade or clan line counts
+    // toward the rapid-line rule only, as the client counts its channel lines; commands and the yahoo word are free.
+    private bool Floods(ChatMember member, string line, bool channel) =>
+        member.Flood.Check(line, channel, whisper: false, NowMs()) != ChatFloodVerdict.Allowed;
 
     // A line typed in the chat input.
     public async Task SayAsync(ulong entityId, string text)
@@ -76,7 +82,7 @@ public sealed class ChatAppService
         }
 
         text = ChatRules.ClipToCapacity(ChatCommandText.Clean(text));
-        if (text.Length == 0)
+        if (text.Length == 0 || Floods(member, text, channel: true))
         {
             return Task.CompletedTask;
         }
@@ -104,6 +110,11 @@ public sealed class ChatAppService
 
     private async Task SpeakAsync(ChatMember member, string text)
     {
+        if (Floods(member, text, channel: false))
+        {
+            return;
+        }
+
         var line = new ChatLine(ChatKind.Player, member.EntityId, ChatRules.Shorten(ChatRules.Compose(member.Name, text)));
         ulong[] near;
         try
@@ -135,7 +146,7 @@ public sealed class ChatAppService
         if (ChatCommandText.Match("/TRADE>", text) is var trade and > 0)
         {
             var message = ChatCommandText.Rest(text, trade);
-            if (message.Length > 0)
+            if (message.Length > 0 && !Floods(member, message, channel: true))
             {
                 Directory.Broadcast(new ChatLine(ChatKind.Trade, 0, ChatRules.ClipToCapacity(ChatRules.Compose(member.Name, message))));
             }
@@ -167,7 +178,7 @@ public sealed class ChatAppService
         if (clan != 0 && ChatCommandText.Match("/CLAN>", text) is var clanLength and > 0)
         {
             var message = ChatCommandText.Rest(text, clanLength);
-            if (message.Length > 0)
+            if (message.Length > 0 && !Floods(member, message, channel: true))
             {
                 var line = new ChatLine(ChatKind.Clan, 0, ChatRules.ClipToCapacity(member.Name + "> " + message));
                 foreach (var other in Directory.Members)

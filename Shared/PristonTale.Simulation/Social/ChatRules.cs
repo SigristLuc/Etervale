@@ -20,8 +20,8 @@ public static class ChatRules
     public const int OtherBubbleMs = 5000;
     public const int SelfBubbleMs = 7000;
 
-    // Client flood rules: more than ten lines less than two seconds apart freeze the chat for seven seconds, and the same
-    // line is not sent twice within five seconds. Whispers and commands are exempt from the first rule.
+    // Flood rules (ChatFloodGuard): more than ten lines less than two seconds apart freeze the chat for seven seconds, and
+    // the same line is not sent twice within five seconds. Whispers are exempt from the first rule, commands from the second.
     public const int FloodGapMs = 2000;
     public const int FloodLines = 10;
     public const int FloodPenaltyMs = 7000;

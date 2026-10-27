@@ -23,10 +23,7 @@ public sealed class HudChatInput
     private readonly string[] _history = new string[HistorySize];
     private int _historyCount;
     private int _recall;
-    private string _lastSent = "";
-    private double _lastSentMs = double.NegativeInfinity;
-    private int _rapidLines;
-    private double _frozenUntilMs = double.NegativeInfinity;
+    private readonly ChatFloodGuard _flood = new();
 
     // The characters the HUD font draws; the window sets it from its painter. The wire carries any character.
     public Func<char, bool> CanDraw { get; set; } = static _ => true;
@@ -124,33 +121,15 @@ public sealed class HudChatInput
 
         var command = ChatRules.IsCommand(typed) || typed[0] == '@';
         var whisper = ChatRules.IsWhisper(typed);
-        if (nowMs < _frozenUntilMs)
+        switch (_flood.Check(typed, command, whisper, nowMs))
         {
-            return null;
-        }
-
-        if (!whisper && nowMs - _lastSentMs < ChatRules.FloodGapMs)
-        {
-            _rapidLines++;
-            if (_rapidLines > ChatRules.FloodLines)
-            {
-                _frozenUntilMs = nowMs + ChatRules.FloodPenaltyMs;
+            case ChatFloodVerdict.Froze:
                 complaint = playerName + " : I talk too much, my tongue has got frozen! WOW -_-;";
                 return null;
-            }
-        }
-        else
-        {
-            _rapidLines = 0;
+            case ChatFloodVerdict.Frozen or ChatFloodVerdict.Repeated:
+                return null;
         }
 
-        if (!command && nowMs - _lastSentMs < ChatRules.RepeatWindowMs && string.Equals(_lastSent, typed, StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        _lastSent = typed;
-        _lastSentMs = nowMs;
         if (command && typed.Length > 1 && typed[1] != '*' && typed[0] != '@')
         {
             Save(typed);
