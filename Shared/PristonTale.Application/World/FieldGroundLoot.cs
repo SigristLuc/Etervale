@@ -137,7 +137,7 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
     {
         if (!_entries.TryGetValue(id, out var entry) || entry.Reservation != operation)
         {
-            throw new InvalidOperationException("Ground-item reservation changed during storage.");
+            throw new CommitInvariantException("Ground-item reservation changed during storage.");
         }
 
         if (committed)

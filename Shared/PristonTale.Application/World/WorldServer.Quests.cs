@@ -61,7 +61,7 @@ public sealed partial class WorldServer
             // SaveGate remains held through commit, including when the connection leaves during storage I/O.
             if (!ReferenceEquals(session.Character, operation.Original) || operation.Candidate is null)
             {
-                throw new InvalidOperationException("Character ownership changed during quest commit.");
+                throw new CommitInvariantException("Character ownership changed during quest commit.");
             }
 
             operation.Original.CommitQuestOperation(operation.Candidate, operation.Tier, operation.StatPoints, operation.SkillPoints,

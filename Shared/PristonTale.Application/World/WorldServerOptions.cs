@@ -62,3 +62,7 @@ public sealed record WorldServerOptions
 
 // The authoritative command queue refused a command; the caller drops it like a lost packet.
 public sealed class WorldBusyException(string message) : InvalidOperationException(message);
+
+// A commit found the character or a reservation changed after its operation was stored: storage is ahead of memory, so
+// the session must reload from it. An error, never a refusal.
+public sealed class CommitInvariantException(string message) : Exception(message);

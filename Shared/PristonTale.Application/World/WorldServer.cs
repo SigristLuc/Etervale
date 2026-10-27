@@ -341,7 +341,7 @@ public sealed partial class WorldServer
             if (!ReferenceEquals(session.Character, operation.Original) || operation.Candidate is null
                 || !operation.Original.ApplyProgression(operation.Candidate.ProgressionOperations[^1].Command))
             {
-                throw new InvalidOperationException("Character ownership changed during progression commit.");
+                throw new CommitInvariantException("Character ownership changed during progression commit.");
             }
 
             Currency.Record(GameMasters.CurrencySink.SkillTraining, moneyBefore - operation.Original.Money);
@@ -410,7 +410,7 @@ public sealed partial class WorldServer
             // SaveGate remains held through commit, including when the connection leaves during storage I/O.
             if (!ReferenceEquals(session.Character, operation.Original) || operation.Candidate is null)
             {
-                throw new InvalidOperationException("Character ownership changed during inventory commit.");
+                throw new CommitInvariantException("Character ownership changed during inventory commit.");
             }
 
             operation.Original.CommitInventoryOperation(operation.Candidate);
@@ -418,7 +418,7 @@ public sealed partial class WorldServer
             {
                 if (!operation.Original.TryChangeMoney(pickup.Gold))
                 {
-                    throw new InvalidOperationException("Money changed beyond capacity during pickup commit.");
+                    throw new CommitInvariantException("Money changed beyond capacity during pickup commit.");
                 }
 
                 pickup.Ground.Resolve(pickup.DropId, pickup.OperationId, committed: true);

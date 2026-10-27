@@ -223,7 +223,9 @@ Error handling inside `HandleAsync`:
 | anything else | Ends the session; logged as `Client session ... failed`. |
 
 Inventory, progression, NPC service and quest handlers convert session, operation and storage exceptions into a failed
-result packet instead, so the client's pending operation always completes.
+result packet instead, so the client's pending operation always completes. A `CommitInvariantException` (a commit
+found the character or a ground reservation changed after its operation was stored, so storage is ahead of memory) is
+not a refusal: it is logged as an error and closes the connection, and the next entry reloads the character.
 
 ### Outbound presence
 

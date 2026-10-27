@@ -36,7 +36,7 @@ public sealed partial class WorldServer
         {
             if (!ReferenceEquals(session.Character, operation.Original) || operation.Candidate is null || operation.Rule is null)
             {
-                throw new InvalidOperationException("Character ownership changed during item use commit.");
+                throw new CommitInvariantException("Character ownership changed during item use commit.");
             }
 
             var rule = operation.Rule;
@@ -45,7 +45,7 @@ public sealed partial class WorldServer
             original.ItemUses.CopyFrom(operation.Candidate.ItemUses);
             if (operation.Money != 0 && !original.TryChangeMoney(operation.Money))
             {
-                throw new InvalidOperationException("Money changed beyond capacity during item use commit.");
+                throw new CommitInvariantException("Money changed beyond capacity during item use commit.");
             }
 
             if (rule.Action != UsableItemAction.AgingMastery)

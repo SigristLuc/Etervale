@@ -374,7 +374,7 @@ public sealed partial class WorldServer
         {
             if (!ReferenceEquals(session.Character, operation.Original) || operation.Candidate is null)
             {
-                throw new InvalidOperationException("Character ownership changed during a game master's gift.");
+                throw new CommitInvariantException("Character ownership changed during a game master's gift.");
             }
 
             operation.Original.CommitInventoryOperation(operation.Candidate);

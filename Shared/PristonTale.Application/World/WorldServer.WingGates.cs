@@ -24,7 +24,7 @@ public sealed partial class WorldServer
             if (!ReferenceEquals(session.Character, operation.Original) || operation.Arrival is not { } arrival
                 || !operation.Original.CanChangeMoney(-fee))
             {
-                throw new InvalidOperationException("Character ownership changed during wing gate commit.");
+                throw new CommitInvariantException("Character ownership changed during wing gate commit.");
             }
 
             operation.Original.TryChangeMoney(-fee);

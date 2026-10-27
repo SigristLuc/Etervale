@@ -201,6 +201,12 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         {
             LogRejected(code, ex.Message);
         }
+        catch (CommitInvariantException ex)
+        {
+            _services.Logger.LogError(ex, "Commit invariant broken for {Code:X8} from {Remote}; closing so the character reloads from storage",
+                code, _connection.RemoteEndPoint);
+            _connection.Close("state diverged");
+        }
         catch (System.Data.Common.DbException ex)
         {
             _services.Logger.LogWarning("Storage failed for {Code:X8} from {Remote}: {Message}", code, _connection.RemoteEndPoint, ex.Message);

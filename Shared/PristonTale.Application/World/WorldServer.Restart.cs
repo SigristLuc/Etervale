@@ -38,7 +38,7 @@ public sealed partial class WorldServer
             var original = operation.Original;
             if (!ReferenceEquals(session.Character, original) || operation.Candidate is not { } candidate)
             {
-                throw new InvalidOperationException("Character ownership changed during restart commit.");
+                throw new CommitInvariantException("Character ownership changed during restart commit.");
             }
 
             if (operation.Outcome.ScrollUsed)
