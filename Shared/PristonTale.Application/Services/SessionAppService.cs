@@ -148,7 +148,13 @@ public sealed class SessionAppService
         return new Vector3(field.Center.X, 0f, field.Center.Z);
     }
 
-    public async Task<bool> SaveCharacterAsync(string sessionToken, CancellationToken ct = default)
+    public Task<bool> SaveCharacterAsync(string sessionToken, CancellationToken ct = default) => SaveAsync(sessionToken, null, ct);
+
+    // Stores the capture the world took as the player left (WorldServer.LeaveAsync).
+    public Task<bool> SaveLeftCharacterAsync(string sessionToken, CharacterSaveSnapshot left, CancellationToken ct = default) =>
+        SaveAsync(sessionToken, left, ct);
+
+    private async Task<bool> SaveAsync(string sessionToken, CharacterSaveSnapshot? left, CancellationToken ct)
     {
         if (!_sessions.TryGet(sessionToken, out var session))
         {
@@ -163,12 +169,9 @@ public sealed class SessionAppService
                 return false;
             }
 
-            var snapshot = _host is null
-                || !session.IsPlaying ? CharacterRecordFactory.Capture(
-                    session.Loaded,
-                    session.Character,
-                    session.FieldId,
-                    session.SpawnPosition) : await _host.CaptureForSaveAsync(session);
+            var snapshot = left ?? (_host is null || !session.IsPlaying
+                ? CharacterRecordFactory.Capture(session.Loaded, session.Character, session.FieldId, session.SpawnPosition)
+                : await _host.CaptureForSaveAsync(session));
             if (snapshot is null)
             {
                 return false;

@@ -190,8 +190,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                     await CastSkillAsync(SkillCastPacket.Read(memory.Span));
                     break;
                 case EtervaleOpcodes.LeaveWorld:
-                    await ClosePlayAsync();
-                    SendLarge(new LeaveWorldPacket(Saved: true).Write, LeaveWorldPacket.Size);
+                    SendLarge(new LeaveWorldPacket(Saved: await ClosePlayAsync()).Write, LeaveWorldPacket.Size);
                     break;
                 default:
                     // The original dispatcher also ignores codes it does not handle (PlayerInfo2, network-quality reports, ...).
@@ -724,7 +723,8 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         SendLarge(result.Write, OperationResultPacket.MaxSize);
     }
 
-    private async Task ClosePlayAsync()
+    // Whether the character was stored; false when nothing was playing.
+    private async Task<bool> ClosePlayAsync()
     {
         var outbox = _outbox;
         var player = _player;
@@ -732,7 +732,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         var pump = _pump;
         if (outbox is null || player is null || session is null)
         {
-            return;
+            return false;
         }
 
         _outbox = null;
@@ -740,12 +740,14 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         _pump = null;
         LeaveChat(session);
         outbox.Writer.TryComplete();
-        await _services.World.LeaveAsync(session.FieldId, session.EntityId, outbox.Writer);
+        var leave = await _services.World.LeaveAsync(session.FieldId, session.EntityId, outbox.Writer);
         session.EndPlay();
-        session.SpawnPosition = new Vector3(player.Position.X, 0f, player.Position.Z);
+        var saved = false;
         try
         {
-            await _services.Sessions.SaveCharacterAsync(_token!, CancellationToken.None);
+            saved = leave.Save is { } left
+                ? await _services.Sessions.SaveLeftCharacterAsync(_token!, left, CancellationToken.None)
+                : await _services.Sessions.SaveCharacterAsync(_token!, CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -756,6 +758,8 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         {
             await pump;
         }
+
+        return saved;
     }
 
     private string RequireToken() => _token ?? throw new InvalidOperationException("Log in first.");

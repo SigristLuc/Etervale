@@ -199,9 +199,9 @@ internal static class DomainTests
         Assert.True(!join.IsCompleted && world.PlayerCount == 0, "caller mutated world outside tick");
         Assert.True(await Tick(world, join), "join rejected");
         Assert.True(!await Tick(world, world.JoinAsync(3, player, second.Writer)), "duplicate writer replaced owner");
-        Assert.True(!await Tick(world, world.LeaveAsync(3, player.EntityId, second.Writer)), "non-owner removed player");
+        Assert.True(!(await Tick(world, world.LeaveAsync(3, player.EntityId, second.Writer))).Left, "non-owner removed player");
         Assert.True(world.PlayerCount == 1, "wrong roster after rejected cleanup");
-        Assert.True(await Tick(world, world.LeaveAsync(3, player.EntityId, first.Writer)), "owner could not leave");
+        Assert.True((await Tick(world, world.LeaveAsync(3, player.EntityId, first.Writer))).Left, "owner could not leave");
         Assert.True(world.PlayerCount == 0, "leave not published");
     }
 

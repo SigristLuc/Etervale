@@ -127,11 +127,13 @@ public sealed class ItemInstance
     public Guid InstanceId { get; init; } = Guid.NewGuid();
     public ItemDefinition Definition { get; }
 
-    public ItemInstance Copy(int count, bool preserveId = false)
+    public ItemInstance Copy(int count, bool preserveId = false) => Copy(count, preserveId ? InstanceId : Guid.NewGuid());
+
+    public ItemInstance Copy(int count, Guid instanceId)
     {
         return new ItemInstance(Definition, count)
         {
-            InstanceId = preserveId ? InstanceId : Guid.NewGuid(),
+            InstanceId = instanceId,
             UpgradeLevel = UpgradeLevel,
             DurabilityCurrent = DurabilityCurrent,
             DurabilityMax = DurabilityMax,

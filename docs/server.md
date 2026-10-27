@@ -185,8 +185,8 @@ experience, item event and aging values.
    next: one connection's packets are processed strictly in order, and a slow database call delays that connection only.
 4. Housekeeping (every 5 s): closes sockets silent for 60 s (`idle timeout`) and unauthenticated sockets older than the
    login timeout (`login timeout`; heartbeats do not extend it), prunes the login throttle and adds up traffic.
-5. On close: `ClosePlayAsync` leaves the world and saves the character, the session token is removed from the registry,
-   the per-address slot is released and the connection is disposed.
+5. On close: `ClosePlayAsync` leaves the world and stores the capture taken as it left, the session token is removed
+   from the registry, the per-address slot is released and the connection is disposed.
 6. On shutdown every connection is closed with `server stopping` and awaited.
 
 ### Inbound packet mapping
@@ -210,7 +210,7 @@ the same switch.
 | `NpcServiceRequest` | `RequestNpcServiceAsync` | `NpcAppService.RequestAsync` | State messages, `NpcServiceResult`, and a forced `FieldWarp` for a teleport. |
 | `QuestRequest` | `RequestQuestAsync` | `QuestAppService.RequestAsync` | `QuestResult`; travel to or from the arena arrives as the encoder's `FieldWarp`. |
 | `SkillCast` | `CastSkillAsync` | `WorldServer.CastSkillAsync` | `SkillCastResult`. |
-| `LeaveWorld` | inline | `ClosePlayAsync` (leave, save) | `LeaveWorld` echo, `WParam` 1. |
+| `LeaveWorld` | inline | `ClosePlayAsync` (leave, save) | `LeaveWorld` with `Saved` true when the character was stored. |
 | anything else | ignored | none | none |
 
 Error handling inside `HandleAsync`:

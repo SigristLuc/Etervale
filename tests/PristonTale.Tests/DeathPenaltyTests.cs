@@ -169,9 +169,11 @@ internal static class DeathPenaltyTests
     {
         var harness = await Fallen(20, Span(20) / 2, 3300);
         var character = harness.Session.Character!;
-        var capture = harness.World.CaptureForSaveAsync(harness.Session);
-        await harness.AdvanceAsync(capture);
-        var record = (await capture)!.Encode();
+        var leave = harness.World.LeaveAsync(harness.Session.FieldId, harness.Player.EntityId, harness.Outbound.Writer);
+        await harness.AdvanceAsync(leave);
+        var left = await leave;
+        Assert.True(left.Left && left.Save is not null, "the dead player did not leave with a capture");
+        var record = left.Save!.Encode();
         Assert.True(record.FieldId == QuestClasses.RicartenField && (ulong)record.Exp == character.Experience - Span(20) / 33 && record.Money == 3200
             && record.Life == character.MaxLife / 2, "leaving while dead skipped the penalty or kept the player down where it fell");
         Assert.True(harness.Player.IsDead && character.Money == 3300, "saving a dead player changed the live character");

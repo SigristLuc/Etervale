@@ -108,7 +108,7 @@ progression and NPC operations try it with zero timeout and answer "save or char
 
 Lifecycle seen from the edge: `LoginAsync` -> `EnterWorldAsync` -> `TryBeginPlay` -> `WorldPlayerFactory.Create` ->
 `WorldServer.JoinAsync(field, player, outbox.Writer, session)` -> play commands -> `LeaveAsync` -> `EndPlay` ->
-`SaveCharacterAsync` -> `SessionRegistry.Remove`.
+`SaveLeftCharacterAsync` (the capture `LeaveAsync` took) -> `SessionRegistry.Remove`.
 
 ## Authoritative world
 
@@ -165,7 +165,7 @@ Persistence never runs on the tick. Durable work is split: the tick prepares a c
 | Call | Queue owner | Result |
 | --- | --- | --- |
 | `JoinAsync(fieldId, player, outbound, session)` | player | false if unknown field, already connected, or session not playing |
-| `LeaveAsync(fieldId, entityId, outbound)` | exempt | removes the player only if `outbound` matches the connection |
+| `LeaveAsync(fieldId, entityId, outbound)` | exempt | removes the player only if `outbound` matches the connection; returns `WorldLeave` with the character captured in that tick, as `CaptureForSaveAsync` captures it |
 | `MoveToFieldAsync(old, new, player, requestedPosition, outbound)` | player | gate or warp change authorized by `FieldTransition` |
 | `TryReportMovement(field, entity, position, facing, moving, running, actionTarget, sink)` | player | false when dropped; the verdict goes to `sink` on the tick |
 | `ReportMovementAsync(field, entity, position, facing, moving, running, actionTarget)` | player | `MovementVerdict` (tests and tools) |

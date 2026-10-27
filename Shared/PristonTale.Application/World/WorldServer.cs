@@ -172,21 +172,22 @@ public sealed partial class WorldServer
     }
 
     // Leaving must not be refused: it waits for queue room and is exempt from the player's quota.
-    public Task<bool> LeaveAsync(int fieldId, ulong entityId, ChannelWriter<WorldSnapshot> outbound)
+    // The character is captured in the same tick it leaves, so a player who leaves dead is stored at the town restart.
+    public Task<WorldLeave> LeaveAsync(int fieldId, ulong entityId, ChannelWriter<WorldSnapshot> outbound)
     {
         return EnqueueAsync(NoOwner, () =>
         {
             if (!_connections.TryGetValue(entityId, out var connection) || !ReferenceEquals(connection.Outbound, outbound))
             {
-                return false;
+                return new WorldLeave(false, null);
             }
 
-            UpdatePlacement(connection.Session, connection.FieldId, connection.Player.Position);
+            var save = connection.Session is { } session ? CaptureForSave(session, connection) : null;
             _fields[connection.FieldId].Remove(entityId);
             _connections.Remove(entityId);
             _pendingByPlayer.TryRemove(entityId, out _);
             _membershipChanged = true;
-            return true;
+            return new WorldLeave(true, save);
         }, waitForCapacity: true);
     }
 
@@ -278,25 +279,27 @@ public sealed partial class WorldServer
 
     public Task<CharacterSaveSnapshot?> CaptureForSaveAsync(PlayerSession session)
     {
-        return EnqueueAsync<CharacterSaveSnapshot?>(NoOwner, () =>
+        return EnqueueAsync(NoOwner, () => CaptureForSave(session, _connections.GetValueOrDefault(session.EntityId)), waitForCapacity: true);
+    }
+
+    private CharacterSaveSnapshot? CaptureForSave(PlayerSession session, Connection? connection)
+    {
+        if (session.Character is null || session.Loaded is null)
         {
-            if (session.Character is null || session.Loaded is null)
+            return null;
+        }
+
+        if (connection is not null)
+        {
+            if (connection.Player.IsDead && CaptureDead(session, connection) is { } dead)
             {
-                return null;
+                return dead;
             }
 
-            if (_connections.TryGetValue(session.EntityId, out var connection))
-            {
-                if (connection.Player.IsDead && CaptureDead(session, connection) is { } dead)
-                {
-                    return dead;
-                }
+            UpdatePlacement(session, connection.FieldId, connection.Player.Position);
+        }
 
-                UpdatePlacement(session, connection.FieldId, connection.Player.Position);
-            }
-
-            return CharacterRecordFactory.Capture(session.Loaded, session.Character, session.FieldId, session.SpawnPosition);
-        }, waitForCapacity: true);
+        return CharacterRecordFactory.Capture(session.Loaded, session.Character, session.FieldId, session.SpawnPosition);
     }
 
     public int PlayerCount => Volatile.Read(ref _playerCount);

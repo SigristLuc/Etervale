@@ -669,11 +669,7 @@ public sealed class GameServerConnection : IGameBackend
                 _joined?.TrySetResult(true);
                 break;
             case EtervaleOpcodes.LeaveWorld:
-                if (LeaveWorldPacket.Read(packet).Saved)
-                {
-                    _left?.TrySetResult(true);
-                }
-
+                _left?.TrySetResult(LeaveWorldPacket.Read(packet).Saved);
                 break;
             case EtervaleOpcodes.InventoryResult:
             case EtervaleOpcodes.ProgressionResult:

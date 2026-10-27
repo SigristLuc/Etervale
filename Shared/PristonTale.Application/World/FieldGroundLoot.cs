@@ -45,17 +45,13 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
             var view = drop.Sealed
                 ? new GroundDropView(id, ItemCodes.Parse(Puzzles.LuckyBagIcon), Puzzles.LuckyBagIcon, Puzzles.LuckyBagName, drop.Amount, false, position)
                 : new GroundDropView(id, drop.ItemCode, gold ? "GG101" : definition!.CatalogKey, gold ? "Gold" : definition!.Name, drop.Amount, gold, position);
-            // As on the original server, gold, life and stamina potions expire in 90s; mana and other items in 180s.
-            bool shortLived = gold || definition?.CatalogKey.StartsWith("PL", StringComparison.OrdinalIgnoreCase) == true
-                || definition?.CatalogKey.StartsWith("PS", StringComparison.OrdinalIgnoreCase) == true;
-            long lifetime = shortLived ? 90_000 : 180_000;
             var item = gold ? null : ItemRoller.Create(definition!, drop.Amount, rng);
             if (item is not null)
             {
                 item.Sealed = drop.Sealed;
             }
 
-            _entries.Add(id, new Entry(view, item, payout.CreditedPlayerId, publicDrop ? nowMs : nowMs + 5000, nowMs + lifetime));
+            _entries.Add(id, new Entry(view, item, payout.CreditedPlayerId, publicDrop ? nowMs : nowMs + 5000, nowMs + LifetimeMs(definition)));
             _dirty = true;
         }
     }
@@ -72,9 +68,7 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
         var view = item is null
             ? new GroundDropView(id, 0u, "GG101", "Gold", gold, true, position)
             : new GroundDropView(id, item.Definition.Code, item.Definition.CatalogKey, item.Definition.Name, item.Count, false, position);
-        bool shortLived = item is null || item.Definition.CatalogKey.StartsWith("PL", StringComparison.OrdinalIgnoreCase)
-            || item.Definition.CatalogKey.StartsWith("PS", StringComparison.OrdinalIgnoreCase);
-        _entries.Add(id, new Entry(view, item, ownerId, nowMs, nowMs + (shortLived ? 90_000 : 180_000)));
+        _entries.Add(id, new Entry(view, item, ownerId, nowMs, nowMs + LifetimeMs(item?.Definition)));
         _dirty = true;
         return true;
     }
@@ -133,13 +127,7 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
         view = entry.View;
         if (entry.Item is not null)
         {
-            item = new ItemInstance(entry.Item.Definition, entry.Item.Count)
-            {
-                InstanceId = entry.View.Id,
-                DurabilityCurrent = entry.Item.DurabilityCurrent,
-                DurabilityMax = entry.Item.DurabilityMax,
-                Roll = entry.Item.Roll
-            };
+            item = entry.Item.Copy(entry.Item.Count, entry.View.Id);
         }
 
         return true;
@@ -161,6 +149,11 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
             entry.Reservation = Guid.Empty;
         }
     }
+
+    // Gold (no definition), life and stamina potions lie for 90 s; mana potions and other items for 180 s.
+    private static long LifetimeMs(ItemDefinition? definition) =>
+        definition is null || definition.CatalogKey.StartsWith("PL", StringComparison.OrdinalIgnoreCase)
+        || definition.CatalogKey.StartsWith("PS", StringComparison.OrdinalIgnoreCase) ? 90_000 : 180_000;
 
     private void RemoveEntry(Guid id)
     {
