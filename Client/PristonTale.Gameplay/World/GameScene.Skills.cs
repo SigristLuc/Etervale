@@ -297,9 +297,11 @@ public sealed partial class GameScene : ISkillSceneHost
             return;
         }
 
+        // Before the lock, which keeps StopPredictedMovement from standing: a refused cast never starts a clip that would
+        // end the walk.
+        StopPredictedMovement();
         _castLockUntilMs = _skillClockMs + CastAnswerTimeoutMs;
         _hasMoveTarget = false;
-        StopPredictedMovement();
         _reportDue = true;
         var planar = _playerBody.PlanarPosition;
         // Transport is PT-global (x, z); presentation uses (x, -z).
