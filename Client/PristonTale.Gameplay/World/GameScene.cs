@@ -952,6 +952,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     {
         _pendingWarp = warp;
         _pendingWarpDelay = SpecialWarpDelaySeconds;
+        EndFall(landed: false);
         ClearAttackTarget();
         _lootInteraction?.Cancel();
         StopPredictedMovement();
@@ -993,6 +994,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         // The authored destination height is near the floor, not on it: stand on the floor nearest it.
         _playerBody.Height = warp.DestinationY - GroundTraversal.VisualOffset;
         PlaceAtHeight(_playerBody, warp.DestinationY);
+        EndFall(landed: false);
         ApplyPlayerWorld();
         _camera = new PristonCamera(_playerBody.Position, _playerForward, ToCameraSettings(destDef.Camera));
         _log.Info($"[Warp] -> {destDef.Id} at ({warp.DestinationX},{warp.DestinationZ}).");
@@ -1193,11 +1195,20 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             changedField = true;
         }
 
-        // A new field always takes the warp's place and height: the body still holds the height of the field it left, and
-        // a restart may already have moved the player there across.
         var authoritative = new Vector2(warp.Position.X, warp.Position.Z);
         var difference = authoritative - _playerBody.PlanarPosition;
-        if (warp.Forced || changedField || difference.LengthSquared() > 200f * 200f)
+        if (!warp.Forced && changedField && difference.LengthSquared() <= 200f * 200f)
+        {
+            // The unforced warp confirming a field the player is already at (a restart moved it across, a seamless border):
+            // only the height, which may still be the old field's; snapping the place would pull back a player who has
+            // walked on.
+            PlaceAtHeight(_playerBody, warp.Position.Y);
+            EndFall(landed: false);
+            ApplyPlayerWorld();
+            return;
+        }
+
+        if (warp.Forced || difference.LengthSquared() > 200f * 200f)
         {
             _log.Info($"[Movement] correction {difference.Length():F1} units; field={warp.FieldId}, forced={warp.Forced}.");
             StopPredictedMovement();
@@ -1247,6 +1258,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _hasMoveTarget = false;
         _playerBody.PlanarPosition = new Vector2(worldPosition.X, worldPosition.Z);
         UpdateBodyHeight(_playerBody);
+        EndFall(landed: false);
         ApplyPlayerWorld();
         _camera?.SnapFollow(_playerBody.Position, _fieldCollision);
         ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.Restart));
@@ -1853,10 +1865,17 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             return;
         }
 
+        FinishLanding();
         var feet = _playerBody.Height + GroundTraversal.VisualOffset;
         if (TryGetFloorHeightNear(_playerBody.Position, feet, out var floor))
         {
-            Fall(feet, floor, dt);
+            // As in the original, the floor is followed only below the motions from 0x100 up (attacks, potions, damage,
+            // skills, landings, death): the body holds its height until they end, so a fall never cuts one short.
+            if (_playerController.Current < PristonActorMotion.Attack)
+            {
+                Fall(feet, floor, dt);
+            }
+
             return;
         }
 
@@ -1868,16 +1887,39 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             ApplyPlayerWorld();
             _camera?.SnapFollow(_playerBody.Position, _fieldCollision);
         }
+        else if (float.IsFinite(_fallTop))
+        {
+            // No floor anywhere under the body: the fall cannot land, so it stops rather than hold the fall motion.
+            EndFall(landed: false);
+        }
+    }
+
+    // The renderer returns the actor to Stand when a landing's clip ends (or at once when the model has none); the
+    // controller follows it so the landing releases the player.
+    private void FinishLanding()
+    {
+        if (_playerController.Current is PristonActorMotion.FallStand or PristonActorMotion.FallDamage
+            && _renderer is not null && _playerBodyActor.IsValid
+            && _renderer.TryGetActorMotion(_playerBodyActor, out var motion, out _)
+            && (PristonActorMotion)motion.State != _playerController.Current)
+        {
+            ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.Stand));
+        }
     }
 
     private void Fall(float feet, float floor, float dt)
     {
+        // Within eight units the feet stand on the floor, as the original sets them on it.
         if (!GroundFall.IsAirborne(feet, floor))
         {
-            if (float.IsFinite(_fallTop))
+            if (feet != floor)
             {
                 _playerBody.Height = floor - GroundTraversal.VisualOffset;
                 ApplyPlayerWorld();
+            }
+
+            if (float.IsFinite(_fallTop))
+            {
                 EndFall(landed: true, _fallTop - floor);
             }
 
@@ -1889,7 +1931,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             _fallTop = feet;
         }
 
-        if (feet - floor > GroundFall.MotionDistance && !_playerController.IsDead && _playerController.Current != PristonActorMotion.FallDown)
+        if (feet - floor > GroundFall.MotionDistance && _playerController.Current != PristonActorMotion.FallDown)
         {
             ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.FallDown));
         }
@@ -1919,10 +1961,11 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private void CommitGroundMovement(Vector2 destination)
     {
         var feet = _playerBody.Position + Vector3.Up * GroundTraversal.VisualOffset;
-        GroundTraversal.TryFollow(feet, destination, _groundFloorQuery, out var reached);
+        GroundTraversal.TryFollow(feet, destination, _groundFloorQuery, out var reached, out var largestDrop);
         _playerBody.PlanarPosition = new Vector2(reached.X, reached.Z);
-        // Walking off a ledge keeps the height: the fall takes the body down (KeepOnFloor).
-        if (!GroundFall.IsAirborne(feet.Y, reached.Y))
+        // Walking off a ledge keeps the height: the fall takes the body down (KeepOnFloor). A slope is followed whatever
+        // the frame time; only a drop of more than eight units between samples is a ledge.
+        if (largestDrop <= GroundFall.SnapDistance)
         {
             _playerBody.Height = reached.Y - GroundTraversal.VisualOffset;
         }

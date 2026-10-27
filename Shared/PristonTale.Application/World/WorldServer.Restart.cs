@@ -26,7 +26,7 @@ public sealed partial class WorldServer
 
             return prepared.Candidate is null || !_catalog.TryGetFieldByCode(prepared.FieldId, out _)
                 ? prepared
-                : prepared with { Position = GetField(prepared.FieldId).Terrain.PlaceOnFloor(prepared.Position with { Y = 0f }) };
+                : prepared with { Position = _terrain.Get(prepared.FieldId).PlaceOnFloor(prepared.Position with { Y = 0f }) };
         });
     }
 
@@ -65,7 +65,7 @@ public sealed partial class WorldServer
                 _connections[player.EntityId] = connection with { FieldId = operation.FieldId };
             }
 
-            var position = target.Terrain.PlaceOnFloor(operation.Position with { Y = 0f });
+            var position = operation.Position;
             var inVillage = destination.State == FieldState.Village;
             player.EnterField(position, inVillage);
             player.Restart(candidate.Life, DeathPenalty.RestartGuardMs);

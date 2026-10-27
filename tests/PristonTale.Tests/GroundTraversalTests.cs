@@ -44,8 +44,31 @@ internal static class GroundTraversalTests
         motion.ApplyAuthoritative(PristonActorMotion.FallDown);
         Assert.True(motion.ApplyLocomotion(PristonActorMotion.Walk).Kind == MotionCommandKind.None, "walking replaced the fall motion");
         Assert.True(!motion.LocomotionFrozen, "a fall stopped the player from walking");
-        motion.ApplyAuthoritative(PristonActorMotion.FallStand);
-        Assert.True(motion.ApplyLocomotion(PristonActorMotion.Walk).Motion == PristonActorMotion.Walk, "walking did not follow the landing");
+        foreach (var landing in new[] { PristonActorMotion.FallStand, PristonActorMotion.FallDamage })
+        {
+            // A landing holds the player until its clip ends and the actor is back to Stand.
+            motion.ApplyAuthoritative(landing);
+            Assert.True(motion.LocomotionFrozen, $"{landing} let the player walk");
+            Assert.True(motion.ApplyLocomotion(PristonActorMotion.Walk).Kind == MotionCommandKind.None, $"walking replaced {landing}");
+            motion.ApplyAuthoritative(PristonActorMotion.Stand);
+            Assert.True(motion.ApplyLocomotion(PristonActorMotion.Walk).Motion == PristonActorMotion.Walk, "walking did not follow the landing");
+        }
+
+        // A steep slope crossed in one long frame is followed; a ledge between two samples is a fall.
+        GroundFloorQuery slope = (Vector3 position, float reference, out float height) =>
+        {
+            height = 100f - position.X * 1.5f;
+            return true;
+        };
+        Assert.True(GroundTraversal.TryFollow(new Vector3(0f, 100f, 0f), new Vector2(40f, 0f), slope, out var down, out var slopeDrop)
+            && slopeDrop <= GroundFall.SnapDistance && MathF.Abs(down.Y - 40f) < 0.01f, $"a slope dropped {slopeDrop} between samples");
+        GroundFloorQuery ledge = (Vector3 position, float reference, out float height) =>
+        {
+            height = position.X < 20f ? 100f : 80f;
+            return true;
+        };
+        Assert.True(GroundTraversal.TryFollow(new Vector3(0f, 100f, 0f), new Vector2(40f, 0f), ledge, out _, out var ledgeDrop)
+            && ledgeDrop > GroundFall.SnapDistance, $"a 20-unit ledge dropped only {ledgeDrop}");
         return Task.CompletedTask;
     }
 

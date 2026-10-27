@@ -263,12 +263,19 @@ The client owns its own locomotion; the server validates and corrects.
   height each frame (`KeepOnFloor`). A warp gate's authored destination height is a hint: the body stands on the floor
   nearest it.
 - A body more than 8 units above its floor falls 8 units a frame at 70 Hz (`GroundFall`, applied in `KeepOnFloor`, as in
-  the original). A drop of more than 32 units plays FallDown; touching the floor snaps to it and plays FallStand, or
-  FallDamage after more than 200 units (motion only, no damage). Walking off a ledge keeps the height
-  (`CommitGroundMovement`) so the body falls the same way; the player keeps moving across while FallDown holds against
-  Walk and Run (`ActorMotionController.ApplyLocomotion`). A warp placement ends a fall without a landing motion; a dead
-  player falls without motions. FallStand and FallDamage return to Stand when they finish. The special-warp hold keeps
-  the gate's height and does not fall.
+  the original); within 8 units it stands on the floor. As in the original, the floor is followed only below the motions
+  from 0x100 up (attacks, potions, damage, skills, landings, death): the body holds its height until they end, so a fall
+  never cuts one short. A drop of more than 32 units plays FallDown; touching the floor plays FallStand, or FallDamage
+  after more than 200 units (motion only, no damage). A landing holds the player like the other motions from 0x100 up
+  (`LocomotionFrozen`) until the renderer returns the actor to Stand at the clip's end (`FinishLanding`). Walking off a
+  ledge keeps the height (`CommitGroundMovement`) so the body falls the same way: a ledge is a drop of more than 8 units
+  between two samples of `GroundTraversal.TryFollow` (4 units apart), so a steep slope crossed in one long frame is
+  followed, not fallen. The player keeps moving across while FallDown holds against Walk and Run
+  (`ActorMotionController.ApplyLocomotion`). A placement elsewhere (a warp, a warp gate, the special warp, a revive)
+  ends a fall without a landing motion; with no floor anywhere under the body the fall stops. The special-warp hold
+  keeps the gate's height and does not fall.
+- The unforced warp that confirms a field the player is already near (within 200 units: a restart moved it across, a
+  seamless border) sets only the height; snapping the place would pull back a player who has walked on.
 - Field changes are local: across a seamless border the active field becomes the loaded field with the highest floor
   under the player (`UpdateActiveField`); warp gates are detected in `UpdateWarps` (level limit checked), and
   special-effect warp gates hold the player for 2 s with the return effect and portal sound before switching. A wing

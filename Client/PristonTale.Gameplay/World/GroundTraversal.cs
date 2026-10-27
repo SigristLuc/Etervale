@@ -16,9 +16,15 @@ public static class GroundTraversal
         return bodyPosition + Vector3.Up * VisualOffset;
     }
 
-    public static bool TryFollow(Vector3 feet, Vector2 destination, GroundFloorQuery floor, out Vector3 reached)
+    public static bool TryFollow(Vector3 feet, Vector2 destination, GroundFloorQuery floor, out Vector3 reached) =>
+        TryFollow(feet, destination, floor, out reached, out _);
+
+    // largestDrop: the largest fall between two samples four units apart, which tells a ledge from a slope however far
+    // a frame carries the body.
+    public static bool TryFollow(Vector3 feet, Vector2 destination, GroundFloorQuery floor, out Vector3 reached, out float largestDrop)
     {
         reached = feet;
+        largestDrop = 0f;
         var start = new Vector2(feet.X, feet.Z);
         var distance = Vector2.Distance(start, destination);
         if (!float.IsFinite(distance) || !float.IsFinite(feet.Y) || distance > SampleDistance * MaximumSamples)
@@ -36,6 +42,7 @@ public static class GroundTraversal
                 return false;
             }
 
+            largestDrop = MathF.Max(largestDrop, reached.Y - height);
             reached = new Vector3(planar.X, height, planar.Y);
         }
 
