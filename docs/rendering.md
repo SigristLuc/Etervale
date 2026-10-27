@@ -106,6 +106,12 @@ Described in Etervale's terms; readers keep every field, including padding, for 
 - A stage becomes a `RenderStageHandle`: static batches (merged by material when it has no scroll, wind, layers or
   transparency), animated scenery groups sharing bone palettes, a static shadow aggregate per grid cell, the stage's
   lights split into ground lights and glow (corona) lights, `PristonStageBakedLight` and `PristonStageLightField`.
+- Stage normals: the stage file has none per vertex, so `PristonStageNormals` computes one per face corner over the whole
+  stage before the faces are split by material: the area-weighted normals of every face touching the corner's position
+  that leans at most 60 degrees (`CreaseDegrees`) from the corner's face. Ground stays smooth across material and UV
+  seams (the sun's N.L no longer breaks along ground triangles) and walls keep their edge with the floor. The normal
+  rides on `PristonCornerVertex.Normal`; corners without one (models) are still averaged over their welded faces, and
+  scrolling materials keep per-triangle normals.
 - Actors (`AddActor`) get GPU resources shared per `PristonActor`, a bone palette (at most 64 bones,
   `PristonShaderLibrary.MaxBones`), rebuilt normals, and can be attached to a parent bone (`AttachActor`). A corner keeps
   the file's smooth normal (as the original shades a body) while it lies within 40 degrees of the normal rebuilt from

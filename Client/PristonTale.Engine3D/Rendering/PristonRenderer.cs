@@ -2590,8 +2590,10 @@ public sealed partial class PristonRenderer : IDisposable
     private static Dictionary<int, List<PristonCornerVertex>> BuildStageGroups(PristonStage stage)
     {
         var groups = new Dictionary<int, List<PristonCornerVertex>>();
-        foreach (var face in stage.Faces)
+        var normals = PristonStageNormals.Compute(stage.Faces, stage.Vertices.Select(static vertex => vertex.Position).ToArray());
+        for (var index = 0; index < stage.Faces.Count; index++)
         {
+            var face = stage.Faces[index];
             if (!ValidFace(face.A, face.B, face.C, stage.Vertices.Count))
             {
                 continue;
@@ -2606,7 +2608,10 @@ public sealed partial class PristonRenderer : IDisposable
                 stage.Vertices[face.B].Color,
                 stage.Vertices[face.C].Color,
                 stage.TexLinks,
-                face.TexLinkIndex);
+                face.TexLinkIndex,
+                normals[index * 3],
+                normals[index * 3 + 1],
+                normals[index * 3 + 2]);
         }
 
         return groups;

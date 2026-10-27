@@ -138,13 +138,13 @@ internal sealed class PristonGpuMeshBuilder
         var staticVertices = new PristonStaticVertex[vertices.Count];
         for (var i = 0; i < vertices.Count; i++)
         {
-            var normal = normals[i];
+            var vertex = vertices[i];
+            var normal = vertex.Normal != Vector3.Zero ? vertex.Normal : normals[i];
             if (normal.LengthSquared() < 0.000001f)
                 normal = Vector3.Up;
             else
                 normal.Normalize();
 
-            var vertex = vertices[i];
             staticVertices[i] = new PristonStaticVertex(
                 vertex.Position,
                 normal,

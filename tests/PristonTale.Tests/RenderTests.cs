@@ -13,6 +13,7 @@ internal static class RenderTests
         yield return ("unused material catalogs do not enter streaming texture preparation", MaterialUsageAsync);
         yield return ("off-camera geometry remains eligible to cast shadows", ShadowAsync);
         yield return ("static mesh preparation computes topology and normals without a GPU", MeshAsync);
+        yield return ("stage normals are smoothed across materials and faces sharing a position, not across a wall", StageNormalsAsync);
         yield return ("CPU image decoding handles invalid data without GPU resources", DecodeAsync);
         yield return ("UI bitmaps of 32 bits keep their coverage and skip the black key; zeroed coverage stays opaque", BmpCoverageAsync);
         yield return ("PNG export cache separates opacity variants and basename collisions", ExportAsync);
@@ -91,6 +92,31 @@ internal static class RenderTests
         Assert.True(builder.Queue.ShadowCasters.Count == 1, "aggregate duplicated or lost the covered shadow caster");
         builder.Build([batch], [aggregate], frame, includeShadowCasters: false);
         Assert.True(builder.Queue.ShadowCasters.Count == 0, "shadow queue was rebuilt on a frame that reuses the previous maps");
+        return Task.CompletedTask;
+    }
+
+    private static Task StageNormalsAsync()
+    {
+        // Two ground faces in different materials meeting on a 20-degree ridge, with their own vertices at the shared
+        // positions, and a wall standing on the far edge of the second.
+        Vector3[] positions =
+        [
+            new(0, 0, 0), new(100, 0, 0), new(0, 0, 100),
+            new(100, 0, 0), new(100, 0, 100), new(0, 0, 100), new(200, 36, 50),
+            new(100, 0, 0), new(100, 100, 0), new(100, 0, 100)
+        ];
+        PristonStageFace[] faces =
+        [
+            new(0, 2, 1, 0, -1),
+            new(3, 5, 6, 1, -1),
+            new(7, 9, 8, 2, -1)
+        ];
+        var normals = PristonStageNormals.Compute(faces, positions);
+        var ground = normals[0];
+        var shared = normals[2];
+        Assert.True(ground.Y > 0.99f && shared.Y > 0.9f && shared.X < -0.01f, $"the ridge corner was not smoothed toward the second face: {shared}");
+        Assert.True(Vector3.Distance(normals[2], normals[3]) < 1e-4f, "the same position in two materials kept different normals");
+        Assert.True(MathF.Abs(normals[6].Y) < 1e-4f && MathF.Abs(normals[6].X) > 0.99f, $"the wall took the ground's normal: {normals[6]}");
         return Task.CompletedTask;
     }
 
