@@ -91,6 +91,10 @@ Described in Etervale's terms; readers keep every field, including padding, for 
   cell is 64 units).
 - Animation time is in ticks of 160 per frame. Stage props advance 2000 ticks per second and start one frame in
   (160); actor motions use 160000/33 ticks per second scaled by the motion's playback rate.
+- A skeleton merged from several motion files keeps, per bone and channel, the key range of each file. Only the range
+  holding the frame is sampled: a bone with no keys there takes its bind pose (relative to its parent), a missing
+  rotation the base rotation, a missing position the base position, a missing scale none. An actor's rotation does not
+  interpolate toward a key past its motion's end frame; the key before it holds.
 - Materials: a TGA or opacity-mapped texture is a cut-out (alpha test at 60/255). Original blend types 2-6 draw late
   (blended queue) unless the material is an opaque cut-out; one layer above the base is carried over (multiply, add or
   sphere-map shine); there is no roughness or metalness in the data (`PristonMaterialAdapter` assigns 0.85 rough

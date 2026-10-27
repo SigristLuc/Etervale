@@ -64,7 +64,7 @@ public sealed partial class PristonRenderer
         {
             var stand = SelectActorMotion(runtime.Instance.Actor, PristonActorMotion.Stand, runtime.Instance.MotionContext);
             var frame = stand.EndFrame > stand.StartFrame ? stand.StartFrame * 160f : runtime.Frame;
-            position = runtime.SampleSkeletonAt(frame)[bone].Translation;
+            position = runtime.SampleSkeletonAt(frame, stand.EndFrame * 160f)[bone].Translation;
         }
 
         var bounds = ModelBounds(runtime);

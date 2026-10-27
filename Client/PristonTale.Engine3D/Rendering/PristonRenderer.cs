@@ -3780,7 +3780,7 @@ public sealed partial class PristonRenderer : IDisposable
         {
             if (_sampledFrame != Frame)
             {
-                _sampledTransforms = Animator.Evaluate(Frame);
+                _sampledTransforms = Animator.Evaluate(Frame, Motion.EndFrame * 160f);
                 _sampledFrame = Frame;
             }
 
@@ -3788,10 +3788,10 @@ public sealed partial class PristonRenderer : IDisposable
         }
 
         // Shares the animator's buffer with SampleSkeleton, so the next SampleSkeleton evaluates again.
-        public Matrix[] SampleSkeletonAt(float frame)
+        public Matrix[] SampleSkeletonAt(float frame, float rotationEnd)
         {
             _sampledFrame = float.NaN;
-            return Animator.Evaluate(frame);
+            return Animator.Evaluate(frame, rotationEnd);
         }
 
         public PristonSkinPalette Palette { get; private set; }
