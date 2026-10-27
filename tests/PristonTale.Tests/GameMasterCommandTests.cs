@@ -156,7 +156,7 @@ internal static class GameMasterCommandTests
         Assert.True(gm.Link.Last == "> Killed ( Ann )", gm.Link.Last);
         fixture.Tick(1);
         var view = ChatFixture.Latest(ann)!.Value.Entities.Single(entity => entity.EntityId == ann.Id);
-        Assert.True(view.Hp == 0 && view.MoveState == MotionState.Dead, "the killed player is not dead on the server");
+        Assert.True(view.Life == 0 && view.MoveState == MotionState.Dead, "the killed player is not dead on the server");
         await fixture.SayAsync(gm, "/kick Ann");
         Assert.True(ann.Link.Disconnected is not null && gm.Link.Last == "Congratulations. You have been kicked Ann", "the player was not disconnected");
     }

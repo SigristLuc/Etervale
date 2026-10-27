@@ -4,7 +4,7 @@ using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World.Remote;
 
-public readonly record struct RemoteSample(double TimeMs, Vector3 Position, float Facing, MotionState MoveState, int Hp);
+public readonly record struct RemoteSample(double TimeMs, Vector3 Position, float Facing, MotionState MoveState, int Life);
 
 public enum RemotePoseKind
 {

@@ -64,7 +64,7 @@ public sealed class SubscriberPresence
             {
                 spawns.Add(stamped);
             }
-            else if (previous.MaxHp != view.MaxHp || previous.Level != view.Level
+            else if (previous.MaxLife != view.MaxLife || previous.Level != view.Level
                 || previous.Appearance.WeaponKey != view.Appearance.WeaponKey
                 || previous.Appearance.ArmorKey != view.Appearance.ArmorKey
                 || previous.Appearance.OffHandKey != view.Appearance.OffHandKey
@@ -76,7 +76,7 @@ public sealed class SubscriberPresence
                 spawns.Add(stamped);
             }
             else if (previous.Position != view.Position || previous.Facing != view.Facing || previous.MoveState != view.MoveState
-                || previous.Hp != view.Hp || previous.MoveSpeed != view.MoveSpeed || previous.AttackRate != view.AttackRate
+                || previous.Life != view.Life || previous.MoveSpeed != view.MoveSpeed || previous.AttackRate != view.AttackRate
                 || previous.AttackTargetId != view.AttackTargetId || previous.AttackSequence != view.AttackSequence)
             {
                 states.Add(stamped);
@@ -115,7 +115,7 @@ public sealed class SubscriberPresence
 
     private static EntityView WithSelf(EntityView v) => new(
         v.EntityId, v.Kind, isSelf: true, v.Position, v.Facing, v.MoveState,
-        v.Level, v.Hp, v.MaxHp, v.Appearance, v.TemplateId, v.MoveSpeed, v.AttackRate, v.AttackTargetId, v.AttackSequence);
+        v.Level, v.Life, v.MaxLife, v.Appearance, v.TemplateId, v.MoveSpeed, v.AttackRate, v.AttackTargetId, v.AttackSequence);
 }
 
 public readonly struct PresenceDiff

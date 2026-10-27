@@ -18,7 +18,7 @@ using PristonTale.Contracts.Units;
 
 namespace PristonTale.Client.Net.Online;
 
-// Rebuilds the neutral presence model from the server's messages. An unknown serial in a presence message triggers a
+// Rebuilds the neutral presence model from the server's messages. An unknown entityId in a presence message triggers a
 // DescribeEntity request; the object is published once its EntityDescription arrives, and a changed descriptor revision
 // (PresenceEntry.Revision) requests a fresh description.
 internal sealed class PresenceDecoder
@@ -48,7 +48,7 @@ internal sealed class PresenceDecoder
         _requestDescription = requestDescription;
     }
 
-    public ulong SelfSerial { get; set; }
+    public ulong SelfEntityId { get; set; }
 
     public int? FieldId { get; private set; }
 
@@ -67,11 +67,11 @@ internal sealed class PresenceDecoder
     {
         lock (_gate)
         {
-            foreach (var (serial, tracked) in _objects)
+            foreach (var (entityId, tracked) in _objects)
             {
                 if (tracked.HasState && (tracked.Description is null || tracked.Description.Revision != tracked.Revision))
                 {
-                    RequestDescription(serial, tracked, tracked.Revision);
+                    RequestDescription(entityId, tracked, tracked.Revision);
                 }
             }
         }
@@ -227,20 +227,20 @@ internal sealed class PresenceDecoder
 
     private void ApplyFull(in PresenceEntry entry, List<EntitySpawnInfo> spawns, List<EntityStateInfo> states)
     {
-        var serial = entry.Serial;
-        if (!_objects.TryGetValue(serial, out var tracked))
+        var entityId = entry.EntityId;
+        if (!_objects.TryGetValue(entityId, out var tracked))
         {
             tracked = new Tracked();
-            _objects.Add(serial, tracked);
+            _objects.Add(entityId, tracked);
         }
 
-        if (serial == SelfSerial && entry.FieldCode >= 0)
+        if (entityId == SelfEntityId && entry.FieldCode >= 0)
         {
             FieldId = entry.FieldCode;
         }
 
-        tracked.Hp = entry.Hp;
-        tracked.MaxHp = entry.MaxHp;
+        tracked.Life = entry.Life;
+        tracked.MaxLife = entry.MaxLife;
         tracked.Target = entry.Target;
         tracked.Sequence = entry.AttackSequence;
         tracked.Position = entry.Position;
@@ -257,16 +257,16 @@ internal sealed class PresenceDecoder
         tracked.Revision = entry.Revision;
         if (tracked.Description is null || tracked.Description.Revision != entry.Revision)
         {
-            RequestDescription(serial, tracked, entry.Revision);
+            RequestDescription(entityId, tracked, entry.Revision);
         }
 
-        Publish(serial, tracked, spawns, states);
+        Publish(entityId, tracked, spawns, states);
     }
 
     private void ApplyMotion(in PresenceEntry entry, List<EntityStateInfo> states)
     {
-        var serial = entry.Serial;
-        if (!_objects.TryGetValue(serial, out var tracked) || !tracked.HasState)
+        var entityId = entry.EntityId;
+        if (!_objects.TryGetValue(entityId, out var tracked) || !tracked.HasState)
         {
             // A motion entry never introduces an object; its next full entry does.
             return;
@@ -278,13 +278,13 @@ internal sealed class PresenceDecoder
         tracked.SampleTimeMs = _clockMs;
         if (tracked.Published)
         {
-            states.Add(State(serial, tracked));
+            states.Add(State(entityId, tracked));
         }
     }
 
     // One GETPLAYERINFO per revision, repeated after a second when its answer does not come: the server drops requests
     // beyond its rate bucket (a crowd entering view at once), and an object without a description is never shown.
-    private void RequestDescription(ulong serial, Tracked tracked, int revision)
+    private void RequestDescription(ulong entityId, Tracked tracked, int revision)
     {
         var now = Environment.TickCount64;
         if (tracked.RequestedRevision == revision && now - tracked.RequestedAtMs < DescriptionRetryMs)
@@ -294,10 +294,10 @@ internal sealed class PresenceDecoder
 
         tracked.RequestedRevision = revision;
         tracked.RequestedAtMs = now;
-        _requestDescription(serial);
+        _requestDescription(entityId);
     }
 
-    private void Publish(ulong serial, Tracked tracked, List<EntitySpawnInfo> spawns, List<EntityStateInfo> states)
+    private void Publish(ulong entityId, Tracked tracked, List<EntitySpawnInfo> spawns, List<EntityStateInfo> states)
     {
         if (tracked.Description is null)
         {
@@ -307,18 +307,18 @@ internal sealed class PresenceDecoder
         if (!tracked.Published)
         {
             tracked.Published = true;
-            spawns.Add(Spawn(serial, tracked));
+            spawns.Add(Spawn(entityId, tracked));
         }
         else
         {
-            states.Add(State(serial, tracked));
+            states.Add(State(entityId, tracked));
         }
     }
 
     public PresenceUpdate? OnDescription(EntityDescriptionPacket packet)
     {
-        var serial = packet.Serial;
-        if (!_objects.TryGetValue(serial, out var tracked))
+        var entityId = packet.EntityId;
+        if (!_objects.TryGetValue(entityId, out var tracked))
         {
             return null;
         }
@@ -358,17 +358,17 @@ internal sealed class PresenceDecoder
 
         // A new description is a full refresh, which the scene applies as a spawn of a known id.
         tracked.Published = true;
-        return Update([Spawn(serial, tracked)], []);
+        return Update([Spawn(entityId, tracked)], []);
     }
 
-    public PresenceUpdate OnRemoved(ulong[] serials)
+    public PresenceUpdate OnRemoved(ulong[] entityIds)
     {
-        var removed = new List<ulong>(serials.Length);
-        foreach (var serial in serials)
+        var removed = new List<ulong>(entityIds.Length);
+        foreach (var entityId in entityIds)
         {
-            if (_objects.Remove(serial, out var tracked) && tracked.Published)
+            if (_objects.Remove(entityId, out var tracked) && tracked.Published)
             {
-                removed.Add(serial);
+                removed.Add(entityId);
             }
         }
 
@@ -397,7 +397,7 @@ internal sealed class PresenceDecoder
         var added = new List<GroundDropView>(items.Length);
         foreach (var item in items)
         {
-            var key = item.Gold ? "GG101" : ItemCodes.TryFormat(item.ItemCode, out var code) ? code : "";
+            var key = item.Gold ? "GG101" : ItemCodes.KeyOf(item.ItemCode);
             added.Add(new GroundDropView(item.Id, item.ItemCode, key, item.Name, item.Amount, item.Gold, Position(item.X, item.Y, item.Z)));
         }
 
@@ -407,7 +407,7 @@ internal sealed class PresenceDecoder
     public PresenceUpdate OnFieldWarp(FieldWarpPacket warp)
     {
         FieldId = warp.Field;
-        _objects.TryGetValue(SelfSerial, out var self);
+        _objects.TryGetValue(SelfEntityId, out var self);
         var position = new Vector3(warp.X, warp.Y, warp.Z);
         if (self is not null)
         {
@@ -482,8 +482,8 @@ internal sealed class PresenceDecoder
             return null;
         }
 
-        var owner = new OwnerState(status.Level, status.Experience, status.LevelStart, status.NextLevel, status.Money, status.Hp, status.MaxHp,
-            status.Mp, status.MaxMp, status.Sp, status.MaxSp, status.StatPoints, status.SkillPoints, status.Strength, status.Spirit, status.Talent,
+        var owner = new OwnerState(status.Level, status.Experience, status.LevelStart, status.NextLevel, status.Money, status.Life, status.MaxLife,
+            status.Mana, status.MaxMana, status.Stamina, status.MaxStamina, status.StatPoints, status.SkillPoints, status.Strength, status.Spirit, status.Talent,
             status.Agility, status.Health, status.DamageMin, status.DamageMax, status.Defence, status.Absorption, status.InventoryRevision, _items)
         {
             AttackRange = status.AttackRange,
@@ -499,7 +499,7 @@ internal sealed class PresenceDecoder
     }
 
     private static OwnedItemView Item(InventoryItemEntry entry) => new(entry.InstanceId, entry.Code, entry.Name, (ItemKind)entry.Kind, entry.Count,
-        entry.Anchor, entry.Slot, entry.Width, entry.Height, ItemCodes.TryFormat(entry.Code, out var key) ? key : "");
+        entry.Anchor, entry.Slot, entry.Width, entry.Height, ItemCodes.KeyOf(entry.Code));
 
     private PresenceUpdate Update(List<EntitySpawnInfo> spawns, List<EntityStateInfo> states, List<ulong>? removed = null, List<CombatEventInfo>? events = null) =>
         new(_tick, spawns, states, removed ?? [], events ?? [], FieldId);
@@ -507,7 +507,7 @@ internal sealed class PresenceDecoder
     private static Simulation.Items.HeldItemGlow Glow(in DescribedGlow glow) =>
         new(glow.R, glow.G, glow.B, glow.A, glow.Blink, glow.Scale, glow.Mix, glow.MixScroll, glow.ClassUp);
 
-    private EntitySpawnInfo Spawn(ulong serial, Tracked tracked)
+    private EntitySpawnInfo Spawn(ulong entityId, Tracked tracked)
     {
         var description = tracked.Description!;
         var packet = description.Packet;
@@ -515,7 +515,7 @@ internal sealed class PresenceDecoder
         if (packet.Player is { } looks)
         {
             player = new PlayerAppearanceInfo(packet.Name, looks.Class, looks.Tier, looks.Face, looks.Hair, packet.Model, looks.HeadModel, packet.Level,
-                Key(looks.Weapon), Key(looks.Armor), Key(looks.OffHand), looks.InVillage)
+                ItemCodes.KeyOf(looks.Weapon), ItemCodes.KeyOf(looks.Armor), ItemCodes.KeyOf(looks.OffHand), looks.InVillage)
             {
                 HelperPet = looks.HelperPet,
                 Phoenix = looks.Phoenix,
@@ -527,8 +527,8 @@ internal sealed class PresenceDecoder
 
         var template = packet.Template;
         var owner = template is { Owner: not 0 } ? template.Owner : 0UL;
-        return new EntitySpawnInfo(serial, description.Kind, serial == SelfSerial, tracked.Position, tracked.Facing, tracked.Motion, tracked.Hp,
-            tracked.MaxHp, player, template?.Template ?? 0, packet.MoveSpeed, AttackRate(packet), tracked.Target, tracked.Sequence, tracked.SampleTimeMs,
+        return new EntitySpawnInfo(entityId, description.Kind, entityId == SelfEntityId, tracked.Position, tracked.Facing, tracked.Motion, tracked.Life,
+            tracked.MaxLife, player, template?.Template ?? 0, packet.MoveSpeed, AttackRate(packet), tracked.Target, tracked.Sequence, tracked.SampleTimeMs,
             packet.Name, packet.Level)
         {
             OwnerId = owner,
@@ -536,17 +536,15 @@ internal sealed class PresenceDecoder
         };
     }
 
-    private static EntityStateInfo State(ulong serial, Tracked tracked)
+    private static EntityStateInfo State(ulong entityId, Tracked tracked)
     {
         var packet = tracked.Description!.Packet;
-        return new EntityStateInfo(serial, tracked.Position, tracked.Facing, tracked.Motion, tracked.Hp, packet.MoveSpeed, AttackRate(packet),
+        return new EntityStateInfo(entityId, tracked.Position, tracked.Facing, tracked.Motion, tracked.Life, packet.MoveSpeed, AttackRate(packet),
             tracked.Target, tracked.Sequence, tracked.SampleTimeMs);
     }
 
     private static float AttackRate(EntityDescriptionPacket packet) =>
         float.IsFinite(packet.AttackRate) && packet.AttackRate > 0f ? packet.AttackRate : 1f;
-
-    private static string Key(uint code) => code != 0 && ItemCodes.TryFormat(code, out var key) ? key : "";
 
     private static Vector3 Position(int x, int y, int z) => new(GameUnits.FromFixed(x), GameUnits.FromFixed(y), GameUnits.FromFixed(z));
 
@@ -564,8 +562,8 @@ internal sealed class PresenceDecoder
         public Vector3 Position { get; set; }
         public float Facing { get; set; }
         public MotionState Motion { get; set; }
-        public int Hp { get; set; }
-        public int MaxHp { get; set; }
+        public int Life { get; set; }
+        public int MaxLife { get; set; }
         public ulong Target { get; set; }
         public ulong Sequence { get; set; }
         public double? SampleTimeMs { get; set; }

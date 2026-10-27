@@ -7,9 +7,9 @@ namespace PristonTale.Protocol.Packets;
 // append fields after the ones they know. Positions are play-data fixed point and angles are 4096 per turn.
 // Flags (version 2) carry the SkillCastCommand: 0 a new cast, 1 the release of a held charge, 2 and 3 order the caster's
 // summon to fight only its owner's target or to pick its own.
-// {header, uint16 Version = 3, uint16 Flags, uint32 Sequence, SkillCode, uint64 TargetSerial, int32 X, Y, Z, int16 Angle,
+// {header, uint16 Version = 3, uint16 Flags, uint32 Sequence, SkillCode, uint64 TargetId, int32 X, Y, Z, int16 Angle,
 // int16 0, uint32 ClientTimeMs}.
-public readonly record struct SkillCastPacket(uint Sequence, uint SkillCode, ulong TargetSerial, int X, int Y, int Z, short Angle, uint ClientTimeMs,
+public readonly record struct SkillCastPacket(uint Sequence, uint SkillCode, ulong TargetId, int X, int Y, int Z, short Angle, uint ClientTimeMs,
     SkillCastCommand Command = SkillCastCommand.Cast)
 {
     public const ushort CurrentVersion = 3;
@@ -22,7 +22,7 @@ public readonly record struct SkillCastPacket(uint Sequence, uint SkillCode, ulo
         writer.UInt16((ushort)Command);
         writer.UInt32(Sequence);
         writer.UInt32(SkillCode);
-        writer.UInt64(TargetSerial);
+        writer.UInt64(TargetId);
         writer.Int32(X);
         writer.Int32(Y);
         writer.Int32(Z);

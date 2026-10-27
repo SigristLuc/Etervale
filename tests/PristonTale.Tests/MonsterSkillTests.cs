@@ -136,10 +136,10 @@ internal static class MonsterSkillTests
         world.StepUntil(() => monster.Motion == MotionState.Skill, 5, "skill never started");
         var origin = monster.SkillOrigin;
         target.Teleport(new Vector3(500, 0, 0));
-        var targetHp = target.Hp;
-        var bystanderHp = bystander.Hp;
+        var targetLife = target.Life;
+        var bystanderLife = bystander.Life;
         world.StepUntil(() => world.Events.Any(value => value.Kind == CombatEventKind.MonsterSkillImpact), 20, "skill never hit");
-        Assert.True(target.Hp == targetHp && bystander.Hp < bystanderHp, "area followed escaping target or missed another player");
+        Assert.True(target.Life == targetLife && bystander.Life < bystanderLife, "area followed escaping target or missed another player");
         var effect = world.Events.Single(value => value.Kind == CombatEventKind.MonsterSkillImpact);
         Assert.True(effect.SourceSoundCode == 0x1100 && effect.Position == origin && effect.TargetId == 1, "impact lost its origin, family or target");
         Assert.True(world.HitsOn(2).All(value => value.Skill), "skill hits were not marked as skill");
@@ -171,11 +171,11 @@ internal static class MonsterSkillTests
                 target.Teleport(new Vector3(600, 0, 0));
             }
 
-            var before = target.Hp;
-            var neighbourHp = neighbour.Hp;
+            var before = target.Life;
+            var neighbourLife = neighbour.Life;
             world.StepUntil(() => world.Events.Any(value => value.Kind == CombatEventKind.MonsterSkillImpact), 20, "skill never hit");
-            Assert.True((target.Hp < before) != escape, "single-target skill ignored escape or reach");
-            Assert.True(neighbour.Hp == neighbourHp, "single-target skill damaged a bystander");
+            Assert.True((target.Life < before) != escape, "single-target skill ignored escape or reach");
+            Assert.True(neighbour.Life == neighbourLife, "single-target skill damaged a bystander");
         }
 
         return Task.CompletedTask;

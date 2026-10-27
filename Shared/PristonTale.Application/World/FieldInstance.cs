@@ -544,7 +544,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
             if (_players.TryGetValue(entry.Id, out var player))
             {
-                if (player.Hp > 0)
+                if (player.Life > 0)
                 {
                     _neighbourScratch.Add(new EntityNeighbour(player.Position, EntityCollisionRadii.Player));
                 }
@@ -703,8 +703,8 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         m.Facing,
         m.PresentedMotion,
         level: m.Def.Combat.Level,
-        hp: FieldMonsterSkills.ViewLife(m).Life,
-        maxHp: FieldMonsterSkills.ViewLife(m).Max,
+        life: FieldMonsterSkills.ViewLife(m).Life,
+        maxLife: FieldMonsterSkills.ViewLife(m).Max,
         appearance: default,
         templateId: (uint)m.Def.Code,
         moveSpeed: m.Def.Ai.MoveSpeed,

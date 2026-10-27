@@ -202,12 +202,12 @@ These bodies have no version header.
 | Message | Layout after the header | Size |
 | --- | --- | --- |
 | `InventoryCommand` | `Guid OperationId, int64 ExpectedRevision, int32 Action, Guid ItemId, int32 Destination, Count, Slot` | 64 |
-| `ProgressionCommand` | `Guid OperationId, int64 ExpectedRevision, int32 Action, Attribute, Amount, uint SkillCode, uint64 NpcSerial` | 56 |
+| `ProgressionCommand` | `Guid OperationId, int64 ExpectedRevision, int32 Action, Attribute, Amount, uint SkillCode, uint64 NpcId` | 56 |
 | `InventoryResult` / `ProgressionResult` | `Guid OperationId, int32 Ok, int64 Revision, text Message (128 B)` | 38 + text |
 | `Inventory` | `int64 Revision, int32 Part, Parts, Count`, then items `{Guid, uint Code, int32 Kind, Count, Anchor, Slot, int16 Width, Height, text Name (64 B)}` (at most 64 per part) | 28 + up to 106n |
 | `Skills` | `int64 Revision, int32 Count`, then `{uint Code, int32 Rank}` | 20 + 8n |
 | `CombatEvents` | `int32 Count`, then entries of 56 bytes | 12 + 56n |
-| `RemoveObjects` | `int32 Count`, then `uint64 Serial` | 12 + 8n |
+| `RemoveObjects` | `int32 Count`, then `uint64 EntityId` | 12 + 8n |
 | `GroundItems` | `uint16 Version (1), uint16 Flags, int32 Count`, then `{Guid Id, uint32 ItemCode, uint8 Flags (1 gold), uint8 0, uint16 0, int32 Amount, X, Y, Z, text Name (64 B)}` (1 to 64) | 16 + up to 106n |
 | `GroundItemsRemoved` | `uint16 Version (1), uint16 Flags, int32 Count`, then `Guid Id` | 16 + 16n |
 | `ItemDetails` | `uint16 Version (1), uint16 Flags, int64 Revision, int32 Part, Parts, Count`, then 236-byte entries (at most 24) | 32 + 236n |
@@ -243,7 +243,7 @@ accept newer versions that append fields (the list messages check their length e
 
 | Message | Layout after the header | Size |
 | --- | --- | --- |
-| `SkillCast` (version 3) | `uint Sequence, uint SkillCode, uint64 TargetSerial, int X, Y, Z, int16 Angle, int16 0, uint ClientTimeMs` | 48 |
+| `SkillCast` (version 3) | `uint Sequence, uint SkillCode, uint64 TargetId, int X, Y, Z, int16 Angle, int16 0, uint ClientTimeMs` | 48 |
 | `SkillCastResult` | `uint Sequence, uint SkillCode, byte Status, byte Rank, int16 0, uint CooldownMs, uint RemainingMs, int Mana, int Stamina, uint ServerTick` | 44 |
 | `SkillEvents` (version 3) | `int Count`, then `Count` skill entries of 56 bytes | 16 + 56n |
 | `StatusEffects` (version 2) | `int Count`, then `Count` status entries of 40 bytes | 16 + 40n |
@@ -304,8 +304,8 @@ model paths 160).
 
 | Message | Layout after the header |
 | --- | --- |
-| `DescribeEntity` | `varuint Serial` |
-| `EntityDescription` | `varuint Serial, uint8 Revision, uint8 Kind (1 player, 2 monster, 3 NPC), varuint Level, varuint MoveSpeed, float32 AttackRate, text Name, text Model`, then the player or template part |
+| `DescribeEntity` | `varuint EntityId` |
+| `EntityDescription` | `varuint EntityId, uint8 Revision, uint8 Kind (1 player, 2 monster, 3 NPC), varuint Level, varuint MoveSpeed, float32 AttackRate, text Name, text Model`, then the player or template part |
 | Player part | `varuint Job, Tier, Face, Hair, text HeadModel, uint32 Weapon, Armor, OffHand (item codes, 0 none), uint8 Flags (1 village, 2 Phoenix), uint8 HelperPet, uint8 BigHead, glow WeaponGlow, glow OffHandGlow` |
 | Glow (`DescribedGlow`, 16 bytes) | `int8 Blink (0 none, below 0 steady), int16 R, G, B, A, float32 Scale, int8 Mix (-1 none), uint8 MixScroll, uint8 Flags (1 class-up light)` (`HeldItemGlow`) |
 | Template part | `varuint Template, float32 TemplateScale, varuint SoundCode, varint PortraitY, PortraitZ, uint8 Brood, varuint Owner, float32 InstanceScale, uint32 NpcServices, varuint Class, varint ShadowSize` (the monster class: 1 boss, 200 hammer; the ground shadow -1 none, 0 small to 3 large) |
@@ -325,9 +325,9 @@ interval.
 ### Presence entries
 
 `PresenceEntries` is `{int32 size, uint32 code, uint16 Version = 1, uint16 Flags = 0, uint32 Sequence, uint16 Count,
-uint16 0}` followed by `Count` entries that fill the message exactly. An entry is `{varuint Serial, uint8 Kind (bit 0
-full), int24 X, Y, Z (world units × 8), uint16 Facing (65536 per turn), uint8 Motion}`; a full entry adds `{varuint Hp,
-MaxHp, Level, Target, AttackSequence, uint8 Revision, varuint Template, zigzag varint FieldCode}`. `varuint` is
+uint16 0}` followed by `Count` entries that fill the message exactly. An entry is `{varuint EntityId, uint8 Kind (bit 0
+full), int24 X, Y, Z (world units × 8), uint16 Facing (65536 per turn), uint8 Motion}`; a full entry adds `{varuint Life,
+MaxLife, Level, Target, AttackSequence, uint8 Revision, varuint Template, zigzag varint FieldCode}`. `varuint` is
 little-endian base-128 (`VarInt`, up to 64 bits; an overlong encoding or a tenth byte above 1 is refused). `Motion`
 is `MotionState` (`Shared/PristonTale.Contracts`; 0 stand, 1 walk, 2 run, 3 attack, 4 damage, 5 dead, 6 skill, 7 eat,
 8 warp, 9 yahoo; a larger value is refused). Positions cover the world's ±1,000,000 units at 1/8 of a unit.
@@ -347,29 +347,29 @@ interpolated ground speed, and a walk or run state without ground motion is show
 
 ### NPC services
 
-Every NPC and quest message body starts with `{uint16 Version = 2, uint16 Flags = 0}` (version 2 widened the NPC serial
+Every NPC and quest message body starts with `{uint16 Version = 2, uint16 Flags = 0}` (version 2 widened the NPC id
 to 64 bits; older versions are refused); readers accept newer versions that append fields, except `ShopQuotes`, whose
 list length is checked exactly. Text is UTF-8 with a `uint16` byte length (names up
 to 64 bytes, item names 40, messages 128, dialog lines 256), and counts are 32-bit. The click itself is an
-`AttackRequest` on the NPC serial; the server answers with `NpcResult`.
+`AttackRequest` on the NPC id; the server answers with `NpcResult`.
 
-- `NpcResult`: `{uint64 NpcSerial, int32 Ok, text Name, text Message, int32 ServiceCount, services {uint8 Kind, uint8
+- `NpcResult`: `{uint64 NpcId, int32 Ok, text Name, text Message, int32 ServiceCount, services {uint8 Kind, uint8
   Available, uint16 PricePercent, int32 Value}, int32 LineCount, text lines}` (at most 32 services and 20 lines). `Kind` is
   `NpcServiceKind`, `Value` the authored argument (class-change group, teleport route, mix mode, quest code...). One
   dialog line is sent, chosen at random as the original does.
-- `NpcServiceRequest` (92 bytes, more with materials): `{Guid OperationId, uint64 NpcSerial, uint8 Service, uint8
+- `NpcServiceRequest` (92 bytes, more with materials): `{Guid OperationId, uint64 NpcId, uint8 Service, uint8
   Action, uint16 0, int64 ExpectedRevision, int64 ExpectedStorageRevision, uint32 ItemCode, Guid ItemId, int32 Anchor,
   int32 Count, int64 Amount}`, then for a work on an item `{uint8 Count (1..16), Guid Materials[Count]}` (one unit of an
   owned item per entry). The client names a stock entry, an owned item, a grid cell (-1 = first free), a destination
   index or the materials; it never sends an item, a price or a total. The original buy and warehouse layouts, which carry a whole client-built item
   or warehouse, are not used.
-- `NpcServiceResult`: `{Guid OperationId, uint64 NpcSerial, uint8 Service, uint8 Action, uint16 Status, int32 Ok, int64
+- `NpcServiceResult`: `{Guid OperationId, uint64 NpcId, uint8 Service, uint8 Action, uint16 Status, int32 Ok, int64
   Revision, int64 StorageRevision, text Message}`. `Status` is `NpcServiceStatus` (`NotAvailable` for services Etervale
   does not run, `OutOfReach`, `Rejected`, `Stale`, `NotEnoughGold`, `NoSpace`, `GoldLimit`, `Busy`, `StorageFailed`,
   `Conflict`, `NotOpen`, `OverWeight`, `WrongPuzzle`, `WrongMaterials`). The state messages a request produces
   (`ShopCatalog`, `ShopQuotes`, `Warehouse`, `TeleportList`, `ItemWork`) carry the same operation id and precede the
   result.
-- `ItemWork`: `{uint16 Version, uint16 0, Guid OperationId, uint64 NpcSerial, uint8 Service, uint8 Result, uint16 0,
+- `ItemWork`: `{uint16 Version, uint16 0, Guid OperationId, uint64 NpcId, uint8 Service, uint8 Result, uint16 0,
   Guid ItemId, uint32 Code}`. For the aging NPC `Result` is `AgingResult` (0 lost, 1 down one, 2 down two, 3 success,
   4 doubled) and `ItemId` is empty when the item was lost; for the mixing NPC it is `MixResult` (0 failed, 1 mixed,
   2 reconstructed, 3 refined, `ItemId` empty after refining). `PricePercent` of a dialog service is the server's price
@@ -401,8 +401,8 @@ choices); a notice list is `{int32 Count, (uint8 Kind, uint8 0, text)...}` (at m
 `QuestCode`, `QuestAction`, `QuestStatus`, `QuestFollowup`, `QuestNoticeKind`, `QuestTimerKind` (see
 [quests.md](quests.md)).
 
-- `QuestRequest` (48 bytes): `{Guid OperationId, uint64 NpcSerial, uint8 Action, uint8 0, uint16 Code, int32 State,
-  int32 Choice}`. `NpcSerial` is 0 only for the redistribution offer and the victory dialog of a duel.
+- `QuestRequest` (48 bytes): `{Guid OperationId, uint64 NpcId, uint8 Action, uint8 0, uint16 Code, int32 State,
+  int32 Choice}`. `NpcId` is 0 only for the redistribution offer and the victory dialog of a duel.
 - `QuestResult`: `{Guid OperationId, uint8 Status, uint8 Flags (1 ok, 2 class change offered, 4 redistribution
   offered, 8 dialog follows), uint16 0, int64 Revision, text Message, [dialog], notices}`.
 - `QuestJournal`: `{int64 Revision, uint16 Code, uint8 Timer, uint8 RedistributionOffered, int32 State, text
@@ -543,7 +543,7 @@ connection every `Server:ReportSeconds` (30 by default).
    it belongs to the timeline.
 5. **Client.** Presence messages: add a case in `PresenceDecoder.TryHandle` and a `PresenceUpdate` member in
    `Client/PristonTale.Client.Net/Presence`. Request replies: add a case in `GameServerConnection.HandleAsync` and
-   complete the pending request by operation id or serial. Requests: add a send method in `GameServerConnection` that
+   complete the pending request by operation id or entity id. Requests: add a send method in `GameServerConnection` that
    writes under `_sendGate`.
 6. **Tests.** Add a layout round trip next to its siblings (`BinaryProtocolTests`, `SkillWireTests`,
    `NpcServiceTests.ProtocolAsync`) and, for presence, a `WireRoundTrip` case; new test classes are registered in
@@ -566,7 +566,7 @@ when the received version has it.
 - Combat, skill and status codes (`CombatEventKind`, `SkillCastVerdict`, `SkillCastCommand`, `SkillEventPhase`,
   `SkillEventFlags`, `StatusEffectOp`) are declared once in `Shared/PristonTale.Contracts` and used on both sides of
   the wire as they are; append values, never renumber.
-- `DescribeEntity` is outside the packet flood count but has its own token bucket; a client that requests every serial
+- `DescribeEntity` is outside the packet flood count but has its own token bucket; a client that requests every entity id
   each frame will see descriptions silently dropped. A client must ask again for an object still undescribed (the
   Etervale client does after a second), or a crowd entering view at once never appears.
 - Two monsters of one template share a description only while both are wild: a summon's description names its owner.

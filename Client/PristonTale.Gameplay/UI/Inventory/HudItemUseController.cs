@@ -97,7 +97,7 @@ public sealed class HudItemUseController(Func<ItemUseCommand, Task<ItemUseOutcom
     // death and the server checks the time.
     public void Restore(OwnerState state, bool inCastle, double nowMs)
     {
-        if (state is null || state.Hp > 0)
+        if (state is null || state.Life > 0)
         {
             _deadSinceMs = -1d;
             _restoreSent = false;
@@ -141,7 +141,7 @@ public sealed class HudItemUseController(Func<ItemUseCommand, Task<ItemUseOutcom
         LastOutcome = outcome;
         Message = outcome.Message;
         Completions++;
-        if (outcome.Ok && UsableItemCatalog.TryGet(Simulation.Items.ItemCodes.TryFormat(outcome.ItemCode, out var key) ? key : "", out var rule)
+        if (outcome.Ok && UsableItemCatalog.TryGet(Simulation.Items.ItemCodes.KeyOf(outcome.ItemCode), out var rule)
             && rule.Action == UsableItemAction.MobileShop)
         {
             ShopsOpened++;

@@ -311,7 +311,7 @@ Etervale extension opcodes `SkillCast` (C→S), `SkillCastResult`, `SkillEvents`
 (S→C), plus `Skills` (learned ranks), `OwnerStatus` (final-tier points, class tier) and
 `ProgressionCommand`/`ProgressionResult`. Layouts, flags, phases and status ops are in [protocol.md](protocol.md).
 
-- The client sends only skill code, target serial, its position and a command flag; the server re-derives everything.
+- The client sends only skill code, target id, its position and a command flag; the server re-derives everything.
 - The verdict, command, phase, event flags and status operation are the Contracts enums on every side; append values.
 - Statuses carry `SourceKind`: `PlayerSkill`, `Item`, or `MonsterSkill` for the slows, poison, stuns, curses and lent
   power of monster skills ([world.md](world.md#monster-skills)); the value is the main modifier, or the drawn element

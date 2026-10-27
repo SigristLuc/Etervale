@@ -263,14 +263,14 @@ public sealed partial class RemoteEntityManager
             position,
             seedFacing,
             spawn.MoveState,
-            spawn.Hp)
+            spawn.Life)
         {
             InVillage = spawn.Player.InVillage,
             EntityId = spawn.EntityId
         };
         replacement.MotionStarted += OnMotionStarted;
         replacement.SetRates(spawn.MoveSpeed, spawn.AttackRate);
-        replacement.SetTarget(sampleTime, ToXna(spawn.Position), spawn.Facing, spawn.MoveState, spawn.Hp);
+        replacement.SetTarget(sampleTime, ToXna(spawn.Position), spawn.Facing, spawn.MoveState, spawn.Life);
         _entities[spawn.EntityId] = replacement;
     }
 
@@ -313,7 +313,7 @@ public sealed partial class RemoteEntityManager
             position,
             spawn.Facing,
             spawn.MoveState,
-            spawn.Hp,
+            spawn.Life,
             spawn.Kind,
             spawn.Kind == EntityKind.Npc ? ((NpcRenderInfo)info).SoundCode : ((MonsterRenderInfo)info).SoundCode,
             composed.Info,
@@ -339,8 +339,8 @@ public sealed partial class RemoteEntityManager
         if (_entities.TryGetValue(state.EntityId, out var entity))
         {
             entity.SetRates(state.MoveSpeed, state.AttackRate);
-            entity.SetTarget(_clock.Stamp(state.ServerTimeMs), ToXna(state.Position), state.Facing, state.MoveState, state.Hp);
-            UpdateSummonPlate(state.EntityId, state.Hp);
+            entity.SetTarget(_clock.Stamp(state.ServerTimeMs), ToXna(state.Position), state.Facing, state.MoveState, state.Life);
+            UpdateSummonPlate(state.EntityId, state.Life);
             if (!_preparingActors.ContainsKey(state.EntityId))
             {
                 return;
@@ -354,7 +354,7 @@ public sealed partial class RemoteEntityManager
                 Position = state.Position,
                 Facing = state.Facing,
                 MoveState = state.MoveState,
-                Hp = state.Hp,
+                Life = state.Life,
                 MoveSpeed = state.MoveSpeed,
                 AttackRate = state.AttackRate,
                 ServerTimeMs = state.ServerTimeMs
@@ -370,7 +370,7 @@ public sealed partial class RemoteEntityManager
                 Position = state.Position,
                 Facing = state.Facing,
                 MoveState = state.MoveState,
-                Hp = state.Hp,
+                Life = state.Life,
                 MoveSpeed = state.MoveSpeed,
                 AttackRate = state.AttackRate,
                 ServerTimeMs = state.ServerTimeMs

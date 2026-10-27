@@ -323,6 +323,6 @@ internal sealed partial class FieldSkills
             return;
         }
 
-        HealPlayer(caster, caster, Math.Min(drained, caster.MaxHp * damage.LifeToCasterCapPercent / 100));
+        HealPlayer(caster, caster, Math.Min(drained, caster.MaxLife * damage.LifeToCasterCapPercent / 100));
     }
 }

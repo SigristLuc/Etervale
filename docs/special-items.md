@@ -111,7 +111,7 @@ running kind is refused, so timers never stack.
 | Gravity Scroll BI184 | Carrying capacity +50, at most five |
 | Big-head potion BI109 | Big head for 600 s |
 | Firecracker BI123 | Four rockets half a second apart; the roll picks each burst's shape; the player cheers (Yahoo) after the motion in progress |
-| Mobile shop BI142 | A shop that buys and repairs until closed (NPC serial 0) |
+| Mobile shop BI142 | A shop that buys and repairs until closed (NPC id 0) |
 
 Aging and mixing materials (BI110, 111, 160, 161, 185, 189, 190) and the passive resurrection scroll are not used
 from the inventory. Items without a rule keep the generic tooltip.
@@ -240,7 +240,7 @@ clan and refuses (`ClanOnly`).
 - The commit re-applies the character part with the prepared clock and roll; it must not re-apply aging (the
   inventory commit already carries the upgraded item).
 - Package timers share one expiry; a single item of a kind a package runs is refused while the package runs.
-- `HudNpcServiceController` accepts NPC serial 0 only for the shop: that is the mobile shop.
+- `HudNpcServiceController` accepts NPC id 0 only for the shop: that is the mobile shop.
 - Crystal pets are summons (`OwnerId`) but not in the skill summon table; `FieldSkills.StepSummon` steps them through
   `StepCrystalPet` first.
 - Castle item ends queued from the command phase reach clients with the next step (`EndItemEffect`); leaving the castle

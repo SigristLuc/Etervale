@@ -153,7 +153,7 @@ internal static class MonsterBossSkillTests
         var world = new MonsterSkillField(machine, bee);
         var player = world.AddPlayer(1, new Vector3(60, 0, 0));
         var monster = world.Spawn(machine, Vector3.Zero, target: 1, point: 3);
-        var life = player.Hp;
+        var life = player.Life;
         world.Step(400);
         Assert.True(monster.Position == Vector3.Zero, "the machine moved");
         Assert.True(world.Monsters.Count(m => m.Def.SoundCode == MonsterSounds.VampiricBee && m.SpawnPointIndex == 3) == 3, "the machine sent the wrong number of bees");
@@ -169,10 +169,10 @@ internal static class MonsterBossSkillTests
         var away = world.AddPlayer(2, new Vector3(300, 0, 0));
         var monster = world.Spawn(mystic, Vector3.Zero);
         monster.ApplyDamage(monster.Life);
-        var nearLife = near.Hp;
-        var awayLife = away.Hp;
+        var nearLife = near.Life;
+        var awayLife = away.Life;
         world.Step();
-        Assert.True(near.Hp < nearLife && away.Hp == awayLife, "the explosion missed its range");
+        Assert.True(near.Life < nearLife && away.Life == awayLife, "the explosion missed its range");
         world.Step(5);
         Assert.True(world.Events.Count(value => value.Kind == CombatEventKind.MonsterSkillImpact) == 1, "the explosion repeated");
 

@@ -25,6 +25,9 @@ public static class ItemCodes
     public static uint Parse(string key) =>
         TryParse(key, out var code) ? code : throw new FormatException($"'{key}' is not an item key.");
 
+    // The key of a code; empty for 0, an empty slot, or a code no key spells.
+    public static string KeyOf(uint code) => TryFormat(code, out var key) ? key : "";
+
     public static bool TryFormat(uint code, out string key)
     {
         key = "";

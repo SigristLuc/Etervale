@@ -8,7 +8,7 @@ public sealed record EntityStateInfo(
     Vector3 Position,
     float Facing,
     MotionState MoveState,
-    int Hp,
+    int Life,
     int MoveSpeed = 0,
     float AttackRate = 1f,
     ulong AttackTargetId = 0,

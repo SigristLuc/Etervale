@@ -138,8 +138,8 @@ public sealed partial class WorldServer
                 field.StartCastleItem(player, castle);
                 break;
             case UsableItemAction.Restoration:
-                player.Revive(player.MaxHp / 2, ItemUseTransactions.RestorationGuardMs);
-                field.EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKind.Revive, damage: player.Hp));
+                player.Revive(player.MaxLife / 2, ItemUseTransactions.RestorationGuardMs);
+                field.EmitCombatEvent(new CombatEventView(player.EntityId, player.EntityId, CombatEventKind.Revive, damage: player.Life));
                 effect = ItemEffectKind.Return;
                 break;
             case UsableItemAction.Food when operation.Food is { } food:

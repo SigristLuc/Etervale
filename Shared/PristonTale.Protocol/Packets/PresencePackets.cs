@@ -70,13 +70,13 @@ public static class VarInt
 // What the receiver learns about one entity. A motion entry carries the position, facing and motion only; a full entry
 // adds the life, level, target, attack sequence, description revision, shared template and field.
 public readonly record struct PresenceEntry(
-    ulong Serial,
+    ulong EntityId,
     bool Full,
     Vector3 Position,
     float Facing,
     MotionState Motion,
-    int Hp = 0,
-    int MaxHp = 0,
+    int Life = 0,
+    int MaxLife = 0,
     int Level = 0,
     ulong Target = 0,
     ulong AttackSequence = 0,
@@ -85,8 +85,8 @@ public readonly record struct PresenceEntry(
     int FieldCode = -1);
 
 // The presence of nearby entities (S->C). {header, uint16 Version = 1, uint16 Flags = 0, uint32 Sequence, uint16 Count,
-// uint16 0}, then Count entries: {varuint Serial, uint8 Kind (bit 0 full), int24 X, Y, Z (world units x 8), uint16 Facing
-// (65536 per turn), uint8 Motion} and, when full, {varuint Hp, MaxHp, Level, Target, AttackSequence, uint8 Revision,
+// uint16 0}, then Count entries: {varuint EntityId, uint8 Kind (bit 0 full), int24 X, Y, Z (world units x 8), uint16 Facing
+// (65536 per turn), uint8 Motion} and, when full, {varuint Life, MaxLife, Level, Target, AttackSequence, uint8 Revision,
 // varuint Template, varint (zigzag) FieldCode}. Every integer that can grow is 64-bit capable; positions span the
 // world's +-1,000,000 units at 1/8 of a unit.
 public static class PresenceWire
@@ -102,22 +102,22 @@ public static class PresenceWire
     public const int MaxMotionEntrySize = VarInt.MaxBytes64 + MotionBody;
     public const int MaxFullEntrySize = MaxMotionEntrySize + 5 * 3 + VarInt.MaxBytes64 * 2 + 1 + 5 + 5;
 
-    public static int MotionEntrySize(ulong serial) => VarInt.Size(serial) + MotionBody;
+    public static int MotionEntrySize(ulong entityId) => VarInt.Size(entityId) + MotionBody;
 
-    public static int WriteMotion(Span<byte> destination, ulong serial, Vector3 position, float facing, MotionState motion)
+    public static int WriteMotion(Span<byte> destination, ulong entityId, Vector3 position, float facing, MotionState motion)
     {
-        var offset = VarInt.Write(destination, serial);
+        var offset = VarInt.Write(destination, entityId);
         destination[offset++] = 0;
         return WriteBody(destination, offset, position, facing, motion);
     }
 
     public static int WriteFull(Span<byte> destination, in PresenceEntry entry)
     {
-        var offset = VarInt.Write(destination, entry.Serial);
+        var offset = VarInt.Write(destination, entry.EntityId);
         destination[offset++] = FullKind;
         offset = WriteBody(destination, offset, entry.Position, entry.Facing, entry.Motion);
-        offset += VarInt.Write(destination[offset..], (ulong)Math.Max(0, entry.Hp));
-        offset += VarInt.Write(destination[offset..], (ulong)Math.Max(0, entry.MaxHp));
+        offset += VarInt.Write(destination[offset..], (ulong)Math.Max(0, entry.Life));
+        offset += VarInt.Write(destination[offset..], (ulong)Math.Max(0, entry.MaxLife));
         offset += VarInt.Write(destination[offset..], (ulong)Math.Max(0, entry.Level));
         offset += VarInt.Write(destination[offset..], entry.Target);
         offset += VarInt.Write(destination[offset..], entry.AttackSequence);
@@ -129,7 +129,7 @@ public static class PresenceWire
 
     public static PresenceEntry Read(ReadOnlySpan<byte> source, ref int offset)
     {
-        var serial = VarInt.Read(source, ref offset);
+        var entityId = VarInt.Read(source, ref offset);
         if (source.Length - offset < MotionBody)
         {
             throw new InvalidDataException("Presence entry ends inside its motion.");
@@ -147,11 +147,11 @@ public static class PresenceWire
 
         if (!full)
         {
-            return new PresenceEntry(serial, false, position, facing, motion);
+            return new PresenceEntry(entityId, false, position, facing, motion);
         }
 
-        var hp = Narrow(VarInt.Read(source, ref offset));
-        var maxHp = Narrow(VarInt.Read(source, ref offset));
+        var life = Narrow(VarInt.Read(source, ref offset));
+        var maxLife = Narrow(VarInt.Read(source, ref offset));
         var level = Narrow(VarInt.Read(source, ref offset));
         var target = VarInt.Read(source, ref offset);
         var sequence = VarInt.Read(source, ref offset);
@@ -163,7 +163,7 @@ public static class PresenceWire
         var revision = source[offset++];
         var template = VarInt.Read(source, ref offset) is var code && code <= uint.MaxValue ? (uint)code : throw new InvalidDataException("Presence template exceeds 32 bits.");
         var field = VarInt.UnZigZag(VarInt.Read(source, ref offset));
-        return new PresenceEntry(serial, true, position, facing, motion, hp, maxHp, level, target, sequence, revision, template, field);
+        return new PresenceEntry(entityId, true, position, facing, motion, life, maxLife, level, target, sequence, revision, template, field);
     }
 
     public static ushort ToFacing(float radians)

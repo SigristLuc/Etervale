@@ -26,7 +26,7 @@ internal static class WireMapping
     // A full presence entry: the motion part plus life, level, target, attack sequence, description revision, shared
     // template and field.
     public static PresenceEntry Entry(in EntityView view, int fieldCode, byte revision) => new(
-        view.EntityId, true, view.Position, view.Facing, view.MoveState, view.Hp, view.MaxHp, view.Level, view.AttackTargetId,
+        view.EntityId, true, view.Position, view.Facing, view.MoveState, view.Life, view.MaxLife, view.Level, view.AttackTargetId,
         view.AttackSequence, revision, SharedTemplate(view), fieldCode);
 
     public static int WriteFull(Span<byte> destination, in EntityView view, int fieldCode, byte revision) =>
@@ -95,7 +95,7 @@ internal static class WireMapping
 
     public static OwnerStatusPacket Status(OwnerState owner) => new(
         owner.Level, owner.Experience, owner.LevelStart, owner.NextLevel, owner.Money,
-        owner.Hp, owner.MaxHp, owner.Mp, owner.MaxMp, owner.Sp, owner.MaxSp,
+        owner.Life, owner.MaxLife, owner.Mana, owner.MaxMana, owner.Stamina, owner.MaxStamina,
         owner.StatPoints, owner.SkillPoints, owner.Strength, owner.Spirit, owner.Talent, owner.Agility, owner.Health,
         owner.DamageMin, owner.DamageMax, owner.Defence, owner.Absorption, owner.AttackRating, owner.MoveSpeed, owner.AttackRange,
         owner.InventoryRevision, owner.ProgressionRevision, owner.SkillsRevision, owner.EliteSkillPoints, owner.Tier);

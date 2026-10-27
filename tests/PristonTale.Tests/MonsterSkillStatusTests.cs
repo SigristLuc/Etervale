@@ -65,12 +65,12 @@ internal static class MonsterSkillStatusTests
         Assert.True(player.Character.Effects.TryGet(MonsterStatuses.Poison, out var poison), "stingray skill did not poison");
         Assert.Near(5000, poison.DurationMs, 1f);
         monster.ApplyDamage(monster.Life);
-        var before = player.Hp;
+        var before = player.Life;
         world.Step(20);
-        Assert.True(player.Hp < before && before - player.Hp <= 7 * 6, "poison did not drain life at its rate");
-        player.ApplyDamage(player.Hp - 2);
+        Assert.True(player.Life < before && before - player.Life <= 7 * 6, "poison did not drain life at its rate");
+        player.ApplyDamage(player.Life - 2);
         world.Step(80);
-        Assert.True(player.Hp >= 1 && !player.IsDead, "poison killed the player");
+        Assert.True(player.Life >= 1 && !player.IsDead, "poison killed the player");
         return Task.CompletedTask;
     }
 
@@ -192,10 +192,10 @@ internal static class MonsterSkillStatusTests
         world = new MonsterSkillField(mystic);
         player = world.AddPlayer(1, new Vector3(50, 0, 0));
         absorption = player.Character.Derived.Absorption;
-        var life = player.Hp;
+        var life = player.Life;
         CastOnce(world, mystic, 1);
         lowered = absorption - player.Character.Derived.Absorption;
-        Assert.True(lowered is >= 10 and <= 16 && player.Hp == life, "mystic curse dealt damage or the wrong curse");
+        Assert.True(lowered is >= 10 and <= 16 && player.Life == life, "mystic curse dealt damage or the wrong curse");
 
         var incubus = MonsterSkillField.Monster(MonsterSounds.Succubus, level: 82, skillMin: 0, skillMax: 0, rating: 100, curse: 103);
         world = new MonsterSkillField(incubus);

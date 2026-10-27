@@ -240,7 +240,7 @@ internal static class QuestServiceTests
         var arena = world.WaitFor(snapshot => snapshot.FieldId == QuestArena.FieldCode
             && snapshot.Entities.Any(entity => entity.Kind == EntityKind.Monster && entity.DuelPlayerId == world.Session.EntityId));
         var opponent = arena.Entities.Single(entity => entity.Kind == EntityKind.Monster);
-        Assert.True(opponent.MaxHp == 1000, "the opponent did not scale with the player");
+        Assert.True(opponent.MaxLife == 1000, "the opponent did not scale with the player");
         Assert.True(world.Characters.Record.FieldId == 3 || world.Characters.Record.FieldId == QuestArena.FieldCode, "the record field differs");
 
         // The client walks the player into reach; the test places it there.
@@ -248,7 +248,7 @@ internal static class QuestServiceTests
         await world.Advance(world.Server.SetAttackTargetAsync(QuestArena.FieldCode, world.Session.EntityId, opponent.EntityId, true));
         var won = world.WaitFor(snapshot => snapshot.Quest?.Prompt is { State: 8 }, 6000);
         var yielded = won.Entities.Single(entity => entity.EntityId == opponent.EntityId);
-        Assert.True(yielded.Hp == QuestArena.YieldLife(1000) && character.Quests.Active is { State: 8, ArenaWon: true }, "the master did not yield");
+        Assert.True(yielded.Life == QuestArena.YieldLife(1000) && character.Quests.Active is { State: 8, ArenaWon: true }, "the master did not yield");
 
         var promote = await world.Advance(quests.RequestAsync(token, new QuestCommand(Guid.NewGuid(), 0, QuestAction.Accept, QuestCode.RankUpMasterTrial, 8, 0)));
         Assert.True(promote.Ok && character.Tier == 3 && world.Characters.Record.Tier == 3 && character.Quests.HasFinished(QuestCode.RankUpMasterTrial),

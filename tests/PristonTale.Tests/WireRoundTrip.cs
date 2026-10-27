@@ -22,7 +22,7 @@ internal sealed class WireRoundTrip
     {
         _encoder = new PresenceEncoder(self, data ?? new WorldDataHolder());
         Catalog = new WorldRenderCatalog();
-        _decoder = new PresenceDecoder(Catalog, _requests.Enqueue) { SelfSerial = self };
+        _decoder = new PresenceDecoder(Catalog, _requests.Enqueue) { SelfEntityId = self };
     }
 
     public WorldRenderCatalog Catalog { get; }
@@ -43,9 +43,9 @@ internal sealed class WireRoundTrip
                 }
             }
 
-            while (_requests.TryDequeue(out var serial))
+            while (_requests.TryDequeue(out var entityId))
             {
-                if (_encoder.Describe(serial) is { } info)
+                if (_encoder.Describe(entityId) is { } info)
                 {
                     var buffer = new byte[EntityDescriptionPacket.MaximumSize];
                     _sink.Packets.Enqueue(buffer[..info.Write(buffer)]);

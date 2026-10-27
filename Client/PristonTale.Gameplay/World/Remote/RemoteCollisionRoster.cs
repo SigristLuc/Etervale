@@ -7,14 +7,14 @@ namespace PristonTale.Gameplay.World.Remote;
 
 internal sealed class RemoteCollisionRoster
 {
-    private readonly record struct Entry(EntityKind Kind, Vector3 Position, int Hp);
+    private readonly record struct Entry(EntityKind Kind, Vector3 Position, int Life);
     private readonly Dictionary<ulong, Entry> _entries = [];
 
     public void Spawn(EntitySpawnInfo spawn)
     {
         if (spawn.Kind is EntityKind.Player or EntityKind.Monster or EntityKind.Npc)
         {
-            _entries[spawn.EntityId] = new Entry(spawn.Kind, spawn.Position, spawn.Hp);
+            _entries[spawn.EntityId] = new Entry(spawn.Kind, spawn.Position, spawn.Life);
         }
     }
 
@@ -22,7 +22,7 @@ internal sealed class RemoteCollisionRoster
     {
         if (_entries.TryGetValue(state.EntityId, out var entry))
         {
-            _entries[state.EntityId] = entry with { Position = state.Position, Hp = state.Hp };
+            _entries[state.EntityId] = entry with { Position = state.Position, Life = state.Life };
         }
     }
 
@@ -34,7 +34,7 @@ internal sealed class RemoteCollisionRoster
         into.Clear();
         foreach (var (id, entry) in _entries)
         {
-            if (id == excludeId || entry.Hp <= 0)
+            if (id == excludeId || entry.Life <= 0)
             {
                 continue;
             }

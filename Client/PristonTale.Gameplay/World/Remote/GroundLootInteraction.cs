@@ -55,7 +55,7 @@ public sealed class GroundLootInteraction(Func<InventoryCommand, Task<InventoryO
             return;
         }
 
-        if (owner.Hp <= 0 || !ground.TryGet(_selected, out var target))
+        if (owner.Life <= 0 || !ground.TryGet(_selected, out var target))
         {
             Cancel();
             return;

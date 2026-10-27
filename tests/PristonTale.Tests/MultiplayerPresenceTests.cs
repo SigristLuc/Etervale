@@ -42,24 +42,24 @@ internal static class MultiplayerPresenceTests
         await using var a = await Enter(server, "Shielded", camp, playerClass: PlayerClass.Mechanician, level: 20,
             customize: setup => setup with { Skills = [(PhysicalAbsorption, 2)] });
         await using var b = await Enter(server, "Beside", camp + new Vector3(120f, 0f, 0f));
-        await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.Serial), "the mechanician");
+        await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.EntityId), "the mechanician");
 
         var cast = await a.CastAsync(PhysicalAbsorption);
         Assert.True(cast.Accepted, $"Physical Absorption refused: {cast.Status}");
-        var seen = await b.WaitAsync(world => world.Statuses.FirstOrDefault(status => status.EntityId == a.Serial && status.StatusCode == PhysicalAbsorption
+        var seen = await b.WaitAsync(world => world.Statuses.FirstOrDefault(status => status.EntityId == a.EntityId && status.StatusCode == PhysicalAbsorption
             && status.Op == StatusEffectOp.Add), "the buff");
-        var own = await a.WaitAsync(world => world.Statuses.FirstOrDefault(status => status.EntityId == a.Serial && status.StatusCode == PhysicalAbsorption
+        var own = await a.WaitAsync(world => world.Statuses.FirstOrDefault(status => status.EntityId == a.EntityId && status.StatusCode == PhysicalAbsorption
             && status.Op == StatusEffectOp.Add), "its own buff");
         Assert.True(seen == own && seen.DurationMs > 0 && !seen.Harmful, "the viewer saw another buff than its holder");
 
         // A player that enters the range after the buff started still sees it, with the time already spent.
         await Task.Delay(600);
         await using var late = await Enter(server, "Latecomer", camp + new Vector3(-120f, 0f, 0f));
-        var arrived = await late.WaitAsync(world => world.Statuses.FirstOrDefault(status => status.EntityId == a.Serial && status.StatusCode == PhysicalAbsorption),
+        var arrived = await late.WaitAsync(world => world.Statuses.FirstOrDefault(status => status.EntityId == a.EntityId && status.StatusCode == PhysicalAbsorption),
             "the running buff");
         Assert.True(arrived.Op == StatusEffectOp.Add && arrived.DurationMs == seen.DurationMs && arrived.RemainingMs < seen.RemainingMs
             && arrived.RemainingMs > seen.RemainingMs - 5000, $"the latecomer saw {arrived}");
-        Assert.True(!late.World.Read(world => world.Statuses.Any(status => status.EntityId == late.Serial)), "the latecomer received statuses it does not have");
+        Assert.True(!late.World.Read(world => world.Statuses.Any(status => status.EntityId == late.EntityId)), "the latecomer received statuses it does not have");
     }
 
     private static async Task SummonAsync()
@@ -72,7 +72,7 @@ internal static class MultiplayerPresenceTests
         Assert.True(wild.OwnerId == 0, "the wild golem has an owner");
         await using var a = await Enter(server, "Engineer", Spot + new Vector3(250f, 0f, 0f), playerClass: PlayerClass.Mechanician, level: 80,
             customize: setup => setup with { Skills = [(MetalGolem, 3)] });
-        await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.Serial), "the engineer");
+        await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.EntityId), "the engineer");
 
         var cast = await a.CastAsync(MetalGolem);
         Assert.True(cast.Accepted, $"Metal Golem refused: {cast.Status}");
@@ -80,18 +80,18 @@ internal static class MultiplayerPresenceTests
         {
             var summon = await viewer.WaitAsync(world => world.Entities.Values.FirstOrDefault(entity => entity.TemplateId == GolemCode && entity.Id != wild.Id
                 && entity.Spawns > 0 && entity.OwnerId != 0), "the owned golem");
-            Assert.True(summon.OwnerId == a.Serial && summon.Kind == EntityKind.Monster, $"{viewer.Name} saw the summon owned by {summon.OwnerId}");
+            Assert.True(summon.OwnerId == a.EntityId && summon.Kind == EntityKind.Monster, $"{viewer.Name} saw the summon owned by {summon.OwnerId}");
         }
 
         await Task.Delay(300);
-        Assert.True(b.World.Read(world => world.Entities.Values.Count(entity => entity.TemplateId == GolemCode && entity.OwnerId == a.Serial)) == 1,
+        Assert.True(b.World.Read(world => world.Entities.Values.Count(entity => entity.TemplateId == GolemCode && entity.OwnerId == a.EntityId)) == 1,
             "a wild golem took the summon's owner");
         Assert.True(b.World.Read(world => !world.Entities.TryGetValue(wild.Id, out var value) || value.OwnerId == 0), "the wild golem became owned");
 
         // A golem summoned while the viewer already knows wild ones is not mistaken for them, and the reverse.
         await using var c = await Enter(server, "LateFan", Spot + new Vector3(-150f, 0f, 80f), level: 80);
-        var summonId = a.World.Read(world => world.Entities.Values.First(entity => entity.OwnerId == a.Serial).Id);
-        await c.WaitUntilAsync(world => world.Entities.TryGetValue(summonId, out var value) && value.OwnerId == a.Serial, "the summon for a later viewer");
+        var summonId = a.World.Read(world => world.Entities.Values.First(entity => entity.OwnerId == a.EntityId).Id);
+        await c.WaitUntilAsync(world => world.Entities.TryGetValue(summonId, out var value) && value.OwnerId == a.EntityId, "the summon for a later viewer");
         await c.WaitUntilAsync(world => world.Entities.Values.Any(entity => entity.TemplateId == GolemCode && entity.OwnerId == 0), "a wild golem for a later viewer");
     }
 
@@ -105,7 +105,7 @@ internal static class MultiplayerPresenceTests
             Items = [MultiplayerServer.Firecracker, MultiplayerServer.BigHead, MultiplayerServer.Invulnerability]
         });
         await using var b = await Enter(server, "Admirer", camp + new Vector3(140f, 0f, 0f));
-        var first = await b.WaitAsync(world => world.Entities.GetValueOrDefault(a.Serial), "the magician");
+        var first = await b.WaitAsync(world => world.Entities.GetValueOrDefault(a.EntityId), "the magician");
         Assert.True(first.Player?.WeaponKey == "WM101" && first.Player.BigHead == 0, "the viewer missed the staff");
 
         await a.WaitUntilAsync(world => world.Owner is not null, "its own state");
@@ -114,24 +114,24 @@ internal static class MultiplayerPresenceTests
         var unequip = await a.InventoryAsync(new InventoryCommand(Guid.NewGuid(), revision, InventoryAction.Unequip, staff!.InstanceId, -1, 1,
             EquipmentSlot.Weapon));
         Assert.True(unequip.Ok, $"unequip refused: {unequip.Message}");
-        await b.WaitUntilAsync(world => world.Entities[a.Serial].Player?.WeaponKey == "", "the staff put away");
+        await b.WaitUntilAsync(world => world.Entities[a.EntityId].Player?.WeaponKey == "", "the staff put away");
 
         await a.WaitUntilAsync(world => world.Owner!.InventoryRevision == unequip.Revision, "the new inventory");
         var big = await a.UseItemAsync("BI109");
         Assert.True(big.Ok, $"big head refused: {big.Status}");
-        await b.WaitUntilAsync(world => world.Entities[a.Serial].Player?.BigHead > 0, "the big head");
+        await b.WaitUntilAsync(world => world.Entities[a.EntityId].Player?.BigHead > 0, "the big head");
 
         await a.WaitUntilAsync(world => world.Owner!.InventoryRevision == big.Revision, "the inventory after the big head");
         var firecracker = await a.UseItemAsync("BI123");
         Assert.True(firecracker.Ok, $"firecracker refused: {firecracker.Status}");
-        var burst = await b.WaitAsync(world => world.ItemEffects.FirstOrDefault(effect => effect.Entity == a.Serial), "the firecracker");
-        var ownBurst = await a.WaitAsync(world => world.ItemEffects.FirstOrDefault(effect => effect.Entity == a.Serial), "its own firecracker");
+        var burst = await b.WaitAsync(world => world.ItemEffects.FirstOrDefault(effect => effect.Entity == a.EntityId), "the firecracker");
+        var ownBurst = await a.WaitAsync(world => world.ItemEffects.FirstOrDefault(effect => effect.Entity == a.EntityId), "its own firecracker");
         Assert.True(burst.Effect == ItemEffectKind.Firecracker && burst == ownBurst, "the viewer saw another firecracker");
 
         await a.WaitUntilAsync(world => world.Owner!.InventoryRevision == firecracker.Revision, "the inventory after the firecracker");
         var scroll = await a.UseItemAsync("BI105");
         Assert.True(scroll.Ok, $"invulnerability scroll refused: {scroll.Status}");
-        var status = await b.WaitAsync(world => world.Statuses.FirstOrDefault(value => value.EntityId == a.Serial && value.Op == StatusEffectOp.Add),
+        var status = await b.WaitAsync(world => world.Statuses.FirstOrDefault(value => value.EntityId == a.EntityId && value.Op == StatusEffectOp.Add),
             "the scroll's status");
         Assert.True(status.SourceKind == (byte)EffectSourceKind.Item, "the scroll status has another source");
     }
@@ -159,11 +159,11 @@ internal static class MultiplayerPresenceTests
         {
             var pet = await viewer.WaitAsync(world => world.Entities.Values.FirstOrDefault(entity => entity.TemplateId == hopyCode && entity.OwnerId != 0),
                 "the crystal pet");
-            Assert.True(pet.OwnerId == a.Serial && pet.Id != wild.Id, $"{viewer.Name} saw the pet owned by {pet.OwnerId}");
+            Assert.True(pet.OwnerId == a.EntityId && pet.Id != wild.Id, $"{viewer.Name} saw the pet owned by {pet.OwnerId}");
         }
 
         await Task.Delay(300);
-        Assert.True(b.World.Read(world => world.Entities.Values.Count(entity => entity.TemplateId == hopyCode && entity.OwnerId == a.Serial)) == 1,
+        Assert.True(b.World.Read(world => world.Entities.Values.Count(entity => entity.TemplateId == hopyCode && entity.OwnerId == a.EntityId)) == 1,
             "a wild hopy took the pet's owner");
         Assert.True(b.World.Read(world => !world.Entities.TryGetValue(wild.Id, out var value) || value.OwnerId == 0), "the wild hopy became owned");
     }
@@ -183,19 +183,19 @@ internal static class MultiplayerPresenceTests
         await using var a = await Enter(server, "Victim", Spot + new Vector3(60f, 0f, 0f), level: 1);
         await using var b = await Enter(server, "Mourner", Spot + new Vector3(-650f, 0f, 0f));
         await using var c = await Enter(server, "Healer", respawn + new Vector3(100f, 0f, 0f));
-        await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.Serial), "the victim");
+        await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.EntityId), "the victim");
 
-        await b.WaitUntilAsync(world => world.Entities.TryGetValue(a.Serial, out var victim) && victim.Hp <= 0 && victim.Motion == MotionState.Dead,
+        await b.WaitUntilAsync(world => world.Entities.TryGetValue(a.EntityId, out var victim) && victim.Life <= 0 && victim.Motion == MotionState.Dead,
             "the victim dead", 9000);
-        var killing = b.World.Read(world => world.Combat.Select(entry => entry.Event).First(value => value.TargetId == a.Serial && value.Killed));
+        var killing = b.World.Read(world => world.Combat.Select(entry => entry.Event).First(value => value.TargetId == a.EntityId && value.Killed));
         Assert.True(a.World.Read(world => world.Combat.Any(entry => entry.Event == killing)), "the victim saw another killing blow");
         await Task.Delay(500);
-        Assert.True(b.World.Read(world => world.Entities.TryGetValue(a.Serial, out var down) && down.Hp <= 0), "the victim stood up without choosing");
+        Assert.True(b.World.Read(world => world.Entities.TryGetValue(a.EntityId, out var down) && down.Life <= 0), "the victim stood up without choosing");
         var restart = await a.RestartAsync(RestartChoice.Field);
         Assert.True(restart.Ok && restart.ExperienceLost == 0 && restart.GoldLost == 0, $"a level 1 field restart failed or cost: {restart}");
-        await c.WaitAsync(world => world.Entities.TryGetValue(a.Serial, out var victim) && victim.Hp > 0
+        await c.WaitAsync(world => world.Entities.TryGetValue(a.EntityId, out var victim) && victim.Life > 0
             && Vector3.Distance(Planar(victim.Position), Planar(respawn)) < 1f ? victim : null, "the victim respawning", 9000);
-        await b.WaitUntilAsync(world => world.Entities.TryGetValue(a.Serial, out var victim) && victim.Hp > 0
+        await b.WaitUntilAsync(world => world.Entities.TryGetValue(a.EntityId, out var victim) && victim.Life > 0
             && Vector3.Distance(Planar(victim.Position), Planar(respawn)) < 1f, "the victim respawning at the start point");
     }
 
@@ -214,7 +214,7 @@ internal static class MultiplayerPresenceTests
             }
 
             await using var viewer = await Enter(server, "Newcomer", camp + new Vector3(0f, 0f, 120f));
-            await viewer.WaitUntilAsync(world => crowd.All(member => world.Entities.TryGetValue(member.Serial, out var entity)
+            await viewer.WaitUntilAsync(world => crowd.All(member => world.Entities.TryGetValue(member.EntityId, out var entity)
                 && entity.Player?.Name == member.Name), "every member of the crowd", 9000);
         }
         finally

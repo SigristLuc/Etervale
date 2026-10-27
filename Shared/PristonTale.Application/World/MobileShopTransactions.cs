@@ -5,7 +5,7 @@ using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Application.World;
 
-// The shop a used mobile shop item opens anywhere: no NPC (serial 0) and no stock, so it buys and repairs only, at the
+// The shop a used mobile shop item opens anywhere: no NPC (entityId 0) and no stock, so it buys and repairs only, at the
 // prices of a shop NPC. It stays open until the player closes it.
 internal static class MobileShopTransactions
 {

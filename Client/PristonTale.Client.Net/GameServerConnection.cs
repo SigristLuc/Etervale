@@ -27,7 +27,7 @@ namespace PristonTale.Client.Net;
 
 // Client side of the original Priston flow over one TCP connection. The original protocol has no request ids, so
 // login, character and world-entry requests run one at a time and complete on their reply opcodes; inventory and
-// progression commands and NPC service requests correlate by operation id and NPC clicks by NPC serial.
+// progression commands and NPC service requests correlate by operation id and NPC clicks by NPC entityId.
 public sealed class GameServerConnection : IGameBackend
 {
     // Client version of the English retail build; the server's VERSION reply sets the minimum.
@@ -236,7 +236,7 @@ public sealed class GameServerConnection : IGameBackend
             var entered = _entered ?? throw new InvalidOperationException("Enter the world before opening a play channel.");
             var pending = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             _joined = pending;
-            _presence.SelfSerial = entered.EntityId;
+            _presence.SelfEntityId = entered.EntityId;
             var join = new JoinWorldPacket(entered.EntityId);
             lock (_sendGate)
             {
@@ -718,11 +718,11 @@ public sealed class GameServerConnection : IGameBackend
             case EtervaleOpcodes.NpcResult:
             {
                 var dialog = NpcDialogPacket.Read(packet);
-                if (_npcRequests.TryGetValue(dialog.NpcSerial, out var request))
+                if (_npcRequests.TryGetValue(dialog.NpcId, out var request))
                 {
                     var offers = dialog.Services
                         .Select(entry => new NpcServiceOffer((NpcServiceKind)entry.Kind, entry.Value, entry.Available, entry.PricePercent)).ToArray();
-                    request.Completion.TrySetResult(new NpcInteraction(dialog.Ok, dialog.NpcSerial, dialog.Name, offers, dialog.Lines, dialog.Message));
+                    request.Completion.TrySetResult(new NpcInteraction(dialog.Ok, dialog.NpcId, dialog.Name, offers, dialog.Lines, dialog.Message));
                 }
 
                 break;
@@ -760,7 +760,7 @@ public sealed class GameServerConnection : IGameBackend
                 if (_serviceRequests.TryGetValue(catalog.OperationId, out var request))
                 {
                     request.Catalog = catalog.Items.Select(entry => new ShopOffer(entry.Code, entry.Tab, entry.Ordinal, entry.Name, (ItemKind)entry.Kind,
-                        entry.Price, entry.Width, entry.Height, entry.MaxStack, ItemKey(entry.Code))).ToArray();
+                        entry.Price, entry.Width, entry.Height, entry.MaxStack, ItemCodes.KeyOf(entry.Code))).ToArray();
                 }
 
                 break;
@@ -782,7 +782,7 @@ public sealed class GameServerConnection : IGameBackend
                 if (_serviceRequests.TryGetValue(warehouse.OperationId, out var request))
                 {
                     var items = warehouse.Items.Select(entry => new OwnedItemView(entry.InstanceId, entry.Code, entry.Name, (ItemKind)entry.Kind, entry.Count,
-                        entry.Anchor, -1, entry.Width, entry.Height, ItemKey(entry.Code))).ToArray();
+                        entry.Anchor, -1, entry.Width, entry.Height, ItemCodes.KeyOf(entry.Code))).ToArray();
                     request.Warehouse = new WarehouseView(warehouse.Revision, warehouse.Money, warehouse.Weight, warehouse.MaxWeight, warehouse.Columns,
                         warehouse.Rows, items);
                 }
@@ -853,7 +853,7 @@ public sealed class GameServerConnection : IGameBackend
     private void OnCharacterList(CharacterListPacket list)
     {
         var summaries = list.Characters.Select(entry => new CharacterSummary(entry.Name, entry.Class, entry.Level, entry.FaceIndex, entry.Tier,
-            entry.HairIndex, ItemKey(entry.ArmorCode), ItemKey(entry.WeaponCode), ItemKey(entry.OffHandCode), entry.InVillage)).ToArray();
+            entry.HairIndex, ItemCodes.KeyOf(entry.ArmorCode), ItemCodes.KeyOf(entry.WeaponCode), ItemCodes.KeyOf(entry.OffHandCode), entry.InVillage)).ToArray();
         Volatile.Write(ref _characters, summaries);
     }
 
@@ -869,18 +869,16 @@ public sealed class GameServerConnection : IGameBackend
         _enter?.TrySetResult(EnterWorldOutcome.Success(entry.Field, entry.EntityId, entry.X, entry.Z, $"entered field {entry.Field}"));
     }
 
-    private static string ItemKey(uint code) => code != 0 && ItemCodes.TryFormat(code, out var key) ? key : "";
-
     // A full queue (the game thread stalled on a field load or a debugger) holds the receive loop instead of closing the
     // connection: TCP pushes back and the server's send backlog decides.
     private ValueTask Publish(PresenceUpdate? update) =>
         update is null || _presenceUpdates.Writer.TryWrite(update) ? ValueTask.CompletedTask : _presenceUpdates.Writer.WriteAsync(update, _lifetime.Token);
 
-    private void RequestDescription(ulong serial)
+    private void RequestDescription(ulong entityId)
     {
         lock (_sendGate)
         {
-            Connection.Send(_scratch.AsSpan(0, new DescribeEntityPacket(serial).Write(_scratch)));
+            Connection.Send(_scratch.AsSpan(0, new DescribeEntityPacket(entityId).Write(_scratch)));
         }
     }
 

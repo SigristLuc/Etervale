@@ -140,7 +140,7 @@ public sealed class GameMasterCommands
         new("/reload_settings", GameMasterLevel.Administrator, GmServerCommands.ReloadSettings),
         new("/setting", GameMasterLevel.Administrator, GmServerCommands.Setting),
         new("/insert", GameMasterLevel.Moderator, GmAccountCommands.Insert),
-        new("/usercode", GameMasterLevel.Guide, GmInformationCommands.UserBySerial),
+        new("/usercode", GameMasterLevel.Guide, GmInformationCommands.UserByEntityId),
         new("/userid", GameMasterLevel.Guide, GmInformationCommands.UserByAccount),
         new("/username", GameMasterLevel.Guide, GmInformationCommands.UserByName),
         new("/near", GameMasterLevel.Moderator, GmPlayerCommands.Near),

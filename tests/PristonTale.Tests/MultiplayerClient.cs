@@ -27,7 +27,7 @@ internal sealed class MultiplayerClient : IAsyncDisposable
     }
 
     public string Name { get; }
-    public ulong Serial { get; private set; }
+    public ulong EntityId { get; private set; }
     public int FieldId { get; private set; }
     public Vector3 Spawn { get; private set; }
     public ObservedWorld World { get; } = new();
@@ -38,7 +38,7 @@ internal sealed class MultiplayerClient : IAsyncDisposable
         var client = await LoginAsync(server, account, character);
         var enter = await client._connection.EnterWorldAsync(character, client._lifetime.Token);
         Assert.True(enter.Ok, $"{character} could not enter the world: {enter.Message}");
-        client.Serial = enter.EntityId;
+        client.EntityId = enter.EntityId;
         client.FieldId = enter.FieldId;
         client.Spawn = new Vector3(enter.SpawnX, 0f, enter.SpawnZ);
         client.Open();
@@ -58,7 +58,7 @@ internal sealed class MultiplayerClient : IAsyncDisposable
 
     public void Adopt(EnterWorldOutcome enter)
     {
-        Serial = enter.EntityId;
+        EntityId = enter.EntityId;
         FieldId = enter.FieldId;
         Spawn = new Vector3(enter.SpawnX, 0f, enter.SpawnZ);
         Open();
@@ -142,11 +142,11 @@ internal sealed class MultiplayerClient : IAsyncDisposable
             if (Environment.TickCount64 > deadline)
             {
                 var dump = World.Read(world => string.Join(" | ", world.Combat.Select(entry => $"{entry.Event.Kind}:{entry.Event.AttackerId}>{entry.Event.TargetId}={entry.Event.Damage}"))
-                    + $" self {world.Entities.GetValueOrDefault(Serial)?.Position} {world.Entities.GetValueOrDefault(Serial)?.Motion} prey {world.Entities.GetValueOrDefault(target)?.Position} {world.Entities.GetValueOrDefault(target)?.Motion} {world.Entities.GetValueOrDefault(target)?.Hp} warps {world.Warps.Count}");
+                    + $" self {world.Entities.GetValueOrDefault(EntityId)?.Position} {world.Entities.GetValueOrDefault(EntityId)?.Motion} prey {world.Entities.GetValueOrDefault(target)?.Position} {world.Entities.GetValueOrDefault(target)?.Motion} {world.Entities.GetValueOrDefault(target)?.Life} warps {world.Warps.Count}");
                 throw new TimeoutException($"{Name} never finished hunting {target}{World.Failure}: {dump}");
             }
 
-            var (self, prey) = World.Read(world => (world.Entities.GetValueOrDefault(Serial)?.Position, world.Entities.GetValueOrDefault(target)?.Position));
+            var (self, prey) = World.Read(world => (world.Entities.GetValueOrDefault(EntityId)?.Position, world.Entities.GetValueOrDefault(target)?.Position));
             if (self is { } from && prey is { } to && Vector3.Distance(from, to) > reach)
             {
                 var step = Vector3.Distance(from, to) - reach;
@@ -331,9 +331,9 @@ internal sealed class ObservedWorld
         }
     }
 
-    public bool Mentions(ulong serial) =>
-        EverSeen.Contains(serial) || Removed.Contains(serial) || Combat.Any(entry => entry.Event.AttackerId == serial || entry.Event.TargetId == serial)
-        || Skills.Any(entry => entry.CasterId == serial || entry.TargetId == serial) || Statuses.Any(entry => entry.EntityId == serial);
+    public bool Mentions(ulong entityId) =>
+        EverSeen.Contains(entityId) || Removed.Contains(entityId) || Combat.Any(entry => entry.Event.AttackerId == entityId || entry.Event.TargetId == entityId)
+        || Skills.Any(entry => entry.CasterId == entityId || entry.TargetId == entityId) || Statuses.Any(entry => entry.EntityId == entityId);
 }
 
 internal sealed class ObservedEntity(ulong id)
@@ -343,8 +343,8 @@ internal sealed class ObservedEntity(ulong id)
     public Vector3 Position { get; private set; }
     public float Facing { get; private set; }
     public MotionState Motion { get; private set; }
-    public int Hp { get; private set; }
-    public int MaxHp { get; private set; }
+    public int Life { get; private set; }
+    public int MaxLife { get; private set; }
     public int Level { get; private set; }
     public uint TemplateId { get; private set; }
     public ulong OwnerId { get; private set; }
@@ -360,19 +360,19 @@ internal sealed class ObservedEntity(ulong id)
         TemplateId = spawn.TemplateId;
         OwnerId = spawn.OwnerId;
         Player = spawn.Player;
-        MaxHp = spawn.MaxHp;
+        MaxLife = spawn.MaxLife;
         Level = spawn.Level;
-        Record(spawn.Position, spawn.Facing, spawn.MoveState, spawn.Hp, spawn.ServerTimeMs);
+        Record(spawn.Position, spawn.Facing, spawn.MoveState, spawn.Life, spawn.ServerTimeMs);
     }
 
-    public void State(EntityStateInfo state) => Record(state.Position, state.Facing, state.MoveState, state.Hp, state.ServerTimeMs);
+    public void State(EntityStateInfo state) => Record(state.Position, state.Facing, state.MoveState, state.Life, state.ServerTimeMs);
 
-    private void Record(Vector3 position, float facing, MotionState motion, int hp, double? timeMs)
+    private void Record(Vector3 position, float facing, MotionState motion, int life, double? timeMs)
     {
         Position = position;
         Facing = facing;
         Motion = motion;
-        Hp = hp;
+        Life = life;
         Samples.Add((timeMs, position, motion));
     }
 }

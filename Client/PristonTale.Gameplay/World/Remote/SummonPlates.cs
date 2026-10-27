@@ -21,7 +21,7 @@ public static class SummonPlates
     {
         foreach (var (entityId, ownerId, plate) in remote.SummonPlates)
         {
-            if (!remote.TryGetDrawnPosition(entityId, out var position) || plate.Hp <= 0
+            if (!remote.TryGetDrawnPosition(entityId, out var position) || plate.Life <= 0
                 || Vector3.DistanceSquared(position, viewer) > PlateRange * PlateRange)
             {
                 continue;
@@ -44,7 +44,7 @@ public static class SummonPlates
             if (ownerId == viewerId)
             {
                 var bounds = new Rectangle((int)(below.X - BarWidth / 2f), (int)below.Y, BarWidth, BarHeight);
-                var fraction = plate.MaxHp > 0 ? Math.Clamp(plate.Hp / (float)plate.MaxHp, 0f, 1f) : 0f;
+                var fraction = plate.MaxLife > 0 ? Math.Clamp(plate.Life / (float)plate.MaxLife, 0f, 1f) : 0f;
                 batch.Draw(pixel, new Rectangle(bounds.X - 1, bounds.Y - 1, bounds.Width + 2, bounds.Height + 2), Color.Black);
                 batch.Draw(pixel, new Rectangle(bounds.X, bounds.Y, (int)(bounds.Width * fraction), bounds.Height), new Color(220, 40, 40));
             }

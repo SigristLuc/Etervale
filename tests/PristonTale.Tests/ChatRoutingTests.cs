@@ -9,7 +9,7 @@ internal static class ChatRoutingTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("a spoken line reaches players within the spoken range with the speaker's name and serial", SpokenRangeAsync);
+        yield return ("a spoken line reaches players within the spoken range with the speaker's name and entityId", SpokenRangeAsync);
         yield return ("long spoken lines are cut to 68 characters and an ellipsis, slash lines are never spoken", ShortenAsync);
         yield return ("whispers name both sides, refuse when whispers are disabled and report missing players", WhisperAsync);
         yield return ("trade lines reach everybody, clan lines the clan, party lines the other members only", ChannelsAsync);

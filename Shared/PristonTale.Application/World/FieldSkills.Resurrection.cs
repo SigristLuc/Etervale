@@ -39,8 +39,8 @@ internal sealed partial class FieldSkills
             return false;
         }
 
-        fallen.Revive(fallen.MaxHp * resurrect.LifePercent / 100, resurrect.GuardTenths * 100f);
-        _host.EmitCombatEvent(new CombatEventView(caster.EntityId, fallen.EntityId, CombatEventKind.Revive, damage: fallen.Hp));
+        fallen.Revive(fallen.MaxLife * resurrect.LifePercent / 100, resurrect.GuardTenths * 100f);
+        _host.EmitCombatEvent(new CombatEventView(caster.EntityId, fallen.EntityId, CombatEventKind.Revive, damage: fallen.Life));
         return true;
     }
 }

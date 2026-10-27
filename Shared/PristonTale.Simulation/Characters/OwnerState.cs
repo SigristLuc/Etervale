@@ -16,7 +16,7 @@ public sealed record AgingProgressView(Guid InstanceId, int Count, int Goal);
 
 public sealed record OwnerState(
     int Level, ulong Experience, ulong LevelStart, ulong NextLevel,
-    long Money, int Hp, int MaxHp, int Mp, int MaxMp, int Sp, int MaxSp,
+    long Money, int Life, int MaxLife, int Mana, int MaxMana, int Stamina, int MaxStamina,
     int StatPoints, int SkillPoints, int Strength, int Spirit, int Talent, int Agility, int Health,
     int DamageMin, int DamageMax, int Defence, int Absorption, long InventoryRevision,
     IReadOnlyList<OwnedItemView> Items)

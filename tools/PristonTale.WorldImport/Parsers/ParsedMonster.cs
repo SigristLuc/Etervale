@@ -24,7 +24,7 @@ public sealed class ParsedMonster
     public int Defence { get; init; }
     public int AbsorbPct { get; init; }
     public int BlockPct { get; init; }
-    public int Hp { get; init; }
+    public int Life { get; init; }
     public int Sight { get; init; }       // RAW reach (NOT squared)
     public int SkillDamageMin { get; init; }
     public int SkillDamageMax { get; init; }

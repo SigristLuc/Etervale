@@ -65,8 +65,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private PhysicsBody _playerBody;
     private ActorMotionController _playerController = new();
     private bool _runMode;
-    private int _selfHp;
-    private int _selfMaxHp;
+    private int _selfLife;
+    private int _selfMaxLife;
     private Vector3 _playerForward = Vector3.Forward;
     private MouseState _lastMouseState;
     private Vector2 _moveTarget;
@@ -105,8 +105,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     {
         var tracing = _hasMoveTarget || _followCursor || _attackInput.TargetId != 0 || _npcTargetId != 0
             || mouse.LeftButton == ButtonState.Pressed;
-        var stamina = Owner?.Sp ?? 1;
-        var maxStamina = Math.Max(1, Owner?.MaxSp ?? 1);
+        var stamina = Owner?.Stamina ?? 1;
+        var maxStamina = Math.Max(1, Owner?.MaxStamina ?? 1);
         var run = _runMode;
         if (!tracing || stamina > maxStamina / 4)
         {
@@ -406,8 +406,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             $"Abs {d.Absorption}  Wt {d.MaxWeight}  Spd {d.MoveSpeed}");
         _playerController = new ActorMotionController();
         _runMode = false;
-        _selfHp = _player.Life;
-        _selfMaxHp = d.MaxLife;
+        _selfLife = _player.Life;
+        _selfMaxLife = d.MaxLife;
         var spawn = entered != null && (entered.SpawnX != 0f || entered.SpawnZ != 0f)
             ? new Vector2(entered.SpawnX, -entered.SpawnZ)
             : SpawnPlanarPosition(field);
@@ -1119,22 +1119,22 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     public void DebugForceMotion(MotionCode motion)
         => ApplyPlayerCommand(_playerController.ApplyAuthoritative(motion));
 
-    public int PlayerServerHp => _selfHp;
-    public int PlayerServerMaxHp => _selfMaxHp;
+    public int PlayerServerLife => _selfLife;
+    public int PlayerServerMaxLife => _selfMaxLife;
 
     private void OnSelfSpawn(EntitySpawnInfo spawn)
     {
-        _selfMaxHp = spawn.MaxHp;
+        _selfMaxLife = spawn.MaxLife;
         OnSelfState(new EntityStateInfo(spawn.EntityId, spawn.Position, spawn.Facing, spawn.MoveState,
-            spawn.Hp, spawn.MoveSpeed, spawn.AttackRate, spawn.AttackTargetId, spawn.AttackSequence));
+            spawn.Life, spawn.MoveSpeed, spawn.AttackRate, spawn.AttackTargetId, spawn.AttackSequence));
     }
 
     private void OnSelfState(EntityStateInfo state)
     {
         _attackInput.Reconcile(state.AttackSequence, state.AttackTargetId);
         _selfAttacking = state.MoveState == MotionState.Attack;
-        int previousHp = _selfHp;
-        _selfHp = state.Hp;
+        int previousLife = _selfLife;
+        _selfLife = state.Life;
         _serverMoveSpeed = state.MoveSpeed;
         _serverAttackRate = state.AttackRate;
         // The client owns locomotion; server echoes lag behind it, so only FieldWarp moves the local avatar.
@@ -1160,7 +1160,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             case MotionCode.Damage:
                 {
                     var command = _playerController.ApplyAuthoritative(MotionCode.Damage);
-                    if (command.Kind == MotionCommandKind.None && state.Hp < previousHp)
+                    if (command.Kind == MotionCommandKind.None && state.Life < previousLife)
                     {
                         command = _playerController.Retrigger(MotionCode.Damage);
                     }

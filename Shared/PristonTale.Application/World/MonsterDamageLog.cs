@@ -14,7 +14,7 @@ internal sealed class MonsterDamageLog
 
     public long FirstAttackerLastHitMs { get; private set; }
 
-    public void RecordHit(ulong attackerId, int damage, bool monsterAtFullHpBeforeHit, long nowMs)
+    public void RecordHit(ulong attackerId, int damage, bool monsterAtFullLifeBeforeHit, long nowMs)
     {
         if (attackerId == 0 || damage <= 0)
             return;
@@ -23,7 +23,7 @@ internal sealed class MonsterDamageLog
         _byAttacker[attackerId] = prev + damage;
         KillerId = attackerId;
 
-        if (FirstAttackerId == 0 && monsterAtFullHpBeforeHit)
+        if (FirstAttackerId == 0 && monsterAtFullLifeBeforeHit)
             FirstAttackerId = attackerId;
 
         if (attackerId == FirstAttackerId)

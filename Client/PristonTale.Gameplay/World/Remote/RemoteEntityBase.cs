@@ -35,7 +35,7 @@ public abstract class RemoteEntityBase
     private bool _pendingMotionStartsSound;
     private MotionCode _shownMotion;
     private float _appliedRate = float.NaN;
-    private int _lastHp;
+    private int _lastLife;
     private int _moveSpeed = 1;
     private float _attackRate = 1f;
 
@@ -55,16 +55,16 @@ public abstract class RemoteEntityBase
 
     private bool SkillOverride => _skillMotionIndex >= 0 || _skillAttackClip;
 
-    protected RemoteEntityBase(EntityKind kind, double timeMs, Vector3 position, float facing, MotionState moveState, int hp,
+    protected RemoteEntityBase(EntityKind kind, double timeMs, Vector3 position, float facing, MotionState moveState, int life,
         int soundCode = 0)
     {
         Kind = kind;
-        _track = new RemoteSnapshotBuffer(new RemoteSample(timeMs, position, facing, moveState, hp));
+        _track = new RemoteSnapshotBuffer(new RemoteSample(timeMs, position, facing, moveState, life));
         _renderPosition = position;
         _renderFacing = facing;
         _ = _controller.ApplyAuthoritative(MotionCodes.Of(moveState));
         _shownMotion = _controller.Current;
-        _lastHp = hp;
+        _lastLife = life;
         SoundCode = soundCode;
     }
 
@@ -103,9 +103,9 @@ public abstract class RemoteEntityBase
 
     public bool IsDead => _controller.IsDead;
 
-    public void SetTarget(double timeMs, Vector3 position, float facing, MotionState moveState, int hp)
+    public void SetTarget(double timeMs, Vector3 position, float facing, MotionState moveState, int life)
     {
-        _ = _track.Add(new RemoteSample(timeMs, position, facing, moveState, hp), _renderPosition);
+        _ = _track.Add(new RemoteSample(timeMs, position, facing, moveState, life), _renderPosition);
     }
 
     public virtual void Update(float dt, double nowMs)
@@ -232,7 +232,7 @@ public abstract class RemoteEntityBase
         var motion = MotionCodes.Of(sample.MoveState);
         if (motion == MotionCode.Skill && SkillOverride)
         {
-            _lastHp = sample.Hp;
+            _lastLife = sample.Life;
             return;
         }
 
@@ -240,13 +240,13 @@ public abstract class RemoteEntityBase
         if (command.Kind == MotionCommandKind.None
             && motion == MotionCode.Damage
             && _controller.Current == MotionCode.Damage
-            && sample.Hp < _lastHp)
+            && sample.Life < _lastLife)
         {
             command = _controller.Retrigger(MotionCode.Damage);
         }
 
         QueueMotion(command, startsSound: true);
-        _lastHp = sample.Hp;
+        _lastLife = sample.Life;
     }
 
     private void ApplyCombatEventNow(CombatEventInfo combatEvent)

@@ -14,8 +14,8 @@ public sealed class RemoteEntity : RemoteEntityBase
     private readonly ActorHandle _head;
     private readonly PlayerActorHandles _handles;
 
-    public RemoteEntity(IActorScene scene, PlayerActorHandles handles, double timeMs, Vector3 position, float facing, MotionState moveState, int hp)
-        : base(EntityKind.Player, timeMs, position, facing, moveState, hp)
+    public RemoteEntity(IActorScene scene, PlayerActorHandles handles, double timeMs, Vector3 position, float facing, MotionState moveState, int life)
+        : base(EntityKind.Player, timeMs, position, facing, moveState, life)
     {
         _scene = scene;
         _handles = handles;

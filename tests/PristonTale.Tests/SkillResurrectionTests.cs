@@ -27,7 +27,7 @@ internal static class SkillResurrectionTests
         var fellAt = Vector3.Zero;
         for (var attempt = 0; attempt < 6 && !revived; attempt++)
         {
-            fallen.ApplyDamage(fallen.Hp + 1000);
+            fallen.ApplyDamage(fallen.Life + 1000);
             fellAt = fallen.Position;
             Assert.True(fallen.IsDead, "fixture did not kill the ally");
             SkillFixtures.Accept("resurrection", field, priest, 0x07040002);
@@ -40,14 +40,14 @@ internal static class SkillResurrectionTests
         }
 
         Assert.True(revived, "a 94% resurrection never succeeded");
-        Assert.True(fallen.Position == fellAt && Math.Abs(fallen.Hp - fallen.MaxHp / 2) <= fallen.MaxHp / 50 + 5, $"revived with {fallen.Hp}/{fallen.MaxHp}");
-        var life = fallen.Hp;
+        Assert.True(fallen.Position == fellAt && Math.Abs(fallen.Life - fallen.MaxLife / 2) <= fallen.MaxLife / 50 + 5, $"revived with {fallen.Life}/{fallen.MaxLife}");
+        var life = fallen.Life;
         fallen.ApplyDamage(50);
-        Assert.True(fallen.Hp == life, "the revive guard let damage through");
+        Assert.True(fallen.Life == life, "the revive guard let damage through");
         SkillFixtures.Wait(field, 6f);
-        var guarded = fallen.Hp;
+        var guarded = fallen.Life;
         fallen.ApplyDamage(50);
-        Assert.True(fallen.Hp == guarded - 50, "damage after the guard was ignored");
+        Assert.True(fallen.Life == guarded - 50, "damage after the guard was ignored");
         return Task.CompletedTask;
     }
 }

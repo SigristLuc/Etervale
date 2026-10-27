@@ -75,18 +75,18 @@ internal static class MonsterCombatTests
         var monster = new MonsterInstance(2, Definition(), Vector3.Zero, 0, 0);
         var host = new CombatHost(player, monster);
         var combat = new FieldCombat(host, new CombatRng(7));
-        var initialHp = character.Life;
+        var initialLife = character.Life;
         for (var index = 0; index < 100; index++)
         {
             combat.ResolveMonsterHit(monster, new MonsterAttackEvent(2, 1, false));
         }
 
-        Assert.True(character.Life == initialHp && host.EventCount == 0, "authority trusted an out-of-range hit event");
+        Assert.True(character.Life == initialLife && host.EventCount == 0, "authority trusted an out-of-range hit event");
         player.Teleport(new Vector3(70, 0, 0));
         combat.ResolveMonsterHit(monster, new MonsterAttackEvent(999, 1, false));
         monster.ApplyDamage(100);
         combat.ResolveMonsterHit(monster, new MonsterAttackEvent(2, 1, false));
-        Assert.True(character.Life == initialHp, "invalid/dead attacker inflicted damage");
+        Assert.True(character.Life == initialLife, "invalid/dead attacker inflicted damage");
         return Task.CompletedTask;
     }
 

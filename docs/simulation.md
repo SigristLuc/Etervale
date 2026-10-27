@@ -44,7 +44,7 @@ progression, regeneration and movement rates. `World/`, `Physics/` and `Skills/`
 | `Items/ItemDetailView.cs`, `ItemRuleMessages.cs` | Owner view of one copy; the texts of item refusals |
 | `Items/Inventory.cs` | Bitmask grid with anchors, stacking, move/split/merge/exchange |
 | `Items/InventoryCommand.cs` | `InventoryCommand` and `InventoryCommands.Apply` |
-| `Items/ItemCodes.cs` | Catalog key (`WA101`) to 32-bit item code and back, for every item family |
+| `Items/ItemCodes.cs` | Catalog key (`WA101`) to 32-bit item code and back, for every item family; `KeyOf` gives the key or "" for an empty slot |
 | `Items/ItemEquipmentMetadata.cs` | Kind and slot by catalog family; the two-handed list taken from the item table |
 | `Items/ItemKinds.cs` | `Classify`: the kind of any item key (wearable families, then the non-wearable groups); the importer stores it |
 | `Items/ItemClassRestrictions.cs` | Class/gender restriction masks for armor, robes and orbs by catalog key |

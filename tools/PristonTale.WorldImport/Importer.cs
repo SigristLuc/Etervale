@@ -797,7 +797,7 @@ public sealed class Importer
                 special_attack_pct, gold_min, gold_max, gold_pct, event_model, event_code, event_info)
             VALUES (
                 @Name, @Model, @Level, @AtkMin, @AtkMax, @AtkSpeed, @AtkRange, @Accuracy,
-                @Defence, @Absorb, @Block, @Hp, @Sight, @SkDmgMin, @SkDmgMax,
+                @Defence, @Absorb, @Block, @Life, @Sight, @SkDmgMin, @SkDmgMax,
                 @SkDist, @SkRange, @SkRating, @SkCurse, @MoveSpeed, @MoveRange,
                 @Iq, @GroupMin, @GroupMax, @Exp, @ActiveHour, @Nature, @Brood, @Class,
                 @R0, @R1, @R2, @R3, @R4, @R5, @R6, @R7,
@@ -833,7 +833,7 @@ public sealed class Importer
             {
                 m.Name, m.Model, m.Level, AtkMin = m.AttackMin, AtkMax = m.AttackMax,
                 AtkSpeed = m.AttackSpeed, AtkRange = m.AttackRange, m.Accuracy,
-                m.Defence, Absorb = m.AbsorbPct, Block = m.BlockPct, m.Hp, m.Sight,
+                m.Defence, Absorb = m.AbsorbPct, Block = m.BlockPct, m.Life, m.Sight,
                 SkDmgMin = m.SkillDamageMin, SkDmgMax = m.SkillDamageMax,
                 SkDist = m.SkillDistance, SkRange = m.SkillRange, SkRating = m.SkillRatingPct, SkCurse = m.SkillCurseCode,
                 MoveSpeed = m.MoveSpeed, MoveRange = m.MoveRange, m.Iq,

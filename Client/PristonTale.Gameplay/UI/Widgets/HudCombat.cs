@@ -31,7 +31,7 @@ public sealed partial class HudCombat
     private sealed class Entity(EntitySpawnInfo spawn)
     {
         public EntitySpawnInfo Spawn { get; } = spawn;
-        public int Hp { get; set; } = spawn.Hp;
+        public int Life { get; set; } = spawn.Life;
         public Vector3 Position { get; set; } = new(spawn.Position.X, spawn.Position.Y, spawn.Position.Z);
         // Set when the local player starts attacking this monster at full life, as in the original.
         public bool StateBarEnabled { get; set; }
@@ -96,7 +96,7 @@ public sealed partial class HudCombat
         {
             if (_entities.TryGetValue(state.EntityId, out var entity))
             {
-                entity.Hp = state.Hp;
+                entity.Life = state.Life;
                 entity.Position = new Vector3(state.Position.X, state.Position.Y, state.Position.Z);
             }
         }
@@ -145,8 +145,8 @@ public sealed partial class HudCombat
             attacked.Attacked = true;
         }
 
-        if (_entities.TryGetValue(target, out var entity) && entity.Spawn.Kind == EntityKind.Monster && entity.Spawn.MaxHp > 0
-            && entity.Hp == entity.Spawn.MaxHp)
+        if (_entities.TryGetValue(target, out var entity) && entity.Spawn.Kind == EntityKind.Monster && entity.Spawn.MaxLife > 0
+            && entity.Life == entity.Spawn.MaxLife)
         {
             entity.StateBarEnabled = true;
         }
@@ -188,7 +188,7 @@ public sealed partial class HudCombat
     public bool ShowsHealthBar(ulong target, bool classic)
     {
         // NPCs show only their name, as in the original: they cannot be fought, so a life bar would mislead.
-        if (!_entities.TryGetValue(target, out var entity) || entity.Spawn.MaxHp <= 0 || entity.Spawn.Kind == EntityKind.Npc)
+        if (!_entities.TryGetValue(target, out var entity) || entity.Spawn.MaxLife <= 0 || entity.Spawn.Kind == EntityKind.Npc)
         {
             return false;
         }
@@ -276,13 +276,13 @@ public sealed partial class HudCombat
         }
 
         var bar = frame.HealthBar;
-        DrawHealthBar(painter, bar, entity.Hp, entity.Spawn.MaxHp);
+        DrawHealthBar(painter, bar, entity.Life, entity.Spawn.MaxLife);
         if (classicHealthBar)
         {
             return;
         }
 
-        var percent = PercentText(HealthPercent(entity.Hp, entity.Spawn.MaxHp));
+        var percent = PercentText(HealthPercent(entity.Life, entity.Spawn.MaxLife));
         painter.Text(LevelText(Level(entity)), bar.X, frame.StatsY, LevelColor);
         painter.Text(percent, bar.Right - painter.Measure(percent), frame.StatsY, Color.White);
     }

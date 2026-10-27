@@ -33,7 +33,7 @@ internal static class MultiplayerMovementTests
 
         foreach (var viewer in new[] { b, c })
         {
-            var seen = await viewer.WaitAsync(world => world.Entities.GetValueOrDefault(a.Serial), "the mover spawn");
+            var seen = await viewer.WaitAsync(world => world.Entities.GetValueOrDefault(a.EntityId), "the mover spawn");
             Assert.True(seen.Kind == EntityKind.Player && seen.Player?.Name == "Mover" && seen.Level == 10, $"{viewer.Name} spawned the mover wrongly");
             Assert.True(Vector3.Distance(Planar(seen.Position), Planar(camp)) < PositionTolerance, $"{viewer.Name} spawned the mover away from its position");
         }
@@ -42,31 +42,31 @@ internal static class MultiplayerMovementTests
         await a.WalkAsync(camp, north);
         foreach (var viewer in new[] { b, c })
         {
-            await viewer.WaitUntilAsync(world => world.Entities.TryGetValue(a.Serial, out var entity) && entity.Motion == MotionState.Walk
+            await viewer.WaitUntilAsync(world => world.Entities.TryGetValue(a.EntityId, out var entity) && entity.Motion == MotionState.Walk
                 && Vector3.Distance(Planar(entity.Position), Planar(north)) < PositionTolerance, "the mover walking to the north point");
-            var entity = viewer.World.Read(world => world.Entities[a.Serial])!;
+            var entity = viewer.World.Read(world => world.Entities[a.EntityId])!;
             Assert.Near(0f, AngleDelta(entity.Facing, 0f), 0.01f);
         }
 
         var east = north + new Vector3(240f, 0f, 0f);
         await a.WalkAsync(north, east, running: true);
-        await b.WaitUntilAsync(world => world.Entities.TryGetValue(a.Serial, out var entity) && entity.Motion == MotionState.Run
+        await b.WaitUntilAsync(world => world.Entities.TryGetValue(a.EntityId, out var entity) && entity.Motion == MotionState.Run
             && Vector3.Distance(Planar(entity.Position), Planar(east)) < PositionTolerance, "the mover running east");
-        Assert.Near(0f, AngleDelta(b.World.Read(world => world.Entities[a.Serial])!.Facing, MathF.PI / 2f), 0.01f);
+        Assert.Near(0f, AngleDelta(b.World.Read(world => world.Entities[a.EntityId])!.Facing, MathF.PI / 2f), 0.01f);
 
         await a.StopAsync(east, MathF.PI);
         foreach (var viewer in new[] { b, c })
         {
-            await viewer.WaitUntilAsync(world => world.Entities.TryGetValue(a.Serial, out var entity) && entity.Motion == MotionState.Stand
+            await viewer.WaitUntilAsync(world => world.Entities.TryGetValue(a.EntityId, out var entity) && entity.Motion == MotionState.Stand
                 && MathF.Abs(AngleDelta(entity.Facing, MathF.PI)) < 0.01f, "the mover stopping and turning");
         }
 
-        var authoritative = await server.World.PositionOfAsync(a.Serial);
+        var authoritative = await server.World.PositionOfAsync(a.EntityId);
         Assert.True(authoritative is { } position && Vector3.Distance(Planar(position), Planar(east)) < PositionTolerance, "the server holds another position");
         Assert.True(a.World.Read(world => world.Warps.All(warp => !warp.Forced)), "a legal walk was corrected");
         // Viewers see each other too: every pair is symmetric.
-        await b.WaitUntilAsync(world => world.Entities.ContainsKey(c.Serial), "the other watcher");
-        await a.WaitUntilAsync(world => world.Entities.ContainsKey(b.Serial) && world.Entities.ContainsKey(c.Serial), "both watchers");
+        await b.WaitUntilAsync(world => world.Entities.ContainsKey(c.EntityId), "the other watcher");
+        await a.WaitUntilAsync(world => world.Entities.ContainsKey(b.EntityId) && world.Entities.ContainsKey(c.EntityId), "both watchers");
     }
 
     private static async Task InterestAsync()
@@ -81,20 +81,20 @@ internal static class MultiplayerMovementTests
 
         await a.WalkAsync(camp, camp + new Vector3(0f, 0f, 120f));
         await Task.Delay(500);
-        Assert.True(!far.World.Read(world => world.Mentions(a.Serial)), "a viewer beyond the view range heard of the player");
-        Assert.True(!town.World.Read(world => world.Mentions(a.Serial)), "a viewer in another field heard of the player");
-        Assert.True(!a.World.Read(world => world.Mentions(far.Serial) || world.Mentions(town.Serial)), "the player heard of viewers it cannot see");
+        Assert.True(!far.World.Read(world => world.Mentions(a.EntityId)), "a viewer beyond the view range heard of the player");
+        Assert.True(!town.World.Read(world => world.Mentions(a.EntityId)), "a viewer in another field heard of the player");
+        Assert.True(!a.World.Read(world => world.Mentions(far.EntityId) || world.Mentions(town.EntityId)), "the player heard of viewers it cannot see");
 
         var inside = camp + new Vector3(1050f, 0f, 0f);
         await far.WalkAsync(outside, inside, running: true);
-        await a.WaitUntilAsync(world => world.Entities.ContainsKey(far.Serial), "the approaching player");
-        await far.WaitUntilAsync(world => world.Entities.ContainsKey(a.Serial), "the player it approached");
+        await a.WaitUntilAsync(world => world.Entities.ContainsKey(far.EntityId), "the approaching player");
+        await far.WaitUntilAsync(world => world.Entities.ContainsKey(a.EntityId), "the player it approached");
 
         var gone = camp + new Vector3(1300f, 0f, 0f);
         await far.WalkAsync(inside, gone, running: true);
-        await a.WaitUntilAsync(world => world.Removed.Contains(far.Serial) && !world.Entities.ContainsKey(far.Serial), "the leaving player removed");
-        await far.WaitUntilAsync(world => world.Removed.Contains(a.Serial), "the player it left removed");
-        Assert.True(!town.World.Read(world => world.Mentions(a.Serial) || world.Mentions(far.Serial)), "the other field heard of the hunters");
+        await a.WaitUntilAsync(world => world.Removed.Contains(far.EntityId) && !world.Entities.ContainsKey(far.EntityId), "the leaving player removed");
+        await far.WaitUntilAsync(world => world.Removed.Contains(a.EntityId), "the player it left removed");
+        Assert.True(!town.World.Read(world => world.Mentions(a.EntityId) || world.Mentions(far.EntityId)), "the other field heard of the hunters");
     }
 
     private static async Task GateAsync()
@@ -104,14 +104,14 @@ internal static class MultiplayerMovementTests
         await using var a = await Enter(server, "Traveller", camp);
         await using var forest = await Enter(server, "Forester", camp + new Vector3(100f, 0f, 0f));
         await using var town = await Enter(server, "Villager", camp + new Vector3(-100f, 0f, 0f), MultiplayerServer.Village);
-        await forest.WaitUntilAsync(world => world.Entities.ContainsKey(a.Serial), "the traveller before the gate");
-        Assert.True(!town.World.Read(world => world.Mentions(a.Serial)), "the town saw a forest player");
+        await forest.WaitUntilAsync(world => world.Entities.ContainsKey(a.EntityId), "the traveller before the gate");
+        Assert.True(!town.World.Read(world => world.Mentions(a.EntityId)), "the town saw a forest player");
 
         await a.MoveAsync(camp, 0f, field: MultiplayerServer.Village);
-        await a.WaitUntilAsync(world => world.FieldId == MultiplayerServer.Village && world.Entities.ContainsKey(town.Serial)
-            && !world.Entities.ContainsKey(forest.Serial), "the town and not the forest after the gate");
-        await forest.WaitUntilAsync(world => world.Removed.Contains(a.Serial), "the traveller removed from the forest");
-        var arrived = await town.WaitAsync(world => world.Entities.GetValueOrDefault(a.Serial), "the traveller in town");
+        await a.WaitUntilAsync(world => world.FieldId == MultiplayerServer.Village && world.Entities.ContainsKey(town.EntityId)
+            && !world.Entities.ContainsKey(forest.EntityId), "the town and not the forest after the gate");
+        await forest.WaitUntilAsync(world => world.Removed.Contains(a.EntityId), "the traveller removed from the forest");
+        var arrived = await town.WaitAsync(world => world.Entities.GetValueOrDefault(a.EntityId), "the traveller in town");
         Assert.True(Vector3.Distance(Planar(arrived.Position), Planar(camp)) < PositionTolerance, "a gate moved the traveller");
         Assert.True(arrived.Player?.InVillage == true, "the town shows the traveller outside the village");
     }
@@ -126,13 +126,13 @@ internal static class MultiplayerMovementTests
         await using var a = await Enter(server, "Warper", gate, cave);
         await using var caveViewer = await Enter(server, "CaveMate", gate + new Vector3(120f, 0f, 0f), cave);
         await using var exitViewer = await Enter(server, "ExitMate", exit + new Vector3(120f, 0f, 0f), forest);
-        await caveViewer.WaitUntilAsync(world => world.Entities.ContainsKey(a.Serial), "the warper at the gate");
+        await caveViewer.WaitUntilAsync(world => world.Entities.ContainsKey(a.EntityId), "the warper at the gate");
 
         await a.MoveAsync(gate, 0f, field: forest);
         var warp = await a.WaitAsync(world => world.Warps.LastOrDefault(value => value.FieldId == forest), "the warp confirmation");
         Assert.True(Vector3.Distance(Planar(warp.Position), Planar(exit)) < 1f, $"the warp landed at {warp.Position}, not the exit");
-        await caveViewer.WaitUntilAsync(world => world.Removed.Contains(a.Serial), "the warper removed from the cave");
-        var arrived = await exitViewer.WaitAsync(world => world.Entities.GetValueOrDefault(a.Serial), "the warper at the exit");
+        await caveViewer.WaitUntilAsync(world => world.Removed.Contains(a.EntityId), "the warper removed from the cave");
+        var arrived = await exitViewer.WaitAsync(world => world.Entities.GetValueOrDefault(a.EntityId), "the warper at the exit");
         Assert.True(Vector3.Distance(Planar(arrived.Position), Planar(exit)) < PositionTolerance, "the exit viewer saw the warper elsewhere");
     }
 
@@ -142,21 +142,21 @@ internal static class MultiplayerMovementTests
         var camp = MultiplayerServer.Camp;
         await using var a = await Enter(server, "Cheater", camp);
         await using var b = await Enter(server, "Witness", camp + new Vector3(150f, 0f, 0f));
-        await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.Serial), "the mover");
+        await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.EntityId), "the mover");
 
         var teleport = camp + new Vector3(0f, 0f, 900f);
         await a.MoveAsync(teleport, 0f, running: true);
         var correction = await a.WaitAsync(world => world.Warps.LastOrDefault(warp => warp.Forced), "the correction");
         Assert.True(Vector3.Distance(Planar(correction.Position), Planar(camp)) < PositionTolerance, "the correction did not restore the server position");
         await Task.Delay(400);
-        Assert.True(b.World.Read(world => world.Entities[a.Serial].Samples.All(sample => Vector3.Distance(Planar(sample.Position), Planar(camp)) < 1f)),
+        Assert.True(b.World.Read(world => world.Entities[a.EntityId].Samples.All(sample => Vector3.Distance(Planar(sample.Position), Planar(camp)) < 1f)),
             "a viewer saw the rejected position");
         Assert.True(!b.World.Read(world => world.Warps.Any(warp => warp.Forced)), "a viewer received the mover's correction");
 
         // After the correction the mover continues legally from the authoritative position.
         var legal = camp + new Vector3(0f, 0f, 96f);
         await a.WalkAsync(camp, legal);
-        await b.WaitUntilAsync(world => Vector3.Distance(Planar(world.Entities[a.Serial].Position), Planar(legal)) < PositionTolerance,
+        await b.WaitUntilAsync(world => Vector3.Distance(Planar(world.Entities[a.EntityId].Position), Planar(legal)) < PositionTolerance,
             "the legal move after the correction");
     }
 

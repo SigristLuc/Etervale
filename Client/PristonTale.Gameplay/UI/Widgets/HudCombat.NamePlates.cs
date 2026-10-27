@@ -38,7 +38,7 @@ public sealed partial class HudCombat
         {
             var focus = id == hovered || id == traced;
             var kind = entity.Spawn.Kind;
-            var shown = kind == EntityKind.Npc || (kind == EntityKind.Monster && focus && entity.Hp > 0 && entity.Spawn.OwnerId == 0);
+            var shown = kind == EntityKind.Npc || (kind == EntityKind.Monster && focus && entity.Life > 0 && entity.Spawn.OwnerId == 0);
             if (shown && project(id) is { } point && (focus || point.Depth < NpcPlateDepth))
             {
                 _plates.Add((id, point, focus));
@@ -84,7 +84,7 @@ public sealed partial class HudCombat
         painter.Text(name, x + 9, y + 5 + 2, color, false);
         if (bar is not null)
         {
-            DrawHealthBar(painter, new Rectangle(anchorX - PlateBarWidth / 2, y + frameHeight - 2, PlateBarWidth, PlateBarHeight), bar.Hp, bar.Spawn.MaxHp);
+            DrawHealthBar(painter, new Rectangle(anchorX - PlateBarWidth / 2, y + frameHeight - 2, PlateBarWidth, PlateBarHeight), bar.Life, bar.Spawn.MaxLife);
         }
     }
 
@@ -111,7 +111,7 @@ public sealed partial class HudCombat
         painter.Text(name, x + 9, (int)(y + 4 + pad - HudPainter.CapTop), color, PlateTextScale);
         if (bar is not null)
         {
-            DrawHealthBar(painter, new Rectangle(anchorX - PlateBarWidth / 2, y + height + 1, PlateBarWidth, PlateBarHeight), bar.Hp, bar.Spawn.MaxHp);
+            DrawHealthBar(painter, new Rectangle(anchorX - PlateBarWidth / 2, y + height + 1, PlateBarWidth, PlateBarHeight), bar.Life, bar.Spawn.MaxLife);
         }
     }
 }

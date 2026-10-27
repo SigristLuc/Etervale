@@ -364,7 +364,7 @@ Flow (`NpcAppService.RequestAsync`):
 | Teleporter | Open, Teleport, Close | `TeleportRoutes`: route 1 only (Mushroom Cave 100, Beehive Cave 100, Cursed Land 500, Forbidden Land 1000 gold); level must reach the destination field's `LimitLevel` |
 | Skill master | (dialog only here) | Learning goes through `ProgressionCommand.LearnSkill` with the NPC's entity id; the class change goes through the quests |
 | Quest giver, quest script, wing exchange (warp gate 0 or 1) | (dialog only here) | Answered by `QuestAppService` talks, see [quests.md](quests.md) |
-| Mobile shop | NPC serial 0: Open, Refresh, Sell, Repair, RepairAll, Close | `MobileShopTransactions`: only after a used mobile shop item (`PlayerSession.MobileShopOpen`), no stock |
+| Mobile shop | NPC id 0: Open, Refresh, Sell, Repair, RepairAll, Close | `MobileShopTransactions`: only after a used mobile shop item (`PlayerSession.MobileShopOpen`), no stock |
 
 Other `NpcServiceKind` values answer `NotAvailable`. Prices, stock, totals and destinations always come from the
 catalogs, never from the client. `InteractNpcAsync` returns all offers with their availability and one random line.

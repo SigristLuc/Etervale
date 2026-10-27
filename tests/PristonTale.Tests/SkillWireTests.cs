@@ -58,7 +58,7 @@ internal static class SkillWireTests
         BitConverter.TryWriteBytes(buffer.AsSpan(8), (ushort)2);
         Assert.ThrowsAsync(() => Task.Run(() => SkillCastPacket.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
         var wide = new SkillCastPacket(3, 0x03080002, 0x1_0000_0001UL, 0, 0, 0, 0, 0);
-        Assert.True(SkillCastPacket.Read(buffer.AsSpan(0, wide.Write(buffer))).TargetSerial == 0x1_0000_0001UL, "64-bit cast target round trip");
+        Assert.True(SkillCastPacket.Read(buffer.AsSpan(0, wide.Write(buffer))).TargetId == 0x1_0000_0001UL, "64-bit cast target round trip");
 
         var mode = SkillEventFlags.None.WithMode(2);
         SkillEventEntry[] events =

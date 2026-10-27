@@ -284,7 +284,7 @@ internal sealed class BotWorld(ulong self)
 
                 if (spawn.Kind == EntityKind.Monster && spawn.OwnerId == 0)
                 {
-                    _monsters[spawn.EntityId] = (spawn.Position, spawn.Hp > 0 && spawn.MoveState != MotionState.Dead);
+                    _monsters[spawn.EntityId] = (spawn.Position, spawn.Life > 0 && spawn.MoveState != MotionState.Dead);
                 }
             }
 
@@ -297,7 +297,7 @@ internal sealed class BotWorld(ulong self)
 
                 if (_monsters.ContainsKey(state.EntityId))
                 {
-                    _monsters[state.EntityId] = (state.Position, state.Hp > 0 && state.MoveState != MotionState.Dead);
+                    _monsters[state.EntityId] = (state.Position, state.Life > 0 && state.MoveState != MotionState.Dead);
                 }
             }
 

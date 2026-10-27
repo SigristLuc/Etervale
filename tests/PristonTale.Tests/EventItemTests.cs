@@ -126,11 +126,11 @@ internal static class EventItemTests
         var character = harness.Session.Character!;
         var life = character.MaxLife;
         var mana = character.MaxMana;
-        var hp = harness.Use(new ItemUseCommand(Guid.NewGuid(), character.InventoryRevision, harness.Id("BC121")));
-        await harness.AdvanceAsync(hp);
-        var mp = harness.Use(new ItemUseCommand(Guid.NewGuid(), character.InventoryRevision, harness.Id("BC124")));
-        await harness.AdvanceAsync(mp);
-        Assert.True((await hp).Outcome.Ok && (await mp).Outcome.Ok, "boosters of two kinds refused");
+        var lifeBooster = harness.Use(new ItemUseCommand(Guid.NewGuid(), character.InventoryRevision, harness.Id("BC121")));
+        await harness.AdvanceAsync(lifeBooster);
+        var manaBooster = harness.Use(new ItemUseCommand(Guid.NewGuid(), character.InventoryRevision, harness.Id("BC124")));
+        await harness.AdvanceAsync(manaBooster);
+        Assert.True((await lifeBooster).Outcome.Ok && (await manaBooster).Outcome.Ok, "boosters of two kinds refused");
         Assert.True(character.MaxLife == life + life * 15 / 100 && character.MaxMana == mana + mana * 15 / 100, "boosters did not raise the maxima");
         var same = harness.Use(new ItemUseCommand(Guid.NewGuid(), character.InventoryRevision, harness.Id("BC122")));
         await harness.AdvanceAsync(same);

@@ -73,9 +73,9 @@ public sealed class HudStatusPanel
         _text[2] = state.Level.ToString();
         _text[3] = state.Experience.ToString();
         _text[4] = state.NextLevel.ToString();
-        _text[5] = $"{state.Hp}/{state.MaxHp}";
-        _text[6] = $"{state.Mp}/{state.MaxMp}";
-        _text[7] = $"{state.Sp}/{state.MaxSp}";
+        _text[5] = $"{state.Life}/{state.MaxLife}";
+        _text[6] = $"{state.Mana}/{state.MaxMana}";
+        _text[7] = $"{state.Stamina}/{state.MaxStamina}";
         _text[8] = state.Strength.ToString();
         _text[9] = state.Spirit.ToString();
         _text[10] = state.Talent.ToString();

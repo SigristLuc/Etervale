@@ -86,11 +86,11 @@ internal sealed partial class PresenceEncoder
         _isShown = index => _known.ContainsKey(_entities[index].EntityId);
     }
 
-    public EntityKind? KindOf(ulong serial)
+    public EntityKind? KindOf(ulong entityId)
     {
         lock (_gate)
         {
-            return _known.TryGetValue(serial, out var known) ? known.Kind : null;
+            return _known.TryGetValue(entityId, out var known) ? known.Kind : null;
         }
     }
 
@@ -117,14 +117,14 @@ internal sealed partial class PresenceEncoder
     }
 
     // The description of an entity from the last encoded snapshot (its frame stays pinned until the next one); null when
-    // the serial is not in this subscriber's view.
-    public EntityDescriptionPacket? Describe(ulong serial)
+    // the entityId is not in this subscriber's view.
+    public EntityDescriptionPacket? Describe(ulong entityId)
     {
         EntityView view;
         byte revision;
         lock (_gate)
         {
-            if (_describeGrid is null || !_known.TryGetValue(serial, out var known) || !_describeGrid.TryGetIndex(serial, out var index))
+            if (_describeGrid is null || !_known.TryGetValue(entityId, out var known) || !_describeGrid.TryGetIndex(entityId, out var index))
             {
                 return null;
             }
@@ -136,13 +136,13 @@ internal sealed partial class PresenceEncoder
         return DescriptionPacket(view, revision, _data.Current);
     }
 
-    // Writes the description into destination and returns its length, 0 when the serial is not in view. Every receiver
+    // Writes the description into destination and returns its length, 0 when the entityId is not in view. Every receiver
     // asking about an entity of the same frame gets the same bytes, so they are encoded once per frame.
-    public int WriteDescription(ulong serial, Span<byte> destination)
+    public int WriteDescription(ulong entityId, Span<byte> destination)
     {
         lock (_gate)
         {
-            if (_describeGrid is null || !_known.TryGetValue(serial, out var known) || !_describeGrid.TryGetIndex(serial, out var index))
+            if (_describeGrid is null || !_known.TryGetValue(entityId, out var known) || !_describeGrid.TryGetIndex(entityId, out var index))
             {
                 return 0;
             }
@@ -312,17 +312,17 @@ internal sealed partial class PresenceEncoder
             WriteMotion(ref group, connection, index, tick);
         }
 
-        foreach (var (serial, known) in _known)
+        foreach (var (entityId, known) in _known)
         {
             if (known.Pass != _pass)
             {
-                _removed.Add(serial);
+                _removed.Add(entityId);
             }
         }
 
-        foreach (var serial in _removed)
+        foreach (var entityId in _removed)
         {
-            _known.Remove(serial);
+            _known.Remove(entityId);
         }
 
         FlushGroup(ref group, connection);
@@ -446,7 +446,7 @@ internal sealed partial class PresenceEncoder
         }
 
         known.Pass = _pass;
-        var discrete = known.MoveState != view.MoveState || known.Hp != view.Hp || known.AttackTargetId != view.AttackTargetId
+        var discrete = known.MoveState != view.MoveState || known.Life != view.Life || known.AttackTargetId != view.AttackTargetId
             || known.AttackSequence != view.AttackSequence;
         if (view.Revision != 0)
         {
@@ -556,7 +556,7 @@ internal sealed partial class PresenceEncoder
     private void ForgetAll(IPacketSink connection)
     {
         _removed.Clear();
-        _removed.AddRange(_known.Keys.Where(serial => serial != _self));
+        _removed.AddRange(_known.Keys.Where(entityId => entityId != _self));
         _known.Clear();
         SendRemovals(connection);
         _goneDrops.Clear();
@@ -567,9 +567,9 @@ internal sealed partial class PresenceEncoder
 
     private void SendRemovals(IPacketSink connection)
     {
-        for (var offset = 0; offset < _removed.Count; offset += RemoveObjectList.MaxSerials)
+        for (var offset = 0; offset < _removed.Count; offset += RemoveObjectList.MaxEntityIds)
         {
-            var count = Math.Min(RemoveObjectList.MaxSerials, _removed.Count - offset);
+            var count = Math.Min(RemoveObjectList.MaxEntityIds, _removed.Count - offset);
             var span = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_removed).Slice(offset, count);
             connection.Send(_scratch.AsSpan(0, RemoveObjectList.Write(_scratch, span)));
         }
@@ -591,11 +591,11 @@ internal sealed partial class PresenceEncoder
 
         _routes.Clear();
         routes.Collect(_self, _routes);
-        foreach (var serial in _known.Keys)
+        foreach (var entityId in _known.Keys)
         {
-            if (serial != _self)
+            if (entityId != _self)
             {
-                routes.Collect(serial, _routes);
+                routes.Collect(entityId, _routes);
             }
         }
 
@@ -897,7 +897,7 @@ internal sealed partial class PresenceEncoder
     private static int DescriptorHash(in EntityView view)
     {
         var appearance = view.Appearance;
-        return HashCode.Combine(view.MaxHp, view.Level, view.TemplateId, view.MoveSpeed, view.AttackRate,
+        return HashCode.Combine(view.MaxLife, view.Level, view.TemplateId, view.MoveSpeed, view.AttackRate,
             HashCode.Combine(appearance.WeaponKey, appearance.ArmorKey, appearance.OffHandKey, appearance.InVillage, appearance.Tier, appearance.HairIndex,
                 HashCode.Combine(appearance.HelperPet, appearance.Phoenix, appearance.BigHead, appearance.WeaponGlow, appearance.OffHandGlow)), view.OwnerId,
             view.ModelScale);
@@ -916,7 +916,7 @@ internal sealed partial class PresenceEncoder
     {
         public Vector3 Position;
         public float Facing;
-        public int Hp;
+        public int Life;
         public ulong AttackTargetId;
         public ulong AttackSequence;
         public uint LastSentTick;
@@ -939,7 +939,7 @@ internal sealed partial class PresenceEncoder
         {
             Position = view.Position;
             Facing = view.Facing;
-            Hp = view.Hp;
+            Life = view.Life;
             AttackTargetId = view.AttackTargetId;
             AttackSequence = view.AttackSequence;
             MoveState = view.MoveState;

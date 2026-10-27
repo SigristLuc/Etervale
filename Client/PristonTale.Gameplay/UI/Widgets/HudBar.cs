@@ -115,9 +115,9 @@ public sealed class HudBar
         painter.Sprite(HudArt.PotionBack, 495, 565 + y);
         if (state is not null)
         {
-            var life = Length(LifeLength, state.Hp, state.MaxHp);
-            var mana = Length(ManaLength, state.Mp, state.MaxMp);
-            var stamina = Length(StaminaLength, state.Sp, state.MaxSp);
+            var life = Length(LifeLength, state.Life, state.MaxLife);
+            var mana = Length(ManaLength, state.Mana, state.MaxMana);
+            var stamina = Length(StaminaLength, state.Stamina, state.MaxStamina);
             painter.Sprite(HudArt.Life, 319, 500 + y + LifeLength - life, GaugeSource(16, LifeLength, life));
             painter.Sprite(HudArt.Mana, 465, 500 + y + ManaLength - mana, GaugeSource(16, ManaLength, mana));
             painter.Sprite(HudArt.Stamina, 303, 518 + y + StaminaLength - stamina, GaugeSource(8, StaminaLength, stamina));
@@ -169,9 +169,9 @@ public sealed class HudBar
         if (!ReferenceEquals(state, _state))
         {
             _state = state;
-            _life = $"HP : {state.Hp}/{state.MaxHp}";
-            _mana = $"MP : {state.Mp}/{state.MaxMp}";
-            _stamina = $"STM : {state.Sp}/{state.MaxSp}";
+            _life = $"HP : {state.Life}/{state.MaxLife}";
+            _mana = $"MP : {state.Mana}/{state.MaxMana}";
+            _stamina = $"STM : {state.Stamina}/{state.MaxStamina}";
             _experience = $"EXP: {ExperienceFraction(state) * 100:0.00}%";
         }
 

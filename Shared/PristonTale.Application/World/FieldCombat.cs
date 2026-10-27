@@ -134,8 +134,8 @@ internal sealed class FieldCombat
             return null;
         }
 
-        bool monsterAtFullHp = monster.Life >= monster.Def.Combat.MaxLife;
-        Log(monster.EntityId).RecordHit(player.EntityId, damage, monsterAtFullHp, nowMs);
+        bool monsterAtFullLife = monster.Life >= monster.Def.Combat.MaxLife;
+        Log(monster.EntityId).RecordHit(player.EntityId, damage, monsterAtFullLife, nowMs);
         if (sourceEntityId == 0 && !monster.IsSummon)
         {
             PlayerHitLanded?.Invoke(player, monster, damage);

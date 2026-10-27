@@ -132,7 +132,7 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
 | Administrator | `/init_premiumitem`, `/@get_perf`, `/@get`, `/@put`, `/GiveMeExp!`, `/expup`, `/GiveMeMoney!`, `/reload_settings`, `/setting` |
 
 - Information: local time, boss minute, the issuer's force orb and premium timers, gold spent per sink, carried potions,
-  connection packet counts, players and monsters, a player by serial, account or name, damage range, session.
+  connection packet counts, players and monsters, a player by entity id, account or name, damage range, session.
 - Players: `/kick` disconnects, `/kill` kills, `/near` goes to a player, `/call` brings one, `/where` reports a
   position, `/field n` goes to field n's start point (a random one in the castle), `/player_location x y z` moves within
   the field (each move carries the running statuses), `/hide` and `/show` make the issuer invisible to other players' presence, `/grant` lends the issuer's level to a
@@ -143,8 +143,8 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
   to the level; `/specific job` and `/Performance value` force the class and middle
   roll of items made in the next minute; `/init_premiumitem n` ends a premium timer.
 - Monsters: `/monster name [count]` spawns up to 21 (only the highest level drops items), `/mymonster name` a pet for
-  four minutes, `/event_monster name minutes permille` replaces spawns by chance, `/set_absorb serial value`, `/talk
-  serial text` makes an entity speak in a bubble.
+  four minutes, `/event_monster name minutes permille` replaces spawns by chance, `/set_absorb id value`, `/talk
+  id text` makes an entity speak in a bubble.
 - Server: `/user_limit [n]`, the blocked-login list, `/shutdown` (8 minutes: five notices, reminders every 30 s and
   every 5 s in the last minute, then every client is asked to close and the server stops).
 - Accounts: `/insert account character` moves an offline character to the account's first free slot;

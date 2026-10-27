@@ -58,40 +58,40 @@ internal static class GmMonsterCommands
         }
     }
 
-    // /set_absorb serial value: a monster's absorption, 1 to 99.
+    // /set_absorb entityId value: a monster's absorption, 1 to 99.
     public static async Task SetAbsorption(GmCommandContext context)
     {
-        var serial = context.Word();
+        var entityId = context.Word();
         var value = ChatCommandText.ToNumber(context.Rest);
-        if (serial.Length == 0 || value is <= 0 or >= 100)
+        if (entityId.Length == 0 || value is <= 0 or >= 100)
         {
             return;
         }
 
-        if (await context.Commands.World.SetAbsorptionAsync(context.Issuer.EntityId, ChatCommandText.ToSerial(serial), value) is { } changed)
+        if (await context.Commands.World.SetAbsorptionAsync(context.Issuer.EntityId, ChatCommandText.ToEntityId(entityId), value) is { } changed)
         {
             context.Reply(Format("> set_absorb ({0}) {1}->{2} ", changed.Name, changed.Before, changed.After));
         }
     }
 
-    // /talk serial text: the monster, NPC or player with that serial says the text to the players near the game master, in
+    // /talk entityId text: the monster, NPC or player with that entityId says the text to the players near the game master, in
     // a bubble over it.
     public static async Task Talk(GmCommandContext context)
     {
-        var serialWord = context.Word();
-        if (serialWord.Length == 0)
+        var idWord = context.Word();
+        if (idWord.Length == 0)
         {
             return;
         }
 
-        var serial = ChatCommandText.ToSerial(serialWord);
+        var entityId = ChatCommandText.ToEntityId(idWord);
         var world = context.Commands.World;
-        if (await world.EntityNameAsync(context.Issuer.EntityId, serial) is not { } name)
+        if (await world.EntityNameAsync(context.Issuer.EntityId, entityId) is not { } name)
         {
             return;
         }
 
-        var line = new ChatLine(ChatKind.Server, serial, ChatRules.ClipToCapacity(name + ": " + context.Line[context.Index..] + " "));
+        var line = new ChatLine(ChatKind.Server, entityId, ChatRules.ClipToCapacity(name + ": " + context.Line[context.Index..] + " "));
         foreach (var id in await world.PlayersNearAsync(context.Issuer.EntityId, ChatRules.AreaRangeSquared, includeSpeaker: true))
         {
             if (context.Commands.Directory.TryGet(id, out var hearer))

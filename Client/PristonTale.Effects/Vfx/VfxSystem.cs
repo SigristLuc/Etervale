@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework;
 
 namespace PristonTale.Effects.Vfx;
 
-// Positions the effects attach to. Entity ids are the server serials; positions are client world space.
+// Positions the effects attach to. Entity ids are the server entityIds; positions are client world space.
 public interface IVfxAnchors
 {
     bool TryGetPosition(ulong entityId, out Vector3 position);

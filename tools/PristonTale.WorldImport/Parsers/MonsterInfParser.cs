@@ -27,7 +27,7 @@ public sealed class MonsterInfParser
         var displayRank = 0;
         int portraitY = 0, portraitZ = 0;
         int level = 0, atkMin = 0, atkMax = 0, atkSpeed = 0, atkRange = 0, accuracy = 0;
-        int defence = 0, absorb = 0, block = 0, hp = 0, sight = 0;
+        int defence = 0, absorb = 0, block = 0, life = 0, sight = 0;
         int skDmgMin = 0, skDmgMax = 0, skDist = 0, skRange = 0, skRating = 0, skCurse = 0;
         int moveSpeed = 0, moveRange = 0, iq = 0, groupMin = 0, groupMax = 0, activeHour = 0;
         ulong exp = 0;
@@ -150,7 +150,7 @@ public sealed class MonsterInfParser
                 case KeyMaps.MonAbsorb: absorb = t.NextInt(); break;
                 case KeyMaps.MonBlock: block = t.NextInt(); break;
                 case KeyMaps.MonSight: sight = t.NextInt(); break;                 // RAW (squared later)
-                case "*생명력": case "*라이프": hp = t.NextInt(); break;            // HP, dual alias
+                case "*생명력": case "*라이프": life = t.NextInt(); break;            // HP, dual alias
                 case KeyMaps.MonSkillDamage: skDmgMin = t.NextInt(); skDmgMax = t.NextInt(); break;
                 case KeyMaps.MonSkillDistance: skDist = t.NextInt(); break;
                 case KeyMaps.MonSkillRange: skRange = t.NextInt(); break;
@@ -202,7 +202,7 @@ public sealed class MonsterInfParser
             Level = level,
             AttackMin = atkMin, AttackMax = atkMax,
             AttackSpeed = atkSpeed, AttackRange = atkRange, Accuracy = accuracy,
-            Defence = defence, AbsorbPct = absorb, BlockPct = block, Hp = hp,
+            Defence = defence, AbsorbPct = absorb, BlockPct = block, Life = life,
             Sight = sight,
             SkillDamageMin = skDmgMin, SkillDamageMax = skDmgMax,
             SkillDistance = skDist, SkillRange = skRange, SkillRatingPct = skRating, SkillCurseCode = skCurse,

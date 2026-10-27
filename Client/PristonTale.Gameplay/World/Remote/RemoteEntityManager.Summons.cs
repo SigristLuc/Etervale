@@ -11,8 +11,8 @@ public sealed partial class RemoteEntityManager
     public sealed class SummonPlate
     {
         public string Name { get; init; } = "";
-        public int Hp { get; set; }
-        public int MaxHp { get; init; }
+        public int Life { get; set; }
+        public int MaxLife { get; init; }
     }
 
     public IEnumerable<(ulong EntityId, ulong OwnerId, SummonPlate Plate)> SummonPlates =>
@@ -23,14 +23,14 @@ public sealed partial class RemoteEntityManager
 
     private void TrackSummonPlate(EntitySpawnInfo spawn, string name)
     {
-        _summonPlates[spawn.EntityId] = new SummonPlate { Name = string.IsNullOrEmpty(spawn.Name) ? name : spawn.Name, Hp = spawn.Hp, MaxHp = spawn.MaxHp };
+        _summonPlates[spawn.EntityId] = new SummonPlate { Name = string.IsNullOrEmpty(spawn.Name) ? name : spawn.Name, Life = spawn.Life, MaxLife = spawn.MaxLife };
     }
 
-    private void UpdateSummonPlate(ulong entityId, int hp)
+    private void UpdateSummonPlate(ulong entityId, int life)
     {
         if (_summonPlates.TryGetValue(entityId, out var plate))
         {
-            plate.Hp = hp;
+            plate.Life = life;
         }
     }
 }

@@ -574,7 +574,7 @@ internal sealed class HudCaptureProbe : Game
         }
 
         return scenario.LowHealth
-            ? _owner with { Hp = 1, Mp = 0, Sp = 2 }
-            : _owner with { Hp = _owner.MaxHp * scenario.HealthPercent / 100, Experience = (_owner.LevelStart + _owner.NextLevel) / 2 };
+            ? _owner with { Life = 1, Mana = 0, Stamina = 2 }
+            : _owner with { Life = _owner.MaxLife * scenario.HealthPercent / 100, Experience = (_owner.LevelStart + _owner.NextLevel) / 2 };
     }
 }

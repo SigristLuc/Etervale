@@ -26,17 +26,17 @@ internal static class MultiplayerSessionTests
         var account = await server.CreatePlayerAsync(new PlayerSetup("Returner", PlayerClass.Fighter, 10, MultiplayerServer.HuntingField, camp));
         var a = await MultiplayerClient.EnterAsync(server, account, "Returner");
         await using var b = await Enter(server, "Stayer", camp + new Vector3(150f, 0f, 0f));
-        await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.Serial), "the returner");
+        await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.EntityId), "the returner");
         var moved = camp + new Vector3(0f, 0f, 96f);
         await a.WalkAsync(camp, moved);
-        await b.WaitUntilAsync(world => Vector3.Distance(Planar(world.Entities[a.Serial].Position), Planar(moved)) < 0.05f, "the returner's walk");
+        await b.WaitUntilAsync(world => Vector3.Distance(Planar(world.Entities[a.EntityId].Position), Planar(moved)) < 0.05f, "the returner's walk");
 
-        var first = a.Serial;
+        var first = a.EntityId;
         await a.LeaveAsync();
         await b.WaitUntilAsync(world => world.Removed.Contains(first) && !world.Entities.ContainsKey(first), "the returner leaving");
 
         await using var again = await MultiplayerClient.EnterAsync(server, account, "Returner");
-        var back = await b.WaitAsync(world => world.Entities.GetValueOrDefault(again.Serial), "the returner back");
+        var back = await b.WaitAsync(world => world.Entities.GetValueOrDefault(again.EntityId), "the returner back");
         Assert.True(back.Player?.Name == "Returner" && Vector3.Distance(Planar(back.Position), Planar(moved)) < 1f, "the returner came back elsewhere");
         Assert.True(b.World.Read(world => world.Entities.Values.Count(entity => entity.Player?.Name == "Returner")) == 1, "the viewer shows two returners");
     }
@@ -48,10 +48,10 @@ internal static class MultiplayerSessionTests
         var account = await server.CreatePlayerAsync(new PlayerSetup("Flaky", PlayerClass.Fighter, 10, MultiplayerServer.HuntingField, camp));
         var a = await MultiplayerClient.EnterAsync(server, account, "Flaky");
         await using var b = await Enter(server, "Patient", camp + new Vector3(150f, 0f, 0f));
-        await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.Serial), "the flaky player");
+        await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.EntityId), "the flaky player");
 
         await a.DropAsync();
-        await b.WaitUntilAsync(world => world.Removed.Contains(a.Serial), "the dropped player removed");
+        await b.WaitUntilAsync(world => world.Removed.Contains(a.EntityId), "the dropped player removed");
         // The character is claimed until the server has saved it; the next login may have to retry briefly.
         await using var again = await MultiplayerClient.LoginAsync(server, account, "Flaky");
         EnterWorldOutcome? entered = null;
@@ -67,7 +67,7 @@ internal static class MultiplayerSessionTests
 
         Assert.True(entered is { Ok: true }, "the character stayed claimed after the connection dropped");
         again.Adopt(entered!);
-        await b.WaitUntilAsync(world => world.Entities.TryGetValue(again.Serial, out var value) && value.Player?.Name == "Flaky", "the player back");
+        await b.WaitUntilAsync(world => world.Entities.TryGetValue(again.EntityId, out var value) && value.Player?.Name == "Flaky", "the player back");
     }
 
     private static async Task RaceAsync()
@@ -83,9 +83,9 @@ internal static class MultiplayerSessionTests
         Assert.True(outcomes.Single(outcome => !outcome.Ok).Failure == EnterWorldFailure.AlreadyActive, "the loser was refused for another reason");
         var winner = outcomes[0].Ok ? first : second;
         winner.Adopt(outcomes.Single(outcome => outcome.Ok));
-        await b.WaitUntilAsync(world => world.Entities.ContainsKey(winner.Serial), "the winner");
+        await b.WaitUntilAsync(world => world.Entities.ContainsKey(winner.EntityId), "the winner");
         await Task.Delay(300);
         Assert.True(b.World.Read(world => world.Entities.Values.Count(entity => entity.Player?.Name == "Contested")) == 1, "the viewer shows two avatars");
-        Assert.True(b.World.Read(world => world.Entities[winner.Serial].Kind) == EntityKind.Player, "the winner is not a player");
+        Assert.True(b.World.Read(world => world.Entities[winner.EntityId].Kind) == EntityKind.Player, "the winner is not a player");
     }
 }

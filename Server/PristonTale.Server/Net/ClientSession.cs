@@ -512,7 +512,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
 
         var hasPoint = packet.X != 0 || packet.Y != 0 || packet.Z != 0;
         var point = new Vector3(GameUnits.FromFixed(packet.X), GameUnits.FromFixed(packet.Y), GameUnits.FromFixed(packet.Z));
-        var request = new SkillCastRequest(packet.Sequence, packet.SkillCode, packet.TargetSerial, point, hasPoint, packet.Command);
+        var request = new SkillCastRequest(packet.Sequence, packet.SkillCode, packet.TargetId, point, hasPoint, packet.Command);
         SkillCastOutcome outcome;
         try
         {
@@ -546,7 +546,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
     private async Task RequestNpcServiceAsync(NpcServiceRequestPacket request)
     {
         var session = _session;
-        var command = new NpcServiceCommand(request.OperationId, request.NpcSerial, (NpcServiceKind)request.Service,
+        var command = new NpcServiceCommand(request.OperationId, request.NpcId, (NpcServiceKind)request.Service,
             (NpcServiceAction)request.Action,
             request.ExpectedRevision, request.ExpectedStorageRevision, request.ItemCode, request.ItemId, request.Anchor, request.Count, request.Amount,
             request.Materials);
@@ -601,7 +601,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         {
             lock (_sendGate)
             {
-                var length = encoder.WriteDescription(request.Serial, _scratch);
+                var length = encoder.WriteDescription(request.EntityId, _scratch);
                 if (length > 0)
                 {
                     SendSpan(_scratch.AsSpan(0, length));
@@ -719,7 +719,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
     private async Task ApplyProgressionAsync(ProgressionCommandPacket request)
     {
         var command = new ProgressionCommand(request.OperationId, request.ExpectedRevision, (ProgressionAction)request.Action,
-            (CharacterAttribute)request.Attribute, request.Amount, request.SkillCode, request.NpcSerial);
+            (CharacterAttribute)request.Attribute, request.Amount, request.SkillCode, request.NpcId);
         ProgressionOutcome outcome;
         try
         {

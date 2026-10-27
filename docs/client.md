@@ -174,7 +174,7 @@ Correlation rules (requests without an operation id):
   their reply opcodes.
 - Inventory and progression commands carry a `Guid` operation id; `InventoryResult`/`ProgressionResult` complete the
   matching entry in `_operations`.
-- NPC interaction is an `AttackRequest` on the NPC serial; one request per NPC serial at a time; `NpcResult` completes it.
+- NPC interaction is an `AttackRequest` on the NPC id; one request per NPC id at a time; `NpcResult` completes it.
 - NPC service requests carry an operation id. Shop catalog, quotes, warehouse and teleport list messages arrive before
   `NpcServiceResult` and are collected on the pending `ServiceRequest`, then returned together as `NpcServiceReply`.
 - A receive-loop failure fails every pending request and completes the presence channel with the error; later calls
@@ -189,7 +189,7 @@ a pending buffer flushed by a single writer task (a backlog above 512 KiB closes
 `PresenceUpdate` published to a bounded channel (4096; when full the receive loop waits, so TCP pushes back on the
 server).
 
-- `PresenceEntries`: full and motion entries update tracked objects (a motion entry never introduces one). An unknown serial or a
+- `PresenceEntries`: full and motion entries update tracked objects (a motion entry never introduces one). An unknown entity id or a
   changed descriptor revision triggers `DescribeEntity`; an object is published as a spawn only once its `EntityDescription`
   arrived. The connection's one-second timer
   (`RetryDescriptions`, which shares the decoder's lock with the receive thread) asks again for every object still

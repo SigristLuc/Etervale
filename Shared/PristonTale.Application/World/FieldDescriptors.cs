@@ -64,7 +64,7 @@ internal sealed class FieldDescriptors
 
     private readonly struct Descriptor(in EntityView view)
     {
-        private readonly int _maxHp = view.MaxHp;
+        private readonly int _maxLife = view.MaxLife;
         private readonly int _level = view.Level;
         private readonly uint _template = view.TemplateId;
         private readonly int _moveSpeed = view.MoveSpeed;
@@ -76,7 +76,7 @@ internal sealed class FieldDescriptors
         public bool Matches(in EntityView view)
         {
             var appearance = view.Appearance;
-            return _maxHp == view.MaxHp && _level == view.Level && _template == view.TemplateId && _moveSpeed == view.MoveSpeed
+            return _maxLife == view.MaxLife && _level == view.Level && _template == view.TemplateId && _moveSpeed == view.MoveSpeed
                 && _attackRate.Equals(view.AttackRate) && _owner == view.OwnerId && _scale.Equals(view.ModelScale)
                 && _appearance.Tier == appearance.Tier && _appearance.HairIndex == appearance.HairIndex && _appearance.FaceIndex == appearance.FaceIndex
                 && _appearance.InVillage == appearance.InVillage && _appearance.HelperPet == appearance.HelperPet && _appearance.Phoenix == appearance.Phoenix

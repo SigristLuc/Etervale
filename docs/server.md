@@ -76,7 +76,7 @@ All registrations are singletons in `HostingExtensions.AddPristonServer`.
 
 | Service | Implementation / factory | Notes |
 | --- | --- | --- |
-| `ISessionRegistry` | `SessionRegistry` | In-memory login sessions keyed by token; allocates player entity serials. |
+| `ISessionRegistry` | `SessionRegistry` | In-memory login sessions keyed by token; allocates player entity ids. |
 | `CharacterClassRegistry` | type | Class definitions (`PristonTale.Simulation.Characters`). |
 | `AuthAppService`, `CharacterAppService`, `SessionAppService`, `NpcAppService`, `QuestAppService` | types | Use cases called by `ClientSession` (and `QuestUpkeepService`). |
 | `WorldCatalog` (`PristonTale.Simulation.World`) | `_ => new WorldCatalog()` | Factory so DI does not pick the collection constructor with an empty field set. |
@@ -204,7 +204,7 @@ the same switch.
 | `JoinWorld` | `JoinWorldAsync` | `PlayerSession.TryBeginPlay`, `WorldPlayerFactory.Create`, `WorldServer.JoinAsync` | `WorldJoined`; starts the presence pump. |
 | `MovementReport` | `ReportMovement` | `WorldServer.MoveToFieldAsync` or `TryReportMovement` | Forced `FieldWarp` correction when rejected. |
 | `AttackRequest` | `AttackAsync` | `WorldServer.InteractNpcAsync` (target is a known NPC) or `SetAttackTargetAsync` | `NpcResult`, or nothing (results arrive as presence). |
-| `DescribeEntity` | `DescribeObject` | `PresenceEncoder.DescriptionPacket` | Plaintext `EntityDescription` when the serial is in view, from the last encoded frame. |
+| `DescribeEntity` | `DescribeObject` | `PresenceEncoder.DescriptionPacket` | Plaintext `EntityDescription` when the entity is in view, from the last encoded frame. |
 | `InventoryCommand` | `ApplyInventoryAsync` | `SessionAppService.ApplyInventoryAsync` | `InventoryResult`. |
 | `ProgressionCommand` | `ApplyProgressionAsync` | `SessionAppService.ApplyProgressionAsync` | `ProgressionResult`. |
 | `NpcServiceRequest` | `RequestNpcServiceAsync` | `NpcAppService.RequestAsync` | State messages, `NpcServiceResult`, and a forced `FieldWarp` for a teleport. |
@@ -344,7 +344,7 @@ or login timeout, packet flood, protocol error, send backlog, presence overflow,
 - `WorldBusyException` is thrown synchronously by `WorldServer` methods, not through the returned task; callers must
   wrap the call itself, as `ReportMovement` and `CastSkillAsync` do.
 - An NPC click is recognised only when the `AttackRequest` target is an NPC the receiver's `PresenceEncoder` currently
-  knows; an unknown serial becomes an attack target change.
+  knows; an unknown entity id becomes an attack target change.
 - The server owns the character record; the client never sends one. `ClientSession` saves the
   character on `LeaveWorld` and on disconnect (`SessionAppService.SaveCharacterAsync`); inventory, progression and NPC
   transactions persist their own changes.

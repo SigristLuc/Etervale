@@ -51,7 +51,7 @@ public readonly struct EntityView
 {
     public EntityView(
         ulong entityId, EntityKind kind, bool isSelf, Vector3 position, float facing,
-        MotionState moveState, int level, int hp, int maxHp,
+        MotionState moveState, int level, int life, int maxLife,
         PlayerAppearanceView appearance, uint templateId = 0,
         int moveSpeed = 0, float attackRate = 1f, ulong attackTargetId = 0, ulong attackSequence = 0)
     {
@@ -62,8 +62,8 @@ public readonly struct EntityView
         Facing = facing;
         MoveState = moveState;
         Level = level;
-        Hp = hp;
-        MaxHp = maxHp;
+        Life = life;
+        MaxLife = maxLife;
         Appearance = appearance;
         TemplateId = templateId;
         MoveSpeed = moveSpeed;
@@ -95,8 +95,8 @@ public readonly struct EntityView
     public MotionState MoveState { get; }
     public int Level { get; }
 
-    public int Hp { get; }
-    public int MaxHp { get; }
+    public int Life { get; }
+    public int MaxLife { get; }
 
     public PlayerAppearanceView Appearance { get; }
     public uint TemplateId { get; }

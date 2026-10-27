@@ -9,7 +9,7 @@ internal static class NpcWireMapping
     public static void SendState(NpcServiceRequestPacket request, NpcServiceReply reply, Action<ClientSession.PacketWrite> send)
     {
         var operation = request.OperationId;
-        var npc = request.NpcSerial;
+        var npc = request.NpcId;
         if (reply.Catalog is { } catalog)
         {
             var entries = catalog.Take(ShopCatalogPacket.MaxItems)

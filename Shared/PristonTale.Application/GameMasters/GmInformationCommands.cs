@@ -95,7 +95,7 @@ internal static class GmInformationCommands
         context.Reply(Format("> Area({0}) Users({1})", field, players));
     }
 
-    public static Task UserBySerial(GmCommandContext context)
+    public static Task UserByEntityId(GmCommandContext context)
     {
         var word = context.Word();
         if (word.Length == 0)
@@ -103,8 +103,8 @@ internal static class GmInformationCommands
             return Task.CompletedTask;
         }
 
-        var serial = ChatCommandText.ToSerial(word);
-        Describe(context, serial != 0 && context.Commands.Directory.TryGet(serial, out var member) ? member : null);
+        var entityId = ChatCommandText.ToEntityId(word);
+        Describe(context, entityId != 0 && context.Commands.Directory.TryGet(entityId, out var member) ? member : null);
         return Task.CompletedTask;
     }
 

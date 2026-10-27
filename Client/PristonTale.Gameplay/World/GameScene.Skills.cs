@@ -232,9 +232,9 @@ public sealed partial class GameScene : ISkillSceneHost
             return true;
         }
 
-        if (Owner is { } owner && (owner.Mp < skill.ManaForRank(rank) || owner.Sp < skill.StaminaForRank(rank)))
+        if (Owner is { } owner && (owner.Mana < skill.ManaForRank(rank) || owner.Stamina < skill.StaminaForRank(rank)))
         {
-            SkillNotice?.Invoke(owner.Mp < skill.ManaForRank(rank) ? "Not enough mana." : "Not enough stamina.");
+            SkillNotice?.Invoke(owner.Mana < skill.ManaForRank(rank) ? "Not enough mana." : "Not enough stamina.");
             return true;
         }
 

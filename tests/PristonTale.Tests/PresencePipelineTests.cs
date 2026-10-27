@@ -117,7 +117,7 @@ internal static class PresencePipelineTests
         Assert.True(sequence == 77 && read.Count == 2 && full <= PresenceWire.MaxFullEntrySize && motion == PresenceWire.MotionEntrySize(1),
             "the presence message lost entries or overran its sizes");
         var back = read[0];
-        Assert.True(back.Full && back.Serial == uint.MaxValue && back.Hp == 100_000 && back.MaxHp == 2_000_000 && back.Level == 285
+        Assert.True(back.Full && back.EntityId == uint.MaxValue && back.Life == 100_000 && back.MaxLife == 2_000_000 && back.Level == 285
             && back.Target == 0x4000_0001 && back.AttackSequence == ulong.MaxValue - 3 && back.Revision == 255 && back.Template == 0x3020
             && back.FieldCode == -1 && back.Motion == MotionState.Skill, $"a full entry did not round-trip: {back}");
         Assert.True(Vector3.Distance(back.Position, entry.Position) <= 0.125f && MathF.Abs(back.Facing - entry.Facing) < 0.001f,

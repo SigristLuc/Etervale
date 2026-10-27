@@ -60,18 +60,18 @@ internal static class MultiplayerCombatTests
         await hunt;
         var kill = await b.WaitAsync(world => world.Combat.Select(entry => entry.Event).FirstOrDefault(value => value.Killed && value.TargetId == dummy.Id),
             "the killing blow", 12000);
-        Assert.True(kill.AttackerId == a.Serial && kill.Kind == CombatEventKind.Hit, "the kill was credited to another attacker");
+        Assert.True(kill.AttackerId == a.EntityId && kill.Kind == CombatEventKind.Hit, "the kill was credited to another attacker");
         await hunt;
-        var seenByA = a.World.Read(world => Blows(world, a.Serial, dummy.Id))!;
-        var seenByB = b.World.Read(world => Blows(world, a.Serial, dummy.Id))!;
+        var seenByA = a.World.Read(world => Blows(world, a.EntityId, dummy.Id))!;
+        var seenByB = b.World.Read(world => Blows(world, a.EntityId, dummy.Id))!;
         Assert.True(seenByA.Count > 1 && seenByA.SequenceEqual(seenByB), $"the players saw different blows: {string.Join(",", seenByA)} / {string.Join(",", seenByB)}");
         Assert.True(seenByA.Where(blow => blow.Kind == CombatEventKind.Hit).Sum(blow => blow.Damage) >= 12, "the hits do not add up to the dummy's life");
-        Assert.True(a.World.Read(world => world.Combat.Any(entry => entry.Event.Kind == CombatEventKind.SwingBegin && entry.Event.AttackerId == a.Serial)),
+        Assert.True(a.World.Read(world => world.Combat.Any(entry => entry.Event.Kind == CombatEventKind.SwingBegin && entry.Event.AttackerId == a.EntityId)),
             "the swings were not shown");
 
         foreach (var viewer in new[] { a, b })
         {
-            await viewer.WaitUntilAsync(world => !world.Entities.TryGetValue(dummy.Id, out var entity) || entity.Hp <= 0 || entity.Motion == MotionState.Dead,
+            await viewer.WaitUntilAsync(world => !world.Entities.TryGetValue(dummy.Id, out var entity) || entity.Life <= 0 || entity.Motion == MotionState.Dead,
                 "the dead dummy");
         }
 
@@ -80,12 +80,12 @@ internal static class MultiplayerCombatTests
         Assert.True(drop.Gold && drop.Amount == 50 && dropAtA.Amount == 50 && Vector3.Distance(drop.Position, dropAtA.Position) < 0.01f,
             "the players saw different drops");
 
-        var promoted = await b.WaitAsync(world => world.Entities.TryGetValue(a.Serial, out var entity) && entity.Level > level ? entity : null,
+        var promoted = await b.WaitAsync(world => world.Entities.TryGetValue(a.EntityId, out var entity) && entity.Level > level ? entity : null,
             "the striker's level up");
         Assert.True(a.World.Read(world => world.Owner?.Level) == promoted.Level, "the striker's own level differs from what others see");
 
-        await a.WaitUntilAsync(world => world.Entities[a.Serial].Motion != MotionState.Attack, "the striker's last swing ending");
-        await a.WalkAsync(a.World.Read(world => world.Entities[a.Serial].Position), drop.Position);
+        await a.WaitUntilAsync(world => world.Entities[a.EntityId].Motion != MotionState.Attack, "the striker's last swing ending");
+        await a.WalkAsync(a.World.Read(world => world.Entities[a.EntityId].Position), drop.Position);
         var revision = a.World.Read(world => world.Owner!.InventoryRevision);
         var money = a.World.Read(world => world.Owner!.Money);
         var pickup = await a.InventoryAsync(new InventoryCommand(Guid.NewGuid(), revision, InventoryAction.Pickup, drop.Id, 0, 1, EquipmentSlot.Weapon));
@@ -111,21 +111,21 @@ internal static class MultiplayerCombatTests
         foreach (var viewer in new[] { a, b })
         {
             await viewer.WaitUntilAsync(world => world.Skills.Any(value => value.SkillCode == FireBolt && value.Phase == SkillEventPhase.Impact)
-                && world.Combat.Any(entry => entry.Event.AttackerId == a.Serial && entry.Event.TargetId == dummy.Id && entry.Event.Kind == CombatEventKind.Hit),
+                && world.Combat.Any(entry => entry.Event.AttackerId == a.EntityId && entry.Event.TargetId == dummy.Id && entry.Event.Kind == CombatEventKind.Hit),
                 "the bolt's impact and hit");
         }
 
-        var skillsA = a.World.Read(world => world.Skills.Where(value => value.CasterId == a.Serial).ToList())!;
-        var skillsB = b.World.Read(world => world.Skills.Where(value => value.CasterId == a.Serial).ToList())!;
+        var skillsA = a.World.Read(world => world.Skills.Where(value => value.CasterId == a.EntityId).ToList())!;
+        var skillsB = b.World.Read(world => world.Skills.Where(value => value.CasterId == a.EntityId).ToList())!;
         Assert.True(skillsA.Count == 2 && skillsA.SequenceEqual(skillsB), "the spectator saw another skill timeline");
         Assert.True(skillsA[0].Phase == SkillEventPhase.Start && skillsA[0].TargetId == dummy.Id && skillsA[0].Rank == 5, "the start event is wrong");
-        var hitA = a.World.Read(world => Blows(world, a.Serial, dummy.Id))!;
-        var hitB = b.World.Read(world => Blows(world, a.Serial, dummy.Id))!;
+        var hitA = a.World.Read(world => Blows(world, a.EntityId, dummy.Id))!;
+        var hitB = b.World.Read(world => Blows(world, a.EntityId, dummy.Id))!;
         Assert.True(hitA.Count == 1 && hitA.SequenceEqual(hitB) && hitA[0].Damage > 0, "the bolt's damage differs between the players");
-        await b.WaitUntilAsync(world => world.Entities[dummy.Id].Hp == 20_000 - hitA[0].Damage, "the dummy's life after the bolt");
-        await a.WaitUntilAsync(world => world.Entities[dummy.Id].Hp == 20_000 - hitA[0].Damage, "the caster's view of the dummy's life");
-        await b.WaitUntilAsync(world => world.Entities[a.Serial].Motion == MotionState.Skill
-            || world.Entities[a.Serial].Samples.Any(sample => sample.Motion == MotionState.Skill), "the caster's skill motion");
+        await b.WaitUntilAsync(world => world.Entities[dummy.Id].Life == 20_000 - hitA[0].Damage, "the dummy's life after the bolt");
+        await a.WaitUntilAsync(world => world.Entities[dummy.Id].Life == 20_000 - hitA[0].Damage, "the caster's view of the dummy's life");
+        await b.WaitUntilAsync(world => world.Entities[a.EntityId].Motion == MotionState.Skill
+            || world.Entities[a.EntityId].Samples.Any(sample => sample.Motion == MotionState.Skill), "the caster's skill motion");
     }
 
     private static async Task MonsterAsync()

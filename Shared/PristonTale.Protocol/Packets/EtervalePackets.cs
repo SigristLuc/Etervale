@@ -11,12 +11,12 @@ public sealed record OwnerStatusPacket(
     ulong LevelStart,
     ulong NextLevel,
     long Money,
-    int Hp,
-    int MaxHp,
-    int Mp,
-    int MaxMp,
-    int Sp,
-    int MaxSp,
+    int Life,
+    int MaxLife,
+    int Mana,
+    int MaxMana,
+    int Stamina,
+    int MaxStamina,
     int StatPoints,
     int SkillPoints,
     int Strength,
@@ -47,12 +47,12 @@ public sealed record OwnerStatusPacket(
         writer.UInt64(LevelStart);
         writer.UInt64(NextLevel);
         writer.Int64(Money);
-        writer.Int32(Hp);
-        writer.Int32(MaxHp);
-        writer.Int32(Mp);
-        writer.Int32(MaxMp);
-        writer.Int32(Sp);
-        writer.Int32(MaxSp);
+        writer.Int32(Life);
+        writer.Int32(MaxLife);
+        writer.Int32(Mana);
+        writer.Int32(MaxMana);
+        writer.Int32(Stamina);
+        writer.Int32(MaxStamina);
         writer.Int32(StatPoints);
         writer.Int32(SkillPoints);
         writer.Int32(Strength);
@@ -211,7 +211,7 @@ public sealed record InventoryCommandPacket(Guid OperationId, long ExpectedRevis
     }
 }
 
-public sealed record ProgressionCommandPacket(Guid OperationId, long ExpectedRevision, int Action, int Attribute, int Amount, uint SkillCode, ulong NpcSerial)
+public sealed record ProgressionCommandPacket(Guid OperationId, long ExpectedRevision, int Action, int Attribute, int Amount, uint SkillCode, ulong NpcId)
 {
     public const int Size = 8 + 16 + 8 + 4 * 4 + 8;
 
@@ -224,7 +224,7 @@ public sealed record ProgressionCommandPacket(Guid OperationId, long ExpectedRev
         writer.Int32(Attribute);
         writer.Int32(Amount);
         writer.UInt32(SkillCode);
-        writer.UInt64(NpcSerial);
+        writer.UInt64(NpcId);
         return writer.Finish();
     }
 
@@ -359,22 +359,22 @@ public static class CombatEventList
     }
 }
 
-// Objects leaving the receiver's interest area ({size, code, int32 Count, uint64 Serial...}); the original client instead
+// Objects leaving the receiver's interest area ({size, code, int32 Count, uint64 EntityId...}); the original client instead
 // times them out after 4-30 seconds.
 public static class RemoveObjectList
 {
     public const int HeaderSize = 12;
-    public const int MaxSerials = (FrameCodec.MaxFrameSize - HeaderSize) / 8;
+    public const int MaxEntityIds = (FrameCodec.MaxFrameSize - HeaderSize) / 8;
 
     public static int SizeFor(int count) => HeaderSize + count * 8;
 
-    public static int Write(Span<byte> destination, ReadOnlySpan<ulong> serials)
+    public static int Write(Span<byte> destination, ReadOnlySpan<ulong> entityIds)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.RemoveObjects);
-        writer.Int32(serials.Length);
-        foreach (var serial in serials)
+        writer.Int32(entityIds.Length);
+        foreach (var entityId in entityIds)
         {
-            writer.UInt64(serial);
+            writer.UInt64(entityId);
         }
 
         return writer.Finish();
@@ -384,18 +384,18 @@ public static class RemoveObjectList
     {
         var reader = new PacketReader(packet, HeaderSize);
         var count = reader.Int32();
-        if (count < 0 || count > MaxSerials || reader.Remaining != count * 8)
+        if (count < 0 || count > MaxEntityIds || reader.Remaining != count * 8)
         {
             throw new InvalidDataException("Object removal list has an invalid count.");
         }
 
-        var serials = new ulong[count];
+        var entityIds = new ulong[count];
         for (var index = 0; index < count; index++)
         {
-            serials[index] = reader.UInt64();
+            entityIds[index] = reader.UInt64();
         }
 
-        return serials;
+        return entityIds;
     }
 }
 

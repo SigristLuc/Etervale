@@ -372,8 +372,8 @@ public sealed class WorldPlayer
     public void Guard(float durationMs) => GuardMsLeft = MathF.Max(GuardMsLeft, durationMs);
 
     public int Level => _character.Level;
-    public int Hp => _character.Life;
-    public int MaxHp => _character.MaxLife;
+    public int Life => _character.Life;
+    public int MaxLife => _character.MaxLife;
 
     public PlayerCharacter Character => _character;
 
@@ -659,8 +659,8 @@ public sealed class WorldPlayer
             return;
         }
 
-        int hp = _character.Life - amount;
-        if (hp <= 0)
+        int life = _character.Life - amount;
+        if (life <= 0)
         {
             _character.Life = 0;
             IsDead = true;
@@ -674,7 +674,7 @@ public sealed class WorldPlayer
         }
         else
         {
-            _character.Life = hp;
+            _character.Life = life;
             if (Action == PlayerActionState.Idle && amount > 1)
             {
                 Action = PlayerActionState.Flinch;
@@ -690,7 +690,7 @@ public sealed class WorldPlayer
         {
             return;
         }
-        _character.Life = Math.Min(MaxHp, _character.Life + amount);
+        _character.Life = Math.Min(MaxLife, _character.Life + amount);
     }
 
     // Real-clock milliseconds before which billing crystals and soul stones refuse (every crystal use restarts it).
@@ -730,7 +730,7 @@ public sealed class WorldPlayer
             return;
         }
 
-        _character.Life = Math.Clamp(life, 1, MaxHp);
+        _character.Life = Math.Clamp(life, 1, MaxLife);
         IsDead = false;
         _attackTargetId = 0;
         MoveState = MotionState.Stand;
@@ -747,7 +747,7 @@ public sealed class WorldPlayer
 
     public EntityView ToView() => new(
         EntityId, EntityKind.Player, isSelf: false, Position, Facing, MoveState,
-        Level, Hp, MaxHp, Appearance,
+        Level, Life, MaxLife, Appearance,
         moveSpeed: _character.Derived.MoveSpeed,
         attackRate: _character.AttackRate,
         attackTargetId: AttackTargetId, attackSequence: AttackSequence)

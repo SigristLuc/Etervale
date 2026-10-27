@@ -174,9 +174,9 @@ internal sealed partial class FieldSkills
         var totals = target.Character.Effects.Totals;
         var percent = totals.Percent(StatKind.HealingTaken) + totals.Flat(StatKind.HealingTaken);
         amount = Math.Max(0, amount + amount * percent / 100);
-        var before = target.Hp;
+        var before = target.Life;
         target.Heal(amount);
-        _host.EmitCombatEvent(new CombatEventView(caster.EntityId, target.EntityId, CombatEventKind.Heal, damage: target.Hp - before));
+        _host.EmitCombatEvent(new CombatEventView(caster.EntityId, target.EntityId, CombatEventKind.Heal, damage: target.Life - before));
     }
 
     private void EmitAllyImpact(WorldPlayer caster, WorldPlayer ally, SkillRule rule, int rank)
