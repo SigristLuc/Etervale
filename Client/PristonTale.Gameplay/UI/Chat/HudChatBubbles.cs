@@ -87,7 +87,7 @@ public sealed class HudChatBubbles
             x -= 2;
         }
 
-        DrawFrame(painter, x, y, textWidth, lineHeight, lines.Count, named, selected);
+        DrawFrame(painter, x, y, textWidth, lineHeight, lines.Count, named, selected, Framed);
         painter.Flush();
         for (var index = 0; index < lines.Count; index++)
         {
@@ -101,12 +101,13 @@ public sealed class HudChatBubbles
     }
 
     // The fill is one translucent tile stretched over the inside; the border is cut from the corner, edge and tail tiles.
-    private void DrawFrame(HudPainter painter, int x, int y, int width, int lineHeight, int lineCount, bool tail, bool selected)
+    // The classic name boxes over the scene use it too (HudCombat.DrawNamePlates).
+    public static void DrawFrame(HudPainter painter, int x, int y, int width, int lineHeight, int lineCount, bool tail, bool selected, bool framed = true)
     {
         var content = lineHeight * lineCount + 6;
         var bottom = y + 4 + content;
         painter.Stretch(Frame[4], new Rectangle(x + 4, y + 4, width + 10, content), new Rectangle(0, 0, 16, 16));
-        if (!Framed && !tail)
+        if (!framed && !tail)
         {
             return;
         }

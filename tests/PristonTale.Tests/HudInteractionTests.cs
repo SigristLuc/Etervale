@@ -8,6 +8,7 @@ using Microsoft.Xna.Framework.Input;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.UI;
+using PristonTale.Gameplay.World;
 using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Gameplay.UI.Rendering;
 
@@ -23,6 +24,7 @@ internal static class HudInteractionTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("original skill shortcuts bind the held mouse side without selecting on release", ShortcutsAsync);
+        yield return ("name plate life bars follow the cursor when classic, the click or an attack otherwise; the outline fades", NamePlatesAsync);
         yield return ("UI color keys preserve crimson, metal and opaque world pixels", ColorKeysAsync);
         yield return ("original HUD uses the largest integer scale and the 800x600 bottom/right anchors", LayoutAsync);
         yield return ("owner combat statistics survive the owner-status packet", OwnerStatsAsync);
@@ -304,6 +306,18 @@ internal static class HudInteractionTests
         debug.Update(default, rightDown, basic);
         debug.Update(new KeyboardState(Keys.LeftControl, Keys.F5), rightDown, basic);
         Assert.True(debug.Shortcut(4).SkillId == 0, "debug chord overwrote a skill shortcut");
+        return Task.CompletedTask;
+    }
+
+    private static Task NamePlatesAsync()
+    {
+        Assert.True(HudCombat.ShowsPlateBar(true, hovered: true, traced: false, attacked: false), "classic bar missing under the cursor");
+        Assert.True(!HudCombat.ShowsPlateBar(true, hovered: false, traced: true, attacked: true), "classic bar shown without the cursor");
+        Assert.True(!HudCombat.ShowsPlateBar(false, hovered: true, traced: false, attacked: false), "compact bar shown for the cursor alone");
+        Assert.True(HudCombat.ShowsPlateBar(false, hovered: false, traced: true, attacked: false), "compact bar missing on the clicked monster");
+        Assert.True(HudCombat.ShowsPlateBar(false, hovered: true, traced: false, attacked: true), "compact bar missing on an attacked monster");
+        Assert.True(GameScene.OutlineStrength(300f) == 1f && GameScene.OutlineStrength(800f) == 0.5f && GameScene.OutlineStrength(1300f) == 0f,
+            "the outline does not fade from 300 to 1300 units");
         return Task.CompletedTask;
     }
 

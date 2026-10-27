@@ -71,6 +71,7 @@ renderer through `PresentationSettings.ApplyRendering` and apply at once.
 | `backgroundMaxFps` | int, `30` | 0 or 15-1000 | yes (same list) | Limit while the window is inactive: `min(maxFps, backgroundMaxFps)`, or `backgroundMaxFps` when `maxFps` is 0; 0 means "use `maxFps`". |
 | `uiScale` | float, `1` | 0.75-1.5 | | Validated and stored only; the in-game HUD always uses the largest integer scale that fits. |
 | `classicTargetHealthBar` | bool, `false` | | yes (Target HP) | `false`: the target frame always shows the HP bar with level and life percentage. `true`: the bar, without numbers, appears only after you attack a monster at full life. Either way the frame shows a live 3D portrait of the target's head, its name and, for monsters, the race icon. |
+| `classicNamePlates` | bool, `false` | | yes (Name plates) | `false`: the name boxes over monsters and NPCs are a tight translucent fill with smaller text, a monster's life bar shows once it was clicked or attacked, and NPCs get no hover outline. `true`: the speech bubble frame, the HUD text size, the bar while the cursor is on the monster, and a green NPC outline. |
 
 ### Rendering
 
@@ -109,10 +110,10 @@ booleans have no validation. An unknown enum name is a JSON error (whole file ig
 ## In-game Settings panel
 
 `HudSettingsPanel` rows, in order: Window, Monitor, Resolution, Frequency, VSync, BGM, Audio, Maximum FPS, Background
-FPS, Anti-aliasing, Sun shadow, Graphics quality, Shadow animation, Shadows, Target HP. Click cycles forward,
-Shift+click backward. Resolution offers 800x600, 1024x768, 1280x720, 1920x1080, 2560x1440 (windowed and borderless)
-plus the primary monitor's modes. Graphics quality cycles Low, Medium, High, Ultra; from `Custom` it goes to Low
-(forward) or Ultra (backward). Anti-aliasing, Sun shadow, Shadow animation and Shadows set `quality` to `Custom`.
+FPS, Anti-aliasing, Sun shadow, Graphics quality, Shadow animation, Shadows, Target HP, Name plates. Click cycles
+forward, Shift+click backward. Resolution offers 800x600, 1024x768, 1280x720, 1920x1080, 2560x1440 (windowed and
+borderless) plus the primary monitor's modes. Graphics quality cycles Low, Medium, High, Ultra; from `Custom` it goes
+to Low (forward) or Ultra (backward). Anti-aliasing, Sun shadow, Shadow animation and Shadows set `quality` to `Custom`.
 Rows are inert while a display change awaits confirmation.
 
 ## Apply and confirm

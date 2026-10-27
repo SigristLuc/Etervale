@@ -156,6 +156,9 @@ public sealed class GameplayHud : IDisposable
     // The local player's running premium timers as the server last sent them.
     public PristonTale.Client.Net.Presence.PremiumTimerSnapshot PremiumTimers { get; set; }
     public ulong TargetId { get; set; }
+    // The entity under the cursor and the clicked one, for the name boxes over the scene.
+    public ulong HoveredId { get; set; }
+    public ulong TracedId { get; set; }
     public HudWorldView World { get; set; }
 
     // The player stands in a castle field, where a Restoration revives.
@@ -915,6 +918,7 @@ public sealed class GameplayHud : IDisposable
         var pointer = layout.ToLogical(_previousMouse.Position);
         var pressed = _previousMouse.LeftButton == ButtonState.Pressed;
         _painter.Begin(layout);
+        Combat.DrawNamePlates(_painter, layout, Overhead, HoveredId, TracedId, _context.Presentation.Requested.ClassicNamePlates);
         _chat.Bubbles.Draw(_painter, layout, _clock.Elapsed.TotalMilliseconds, Overhead, id => _chat.NameColor(id, TargetId), TargetId);
         _painter.Flush();
         if (MinimapShown)

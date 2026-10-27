@@ -187,6 +187,14 @@ internal sealed class PristonShaderLibrary : IDisposable
         return _skinned.Select(_skinned.SurfaceTechnique(material.AlphaTest, prepass));
     }
 
+    // The hover outline of a skinned batch SelectSkinnedSurface just set up (same pose, wobble and texture): parameters as
+    // Surface.fx OutlineParams, color display-referred with its strength in w.
+    public Effect SelectSkinnedOutline(bool masked, Vector4 parameters, Vector4 color)
+    {
+        _skinned.ApplyOutline(parameters, color);
+        return _skinned.Select(masked ? _skinned.OutlineMasked : _skinned.Outline);
+    }
+
     public Effect SelectStaticShadow(PristonMaterialRuntime material, Texture2D texture, Vector4 windParams, Vector2 uvScrollOffset)
     {
         _static.SetVertexAnimation(windParams, material.Water);
@@ -358,6 +366,8 @@ internal sealed class PristonShaderLibrary : IDisposable
         private Vector4 _actorParamsValue;
         private readonly EffectParameter _actorReceiver;
         private bool _receiver;
+        private readonly EffectParameter _outlineParams;
+        private readonly EffectParameter _outlineColor;
         private Texture2D _overlay;
         private readonly EffectParameter _baseColorMap;
         private readonly EffectParameter _layerMap;
@@ -391,6 +401,10 @@ internal sealed class PristonShaderLibrary : IDisposable
             Caster = Technique("ShadowCaster");
             CasterMasked = Technique("ShadowCasterMasked");
             Sky = factory == ShaderVertexFactory.Static ? Technique("Sky") : null;
+            Outline = factory == ShaderVertexFactory.Skinned ? Technique("Outline") : null;
+            OutlineMasked = factory == ShaderVertexFactory.Skinned ? Technique("OutlineMasked") : null;
+            _outlineParams = Parameter("OutlineParams");
+            _outlineColor = Parameter("OutlineColor");
             _viewProjection = Parameter("ViewProjection");
             _view = Parameter("View");
             _casterViewProjection = Parameter("CasterViewProjection");
@@ -493,6 +507,8 @@ internal sealed class PristonShaderLibrary : IDisposable
         public EffectTechnique Sky { get; }
         public EffectTechnique Caster { get; }
         public EffectTechnique CasterMasked { get; }
+        public EffectTechnique Outline { get; }
+        public EffectTechnique OutlineMasked { get; }
         public int TextureChanges { get; set; }
 
         public EffectTechnique SurfaceTechnique(bool masked, bool prepass) =>
@@ -737,6 +753,12 @@ internal sealed class PristonShaderLibrary : IDisposable
                 _actorParams?.SetValue(parameters);
                 _actorParamsValue = parameters;
             }
+        }
+
+        public void ApplyOutline(Vector4 parameters, Vector4 color)
+        {
+            _outlineParams?.SetValue(parameters);
+            _outlineColor?.SetValue(color);
         }
 
         public void ApplyCaster(Texture2D texture, Vector2 uvScrollOffset)

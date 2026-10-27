@@ -389,6 +389,21 @@ public sealed partial class PristonRenderer : IDisposable
         }
     }
 
+    // The hover outline (DrawOutlines): colour display-referred, strength 0 to 1 scales its width, 0 removes it.
+    public void SetActorOutline(ActorHandle handle, Vector3 color, float strength)
+    {
+        if (!TryResolveActor(handle, out var runtime))
+        {
+            return;
+        }
+
+        var outline = strength > 0f ? new Vector4(Vector3.Clamp(color, Vector3.Zero, Vector3.One), MathF.Min(strength, 1f)) : Vector4.Zero;
+        foreach (var batch in runtime.Batches)
+        {
+            batch.Outline = outline;
+        }
+    }
+
     public bool TryGetActorBounds(ReadOnlySpan<ActorHandle> handles, out BoundingBox bounds)
     {
         var hasBounds = false;
@@ -2153,6 +2168,12 @@ public sealed partial class PristonRenderer : IDisposable
             _temporalTargetsBound = _sceneTargets.Temporal;
         }
 
+        if (intoScene && !_neutralActorPass && DebugView == PristonDebugView.Shaded)
+        {
+            DrawOutlines(queue.Opaque, ref drawCalls, ref triangles);
+            DrawOutlines(queue.AlphaTest, ref drawCalls, ref triangles);
+        }
+
         Profiler.Begin(RenderSection.Opaque);
         DrawQueueItems(
             queue.Opaque,
@@ -2272,6 +2293,42 @@ public sealed partial class PristonRenderer : IDisposable
         }
     }
 
+    // The original hover outline: the actor drawn flat in one colour, shifted on screen and pushed back in depth, before
+    // the lit actor. The original shifts it 1.4 pixels on an 800x600 screen; here it is shifted that far, scaled with the
+    // screen height, in four directions so the rim shows all around. It writes depth so what is drawn after it behind the
+    // actor (or shaded again over a pre-pass) does not cover it; the lit actor, nearer, covers it inside the silhouette.
+    private void DrawOutlines(IReadOnlyList<PristonRenderQueueItem<RenderBatch>> items, ref int drawCalls, ref int triangles)
+    {
+        var pixels = OutlinePixels * MathF.Max(1f, _sceneTargets.Height / 600f);
+        var push = -_reflectionFrame.Projection.M43 * OutlineDepthPush;
+        for (var i = 0; i < items.Count; i++)
+        {
+            var batch = items[i].Batch;
+            if (!batch.IsSkinned || batch.Outline.W <= 0f || batch.Shade is { Translucent: true })
+            {
+                continue;
+            }
+
+            _stateCache.SetBlendState(TemporalBlend(BlendState.Opaque, false));
+            _stateCache.SetDepthStencilState(DepthStencilState.Default);
+            _stateCache.SetRasterizerState(batch.Material.TwoSided ? PristonRasterizerStates.TwoSided : PristonRasterizerStates.SingleSided);
+            var shift = pixels * batch.Outline.W;
+            var color = new Vector4(batch.Outline.X, batch.Outline.Y, batch.Outline.Z, 1f);
+            foreach (var (x, y) in OutlineDirections)
+            {
+                _shaders.SelectSkinnedSurface(batch.Material, batch.Material.SelectTexture(_renderTime), ComputeUvScrollOffset(batch.Material), batch.SkinPalette,
+                    Vector3.Zero, LayerOffset(batch.Material), false, batch.FloorLight, batch.Shade, 0f, WobblePhase, batch.IsActor);
+                var parameters = new Vector4(x * shift * 2f / _sceneTargets.Width, y * shift * 2f / _sceneTargets.Height, push, OutlineDepthPush);
+                _shaders.SelectSkinnedOutline(batch.Material.AlphaTest, parameters, color).CurrentTechnique.Passes[0].Apply();
+                _stateCache.SetVertexBuffer(batch.SkinnedBuffer);
+                _stateCache.SetIndexBuffer(batch.SkinnedIndexBuffer);
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, batch.SkinnedPrimitiveCount);
+                drawCalls++;
+                triangles += batch.SkinnedPrimitiveCount;
+            }
+        }
+    }
+
     // With the temporal targets bound, a surface that is blended or writes no depth leaves the motion and depth of what
     // is behind it: the same blend on the colour, no writes to the other targets.
     private BlendState TemporalBlend(BlendState blend, bool writesDepth)
@@ -2310,6 +2367,9 @@ public sealed partial class PristonRenderer : IDisposable
 
     private bool _temporalTargetsBound;
     private bool _prepassDrawn;
+    private const float OutlinePixels = 1.4f;
+    private const float OutlineDepthPush = 16f;
+    private static readonly (float X, float Y)[] OutlineDirections = [(1f, 0f), (-1f, 0f), (0f, 1f), (0f, -1f)];
     private bool _drawingTransparent;
     private bool _prepassMode;
     // Whether the pre-pass drew a surface smooth enough for the screen-space reflections (Passes/Reflections.fx reflects

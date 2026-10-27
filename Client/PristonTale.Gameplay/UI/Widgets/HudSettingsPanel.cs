@@ -20,7 +20,7 @@ internal sealed class HudSettingsPanel
     private static readonly int[] ShadowUpdateRates = [30, 60, 120, 0];
     private static readonly Point[] WindowSizes = [new(800, 600), new(1024, 768), new(1280, 720), new(1920, 1080), new(2560, 1440)];
     private readonly PresentationSettings _settings;
-    private readonly string[] _labels = new string[15];
+    private readonly string[] _labels = new string[16];
     private ClientSettings _labelSettings;
 
     public HudSettingsPanel(PresentationSettings settings) => _settings = settings;
@@ -64,6 +64,7 @@ internal sealed class HudSettingsPanel
                 12 => current with { Quality = GraphicsQuality.Custom, ShadowUpdateRate = Cycle(ShadowUpdateRates, current.ShadowUpdateRate, direction) },
                 13 => current with { Quality = GraphicsQuality.Custom, ShadowsEnabled = !current.ShadowsEnabled },
                 14 => current with { ClassicTargetHealthBar = !current.ClassicTargetHealthBar },
+                15 => current with { ClassicNamePlates = !current.ClassicNamePlates },
                 _ => current
             };
             return;
@@ -193,5 +194,6 @@ internal sealed class HudSettingsPanel
         _labels[12] = settings.ShadowUpdateRate == 0 ? "Shadow animation: every frame" : $"Shadow animation: {settings.ShadowUpdateRate} Hz";
         _labels[13] = settings.ShadowsEnabled ? "Shadows: on" : "Shadows: off";
         _labels[14] = settings.ClassicTargetHealthBar ? "Target HP: classic (after first hit)" : "Target HP: always, with percentage";
+        _labels[15] = settings.ClassicNamePlates ? "Name plates: classic" : "Name plates: compact";
     }
 }

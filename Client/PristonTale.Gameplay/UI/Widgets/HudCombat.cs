@@ -14,7 +14,7 @@ public readonly record struct HudTargetFrame(Rectangle Box, Rectangle Portrait, 
 // Target inspection box (centred at 0.92/0.1 of the screen with cw.tga, the name 16 pixels above its bottom edge, the
 // monster race icon in its top right corner and the original life bar under it). Hits are kept as history lines; the
 // original shows them as floating numbers only, so the chat window does not list them.
-public sealed class HudCombat
+public sealed partial class HudCombat
 {
     private const int StateBarWidth = 100;
     private const int StateBarSize = 92;
@@ -33,6 +33,8 @@ public sealed class HudCombat
         public Vector3 Position { get; set; } = new(spawn.Position.X, spawn.Position.Y, spawn.Position.Z);
         // Set when the local player starts attacking this monster at full life, as in the original.
         public bool StateBarEnabled { get; set; }
+        // Set when the local player swings at it at all: its name box over the scene then carries the life bar.
+        public bool Attacked { get; set; }
     }
 
     private readonly Dictionary<ulong, Entity> _entities = new();
@@ -80,8 +82,8 @@ public sealed class HudCombat
     {
         foreach (var spawn in update.Spawns)
         {
-            var enabled = _entities.TryGetValue(spawn.EntityId, out var previous) && previous.StateBarEnabled;
-            _entities[spawn.EntityId] = new Entity(spawn) { StateBarEnabled = enabled };
+            var known = _entities.TryGetValue(spawn.EntityId, out var previous);
+            _entities[spawn.EntityId] = new Entity(spawn) { StateBarEnabled = known && previous.StateBarEnabled, Attacked = known && previous.Attacked };
             if (spawn.IsSelf)
             {
                 _self = spawn.EntityId;
@@ -136,6 +138,11 @@ public sealed class HudCombat
     // As in the original, only an attack that finds the monster at full life enables the classic bar.
     public void NoteAttack(ulong target)
     {
+        if (_entities.TryGetValue(target, out var attacked) && attacked.Spawn.Kind == RemoteEntityKind.Monster)
+        {
+            attacked.Attacked = true;
+        }
+
         if (_entities.TryGetValue(target, out var entity) && entity.Spawn.Kind == RemoteEntityKind.Monster && entity.Spawn.MaxHp > 0
             && entity.Hp == entity.Spawn.MaxHp)
         {
