@@ -632,8 +632,7 @@ public sealed class GameServerConnection : IGameBackend
         var packet = memory.Span;
         if (_presence.TryHandle(packet, out var update))
         {
-            Publish(update);
-            return ValueTask.CompletedTask;
+            return Publish(update);
         }
 
         var code = BinaryPrimitives.ReadUInt32LittleEndian(packet[4..]);
@@ -868,13 +867,10 @@ public sealed class GameServerConnection : IGameBackend
 
     private static string ItemKey(uint code) => code != 0 && ItemCodes.TryFormat(code, out var key) ? key : "";
 
-    private void Publish(PresenceUpdate? update)
-    {
-        if (update is not null && !_presenceUpdates.Writer.TryWrite(update))
-        {
-            throw new InvalidDataException("Client presence queue exceeded its capacity.");
-        }
-    }
+    // A full queue (the game thread stalled on a field load or a debugger) holds the receive loop instead of closing the
+    // connection: TCP pushes back and the server's send backlog decides.
+    private ValueTask Publish(PresenceUpdate? update) =>
+        update is null || _presenceUpdates.Writer.TryWrite(update) ? ValueTask.CompletedTask : _presenceUpdates.Writer.WriteAsync(update, _lifetime.Token);
 
     private void RequestDescription(ulong serial)
     {
