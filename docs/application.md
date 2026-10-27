@@ -166,7 +166,7 @@ Persistence never runs on the tick. Durable work is split: the tick prepares a c
 | --- | --- | --- |
 | `JoinAsync(fieldId, player, outbound, session)` | player | false if unknown field, already connected, or session not playing |
 | `LeaveAsync(fieldId, entityId, outbound)` | exempt | removes the player only if `outbound` matches the connection; returns `WorldLeave` with the character captured in that tick, as `CaptureForSaveAsync` captures it |
-| `MoveToFieldAsync(old, new, player, requestedPosition, outbound)` | player | gate or warp change authorized by `FieldTransition` |
+| `MoveToFieldAsync(old, new, player, requestedPosition, outbound)` | player | gate or warp change authorized by `FieldTransition`; true without moving again when the connection is already in `new` (reports sent before the move committed) |
 | `TryReportMovement(field, entity, position, facing, moving, running, actionTarget, sink)` | player | false when dropped; the verdict goes to `sink` on the tick |
 | `ReportMovementAsync(field, entity, position, facing, moving, running, actionTarget)` | player | `MovementVerdict` (tests and tools) |
 | `SetAttackTargetAsync(field, attacker, target, sustained, sequence)` | player | false on dead attacker, stale sequence, invalid target |

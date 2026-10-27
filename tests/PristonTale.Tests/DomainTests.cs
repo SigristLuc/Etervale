@@ -216,6 +216,8 @@ internal static class DomainTests
         Assert.True(!await Tick(world, world.MoveToFieldAsync(3, 5, player, Vector3.Zero, writer)), "level gate bypassed");
         Assert.True(await Tick(world, world.MoveToFieldAsync(3, 4, player, new Vector3(99999), writer)), "valid gate rejected");
         Assert.True(player.Position == new Vector3(100, 0, 100), "gate trusted requested placement");
+        Assert.True(await Tick(world, world.MoveToFieldAsync(3, 4, player, new Vector3(99999), writer)) && player.Position == new Vector3(100, 0, 100),
+            "a report still naming the field the player already moved to was refused or moved it again");
         Assert.True(player.ReportMovement(new Vector3(150, 0, 100), 0f, true, false, 0, 1000) == MovementVerdict.Accepted && player.Position.X == 150,
             "walk report after a gate rejected");
         player.ApplyDamage(int.MaxValue);

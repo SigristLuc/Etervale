@@ -200,6 +200,14 @@ public sealed partial class WorldServer
     {
         return EnqueueAsync(player.EntityId, () =>
         {
+            // Reports keep naming the new field until the client hears the move committed: an already-made move is a success,
+            // not a refusal the session would answer with a forced warp.
+            if (_connections.TryGetValue(player.EntityId, out var current) && ReferenceEquals(current.Outbound, outbound)
+                && current.FieldId == newFieldId && oldFieldId != newFieldId)
+            {
+                return true;
+            }
+
             if (!WorldPosition.IsValid(requestedPosition)
                 || player.IsDead
                 || !_connections.TryGetValue(player.EntityId, out var connection)
