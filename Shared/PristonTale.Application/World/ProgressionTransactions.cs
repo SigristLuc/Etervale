@@ -11,14 +11,11 @@ internal static class ProgressionTransactions
         PlayerSession session, WorldPlayer player, FieldInstance field, ProgressionCommand command)
     {
         var original = player.Character;
-        foreach (var operation in original.ProgressionOperations)
+        if (original.ProgressionOperations.Find(command.OperationId) is { } operation)
         {
-            if (operation.Command.OperationId == command.OperationId)
-            {
-                var replay = operation.Command == command;
-                return new PreparedCharacterOperation<ProgressionOutcome>(original, null, null,
-                    new ProgressionOutcome(replay, operation.Revision, replay ? "already committed" : "operation identity conflict"));
-            }
+            var replay = operation.Command == command;
+            return new PreparedCharacterOperation<ProgressionOutcome>(original, null, null,
+                new ProgressionOutcome(replay, operation.Revision, replay ? "already committed" : "operation identity conflict"));
         }
 
         if (player.IsDead || command.Action == ProgressionAction.LearnSkill

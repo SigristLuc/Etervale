@@ -338,8 +338,8 @@ Revisions and idempotency:
 
 - Commands carry a client GUID `OperationId` and an `ExpectedRevision` (`InventoryRevision` or `ProgressionRevision`;
   warehouse actions also `ExpectedStorageRevision`). A stale revision is refused without writing.
-- Applied operations are stored per character in four histories (inventory, service, progression, quests), each
-  capped at the last 64, and persisted with the character. The same id with an identical command replays as success
+- Applied operations are stored per character in five histories (inventory, service, progression, item use, quests),
+  each an `OperationHistory<T>` capped at the last 64 and looked up with `Find(operationId)`, and persisted with the character. The same id with an identical command replays as success
   ("already committed") with the recorded revision; the same id with a different command is an "operation identity
   conflict". This makes a retry after a lost reply safe and never charges twice.
 - Commit merges only the transaction's domain into the live character (inventory, equipment, histories, money

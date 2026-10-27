@@ -19,7 +19,7 @@ public sealed record SavedPremium(int Version, SavedPremiumTimer[] Timers, Appli
             .Select(static timer => new SavedPremiumTimer(timer.Kind, timer.Value, timer.DurationSeconds, timer.ExpiresAtSeconds))
             .ToArray();
         var premium = character.Premium;
-        return new SavedPremium(1, timers, character.ItemUses.Applied.ToArray(), premium.GravityScrolls, premium.BigHeadMode,
+        return new SavedPremium(1, timers, character.ItemUses.ToArray(), premium.GravityScrolls, premium.BigHeadMode,
             premium.BigHeadExpiresAtSeconds, premium.ClockSeconds);
     }
 
@@ -29,7 +29,7 @@ public sealed record SavedPremium(int Version, SavedPremiumTimer[] Timers, Appli
         if (CharacterStateCodec.IsBlank(json, JsonValueKind.Object))
         {
             character.Premium.Restore([]);
-            character.ItemUses.Restore([]);
+            character.ItemUses.Restore([], static _ => true, "item use");
             return;
         }
 
@@ -45,7 +45,7 @@ public sealed record SavedPremium(int Version, SavedPremiumTimer[] Timers, Appli
             .Select(timer => new PremiumTimer(timer.Kind, timer.Value, timer.DurationSeconds,
                 PremiumTimers.PausesOffline(timer.Kind) ? timer.ExpiresAtSeconds + offline : timer.ExpiresAtSeconds))
             .Where(timer => timer.ExpiresAtSeconds > nowSeconds));
-        character.ItemUses.Restore(state.Operations ?? []);
+        character.ItemUses.Restore(state.Operations ?? [], static applied => applied.Outcome is not null, "item use");
         var bigHead = state.BigHeadExpiresAtSeconds > nowSeconds ? state.BigHeadMode : 0;
         character.Premium.RestoreCounters(state.GravityScrolls, bigHead, state.BigHeadExpiresAtSeconds);
     }

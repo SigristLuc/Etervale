@@ -83,7 +83,10 @@ public static class NpcServiceActions
     public static bool IsDurable(NpcServiceAction action) => action is not (NpcServiceAction.Open or NpcServiceAction.Close or NpcServiceAction.Refresh);
 }
 
-public sealed record AppliedServiceOperation(NpcServiceCommand Command, long Revision);
+public sealed record AppliedServiceOperation(NpcServiceCommand Command, long Revision) : IAppliedOperation
+{
+    Guid IAppliedOperation.OperationId => Command?.OperationId ?? Guid.Empty;
+}
 
 public sealed record NpcServiceOutcome(bool Ok, NpcServiceStatus Status, long Revision, long StorageRevision, string Message)
 {

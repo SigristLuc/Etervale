@@ -12,9 +12,6 @@ namespace PristonTale.Simulation.Characters;
 public sealed class PlayerCharacter
 {
     private readonly Dictionary<EquipmentSlot, ItemInstance> _equipment = new();
-    private readonly List<AppliedInventoryOperation> _inventoryOperations = new();
-    private readonly List<AppliedProgressionOperation> _progressionOperations = new();
-    private readonly List<AppliedServiceOperation> _serviceOperations = new();
 
     public PlayerCharacter(CharacterClass characterClass, string name, int level = 1, CharacterAttributes attributes = null)
     {
@@ -145,10 +142,10 @@ public sealed class PlayerCharacter
     public CharacterAttributes Attributes { get; private set; }
     public Inventory Inventory { get; private set; } = new();
     public long InventoryRevision { get; private set; }
-    public IReadOnlyList<AppliedInventoryOperation> InventoryOperations => _inventoryOperations;
-    public IReadOnlyList<AppliedServiceOperation> ServiceOperations => _serviceOperations;
+    public OperationHistory<AppliedInventoryOperation> InventoryOperations { get; } = new();
+    public OperationHistory<AppliedServiceOperation> ServiceOperations { get; } = new();
     public long ProgressionRevision { get; private set; }
-    public IReadOnlyList<AppliedProgressionOperation> ProgressionOperations => _progressionOperations;
+    public OperationHistory<AppliedProgressionOperation> ProgressionOperations { get; } = new();
     public LearnedSkills Skills { get; }
     public IReadOnlyDictionary<EquipmentSlot, ItemInstance> Equipment => _equipment;
 
@@ -157,7 +154,7 @@ public sealed class PlayerCharacter
 
     public PremiumTimers Premium { get; } = new();
 
-    public ItemUseHistory ItemUses { get; } = new();
+    public OperationHistory<AppliedItemUse> ItemUses { get; } = new();
 
     private DerivedStats _derived;
     private long _derivedEffectsRevision = -1;
@@ -466,56 +463,23 @@ public sealed class PlayerCharacter
             throw new ArgumentOutOfRangeException(nameof(revision));
         }
 
-        _inventoryOperations.Clear();
-        foreach (var operation in operations)
-        {
-            if (_inventoryOperations.Count >= 64 || operation is null || operation.Command is null
-                || operation.Command.OperationId == Guid.Empty || operation.Revision > revision || operation.Revision < 1
-                || _inventoryOperations.Any(existing => existing.Command.OperationId == operation.Command.OperationId))
-            {
-                throw new ArgumentException("Invalid inventory operation history.");
-            }
-
-            _inventoryOperations.Add(operation);
-        }
-
+        InventoryOperations.Restore(operations, operation => operation.Revision >= 1 && operation.Revision <= revision, "inventory operation");
         InventoryRevision = revision;
     }
 
     public void RecordInventoryOperation(InventoryCommand command)
     {
-        if (_inventoryOperations.Count == 64)
-        {
-            _inventoryOperations.RemoveAt(0);
-        }
-
-        _inventoryOperations.Add(new AppliedInventoryOperation(command, InventoryRevision));
+        InventoryOperations.Record(new AppliedInventoryOperation(command, InventoryRevision));
     }
 
     public void RestoreServiceHistory(IEnumerable<AppliedServiceOperation> operations)
     {
-        _serviceOperations.Clear();
-        foreach (var operation in operations)
-        {
-            if (_serviceOperations.Count >= 64 || operation?.Command is null || operation.Command.OperationId == Guid.Empty
-                || operation.Revision < 0 || operation.Revision > InventoryRevision
-                || _serviceOperations.Any(existing => existing.Command.OperationId == operation.Command.OperationId))
-            {
-                throw new ArgumentException("Invalid NPC service operation history.");
-            }
-
-            _serviceOperations.Add(operation);
-        }
+        ServiceOperations.Restore(operations, operation => operation.Revision >= 0 && operation.Revision <= InventoryRevision, "NPC service operation");
     }
 
     public void RecordServiceOperation(NpcServiceCommand command)
     {
-        if (_serviceOperations.Count == 64)
-        {
-            _serviceOperations.RemoveAt(0);
-        }
-
-        _serviceOperations.Add(new AppliedServiceOperation(command, InventoryRevision));
+        ServiceOperations.Record(new AppliedServiceOperation(command, InventoryRevision));
     }
 
     // Aging counts change no stat and so leave the inventory revision alone.
@@ -635,9 +599,9 @@ public sealed class PlayerCharacter
             clone.Skills.Restore(skill.Key, skill.Value, Skills.UsesOf(skill.Key));
         }
 
-        clone.RestoreInventoryHistory(InventoryRevision, _inventoryOperations);
-        clone.RestoreServiceHistory(_serviceOperations);
-        clone.RestoreProgressionHistory(ProgressionRevision, _progressionOperations);
+        clone.RestoreInventoryHistory(InventoryRevision, InventoryOperations);
+        clone.RestoreServiceHistory(ServiceOperations);
+        clone.RestoreProgressionHistory(ProgressionRevision, ProgressionOperations);
         clone.Quests = Quests.Clone();
         clone.Premium.CopyFrom(Premium);
         clone.ItemUses.CopyFrom(ItemUses);
@@ -688,12 +652,7 @@ public sealed class PlayerCharacter
         }
 
         ProgressionRevision++;
-        if (_progressionOperations.Count == 64)
-        {
-            _progressionOperations.RemoveAt(0);
-        }
-
-        _progressionOperations.Add(new AppliedProgressionOperation(command, ProgressionRevision));
+        ProgressionOperations.Record(new AppliedProgressionOperation(command, ProgressionRevision));
         return true;
     }
 
@@ -704,19 +663,7 @@ public sealed class PlayerCharacter
             throw new ArgumentOutOfRangeException(nameof(revision));
         }
 
-        _progressionOperations.Clear();
-        foreach (var operation in operations)
-        {
-            if (_progressionOperations.Count >= 64 || operation?.Command is null || operation.Command.OperationId == Guid.Empty
-                || operation.Revision < 1 || operation.Revision > revision
-                || _progressionOperations.Any(existing => existing.Command.OperationId == operation.Command.OperationId))
-            {
-                throw new ArgumentException("Invalid progression operation history.");
-            }
-
-            _progressionOperations.Add(operation);
-        }
-
+        ProgressionOperations.Restore(operations, operation => operation.Revision >= 1 && operation.Revision <= revision, "progression operation");
         ProgressionRevision = revision;
     }
 
@@ -804,8 +751,8 @@ public sealed class PlayerCharacter
             _equipment.Add(equipped.Key, equipped.Value);
         }
 
-        RestoreInventoryHistory(candidate.InventoryRevision, candidate._inventoryOperations);
-        RestoreServiceHistory(candidate._serviceOperations);
+        RestoreInventoryHistory(candidate.InventoryRevision, candidate.InventoryOperations);
+        RestoreServiceHistory(candidate.ServiceOperations);
         Recompute();
         Life = Math.Min(Life, MaxLife);
         Mana = Math.Min(Mana, MaxMana);

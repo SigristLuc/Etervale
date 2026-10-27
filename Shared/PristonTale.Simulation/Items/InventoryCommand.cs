@@ -17,7 +17,10 @@ public sealed record InventoryCommand(Guid OperationId, long ExpectedRevision, I
     Guid ItemId, int Destination, int Count, EquipmentSlot Slot);
 
 public sealed record InventoryOutcome(bool Ok, long Revision, string Message);
-public sealed record AppliedInventoryOperation(InventoryCommand Command, long Revision);
+public sealed record AppliedInventoryOperation(InventoryCommand Command, long Revision) : IAppliedOperation
+{
+    Guid IAppliedOperation.OperationId => Command?.OperationId ?? Guid.Empty;
+}
 
 public static class InventoryCommands
 {

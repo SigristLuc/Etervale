@@ -103,7 +103,7 @@ internal static partial class ItemUseTransactions
         UsableItemEffects.Apply(candidate, rule, context.NowSeconds, BigHeadMode(context.Roll));
         var message = extra.Message.Length > 0 ? extra.Message : Success(rule, item.Definition);
         var outcome = new ItemUseOutcome(true, candidate.InventoryRevision, ItemUseStatus.Used, code, message);
-        candidate.ItemUses.Record(command, outcome);
+        candidate.ItemUses.Record(new AppliedItemUse(command, outcome.Revision, outcome));
         var fieldId = arrival?.FieldCode ?? context.Field.FieldId;
         var position = arrival?.Position ?? player.Position;
         var snapshot = CharacterRecordFactory.Capture(session.Loaded!, candidate, fieldId, position);

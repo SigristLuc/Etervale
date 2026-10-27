@@ -39,15 +39,12 @@ internal static class MobileShopTransactions
                 return Final(original, NpcServiceOutcome.Failed(NpcServiceStatus.Rejected, "this shop only buys and repairs", original.InventoryRevision));
         }
 
-        foreach (var applied in original.ServiceOperations)
+        if (original.ServiceOperations.Find(command.OperationId) is { } applied)
         {
-            if (applied.Command.OperationId == command.OperationId)
-            {
-                return applied.Command == command
-                    ? new PreparedNpcOperation(original, null, null,
-                        new NpcServiceReply(Done(original, "already committed")) { Quotes = NpcServiceTransactions.Quotes(original) })
-                    : Final(original, NpcServiceOutcome.Failed(NpcServiceStatus.Conflict, "operation identity conflict", original.InventoryRevision));
-            }
+            return applied.Command == command
+                ? new PreparedNpcOperation(original, null, null,
+                    new NpcServiceReply(Done(original, "already committed")) { Quotes = NpcServiceTransactions.Quotes(original) })
+                : Final(original, NpcServiceOutcome.Failed(NpcServiceStatus.Conflict, "operation identity conflict", original.InventoryRevision));
         }
 
         if (command.OperationId == Guid.Empty || command.ExpectedRevision != original.InventoryRevision)

@@ -1,3 +1,5 @@
+using PristonTale.Simulation.Characters;
+
 namespace PristonTale.Simulation.Quests;
 
 // The running quest. Only one quest runs at a time: every quest refuses to start while another one is active.
@@ -52,15 +54,17 @@ public enum QuestTimerKind : byte
     Expiring = 2
 }
 
-public sealed record AppliedQuestOperation(QuestCommand Command, long Revision);
+public sealed record AppliedQuestOperation(QuestCommand Command, long Revision) : IAppliedOperation
+{
+    Guid IAppliedOperation.OperationId => Command?.OperationId ?? Guid.Empty;
+}
 
 public sealed class QuestJournal
 {
     public const int FinishedCapacity = 32;
-    public const int OperationCapacity = 64;
 
     private readonly List<QuestCode> _finished = [];
-    private readonly List<AppliedQuestOperation> _operations = [];
+    private readonly OperationHistory<AppliedQuestOperation> _operations = new();
     private ActiveQuest _active = ActiveQuest.Idle;
     private LevelQuestLog _levelLog;
     private ElementaryQuestLog _elementaryLog;
@@ -127,7 +131,7 @@ public sealed class QuestJournal
     public IReadOnlyList<QuestCode> Finished => _finished;
     public int FinishedCount { get; private set; }
 
-    public IReadOnlyList<AppliedQuestOperation> Operations => _operations;
+    public OperationHistory<AppliedQuestOperation> Operations => _operations;
 
     public bool HasFinished(QuestCode code) => _finished.Contains(code);
 
@@ -145,27 +149,11 @@ public sealed class QuestJournal
 
     public void Record(QuestCommand command)
     {
-        if (_operations.Count == OperationCapacity)
-        {
-            _operations.RemoveAt(0);
-        }
-
-        _operations.Add(new AppliedQuestOperation(command, Revision + 1));
+        _operations.Record(new AppliedQuestOperation(command, Revision + 1));
         Revision++;
     }
 
-    public AppliedQuestOperation Find(Guid operationId)
-    {
-        foreach (var operation in _operations)
-        {
-            if (operation.Command.OperationId == operationId)
-            {
-                return operation;
-            }
-        }
-
-        return null;
-    }
+    public AppliedQuestOperation Find(Guid operationId) => _operations.Find(operationId);
 
     public void Restore(ActiveQuest active, LevelQuestLog levelLog, ElementaryQuestLog elementaryLog, IEnumerable<QuestCode> finished, int finishedCount,
         bool skillResetOffered, long revision, IEnumerable<AppliedQuestOperation> operations)
@@ -187,17 +175,7 @@ public sealed class QuestJournal
             _finished.Add(code);
         }
 
-        _operations.Clear();
-        foreach (var operation in operations)
-        {
-            if (_operations.Count == OperationCapacity || operation?.Command is null || operation.Command.OperationId == Guid.Empty
-                || Find(operation.Command.OperationId) is not null)
-            {
-                throw new ArgumentException("Invalid quest operation history.");
-            }
-
-            _operations.Add(operation);
-        }
+        _operations.Restore(operations, static _ => true, "quest operation");
 
         _active = active;
         _levelLog = levelLog;

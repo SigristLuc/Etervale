@@ -369,14 +369,11 @@ public sealed partial class WorldServer
             }
 
             var original = connection.Player.Character;
-            foreach (var applied in original.InventoryOperations)
+            if (original.InventoryOperations.Find(command.OperationId) is { } applied)
             {
-                if (applied.Command.OperationId == command.OperationId)
-                {
-                    var duplicate = applied.Command == command;
-                    return new PreparedCharacterOperation<InventoryOutcome>(original, null, null,
-                        new InventoryOutcome(duplicate, applied.Revision, duplicate ? "already committed" : "operation identity conflict"));
-                }
+                var duplicate = applied.Command == command;
+                return new PreparedCharacterOperation<InventoryOutcome>(original, null, null,
+                    new InventoryOutcome(duplicate, applied.Revision, duplicate ? "already committed" : "operation identity conflict"));
             }
 
             if (command.Action == InventoryAction.Pickup)

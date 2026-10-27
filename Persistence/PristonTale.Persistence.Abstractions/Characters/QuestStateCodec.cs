@@ -1,5 +1,6 @@
 using System.Text.Json;
 using PristonTale.Simulation.Quests;
+using PristonTale.Simulation.Characters;
 
 namespace PristonTale.Persistence.Abstractions.Characters;
 
@@ -65,7 +66,7 @@ public static class QuestStateCodec
 
         var state = JsonSerializer.Deserialize<SavedQuests>(json.Value, CharacterStateCodec.Options);
         if (state is null || state.Version != CurrentVersion || state.Active is null || state.Finished is null || state.Operations is null
-            || state.Finished.Length > QuestJournal.FinishedCapacity || state.Operations.Length > QuestJournal.OperationCapacity)
+            || state.Finished.Length > QuestJournal.FinishedCapacity || state.Operations.Length > OperationHistory<AppliedQuestOperation>.Capacity)
         {
             throw new InvalidDataException("Unsupported quest-state version or size.");
         }

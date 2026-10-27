@@ -74,18 +74,15 @@ internal static class NpcServiceTransactions
             return new PreparedNpcOperation(original, null, null, shown);
         }
 
-        foreach (var applied in original.ServiceOperations)
+        if (original.ServiceOperations.Find(command.OperationId) is { } applied)
         {
-            if (applied.Command.OperationId == command.OperationId)
+            if (applied.Command != command)
             {
-                if (applied.Command != command)
-                {
-                    return Final(original, NpcServiceOutcome.Failed(NpcServiceStatus.Conflict, "operation identity conflict", original.InventoryRevision));
-                }
-
-                var replayed = State(command, original, storage, Done(original, storage, "already committed"));
-                return new PreparedNpcOperation(original, null, null, replayed);
+                return Final(original, NpcServiceOutcome.Failed(NpcServiceStatus.Conflict, "operation identity conflict", original.InventoryRevision));
             }
+
+            var replayed = State(command, original, storage, Done(original, storage, "already committed"));
+            return new PreparedNpcOperation(original, null, null, replayed);
         }
 
         if (command.OperationId == Guid.Empty || command.ExpectedRevision != original.InventoryRevision

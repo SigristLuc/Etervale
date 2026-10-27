@@ -398,7 +398,10 @@ totals.
 
 - `InventoryCommand` and `ProgressionCommand` carry an `OperationId` (non-empty) and `ExpectedRevision`; they apply
   only when it equals the current `InventoryRevision`/`ProgressionRevision`. The last 64 applied operations of each
-  kind (plus NPC service operations) are kept for idempotent replay and persisted with the character.
+  kind (plus NPC service operations, item uses and quest operations) are kept for idempotent replay and persisted with
+  the character, each in an `OperationHistory<T>` (`Characters/OperationHistory.cs`: `Find`, `Record`, `Restore` with
+  the kind's own validity check). Applied records implement `IAppliedOperation` explicitly, so their stored JSON is
+  only their own members.
 - `InventoryRevision` counts changes, not commands: one equip can bump it more than once. Clients must adopt the
   revision returned in the outcome.
 - `InventoryAction.ConsumePotion` only removes one potion; the restore is applied later by the Application when the

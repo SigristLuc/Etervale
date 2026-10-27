@@ -1,3 +1,5 @@
+using PristonTale.Simulation.Characters;
+
 namespace PristonTale.Simulation.Items.Usable;
 
 // One use of an owned item, built from the inventory revision the client saw. Argument names a travel destination;
@@ -37,47 +39,8 @@ public sealed record ItemUseOutcome(bool Ok, long Revision, ItemUseStatus Status
         new(false, revision, status, itemCode, ItemUseMessages.For(status));
 }
 
-public sealed record AppliedItemUse(ItemUseCommand Command, long Revision, ItemUseOutcome Outcome);
-
-// The last item uses of a character, kept to answer a retried operation id with its first outcome.
-public sealed class ItemUseHistory
+public sealed record AppliedItemUse(ItemUseCommand Command, long Revision, ItemUseOutcome Outcome) : IAppliedOperation
 {
-    public const int Capacity = 64;
-
-    private readonly List<AppliedItemUse> _applied = new();
-
-    public IReadOnlyList<AppliedItemUse> Applied => _applied;
-
-    public AppliedItemUse Find(Guid operationId) => _applied.FirstOrDefault(applied => applied.Command.OperationId == operationId);
-
-    public void Record(ItemUseCommand command, ItemUseOutcome outcome)
-    {
-        if (_applied.Count == Capacity)
-        {
-            _applied.RemoveAt(0);
-        }
-
-        _applied.Add(new AppliedItemUse(command, outcome.Revision, outcome));
-    }
-
-    public void Restore(IEnumerable<AppliedItemUse> applied)
-    {
-        _applied.Clear();
-        foreach (var entry in applied)
-        {
-            if (_applied.Count >= Capacity || entry?.Command is null || entry.Outcome is null || entry.Command.OperationId == Guid.Empty
-                || _applied.Any(existing => existing.Command.OperationId == entry.Command.OperationId))
-            {
-                throw new ArgumentException("Invalid item use history.");
-            }
-
-            _applied.Add(entry);
-        }
-    }
-
-    public void CopyFrom(ItemUseHistory other)
-    {
-        _applied.Clear();
-        _applied.AddRange(other._applied);
-    }
+    Guid IAppliedOperation.OperationId => Command?.OperationId ?? Guid.Empty;
 }
+
