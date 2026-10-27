@@ -70,9 +70,22 @@ public sealed class QuestAppService(ISessionRegistry sessions, ICharacterReposit
                 return true;
             }
 
-            if (!await characters.UpdateAsync(prepared.Snapshot.Encode(), CancellationToken.None))
+            // A refused or failed write (a storage exception propagates) returns the drops for the next attempt.
+            var stored = false;
+            try
             {
-                await world.AbortQuestUpkeepAsync(session, prepared);
+                stored = await characters.UpdateAsync(prepared.Snapshot.Encode(), CancellationToken.None);
+            }
+            finally
+            {
+                if (!stored)
+                {
+                    await world.AbortQuestUpkeepAsync(session, prepared);
+                }
+            }
+
+            if (!stored)
+            {
                 return false;
             }
 

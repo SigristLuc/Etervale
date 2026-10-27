@@ -325,7 +325,7 @@ A prepared operation with `Snapshot == null` is final (rejection or replay) and 
 | Progression (attributes, learn skill) | `ProgressionTransactions.Prepare`; learning needs a reachable skill master | re-applies the command to the live character (`ApplyProgression`) |
 | NPC services | `NpcServiceTransactions.Prepare` (`PreparedNpcOperation`) | inventory, gold delta, open warehouse, teleport arrival |
 | Quest requests | `QuestTransactions.Prepare` (`PreparedQuestOperation`); follow-ups must answer a step the NPC still offers | inventory, equipment, quest journal (merging tick kills), tier, stat/skill point and gold deltas, travel, arena duel |
-| Quest upkeep | `QuestTransactions.PrepareUpkeep`, run by the server's `QuestUpkeepService` | quest drops into the pack, quest weapon growth and expiry, leftovers removed; drops return to the player on failure |
+| Quest upkeep | `QuestTransactions.PrepareUpkeep`, run by the server's `QuestUpkeepService` | quest drops into the pack, quest weapon growth and expiry, leftovers removed; drops return to the player when the write is refused or throws |
 | Item use | `ItemUseTransactions.Prepare` (`PreparedItemUseOperation`) | inventory, premium state, resets and mastery re-applied with the prepared clock, item effects, hair, arrival |
 
 Revisions and idempotency:
