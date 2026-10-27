@@ -2,6 +2,7 @@ using System.Numerics;
 using PristonTale.Protocol.Packets;
 using static PristonTale.Tests.MultiplayerMovementTests;
 using PristonTale.Contracts.Social;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -48,7 +49,7 @@ internal static class MultiplayerSocialTests
     {
         await using var server = await MultiplayerServer.StartAsync(MultiplayerServer.WorldWith());
         var camp = MultiplayerServer.Camp;
-        var account = await server.CreatePlayerAsync(new PlayerSetup("Warden", Simulation.Characters.PlayerClass.Fighter, 10, MultiplayerServer.HuntingField, camp));
+        var account = await server.CreatePlayerAsync(new PlayerSetup("Warden", PlayerClass.Fighter, 10, MultiplayerServer.HuntingField, camp));
         await server.SetGameMasterAsync(account, 1);
         await using var gm = await MultiplayerClient.EnterAsync(server, account, "Warden");
         await using var b = await Enter(server, "Watcher", camp + new Vector3(150f, 0f, 0f));

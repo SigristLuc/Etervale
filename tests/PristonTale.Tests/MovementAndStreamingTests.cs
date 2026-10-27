@@ -5,6 +5,7 @@ using PristonTale.Gameplay.World.Streaming;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

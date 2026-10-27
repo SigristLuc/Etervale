@@ -228,7 +228,7 @@ public static class MixingWork
     {
         var definition = item.Definition;
         ItemInstance remade;
-        var own = ItemRoller.JobBitFor(owner.Class.Class);
+        var own = (uint)JobBits.Of(owner.Class.Class);
         if (stone && rng.NextInclusive(1, 100) < 51 && ItemRoller.CanTakeSpec(definition, own))
         {
             remade = ItemRoller.Create(definition, 1, rng, new ItemRollOverrides(own));

@@ -1,3 +1,4 @@
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
@@ -7,8 +8,6 @@ public sealed class AssassinClass : CharacterClass
         : base(BuildDefinition(
             PlayerClass.Assassin,
             "Assassin",
-            jobCode: 9,
-            JobBitCode.Assassin,
             CharacterBrood.Tempskron,
             bodyInx: "char\\tmABCD\\e001.inx",
             headInx: "char\\tmABCD\\tfh-e01.inx",

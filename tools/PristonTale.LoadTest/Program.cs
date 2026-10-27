@@ -7,6 +7,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Characters;
 
 // Headless load generator over the original Priston protocol. Each bot logs in, creates a character when the account
 // has none, enters the world and then walks, hunts monsters with basic attacks or casts a skill at them, reporting
@@ -109,7 +110,7 @@ internal static class Bot
             if (name is null)
             {
                 name = $"Lt{options.Prefix}{index:D4}";
-                var created = await connection.CreateCharacterAsync(name, (int)PlayerClass.Fighter, 0, stop);
+                var created = await connection.CreateCharacterAsync(name, PlayerClass.Fighter, 0, stop);
                 if (!created.Ok)
                 {
                     throw new InvalidOperationException($"create: {created.Message}");

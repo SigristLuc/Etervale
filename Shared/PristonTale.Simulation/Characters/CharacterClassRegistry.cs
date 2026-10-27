@@ -1,5 +1,6 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Characters.Classes;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.Characters;
 

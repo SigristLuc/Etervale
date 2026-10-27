@@ -10,6 +10,7 @@ using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
 using PristonTale.Protocol.Transport;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -97,13 +98,13 @@ internal static class BinaryProtocolTests
         Assert.True(LoginResultPacket.Read(buffer.AsSpan(0, new LoginResultPacket(LoginStatus.Busy).Write(buffer))).Status == LoginStatus.Busy,
             "login result lost its status");
 
-        var entry = new CharacterListEntry("Álvaro", 6, 42, 1, 2, 1, 0x01010300, 0x02010100, 0, true);
+        var entry = new CharacterListEntry("Álvaro", PlayerClass.Knight, 42, 1, 2, 1, 0x01010300, 0x02010100, 0, true);
         var list = new CharacterListPacket([entry, entry with { Name = "Beta", InVillage = false }]);
         var read = CharacterListPacket.Read(buffer.AsSpan(0, list.Write(buffer)));
         Assert.True(read.Characters.SequenceEqual(list.Characters), "character list round trip changed fields");
         Assert.True(CharacterListPacket.Read(buffer.AsSpan(0, new CharacterListPacket([]).Write(buffer))).Characters.Count == 0, "an empty list did not read back");
 
-        var create = new CharacterCommandPacket(CharacterAction.Create, 3, 2, "Nova");
+        var create = new CharacterCommandPacket(CharacterAction.Create, PlayerClass.Archer, 2, "Nova");
         Assert.True(CharacterCommandPacket.Read(buffer.AsSpan(0, create.Write(buffer))) == create, "character command round trip changed fields");
         var length = create.Write(buffer);
         buffer[10] = 9;

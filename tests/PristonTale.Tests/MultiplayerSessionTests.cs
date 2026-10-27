@@ -4,6 +4,7 @@ using PristonTale.Client.Net.Presence;
 using static PristonTale.Tests.MultiplayerMovementTests;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Sessions;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -22,7 +23,7 @@ internal static class MultiplayerSessionTests
     {
         await using var server = await MultiplayerServer.StartAsync(MultiplayerServer.WorldWith());
         var camp = MultiplayerServer.Camp;
-        var account = await server.CreatePlayerAsync(new PlayerSetup("Returner", Simulation.Characters.PlayerClass.Fighter, 10, MultiplayerServer.HuntingField, camp));
+        var account = await server.CreatePlayerAsync(new PlayerSetup("Returner", PlayerClass.Fighter, 10, MultiplayerServer.HuntingField, camp));
         var a = await MultiplayerClient.EnterAsync(server, account, "Returner");
         await using var b = await Enter(server, "Stayer", camp + new Vector3(150f, 0f, 0f));
         await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.Serial), "the returner");
@@ -44,7 +45,7 @@ internal static class MultiplayerSessionTests
     {
         await using var server = await MultiplayerServer.StartAsync(MultiplayerServer.WorldWith());
         var camp = MultiplayerServer.Camp;
-        var account = await server.CreatePlayerAsync(new PlayerSetup("Flaky", Simulation.Characters.PlayerClass.Fighter, 10, MultiplayerServer.HuntingField, camp));
+        var account = await server.CreatePlayerAsync(new PlayerSetup("Flaky", PlayerClass.Fighter, 10, MultiplayerServer.HuntingField, camp));
         var a = await MultiplayerClient.EnterAsync(server, account, "Flaky");
         await using var b = await Enter(server, "Patient", camp + new Vector3(150f, 0f, 0f));
         await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.Serial), "the flaky player");
@@ -73,7 +74,7 @@ internal static class MultiplayerSessionTests
     {
         await using var server = await MultiplayerServer.StartAsync(MultiplayerServer.WorldWith());
         var camp = MultiplayerServer.Camp;
-        var account = await server.CreatePlayerAsync(new PlayerSetup("Contested", Simulation.Characters.PlayerClass.Fighter, 10, MultiplayerServer.HuntingField, camp));
+        var account = await server.CreatePlayerAsync(new PlayerSetup("Contested", PlayerClass.Fighter, 10, MultiplayerServer.HuntingField, camp));
         await using var b = await Enter(server, "Referee", camp + new Vector3(150f, 0f, 0f));
         await using var first = await MultiplayerClient.LoginAsync(server, account, "Contested");
         await using var second = await MultiplayerClient.LoginAsync(server, account, "Contested");

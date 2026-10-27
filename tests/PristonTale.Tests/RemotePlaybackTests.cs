@@ -15,6 +15,7 @@ using PristonTale.Simulation.World.Monsters;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -305,7 +306,7 @@ internal static class RemotePlaybackTests
     private static Task TargetHealthBarAsync()
     {
         var combat = new HudCombat();
-        var appearance = new PlayerAppearanceInfo("Self", 1, 0, 0, 0, "", "", 1);
+        var appearance = new PlayerAppearanceInfo("Self", PlayerClass.Fighter, 0, 0, 0, "", "", 1);
         combat.Observe(new PresenceUpdate(1,
         [
             new(1, EntityKind.Player, true, default, 0, MotionState.Stand, 64, 64, appearance, 0),

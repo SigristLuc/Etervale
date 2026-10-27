@@ -18,6 +18,7 @@ using PristonTale.Simulation.World.Npcs;
 using static PristonTale.Tests.QuestFixture;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -117,9 +118,9 @@ internal static class QuestServiceTests
     private static Task PresenceAsync()
     {
         var origin = new Vector3(QuestArena.EntryX, 0, QuestArena.EntryZ);
-        var self = new EntityView(1, EntityKind.Player, true, origin, 0f, MotionState.Stand, 60, 100, 100, new PlayerAppearanceView("Self", 2, 2, 0, 0, "", ""));
+        var self = new EntityView(1, EntityKind.Player, true, origin, 0f, MotionState.Stand, 60, 100, 100, new PlayerAppearanceView("Self", PlayerClass.Mechanician, 2, 0, 0, "", ""));
         var other = new EntityView(2, EntityKind.Player, false, origin + new Vector3(30, 0, 0), 0f, MotionState.Stand, 60, 100, 100,
-            new PlayerAppearanceView("Other", 2, 2, 0, 0, "", ""));
+            new PlayerAppearanceView("Other", PlayerClass.Mechanician, 2, 0, 0, "", ""));
         var mine = new EntityView(3, EntityKind.Monster, false, origin + new Vector3(0, 0, 40), 0f, MotionState.Stand, 60, 900, 1000, default, 50)
         {
             DuelPlayerId = 1

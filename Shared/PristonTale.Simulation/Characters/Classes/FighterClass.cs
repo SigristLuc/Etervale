@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
@@ -8,8 +9,6 @@ public sealed class FighterClass : CharacterClass
         : base(BuildDefinition(
             PlayerClass.Fighter,
             "Fighter",
-            jobCode: 1,
-            JobBitCode.Fighter,
             CharacterBrood.Tempskron,
             bodyInx: "char\\tmABCD\\B001.inx",
             headInx: "char\\tmABCD\\tmh-b01.inx",

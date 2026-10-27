@@ -365,7 +365,7 @@ public sealed class WorldPlayer
     public void ChangeHair(int hairIndex)
     {
         var current = _appearance;
-        _appearance = new PlayerAppearanceView(current.Name, current.JobCode, current.Tier, current.FaceIndex, hairIndex, current.ModelName, current.ModelName2);
+        _appearance = new PlayerAppearanceView(current.Name, current.Class, current.Tier, current.FaceIndex, hairIndex, current.ModelName, current.ModelName2);
     }
 
     // Damage is ignored while the guard runs (revives, invulnerability items).

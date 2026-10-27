@@ -1,5 +1,6 @@
 using System.Numerics;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Persistence.Abstractions.Characters;
 

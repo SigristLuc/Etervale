@@ -1,3 +1,5 @@
+using PristonTale.Contracts.Characters;
+
 namespace PristonTale.Simulation.Characters;
 
 internal static class CharacterHeadModels

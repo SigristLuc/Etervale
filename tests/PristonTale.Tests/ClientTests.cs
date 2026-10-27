@@ -14,6 +14,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -39,7 +40,7 @@ internal static class ClientTests
         var entity = new EntityView(2, EntityKind.Monster, false, origin, 1.2f, MotionState.Skill,
             10, 45, 60, default, templateId: 1);
         var self = new EntityView(1, EntityKind.Player, false, origin, 0f, MotionState.Stand, 1, 100, 100,
-            new PlayerAppearanceView("Self", 2, 0, 0, 0, "", ""));
+            new PlayerAppearanceView("Self", PlayerClass.Mechanician, 0, 0, 0, "", ""));
         var snapshot = new WorldSnapshot(8, [self, entity], [impact], 3);
         var update = new WireRoundTrip(1).PushMerged(snapshot);
         Assert.True(update.FieldId == 3 && update.Spawns.Single(spawn => spawn.EntityId == 2).MoveState == MotionState.Skill,
@@ -54,7 +55,7 @@ internal static class ClientTests
     private static Task CrowdBudgetAsync()
     {
         EntityView Walker(int id, float offset) => new((uint)id, EntityKind.Player, false, new System.Numerics.Vector3(id + offset, 0, id % 20 * 10f), 0f,
-            MotionState.Walk, 1, 100, 100, new PlayerAppearanceView("W" + id, 2, 0, 0, 0, "", ""));
+            MotionState.Walk, 1, 100, 100, new PlayerAppearanceView("W" + id, PlayerClass.Mechanician, 0, 0, 0, "", ""));
         // The largest crowd a receiver shows at once: the receiver and MaxVisible others.
         var crowd = Server.Net.PresenceEncoder.MaxVisible + 1;
         var wire = new WireRoundTrip(1);
@@ -196,7 +197,7 @@ internal static class ClientTests
         var manager = new RemoteEntityManager(scene, composer, composer, new CharacterClassRegistry(), ".");
         var appearance = new PlayerAppearanceInfo(
             "remote",
-            1,
+            PlayerClass.Fighter,
             0,
             0,
             0,
@@ -250,7 +251,7 @@ internal static class ClientTests
     {
         var composer = new PendingComposer();
         var manager = new RemoteEntityManager(new FakeScene(), composer, composer, new CharacterClassRegistry(), ".");
-        var appearance = new PlayerAppearanceInfo("Remote", 1, 0, 0, 0, "", "", 1);
+        var appearance = new PlayerAppearanceInfo("Remote", PlayerClass.Fighter, 0, 0, 0, "", "", 1);
         var origin = new System.Numerics.Vector3(0, 7, 0);
         manager.Apply(new PresenceUpdate(1,
         [

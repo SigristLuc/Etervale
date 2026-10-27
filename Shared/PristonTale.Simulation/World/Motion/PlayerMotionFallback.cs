@@ -1,5 +1,6 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.World.Motion;
 

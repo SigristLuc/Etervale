@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
@@ -8,8 +9,6 @@ public sealed class MechanicianClass : CharacterClass
         : base(BuildDefinition(
             PlayerClass.Mechanician,
             "Mechanician",
-            jobCode: 2,
-            JobBitCode.Mechanician,
             CharacterBrood.Tempskron,
             bodyInx: "char\\tmABCD\\A001.inx",
             headInx: "char\\tmABCD\\tmh-a01.inx",

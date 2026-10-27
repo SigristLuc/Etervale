@@ -2,6 +2,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Skills;
 using System.Text.Json;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

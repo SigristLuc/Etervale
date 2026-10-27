@@ -21,6 +21,7 @@ using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Assets;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -138,7 +139,7 @@ internal sealed class HudTargetCaptureProbe : Game
         _spawns = new PresenceUpdate(1,
         [
             new(SelfId, EntityKind.Player, true, Numeric(_focus), 0, MotionState.Stand, 64, 64,
-                new PlayerAppearanceInfo("Panzer", 2, 0, 0, 0, "", "", 12), 0),
+                new PlayerAppearanceInfo("Panzer", PlayerClass.Mechanician, 0, 0, 0, "", "", 12), 0),
             new(HopyId, EntityKind.Monster, false, Numeric(Floor(collision, _focus + new Vector3(70f, 0f, 40f))), 2.4f,
                 MotionState.Stand, 31, 50, null, 1, Name: "Hopy", Level: 3),
             new(SkeletonId, EntityKind.Monster, false, Numeric(Floor(collision, _focus + new Vector3(150f, 0f, -40f))), 2.0f,
@@ -150,7 +151,7 @@ internal sealed class HudTargetCaptureProbe : Game
             new(CraftsmanId, EntityKind.Npc, false, Numeric(Floor(collision, _focus + new Vector3(-100f, 0f, 120f))), 1.5f,
                 MotionState.Stand, 0, 0, null, 3, Name: "Mixing Craftsman, Morald", Level: 1),
             new(PlayerId, EntityKind.Player, false, Numeric(Floor(collision, _focus + new Vector3(10f, 0f, 90f))), 2.6f,
-                MotionState.Stand, 900, 1000, new PlayerAppearanceInfo("Lyra", 8, 0, 1, 0, "", "", 37), 0)
+                MotionState.Stand, 900, 1000, new PlayerAppearanceInfo("Lyra", PlayerClass.Priestess, 0, 1, 0, "", "", 37), 0)
         ], [], [], []);
         _remote.Apply(_spawns);
 

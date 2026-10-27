@@ -8,6 +8,7 @@ using PristonTale.Server.Hosting;
 using PristonTale.Server.Net;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

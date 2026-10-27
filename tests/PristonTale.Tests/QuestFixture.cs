@@ -3,6 +3,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Ai;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

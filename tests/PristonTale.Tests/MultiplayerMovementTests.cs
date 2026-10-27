@@ -3,6 +3,7 @@ using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

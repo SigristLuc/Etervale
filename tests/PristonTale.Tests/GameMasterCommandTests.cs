@@ -11,6 +11,7 @@ using PristonTale.Simulation.World;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Social;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

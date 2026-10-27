@@ -6,6 +6,7 @@ using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -104,7 +105,7 @@ internal static class MonsterSkillStatusTests
             var timing = Simulation.World.Motion.MotionTimingSet.Build(other.ClipsForState(MotionCode.Skill)
                 .Where(clip => clip.Key == key).Select(clip => new KeyValuePair<int, Simulation.World.Motion.MotionClip>((int)MotionCode.Skill, clip)));
             var world = new MonsterSkillField(timing, definition);
-            var player = world.AddPlayer(1, new Vector3(50, 0, 0), Simulation.Characters.PlayerClass.Magician);
+            var player = world.AddPlayer(1, new Vector3(50, 0, 0), PlayerClass.Magician);
             var mana = player.Character.Mana;
             CastOnce(world, definition, 1);
             Assert.True(drains ? player.Character.Mana < mana - 30 : player.Character.Mana >= mana, $"chaos cara key {key} drained wrongly");

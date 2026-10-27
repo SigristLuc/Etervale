@@ -4,6 +4,7 @@ using System.Text.Json.Serialization.Metadata;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.Skills;
 

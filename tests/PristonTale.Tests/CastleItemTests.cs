@@ -2,6 +2,7 @@ using PristonTale.Application.World;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

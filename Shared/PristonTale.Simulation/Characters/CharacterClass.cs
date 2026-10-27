@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.Characters;
 
@@ -21,8 +22,6 @@ public abstract class CharacterClass
     protected static CharacterClassDef BuildDefinition(
         PlayerClass playerClass,
         string name,
-        int jobCode,
-        JobBitCode jobBitCode,
         CharacterBrood brood,
         string bodyInx,
         string headInx,
@@ -32,8 +31,6 @@ public abstract class CharacterClass
         new(
             playerClass,
             name,
-            jobCode,
-            jobBitCode,
             brood,
             new CharacterVisualSet(
                 new CharacterAssetRef(bodyInx),

@@ -514,7 +514,7 @@ internal sealed class PresenceDecoder
         PlayerAppearanceInfo? player = null;
         if (packet.Player is { } looks)
         {
-            player = new PlayerAppearanceInfo(packet.Name, looks.Job, looks.Tier, looks.Face, looks.Hair, packet.Model, looks.HeadModel, packet.Level,
+            player = new PlayerAppearanceInfo(packet.Name, looks.Class, looks.Tier, looks.Face, looks.Hair, packet.Model, looks.HeadModel, packet.Level,
                 Key(looks.Weapon), Key(looks.Armor), Key(looks.OffHand), looks.InVillage)
             {
                 HelperPet = looks.HelperPet,

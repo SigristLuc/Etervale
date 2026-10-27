@@ -18,6 +18,7 @@ using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Skills;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Application.World;
 
@@ -40,7 +41,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     private readonly List<SpatialEntry> _collisionQuery = new();
     private readonly Dictionary<int, MonsterAiTuning> _tuningByCode = new();
     // Null timing entries use the fallback clips and are cached as misses.
-    private readonly Dictionary<int, MotionTimingSet?> _playerTimingByJob = new();
+    private readonly Dictionary<PlayerClass, MotionTimingSet?> _playerTimingByClass = new();
     // Snapshots copy this tick-owned list before asynchronous publication.
     private readonly List<CombatEventView> _events = new();
 
@@ -473,15 +474,16 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
     private (float DurationMs, float HitAtMs) PlayerActionTiming(WorldPlayer player, MotionCode state, float rate)
     {
-        var timing = PlayerTimingFor(player.Appearance.JobCode);
-        var clip = PlayerMotionFallback.GetClip(player.Character.Class.Class, state);
+        var playerClass = player.Character.Class.Class;
+        var timing = PlayerTimingFor(playerClass);
+        var clip = PlayerMotionFallback.GetClip(playerClass, state);
         if (timing is not null && timing.TryGetClip(state, out var authored))
         {
             clip = authored;
         }
 
         string weaponKey = player.Character.GetEquipped(EquipmentSlot.Weapon)?.Definition.CatalogKey ?? "";
-        if (state == MotionCode.Attack && PlayerEquipmentTiming.TryGet(player.Appearance.JobCode, weaponKey, out var equipped))
+        if (state == MotionCode.Attack && PlayerEquipmentTiming.TryGet((int)playerClass, weaponKey, out var equipped))
         {
             clip = equipped;
         }
@@ -497,19 +499,14 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
     internal CombatEventView[]? SnapshotEvents() => _events.Count == 0 ? null : _events.ToArray();
 
-    private MotionTimingSet? PlayerTimingFor(int jobCode)
+    private MotionTimingSet? PlayerTimingFor(PlayerClass playerClass)
     {
-        if (_playerTimingByJob.TryGetValue(jobCode, out var cached))
-            return cached;
-
-        MotionTimingSet? set = null;
-        if (Enum.IsDefined(typeof(PlayerClass), jobCode))
+        if (!_playerTimingByClass.TryGetValue(playerClass, out var set))
         {
-            var bodyPath = ClassRegistry.Get((PlayerClass)jobCode).Definition.DefaultVisuals.Body.InxPath;
-            _motions.TryGet(bodyPath, out set);
+            _motions.TryGet(ClassRegistry.Get(playerClass).Definition.DefaultVisuals.Body.InxPath, out set);
+            _playerTimingByClass[playerClass] = set;
         }
 
-        _playerTimingByJob[jobCode] = set;
         return set;
     }
 

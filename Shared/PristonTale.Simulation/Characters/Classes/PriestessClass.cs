@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
@@ -8,8 +9,6 @@ public sealed class PriestessClass : CharacterClass
         : base(BuildDefinition(
             PlayerClass.Priestess,
             "Priestess",
-            jobCode: 8,
-            JobBitCode.Priestess,
             CharacterBrood.Morion,
             bodyInx: "char\\tmABCD\\mC001.inx",
             headInx: "char\\tmABCD\\Mfh-C01.inx",

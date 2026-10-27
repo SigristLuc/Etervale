@@ -1,6 +1,7 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Gameplay.UI;
 using System.Text.Json;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

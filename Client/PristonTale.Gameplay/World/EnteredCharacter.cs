@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Gameplay.World;
 

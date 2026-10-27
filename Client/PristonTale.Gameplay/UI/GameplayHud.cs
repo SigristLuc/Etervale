@@ -14,6 +14,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Gameplay.UI;
 

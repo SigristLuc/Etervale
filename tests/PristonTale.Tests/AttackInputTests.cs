@@ -2,6 +2,7 @@ using System.Numerics;
 using PristonTale.Application.World;
 using PristonTale.Gameplay.Combat;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

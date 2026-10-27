@@ -306,7 +306,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         var token = RequireToken();
         if (command.Action == CharacterAction.Create)
         {
-            var created = await _services.Characters.CreateCharacterAsync(token, command.Name, command.ClassCode, command.FaceIndex);
+            var created = await _services.Characters.CreateCharacterAsync(token, command.Name, command.Class, command.FaceIndex);
             if (created.Ok)
             {
                 await SendCharacterListAsync();

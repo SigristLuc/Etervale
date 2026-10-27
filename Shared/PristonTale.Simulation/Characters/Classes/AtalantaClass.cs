@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
@@ -8,8 +9,6 @@ public sealed class AtalantaClass : CharacterClass
         : base(BuildDefinition(
             PlayerClass.Atalanta,
             "Atalanta",
-            jobCode: 5,
-            JobBitCode.Atalanta,
             CharacterBrood.Morion,
             bodyInx: "char\\tmABCD\\mB001.inx",
             headInx: "char\\tmABCD\\Mfh-B01.inx",

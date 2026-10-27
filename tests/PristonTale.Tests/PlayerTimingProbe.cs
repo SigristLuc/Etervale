@@ -2,6 +2,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World.Motion;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

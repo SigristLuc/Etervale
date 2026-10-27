@@ -23,7 +23,8 @@ progression, regeneration and movement rates. `World/`, `Physics/` and `Skills/`
 | `PristonTale.Simulation.csproj` | net10.0, references only `PristonTale.Geometry`; embeds `Skills/Data/Classes/*.json` |
 | `SimulationCore.cs` | Description constant only |
 | `Actors/ActorDefinitions.cs` | `PlayerCompositionFactory` and bone socket names; not referenced by other projects |
-| `Characters/CharacterEnums.cs` | `PlayerClass`, `CharacterBrood`, `JobBitCode`, `EquipmentSlot` |
+| `Characters/CharacterEnums.cs` | `CharacterBrood`, `JobBitCode`, `EquipmentSlot` (`PlayerClass` is in Contracts) |
+| `Characters/JobBits.cs` | The one map between `PlayerClass` and its `JobBitCode`, both ways |
 | `Characters/CharacterStats.cs` | `CharacterAttributes` (five attributes), `CharacterFunctionProfile` (formula selectors) |
 | `Characters/CharacterClass*.cs`, `Classes/` | Class base type, `CharacterClassDef`, `CharacterClassRegistry`, one file per class |
 | [`Characters/PlayerCharacter.cs`](../Shared/PristonTale.Simulation/Characters/PlayerCharacter.cs) | Character aggregate: progress, pools, gear, effects, recompute |
@@ -113,7 +114,8 @@ The class also loads its skill window from `ClassSkillCatalog.For(class)` (see [
 | Shaman | 10 | 0x100000 | Morion | 15/27/20/15/22 | 190 | 5/1/3/3/2/1 |
 
 - Two job masks exist: `JobBitCode` (non-sequential bits) is used for item class restrictions and item specialization;
-  `CharacterClassDef.MotionJobMask = 1 << (JobCode - 1)` is used for animation tables. Do not mix them.
+  `CharacterClassDef.MotionJobMask = 1 << (Class - 1)` is used for animation tables. Do not mix them. A class's
+  `JobBitCode` comes from `JobBits.Of`; nothing else maps a class to its bit.
 - `GrowthPerLevel` is empty for every class: attributes grow only through allocated status points (5 per level).
 - `Tier` (0..3) is the class rank. It opens skill-window rows, selects head models (`CharacterHead`) and gates
   experience above level 100. Nothing in this project changes it; it is restored from persistence.
@@ -472,7 +474,7 @@ server steps it per player in `FieldSkills.StepEffects` and resets it on death. 
   tooltip ([protocol.md](protocol.md), [client.md](client.md)).
 - Add an `ItemKind`: append it, update `ItemDefinition.IsWeapon`, `WeaponDamage` favoured kinds,
   `PlayerAttackReach` and the client item presentation.
-- Add a class: new `Classes/<Name>Class.cs`, register it in `CharacterClassRegistry`, add `PlayerClass`/`JobBitCode`,
+- Add a class: new `Classes/<Name>Class.cs`, register it in `CharacterClassRegistry`, add `PlayerClass` (Contracts), its `JobBitCode` and the `JobBits` row,
   head patterns in `CharacterHeadModels`, the favoured weapon in `WeaponDamage`, restrictions in
   `ItemClassRestrictions`, and the skill data ([skills.md](skills.md)).
 - Change level rewards or training: `PlayerCharacter.LevelUp`, `ExperienceTable`, `SkillLearning`; tests in

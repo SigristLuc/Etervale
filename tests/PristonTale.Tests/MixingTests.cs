@@ -6,6 +6,7 @@ using PristonTale.Simulation.Items.Aging;
 using PristonTale.Simulation.Items.Mixing;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

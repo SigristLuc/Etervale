@@ -21,6 +21,7 @@ using PristonTale.Contracts.Skills;
 using PristonTale.Contracts.Sessions;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Units;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Client.Net;
 
@@ -139,14 +140,14 @@ public sealed class GameServerConnection : IGameBackend
         return Task.FromResult(Volatile.Read(ref _characters));
     }
 
-    public async Task<CreateCharacterOutcome> CreateCharacterAsync(string name, int classId, int faceIndex, CancellationToken ct = default)
+    public async Task<CreateCharacterOutcome> CreateCharacterAsync(string name, PlayerClass playerClass, int faceIndex, CancellationToken ct = default)
     {
         if (!Fits(name, AccountWire.MaxNameBytes))
         {
             return CreateCharacterOutcome.Failed(CreateCharacterFailure.NameLength);
         }
 
-        var reply = await CharacterRequestAsync(new CharacterCommandPacket(CharacterAction.Create, classId, faceIndex, name), ct);
+        var reply = await CharacterRequestAsync(new CharacterCommandPacket(CharacterAction.Create, playerClass, faceIndex, name), ct);
         if (!reply.Ok)
         {
             return CreateCharacterOutcome.Failed((CreateCharacterFailure)reply.Failure);
@@ -851,7 +852,7 @@ public sealed class GameServerConnection : IGameBackend
 
     private void OnCharacterList(CharacterListPacket list)
     {
-        var summaries = list.Characters.Select(entry => new CharacterSummary(entry.Name, (int)entry.ClassCode, entry.Level, entry.FaceIndex, entry.Tier,
+        var summaries = list.Characters.Select(entry => new CharacterSummary(entry.Name, entry.Class, entry.Level, entry.FaceIndex, entry.Tier,
             entry.HairIndex, ItemKey(entry.ArmorCode), ItemKey(entry.WeaponCode), ItemKey(entry.OffHandCode), entry.InVillage)).ToArray();
         Volatile.Write(ref _characters, summaries);
     }

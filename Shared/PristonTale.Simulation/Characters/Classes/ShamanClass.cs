@@ -1,3 +1,4 @@
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
@@ -7,8 +8,6 @@ public sealed class ShamanClass : CharacterClass
         : base(BuildDefinition(
             PlayerClass.Shaman,
             "Shaman",
-            jobCode: 10,
-            JobBitCode.Shaman,
             CharacterBrood.Morion,
             bodyInx: "char\\tmABCD\\me001.inx",
             headInx: "char\\tmABCD\\Mmh-E01.inx",

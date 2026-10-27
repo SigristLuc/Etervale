@@ -24,6 +24,7 @@ using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Skills;
 using PristonTale.Assets;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -238,7 +239,7 @@ internal sealed class HudCaptureProbe : Game
         _hud.Combat.Observe(new PresenceUpdate(1,
         [
             new(1, EntityKind.Player, true, default, 0, MotionState.Stand, 64, 64,
-                new PlayerAppearanceInfo("Panzer", 1, 0, 0, 0, "", "", 1), 0),
+                new PlayerAppearanceInfo("Panzer", PlayerClass.Fighter, 0, 0, 0, "", "", 1), 0),
             new(2, EntityKind.Monster, false, default, 0, MotionState.Stand, 31, 50, null, 1, Level: 7),
             new(3, EntityKind.Npc, false, new System.Numerics.Vector3(center.X + 300, 0, center.Z - 200), 0, MotionState.Stand, 0, 0, null, 1,
                 Name: "Lena")

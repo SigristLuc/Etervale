@@ -14,6 +14,7 @@ using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Motion;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

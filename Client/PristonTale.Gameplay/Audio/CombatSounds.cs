@@ -4,6 +4,7 @@ using PristonTale.Engine3D.IO;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Simulation.Items;
 using PristonTale.Assets;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Gameplay.Audio;
 
@@ -103,10 +104,10 @@ public sealed class CombatSounds : IDisposable
 
     // A player's swing: the miss sound of its hand, or the swing sound of its weapon family (punches without a weapon),
     // and the critical sound on top of a critical hit. Magicians and priestesses cast with staves.
-    public void PlayWeapon(string weaponKey, int classCode, WeaponSoundOutcome outcome, Vector3 source, Vector3 listener)
+    public void PlayWeapon(string weaponKey, PlayerClass playerClass, WeaponSoundOutcome outcome, Vector3 source, Vector3 listener)
     {
         var twoHanded = weaponKey.Length > 0 && ItemEquipmentMetadata.IsTwoHanded(weaponKey);
-        var code = outcome == WeaponSoundOutcome.Miss ? twoHanded ? 13 : 12 : WeaponCode(weaponKey, twoHanded, classCode);
+        var code = outcome == WeaponSoundOutcome.Miss ? twoHanded ? 13 : 12 : WeaponCode(weaponKey, twoHanded, playerClass);
         if (!PlayWeaponCode(code, source, listener))
         {
             return;
@@ -136,7 +137,7 @@ public sealed class CombatSounds : IDisposable
 
     // The original's weapon sound code: axes, swords (the first three are small blades), spears, claws, bows, staves (cast
     // by magicians and priestesses, struck by others), hammers and throwing weapons; anything else punches.
-    internal static int WeaponCode(string weaponKey, bool twoHanded, int classCode)
+    internal static int WeaponCode(string weaponKey, bool twoHanded, PlayerClass playerClass)
     {
         if (!ItemCodes.TryParse(weaponKey, out var code))
         {
@@ -151,7 +152,7 @@ public sealed class CombatSounds : IDisposable
             "WP1" => twoHanded ? 6 : 5,
             "WC1" => 7,
             "WS1" => 8,
-            "WM1" when classCode is 7 or 8 => twoHanded ? 18 : 17,
+            "WM1" when playerClass is PlayerClass.Magician or PlayerClass.Priestess => twoHanded ? 18 : 17,
             "WM1" or "WH1" => twoHanded ? 10 : 9,
             "WT1" => 11,
             _ => 14

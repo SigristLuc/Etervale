@@ -1,8 +1,10 @@
+using PristonTale.Contracts.Characters;
+
 namespace PristonTale.Contracts.Sessions;
 
 public sealed record CharacterSummary(
     string Name,
-    int ClassId,
+    PlayerClass Class,
     int Level,
     int FaceIndex,
     int Tier = 0,

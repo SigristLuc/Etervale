@@ -11,6 +11,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Motion;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -88,7 +89,7 @@ internal static class EquipmentTests
     private static Task PresenceAsync()
     {
         var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Mechanician, "Gear", 1);
-        var appearance = new PlayerAppearanceView("Gear", 2, 0, 0, 0, "", "");
+        var appearance = new PlayerAppearanceView("Gear", PlayerClass.Mechanician, 0, 0, 0, "", "");
         var player = new WorldPlayer(1, System.Numerics.Vector3.Zero, character, false, appearance);
         var cursor = new SubscriberPresence(1);
         cursor.Diff([player.ToView()]);
@@ -117,7 +118,7 @@ internal static class EquipmentTests
         var scene = new FakeScene();
         var composer = new FakeComposer(scene);
         var roster = new RemoteEntityManager(scene, composer, new ModelActorComposer(scene, new PristonActorLoader()), new CharacterClassRegistry(), "");
-        var appearance = new PlayerAppearanceInfo("Gear", 2, 0, 0, 0, "", "", 1);
+        var appearance = new PlayerAppearanceInfo("Gear", PlayerClass.Mechanician, 0, 0, 0, "", "", 1);
         var spawn = new EntitySpawnInfo(7, EntityKind.Player, false, System.Numerics.Vector3.Zero, 0, MotionState.Stand, 100, 100, appearance, 0);
         void Apply(EntitySpawnInfo descriptor) => roster.Apply(new PresenceUpdate(1, [descriptor], [], [], []));
         Apply(spawn);

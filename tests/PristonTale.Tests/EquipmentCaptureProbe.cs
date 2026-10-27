@@ -5,6 +5,7 @@ using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

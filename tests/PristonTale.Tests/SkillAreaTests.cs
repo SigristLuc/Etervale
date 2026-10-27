@@ -6,6 +6,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Skills;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

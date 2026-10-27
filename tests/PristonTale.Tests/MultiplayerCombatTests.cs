@@ -10,6 +10,7 @@ using static PristonTale.Tests.MultiplayerMovementTests;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Skills;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

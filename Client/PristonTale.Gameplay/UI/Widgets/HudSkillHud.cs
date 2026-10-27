@@ -8,6 +8,7 @@ using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 

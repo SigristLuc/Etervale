@@ -10,6 +10,7 @@ using NumVector3 = System.Numerics.Vector3;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -64,7 +65,7 @@ public sealed partial class RemoteEntityManager
     public event Action<int, MotionCode, XnaVector3> NpcMotionStarted;
 
     // Another player entered a motion: its class code, the motion and where it stands.
-    public event Action<int, MotionCode, XnaVector3> PlayerMotionStarted;
+    public event Action<PlayerClass, MotionCode, XnaVector3> PlayerMotionStarted;
 
     public int PendingMonsterCount => _pendingModels.Count;
 
@@ -165,7 +166,7 @@ public sealed partial class RemoteEntityManager
         }
 
         Task preparation = null;
-        if (spawn.Kind == EntityKind.Player && spawn.Player is not null && TryResolveVisuals(spawn.Player.JobCode, out var visuals))
+        if (spawn.Kind == EntityKind.Player && spawn.Player is not null && TryResolveVisuals(spawn.Player.Class, out var visuals))
         {
             visuals = ResolvePlayerHead(visuals, spawn.Player);
             preparation = _playerComposer.PrepareAsync(_assetRoot, visuals, spawn.Player.FaceIndex);
@@ -210,9 +211,9 @@ public sealed partial class RemoteEntityManager
             return;
         }
 
-        if (!TryResolveVisuals(spawn.Player.JobCode, out var visuals))
+        if (!TryResolveVisuals(spawn.Player.Class, out var visuals))
         {
-            _log.Warn($"[Remote] spawn {spawn.EntityId}: unknown JobCode {spawn.Player.JobCode}; skipped.");
+            _log.Warn($"[Remote] spawn {spawn.EntityId}: unknown class {spawn.Player.Class}; skipped.");
             return;
         }
 
@@ -435,23 +436,23 @@ public sealed partial class RemoteEntityManager
         }
         else if (entity.Kind == EntityKind.Player && _playerAppearances.TryGetValue(entity.EntityId, out var appearance))
         {
-            PlayerMotionStarted?.Invoke(appearance.JobCode, motion, entity.DrawnPosition);
+            PlayerMotionStarted?.Invoke(appearance.Class, motion, entity.DrawnPosition);
         }
     }
 
     // The class, equipped weapon and drawn position of another player, for its swing sounds.
-    public bool TryGetPlayerAudio(ulong entityId, out int classCode, out string weaponKey, out XnaVector3 position)
+    public bool TryGetPlayerAudio(ulong entityId, out PlayerClass playerClass, out string weaponKey, out XnaVector3 position)
     {
         if (_entities.TryGetValue(entityId, out var entity) && entity.Kind == EntityKind.Player
             && _playerAppearances.TryGetValue(entityId, out var appearance))
         {
-            classCode = appearance.JobCode;
+            playerClass = appearance.Class;
             weaponKey = appearance.WeaponKey ?? "";
             position = entity.DrawnPosition;
             return true;
         }
 
-        classCode = 0;
+        playerClass = default;
         weaponKey = "";
         position = default;
         return false;
@@ -738,17 +739,17 @@ public sealed partial class RemoteEntityManager
     private CharacterVisualSet ResolvePlayerHead(CharacterVisualSet defaults, PlayerAppearanceInfo appearance)
     {
         var head = CharacterHead.ApplyBigHead(
-            CharacterHead.Apply(defaults, (PlayerClass)appearance.JobCode, appearance.Tier, appearance.FaceIndex, appearance.HairIndex),
-            (PlayerClass)appearance.JobCode, appearance.BigHead);
-        uint jobMask = _classRegistry.Get((PlayerClass)appearance.JobCode).Definition.MotionJobMask;
+            CharacterHead.Apply(defaults, appearance.Class, appearance.Tier, appearance.FaceIndex, appearance.HairIndex),
+            appearance.Class, appearance.BigHead);
+        uint jobMask = _classRegistry.Get(appearance.Class).Definition.MotionJobMask;
         return EquipmentVisuals.Apply(head, appearance.ArmorKey, appearance.WeaponKey, appearance.OffHandKey, appearance.InVillage, jobMask);
     }
 
-    private bool TryResolveVisuals(int jobCode, out CharacterVisualSet visuals)
+    private bool TryResolveVisuals(PlayerClass playerClass, out CharacterVisualSet visuals)
     {
-        if (System.Enum.IsDefined(typeof(PlayerClass), jobCode))
+        if (System.Enum.IsDefined(playerClass))
         {
-            visuals = _classRegistry.Get((PlayerClass)jobCode).Definition.DefaultVisuals;
+            visuals = _classRegistry.Get(playerClass).Definition.DefaultVisuals;
             return true;
         }
         visuals = null;

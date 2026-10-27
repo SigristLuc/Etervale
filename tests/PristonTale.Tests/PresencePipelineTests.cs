@@ -10,6 +10,7 @@ using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Skills;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -134,7 +135,7 @@ internal static class PresencePipelineTests
 
         var buffer2 = new byte[EntityDescriptionPacket.MaximumSize];
         var player = new EntityDescriptionPacket(7, 4, EntityKind.Player, 285, 3, 1.25f, "Ário Ñandú", "char/tmABCD/b001.ini",
-            new DescribedPlayer(2, 3, 1, 4, "char/tmABCD/tmh-b01.inf", 0x01020304, 0x02030405, 0x03040506, true, true, 5, 2));
+            new DescribedPlayer(PlayerClass.Mechanician, 3, 1, 4, "char/tmABCD/tmh-b01.inf", 0x01020304, 0x02030405, 0x03040506, true, true, 5, 2));
         var length2 = player.Write(buffer2);
         var readPlayer = EntityDescriptionPacket.Read(buffer2.AsSpan(0, length2));
         Assert.True(readPlayer == player with { Player = readPlayer.Player } && readPlayer.Player == player.Player, "a player description did not round-trip");
@@ -152,10 +153,10 @@ internal static class PresencePipelineTests
         var field = new FieldInstance(3);
         var classes = new CharacterClassRegistry();
         var character = classes.CreatePlayer(PlayerClass.Fighter, "Revised", 10);
-        var player = new WorldPlayer(1, Vector3.Zero, character, false, new PlayerAppearanceView("Revised", 1, 0, 0, 0, "", ""));
+        var player = new WorldPlayer(1, Vector3.Zero, character, false, new PlayerAppearanceView("Revised", PlayerClass.Fighter, 0, 0, 0, "", ""));
         field.Add(player);
         field.Add(new WorldPlayer(2, new Vector3(50, 0, 0), classes.CreatePlayer(PlayerClass.Fighter, "Other", 10), false,
-            new PlayerAppearanceView("Other", 1, 0, 0, 0, "", "")));
+            new PlayerAppearanceView("Other", PlayerClass.Fighter, 0, 0, 0, "", "")));
         var first = field.BuildViews();
         Assert.True(first.All(view => view.Revision == 1), "new entities do not start at revision 1");
         player.ReportMovement(new Vector3(20, 0, 0), 0.5f, true, false, 0, 1000);
@@ -171,7 +172,7 @@ internal static class PresencePipelineTests
     private static Task CrowdCapAsync()
     {
         static EntityView Player(ulong id, Vector3 at, ulong target = 0) => new(id, EntityKind.Player, false, at, 0f, MotionState.Stand, 1, 100, 100,
-            new PlayerAppearanceView("P" + id, 2, 0, 0, 0, "", ""), attackTargetId: target) { Revision = 1 };
+            new PlayerAppearanceView("P" + id, PlayerClass.Mechanician, 0, 0, 0, "", ""), attackTargetId: target) { Revision = 1 };
         var views = new List<EntityView> { Player(1, Vector3.Zero, target: 900) };
         for (ulong id = 2; id < 402; id++)
         {
@@ -201,7 +202,7 @@ internal static class PresencePipelineTests
     private static Task SegmentsAsync()
     {
         var self = new EntityView(1, EntityKind.Player, false, Vector3.Zero, 0f, MotionState.Stand, 1, 100, 100,
-            new PlayerAppearanceView("Self", 2, 0, 0, 0, "", ""));
+            new PlayerAppearanceView("Self", PlayerClass.Mechanician, 0, 0, 0, "", ""));
         var outbox = new WorldOutbox();
         CombatEventView Hit(int damage) => new(1, 1, CombatEventKind.Hit, damage: damage);
         Assert.True(outbox.Writer.TryWrite(new WorldSnapshot(10, [self], [Hit(5)], 3)), "first tick refused");

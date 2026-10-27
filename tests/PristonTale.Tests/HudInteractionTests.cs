@@ -12,6 +12,7 @@ using PristonTale.Gameplay.UI;
 using PristonTale.Gameplay.World;
 using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Gameplay.UI.Rendering;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

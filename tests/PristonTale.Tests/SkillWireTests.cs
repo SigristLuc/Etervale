@@ -7,6 +7,7 @@ using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Skills;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -73,7 +74,7 @@ internal static class SkillWireTests
         Assert.ThrowsAsync(() => Task.Run(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
 
         var classes = new Simulation.Characters.CharacterClassRegistry();
-        var character = classes.CreatePlayer(Simulation.Characters.PlayerClass.Archer, "Tier", 80);
+        var character = classes.CreatePlayer(PlayerClass.Archer, "Tier", 80);
         character.RestoreProgress(character.Experience, 1000, tier: 3, skillPoints: 4, eliteSkillPoints: 7);
         var status = Server.Net.WireMapping.Status(Simulation.Characters.OwnerState.Capture(character));
         var read = OwnerStatusPacket.Read(buffer.AsSpan(0, status.Write(buffer)));

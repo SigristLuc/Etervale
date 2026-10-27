@@ -1,5 +1,6 @@
 using PristonTale.Client.Net.WorldCatalog;
 using PristonTale.Contracts.Sessions;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Client.Net;
 
@@ -17,7 +18,7 @@ public interface IGameBackend : IAsyncDisposable
 
     Task<IReadOnlyList<CharacterSummary>> ListCharactersAsync(CancellationToken ct = default);
 
-    Task<CreateCharacterOutcome> CreateCharacterAsync(string name, int classId, int faceIndex, CancellationToken ct = default);
+    Task<CreateCharacterOutcome> CreateCharacterAsync(string name, PlayerClass playerClass, int faceIndex, CancellationToken ct = default);
 
     Task<DeleteCharacterOutcome> DeleteCharacterAsync(string name, CancellationToken ct = default);
 

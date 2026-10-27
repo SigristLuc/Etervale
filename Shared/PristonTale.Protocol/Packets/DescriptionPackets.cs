@@ -1,5 +1,6 @@
 using PristonTale.Protocol.Binary;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Protocol.Packets;
 
@@ -51,7 +52,7 @@ public readonly record struct DescribeEntityPacket(ulong Serial)
 // flag, the Phoenix, the helper pet (0 none), the head look (0 normal, 1-2 big head, 3 soccer ball) and how the held
 // weapon and off-hand item glow.
 public sealed record DescribedPlayer(
-    int Job,
+    PlayerClass Class,
     int Tier,
     int Face,
     int Hair,
@@ -120,7 +121,7 @@ public sealed record DescribedTemplate(
 
 // S->C: what a viewer needs to draw an entity, for one description revision. {header, uint16 Version = 1, uint16 Flags =
 // 0, varuint Serial, uint8 Revision, uint8 Kind, varuint Level, varuint MoveSpeed, float32 AttackRate, text Name, text
-// Model}, then for a player {varuint Job, Tier, Face, Hair, text HeadModel, uint32 Weapon, Armor, OffHand, uint8 Flags (1
+// Model}, then for a player {varuint Class, Tier, Face, Hair, text HeadModel, uint32 Weapon, Armor, OffHand, uint8 Flags (1
 // village, 2 Phoenix), uint8 HelperPet, uint8 BigHead, glow WeaponGlow, glow OffHandGlow (DescribedGlow)}, else {varuint Template, float32 TemplateScale, varuint SoundCode,
 // varint PortraitY, PortraitZ, uint8 Brood, varuint Owner, float32 InstanceScale, uint32 NpcServices, varuint Class (the
 // monster class: 1 boss, 200 hammer), varint ShadowSize (-1 none, 0 small to 3 large)}. Text is UTF-8 with a
@@ -157,7 +158,7 @@ public sealed record EntityDescriptionPacket(
         if (Kind == EntityKind.Player)
         {
             var player = Player ?? throw new InvalidOperationException("A player description needs its looks.");
-            writer.VarUInt((ulong)Math.Max(0, player.Job));
+            writer.VarUInt((ulong)Math.Max(0, (int)player.Class));
             writer.VarUInt((ulong)Math.Max(0, player.Tier));
             writer.VarUInt((ulong)Math.Max(0, player.Face));
             writer.VarUInt((ulong)Math.Max(0, player.Hair));
@@ -206,7 +207,7 @@ public sealed record EntityDescriptionPacket(
         {
             case EntityKind.Player:
             {
-                var job = reader.VarUInt31();
+                var playerClass = (PlayerClass)reader.VarUInt31();
                 var tier = reader.VarUInt31();
                 var face = reader.VarUInt31();
                 var hair = reader.VarUInt31();
@@ -220,7 +221,7 @@ public sealed record EntityDescriptionPacket(
                 var weaponGlow = DescribedGlow.Read(ref reader);
                 var offHandGlow = DescribedGlow.Read(ref reader);
                 return new EntityDescriptionPacket(serial, revision, kind, level, moveSpeed, attackRate, name, model,
-                    new DescribedPlayer(job, tier, face, hair, head, weapon, armor, offHand, (flags & 1) != 0, (flags & 2) != 0, pet, bigHead)
+                    new DescribedPlayer(playerClass, tier, face, hair, head, weapon, armor, offHand, (flags & 1) != 0, (flags & 2) != 0, pet, bigHead)
                     {
                         WeaponGlow = weaponGlow,
                         OffHandGlow = offHandGlow

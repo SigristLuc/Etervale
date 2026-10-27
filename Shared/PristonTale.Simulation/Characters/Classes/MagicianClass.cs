@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
@@ -8,8 +9,6 @@ public sealed class MagicianClass : CharacterClass
         : base(BuildDefinition(
             PlayerClass.Magician,
             "Magician",
-            jobCode: 7,
-            JobBitCode.Magician,
             CharacterBrood.Morion,
             bodyInx: "char\\tmABCD\\mD001.inx",
             headInx: "char\\tmABCD\\Mmh-D01.inx",

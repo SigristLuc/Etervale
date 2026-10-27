@@ -1,5 +1,6 @@
 using PristonTale.Application.Sessions;
 using PristonTale.Persistence.Abstractions.Characters;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Application.World;
 
@@ -24,7 +25,7 @@ public static class WorldPlayerFactory
         ArgumentNullException.ThrowIfNull(record);
         return new PlayerAppearanceView(
             record.Name,
-            record.JobCode,
+            (PlayerClass)record.JobCode,
             record.Tier,
             record.FaceIndex,
             record.HairIndex,

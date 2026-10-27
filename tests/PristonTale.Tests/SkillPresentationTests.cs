@@ -9,6 +9,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Skills;
 using PristonTale.Contracts.Skills;
 using PristonTale.Assets;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

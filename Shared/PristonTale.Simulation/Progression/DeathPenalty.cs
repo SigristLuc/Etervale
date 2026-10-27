@@ -1,6 +1,7 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.Progression;
 

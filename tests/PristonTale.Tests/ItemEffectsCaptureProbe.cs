@@ -21,6 +21,7 @@ using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Skills;
 using PristonTale.Assets;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -129,13 +130,13 @@ internal sealed class ItemEffectsCaptureProbe : Game
         _remote.Apply(new PresenceUpdate(1,
         [
             new(SelfId, EntityKind.Player, false, Numeric(_focus), 0f, MotionState.Stand, 64, 64,
-                new PlayerAppearanceInfo("Panzer", 2, 0, 0, 0, "", "", 40), 0),
+                new PlayerAppearanceInfo("Panzer", PlayerClass.Mechanician, 0, 0, 0, "", "", 40), 0),
             new(HopyId, EntityKind.Monster, false, Numeric(Floor(collision, _focus + new Vector3(-90f, 0f, 30f))), 1.2f, MotionState.Stand, 31, 50,
                 null, 1, Name: "Hopy", Level: 3),
             new(FriendId, EntityKind.Player, false, Numeric(Floor(collision, _focus + new Vector3(110f, 0f, -40f))), 2.6f, MotionState.Stand, 900,
-                1000, new PlayerAppearanceInfo("Lyra", 8, 0, 1, 0, "", "", 37) { BigHead = 2 }, 0),
+                1000, new PlayerAppearanceInfo("Lyra", PlayerClass.Priestess, 0, 1, 0, "", "", 37) { BigHead = 2 }, 0),
             new(KickerId, EntityKind.Player, false, Numeric(Floor(collision, _focus + new Vector3(-40f, 0f, -70f))), 0.6f, MotionState.Stand, 900,
-                1000, new PlayerAppearanceInfo("Kicker", 1, 0, 0, 0, "", "", 52) { BigHead = CharacterHead.SoccerLook }, 0)
+                1000, new PlayerAppearanceInfo("Kicker", PlayerClass.Fighter, 0, 0, 0, "", "", 52) { BigHead = CharacterHead.SoccerLook }, 0)
         ], [], [], []));
         _library = EffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assetRoot, ConsoleClientLog.Instance);
         _effects = new EffectsEngine(GraphicsDevice, Content);

@@ -4,6 +4,7 @@ using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Quests;
 using PristonTale.Contracts.Skills;
+using PristonTale.Contracts.Characters;
 
 // smoke [address] [account] [password] [--character NAME] [--skill CODE] [--chat TEXT]
 // Without --character a new Mechanician is created and its skill cast must be answered (refused: unlearned, in town).
@@ -32,7 +33,7 @@ Console.WriteLine($"List (before)    : {before.Count} character(s)");
 var name = existing ?? "Smoke" + Guid.NewGuid().ToString("N")[..6];
 if (existing is null)
 {
-    var created = await conn.CreateCharacterAsync(name, (int)PlayerClass.Mechanician, faceIndex: 0);
+    var created = await conn.CreateCharacterAsync(name, PlayerClass.Mechanician, faceIndex: 0);
     Console.WriteLine($"Create {name,-11}: ok={created.Ok} msg=\"{created.Message}\"");
     if (!created.Ok)
     {
@@ -44,7 +45,7 @@ var after = await conn.ListCharactersAsync();
 Console.WriteLine($"List (after)     : {after.Count} character(s)");
 foreach (var c in after)
 {
-    Console.WriteLine($"    - {c.Name} (class {c.ClassId}, level {c.Level})");
+    Console.WriteLine($"    - {c.Name} (class {c.Class}, level {c.Level})");
 }
 
 var enter = await conn.EnterWorldAsync(name);

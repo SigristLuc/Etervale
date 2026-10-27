@@ -5,6 +5,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -95,7 +96,7 @@ internal static class MonsterCrystalTests
     private static Task PetHuntsAsync()
     {
         var wild = SkillScenario.Enemy("Wild", life: 2, sight: 0, level: 1) with { ExpReward = 100 };
-        var scenario = SkillScenario.Create(Simulation.Characters.PlayerClass.Fighter, 20, null, null, wild, Hopy());
+        var scenario = SkillScenario.Create(PlayerClass.Fighter, 20, null, null, wild, Hopy());
         Assert.True(scenario.Field.TryFindMonsterKey(" 호피 ", out var hopy), "catalog lacks the crystal monster");
         var spawned = scenario.Field.CallCrystalMonster(scenario.Player, "GP101", " 호피 ");
         Assert.True(spawned is not null, "pet was not called");

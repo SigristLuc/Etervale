@@ -1,5 +1,6 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Application.GameMasters;
 
@@ -100,7 +101,7 @@ public sealed class ItemCreationOverrides
                 return ItemRollOverrides.None;
             }
 
-            var job = Enum.IsDefined((PlayerClass)_specJob) ? ItemRoller.JobBitFor((PlayerClass)_specJob) : 0u;
+            var job = Enum.IsDefined((PlayerClass)_specJob) ? (uint)JobBits.Of((PlayerClass)_specJob) : 0u;
             return new ItemRollOverrides(job, _performance != 0);
         }
     }

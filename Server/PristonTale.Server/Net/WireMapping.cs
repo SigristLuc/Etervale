@@ -46,7 +46,7 @@ internal static class WireMapping
             case EntityKind.Player:
             {
                 var appearance = view.Appearance;
-                var looks = new DescribedPlayer(appearance.JobCode, appearance.Tier, appearance.FaceIndex, appearance.HairIndex, appearance.ModelName2 ?? "",
+                var looks = new DescribedPlayer(appearance.Class, appearance.Tier, appearance.FaceIndex, appearance.HairIndex, appearance.ModelName2 ?? "",
                     ItemCode(appearance.WeaponKey), ItemCode(appearance.ArmorKey), ItemCode(appearance.OffHandKey), appearance.InVillage, appearance.Phoenix,
                     appearance.HelperPet, appearance.BigHead)
                 {
@@ -83,7 +83,7 @@ internal static class WireMapping
     // Character info record embedded in the character record for the entering character.
     public static CharacterListEntry Entry(CharacterSummary summary) => new(
         summary.Name,
-        (uint)summary.ClassId,
+        summary.Class,
         summary.Level,
         summary.Tier,
         summary.FaceIndex,

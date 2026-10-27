@@ -10,6 +10,7 @@ using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Spawning;
 using NumVector3 = System.Numerics.Vector3;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

@@ -15,6 +15,7 @@ using PristonTale.WorldImport;
 using PristonTale.WorldImport.Parsers;
 using PristonTale.Contracts.Motion;
 using PristonTale.Assets;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

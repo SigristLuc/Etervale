@@ -1,6 +1,7 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.World.Ai;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.Items;
 
@@ -188,21 +189,6 @@ public static partial class ItemRoller
             definition.RequiredLevel, requirements, price, mask, bonus);
         return item;
     }
-
-    public static uint JobBitFor(PlayerClass playerClass) => playerClass switch
-    {
-        PlayerClass.Fighter => (uint)JobBitCode.Fighter,
-        PlayerClass.Mechanician => (uint)JobBitCode.Mechanician,
-        PlayerClass.Archer => (uint)JobBitCode.Archer,
-        PlayerClass.Pikeman => (uint)JobBitCode.Pikeman,
-        PlayerClass.Atalanta => (uint)JobBitCode.Atalanta,
-        PlayerClass.Knight => (uint)JobBitCode.Knight,
-        PlayerClass.Magician => (uint)JobBitCode.Magician,
-        PlayerClass.Priestess => (uint)JobBitCode.Priestess,
-        PlayerClass.Assassin => (uint)JobBitCode.Assassin,
-        PlayerClass.Shaman => (uint)JobBitCode.Shaman,
-        _ => 0u
-    };
 
     // The middle mode drops a quarter of the span from each end (at least one when the span is two or more).
     private static int Range(ISimRng rng, ItemRange range, bool middle)

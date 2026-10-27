@@ -13,6 +13,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

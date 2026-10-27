@@ -3,6 +3,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Npcs;
 using static PristonTale.Tests.QuestFixture;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

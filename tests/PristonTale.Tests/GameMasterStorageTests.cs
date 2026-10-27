@@ -9,6 +9,7 @@ using PristonTale.Persistence.Abstractions.GameMasters;
 using PristonTale.Persistence.Abstractions.Security;
 using PristonTale.Persistence.Sqlite;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

@@ -7,6 +7,7 @@ using PristonTale.Persistence.Abstractions.Security;
 using PristonTale.Persistence.Postgres;
 using PristonTale.Persistence.Sqlite;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Characters;
 
 // Dev CLI to seed accounts + characters into the same database as the online server.
 // Reuses the real persistence layer (PasswordHasher, repositories, CharacterRecordFactory) so seeded data

@@ -1,5 +1,6 @@
 using PristonTale.Protocol.Binary;
 using PristonTale.Contracts.Sessions;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Protocol.Packets;
 
@@ -121,7 +122,7 @@ public readonly record struct LoginResultPacket(byte Status)
 }
 
 // One character of the account as character select shows it; item codes are 0 for an empty slot.
-public sealed record CharacterListEntry(string Name, uint ClassCode, int Level, int Tier, int FaceIndex, int HairIndex, uint WeaponCode, uint ArmorCode,
+public sealed record CharacterListEntry(string Name, PlayerClass Class, int Level, int Tier, int FaceIndex, int HairIndex, uint WeaponCode, uint ArmorCode,
     uint OffHandCode, bool InVillage)
 {
     public const int MaxSize = 2 + AccountWire.MaxNameBytes + 4 + 4 + 4 + 12 + 4;
@@ -130,7 +131,7 @@ public sealed record CharacterListEntry(string Name, uint ClassCode, int Level, 
     public void Write(ref PacketWriter writer)
     {
         Utf8Text.Write(ref writer, Name, AccountWire.MaxNameBytes);
-        writer.UInt32(ClassCode);
+        writer.UInt32((uint)Class);
         writer.Int32(Level);
         writer.Byte((byte)Math.Clamp(Tier, 0, 255));
         writer.Byte((byte)Math.Clamp(FaceIndex, 0, 255));
@@ -145,7 +146,7 @@ public sealed record CharacterListEntry(string Name, uint ClassCode, int Level, 
     public static CharacterListEntry Read(ref PacketReader reader)
     {
         var name = Utf8Text.Read(ref reader, AccountWire.MaxNameBytes, "Character list");
-        var classCode = reader.UInt32();
+        var playerClass = (PlayerClass)reader.UInt32();
         var level = reader.Int32();
         var tier = reader.Byte();
         var face = reader.Byte();
@@ -155,11 +156,11 @@ public sealed record CharacterListEntry(string Name, uint ClassCode, int Level, 
         var armor = reader.UInt32();
         var offHand = reader.UInt32();
         reader.Skip(4);
-        return new CharacterListEntry(name, classCode, level, tier, face, hair, weapon, armor, offHand, (flags & VillageFlag) != 0);
+        return new CharacterListEntry(name, playerClass, level, tier, face, hair, weapon, armor, offHand, (flags & VillageFlag) != 0);
     }
 }
 
-// S->C {header, uint16 Version = 1, uint16 0, int32 Count, entries {text Name, uint32 ClassCode, int32 Level, uint8 Tier,
+// S->C {header, uint16 Version = 1, uint16 0, int32 Count, entries {text Name, uint32 Class, int32 Level, uint8 Tier,
 // Face, Hair, Flags (1 in a village), uint32 WeaponCode, ArmorCode, OffHandCode, uint32 0}}: after login and after each
 // change.
 public sealed record CharacterListPacket(IReadOnlyList<CharacterListEntry> Characters)
@@ -218,9 +219,9 @@ public static class CharacterAction
     public const byte Delete = 2;
 }
 
-// C->S {header, uint16 Version = 1, uint8 Action (1 create, 2 delete), uint8 0, int32 ClassCode, FaceIndex,
+// C->S {header, uint16 Version = 1, uint8 Action (1 create, 2 delete), uint8 0, int32 Class, FaceIndex,
 // text Name (64 B)}.
-public readonly record struct CharacterCommandPacket(byte Action, int ClassCode, int FaceIndex, string Name)
+public readonly record struct CharacterCommandPacket(byte Action, PlayerClass Class, int FaceIndex, string Name)
 {
     public const int MaxSize = 8 + 4 + 8 + 2 + AccountWire.MaxNameBytes;
 
@@ -230,7 +231,7 @@ public readonly record struct CharacterCommandPacket(byte Action, int ClassCode,
         writer.UInt16(AccountWire.CurrentVersion);
         writer.Byte(Action);
         writer.Byte(0);
-        writer.Int32(ClassCode);
+        writer.Int32((int)Class);
         writer.Int32(FaceIndex);
         Utf8Text.Write(ref writer, Name, AccountWire.MaxNameBytes);
         return writer.Finish();
@@ -247,9 +248,9 @@ public readonly record struct CharacterCommandPacket(byte Action, int ClassCode,
             throw new InvalidDataException("Character command has an unknown action.");
         }
 
-        var classCode = reader.Int32();
+        var playerClass = (PlayerClass)reader.Int32();
         var face = reader.Int32();
-        return new CharacterCommandPacket(action, classCode, face, Utf8Text.Read(ref reader, AccountWire.MaxNameBytes, "Character command"));
+        return new CharacterCommandPacket(action, playerClass, face, Utf8Text.Read(ref reader, AccountWire.MaxNameBytes, "Character command"));
     }
 }
 

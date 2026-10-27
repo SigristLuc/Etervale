@@ -6,6 +6,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Aging;
 using PristonTale.Simulation.Items.Mixing;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Gameplay.UI.Inventory;
 
@@ -262,20 +263,7 @@ public static class HudItemDetailTooltip
 
     private static string SpecClassName(uint job)
     {
-        var characterClass = (JobBitCode)job switch
-        {
-            JobBitCode.Mechanician => PlayerClass.Mechanician,
-            JobBitCode.Fighter => PlayerClass.Fighter,
-            JobBitCode.Pikeman => PlayerClass.Pikeman,
-            JobBitCode.Archer => PlayerClass.Archer,
-            JobBitCode.Knight => PlayerClass.Knight,
-            JobBitCode.Atalanta => PlayerClass.Atalanta,
-            JobBitCode.Priestess => PlayerClass.Priestess,
-            JobBitCode.Magician => PlayerClass.Magician,
-            JobBitCode.Assassin => PlayerClass.Assassin,
-            JobBitCode.Shaman => PlayerClass.Shaman,
-            _ => (PlayerClass?)null
-        };
+        var characterClass = JobBits.ClassOf((JobBitCode)job);
         return characterClass.HasValue ? HudJobTitles.For(characterClass.Value)[0] : "Class";
     }
 }

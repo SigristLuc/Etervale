@@ -8,6 +8,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World;
 using Microsoft.Xna.Framework.Graphics;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

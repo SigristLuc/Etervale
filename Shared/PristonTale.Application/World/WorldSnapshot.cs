@@ -5,17 +5,18 @@ using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Skills;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Application.World;
 
 public readonly struct PlayerAppearanceView
 {
     public PlayerAppearanceView(
-        string name, int jobCode, int tier, int faceIndex, int hairIndex,
+        string name, PlayerClass playerClass, int tier, int faceIndex, int hairIndex,
         string modelName, string modelName2)
     {
         Name = name;
-        JobCode = jobCode;
+        Class = playerClass;
         Tier = tier;
         FaceIndex = faceIndex;
         HairIndex = hairIndex;
@@ -38,7 +39,7 @@ public readonly struct PlayerAppearanceView
     public int BigHead { get; init; }
 
     public string Name { get; }
-    public int JobCode { get; }
+    public PlayerClass Class { get; }
     public int Tier { get; init; }
     public int FaceIndex { get; }
     public int HairIndex { get; }

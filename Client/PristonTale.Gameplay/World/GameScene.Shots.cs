@@ -5,6 +5,7 @@ using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Gameplay.World;
 
@@ -33,16 +34,16 @@ public sealed partial class GameScene
         if (_equipmentPresentation is not null && _playerBody is not null && !_playerController.IsDead)
         {
             Shoot(_remote.SelfEntityId, _equipmentPresentation.Handles, _equipmentPresentation.WeaponKey, _ownWeaponGlow,
-                _playerBody.Position + Vector3.Up * GroundTraversal.VisualOffset, _player is not null && StaffCaster((int)_player.Class.Class));
+                _playerBody.Position + Vector3.Up * GroundTraversal.VisualOffset, _player is not null && StaffCaster(_player.Class.Class));
         }
 
         _remote.ForEachPlayer(_shootRemote ??= (entityId, handles, appearance, position) =>
-            Shoot(entityId, handles, appearance.WeaponKey, appearance.WeaponGlow, position, StaffCaster(appearance.JobCode)));
+            Shoot(entityId, handles, appearance.WeaponKey, appearance.WeaponGlow, position, StaffCaster(appearance.Class)));
         _shots.Update(seconds, _shotTarget);
     }
 
     // Magicians and priestesses shoot with a staff.
-    private static bool StaffCaster(int classCode) => classCode is (int)PlayerClass.Magician or (int)PlayerClass.Priestess;
+    private static bool StaffCaster(PlayerClass playerClass) => playerClass is PlayerClass.Magician or PlayerClass.Priestess;
 
     private void Shoot(ulong entityId, PlayerActorHandles handles, string weaponKey, in HeldItemGlow glow, Vector3 position, bool staffCaster)
     {

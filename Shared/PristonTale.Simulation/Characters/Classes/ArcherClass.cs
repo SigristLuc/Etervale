@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
@@ -8,8 +9,6 @@ public sealed class ArcherClass : CharacterClass
         : base(BuildDefinition(
             PlayerClass.Archer,
             "Archer",
-            jobCode: 3,
-            JobBitCode.Archer,
             CharacterBrood.Tempskron,
             bodyInx: "char\\tmABCD\\D001.inx",
             headInx: "char\\tmABCD\\tfh-D01.inx",

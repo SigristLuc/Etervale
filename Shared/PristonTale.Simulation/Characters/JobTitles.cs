@@ -1,3 +1,5 @@
+using PristonTale.Contracts.Characters;
+
 namespace PristonTale.Simulation.Characters;
 
 // The title of each class at each tier (0..3), as the classic client names them.

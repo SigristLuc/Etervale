@@ -9,6 +9,7 @@ using PristonTale.Gameplay.Screens.CharacterSelect;
 using PristonTale.Gameplay.Screens.Opening;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Sessions;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -104,7 +105,7 @@ internal sealed partial class SceneLookProbe : Game
             _selectCamera = new CharacterSelectCamera(GraphicsDevice, 0);
             _selectScene = new CharacterSelectScene(_renderer, new PristonActorLoader(cache), _root, _selectCamera, stage,
                 PristonTale.Engine3D.Diagnostics.ConsoleClientLog.Instance);
-            _roster = [new CharacterSummary("Probe", 1, 10, 0), new CharacterSummary("Probe2", 5, 10, 0)];
+            _roster = [new CharacterSummary("Probe", PlayerClass.Fighter, 10, 0), new CharacterSummary("Probe2", PlayerClass.Atalanta, 10, 0)];
             _preparation = _selectScene.PrepareRosterAsync(_roster, CancellationToken.None);
             return;
         }

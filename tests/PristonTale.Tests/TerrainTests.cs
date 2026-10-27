@@ -7,6 +7,7 @@ using PristonTale.Engine3D.Physics;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World;
 using PristonTale.Assets;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

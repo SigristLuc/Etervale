@@ -1,19 +1,5 @@
 namespace PristonTale.Simulation.Characters;
 
-public enum PlayerClass
-{
-    Fighter = 1,
-    Mechanician = 2,
-    Archer = 3,
-    Pikeman = 4,
-    Atalanta = 5,
-    Knight = 6,
-    Magician = 7,
-    Priestess = 8,
-    Assassin = 9,
-    Shaman = 10
-}
-
 public enum CharacterBrood
 {
     Tempskron = 1,

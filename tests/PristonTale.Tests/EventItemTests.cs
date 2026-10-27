@@ -5,6 +5,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Loot;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

@@ -5,6 +5,7 @@ using PristonTale.Gameplay.Audio;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Assets;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -62,7 +63,7 @@ internal static class FieldAudioTests
         ];
         foreach (var (key, classCode, code) in cases)
         {
-            var actual = CombatSounds.WeaponCode(key, key.Length > 0 && Simulation.Items.ItemEquipmentMetadata.IsTwoHanded(key), classCode);
+            var actual = CombatSounds.WeaponCode(key, key.Length > 0 && Simulation.Items.ItemEquipmentMetadata.IsTwoHanded(key), (PlayerClass)classCode);
             Assert.True(actual == code, $"{key} for class {classCode} picked weapon sound {actual}, expected {code}");
         }
 

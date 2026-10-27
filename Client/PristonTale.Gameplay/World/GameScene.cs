@@ -24,6 +24,7 @@ using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
 using PristonTale.Engine3D;
 using PristonTale.Assets;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Gameplay.World;
 
@@ -1112,7 +1113,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         else
             SetPlayerMotion(command.Motion);
         if (_player is not null && _playerBody is not null)
-            PlayPlayerMotionSound((int)_player.Class.Class, command.Motion, _playerBody.Position);
+            PlayPlayerMotionSound(_player.Class.Class, command.Motion, _playerBody.Position);
     }
 
     public void DebugForceMotion(MotionCode motion)

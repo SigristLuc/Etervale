@@ -1,8 +1,10 @@
+using PristonTale.Contracts.Characters;
+
 namespace PristonTale.Client.Net.Presence;
 
 public sealed record PlayerAppearanceInfo(
     string Name,
-    int JobCode,
+    PlayerClass Class,
     int Tier,
     int FaceIndex,
     int HairIndex,

@@ -9,6 +9,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Sessions;
 using PristonTale.Engine3D;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Gameplay.Screens.CharacterSelect;
 
@@ -495,12 +496,12 @@ internal sealed class CharacterSelectScene
         }
 
         var summary = _placed[i].Summary;
-        if (!Enum.IsDefined(typeof(PlayerClass), summary.ClassId))
+        if (!Enum.IsDefined(summary.Class))
         {
             return null;
         }
 
-        var klass = _classRegistry.Get((PlayerClass)summary.ClassId);
+        var klass = _classRegistry.Get(summary.Class);
         var broodName = klass.Brood == CharacterBrood.Tempskron ? "Tempskron" : "Morion";
         return new CharSelectInfo(summary.Name, summary.Level, broodName, klass.Name);
     }
@@ -536,13 +537,13 @@ internal sealed class CharacterSelectScene
     private bool TryResolveRosterVisuals(CharacterSummary summary, out CharacterVisualSet visuals)
     {
         visuals = default;
-        if (!Enum.IsDefined(typeof(PlayerClass), summary.ClassId))
+        if (!Enum.IsDefined(summary.Class))
         {
-            _log.Warn($"[CharSelect] '{summary.Name}' has out-of-range class id {summary.ClassId}; skipping (no substitution).");
+            _log.Warn($"[CharSelect] '{summary.Name}' has out-of-range class {summary.Class}; skipping (no substitution).");
             return false;
         }
 
-        var playerClass = (PlayerClass)summary.ClassId;
+        var playerClass = summary.Class;
         var definition = _classRegistry.Get(playerClass).Definition;
         visuals = CharacterHead.Apply(
             definition.DefaultVisuals,

@@ -3,6 +3,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
 using static PristonTale.Application.GameMasters.GmInformationCommands;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Application.GameMasters;
 
@@ -61,7 +62,7 @@ internal static class GmItemCommands
             return;
         }
 
-        var specBit = job == 0 ? 0u : ItemRoller.JobBitFor((PlayerClass)job);
+        var specBit = job == 0 ? 0u : (uint)JobBits.Of((PlayerClass)job);
         var className = job == 0 ? "no spec" : ((PlayerClass)job).ToString();
         if (FindByCode(context, code) is not { } definition)
         {
@@ -107,7 +108,7 @@ internal static class GmItemCommands
             return;
         }
 
-        var spec = Enum.IsDefined((PlayerClass)job) && job is >= 1 and <= 8 ? ItemRoller.JobBitFor((PlayerClass)job) : 0u;
+        var spec = Enum.IsDefined((PlayerClass)job) && job is >= 1 and <= 8 ? (uint)JobBits.Of((PlayerClass)job) : 0u;
         var overrides = spec != 0 && ItemRoller.CanTakeSpec(definition, spec) ? new ItemRollOverrides(spec) : ItemRollOverrides.None;
         var dropped = await context.Commands.World.DropAsync(context.Issuer.EntityId, rng =>
         {

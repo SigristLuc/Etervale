@@ -10,6 +10,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World;
 using PristonTale.Contracts.Sessions;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Application.Services;
 

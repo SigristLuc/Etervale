@@ -9,6 +9,7 @@ using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Loot;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

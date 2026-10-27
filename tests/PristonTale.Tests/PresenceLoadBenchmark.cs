@@ -9,6 +9,7 @@ using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Spawning;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -69,7 +70,7 @@ internal static class PresenceLoadBenchmark
             var character = classes.CreatePlayer(PlayerClass.Mechanician, $"Load{index}", 40);
             character.Skills.Restore(MechanicBomb, 5);
             var player = new WorldPlayer((uint)index + 1, homes[index], character, false,
-                new PlayerAppearanceView($"Load{index}", (int)PlayerClass.Mechanician, 0, 0, 0, "", ""));
+                new PlayerAppearanceView($"Load{index}", PlayerClass.Mechanician, 0, 0, 0, "", ""));
             players[index] = player;
             outboxes[index] = new WorldOutbox();
             encoders[index] = new PresenceEncoder(player.EntityId, holder);

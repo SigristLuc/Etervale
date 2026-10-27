@@ -6,6 +6,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Gameplay.World;
 
@@ -97,7 +98,7 @@ public sealed partial class GameScene
                     {
                         var outcome = combatEvent.Kind == CombatEventKind.Miss ? WeaponSoundOutcome.Miss
                             : combatEvent.Critical ? WeaponSoundOutcome.Critical : WeaponSoundOutcome.Hit;
-                        _combatSounds.PlayWeapon(swing.WeaponKey, swing.ClassCode, outcome, swing.Position, listener);
+                        _combatSounds.PlayWeapon(swing.WeaponKey, swing.Class, outcome, swing.Position, listener);
                     }
 
                     break;
@@ -116,7 +117,7 @@ public sealed partial class GameScene
 
     // The weapon, class and position of a player that swung: the local player from its own equipment, others from their
     // appearance; null for monsters.
-    private (string WeaponKey, int ClassCode, Vector3 Position)? SwingOf(ulong attackerId)
+    private (string WeaponKey, PlayerClass Class, Vector3 Position)? SwingOf(ulong attackerId)
     {
         if (attackerId == _remote.SelfEntityId)
         {
@@ -129,16 +130,16 @@ public sealed partial class GameScene
                 }
             }
 
-            return (weapon, (int)_player.Class.Class, _playerBody.Position);
+            return (weapon, _player.Class.Class, _playerBody.Position);
         }
 
-        return _remote.TryGetPlayerAudio(attackerId, out var classCode, out var weaponKey, out var position)
-            ? (weaponKey, classCode, position)
+        return _remote.TryGetPlayerAudio(attackerId, out var playerClass, out var weaponKey, out var position)
+            ? (weaponKey, playerClass, position)
             : null;
     }
 
     // A player entering damage or death plays its class's sound where it stands.
-    private void PlayPlayerMotionSound(int classCode, MotionCode motion, Vector3 position)
+    private void PlayPlayerMotionSound(PlayerClass playerClass, MotionCode motion, Vector3 position)
     {
         if (_combatSounds is null || _playerBody is null)
         {
@@ -153,12 +154,12 @@ public sealed partial class GameScene
         };
         if (cue is { } sound)
         {
-            _combatSounds.PlayCharacter(classCode, sound, position, _playerBody.Position);
+            _combatSounds.PlayCharacter((int)playerClass, sound, position, _playerBody.Position);
         }
     }
 
-    private void OnRemotePlayerMotionStarted(int classCode, MotionCode motion, Vector3 position) =>
-        PlayPlayerMotionSound(classCode, motion, position);
+    private void OnRemotePlayerMotionStarted(PlayerClass playerClass, MotionCode motion, Vector3 position) =>
+        PlayPlayerMotionSound(playerClass, motion, position);
 
     // The local player's step on the floor of its field: stone in towns and ruins, dungeon stone, soft ground in forests
     // and deserts; other fields are silent, as in the original.

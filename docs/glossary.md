@@ -37,7 +37,7 @@ that explains it in depth.
 | Brood (character) | A class's race: Tempskron or Morion (`CharacterBrood`) | simulation.md |
 | Brood (monster) | Monster family: Normal, Undead, Mutant, Demon, Mechanic, User (`MonsterBrood`); used by skill bonuses and filters | skills.md |
 | Tier / job tier | Class rank 0..3 (`Job1`..`Job4`); opens skill-window rows; below tier 3 experience stops at level 100 | simulation.md |
-| JobBitCode | Class bit mask for item restrictions; differs from `MotionJobMask` (`1 << (JobCode-1)`) used by animation tables | simulation.md |
+| JobBitCode | Class bit mask for item restrictions; mapped from `PlayerClass` by `JobBits`; differs from `MotionJobMask` (`1 << (Class-1)`) used by animation tables | simulation.md |
 | Catalog key | 5-character authored item key, 3-character category + 2 digits (`WA101`) | simulation.md |
 | Item code | 32-bit item code `family << 8 \| ordinal` derived from the item key by `ItemCodes`; stored as `item_code_mask` | simulation.md |
 | Item roll | The values one item copy was made with (`ItemRoll`): stats, requirements, price, specialization | simulation.md |

@@ -2,6 +2,7 @@ using System.Numerics;
 using PristonTale.Application.World;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -24,7 +25,7 @@ internal static class SummonAllianceTests
             Key = " 호피 ",
             Combat = new MonsterCombatStats(4, 400, new MonsterRange(5, 6), 6, 50, 50, 5, 0, 150, ResistanceBlock.Zero)
         };
-        var scenario = SkillScenario.Create(Simulation.Characters.PlayerClass.Fighter, 100, null, null, weak, strong, hopy);
+        var scenario = SkillScenario.Create(PlayerClass.Fighter, 100, null, null, weak, strong, hopy);
         scenario.Character.Life = scenario.Character.MaxLife;
         var pet = scenario.Field.CallGameMasterPet(scenario.Player, strong, 240_000f);
         Assert.True(scenario.Field.CallCrystalMonster(scenario.Player, "GP101", " 호피 ") is not null

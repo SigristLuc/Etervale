@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
@@ -8,8 +9,6 @@ public sealed class KnightClass : CharacterClass
         : base(BuildDefinition(
             PlayerClass.Knight,
             "Knight",
-            jobCode: 6,
-            JobBitCode.Knight,
             CharacterBrood.Morion,
             bodyInx: "char\\tmABCD\\mA001.inx",
             headInx: "char\\tmABCD\\Mmh-A01.inx",

@@ -13,6 +13,7 @@ using PristonTale.Gameplay.UI;
 using PristonTale.Gameplay.World;
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Sessions;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Gameplay.Screens.CharacterSelect;
 
@@ -400,7 +401,7 @@ public sealed class CharacterSelectScreen : GameScreen
             var outcome = _enterTask.Result;
             var s = _enteringSummary;
             var entered = new EnteredCharacter(
-                (PlayerClass)s.ClassId, s.Name ?? string.Empty, s.Level, s.FaceIndex,
+                s.Class, s.Name ?? string.Empty, s.Level, s.FaceIndex,
                 outcome.FieldId, outcome.SpawnX, outcome.SpawnZ, s.Tier, s.HairIndex);
             _enterTask = null;
             Context.RequestScreen(new GameplayScreen(Context, entered));
@@ -714,11 +715,10 @@ public sealed class CharacterSelectScreen : GameScreen
             _errorMessage = "Enter a name.";
             return;
         }
-        var classId = (int)_scene.JobClass(_jobSelected);
         _errorMessage = string.Empty;
         _busy = Busy.Creating;
         ResetBackendCall();
-        _createTask = Context.Backend.CreateCharacterAsync(name, classId, _faceIndex, _backendCts.Token);
+        _createTask = Context.Backend.CreateCharacterAsync(name, _scene.JobClass(_jobSelected), _faceIndex, _backendCts.Token);
     }
 
     private void PollCreate()

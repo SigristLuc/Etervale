@@ -5,6 +5,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World;
 using PristonTale.Contracts.Sessions;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Application.Services;
 
@@ -57,7 +58,7 @@ public sealed class CharacterAppService
     }
 
     public async Task<CreateCharacterOutcome> CreateCharacterAsync(
-        string sessionToken, string name, int classId, int faceIndex, CancellationToken ct = default)
+        string sessionToken, string name, PlayerClass playerClass, int faceIndex, CancellationToken ct = default)
     {
         var session = Authenticate(sessionToken);
 
@@ -65,7 +66,6 @@ public sealed class CharacterAppService
         if (trimmed.Length is < 3 or > 16)
             return CreateCharacterOutcome.Failed(CreateCharacterFailure.NameLength);
 
-        var playerClass = (PlayerClass)classId;
         if (!Enum.IsDefined(playerClass))
             return CreateCharacterOutcome.Failed(CreateCharacterFailure.UnknownClass);
 
@@ -144,7 +144,7 @@ public sealed class CharacterAppService
         var inVillage = _world.TryGetFieldByCode(character.FieldId, out var field) && field.State == FieldState.Village;
         return new CharacterSummary(
             character.Name,
-            character.JobCode,
+            (PlayerClass)character.JobCode,
             character.Level,
             character.FaceIndex,
             character.Tier,

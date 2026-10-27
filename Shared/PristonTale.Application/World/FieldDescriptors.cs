@@ -80,7 +80,7 @@ internal sealed class FieldDescriptors
                 && _attackRate.Equals(view.AttackRate) && _owner == view.OwnerId && _scale.Equals(view.ModelScale)
                 && _appearance.Tier == appearance.Tier && _appearance.HairIndex == appearance.HairIndex && _appearance.FaceIndex == appearance.FaceIndex
                 && _appearance.InVillage == appearance.InVillage && _appearance.HelperPet == appearance.HelperPet && _appearance.Phoenix == appearance.Phoenix
-                && _appearance.BigHead == appearance.BigHead && _appearance.JobCode == appearance.JobCode
+                && _appearance.BigHead == appearance.BigHead && _appearance.Class == appearance.Class
                 && string.Equals(_appearance.WeaponKey, appearance.WeaponKey, StringComparison.Ordinal)
                 && string.Equals(_appearance.ArmorKey, appearance.ArmorKey, StringComparison.Ordinal)
                 && string.Equals(_appearance.OffHandKey, appearance.OffHandKey, StringComparison.Ordinal)

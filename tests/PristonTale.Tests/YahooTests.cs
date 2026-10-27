@@ -10,6 +10,7 @@ using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Social;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

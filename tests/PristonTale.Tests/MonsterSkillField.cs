@@ -9,6 +9,7 @@ using PristonTale.Simulation.World.Motion;
 using PristonTale.Simulation.World.Spawning;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 

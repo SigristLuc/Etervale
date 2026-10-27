@@ -16,6 +16,7 @@ using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
@@ -339,7 +340,7 @@ internal static class SpecialItemTests
         var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Owner");
         character.Premium.Start(PremiumEffectKind.ExperienceUp, 30, 3600, 1000);
         var owner = OwnerState.Capture(character, null, 1600);
-        var appearance = new PlayerAppearanceView("Owner", 1, 0, 0, 0, "", "") { HelperPet = 2, Phoenix = true, BigHead = 1 };
+        var appearance = new PlayerAppearanceView("Owner", PlayerClass.Fighter, 0, 0, 0, "", "") { HelperPet = 2, Phoenix = true, BigHead = 1 };
         var self = new EntityView(1, EntityKind.Player, true, new Vector3(256, 0, 512), 0f, MotionState.Stand, 10, 100, 100, appearance);
         var snapshot = new WorldSnapshot(4, [self], fieldId: 3, owner: owner)
         {
