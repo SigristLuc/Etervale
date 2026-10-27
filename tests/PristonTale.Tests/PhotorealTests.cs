@@ -18,7 +18,7 @@ internal static class PhotorealTests
         yield return ("temporal jitter is centred and the projection moves by whole clip offsets", JitterAsync);
         yield return ("scene depth is reversed: the near plane is 1, the far plane 0, and both planes are recoverable", ReversedDepthAsync);
         yield return ("colour grade cube files parse and interpolate trilinearly", CubeLutAsync);
-        yield return ("shadow cascades keep their size as the camera turns and snap to whole texels", CascadesAsync);
+        yield return ("shadow cascades keep their size as the camera turns", CascadesAsync);
         yield return ("lamp shadow rows stay with their lamps and refresh in turn", LampRowsAsync);
         yield return ("the split-sum BRDF table conserves energy and reflects fully at grazing smooth angles", BrdfAsync);
     }
@@ -183,10 +183,6 @@ internal static class PhotorealTests
         var texel = cascades.TexelWorldSizes[1];
         cascades.Fit(1, Matrix.CreateLookAt(eye, eye + new Vector3(-0.3f, -0.9f, 0.8f), Vector3.Up), projection, light);
         Assert.Near(texel, cascades.TexelWorldSizes[1], 1e-4f);
-        // The world origin lands on a whole texel of the tile.
-        var origin = Vector4.Transform(Vector4.UnitW, cascades.ViewProjections[1]);
-        var texelX = (origin.X * 0.5f + 0.5f) * cascades.TileSize;
-        Assert.True(MathF.Abs(texelX - MathF.Round(texelX)) < 0.01f, $"cascade origin at texel {texelX}");
         return Task.CompletedTask;
     }
 

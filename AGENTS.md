@@ -21,6 +21,10 @@ documentation before editing.
 - Verify claims against the current implementation. Preserve the user's changes and stay within the task.
   Inspect `git status` and `git diff`; do not run `git add`, `git commit`, or `git push`.
 - Use the user's language when reporting work. State the changes, checks performed, and remaining limitations.
+- Hard rule: keep the agent's temporary folder clean, `claude` under the system temporary directory
+  (`%LOCALAPPDATA%\Temp\claude` on Windows, `$TMPDIR/claude` on macOS, `/tmp/claude` on Linux). Captures, probe output,
+  scratch scripts and file copies live there only while a step needs them; delete them as soon as it is done, and
+  leave nothing behind at the end of a task.
 
 ## Architecture and data
 

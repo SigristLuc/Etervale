@@ -9,14 +9,14 @@
 
 // Share of a cascade's far end over which it hands over to the next one (dithered), and the last one fades out.
 static const float CascadeBlendBand = 0.12;
-// PCSS: the deepest blocker distance (world units) the blocker search covers, and the largest filter radius (texels).
-static const float PcssSearchDepth = 600.0;
+// PCSS: the largest filter radius (texels), and the penumbra radii over which the turned disk takes over from the tent.
 static const float PcssMaxRadiusTexels = 9.0;
+static const float PcssDiskFrom = 1.5;
+static const float PcssDiskTo = 3.0;
 // Lamp shadows: a soft source, so a wide kernel and a little bounce light left in them.
 // World units a character's own body is ignored by along the sun when it receives the sun's shadow.
 static const float ActorShadowBias = 40.0;
 static const float LampShadowStrength = 0.8;
-static const float LampShadowRadiusTexels = 2.5;
 
 static const float2 PoissonDisk[16] =
 {
@@ -56,6 +56,42 @@ float ShadowLitAt(float2 uv, float reference)
     return dot(float4(stored >= reference), weights);
 }
 
+// The continuous tent of half-width reach around a point of the atlas (in texels, from the atlas origin): reach 2 is
+// the 3x3 tent (four gathers over 4x4 texels, standard deviation 0.82 texel), reach 3 the 5x5 tent (nine gathers over 6x6
+// texels, 1.22). Each texel weighs (reach - |dx|)(reach - |dy|) by its distance to the point, reach^4 in all, so the edge
+// moves continuously, and the result is the same in every frame. A disk turned per pixel and frame left its noise for
+// the temporal anti-aliasing to average, which it cannot where the history is clipped (an animated character's shadow)
+// or absent (MSAA, FXAA, SMAA): the edges crawled. Also returns the depth and count of the texels in front of the
+// reference.
+float ShadowTent(Texture2D<float4> map, SamplerState state, float2 texel, float2 grid, float reference, int reach,
+                 out float blockerSum, out float blockers)
+{
+    float2 base = floor(grid);
+    float2 f = grid - base;
+    float lit = 0.0;
+    blockerSum = 0.0;
+    blockers = 0.0;
+    [unroll]
+    for (int y = 1 - reach; y < reach; y += 2)
+    {
+        [unroll]
+        for (int x = 1 - reach; x < reach; x += 2)
+        {
+            // Gather order: (0, 1), (1, 1), (1, 0), (0, 0) from the texel at (x, y).
+            float4 dx = float4(x, x + 1, x + 1, x) - f.x;
+            float4 dy = float4(y + 1, y + 1, y, y) - f.y;
+            float4 weights = max(reach - abs(dx), 0.0) * max(reach - abs(dy), 0.0);
+            float4 stored = map.GatherRed(state, (base + float2(x + 1, y + 1)) * texel);
+            float4 lit4 = float4(stored >= reference);
+            lit += dot(weights, lit4);
+            blockerSum += dot(1.0 - lit4, stored);
+            blockers += 4.0 - dot(lit4, 1.0);
+        }
+    }
+
+    return lit / (reach * reach * reach * reach);
+}
+
 // Visibility of one cascade. The atlas tile holds the orthographic light's z (Passes/Surface.fx ShadowCaster), which is
 // linear in light-space depth; D3D clip conventions (the Vulkan compiler flips Y), so uv = (x, -y) * 0.5 + 0.5.
 float CascadeVisibility(uint c, float3 worldPosition, float3 normal, float nl, float2x2 rotation, float receiverBias)
@@ -68,52 +104,55 @@ float CascadeVisibility(uint c, float3 worldPosition, float3 normal, float nl, f
     float2 local = float2(projected.x, -projected.y) * 0.5 + 0.5;
     float4 tile = CascadeAtlas[c];
     float2 texel = ShadowTexel.xy;
-    float2 lo = tile.xy + texel;
-    float2 hi = tile.xy + tile.zw - texel;
     float2 centre = tile.xy + local * tile.zw;
     float reference = saturate(projected.z) - (texelWorld * (0.5 + 1.5 * (1.0 - nl)) + receiverBias) / depthRange;
-    float radius = ShadowTexel.z;
-    float presence = 1.0;
+    // The tents and the PCSS rings reach six texels from the point: keep them inside the tile.
+    float2 grid = clamp(centre, tile.xy + 6.5 * texel, tile.xy + tile.zw - 6.5 * texel) / texel - 0.5;
+    float blockerSum;
+    float blockers;
     [branch]
-    if (ShadowParams.y > 0.5)
+    if (ShadowParams.y < 0.5)
     {
-        // PCSS (Fernando 2005) for a directional light: blockers within the reach of the widest penumbra, then a
-        // filter as wide as the penumbra their mean depth gives, (receiver - blocker) * tan(light radius).
-        // Blockers are counted by the same bilinear weights as the filter taps, and the filtered result fades in over the
-        // first texel's worth of them: a point-sampled search switched a pixel from fully lit to filtered as a blocker
-        // texel entered or left it, so the outer penumbra edge still stepped a whole texel at a time.
-        float lightTan = ShadowParams.z;
-        float search = clamp(PcssSearchDepth * lightTan / texelWorld, 1.5, PcssMaxRadiusTexels);
-        float blockerSum = 0.0;
-        float blockers = 0.0;
-        [unroll]
-        for (int b = 0; b < 16; b++)
-        {
-            float4 weights;
-            float4 stored = ShadowGatherAt(clamp(centre + mul(PoissonDisk[b], rotation) * texel * search, lo, hi), weights);
-            float4 blocking = float4(stored < reference) * weights;
-            blockerSum += dot(blocking, stored);
-            blockers += dot(blocking, 1.0);
-        }
-
-        if (blockers <= 0.0)
-        {
-            return 1.0;
-        }
-
-        float penumbraWorld = (reference - blockerSum / blockers) * depthRange * lightTan;
-        radius = clamp(penumbraWorld / texelWorld, 1.0, PcssMaxRadiusTexels);
-        presence = saturate(blockers);
+        return ShadowTent(ShadowMap, ShadowSampler, texel, grid, reference, 3, blockerSum, blockers);
     }
 
-    float lit = 0.0;
+    // PCSS (Fernando 2005) for a directional light: the penumbra their mean depth gives, (receiver - blocker) *
+    // tan(light radius). The 3x3 tent keeps contact shadows as sharp as they are; blockers in two rings of corners
+    // beyond it (three and five texels out) widen the penumbra outward as well.
+    float lit = ShadowTent(ShadowMap, ShadowSampler, texel, grid, reference, 2, blockerSum, blockers);
+    float2 base = floor(grid);
     [unroll]
-    for (int i = 0; i < 16; i++)
+    for (int corner = 0; corner < 8; corner++)
     {
-        lit += ShadowLitAt(clamp(centre + mul(PoissonDisk[i], rotation) * texel * radius, lo, hi), reference);
+        float far = corner < 4 ? 3.0 : 5.0;
+        float2 offset = float2((corner & 1) != 0 ? far : -far - 1.0, (corner & 2) != 0 ? far : -far - 1.0);
+        float4 stored = ShadowMap.GatherRed(ShadowSampler, (base + offset + 1.0) * texel);
+        float4 blocking = float4(stored < reference);
+        blockerSum += dot(blocking, stored);
+        blockers += dot(blocking, 1.0);
     }
 
-    return lerp(1.0, lit / 16.0, presence);
+    float radius = blockers > 0.0 ? (reference - blockerSum / blockers) * depthRange * ShadowParams.z / texelWorld : 0.0;
+    float disk = saturate((radius - PcssDiskFrom) / (PcssDiskTo - PcssDiskFrom));
+    // A penumbra up to the tent's width keeps the tent's exact, still result; a wider one (tall casters far above the
+    // receiver) blends into a disk of its radius, turned per pixel, whose noise is spread over a soft gradient.
+    [branch]
+    if (disk > 0.0)
+    {
+        float2 lo = tile.xy + texel;
+        float2 hi = tile.xy + tile.zw - texel;
+        float width = min(radius, PcssMaxRadiusTexels);
+        float diskLit = 0.0;
+        [unroll]
+        for (int i = 0; i < 16; i++)
+        {
+            diskLit += ShadowLitAt(clamp(centre + mul(PoissonDisk[i], rotation) * texel * width, lo, hi), reference);
+        }
+
+        lit = lerp(lit, diskLit / 16.0, disk);
+    }
+
+    return lit;
 }
 
 // Sun visibility in [0, 1]: the cascade by view depth, blended into the next one over the blend band (picking one per
@@ -206,13 +245,12 @@ float2 ScreenOcclusion(float2 pixel, float viewDepth)
 
 // The lamps' cube shadows (Lighting/PristonLampShadows.cs): six faces per lamp side by side in its row, each a 90-degree
 // view along a major axis (FaceForward, up FaceUp, as Matrix.CreateLookAt builds it), holding the distance to the lamp
-// over its radius. Sixteen Poisson taps turned per pixel (the temporal anti-aliasing integrates the noise) soften the
-// edge without the stepped copies of a few fixed taps; a share of the light stays in the shadow (bounce from the
-// lamp-lit surroundings).
+// over its radius. The 5x5 tent (ShadowTent) softens the edge the same way in every frame; a share of the light stays in
+// the shadow (bounce from the lamp-lit surroundings).
 static const float3 FaceForward[6] = { float3(1, 0, 0), float3(-1, 0, 0), float3(0, 1, 0), float3(0, -1, 0), float3(0, 0, 1), float3(0, 0, -1) };
 static const float3 FaceUp[6] = { float3(0, 1, 0), float3(0, 1, 0), float3(0, 0, -1), float3(0, 0, 1), float3(0, 1, 0), float3(0, 1, 0) };
 
-float LampShadow(uint row, float3 fromLight, float radius, float nl, float2 pixel)
+float LampShadow(uint row, float3 fromLight, float radius, float nl)
 {
     float3 a = abs(fromLight);
     uint face = a.x >= a.y && a.x >= a.z ? (fromLight.x >= 0.0 ? 0 : 1)
@@ -227,24 +265,14 @@ float LampShadow(uint row, float3 fromLight, float radius, float nl, float2 pixe
     float2 local = float2(ndc.x, -ndc.y) * 0.5 + 0.5;
     float faceSize = LampShadowParams.z;
     float2 texel = LampShadowParams.xy;
-    // Keep the taps one texel inside the face.
-    float2 inner = clamp(local * faceSize, 1.0, faceSize - 1.0);
+    // The tent reaches three texels from the point: keep it inside the face.
+    float2 inner = clamp(local * faceSize, 3.5, faceSize - 3.5);
     float2 origin = float2(face, row) * faceSize;
     float distance = length(fromLight) / radius;
     float reference = distance - (0.004 + 0.012 * (1.0 - nl));
-    float angle = PixelNoise(pixel) * 2.0 * PI;
-    float2 direction = float2(cos(angle), sin(angle));
-    float2x2 rotation = float2x2(direction.x, -direction.y, direction.y, direction.x);
-    float lit = 0.0;
-    [unroll]
-    for (int k = 0; k < 16; k++)
-    {
-        float2 offset = mul(PoissonDisk[k], rotation) * LampShadowRadiusTexels;
-        float2 position = clamp(inner + offset, 1.0, faceSize - 1.0);
-        float stored = LampShadowMap.SampleLevel(LampShadowSampler, (origin + position) * texel, 0).r;
-        lit += reference <= stored ? 1.0 / 16.0 : 0.0;
-    }
-
+    float blockerSum;
+    float blockers;
+    float lit = ShadowTent(LampShadowMap, LampShadowSampler, texel, origin + inner - 0.5, reference, 3, blockerSum, blockers);
     return 1.0 - LampShadowStrength * (1.0 - lit);
 }
 
@@ -326,7 +354,7 @@ void AddLocalLights(float3 worldPosition, float3 n, float3 v, float3 albedo, flo
         [branch]
         if (lampShadows && row >= 0.0)
         {
-            light *= LampShadow((uint)row, -toLight, radius, nl, pixel);
+            light *= LampShadow((uint)row, -toLight, radius, nl);
         }
 
         float3 diffuseLight = light * (LampWrap + (1.0 - LampWrap) * nl);

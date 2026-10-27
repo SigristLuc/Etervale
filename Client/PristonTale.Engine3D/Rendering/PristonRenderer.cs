@@ -1816,9 +1816,6 @@ public sealed partial class PristonRenderer : IDisposable
         _fullShadowRefresh = false;
     }
 
-    internal static Matrix StabilizeShadowProjection(Matrix view, Matrix projection, int mapSize) =>
-        PristonShadowCascades.StabilizeProjection(view, projection, mapSize);
-
     private static PristonPointLight[] ApplyGlowTuning(PristonPointLight[] lights, float intensity, float scale)
     {
         var tuned = new PristonPointLight[lights.Length];

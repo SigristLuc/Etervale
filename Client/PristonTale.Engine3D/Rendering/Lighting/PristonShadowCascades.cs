@@ -4,8 +4,8 @@ namespace PristonTale.Engine3D.Rendering.Lighting;
 
 // Stabilized cascaded shadow maps of the sun (or the moon): the view frustum split by view depth (the practical
 // scheme: a blend of logarithmic and uniform splits), each slice enclosed in its bounding sphere, so a cascade's size
-// does not change as the camera turns, and its light-space position snapped to whole texels, so shadow edges do not
-// crawl as the camera moves. The cascades share one atlas (a 2x2 grid of tiles from two cascades up). Far cascades
+// does not change as the camera turns, and its light-space position moved by whole texels only, so shadow edges do not
+// crawl as the camera moves (FollowFocus). The cascades share one atlas (a 2x2 grid of tiles from two cascades up). Far cascades
 // refresh less often than near ones (UpdateMask).
 internal sealed class PristonShadowCascades
 {
@@ -22,7 +22,17 @@ internal sealed class PristonShadowCascades
     private readonly float[] _texelWorldSizes = new float[MaxCascades];
     private readonly float[] _depthRanges = new float[MaxCascades];
     private readonly float[] _splits = new float[MaxCascades];
+    private readonly FocusSnap[] _snaps = new FocusSnap[MaxCascades];
     private uint _refreshCount;
+
+    internal struct FocusSnap
+    {
+        public bool Valid;
+        public Vector3 Previous;
+        public float WorldPerTexel;
+        public double ResidualX;
+        public double ResidualY;
+    }
 
     public int Count { get; private set; } = MaxCascades;
     public int AtlasSize { get; private set; }
@@ -57,6 +67,7 @@ internal sealed class PristonShadowCascades
         }
 
         _refreshCount = 0;
+        Array.Clear(_snaps);
     }
 
     // Practical split scheme (Zhang et al. 2006): lambda * logarithmic + (1 - lambda) * uniform.
@@ -111,29 +122,39 @@ internal sealed class PristonShadowCascades
         var radius = MathF.Sqrt(MathF.Max((far - t) * (far - t) + far * far * k2, (t - near) * (t - near) + near * near * k2));
         // Quantized so the cascade's texel size never changes between frames.
         radius = MathF.Ceiling(radius / 16f) * 16f;
-        var centre = eye + forward * t;
         var direction = Vector3.Normalize(lightDirection);
         var up = MathF.Abs(Vector3.Dot(direction, Vector3.Up)) > 0.95f ? Vector3.Forward : Vector3.Up;
         var depthRange = 2f * radius + CasterReach;
+        var centre = FollowFocus(ref _snaps[cascade], eye + forward * t, direction, up, 2f * radius / TileSize);
         var view = Matrix.CreateLookAt(centre - direction * (radius + CasterReach), centre, up);
         var projection = Matrix.CreateOrthographic(2f * radius, 2f * radius, 0f, depthRange);
-        projection = StabilizeProjection(view, projection, TileSize);
         _viewProjections[cascade] = view * projection;
         _texelWorldSizes[cascade] = 2f * radius / TileSize;
         _depthRanges[cascade] = depthRange;
     }
 
-    // Snaps a fixed world anchor to whole texels: the moving frustum centre always maps to clip zero and cannot reveal
-    // the sub-texel motion to cancel.
-    internal static Matrix StabilizeProjection(Matrix view, Matrix projection, int mapSize)
+    // The cascade's centre: the focus moved back by the sub-texel part of how far the focus has travelled across the
+    // light, so the centre advances by whole texels and a still receiver keeps its place in the texel grid. Snapping a
+    // fixed world anchor instead (the world origin, tens of thousands of units from the towns) moved the anchor's
+    // rounding phase with every slight turn of the sun, so at each refresh every shadow edge jumped a fraction of a
+    // texel: edges flickered at the refresh rate even with nothing moving. Turning the sun now pivots the grid about the
+    // focus, where the characters are.
+    internal static Vector3 FollowFocus(ref FocusSnap snap, Vector3 focus, Vector3 direction, Vector3 up, float worldPerTexel)
     {
-        var originClip = Vector4.Transform(Vector4.UnitW, view * projection);
-        var texelX = (originClip.X * 0.5f + 0.5f) * mapSize;
-        var texelY = (originClip.Y * 0.5f + 0.5f) * mapSize;
-        var clipPerTexel = 2f / mapSize;
-        projection.M41 += (MathF.Round(texelX) - texelX) * clipPerTexel;
-        projection.M42 += (MathF.Round(texelY) - texelY) * clipPerTexel;
-        return projection;
+        var right = Vector3.Normalize(Vector3.Cross(up, -direction));
+        var lightUp = Vector3.Cross(-direction, right);
+        if (!snap.Valid || snap.WorldPerTexel != worldPerTexel)
+        {
+            snap = new FocusSnap { Valid = true, Previous = focus, WorldPerTexel = worldPerTexel };
+        }
+
+        var moved = focus - snap.Previous;
+        snap.ResidualX += Vector3.Dot(moved, right) / worldPerTexel;
+        snap.ResidualY += Vector3.Dot(moved, lightUp) / worldPerTexel;
+        snap.ResidualX -= Math.Floor(snap.ResidualX + 0.5);
+        snap.ResidualY -= Math.Floor(snap.ResidualY + 0.5);
+        snap.Previous = focus;
+        return focus - right * (float)(snap.ResidualX * worldPerTexel) - lightUp * (float)(snap.ResidualY * worldPerTexel);
     }
 
     // The pixel rectangle of a cascade's tile in the atlas.

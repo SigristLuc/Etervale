@@ -218,24 +218,31 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
 ## Shadows
 
 - **Sun cascades** (`Lighting/PristonShadowCascades.cs`): up to 4 over 9000 units of view depth from 60, practical
-  split (lambda 0.8), each slice enclosed in a sphere and snapped to whole texels (no shimmer), casters up to 4000 units
-  beyond toward the light. Cascades 0-1 refresh every update, 2 every second, 3 every fourth; a new light direction or a
+  split (lambda 0.8), each slice enclosed in a sphere, casters up to 4000 units beyond toward the light. A cascade's
+  centre follows its focus by whole texels (`FollowFocus`: the sub-texel part of the focus's travel across the light is
+  kept as a residual), so a still receiver keeps its place in the texel grid while the camera moves, and a turning sun
+  pivots the grid about the focus. Snapping a fixed world anchor (the origin, tens of thousands of units from the towns)
+  instead moved the anchor's rounding phase with every slight turn of the sun, and every shadow edge jumped a fraction of
+  a texel at each refresh, a flicker at the refresh rate with nothing moving. Cascades 0-1 refresh every update, 2 every second, 3 every fourth; a new light direction or a
   focus jump over 350 units refreshes all. Refresh rate `shadowUpdateRate` (`FixedRateRefreshScheduler`), halved by
   moonlight. Between refreshes cascades 0-1 still redraw every frame on their current fit, so the characters near the
   camera cast from their current pose (a caster a refresh old darkens a running character lit from behind). Characters
   and monsters receive the sun's shadow 40 units further along the light (`ActorShadowBias`), so their own thin
   low-polygon bodies do not shade themselves in flickering triangles while buildings and trees still shade them. Over a
-  cascade's blend band both cascades are sampled and blended, never one picked per pixel by noise. Each filter tap
-  compares the four texels around it and weights them bilinearly (`ShadowLitAt`), so an edge slides continuously as the
-  sun turns instead of stepping a whole texel at a time. PCSS by day (light radius tangent 0.01), PCF (1.5 texels) for
-  the moon. Casters draw two-sided; the wind/water displacement matches the lit pass.
+  cascade's blend band both cascades are sampled and blended, never one picked per pixel by noise. The filter is a
+  continuous tent (`ShadowTent`): every texel it reaches is weighted by its distance to the point, so an edge slides
+  continuously, and the result is the same in every frame. PCF (the moon): the 5x5 tent, nine gathers. PCSS by day
+  (light radius tangent 0.01): the 3x3 tent (four gathers), whose blocker count two rings of corners three and five
+  texels out extend; a penumbra wider than 1.5 texels (tall casters far above the receiver) blends by 3 texels into a
+  16-tap disk of its radius, turned per pixel. A disk turned per pixel and frame everywhere left its noise to the
+  temporal anti-aliasing, which cannot average it on an animated character's shadow or without TAA: the edges crawled. Casters draw two-sided; the wind/water displacement matches the lit pass.
 - **Lamp shadows** (`Lighting/PristonLampShadows.cs`): the `lampShadowCount` lamps nearest the focus (after the
   transient lights) keep a row of six 90-degree cube faces storing distance / radius. A lamp keeps its row while it
   stays near; new rows draw at once, the others on every frame a skinned caster's bounds meet the lamp's sphere (and once
   more after the last one left, to clear its shadow), so the shadows follow moving actors without steps. Only skinned
   batches (actors, animated props)
-  cast; the stage's own occlusion is in its authored light. The edge takes sixteen Poisson taps turned per pixel (the
-  temporal anti-aliasing resolves the noise), not a few fixed taps that would print stepped copies of the silhouette. Characters and monsters do not receive lamp shadows
+  cast; the stage's own occlusion is in its authored light. The edge takes the 5x5 tent (`ShadowTent`), the same in every
+  frame, not a few fixed taps that would print stepped copies of the silhouette. Characters and monsters do not receive lamp shadows
   (`ActorReceiver`): their smooth-shaded low-polygon bodies would be cut by the hard facets of their own and each
   other's silhouettes; they still cast onto the stage.
 - `Ctrl+F5` toggles both in game; `PRISTON_SHADOW_DIAG=1` enables shadow diagnostics logging.
