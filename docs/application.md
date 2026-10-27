@@ -208,7 +208,7 @@ Durable entry points (`Prepare*Async`, `Commit*Async`, `CheckNpcServiceAsync`, `
   within 8 units from the height the last piece reached, so a ramp's rising ground is not a wall. Within a piece the
   height follows the floor in 8-unit steps: a floor within 8 units below is stood on, a deeper one is fallen toward at
   `Falling.UnitsPerSecond` (560) for the time since the last accepted report, and a falling player may pass over ground
-  with no floor; each step's floor must be within 64 units of climb and the report must end over a floor. The kept
+  with no floor; each step may climb at most 24 units (the client climbs 10 every 4) and the report must end over a floor. The kept
   height is the server's, never the client's. Busy players (swing, flinch, eat,
   cast) ignore drift up to 192 units and reject larger. A move without an action target drops the attack lock.
 - Motion stops showing after 1.5 s without reports. Death clears actions and potion; the player stays down until it

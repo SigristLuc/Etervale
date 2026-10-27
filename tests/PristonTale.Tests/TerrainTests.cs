@@ -22,6 +22,7 @@ internal static class TerrainTests
         yield return ("small movement reports cannot pass a wall but may cut a corner", ReportWallSegmentsAsync);
         yield return ("a long movement report climbs a ramp but not through a wall beyond it", ReportRampAsync);
         yield return ("a falling player keeps its height between reports and may fall over a gap, not walk into one", ReportFallAsync);
+        yield return ("a movement report cannot climb a step higher than the client can, wall or no wall", ReportClimbAsync);
     }
 
     private static Task ReaderParityAsync()
@@ -186,6 +187,22 @@ internal static class TerrainTests
             && player.Position.Y == 100, "a report onto the plateau was rejected or missed its floor");
         Assert.True(player.ReportMovement(new Vector3(450, 100, 200), 0f, true, true, 0, 5000, terrain) == MovementVerdict.Rejected
             && player.Position.X == 300, "a long report crossed the wall beyond the ramp");
+        return Task.CompletedTask;
+    }
+
+    private static Task ReportClimbAsync()
+    {
+        // Ground to x 100 and a plateau from x 100, 60 units higher, with no wall face between them.
+        var terrain = new FieldTerrain(StageCollisionReader.Read(Stage(
+            [new(0, 0, 0), new(100, 0, 0), new(100, 0, 400), new(0, 0, 400),
+             new(100, 60, 0), new(400, 60, 0), new(400, 60, 400), new(100, 60, 400)],
+            [(0, 1, 2), (0, 2, 3), (4, 5, 6), (4, 6, 7)])));
+        var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Climb");
+        var player = new WorldPlayer(1, new Vector3(60, 0, 200), character, false, default);
+        Assert.True(player.ReportMovement(new Vector3(60, 0, 200), 0f, false, false, 0, 500, terrain) == MovementVerdict.Accepted,
+            "a standing report was rejected");
+        Assert.True(player.ReportMovement(new Vector3(140, 0, 200), 0f, true, true, 0, 1500, terrain) == MovementVerdict.Rejected
+            && player.Position.X == 60, $"a report climbed a 60-unit step: {player.Position}");
         return Task.CompletedTask;
     }
 

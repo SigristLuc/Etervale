@@ -51,9 +51,13 @@ public sealed class WorldPlayer
     private const float MaxBudgetSeconds = 2f;
     private const float BusyCorrectionDistance = 192f;
     private const long StaleMotionMs = 1500;
-    // Each piece of a report may climb this much (stairs between reports); falls of any height are accepted. The client
-    // still steps at most GroundTraversal.StepUp (10 units) per frame; only server-moved monsters climb 20.
+    // How far above the server's height a floor still counts as the one the player stands on where a report starts; falls
+    // of any height are accepted.
     private const float ReportClimb = 64f;
+    // The most each 8-unit step of a report may climb: the client steps up at most GroundTraversal.StepUp (10 units)
+    // every 4 units, so 20, with room for the two sides sampling the ground at different points. Allowing ReportClimb at
+    // every step let one report scale 64 units per step, up any cliff without a wall face.
+    private const float StepClimb = 24f;
     // Every report is walked in pieces no longer than this, each following the client's wall slide from the floor the
     // last piece stood on, so the rising ground of a ramp is not taken for a wall. A piece may end this far from its
     // point on the reported path (a corner cut between reports); the server then keeps the slid point on its side of
@@ -370,7 +374,7 @@ public sealed class WorldPlayer
         for (var step = 1; step <= steps; step++)
         {
             var point = Vector3.Lerp(from, to, step / (float)steps) with { Y = height };
-            if (!terrain.TryFloorNear(point, ReportClimb, out var floor))
+            if (!terrain.TryFloorNear(point, StepClimb, out var floor))
             {
                 if (!airborne || (last && step == steps) || !float.IsFinite(stepSeconds))
                 {

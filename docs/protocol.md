@@ -143,7 +143,7 @@ The server validates client reports instead of trusting them (`WorldPlayer.Repor
 - With the field's stage loaded, a report is walked in pieces of at most 48 units; each follows the wall slide and may
   end at most 8 units from its point on the reported path. The height follows the floor and falls off ledges at 560
   units a second since the last accepted report, so it can stay above the floor while the player falls. A report is
-  rejected when a step finds no walkable floor within 64 units of climb (unless the player is falling) or when it ends
+  rejected when an 8-unit step finds no walkable floor within 24 units of climb (unless the player is falling) or when it ends
   over no floor. The client sends a report when a fall begins and when it lands.
 
 A rejected report is answered with a forced `FieldWarp` (at most every 300 ms). A field change in the report is
