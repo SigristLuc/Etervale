@@ -253,10 +253,15 @@ The client owns its own locomotion; the server validates and corrects.
   reconcile (`AttackInputController.Reconcile` by sequence) and authoritative motions (Attack, Damage, Dead, Eat,
   the restart after death). The last echoed position is kept as `_serverPlanarPosition` for reach checks (NPC dialog,
   loot pickup).
-- Only `FieldWarp` moves the avatar: a forced warp (server rejected a report) or a difference above 200 units snaps the
-  body and camera and stands it on the floor nearest the warp's height (within 64 units, else the highest floor). A warp
-  to another field code activates that field if loaded; otherwise it requests the field and holds the warp
-  (`_pendingFieldWarp`, the player stops) until the field is in the world, then applies it.
+- Only `FieldWarp` moves the avatar: a forced warp (server rejected a report), a warp that activates another field or a
+  difference above 200 units snaps the body and camera and stands it on the floor nearest the warp's height (within 64
+  units, else the highest floor). A warp to another field code activates that field if loaded; otherwise it requests
+  the field and holds the warp (`_pendingFieldWarp`, the player stops) until the field is in the world, then applies
+  it. The unforced warp that confirms a field change keeps the force of a forced one it replaces.
+- The avatar is never left in the air (`KeepOnFloor`, every frame): feet more than 8 units above the floor under them
+  stand on it, as walking puts them; with no floor under them (a field still streaming, below the ground) they stand
+  on the floor nearest the server's height once it is there. The special-warp hold is exempt. A warp gate's authored
+  destination height is a hint: the body stands on the floor nearest it.
 - Field changes are local: across a seamless border the active field becomes the loaded field with the highest floor
   under the player (`UpdateActiveField`); warp gates are detected in `UpdateWarps` (level limit checked), and
   special-effect warp gates hold the player for 2 s with the return effect and portal sound before switching. A wing

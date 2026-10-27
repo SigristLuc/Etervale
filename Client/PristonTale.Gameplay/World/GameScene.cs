@@ -871,6 +871,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private WarpInfo _pendingFieldWarp;
     // The server settles teleports within twice the drop tolerance of their height.
     private const float WarpFloorTolerance = 64f;
+    // Feet higher than this above the floor under them are in the air (the original's eight units).
+    private const float FloatTolerance = 8f;
     private float _pendingWarpDelay;
 
     private void UpdateWarps(float dtSeconds)
@@ -988,7 +990,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         SetActiveField(dest);
         _hasMoveTarget = false;
         _playerBody.PlanarPosition = new Vector2(warp.DestinationX, -warp.DestinationZ);
+        // The authored destination height is near the floor, not on it: stand on the floor nearest it.
         _playerBody.Height = warp.DestinationY - GroundTraversal.VisualOffset;
+        PlaceAtHeight(_playerBody, warp.DestinationY);
         ApplyPlayerWorld();
         _camera = new PristonCamera(_playerBody.Position, _playerForward, ToCameraSettings(destDef.Camera));
         _log.Info($"[Warp] -> {destDef.Id} at ({warp.DestinationX},{warp.DestinationZ}).");
@@ -1156,6 +1160,12 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
     private void ApplyWarp(WarpInfo warp)
     {
+        // The unforced warp that confirms a field change can arrive while a forced one is held; it keeps the force.
+        if (_pendingFieldWarp is { Forced: true } held && held.FieldId == warp.FieldId)
+        {
+            warp = warp with { Forced = true };
+        }
+
         _pendingFieldWarp = null;
         _serverPlanarPosition = new Vector2(warp.Position.X, warp.Position.Z);
         if (_playerBody is null)
@@ -1163,6 +1173,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             return;
         }
 
+        var changedField = false;
         if (_activeField?.Definition.FieldCode != warp.FieldId && _worldCatalog.TryGetFieldByCode(warp.FieldId, out var field))
         {
             var loaded = _fields.FirstOrDefault(candidate => candidate.Definition.Id == field.Id);
@@ -1179,11 +1190,13 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             SetActiveField(loaded);
             _lastSentFieldCode = field.FieldCode;
             _hasMoveTarget = false;
+            changedField = true;
         }
 
+        // A new field always takes the warp's place and height: the body still holds the height of the field it left.
         var authoritative = new Vector2(warp.Position.X, warp.Position.Z);
         var difference = authoritative - _playerBody.PlanarPosition;
-        if (warp.Forced || difference.LengthSquared() > 200f * 200f)
+        if (warp.Forced || changedField || difference.LengthSquared() > 200f * 200f)
         {
             _log.Info($"[Movement] correction {difference.Length():F1} units; field={warp.FieldId}, forced={warp.Forced}.");
             StopPredictedMovement();
@@ -1281,6 +1294,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         }
         _skillClockMs = gameTime.TotalGameTime.TotalMilliseconds;
         DrainPresence(frameDt);
+        KeepOnFloor();
         UpdateSkills(gameTime);
         UpdateItemEffects(frameDt);
         ApplyPositionCorrection(frameDt);
@@ -1824,6 +1838,38 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             || TryGetFloorHeight(body.Position, out floor))
         {
             body.Height = floor - GroundTraversal.VisualOffset;
+        }
+    }
+
+    // A body is not left in the air: one above its floor (a placement made before the ground under it was right, a height
+    // carried from another field) stands on that floor, as walking already puts it; one with no floor under it (its field
+    // still streaming, or below the ground) stands on the floor nearest the server's height once that ground is there.
+    // The special-warp hold keeps the gate's height on purpose.
+    private void KeepOnFloor()
+    {
+        if (_playerBody is null || _pendingWarp is not null)
+        {
+            return;
+        }
+
+        var before = _playerBody.Height;
+        var feet = before + GroundTraversal.VisualOffset;
+        if (TryGetFloorHeightNear(_playerBody.Position, feet, out var floor))
+        {
+            if (feet - floor > FloatTolerance)
+            {
+                _playerBody.Height = floor - GroundTraversal.VisualOffset;
+                ApplyPlayerWorld();
+            }
+
+            return;
+        }
+
+        PlaceAtHeight(_playerBody, float.IsFinite(_serverCollisionHeight) ? _serverCollisionHeight : float.MaxValue);
+        if (_playerBody.Height != before)
+        {
+            ApplyPlayerWorld();
+            _camera?.SnapFollow(_playerBody.Position, _fieldCollision);
         }
     }
 
