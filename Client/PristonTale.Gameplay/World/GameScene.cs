@@ -202,6 +202,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     public bool RightAttackEnabled { get; set; }
     public ulong AttackTargetId => _attackInput.TargetId;
     public ulong SelectedTargetId => _targetSelection.FrameId;
+    public ulong HoveredTargetId => _targetSelection.HoveredId;
+    public ulong TracedTargetId => _targetSelection.TracedId;
     public FieldDef ActiveFieldDefinition => _activeField?.Definition;
     public PristonIntRectangle ActiveMapRectangle => _activeField?.Stage.AuthoredMapRectangle ?? default;
     public PristonRenderer Renderer => _renderer;
@@ -1682,13 +1684,16 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private void UpdateTargetSelection(GameTime gameTime)
     {
         ulong hovered = 0;
+        var hoveredKind = RemoteEntityKind.Unspecified;
         if (_remote is not null && _camera is not null && !PointerCaptured && CameraInputEnabled && TryCursorRay(Mouse.GetState(), out var ray)
-            && _remote.TryPick(ray, _remote.SelfEntityId, out var entityId, out _))
+            && _remote.TryPick(ray, _remote.SelfEntityId, out var entityId, out var kind))
         {
             hovered = entityId;
+            hoveredKind = kind;
         }
 
         _targetSelection.Hover(hovered);
+        UpdateOutline(hovered, hoveredKind);
         _targetSelection.Update(gameTime.TotalGameTime.TotalMilliseconds, _targetLiveness);
     }
 

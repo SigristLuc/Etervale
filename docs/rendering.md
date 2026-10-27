@@ -132,6 +132,7 @@ Described in Etervale's terms; readers keep every field, including padding, for 
 | 8 | `Prepass` | no MSAA, not `Overdraw` | Depth, linear depth, normals (smoothness in alpha), motion of opaque surfaces and cut-outs. |
 | 9 | `AmbientOcclusion` | pre-pass ran and AO or contact shadows on | GTAO and contact shadows at half resolution, blur. |
 | 10 | `LightCulling` | any local light | 16x16 tile masks (depth-bounded after the pre-pass). |
+| - | (outline) | an actor with `SetActorOutline` | `DrawOutlines`: the actor flat in one colour, shifted 1.4 px scaled by the screen height over 600 (times the outline strength) in four directions, pushed back 16 units and writing depth, so the lit actor covers it and only a rim stays. |
 | 11 | `Opaque`, `Masked` | always | Lit pass; after the pre-pass it tests depth without writing it. Without the pre-pass, TAA motion is written here. |
 | 12 | `Reflections` | pre-pass, SSR on, a surface with roughness < 0.3 seen | Scene copy and screen-space reflections. |
 | 13 | `Transparent` | always | Blended queue, back to front. |

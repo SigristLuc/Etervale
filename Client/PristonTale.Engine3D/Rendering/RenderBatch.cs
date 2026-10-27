@@ -38,6 +38,9 @@ internal sealed record RenderBatch(
 
     public Vector3 ActorColorAdd { get; set; }
 
+    // The hover outline of the actor that owns the batch: display-referred colour, w its strength (0: none).
+    public Vector4 Outline { get; set; }
+
     // The gameplay appearance of the actor that owns the batch (shared by its batches); null for scenery.
     public ActorShade Shade { get; set; }
 

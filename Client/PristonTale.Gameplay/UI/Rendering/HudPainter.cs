@@ -12,7 +12,7 @@ public sealed class HudPainter : IDisposable
     public const int LineHeight = 16;
     private const float CapTop = 2f;
 
-    private readonly record struct TextRun(string Value, Vector2 Position, Color Color, bool Shadow, Vector2 ShadowOffset);
+    private readonly record struct TextRun(string Value, Vector2 Position, Color Color, bool Shadow, Vector2 ShadowOffset, float Scale);
 
     private readonly SpriteBatch _batch;
     private readonly SpriteFont _font;
@@ -21,6 +21,7 @@ public sealed class HudPainter : IDisposable
     private readonly Texture2D _white;
     private readonly List<TextRun> _text = new(128);
     private readonly float _textShift;
+    private readonly float _capCropping;
     private Matrix _transform = Matrix.Identity;
     private bool _active;
 
@@ -31,7 +32,8 @@ public sealed class HudPainter : IDisposable
         _sprites = sprites;
         _white = new Texture2D(batch.GraphicsDevice, 1, 1);
         _white.SetData([Color.White]);
-        _textShift = font.GetGlyphs().TryGetValue('M', out var glyph) ? MathF.Round(CapTop - glyph.Cropping.Y * TextScale) : 0;
+        _capCropping = font.GetGlyphs().TryGetValue('M', out var glyph) ? glyph.Cropping.Y : CapTop / TextScale;
+        _textShift = MathF.Round(CapTop - _capCropping * TextScale);
     }
 
     public HudSprites Sprites => _sprites;
@@ -69,10 +71,10 @@ public sealed class HudPainter : IDisposable
         {
             if (run.Shadow)
             {
-                _batch.DrawString(_font, run.Value, run.Position + run.ShadowOffset, Color.Black, 0f, Vector2.Zero, TextScale, SpriteEffects.None, 0f);
+                _batch.DrawString(_font, run.Value, run.Position + run.ShadowOffset, Color.Black, 0f, Vector2.Zero, run.Scale, SpriteEffects.None, 0f);
             }
 
-            _batch.DrawString(_font, run.Value, run.Position, run.Color, 0f, Vector2.Zero, TextScale, SpriteEffects.None, 0f);
+            _batch.DrawString(_font, run.Value, run.Position, run.Color, 0f, Vector2.Zero, run.Scale, SpriteEffects.None, 0f);
         }
 
         _text.Clear();
@@ -161,7 +163,16 @@ public sealed class HudPainter : IDisposable
         if (!string.IsNullOrEmpty(value))
         {
             var offset = shadowOffset == Point.Zero ? Vector2.One : shadowOffset.ToVector2();
-            _text.Add(new TextRun(value, new Vector2(x, y + _textShift), color, shadow, offset));
+            _text.Add(new TextRun(value, new Vector2(x, y + _textShift), color, shadow, offset, TextScale));
+        }
+    }
+
+    // Text at its own scale of the UI font (smaller labels over the scene), its y the top of the capitals as for Text.
+    public void Text(string value, int x, int y, Color color, float scale)
+    {
+        if (!string.IsNullOrEmpty(value))
+        {
+            _text.Add(new TextRun(value, new Vector2(x, y + MathF.Round(CapTop - _capCropping * scale)), color, false, Vector2.One, scale));
         }
     }
 
@@ -181,7 +192,11 @@ public sealed class HudPainter : IDisposable
 
     public bool CanDraw(char value) => (_glyphs ??= [.. _font.Characters]).Contains(value);
 
-    public int Measure(string value) => string.IsNullOrEmpty(value) ? 0 : (int)MathF.Ceiling(_font.MeasureString(value).X * TextScale);
+    public int Measure(string value) => MeasureAt(value, TextScale);
+
+    public int MeasureAt(string value, float scale) => string.IsNullOrEmpty(value) ? 0 : (int)MathF.Ceiling(_font.MeasureString(value).X * scale);
+
+    public int TextHeightAt(float scale) => (int)MathF.Ceiling(_font.LineSpacing * scale);
 
     public string Fit(string value, int width)
     {

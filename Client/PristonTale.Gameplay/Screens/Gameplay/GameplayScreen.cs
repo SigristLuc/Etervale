@@ -140,6 +140,8 @@ public sealed class GameplayScreen : GameScreen
         }
         _scene.Update(gameTime);
         _hud.TargetId = _scene.SelectedTargetId;
+        _hud.HoveredId = _scene.HoveredTargetId;
+        _hud.TracedId = _scene.TracedTargetId;
         _lastKeyboard = Keyboard.GetState();
     }
 

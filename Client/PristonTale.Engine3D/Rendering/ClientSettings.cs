@@ -44,6 +44,9 @@ public sealed record ClientSettings
     public bool ShadowsEnabled { get; init; } = true;
     // Classic: the target HP bar appears only after you attack a monster at full HP, without numbers.
     public bool ClassicTargetHealthBar { get; init; }
+    // Classic: the name boxes over monsters and NPCs use the speech bubble frame and the HUD text size, and a monster's
+    // life bar shows while the cursor is on it; otherwise a compact box, the bar once the monster was clicked or attacked.
+    public bool ClassicNamePlates { get; init; }
     // Atmospheric fades distant geometry toward the captured sky up to a capped opacity; Classic is still accepted but
     // is drawn as Atmospheric; Off disables it.
     public DistanceFogMode DistanceFog { get; init; } = DistanceFogMode.Atmospheric;

@@ -7,7 +7,9 @@
 //  - Sky (static only): the sky dome layers, display-referred colour with the layer opacity, blended into the 8-bit
 //    sky target with their original blend modes (Passes/SkyComposite.fx brings the result into the scene);
 //  - ShadowCaster / ShadowCasterMasked: the sun's cascades, the light's projected z into the R32F atlas;
-//  - ShadowClear (static only): clears one cascade's tile of the atlas.
+//  - ShadowClear (static only): clears one cascade's tile of the atlas;
+//  - Outline / OutlineMasked (skinned only): the hover outline, the actor redrawn flat in one colour, shifted on screen
+//    and pushed back in depth so only a rim shows around the lit actor (PristonRenderer.DrawOutlines).
 #include "../Core/Common.hlsli"
 #include "../Core/Color.hlsli"
 #include "../Core/Frame.hlsli"
@@ -33,6 +35,7 @@ cbuffer SurfaceVertexConstants : register(b0)
     float4x4 PreviousViewProjection;  // the previous frame's unjittered view-projection
     float4 MotionParams;              // xy this frame's jitter in clip units, z previous animation time, w 1 = motion on
     float4 ActorParams;               // skinned: x wobble amplitude, y wobble phase (radians), z 1 = the layer is an overlay on uv0
+    float4 OutlineParams;             // skinned outline: xy screen shift in clip units per w; z -M43 times the push, w the push in world units
 #ifdef SKINNED
     SKINNING_CONSTANTS
 #else
@@ -46,6 +49,7 @@ cbuffer SurfacePixelConstants : register(b0)
     FOG_CONSTANTS
     LIGHTING_CONSTANTS
     MATERIAL_CONSTANTS
+    float4 OutlineColor;              // skinned outline: display-referred colour, a its strength
 };
 
 MATERIAL_RESOURCES
@@ -411,6 +415,37 @@ PrepassOut PS_PrepassMasked(VSOut i)
     return Prepass(i, true);
 }
 
+#ifdef SKINNED
+VSOut VS_Outline(VSIn i)
+{
+    VSOut o = VS_Surface(i);
+    o.Position.xy += OutlineParams.xy * o.Position.w;
+    // The view depth pushed back by OutlineParams.w world units, keeping w: z = -M33 w + M43 becomes -M33 w + M43 w / (w + push).
+    o.Position.z += OutlineParams.z / (o.Position.w + OutlineParams.w);
+    return o;
+}
+
+float4 Outline(VSOut i, bool masked)
+{
+    if (masked)
+    {
+        AlphaTest(SampleBaseColor(i.Uv.xy, i.Color).a);
+    }
+
+    return float4(SrgbToLinear(OutlineColor.rgb) * (OutlineColor.a / Exposure), 1.0);
+}
+
+float4 PS_Outline(VSOut i) : SV_Target0
+{
+    return Outline(i, false);
+}
+
+float4 PS_OutlineMasked(VSOut i) : SV_Target0
+{
+    return Outline(i, true);
+}
+#endif
+
 // Clears a cascade's tile of the shadow atlas: far depth and the far value, drawn over the tile's viewport with the
 // full-screen triangle (Post/PristonFullscreenTriangle), so the other cascades keep their contents.
 struct ClearIn
@@ -432,6 +467,10 @@ technique Opaque { pass P0 { VertexShader = compile vs_6_0 VS_Surface(); PixelSh
 technique Masked { pass P0 { VertexShader = compile vs_6_0 VS_Surface(); PixelShader = compile ps_6_0 PS_Masked(); } }
 technique Prepass { pass P0 { VertexShader = compile vs_6_0 VS_Surface(); PixelShader = compile ps_6_0 PS_Prepass(); } }
 technique PrepassMasked { pass P0 { VertexShader = compile vs_6_0 VS_Surface(); PixelShader = compile ps_6_0 PS_PrepassMasked(); } }
+#ifdef SKINNED
+technique Outline { pass P0 { VertexShader = compile vs_6_0 VS_Outline(); PixelShader = compile ps_6_0 PS_Outline(); } }
+technique OutlineMasked { pass P0 { VertexShader = compile vs_6_0 VS_Outline(); PixelShader = compile ps_6_0 PS_OutlineMasked(); } }
+#endif
 #ifndef SKINNED
 technique ShadowClear { pass P0 { VertexShader = compile vs_6_0 VS_ShadowClear(); PixelShader = compile ps_6_0 PS_ShadowClear(); } }
 technique Sky { pass P0 { VertexShader = compile vs_6_0 VS_Surface(); PixelShader = compile ps_6_0 PS_Sky(); } }
