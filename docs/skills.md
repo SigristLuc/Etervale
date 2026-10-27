@@ -327,7 +327,8 @@ Input and cast flow (`GameScene.Skills.cs`, `HudSkillBindings`, `GameplayHud`):
 - A click with a skill in the clicked socket picks the entity under the cursor: `Enemy` needs a monster, `Ally` takes a
   picked player or none, `Self`/`None` cast at once. Local pre-checks (rank, cooldown, unmodified mana/stamina) show a
   notice instead of sending. The avatar walks until within the client's `CastRange - 8`, faces the target and sends.
-  An unanswered cast locks the avatar for at most 1500 ms. Refusals map to notices in `OnCastResolved`.
+  An unanswered cast locks the avatar for at most 1500 ms. Refusals map to notices in `OnCastResolved`. When the lock
+  ends, the local motion controller returns from `Skill` to `Stand` (`EndSkillMotion`), so the floor is followed again.
 - Charge: an accepted charge skill records its button; releasing it while casting sends `SkillCastFlags.Release`.
 - Summons: double-clicking (0.4 s) a summon's buff icon sends `SummonAggressive`/`SummonPassive`; a new call resets
   to the rule's `aggressive`.

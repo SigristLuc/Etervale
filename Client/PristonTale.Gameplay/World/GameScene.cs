@@ -1522,6 +1522,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         }
 
         UpdateCharge(mouse);
+        EndSkillMotion();
         UpdatePendingCast();
         UpdateNpcApproach();
         _lootInteraction?.Update(_groundLoot, _playerBody.Position, _serverPlanarPosition, Owner);

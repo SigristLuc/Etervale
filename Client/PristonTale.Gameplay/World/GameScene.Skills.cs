@@ -508,5 +508,15 @@ public sealed partial class GameScene : ISkillSceneHost
         _renderer.SetActorPlaybackRate(_playerHeadActor, attackRate);
     }
 
+    // The skill clip returns to stand by itself; the controller follows when the cast lock ends, or a cast with no walk
+    // after it would keep the motions-from-0x100 rules (no floor following, no falls) until the next step.
+    private void EndSkillMotion()
+    {
+        if (_playerController.Current == PristonActorMotion.Skill && !SelfCasting)
+        {
+            ApplyPlayerCommand(_playerController.ApplyAuthoritative(PristonActorMotion.Stand));
+        }
+    }
+
     private readonly record struct PendingCast(uint Code, SkillRule Rule, int Rank, ulong TargetId);
 }
