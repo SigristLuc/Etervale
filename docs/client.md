@@ -278,8 +278,9 @@ The client owns its own locomotion; the server validates and corrects.
 - The unforced warp that confirms a field the player is already near (within 200 units: a restart moved it across, a
   seamless border) sets only the height; snapping the place would pull back a player who has walked on.
 - Field changes are local: across a seamless border the active field becomes the loaded field with the highest floor
-  under the player (`UpdateActiveField`); warp gates are detected in `UpdateWarps` (level limit checked), and
-  special-effect warp gates hold the player for 2 s with the return effect and portal sound before switching. A wing
+  under the player (`UpdateActiveField`); warp gates are detected in `UpdateWarps` (level limit checked against the
+  owner state's level, as are wing stones), and special-effect warp gates hold the player for 2 s with the return
+  effect and portal sound before switching. A wing
   warp stone (`GameScene.WingGates.cs`) holds the player on it and opens the wing warp map; walking off closes it, and
   it opens again only after the player left the stone. Choosing a destination plays the return sparkle and the portal
   sound on the stone, and the request leaves two seconds later, as the original's wing trip does. The

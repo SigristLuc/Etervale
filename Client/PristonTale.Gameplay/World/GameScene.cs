@@ -195,6 +195,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     public PlayerCharacter Player => _player;
     public OwnerState Owner { get; private set; }
 
+    // The server's level once the owner state arrived; _player keeps the level the character entered with.
+    private int PlayerLevel => Owner?.Level ?? _player?.Level ?? 0;
+
     // Over the weight limit the character only walks.
     private bool Overweight => Owner?.Overweight == true;
     public bool PointerCaptured { get; set; }
@@ -912,7 +915,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 continue;
             }
 
-            if (_player != null && _player.Level < warp.LimitLevel)
+            if (PlayerLevel < warp.LimitLevel)
             {
                 continue;
             }

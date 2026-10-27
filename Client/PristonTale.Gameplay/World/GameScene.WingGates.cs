@@ -65,7 +65,7 @@ public sealed partial class GameScene
             return;
         }
 
-        if (_wingStone is not null || PlayerDead || _player is not null && _player.Level < standing.LimitLevel)
+        if (_wingStone is not null || PlayerDead || PlayerLevel < standing.LimitLevel)
         {
             return;
         }
