@@ -3,6 +3,7 @@ using PristonTale.Application.Services;
 using PristonTale.Client.Net.Presence;
 using static PristonTale.Tests.MultiplayerMovementTests;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Sessions;
 
 namespace PristonTale.Tests;
 

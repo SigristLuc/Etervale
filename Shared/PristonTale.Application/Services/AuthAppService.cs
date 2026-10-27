@@ -1,6 +1,7 @@
 using PristonTale.Application.Sessions;
 using PristonTale.Persistence.Abstractions.Accounts;
 using PristonTale.Persistence.Abstractions.Security;
+using PristonTale.Contracts.Sessions;
 
 namespace PristonTale.Application.Services;
 

@@ -1,4 +1,4 @@
-namespace PristonTale.Application.Services;
+namespace PristonTale.Contracts.Sessions;
 
 public sealed record CharacterSummary(
     string Name,

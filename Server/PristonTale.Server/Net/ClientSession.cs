@@ -20,6 +20,7 @@ using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Skills;
+using PristonTale.Contracts.Sessions;
 
 namespace PristonTale.Server.Net;
 

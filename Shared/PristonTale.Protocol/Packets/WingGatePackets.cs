@@ -1,4 +1,5 @@
 using PristonTale.Protocol.Binary;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Protocol.Packets;
 

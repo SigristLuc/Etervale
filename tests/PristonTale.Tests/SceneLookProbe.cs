@@ -8,6 +8,7 @@ using PristonTale.Gameplay.Effects;
 using PristonTale.Gameplay.Screens.CharacterSelect;
 using PristonTale.Gameplay.Screens.Opening;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Sessions;
 
 namespace PristonTale.Tests;
 

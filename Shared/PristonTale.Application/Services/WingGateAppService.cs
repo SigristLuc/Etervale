@@ -3,6 +3,7 @@ using PristonTale.Application.World;
 using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Application.Services;
 

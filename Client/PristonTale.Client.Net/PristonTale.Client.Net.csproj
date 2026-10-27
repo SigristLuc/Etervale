@@ -8,7 +8,6 @@
   <ItemGroup>
     <ProjectReference Include="../../Shared/PristonTale.Protocol/PristonTale.Protocol.csproj" />
     <ProjectReference Include="../../Shared/PristonTale.Simulation/PristonTale.Simulation.csproj" />
-    <ProjectReference Include="../../Shared/PristonTale.Application/PristonTale.Application.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PristonTale.Tests" />

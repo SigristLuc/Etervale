@@ -1,6 +1,6 @@
 using Microsoft.Xna.Framework;
-using PristonTale.Application.World;
 using PristonTale.Simulation.World;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Gameplay.World;
 

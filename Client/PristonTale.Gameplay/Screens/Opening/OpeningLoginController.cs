@@ -1,8 +1,8 @@
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using PristonTale.Application.Services;
 using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Gameplay.UI;
+using PristonTale.Contracts.Sessions;
 
 namespace PristonTale.Gameplay.Screens.Opening;
 

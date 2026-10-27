@@ -1,4 +1,4 @@
-namespace PristonTale.Application.Services;
+namespace PristonTale.Contracts.Sessions;
 
 // Values are the LoginResult statuses on the wire. Unknown accounts report a bad password so the reply does not reveal
 // which accounts exist.

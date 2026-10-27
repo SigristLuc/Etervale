@@ -190,7 +190,7 @@ internal static class MultiplayerPresenceTests
         Assert.True(a.World.Read(world => world.Combat.Any(entry => entry.Event == killing)), "the victim saw another killing blow");
         await Task.Delay(500);
         Assert.True(b.World.Read(world => world.Entities.TryGetValue(a.Serial, out var down) && down.Hp <= 0), "the victim stood up without choosing");
-        var restart = await a.RestartAsync(Application.World.RestartChoice.Field);
+        var restart = await a.RestartAsync(RestartChoice.Field);
         Assert.True(restart.Ok && restart.ExperienceLost == 0 && restart.GoldLost == 0, $"a level 1 field restart failed or cost: {restart}");
         await c.WaitAsync(world => world.Entities.TryGetValue(a.Serial, out var victim) && victim.Hp > 0
             && Vector3.Distance(Planar(victim.Position), Planar(respawn)) < 1f ? victim : null, "the victim respawning", 9000);

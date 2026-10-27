@@ -429,8 +429,8 @@ internal sealed class HudCaptureProbe : Game
             Hover.QuestTimer => new Point(10 + 16, 26),
             Hover.ClassChange => HudNpcPanel.ClassChangeButton(layout).Center,
             Hover.QuestOk => HudQuestDialog.OkButton.Center,
-            Hover.RestartField => HudRestartPanel.Button(layout, PristonTale.Application.World.RestartChoice.Field).Center,
-            Hover.RestartTown => HudRestartPanel.Button(layout, PristonTale.Application.World.RestartChoice.Town).Center,
+            Hover.RestartField => HudRestartPanel.Button(layout, RestartChoice.Field).Center,
+            Hover.RestartTown => HudRestartPanel.Button(layout, RestartChoice.Town).Center,
             _ => new Point(layout.Width - 200, layout.Height / 2)
         };
         return new MouseState(point.X * layout.Scale, point.Y * layout.Scale, 0,

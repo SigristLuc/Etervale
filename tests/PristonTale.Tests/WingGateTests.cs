@@ -6,6 +6,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Fields;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 

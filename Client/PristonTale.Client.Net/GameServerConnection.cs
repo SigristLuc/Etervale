@@ -3,8 +3,6 @@ using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Numerics;
 using System.Threading.Channels;
-using PristonTale.Application.World;
-using PristonTale.Application.Services;
 using PristonTale.Client.Net.Online;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Client.Net.WorldCatalog;
@@ -20,6 +18,8 @@ using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Skills;
+using PristonTale.Contracts.Sessions;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Client.Net;
 

@@ -2,7 +2,6 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using PristonTale.Application.Services;
 using PristonTale.Effects;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
@@ -13,6 +12,7 @@ using PristonTale.Gameplay.Screens.Opening;
 using PristonTale.Gameplay.UI;
 using PristonTale.Gameplay.World;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Sessions;
 
 namespace PristonTale.Gameplay.Screens.CharacterSelect;
 

@@ -6,6 +6,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Sessions;
 
 namespace PristonTale.Tests;
 
@@ -107,7 +108,7 @@ internal sealed class MultiplayerClient : IAsyncDisposable
 
     public Task SayAsync(string text) => Play.SendChatAsync(text, party: false, _lifetime.Token);
 
-    public Task<Application.World.RestartOutcome> RestartAsync(Application.World.RestartChoice choice) => Play.RestartAsync(choice, _lifetime.Token);
+    public Task<RestartOutcome> RestartAsync(RestartChoice choice) => Play.RestartAsync(choice, _lifetime.Token);
 
     public Task<Simulation.Items.Usable.ItemUseOutcome> UseItemAsync(string key)
     {

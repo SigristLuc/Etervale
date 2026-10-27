@@ -3,15 +3,9 @@ using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Application.World;
-
-public readonly record struct WingGateCommand(Guid OperationId, int Destination);
-
-public sealed record WingGateOutcome(WingGateStatus Status, int Destination, long Fee = 0)
-{
-    public bool Ok => Status == WingGateStatus.Warped;
-}
 
 public sealed record PreparedWingGateOperation(
     PlayerCharacter Original,

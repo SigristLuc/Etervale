@@ -5,6 +5,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 

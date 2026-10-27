@@ -1,5 +1,5 @@
-using PristonTale.Application.Services;
 using PristonTale.Client.Net.WorldCatalog;
+using PristonTale.Contracts.Sessions;
 
 namespace PristonTale.Client.Net;
 

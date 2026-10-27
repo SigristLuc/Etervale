@@ -7,6 +7,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Skills;
+using PristonTale.Contracts.Sessions;
 
 namespace PristonTale.Server.Net;
 

@@ -1,4 +1,3 @@
-using PristonTale.Application.World;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using PristonTale.Client.Net.Presence;
@@ -9,6 +8,7 @@ using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Skills;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Client.Net.Online;
 

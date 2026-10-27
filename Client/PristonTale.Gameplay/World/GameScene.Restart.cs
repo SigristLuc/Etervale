@@ -1,6 +1,6 @@
-using PristonTale.Application.World;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Progression;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Gameplay.World;
 

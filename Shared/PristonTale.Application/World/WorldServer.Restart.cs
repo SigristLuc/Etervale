@@ -4,6 +4,7 @@ using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.World;
 using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Application.World;
 

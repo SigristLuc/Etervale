@@ -1,5 +1,6 @@
 using System.Numerics;
 using PristonTale.Simulation.Items;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Simulation.World;
 
@@ -7,18 +8,6 @@ namespace PristonTale.Simulation.World;
 // on the 256 x 256 map, the help document shown while the pointer is on it and the level a trip there asks (the field's
 // own limit applies as well).
 public sealed record WingGateDestination(int Index, int FieldCode, string Name, int MapX, int MapY, string Document, int Level = 0);
-
-public enum WingGateStatus : byte
-{
-    Warped = 0,
-    Rejected = 1,
-    NotAtStone = 2,
-    NotReached = 3,
-    LevelTooLow = 4,
-    NotEnoughGold = 5,
-    Busy = 6,
-    StorageFailed = 7
-}
 
 // The wing warp gates. Stepping on a warp stone (a FieldWarpGate with SpecialEffect 2) opens a map of the stones a
 // carried wing reaches: without a wing Ricarten and Pillai, with one the first Reach stones of the list, the best wing
