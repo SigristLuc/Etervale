@@ -452,8 +452,9 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
 - Skill sounds: `SkillSoundBank` ([skills.md](skills.md)).
 - Character sounds (`CombatSounds`): `CharacterSoundBanks` maps every character sound code to its folder (monsters and
   summons by sound code, NPCs, player classes 1 to 10 by class code); a file plays for the motion its name starts with
-  (`attack`, `damage`, `dead`, `neutral`, `move`, `disappear`/`change`, `skill`, `hammer`). A folder is read when its
-  character first appears and decoded on a worker through a `SkillSoundBank`; a sound not ready yet is skipped.
+  (`attack`, `damage`, `dead`, `neutral`, `move`, `disappear`/`change`, `skill`, `hammer`). Every folder is listed
+  once on a worker when `CombatSounds` is built (the game thread never enumerates one); a character's files are
+  decoded through a `SkillSoundBank` when it first appears, and a sound not ready yet is skipped.
   Monsters drawn smaller than their model play higher (3600/2205 of the rate), more than twice as large lower
   (1400/2205).
 - `MonsterSoundCues` follows each monster's animation like `MonsterPresentation`: the attack or skill sound on the

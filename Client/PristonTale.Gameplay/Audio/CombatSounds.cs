@@ -57,32 +57,18 @@ public sealed class CombatSounds : IDisposable
     private readonly string _assetRoot;
     private readonly SkillSoundBank _bank;
     private readonly Dictionary<int, Dictionary<CharacterSoundCue, string[]>> _characters = new();
-    private readonly Dictionary<int, string[]> _weapons = new();
+    private readonly Dictionary<int, string[]> _weapons;
+    // Every character sound folder, read once on a worker: the game thread never enumerates a folder.
+    private readonly Task<Dictionary<int, Dictionary<CharacterSoundCue, string[]>>> _characterIndex;
 
     public CombatSounds(string assetRoot, IClientLog log)
     {
         _assetRoot = assetRoot;
         _bank = new SkillSoundBank(assetRoot, log);
-        var weapons = new Dictionary<int, List<string>>();
-        foreach (var path in Files(WeaponDirectory))
-        {
-            var name = Path.GetFileName(path);
-            foreach (var (start, code) in WeaponFiles)
-            {
-                if (name.StartsWith(start, StringComparison.OrdinalIgnoreCase))
-                {
-                    (weapons.TryGetValue(code, out var list) ? list : weapons[code] = []).Add(path);
-                    break;
-                }
-            }
-        }
-
-        foreach (var (code, paths) in weapons)
-        {
-            _weapons[code] = [.. paths];
-        }
-
+        _weapons = Group(Files(WeaponDirectory), WeaponFiles);
         _bank.Preload([.. _weapons.Values.SelectMany(paths => paths), .. FootstepFiles.SelectMany(files => files), RestartSound]);
+        _characterIndex = Task.Run(() => Directories.ToDictionary(pair => pair.Key, pair => Group(Files(pair.Value), CharacterFiles)));
+        _characterIndex.ContinueWith(task => log.Error($"[Audio] character sound index failed: {task.Exception}"), TaskContinuationOptions.OnlyOnFaulted);
     }
 
     public bool Enabled
@@ -182,6 +168,7 @@ public sealed class CombatSounds : IDisposable
         return true;
     }
 
+    // Null while the index is still being read: that sound is skipped rather than read on the game thread.
     private Dictionary<CharacterSoundCue, string[]> Bank(int soundCode)
     {
         if (_characters.TryGetValue(soundCode, out var bank))
@@ -189,34 +176,36 @@ public sealed class CombatSounds : IDisposable
             return bank;
         }
 
-        bank = [];
-        _characters[soundCode] = bank;
-        if (!Directories.TryGetValue(soundCode, out var directory))
+        if (!_characterIndex.IsCompletedSuccessfully)
         {
-            return bank;
+            return null;
         }
 
-        var grouped = new Dictionary<CharacterSoundCue, List<string>>();
-        foreach (var path in Files(directory))
+        bank = _characterIndex.Result.GetValueOrDefault(soundCode) ?? [];
+        _characters[soundCode] = bank;
+        _bank.Preload(bank.Values.SelectMany(paths => paths));
+        return bank;
+    }
+
+    // Each file under the key of the first prefix its name starts with; files matching none are left out.
+    private static Dictionary<TKey, string[]> Group<TKey>(IEnumerable<string> paths, (string Start, TKey Key)[] prefixes)
+        where TKey : notnull
+    {
+        var grouped = new Dictionary<TKey, List<string>>();
+        foreach (var path in paths)
         {
             var name = Path.GetFileName(path);
-            foreach (var (start, cue) in CharacterFiles)
+            foreach (var (start, key) in prefixes)
             {
                 if (name.StartsWith(start, StringComparison.OrdinalIgnoreCase))
                 {
-                    (grouped.TryGetValue(cue, out var list) ? list : grouped[cue] = []).Add(path);
+                    (grouped.TryGetValue(key, out var list) ? list : grouped[key] = []).Add(path);
                     break;
                 }
             }
         }
 
-        foreach (var (cue, paths) in grouped)
-        {
-            bank[cue] = [.. paths];
-        }
-
-        _bank.Preload(bank.Values.SelectMany(paths => paths));
-        return bank;
+        return grouped.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray());
     }
 
     // The .wav files of a folder as asset-relative paths.
