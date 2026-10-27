@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Engine3D.Rendering;
 
@@ -7,7 +8,7 @@ internal sealed class AnimatedModelRuntime
 {
     // Animation timeline starts one authored frame in (160 ticks), matching the original
     // engine's stage-object loop which floors playback to frame 160.
-    private const float BaseFrame = 160f;
+    private const float BaseFrame = GameUnits.FrameTicks;
 
     public AnimatedModelRuntime(
         PristonModel model,

@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Effects.Vfx;
 using PristonTale.Simulation.Items;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -13,8 +14,6 @@ public sealed class ClassUpLights
 {
     public const string Light = "particle.ClassUpWeapon1";
     public const string Trail = "particle.ClassUpWeapon2";
-    private const float Frame = 1f / 70f;
-    private const float Fixed = 256f;
 
     private readonly Dictionary<ulong, Holder> _held = new();
     private readonly HashSet<ulong> _seen = new();
@@ -35,8 +34,8 @@ public sealed class ClassUpLights
         holder.Advance(seconds);
         var center = Center(weaponKey, reach, leftHand, twoHanded);
         var across = Across(weaponKey, leftHand);
-        var radius = holder.Radius / Fixed;
-        var turn = holder.Angle * MathHelper.TwoPi / 4096f;
+        var radius = holder.Radius / GameUnits.FixedScale;
+        var turn = holder.Angle * GameUnits.RadiansPerAngle;
         var offset = across
             ? new Vector3(0f, MathF.Sin(turn) * radius, MathF.Cos(turn) * radius)
             : new Vector3(-MathF.Sin(turn) * radius, 0f, MathF.Cos(turn) * radius);
@@ -79,7 +78,7 @@ public sealed class ClassUpLights
             point = family switch
             {
                 "WT1" => new Vector3(0f, -0.4f * reach, 0f),
-                "WS2" => new Vector3(0f, reach * (reach * Fixed > 5000f ? 0.75f : 0.8f), 0f),
+                "WS2" => new Vector3(0f, reach * (reach * GameUnits.FixedScale > 5000f ? 0.75f : 0.8f), 0f),
                 "WC1" => new Vector3(2f * reach, 0f, 0f),
                 "WM1" => new Vector3(0f, 0.7f * reach, 0f),
                 "WS1" => new Vector3(0.7f * reach * MathF.Sin(MathHelper.PiOver4), 0.7f * reach * MathF.Cos(MathHelper.PiOver4), 0f),
@@ -114,11 +113,11 @@ public sealed class ClassUpLights
 
         public void Advance(float seconds)
         {
-            _frames += seconds / Frame;
+            _frames += seconds * GameUnits.TicksPerSecond;
             while (_frames >= 1f)
             {
                 _frames -= 1f;
-                Angle = (Angle + 70f) % 4096f;
+                Angle = (Angle + 70f) % GameUnits.AngleTurn;
                 if (!_growing)
                 {
                     Radius -= 10f;

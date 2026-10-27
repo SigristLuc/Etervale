@@ -5,13 +5,14 @@ using PristonTale.Simulation.World.Motion;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Application.World;
 
 public sealed class WorldNpc
 {
     private const float WalkUnitsPerSecond = 70f;
-    private const float DefaultStandDurationMs = 40f * MotionTiming.MsPerFrame;
+    private const float DefaultStandDurationMs = 40f * GameUnits.FrameMs;
     private const float MaximumStepMs = 2_000f;
 
     private readonly IReadOnlyList<MotionClip> _standClips;

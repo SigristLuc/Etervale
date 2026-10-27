@@ -1,5 +1,6 @@
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Modifiers;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Simulation.World.Monsters.Skills;
 
@@ -62,10 +63,10 @@ public static class MonsterSkillRules
     public const float WakeRadius = 200f;
 
     // The hit of Babel's and Valento's skills lands 120 frames into the clip; their regeneration is due then too.
-    public const float LateSkillHitMs = 120 * MonsterStatuses.FrameMs;
+    public const float LateSkillHitMs = 120 * GameUnits.TickMs;
 
     // Babel's normal attack strikes at its event and again 40 frames later.
-    public const float BabelSecondHitMs = 40 * MonsterStatuses.FrameMs;
+    public const float BabelSecondHitMs = 40 * GameUnits.TickMs;
 
     public static bool HasLateSkillHit(MonsterDefinition definition) => definition.SoundCode is MonsterSounds.Babel or MonsterSounds.DeathKnight;
 

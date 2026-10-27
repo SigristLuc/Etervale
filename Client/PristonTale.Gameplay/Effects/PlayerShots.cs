@@ -5,6 +5,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Simulation.Items;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -20,7 +21,6 @@ public sealed class PlayerShots
     public const string ArrowModel = "weapons/arrow.smd";
     public const string StaffShot = "vfx.monster.imp.attack.hit";
     public const string SparkTexture = "Effect/ImageData/Particle/cc.tga";
-    private const float Frame = 1f / 70f;
     private const float ArrowStep = 8f;
     private const float JavelinStep = 6f;
     private const int MaxFrames = 120;
@@ -63,7 +63,7 @@ public sealed class PlayerShots
         in HeldItemGlow glow, Vector3 attackerPosition, bool staffCaster, Func<ulong, Vector3?> targetOf)
     {
         _seen.Add(attackerId);
-        var start = (float)motion.StartFrame * 160f;
+        var start = (float)motion.StartFrame * GameUnits.FrameTicks;
         var previous = _clips.TryGetValue(attackerId, out var last) && ReferenceEquals(last.Motion, motion) && ticks >= last.Ticks ? last.Ticks : start;
         _clips[attackerId] = (motion, ticks);
         if (motion.State != (uint)MotionCode.Attack || motion.EventFrames.Count == 0 || weaponKey.Length < 3)
@@ -149,9 +149,9 @@ public sealed class PlayerShots
         {
             var shot = _shots[index];
             shot.Elapsed += seconds;
-            while (shot.Elapsed >= Frame && !shot.Done)
+            while (shot.Elapsed >= GameUnits.TickSeconds && !shot.Done)
             {
-                shot.Elapsed -= Frame;
+                shot.Elapsed -= GameUnits.TickSeconds;
                 StepShot(shot, targetOf(shot.TargetId));
             }
 

@@ -1,3 +1,5 @@
+using PristonTale.Contracts.Units;
+
 namespace PristonTale.Simulation.Characters;
 
 // The original's fall: a player more than 8 units above its floor drops 8 units a frame at 70 frames a second, and
@@ -5,7 +7,7 @@ namespace PristonTale.Simulation.Characters;
 public static class Falling
 {
     public const float SnapDistance = 8f;
-    public const float UnitsPerSecond = 8f * 70f;
+    public const float UnitsPerSecond = 8f * GameUnits.TicksPerSecond;
 
     public static bool IsAirborne(float height, float floor) => height - floor > SnapDistance;
 

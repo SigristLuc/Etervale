@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Effects.Vfx;
 
@@ -50,7 +51,7 @@ public sealed partial class VfxRenderer
                 var position = part.Position;
                 if (source.SlideFrom != 0f)
                 {
-                    var slide = VfxScreenSlide.At(source.SlideFrom, (int)(part.Age * Scripts.BillboardSequence.TicksPerSecond));
+                    var slide = VfxScreenSlide.At(source.SlideFrom, (int)(part.Age * GameUnits.TicksPerSecond));
                     var depth = MathF.Max(1f, Vector3.Dot(position - camera, _viewForward)) * _worldPerPixel;
                     position += right * (slide.X * depth) - up * (slide.Y * depth);
                 }

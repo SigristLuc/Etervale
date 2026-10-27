@@ -9,6 +9,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering.Lighting;
 using PristonTale.Engine3D.Rendering.Post;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Engine3D.Rendering;
 
@@ -22,7 +23,6 @@ public sealed partial class PristonRenderer : IDisposable
     private static readonly bool ShadowDiagnostics =
         Environment.GetEnvironmentVariable("PRISTON_SHADOW_DIAG") == "1";
     // PlaybackRate supplies the rules-layer frame step / 80 ratio for speed-scaled motions.
-    private const float ReferenceTicksPerSecond = 160000f / 33f;
     private const float DamageEatRateFactor = 92f / 80f;
     private const int MinimumShadowMapSize = 1024;
     private const float ShadowTeleportRefreshDistance = 350f;
@@ -465,9 +465,9 @@ public sealed partial class PristonRenderer : IDisposable
 
         next.PlaybackRate = previous.PlaybackRate;
         next.ForceMotion((MotionCode)previous.Motion.State);
-        float span = (previous.Motion.EndFrame - previous.Motion.StartFrame) * 160f;
-        float phase = span > 0 ? (previous.Frame - previous.Motion.StartFrame * 160f) / span : 0;
-        next.SetFrame((next.Motion.StartFrame + phase * (next.Motion.EndFrame - next.Motion.StartFrame)) * 160f);
+        float span = (previous.Motion.EndFrame - previous.Motion.StartFrame) * GameUnits.FrameTicks;
+        float phase = span > 0 ? (previous.Frame - previous.Motion.StartFrame * GameUnits.FrameTicks) / span : 0;
+        next.SetFrame((next.Motion.StartFrame + phase * (next.Motion.EndFrame - next.Motion.StartFrame)) * GameUnits.FrameTicks);
         UpdateActor(next);
     }
 
@@ -3516,7 +3516,7 @@ public sealed partial class PristonRenderer : IDisposable
             return motion;
 
         var range = actor.Skeleton.FrameRanges[rangeIndex];
-        var offset = range.StartFrame / 160;
+        var offset = range.StartFrame / GameUnits.FrameTicks;
         if (offset == 0)
             return motion;
 
@@ -3847,7 +3847,7 @@ public sealed partial class PristonRenderer : IDisposable
         {
             if (_sampledFrame != Frame)
             {
-                _sampledTransforms = Animator.Evaluate(Frame, Motion.EndFrame * 160f);
+                _sampledTransforms = Animator.Evaluate(Frame, Motion.EndFrame * GameUnits.FrameTicks);
                 _sampledFrame = Frame;
             }
 
@@ -3971,7 +3971,7 @@ public sealed partial class PristonRenderer : IDisposable
         {
             var start = StartTicks(Motion);
             var end = EndTicks(Motion, Instance.Actor.Skeleton.LastFrame);
-            Frame = Math.Clamp(start + framesFromStart * 160f, start, Math.Max(start, end));
+            Frame = Math.Clamp(start + framesFromStart * GameUnits.FrameTicks, start, Math.Max(start, end));
         }
 
         public void Advance(float deltaSeconds)
@@ -3984,7 +3984,7 @@ public sealed partial class PristonRenderer : IDisposable
                 return;
             }
 
-            Frame += deltaSeconds * ReferenceTicksPerSecond * RateFactor();
+            Frame += deltaSeconds * GameUnits.FrameTicksPerSecond * RateFactor();
             if (Motion.Repeat != 0)
             {
                 var span = end - start;
@@ -4014,7 +4014,7 @@ public sealed partial class PristonRenderer : IDisposable
             Frame = end > start ? MathHelper.Clamp(ticks, start, end - 1) : start;
         }
 
-        private static int StartTicks(PristonMotionInfo motion) => (int)motion.StartFrame * 160;
+        private static int StartTicks(PristonMotionInfo motion) => (int)motion.StartFrame * GameUnits.FrameTicks;
 
         private static int EndTicks(PristonMotionInfo motion, int fallback) =>
             motion.EndFrame > motion.StartFrame ? (int)motion.EndFrame * 160 : fallback;

@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Effects.Vfx;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.World;
 
@@ -10,7 +11,7 @@ namespace PristonTale.Gameplay.World;
 public sealed partial class GameScene
 {
     public const string BlobShadowTexture = "image/bshadow.bmp";
-    private const double BlobShadowDeathMs = 40 * 1000d / 70;
+    private const double BlobShadowDeathMs = 40 * 1000d / GameUnits.TicksPerSecond;
 
     // Half extents of the four shadows across and along the character.
     private static readonly Vector2[] BlobShadowSizes = [new(12f, 10f), new(17f, 14f), new(26f, 20f), new(38f, 30f)];

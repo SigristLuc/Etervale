@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Engine3D.Rendering;
 
@@ -64,8 +65,8 @@ public sealed partial class PristonRenderer
         if (bone >= 0)
         {
             var stand = SelectActorMotion(runtime.Instance.Actor, MotionCode.Stand, runtime.Instance.MotionContext);
-            var frame = stand.EndFrame > stand.StartFrame ? stand.StartFrame * 160f : runtime.Frame;
-            position = runtime.SampleSkeletonAt(frame, stand.EndFrame * 160f)[bone].Translation;
+            var frame = stand.EndFrame > stand.StartFrame ? stand.StartFrame * GameUnits.FrameTicks : runtime.Frame;
+            position = runtime.SampleSkeletonAt(frame, stand.EndFrame * GameUnits.FrameTicks)[bone].Translation;
         }
 
         var bounds = ModelBounds(runtime);
@@ -115,7 +116,7 @@ public sealed partial class PristonRenderer
 
         if (authored > 0)
         {
-            reach = authored / 256f;
+            reach = authored / GameUnits.FixedScale;
             return true;
         }
 
@@ -135,7 +136,7 @@ public sealed partial class PristonRenderer
             }
         }
 
-        return height > 0 ? height / 256f : fallback;
+        return height > 0 ? height / GameUnits.FixedScale : fallback;
     }
 
     // The batches hold the animated world bounds; the anchor wants them in the actor's model space.

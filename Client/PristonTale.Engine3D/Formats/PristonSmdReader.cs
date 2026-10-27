@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Text;
 using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.IO;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Engine3D.Formats;
 
@@ -391,9 +392,9 @@ public sealed class PristonSmdReader
         var vertexColorCount = cursor.Int32();
         var contrast = cursor.Int32();
         var brightness = cursor.Int32();
-        var lightX = cursor.Int32() / PristonFormatConstants.FixedScale;
-        var lightY = cursor.Int32() / PristonFormatConstants.FixedScale;
-        var lightZ = cursor.Int32() / PristonFormatConstants.FixedScale;
+        var lightX = cursor.Int32() / GameUnits.FixedScale;
+        var lightY = cursor.Int32() / GameUnits.FixedScale;
+        var lightZ = cursor.Int32() / GameUnits.FixedScale;
         var areaBufferPointer32 = cursor.UInt32();
         var declaredAreaElementCount = cursor.Int32();
         var mapLeft = cursor.Int32();
@@ -646,9 +647,9 @@ public sealed class PristonSmdReader
         var start = cursor.Position;
         var sum = cursor.UInt32();
         var renderVertexPointer32 = cursor.UInt32();
-        var x = cursor.Int32() / PristonFormatConstants.FixedScale;
-        var y = cursor.Int32() / PristonFormatConstants.FixedScale;
-        var z = cursor.Int32() / PristonFormatConstants.FixedScale;
+        var x = cursor.Int32() / GameUnits.FixedScale;
+        var y = cursor.Int32() / GameUnits.FixedScale;
+        var z = cursor.Int32() / GameUnits.FixedScale;
         var blue = cursor.Int16();
         var green = cursor.Int16();
         var red = cursor.Int16();
@@ -665,10 +666,10 @@ public sealed class PristonSmdReader
     {
         var start = cursor.Position;
         var type = cursor.Int32();
-        var x = cursor.Int32() / PristonFormatConstants.FixedScale;
-        var y = cursor.Int32() / PristonFormatConstants.FixedScale;
-        var z = cursor.Int32() / PristonFormatConstants.FixedScale;
-        var range = cursor.Int32() / PristonFormatConstants.FixedScale;
+        var x = cursor.Int32() / GameUnits.FixedScale;
+        var y = cursor.Int32() / GameUnits.FixedScale;
+        var z = cursor.Int32() / GameUnits.FixedScale;
+        var range = cursor.Int32() / GameUnits.FixedScale;
         var red = cursor.Int16();
         var green = cursor.Int16();
         var blue = cursor.Int16();
@@ -860,9 +861,9 @@ public sealed class PristonSmdReader
         }
 
         var basePosition = ToMonoGameModelPosition(
-            basePositionFixed.X / PristonFormatConstants.FixedScale,
-            basePositionFixed.Y / PristonFormatConstants.FixedScale,
-            basePositionFixed.Z / PristonFormatConstants.FixedScale);
+            basePositionFixed.X / GameUnits.FixedScale,
+            basePositionFixed.Y / GameUnits.FixedScale,
+            basePositionFixed.Z / GameUnits.FixedScale);
         return new PristonModelObject(
             nodeName,
             parentName,
@@ -925,8 +926,8 @@ public sealed class PristonSmdReader
         var fixedX = cursor.Int32();
         var fixedY = cursor.Int32();
         var fixedZ = cursor.Int32();
-        var position = ToMonoGameModelPosition(fixedX / PristonFormatConstants.FixedScale, fixedY / PristonFormatConstants.FixedScale,
-            fixedZ / PristonFormatConstants.FixedScale);
+        var position = ToMonoGameModelPosition(fixedX / GameUnits.FixedScale, fixedY / GameUnits.FixedScale,
+            fixedZ / GameUnits.FixedScale);
         var normalX = (long)cursor.Int32();
         var normalY = (long)cursor.Int32();
         var normalZ = (long)cursor.Int32();
@@ -1207,9 +1208,9 @@ public sealed class PristonSmdReader
     private static Vector3 ToMonoGameModelScale(Int3 scaleFixed)
     {
         return new Vector3(
-            scaleFixed.X / PristonFormatConstants.FixedScale,
-            scaleFixed.Z / PristonFormatConstants.FixedScale,
-            scaleFixed.Y / PristonFormatConstants.FixedScale);
+            scaleFixed.X / GameUnits.FixedScale,
+            scaleFixed.Z / GameUnits.FixedScale,
+            scaleFixed.Y / GameUnits.FixedScale);
     }
 
     private static Vector3 ToMonoGameStagePosition(float x, float y, float z)

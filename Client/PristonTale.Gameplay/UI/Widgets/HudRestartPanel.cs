@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
@@ -11,7 +12,7 @@ namespace PristonTale.Gameplay.UI.Widgets;
 public sealed class HudRestartPanel
 {
     // A hundred frames of the dead motion at the original's 70 frames a second.
-    public const double OpenDelayMs = 100 * 1000d / 70;
+    public const double OpenDelayMs = 100 * 1000d / GameUnits.TicksPerSecond;
     public const double TimeoutMs = 20_000;
     public const int Width = 188;
     public const int Height = 128;

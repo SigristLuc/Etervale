@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 using Microsoft.Xna.Framework;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Engine3D.Formats;
 
@@ -143,7 +144,7 @@ internal static class PristonBinaryUtil
 
     private static float ReadFixed(ReadOnlySpan<byte> bytes, int offset)
     {
-        return BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(offset, 4)) / PristonFormatConstants.FixedScale;
+        return BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(offset, 4)) / GameUnits.FixedScale;
     }
 
     private static float ReadFloat(ReadOnlySpan<byte> bytes, int offset)

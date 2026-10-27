@@ -1,3 +1,5 @@
+using PristonTale.Contracts.Units;
+
 namespace PristonTale.Gameplay.UI.Widgets;
 
 // Original window slide at the original 70 Hz frame rate: opening jumps to 184 and climbs by 7 (slowing past
@@ -5,7 +7,7 @@ namespace PristonTale.Gameplay.UI.Widgets;
 public sealed class HudSlide
 {
     public const int Full = 256;
-    private const double Frame = 1.0 / 70;
+    private const double Frame = 1.0 / GameUnits.TicksPerSecond;
     private double _accumulator;
     private bool _started;
 

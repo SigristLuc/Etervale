@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.World;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
@@ -23,10 +24,9 @@ public readonly record struct HudWorldView(
 // MapBox.tga and the field title. North is up; the map does not rotate.
 public sealed class HudMinimap
 {
-    private const float FixedScale = 256f;
     // The view radius starts at 8 cells and eases toward the field's size by 8 units per 70 Hz frame.
     private const float InitialViewSize = 8 * 64f;
-    private const float ZoomSpeed = 8f * 70f;
+    private const float ZoomSpeed = 8f * GameUnits.TicksPerSecond;
     // The original adds a specular 96 to the frame (a quarter of it to the title) under the cursor; adding the sprite's own
     // colour once (a quarter for the title) gives the same brightening on the grey frame art.
     private const int HoverHighlight = 255;
@@ -54,7 +54,7 @@ public sealed class HudMinimap
 
     // Original stage coordinates are fixed point with Z mirrored relative to the engine (stage vertex Z = -z).
     public static Vector2 MapPoint(PristonIntRectangle rectangle, Vector3 position) =>
-        new(position.X - rectangle.Left / FixedScale, rectangle.Bottom / FixedScale + position.Z);
+        new(position.X - rectangle.Left / GameUnits.FixedScale, rectangle.Bottom / GameUnits.FixedScale + position.Z);
 
     // Returns the texture source (normalized) and destination (relative to the 126x126 interior) after the original clipping.
     public static bool MapRegion(PristonIntRectangle rectangle, Vector3 position, bool underground, out Vector4 source, out Vector4 destination) =>
@@ -64,8 +64,8 @@ public sealed class HudMinimap
     {
         source = default;
         destination = default;
-        var width = (rectangle.Right - rectangle.Left) / FixedScale;
-        var height = (rectangle.Bottom - rectangle.Top) / FixedScale;
+        var width = (rectangle.Right - rectangle.Left) / GameUnits.FixedScale;
+        var height = (rectangle.Bottom - rectangle.Top) / GameUnits.FixedScale;
         if (width <= 0 || height <= 0 || size <= 0)
         {
             return false;

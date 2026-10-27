@@ -9,6 +9,7 @@ using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.IO;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -221,7 +222,7 @@ public sealed class EffectLibrary : IDisposable
                 throw new InvalidDataException($"Animation image outside its catalog in {name}.");
             }
 
-            frames[index] = new ParticleAnimationFrame(indices[index], delays[index] / 70f, alpha[index] / 255f);
+            frames[index] = new ParticleAnimationFrame(indices[index], delays[index] * GameUnits.TickSeconds, alpha[index] / 255f);
         }
 
         var startAlpha = int.Parse(sequence["StartBlendValue"], CultureInfo.InvariantCulture) / 255f;

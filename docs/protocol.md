@@ -22,7 +22,6 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Binary/PacketReader.cs`, `Binary/PacketWriter.cs` | Little-endian sequential reader/writer; the writer patches the size in `Finish()`. |
 | `Binary/Utf8Text.cs` | Text fields: `{uint16 ByteLength, UTF-8}`, cut at a whole character. |
 | `Packets/AccountPackets.cs` | `ProtocolVersion`, `ServerHello`, `Login`/`LoginResult`, `CharacterList`, `CharacterCommand`/`CharacterResult`, `Heartbeat`. |
-| `Packets/PristonUnits.cs` | `PristonUnits` (fixed point x256, 4096-per-turn angles). |
 | `Packets/PlayerActionPackets.cs` | `MovementReport`, `AttackRequest` and `FieldWarp`. |
 | `Packets/WingGatePackets.cs` | `WingGateRequest` and `WingGateResult`. |
 | `Packets/PresencePackets.cs` | `PresenceEntries`: `VarInt`, `PresenceEntry`, `PresenceWire` (entry codec), writer and reader. |
@@ -50,8 +49,8 @@ search finds; they are not part of the build.
 | --- | --- |
 | Byte order | Little-endian everywhere. |
 | Header | `{int32 size, uint32 code}`; `size` includes the header. |
-| Positions | Fixed point, world units × 256 (`PristonUnits.ToFixed`, `FixedShift` 8). |
-| Angles | Skill messages: 4096 per turn (`PristonUnits.ToAngle`); presence and movement: `uint16`, 65536 per turn. |
+| Positions | Fixed point, world units × 256 (`GameUnits.ToFixed` from Contracts, `FixedShift` 8). |
+| Angles | Skill messages: 4096 per turn (`GameUnits.ToAngle`); presence and movement: `uint16`, 65536 per turn. |
 | Entity ids | 64-bit (`uint64` or `varuint`) on the wire and in memory; players count from 1, monsters, NPCs and summons from `2^32`. |
 | Text | UTF-8 with a `uint16` byte length, cut at a whole character to the field's byte limit (`Utf8Text`); malformed UTF-8 is refused. |
 | Item identity | Item codes derived from the item key (`ItemCodes`), e.g. gold is `GG101`. |
@@ -240,7 +239,7 @@ motions `Eat` and `Warp` in its presence entries.
 
 Every skill message body starts with `{uint16 Version, uint16 Flags}` (version 1, flags 0, unless stated); readers
 reject version 0, `SkillCast` rejects versions before 3 (the 32-bit target), and `SkillCast` and `SkillCastResult`
-accept newer versions that append fields (the list messages check their length exactly). Entity ids are 64-bit. Positions are fixed point (×256, `PristonUnits`) and angles 4096 per turn.
+accept newer versions that append fields (the list messages check their length exactly). Entity ids are 64-bit. Positions are fixed point (×256, `GameUnits`) and angles 4096 per turn.
 
 | Message | Layout after the header | Size |
 | --- | --- | --- |

@@ -1,5 +1,6 @@
 using PristonTale.Engine3D.IO;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Engine3D.Formats;
 
@@ -39,13 +40,13 @@ public sealed class PristonActorLoader
     public PristonActor LoadRigid(string smdPath)
     {
         var mesh = _smdReader.ReadModel(smdPath);
-        return new PristonActor(CreateSyntheticIdleInfo(160), mesh, mesh, []);
+        return new PristonActor(CreateSyntheticIdleInfo(GameUnits.FrameTicks), mesh, mesh, []);
     }
 
     // Synthetic opening actors need a non-empty Stand motion spanning the full skeleton clip.
     private static PristonModelInfo CreateSyntheticIdleInfo(int skeletonLastFrameTicks)
     {
-        var endFrame = (uint)Math.Max(1, skeletonLastFrameTicks / 160);
+        var endFrame = (uint)Math.Max(1, skeletonLastFrameTicks / GameUnits.FrameTicks);
         var idle = new PristonMotionInfo(
             State: (uint)MotionCode.Stand,
             StartFrame: 0,

@@ -3,14 +3,12 @@ using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Effects.Particles;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Engine3D.Rendering.Lighting;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.Effects;
 
 public sealed class ReturnEffect : IDisposable
 {
-    private const int TicksPerSecond = 70;
-    private const float FixedScale = 1f / 256f;
-    private const int FullTurn = 4096;
     private const int ParticleCount = 40;
     private const int RayCount = 45;
     private const int VerticesPerQuad = 6;
@@ -61,7 +59,7 @@ public sealed class ReturnEffect : IDisposable
             throw new ArgumentOutOfRangeException(nameof(playerPosition));
         }
 
-        _origin = playerPosition + Vector3.Up * (48f - 9000f * FixedScale);
+        _origin = playerPosition + Vector3.Up * (48f - 9000f / GameUnits.FixedScale);
         _ageSeconds = 0f;
         _previousTick = 0;
         _endTick = 0;
@@ -86,16 +84,16 @@ public sealed class ReturnEffect : IDisposable
         }
 
         _ageSeconds += seconds;
-        var tick = (int)MathF.Floor(_ageSeconds * TicksPerSecond);
+        var tick = (int)MathF.Floor(_ageSeconds * GameUnits.TicksPerSecond);
         if (!_secondLight && _previousTick < 100 && tick >= 100)
         {
-            _lights.Add(_origin + Vector3.Up * (5000f * FixedScale), new Color(250, 250, 250), 200, 1);
+            _lights.Add(_origin + Vector3.Up * (5000f / GameUnits.FixedScale), new Color(250, 250, 250), 200, 1);
             _secondLight = true;
         }
 
         if (!_thirdLight && _previousTick < 160 && tick >= 160)
         {
-            _lights.Add(_origin + Vector3.Up * (5000f * FixedScale), new Color(250, 250, 250), 170, 1);
+            _lights.Add(_origin + Vector3.Up * (5000f / GameUnits.FixedScale), new Color(250, 250, 250), 170, 1);
             _thirdLight = true;
         }
 
@@ -149,13 +147,13 @@ public sealed class ReturnEffect : IDisposable
 
     private void InitializeParticles()
     {
-        var exitTicks = (int)MathF.Ceiling(_particleAnimation.Animation.ExitDuration * TicksPerSecond);
+        var exitTicks = (int)MathF.Ceiling(_particleAnimation.Animation.ExitDuration * GameUnits.TicksPerSecond);
         for (var index = 0; index < ParticleCount; index++)
         {
             var upper = index < ParticleCount / 2;
             var sequenceIndex = upper ? index : index - ParticleCount / 2;
-            var angle = Random.Shared.Next(FullTurn);
-            var radians = angle * MathHelper.TwoPi / FullTurn;
+            var angle = Random.Shared.Next(GameUnits.AngleTurn);
+            var radians = angle * GameUnits.RadiansPerAngle;
             var velocity = new Vector3(
                 (int)(MathF.Cos(radians) * 70f),
                 200f,
@@ -163,7 +161,7 @@ public sealed class ReturnEffect : IDisposable
             var life = Random.Shared.Next(20) + (upper ? 60 : 80);
             var delay = upper ? sequenceIndex * 2 : sequenceIndex * 4 + 60;
             var gravity = upper ? -Random.Shared.Next(3) - 6 : Random.Shared.Next(3) + 2;
-            var destinationAngle = upper ? FullTurn / 2 : FullTurn / 3;
+            var destinationAngle = upper ? GameUnits.AngleTurn / 2 : GameUnits.AngleTurn / 3;
             _particles[index] = new ParticleState(
                 upper ? 10000f : -5000f,
                 velocity,
@@ -178,14 +176,14 @@ public sealed class ReturnEffect : IDisposable
 
     private void InitializeRays()
     {
-        var exitTicks = (int)MathF.Ceiling(_rayAnimation.Animation.ExitDuration * TicksPerSecond);
+        var exitTicks = (int)MathF.Ceiling(_rayAnimation.Animation.ExitDuration * GameUnits.TicksPerSecond);
         for (var index = 0; index < RayCount; index++)
         {
             var stretch = index < 25;
             var sequenceIndex = stretch ? index : index - 25;
-            var angleStep = stretch ? FullTurn / 30 : FullTurn / 20;
+            var angleStep = stretch ? GameUnits.AngleTurn / 30 : GameUnits.AngleTurn / 20;
             var angle = angleStep * sequenceIndex;
-            var radians = angle * MathHelper.TwoPi / FullTurn;
+            var radians = angle * GameUnits.RadiansPerAngle;
             var direction = new Vector3(MathF.Cos(radians), 0f, MathF.Sin(radians));
             var start = stretch
                 ? direction * 3000f
@@ -203,7 +201,7 @@ public sealed class ReturnEffect : IDisposable
 
     private void BuildParticleVertices(Vector3 right, Vector3 up)
     {
-        var ticks = _ageSeconds * TicksPerSecond;
+        var ticks = _ageSeconds * GameUnits.TicksPerSecond;
         for (var index = 0; index < _particles.Length; index++)
         {
             ref readonly var particle = ref _particles[index];
@@ -213,8 +211,8 @@ public sealed class ReturnEffect : IDisposable
                 continue;
             }
 
-            var age = localTicks / TicksPerSecond;
-            var exitAt = particle.Life / (float)TicksPerSecond;
+            var age = localTicks / GameUnits.TicksPerSecond;
+            var exitAt = particle.Life / (float)GameUnits.TicksPerSecond;
             if (age > exitAt + _particleAnimation.Animation.ExitDuration)
             {
                 continue;
@@ -241,7 +239,7 @@ public sealed class ReturnEffect : IDisposable
 
     private void BuildRayVertices(Vector3 cameraPosition, Vector3 fallbackRight)
     {
-        var ticks = _ageSeconds * TicksPerSecond;
+        var ticks = _ageSeconds * GameUnits.TicksPerSecond;
         for (var index = 0; index < _rays.Length; index++)
         {
             ref readonly var ray = ref _rays[index];
@@ -251,8 +249,8 @@ public sealed class ReturnEffect : IDisposable
                 continue;
             }
 
-            var age = localTicks / TicksPerSecond;
-            var exitAt = ray.TravelTicks / (float)TicksPerSecond;
+            var age = localTicks / GameUnits.TicksPerSecond;
+            var exitAt = ray.TravelTicks / (float)GameUnits.TicksPerSecond;
             if (age > exitAt + _rayAnimation.Animation.ExitDuration)
             {
                 continue;
@@ -281,7 +279,7 @@ public sealed class ReturnEffect : IDisposable
                 ref _rayVertexCounts[sample.Image],
                 start,
                 end,
-                side * (ray.Width * FixedScale),
+                side * (ray.Width / GameUnits.FixedScale),
                 AnimationColor(sample.Alpha));
         }
     }
@@ -332,7 +330,7 @@ public sealed class ReturnEffect : IDisposable
 
     private static Vector3 RotateOriginalY(Vector3 value, int angle)
     {
-        var radians = angle * MathHelper.TwoPi / FullTurn;
+        var radians = angle * GameUnits.RadiansPerAngle;
         var sine = MathF.Sin(radians);
         var cosine = MathF.Cos(radians);
         return new Vector3(
@@ -343,7 +341,7 @@ public sealed class ReturnEffect : IDisposable
 
     private static Vector3 ToWorld(Vector3 fixedPosition)
     {
-        return new Vector3(fixedPosition.X, fixedPosition.Y, -fixedPosition.Z) * FixedScale;
+        return new Vector3(fixedPosition.X, fixedPosition.Y, -fixedPosition.Z) / GameUnits.FixedScale;
     }
 
     private static Color AnimationColor(float alpha)

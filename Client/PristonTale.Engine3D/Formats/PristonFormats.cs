@@ -6,7 +6,6 @@ namespace PristonTale.Engine3D.Formats;
 
 public static class PristonFormatConstants
 {
-    public const float FixedScale = 256f;
     public const string StageHeader = "SMD Stage data Ver 0.72";
     public const string ModelHeader = "SMD Model data Ver 0.62";
     public const int MotionInfoCount = 512;

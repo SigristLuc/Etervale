@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Engine3D.Rendering;
 
@@ -96,7 +97,7 @@ public sealed partial class PristonRenderer
         else
         {
             echo.EchoSource = source;
-            echo.EchoLagTicks = MathF.Max(0f, lagFrames) * 160f;
+            echo.EchoLagTicks = MathF.Max(0f, lagFrames) * GameUnits.FrameTicks;
             echo.Follow(original);
         }
 
@@ -151,5 +152,5 @@ public sealed partial class PristonRenderer
         return actor.Shade is { Scale: not 1f } shade ? Matrix.CreateScale(shade.Scale) * bone : bone;
     }
 
-    private float WobblePhase => _renderTime % 4096u / 4096f * MathHelper.TwoPi;
+    private float WobblePhase => _renderTime % GameUnits.AngleTurn * GameUnits.RadiansPerAngle;
 }

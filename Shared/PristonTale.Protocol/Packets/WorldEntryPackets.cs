@@ -1,4 +1,5 @@
 using PristonTale.Protocol.Binary;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Protocol.Packets;
 
@@ -57,8 +58,8 @@ public readonly record struct WorldEntryPacket(byte Status, ulong EntityId, int 
         writer.Byte(0);
         writer.UInt64(EntityId);
         writer.Int32(Field);
-        writer.Int32(PristonUnits.ToFixed(X));
-        writer.Int32(PristonUnits.ToFixed(Z));
+        writer.Int32(GameUnits.ToFixed(X));
+        writer.Int32(GameUnits.ToFixed(Z));
         return writer.Finish();
     }
 
@@ -70,7 +71,7 @@ public readonly record struct WorldEntryPacket(byte Status, ulong EntityId, int 
         reader.Skip(1);
         var entity = reader.UInt64();
         var field = reader.Int32();
-        return new WorldEntryPacket(status, entity, field, PristonUnits.FromFixed(reader.Int32()), PristonUnits.FromFixed(reader.Int32()));
+        return new WorldEntryPacket(status, entity, field, GameUnits.FromFixed(reader.Int32()), GameUnits.FromFixed(reader.Int32()));
     }
 }
 

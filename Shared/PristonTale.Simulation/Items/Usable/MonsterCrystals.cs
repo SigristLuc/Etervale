@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Modifiers;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Simulation.Items.Usable;
 
@@ -73,7 +74,7 @@ public static class MonsterCrystals
     public const int WebSoundCode = 0x1120;
     public const int KelvezuSoundCode = 0x1830;
     public const uint WebSlowStatusCode = 0xF0000301;
-    public const float WebSlowMs = 36 * 1000f / 70f;
+    public const float WebSlowMs = 36 * GameUnits.TickMs;
 
     public static EffectSpec WebSlow() =>
         new(WebSlowStatusCode, EffectSourceKind.Item, true, [StatModifier.Percent(StatKind.MoveSpeed, -50)], control: ControlFlags.Slow);

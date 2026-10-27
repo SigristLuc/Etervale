@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.Screens.CharacterSelect;
 
@@ -86,7 +87,7 @@ internal sealed class CharacterSelectCamera
 
     private void Apply(GraphicsDevice graphicsDevice, float sway)
     {
-        var radians = CameraAngleX * (MathF.PI * 2f / 4096f);
+        var radians = CameraAngleX * GameUnits.RadiansPerAngle;
         var offset = new Vector3(0f, _distance * MathF.Sin(radians), _distance * MathF.Cos(radians));
         var target = _target + new Vector3(0f, sway, 0f);
         _camera.SetScriptedView(graphicsDevice, target + offset, target);

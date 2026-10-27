@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Effects.Particles;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Effects.Scripts;
 
@@ -75,7 +76,7 @@ public sealed class ParticleSequence
         var color = Sample(ParticleProperty.Color, age, seed, new Vector4(255));
         particle.Color = new Color(Vector4.Clamp(color / 255f, Vector4.Zero, Vector4.One));
         float angle = Sample(ParticleProperty.PartAngle, age, seed, Vector4.Zero).Z;
-        particle.Rotation = ((int)angle & 4095) * (MathHelper.TwoPi / 4096f);
+        particle.Rotation = GameUnits.FromAngle((int)angle);
         var displacement = IntegrateVelocity(age, seed);
         particle.Position = particle.Origin + Vector3.TransformNormal(new Vector3(displacement.X, displacement.Y, -displacement.Z), orientation ?? Matrix.Identity);
     }

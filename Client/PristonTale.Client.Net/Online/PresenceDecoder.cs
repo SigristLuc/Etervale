@@ -14,6 +14,7 @@ using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Client.Net.Online;
 
@@ -130,7 +131,7 @@ internal sealed class PresenceDecoder
         {
             var entry = entries[index];
             events[index] = new SkillEventInfo(entry.Caster, entry.Target, entry.SkillCode, entry.Phase, entry.Rank, entry.Flags, entry.DurationMs,
-                entry.HitAtMs, Position(entry.X, entry.Y, entry.Z), PristonUnits.FromAngle(entry.Angle), entry.TargetCount, entry.Radius);
+                entry.HitAtMs, Position(entry.X, entry.Y, entry.Z), GameUnits.FromAngle(entry.Angle), entry.TargetCount, entry.Radius);
         }
 
         return Update([], []) with { SkillEvents = events, ServerTimeMs = _clockMs };
@@ -381,7 +382,7 @@ internal sealed class PresenceDecoder
         {
             events.Add(new CombatEventInfo(entry.Attacker, entry.Target, entry.Kind, entry.DurationMs, entry.HitAtMs,
                 entry.Damage, (entry.Flags & CombatEventFlags.Critical) != 0, (entry.Flags & CombatEventFlags.Killed) != 0, entry.Resources,
-                entry.SoundCode, Position(entry.X, entry.Y, entry.Z), PristonUnits.FromAngle(entry.Angle))
+                entry.SoundCode, Position(entry.X, entry.Y, entry.Z), GameUnits.FromAngle(entry.Angle))
             {
                 Clip = entry.Clip,
                 Skill = (entry.Flags & CombatEventFlags.Skill) != 0
@@ -547,7 +548,7 @@ internal sealed class PresenceDecoder
 
     private static string Key(uint code) => code != 0 && ItemCodes.TryFormat(code, out var key) ? key : "";
 
-    private static Vector3 Position(int x, int y, int z) => new(PristonUnits.FromFixed(x), PristonUnits.FromFixed(y), PristonUnits.FromFixed(z));
+    private static Vector3 Position(int x, int y, int z) => new(GameUnits.FromFixed(x), GameUnits.FromFixed(y), GameUnits.FromFixed(z));
 
 
     private sealed record Description(byte Revision, EntityKind Kind, EntityDescriptionPacket Packet);

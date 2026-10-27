@@ -1,3 +1,4 @@
+using PristonTale.Contracts.Units;
 #nullable enable
 using System.Numerics;
 
@@ -30,7 +31,7 @@ public static class MonsterStepping
     // The original sweeps the model's collision width; models' collision sizes are not imported, so a fixed body is used.
     public const float BodyHalfWidth = 12f;
 
-    public const float SideProbeRadians = 768f * MathF.Tau / 4096f;
+    public const float SideProbeRadians = 768 * GameUnits.RadiansPerAngle;
 
     public static MonsterStepResult Step(FieldTerrain terrain, Vector3 from, float heading, float distance, IStepOccupancy? occupancy,
         out Vector3 accepted)

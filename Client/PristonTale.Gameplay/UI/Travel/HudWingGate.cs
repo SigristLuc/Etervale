@@ -7,6 +7,7 @@ using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World;
 using PristonTale.Contracts.World;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.UI.Travel;
 
@@ -28,7 +29,6 @@ public sealed class HudWingGate(IClientLog log)
     public const string CancelButton = "image/clanImage/MessageBox/c.bmp";
     public const string CancelButtonHover = "image/clanImage/MessageBox/c1.bmp";
     // The rings start every forty frames of the original's seventy a second while an icon is hovered.
-    private const double FrameMs = 1000d / 70;
     private const int RingPeriodFrames = 40;
     private static readonly Color TitleColor = new(255, 255, 240);
 
@@ -225,7 +225,7 @@ public sealed class HudWingGate(IClientLog log)
             }
         }
 
-        if (hovered is not null && (!ReferenceEquals(hovered, _ringAt) || nowMs - _ringStartMs >= RingPeriodFrames * FrameMs))
+        if (hovered is not null && (!ReferenceEquals(hovered, _ringAt) || nowMs - _ringStartMs >= RingPeriodFrames * GameUnits.TickMs))
         {
             _ringAt = hovered;
             _ringStartMs = nowMs;
@@ -233,7 +233,7 @@ public sealed class HudWingGate(IClientLog log)
 
         if (_ringAt is not null)
         {
-            var frame = (int)((nowMs - _ringStartMs) / FrameMs);
+            var frame = (int)((nowMs - _ringStartMs) / GameUnits.TickMs);
             var origin = Icon(_ringAt);
             for (var ring = 0; ring < 3; ring++)
             {

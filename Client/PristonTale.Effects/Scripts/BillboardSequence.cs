@@ -20,7 +20,6 @@ public enum BillboardChannels
 // count, and the images are "<stem>1.<ext>" .. "<stem><count>.<ext>". BlendType 0 colour, 1 alpha, 2 lamp, 3 shadow.
 public sealed class BillboardSequence
 {
-    public const float TicksPerSecond = 70f;
 
     public BillboardSequence(string name, IReadOnlyList<string> images, IReadOnlyList<BillboardFrame> frames, int startAlpha, int blendType,
         BillboardChannels channels)

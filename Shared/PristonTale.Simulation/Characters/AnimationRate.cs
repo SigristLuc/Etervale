@@ -1,3 +1,5 @@
+using PristonTale.Contracts.Units;
+
 namespace PristonTale.Simulation.Characters;
 
 public static class AnimationRate
@@ -8,8 +10,6 @@ public static class AnimationRate
     private const int MoveSpeedCap = 350;
     // Walk/run frame step = (80 * move speed) / 300.
     private const int MoveDivisor = 300;
-    // Attack speed = 256 + 32 * clamp(stat - 6, 0, 6) in 8-bit fixed point (256 = 1.0).
-    private const int FixedOne = 256;
 
     public static float MoveRate(int perTickTranslation)
     {
@@ -21,8 +21,9 @@ public static class AnimationRate
 
     public static int AttackSpeedMainFrame(int attackSpeedStat)
     {
+        // 8.8 fixed point: 1.0 plus 1/8 per point of attack speed above 6, up to six points.
         int cnt = Math.Clamp(attackSpeedStat - 6, 0, 6);
-        return FixedOne + 32 * cnt;
+        return GameUnits.FixedOne + 32 * cnt;
     }
 
     public static float AttackRate(int attackSpeedStat) => AttackRate(attackSpeedStat, 0);
@@ -33,7 +34,7 @@ public static class AnimationRate
         int attackSpeed = AttackSpeedMainFrame(attackSpeedStat);
         attackSpeed += attackSpeed * motionPercent / 100;
         // frameStep = (80*attackSpeed)>>8 (int), then / 80.0 to normalize against the baseline.
-        int frameStep = (80 * attackSpeed) >> 8;
+        int frameStep = (80 * attackSpeed) >> GameUnits.FixedShift;
         return frameStep / Baseline;
     }
 }

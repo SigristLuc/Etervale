@@ -3,13 +3,14 @@ using PristonTale.Effects;
 using PristonTale.Effects.Effects;
 using PristonTale.Engine3D.Physics;
 using PristonTale.Engine3D.Rendering.Lighting;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.Effects;
 
 public sealed class MeteorEffects
 {
     public const int Capacity = 16;
-    public const float Speed = 8f * 70f;
+    public const float Speed = 8f * GameUnits.TicksPerSecond;
     private readonly Projectile[] _projectiles = new Projectile[Capacity];
     private readonly IScriptEffects _effects;
     private readonly PristonTransientLights _lights;

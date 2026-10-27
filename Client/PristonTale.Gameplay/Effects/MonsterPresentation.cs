@@ -4,6 +4,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Monsters.Skills;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -186,7 +187,7 @@ public sealed class MonsterPresentation
             return;
         }
 
-        var start = (float)motion.StartFrame * 160f;
+        var start = (float)motion.StartFrame * GameUnits.FrameTicks;
         var restarted = !ReferenceEquals(motion, tracked.Motion) || ticks < tracked.Ticks;
         var previous = restarted ? start : tracked.Ticks;
         if (restarted)
@@ -241,7 +242,7 @@ public sealed class MonsterPresentation
     // A Minig grows red while it fights: +2 per frame in attack or flinch clips, -1 otherwise, at most 100.
     private void StepAnger(Tracked tracked, ulong entityId, int state, float seconds)
     {
-        var frames = seconds * 70f;
+        var frames = seconds * GameUnits.TicksPerSecond;
         tracked.Anger = Math.Clamp(tracked.Anger + (state is AttackState or 0x110 ? 2f : -1f) * frames, 0f, 100f);
         _scene.SetEntityTint(entityId, new Vector3(tracked.Anger / 256f, -tracked.Anger / 512f, 0f));
     }

@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Gameplay.Effects;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.Audio;
 
@@ -65,7 +66,7 @@ public sealed class MonsterSoundCues(CombatSounds sounds, IMonsterScene scene)
         }
 
         var state = (int)motion.State;
-        var start = (float)motion.StartFrame * 160f;
+        var start = (float)motion.StartFrame * GameUnits.FrameTicks;
         var restarted = !ReferenceEquals(motion, tracked.Motion) || ticks < tracked.Ticks;
         var previous = restarted ? start : tracked.Ticks;
         if (restarted && state != tracked.State)

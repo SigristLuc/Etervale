@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -35,7 +36,6 @@ public readonly record struct EntityLook(
 // offset over 255.
 public sealed class ActorLookBook
 {
-    private const float TicksPerSecond = 70f;
     private const float FrostPeak = 160f;
     private const float PoisonPeak = 100f;
     private const float VanishAlpha = -160f;
@@ -117,7 +117,7 @@ public sealed class ActorLookBook
             }
         }
 
-        var ticks = seconds * TicksPerSecond;
+        var ticks = seconds * GameUnits.TicksPerSecond;
         _finished.Clear();
         foreach (var (entity, state) in _states)
         {
@@ -207,7 +207,7 @@ public sealed class ActorLookBook
             }
             else
             {
-                look = WithCast(look, cast, state.CastRank, (float)(nowMs - state.CastStartMs) / 1000f * TicksPerSecond, self);
+                look = WithCast(look, cast, state.CastRank, (float)(nowMs - state.CastStartMs) / 1000f * GameUnits.TicksPerSecond, self);
             }
         }
 
@@ -226,11 +226,11 @@ public sealed class ActorLookBook
         if (rule.WeaponGrowth.Length > 0)
         {
             var percent = rule.At(rule.WeaponGrowth, rank);
-            var size = MathF.Min((ticks - GrowthStartTicks) * GrowthRate, percent * 256f / 100f) + GrowthBase;
+            var size = MathF.Min((ticks - GrowthStartTicks) * GrowthRate, percent * GameUnits.FixedScale / 100f) + GrowthBase;
             var alpha = MathF.Max(GrowthAlphaFloor, GrowthAlphaStart - GrowthAlphaRate * ticks);
             look = look with
             {
-                WeaponScale = 1f + size / 256f,
+                WeaponScale = 1f + size / GameUnits.FixedScale,
                 WeaponOpacity = (255f + alpha) / 255f,
                 WeaponTint = new Vector3(GrowthRed / 255f, 0f, 0f)
             };

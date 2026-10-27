@@ -1,3 +1,4 @@
+using PristonTale.Contracts.Units;
 namespace PristonTale.Simulation.World.Motion;
 
 public readonly record struct MotionClip(
@@ -17,7 +18,7 @@ public readonly record struct MotionClip(
 
     public int Frames => EndFrame - StartFrame;
 
-    public int SpanTicks => Frames * MotionTiming.TicksPerFrame;
+    public int SpanTicks => Frames * GameUnits.FrameTicks;
 
     public bool TryGetEventTicks(int index, out uint ticks)
     {

@@ -7,6 +7,7 @@ using SharpGLTF.Materials;
 using SharpGLTF.Scenes;
 using SharpGLTF.Schema2;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Units;
 
 using StageMesh = SharpGLTF.Geometry.MeshBuilder<SharpGLTF.Geometry.VertexTypes.VertexPositionNormal, SharpGLTF.Geometry.VertexTypes.VertexColor1Texture1, SharpGLTF.Geometry.VertexTypes.VertexEmpty>;
 using StageVB = SharpGLTF.Geometry.VertexBuilder<SharpGLTF.Geometry.VertexTypes.VertexPositionNormal, SharpGLTF.Geometry.VertexTypes.VertexColor1Texture1, SharpGLTF.Geometry.VertexTypes.VertexEmpty>;
@@ -43,14 +44,14 @@ internal sealed record ExportOptions(
 
 internal static class GltfSceneExport
 {
-    internal const float TicksPerSecond = 160000f / 33f;
+    internal const float TicksPerSecond = GameUnits.FrameTicksPerSecond;
 
     // Animated stage objects advance two ticks per elapsed millisecond and, after the first pass,
     // wraps playback into the [160, MaxFrame] range.
     internal const float StageObjectTicksPerSecond = 2000f;
-    private const int StageObjectLoopStartTicks = 160;
+    private const int StageObjectLoopStartTicks = GameUnits.FrameTicks;
 
-    private const int SampleStepTicks = 160;
+    private const int SampleStepTicks = GameUnits.FrameTicks;
     private const int MaxSurfacesPerMesh = 200;
     private const float TransformTolerance = 5e-3f;
     private const double CollapsedAxisScale = 1e-5;

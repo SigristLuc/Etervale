@@ -4,6 +4,7 @@ using PristonTale.Effects.Vfx;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Simulation.World;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.World;
 
@@ -22,7 +23,6 @@ public sealed partial class GameScene
     private const float FootprintLifeMs = 5000f;
     private const float FootprintHalfSize = 6f;
     private const int FootprintMax = 20;
-    private const float TerrainFrame = 1f / 70f;
 
     private readonly List<Footprint> _footprints = new();
     private readonly Texture2D[] _footprintTextures = new Texture2D[2];
@@ -66,7 +66,7 @@ public sealed partial class GameScene
             return;
         }
 
-        _terrainFrames += seconds / TerrainFrame;
+        _terrainFrames += seconds * GameUnits.TicksPerSecond;
         while (_terrainFrames >= 1f)
         {
             _terrainFrames -= 1f;

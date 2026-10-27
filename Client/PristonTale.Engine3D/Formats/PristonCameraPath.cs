@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.IO;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Engine3D.Formats;
 
@@ -27,7 +28,6 @@ public sealed class PristonCameraPath
     private const int MatrixRecordSize = 64;
     private const int MaximumWarpFrames = 10;
 
-    public const int TicksPerFrame = 160;
 
     private readonly List<PristonCameraPositionKey> _positions;
     private readonly List<PristonCameraRotationKey> _rotations;
@@ -61,7 +61,7 @@ public sealed class PristonCameraPath
             throw new InvalidOperationException($"The original camera supports at most {MaximumWarpFrames} warp intervals.");
         }
 
-        _warps.Add((checked(startFrame * TicksPerFrame), checked(endFrame * TicksPerFrame)));
+        _warps.Add((checked(startFrame * GameUnits.FrameTicks), checked(endFrame * GameUnits.FrameTicks)));
     }
 
     public static PristonCameraPath ReadCam(string path)

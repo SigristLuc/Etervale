@@ -3,6 +3,7 @@ using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
 using PristonTale.Protocol.Transport;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Server.Net;
 
@@ -13,7 +14,7 @@ internal sealed partial class PresenceEncoder
     private long _premiumRevision = -1;
 
     private static ItemEffectEntry ItemEffect(in ItemEffectView effect) => new(effect.EntityId, effect.ItemCode, (byte)effect.Effect,
-        PristonUnits.ToFixed(effect.Position.X), PristonUnits.ToFixed(effect.Position.Y), PristonUnits.ToFixed(effect.Position.Z), effect.Variant,
+        GameUnits.ToFixed(effect.Position.X), GameUnits.ToFixed(effect.Position.Y), GameUnits.ToFixed(effect.Position.Z), effect.Variant,
         effect.Target);
 
     private void SendItemEffects(ReadOnlySpan<ItemEffectView> effects, IPacketSink connection, List<int>? routed = null)

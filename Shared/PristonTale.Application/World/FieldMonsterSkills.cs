@@ -8,6 +8,7 @@ using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Application.World;
 
@@ -48,7 +49,7 @@ internal sealed class FieldMonsterSkills
     internal FieldCombat? Combat { get; set; }
 
     // Mystics left alive explode on their own after 1920 updates of four frames.
-    public const float MysticLifetimeMs = 1920 * 4 * MonsterStatuses.FrameMs;
+    public const float MysticLifetimeMs = 1920 * 4 * GameUnits.TickMs;
 
     // Reinforcement caps, counted over the monsters standing on the caller's spawn point.
     public const int VirtualLifeReinforcementCap = 8;

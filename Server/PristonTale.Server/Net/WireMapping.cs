@@ -8,6 +8,7 @@ using PristonTale.Simulation.World.Loot;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Skills;
 using PristonTale.Contracts.Sessions;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Server.Net;
 
@@ -121,8 +122,8 @@ internal static class WireMapping
         }
 
         return new CombatEventEntry(view.AttackerId, view.TargetId, view.Kind, flags, view.DurationMs, view.HitAtMs, view.Damage,
-            view.Resources, view.SourceSoundCode, PristonUnits.ToFixed(view.Position.X), PristonUnits.ToFixed(view.Position.Y),
-            PristonUnits.ToFixed(view.Position.Z), PristonUnits.ToAngle(view.Facing), (short)Math.Clamp(view.Clip, -1, short.MaxValue));
+            view.Resources, view.SourceSoundCode, GameUnits.ToFixed(view.Position.X), GameUnits.ToFixed(view.Position.Y),
+            GameUnits.ToFixed(view.Position.Z), (short)GameUnits.ToAngle(view.Facing), (short)Math.Clamp(view.Clip, -1, short.MaxValue));
     }
 
     public static SkillEventEntry SkillEvent(in SkillEventView view) => new(
@@ -134,10 +135,10 @@ internal static class WireMapping
         view.Flags,
         view.DurationMs,
         view.HitAtMs,
-        PristonUnits.ToFixed(view.Position.X),
-        PristonUnits.ToFixed(view.Position.Y),
-        PristonUnits.ToFixed(view.Position.Z),
-        PristonUnits.ToAngle(view.Facing),
+        GameUnits.ToFixed(view.Position.X),
+        GameUnits.ToFixed(view.Position.Y),
+        GameUnits.ToFixed(view.Position.Z),
+        (short)GameUnits.ToAngle(view.Facing),
         (ushort)Math.Clamp(view.TargetCount, 0, ushort.MaxValue),
         (int)MathF.Round(view.Radius));
 
@@ -165,8 +166,8 @@ internal static class WireMapping
         drop.Gold ? ItemCodes.Parse("GG101") : drop.ItemCode,
         drop.Gold,
         drop.Amount,
-        PristonUnits.ToFixed(drop.Position.X),
-        PristonUnits.ToFixed(drop.Position.Y),
-        PristonUnits.ToFixed(drop.Position.Z),
+        GameUnits.ToFixed(drop.Position.X),
+        GameUnits.ToFixed(drop.Position.Y),
+        GameUnits.ToFixed(drop.Position.Z),
         drop.Name);
 }

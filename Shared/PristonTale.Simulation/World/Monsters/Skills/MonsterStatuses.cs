@@ -1,5 +1,6 @@
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Modifiers;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Simulation.World.Monsters.Skills;
 
@@ -16,8 +17,6 @@ public static class MonsterStatuses
     public const uint CurseAttack = 0xF0000407;
     public const uint Power = 0xF0000408;
 
-    public const float FrameMs = 1000f / 70f;
-
     // Movement and the attack, flinch and potion clips run at speed/256 while slowed.
     public const int WebSlowSpeed = 180;
     public const int IceSlowSpeed = 200;
@@ -32,11 +31,11 @@ public static class MonsterStatuses
 
     // A poisoned player loses one life every second frame, never the last one; it is paid in steps of 14 frames.
     public const int PoisonDamagePerTick = 7;
-    public const float PoisonIntervalMs = 14 * FrameMs;
+    public const float PoisonIntervalMs = 14 * GameUnits.TickMs;
 
     // Curses last ten seconds; the power a succubus lends lasts 320 monster updates of four frames each.
     public const float CurseMs = 10_000f;
-    public const float PowerMs = 320 * 4 * FrameMs;
+    public const float PowerMs = 320 * 4 * GameUnits.TickMs;
 
     public static bool IsMonsterStatus(uint code) => code is >= Poison and <= Power;
 
@@ -48,9 +47,9 @@ public static class MonsterStatuses
         return result <= 0 ? 4 : result;
     }
 
-    public static float ResistedMs(int frames, int resistance) => Resisted(frames, resistance) * FrameMs;
+    public static float ResistedMs(int frames, int resistance) => Resisted(frames, resistance) * GameUnits.TickMs;
 
-    public static float FramesMs(int frames) => frames * FrameMs;
+    public static float FramesMs(int frames) => frames * GameUnits.TickMs;
 
     public static EffectSpec PoisonSpec() => new(Poison, EffectSourceKind.MonsterSkill, true, [],
         [new PeriodicEffect(ResourceKind.Life, -PoisonDamagePerTick, PoisonIntervalMs, NonLethal: true)]);

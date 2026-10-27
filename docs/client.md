@@ -214,7 +214,7 @@ server).
 apply a warp, ground loot, effects, skills, then raise `PresenceObserved` (the HUD target frame, combat history and chat lines;
 a `CloseRequested` update ends the game).
 
-Coordinates: the wire uses PT-global `(x, z)` in fixed point (`PristonUnits.FixedScale` = 256) and angles of 4096 per
+Coordinates: the wire uses PT-global `(x, z)` in fixed point (`GameUnits.FixedScale` = 256) and angles of 4096 per
 turn; the client world uses `(x, -z)`. `RemapToWorld` flips only spawns, states and the warp position (and facing).
 Combat events, skill events, ground items and the `PresenceObserved` copy keep transport coordinates; their consumers
 flip Z themselves.

@@ -1,6 +1,7 @@
 using System.Numerics;
 using PristonTale.Protocol.Binary;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Protocol.Packets;
 
@@ -22,9 +23,9 @@ public readonly record struct MovementReportPacket(MotionState Motion, int Field
         writer.Byte((byte)Motion);
         writer.Byte(0);
         writer.Int32(Field);
-        writer.Int32(PristonUnits.ToFixed(Position.X));
-        writer.Int32(PristonUnits.ToFixed(Position.Y));
-        writer.Int32(PristonUnits.ToFixed(Position.Z));
+        writer.Int32(GameUnits.ToFixed(Position.X));
+        writer.Int32(GameUnits.ToFixed(Position.Y));
+        writer.Int32(GameUnits.ToFixed(Position.Z));
         writer.UInt16(PresenceWire.ToFacing(Facing));
         writer.UInt16(0);
         writer.UInt64(ActionTarget);
@@ -47,7 +48,7 @@ public readonly record struct MovementReportPacket(MotionState Motion, int Field
         }
 
         var field = reader.Int32();
-        var position = new Vector3(PristonUnits.FromFixed(reader.Int32()), PristonUnits.FromFixed(reader.Int32()), PristonUnits.FromFixed(reader.Int32()));
+        var position = new Vector3(GameUnits.FromFixed(reader.Int32()), GameUnits.FromFixed(reader.Int32()), GameUnits.FromFixed(reader.Int32()));
         var facing = reader.UInt16() * (2f * MathF.PI / 65536f);
         reader.Skip(2);
         return new MovementReportPacket(motion, field, position, facing, reader.UInt64());
@@ -108,9 +109,9 @@ public readonly record struct FieldWarpPacket(int Field, float X, float Y, float
         writer.Byte(Forced ? ForcedFlag : (byte)0);
         writer.Byte(0);
         writer.Int32(Field);
-        writer.Int32(PristonUnits.ToFixed(X));
-        writer.Int32(PristonUnits.ToFixed(Y));
-        writer.Int32(PristonUnits.ToFixed(Z));
+        writer.Int32(GameUnits.ToFixed(X));
+        writer.Int32(GameUnits.ToFixed(Y));
+        writer.Int32(GameUnits.ToFixed(Z));
         return writer.Finish();
     }
 
@@ -125,9 +126,9 @@ public readonly record struct FieldWarpPacket(int Field, float X, float Y, float
         var flags = reader.Byte();
         reader.Skip(1);
         var field = reader.Int32();
-        var x = PristonUnits.FromFixed(reader.Int32());
-        var y = PristonUnits.FromFixed(reader.Int32());
-        return new FieldWarpPacket(field, x, y, PristonUnits.FromFixed(reader.Int32()), (flags & ForcedFlag) != 0);
+        var x = GameUnits.FromFixed(reader.Int32());
+        var y = GameUnits.FromFixed(reader.Int32());
+        return new FieldWarpPacket(field, x, y, GameUnits.FromFixed(reader.Int32()), (flags & ForcedFlag) != 0);
     }
 }
 

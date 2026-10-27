@@ -9,6 +9,7 @@ using PristonTale.Engine3D.Physics;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.Screens.Opening;
 
@@ -35,7 +36,6 @@ internal sealed class OpeningCinematic : IDisposable
     ];
 
     private const float AutoCameraTicksPerStep = 50f;
-    private const float OpeningTimestep = 1f / 70f;
     private const float CinemaEndTicks = 166000f;
     private const int WarpFrameStart = 472;
     private const int WarpFrameEnd = 473;
@@ -147,9 +147,9 @@ internal sealed class OpeningCinematic : IDisposable
         if (_cameraPath is { HasPath: true })
         {
             _stepAccumulator += dt;
-            while (_stepAccumulator >= OpeningTimestep)
+            while (_stepAccumulator >= GameUnits.TickSeconds)
             {
-                _stepAccumulator -= OpeningTimestep;
+                _stepAccumulator -= GameUnits.TickSeconds;
                 _pathTicks += AutoCameraTicksPerStep;
                 if (_pathTicks < CinemaEndTicks)
                 {

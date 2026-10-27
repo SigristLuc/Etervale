@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Effects.Scripts;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Effects.Vfx;
 
@@ -112,8 +113,6 @@ internal struct VfxPart
 // or flight ends, and draw from the renderer. Ribbon and blade trails keep their samples in one array per layer.
 internal sealed class PartState
 {
-    private const float TicksPerSecond = BillboardSequence.TicksPerSecond;
-
     public CompiledPart Part = null!;
     public VfxPart[] Parts = [];
     public Vector3[] Trail = [];
@@ -400,7 +399,7 @@ internal sealed class PartState
         part.Height += source.Growth * dt;
         part.Rotation += source.Spin * dt;
         part.Angles += Part.Tumble * dt;
-        part.TickCarry += dt * TicksPerSecond;
+        part.TickCarry += dt * GameUnits.TicksPerSecond;
         while (part.TickCarry >= 1f)
         {
             part.TickCarry -= 1f;

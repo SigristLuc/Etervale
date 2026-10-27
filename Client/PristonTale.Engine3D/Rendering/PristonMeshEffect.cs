@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Formats;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Engine3D.Rendering;
 
@@ -35,7 +36,7 @@ public sealed class PristonMeshEffect : IDisposable
             {
                 var batches = new List<Batch>();
                 _frames[frame] = batches;
-                var groups = PristonModelGeometry.BuildGroups(mesh, Matrix.Identity, Color.White, skeleton, frame * 160);
+                var groups = PristonModelGeometry.BuildGroups(mesh, Matrix.Identity, Color.White, skeleton, frame * GameUnits.FrameTicks);
                 foreach (var group in groups)
                 {
                     if (group.Key < 0 || group.Key >= mesh.Materials.Count)

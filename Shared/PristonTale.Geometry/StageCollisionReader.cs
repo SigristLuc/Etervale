@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Numerics;
 using System.Text;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Geometry;
 
@@ -22,7 +23,6 @@ public static class StageCollisionReader
     private const int MaterialMeshStateOffset = 168;
     private const int VertexSize = 28;
     private const int FaceSize = 28;
-    private const float FixedScale = 256f;
 
     public static CollisionMesh Read(byte[] data)
     {
@@ -82,9 +82,9 @@ public static class StageCollisionReader
         {
             var vertex = Slice(data, offset + index * VertexSize, VertexSize);
             vertices[index] = new Vector3(
-                BinaryPrimitives.ReadInt32LittleEndian(vertex[8..]) / FixedScale,
-                BinaryPrimitives.ReadInt32LittleEndian(vertex[12..]) / FixedScale,
-                BinaryPrimitives.ReadInt32LittleEndian(vertex[16..]) / FixedScale);
+                BinaryPrimitives.ReadInt32LittleEndian(vertex[8..]) / GameUnits.FixedScale,
+                BinaryPrimitives.ReadInt32LittleEndian(vertex[12..]) / GameUnits.FixedScale,
+                BinaryPrimitives.ReadInt32LittleEndian(vertex[16..]) / GameUnits.FixedScale);
         }
 
         offset += vertexCount * VertexSize;

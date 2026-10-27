@@ -11,6 +11,7 @@ using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Skills;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Skills;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -287,7 +288,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         var plan = SkillFormulas.Plan(rule, skillEvent.Rank);
         var remainingFrames = Math.Max(1, plan.Frames - charge.FullFrame);
         var rate = skillEvent.DurationMs > 0f
-            ? Math.Clamp(remainingFrames * Simulation.World.Motion.MotionTiming.MsPerFrame / skillEvent.DurationMs, 0.1f, 8f)
+            ? Math.Clamp(remainingFrames * GameUnits.FrameMs / skillEvent.DurationMs, 0.1f, 8f)
             : charge.ReleaseSpeed / SkillFormulas.FrameStepAtRateOne;
         _host.SeekSkillMotion(skillEvent.CasterId, charge.FullFrame, rate);
         if (rule.Projectile && rule.ProjectileEffect.Length > 0)
@@ -586,7 +587,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         var plan = SkillFormulas.Plan(rule, skillEvent.Rank);
         if (plan.Motion == SkillMotion.Skill && plan.Frames > 0 && skillEvent.DurationMs > 0f)
         {
-            return Math.Clamp(plan.Frames * Simulation.World.Motion.MotionTiming.MsPerFrame / skillEvent.DurationMs, 0.1f, 8f);
+            return Math.Clamp(plan.Frames * GameUnits.FrameMs / skillEvent.DurationMs, 0.1f, 8f);
         }
 
         return SkillFormulas.WeaponClipSpeedup(rule, skillEvent.Rank, _host.AttackRateOf(skillEvent.CasterId));

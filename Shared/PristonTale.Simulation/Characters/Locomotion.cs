@@ -1,9 +1,9 @@
+using PristonTale.Contracts.Units;
+
 namespace PristonTale.Simulation.Characters;
 
 public static class Locomotion
 {
-    private const int TicksPerSecond = 70;   // original fixed tick rate
-    private const float FixedOne = 256f;     // 1.0 in 8.8 fixed point
     private const int WalkFieldFactor = 180; // >>8  ≈ 0.703x outside villages
     private const int RunFactor = 460;       // >>8  ≈ 1.797x
 
@@ -29,5 +29,5 @@ public static class Locomotion
         => PerTickToUnitsPerSecond((BaseTranslation(moveSpeedStat) * RunFactor) >> 8);
 
     private static float PerTickToUnitsPerSecond(int perTick)
-        => perTick / FixedOne * TicksPerSecond;
+        => perTick / GameUnits.FixedScale * GameUnits.TicksPerSecond;
 }

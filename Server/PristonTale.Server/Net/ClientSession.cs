@@ -21,6 +21,7 @@ using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Skills;
 using PristonTale.Contracts.Sessions;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Server.Net;
 
@@ -510,7 +511,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         }
 
         var hasPoint = packet.X != 0 || packet.Y != 0 || packet.Z != 0;
-        var point = new Vector3(PristonUnits.FromFixed(packet.X), PristonUnits.FromFixed(packet.Y), PristonUnits.FromFixed(packet.Z));
+        var point = new Vector3(GameUnits.FromFixed(packet.X), GameUnits.FromFixed(packet.Y), GameUnits.FromFixed(packet.Z));
         var request = new SkillCastRequest(packet.Sequence, packet.SkillCode, packet.TargetSerial, point, hasPoint, packet.Command);
         SkillCastOutcome outcome;
         try

@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Effects.Vfx;
 
@@ -222,7 +223,7 @@ internal sealed class ComponentState
             element.Frame += ModelTicksPerSecond * dt;
             element.EventTimer += dt;
             element.Color += element.ColorStep * dt;
-            if (element.Frame >= (int)(source.ModelFrames * 160f))
+            if (element.Frame >= (int)(source.ModelFrames * GameUnits.FrameTicks))
             {
                 element.Frame = 0f;
                 element.EventTimer = 0f;

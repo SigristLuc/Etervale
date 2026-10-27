@@ -30,8 +30,8 @@ shows comes from server snapshots.
 
 | Project | Kind | Owns |
 |---|---|---|
-| `Shared/PristonTale.Contracts` | library, no deps | Codes every layer shares, declared once: `MotionState` (the server's motion, the world view, the presence wire byte, the client's playback) and `MotionCode` (a model's motion table code, read by the renderer and the server's timing) with `MotionCodes.Of` between them; `EntityKind` (world view, descriptions, client, collision); `ChatKind` (server lines, wire, chat log); combat, skill and status codes (`CombatEventKind`, `SkillCastVerdict`, `SkillCastCommand`, `SkillEventPhase`, `SkillEventFlags`, `StatusEffectOp`); the outcomes the client reads (login, characters, world entry, restart, wing trips) |
-| `Shared/PristonTale.Geometry` | library, no deps | Pure geometry used by simulation and renderer |
+| `Shared/PristonTale.Contracts` | library, no deps | Codes every layer shares, declared once: `MotionState` (the server's motion, the world view, the presence wire byte, the client's playback) and `MotionCode` (a model's motion table code, read by the renderer and the server's timing) with `MotionCodes.Of` between them; `EntityKind` (world view, descriptions, client, collision); `ChatKind` (server lines, wire, chat log); combat, skill and status codes (`CombatEventKind`, `SkillCastVerdict`, `SkillCastCommand`, `SkillEventPhase`, `SkillEventFlags`, `StatusEffectOp`); the outcomes the client reads (login, characters, world entry, restart, wing trips); `GameUnits`, the authored units (8.8 fixed point, 4096 angles per turn, 70 ticks per second, 160 ticks and 33 ms per animation frame) |
+| `Shared/PristonTale.Geometry` | library, Contracts | Pure geometry used by simulation and renderer |
 | `Shared/PristonTale.Simulation` | library | Game rules and data models: characters, classes, items, combat, modifiers, progression, skills, world rules (fields, AI, spawning, loot, motion, NPCs), physics. No IO, no transport, no MonoGame |
 | `Shared/PristonTale.Protocol` | library, no deps | Wire format: framing, TLS transport, messages and codecs, Etervale opcodes |
 | `Shared/PristonTale.Application` | library | Transport-free use cases (auth, characters, sessions, NPC services) and the authoritative `WorldServer` with its tick |
@@ -50,11 +50,12 @@ shows comes from server snapshots.
 
 ## Dependency graph
 
-Project references, from the `.csproj` files. Keep this direction; never add a reverse edge. Contracts and Geometry
-reference nothing.
+Project references, from the `.csproj` files. Keep this direction; never add a reverse edge. Contracts references
+nothing; Geometry references only Contracts.
 
 | Project | References |
 |---|---|
+| Geometry | Contracts |
 | Protocol | Contracts |
 | Simulation | Contracts, Geometry |
 | Persistence.Abstractions | Simulation |
@@ -73,7 +74,8 @@ Consequences:
 
 - A code that crosses layers (a motion state, a kind, a status) is declared once in Contracts and used as it is on
   every side; a layer declares its own enum only when the meaning differs (a model's motion table code is not a
-  `MotionState`), with one mapping beside it.
+  `MotionState`), with one mapping beside it. The authored units (`GameUnits`) are the same: a scale, angle, tick or
+  frame conversion uses them instead of a local 256, 4096, 70, 160 or 33.
 - Simulation and Application never see sockets, packets, SQL or MonoGame. Packet structs stay in Protocol; mapping
   between packets and application inputs/outcomes lives in `Server/PristonTale.Server/Net` (server) and
   `Client/PristonTale.Client.Net` (client).

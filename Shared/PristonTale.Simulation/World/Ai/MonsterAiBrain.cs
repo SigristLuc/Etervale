@@ -4,6 +4,7 @@ using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Simulation.World.Ai;
 
@@ -11,7 +12,6 @@ public sealed class MonsterAiBrain
 {
     // A stuck monster turns by rand() % 1024 - 512 on the 4096-step circle (a quarter turn, centred).
     private const int StuckTurnSteps = 1024;
-    private const float AngleStepRadians = MathF.Tau / 4096f;
 
     private readonly ISimRng _rng;
 
@@ -412,7 +412,7 @@ public sealed class MonsterAiBrain
     private void BeginStuckManoeuvre(MonsterInstance m, MonsterAiTuning t)
     {
         int turn = _rng.NextExclusive(0, StuckTurnSteps) - (StuckTurnSteps / 2);
-        float heading = HeadingTo(m, m.HomeAnchor) + (turn * AngleStepRadians);
+        float heading = HeadingTo(m, m.HomeAnchor) + (turn * GameUnits.RadiansPerAngle);
         var motion = t.CanRun ? MotionState.Run : MotionState.Walk;
         BeginManoeuvre(m, heading, MonsterAiTuning.StuckManoeuvreClips, motion);
     }

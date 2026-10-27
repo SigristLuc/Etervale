@@ -9,6 +9,7 @@ using PristonTale.Engine3D.Rendering.Lighting;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Contracts.Motion;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -18,12 +19,11 @@ namespace PristonTale.Gameplay.World.Remote;
 // frames in, the Phoenix's 60, with the strike's projectile, impact particles and sounds.
 public sealed class PremiumPetPresentation : IDisposable
 {
-    private const float FrameRate = 70f;
-    private const float Scale = (256f + 80f) / 256f;
-    private const float Near = 300f / 256f;
+    private const float Scale = (GameUnits.FixedScale + 80f) / GameUnits.FixedScale;
+    private const float Near = 300f / GameUnits.FixedScale;
     // About the height of a character's head above its feet.
     private const float OwnerHeight = 36f;
-    private const float ProjectileSpeed = 1800f / 256f * FrameRate;
+    private const float ProjectileSpeed = 1800f / GameUnits.FixedScale * GameUnits.TicksPerSecond;
     private static readonly string[] HelperMeshes = ["Pet_terry.smd", "Pet_nepsys.smd", "Pet_io.smd", "Pet_mute.smd"];
 
     private readonly IActorScene _scene;
@@ -149,7 +149,7 @@ public sealed class PremiumPetPresentation : IDisposable
     // pose: the owner's drawn position and facing (yaw), or null when it is not drawn.
     public void Update(float dt, Func<ulong, (Vector3 Position, float Facing)?> pose, Func<ulong, Vector3?> targetPosition, Vector3 listener)
     {
-        var ticks = dt * FrameRate;
+        var ticks = dt * GameUnits.TicksPerSecond;
         foreach (var (ownerId, owner) in _owners)
         {
             if (pose(ownerId) is not { } at)

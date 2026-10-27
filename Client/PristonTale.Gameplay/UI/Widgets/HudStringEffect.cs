@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Contracts.Combat;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
@@ -11,7 +12,6 @@ namespace PristonTale.Gameplay.UI.Widgets;
 public sealed class HudStringEffect
 {
     private const int MaxEffects = 10;
-    private const float FrameSeconds = 1f / 70f;
     private const int SteadyFrames = 26;
     private readonly Effect[] _effects = new Effect[MaxEffects];
     private ulong _self;
@@ -60,9 +60,9 @@ public sealed class HudStringEffect
             }
 
             effect.Elapsed += seconds;
-            while (effect.Image is not null && effect.Elapsed >= FrameSeconds)
+            while (effect.Image is not null && effect.Elapsed >= GameUnits.TickSeconds)
             {
-                effect.Elapsed -= FrameSeconds;
+                effect.Elapsed -= GameUnits.TickSeconds;
                 effect.Frames++;
                 if (effect.Frames > SteadyFrames)
                 {

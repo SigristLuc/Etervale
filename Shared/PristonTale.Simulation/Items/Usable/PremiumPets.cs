@@ -1,5 +1,6 @@
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Modifiers;
+using PristonTale.Contracts.Units;
 
 namespace PristonTale.Simulation.Items.Usable;
 
@@ -10,10 +11,10 @@ public static class PremiumPets
 {
     public const float PhoenixReach = 300f;
     public const long PhoenixCooldownMs = 1000;
-    public const long HelperHitMs = 30 * 1000 / 70;
-    public const long HelperEndMs = 60 * 1000 / 70;
-    public const long PhoenixHitMs = 60 * 1000 / 70;
-    public const long PhoenixEndMs = 100 * 1000 / 70;
+    public const long HelperHitMs = 30 * 1000 / GameUnits.TicksPerSecond;
+    public const long HelperEndMs = 60 * 1000 / GameUnits.TicksPerSecond;
+    public const long PhoenixHitMs = 60 * 1000 / GameUnits.TicksPerSecond;
+    public const long PhoenixEndMs = 100 * 1000 / GameUnits.TicksPerSecond;
 
     // Nepsys slows the monster it hits: ten seconds less its ice resistance, at 180/256 of its speed.
     public const uint SlowStatusCode = 0xF0000300;
