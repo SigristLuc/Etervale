@@ -152,6 +152,11 @@ Since the C# half was forked too (`../issues/001-framework-from-source.md`), eac
     version 4): `SetDataOptions.NoOverwrite` on a dynamic buffer no longer renames the buffer and copies its old
     content back from mapped memory (change 14 did it for every non-discard write), so `DrawUser*Primitives` and
     SpriteBatch keep their DesktopGL cost.
+26. **32-bit float depth** (`MGDepthFormat::Depth32Float`, `../issues/014-float-depth.md`; interface version 5):
+    `VK_FORMAT_D32_SFLOAT` without stencil, for a reversed depth range.
+27. **Multisampled targets keep their samples** (`../issues/015-msaa-keeps-samples.md`): a pass that binds a
+    multisampled target again loads and stores its samples instead of starting from undefined ones, as change 2 does
+    for every other target.
 
 The runtime also prints the swapchain image count and present mode, an early submission when the uniform buffer is
 full, and a warning when two resources of one shader share a binding.

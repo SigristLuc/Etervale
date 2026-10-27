@@ -26,3 +26,4 @@ upstream notes, in `../upstream/`.
 | 012 | [pipeline-statistics](012-pipeline-statistics.md) | runtime, framework |
 | 013 | [no-overwrite-uploads](013-no-overwrite-uploads.md) | runtime, framework |
 | 014 | [float-depth](014-float-depth.md) | runtime, framework |
+| 015 | [msaa-keeps-samples](015-msaa-keeps-samples.md) | runtime |

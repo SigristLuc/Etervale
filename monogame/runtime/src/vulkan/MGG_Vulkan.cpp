@@ -3611,11 +3611,13 @@ static void MGVK_UpdateRenderPass(MGG_GraphicsDevice* device, FrameCounter curre
 
             if (isMsaa)
             {
-				desc.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-				desc.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+				// The multisampled image keeps its samples across render passes like any other target: a pass that
+				// binds it again (after a compute dispatch, a copy or another target) draws over what is there.
+				desc.loadOp = firstUse ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : VK_ATTACHMENT_LOAD_OP_LOAD;
+				desc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 				desc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 				desc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
-                desc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                desc.initialLayout = firstUse ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				desc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             }
             else
