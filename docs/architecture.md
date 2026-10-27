@@ -80,7 +80,7 @@ Consequences:
 - SQL lives only in `Persistence/`. Application talks to storage through the abstractions' repository interfaces.
 - The client reuses Simulation for shared rules (stats, items, skills data, collision), so a rule changed there changes
   both sides. Rules that only the authority evaluates belong in Application.
-- `Client.Net` references Application for shared contracts; it must not run authoritative logic.
+- `Client.Net` and `Gameplay` never reference Application: what the client reads from the server lives in Contracts.
 
 ## Where a rule goes
 
