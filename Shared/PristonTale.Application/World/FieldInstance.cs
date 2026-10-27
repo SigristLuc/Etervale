@@ -700,7 +700,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         isSelf: false,
         m.Position,
         m.Facing,
-        ToMoveState(m.PresentedMotion),
+        m.PresentedMotion,
         level: m.Def.Combat.Level,
         hp: FieldMonsterSkills.ViewLife(m).Life,
         maxHp: FieldMonsterSkills.ViewLife(m).Max,
@@ -714,17 +714,4 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         DuelPlayerId = m.DuelPlayerId
     };
 
-    private static MoveStateView ToMoveState(MonsterMotionState motion) => motion switch
-    {
-        MonsterMotionState.Stand => MoveStateView.Idle,
-        MonsterMotionState.Walk => MoveStateView.Walking,
-        MonsterMotionState.Run => MoveStateView.Running,
-        MonsterMotionState.Attack => MoveStateView.Attack,
-        MonsterMotionState.Skill => MoveStateView.Skill,
-        MonsterMotionState.Damage => MoveStateView.Damage,
-        MonsterMotionState.Dead => MoveStateView.Dead,
-        MonsterMotionState.Eat => MoveStateView.Eat,
-        MonsterMotionState.Warp => MoveStateView.Warp,
-        _ => MoveStateView.Idle,
-    };
 }

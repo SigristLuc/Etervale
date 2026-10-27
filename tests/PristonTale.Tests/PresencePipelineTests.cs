@@ -6,6 +6,7 @@ using PristonTale.Server.Net;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Modifiers;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -52,7 +53,7 @@ internal static class PresencePipelineTests
     private static Task RoutedEventsAsync()
     {
         static EntityView At(ulong id, float x) =>
-            new(id, id == 1 ? EntityKindView.Player : EntityKindView.Monster, false, new Vector3(x, 0, 0), 0f, MoveStateView.Idle, 1, 100, 100, default);
+            new(id, id == 1 ? EntityKindView.Player : EntityKindView.Monster, false, new Vector3(x, 0, 0), 0f, MotionState.Stand, 1, 100, 100, default);
         EntityView[] views = [At(1, 0), At(10, 20), At(11, 40), At(12, 60), At(98, 50_000), At(99, 50_020)];
         // Far fights the receiver never sees, with its own monsters' events among them.
         var combat = Enumerable.Range(0, 40).Select(index => new CombatEventView(99, 98, CombatEventKindView.Hit, damage: index)).ToList();
@@ -76,7 +77,7 @@ internal static class PresencePipelineTests
 
     private static Task SharedWireAsync()
     {
-        var view = new EntityView(42, EntityKindView.Monster, false, new Vector3(-1234.5f, 17f, 999.25f), 1.1f, MoveStateView.Walking, 30, 77, 120, default,
+        var view = new EntityView(42, EntityKindView.Monster, false, new Vector3(-1234.5f, 17f, 999.25f), 1.1f, MotionState.Walk, 30, 77, 120, default,
             templateId: 9) { Revision = 3 };
         var wire = SharedPresenceWire.Create(4);
         var direct = new byte[PresenceWire.MaxFullEntrySize];
@@ -91,7 +92,7 @@ internal static class PresencePipelineTests
         var described = PresenceEncoder.DescriptionPacket(view, view.Revision, WorldData.Empty).Write(description);
         Assert.True(wire.Description(1, view, WorldData.Empty).SequenceEqual(description.AsSpan(0, described)), "the shared description differs");
         wire.Reset(4);
-        var moved = new EntityView(42, EntityKindView.Monster, false, Vector3.Zero, 0f, MoveStateView.Idle, 30, 77, 120, default, templateId: 9) { Revision = 3 };
+        var moved = new EntityView(42, EntityKindView.Monster, false, Vector3.Zero, 0f, MotionState.Stand, 30, 77, 120, default, templateId: 9) { Revision = 3 };
         length = WireMapping.WriteFull(direct, moved, 2, moved.Revision);
         Assert.True(wire.Full(1, moved, 2).SequenceEqual(direct.AsSpan(0, length)), "a reset frame kept the previous tick's entry");
         return Task.CompletedTask;
@@ -99,13 +100,13 @@ internal static class PresencePipelineTests
 
     private static Task EntriesAsync()
     {
-        var entry = new PresenceEntry(uint.MaxValue, true, new Vector3(-999_999.875f, 1234.5f, 999_999.875f), 4.71f, PresenceMotion.Skill, 100_000, 2_000_000,
+        var entry = new PresenceEntry(uint.MaxValue, true, new Vector3(-999_999.875f, 1234.5f, 999_999.875f), 4.71f, MotionState.Skill, 100_000, 2_000_000,
             285, 0x4000_0001, ulong.MaxValue - 3, 255, 0x3020, -1);
         var buffer = new byte[PresenceWire.HeaderSize + PresenceWire.MaxFullEntrySize + PresenceWire.MaxMotionEntrySize];
         var writer = new PresenceEntriesWriter(buffer, 77);
         var full = PresenceWire.WriteFull(writer.Reserve(PresenceWire.MaxFullEntrySize), entry);
         writer.Commit(full);
-        var motion = PresenceWire.WriteMotion(writer.Reserve(PresenceWire.MaxMotionEntrySize), 1, new Vector3(10.125f, -3f, 7.5f), 0.5f, PresenceMotion.Run);
+        var motion = PresenceWire.WriteMotion(writer.Reserve(PresenceWire.MaxMotionEntrySize), 1, new Vector3(10.125f, -3f, 7.5f), 0.5f, MotionState.Run);
         writer.Commit(motion);
         var read = new List<PresenceEntry>();
         var sequence = PresenceEntriesReader.Read(writer.Finish(), (in PresenceEntry value) => read.Add(value));
@@ -114,10 +115,10 @@ internal static class PresencePipelineTests
         var back = read[0];
         Assert.True(back.Full && back.Serial == uint.MaxValue && back.Hp == 100_000 && back.MaxHp == 2_000_000 && back.Level == 285
             && back.Target == 0x4000_0001 && back.AttackSequence == ulong.MaxValue - 3 && back.Revision == 255 && back.Template == 0x3020
-            && back.FieldCode == -1 && back.Motion == PresenceMotion.Skill, $"a full entry did not round-trip: {back}");
+            && back.FieldCode == -1 && back.Motion == MotionState.Skill, $"a full entry did not round-trip: {back}");
         Assert.True(Vector3.Distance(back.Position, entry.Position) <= 0.125f && MathF.Abs(back.Facing - entry.Facing) < 0.001f,
             "positions or facing lost more than the wire's precision");
-        Assert.True(!read[1].Full && read[1].Position == new Vector3(10.125f, -3f, 7.5f) && read[1].Motion == PresenceMotion.Run, "a motion entry did not round-trip");
+        Assert.True(!read[1].Full && read[1].Position == new Vector3(10.125f, -3f, 7.5f) && read[1].Motion == MotionState.Run, "a motion entry did not round-trip");
         foreach (var value in new ulong[] { 0, 127, 128, 16_383, 16_384, uint.MaxValue, ulong.MaxValue })
         {
             var bytes = new byte[VarInt.MaxBytes64];
@@ -166,7 +167,7 @@ internal static class PresencePipelineTests
 
     private static Task CrowdCapAsync()
     {
-        static EntityView Player(ulong id, Vector3 at, ulong target = 0) => new(id, EntityKindView.Player, false, at, 0f, MoveStateView.Idle, 1, 100, 100,
+        static EntityView Player(ulong id, Vector3 at, ulong target = 0) => new(id, EntityKindView.Player, false, at, 0f, MotionState.Stand, 1, 100, 100,
             new PlayerAppearanceView("P" + id, 2, 0, 0, 0, "", ""), attackTargetId: target) { Revision = 1 };
         var views = new List<EntityView> { Player(1, Vector3.Zero, target: 900) };
         for (ulong id = 2; id < 402; id++)
@@ -175,13 +176,13 @@ internal static class PresencePipelineTests
         }
 
         // Beyond the crowd but in view: an NPC, the receiver's target, a monster attacking it and its summon.
-        views.Add(new EntityView(900, EntityKindView.Monster, false, new Vector3(700, 0, 0), 0f, MoveStateView.Idle, 1, 10, 10, default, templateId: 5)
+        views.Add(new EntityView(900, EntityKindView.Monster, false, new Vector3(700, 0, 0), 0f, MotionState.Stand, 1, 10, 10, default, templateId: 5)
             { Revision = 1 });
-        views.Add(new EntityView(901, EntityKindView.Monster, false, new Vector3(0, 0, 700), 0f, MoveStateView.Attack, 1, 10, 10, default, templateId: 5,
+        views.Add(new EntityView(901, EntityKindView.Monster, false, new Vector3(0, 0, 700), 0f, MotionState.Attack, 1, 10, 10, default, templateId: 5,
             attackTargetId: 1) { Revision = 1 });
-        views.Add(new EntityView(902, EntityKindView.Monster, false, new Vector3(-700, 0, 0), 0f, MoveStateView.Idle, 1, 10, 10, default, templateId: 6)
+        views.Add(new EntityView(902, EntityKindView.Monster, false, new Vector3(-700, 0, 0), 0f, MotionState.Stand, 1, 10, 10, default, templateId: 6)
             { OwnerId = 1, Revision = 1 });
-        views.Add(new EntityView(903, EntityKindView.Npc, false, new Vector3(0, 0, -700), 0f, MoveStateView.Idle, 1, 1, 1, default, templateId: 7)
+        views.Add(new EntityView(903, EntityKindView.Npc, false, new Vector3(0, 0, -700), 0f, MotionState.Stand, 1, 1, 1, default, templateId: 7)
             { Revision = 1 });
         var wire = new WireRoundTrip(1);
         var update = wire.PushMerged(new WorldSnapshot(1, views.ToArray(), fieldId: 3));
@@ -196,7 +197,7 @@ internal static class PresencePipelineTests
 
     private static Task SegmentsAsync()
     {
-        var self = new EntityView(1, EntityKindView.Player, false, Vector3.Zero, 0f, MoveStateView.Idle, 1, 100, 100,
+        var self = new EntityView(1, EntityKindView.Player, false, Vector3.Zero, 0f, MotionState.Stand, 1, 100, 100,
             new PlayerAppearanceView("Self", 2, 0, 0, 0, "", ""));
         var outbox = new WorldOutbox();
         CombatEventView Hit(int damage) => new(1, 1, CombatEventKindView.Hit, damage: damage);
@@ -219,7 +220,7 @@ internal static class PresencePipelineTests
     private static Task GridAsync()
     {
         static EntityView At(ulong id, float x, float z, ulong target = 0, ulong owner = 0, EntityKindView kind = EntityKindView.Monster) =>
-            new(id, kind, false, new Vector3(x, 0, z), 0f, MoveStateView.Idle, 1, 1, 1, default, attackTargetId: target) { OwnerId = owner };
+            new(id, kind, false, new Vector3(x, 0, z), 0f, MotionState.Stand, 1, 1, 1, default, attackTargetId: target) { OwnerId = owner };
         var grid = EntityGrid.Build([At(1, -10, -10), At(2, 10, 10, target: 1), At(3, -5000, 0, owner: 1), At(4, 0, 300, kind: EntityKindView.Npc), At(5, 63, -1)]);
         var found = new List<int>();
         grid.Query(Vector3.Zero, 70f, found);

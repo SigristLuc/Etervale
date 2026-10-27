@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Combat;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -12,7 +13,7 @@ public sealed class RemoteEntity : RemoteEntityBase
     private readonly ActorHandle _head;
     private readonly PlayerActorHandles _handles;
 
-    public RemoteEntity(IActorScene scene, PlayerActorHandles handles, double timeMs, Vector3 position, float facing, RemoteMoveState moveState, int hp)
+    public RemoteEntity(IActorScene scene, PlayerActorHandles handles, double timeMs, Vector3 position, float facing, MotionState moveState, int hp)
         : base(RemoteEntityKind.Player, timeMs, position, facing, moveState, hp)
     {
         _scene = scene;

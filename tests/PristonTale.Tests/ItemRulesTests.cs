@@ -13,6 +13,7 @@ using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.WorldImport;
 using PristonTale.WorldImport.Parsers;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -333,7 +334,7 @@ internal static class ItemRulesTests
 
         var player = new WorldPlayer(1, new Vector3(100, 0, 100), character, false, default);
         Assert.True(player.ReportMovement(new Vector3(102, 0, 100), 0f, true, true, 0, 1000) == MovementVerdict.Accepted
-            && player.MoveState == MoveStateView.Walking, "an overweight character ran");
+            && player.MoveState == MotionState.Walk, "an overweight character ran");
         return Task.CompletedTask;
     }
 

@@ -11,6 +11,7 @@ using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Spawning;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -338,14 +339,14 @@ internal static class SkillSystemTests
         }
 
         Assert.True(stunned && target.Life < target.Def.Combat.MaxLife, "Shield Strike did not damage and stun");
-        Assert.True(target.Motion == MonsterMotionState.Stand && target.AiState != MonsterAiState.Attack, "stunned monster kept acting");
+        Assert.True(target.Motion == MotionState.Stand && target.AiState != MonsterAiState.Attack, "stunned monster kept acting");
         return Task.CompletedTask;
     }
 
     private static Task WireAsync()
     {
         var round = new WireRoundTrip(1);
-        var view = new EntityView(1, EntityKindView.Player, true, Vector3.Zero, 0, MoveStateView.Skill, 10, 100, 100, default);
+        var view = new EntityView(1, EntityKindView.Player, true, Vector3.Zero, 0, MotionState.Skill, 10, 100, 100, default);
         var snapshot = new WorldSnapshot(5, [view], fieldId: 3)
         {
             SkillEvents = [new SkillEventView(1, 1, 0x05010002, SkillEventPhaseView.Start, 2, SkillEventFlagsView.SelfCast, 900f, 400f, Vector3.Zero, 0f, 0, 0f)],

@@ -11,21 +11,6 @@ namespace PristonTale.Server.Net;
 // Server-side mapping from authoritative views to original Priston structs.
 internal static class WireMapping
 {
-    public static short ActionCode(MoveStateView state) => state switch
-    {
-        MoveStateView.Walking => MotionStateCode.Walk,
-        MoveStateView.Running => MotionStateCode.Run,
-        MoveStateView.Attack => MotionStateCode.Attack,
-        MoveStateView.Damage => MotionStateCode.Damage,
-        MoveStateView.Dead => MotionStateCode.Dead,
-        MoveStateView.Skill => MotionStateCode.Skill,
-        MoveStateView.Eat => MotionStateCode.Eat,
-        MoveStateView.Warp => MotionStateCode.Warp,
-        MoveStateView.Yahoo => MotionStateCode.Yahoo,
-        _ => MotionStateCode.Stand
-    };
-
-    public static short ClampShort(int value) => (short)Math.Clamp(value, short.MinValue, short.MaxValue);
 
     public static uint ItemCode(string? catalogKey) => ItemCodes.TryParse(catalogKey, out var code) ? code : 0;
 
@@ -33,31 +18,18 @@ internal static class WireMapping
     // summons describe themselves (a summon's owner and size are its own), so they carry none.
     public static uint SharedTemplate(in EntityView view) => view.Kind == EntityKindView.Player || view.OwnerId != 0 ? 0u : view.TemplateId;
 
-    public static byte Motion(MoveStateView state) => state switch
-    {
-        MoveStateView.Walking => PresenceMotion.Walk,
-        MoveStateView.Running => PresenceMotion.Run,
-        MoveStateView.Attack => PresenceMotion.Attack,
-        MoveStateView.Damage => PresenceMotion.Damage,
-        MoveStateView.Dead => PresenceMotion.Dead,
-        MoveStateView.Skill => PresenceMotion.Skill,
-        MoveStateView.Eat => PresenceMotion.Eat,
-        MoveStateView.Warp => PresenceMotion.Warp,
-        MoveStateView.Yahoo => PresenceMotion.Yahoo,
-        _ => PresenceMotion.Stand
-    };
 
     // A full presence entry: the motion part plus life, level, target, attack sequence, description revision, shared
     // template and field.
     public static PresenceEntry Entry(in EntityView view, int fieldCode, byte revision) => new(
-        view.EntityId, true, view.Position, view.Facing, Motion(view.MoveState), view.Hp, view.MaxHp, view.Level, view.AttackTargetId,
+        view.EntityId, true, view.Position, view.Facing, view.MoveState, view.Hp, view.MaxHp, view.Level, view.AttackTargetId,
         view.AttackSequence, revision, SharedTemplate(view), fieldCode);
 
     public static int WriteFull(Span<byte> destination, in EntityView view, int fieldCode, byte revision) =>
         PresenceWire.WriteFull(destination, Entry(view, fieldCode, revision));
 
     public static int WriteMotion(Span<byte> destination, in EntityView view) =>
-        PresenceWire.WriteMotion(destination, view.EntityId, view.Position, view.Facing, Motion(view.MoveState));
+        PresenceWire.WriteMotion(destination, view.EntityId, view.Position, view.Facing, view.MoveState);
 
     private static DescribedGlow Glow(in Simulation.Items.HeldItemGlow glow) =>
         new(glow.Blink, glow.R, glow.G, glow.B, glow.A, glow.Scale, glow.Mix, glow.MixScroll, glow.ClassUp);

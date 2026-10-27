@@ -4,6 +4,7 @@ using PristonTale.Gameplay.World;
 using PristonTale.Gameplay.World.Streaming;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World.Fields;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -51,7 +52,7 @@ internal static class MovementAndStreamingTests
 
                 Assert.True(predicted == target, "prediction stopped before the clicked point");
                 Assert.True(new Vector2(player.Position.X, player.Position.Z) == target, "authority stopped at another point");
-                Assert.True(player.MoveState == MoveStateView.Idle, "arrival did not publish idle");
+                Assert.True(player.MoveState == MotionState.Stand, "arrival did not publish idle");
             }
         }
 
@@ -85,11 +86,11 @@ internal static class MovementAndStreamingTests
             && player.Position == new Vector3(140, 0, 100), "a teleporting report moved the avatar");
         player.BeginSwing(2, new Vector3(150, 0, 100), 500, 250);
         Assert.True(player.ReportMovement(new Vector3(150, 0, 100), 0f, true, false, 2, 1300) == MovementVerdict.Ignored
-            && player.Position == new Vector3(140, 0, 100) && player.MoveState == MoveStateView.Attack, "a swing accepted locomotion");
+            && player.Position == new Vector3(140, 0, 100) && player.MoveState == MotionState.Attack, "a swing accepted locomotion");
         Assert.True(player.ReportMovement(new Vector3(800, 0, 100), 0f, true, false, 2, 1400) == MovementVerdict.Rejected,
             "large drift during a swing was not corrected");
         player.ExpireStaleMotion(10_000);
-        Assert.True(player.MoveState == MoveStateView.Attack, "stale-motion expiry overrode a busy action");
+        Assert.True(player.MoveState == MotionState.Attack, "stale-motion expiry overrode a busy action");
         return Task.CompletedTask;
     }
 
@@ -146,10 +147,10 @@ internal static class MovementAndStreamingTests
         var player = new WorldPlayer(1, new Vector3(100, 0, 100), character, false, default);
         Assert.True(player.ReportMovement(new Vector3(150, 0, 100), 0f, true, true, 0, 100) == MovementVerdict.Accepted, "run report rejected");
         player.CrossGate(true);
-        Assert.True(player.MoveState == MoveStateView.Running && player.Position == new Vector3(150, 0, 100), "crossing a gate stopped the run");
+        Assert.True(player.MoveState == MotionState.Run && player.Position == new Vector3(150, 0, 100), "crossing a gate stopped the run");
         Assert.True(player.ReportMovement(new Vector3(200, 0, 100), 0f, true, true, 0, 500) == MovementVerdict.Accepted, "run after a gate rejected");
         player.ExpireStaleMotion(2100);
-        Assert.True(player.MoveState == MoveStateView.Idle, "a silent client kept running");
+        Assert.True(player.MoveState == MotionState.Stand, "a silent client kept running");
         var warp = new Vector3(9000, 0, 8000);
         player.EnterField(warp, true);
         Assert.True(player.ReportMovement(new Vector3(250, 0, 100), 0f, true, true, 0, 2200) == MovementVerdict.Rejected && player.Position == warp,

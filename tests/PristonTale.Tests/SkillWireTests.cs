@@ -3,6 +3,7 @@ using PristonTale.Client.Net.Presence;
 using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Skills;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -103,9 +104,9 @@ internal static class SkillWireTests
             Current = new WorldData(empty.Items, new Simulation.World.Monsters.MonsterCatalog([golem]), empty.Npcs, empty.FieldSpawns, empty.Motions)
         };
         var round = new WireRoundTrip(1, data);
-        var summon = new EntityView(9, EntityKindView.Monster, false, System.Numerics.Vector3.Zero, 0, MoveStateView.Idle, 60, 100, 100, default,
+        var summon = new EntityView(9, EntityKindView.Monster, false, System.Numerics.Vector3.Zero, 0, MotionState.Stand, 60, 100, 100, default,
             templateId: 40) { OwnerId = 1, ModelScale = 1.25f };
-        var self = new EntityView(1, EntityKindView.Player, true, System.Numerics.Vector3.Zero, 0, MoveStateView.Idle, 80, 100, 100, default);
+        var self = new EntityView(1, EntityKindView.Player, true, System.Numerics.Vector3.Zero, 0, MotionState.Stand, 80, 100, 100, default);
         var spawn = round.Push(new WorldSnapshot(5, [self, summon], fieldId: 3)).SelectMany(update => update.Spawns).Single(value => value.EntityId == 9);
         Assert.True(spawn.OwnerId == 1 && Math.Abs(spawn.ModelScale - 1.25f) < 0.0001f, "the summon's owner or scale was lost on the wire");
         return Task.CompletedTask;

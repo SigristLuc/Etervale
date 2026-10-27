@@ -4,6 +4,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Combat;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -52,7 +53,7 @@ public abstract class RemoteEntityBase
 
     private bool SkillOverride => _skillMotionIndex >= 0 || _skillAttackClip;
 
-    protected RemoteEntityBase(RemoteEntityKind kind, double timeMs, Vector3 position, float facing, RemoteMoveState moveState, int hp,
+    protected RemoteEntityBase(RemoteEntityKind kind, double timeMs, Vector3 position, float facing, MotionState moveState, int hp,
         int soundCode = 0)
     {
         Kind = kind;
@@ -100,7 +101,7 @@ public abstract class RemoteEntityBase
 
     public bool IsDead => _controller.IsDead;
 
-    public void SetTarget(double timeMs, Vector3 position, float facing, RemoteMoveState moveState, int hp)
+    public void SetTarget(double timeMs, Vector3 position, float facing, MotionState moveState, int hp)
     {
         _ = _track.Add(new RemoteSample(timeMs, position, facing, moveState, hp), _renderPosition);
     }
@@ -181,17 +182,17 @@ public abstract class RemoteEntityBase
 
     public abstract void Dispose();
 
-    public static PristonActorMotion ToActorMotion(RemoteMoveState moveState) => moveState switch
+    public static PristonActorMotion ToActorMotion(MotionState moveState) => moveState switch
     {
-        RemoteMoveState.Walking => PristonActorMotion.Walk,
-        RemoteMoveState.Running => PristonActorMotion.Run,
-        RemoteMoveState.Attack => PristonActorMotion.Attack,
-        RemoteMoveState.Damage => PristonActorMotion.Damage,
-        RemoteMoveState.Dead => PristonActorMotion.Dead,
-        RemoteMoveState.Skill => PristonActorMotion.Skill,
-        RemoteMoveState.Eat => PristonActorMotion.Eat,
-        RemoteMoveState.Warp => PristonActorMotion.Warp,
-        RemoteMoveState.Yahoo => PristonActorMotion.Yahoo,
+        MotionState.Walk => PristonActorMotion.Walk,
+        MotionState.Run => PristonActorMotion.Run,
+        MotionState.Attack => PristonActorMotion.Attack,
+        MotionState.Damage => PristonActorMotion.Damage,
+        MotionState.Dead => PristonActorMotion.Dead,
+        MotionState.Skill => PristonActorMotion.Skill,
+        MotionState.Eat => PristonActorMotion.Eat,
+        MotionState.Warp => PristonActorMotion.Warp,
+        MotionState.Yahoo => PristonActorMotion.Yahoo,
         _ => PristonActorMotion.Stand,
     };
 

@@ -45,7 +45,7 @@ rendering internals, skill presentation and VFX data have their own documents (s
 | [`Client/PristonTale.Client.Net/GameServerConnection.cs`](../Client/PristonTale.Client.Net/GameServerConnection.cs) | TCP session: connect, login, characters, world entry, request correlation, heartbeat, receive dispatch |
 | `Client/PristonTale.Client.Net/IGameBackend.cs`, `IPlayChannel.cs` | Contracts the screens use: account and character requests; in-world commands and the presence stream |
 | `Client/PristonTale.Client.Net/Online/` | `OnlinePlayChannel` (world session lifetime), `PresenceDecoder` (wire packets to `PresenceUpdate`) |
-| `Client/PristonTale.Client.Net/Presence/` | Neutral presence model: `PresenceUpdate`, spawns, states, combat and skill events, `RemoteMoveState` |
+| `Client/PristonTale.Client.Net/Presence/` | Neutral presence model: `PresenceUpdate`, spawns, states (motion as `MotionState`), combat and skill events |
 | `Client/PristonTale.Client.Net/WorldCatalog/` | `WorldRenderCatalog`: monster and NPC templates learned from the server |
 
 ## Startup

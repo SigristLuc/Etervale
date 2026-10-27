@@ -17,6 +17,7 @@ using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Server.Net;
 
@@ -446,7 +447,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
 
         // A saturated queue or quota drops the report; the next one carries the newer position.
         _services.World.TryReportMovement(session.FieldId, session.EntityId, position, report.Facing, report.Moving,
-            report.Motion == PresenceMotion.Run, report.ActionTarget, this);
+            report.Motion == MotionState.Run, report.ActionTarget, this);
     }
 
     // On the tick thread: a rejection is answered from the thread pool, where the correction may wait for the encoder.

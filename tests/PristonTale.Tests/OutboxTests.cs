@@ -1,6 +1,7 @@
 using System.Numerics;
 using PristonTale.Application.World;
 using PristonTale.Gameplay.UI;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -64,7 +65,7 @@ internal static class OutboxTests
     {
         EntityView View(int hp, int maxHp = 10)
         {
-            return new EntityView(1, EntityKindView.Player, false, Vector3.Zero, 0, MoveStateView.Idle, 1, hp, maxHp, default);
+            return new EntityView(1, EntityKindView.Player, false, Vector3.Zero, 0, MotionState.Stand, 1, hp, maxHp, default);
         }
 
         var presence = new SubscriberPresence(1);

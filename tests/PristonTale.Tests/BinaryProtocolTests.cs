@@ -9,6 +9,7 @@ using System.Security.Cryptography.X509Certificates;
 using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
 using PristonTale.Protocol.Transport;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -117,13 +118,13 @@ internal static class BinaryProtocolTests
     private static Task PlayerActionsAsync()
     {
         var buffer = new byte[FrameCodec.MaxFrameSize];
-        var report = new MovementReportPacket(PresenceMotion.Run, 3, new System.Numerics.Vector3(1024.5f, -12.25f, -999_999f), MathF.PI / 2,
+        var report = new MovementReportPacket(MotionState.Run, 3, new System.Numerics.Vector3(1024.5f, -12.25f, -999_999f), MathF.PI / 2,
             0x1_0000_0002UL);
         Assert.True(report.Write(buffer) == MovementReportPacket.Size, "movement report size changed");
         var read = MovementReportPacket.Read(buffer.AsSpan(0, MovementReportPacket.Size));
         Assert.True(read with { Facing = report.Facing } == report && MathF.Abs(read.Facing - report.Facing) < 1e-4f && read.Moving,
             $"movement report read back as {read}");
-        buffer[10] = PresenceMotion.Attack;
+        buffer[10] = (byte)MotionState.Attack;
         Assert.ThrowsAsync(() => Task.Run(() => MovementReportPacket.Read(buffer.AsSpan(0, MovementReportPacket.Size).ToArray()))).Wait();
 
         var attack = new AttackRequestPacket(0x1_0000_0003UL, true, ulong.MaxValue - 1);

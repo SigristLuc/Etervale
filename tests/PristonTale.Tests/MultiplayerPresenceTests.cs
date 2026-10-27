@@ -8,6 +8,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.World.Monsters;
 using static PristonTale.Tests.MultiplayerMovementTests;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -181,7 +182,7 @@ internal static class MultiplayerPresenceTests
         await using var c = await Enter(server, "Healer", respawn + new Vector3(100f, 0f, 0f));
         await b.WaitUntilAsync(world => world.Entities.ContainsKey(a.Serial), "the victim");
 
-        await b.WaitUntilAsync(world => world.Entities.TryGetValue(a.Serial, out var victim) && victim.Hp <= 0 && victim.Motion == RemoteMoveState.Dead,
+        await b.WaitUntilAsync(world => world.Entities.TryGetValue(a.Serial, out var victim) && victim.Hp <= 0 && victim.Motion == MotionState.Dead,
             "the victim dead", 9000);
         var killing = b.World.Read(world => world.Combat.Select(entry => entry.Event).First(value => value.TargetId == a.Serial && value.Killed));
         Assert.True(a.World.Read(world => world.Combat.Any(entry => entry.Event == killing)), "the victim saw another killing blow");

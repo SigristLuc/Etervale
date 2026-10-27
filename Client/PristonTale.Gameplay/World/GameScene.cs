@@ -19,6 +19,7 @@ using PristonTale.Simulation.Physics;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Motion;
 using NumVector3 = System.Numerics.Vector3;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World;
 
@@ -1130,7 +1131,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private void OnSelfState(EntityStateInfo state)
     {
         _attackInput.Reconcile(state.AttackSequence, state.AttackTargetId);
-        _selfAttacking = state.MoveState == RemoteMoveState.Attack;
+        _selfAttacking = state.MoveState == MotionState.Attack;
         int previousHp = _selfHp;
         _selfHp = state.Hp;
         _serverMoveSpeed = state.MoveSpeed;

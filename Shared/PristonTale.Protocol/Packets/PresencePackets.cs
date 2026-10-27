@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Numerics;
+using PristonTale.Contracts.Motion;
 using PristonTale.Protocol.Binary;
 
 namespace PristonTale.Protocol.Packets;
@@ -66,21 +67,6 @@ public static class VarInt
     public static int UnZigZag(ulong value) => (int)(uint)(value >> 1) ^ -(int)(uint)(value & 1);
 }
 
-// The motion of a presence entry.
-public static class PresenceMotion
-{
-    public const byte Stand = 0;
-    public const byte Walk = 1;
-    public const byte Run = 2;
-    public const byte Attack = 3;
-    public const byte Damage = 4;
-    public const byte Dead = 5;
-    public const byte Skill = 6;
-    public const byte Eat = 7;
-    public const byte Warp = 8;
-    public const byte Yahoo = 9;
-}
-
 // What the receiver learns about one entity. A motion entry carries the position, facing and motion only; a full entry
 // adds the life, level, target, attack sequence, description revision, shared template and field.
 public readonly record struct PresenceEntry(
@@ -88,7 +74,7 @@ public readonly record struct PresenceEntry(
     bool Full,
     Vector3 Position,
     float Facing,
-    byte Motion,
+    MotionState Motion,
     int Hp = 0,
     int MaxHp = 0,
     int Level = 0,
@@ -118,7 +104,7 @@ public static class PresenceWire
 
     public static int MotionEntrySize(ulong serial) => VarInt.Size(serial) + MotionBody;
 
-    public static int WriteMotion(Span<byte> destination, ulong serial, Vector3 position, float facing, byte motion)
+    public static int WriteMotion(Span<byte> destination, ulong serial, Vector3 position, float facing, MotionState motion)
     {
         var offset = VarInt.Write(destination, serial);
         destination[offset++] = 0;
@@ -153,7 +139,12 @@ public static class PresenceWire
         var position = new Vector3(ReadInt24(source, ref offset), ReadInt24(source, ref offset), ReadInt24(source, ref offset)) / PositionScale;
         var facing = BinaryPrimitives.ReadUInt16LittleEndian(source[offset..]) * (2f * MathF.PI / 65536f);
         offset += 2;
-        var motion = source[offset++];
+        var motion = (MotionState)source[offset++];
+        if (motion > MotionState.Yahoo)
+        {
+            throw new InvalidDataException("Presence entry has an unknown motion.");
+        }
+
         if (!full)
         {
             return new PresenceEntry(serial, false, position, facing, motion);
@@ -181,14 +172,14 @@ public static class PresenceWire
         return (ushort)((int)MathF.Round((turn - MathF.Floor(turn)) * 65536f) & 0xFFFF);
     }
 
-    private static int WriteBody(Span<byte> destination, int offset, Vector3 position, float facing, byte motion)
+    private static int WriteBody(Span<byte> destination, int offset, Vector3 position, float facing, MotionState motion)
     {
         WriteInt24(destination, ref offset, position.X);
         WriteInt24(destination, ref offset, position.Y);
         WriteInt24(destination, ref offset, position.Z);
         BinaryPrimitives.WriteUInt16LittleEndian(destination[offset..], ToFacing(facing));
         offset += 2;
-        destination[offset++] = motion;
+        destination[offset++] = (byte)motion;
         return offset;
     }
 

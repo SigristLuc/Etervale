@@ -25,7 +25,7 @@ How the tick calls these rules belongs to [application.md](application.md).
 | [`World/FieldTerrain.cs`](../Shared/PristonTale.Simulation/World/FieldTerrain.cs) | Ground queries for one field: place on floor, step, wall crossing, wall slide, body sweep |
 | `World/MonsterStepping.cs` | Server monster step: full step, then two side probes; `IStepOccupancy` |
 | `World/WorldPosition.cs` | `IsValid`: finite and within ±1,000,000 units on every axis |
-| `World/Monsters/` | `MonsterDefinition` (stats, AI block, skill block, potions, drops), `MonsterCatalog`, `MonsterInstance` (live state), `MonsterMotionState` |
+| `World/Monsters/` | `MonsterDefinition` (stats, AI block, skill block, potions, drops), `MonsterCatalog`, `MonsterInstance` (live state, motion as `MotionState`), `MotionStateExtensions` |
 | `World/Monsters/Skills/` | Monster skill rules: `MonsterSkillRules` (curses, blow and skill riders, timings), `MonsterStatuses` (codes and effect specs), `MonsterLifeRules` (potions, virtual lives, Babel's regeneration), `MonsterTransformRules`, `MonsterSounds` |
 | [`World/Ai/MonsterAiBrain.cs`](../Shared/PristonTale.Simulation/World/Ai/MonsterAiBrain.cs) | Wild monster state machine: target scan, chase, attack, leash and stuck manoeuvres, flinch, boss retarget |
 | `World/Ai/MonsterAiTuning.cs` | Per-definition derived constants and clip timings; global AI constants |

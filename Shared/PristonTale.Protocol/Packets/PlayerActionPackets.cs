@@ -1,5 +1,6 @@
 using System.Numerics;
 using PristonTale.Protocol.Binary;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Protocol.Packets;
 
@@ -7,18 +8,18 @@ namespace PristonTale.Protocol.Packets;
 // current field), int32 X, Y, Z (x256), uint16 Facing (65536 per turn), uint16 0, uint64 ActionTarget (0 none)}: the
 // client's own position, sent every 200 ms while moving, on state changes and every second while idle. A field other
 // than the current one asks to cross into it.
-public readonly record struct MovementReportPacket(byte Motion, int Field, Vector3 Position, float Facing, ulong ActionTarget)
+public readonly record struct MovementReportPacket(MotionState Motion, int Field, Vector3 Position, float Facing, ulong ActionTarget)
 {
     public const ushort CurrentVersion = 1;
     public const int Size = 8 + 4 + 4 + 12 + 4 + 8;
 
-    public bool Moving => Motion is PresenceMotion.Walk or PresenceMotion.Run;
+    public bool Moving => Motion is MotionState.Walk or MotionState.Run;
 
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.MovementReport);
         writer.UInt16(CurrentVersion);
-        writer.Byte(Motion);
+        writer.Byte((byte)Motion);
         writer.Byte(0);
         writer.Int32(Field);
         writer.Int32(PristonUnits.ToFixed(Position.X));
@@ -38,9 +39,9 @@ public readonly record struct MovementReportPacket(byte Motion, int Field, Vecto
             throw new InvalidDataException("Movement report has version 0.");
         }
 
-        var motion = reader.Byte();
+        var motion = (MotionState)reader.Byte();
         reader.Skip(1);
-        if (motion > PresenceMotion.Run)
+        if (motion > MotionState.Run)
         {
             throw new InvalidDataException("Movement report has an unknown motion.");
         }

@@ -17,7 +17,7 @@ where to look. Setup, build and run commands are in the root [README.md](../READ
 
 | Doc | Covers |
 |---|---|
-| [architecture.md](architecture.md) | Projects, dependency direction, where each kind of rule goes, server and client threading, path of a player action |
+| [architecture.md](architecture.md) | Projects, dependency direction, where each kind of rule goes, shared codes (`Shared/PristonTale.Contracts`), server and client threading, path of a player action |
 | [glossary.md](glossary.md) | Domain terms, abbreviations and original formats |
 | [simulation.md](simulation.md) | `Shared/PristonTale.Simulation` core: characters, classes, items, combat, modifiers, progression |
 | [world.md](world.md) | Simulation world rules: fields, terrain, AI, spawning, loot, motion, NPCs, physics, `Shared/PristonTale.Geometry` |

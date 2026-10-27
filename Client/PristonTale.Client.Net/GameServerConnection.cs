@@ -18,6 +18,7 @@ using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Client.Net;
 
@@ -458,7 +459,7 @@ public sealed class GameServerConnection : IGameBackend
 
     internal void SendMovement(Vector3 position, float facing, bool moving, bool running, ulong actionTarget, int fieldCode)
     {
-        var motion = !moving ? PresenceMotion.Stand : running ? PresenceMotion.Run : PresenceMotion.Walk;
+        var motion = !moving ? MotionState.Stand : running ? MotionState.Run : MotionState.Walk;
         var report = new MovementReportPacket(motion, fieldCode, position, facing, actionTarget);
         lock (_sendGate)
         {

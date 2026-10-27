@@ -8,6 +8,7 @@ using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Social;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Motion;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Application.World;
 
@@ -135,7 +136,7 @@ public sealed class WorldPlayer
             return false;
         }
 
-        if (IsDead || IsBusy || _yahooPending || MoveState is not (MoveStateView.Idle or MoveStateView.Walking or MoveStateView.Running))
+        if (IsDead || IsBusy || _yahooPending || MoveState is not (MotionState.Stand or MotionState.Walk or MotionState.Run))
         {
             return false;
         }
@@ -164,7 +165,7 @@ public sealed class WorldPlayer
 
         _yahooPending = false;
         Action = PlayerActionState.Yahoo;
-        MoveState = MoveStateView.Yahoo;
+        MoveState = MotionState.Yahoo;
         _yahooMsLeft = MathF.Max(1f, durationMs);
         return true;
     }
@@ -177,7 +178,7 @@ public sealed class WorldPlayer
         }
 
         Action = PlayerActionState.Eat;
-        MoveState = MoveStateView.Eat;
+        MoveState = MotionState.Eat;
         _potionElapsedMs = 0f;
         _potionDurationMs = MathF.Max(1f, durationMs);
         _potionEventMs = Math.Clamp(eventMs, 0f, _potionDurationMs);
@@ -209,7 +210,7 @@ public sealed class WorldPlayer
         {
             _pendingPotion = null;
             Action = PlayerActionState.Idle;
-            MoveState = MoveStateView.Idle;
+            MoveState = MotionState.Stand;
         }
 
         return restored;
@@ -253,7 +254,7 @@ public sealed class WorldPlayer
         }
 
         Action = PlayerActionState.Cast;
-        MoveState = MoveStateView.Skill;
+        MoveState = MotionState.Skill;
         CastCompleted = false;
         _castElapsedMs = 0f;
         _castDurationMs = MathF.Max(1f, durationMs);
@@ -262,9 +263,9 @@ public sealed class WorldPlayer
 
     public RegenerationPosture Posture => IsDead ? RegenerationPosture.Acting : MoveState switch
     {
-        MoveStateView.Idle => RegenerationPosture.Standing,
-        MoveStateView.Walking => RegenerationPosture.Walking,
-        MoveStateView.Running => RegenerationPosture.Running,
+        MotionState.Stand => RegenerationPosture.Standing,
+        MotionState.Walk => RegenerationPosture.Walking,
+        MotionState.Run => RegenerationPosture.Running,
         _ => RegenerationPosture.Acting
     };
 
@@ -319,7 +320,7 @@ public sealed class WorldPlayer
     public ulong EntityId { get; }
     public Vector3 Position { get; private set; }
     public float Facing { get; private set; }
-    public MoveStateView MoveState { get; private set; } = MoveStateView.Idle;
+    public MotionState MoveState { get; private set; } = MotionState.Stand;
 
     public ulong AttackTargetId => _attackTargetId;
     public ulong AttackSequence { get; private set; }
@@ -433,7 +434,7 @@ public sealed class WorldPlayer
 
         // A character over the weight limit only walks, whatever the client reports.
         var runs = running && !CarriedWeight.IsOverweight(_character);
-        MoveState = !moving ? MoveStateView.Idle : runs ? MoveStateView.Running : MoveStateView.Walking;
+        MoveState = !moving ? MotionState.Stand : runs ? MotionState.Run : MotionState.Walk;
         return MovementVerdict.Accepted;
     }
 
@@ -494,10 +495,10 @@ public sealed class WorldPlayer
     // A client that stops reporting while moving is shown standing, like the original's 1.5 s motion cut-off.
     public void ExpireStaleMotion(long nowMs)
     {
-        if (!IsBusy && !IsDead && MoveState is MoveStateView.Walking or MoveStateView.Running
+        if (!IsBusy && !IsDead && MoveState is MotionState.Walk or MotionState.Run
             && _lastReportMs >= 0 && nowMs - _lastReportMs > StaleMotionMs)
         {
-            MoveState = MoveStateView.Idle;
+            MoveState = MotionState.Stand;
         }
     }
 
@@ -532,7 +533,7 @@ public sealed class WorldPlayer
 
         _yahooPending = false;
         Action = PlayerActionState.Idle;
-        MoveState = MoveStateView.Idle;
+        MoveState = MotionState.Stand;
     }
 
     public void EnterField(Vector3 position, bool inVillage)
@@ -566,7 +567,7 @@ public sealed class WorldPlayer
     {
         Facing = MathF.Atan2(targetPos.X - Position.X, targetPos.Z - Position.Z);
         Action = PlayerActionState.Swing;
-        MoveState = MoveStateView.Attack;
+        MoveState = MotionState.Attack;
         _swingElapsedMs = 0f;
         _swingDurationMs = MathF.Max(durationMs, 1f);
         _swingHitAtMs = hitAtMs;
@@ -587,7 +588,7 @@ public sealed class WorldPlayer
                 if (_flinchMsLeft <= 0f)
                 {
                     Action = PlayerActionState.Idle;
-                    MoveState = MoveStateView.Idle;
+                    MoveState = MotionState.Stand;
                 }
 
                 return false;
@@ -597,7 +598,7 @@ public sealed class WorldPlayer
                 if (_yahooMsLeft <= 0f)
                 {
                     Action = PlayerActionState.Idle;
-                    MoveState = MoveStateView.Idle;
+                    MoveState = MotionState.Stand;
                 }
 
                 return false;
@@ -608,7 +609,7 @@ public sealed class WorldPlayer
                 {
                     CastCompleted = true;
                     Action = PlayerActionState.Idle;
-                    MoveState = MoveStateView.Idle;
+                    MoveState = MotionState.Stand;
                 }
 
                 return false;
@@ -636,7 +637,7 @@ public sealed class WorldPlayer
                     }
 
                     Action = PlayerActionState.Idle;
-                    MoveState = MoveStateView.Idle;
+                    MoveState = MotionState.Stand;
                     if (!_attackSustained && _swingAttackSequence == AttackSequence)
                     {
                         ClearAttackTarget();
@@ -668,7 +669,7 @@ public sealed class WorldPlayer
             _attackTargetId = 0;
             _attackSustained = false;
             DeadMs = 0f;
-            MoveState = MoveStateView.Dead;
+            MoveState = MotionState.Dead;
         }
         else
         {
@@ -677,7 +678,7 @@ public sealed class WorldPlayer
             {
                 Action = PlayerActionState.Flinch;
                 _flinchMsLeft = FlinchMs;
-                MoveState = MoveStateView.Damage;
+                MoveState = MotionState.Damage;
             }
         }
     }
@@ -731,7 +732,7 @@ public sealed class WorldPlayer
         _character.Life = Math.Clamp(life, 1, MaxHp);
         IsDead = false;
         _attackTargetId = 0;
-        MoveState = MoveStateView.Idle;
+        MoveState = MotionState.Stand;
         Action = PlayerActionState.Idle;
         GuardMsLeft = MathF.Max(0f, guardMs);
     }

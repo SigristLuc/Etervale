@@ -30,6 +30,7 @@ shows comes from server snapshots.
 
 | Project | Kind | Owns |
 |---|---|---|
+| `Shared/PristonTale.Contracts` | library, no deps | Codes every layer shares, declared once (`MotionState`: the server's motion, the world view, the presence wire byte and the client's playback) |
 | `Shared/PristonTale.Geometry` | library, no deps | Pure geometry used by simulation and renderer |
 | `Shared/PristonTale.Simulation` | library | Game rules and data models: characters, classes, items, combat, modifiers, progression, skills, world rules (fields, AI, spawning, loot, motion, NPCs), physics. No IO, no transport, no MonoGame |
 | `Shared/PristonTale.Protocol` | library, no deps | Wire format: framing, TLS transport, messages and codecs, Etervale opcodes |
@@ -49,12 +50,13 @@ shows comes from server snapshots.
 
 ## Dependency graph
 
-Project references, from the `.csproj` files. Keep this direction; never add a reverse edge. Geometry and Protocol
+Project references, from the `.csproj` files. Keep this direction; never add a reverse edge. Contracts and Geometry
 reference nothing.
 
 | Project | References |
 |---|---|
-| Simulation | Geometry |
+| Protocol | Contracts |
+| Simulation | Contracts, Geometry |
 | Persistence.Abstractions | Simulation |
 | Persistence | Persistence.Abstractions, Simulation |
 | Persistence.Sqlite / .Postgres | Persistence |
@@ -69,6 +71,9 @@ reference nothing.
 
 Consequences:
 
+- A code that crosses layers (a motion state, a kind, a status) is declared once in Contracts and used as it is on
+  every side; a layer declares its own enum only when the meaning differs (a model's motion table code is not a
+  `MotionState`), with one mapping beside it.
 - Simulation and Application never see sockets, packets, SQL or MonoGame. Packet structs stay in Protocol; mapping
   between packets and application inputs/outcomes lives in `Server/PristonTale.Server/Net` (server) and
   `Client/PristonTale.Client.Net` (client).

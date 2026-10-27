@@ -6,6 +6,7 @@ using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Application.World;
 
@@ -369,7 +370,7 @@ public sealed partial class FieldInstance
             }
         }
 
-        var skilling = opponent.Motion == MonsterMotionState.Skill;
+        var skilling = opponent.Motion == MotionState.Skill;
         if (skilling && !duel.WasSkilling && duel.Master && !HelperAlive(duel) && _rng.NextExclusive(0, 100) < QuestArena.HelperPercent)
         {
             CallHelper(opponent, duel, player);

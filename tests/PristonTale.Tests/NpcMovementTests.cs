@@ -5,6 +5,7 @@ using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Motion;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -44,12 +45,12 @@ internal static class NpcMovementTests
         for (var tick = 0; tick < 4_000; tick++)
         {
             field.Step(0.05f);
-            sawWalk |= npc.MoveState == MoveStateView.Walking;
+            sawWalk |= npc.MoveState == MotionState.Walk;
             sawDisplacement |= Vector3.DistanceSquared(npc.Position, home) > 0.01f;
             var diff = presence.Diff(field.BuildViews());
             publishedWalk |= diff.States.Any(state =>
                 state.EntityId == npc.EntityId
-                && state.MoveState == MoveStateView.Walking
+                && state.MoveState == MotionState.Walk
                 && Vector3.DistanceSquared(state.Position, home) > 0.01f);
             Assert.True(Vector3.Distance(npc.Position, home) <= definition.MoveRange + 0.01f, "NPC escaped its authored movement radius");
         }
@@ -77,7 +78,7 @@ internal static class NpcMovementTests
         }
 
         Assert.True(!npc.CanWalk && npc.Position == original, "Stand-only NPC moved without an INX Walk clip");
-        Assert.True(npc.ToView().MoveState == MoveStateView.Idle && npc.ToView().MoveSpeed == 0, "fixed NPC advertised locomotion");
+        Assert.True(npc.ToView().MoveState == MotionState.Stand && npc.ToView().MoveSpeed == 0, "fixed NPC advertised locomotion");
         return Task.CompletedTask;
     }
 

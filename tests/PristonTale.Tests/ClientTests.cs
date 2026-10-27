@@ -11,6 +11,7 @@ using PristonTale.Gameplay.World.Remote;
 using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -33,13 +34,13 @@ internal static class ClientTests
         var origin = new System.Numerics.Vector3(120, 35, -400);
         var impact = new CombatEventView(9, 1, CombatEventKindView.MonsterSkillImpact,
             sourceSoundCode: 0x18E0, position: origin, facing: 1.2f);
-        var entity = new EntityView(2, EntityKindView.Monster, false, origin, 1.2f, MoveStateView.Skill,
+        var entity = new EntityView(2, EntityKindView.Monster, false, origin, 1.2f, MotionState.Skill,
             10, 45, 60, default, templateId: 1);
-        var self = new EntityView(1, EntityKindView.Player, false, origin, 0f, MoveStateView.Idle, 1, 100, 100,
+        var self = new EntityView(1, EntityKindView.Player, false, origin, 0f, MotionState.Stand, 1, 100, 100,
             new PlayerAppearanceView("Self", 2, 0, 0, 0, "", ""));
         var snapshot = new WorldSnapshot(8, [self, entity], [impact], 3);
         var update = new WireRoundTrip(1).PushMerged(snapshot);
-        Assert.True(update.FieldId == 3 && update.Spawns.Single(spawn => spawn.EntityId == 2).MoveState == RemoteMoveState.Skill,
+        Assert.True(update.FieldId == 3 && update.Spawns.Single(spawn => spawn.EntityId == 2).MoveState == MotionState.Skill,
             "TCP presence dropped field or skill motion");
         Assert.True(update.Spawns.Single(spawn => spawn.EntityId == 1).IsSelf, "own avatar was not marked as self");
         Assert.True(update.Events.Single().Position == origin && update.Events.Single().Kind == RemoteCombatEventKind.MonsterSkillImpact,
@@ -51,7 +52,7 @@ internal static class ClientTests
     private static Task CrowdBudgetAsync()
     {
         EntityView Walker(int id, float offset) => new((uint)id, EntityKindView.Player, false, new System.Numerics.Vector3(id + offset, 0, id % 20 * 10f), 0f,
-            MoveStateView.Walking, 1, 100, 100, new PlayerAppearanceView("W" + id, 2, 0, 0, 0, "", ""));
+            MotionState.Walk, 1, 100, 100, new PlayerAppearanceView("W" + id, 2, 0, 0, 0, "", ""));
         // The largest crowd a receiver shows at once: the receiver and MaxVisible others.
         var crowd = Server.Net.PresenceEncoder.MaxVisible + 1;
         var wire = new WireRoundTrip(1);
@@ -81,7 +82,7 @@ internal static class ClientTests
             0,
             Vector3.Zero,
             0,
-            RemoteMoveState.Attack,
+            MotionState.Attack,
             100);
         var now = 1000d;
         void Settle()
@@ -110,7 +111,7 @@ internal static class ClientTests
         remote.ApplyCombatEvent(swing, now);
         Settle();
         Assert.True(scene.Restarts == 2, "second swing event was lost");
-        remote.SetTarget(now, Vector3.Zero, 0, RemoteMoveState.Skill, 100);
+        remote.SetTarget(now, Vector3.Zero, 0, MotionState.Skill, 100);
         var cast = new CombatEventInfo(2, 1, RemoteCombatEventKind.SwingBegin, 1980, 957, 0, false, false);
         remote.ApplyCombatEvent(cast, now);
         Settle();
@@ -118,7 +119,7 @@ internal static class ClientTests
         remote.ApplyCombatEvent(cast, now);
         Settle();
         Assert.True(scene.Restarts == 4 && remote.Motion == PristonActorMotion.Skill, "repeated skill did not restart its own motion");
-        remote.SetTarget(now, Vector3.Zero, 0, RemoteMoveState.Walking, 100);
+        remote.SetTarget(now, Vector3.Zero, 0, MotionState.Walk, 100);
         Settle();
         Settle();
         Assert.True(remote.ShownMotion == PristonActorMotion.Stand, "Walk without ground motion was shown walking");
@@ -165,7 +166,7 @@ internal static class ClientTests
             0,
             Vector3.Zero,
             0f,
-            RemoteMoveState.Idle,
+            MotionState.Stand,
             1,
             RemoteEntityKind.Npc,
             modelInfo: warehouseInfo,
@@ -206,7 +207,7 @@ internal static class ClientTests
             false,
             System.Numerics.Vector3.Zero,
             0,
-            RemoteMoveState.Idle,
+            MotionState.Stand,
             100,
             100,
             appearance,
@@ -223,7 +224,7 @@ internal static class ClientTests
     private static Task ServerHeightAsync()
     {
         // A monster under a bridge: the server keeps it on the lower floor and the client must not lift it.
-        var remote = new RemoteModelEntity(new FakeScene(), ActorHandle.None, 1, 0, new Vector3(0, 7, 0), 0, RemoteMoveState.Idle, 1);
+        var remote = new RemoteModelEntity(new FakeScene(), ActorHandle.None, 1, 0, new Vector3(0, 7, 0), 0, MotionState.Stand, 1);
         var now = 0d;
         for (var frame = 0; frame < 4; frame++)
         {
@@ -232,7 +233,7 @@ internal static class ClientTests
         }
 
         Assert.True(remote.DrawnPosition.Y == 7, "spawn height was replaced");
-        remote.SetTarget(now, new Vector3(0.5f, -40, 0), 0, RemoteMoveState.Idle, 1);
+        remote.SetTarget(now, new Vector3(0.5f, -40, 0), 0, MotionState.Stand, 1);
         for (var frame = 0; frame < 8; frame++)
         {
             now += 50;
@@ -251,10 +252,10 @@ internal static class ClientTests
         var origin = new System.Numerics.Vector3(0, 7, 0);
         manager.Apply(new PresenceUpdate(1,
         [
-            new(1, RemoteEntityKind.Player, true, origin, 0, RemoteMoveState.Idle, 100, 100, appearance, 0),
-            new(2, RemoteEntityKind.Monster, false, origin + new System.Numerics.Vector3(40, 0, 0), 0, RemoteMoveState.Idle, 10, 10, null, 1),
-            new(3, RemoteEntityKind.Npc, false, origin + new System.Numerics.Vector3(0, 0, 40), 0, RemoteMoveState.Idle, 1, 1, null, 2),
-            new(4, RemoteEntityKind.Player, false, origin + new System.Numerics.Vector3(-25, 0, 0), 0, RemoteMoveState.Idle, 100, 100, appearance, 0)
+            new(1, RemoteEntityKind.Player, true, origin, 0, MotionState.Stand, 100, 100, appearance, 0),
+            new(2, RemoteEntityKind.Monster, false, origin + new System.Numerics.Vector3(40, 0, 0), 0, MotionState.Stand, 10, 10, null, 1),
+            new(3, RemoteEntityKind.Npc, false, origin + new System.Numerics.Vector3(0, 0, 40), 0, MotionState.Stand, 1, 1, null, 2),
+            new(4, RemoteEntityKind.Player, false, origin + new System.Numerics.Vector3(-25, 0, 0), 0, MotionState.Stand, 100, 100, appearance, 0)
         ], [], [], []));
         var neighbours = new List<PristonTale.Simulation.Physics.EntityNeighbour>();
         manager.CollectNeighbours(1, neighbours);

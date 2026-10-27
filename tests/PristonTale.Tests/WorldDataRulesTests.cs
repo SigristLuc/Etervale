@@ -10,6 +10,7 @@ using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Spawning;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -143,7 +144,7 @@ internal static class WorldDataRulesTests
 
         field.Night = false;
         field.Step(0.05f);
-        Assert.True(again.VanishOnWarp && again.Motion == MonsterMotionState.Warp && field.Npcs.Count == 1, "dawn did not warp the creature or return its NPC");
+        Assert.True(again.VanishOnWarp && again.Motion == MotionState.Warp && field.Npcs.Count == 1, "dawn did not warp the creature or return its NPC");
         for (var index = 0; index < 200 && field.MonstersForInspection.Any(); index++)
         {
             field.Step(0.05f);

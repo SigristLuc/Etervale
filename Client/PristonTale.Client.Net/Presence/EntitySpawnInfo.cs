@@ -1,4 +1,5 @@
 using System.Numerics;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Client.Net.Presence;
 
@@ -8,7 +9,7 @@ public sealed record EntitySpawnInfo(
     bool IsSelf,
     Vector3 Position,
     float Facing,
-    RemoteMoveState MoveState,
+    MotionState MoveState,
     int Hp,
     int MaxHp,
     PlayerAppearanceInfo? Player,

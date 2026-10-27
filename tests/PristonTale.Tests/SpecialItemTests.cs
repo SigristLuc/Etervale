@@ -14,6 +14,7 @@ using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -266,7 +267,7 @@ internal static class SpecialItemTests
         harness.Tick(2);
         Assert.True(harness.ItemEffects().Any(effect => effect.Effect == ItemEffectKind.Firecracker && effect.EntityId == harness.Player.EntityId),
             "firecracker effect was not published");
-        Assert.True(harness.Player.MoveState == MoveStateView.Yahoo, $"the firecracker did not cheer: {harness.Player.MoveState}");
+        Assert.True(harness.Player.MoveState == MotionState.Yahoo, $"the firecracker did not cheer: {harness.Player.MoveState}");
 
         var shop = harness.Use(new ItemUseCommand(Guid.NewGuid(), character.InventoryRevision, harness.Id("BI142")));
         await harness.AdvanceAsync(shop);
@@ -338,7 +339,7 @@ internal static class SpecialItemTests
         character.Premium.Start(PremiumEffectKind.ExperienceUp, 30, 3600, 1000);
         var owner = OwnerState.Capture(character, null, 1600);
         var appearance = new PlayerAppearanceView("Owner", 1, 0, 0, 0, "", "") { HelperPet = 2, Phoenix = true, BigHead = 1 };
-        var self = new EntityView(1, EntityKindView.Player, true, new Vector3(256, 0, 512), 0f, MoveStateView.Idle, 10, 100, 100, appearance);
+        var self = new EntityView(1, EntityKindView.Player, true, new Vector3(256, 0, 512), 0f, MotionState.Stand, 10, 100, 100, appearance);
         var snapshot = new WorldSnapshot(4, [self], fieldId: 3, owner: owner)
         {
             ItemEffects = [new ItemEffectView(1, ItemCodes.Parse("BI123"), ItemEffectKind.Firecracker, new Vector3(256, 0, 512), 1234)]

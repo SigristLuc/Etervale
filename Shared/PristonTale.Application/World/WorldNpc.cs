@@ -3,6 +3,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Motion;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Application.World;
 
@@ -31,7 +32,7 @@ public sealed class WorldNpc
         Position = position;
         HomeAnchor = position;
         Facing = facing;
-        MoveState = MoveStateView.Idle;
+        MoveState = MotionState.Stand;
         _moveRange = MathF.Max(0f, definition.MoveRange);
         _standClips = motionTimings?.ClipsForState(MotionStateCode.Stand) ?? Array.Empty<MotionClip>();
         _canWalk = _moveRange > 0f && motionTimings?.TryGetClip(MotionStateCode.Walk, out _) == true;
@@ -49,7 +50,7 @@ public sealed class WorldNpc
     public Vector3 HomeAnchor { get; }
     public Vector3 Position { get; private set; }
     public float Facing { get; private set; }
-    public MoveStateView MoveState { get; private set; }
+    public MotionState MoveState { get; private set; }
     public bool CanWalk => _canWalk;
 
     public static WorldNpc Place(
@@ -77,7 +78,7 @@ public sealed class WorldNpc
             return Position;
         }
 
-        if (MoveState == MoveStateView.Idle)
+        if (MoveState == MotionState.Stand)
         {
             _standMsLeft -= dtMs;
             if (_standMsLeft > 0f)
@@ -137,7 +138,7 @@ public sealed class WorldNpc
 
     private void BeginStand()
     {
-        MoveState = MoveStateView.Idle;
+        MoveState = MotionState.Stand;
         if (_standClips.Count == 0)
         {
             _standMsLeft = DefaultStandDurationMs;
@@ -157,7 +158,7 @@ public sealed class WorldNpc
             HomeAnchor.Y,
             HomeAnchor.Z + MathF.Cos(angle) * distance);
         Facing = angle;
-        MoveState = MoveStateView.Walking;
+        MoveState = MotionState.Walk;
     }
 
     private int NextRandom(int upperBound)

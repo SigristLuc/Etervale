@@ -5,6 +5,7 @@ using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -101,9 +102,9 @@ internal static class MonsterBossSkillTests
         Assert.True(monster.Potions is >= 1 and <= 3, "spawn did not carry potions");
         var potions = monster.Potions;
         monster.Life = 200;
-        world.StepUntil(() => monster.Motion == MonsterMotionState.Eat, 80, "a hurt monster never drank");
+        world.StepUntil(() => monster.Motion == MotionState.Eat, 80, "a hurt monster never drank");
         Assert.True(monster.Potions == potions - 1, "drinking did not spend a potion");
-        world.StepUntil(() => monster.Motion != MonsterMotionState.Eat, 40, "the drink never ended");
+        world.StepUntil(() => monster.Motion != MotionState.Eat, 40, "the drink never ended");
         Assert.True(monster.Life >= 700 && world.Events.Any(value => value.Kind == CombatEventKindView.PotionApplied && value.AttackerId == monster.EntityId),
             "the potion did not heal half the life");
 
@@ -132,7 +133,7 @@ internal static class MonsterBossSkillTests
                 monster.Life = 250;
             }
 
-            world.StepUntil(() => monster.Motion == MonsterMotionState.Warp, 80, "the shape-shifter never started changing");
+            world.StepUntil(() => monster.Motion == MotionState.Warp, 80, "the shape-shifter never started changing");
             world.StepUntil(() => world.MonsterOf(MonsterSounds.Hulk) is not null, 60, "the shape-shifter never changed");
             var changed = world.MonsterOf(MonsterSounds.Hulk)!;
             Assert.True(changed.Def.Combat.Level == (angry ? 85 : 60) && changed.Life == changed.Def.Combat.MaxLife

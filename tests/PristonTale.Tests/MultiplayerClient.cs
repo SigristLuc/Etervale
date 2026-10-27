@@ -4,6 +4,7 @@ using PristonTale.Client.Net;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World.Loot;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -339,7 +340,7 @@ internal sealed class ObservedEntity(ulong id)
     public RemoteEntityKind Kind { get; private set; }
     public Vector3 Position { get; private set; }
     public float Facing { get; private set; }
-    public RemoteMoveState Motion { get; private set; }
+    public MotionState Motion { get; private set; }
     public int Hp { get; private set; }
     public int MaxHp { get; private set; }
     public int Level { get; private set; }
@@ -348,7 +349,7 @@ internal sealed class ObservedEntity(ulong id)
     public PlayerAppearanceInfo? Player { get; private set; }
     public int Spawns { get; private set; }
     // Every position sample with its server time, for comparing what different clients saw at the same tick.
-    public List<(double? TimeMs, Vector3 Position, RemoteMoveState Motion)> Samples { get; } = new();
+    public List<(double? TimeMs, Vector3 Position, MotionState Motion)> Samples { get; } = new();
 
     public void Spawn(EntitySpawnInfo spawn)
     {
@@ -364,7 +365,7 @@ internal sealed class ObservedEntity(ulong id)
 
     public void State(EntityStateInfo state) => Record(state.Position, state.Facing, state.MoveState, state.Hp, state.ServerTimeMs);
 
-    private void Record(Vector3 position, float facing, RemoteMoveState motion, int hp, double? timeMs)
+    private void Record(Vector3 position, float facing, MotionState motion, int hp, double? timeMs)
     {
         Position = position;
         Facing = facing;

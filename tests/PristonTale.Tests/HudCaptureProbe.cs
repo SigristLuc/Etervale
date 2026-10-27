@@ -19,6 +19,7 @@ using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -232,10 +233,10 @@ internal sealed class HudCaptureProbe : Game
         }));
         _hud.Combat.Observe(new PresenceUpdate(1,
         [
-            new(1, RemoteEntityKind.Player, true, default, 0, RemoteMoveState.Idle, 64, 64,
+            new(1, RemoteEntityKind.Player, true, default, 0, MotionState.Stand, 64, 64,
                 new PlayerAppearanceInfo("Panzer", 1, 0, 0, 0, "", "", 1), 0),
-            new(2, RemoteEntityKind.Monster, false, default, 0, RemoteMoveState.Idle, 31, 50, null, 1, Level: 7),
-            new(3, RemoteEntityKind.Npc, false, new System.Numerics.Vector3(center.X + 300, 0, center.Z - 200), 0, RemoteMoveState.Idle, 0, 0, null, 1,
+            new(2, RemoteEntityKind.Monster, false, default, 0, MotionState.Stand, 31, 50, null, 1, Level: 7),
+            new(3, RemoteEntityKind.Npc, false, new System.Numerics.Vector3(center.X + 300, 0, center.Z - 200), 0, MotionState.Stand, 0, 0, null, 1,
                 Name: "Lena")
         ], [], [],
         [

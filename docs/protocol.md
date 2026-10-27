@@ -22,10 +22,10 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Binary/PacketReader.cs`, `Binary/PacketWriter.cs` | Little-endian sequential reader/writer; the writer patches the size in `Finish()`. |
 | `Binary/Utf8Text.cs` | Text fields: `{uint16 ByteLength, UTF-8}`, cut at a whole character. |
 | `Packets/AccountPackets.cs` | `ProtocolVersion`, `ServerHello`, `Login`/`LoginResult`, `CharacterList`, `CharacterCommand`/`CharacterResult`, `Heartbeat`. |
-| `Packets/PristonUnits.cs` | `PristonUnits` (fixed point x256, 4096-per-turn angles), `MotionStateCode`. |
+| `Packets/PristonUnits.cs` | `PristonUnits` (fixed point x256, 4096-per-turn angles). |
 | `Packets/PlayerActionPackets.cs` | `MovementReport`, `AttackRequest` and `FieldWarp`. |
 | `Packets/WingGatePackets.cs` | `WingGateRequest` and `WingGateResult`. |
-| `Packets/PresencePackets.cs` | `PresenceEntries`: `VarInt`, `PresenceMotion`, `PresenceEntry`, `PresenceWire` (entry codec), writer and reader. |
+| `Packets/PresencePackets.cs` | `PresenceEntries`: `VarInt`, `PresenceEntry`, `PresenceWire` (entry codec), writer and reader. |
 | `Packets/WorldEntryPackets.cs` | `EnterWorld`, `WorldEntry`, `JoinWorld`, `WorldJoined` and `LeaveWorld`. |
 | `Packets/GroundItemPackets.cs` | `GroundItems` and `GroundItemsRemoved`. |
 | `Packets/ChatPackets.cs`, `ChatChannelCode.cs` | `ChatSay` (typed line), `ChatLine` (received line); chat kinds on the wire. |
@@ -330,8 +330,8 @@ uint16 0}` followed by `Count` entries that fill the message exactly. An entry i
 full), int24 X, Y, Z (world units × 8), uint16 Facing (65536 per turn), uint8 Motion}`; a full entry adds `{varuint Hp,
 MaxHp, Level, Target, AttackSequence, uint8 Revision, varuint Template, zigzag varint FieldCode}`. `varuint` is
 little-endian base-128 (`VarInt`, up to 64 bits; an overlong encoding or a tenth byte above 1 is refused). `Motion`
-is `PresenceMotion` (0 stand, 1 walk, 2 run, 3 attack, 4 damage, 5 dead, 6 skill, 7 eat, 8 warp, 9 yahoo). Positions
-cover the world's ±1,000,000 units at 1/8 of a unit.
+is `MotionState` (`Shared/PristonTale.Contracts`; 0 stand, 1 walk, 2 run, 3 attack, 4 damage, 5 dead, 6 skill, 7 eat,
+8 warp, 9 yahoo; a larger value is refused). Positions cover the world's ±1,000,000 units at 1/8 of a unit.
 
 The server sends a full entry when an entity enters the receiver's view and whenever its motion, life, target, attack
 sequence or description revision changes; otherwise a motion entry (about 14 bytes) at the near or far rate. Ids,

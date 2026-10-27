@@ -16,6 +16,7 @@ using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
 using static PristonTale.Tests.QuestFixture;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -115,14 +116,14 @@ internal static class QuestServiceTests
     private static Task PresenceAsync()
     {
         var origin = new Vector3(QuestArena.EntryX, 0, QuestArena.EntryZ);
-        var self = new EntityView(1, EntityKindView.Player, true, origin, 0f, MoveStateView.Idle, 60, 100, 100, new PlayerAppearanceView("Self", 2, 2, 0, 0, "", ""));
-        var other = new EntityView(2, EntityKindView.Player, false, origin + new Vector3(30, 0, 0), 0f, MoveStateView.Idle, 60, 100, 100,
+        var self = new EntityView(1, EntityKindView.Player, true, origin, 0f, MotionState.Stand, 60, 100, 100, new PlayerAppearanceView("Self", 2, 2, 0, 0, "", ""));
+        var other = new EntityView(2, EntityKindView.Player, false, origin + new Vector3(30, 0, 0), 0f, MotionState.Stand, 60, 100, 100,
             new PlayerAppearanceView("Other", 2, 2, 0, 0, "", ""));
-        var mine = new EntityView(3, EntityKindView.Monster, false, origin + new Vector3(0, 0, 40), 0f, MoveStateView.Idle, 60, 900, 1000, default, 50)
+        var mine = new EntityView(3, EntityKindView.Monster, false, origin + new Vector3(0, 0, 40), 0f, MotionState.Stand, 60, 900, 1000, default, 50)
         {
             DuelPlayerId = 1
         };
-        var theirs = new EntityView(4, EntityKindView.Monster, false, origin + new Vector3(0, 0, -40), 0f, MoveStateView.Idle, 60, 900, 1000, default, 50)
+        var theirs = new EntityView(4, EntityKindView.Monster, false, origin + new Vector3(0, 0, -40), 0f, MotionState.Stand, 60, 900, 1000, default, 50)
         {
             DuelPlayerId = 2
         };

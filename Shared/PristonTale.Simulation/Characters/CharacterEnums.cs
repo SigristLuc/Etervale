@@ -36,17 +36,6 @@ public enum JobBitCode : uint
     Shaman = 0x00100000
 }
 
-public enum CharacterMotionName
-{
-    Stand,
-    Walk,
-    Run,
-    Attack,
-    Damage,
-    Dead,
-    Skill
-}
-
 // Persisted equipment slot order of the classic save layout: no helmet slot, and Sheltom kept separate.
 public enum EquipmentSlot
 {

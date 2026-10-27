@@ -7,6 +7,7 @@ using PristonTale.Protocol.Transport;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Loot;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Server.Net;
 
@@ -920,7 +921,7 @@ internal sealed partial class PresenceEncoder
         public uint LastSentTick;
         public uint Pass;
         public int Descriptor;
-        public MoveStateView MoveState;
+        public MotionState MoveState;
         public EntityKindView Kind;
         public byte Revision;
 

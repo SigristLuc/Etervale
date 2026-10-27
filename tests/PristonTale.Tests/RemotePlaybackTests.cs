@@ -12,6 +12,7 @@ using PristonTale.Gameplay.World.Remote;
 using PristonTale.Protocol.Packets;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -34,7 +35,7 @@ internal static class RemotePlaybackTests
         yield return ("presence clock extension round-trips and stamps decoded samples", PresenceClockAsync);
     }
 
-    private static RemoteSample Sample(double time, float x, RemoteMoveState state = RemoteMoveState.Walking, float y = 0f, float facing = 0f) =>
+    private static RemoteSample Sample(double time, float x, MotionState state = MotionState.Walk, float y = 0f, float facing = 0f) =>
         new(time, new Vector3(x, y, 0f), facing, state, 10);
 
     private static Task InterpolationAsync()
@@ -85,8 +86,8 @@ internal static class RemotePlaybackTests
         var held = buffer.Sample(850);
         Assert.True(held.Kind == RemotePoseKind.Held && held.Position.X == 14f, "extrapolation stayed ahead of the last sample");
 
-        var idle = new RemoteSnapshotBuffer(Sample(0, 0, RemoteMoveState.Idle));
-        idle.Add(Sample(200, 14, RemoteMoveState.Idle), Vector3.Zero);
+        var idle = new RemoteSnapshotBuffer(Sample(0, 0, MotionState.Stand));
+        idle.Add(Sample(200, 14, MotionState.Stand), Vector3.Zero);
         Assert.True(idle.Sample(450).Position.X == 14f, "a standing sample was extrapolated");
         return Task.CompletedTask;
     }
@@ -118,12 +119,12 @@ internal static class RemotePlaybackTests
 
     private static Task StateTimelineAsync()
     {
-        var buffer = new RemoteSnapshotBuffer(Sample(0, 0, RemoteMoveState.Idle));
-        buffer.Add(Sample(1000, 0, RemoteMoveState.Attack), Vector3.Zero);
+        var buffer = new RemoteSnapshotBuffer(Sample(0, 0, MotionState.Stand));
+        buffer.Add(Sample(1000, 0, MotionState.Attack), Vector3.Zero);
         buffer.Sample(1100);
         Assert.True(!buffer.TryTakeDueState(out _), "attack state played before its sample time");
         buffer.Sample(1150);
-        Assert.True(buffer.TryTakeDueState(out var due) && due.MoveState == RemoteMoveState.Attack, "attack state never became due");
+        Assert.True(buffer.TryTakeDueState(out var due) && due.MoveState == MotionState.Attack, "attack state never became due");
         Assert.True(!buffer.TryTakeDueState(out _), "a state was delivered twice");
         return Task.CompletedTask;
     }
@@ -149,7 +150,7 @@ internal static class RemotePlaybackTests
     private static Task LocomotionAsync()
     {
         var scene = new RecordingScene();
-        var monster = new RemoteModelEntity(scene, ActorHandle.None, 1f, 0, Vector3.Zero, 0f, RemoteMoveState.Idle, 10);
+        var monster = new RemoteModelEntity(scene, ActorHandle.None, 1f, 0, Vector3.Zero, 0f, MotionState.Stand, 10);
         var now = 1000d;
         void Run(double milliseconds)
         {
@@ -160,13 +161,13 @@ internal static class RemotePlaybackTests
             }
         }
 
-        monster.SetTarget(now, Vector3.Zero, 0f, RemoteMoveState.Walking, 10);
+        monster.SetTarget(now, Vector3.Zero, 0f, MotionState.Walk, 10);
         Run(400);
         Assert.True(monster.Motion == PristonActorMotion.Walk && scene.LastMotion == PristonActorMotion.Stand,
             "a Walk state without ground motion was shown walking");
 
         var x = 0f;
-        void Move(int samples, float step, RemoteMoveState state)
+        void Move(int samples, float step, MotionState state)
         {
             for (var index = 0; index < samples; index++)
             {
@@ -176,15 +177,15 @@ internal static class RemotePlaybackTests
             }
         }
 
-        Move(6, 14, RemoteMoveState.Walking);
+        Move(6, 14, MotionState.Walk);
         Assert.True(scene.LastMotion == PristonActorMotion.Walk, "ground motion did not resume the walk clip");
         Assert.Near(1f, scene.LastRate, 0.02f);
-        Move(6, 7, RemoteMoveState.Walking);
+        Move(6, 7, MotionState.Walk);
         Assert.Near(0.5f, scene.LastRate, 0.02f);
-        Move(6, 28, RemoteMoveState.Running);
+        Move(6, 28, MotionState.Run);
         Assert.True(scene.LastMotion == PristonActorMotion.Run, "run state was not shown");
         Assert.Near(1f, scene.LastRate, 0.02f);
-        monster.SetTarget(now, new Vector3(x, 0, 0), 0f, RemoteMoveState.Attack, 10);
+        monster.SetTarget(now, new Vector3(x, 0, 0), 0f, MotionState.Attack, 10);
         Run(400);
         Assert.True(scene.LastMotion == PristonActorMotion.Attack, "server attack state lost to the locomotion safeguard");
         return Task.CompletedTask;
@@ -192,23 +193,23 @@ internal static class RemotePlaybackTests
 
     private static Task DeathAsync()
     {
-        foreach (var (name, states, swing) in new (string, RemoteMoveState[], bool)[]
+        foreach (var (name, states, swing) in new (string, MotionState[], bool)[]
         {
-            ("mid-swing", [RemoteMoveState.Attack, RemoteMoveState.Dead], true),
-            ("mid-skill", [RemoteMoveState.Skill, RemoteMoveState.Dead], true),
-            ("mid-flinch", [RemoteMoveState.Damage, RemoteMoveState.Dead], false),
-            ("walking", [RemoteMoveState.Walking, RemoteMoveState.Dead], false),
-            ("one frame", [RemoteMoveState.Damage, RemoteMoveState.Dead], false)
+            ("mid-swing", [MotionState.Attack, MotionState.Dead], true),
+            ("mid-skill", [MotionState.Skill, MotionState.Dead], true),
+            ("mid-flinch", [MotionState.Damage, MotionState.Dead], false),
+            ("walking", [MotionState.Walk, MotionState.Dead], false),
+            ("one frame", [MotionState.Damage, MotionState.Dead], false)
         })
         {
             var scene = new RecordingScene();
-            var monster = new RemoteModelEntity(scene, ActorHandle.None, 1f, 0, Vector3.Zero, 0f, RemoteMoveState.Idle, 10);
+            var monster = new RemoteModelEntity(scene, ActorHandle.None, 1f, 0, Vector3.Zero, 0f, MotionState.Stand, 10);
             var now = 1000d;
             var step = name == "one frame" ? 0d : 50d;
             foreach (var state in states)
             {
-                monster.SetTarget(now, Vector3.Zero, 0f, state, state == RemoteMoveState.Dead ? 0 : 5);
-                if (swing && state != RemoteMoveState.Dead)
+                monster.SetTarget(now, Vector3.Zero, 0f, state, state == MotionState.Dead ? 0 : 5);
+                if (swing && state != MotionState.Dead)
                 {
                     monster.ApplyCombatEvent(new CombatEventInfo(1, 2, RemoteCombatEventKind.SwingBegin, 800f, 300f, 0, false, false) { Clip = 3 }, now);
                 }
@@ -232,13 +233,13 @@ internal static class RemotePlaybackTests
     private static Task PlayerRateAsync()
     {
         var scene = new RecordingScene();
-        var player = new RemoteEntity(scene, new PlayerActorHandles(ActorHandle.None, ActorHandle.None), 0, Vector3.Zero, 0f, RemoteMoveState.Walking, 10);
+        var player = new RemoteEntity(scene, new PlayerActorHandles(ActorHandle.None, ActorHandle.None), 0, Vector3.Zero, 0f, MotionState.Walk, 10);
         player.SetRates(1, 1f);
         var speed = Locomotion.WalkUnitsPerSecond(1, inVillage: false);
         var now = 0d;
         for (var index = 1; index <= 8; index++)
         {
-            player.SetTarget(index * 200, new Vector3(speed * index * 0.2f, 0, 0), 0f, RemoteMoveState.Walking, 10);
+            player.SetTarget(index * 200, new Vector3(speed * index * 0.2f, 0, 0), 0f, MotionState.Walk, 10);
             for (var frame = 0; frame < 4; frame++)
             {
                 now += 50;
@@ -305,10 +306,10 @@ internal static class RemotePlaybackTests
         var appearance = new PlayerAppearanceInfo("Self", 1, 0, 0, 0, "", "", 1);
         combat.Observe(new PresenceUpdate(1,
         [
-            new(1, RemoteEntityKind.Player, true, default, 0, RemoteMoveState.Idle, 64, 64, appearance, 0),
-            new(2, RemoteEntityKind.Monster, false, default, 0, RemoteMoveState.Idle, 50, 50, null, 1, Name: "Hopy", Level: 3),
-            new(3, RemoteEntityKind.Monster, false, default, 0, RemoteMoveState.Idle, 20, 50, null, 1),
-            new(4, RemoteEntityKind.Npc, false, default, 0, RemoteMoveState.Idle, 100, 100, null, 7)
+            new(1, RemoteEntityKind.Player, true, default, 0, MotionState.Stand, 64, 64, appearance, 0),
+            new(2, RemoteEntityKind.Monster, false, default, 0, MotionState.Stand, 50, 50, null, 1, Name: "Hopy", Level: 3),
+            new(3, RemoteEntityKind.Monster, false, default, 0, MotionState.Stand, 20, 50, null, 1),
+            new(4, RemoteEntityKind.Npc, false, default, 0, MotionState.Stand, 100, 100, null, 7)
         ], [], [],
         [
             new(1, 2, RemoteCombatEventKind.SwingBegin, 800, 400, 0, false, false),

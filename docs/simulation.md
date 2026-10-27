@@ -23,7 +23,7 @@ progression, regeneration and movement rates. `World/`, `Physics/` and `Skills/`
 | `PristonTale.Simulation.csproj` | net10.0, references only `PristonTale.Geometry`; embeds `Skills/Data/Classes/*.json` |
 | `SimulationCore.cs` | Description constant only |
 | `Actors/ActorDefinitions.cs` | `PlayerCompositionFactory` and bone socket names; not referenced by other projects |
-| `Characters/CharacterEnums.cs` | `PlayerClass`, `CharacterBrood`, `JobBitCode`, `CharacterMotionName`, `EquipmentSlot` |
+| `Characters/CharacterEnums.cs` | `PlayerClass`, `CharacterBrood`, `JobBitCode`, `EquipmentSlot` |
 | `Characters/CharacterStats.cs` | `CharacterAttributes` (five attributes), `CharacterFunctionProfile` (formula selectors) |
 | `Characters/CharacterClass*.cs`, `Classes/` | Class base type, `CharacterClassDef`, `CharacterClassRegistry`, one file per class |
 | [`Characters/PlayerCharacter.cs`](../Shared/PristonTale.Simulation/Characters/PlayerCharacter.cs) | Character aggregate: progress, pools, gear, effects, recompute |

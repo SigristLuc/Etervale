@@ -7,7 +7,6 @@ public sealed record CharacterClassDef(
     JobBitCode JobBitCode,
     CharacterBrood Brood,
     CharacterVisualSet DefaultVisuals,
-    CharacterMotionName DefaultMotion,
     CharacterAttributes BaseAttributes,
     CharacterAttributes GrowthPerLevel,
     int StatusPointsPerLevel,

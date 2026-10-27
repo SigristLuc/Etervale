@@ -11,6 +11,7 @@ using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Client.Net.Online;
 
@@ -241,7 +242,7 @@ internal sealed class PresenceDecoder
         tracked.Sequence = entry.AttackSequence;
         tracked.Position = entry.Position;
         tracked.Facing = entry.Facing;
-        tracked.Motion = MoveState(entry.Motion);
+        tracked.Motion = entry.Motion;
         tracked.SampleTimeMs = _clockMs;
         tracked.HasState = true;
         if (tracked.Description is null && entry.Template != 0 && _templates.TryGetValue(entry.Template, out var shared)
@@ -270,7 +271,7 @@ internal sealed class PresenceDecoder
 
         tracked.Position = entry.Position;
         tracked.Facing = entry.Facing;
-        tracked.Motion = MoveState(entry.Motion);
+        tracked.Motion = entry.Motion;
         tracked.SampleTimeMs = _clockMs;
         if (tracked.Published)
         {
@@ -554,20 +555,6 @@ internal sealed class PresenceDecoder
         _ => RemoteEntityKind.Unspecified
     };
 
-    public static RemoteMoveState MoveState(byte motion) => motion switch
-    {
-        PresenceMotion.Stand => RemoteMoveState.Idle,
-        PresenceMotion.Walk => RemoteMoveState.Walking,
-        PresenceMotion.Run => RemoteMoveState.Running,
-        PresenceMotion.Attack => RemoteMoveState.Attack,
-        PresenceMotion.Damage => RemoteMoveState.Damage,
-        PresenceMotion.Dead => RemoteMoveState.Dead,
-        PresenceMotion.Skill => RemoteMoveState.Skill,
-        PresenceMotion.Eat => RemoteMoveState.Eat,
-        PresenceMotion.Warp => RemoteMoveState.Warp,
-        PresenceMotion.Yahoo => RemoteMoveState.Yahoo,
-        _ => RemoteMoveState.Unspecified
-    };
 
     private sealed record Description(byte Revision, RemoteEntityKind Kind, EntityDescriptionPacket Packet);
 
@@ -581,7 +568,7 @@ internal sealed class PresenceDecoder
         public bool Published { get; set; }
         public Vector3 Position { get; set; }
         public float Facing { get; set; }
-        public RemoteMoveState Motion { get; set; }
+        public MotionState Motion { get; set; }
         public int Hp { get; set; }
         public int MaxHp { get; set; }
         public ulong Target { get; set; }

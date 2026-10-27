@@ -2,6 +2,7 @@ using System.Numerics;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Application.World;
 
@@ -33,7 +34,7 @@ internal sealed partial class FieldSkills
         monster.ExpiresAtMs = _host.NowMs + (long)MonsterCrystals.PetLifetimeMs(level);
         monster.Aggressive = true;
         monster.AiState = MonsterAiState.Idle;
-        monster.Motion = MonsterMotionState.Stand;
+        monster.Motion = MotionState.Stand;
         _crystalPets[monster.EntityId] = new CrystalPet(owner.EntityId, clanId);
         return monster.Position;
     }

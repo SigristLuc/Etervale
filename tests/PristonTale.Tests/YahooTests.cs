@@ -9,6 +9,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Social;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -33,11 +34,11 @@ internal static class YahooTests
         Assert.True(bob.Link.Lines.Count == 0 && ann.Link.Lines.Count == 0, "the yahoo word was spoken or answered");
         fixture.Tick(1);
         var cheering = MoveState(ann);
-        Assert.True(cheering == MoveStateView.Yahoo, $"the chat word did not cheer: {cheering}");
+        Assert.True(cheering == MotionState.Yahoo, $"the chat word did not cheer: {cheering}");
         Assert.True(!await fixture.RunAsync(fixture.World.YahooAsync(ann.Id, key: true)), "Space cheered over a cheer in progress");
 
         fixture.Tick(60);
-        Assert.True(MoveState(ann) == MoveStateView.Idle, "the cheer did not end with its clip");
+        Assert.True(MoveState(ann) == MotionState.Stand, "the cheer did not end with its clip");
         var stamina = character.Stamina = character.MaxStamina;
         Assert.True(await fixture.RunAsync(fixture.World.YahooAsync(ann.Id, key: true)), "Space did not cheer inside the window");
         Assert.True(character.Stamina == stamina - YahooRules.KeyStaminaCost(character.MaxStamina), "Space did not take 3% of the stamina");
@@ -47,7 +48,7 @@ internal static class YahooTests
 
         await fixture.SayAsync(bob, "Yes!");
         fixture.Tick(1);
-        Assert.True(MoveState(bob) == MoveStateView.Yahoo && ann.Link.Lines.Count == 0, "\"Yes!\" did not cheer silently");
+        Assert.True(MoveState(bob) == MotionState.Yahoo && ann.Link.Lines.Count == 0, "\"Yes!\" did not cheer silently");
         await fixture.SayAsync(bob, "yahoo there");
         Assert.True(ann.Link.Last == "Bob: yahoo there", "a line that only starts with the word was not spoken");
         Assert.True(YahooRules.IsWord(" YAHOO ") && !YahooRules.IsWord("yahooo") && !YahooRules.IsWord("/yahoo now"), "word matching");
@@ -65,17 +66,17 @@ internal static class YahooTests
         player.QueueYahoo();
         Assert.True(!player.BeginPendingYahoo(800), "a firecracker cheer cut the swing");
         player.TickAction(100, out _);
-        Assert.True(player.BeginPendingYahoo(800) && player.MoveState == MoveStateView.Yahoo, "the queued cheer did not start after the swing");
+        Assert.True(player.BeginPendingYahoo(800) && player.MoveState == MotionState.Yahoo, "the queued cheer did not start after the swing");
         Assert.True(player.ReportMovement(new Vector3(50, 0, 0), 0f, true, true, 0, 1000) != MovementVerdict.Accepted && player.Position == Vector3.Zero,
             "movement interrupted the cheer");
         player.TickAction(800, out _);
-        Assert.True(!player.IsBusy && player.MoveState == MoveStateView.Idle, "the cheer did not end");
+        Assert.True(!player.IsBusy && player.MoveState == MotionState.Stand, "the cheer did not end");
 
         var random = new CombatRng(1);
         player.QueuePotion(new PotionDefinition(0, 0, 0, 0, 0, 0), cheers: true);
         Assert.True(player.BeginPendingPotion(600, 300), "the capsule meal did not start");
         player.TickPotion(299, random);
-        Assert.True(player.MoveState == MoveStateView.Eat && !player.HasPendingYahoo, "the capsule cheered before its event");
+        Assert.True(player.MoveState == MotionState.Eat && !player.HasPendingYahoo, "the capsule cheered before its event");
         player.TickPotion(1, random);
         Assert.True(!player.IsBusy && !player.HasPendingPotion && player.HasPendingYahoo, "the capsule did not end its meal at the event and queue a cheer");
         Assert.True(player.BeginPendingYahoo(800), "the capsule cheer did not start");
@@ -96,10 +97,10 @@ internal static class YahooTests
 
         var buffer = new byte[PresenceWire.HeaderSize + PresenceWire.MaxMotionEntrySize];
         var writer = new PresenceEntriesWriter(buffer, 1);
-        writer.Commit(PresenceWire.WriteMotion(writer.Reserve(PresenceWire.MaxMotionEntrySize), 7, Vector3.Zero, 0f, PresenceMotion.Yahoo));
+        writer.Commit(PresenceWire.WriteMotion(writer.Reserve(PresenceWire.MaxMotionEntrySize), 7, Vector3.Zero, 0f, MotionState.Yahoo));
         var read = new List<PresenceEntry>();
         PresenceEntriesReader.Read(writer.Finish(), (in PresenceEntry value) => read.Add(value));
-        Assert.True(read.Single().Motion == PresenceMotion.Yahoo, "the cheer motion did not round-trip");
+        Assert.True(read.Single().Motion == MotionState.Yahoo, "the cheer motion did not round-trip");
 
         var packet = new byte[YahooKeyPacket.Size];
         Assert.True(YahooKeyPacket.Write(packet) == YahooKeyPacket.Size, "yahoo key size");
@@ -108,6 +109,6 @@ internal static class YahooTests
         return Task.CompletedTask;
     }
 
-    private static MoveStateView MoveState(ChatFixture.Player player) =>
+    private static MotionState MoveState(ChatFixture.Player player) =>
         ChatFixture.Latest(player)!.Value.Entities.Single(entity => entity.EntityId == player.Id).MoveState;
 }

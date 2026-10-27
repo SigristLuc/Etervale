@@ -4,6 +4,7 @@ using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -224,7 +225,7 @@ internal static class MonsterSkillStatusTests
         world.AddPlayer(1, new Vector3(50, 0, 0));
         caster = world.Spawn(succubus, Vector3.Zero, target: 1);
         world.StepUntil(() => world.Swings(caster.EntityId).Any(), 5, "succubus never swung");
-        Assert.True(!world.Swings(caster.EntityId).First().Skill && caster.Motion == MonsterMotionState.Attack, "without an ally the swing stayed a skill");
+        Assert.True(!world.Swings(caster.EntityId).First().Skill && caster.Motion == MotionState.Attack, "without an ally the swing stayed a skill");
         return Task.CompletedTask;
     }
 

@@ -11,6 +11,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -242,13 +243,13 @@ internal static class DomainTests
         Assert.True(await Tick(world, world.ReportMovementAsync(3, player.EntityId, target, 0f, true, true, 0)) == MovementVerdict.Accepted,
             "run report rejected");
         Assert.True(await Tick(world, world.MoveToFieldAsync(3, 4, player, new Vector3(99999), writer)), "gate rejected");
-        Assert.True(player.Position == target && player.MoveState == MoveStateView.Running, "gate stopped reported running");
+        Assert.True(player.Position == target && player.MoveState == MotionState.Run, "gate stopped reported running");
         for (uint tick = 2; tick < 62; tick++)
         {
             world.Tick(0.05f, tick);
         }
 
-        Assert.True(player.Position == target && player.MoveState == MoveStateView.Idle, "a silent client kept running after the gate");
+        Assert.True(player.Position == target && player.MoveState == MotionState.Stand, "a silent client kept running after the gate");
     }
 
     private static Task MovementAsync()
@@ -318,7 +319,7 @@ internal static class DomainTests
             {
                 TargetId = 1,
                 AiState = MonsterAiState.Chase,
-                Motion = MonsterMotionState.Walk,
+                Motion = MotionState.Walk,
                 MoveTarget = prey.Candidates[0].Position
             };
         }

@@ -2,6 +2,7 @@ using System.Numerics;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters.Skills;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Simulation.World.Monsters;
 
@@ -16,7 +17,7 @@ public sealed class MonsterInstance
         Facing = facing;
         SpawnPointIndex = spawnPointIndex;
         Life = definition.Combat.MaxLife;
-        Motion = MonsterMotionState.Walk;
+        Motion = MotionState.Walk;
         AiState = MonsterAiState.Wander;
         ProgressProbePosition = home;
         MoveTarget = home;
@@ -32,7 +33,7 @@ public sealed class MonsterInstance
 
     public int Life { get; set; }
 
-    public MonsterMotionState Motion { get; set; }
+    public MotionState Motion { get; set; }
 
     public MonsterAiState AiState { get; set; }
 
@@ -87,7 +88,7 @@ public sealed class MonsterInstance
 
     public bool CrowdedSinceProbe { get; set; }
 
-    public MonsterMotionState PresentedMotion => Motion.IsMoving() && !MovedThisTick ? MonsterMotionState.Stand : Motion;
+    public MotionState PresentedMotion => Motion.IsMoving() && !MovedThisTick ? MotionState.Stand : Motion;
 
     public float SpawnWalkElapsedMs { get; set; }
 
@@ -145,7 +146,7 @@ public sealed class MonsterInstance
     // A night creature stays until dawn even with no player near.
     public bool StaysUntilDawn { get; set; }
     public float SpecialMsLeft { get; set; }
-    public MonsterMotionState CompletedSpecial { get; set; }
+    public MotionState CompletedSpecial { get; set; }
     public bool DrinkHeals { get; set; }
     public float AliveMs { get; set; }
 
@@ -173,7 +174,7 @@ public sealed class MonsterInstance
             Life = 0;
             SkillImpactPending = false;
             AiState = MonsterAiState.Dead;
-            Motion = MonsterMotionState.Dead;
+            Motion = MotionState.Dead;
         }
     }
 }

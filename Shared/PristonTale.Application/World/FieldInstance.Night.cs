@@ -4,6 +4,7 @@ using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Simulation.World.Spawning;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Application.World;
 
@@ -82,7 +83,7 @@ public sealed partial class FieldInstance
                 creature.VanishOnWarp = true;
                 creature.TargetId = 0;
                 creature.AiState = MonsterAiState.Idle;
-                creature.Motion = MonsterMotionState.Warp;
+                creature.Motion = MotionState.Warp;
                 creature.SpecialMsLeft = TuningFor(creature.Def).WarpDurationMs;
             }
         }
@@ -96,7 +97,7 @@ public sealed partial class FieldInstance
                 {
                     monster.Life = 0;
                     monster.AiState = MonsterAiState.Dead;
-                    monster.Motion = MonsterMotionState.Dead;
+                    monster.Motion = MotionState.Dead;
                     _combat.BeginCorpse(monster.EntityId);
                 }
             }

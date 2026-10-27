@@ -3,6 +3,7 @@ using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Simulation.World.Ai;
 
@@ -32,7 +33,7 @@ public sealed class MonsterAiBrain
         }
 
         // Drinking and transforming play out even under a stun.
-        if (monster.Motion is MonsterMotionState.Eat or MonsterMotionState.Warp)
+        if (monster.Motion is MotionState.Eat or MotionState.Warp)
         {
             monster.SinceRetargetMs += dtMs;
             AdvanceSpecial(monster, prey, dtMs);
@@ -52,7 +53,7 @@ public sealed class MonsterAiBrain
                 monster.SinceDecisionMs = MonsterAiTuning.DecisionIntervalMs;
             }
 
-            monster.Motion = MonsterMotionState.Stand;
+            monster.Motion = MotionState.Stand;
             return null;
         }
 
@@ -68,7 +69,7 @@ public sealed class MonsterAiBrain
         }
 
         // Damage motion suppresses decisions and movement until its clip drains.
-        if (monster.Motion == MonsterMotionState.Damage)
+        if (monster.Motion == MotionState.Damage)
         {
             monster.FlinchMsLeft -= dtMs;
             if (monster.FlinchMsLeft <= 0f)
@@ -78,7 +79,7 @@ public sealed class MonsterAiBrain
                 if (targetLive)
                 {
                     monster.AiState = MonsterAiState.Chase;
-                    monster.Motion = MonsterMotionState.Stand;
+                    monster.Motion = MotionState.Stand;
                     monster.SinceDecisionMs = MonsterAiTuning.DecisionIntervalMs;
                 }
                 else
@@ -105,7 +106,7 @@ public sealed class MonsterAiBrain
         }
 
         AdvanceClips(monster, tuning, dtMs);
-        if (monster.Motion is MonsterMotionState.Eat or MonsterMotionState.Warp)
+        if (monster.Motion is MotionState.Eat or MotionState.Warp)
         {
             return null;
         }
@@ -124,11 +125,11 @@ public sealed class MonsterAiBrain
             }
             else if (monster.AiState == MonsterAiState.Leash)
             {
-                IntegrateHeading(monster, monster.ManoeuvreHeading, monster.Motion == MonsterMotionState.Run, dtMs);
+                IntegrateHeading(monster, monster.ManoeuvreHeading, monster.Motion == MotionState.Run, dtMs);
             }
             else
             {
-                IntegrateToward(monster, monster.MoveTarget, monster.Motion == MonsterMotionState.Run, dtMs);
+                IntegrateToward(monster, monster.MoveTarget, monster.Motion == MotionState.Run, dtMs);
             }
         }
 
@@ -163,7 +164,7 @@ public sealed class MonsterAiBrain
                 }
                 else
                 {
-                    IntegrateHeading(m, m.ManoeuvreHeading, m.Motion == MonsterMotionState.Run, decisionDt);
+                    IntegrateHeading(m, m.ManoeuvreHeading, m.Motion == MotionState.Run, decisionDt);
                 }
 
                 return null;
@@ -257,7 +258,7 @@ public sealed class MonsterAiBrain
     private static void EnterIdle(MonsterInstance m)
     {
         m.AiState = MonsterAiState.Idle;
-        m.Motion = MonsterMotionState.Stand;
+        m.Motion = MotionState.Stand;
         m.TargetId = 0;
         m.Engaged = false;
         m.ManoeuvreClipsLeft = 0;
@@ -266,7 +267,7 @@ public sealed class MonsterAiBrain
     private static void EndManoeuvre(MonsterInstance m)
     {
         m.ManoeuvreClipsLeft = 0;
-        m.Motion = MonsterMotionState.Stand;
+        m.Motion = MotionState.Stand;
         if (m.TargetId != 0)
         {
             m.AiState = MonsterAiState.Chase;
@@ -301,14 +302,14 @@ public sealed class MonsterAiBrain
         if (dist <= t.StopDistance + 0.01f)
         {
             FaceToward(m, target.Position);
-            m.Motion = MonsterMotionState.Stand;
+            m.Motion = MotionState.Stand;
             return null;
         }
 
         bool run = !m.Engaged && t.CanRun && distSq < t.RunDistanceSq;
         float approach = (dist - t.StopDistance) / dist;
         m.MoveTarget = new Vector3(m.Position.X + dx * approach, m.Position.Y, m.Position.Z + dz * approach);
-        m.Motion = run ? MonsterMotionState.Run : MonsterMotionState.Walk;
+        m.Motion = run ? MotionState.Run : MotionState.Walk;
         IntegrateToward(m, m.MoveTarget, run, dt);
         return null;
     }
@@ -360,7 +361,7 @@ public sealed class MonsterAiBrain
         }
 
         m.CrowdedSinceProbe |= m.Crowded;
-        float cycleMs = m.Motion == MonsterMotionState.Run ? t.RunCycleMs : t.WalkCycleMs;
+        float cycleMs = m.Motion == MotionState.Run ? t.RunCycleMs : t.WalkCycleMs;
         m.ClipProgress += dtMs / MathF.Max(1f, cycleMs);
         while (m.ClipProgress >= 1f && m.AiState is MonsterAiState.Chase or MonsterAiState.Leash)
         {
@@ -371,7 +372,7 @@ public sealed class MonsterAiBrain
 
     private void EndClip(MonsterInstance m, MonsterAiTuning t)
     {
-        if (m.Motion is MonsterMotionState.Eat or MonsterMotionState.Warp || TryBeginSpecial(m, t))
+        if (m.Motion is MotionState.Eat or MotionState.Warp || TryBeginSpecial(m, t))
         {
             return;
         }
@@ -412,11 +413,11 @@ public sealed class MonsterAiBrain
     {
         int turn = _rng.NextExclusive(0, StuckTurnSteps) - (StuckTurnSteps / 2);
         float heading = HeadingTo(m, m.HomeAnchor) + (turn * AngleStepRadians);
-        var motion = t.CanRun ? MonsterMotionState.Run : MonsterMotionState.Walk;
+        var motion = t.CanRun ? MotionState.Run : MotionState.Walk;
         BeginManoeuvre(m, heading, MonsterAiTuning.StuckManoeuvreClips, motion);
     }
 
-    private static void BeginManoeuvre(MonsterInstance m, float heading, int clips, MonsterMotionState motion)
+    private static void BeginManoeuvre(MonsterInstance m, float heading, int clips, MotionState motion)
     {
         m.AiState = MonsterAiState.Leash;
         m.Motion = motion;
@@ -429,7 +430,7 @@ public sealed class MonsterAiBrain
     private void BeginAttack(MonsterInstance m, MonsterAiTuning tuning)
     {
         m.AiState = MonsterAiState.Attack;
-        m.Motion = MonsterMotionState.Attack;
+        m.Motion = MotionState.Attack;
         m.Engaged = true;
         m.ManoeuvreClipsLeft = 0;
         m.AttackTimerMs = 0f;
@@ -453,7 +454,7 @@ public sealed class MonsterAiBrain
         {
             SetAction(m, Draw(tuning.SkillClips, new MonsterActionClip(-1, default(char), tuning.SkillDurationMs, tuning.SkillWindupMs)));
             m.SecondHitAtMs = 0f;
-            m.Motion = MonsterMotionState.Skill;
+            m.Motion = MotionState.Skill;
             m.SkillTargetId = m.TargetId;
             m.SkillOrigin = m.Position;
             m.SkillFacing = m.Facing;
@@ -509,7 +510,7 @@ public sealed class MonsterAiBrain
             PreyCandidate tgt2 = default;
             bool stillValid = m.TargetId != 0 && prey.TryGet(m.TargetId, out tgt2) && tgt2.IsAlive;
             m.AiState = stillValid ? MonsterAiState.Chase : MonsterAiState.Idle;
-            m.Motion = MonsterMotionState.Stand;
+            m.Motion = MotionState.Stand;
             if (TryBeginSpecial(m, t))
             {
                 return landed;
@@ -525,7 +526,7 @@ public sealed class MonsterAiBrain
             else if (stillValid)
             {
                 m.AiState = MonsterAiState.Chase;
-                m.Motion = MonsterMotionState.Stand;
+                m.Motion = MotionState.Stand;
                 m.SinceDecisionMs = MonsterAiTuning.DecisionIntervalMs;
             }
             else
@@ -559,23 +560,23 @@ public sealed class MonsterAiBrain
     // form; the host completes both when their clip ends.
     private static bool TryBeginSpecial(MonsterInstance m, MonsterAiTuning t)
     {
-        if (!m.IsAlive || m.Motion is MonsterMotionState.Eat or MonsterMotionState.Warp)
+        if (!m.IsAlive || m.Motion is MotionState.Eat or MotionState.Warp)
         {
             return false;
         }
 
-        MonsterMotionState special;
+        MotionState special;
         float durationMs;
         if (MonsterTransformRules.Wants(m))
         {
-            special = MonsterMotionState.Warp;
+            special = MotionState.Warp;
             durationMs = t.WarpDurationMs;
         }
         else if (MonsterLifeRules.WantsPotion(m))
         {
             m.Potions--;
             m.DrinkHeals = true;
-            special = MonsterMotionState.Eat;
+            special = MotionState.Eat;
             durationMs = t.EatDurationMs;
         }
         else
@@ -603,7 +604,7 @@ public sealed class MonsterAiBrain
         }
 
         m.CompletedSpecial = m.Motion;
-        m.Motion = MonsterMotionState.Stand;
+        m.Motion = MotionState.Stand;
         if (m.TargetId != 0 && prey.TryGet(m.TargetId, out PreyCandidate target) && target.IsAlive)
         {
             m.AiState = MonsterAiState.Chase;
@@ -625,7 +626,7 @@ public sealed class MonsterAiBrain
             return;
         }
 
-        if (monster.Motion is MonsterMotionState.Damage or MonsterMotionState.Dead)
+        if (monster.Motion is MotionState.Damage or MotionState.Dead)
         {
             return;
         }
@@ -654,7 +655,7 @@ public sealed class MonsterAiBrain
         monster.ProbeClips = 0;
         monster.ClipProgress = 0f;
         monster.ProgressProbePosition = monster.Position;
-        monster.Motion = MonsterMotionState.Damage;
+        monster.Motion = MotionState.Damage;
         monster.FlinchMsLeft = durationMs;
     }
 
@@ -677,9 +678,9 @@ public sealed class MonsterAiBrain
         {
             boss.AiState = MonsterAiState.Chase;
             boss.ManoeuvreClipsLeft = 0;
-            if (boss.Motion != MonsterMotionState.Damage)
+            if (boss.Motion != MotionState.Damage)
             {
-                boss.Motion = MonsterMotionState.Stand;
+                boss.Motion = MotionState.Stand;
             }
 
             boss.SinceDecisionMs = MonsterAiTuning.DecisionIntervalMs;

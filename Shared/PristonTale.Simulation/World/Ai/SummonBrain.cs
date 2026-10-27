@@ -2,6 +2,7 @@ using System.Numerics;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Simulation.World.Ai;
 
@@ -42,7 +43,7 @@ public sealed class SummonBrain
         if (summon.Effects.Count > 0 && summon.Effects.Has(ControlFlags.Stun))
         {
             summon.AiState = MonsterAiState.Idle;
-            summon.Motion = MonsterMotionState.Stand;
+            summon.Motion = MotionState.Stand;
             return null;
         }
 
@@ -68,7 +69,7 @@ public sealed class SummonBrain
         {
             summon.TargetId = 0;
             summon.AiState = MonsterAiState.Idle;
-            summon.Motion = MonsterMotionState.Stand;
+            summon.Motion = MotionState.Stand;
             return null;
         }
 
@@ -96,7 +97,7 @@ public sealed class SummonBrain
         summon.AttackHitFired = false;
         summon.SwingJustBegan = true;
         summon.AttackIsSkill = tuning.CanCastOffensiveSkill && _rng.NextExclusive(0, 100) < summon.Def.Skill.SkillRatingPercent;
-        summon.Motion = summon.AttackIsSkill ? MonsterMotionState.Skill : MonsterMotionState.Attack;
+        summon.Motion = summon.AttackIsSkill ? MotionState.Skill : MotionState.Attack;
         summon.SkillTargetId = summon.TargetId;
         summon.SkillImpactPending = false;
     }
@@ -120,14 +121,14 @@ public sealed class SummonBrain
         if (summon.AttackTimerMs >= MathF.Max(durationMs, hitAtMs))
         {
             summon.AiState = targetLive ? MonsterAiState.Chase : MonsterAiState.Idle;
-            summon.Motion = MonsterMotionState.Stand;
+            summon.Motion = MotionState.Stand;
         }
 
         return landed;
     }
 
     // Summons run to their owner and their prey; a model without a run clip walks there instead, at walking speed.
-    private static MonsterMotionState Locomotion(MonsterAiTuning tuning) => tuning.HasRunClip ? MonsterMotionState.Run : MonsterMotionState.Walk;
+    private static MotionState Locomotion(MonsterAiTuning tuning) => tuning.HasRunClip ? MotionState.Run : MotionState.Walk;
 
     private static void MoveToward(MonsterInstance summon, Vector3 point, float stopDistance, float dtMs)
     {
@@ -136,7 +137,7 @@ public sealed class SummonBrain
         var distance = MathF.Sqrt(dx * dx + dz * dz);
         if (distance <= MathF.Max(0f, stopDistance) || distance < 1e-3f)
         {
-            summon.Motion = MonsterMotionState.Stand;
+            summon.Motion = MotionState.Stand;
             if (summon.AiState == MonsterAiState.Leash)
             {
                 summon.AiState = MonsterAiState.Idle;
@@ -146,7 +147,7 @@ public sealed class SummonBrain
         }
 
         summon.Facing = MathF.Atan2(dx, dz);
-        var step = MathF.Min(distance - MathF.Max(0f, stopDistance), MonsterLocomotion.UnitsPerSecond(summon.Def, running: summon.Motion == MonsterMotionState.Run) * dtMs / 1000f);
+        var step = MathF.Min(distance - MathF.Max(0f, stopDistance), MonsterLocomotion.UnitsPerSecond(summon.Def, running: summon.Motion == MotionState.Run) * dtMs / 1000f);
         summon.MoveTarget = point;
         summon.Position = new Vector3(summon.Position.X + dx / distance * step, summon.Position.Y, summon.Position.Z + dz / distance * step);
     }

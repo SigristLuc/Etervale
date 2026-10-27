@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../PristonTale.Geometry/PristonTale.Geometry.csproj" />
+    <ProjectReference Include="..\PristonTale.Contracts\PristonTale.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

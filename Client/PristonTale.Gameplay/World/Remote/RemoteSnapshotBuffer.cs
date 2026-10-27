@@ -1,9 +1,10 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Client.Net.Presence;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Gameplay.World.Remote;
 
-public readonly record struct RemoteSample(double TimeMs, Vector3 Position, float Facing, RemoteMoveState MoveState, int Hp);
+public readonly record struct RemoteSample(double TimeMs, Vector3 Position, float Facing, MotionState MoveState, int Hp);
 
 public enum RemotePoseKind
 {
@@ -166,7 +167,7 @@ public sealed class RemoteSnapshotBuffer
         var count = _samples.Count;
         var last = _samples[count - 1];
         var elapsed = time - last.TimeMs;
-        if (count < 2 || last.MoveState is not (RemoteMoveState.Walking or RemoteMoveState.Running))
+        if (count < 2 || last.MoveState is not (MotionState.Walk or MotionState.Run))
         {
             return new RemotePose(last.Position, last.Facing, 0f, RemotePoseKind.Held);
         }

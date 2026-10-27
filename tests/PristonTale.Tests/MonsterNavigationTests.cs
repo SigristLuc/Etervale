@@ -8,6 +8,7 @@ using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Spawning;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -63,7 +64,7 @@ internal static class MonsterNavigationTests
         monster.Position = new Vector3(0, 0, 1300);
         monster.TargetId = scenario.Player.EntityId;
         monster.AiState = MonsterAiState.Chase;
-        monster.Motion = MonsterMotionState.Run;
+        monster.Motion = MotionState.Run;
         scenario.Player.Teleport(new Vector3(0, 0, 1600));
         scenario.Run(400);
 
@@ -87,7 +88,7 @@ internal static class MonsterNavigationTests
         var scenario = new Scenario(Terrain((-400, 100, 200, 100)), Definition());
         var monster = scenario.Spawn(Vector3.Zero);
         monster.AiState = MonsterAiState.Idle;
-        monster.Motion = MonsterMotionState.Stand;
+        monster.Motion = MotionState.Stand;
         scenario.Player.Teleport(new Vector3(300, 0, 220));
         scenario.Run(400);
         Assert.True(scenario.Swings > 0, $"monster never got around the wall: state={monster.AiState}, position={monster.Position}");
@@ -101,7 +102,7 @@ internal static class MonsterNavigationTests
         var scenario = new Scenario(FieldTerrain.None, Definition());
         var monster = scenario.Spawn(new Vector3(200, 0, 0));
         monster.AiState = MonsterAiState.Idle;
-        monster.Motion = MonsterMotionState.Stand;
+        monster.Motion = MotionState.Stand;
         scenario.Run(100);
         Assert.True(scenario.Swings > 0, "fixture monster never reached the player");
         var engaged = monster.Position;
@@ -125,7 +126,7 @@ internal static class MonsterNavigationTests
                 var offset = staggered ? (index % 2 == 0 ? 1 : -1) * 12f * index : 0f;
                 var monster = scenario.Spawn(new Vector3(150 + index * 40, 0, offset));
                 monster.AiState = MonsterAiState.Idle;
-                monster.Motion = MonsterMotionState.Stand;
+                monster.Motion = MotionState.Stand;
                 monsters.Add(monster);
             }
 
@@ -261,7 +262,7 @@ internal static class MonsterNavigationTests
                     }
 
                     var moved = view.Position.X != before.X || view.Position.Z != before.Z;
-                    var locomotion = view.MoveState is MoveStateView.Walking or MoveStateView.Running;
+                    var locomotion = view.MoveState is MotionState.Walk or MotionState.Run;
                     if (locomotion)
                     {
                         LocomotionTicks++;

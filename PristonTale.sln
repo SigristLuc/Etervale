@@ -58,6 +58,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonoGame.Effect.Processor",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PristonTale.VfxImport", "tools\PristonTale.VfxImport\PristonTale.VfxImport.csproj", "{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PristonTale.Contracts", "Shared\PristonTale.Contracts\PristonTale.Contracts.csproj", "{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -332,6 +334,18 @@ Global
 		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Release|x64.Build.0 = Release|Any CPU
 		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Release|x86.ActiveCfg = Release|Any CPU
 		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E}.Release|x86.Build.0 = Release|Any CPU
+		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Debug|x64.Build.0 = Debug|Any CPU
+		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Debug|x86.Build.0 = Debug|Any CPU
+		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Release|x64.ActiveCfg = Release|Any CPU
+		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Release|x64.Build.0 = Release|Any CPU
+		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Release|x86.ActiveCfg = Release|Any CPU
+		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -359,5 +373,6 @@ Global
 		{50CCAA28-DCA8-4914-802E-0436A8800D2C} = {45BB4F10-548B-779B-1B10-C91C292B9D7C}
 		{4602BCFE-457B-4182-8991-6F10BAB7769D} = {45BB4F10-548B-779B-1B10-C91C292B9D7C}
 		{FA8C0FDD-F742-4ACE-A60C-7216FC4FE02E} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
+		{FC020ECD-0C75-4C0B-83E1-B56A2FAA4A28} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
 	EndGlobalSection
 EndGlobal

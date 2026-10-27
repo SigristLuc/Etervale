@@ -7,6 +7,7 @@ using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Simulation.World.Motion;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -130,7 +131,7 @@ internal static class MonsterSkillTests
         var target = world.AddPlayer(1, new Vector3(50, 0, 0));
         var bystander = world.AddPlayer(2, new Vector3(-50, 0, 0));
         var monster = world.Spawn(definition, Vector3.Zero, target: 1);
-        world.StepUntil(() => monster.Motion == MonsterMotionState.Skill, 5, "skill never started");
+        world.StepUntil(() => monster.Motion == MotionState.Skill, 5, "skill never started");
         var origin = monster.SkillOrigin;
         target.Teleport(new Vector3(500, 0, 0));
         var targetHp = target.Hp;
@@ -146,7 +147,7 @@ internal static class MonsterSkillTests
         var interrupted = new MonsterSkillField(definition);
         interrupted.AddPlayer(1, new Vector3(50, 0, 0));
         var caster = interrupted.Spawn(definition, Vector3.Zero, target: 1);
-        interrupted.StepUntil(() => caster.Motion == MonsterMotionState.Skill, 5, "skill never started");
+        interrupted.StepUntil(() => caster.Motion == MotionState.Skill, 5, "skill never started");
         MonsterAiBrain.ApplyFlinchOnHit(caster, new CombatRng(1), 5000, false, 700);
         interrupted.Step(20);
         Assert.True(!interrupted.Events.Any(value => value.Kind == CombatEventKindView.MonsterSkillImpact), "flinched caster still emitted an impact");
@@ -162,7 +163,7 @@ internal static class MonsterSkillTests
             var target = world.AddPlayer(1, new Vector3(50, 0, 0));
             var neighbour = world.AddPlayer(2, new Vector3(60, 0, 10));
             var monster = world.Spawn(definition, Vector3.Zero, target: 1);
-            world.StepUntil(() => monster.Motion == MonsterMotionState.Skill, 5, "skill never started");
+            world.StepUntil(() => monster.Motion == MotionState.Skill, 5, "skill never started");
             if (escape)
             {
                 target.Teleport(new Vector3(600, 0, 0));

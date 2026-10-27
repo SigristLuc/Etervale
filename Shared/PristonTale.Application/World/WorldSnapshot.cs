@@ -1,12 +1,11 @@
 using PristonTale.Simulation.World.Loot;
 using System.Numerics;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Application.World;
 
 public enum EntityKindView { Player, Monster, Npc }
-
-public enum MoveStateView { Idle, Walking, Running, Attack, Damage, Dead, Skill, Eat, Warp, Yahoo }
 
 public readonly struct PlayerAppearanceView
 {
@@ -50,7 +49,7 @@ public readonly struct EntityView
 {
     public EntityView(
         ulong entityId, EntityKindView kind, bool isSelf, Vector3 position, float facing,
-        MoveStateView moveState, int level, int hp, int maxHp,
+        MotionState moveState, int level, int hp, int maxHp,
         PlayerAppearanceView appearance, uint templateId = 0,
         int moveSpeed = 0, float attackRate = 1f, ulong attackTargetId = 0, ulong attackSequence = 0)
     {
@@ -91,7 +90,7 @@ public readonly struct EntityView
 
     public Vector3 Position { get; }
     public float Facing { get; }
-    public MoveStateView MoveState { get; }
+    public MotionState MoveState { get; }
     public int Level { get; }
 
     public int Hp { get; }

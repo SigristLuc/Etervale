@@ -1,6 +1,7 @@
 using System.Numerics;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Characters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -39,7 +40,7 @@ internal static class MultiplayerMovementTests
         await a.WalkAsync(camp, north);
         foreach (var viewer in new[] { b, c })
         {
-            await viewer.WaitUntilAsync(world => world.Entities.TryGetValue(a.Serial, out var entity) && entity.Motion == RemoteMoveState.Walking
+            await viewer.WaitUntilAsync(world => world.Entities.TryGetValue(a.Serial, out var entity) && entity.Motion == MotionState.Walk
                 && Vector3.Distance(Planar(entity.Position), Planar(north)) < PositionTolerance, "the mover walking to the north point");
             var entity = viewer.World.Read(world => world.Entities[a.Serial])!;
             Assert.Near(0f, AngleDelta(entity.Facing, 0f), 0.01f);
@@ -47,14 +48,14 @@ internal static class MultiplayerMovementTests
 
         var east = north + new Vector3(240f, 0f, 0f);
         await a.WalkAsync(north, east, running: true);
-        await b.WaitUntilAsync(world => world.Entities.TryGetValue(a.Serial, out var entity) && entity.Motion == RemoteMoveState.Running
+        await b.WaitUntilAsync(world => world.Entities.TryGetValue(a.Serial, out var entity) && entity.Motion == MotionState.Run
             && Vector3.Distance(Planar(entity.Position), Planar(east)) < PositionTolerance, "the mover running east");
         Assert.Near(0f, AngleDelta(b.World.Read(world => world.Entities[a.Serial])!.Facing, MathF.PI / 2f), 0.01f);
 
         await a.StopAsync(east, MathF.PI);
         foreach (var viewer in new[] { b, c })
         {
-            await viewer.WaitUntilAsync(world => world.Entities.TryGetValue(a.Serial, out var entity) && entity.Motion == RemoteMoveState.Idle
+            await viewer.WaitUntilAsync(world => world.Entities.TryGetValue(a.Serial, out var entity) && entity.Motion == MotionState.Stand
                 && MathF.Abs(AngleDelta(entity.Facing, MathF.PI)) < 0.01f, "the mover stopping and turning");
         }
 

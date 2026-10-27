@@ -6,6 +6,7 @@ using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Application.World;
 
@@ -35,7 +36,7 @@ internal sealed class FieldMonsterSkills
     private readonly MonsterHitRider[] _riders = new MonsterHitRider[MonsterSkillRules.MaxRiders];
     private readonly List<MonsterInstance> _pointScratch = new();
     private readonly List<(MonsterInstance Monster, MonsterDefinition Into)> _changes = new();
-    private readonly Dictionary<ulong, (MonsterMotionState Motion, float Ms, bool Regenerated)> _babelMotion = new();
+    private readonly Dictionary<ulong, (MotionState Motion, float Ms, bool Regenerated)> _babelMotion = new();
 
     public FieldMonsterSkills(IFieldMonsterSkillHost host, CombatRng rng)
     {
@@ -100,7 +101,7 @@ internal sealed class FieldMonsterSkills
         {
             // The machine waits while four of its brood stand on its point.
             monster.AiState = MonsterAiState.Chase;
-            monster.Motion = MonsterMotionState.Stand;
+            monster.Motion = MotionState.Stand;
             monster.AttackHitFired = true;
             return;
         }
@@ -112,7 +113,7 @@ internal sealed class FieldMonsterSkills
             monster.SkillImpactPending = false;
             monster.AttackHitFired = true;
             monster.AiState = MonsterAiState.Chase;
-            monster.Motion = MonsterMotionState.Eat;
+            monster.Motion = MotionState.Eat;
             monster.SpecialMsLeft = tuning.EatDurationMs;
             monster.DrinkHeals = false;
             return;
@@ -163,7 +164,7 @@ internal sealed class FieldMonsterSkills
                 {
                     // Nobody to strengthen: the swing stays the normal attack it was drawn as.
                     monster.AttackIsSkill = false;
-                    monster.Motion = MonsterMotionState.Attack;
+                    monster.Motion = MotionState.Attack;
                     var attack = monster.AttackVariant;
                     monster.ActionSlot = attack.Slot;
                     monster.ActionKey = attack.Key;
@@ -221,25 +222,25 @@ internal sealed class FieldMonsterSkills
     private void CompleteSpecial(MonsterInstance monster)
     {
         var completed = monster.CompletedSpecial;
-        if (completed == MonsterMotionState.Stand)
+        if (completed == MotionState.Stand)
         {
             return;
         }
 
-        monster.CompletedSpecial = MonsterMotionState.Stand;
-        if (completed == MonsterMotionState.Warp && monster.VanishOnWarp)
+        monster.CompletedSpecial = MotionState.Stand;
+        if (completed == MotionState.Warp && monster.VanishOnWarp)
         {
             _vanished.Add(monster);
             return;
         }
 
-        if (completed == MonsterMotionState.Eat && monster.DrinkHeals)
+        if (completed == MotionState.Eat && monster.DrinkHeals)
         {
             var max = monster.Def.Combat.MaxLife;
             monster.Life = Math.Min(max, monster.Life + MonsterLifeRules.PotionHeal(monster.Def));
             _host.EmitCombatEvent(new CombatEventView(monster.EntityId, monster.EntityId, CombatEventKindView.PotionApplied, resources: 1));
         }
-        else if (completed == MonsterMotionState.Warp && ChangeInto(monster) is { } into)
+        else if (completed == MotionState.Warp && ChangeInto(monster) is { } into)
         {
             _changes.Add((monster, into));
         }
@@ -281,7 +282,7 @@ internal sealed class FieldMonsterSkills
             var changed = _host.SpawnMonster(into, monster.Position, monster.Facing, monster.SpawnPointIndex);
             changed.TargetId = monster.TargetId;
             changed.AiState = monster.TargetId != 0 ? MonsterAiState.Chase : MonsterAiState.Idle;
-            changed.Motion = MonsterMotionState.Stand;
+            changed.Motion = MotionState.Stand;
         }
 
         _changes.Clear();

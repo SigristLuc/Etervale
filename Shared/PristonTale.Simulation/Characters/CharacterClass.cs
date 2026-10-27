@@ -41,7 +41,6 @@ public abstract class CharacterClass
                 FaceIndex: 0,
                 HairIndex: 0,
                 armorTableIndex),
-            CharacterMotionName.Stand,
             baseAttributes,
             CharacterAttributes.Empty,
             StatusPointsPerLevel: 5,

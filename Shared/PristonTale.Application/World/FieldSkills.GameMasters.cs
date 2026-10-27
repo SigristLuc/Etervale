@@ -1,5 +1,6 @@
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Application.World;
 
@@ -18,7 +19,7 @@ internal sealed partial class FieldSkills
         monster.Aggressive = true;
         monster.TargetId = 0;
         monster.AiState = MonsterAiState.Idle;
-        monster.Motion = MonsterMotionState.Stand;
+        monster.Motion = MotionState.Stand;
         _summons[owner.EntityId] = monster.EntityId;
         _summonSkills[owner.EntityId] = 0;
         return monster;

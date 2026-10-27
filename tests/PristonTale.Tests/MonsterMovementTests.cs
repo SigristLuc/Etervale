@@ -3,6 +3,7 @@ using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Motion;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Tests;
 
@@ -58,12 +59,12 @@ internal static class MonsterMovementTests
         var orders = new SummonOrders(new Vector3(1000, 0, 0), default, false);
         var walker = new MonsterInstance(2, definition, Vector3.Zero, 0, 0);
         brain.Tick(walker, walkOnly, orders, 1000);
-        Assert.True(walker.Motion == MonsterMotionState.Walk, "a summon without a run clip did not walk to its owner");
+        Assert.True(walker.Motion == MotionState.Walk, "a summon without a run clip did not walk to its owner");
         Assert.Near(MonsterLocomotion.UnitsPerSecond(definition, false), walker.Position.X);
 
         var runner = new MonsterInstance(3, definition, Vector3.Zero, 0, 0);
         brain.Tick(runner, both, orders, 1000);
-        Assert.True(runner.Motion == MonsterMotionState.Run, "a summon with a run clip did not run to its owner");
+        Assert.True(runner.Motion == MotionState.Run, "a summon with a run clip did not run to its owner");
         Assert.Near(MonsterLocomotion.UnitsPerSecond(definition, true), runner.Position.X);
         return Task.CompletedTask;
     }
@@ -115,7 +116,7 @@ internal static class MonsterMovementTests
             brain.Tick(monster, tuning, prey, 50);
         }
 
-        Assert.True(monster.Motion == MonsterMotionState.Stand, "two authored walk cycles did not stop wandering");
+        Assert.True(monster.Motion == MotionState.Stand, "two authored walk cycles did not stop wandering");
         var stopped = monster.Position;
         for (int tick = 0; tick < 100; tick++)
         {
@@ -152,7 +153,7 @@ internal static class MonsterMovementTests
         }
 
         brain.Tick(monster, tuning, prey, 60);
-        Assert.True(monster.AiState == MonsterAiState.Leash && monster.TargetId == 1 && monster.Motion == MonsterMotionState.Run,
+        Assert.True(monster.AiState == MonsterAiState.Leash && monster.TargetId == 1 && monster.Motion == MotionState.Run,
             "stuck manoeuvre dropped the target or did not run");
         Assert.True(monster.ManoeuvreClipsLeft == MonsterAiTuning.StuckManoeuvreClips, "stuck manoeuvre did not last ten clips");
         var home = -Vector3.UnitX;
@@ -222,7 +223,7 @@ internal static class MonsterMovementTests
         var monster = new MonsterInstance(2, definition, Vector3.Zero, 0, 0)
         {
             AiState = MonsterAiState.Idle,
-            Motion = MonsterMotionState.Stand
+            Motion = MotionState.Stand
         };
         var prey = new Prey(new PreyCandidate(1, new Vector3(120, 100, 0), true));
         new MonsterAiBrain(new CombatRng(1)).Tick(monster, tuning, prey, 900);

@@ -5,6 +5,7 @@ using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Application.World;
 
@@ -230,7 +231,7 @@ internal sealed partial class FieldSkills
 
         monster.Position = terrain.SettleNear(destination, FieldTerrain.DropTolerance);
         monster.TargetId = 0;
-        monster.Motion = MonsterMotionState.Stand;
+        monster.Motion = MotionState.Stand;
         monster.AiState = MonsterAiState.Idle;
     }
 
@@ -253,7 +254,7 @@ internal sealed partial class FieldSkills
             }
         }
 
-        if (monster.Motion != MonsterMotionState.Dead)
+        if (monster.Motion != MotionState.Dead)
         {
             MonsterAiBrain.ApplyFlinchOnHit(monster, _rng, monster.Def.Combat.MaxLife, crit: true, _host.TuningFor(monster.Def).FlinchDurationMs);
         }
