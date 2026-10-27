@@ -107,7 +107,7 @@ public sealed partial class GameScene : ISkillSceneHost
         {
             var village = _activeField?.Definition.State == Simulation.World.FieldState.Village;
             _wings.Wear(_skillFx, _remote.SelfEntityId, _equipmentPresentation.ArmorKey, !village && !_playerController.IsDead, _playerBody.Position,
-                MathF.Atan2(_playerForward.X, _playerForward.Z));
+                PlayerYaw);
         }
 
         _remote.ForEachWearer(_wearRemote ??= WearRemote);

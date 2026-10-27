@@ -22,6 +22,7 @@ using NumVector3 = System.Numerics.Vector3;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
+using PristonTale.Engine3D;
 
 namespace PristonTale.Gameplay.World;
 
@@ -252,6 +253,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     }
     public Vector3 PlayerPosition => _playerBody?.Position ?? Vector3.Zero;
     public Vector3 PlayerForward => _playerForward;
+    private float PlayerYaw => WorldSpace.RenderYaw(_playerForward);
     public bool RunMode => _runMode;
     public event Action<PresenceUpdate> PresenceObserved;
 
@@ -638,7 +640,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
     private static PresenceUpdate RemapToWorld(PresenceUpdate u)
     {
-        // Transport uses PT-global (x, z); presentation uses (x, -z).
         List<EntitySpawnInfo> spawns = null;
         if (u.Spawns.Count > 0)
         {
@@ -646,7 +647,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             for (var i = 0; i < u.Spawns.Count; i++)
             {
                 var s = u.Spawns[i];
-                spawns.Add(s with { Position = FlipZ(s.Position), Facing = FlipFacing(s.Facing) });
+                spawns.Add(s with { Position = WorldSpace.Mirror(s.Position), Facing = WorldSpace.MirrorFacing(s.Facing) });
             }
         }
 
@@ -657,7 +658,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             for (var i = 0; i < u.States.Count; i++)
             {
                 var st = u.States[i];
-                states.Add(st with { Position = FlipZ(st.Position), Facing = FlipFacing(st.Facing) });
+                states.Add(st with { Position = WorldSpace.Mirror(st.Position), Facing = WorldSpace.MirrorFacing(st.Facing) });
             }
         }
 
@@ -670,14 +671,10 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             u.FieldId,
             u.Owner)
         {
-            Warp = u.Warp is { } warp ? warp with { Position = FlipZ(warp.Position) } : null,
+            Warp = u.Warp is { } warp ? warp with { Position = WorldSpace.Mirror(warp.Position) } : null,
             ServerTimeMs = u.ServerTimeMs
         };
     }
-
-    private static NumVector3 FlipZ(NumVector3 v) => new(v.X, v.Y, -v.Z);
-
-    private static float FlipFacing(float f) => MathF.Atan2(MathF.Sin(f), -MathF.Cos(f));
 
     // The play channel's leave (the server stores the character and answers) after Dispose; the owner of the connection
     // waits for it before closing the connection.
@@ -781,7 +778,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
         foreach (var warp in active.WarpGates)
         {
-            var point = new Vector2(warp.X, -warp.Z);
+            var point = WorldSpace.Planar(warp.X, warp.Z);
             if (!WingGates.IsStone(warp)
                 && FieldStreamingPolicy.ShouldPrefetch(player, movementTarget, point, movementSpeed)
                 && _worldCatalog.TryGetField(warp.DestinationFieldId, out var destination))
@@ -802,7 +799,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             foreach (var warp in active.WarpGates)
             {
                 if (warp.DestinationFieldId == field.Definition.Id
-                    && Vector2.DistanceSquared(player, new Vector2(warp.X, -warp.Z)) < disconnect * disconnect)
+                    && Vector2.DistanceSquared(player, WorldSpace.Planar(warp.X, warp.Z)) < disconnect * disconnect)
                 {
                     keep = true;
                 }
@@ -896,7 +893,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         return false;
     }
 
-    private static Vector2 GatePlanar(FieldGate gate) => new(gate.X, -gate.Z);
+    private static Vector2 GatePlanar(FieldGate gate) => WorldSpace.Planar(gate.X, gate.Z);
 
     private const float WarpCooldownSeconds = 1.5f;
     private const float SpecialWarpDelaySeconds = 2f;
@@ -973,7 +970,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     // The player's feet stand within the gate's width and, for a gate with a height, within its height.
     private bool OnGate(FieldWarpGate warp)
     {
-        var center = new Vector2(warp.X, -warp.Z);
+        var center = WorldSpace.Planar(warp.X, warp.Z);
         var radius = MathF.Max(warp.Width, 48f);
         var playerFeet = _playerBody.Height + GroundTraversal.VisualOffset;
         var withinHeight = warp.Y == 0 || MathF.Abs(playerFeet - warp.Y) < warp.Height;
@@ -997,7 +994,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
     private void HoldAtSpecialWarp(FieldWarpGate warp)
     {
-        _playerBody.PlanarPosition = new Vector2(warp.X, -warp.Z);
+        _playerBody.PlanarPosition = WorldSpace.Planar(warp.X, warp.Z);
         _playerBody.Height = warp.Y - GroundTraversal.VisualOffset;
         ApplyPlayerWorld();
     }
@@ -1406,10 +1403,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _lastReportRunning = running;
         _lastReportTarget = target;
         _lastSentFieldCode = fieldCode;
-        // Transport is PT-global (x, z); presentation uses (x, -z).
         var planar = _playerBody.PlanarPosition;
-        var position = new NumVector3(planar.X, _playerBody.Height, -planar.Y);
-        var facing = MathF.Atan2(_playerForward.X, -_playerForward.Z);
+        var position = WorldSpace.Mirror(new NumVector3(planar.X, _playerBody.Height, planar.Y));
+        var facing = WorldSpace.TransportFacing(_playerForward);
         SendUpstream(_playChannel.SendMovementAsync(position, facing, moving, running, target, fieldCode, _presenceCts.Token), "movement");
     }
 
@@ -1481,7 +1477,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private static Vector2 SpawnPlanarPosition(FieldDef field)
     {
         var point = field.StartPoints.Count > 0 ? field.StartPoints[0] : field.Center;
-        return new Vector2(point.X, -point.Z);
+        return WorldSpace.Planar(point.X, point.Z);
     }
 
     private void UpdatePlayerInput(GameTime gameTime)
@@ -2124,8 +2120,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
     private Matrix PlayerWorld()
     {
-        var yaw = MathF.Atan2(_playerForward.X, _playerForward.Z);
-        return Matrix.CreateRotationY(yaw) * Matrix.CreateTranslation(GroundTraversal.ToVisualPosition(_playerBody.Position));
+        return Matrix.CreateRotationY(PlayerYaw) * Matrix.CreateTranslation(GroundTraversal.ToVisualPosition(_playerBody.Position));
     }
 
     public void Dispose()

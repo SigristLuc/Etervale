@@ -114,7 +114,7 @@ public sealed partial class GameScene
     {
         if (_remote is not null && entityId == _remote.SelfEntityId && _playerBody is not null)
         {
-            return (_playerBody.Position, MathF.Atan2(_playerForward.X, _playerForward.Z));
+            return (_playerBody.Position, PlayerYaw);
         }
 
         return _remote is not null && _remote.TryGetDrawnPosition(entityId, out var position) && _remote.TryGetDrawnFacing(entityId, out var facing)

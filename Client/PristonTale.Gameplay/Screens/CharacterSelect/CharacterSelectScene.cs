@@ -8,6 +8,7 @@ using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Sessions;
+using PristonTale.Engine3D;
 
 namespace PristonTale.Gameplay.Screens.CharacterSelect;
 
@@ -631,7 +632,7 @@ internal sealed class CharacterSelectScene
     private Matrix SlotWorld((float X, float Z) slot, float yaw) =>
         Matrix.CreateRotationY(yaw) * Matrix.CreateTranslation(SlotToWorld(slot, ResolveFloorY(slot)));
 
-    private static Vector3 SlotToWorld((float X, float Z) slot, float floorY) => new(slot.X, floorY, -slot.Z);
+    private static Vector3 SlotToWorld((float X, float Z) slot, float floorY) => WorldSpace.Mirror(new Vector3(slot.X, floorY, slot.Z));
 
     internal static (float X, float Z) UserCharacterPosition(int characterCount, int index)
     {
@@ -689,7 +690,7 @@ internal sealed class CharacterSelectScene
     private float ResolveFloorY((float X, float Z) slot)
     {
         if (_collision != null &&
-            _collision.TryGetFloorHeight(new Vector3(slot.X, 200f, -slot.Z), out var y) &&
+            _collision.TryGetFloorHeight(WorldSpace.Mirror(new Vector3(slot.X, 200f, slot.Z)), out var y) &&
             MathF.Abs(y) <= PlausibleFloorAbsY)
         {
             return y;

@@ -3,6 +3,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.World;
 using PristonTale.Contracts.Units;
+using PristonTale.Engine3D;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
@@ -122,7 +123,7 @@ public sealed class HudMinimap
 
     // The minimap arrow bitmap points down and is turned half a circle before applying the heading.
     public static float ArrowRotation(Vector3 forward) =>
-        forward.X == 0 && forward.Z == 0 ? MathF.PI : MathF.Atan2(forward.X, -forward.Z) + MathF.PI;
+        forward.X == 0 && forward.Z == 0 ? MathF.PI : WorldSpace.TransportFacing(forward) + MathF.PI;
 
     // A world offset from the player to the box centre: x east, y south (engine z), 64 pixels per view radius.
     public static Vector2 MarkerOffset(Vector3 player, Vector3 marker, float size) =>

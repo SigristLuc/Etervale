@@ -215,9 +215,12 @@ apply a warp, ground loot, effects, skills, then raise `PresenceObserved` (the H
 a `CloseRequested` update ends the game).
 
 Coordinates: the wire uses PT-global `(x, z)` in fixed point (`GameUnits.FixedScale` = 256) and angles of 4096 per
-turn; the client world uses `(x, -z)`. `RemapToWorld` flips only spawns, states and the warp position (and facing).
-Combat events, skill events, ground items and the `PresenceObserved` copy keep transport coordinates; their consumers
-flip Z themselves.
+turn; the client world uses `(x, -z)`. Every conversion goes through `WorldSpace` (`Client/PristonTale.Engine3D`):
+`Mirror` for points (its own inverse), `Planar` for a transport `(x, z)` on the render plane, `MirrorFacing` for a
+wire facing, `TransportFacing` for the facing the wire carries of a render forward, and `RenderYaw` for the
+`CreateRotationY` angle of a render forward (facing = pi - yaw). `RemapToWorld` mirrors only spawns, states and the
+warp position (and facing). Combat events, skill events, ground items and the `PresenceObserved` copy keep transport
+coordinates; their consumers mirror them with `WorldSpace` instead of negating Z inline.
 
 ### Remote actor playback
 

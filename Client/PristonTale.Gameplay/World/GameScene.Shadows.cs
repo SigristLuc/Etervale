@@ -36,7 +36,7 @@ public sealed partial class GameScene
         if (_playerBody is not null)
         {
             var feet = _playerBody.Position + Vector3.Up * GroundTraversal.VisualOffset;
-            QueueBlobShadow(_remote.SelfEntityId, feet, MathF.Atan2(_playerForward.X, _playerForward.Z), 1, _playerController.IsDead);
+            QueueBlobShadow(_remote.SelfEntityId, feet, PlayerYaw, 1, _playerController.IsDead);
         }
 
         _remote.ForEachShadow(_queueShadow ??= QueueBlobShadow);

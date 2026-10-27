@@ -1215,7 +1215,7 @@ public sealed class PristonSmdReader
 
     private static Vector3 ToMonoGameStagePosition(float x, float y, float z)
     {
-        return new Vector3(x, y, -z);
+        return WorldSpace.Mirror(new Vector3(x, y, z));
     }
 
     private static Vector3 ToMonoGameModelPosition(float x, float y, float z)

@@ -106,9 +106,9 @@ public sealed class PristonCameraPath
         position = SamplePosition(ticks);
         SampleOrientation(ticks, out forward, out up);
 
-        position.Z = -position.Z;
-        forward.Z = -forward.Z;
-        up.Z = -up.Z;
+        position = WorldSpace.Mirror(position);
+        forward = WorldSpace.Mirror(forward);
+        up = WorldSpace.Mirror(up);
 
         forward = NormalizeOrFallback(forward, Vector3.Forward);
         up = NormalizeOrFallback(up, Vector3.Up);

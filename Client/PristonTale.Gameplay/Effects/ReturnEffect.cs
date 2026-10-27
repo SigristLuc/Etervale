@@ -4,6 +4,7 @@ using PristonTale.Effects.Particles;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Engine3D.Rendering.Lighting;
 using PristonTale.Contracts.Units;
+using PristonTale.Engine3D;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -341,7 +342,7 @@ public sealed class ReturnEffect : IDisposable
 
     private static Vector3 ToWorld(Vector3 fixedPosition)
     {
-        return new Vector3(fixedPosition.X, fixedPosition.Y, -fixedPosition.Z) / GameUnits.FixedScale;
+        return WorldSpace.Mirror(fixedPosition) / GameUnits.FixedScale;
     }
 
     private static Color AnimationColor(float alpha)

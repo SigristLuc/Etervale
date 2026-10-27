@@ -38,7 +38,7 @@ public sealed class PristonCamera
         _distance = _settings.DefaultDistance;
         _pitch = _settings.DefaultPitch;
         var normalized = NormalizedForward(forward);
-        _yaw = MathF.Atan2(normalized.X, normalized.Z);
+        _yaw = WorldSpace.RenderYaw(normalized);
         _hasPosition = false;
         _hasMouse = false;
         UpdateFollow(target, 0f);

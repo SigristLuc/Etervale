@@ -7,6 +7,7 @@ using PristonTale.Engine3D.Rendering;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Contracts.Motion;
+using PristonTale.Engine3D;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -79,7 +80,7 @@ public sealed class GroundLootPresentation(IActorScene scene, PristonActorLoader
             {
                 var source = entry.Drop.Position;
                 entry.FloorFound = floor(source.X, source.Y, -source.Z, out float height);
-                entry.Position = new Vector3(source.X, height, -source.Z);
+                entry.Position = WorldSpace.Mirror(new Vector3(source.X, height, source.Z));
                 entry.FloorRevision = _floorRevision;
             }
 

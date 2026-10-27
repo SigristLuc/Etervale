@@ -17,7 +17,7 @@ that explains it in depth.
 | Angle 4096 | A full turn is 4096 angle units (`GameUnits.AngleTurn`) | architecture.md |
 | Tick (70 Hz) | Authored behaviour and effect timing step, 1/70 s (`GameUnits.TicksPerSecond`, `TickMs`) | architecture.md |
 | Frame ticks | An animation frame is 160 ticks of the clip timeline and lasts 33 ms at rate 1 (`GameUnits.FrameTicks`, `FrameMs`) | architecture.md |
-| PT-global coordinates | Wire and authored `(x, z)`; the client's render world uses `(x, -z)` (`GameScene.RemapToWorld`) | client.md |
+| PT-global coordinates | Wire and authored `(x, z)`; the client's render world uses `(x, -z)` (`WorldSpace`, `GameScene.RemapToWorld`) | client.md |
 | Field | A map area with its own stage, spawns, NPCs and gates; live on the server as a `FieldInstance` | world.md |
 | Field code | Integer field id; the server keys live fields by it. The string field id is the stage base name | world.md |
 | Field clock | Per-field millisecond time (`NowMs`) starting at 0; cooldowns are rebased on field change | application.md |

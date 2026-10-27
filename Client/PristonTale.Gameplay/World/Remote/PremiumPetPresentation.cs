@@ -10,6 +10,7 @@ using PristonTale.Gameplay.Effects;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Units;
+using PristonTale.Engine3D;
 
 namespace PristonTale.Gameplay.World.Remote;
 
@@ -340,7 +341,7 @@ public sealed class PremiumPetPresentation : IDisposable
             }
 
             Facing = _attacking && targetPosition(Target) is { } target && Vector3.DistanceSquared(target, Position) > 1f
-                ? MathF.Atan2(target.X - Position.X, target.Z - Position.Z)
+                ? WorldSpace.RenderYaw(target - Position)
                 : ownerFacing;
             if (_attacking)
             {

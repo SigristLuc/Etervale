@@ -12,6 +12,7 @@ using PristonTale.Simulation.Skills;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Skills;
 using PristonTale.Contracts.Units;
+using PristonTale.Engine3D;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -406,7 +407,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
         var target = Position(skillEvent.TargetId, skillEvent.Position);
         if ((skillEvent.Flags & SkillEventFlags.Chain) != 0)
         {
-            var from = new Vector3(skillEvent.Position.X, skillEvent.Position.Y, -skillEvent.Position.Z);
+            var from = WorldSpace.Mirror(skillEvent.Position);
             if (Spawn(rule.ImpactEffect, skillEvent.CasterId, skillEvent.TargetId, from, -skillEvent.Facing) is { } link)
             {
                 link.Travel(from, target, ChainLinkSeconds);
@@ -576,8 +577,7 @@ public sealed class SkillPresentation : IVfxServices, IDisposable
             return position;
         }
 
-        // Transport is PT-global (x, z); presentation uses (x, -z).
-        return new Vector3(fallbackTransport.X, fallbackTransport.Y, -fallbackTransport.Z);
+        return WorldSpace.Mirror(fallbackTransport);
     }
 
     // Skill clips: the playback rate that makes the clip last the duration the server scheduled. Weapon clips: the
