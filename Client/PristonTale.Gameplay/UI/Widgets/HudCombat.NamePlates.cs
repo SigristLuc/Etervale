@@ -25,7 +25,7 @@ public sealed partial class HudCombat
     private const int PlateBarHeight = 11;
     private static readonly Color PlateMonster = new(255, 210, 210);
     private static readonly Color PlateTracedMonster = new(255, 230, 200);
-    private static readonly Color PlateNpc = new(171, 171, 239);
+    private static readonly Color PlateNpc = new(180, 180, 255);
     private readonly List<(ulong Id, HudOverheadPoint Point, bool Focus)> _plates = new();
 
     // Whether a monster's name box carries its life bar.

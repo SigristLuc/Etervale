@@ -2310,7 +2310,7 @@ public sealed partial class PristonRenderer : IDisposable
             }
 
             _stateCache.SetBlendState(TemporalBlend(BlendState.Opaque, false));
-            _stateCache.SetDepthStencilState(DepthStencilState.Default);
+            _stateCache.SetDepthStencilState(PristonDepth.Write);
             _stateCache.SetRasterizerState(batch.Material.TwoSided ? PristonRasterizerStates.TwoSided : PristonRasterizerStates.SingleSided);
             var shift = pixels * batch.Outline.W;
             var color = new Vector4(batch.Outline.X, batch.Outline.Y, batch.Outline.Z, 1f);

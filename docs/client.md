@@ -410,8 +410,9 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   percentage; when true the bar shows without numbers, only after the local player started attacking that monster at
   full life.
 - Name boxes over the scene (`HudCombat.DrawNamePlates`, drawn first in `GameplayHud.Draw`, at the speech bubbles' head
-  point): an NPC's name always within 768 units of the camera (171, 171, 239); a monster's only while hovered or the
-  clicked target (`TargetSelection.HoveredId`, `TracedId`), in (255, 210, 210), or (255, 230, 200) when clicked. Farther
+  point): an NPC's name always within 768 units of the camera (180, 180, 255, as in the chat); a monster's only while
+  hovered or the clicked target (`TargetSelection.HoveredId`, `TracedId`), in (255, 210, 210), or (255, 230, 200) when
+  clicked. Farther
   boxes draw first, the hovered and clicked ones last; a box that would leave the screen is skipped. With
   `classicNamePlates` false (default) the box is the speech bubbles' translucent fill around the name at text scale 0.6
   (`HudPainter.Text` with a scale), and the 60x11 life bar (`DrawHealthBar`, the target frame's colours) shows under a
