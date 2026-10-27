@@ -1500,8 +1500,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             {
                 _hasMoveTarget = false;
             }
-            else if (!SelfCasting && SetMoveTarget(mouse))
+            else if (SetMoveTarget(mouse))
             {
+                // A ground click during a skill motion is kept: the walk starts once the skill ends.
                 CancelPendingCast();
                 ClearAttackTarget();
                 _lootInteraction.Cancel();
@@ -1735,16 +1736,20 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         return dead ? TargetLiveness.Dead : TargetLiveness.Alive;
     }
 
+    // During a skill motion the walk is dropped but the skill clip keeps playing.
     private void StopPredictedMovement()
     {
         _hasMoveTarget = false;
         _positionCorrection = Vector2.Zero;
-        ApplyPlayerCommand(_playerController.ApplyLocomotion(PristonActorMotion.Stand));
+        if (!SelfCasting)
+        {
+            ApplyPlayerCommand(_playerController.ApplyLocomotion(PristonActorMotion.Stand));
+        }
     }
 
     private void UpdateNpcApproach()
     {
-        if (_npcTargetId == 0 || _remote is null)
+        if (_npcTargetId == 0 || _remote is null || SelfCasting)
         {
             return;
         }
@@ -1797,7 +1802,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             return;
         }
 
-        if (_playerController.LocomotionFrozen || _selfAttacking || SelfStunned)
+        // A skill motion owns the avatar: a target picked during it is kept, and the approach and swing start once it ends.
+        if (_playerController.LocomotionFrozen || _selfAttacking || SelfStunned || SelfCasting)
         {
             return;
         }
