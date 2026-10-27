@@ -676,6 +676,10 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
     private static float FlipFacing(float f) => MathF.Atan2(MathF.Sin(f), -MathF.Cos(f));
 
+    // The play channel's leave (the server stores the character and answers) after Dispose; the owner of the connection
+    // waits for it before closing the connection.
+    public Task Closing { get; private set; } = Task.CompletedTask;
+
     private void TearDownRemotePresence()
     {
         if (_remote is not null)
@@ -684,7 +688,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             _remote.PlayerMotionStarted -= OnRemotePlayerMotionStarted;
         }
 
-        _ = ClosePresenceAsync(_playChannel, _presenceReader, _presenceCts);
+        Closing = ClosePresenceAsync(_playChannel, _presenceReader, _presenceCts);
         _remote?.Dispose();
         _remote = null;
         _playChannel = null;

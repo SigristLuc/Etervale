@@ -20,12 +20,17 @@ public sealed partial class GameScene
 
     public int FieldLimitLevel(int fieldCode) => _worldCatalog is not null && _worldCatalog.TryGetFieldByCode(fieldCode, out var field) ? field.LimitLevel : 0;
 
+    // The channel and token are taken before the delay: its continuation runs on the pool, where a teardown in between
+    // could have cleared or disposed them.
     public async Task<WingGateOutcome> TravelWingGateAsync(int destination)
     {
-        if (_playChannel is null)
+        var channel = _playChannel;
+        if (channel is null)
         {
             return new WingGateOutcome(WingGateStatus.Rejected, destination);
         }
+
+        var token = _presenceCts.Token;
 
         if (_playerBody is not null)
         {
@@ -33,8 +38,8 @@ public sealed partial class GameScene
             _fieldAudio?.PlayPortalWarp();
         }
 
-        await Task.Delay(WingTripDelayMs, _presenceCts.Token);
-        return await _playChannel.TravelWingGateAsync(destination, _presenceCts.Token);
+        await Task.Delay(WingTripDelayMs, token);
+        return await channel.TravelWingGateAsync(destination, token);
     }
 
     private void UpdateWingStone()

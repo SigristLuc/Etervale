@@ -162,11 +162,25 @@ public sealed class GameClient : IDisposable
             return _shutdown;
         }
 
-        // GPU resources are released on the game thread. Network/database cleanup runs asynchronously.
-        _screen?.Dispose();
+        // GPU resources are released on the game thread. Network/database cleanup runs asynchronously, after the screen's
+        // closing work (leaving the world, so the server stores the character) has used the connection.
+        var screen = _screen;
+        screen?.Dispose();
+        var closing = screen?.Closing ?? Task.CompletedTask;
         _screen = null;
         _pendingScreen = null;
-        _shutdown = _backend is null ? Task.CompletedTask : Task.Run(() => DisposeBackendAsync(_backend));
+        var backend = _backend;
+        _shutdown = backend is null ? closing : Task.Run(async () =>
+        {
+            try
+            {
+                await closing;
+            }
+            finally
+            {
+                await DisposeBackendAsync(backend);
+            }
+        });
         return _shutdown;
     }
 

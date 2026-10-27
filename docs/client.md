@@ -105,9 +105,10 @@ OpeningScreen --login ok--> CharacterSelectScreen --enter world ok--> GameplaySc
 ### Shutdown
 
 `Game1.OnExiting` cancels the exit until `GameClient.BeginShutdown` and `PresentationController.CompleteAsync`
-(settings write) finish. `BeginShutdown` disposes the screen on the game thread (GPU resources) and disposes the backend
-on the thread pool; meanwhile `Draw` shows "Saving and disconnecting…". Disposing `GameScene` disposes the play channel,
-which sends the Etervale leave-world request and waits up to 5 s for its reply so the server saves first.
+(settings write) finish. `BeginShutdown` disposes the screen on the game thread (GPU resources), waits on the thread
+pool for the screen's `Closing` task and then disposes the backend; meanwhile `Draw` shows "Saving and disconnecting…".
+Disposing `GameScene` disposes the play channel (`GameScene.Closing`), which sends the Etervale leave-world request and
+waits up to 5 s for its reply, so the server stores the character before the connection closes.
 
 ## Frame loop
 
@@ -164,7 +165,7 @@ frame.
 | Characters | `ListCharactersAsync` returns the list cached at login; create/delete send `CharacterCommand` | `CharacterResult` (a fresh list arrives first on success) |
 | Enter world | `EnterWorld` with the name | `WorldEntry` (id, field, spawn point; a non-zero status is a denial) |
 | Open play | `OpenPlayChannel` -> `OnlinePlayChannel` sends `JoinWorld` with the entered id | `WorldJoined` |
-| Leave | Disposing the play channel sends `LeaveWorld` | The answer with Saved 1 (5 s timeout) |
+| Leave | Disposing the play channel sends `LeaveWorld` | The answer (Saved tells whether the character was stored; 5 s timeout) |
 
 Correlation rules (requests without an operation id):
 

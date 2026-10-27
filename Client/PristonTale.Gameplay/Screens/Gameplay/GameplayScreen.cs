@@ -247,4 +247,6 @@ public sealed class GameplayScreen : GameScreen
         _hud?.Dispose();
         _scene?.Dispose();
     }
+
+    public override Task Closing => _scene?.Closing ?? Task.CompletedTask;
 }
