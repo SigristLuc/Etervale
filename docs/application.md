@@ -38,7 +38,8 @@ into it is described in [server.md](server.md); skill resolution details are in 
 | `World/FieldCombat.cs` | Basic attack and monster attack resolution, damage log, kill payout, corpses |
 | `World/FieldMonsterSkills.cs`, `FieldInstance.MonsterSkills.cs`, `FieldSkills.MonsterStatuses.cs` | Monster skill authority: swing start rules and events, skill blows, statuses, curses, boss lives and reinforcements, potions, shape changes (see [world.md](world.md#monster-skills)) |
 | `World/FieldSkills*.cs` | Player skill authority, effect timers, regeneration, familiars, summons (see [skills.md](skills.md)) |
-| `World/WorldPlayer.cs` | Server-side avatar: movement validation, action state (swing, flinch, eat, cast), death, respawn |
+| `World/WorldPlayer.cs` | Server-side avatar: movement validation, action state (swing, flinch, eat, cast, cheer), death, respawn |
+| `World/ActionTimeline.cs` | The running action's clip (elapsed, length, one event that fires once); every action of `WorldPlayer` runs on it |
 | `World/WorldNpc.cs` | Placed NPC with deterministic wander |
 | `World/FieldGroundLoot.cs` | Ground drops per field: ownership window, expiry, reservation for pickup, client handles |
 | `World/FieldTransition.cs` | Authorizes gate and warp field changes |
