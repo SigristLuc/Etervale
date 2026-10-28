@@ -11,6 +11,49 @@ public readonly record struct PlayerActorHandles(ActorHandle Body, ActorHandle H
     public ActorHandle Weapon { get; init; } = ActorHandle.None;
     public ActorHandle OffHand { get; init; } = ActorHandle.None;
 
+    // The body and the head move and play as one (the weapons follow by attachment).
+    public void SetWorld(IActorScene scene, Matrix world)
+    {
+        scene.SetActorWorld(Body, world);
+        scene.SetActorWorld(Head, world);
+    }
+
+    public void SetMotion(IActorScene scene, MotionCode motion)
+    {
+        scene.SetActorMotion(Body, motion);
+        scene.SetActorMotion(Head, motion);
+    }
+
+    public void RestartMotion(IActorScene scene, MotionCode motion)
+    {
+        scene.RestartActorMotion(Body, motion);
+        scene.RestartActorMotion(Head, motion);
+    }
+
+    public void SetMotionIndex(IActorScene scene, int motionIndex)
+    {
+        scene.SetActorMotionIndex(Body, motionIndex);
+        scene.SetActorMotionIndex(Head, motionIndex);
+    }
+
+    public void SeekMotion(IActorScene scene, int framesFromStart)
+    {
+        scene.SeekActorMotion(Body, framesFromStart);
+        scene.SeekActorMotion(Head, framesFromStart);
+    }
+
+    public void SetPlaybackRate(IActorScene scene, float rate)
+    {
+        scene.SetActorPlaybackRate(Body, rate);
+        scene.SetActorPlaybackRate(Head, rate);
+    }
+
+    public void SetColorAdd(IActorScene scene, Vector3 colorAdd)
+    {
+        scene.SetActorColorAdd(Body, colorAdd);
+        scene.SetActorColorAdd(Head, colorAdd);
+    }
+
     // The body first: it carries the skeleton the others follow.
     public int CopyTo(Span<ActorHandle> destination)
     {

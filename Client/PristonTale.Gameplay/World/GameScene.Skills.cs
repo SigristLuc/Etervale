@@ -65,7 +65,7 @@ public sealed partial class GameScene : ISkillSceneHost
         _skillFx.CastResolved += OnCastResolved;
         CreateMonsterPresentation();
         CreateCombatSounds();
-        _looks = new ActorLookPresenter(new RendererActorScene(_renderer), _actorLoader, _assetRoot ?? "");
+        _looks = new ActorLookPresenter(_actorScene, _actorLoader, _assetRoot ?? "");
     }
 
     void ISkillSceneHost.ApplyLook(ulong entityId, in EntityLook look)
@@ -77,7 +77,7 @@ public sealed partial class GameScene : ISkillSceneHost
 
         if (entityId == _remote.SelfEntityId)
         {
-            var handles = _equipmentPresentation?.Handles ?? new PlayerActorHandles(_playerBodyActor, _playerHeadActor);
+            var handles = _equipmentPresentation?.Handles ?? PlayerActors;
             _looks.Apply(entityId, handles, _equipmentPresentation?.HoldsShield == true, look);
             return;
         }
@@ -453,10 +453,8 @@ public sealed partial class GameScene : ISkillSceneHost
             return;
         }
 
-        _renderer.SeekActorMotion(_playerBodyActor, framesFromStart);
-        _renderer.SeekActorMotion(_playerHeadActor, framesFromStart);
-        _renderer.SetActorPlaybackRate(_playerBodyActor, rate);
-        _renderer.SetActorPlaybackRate(_playerHeadActor, rate);
+        PlayerActors.SeekMotion(_actorScene, framesFromStart);
+        PlayerActors.SetPlaybackRate(_actorScene, rate);
     }
 
     float ISkillSceneHost.AttackRateOf(ulong entityId) =>
@@ -486,17 +484,13 @@ public sealed partial class GameScene : ISkillSceneHost
         {
             _ = _playerController.Retrigger(MotionCode.Skill);
             var clip = _renderer.ResolveSkillMotion(_playerBodyActor, plan.MotionIndex);
-            _renderer.SetActorMotionIndex(_playerBodyActor, clip);
-            _renderer.SetActorMotionIndex(_playerHeadActor, clip);
-            _renderer.SetActorPlaybackRate(_playerBodyActor, rate);
-            _renderer.SetActorPlaybackRate(_playerHeadActor, rate);
+            PlayerActors.SetMotionIndex(_actorScene, clip);
+            PlayerActors.SetPlaybackRate(_actorScene, rate);
             return;
         }
 
         ApplyPlayerCommand(_playerController.Retrigger(MotionCode.Attack));
-        var attackRate = PlayerRateFor(MotionCode.Attack) * rate;
-        _renderer.SetActorPlaybackRate(_playerBodyActor, attackRate);
-        _renderer.SetActorPlaybackRate(_playerHeadActor, attackRate);
+        PlayerActors.SetPlaybackRate(_actorScene, PlayerRateFor(MotionCode.Attack) * rate);
     }
 
     // The skill clip returns to stand by itself; the controller follows when the cast lock ends, or a cast with no walk

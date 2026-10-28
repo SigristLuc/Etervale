@@ -80,8 +80,7 @@ public sealed partial class GameScene : IMonsterScene
 
         if (entityId == _remote.SelfEntityId)
         {
-            _renderer.SetActorColorAdd(_playerBodyActor, tint);
-            _renderer.SetActorColorAdd(_playerHeadActor, tint);
+            PlayerActors.SetColorAdd(_actorScene, tint);
             return;
         }
 

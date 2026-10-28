@@ -40,7 +40,7 @@ public sealed partial class GameScene
 
         if (_pets is null && _renderer is not null)
         {
-            _pets = new PremiumPetPresentation(new RendererActorScene(_renderer), _actorLoader, _assetRoot ?? "", _effectLibrary, _effects,
+            _pets = new PremiumPetPresentation(_actorScene, _actorLoader, _assetRoot ?? "", _effectLibrary, _effects,
                 _renderer.TransientLights, _skillSounds, _log);
         }
     }

@@ -32,6 +32,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 {
     private ActorHandle _playerBodyActor = ActorHandle.None;
     private ActorHandle _playerHeadActor = ActorHandle.None;
+
+    // The local player's body and head, which move and play as one.
+    private PlayerActorHandles PlayerActors => new(_playerBodyActor, _playerHeadActor);
     private FieldDef _currentField;
 
     private readonly GraphicsDevice _graphicsDevice;
@@ -44,6 +47,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private readonly CharacterClassRegistry _classRegistry = new();
     private PlayerCharacter _player;
     private PristonRenderer _renderer;
+    private RendererActorScene _actorScene;
     private PlayerActorComposer _playerComposer;
     private GroundLootPresentation _groundLoot;
     private GroundLootInteraction _lootInteraction;
@@ -429,6 +433,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         if (_renderer != null)
             return;
         _renderer = new PristonRenderer(_graphicsDevice, _content, _log, _presentation) { Sky = _sky };
+        _actorScene = new RendererActorScene(_renderer);
         if (_effects is not null)
         {
             _returnEffect = new PristonTale.Gameplay.Effects.ReturnEffect(_graphicsDevice, _effectLibrary, _renderer.TransientLights);
@@ -436,7 +441,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
         CreateSkillPresentation();
         CreateItemEffects();
-        var actorScene = new RendererActorScene(_renderer);
+        var actorScene = _actorScene;
         _playerComposer = new PlayerActorComposer(actorScene, _actorLoader);
         _monsterComposer = new ModelActorComposer(actorScene, _actorLoader);
         _groundLoot = new GroundLootPresentation(actorScene, _actorLoader, _assetRoot, _log);
@@ -497,7 +502,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             faceIndex,
             PlayerWorld(),
             _playerController.Current);
-        _equipmentPresentation = new PlayerEquipmentPresentation(_playerComposer, new RendererActorScene(_renderer), _log,
+        _equipmentPresentation = new PlayerEquipmentPresentation(_playerComposer, _actorScene, _log,
             assetRoot, visuals, _player.Definition.MotionJobMask, handles);
         _playerBodyActor = handles.Body;
         _playerHeadActor = handles.Head;
@@ -530,7 +535,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
         _ = entered;
         _remote = new RemoteEntityManager(
-            new RendererActorScene(_renderer),
+            _actorScene,
             _playerComposer,
             _monsterComposer,
             _classRegistry,
@@ -1080,22 +1085,16 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     {
         if (_renderer == null || !_playerBodyActor.IsValid)
             return;
-        _renderer.SetActorMotion(_playerBodyActor, motion);
-        _renderer.SetActorMotion(_playerHeadActor, motion);
-        var rate = PlayerRateFor(motion);
-        _renderer.SetActorPlaybackRate(_playerBodyActor, rate);
-        _renderer.SetActorPlaybackRate(_playerHeadActor, rate);
+        PlayerActors.SetMotion(_actorScene, motion);
+        PlayerActors.SetPlaybackRate(_actorScene, PlayerRateFor(motion));
     }
 
     private void RestartPlayerMotion(MotionCode motion)
     {
         if (_renderer == null || !_playerBodyActor.IsValid)
             return;
-        _renderer.RestartActorMotion(_playerBodyActor, motion);
-        _renderer.RestartActorMotion(_playerHeadActor, motion);
-        var rate = PlayerRateFor(motion);
-        _renderer.SetActorPlaybackRate(_playerBodyActor, rate);
-        _renderer.SetActorPlaybackRate(_playerHeadActor, rate);
+        PlayerActors.RestartMotion(_actorScene, motion);
+        PlayerActors.SetPlaybackRate(_actorScene, PlayerRateFor(motion));
     }
 
     private void ApplyPlayerCommand(MotionCommand command)
@@ -2102,9 +2101,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     {
         if (!_playerBodyActor.IsValid)
             return;
-        var world = PlayerWorld();
-        _renderer.SetActorWorld(_playerBodyActor, world);
-        _renderer.SetActorWorld(_playerHeadActor, world);
+        PlayerActors.SetWorld(_actorScene, PlayerWorld());
     }
 
     private Matrix PlayerWorld()
