@@ -7,6 +7,7 @@ using PristonTale.Gameplay.UI;
 using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Contracts.Motion;
 using PristonTale.Gameplay.UI.Rendering;
+using PristonTale.Gameplay.World.Remote;
 
 namespace PristonTale.Gameplay.Screens.Gameplay;
 
@@ -15,7 +16,7 @@ public sealed class GameplayScreen : GameScreen
     private readonly EnteredCharacter _entered;
     private GameScene _scene;
     private GameplayHud _hud;
-    private readonly List<PristonTale.Gameplay.World.Remote.GroundLabel> _groundLabels = [];
+    private readonly List<GroundLabel> _groundLabels = [];
     private KeyboardState _lastKeyboard;
     private bool _showRenderStats = true;
     private volatile PristonTale.Client.Net.WorldCatalog.WorldRenderCatalog _pendingHudCatalog;
@@ -225,11 +226,12 @@ public sealed class GameplayScreen : GameScreen
 
     public override bool HandleEscape() => _hud?.ClosePanel() == true;
 
-    // The scene clears its hovered entity while the HUD has the pointer, so windows always show the arrow.
+    // The scene clears its hovered entity while the HUD has the pointer, so windows show the arrow unless the HUD imposes
+    // one (a shop's mode, a dragged item).
     public override HudCursorKind Cursor =>
         _scene is null || _hud is null
             ? HudCursorKind.Default
-            : HudCursor.ForHovered(_scene.HoveredDropId != Guid.Empty, Mouse.GetState().LeftButton == ButtonState.Pressed,
+            : _hud.CursorOverride ?? HudCursor.ForHovered(_scene.HoveredDropId != Guid.Empty, Mouse.GetState().LeftButton == ButtonState.Pressed,
                 _hud.Combat.KindOf(_scene.HoveredTargetId, out var owner), owner);
 
     // The server's shutdown asks every client to save and quit: the game closes as from the window's close button.

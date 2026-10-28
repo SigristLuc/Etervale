@@ -200,7 +200,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     public ulong AttackTargetId => _attackInput.TargetId;
     public ulong SelectedTargetId => _targetSelection.FrameId;
     public ulong HoveredTargetId => _targetSelection.HoveredId;
-
     public Guid HoveredDropId { get; private set; }
     public ulong TracedTargetId => _targetSelection.TracedId;
     public FieldDef ActiveFieldDefinition => _activeField?.Definition;

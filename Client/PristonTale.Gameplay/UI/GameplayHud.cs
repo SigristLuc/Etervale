@@ -9,6 +9,7 @@ using PristonTale.Gameplay.UI.Quests;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Gameplay.UI.Travel;
 using PristonTale.Gameplay.UI.Widgets;
+using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Progression;
@@ -163,7 +164,7 @@ public sealed partial class GameplayHud : IDisposable
     public ulong HoveredId { get; set; }
     public ulong TracedId { get; set; }
     // The drop names to draw under the entity names, and where each one landed (back-buffer pixels) for clicks on it.
-    public IReadOnlyList<PristonTale.Gameplay.World.Remote.GroundLabel> GroundLabels { get; set; } = [];
+    public IReadOnlyList<GroundLabel> GroundLabels { get; set; } = [];
     public Action<Guid, Rectangle> GroundLabelPlaced { get; set; }
     public HudWorldView World { get; set; }
 
@@ -426,6 +427,14 @@ public sealed partial class GameplayHud : IDisposable
     private bool SideWindowOpen => _inventorySlide.Visible || _statusSlide.Visible || _skillSlide.Visible;
 
     private long QuestTimeLeftMs => _questView is null ? 0 : Math.Max(0, _questView.TimerMs - (long)(_clock.Elapsed.TotalMilliseconds - _questViewMs));
+
+    // The pointer the HUD imposes, or null to let the scene choose: the arrow over a dialog or message box, the shop
+    // mode's pointer while a shop is open, none while an item is dragged.
+    public HudCursorKind? CursorOverride =>
+        ModalOpen ? HudCursorKind.Default
+        : _shop.IsOpen ? _shop.Mode switch { HudShopMode.Sell => HudCursorKind.Sell, HudShopMode.Repair => HudCursorKind.Repair, _ => HudCursorKind.Buy }
+        : _inventory.Dragging != Guid.Empty || _warehouse.Dragging != Guid.Empty ? HudCursorKind.Hidden
+        : null;
 
     // A dialog, a message box or the warp map: it takes every click, the bag's included.
     private bool ModalOpen =>

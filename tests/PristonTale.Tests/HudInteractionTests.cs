@@ -206,6 +206,9 @@ internal static class HudInteractionTests
         Assert.True(HudCursor.ForHovered(false, true, EntityKind.Npc, 0) == HudCursorKind.Talk, "a held button without a drop changes the pointer");
         Assert.True(HudCursor.ArtPath(HudCursorKind.GetItem).EndsWith("GetItem_Cursor1.tga", StringComparison.Ordinal)
             && HudCursor.ArtPath(HudCursorKind.GetItemHeld).EndsWith("GetItem_Cursor2.tga", StringComparison.Ordinal), "the hand art differs");
+        Assert.True(HudCursor.ArtPath(HudCursorKind.Buy).EndsWith("BuyCursor.tga", StringComparison.Ordinal)
+            && HudCursor.ArtPath(HudCursorKind.Sell).EndsWith("SellCursor.tga", StringComparison.Ordinal)
+            && HudCursor.ArtPath(HudCursorKind.Repair).EndsWith("RepairCursor.tga", StringComparison.Ordinal), "the shop pointer art differs");
         return Task.CompletedTask;
     }
 

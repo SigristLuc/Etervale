@@ -323,9 +323,9 @@ public sealed class HudPainter : IDisposable
         }
 
         var texture = highlighted ? _nameBoxHighlighted : _nameBox;
-        int[] destinationX = [bounds.X, bounds.X + corner, bounds.Right - corner, bounds.Right];
-        int[] destinationY = [bounds.Y, bounds.Y + corner, bounds.Bottom - corner, bounds.Bottom];
-        int[] sourceX = [0, corner, NameBoxSize - corner, NameBoxSize];
+        Span<int> destinationX = [bounds.X, bounds.X + corner, bounds.Right - corner, bounds.Right];
+        Span<int> destinationY = [bounds.Y, bounds.Y + corner, bounds.Bottom - corner, bounds.Bottom];
+        Span<int> sourceX = [0, corner, NameBoxSize - corner, NameBoxSize];
         for (var row = 0; row < 3; row++)
         {
             for (var column = 0; column < 3; column++)

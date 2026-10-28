@@ -463,8 +463,10 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   cursor tipped at its top-left pixel, on every screen. `GameClient` shows the screen's `GameScreen.Cursor` after each
   update; in play it is the attack arrow over a monster without an owner, the speech balloon over an NPC, the open hand
   (`GetItem_Cursor1`) over a drop and the closed hand (`GetItem_Cursor2`) while the left button is held, a drop winning
-  over the monster or NPC behind it, and the plain arrow over players, summons, the HUD and the ground. A missing image
-  keeps the system arrow.
+  over the monster or NPC behind it, and the plain arrow over players, summons, the HUD and the ground. The HUD imposes
+  its own (`GameplayHud.CursorOverride`): the arrow over a dialog or message box, the pointer of the shop's mode
+  (`BuyCursor`, `SellCursor`, `RepairCursor`) while a shop is open, and none while an item is dragged (a transparent
+  cursor; the item's icon takes its place). A missing image keeps the system arrow.
 - 3D portrait (`HudTargetPortrait`): rendered each frame into its own 4x MSAA target through
   `PristonRenderer.DrawActorPortrait`, framed on the `Bip01 Head` bone (fallback: model height) plus the authored
   portrait offsets from `MonsterRenderInfo`/`NpcRenderInfo`, with its own studio lighting.

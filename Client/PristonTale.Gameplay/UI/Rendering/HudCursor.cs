@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using PristonTale.Assets;
@@ -13,12 +14,18 @@ public enum HudCursorKind
     Attack,
     Talk,
     GetItem,
-    GetItemHeld
+    GetItemHeld,
+    Buy,
+    Sell,
+    Repair,
+    // No pointer: the dragged item's icon takes its place.
+    Hidden
 }
 
 // The original pointer: the yellow arrow, its gem red over a monster the player can attack, a speech balloon over an
-// NPC and an open hand over a drop on the ground, closed while the left button is held. Each image becomes a system cursor, so it follows the mouse without waiting for a frame; the arrow's tip is the
-// image's top-left pixel. A missing image leaves the system arrow in its place.
+// NPC and an open hand over a drop on the ground, closed while the left button is held; in a shop, the buy, sell or
+// repair pointer of the shop's mode; none while an item is dragged. Each image becomes a system cursor, so it follows
+// the mouse without waiting for a frame; the tip is the image's top-left pixel. A missing image leaves the system arrow.
 public sealed class HudCursor : IDisposable
 {
     private const string Folder = "image/Sinimage/Cursor/";
@@ -52,6 +59,9 @@ public sealed class HudCursor : IDisposable
         HudCursorKind.Talk => "Talk_Cursor.tga",
         HudCursorKind.GetItem => "GetItem_Cursor1.tga",
         HudCursorKind.GetItemHeld => "GetItem_Cursor2.tga",
+        HudCursorKind.Buy => "BuyCursor.tga",
+        HudCursorKind.Sell => "SellCursor.tga",
+        HudCursorKind.Repair => "RepairCursor.tga",
         _ => "DefaultCursor.tga"
     };
 
@@ -60,18 +70,27 @@ public sealed class HudCursor : IDisposable
         var kinds = Enum.GetValues<HudCursorKind>();
         var cursors = new MouseCursor[kinds.Length];
         var textures = new Texture2D[kinds.Length];
+        var blank = new Texture2D(device, 1, 1, false, SurfaceFormat.Color);
+        blank.SetData([Color.Transparent]);
+        textures[(int)HudCursorKind.Hidden] = blank;
+        cursors[(int)HudCursorKind.Hidden] = MouseCursor.FromTexture2D(blank, 0, 0);
         foreach (var kind in kinds)
         {
-            var path = AssetFiles.Resolve(AssetFiles.Combine(assetRoot, ArtPath(kind)));
+            if (kind == HudCursorKind.Hidden)
+            {
+                continue;
+            }
+
+            var path = AssetFiles.Combine(assetRoot, ArtPath(kind));
             try
             {
-                if (!File.Exists(path))
+                if (!AssetFiles.Exists(path))
                 {
                     log.Warn($"[Cursor] missing {ArtPath(kind)}; the system arrow stays.");
                     continue;
                 }
 
-                var image = PristonImageDecoder.Decode(File.ReadAllBytes(path), Path.GetExtension(path));
+                var image = PristonImageDecoder.Decode(AssetFiles.ReadAllBytes(path), Path.GetExtension(path));
                 if (image.Width <= 0 || image.Height <= 0)
                 {
                     log.Warn($"[Cursor] unreadable {ArtPath(kind)}; the system arrow stays.");
