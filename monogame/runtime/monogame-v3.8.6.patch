@@ -2317,7 +2317,7 @@
 +// MGG.EnsureRuntimeVersion) checks before anything else: a library built from other sources (the official package, or
 +// a stale build of the fork) would fail later at the first missing export, or worse, call an export whose arguments
 +// changed. Bumped with every change of an exported function (monogame/issues/002-runtime-version.md).
-+#define MGVK_ETERVALE_RUNTIME_VERSION 6
++#define MGVK_ETERVALE_RUNTIME_VERSION 7
 +
 +MG_EXPORT mgint MGG_Etervale_RuntimeVersion()
 +{
@@ -3062,7 +3062,29 @@
  
  #if _WIN32
  #include <combaseapi.h>
-@@ -1078,6 +1079,15 @@
+@@ -1066,6 +1067,21 @@
+ 	SDL_SetWindowBordered(window->window, borderless ? SDL_FALSE : SDL_TRUE);
+ }
+ 
++// Etervale fork: the maximized state of a window (monogame/issues/017-window-maximize.md).
++MG_EXPORT mgbyte MGP_Window_GetIsMaximized(MGP_Window* window)
++{
++	assert(window != nullptr);
++
++	return (SDL_GetWindowFlags(window->window) & SDL_WINDOW_MAXIMIZED) != 0;
++}
++
++MG_EXPORT void MGP_Window_Maximize(MGP_Window* window)
++{
++	assert(window != nullptr);
++
++	SDL_MaximizeWindow(window->window);
++}
++
+ void MGP_Window_SetTitle(MGP_Window* window, const char* title)
+ {
+     assert(window != nullptr);
+@@ -1078,6 +1094,15 @@
  {
  	assert(window != nullptr);
  

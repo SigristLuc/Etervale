@@ -1067,6 +1067,21 @@ void MGP_Window_SetIsBorderless(MGP_Window* window, mgbyte borderless)
 	SDL_SetWindowBordered(window->window, borderless ? SDL_FALSE : SDL_TRUE);
 }
 
+// Etervale fork: the maximized state of a window (monogame/issues/017-window-maximize.md).
+MG_EXPORT mgbyte MGP_Window_GetIsMaximized(MGP_Window* window)
+{
+	assert(window != nullptr);
+
+	return (SDL_GetWindowFlags(window->window) & SDL_WINDOW_MAXIMIZED) != 0;
+}
+
+MG_EXPORT void MGP_Window_Maximize(MGP_Window* window)
+{
+	assert(window != nullptr);
+
+	SDL_MaximizeWindow(window->window);
+}
+
 void MGP_Window_SetTitle(MGP_Window* window, const char* title)
 {
     assert(window != nullptr);

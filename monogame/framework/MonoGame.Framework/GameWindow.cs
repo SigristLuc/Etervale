@@ -42,6 +42,20 @@ namespace Microsoft.Xna.Framework
         /// </summary>
         public abstract Point Position { get; set; }
 
+        // Etervale fork: the maximized state (monogame/issues/017-window-maximize.md).
+        /// <summary>
+        /// Whether the window is maximized. False on platforms without the state.
+        /// </summary>
+        public virtual bool IsMaximized => false;
+
+        /// <summary>
+        /// Maximizes the window; its restored size and position stay those it had before. Does nothing on platforms
+        /// without the state.
+        /// </summary>
+        public virtual void Maximize()
+        {
+        }
+
 	    /// <summary>
 	    /// The display orientation on a mobile device.
 	    /// </summary>

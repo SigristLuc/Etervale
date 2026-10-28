@@ -160,6 +160,8 @@ Since the C# half was forked too (`../issues/001-framework-from-source.md`), eac
 28. **Depth surfaces** (`MGSurfaceFormat::Depth32Float`, `../issues/016-depth-surface-targets.md`; interface version
     6): a render target whose image is a `VK_FORMAT_D32_SFLOAT` depth buffer, drawn into by passes without colour and
     sampled through a depth view.
+29. **Maximized state** (`MGP_Window_GetIsMaximized`, `MGP_Window_Maximize`, `../issues/017-window-maximize.md`;
+    interface version 7): whether the SDL window is maximized, and maximizing it.
 
 The runtime also prints the swapchain image count and present mode, an early submission when the uniform buffer is
 full, and a warning when two resources of one shader share a binding.
