@@ -11,7 +11,7 @@ writes that data, and the gameplay glue in `Client/PristonTale.Gameplay/Effects/
 - Adding a field to the `.vfx.json` format, a builtin texture, or a new layer behaviour.
 - Debugging an effect that is invisible, a white square, stuck alive, at the wrong position or on the wrong bone.
 - Working on skill looks on actors (tints, translucency, shield swaps, enlarged weapons, afterimages) or costume wings.
-- Working on potion or character-select effects that use the original `EffectsEngine`.
+- Working on potion, firecracker or character-select effects that use the original `EffectsEngine`.
 
 ## Code map
 
@@ -27,10 +27,10 @@ writes that data, and the gameplay glue in `Client/PristonTale.Gameplay/Effects/
 | `Client/PristonTale.Effects/Vfx/VfxRenderer*.cs` | Quads of every layer in one dynamic vertex buffer; effect models through their own draws |
 | `Client/PristonTale.Effects/Vfx/VfxBuiltinTextures.cs` | Procedural `builtin:` sprite textures |
 | `Client/PristonTale.Effects/Scripts/BillboardSequence.cs` | Original animated billboards (`Effect/AnimationData/*.ini`) and their tick-exact player |
-| `Client/PristonTale.Effects/Scripts/`, `EffectsEngine.cs`, `Effects/`, `Particles/`, `Rendering/` | Original particle engine used by potions, character select and the combat-effects probe |
+| `Client/PristonTale.Effects/Scripts/`, `EffectsEngine.cs`, `Effects/`, `Particles/`, `Rendering/` | Original particle engine still used by potions, firecrackers and character select |
 | [`Client/PristonTale.Gameplay/Effects/VfxContent.cs`](../Client/PristonTale.Gameplay/Effects/VfxContent.cs) | Loads the catalog, models, animations and textures on a worker; registers them on the game thread in 2 ms slices |
 | [`Client/PristonTale.Gameplay/Effects/SkillPresentation.cs`](../Client/PristonTale.Gameplay/Effects/SkillPresentation.cs) | Implements `IVfxServices`, maps skill events and statuses to effects |
-| `Client/PristonTale.Gameplay/Effects/ScriptEffects.cs` | `IScriptEffects`: monster and meteor code start converted scripts (`particle.<name>`) through the skill presentation or a scene's own `VfxSystem` (the opening flight) |
+| `Client/PristonTale.Gameplay/Effects/ScriptEffects.cs` | `IScriptEffects`: meteors, force-orb hits and premium pet shots start converted scripts (`particle.<name>`) through a `VfxSystem` (the skill presentation's, or the opening flight's own); `VfxNoAnchors` and `TransientLightServices` serve a scene without entities |
 | [`Client/PristonTale.Gameplay/Effects/MonsterPresentation.cs`](../Client/PristonTale.Gameplay/Effects/MonsterPresentation.cs) | Monster effects: follows each monster's clip and starts `vfx.monster.*`; monster status effects and body tints |
 | `Client/PristonTale.Gameplay/Effects/MonsterVisualFamilies.cs` | Sound family (and level, size) to effect family |
 | `Client/PristonTale.Gameplay/Effects/ActorLooks.cs`, `World/Remote/ActorLookPresenter.cs` | `ActorLookBook`: skill looks per entity from statuses, casts and impacts; the presenter paints them on actors (tint, opacity, overlay, wobble, shield swap, weapon copy, afterimage echoes) |

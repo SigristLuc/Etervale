@@ -32,16 +32,16 @@ public sealed partial class GameScene
             _itemEffects = new ItemUseEffects(_effectLibrary, _assetRoot ?? "", _effects, _renderer.TransientLights, _skillSounds);
         }
 
-        if (_forceOrbs is null && _effects is not null && _skillFx is not null)
+        var scripts = _skillFx is null ? null : new SystemScriptEffects(_skillFx.System, _skillFx.Library);
+        if (_forceOrbs is null && _skillFx is not null)
         {
             ItemVfx.Register(_skillFx.Library);
-            _forceOrbs = new ForceOrbPresentation(_skillFx, _effectLibrary, _assetRoot ?? "", _effects, _renderer?.TransientLights);
+            _forceOrbs = new ForceOrbPresentation(_skillFx, scripts, _renderer?.TransientLights);
         }
 
         if (_pets is null && _renderer is not null)
         {
-            _pets = new PremiumPetPresentation(_actorScene, _actorLoader, _assetRoot ?? "", _effectLibrary, _effects,
-                _renderer.TransientLights, _skillSounds, _log);
+            _pets = new PremiumPetPresentation(_actorScene, _actorLoader, _assetRoot ?? "", scripts, _renderer.TransientLights, _skillSounds, _log);
         }
     }
 

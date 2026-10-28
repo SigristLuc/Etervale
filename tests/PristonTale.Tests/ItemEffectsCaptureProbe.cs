@@ -145,8 +145,9 @@ internal sealed class ItemEffectsCaptureProbe : Game
         _skills = new SkillPresentation(GraphicsDevice, Content, _library, _renderer.TransientLights, new SceneHost(this), _sounds, ConsoleClientLog.Instance);
         _library.Vfx.CompileAll();
         ItemVfx.Register(_skills.Library);
-        _orbs = new ForceOrbPresentation(_skills, _library, _assetRoot, _effects, _renderer.TransientLights);
-        _pets = new PremiumPetPresentation(actorScene, loader, _assetRoot, _library, _effects, _renderer.TransientLights, _sounds, ConsoleClientLog.Instance);
+        var scripts = new SystemScriptEffects(_skills.System, _skills.Library);
+        _orbs = new ForceOrbPresentation(_skills, scripts, _renderer.TransientLights);
+        _pets = new PremiumPetPresentation(actorScene, loader, _assetRoot, scripts, _renderer.TransientLights, _sounds, ConsoleClientLog.Instance);
         _return = new ReturnEffect(GraphicsDevice, _library, _renderer.TransientLights);
         _batch = new SpriteBatch(GraphicsDevice);
         _font = Content.Load<SpriteFont>("Fonts/UI");
@@ -187,9 +188,9 @@ internal sealed class ItemEffectsCaptureProbe : Game
         {
             ItemEffects =
             [
-                new ItemEffectInfo(SelfId, (uint)PremiumEffectKind.HelpPetTerry, ItemEffectKind.PetAttack, default, (int)HopyId),
-                new ItemEffectInfo(SelfId, (uint)PremiumEffectKind.PhoenixPet, ItemEffectKind.PetAttack, default, (int)HopyId),
-                new ItemEffectInfo(FriendId, (uint)PremiumEffectKind.HelpPetIo, ItemEffectKind.PetAttack, default, (int)HopyId)
+                new ItemEffectInfo(SelfId, (uint)PremiumEffectKind.HelpPetTerry, ItemEffectKind.PetAttack, default, 0, HopyId),
+                new ItemEffectInfo(SelfId, (uint)PremiumEffectKind.PhoenixPet, ItemEffectKind.PetAttack, default, 0, HopyId),
+                new ItemEffectInfo(FriendId, (uint)PremiumEffectKind.HelpPetIo, ItemEffectKind.PetAttack, default, 0, HopyId)
             ]
         };
         _pets.Observe(update, Anchor);
