@@ -96,7 +96,7 @@ internal static class GltfSceneExport
 
         foreach (var face in stage.Faces)
         {
-            if (!ValidFace(face.A, face.B, face.C, stage.Vertices.Count))
+            if (!face.FitsIn(stage.Vertices.Count))
             {
                 continue;
             }
@@ -182,7 +182,7 @@ internal static class GltfSceneExport
             var emitted = false;
             foreach (var face in modelObject.Faces)
             {
-                if (!ValidFace(face.A, face.B, face.C, modelObject.Vertices.Count))
+                if (!face.FitsIn(modelObject.Vertices.Count))
                 {
                     continue;
                 }
@@ -299,7 +299,7 @@ internal static class GltfSceneExport
 
             foreach (var face in modelObject.Faces)
             {
-                if (!ValidFace(face.A, face.B, face.C, modelObject.Vertices.Count))
+                if (!face.FitsIn(modelObject.Vertices.Count))
                 {
                     continue;
                 }
@@ -1778,22 +1778,6 @@ internal static class GltfSceneExport
             : PristonTexLink.Empty;
     }
 
-    private static bool ValidFace(
-        int first,
-        int second,
-        int third,
-        int vertexCount)
-    {
-        return first >= 0
-            && second >= 0
-            && third >= 0
-            && first < vertexCount
-            && second < vertexCount
-            && third < vertexCount
-            && first != second
-            && second != third
-            && first != third;
-    }
 
     private static Matrix[] Copy(Matrix[] source)
     {
@@ -1835,7 +1819,7 @@ internal static class GltfSceneExport
                 var averaged = new Vector3[modelObject.Vertices.Count];
                 foreach (var face in modelObject.Faces)
                 {
-                    if (!ValidFace(face.A, face.B, face.C, modelObject.Vertices.Count))
+                    if (!face.FitsIn(modelObject.Vertices.Count))
                     {
                         continue;
                     }
@@ -1876,7 +1860,7 @@ internal static class GltfSceneExport
         var normals = new Vector3[stage.Vertices.Count];
         foreach (var face in stage.Faces)
         {
-            if (!ValidFace(face.A, face.B, face.C, stage.Vertices.Count))
+            if (!face.FitsIn(stage.Vertices.Count))
             {
                 continue;
             }

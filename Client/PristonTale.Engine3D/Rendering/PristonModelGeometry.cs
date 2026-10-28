@@ -33,7 +33,7 @@ internal static class PristonModelGeometry
 
             foreach (var face in obj.Faces)
             {
-                if (!ValidFace(face.A, face.B, face.C, obj.Vertices.Count))
+                if (!face.FitsIn(obj.Vertices.Count))
                 {
                     continue;
                 }
@@ -76,7 +76,5 @@ internal static class PristonModelGeometry
         return list;
     }
 
-    private static bool ValidFace(int a, int b, int c, int vertexCount) =>
-        a >= 0 && b >= 0 && c >= 0 && a < vertexCount && b < vertexCount && c < vertexCount;
 
 }

@@ -269,6 +269,9 @@ public sealed record PristonStageFace(int A, int B, int C, int MaterialIndex, in
     public int CalculationSum { get; init; }
     public uint TextureLinkPointer32 { get; init; }
     public Short4 AuthoredNormal { get; init; }
+
+    // Whether its three corners name vertices of a list this long.
+    public bool FitsIn(int vertexCount) => (uint)A < (uint)vertexCount && (uint)B < (uint)vertexCount && (uint)C < (uint)vertexCount;
 }
 
 // Decoded from the Win32 stage light record (28 bytes). Its final WORD is compiler alignment after the
@@ -307,6 +310,9 @@ public sealed record PristonModelFace(int A, int B, int C, int MaterialIndex, in
     public Vector2 AuthoredUvB { get; init; }
     public Vector2 AuthoredUvC { get; init; }
     public uint TextureLinkPointer32 { get; init; }
+
+    // Whether its three corners name vertices of a list this long.
+    public bool FitsIn(int vertexCount) => (uint)A < (uint)vertexCount && (uint)B < (uint)vertexCount && (uint)C < (uint)vertexCount;
 }
 
 public sealed record PristonRotationKey(int Frame, Quaternion Rotation);
