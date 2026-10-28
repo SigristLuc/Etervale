@@ -480,7 +480,8 @@ Shop rules (`NpcShopRules`):
   (`ItemRoller.Lower`, see [simulation.md](simulation.md#items)).
 - Worn value: `intact = price * dur / maxDur` (0 counts as 1), `worn = intact + (price - intact) / 4`, where price is
   the copy's own price (a specialized drop costs a fifth more than its kind).
-- Sell: `min(price / 5, worn / 5)`; stackables `(price / 5) * count`; quest items and the quest weapon and ring a
+- Sell: `min(price / 5, worn / 5)`; stackables `(price / 5) * count` for the count of units asked (1 to the stack's
+  count; an item sells whole); quest items and the quest weapon and ring a
   running rank-up holds cannot be sold; refused with `GoldLimit` when gold would exceed
   `MoneyLimits.CarryLimit(level, tier)`.
 - Repair: `(price - worn) / 8` for items below max durability; requires gold strictly greater than the cost.

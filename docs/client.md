@@ -248,6 +248,12 @@ coordinates; their consumers mirror them with `WorldSpace` instead of negating Z
   are loading waits in `_preparingActors` and keeps receiving the latest state. A player appearance change re-composes
   the actor from the drawn pose. Summons record their owner and are not pickable; summons and crystal pets carry
   a name plate (`SummonPlates`, drawn before the HUD and so under the drop names) at the model's authored height.
+- A monster or NPC model whose INX names a sub model on a skeleton of its own (`AlternateModel`; the mushroom's death,
+  skeletons, golems, mummies, crystals and about fifty others) is composed with it hidden (`ModelActorComposer`,
+  `ComposedModelActor.Alternate`). `RemoteModelEntity` shows the sub model in the main model's place while a motion only
+  it has a clip for plays (most often the death) and the main model again for the others, as the original does; its
+  `Actor` is the model shown, so sounds, effects, picking and outlines follow it. The renderer hides an actor with
+  `SetActorHidden` (kept with its clip and world, left out of the batch lists).
 - `GroundLootPresentation` lays each drop as the original does: a yaw drawn from its position
   (`(x + z) >> 2` in fixed point, 4096 per turn), and weapons (`0x01xxxxxx` codes) turned a quarter turn about X so they
   lie flat. The turned mesh rests on the floor by its lowest rotated corner (`GroundLootPresentation.Orientation`).
@@ -431,8 +437,9 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
   closes it instead of switching, and nothing is thrown while it is open.
 - Count box (`HudCountBox`), the original's quantity question: `BoxMain.tga` at (300, 200) with two lines, the number
   in `COUNT.bmp` at (+34, +62), typed with the digit keys (Backspace erases) or stepped with the arrows at (+124, +62)
-  and (+124, +75), never above the maximum; OK or Enter accepts a non-zero count, Cancel or Escape closes. It is modal
-  and takes the typed text from the chat while open.
+  and (+124, +75). Any number may be typed (nine digits); one above the question's maximum gives the maximum when
+  accepted, and the arrows stay within it. OK or Enter accepts a non-zero count, Cancel or Escape closes. It is modal
+  and takes the keyboard from the chat and the game keys while open.
 - Inventory window (`HudInventoryPanel`): carried/maximum weight centred in x 326..406 at y 471 of the window; items the
   character cannot use (level, attributes or class against `OwnedItemView.Details`, re-checked on every owner state)
   get the original red cell tint, in the bag and in their equipment slot. Under a carried item the landing cells or slot
@@ -487,7 +494,8 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
 - Shop (`HudShopWindow`): buy, sell (click or drop an inventory item on the shop), repair, repair all; opens next to the
   inventory. Stock fills pages in authored order, each item at the first free place down the columns from the left
   (`HudStoreLayout.FindSpace`); an item that does not fit starts the next page. Goods sold in stacks (potions) ask how
-  many in the count box, up to a stack and what the gold pays for; other items buy one at a click. Warehouse
+  many in the count box, up to a stack and what the gold pays for, and a stack sold (clicked or set down on the shop)
+  asks how many of it; other items buy or sell whole at a click. Warehouse
   (`HudWarehouseWindow`): items are carried as in the bag. A stored item set down on the grid sends Move, in the bag
   (`HudInventoryPlacement.OfStored`: bag cells only) Withdraw; a bag item set down on the grid sends Deposit
   (`GameplayHud.DropFromInventory` through the same `HudWarehouseWindow.SetDownOnGrid`). Over one item the request names

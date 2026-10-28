@@ -37,7 +37,7 @@ internal static class ItemRulesTests
         yield return ("item copies keep their values through saves and older saves take the shop form with their specialization", PersistenceAsync);
         yield return ("item details and the equipment status reach the owner over the wire", WireAsync);
         yield return ("the item reader keeps the known specialization classes and every special bonus", ImportAsync);
-        yield return ("potions stack in the bag, so a shop sells them by the count onto one stack", PotionStacksAsync);
+        yield return ("potions stack in the bag, so a shop sells them by the count onto one stack and buys back part of it", PotionStacksAsync);
     }
 
     private static ItemTemplateRecord Record(string code) => new(
@@ -58,6 +58,11 @@ internal static class ItemRulesTests
         Assert.True(NpcShopRules.TryBuy(character, potion, 9, -1, out _) == NpcServiceStatus.Ok, "nine more were bought");
         var stacks = character.Inventory.Items().Where(item => item.Definition == potion).ToArray();
         Assert.True(stacks is [{ Count: 39 }] && character.Money == 25, $"the potions share one stack: {string.Join(",", stacks.Select(item => item.Count))}");
+
+        var stack = stacks[0];
+        Assert.True(NpcShopRules.TrySell(character, stack.InstanceId, 40, 1_000_000, out _) == NpcServiceStatus.Rejected, "more units than the stack holds sell");
+        Assert.True(NpcShopRules.TrySell(character, stack.InstanceId, 10, 1_000_000, out var proceeds) == NpcServiceStatus.Ok && proceeds == 50
+            && character.Inventory.Items().Single(item => item.Definition == potion).Count == 29 && character.Money == 75, "ten of the potions were sold");
         return Task.CompletedTask;
     }
 

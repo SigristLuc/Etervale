@@ -6,7 +6,8 @@ namespace PristonTale.Simulation.World.Npcs;
 // Shop prices of the original: an item is bought at its catalog price as its lowest form; a copy sells for a fifth of
 // its own value (a specialized drop costs a fifth more) after wear, where the worn share of the price keeps a quarter of
 // its value; a repair costs an eighth of the value lost to wear. A durability of zero counts as one. Stackable goods
-// sell per unit at a fifth. A purchase that would carry the character over the weight limit is refused.
+// sell per unit at a fifth, as many units as the seller asks. A purchase that would carry the character over the weight
+// limit is refused.
 public static class NpcShopRules
 {
     public const int SellDivisor = 5;
@@ -23,12 +24,13 @@ public static class NpcShopRules
 
     public static long BuyPrice(ItemDefinition definition, int count) => (long)Math.Max(0, definition.Price) * count;
 
-    public static long SellPrice(ItemInstance item)
+    // What count units of the item sell for (a stack's units; an item sells whole).
+    public static long SellPrice(ItemInstance item, int count)
     {
         var price = Math.Max(0, item.Price);
         if (item.Definition.IsStackable)
         {
-            return (long)(price / SellDivisor) * item.Count;
+            return (long)(price / SellDivisor) * count;
         }
 
         var worn = WornValue(price, item.DurabilityCurrent, item.DurabilityMax) / SellDivisor;
@@ -82,22 +84,23 @@ public static class NpcShopRules
         return character.TryChangeMoney(-cost) ? NpcServiceStatus.Ok : NpcServiceStatus.Rejected;
     }
 
-    public static NpcServiceStatus TrySell(PlayerCharacter character, Guid itemId, long carryLimit, out long proceeds)
+    public static NpcServiceStatus TrySell(PlayerCharacter character, Guid itemId, int count, long carryLimit, out long proceeds)
     {
         proceeds = 0;
         var anchor = character.Inventory.Find(itemId);
-        if (anchor < 0 || character.Inventory[anchor] is not { } item || !CanSell(item) || Quests.RankUpByQuestWeapon.IsBound(character, item))
+        if (anchor < 0 || character.Inventory[anchor] is not { } item || !CanSell(item) || Quests.RankUpByQuestWeapon.IsBound(character, item)
+            || !IsValidCount(item.Definition, count) || count > item.Count)
         {
             return NpcServiceStatus.Rejected;
         }
 
-        proceeds = SellPrice(item);
+        proceeds = SellPrice(item, count);
         if (character.Money > carryLimit - proceeds)
         {
             return NpcServiceStatus.GoldLimit;
         }
 
-        character.Inventory.TakeAt(anchor);
+        character.Inventory.TakeFrom(anchor, count);
         return character.TryChangeMoney(proceeds) ? NpcServiceStatus.Ok : NpcServiceStatus.GoldLimit;
     }
 

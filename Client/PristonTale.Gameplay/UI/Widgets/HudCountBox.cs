@@ -4,9 +4,10 @@ using PristonTale.Gameplay.UI.Rendering;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
-// The original's count box, the quantity question (items to drop, potions to sell or buy, money to move): two lines and
-// a number typed with the digit keys (Backspace erases) or stepped with the arrows, never above the maximum; OK or Enter
-// accepts, Cancel or Escape (GameplayHud.ClosePanel) closes. It starts at zero; accepting zero does nothing.
+// The original's count box, the quantity question (items to drop, goods to sell or buy, money to move): two lines and a
+// number typed with the digit keys (Backspace erases) or stepped with the arrows. Any number may be typed; one above the
+// maximum gives the maximum when accepted (the arrows stay within it). OK or Enter accepts, Cancel or Escape
+// (GameplayHud.ClosePanel) closes. It starts at zero; accepting zero does nothing.
 public sealed class HudCountBox
 {
     private const int MaxDigits = 9;
@@ -30,7 +31,7 @@ public sealed class HudCountBox
     public void Open(string first, string second, long maximum, Action<int> accepted)
     {
         (_first, _second, _maximum, _accepted) = (first, second, (int)Math.Clamp(maximum, 0, int.MaxValue), accepted);
-        Set(0);
+        Show(0);
         IsOpen = true;
     }
 
@@ -47,11 +48,11 @@ public sealed class HudCountBox
         {
             if (char.IsAsciiDigit(character) && _text.Length < MaxDigits)
             {
-                Set(Count * 10 + (character - '0'));
+                Show(Count * 10 + (character - '0'));
             }
             else if (character == '\b')
             {
-                Set(Count / 10);
+                Show(Count / 10);
             }
         }
 
@@ -65,11 +66,11 @@ public sealed class HudCountBox
     {
         if (Up.Contains(pointer))
         {
-            Set(Count + 1);
+            Show(Math.Clamp(Count + 1, 0, _maximum));
         }
         else if (Down.Contains(pointer))
         {
-            Set(Count - 1);
+            Show(Math.Clamp(Count - 1, 0, _maximum));
         }
         else if (Ok.Contains(pointer))
         {
@@ -102,16 +103,16 @@ public sealed class HudCountBox
         painter.Sprite(Cancel.Contains(pointer) ? HudArt.CancelYellow : HudArt.CancelGray, Cancel.X, Cancel.Y);
     }
 
-    private void Set(int count)
+    private void Show(int count)
     {
-        Count = Math.Clamp(count, 0, _maximum);
-        _text = Count.ToString();
+        Count = count;
+        _text = count.ToString();
     }
 
     private void Accept()
     {
         var accepted = _accepted;
-        var count = Count;
+        var count = Math.Min(Count, _maximum);
         Close();
         if (count > 0)
         {

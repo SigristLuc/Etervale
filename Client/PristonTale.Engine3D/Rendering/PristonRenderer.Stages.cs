@@ -509,7 +509,7 @@ public sealed partial class PristonRenderer
 
         foreach (var actor in _actors)
         {
-            if (actor.Alive && actor.Instance.VisibleInMainPass)
+            if (actor.Alive && actor.Instance.VisibleInMainPass && !actor.Hidden)
             {
                 _renderBatches.AddRange(actor.Batches);
                 _shadowBatches.AddRange(actor.ShadowBatches);

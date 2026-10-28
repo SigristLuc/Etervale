@@ -56,7 +56,7 @@ internal static class MobileShopTransactions
         var candidate = original.CloneForInventoryOperation();
         var status = command.Action switch
         {
-            NpcServiceAction.Sell => NpcShopRules.TrySell(candidate, command.ItemId, MoneyLimits.CarryLimit(candidate.Level, candidate.Tier), out _),
+            NpcServiceAction.Sell => NpcShopRules.TrySell(candidate, command.ItemId, command.Count, MoneyLimits.CarryLimit(candidate.Level, candidate.Tier), out _),
             NpcServiceAction.Repair => NpcShopRules.TryRepair(candidate, command.ItemId, out _),
             _ => NpcShopRules.TryRepairAll(candidate, out _)
         };

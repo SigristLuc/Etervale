@@ -63,6 +63,15 @@ public sealed partial class PristonRenderer
         UpdateActor(runtime);
     }
 
+    public void SetActorHidden(ActorHandle handle, bool hidden)
+    {
+        if (TryResolveActor(handle, out var runtime) && runtime.Hidden != hidden)
+        {
+            runtime.Hidden = hidden;
+            _batchListsDirty = true;
+        }
+    }
+
     public void SetActorPlaybackRate(ActorHandle handle, float rateFactor)
     {
         if (!TryResolveActor(handle, out var runtime))

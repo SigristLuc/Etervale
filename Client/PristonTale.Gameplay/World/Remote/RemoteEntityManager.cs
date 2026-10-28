@@ -343,7 +343,9 @@ public sealed partial class RemoteEntityManager
             spawn.Kind,
             spawn.Kind == EntityKind.Npc ? ((NpcRenderInfo)info).SoundCode : ((MonsterRenderInfo)info).SoundCode,
             composed.Info,
-            spawn.EntityId)
+            spawn.EntityId,
+            composed.Alternate,
+            composed.AlternateInfo)
         {
             Level = info is MonsterRenderInfo monsterInfo ? monsterInfo.Level : 0,
             MonsterClass = info is MonsterRenderInfo classInfo ? classInfo.Class : 0,

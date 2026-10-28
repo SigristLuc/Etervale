@@ -18,7 +18,7 @@ sources are in [shaders.md](shaders.md); option fields in [client-settings.md](c
 | Path | Responsibility |
 |---|---|
 | `Formats/PristonSmdReader.cs` | Binary stage and model files (`.smd` stage, `.smd`/`.smb` model and skeleton): header kinds, material group, vertices, faces, texture links, lights, area index, animation keys. |
-| `Formats/PristonInxReader.cs` | Model-info files (`.inx`): mesh and motion file names, LOD groups, motion table, talk motions. |
+| `Formats/PristonInxReader.cs` | Model-info files (`.inx`): mesh and motion file names, the sub model (`SubModelFile`, an alternate model on its own skeleton for the motions the main one lacks: client.md), LOD groups, motion table, talk motions. |
 | `Formats/PristonActorLoader.cs` | Builds a `PristonActor` (mesh + skeleton + motions) from an `.inx`, or a skinned/rigid model without one. |
 | `Formats/PristonPhysiqueRepair.cs` | Moves a stray Physique vertex (bound four or more joints from the bone its edge neighbours follow, and twice as near that bone) to their bone, keeping its bind position, so it no longer pulls a spike out of a bending joint. |
 | `Formats/PristonCameraPath.cs` | Cinematic camera paths (`.cam`) of the opening. |

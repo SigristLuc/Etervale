@@ -979,6 +979,8 @@ public sealed partial class PristonRenderer : IDisposable
         public ActorGpuResource GpuResource { get; set; }
 
         public bool Alive { get; set; } = true;
+        // Kept with its clip and world but not drawn (a model's alternate between the motions it plays).
+        public bool Hidden { get; set; }
         public int Generation { get; set; }
         public ActorShade Shade { get; set; }
         // An echo plays its source's clip EchoLagTicks behind.

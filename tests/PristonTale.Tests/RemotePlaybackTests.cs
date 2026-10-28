@@ -33,6 +33,7 @@ internal static class RemotePlaybackTests
         yield return ("remote Walk/Run without ground motion shows Stand and clip rate follows ground speed", LocomotionAsync);
         yield return ("remote player walk rate keeps the original frame step at nominal speed", PlayerRateAsync);
         yield return ("a remote monster killed mid-swing, mid-flinch or between samples shows its death clip", DeathAsync);
+        yield return ("a model whose death clip is on its own sub model shows that model while it dies, as the mushroom does", AlternateModelAsync);
         yield return ("target frame follows the trace, keeps it after ground clicks and closes like the original", TargetSelectionAsync);
         yield return ("target HP bar is modern by default and classic only after a full-life attack", TargetHealthBarAsync);
         yield return ("presence clock extension round-trips and stamps decoded samples", PresenceClockAsync);
@@ -389,6 +390,69 @@ internal static class RemotePlaybackTests
         Assert.True(decoder.TryHandle(buffer, out var none) && none is null, "presence clock was not consumed by the decoder");
         Assert.True(decoder.ServerTimeMs == 61700, "decoder ignored the presence clock");
         return Task.CompletedTask;
+    }
+
+    private static Task AlternateModelAsync()
+    {
+        var root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "assets");
+        var mushroom = Path.Combine(root, "char", "monster", "Monmushroom", "Monmushroom.inx");
+        if (!PristonTale.Assets.AssetFiles.Exists(mushroom))
+        {
+            return Task.CompletedTask;
+        }
+
+        var reader = new PristonInxReader();
+        var main = reader.Read(mushroom);
+        var alternatePath = AlternateModel.Path(root, main);
+        Assert.True(alternatePath is not null, "the mushroom's sub model was not found");
+        var alternate = reader.Read(alternatePath!);
+        Assert.True(AlternateModel.Alternates(main, alternate) && AlternateModel.Shows(main, alternate, MotionCode.Dead)
+            && !AlternateModel.Shows(main, alternate, MotionCode.Stand) && !AlternateModel.Shows(main, alternate, MotionCode.Attack),
+            "only the death plays on the mushroom's sub model");
+
+        var scene = new AlternateScene();
+        var body = new ActorHandle(1, 1);
+        var death = new ActorHandle(2, 1);
+        var monster = new RemoteModelEntity(scene, body, 1f, 0, Vector3.Zero, 0f, MotionState.Stand, 10, modelInfo: main, alternate: death,
+            alternateInfo: alternate);
+        Assert.True(monster.Actor == body && !scene.Hidden.ContainsKey(body), "a living mushroom shows its body");
+        var now = 1000d;
+        monster.SetTarget(now, Vector3.Zero, 0f, MotionState.Dead, 0);
+        for (var step = 0; step < 20; step++)
+        {
+            now += 50;
+            monster.Update(0.05f, now);
+        }
+
+        Assert.True(monster.Actor == death && scene.Hidden[body] && !scene.Hidden[death] && scene.Motions[death] == MotionCode.Dead,
+            "a dying mushroom shows its death model playing the death clip");
+        monster.Dispose();
+        Assert.True(scene.Removed.SetEquals([body, death]), "both models leave with the monster");
+        return Task.CompletedTask;
+    }
+
+    private sealed class AlternateScene : IActorScene
+    {
+        public Dictionary<ActorHandle, bool> Hidden { get; } = [];
+        public Dictionary<ActorHandle, MotionCode> Motions { get; } = [];
+        public HashSet<ActorHandle> Removed { get; } = [];
+        public ActorHandle AddActor(PristonActorInstance instance) => ActorHandle.None;
+        public void SetActorWorld(ActorHandle handle, Matrix world)
+        {
+        }
+
+        public void SetActorMotion(ActorHandle handle, MotionCode motion) => Motions[handle] = motion;
+        public void SetActorMotionIndex(ActorHandle handle, int motionIndex)
+        {
+        }
+
+        public void RestartActorMotion(ActorHandle handle, MotionCode motion) => Motions[handle] = motion;
+        public void SetActorPlaybackRate(ActorHandle handle, float rateFactor)
+        {
+        }
+
+        public void SetActorHidden(ActorHandle handle, bool hidden) => Hidden[handle] = hidden;
+        public void RemoveActor(ActorHandle handle) => Removed.Add(handle);
     }
 
     private sealed class RecordingScene : IActorScene

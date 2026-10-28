@@ -237,6 +237,22 @@ public sealed partial class GameplayHud
         _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Shop, NpcServiceAction.Buy, _state?.InventoryRevision ?? 0, offer.Code,
             count: count);
 
+    // As in the original, a stack asks how many of it to sell; an item sells whole.
+    private void SellToShop(OwnedItemView item)
+    {
+        if (item.Count <= 1)
+        {
+            SellToShop(item, 1);
+            return;
+        }
+
+        _countBox.Open("How many items", "do you wanna sell?", item.Count, count => SellToShop(item, count));
+    }
+
+    private void SellToShop(OwnedItemView item, int count) =>
+        _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Shop, NpcServiceAction.Sell, _state?.InventoryRevision ?? 0,
+            itemId: item.InstanceId, count: count);
+
     private bool InterceptInventoryClick(OwnedItemView item)
     {
         if (_personalShop.InterceptBagClick(item))
@@ -259,8 +275,13 @@ public sealed partial class GameplayHud
             return true;
         }
 
-        var action = _shop.Mode == HudShopMode.Sell ? NpcServiceAction.Sell : NpcServiceAction.Repair;
-        _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Shop, action, _state.InventoryRevision, itemId: item.InstanceId);
+        if (_shop.Mode == HudShopMode.Sell)
+        {
+            SellToShop(item);
+            return true;
+        }
+
+        _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Shop, NpcServiceAction.Repair, _state.InventoryRevision, itemId: item.InstanceId);
         return true;
     }
 
@@ -320,7 +341,11 @@ public sealed partial class GameplayHud
 
         if (_shop.FullyOpen && _shop.Contains(pointer))
         {
-            _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Shop, NpcServiceAction.Sell, _state.InventoryRevision, itemId: itemId);
+            if (OwnedItemView.Find(_state.Items, itemId) is { } sold)
+            {
+                SellToShop(sold);
+            }
+
             return true;
         }
 

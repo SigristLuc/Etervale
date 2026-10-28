@@ -112,7 +112,7 @@ internal static class NpcServiceTransactions
                     : NpcServiceStatus.Rejected;
                 break;
             case NpcServiceAction.Sell:
-                status = NpcShopRules.TrySell(candidate, command.ItemId, carryLimit, out _);
+                status = NpcShopRules.TrySell(candidate, command.ItemId, command.Count, carryLimit, out _);
                 break;
             case NpcServiceAction.Repair:
                 status = NpcShopRules.TryRepair(candidate, command.ItemId, out _);
@@ -254,7 +254,7 @@ internal static class NpcServiceTransactions
         var quotes = new List<ShopQuote>();
         foreach (var item in character.Inventory.Items())
         {
-            var sell = NpcShopRules.CanSell(item) ? NpcShopRules.SellPrice(item) : -1;
+            var sell = NpcShopRules.CanSell(item) ? NpcShopRules.SellPrice(item, item.Count) : -1;
             quotes.Add(new ShopQuote(item.InstanceId, sell, NpcShopRules.RepairCost(item), item.DurabilityCurrent, item.DurabilityMax));
         }
 
