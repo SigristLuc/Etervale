@@ -15,7 +15,7 @@ benchmarks, and the asset/GPU probes that read game data or create a Vulkan devi
 
 | Path | Responsibility |
 | --- | --- |
-| [Program.cs](../tests/PristonTale.Tests/Program.cs) | Probe/benchmark flag dispatch, case registration, `--filter`, run loop, exit code |
+| [Program.cs](../tests/PristonTale.Tests/Program.cs) | Probe/benchmark flag dispatch, case discovery, `--filter`, run loop, exit code |
 | `PristonTale.Tests.csproj` | Console exe; embeds `Fixtures/*.json`; imports `Client/MonoGameRuntime.targets` (native runtime) |
 | `Assert.cs` | `Assert.True`, `Assert.Near`, `Assert.Throws<T>`/`ThrowsAsync<T>` (the expected type; an `AssertionException` never counts) |
 | `Fixtures/` | Embedded tables: `class-skill-source.json` (class skills), `job-head-source.json` (416 job-head rows) |
@@ -86,11 +86,11 @@ git diff --check
 
 - Every test class is `internal static class <Area>Tests` in namespace `PristonTale.Tests` with
   `public static IEnumerable<(string, Func<Task>)> Cases()` that `yield return`s `("behavior sentence", MethodAsync)`.
-- `Program.cs` appends each class with `specifications.AddRange(<Area>Tests.Cases());`. A class not listed there never
-  runs.
-- Cases run sequentially in registration order. Each is awaited with a 15 s timeout (`WaitAsync`). A thrown exception
-  of any type fails the case and the runner continues with the next one; a timeout fails the case and stops the run,
-  since the case is still running and would share the process with the cases after it.
+- `Program.cs` discovers every class with a public static `Cases()` of that type by reflection; nothing to register.
+- Cases run sequentially, classes in full-name order and cases in their `Cases()` order. Each is awaited with a 15 s
+  timeout (`WaitAsync`). A thrown exception of any type fails the case and the runner continues with the next one; a
+  timeout fails the case and stops the run, since the case is still running and would share the process with the cases
+  after it.
 - Production assemblies expose internals to the runner through `InternalsVisibleTo` (Application, Geometry, Protocol,
   Client.Net, Engine3D, Gameplay, Server, GltfExport).
 
@@ -305,9 +305,8 @@ this is not a readback of write-only GPU buffers or a visual comparison.
 3. Write `private static Task <Name>Async()` (or `async Task`) using `Assert.True(condition, "what broke")`.
    Build data in code; reuse `SkillScenario`/`SkillFixtures` for skills, `MemoryCharacters` for persistence failures,
    `WorldPump` to run a service call through the world's ticks, `WireRoundTrip` for presence on the wire.
-4. New class only: add `specifications.AddRange(<Area>Tests.Cases());` to `Program.cs`.
-5. Keep each case under the 15 s timeout and free of assets, GPU and fixed ports.
-6. Run the build and the suite (Running). Update this doc when you add an area file or a probe.
+4. Keep each case under the 15 s timeout and free of assets, GPU and fixed ports.
+5. Run the build and the suite (Running). Update this doc when you add an area file or a probe.
 
 ### Add a fixture
 
