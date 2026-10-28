@@ -152,14 +152,12 @@ public sealed class HudItemUseController(Func<ItemUseCommand, Task<ItemUseOutcom
         if (_confirmItem is not null)
         {
             painter.Flush();
-            HudMessageBox.Draw(painter, _confirmItem.Name, "Do you want to", pointer);
-            painter.TextCentered("use this item?", HudMessageBox.Bounds.Left, HudMessageBox.Bounds.Right, HudMessageBox.Bounds.Y + 60);
+            HudMessageBox.Draw(painter, _confirmItem.Name, "Do you want to", pointer, "use this item?");
         }
         else if (_confirmDestination is not null)
         {
             painter.Flush();
-            HudMessageBox.Draw(painter, HudTeleportCore.ConfirmText(_confirmDestination), "Do you want to", pointer);
-            painter.TextCentered("Teleport?", HudMessageBox.Bounds.Left, HudMessageBox.Bounds.Right, HudMessageBox.Bounds.Y + 60);
+            HudMessageBox.Draw(painter, HudTeleportCore.ConfirmText(_confirmDestination), "Do you want to", pointer, "Teleport?");
         }
     }
 

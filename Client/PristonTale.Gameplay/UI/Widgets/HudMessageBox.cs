@@ -12,7 +12,8 @@ public static class HudMessageBox
     public static Rectangle Accept => new(300 + 40, 200 + 95, 32, 16);
     public static Rectangle Reject => new(300 + 94, 200 + 95, 32, 16);
 
-    public static void Draw(HudPainter painter, string first, string second, Point pointer)
+    // A question's third line sits under the second.
+    public static void Draw(HudPainter painter, string first, string second, Point pointer, string third = null)
     {
         var bounds = Bounds;
         painter.Sprite(HudArt.MessageBox, bounds.X, bounds.Y);
@@ -20,5 +21,9 @@ public static class HudMessageBox
         painter.Sprite(Reject.Contains(pointer) ? HudArt.NoYellow : HudArt.NoGray, Reject.X, Reject.Y);
         painter.TextCentered(painter.Fit(first, VisibleWidth - 16), bounds.Left, bounds.Right, bounds.Y + 20, new Color(255, 255, 180));
         painter.TextCentered(painter.Fit(second, VisibleWidth - 16), bounds.Left, bounds.Right, bounds.Y + 43);
+        if (third is not null)
+        {
+            painter.TextCentered(third, bounds.Left, bounds.Right, bounds.Y + 60);
+        }
     }
 }

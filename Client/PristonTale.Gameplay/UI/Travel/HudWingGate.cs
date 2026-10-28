@@ -182,8 +182,7 @@ public sealed class HudWingGate(IClientLog log)
         if (_confirm is not null)
         {
             painter.Flush();
-            HudMessageBox.Draw(painter, _confirm.Name, "Do you want to", pointer);
-            painter.TextCentered("move there?", HudMessageBox.Bounds.Left, HudMessageBox.Bounds.Right, HudMessageBox.Bounds.Y + 60);
+            HudMessageBox.Draw(painter, _confirm.Name, "Do you want to", pointer, "move there?");
         }
     }
 
