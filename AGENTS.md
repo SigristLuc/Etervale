@@ -71,6 +71,17 @@ Etervale is multi-platform: the client, the server and the tools must build and 
   `Assert.Throws<T>` for refusals, `ScriptedRng`/`SeededSimRng` for rolls). Visual changes are compared with captures
   against a baseline of the same build, after measuring the run-to-run noise.
 - Pull requests follow these rules before merging; a reviewer adapts one that does not, and says what changed.
+- Before a task is called done, its whole diff is reviewed against these rules, and the findings are fixed before the
+  commit. The review looks for:
+  - the same rule, formula, constant, geometry or lookup written twice, within the diff or alongside code that already
+    exists (search the repository for each new helper, constant and loop);
+  - raw numbers that repeat a named constant;
+  - allocations in `Update`, `Draw` or the tick;
+  - members the change left unused;
+  - comments that restate the code;
+  - code placed outside its domain.
+
+  A large change also gets a fresh read-only review that is not anchored on the author's reasoning.
 
 ## Architecture and data
 
