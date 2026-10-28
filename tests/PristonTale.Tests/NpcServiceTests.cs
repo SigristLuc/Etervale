@@ -190,52 +190,52 @@ internal static class NpcServiceTests
     {
         var fixture = await Fixture.CreateAsync(1000, [new NpcService(NpcServiceKind.Shop), new NpcService(NpcServiceKind.Clan)]);
         var (world, npc, session, service) = (fixture.World, fixture.NpcId, fixture.Session, fixture.Npc);
-        var interaction = await Advance(world, world.InteractNpcAsync(session, npc));
+        var interaction = await WorldPump.RunAsync(world, world.InteractNpcAsync(session, npc));
         Assert.True(interaction.Ok && interaction.Offers(NpcServiceKind.Shop) && !interaction.Offers(NpcServiceKind.Clan)
             && interaction.Dialog.Count == 1 && Fixture.Lines.Contains(interaction.Dialog[0]), "typed dialog differs");
 
-        var open = await Advance(world, service.RequestAsync(session.SessionToken, new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Shop,
+        var open = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Shop,
             NpcServiceAction.Open)));
         Assert.True(open.Outcome.Ok && open.Catalog!.Single(offer => offer.Code == AxeCode).Price == 60 && open.Quotes is not null,
             "shop catalog does not carry server prices");
-        var clan = await Advance(world, service.RequestAsync(session.SessionToken, new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Clan,
+        var clan = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Clan,
             NpcServiceAction.Open)));
         Assert.True(clan.Outcome.Status == NpcServiceStatus.NotAvailable, "an unported service did not answer not available");
 
         var character = session.Character!;
         var buy = new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Shop, NpcServiceAction.Buy, character.InventoryRevision, ItemCode: AxeCode);
-        var bought = await Advance(world, service.RequestAsync(session.SessionToken, buy));
+        var bought = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, buy));
         var found = character.Inventory.FindByDefinition(Axe(), out var axe);
         Assert.True(bought.Outcome.Ok && found && character.Money == 940 && fixture.Characters.Record.Money == 940, "buy was not durable");
         var writes = fixture.Characters.UpdateCount;
-        Assert.True((await Advance(world, service.RequestAsync(session.SessionToken, buy))).Outcome.Message == "already committed"
+        Assert.True((await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, buy))).Outcome.Message == "already committed"
             && fixture.Characters.UpdateCount == writes && character.Money == 940, "a replayed buy charged again");
-        Assert.True((await Advance(world, service.RequestAsync(session.SessionToken, buy with { ItemCode = PotionCode }))).Outcome.Status
+        Assert.True((await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, buy with { ItemCode = PotionCode }))).Outcome.Status
             == NpcServiceStatus.Conflict, "a reused operation id was accepted for another purchase");
-        Assert.True((await Advance(world, service.RequestAsync(session.SessionToken, buy with { OperationId = Guid.NewGuid() }))).Outcome.Status
+        Assert.True((await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, buy with { OperationId = Guid.NewGuid() }))).Outcome.Status
             == NpcServiceStatus.Stale, "a stale revision bought");
         var notStocked = buy with { OperationId = Guid.NewGuid(), ExpectedRevision = character.InventoryRevision, ItemCode = QuestCode };
-        Assert.True((await Advance(world, service.RequestAsync(session.SessionToken, notStocked))).Outcome.Status == NpcServiceStatus.Rejected,
+        Assert.True((await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, notStocked))).Outcome.Status == NpcServiceStatus.Rejected,
             "an item outside the stock was sold");
 
         fixture.Player.Teleport(new Vector3(1000, 0, 1000));
         var far = buy with { OperationId = Guid.NewGuid(), ExpectedRevision = character.InventoryRevision };
-        Assert.True((await Advance(world, service.RequestAsync(session.SessionToken, far))).Outcome.Status == NpcServiceStatus.OutOfReach,
+        Assert.True((await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, far))).Outcome.Status == NpcServiceStatus.OutOfReach,
             "a remote shop accepted a purchase");
         fixture.Player.Teleport(new Vector3(100, 0, 100));
 
         axe!.DurabilityCurrent = 10;
         var repair = new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Shop, NpcServiceAction.Repair, character.InventoryRevision, ItemId: axe.InstanceId);
-        var repaired = await Advance(world, service.RequestAsync(session.SessionToken, repair));
+        var repaired = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, repair));
         var owned = character.FindOwnedItem(axe.InstanceId);
         Assert.True(repaired.Outcome.Ok && character.Money == 936 && owned.DurabilityCurrent == owned.DurabilityMax, "repair cost or durability differs");
 
         fixture.Characters.BeforeUpdate = _ => Task.FromResult(false);
         var sell = new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Shop, NpcServiceAction.Sell, character.InventoryRevision, ItemId: axe.InstanceId);
-        Assert.True((await Advance(world, service.RequestAsync(session.SessionToken, sell))).Outcome.Status == NpcServiceStatus.StorageFailed
+        Assert.True((await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, sell))).Outcome.Status == NpcServiceStatus.StorageFailed
             && character.FindOwnedItem(axe.InstanceId) is not null && character.Money == 936, "a failed write sold the item");
         fixture.Characters.BeforeUpdate = null;
-        var sold = await Advance(world, service.RequestAsync(session.SessionToken, sell));
+        var sold = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, sell));
         Assert.True(sold.Outcome.Ok && character.FindOwnedItem(axe.InstanceId) is null && character.Money == 948
             && sold.Quotes!.Items.All(quote => quote.ItemId != axe.InstanceId), "sale proceeds or quotes differ");
         var reload = Reload(fixture);
@@ -251,36 +251,36 @@ internal static class NpcServiceTests
         character.Inventory.TryAdd(axe);
         var early = new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Warehouse, NpcServiceAction.Deposit, character.InventoryRevision,
             ItemId: axe.InstanceId, Anchor: 0);
-        Assert.True((await Advance(world, service.RequestAsync(session.SessionToken, early))).Outcome.Status == NpcServiceStatus.NotOpen,
+        Assert.True((await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, early))).Outcome.Status == NpcServiceStatus.NotOpen,
             "a deposit bypassed opening the warehouse");
 
-        var open = await Advance(world, service.RequestAsync(session.SessionToken, new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Warehouse,
+        var open = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Warehouse,
             NpcServiceAction.Open)));
         Assert.True(open.Outcome.Ok && open.Warehouse!.Items.Count == 0 && open.Warehouse.MaxWeight == 1000, "empty warehouse did not open");
         var deposit = early with { OperationId = Guid.NewGuid(), ExpectedRevision = character.InventoryRevision, ExpectedStorageRevision = 0, Anchor = 3 };
-        var stored = await Advance(world, service.RequestAsync(session.SessionToken, deposit));
+        var stored = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, deposit));
         Assert.True(stored.Outcome.Ok && stored.Warehouse!.Items.Single().Anchor == 3 && character.FindOwnedItem(axe.InstanceId) is null
             && fixture.Warehouses.Record?.Revision == 1, "deposit was not durable");
         var move = new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Warehouse, NpcServiceAction.Move, character.InventoryRevision, 1,
             ItemId: axe.InstanceId, Anchor: 40);
-        var moved = await Advance(world, service.RequestAsync(session.SessionToken, move));
+        var moved = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, move));
         Assert.True(moved.Outcome.Ok && moved.Warehouse!.Items.Single().Anchor == 40, "move inside the warehouse failed");
         var gold = new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Warehouse, NpcServiceAction.DepositGold, character.InventoryRevision, 2,
             Amount: 200);
-        var deposited = await Advance(world, service.RequestAsync(session.SessionToken, gold));
+        var deposited = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, gold));
         Assert.True(deposited.Outcome.Ok && deposited.Warehouse!.Money == 200 && character.Money == 300 && fixture.Characters.Record.Money == 300,
             "gold was not moved with the character");
 
         fixture.Warehouses.Bump();
         var conflicted = gold with { OperationId = Guid.NewGuid(), ExpectedRevision = character.InventoryRevision, ExpectedStorageRevision = 3 };
-        Assert.True((await Advance(world, service.RequestAsync(session.SessionToken, conflicted))).Outcome.Status == NpcServiceStatus.Conflict
+        Assert.True((await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, conflicted))).Outcome.Status == NpcServiceStatus.Conflict
             && character.Money == 300, "a warehouse changed elsewhere was overwritten");
-        var reopened = await Advance(world, service.RequestAsync(session.SessionToken, new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Warehouse,
+        var reopened = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Warehouse,
             NpcServiceAction.Open)));
         var revision = reopened.Warehouse!.Revision;
         var withdraw = new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Warehouse, NpcServiceAction.Withdraw, character.InventoryRevision, revision,
             ItemId: axe.InstanceId, Anchor: 0);
-        var taken = await Advance(world, service.RequestAsync(session.SessionToken, withdraw));
+        var taken = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, withdraw));
         Assert.True(taken.Outcome.Ok && character.Inventory[0]?.InstanceId == axe.InstanceId && taken.Warehouse!.Items.Count == 0 && taken.Warehouse.Money == 200,
             "withdraw did not restore the item");
         var reload = WarehouseStateCodec.Restore(fixture.Warehouses.Record, fixture.Items);
@@ -292,13 +292,13 @@ internal static class NpcServiceTests
         var catalog = new WorldCatalog(new WorldCatalog().AllFields.Select(field => field.FieldCode == 12 ? field with { LimitLevel = 70 } : field));
         var fixture = await Fixture.CreateAsync(1000, [new NpcService(NpcServiceKind.Teleporter, 1)], catalog);
         var (world, npc, session, service) = (fixture.World, fixture.NpcId, fixture.Session, fixture.Npc);
-        var open = await Advance(world, service.RequestAsync(session.SessionToken, new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Teleporter,
+        var open = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Teleporter,
             NpcServiceAction.Open)));
         Assert.True(open.Outcome.Ok && open.Destinations!.Select(destination => destination.Price).SequenceEqual([100L, 100, 500, 1000])
             && open.Destinations[3].MinimumLevel == 70, "teleport destinations differ");
         var character = session.Character!;
         var gated = new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Teleporter, NpcServiceAction.Teleport, character.InventoryRevision, Anchor: 4);
-        Assert.True(!(await Advance(world, service.RequestAsync(session.SessionToken, gated))).Outcome.Ok && character.Money == 1000,
+        Assert.True(!(await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, gated))).Outcome.Ok && character.Money == 1000,
             "the field level limit was ignored");
         // Run the source field's clock well ahead of the destination's, which starts at zero.
         for (uint tick = 0; tick < 100; tick++)
@@ -309,7 +309,7 @@ internal static class NpcServiceTests
         const uint skill = 0x01010001;
         fixture.Player.Cooldowns.Start(skill, 60_000, world.FieldNowMs(3));
         var trip = gated with { OperationId = Guid.NewGuid(), Anchor = 1 };
-        var moved = await Advance(world, service.RequestAsync(session.SessionToken, trip));
+        var moved = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, trip));
         Assert.True(moved.Outcome.Ok && moved.Arrival?.FieldCode == 0 && session.FieldId == 0 && character.Money == 900
             && fixture.Characters.Record.FieldId == 0 && fixture.Characters.Record.Money == 900, "teleport did not charge and move durably");
         var remaining = fixture.Player.Cooldowns.RemainingMs(skill, world.FieldNowMs(0));
@@ -401,16 +401,6 @@ internal static class NpcServiceTests
 
     private static Task WriteCp949Async(string path, string contents) => File.WriteAllBytesAsync(path, Cp949.Encoding.GetBytes(contents));
 
-    private static async Task<T> Advance<T>(WorldServer world, Task<T> task)
-    {
-        for (uint tick = 0; !task.IsCompleted && tick < 1000; tick++)
-        {
-            world.Tick(0.05f, tick);
-            await Task.Delay(1);
-        }
-
-        return await task.WaitAsync(TimeSpan.FromSeconds(1));
-    }
 
     private sealed class Fixture
     {
@@ -451,7 +441,7 @@ internal static class NpcServiceTests
             Assert.True((await sessionService.EnterWorldAsync(session.SessionToken, starter.Name)).Ok && session.TryBeginPlay(), "entry failed");
             var outbox = Channel.CreateUnbounded<WorldSnapshot>();
             var player = WorldPlayerFactory.Create(session);
-            await Advance(world, world.JoinAsync(3, player, outbox.Writer, session));
+            await WorldPump.RunAsync(world, world.JoinAsync(3, player, outbox.Writer, session));
             Assert.True(outbox.Reader.TryRead(out var snapshot), "roster missing");
             var placed = snapshot.Entities.Single(entity => entity.Kind == EntityKind.Npc);
             return new Fixture

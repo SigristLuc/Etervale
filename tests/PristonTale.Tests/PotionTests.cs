@@ -102,7 +102,7 @@ internal static class PotionTests
         Assert.True((await service.EnterWorldAsync(session.SessionToken, starter.Name)).Ok && session.TryBeginPlay(), "entry failed");
         var outbound = Channel.CreateUnbounded<WorldSnapshot>();
         var player = WorldPlayerFactory.Create(session);
-        await AdvanceAsync(world, world.JoinAsync(3, player, outbound.Writer, session));
+        await WorldPump.RunAsync(world, world.JoinAsync(3, player, outbound.Writer, session));
         var writing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var storage = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         repository.BeforeUpdate = _ =>
@@ -113,14 +113,14 @@ internal static class PotionTests
         var command = new InventoryCommand(Guid.NewGuid(), session.Character!.InventoryRevision, InventoryAction.ConsumePotion,
             item.InstanceId, 0, 1, default);
         var pending = service.ApplyInventoryAsync(session.SessionToken, command);
-        await AdvanceAsync(world, writing.Task);
+        await WorldPump.RunAsync(world, writing.Task);
         Assert.True(session.Character.Inventory[0].Count == 3 && session.Character.Life == 1 && !player.HasPendingPotion,
             "pending save consumed/healed through shared item reference");
         storage.SetResult(false);
         Assert.True(!(await pending).Ok && session.Character.Inventory[0].Count == 3, "storage rejection consumed potion");
         repository.BeforeUpdate = null;
         var accepted = service.ApplyInventoryAsync(session.SessionToken, command);
-        await AdvanceAsync(world, accepted);
+        await WorldPump.RunAsync(world, accepted);
         Assert.True((await accepted).Ok && session.Character.Inventory[0].Count == 2, "commit did not consume exactly one");
         for (uint tick = 0; tick < 30; tick++)
         {
@@ -142,19 +142,8 @@ internal static class PotionTests
         Assert.True(begin == 1 && applied == 1, "potion events missing or duplicated");
         var writes = repository.UpdateCount;
         var replay = service.ApplyInventoryAsync(session.SessionToken, command);
-        await AdvanceAsync(world, replay);
+        await WorldPump.RunAsync(world, replay);
         Assert.True((await replay).Ok && repository.UpdateCount == writes && session.Character.Life == 11
             && session.Character.Inventory[0].Count == 2 && !player.HasPendingPotion, "retry consumed or healed twice");
-    }
-
-    private static async Task AdvanceAsync(WorldServer world, Task task)
-    {
-        for (uint tick = 0; !task.IsCompleted && tick < 1000; tick++)
-        {
-            world.Tick(0.05f, tick);
-            await Task.Delay(1);
-        }
-
-        await task.WaitAsync(TimeSpan.FromSeconds(1));
     }
 }

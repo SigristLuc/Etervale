@@ -338,16 +338,7 @@ internal static class QuestServiceTests
             };
         }
 
-        public async Task<T> Advance<T>(Task<T> task)
-        {
-            for (var step = 0; !task.IsCompleted && step < 1000; step++)
-            {
-                Server.Tick(0.05f, ++_tick);
-                await Task.Delay(1);
-            }
-
-            return await task.WaitAsync(TimeSpan.FromSeconds(1));
-        }
+        public Task<T> Advance<T>(Task<T> task) => WorldPump.RunAsync(Server, task, () => ++_tick);
 
         public WorldSnapshot WaitFor(Func<WorldSnapshot, bool> condition, int ticks = 1500)
         {

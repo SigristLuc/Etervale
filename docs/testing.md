@@ -21,6 +21,7 @@ benchmarks, and the asset/GPU probes that read game data or create a Vulkan devi
 | `Fixtures/` | Embedded tables: `class-skill-source.json` (class skills), `job-head-source.json` (416 job-head rows) |
 | `SkillFixtures.cs`, `SkillScenario.cs` | Synthetic field, players, monsters, weapons and 50 ms tick stepping for skill cases |
 | `MemoryCharacters.cs` | In-memory `ICharacterRepository` with update hooks for persistence-failure cases |
+| `WorldPump.cs` | Ticks a `WorldServer` at 50 ms until an operation it serves completes (service and transaction cases) |
 | `WireRoundTrip.cs` | Snapshots through server `PresenceEncoder` and client `PresenceDecoder` over original packet bytes |
 | `MultiplayerServer.cs`, `MultiplayerClient.cs` | A whole server in the runner (real host, disposable SQLite, ephemeral port, synthetic world) and real TCP clients with the world each one observed |
 | `AllocationSampler.cs` | Allocation ticks by type for benchmarks (`PRESENCE_ALLOCATIONS=1`) |
@@ -302,7 +303,7 @@ this is not a readback of write-only GPU buffers or a visual comparison.
    `--filter` matches and what `PASS`/`FAIL` print; make it unique and descriptive.
 3. Write `private static Task <Name>Async()` (or `async Task`) using `Assert.True(condition, "what broke")`.
    Build data in code; reuse `SkillScenario`/`SkillFixtures` for skills, `MemoryCharacters` for persistence failures,
-   `WireRoundTrip` for presence on the wire.
+   `WorldPump` to run a service call through the world's ticks, `WireRoundTrip` for presence on the wire.
 4. New class only: add `specifications.AddRange(<Area>Tests.Cases());` to `Program.cs`.
 5. Keep each case under the 15 s timeout and free of assets, GPU and fixed ports.
 6. Run the build and the suite (Running). Update this doc when you add an area file or a probe.

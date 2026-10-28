@@ -188,15 +188,15 @@ internal static class ProgressionTransactionTests
         Assert.True((await service.EnterWorldAsync(session.SessionToken, starter.Name)).Ok && session.TryBeginPlay(), "entry failed");
         var outbox = new WorldOutbox();
         var player = WorldPlayerFactory.Create(session);
-        await AdvanceAsync(world, world.JoinAsync(3, player, outbox.Writer, session));
+        await WorldPump.RunAsync(world, world.JoinAsync(3, player, outbox.Writer, session));
         Assert.True(outbox.Reader.TryRead(out var snapshot), "initial roster missing");
         var placed = snapshot.Entities.Single(entity => entity.Kind == EntityKind.Npc);
         Assert.True(placed.Position == new Vector3(100, 0, 100) && Math.Abs(placed.Facing - MathF.PI / 2) < 0.001, "SPC fixed-point placement is wrong");
-        Assert.True((await AdvanceAsync(world, world.InteractNpcAsync(session, placed.EntityId))).Ok, "nearby NPC interaction rejected");
+        Assert.True((await WorldPump.RunAsync(world, world.InteractNpcAsync(session, placed.EntityId))).Ok, "nearby NPC interaction rejected");
         var skill = ClassSkillCatalog.For(PlayerClass.Mechanician).Where(static skill => skill.Tier == JobTier.Job1).ToArray()[0];
         var command = new ProgressionCommand(Guid.NewGuid(), 0, ProgressionAction.LearnSkill, SkillCode: skill.Code, NpcEntityId: placed.EntityId);
         player.Teleport(new Vector3(1000, 0, 1000));
-        Assert.True(!(await AdvanceAsync(world, service.ApplyProgressionAsync(session.SessionToken, command))).Ok, "remote learning accepted");
+        Assert.True(!(await WorldPump.RunAsync(world, service.ApplyProgressionAsync(session.SessionToken, command))).Ok, "remote learning accepted");
         player.Teleport(new Vector3(100, 0, 100));
         var writing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var storage = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -206,47 +206,30 @@ internal static class ProgressionTransactionTests
             return storage.Task;
         };
         var pending = service.ApplyProgressionAsync(session.SessionToken, command);
-        await AdvanceAsync(world, writing.Task);
+        await WorldPump.RunAsync(world, writing.Task);
         Assert.True(!pending.IsCompleted && session.Character!.Skills.RankOf(skill.Code) == 0 && session.Character.Money == 10000, "uncommitted learning leaked");
         Assert.True(!(await service.ApplyInventoryAsync(session.SessionToken,
             new InventoryCommand(Guid.NewGuid(), 0, InventoryAction.Move, Guid.NewGuid(), 0, 0, default))).Ok, "inventory bypassed shared save gate");
         storage.SetResult(false);
         Assert.True(!(await pending).Ok && session.Character!.SkillPoints == 40, "storage failure consumed skill points");
         repository.BeforeUpdate = null;
-        Assert.True((await AdvanceAsync(world, service.ApplyProgressionAsync(session.SessionToken, command))).Ok, "retry failed");
+        Assert.True((await WorldPump.RunAsync(world, service.ApplyProgressionAsync(session.SessionToken, command))).Ok, "retry failed");
         Assert.True(session.Character!.Skills.RankOf(skill.Code) == 1 && session.Character.Money == 9500 && session.Character.SkillPoints == 39, "durable learning mismatch");
         var allocation = new ProgressionCommand(Guid.NewGuid(), 1, ProgressionAction.AllocateAttribute, CharacterAttribute.Strength, 1);
         var oldStrength = session.Character.Attributes.Strength;
-        Assert.True((await AdvanceAsync(world, service.ApplyProgressionAsync(session.SessionToken, allocation))).Ok, "attribute allocation failed");
+        Assert.True((await WorldPump.RunAsync(world, service.ApplyProgressionAsync(session.SessionToken, allocation))).Ok, "attribute allocation failed");
         Assert.True(session.Character.Attributes.Strength == oldStrength + 1 && session.Character.StatPoints == 4, "attribute points not conserved");
         var writes = repository.UpdateCount;
-        Assert.True((await AdvanceAsync(world, service.ApplyProgressionAsync(session.SessionToken, command))).Ok && repository.UpdateCount == writes, "replay charged again");
-        Assert.True(!(await AdvanceAsync(world, service.ApplyProgressionAsync(session.SessionToken, command with { SkillCode = skill.Code + 1 }))).Ok, "conflicting UUID accepted");
-        await AdvanceAsync(world, world.LeaveAsync(3, session.EntityId, outbox.Writer));
+        Assert.True((await WorldPump.RunAsync(world, service.ApplyProgressionAsync(session.SessionToken, command))).Ok && repository.UpdateCount == writes, "replay charged again");
+        Assert.True(!(await WorldPump.RunAsync(world, service.ApplyProgressionAsync(session.SessionToken, command with { SkillCode = skill.Code + 1 }))).Ok, "conflicting UUID accepted");
+        await WorldPump.RunAsync(world, world.LeaveAsync(3, session.EntityId, outbox.Writer));
         sessions.Remove(session.SessionToken);
         var next = sessions.Create(1, "reconnect");
         Assert.True((await service.EnterWorldAsync(next.SessionToken, starter.Name)).Ok && next.TryBeginPlay(), "reconnect failed");
-        await AdvanceAsync(world, world.JoinAsync(3, WorldPlayerFactory.Create(next), new WorldOutbox().Writer, next));
-        Assert.True((await AdvanceAsync(world, service.ApplyProgressionAsync(next.SessionToken, command))).Ok && repository.UpdateCount == writes, "reconnect lost replay history");
+        await WorldPump.RunAsync(world, world.JoinAsync(3, WorldPlayerFactory.Create(next), new WorldOutbox().Writer, next));
+        Assert.True((await WorldPump.RunAsync(world, service.ApplyProgressionAsync(next.SessionToken, command))).Ok && repository.UpdateCount == writes, "reconnect lost replay history");
         Assert.True(next.Character!.Skills.RankOf(skill.Code) == 1 && next.Character.Attributes.Strength == oldStrength + 1, "progression was not persisted");
         var owner = OwnerState.Capture(next.Character);
         Assert.True(owner.Skills.Single().Rank == 1 && ReferenceEquals(owner, OwnerState.Capture(next.Character, owner)), "owner rank projection is stale or uncached");
-    }
-
-    private static async Task AdvanceAsync(WorldServer world, Task task)
-    {
-        for (uint tick = 0; !task.IsCompleted && tick < 1000; tick++)
-        {
-            world.Tick(0.05f, tick);
-            await Task.Delay(1);
-        }
-
-        await task.WaitAsync(TimeSpan.FromSeconds(1));
-    }
-
-    private static async Task<T> AdvanceAsync<T>(WorldServer world, Task<T> task)
-    {
-        await AdvanceAsync(world, (Task)task);
-        return await task;
     }
 }
