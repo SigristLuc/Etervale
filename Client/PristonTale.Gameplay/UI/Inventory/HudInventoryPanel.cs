@@ -186,18 +186,7 @@ public sealed class HudInventoryPanel
 
     private void DrawItem(HudPainter painter, HudItemIcons icons, OwnedItemView item, Rectangle bounds, Color tint)
     {
-        var texture = icons.Find(item.CatalogKey);
-        if (texture is not null)
-        {
-            // Item bitmaps are authored at their cell size; draw unscaled and centered as the original inventory does.
-            var x = bounds.X + (bounds.Width - texture.Width) / 2;
-            var y = bounds.Y + (bounds.Height - texture.Height) / 2;
-            painter.Image(texture, new Rectangle(x, y, texture.Width, texture.Height), tint);
-        }
-        else
-        {
-            painter.Fill(new Rectangle(bounds.X + 2, bounds.Y + 2, bounds.Width - 4, bounds.Height - 4), Color.FromNonPremultiplied(60, 60, 60, 160));
-        }
+        icons.Draw(painter, item.CatalogKey, bounds, tint);
 
         var count = _counts.GetValueOrDefault(item.InstanceId, "");
         if (count.Length > 0 && item.Slot < 0)

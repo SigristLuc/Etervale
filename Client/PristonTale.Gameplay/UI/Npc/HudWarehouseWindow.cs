@@ -152,7 +152,7 @@ public sealed class HudWarehouseWindow : IHudServiceWindow
         {
             var tint = item.InstanceId == _dragging ? Color.White * 0.4f : Color.White;
             var bounds = HudStoreLayout.Cell(origin, item.Anchor, item.Width, item.Height);
-            HudShopWindow.DrawIcon(painter, icons, item.CatalogKey, bounds, tint);
+            icons.Draw(painter, item.CatalogKey, bounds, tint);
             if (item.Count > 1)
             {
                 var count = item.Count.ToString();
@@ -175,7 +175,7 @@ public sealed class HudWarehouseWindow : IHudServiceWindow
         if (_dragged is not null)
         {
             var size = new Point(_dragged.Width * HudStoreLayout.CellSize, _dragged.Height * HudStoreLayout.CellSize);
-            HudShopWindow.DrawIcon(painter, icons, _dragged.CatalogKey, new Rectangle(pointer.X - size.X / 2, pointer.Y - size.Y / 2, size.X, size.Y));
+            icons.Draw(painter, _dragged.CatalogKey, new Rectangle(pointer.X - size.X / 2, pointer.Y - size.Y / 2, size.X, size.Y));
         }
         else if (_hovered is not null)
         {

@@ -175,7 +175,7 @@ public abstract class HudWorkbench : IHudServiceWindow
                 _hovered = item;
             }
 
-            HudShopWindow.DrawIcon(painter, icons, item.CatalogKey, bounds);
+            icons.Draw(painter, item.CatalogKey, bounds);
         }
 
         if (ShowsStart(state))

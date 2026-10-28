@@ -167,7 +167,7 @@ public sealed class HudShopWindow : IHudServiceWindow
                     painter.Fill(bounds, Selection);
                 }
 
-                DrawIcon(painter, icons, placed.Offer.CatalogKey, bounds);
+                icons.Draw(painter, placed.Offer.CatalogKey, bounds);
             }
         }
 
@@ -200,21 +200,6 @@ public sealed class HudShopWindow : IHudServiceWindow
         var price = $"Price: {offer.Price:N0} gold";
         const string action = "Click: buy";
         HudItemTooltip.Draw(painter, layout, pointer, offer.Name, price, action);
-    }
-
-    public static void DrawIcon(HudPainter painter, HudItemIcons icons, string catalogKey, Rectangle bounds, Color? tint = null)
-    {
-        var texture = icons.Find(catalogKey);
-        if (texture is null)
-        {
-            painter.Fill(new Rectangle(bounds.X + 2, bounds.Y + 2, bounds.Width - 4, bounds.Height - 4), Color.FromNonPremultiplied(60, 60, 60, 160));
-            return;
-        }
-
-        // Item bitmaps are authored at their cell size; they are drawn unscaled and centred as in the inventory.
-        var x = bounds.X + (bounds.Width - texture.Width) / 2;
-        var y = bounds.Y + (bounds.Height - texture.Height) / 2;
-        painter.Image(texture, new Rectangle(x, y, texture.Width, texture.Height), tint ?? Color.White);
     }
 
     private void DrawTabs(HudPainter painter, Point origin)
