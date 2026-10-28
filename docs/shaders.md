@@ -34,7 +34,7 @@ Each `.fx` in `Passes/` builds to `Effects/<Name>` (the asset name the C# owner 
 | Asset | Source | Techniques | C# owner | Computes |
 |---|---|---|---|---|
 | `Effects/StaticSurface`, `Effects/SkinnedSurface` | `Surface.fx` (`SKINNED` define for the second) | `Prepass`, `PrepassMasked`, `Opaque`, `Masked`, `Sky` and `ShadowClear` (static only), `Outline` and `OutlineMasked` (skinned only), `ShadowCaster`, `ShadowCasterMasked` | `PristonShaderLibrary` | Stage, scenery, sky-layer and actor surfaces: depth pre-pass, lit HDR forward pass with motion output, sun and lamp shadow casters, and the hover outline (the actor flat in `OutlineColor`, shifted on screen by `OutlineParams.xy` and pushed back `OutlineParams.w` world units). |
-| `Effects/Unlit` | `Unlit.fx` | `Unlit` | `PristonUnlitEffect` (`GlowRenderer`, `PristonMeshEffect`) | Unlit textured `VertexPositionColorTexture` geometry; sRGB decode, `Tint` scales into radiance. |
+| `Effects/Unlit` | `Unlit.fx` | `Unlit` | `PristonUnlitEffect` (`GlowRenderer`, `PristonMeshEffect`) | Unlit textured `VertexPositionColorTexture` geometry; vertex colour sRGB decode, `Tint` scales into radiance. |
 | `Effects/Vfx` | `Vfx.fx` | `Vfx` | `PristonVfxEffect` (Effects `VfxRenderer`) | Skill and combat sprites in linear colour with the soft-particle fade against the pre-pass linear depth; `Mode` selects radiance, squared radiance (colour blends) or a multiplier / inverse multiplier for darkening blends. |
 | `Effects/SkyComposite` | `SkyComposite.fx` | `SkyComposite`, `Background` | `PristonSceneTargets` | First pass of every scene: decodes the 8-bit sky dome (or a flat radiance) into all scene targets, sky motion marker and depth. |
 | `Effects/AmbientOcclusion` | `AmbientOcclusion.fx` | `Occlusion`, `Blur` | `Post/PristonScreenOcclusion` | Half-resolution GTAO (two slices, three horizon steps each way) and contact shadows toward the sun; 4x4 depth-aware blur. Output x AO, y contact visibility, z view depth. |
@@ -94,8 +94,10 @@ Material codes (`MaterialDecl.hlsli`, mirrored by `PristonMaterialDescription.cs
   nominal display scale (`PristonFrameContext.Exposure`), so they show at their authored level when the automatic
   exposure sits at the light model's reading. Self-illumination at night is a light source of fixed luminance
   (`EmissionScale`), except on characters and monsters, which stay at the display level.
-- Original textures and vertex colours are sRGB-encoded 8-bit values and are decoded exactly in the shader. VFX vertex
-  colours are the exception: already linear.
+- Original textures and vertex colours are sRGB-encoded 8-bit values. Scene textures upload as `ColorSRgb`, so the
+  sampler decodes each texel before filtering (mips are averaged in linear light by `PristonMipChain`); vertex colours
+  are decoded exactly in the shader, except VFX vertex colours, already linear. The sky's textures stay `Color`: its
+  layers are composed display-referred (`PristonTextureLoader` with `displayReferred`), as are UI textures.
 - The vertex colour scales the albedo in linear light on both paths: stage geometry carries its authored light; scenery
   models take the stage's light per texture (`PristonStageBakedLight`); skinned actors take the floor light through the
   `DrawLight` constant (`PristonStageLightField`). That light also occludes the sky's reflections.

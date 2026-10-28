@@ -1,7 +1,8 @@
 // Skill and combat effects in the HDR scene (PristonVfxEffect, Client/PristonTale.Effects/Vfx). Vertex colours are
 // linear, already multiplied by the layer intensity, and relative to the scene exposure, so 1 displays the authored
-// colour and higher values reach the bloom. Textures are sRGB-encoded. With the depth pre-pass the sprites fade where
-// they meet the scene (soft particles): the fade is the distance to the opaque surface behind, over Softness.
+// colour and higher values reach the bloom. Textures are sRGB formats the sampler decodes. With the depth pre-pass the
+// sprites fade where they meet the scene (soft particles): the fade is the distance to the opaque surface behind, over
+// Softness.
 #include "../Core/Common.hlsli"
 #include "../Core/Color.hlsli"
 
@@ -59,7 +60,7 @@ float4 PS_Vfx(VSOut i) : SV_Target0
         alpha *= saturate((scene - i.Depth.x) / i.Depth.y);
     }
 
-    float3 factor = saturate(SrgbToLinear(texel.rgb) * i.Color.rgb);
+    float3 factor = saturate(texel.rgb * i.Color.rgb);
     if (Mode > 0.5 && Mode < 1.5)
     {
         // Destination x source: the soft-particle fade blends towards no change.
@@ -73,7 +74,7 @@ float4 PS_Vfx(VSOut i) : SV_Target0
         return float4(factor * saturate(fade), 1.0);
     }
 
-    float3 radiance = min(SrgbToLinear(texel.rgb) * i.Color.rgb / Exposure, HdrCap);
+    float3 radiance = min(texel.rgb * i.Color.rgb / Exposure, HdrCap);
     if (Mode > 2.5)
     {
         // Source-colour weighted light: the colour factor scales the added radiance; opacity is not used.

@@ -86,7 +86,7 @@ internal sealed class GlowRenderer : IDisposable
                 a = a * a;
                 data[y * size + x] = new Color(1f, 1f, 1f, a);
             }
-        var texture = new Texture2D(graphicsDevice, size, size, false, SurfaceFormat.Color);
+        var texture = new Texture2D(graphicsDevice, size, size, false, SurfaceFormat.ColorSRgb);
         texture.SetData(data);
         return texture;
     }

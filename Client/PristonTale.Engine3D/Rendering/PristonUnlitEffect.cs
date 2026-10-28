@@ -5,10 +5,10 @@ using PristonTale.Engine3D.Diagnostics;
 
 namespace PristonTale.Engine3D.Rendering;
 
-// Unlit textured VertexPositionColorTexture geometry in the HDR scene (Shaders/Passes/Unlit.fx): particles, lamp glows,
-// original mesh effects. Texture and vertex colours are sRGB and decoded in the shader; Intensity scales the result into
-// scene radiance, so additive effects add light in linear space. Each owner holds its own clone of the effect, so the
-// parameters of one never leak into another's draws.
+// Unlit textured VertexPositionColorTexture geometry in the HDR scene (Shaders/Passes/Unlit.fx): lamp glows and original
+// mesh effects. The texture is an sRGB format (ColorSRgb) and vertex colours are decoded in the shader; Intensity scales
+// the result into scene radiance, so additive effects add light in linear space. Each owner holds its own clone of the
+// effect, so the parameters of one never leak into another's draws.
 public sealed class PristonUnlitEffect : IDisposable
 {
     public const string AssetName = "Effects/Unlit";
