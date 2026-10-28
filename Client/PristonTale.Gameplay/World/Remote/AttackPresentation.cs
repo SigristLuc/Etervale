@@ -33,4 +33,12 @@ public static class AttackPresentation
             ? new Decision(Action.Attack, Vector2.Zero, dir)
             : new Decision(Action.Approach, dir, dir);
     }
+
+    // The forward a swing starts with: toward its target, as the server turns the attacker at every swing, whatever the
+    // range; a target on the player's own spot keeps the current forward.
+    public static Vector2 SwingFacing(Vector2 playerPlanar, Vector2 targetPlanar, Vector2 current)
+    {
+        var facing = Decide(playerPlanar, targetPlanar).Facing;
+        return facing.LengthSquared() > 1e-6f ? facing : current;
+    }
 }
