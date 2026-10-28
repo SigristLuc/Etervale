@@ -163,7 +163,7 @@ Every message code has the high word `0x4554` ("ET"); every message keeps the `{
 
 | Code | Name | Direction | Content |
 | --- | --- | --- | --- |
-| `0x45540100` | `OwnerStatus` | S→C | Level, unsigned 64-bit experience (current, level start, next level), 64-bit money, resources, attributes, combat values and revisions, then the final-tier skill points and the class tier (0..3). 156 B. |
+| `0x45540100` | `OwnerStatus` | S→C | Level, unsigned 64-bit experience (current, level start, next level), 64-bit money, resources, attributes, combat values and revisions, then the final-tier skill points and the class tier (0..3), the bag page shown and the weapon pair held (a byte each, 0 A, 1 B). 158 B. |
 | `0x45540101` | `Skills` | S→C | Skill revision and (code, rank) pairs, at most 512. |
 | `0x45540102` | `Inventory` | S→C | Inventory revision split into parts of up to 100 items; the client replaces its inventory when all parts of a revision arrived. |
 | `0x45540110` / `0x45540111` | `InventoryCommand` / `InventoryResult` | C→S / S→C | Transactional inventory operation, correlated by operation id. A ground pickup (`InventoryAction.Pickup`) names the drop in `ItemId`; a throw (`InventoryAction.Drop`) names the bag item and the amount in `Count`. |

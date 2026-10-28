@@ -18,7 +18,11 @@ public enum InventoryAction
     // Potions from the bag or a box into belt box Destination, Count of them (0: as many as fit; PlayerCharacter.TryPutOnBelt).
     BeltPut,
     // A belt box's potions into the bag at Destination (-1: wherever they fit).
-    BeltTake
+    BeltTake,
+    // Shows bag page Destination (0 A, 1 B) and hides the other (PlayerCharacter.TrySwitchBagPage); ItemId is unused.
+    SwitchBagPage,
+    // Holds weapon pair Destination (0 A, 1 B) and stores the other (PlayerCharacter.TrySwitchWeaponSet); ItemId is unused.
+    SwitchWeaponSet
 }
 
 public sealed record InventoryCommand(Guid OperationId, long ExpectedRevision, InventoryAction Action,
@@ -34,7 +38,8 @@ public static class InventoryCommands
 {
     public static bool Apply(PlayerCharacter character, InventoryCommand command)
     {
-        if (command.OperationId == Guid.Empty || command.ItemId == Guid.Empty || !Enum.IsDefined(command.Action)
+        var sideSwitch = command.Action is InventoryAction.SwitchBagPage or InventoryAction.SwitchWeaponSet;
+        if (command.OperationId == Guid.Empty || command.ItemId == Guid.Empty && !sideSwitch || !Enum.IsDefined(command.Action)
             || command.ExpectedRevision != character.InventoryRevision)
         {
             return false;
@@ -54,6 +59,8 @@ public static class InventoryCommands
                 : character.TryConsumeFromBelt(command.ItemId)),
             InventoryAction.BeltPut => character.TryPutOnBelt(command.ItemId, command.Destination, command.Count),
             InventoryAction.BeltTake => character.TryTakeFromBelt(command.ItemId, command.Destination),
+            InventoryAction.SwitchBagPage => character.TrySwitchBagPage(command.Destination),
+            InventoryAction.SwitchWeaponSet => Fitted(character, character.TrySwitchWeaponSet(command.Destination)),
             _ => false
         };
     }

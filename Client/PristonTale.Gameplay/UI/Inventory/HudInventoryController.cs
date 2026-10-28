@@ -20,6 +20,8 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     private Guid _carryAfter;
     // The item under the pointer this frame (the window open), for Shift and a belt key.
     private OwnedItemView _hovered;
+    // A weapon pair asked for while the player swings or casts: held once the motion ends, as the original waits for it.
+    private int _pairWanted = -1;
     private bool _pendingOperation;
     private volatile InventoryOutcome _completedOperation;
 
@@ -80,6 +82,16 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             _carryAfter = Guid.Empty;
         }
 
+        if (_pairWanted >= 0 && !PickupLocked && !_pendingOperation && state is not null)
+        {
+            if (_pairWanted != state.WeaponSet)
+            {
+                SendInventory(new InventoryCommand(Guid.NewGuid(), state.InventoryRevision, InventoryAction.SwitchWeaponSet, Guid.Empty, _pairWanted, 0, default));
+            }
+
+            _pairWanted = -1;
+        }
+
         _hovered = null;
         if (visible && state is not null && !_pendingOperation)
         {
@@ -118,6 +130,24 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             }
 
             return;
+        }
+
+        if (clicked)
+        {
+            for (var side = 0; side < PlayerCharacter.Sides; side++)
+            {
+                if (HudInventoryLayout.PageButton(_origin, side).Contains(pointer))
+                {
+                    ShowBagPage(side);
+                    return;
+                }
+
+                if (HudInventoryLayout.PairButton(_origin, side).Contains(pointer))
+                {
+                    HoldWeaponPair(side);
+                    return;
+                }
+            }
         }
 
         var hovered = _state.Items.FirstOrDefault(item => ItemBounds(item).Contains(pointer));
@@ -216,6 +246,27 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             Send(InventoryAction.BeltTake, carried, placement.Covered.Anchor);
         }
     }
+
+    // The bag page and the weapon pair (the side buttons, keys E and W): not while an item is carried or a command waits.
+    public void ShowBagPage(int page)
+    {
+        if (!_pendingOperation && _state is not null && _dragging == Guid.Empty && page != _state.BagPage)
+        {
+            SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.SwitchBagPage, Guid.Empty, page, 0, default));
+        }
+    }
+
+    public void HoldWeaponPair(int pair)
+    {
+        if (_state is not null && _dragging == Guid.Empty && pair != _state.WeaponSet)
+        {
+            _pairWanted = pair;
+        }
+    }
+
+    public void ToggleBagPage() => ShowBagPage(1 - (_state?.BagPage ?? 1));
+
+    public void ToggleWeaponPair() => HoldWeaponPair(1 - (_state?.WeaponSet ?? 1));
 
     // Keys 1 to 3, as in the original: drink the box's potion; with Shift, fill the box from the bag potion under the
     // pointer.

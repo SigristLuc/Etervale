@@ -69,6 +69,8 @@ public static class HudArt
     public const string CoverMiddle = Sin + "Inven/CoverMiddle.bmp";
     public const string CoverSmall = Sin + "Inven/CoverSmall.bmp";
     public const string PotionBack = Sin + "Inven/PotionBack.bmp";
+    public const string SideLeft = Sin + "Inven/LeftArrow.bmp";
+    public const string SideRight = Sin + "Inven/RightArrow.bmp";
 
     public const string Status = Sin + "Status/Status.bmp";
     public const string StatusPoint = Sin + "Status/StatusPoint.bmp";
@@ -132,7 +134,7 @@ public static class HudArt
         SystemMenu, SystemSettings, SystemHelp, SystemExit, RestartMain, RestartField, RestartTown, RestartExit, SelectSkill, SelectSkillGray, SelectJobGray, SelectJob,
         .. MenuButtons, .. MenuButtonsDown, .. MenuInfo,
         SkillNormal, SkillWindow, SkillSelect, SkillGauge, SkillGaugeBack, SkillGaugePassive, .. ShortKeys,
-        Inventory, PuzzleBoard, CoverLarge, CoverMiddle, CoverSmall, PotionBack, Status, StatusPoint, StatusArrow, StatusArrowDown,
+        Inventory, PuzzleBoard, CoverLarge, CoverMiddle, CoverSmall, PotionBack, SideLeft, SideRight, Status, StatusPoint, StatusArrow, StatusArrowDown,
         .. InfoBox,
         HelpTopLeft, HelpTop, HelpTopRight, HelpLeft, HelpCenter, HelpRight, HelpBottomLeft, HelpBottom, HelpBottomRight, HelpLine,
         HelpTitle, HelpButton, ScrollBar, ScrollButton,

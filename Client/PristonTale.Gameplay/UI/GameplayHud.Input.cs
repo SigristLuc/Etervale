@@ -89,6 +89,16 @@ public sealed partial class GameplayHud
             YahooKeyPressed?.Invoke();
         }
 
+        if (Pressed(keyboard, Keys.E))
+        {
+            _inventory.ToggleBagPage();
+        }
+
+        if (Pressed(keyboard, Keys.W))
+        {
+            _inventory.ToggleWeaponPair();
+        }
+
         var shift = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
         for (var box = 0; box < BeltKeys.Length; box++)
         {

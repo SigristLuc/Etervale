@@ -99,7 +99,8 @@ internal static class WireMapping
         owner.Life, owner.MaxLife, owner.Mana, owner.MaxMana, owner.Stamina, owner.MaxStamina,
         owner.StatPoints, owner.SkillPoints, owner.Strength, owner.Spirit, owner.Talent, owner.Agility, owner.Health,
         owner.DamageMin, owner.DamageMax, owner.Defence, owner.Absorption, owner.AttackRating, owner.MoveSpeed, owner.AttackRange,
-        owner.InventoryRevision, owner.ProgressionRevision, owner.SkillsRevision, owner.EliteSkillPoints, owner.Tier);
+        owner.InventoryRevision, owner.ProgressionRevision, owner.SkillsRevision, owner.EliteSkillPoints, owner.Tier, (byte)owner.BagPage,
+        (byte)owner.WeaponSet);
 
     public static InventoryItemEntry Item(OwnedItemView item) => new(
         item.InstanceId, item.Code, (int)item.Kind, item.Count, item.Anchor, item.Slot, (short)item.Width, (short)item.Height, item.Name);

@@ -493,6 +493,8 @@ internal sealed class PresenceDecoder
             SkillsRevision = status.SkillsRevision,
             Tier = status.Tier,
             EliteSkillPoints = status.EliteSkillPoints,
+            BagPage = status.BagPage,
+            WeaponSet = status.WeaponSet,
             Skills = _skills
         };
         return Update([], []) with { Owner = _ownerItems.Apply(owner) };

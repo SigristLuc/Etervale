@@ -411,6 +411,11 @@ totals.
   revision returned in the outcome.
 - `InventoryAction.Swap` sets an item down over exactly one other bag item (`Inventory.TrySwap`), which moves to where
   the first one was, or to the first free space; anything else refuses it.
+- The two sides (`PlayerCharacter.Sides.cs`), as the original's E and W keys: a second bag page (`HiddenBag`, swapped
+  whole with `Inventory` by `SwitchBagPage`; `BagPage` 0 A, 1 B) and a second weapon and off-hand pair (`StoredWeapon`,
+  `StoredOffHand`, swapped with the held pair by `SwitchWeaponSet`; `WeaponSet`). Hidden items are still owned (weight,
+  `FindOwnedItem`) and saved: `SavedItem.Hidden` and `SavedItems.ActiveSide` (the shown page in the inventory list, the
+  held pair in the equipment list). Commands act on the shown page only; owner views carry `BagPage` and `WeaponSet`.
 - The potion belt (`PotionBelt`, `PlayerCharacter.Belt`): three boxes of one potion stack each, of at most
   `Derived.PotionSpace` potions. `BeltPut` fills a box from the bag or another box (count 0: as many as fit; a box of
   another potion sends its stack to the bag first, or two boxes change places), `BeltTake` returns a box to the bag,

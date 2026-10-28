@@ -392,6 +392,11 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   button stays dark with red help where the server's `RestartOffer` says the field restart is closed (nothing in the
   castle field). The town is chosen after 20 s open; a refused or busy answer opens it again, a stored exit quits the
   game. The scene (`GameScene.Restart.cs`) keeps the last offer and sends `RestartAsync`.
+- Side buttons (`HudInventoryLayout.PageButton`, `PairButton`): the bag page A/B under the bag at (26, 572) and
+  (48, 572), and the weapon pair A/B at (524, 525) and (546, 525) (the shipped `Inven.bmp`'s place, 5 pixels right of and
+  11 below the original's table); `LeftArrow.bmp`/`RightArrow.bmp` light the shown page and the held pair, and the
+  button under the pointer. A click or the keys E and W switch (`SwitchBagPage`, `SwitchWeaponSet`), not while an item
+  is carried; a pair asked for while the player swings or casts is held once the motion ends, as the original waits.
 - Potion belt (`HudInventoryPanel.DrawBelt`, after the bottom bar, the window open or not): the three boxes of
   `PotionBack.bmp` at (495 + 26 x box, 565), each potion centred with its count. A right click drinks one (the window
   closed too); keys 1 to 3 drink from their box, and Shift with them fills the box from the bag potion under the pointer

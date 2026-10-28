@@ -31,6 +31,10 @@ public sealed record OwnerState(
     public int MoveSpeed { get; init; }
     public long ProgressionRevision { get; init; }
     public long SkillsRevision { get; init; }
+    // The bag page shown and the weapon pair held (0 A, 1 B; PlayerCharacter.BagPage, WeaponSet).
+    public int BagPage { get; init; }
+    public int WeaponSet { get; init; }
+
     // Class tier 0..3 and the points the final tier's skills spend.
     public int Tier { get; init; }
     public int EliteSkillPoints { get; init; }
@@ -80,6 +84,8 @@ public sealed record OwnerState(
             ProgressionRevision = character.ProgressionRevision,
             SkillsRevision = character.Skills.Revision,
             Tier = character.Tier,
+            BagPage = character.BagPage,
+            WeaponSet = character.WeaponSet,
             EliteSkillPoints = character.EliteSkillPoints,
             Skills = previous is not null && previous.SkillsRevision == character.Skills.Revision ? previous.Skills
                 : Array.AsReadOnly(character.Skills.Ranks.Select(pair => new OwnedSkillView(pair.Key, pair.Value)).ToArray()),

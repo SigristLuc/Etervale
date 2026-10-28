@@ -543,6 +543,11 @@ public sealed partial class PlayerCharacter
                 yield return potion;
             }
         }
+
+        foreach (var hidden in HiddenItems())
+        {
+            yield return hidden;
+        }
     }
 
     public bool RestoreDurability(Guid instanceId)
@@ -583,6 +588,7 @@ public sealed partial class PlayerCharacter
         }
 
         clone.Belt.CopyFrom(Belt);
+        clone.CopySides(this);
 
         foreach (var skill in Skills.Ranks)
         {
@@ -742,6 +748,9 @@ public sealed partial class PlayerCharacter
         }
 
         Belt.CopyFrom(candidate.Belt);
+        HiddenBag = candidate.HiddenBag;
+        (_storedWeapon, _storedOffHand) = (candidate._storedWeapon, candidate._storedOffHand);
+        (BagPage, WeaponSet) = (candidate.BagPage, candidate.WeaponSet);
 
         RestoreInventoryHistory(candidate.InventoryRevision, candidate.InventoryOperations);
         RestoreServiceHistory(candidate.ServiceOperations);

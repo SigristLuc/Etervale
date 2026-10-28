@@ -24,10 +24,12 @@ public sealed record SavedItem(
     Simulation.Items.Aging.AgingMaturity? Maturity = null,
     int MixSheltom = 0,
     Simulation.Items.Mixing.MixStat MixStats = Simulation.Items.Mixing.MixStat.None,
-    int? Belt = null);
+    int? Belt = null,
+    bool Hidden = false);
 
+// ActiveSide: the bag page shown (inventory) or the weapon pair held (equipment); Hidden items are on the other side.
 public sealed record SavedItems(int Version, SavedItem[] Items, long Revision = 0, AppliedInventoryOperation[]? Operations = null,
-    AppliedServiceOperation[]? ServiceOperations = null);
+    AppliedServiceOperation[]? ServiceOperations = null, int ActiveSide = 0);
 public sealed record SavedSkill(uint Code, int Rank, int Uses = 0);
 public sealed record SavedSkills(int Version, int Points, int ElitePoints, SavedSkill[] Skills,
     long Revision = 0, AppliedProgressionOperation[]? Operations = null);
@@ -51,12 +53,14 @@ public static class CharacterStateCodec
         character.RestoreProgress(unchecked((ulong)record.Exp), record.Money, record.StatPoints, record.Tier, skills.Points, skills.ElitePoints);
         character.RestoreQuests(QuestStateCodec.Read(record.Quests));
 
+        character.RestoreSides(inventory.ActiveSide, equipment.ActiveSide);
         // Gear restores first: the potion space it gives bounds the belt's stacks.
         foreach (var saved in inventory.Items.Where(static saved => saved.Belt is null))
         {
             var item = RestoreItem(saved, catalog, identities);
+            var bag = saved.Hidden ? character.HiddenBag : character.Inventory;
             // Footprints follow the item table; an item saved where its footprint no longer fits moves to the first free place.
-            if (saved.Slot.HasValue || !character.Inventory.TryPlace(item, saved.Anchor) && !PlaceInFirstFree(character.Inventory, item))
+            if (saved.Slot.HasValue || !bag.TryPlace(item, saved.Anchor) && !PlaceInFirstFree(bag, item))
             {
                 throw new InvalidDataException("Invalid saved inventory footprint.");
             }
@@ -65,8 +69,22 @@ public static class CharacterStateCodec
         foreach (var saved in equipment.Items)
         {
             var item = RestoreItem(saved, catalog, identities);
-            if (!saved.Slot.HasValue || saved.Anchor != -1 || character.GetEquipped(saved.Slot.Value) is not null
-                || !character.CanHold(saved.Slot.Value, item))
+            if (!saved.Slot.HasValue || saved.Anchor != -1)
+            {
+                throw new InvalidDataException("Invalid saved equipment.");
+            }
+
+            if (saved.Hidden)
+            {
+                if (!character.RestoreStored(saved.Slot.Value, item))
+                {
+                    throw new InvalidDataException("Invalid saved weapon pair.");
+                }
+
+                continue;
+            }
+
+            if (character.GetEquipped(saved.Slot.Value) is not null || !character.CanHold(saved.Slot.Value, item))
             {
                 throw new InvalidDataException("Invalid saved equipment.");
             }
@@ -116,6 +134,14 @@ public static class CharacterStateCodec
             }
         }
 
+        for (var anchor = 0; anchor < character.HiddenBag.Capacity; anchor++)
+        {
+            if (character.HiddenBag[anchor] is { } item)
+            {
+                items.Add(CaptureItem(item, anchor, null) with { Hidden = true });
+            }
+        }
+
         for (var box = 0; box < PotionBelt.Boxes; box++)
         {
             if (character.Belt[box] is { } potion)
@@ -125,19 +151,28 @@ public static class CharacterStateCodec
         }
 
         return new SavedItems(1, items.ToArray(), character.InventoryRevision, character.InventoryOperations.ToArray(),
-            character.ServiceOperations.ToArray());
+            character.ServiceOperations.ToArray(), character.BagPage);
     }
 
     public static SavedItems CaptureEquipment(PlayerCharacter character)
     {
-        var items = new SavedItem[character.Equipment.Count];
-        var index = 0;
+        var items = new List<SavedItem>(character.Equipment.Count + 2);
         foreach (var equipped in character.Equipment)
         {
-            items[index++] = CaptureItem(equipped.Value, -1, equipped.Key);
+            items.Add(CaptureItem(equipped.Value, -1, equipped.Key));
         }
 
-        return new SavedItems(1, items);
+        if (character.StoredWeapon is { } weapon)
+        {
+            items.Add(CaptureItem(weapon, -1, EquipmentSlot.Weapon) with { Hidden = true });
+        }
+
+        if (character.StoredOffHand is { } offHand)
+        {
+            items.Add(CaptureItem(offHand, -1, EquipmentSlot.OffHand) with { Hidden = true });
+        }
+
+        return new SavedItems(1, items.ToArray(), ActiveSide: character.WeaponSet);
     }
 
     public static SavedItems ReadEquipment(JsonText equipment)
@@ -199,7 +234,8 @@ public static class CharacterStateCodec
         }
 
         var state = JsonSerializer.Deserialize<SavedItems>(json.Value, Options);
-        if (state is null || state.Version != 1 || state.Items is null || state.Items.Length > Inventory.DefaultWidth * Inventory.DefaultHeight + PotionBelt.Boxes)
+        if (state is null || state.Version != 1 || state.Items is null || state.Items.Length > PlayerCharacter.Sides * Inventory.DefaultWidth * Inventory.DefaultHeight + PotionBelt.Boxes
+            || state.ActiveSide is < 0 or >= PlayerCharacter.Sides)
         {
             throw new InvalidDataException("Unsupported item-state version or size.");
         }

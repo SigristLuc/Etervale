@@ -70,6 +70,12 @@ public static class HudInventoryLayout
         _ => Rendering.HudArt.CoverSmall
     };
 
+    // The side buttons: the bag page (A left, B right) under the bag and the weapon pair (A left, B right) by the
+    // equipment. The shipped Inven.bmp puts the pair buttons 5 pixels right of and 11 below the original's table, after
+    // a third button of its own.
+    public static Rectangle PageButton(Point origin, int page) => new(origin.X + 26 + 22 * page, origin.Y + 572, 22, 19);
+    public static Rectangle PairButton(Point origin, int pair) => new(origin.X + 524 + 22 * pair, origin.Y + 525, 19, 19);
+
     public static Rectangle Close(Point origin) => new(origin.X + 266, origin.Y + 572, 22, 19);
     public static Rectangle Money(Point origin) => new(origin.X + 147, origin.Y + 574, 110, 18);
     public static Rectangle Weight(Point origin) => new(origin.X + 326, origin.Y + 471, 80, 15);

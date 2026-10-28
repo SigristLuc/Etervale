@@ -20,6 +20,7 @@ internal static class ProgressionAndOwnershipTests
         yield return ("original XP thresholds, multi-level rewards and job gate", ProgressionAsync);
         yield return ("inventory footprints, split identities and rejected swaps are atomic", GridAsync);
         yield return ("an item set down over one other takes its place and the other moves where it was or to free space", SwapAsync);
+        yield return ("the second bag page and weapon pair hide and return their items, still carried and saved", SidesAsync);
         yield return ("equipment validates requirements, handedness and original weapon formula", EquipmentAsync);
         yield return ("owned state round-trips detached copies and rejects unknown formats", PersistenceAsync);
     }
@@ -104,6 +105,42 @@ internal static class ProgressionAndOwnershipTests
         Assert.True(crowded.TryPlace(stone, 0) && crowded.TryPlace(Item(7, 1, 1), 1) && crowded.TryPlace(other, 5), "fixture placement failed");
         Assert.True(crowded.TrySwap(0, 5) && crowded[5].InstanceId == stone.InstanceId && crowded.Find(other.InstanceId) == 2,
             "the covered item did not go to the first free space");
+        return Task.CompletedTask;
+    }
+
+    private static Task SidesAsync()
+    {
+        var stone = new ItemDefinition(1, "Stone", ItemKind.Material) { CatalogKey = "MT101" };
+        var sword = new ItemDefinition(2, "Sword", ItemKind.Sword, EquipmentSlot.Weapon) { CatalogKey = "WS101" };
+        var axe = new ItemDefinition(3, "Axe", ItemKind.Axe, EquipmentSlot.Weapon) { CatalogKey = "WA101" };
+        var classes = new CharacterClassRegistry();
+        var character = classes.CreatePlayer(PlayerClass.Fighter, "Sides", 10);
+        var carried = new ItemInstance(stone);
+        Assert.True(character.Inventory.TryAdd(carried) && character.Inventory.TryAdd(new ItemInstance(sword)), "fixture items did not fit");
+        Assert.True(character.TryEquipFromInventory(character.Inventory.Find(character.OwnedItems().First(item => item.Definition == sword).InstanceId),
+            EquipmentSlot.Weapon), "the sword was not equipped");
+
+        Assert.True(character.TrySwitchBagPage(1) && character.BagPage == 1 && character.Inventory.Find(carried.InstanceId) < 0
+            && character.HiddenBag.Find(carried.InstanceId) >= 0 && character.FindOwnedItem(carried.InstanceId) is not null,
+            "page B did not hide page A's stone, or the stone stopped being carried");
+        Assert.True(!character.TrySwitchBagPage(1), "showing the shown page changed something");
+        Assert.True(character.TrySwitchWeaponSet(1) && character.GetEquipped(EquipmentSlot.Weapon) is null && character.StoredWeapon?.Definition == sword,
+            "pair B did not store pair A's sword");
+        Assert.True(character.Inventory.TryAdd(new ItemInstance(axe))
+            && character.TryEquipFromInventory(character.Inventory.Find(character.OwnedItems().First(item => item.Definition == axe).InstanceId), EquipmentSlot.Weapon),
+            "the axe was not equipped in pair B");
+        var view = OwnerState.Capture(character);
+        Assert.True(view.BagPage == 1 && view.WeaponSet == 1 && view.Items.All(item => item.InstanceId != carried.InstanceId),
+            "the owner view shows the hidden side or not the active one");
+
+        var starter = CharacterRecordFactory.NewStarter(classes, 1, "Sides", 0, PlayerClass.Fighter, 3) with { Id = 1 };
+        var record = CharacterRecordFactory.FromLiveSession(starter, character, 3, Vector3.Zero);
+        var restored = classes.CreatePlayer(PlayerClass.Fighter, "Sides", 10);
+        CharacterStateCodec.Restore(restored, record, new ItemCatalog([stone, sword, axe]));
+        Assert.True(restored.BagPage == 1 && restored.WeaponSet == 1 && restored.HiddenBag.Find(carried.InstanceId) >= 0
+            && restored.GetEquipped(EquipmentSlot.Weapon)?.Definition == axe && restored.StoredWeapon?.Definition == sword, "the sides were not saved and restored");
+        Assert.True(restored.TrySwitchWeaponSet(0) && restored.GetEquipped(EquipmentSlot.Weapon)?.Definition == sword && restored.StoredWeapon?.Definition == axe
+            && restored.TrySwitchBagPage(0) && restored.Inventory.Find(carried.InstanceId) >= 0, "switching back did not return pair A and page A");
         return Task.CompletedTask;
     }
 
