@@ -68,7 +68,7 @@ renderer through `PresentationSettings.ApplyRendering` and apply at once.
 | `windowMode` | `Windowed` (default), `Borderless`, `Fullscreen` | defined enum | yes | Fullscreen is an exclusive mode switch. Display. |
 | `refreshRate` | int, `0` | 0-1000 | yes (fullscreen only) | 0 desktop frequency. The platform switches at the desktop frequency only; a nonzero value logs a warning. Display. |
 | `verticalSync` | bool, `false` | | yes | Applied without a display reset. |
-| `musicEnabled`, `soundEnabled` | bool, `true`, `true` | | yes (BGM, Audio) | Read by `PristonAudioLibrary.ApplySettings` every update. |
+| `musicEnabled`, `soundEnabled` | bool, `true`, `true` | | yes (BGM, Audio) | Read by `PristonAudioLibrary.ApplySettings` every update; the login and character screens ignore them. |
 | `maxFps` | int, `0` | 0 or 15-1000 | yes: 0, 30, 60, 90, 120, 144, 165, 240, 360 | Foreground frame limit; 0 unlimited. Paced by `PresentationController.Pace` (sleeps in 1-4 ms steps). |
 | `backgroundMaxFps` | int, `30` | 0 or 15-1000 | yes (same list) | Limit while the window is inactive: `min(maxFps, backgroundMaxFps)`, or `backgroundMaxFps` when `maxFps` is 0; 0 means "use `maxFps`". |
 | `uiScale` | float, `1` | 0.75-1.5 | | Validated and stored only; the in-game HUD always uses the largest integer scale that fits. |

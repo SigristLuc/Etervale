@@ -1,10 +1,10 @@
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using PristonTale.Effects.Vfx;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
+using PristonTale.Gameplay.Audio;
 using PristonTale.Gameplay.Effects;
 using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Gameplay.Screens.Gameplay;
@@ -45,7 +45,7 @@ public sealed class CharacterSelectScreen : GameScreen
         new(70f, 56f, 155f),  new(75f, 60f, 152f),  new(81f, 66f, 142f),
     ];
 
-    private SoundEffectInstance _bgmInstance;
+    private LoginAudio _audio;
     private MouseState _lastMouse;
     private KeyboardState _lastKeyboard;
     private double _lastClickSeconds = -1d;
@@ -110,7 +110,7 @@ public sealed class CharacterSelectScreen : GameScreen
         _portrait = new CharacterSelectPortrait(Context.GraphicsDevice);
         _view = new CharacterSelectView(Context.SpriteBatch, Context.Font, _assets, _cameraCtl);
         InitEffects();
-        StartBgm();
+        _audio = LoginAudio.CharacterSelect(Context.Audio);
         BeginLoadRoster();
     }
 
@@ -137,10 +137,7 @@ public sealed class CharacterSelectScreen : GameScreen
     {
         _elapsedSeconds = gameTime.TotalGameTime.TotalSeconds;
         var dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
-        if (_bgmInstance is not null)
-        {
-            _bgmInstance.Volume = Context.Audio?.MusicEnabled == false ? 0f : 0.6f;
-        }
+        _audio.Update(dt);
 
         _cameraCtl.Update(Context.GraphicsDevice, (int)_state, dt);
 
@@ -320,6 +317,7 @@ public sealed class CharacterSelectScreen : GameScreen
             var now = _elapsedSeconds;
             var isDouble = _lastClickIndex == _hoveredIndex && (now - _lastClickSeconds) < 0.35d;
             _selectedIndex = _hoveredIndex;
+            _audio.Play(LoginCue.PickCharacter);
             if (isDouble)
             {
                 BeginEnterWorld();
@@ -350,6 +348,7 @@ public sealed class CharacterSelectScreen : GameScreen
         {
             if (hasChars)
             {
+                _audio.Play(LoginCue.Button);
                 if (_selectedIndex >= 0)
                 {
                     BeginEnterWorld();
@@ -363,12 +362,14 @@ public sealed class CharacterSelectScreen : GameScreen
         }
         if (InButton(cursor, _assets.BtExit, CharSelectLayout.TwoButtonQuitX(viewport), y, CharSelectLayout.ButtonKind.Exit))
         {
+            _audio.Play(LoginCue.Button);
             Context.RequestScreen(new OpeningScreen(Context));
             return true;
         }
         if (_selectedIndex >= 0 &&
             InButton(cursor, _assets.BtDelete, CharSelectLayout.TwoButtonDeleteX, y, CharSelectLayout.ButtonKind.Delete))
         {
+            _audio.Play(LoginCue.Button);
             BeginDelete();
             return true;
         }
@@ -382,6 +383,7 @@ public sealed class CharacterSelectScreen : GameScreen
             return;
         }
 
+        _audio.Play(LoginCue.GameStart);
         _enteringSummary = _scene.RosterSummary(_selectedIndex);
         var name = _enteringSummary.Name;
         _errorMessage = string.Empty;
@@ -442,6 +444,7 @@ public sealed class CharacterSelectScreen : GameScreen
         _deleteTask = null;
         if (ok)
         {
+            _audio.Play(LoginCue.Delete);
             BeginLoadRoster();
         }
         else
@@ -454,6 +457,7 @@ public sealed class CharacterSelectScreen : GameScreen
 
     private void EnterRaceSelect()
     {
+        _audio.Play(LoginCue.NewCharacter);
         ClearJobActors();
         _state = State.RaceSelect;
         _errorMessage = string.Empty;
@@ -498,6 +502,7 @@ public sealed class CharacterSelectScreen : GameScreen
 
     private void ChooseBrood(CharacterBrood brood)
     {
+        _audio.Play(LoginCue.NewCharacter);
         _chosenBrood = brood;
         _errorMessage = string.Empty;
         ResetBackendCall();
@@ -556,6 +561,7 @@ public sealed class CharacterSelectScreen : GameScreen
             var now = _elapsedSeconds;
             var isDouble = _lastClickIndex == _jobHovered && (now - _lastClickSeconds) < 0.35d;
             _jobSelected = _jobHovered;
+            _audio.Play(LoginCue.PickCharacter);
             if (isDouble)
             {
                 EnterFaceSelect();
@@ -634,18 +640,21 @@ public sealed class CharacterSelectScreen : GameScreen
 
         if (InButton(cursor, _assets.BtSelect, CharSelectLayout.ThreeButtonOkX(viewport), y, CharSelectLayout.ButtonKind.Select))
         {
+            _audio.Play(LoginCue.Button);
             OnCreateOk();
             return true;
         }
 
         if (InButton(cursor, _assets.BtBack, CharSelectLayout.ThreeButtonBackX(viewport), y, CharSelectLayout.ButtonKind.Back))
         {
+            _audio.Play(LoginCue.Back);
             StepBack();
             return true;
         }
 
         if (InButton(cursor, _assets.BtExit, CharSelectLayout.ThreeButtonQuitX(viewport), y, CharSelectLayout.ButtonKind.Exit))
         {
+            _audio.Play(LoginCue.Button);
             Context.RequestScreen(new OpeningScreen(Context));
             return true;
         }
@@ -716,6 +725,7 @@ public sealed class CharacterSelectScreen : GameScreen
             _errorMessage = "Enter a name.";
             return;
         }
+        _audio.Play(LoginCue.GameStart);
         _errorMessage = string.Empty;
         _busy = Busy.Creating;
         ResetBackendCall();
@@ -837,25 +847,11 @@ public sealed class CharacterSelectScreen : GameScreen
         _backendCts = new CancellationTokenSource();
     }
 
-    private void StartBgm()
-    {
-        if (Context.Audio?.CharacterSelectMusic is not { } music)
-        {
-            return;
-        }
-
-        _bgmInstance = music.CreateInstance();
-        _bgmInstance.IsLooped = true;
-        _bgmInstance.Volume = Context.Audio.MusicEnabled ? 0.6f : 0f;
-        _bgmInstance.Play();
-    }
-
     public override void Dispose()
     {
         _backendCts?.Cancel();
         _backendCts?.Dispose();
-        _bgmInstance?.Stop();
-        _bgmInstance?.Dispose();
+        _audio?.Dispose();
         _vfxRenderer?.Dispose();
         _portrait?.Dispose();
         _assets?.Dispose();

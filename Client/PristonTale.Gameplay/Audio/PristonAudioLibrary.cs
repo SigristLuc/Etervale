@@ -99,6 +99,8 @@ public sealed class PristonAudioLibrary : IDisposable
     private readonly Dictionary<uint, SoundEffect> _talkSounds = [];
     private readonly List<SoundEffect> _owned = [];
     private readonly Dictionary<string, SoundEffect> _itemSounds = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<LoginCue, SoundEffect> _loginCues = [];
+    private readonly List<(SoundEffect Sound, float Volume)> _characterSelectLoops = [];
     private int _npcSoundCount;
 
     private PristonAudioLibrary()
@@ -107,6 +109,7 @@ public sealed class PristonAudioLibrary : IDisposable
 
     public SoundEffect OpeningMusic { get; private set; }
     public SoundEffect CharacterSelectMusic { get; private set; }
+    public IReadOnlyList<(SoundEffect Sound, float Volume)> CharacterSelectLoops => _characterSelectLoops;
     public SoundEffect PortalWarpSound { get; private set; }
 
     // Played when a quest starts, moves on or ends.
@@ -134,6 +137,16 @@ public sealed class PristonAudioLibrary : IDisposable
             var byPath = new Dictionary<string, SoundEffect>(StringComparer.OrdinalIgnoreCase);
             library.OpeningMusic = library.Load(assetRoot, "StartImage/Opening/Intro.wav", byPath);
             library.CharacterSelectMusic = library.Load(assetRoot, "StartImage/login/CharacterSelect.wav", byPath);
+            foreach (var (cue, path) in LoginAudio.CueFiles)
+            {
+                library._loginCues.Add(cue, library.Load(assetRoot, path, byPath));
+            }
+
+            foreach (var (path, volume) in LoginAudio.CharacterSelectLoopFiles)
+            {
+                library._characterSelectLoops.Add((library.Load(assetRoot, path, byPath), volume));
+            }
+
             library.PortalWarpSound = library.Load(assetRoot, "wav/Effects/Skill/Learn_Skill.wav", byPath);
             library.QuestFanfareSound = library.Load(assetRoot, "image/Sinimage/Sound/drink2.wav", byPath);
             library.WhisperSound = library.Load(assetRoot, "wav/Effects/event/hosound.wav", byPath);
@@ -175,6 +188,8 @@ public sealed class PristonAudioLibrary : IDisposable
     }
 
     public SoundEffect ItemSound(string catalogKey) => _itemSounds.GetValueOrDefault(ItemSoundRules.For(catalogKey));
+
+    public SoundEffect Cue(LoginCue cue) => _loginCues.GetValueOrDefault(cue);
 
     public SoundEffect CoinSound => _itemSounds.GetValueOrDefault(ItemSoundRules.Coin);
 
@@ -364,6 +379,8 @@ public sealed class PristonAudioLibrary : IDisposable
 
         _owned.Clear();
         _fieldMusic.Clear();
+        _loginCues.Clear();
+        _characterSelectLoops.Clear();
         _npcSounds.Clear();
         _talkSounds.Clear();
         _npcSoundCount = 0;

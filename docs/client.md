@@ -526,12 +526,15 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   character-select music (`StartImage/...`), field music by BGM code (`wav/BGM`, `wav/Sod/BGM`), field ambience loops
   and positional ambience (`wav/Ambient`), NPC motion banks per sound code, and hashed NPC talk lines
   (`wav/Talk/<code>.wav`; optional, playback disabled when absent).
+- `LoginAudio` plays the opening and character-select music, the character screen's three loops (`NewChar`, `Fire`,
+  `Thunder`) and the screens' cues (`LoginCue`: button, back, new character, pick, delete, game start, login), with a
+  0.5 s fade-in of the loops. The music and sound options do not mute them, as in the original.
 - `TalkSound.GetSoundCode` hashes the CP949 bytes of an NPC line (ASCII letters uppercased) into the talk file
   code.
 - `FieldAudioController.SelectField` picks music by `FieldDef.BackMusicCode` (3.6 s fade); field ambience depends on the
   field state and, in forests, the time of day; positional ambience uses the original distance falloff.
 - `NpcAudioController` plays the dialog line or a motion sound of the NPC at its position relative to the listener.
-- `MusicEnabled`/`SoundEnabled` come from client settings each frame (`ApplySettings`).
+- `MusicEnabled`/`SoundEnabled` come from client settings each frame (`ApplySettings`) and apply in the world.
 - Skill sounds: `SkillSoundBank` ([skills.md](skills.md)).
 - Character sounds (`CombatSounds`): `CharacterSoundBanks` maps every character sound code to its folder (monsters and
   summons by sound code, NPCs, player classes 1 to 10 by class code); a file plays for the motion its name starts with

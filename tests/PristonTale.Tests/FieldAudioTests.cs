@@ -25,6 +25,7 @@ internal static class FieldAudioTests
         yield return ("character sound banks cover monsters, summons, NPCs and every class with an asset folder", CharacterBanksAsync);
         yield return ("items sound by family with their own exceptions, and every item sound file exists", ItemSoundsAsync);
         yield return ("a potion taking effect plays the original's potion sound once with its drops", PotionSoundAsync);
+        yield return ("every login and character-screen cue has a file, and every one of them and the loops exists", LoginSoundsAsync);
     }
 
     private static Task PotionSoundAsync()
@@ -38,6 +39,24 @@ internal static class FieldAudioTests
         var effects = new PristonTale.Gameplay.Effects.ItemUseEffects(null, null, sounds);
         effects.Potion(0b111, new Vector3(0f, 48f, 0f), Vector3.Zero);
         Assert.True(played.SequenceEqual([PristonTale.Gameplay.Effects.ItemUseEffects.EatSound]), $"a potion played {string.Join(", ", played)}");
+        return Task.CompletedTask;
+    }
+
+    private static Task LoginSoundsAsync()
+    {
+        var cued = LoginAudio.CueFiles.Select(static entry => entry.Cue).ToHashSet();
+        Assert.True(cued.SetEquals(Enum.GetValues<LoginCue>()), "a login cue has no file");
+
+        var root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "assets");
+        if (Directory.Exists(Path.Combine(root, "wav")))
+        {
+            foreach (var path in LoginAudio.CueFiles.Select(static entry => entry.Path)
+                .Concat(LoginAudio.CharacterSelectLoopFiles.Select(static entry => entry.Path)))
+            {
+                Assert.True(File.Exists(AssetFiles.Resolve(Path.Combine(root, path))), $"login sound {path} is missing");
+            }
+        }
+
         return Task.CompletedTask;
     }
 

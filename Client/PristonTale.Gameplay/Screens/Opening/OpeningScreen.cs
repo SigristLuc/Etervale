@@ -1,6 +1,6 @@
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Input;
+using PristonTale.Gameplay.Audio;
 using PristonTale.Gameplay.Screens.CharacterSelect;
 using PristonTale.Gameplay.Screens.Framework;
 
@@ -11,7 +11,7 @@ public sealed class OpeningScreen : GameScreen
     private OpeningCinematic _cinematic;
     private OpeningLoginController _loginController;
 
-    private SoundEffectInstance _bgmInstance;
+    private LoginAudio _audio;
     private KeyboardState _lastKeyboard;
     private string _status = "Opening";
 
@@ -35,19 +35,15 @@ public sealed class OpeningScreen : GameScreen
             Context.Presentation,
             Context.Effects);
         _cinematic.Load();
-        _loginController = new OpeningLoginController(Context);
-
-        StartBgm();
+        _audio = LoginAudio.Opening(Context.Audio);
+        _loginController = new OpeningLoginController(Context, _audio);
         _status = $"Opening: {_cinematic.StatusSuffix}";
     }
 
     public override void Update(GameTime gameTime)
     {
         var dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
-        if (_bgmInstance is not null)
-        {
-            _bgmInstance.Volume = Context.Audio?.MusicEnabled == false ? 0f : 0.6f;
-        }
+        _audio.Update(dt);
 
         _cinematic.Update(gameTime);
 
@@ -95,24 +91,10 @@ public sealed class OpeningScreen : GameScreen
         }
     }
 
-    private void StartBgm()
-    {
-        if (Context.Audio?.OpeningMusic is not { } music)
-        {
-            return;
-        }
-
-        _bgmInstance = music.CreateInstance();
-        _bgmInstance.IsLooped = true;
-        _bgmInstance.Volume = Context.Audio.MusicEnabled ? 0.6f : 0f;
-        _bgmInstance.Play();
-    }
-
     public override void Dispose()
     {
         _loginController?.Dispose();
-        _bgmInstance?.Stop();
-        _bgmInstance?.Dispose();
+        _audio?.Dispose();
         _cinematic?.Dispose();
     }
 }

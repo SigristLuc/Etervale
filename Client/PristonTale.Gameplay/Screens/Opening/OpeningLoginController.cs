@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using PristonTale.Gameplay.Audio;
 using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Gameplay.UI;
 using PristonTale.Contracts.Sessions;
@@ -11,14 +12,16 @@ internal sealed class OpeningLoginController : IDisposable
     private enum Phase { Login, Authenticating }
 
     private readonly ScreenContext _context;
+    private readonly LoginAudio _audio;
     private readonly LoginPanel _login;
     private Phase _phase = Phase.Login;
     private Task<LoginOutcome> _loginTask;
     private CancellationTokenSource _loginCts;
 
-    public OpeningLoginController(ScreenContext context)
+    public OpeningLoginController(ScreenContext context, LoginAudio audio)
     {
         _context = context;
+        _audio = audio;
         _login = new LoginPanel(context.SpriteBatch, context.Font, context.UiAtlas);
     }
 
@@ -42,6 +45,7 @@ internal sealed class OpeningLoginController : IDisposable
             return;
         }
 
+        _audio.Play(LoginCue.Login);
         _login.Status = "Connecting…";
         _login.InputEnabled = false;
         _phase = Phase.Authenticating;
