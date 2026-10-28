@@ -143,7 +143,7 @@ float ContactShadow(float2 pixel, float3 p, float3 n)
 
     // A fixed jitter per pixel: one moving every frame shimmered wherever the temporal history was rejected (a turning
     // camera, moving actors).
-    float jitter = frac(52.9829189 * frac(dot(pixel, float2(0.06711056, 0.00583715))));
+    float jitter = InterleavedGradientNoise(pixel);
     float3 start = p + n * (0.002 * length(p));
     float3 stepWorld = toSun * (ContactParams.x / ContactSteps);
     float occlusion = 0.0;

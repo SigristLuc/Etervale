@@ -18,6 +18,12 @@ static const float HdrCap = 60000.0;
 static const float SkyDepth = 60000.0;
 static const float SkyDepthThreshold = 50000.0;
 
+// Interleaved gradient noise (Jimenez 2014) in [0, 1) at a pixel position: a cheap jitter the temporal pass integrates.
+float InterleavedGradientNoise(float2 pixel)
+{
+    return frac(52.9829189 * frac(dot(pixel, float2(0.06711056, 0.00583715))));
+}
+
 static const float3 LuminanceWeights = float3(0.2126, 0.7152, 0.0722);
 
 float Luminance(float3 c)

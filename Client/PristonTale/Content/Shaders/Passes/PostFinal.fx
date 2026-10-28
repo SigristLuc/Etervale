@@ -150,8 +150,8 @@ float3 Grade(float3 encoded)
 float3 Dither8(float3 c, float2 pixel)
 {
     float2 p = pixel + ScreenParams.z * 5.588238;
-    float n1 = frac(52.9829189 * frac(dot(p, float2(0.06711056, 0.00583715))));
-    float n2 = frac(52.9829189 * frac(dot(p + 17.0, float2(0.06711056, 0.00583715))));
+    float n1 = InterleavedGradientNoise(p);
+    float n2 = InterleavedGradientNoise(p + 17.0);
     return c + (n1 - n2) / 255.0;
 }
 

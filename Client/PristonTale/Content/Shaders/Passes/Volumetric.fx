@@ -122,7 +122,7 @@ float4 PS_March(FullscreenOut i) : SV_Target0
     float3 direction = ray / rayLength;
     float distance = MarchDistance(depth, rayLength);
     float2 q = pixel + VolumeProjection.w * 5.588238;
-    float jitter = frac(52.9829189 * frac(dot(q, float2(0.06711056, 0.00583715))));
+    float jitter = InterleavedGradientNoise(q);
     float cosTheta = dot(direction, SunDirection);
     float g = PhaseG;
     float phase = (1.0 - g * g) / (4.0 * PI * pow(max(1.0 + g * g - 2.0 * g * cosTheta, 1.0e-4), 1.5));
