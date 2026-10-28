@@ -129,7 +129,7 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
         NpcServiceAction.Sell => "Sold.",
         NpcServiceAction.Repair or NpcServiceAction.RepairAll => "Repaired.",
         NpcServiceAction.Teleport => "Teleporting...",
-        _ => outcome.Message == "committed" ? "" : outcome.Message
+        _ => outcome.Message
     };
 
     public ShopQuote QuoteFor(Guid itemId)

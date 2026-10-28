@@ -500,7 +500,7 @@ public sealed class GameplayHud : IDisposable
     }
 
     // A refusal shows in the notice strip as the classic message box; a confirmation (which the classic client did not show)
-    // goes to the chat as a server line. The server's "committed" carries no information and is dropped.
+    // goes to the chat as a server line. A plain success has no message.
     private void Report(bool ok, string message)
     {
         if (string.IsNullOrWhiteSpace(message))
@@ -512,7 +512,7 @@ public sealed class GameplayHud : IDisposable
         {
             _notice.Show(message);
         }
-        else if (message != "committed")
+        else
         {
             _chat.System(message);
         }

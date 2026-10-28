@@ -174,7 +174,7 @@ internal static class NpcServiceTransactions
 
         candidate.RecordServiceOperation(command);
         var snapshot = CharacterRecordFactory.Capture(session.Loaded!, candidate, fieldId, position);
-        var outcome = Done(candidate, storage ?? session.Warehouse, "committed");
+        var outcome = Done(candidate, storage ?? session.Warehouse, "");
         var reply = State(command, candidate, storage, outcome) with { Arrival = arrival, Work = work };
         return new PreparedNpcOperation(original, candidate, snapshot, reply, candidate.Money - original.Money, storage,
             session.Warehouse?.Revision ?? 0);

@@ -67,7 +67,7 @@ internal static class MobileShopTransactions
 
         candidate.RecordServiceOperation(command);
         var snapshot = CharacterRecordFactory.Capture(session.Loaded!, candidate, field.FieldId, player.Position);
-        var reply = new NpcServiceReply(Done(candidate, "committed")) { Quotes = NpcServiceTransactions.Quotes(candidate) };
+        var reply = new NpcServiceReply(Done(candidate, "")) { Quotes = NpcServiceTransactions.Quotes(candidate) };
         return new PreparedNpcOperation(original, candidate, snapshot, reply, candidate.Money - original.Money);
     }
 
