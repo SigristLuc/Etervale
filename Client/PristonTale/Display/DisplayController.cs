@@ -17,6 +17,8 @@ internal sealed class DisplayController
 
     private readonly GraphicsDeviceManager _graphics;
     private readonly IClientLog _log;
+    // The first windowed apply restores the saved position (NativeWindowPlacement); later ones keep the window on screen.
+    private bool _placed;
 
     public DisplayController(GraphicsDeviceManager graphics, IClientLog log)
     {
@@ -67,6 +69,18 @@ internal sealed class DisplayController
         // transform and the UI, so it is never multisampled.
         _graphics.PreferMultiSampling = false;
         _graphics.ApplyChanges();
+        if (requested.WindowMode == WindowMode.Windowed)
+        {
+            if (_placed)
+            {
+                NativeWindowPlacement.KeepOnScreen();
+            }
+            else
+            {
+                NativeWindowPlacement.Restore(requested);
+                _placed = true;
+            }
+        }
 
         var parameters = _graphics.GraphicsDevice.PresentationParameters;
         var effective = $"Monitor {PrimaryMonitor}: {parameters.BackBufferWidth}x{parameters.BackBufferHeight}, desktop Hz, " +

@@ -95,13 +95,32 @@ internal sealed class PresentationController
             return;
         }
 
-        if (width == _applied.WindowWidth && height == _applied.WindowHeight)
+        // A maximized window keeps the restored size, the one it returns to.
+        if (width == _applied.WindowWidth && height == _applied.WindowHeight || NativeWindowPlacement.IsMaximized())
         {
             return;
         }
 
         _applied = _applied with { WindowWidth = width, WindowHeight = height };
         _shared.Requested = _applied;
+        Accept();
+    }
+
+    // On exit: where the window was left and whether it was maximized, for the next start (NativeWindowPlacement).
+    public void CaptureWindowPlacement()
+    {
+        if (_applied is null || _shared.AwaitingConfirmation || _applied.WindowMode != WindowMode.Windowed
+            || _shared.Requested != _applied || !NativeWindowPlacement.TryRead(out var x, out var y, out var maximized))
+        {
+            return;
+        }
+
+        if (x == _applied.WindowX && y == _applied.WindowY && maximized == _applied.WindowMaximized)
+        {
+            return;
+        }
+
+        _applied = _applied with { WindowX = x, WindowY = y, WindowMaximized = maximized };
         Accept();
     }
 

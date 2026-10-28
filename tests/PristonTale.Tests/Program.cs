@@ -342,6 +342,7 @@ specifications.AddRange(ClassSkillDataTests.Cases());
 specifications.AddRange(ProgressionTransactionTests.Cases());
 specifications.AddRange(FrameTimingTests.Cases());
 specifications.AddRange(ClientSettingsTests.Cases());
+specifications.AddRange(WindowPlacementTests.Cases());
 specifications.AddRange(PhotorealTests.Cases());
 specifications.AddRange(BinaryCursorTests.Cases());
 specifications.AddRange(BinaryProtocolTests.Cases());

@@ -20,6 +20,12 @@ public sealed record ClientSettings
     public int WindowWidth { get; init; } = 1280;
     public int WindowHeight { get; init; } = 720;
     public WindowMode WindowMode { get; init; }
+    // Where the window was left in windowed mode: the top-left of its restored (not maximized) frame, as Windows reports
+    // it, and whether it was maximized. Without a position the window opens centred on the work area. Not part of the
+    // display: moving the window applies nothing.
+    public int? WindowX { get; init; }
+    public int? WindowY { get; init; }
+    public bool WindowMaximized { get; init; }
     public int RefreshRate { get; init; }
     public bool VerticalSync { get; init; }
     public bool MusicEnabled { get; init; } = true;
