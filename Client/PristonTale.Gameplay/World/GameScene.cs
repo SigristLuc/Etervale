@@ -664,17 +664,11 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             }
         }
 
-        return new PresenceUpdate(
-            u.ServerTick,
-            spawns ?? u.Spawns,
-            states ?? u.States,
-            u.Removed,
-            u.Events,
-            u.FieldId,
-            u.Owner)
+        return u with
         {
-            Warp = u.Warp is { } warp ? warp with { Position = WorldSpace.Mirror(warp.Position) } : null,
-            ServerTimeMs = u.ServerTimeMs
+            Spawns = spawns ?? u.Spawns,
+            States = states ?? u.States,
+            Warp = u.Warp is { } warp ? warp with { Position = WorldSpace.Mirror(warp.Position) } : null
         };
     }
 
