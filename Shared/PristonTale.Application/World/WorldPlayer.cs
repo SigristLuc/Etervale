@@ -77,24 +77,17 @@ public sealed class WorldPlayer
     private bool _attackSustained;
 
     // A swing hits only when elapsed time crosses its authored event offset.
-    private float _swingElapsedMs;
-    private float _swingDurationMs;
-    private float _swingHitAtMs;
-    private bool _swingHitFired;
+    // The running action's clip; Action says which action it belongs to.
+    private ActionTimeline _timeline;
     private ulong _swingTargetId;
 
     private PotionDefinition? _pendingPotion;
-    private float _potionElapsedMs;
-    private float _potionDurationMs;
-    private float _potionEventMs;
-    private bool _potionApplied;
     private bool _potionCheers;
 
     public bool HasPendingPotion => _pendingPotion is not null || Action == PlayerActionState.Eat;
 
     // A queued cheer starts once the motion in progress ends (FieldInstance gives it the clip's length).
     private bool _yahooPending;
-    private float _yahooMsLeft;
     private long _yahooKeyUntilMs = long.MinValue;
 
     public bool HasPendingYahoo => _yahooPending;
@@ -167,7 +160,7 @@ public sealed class WorldPlayer
         _yahooPending = false;
         Action = PlayerActionState.Yahoo;
         MoveState = MotionState.Yahoo;
-        _yahooMsLeft = MathF.Max(1f, durationMs);
+        _timeline = ActionTimeline.Start(durationMs);
         return true;
     }
 
@@ -180,10 +173,7 @@ public sealed class WorldPlayer
 
         Action = PlayerActionState.Eat;
         MoveState = MotionState.Eat;
-        _potionElapsedMs = 0f;
-        _potionDurationMs = MathF.Max(1f, durationMs);
-        _potionEventMs = Math.Clamp(eventMs, 0f, _potionDurationMs);
-        _potionApplied = false;
+        _timeline = ActionTimeline.Start(durationMs, Math.Clamp(eventMs, 0f, MathF.Max(1f, durationMs)));
         return true;
     }
 
@@ -194,41 +184,35 @@ public sealed class WorldPlayer
             return PotionResource.None;
         }
 
-        _potionElapsedMs += dtMs;
+        _timeline.Advance(dtMs);
         var restored = PotionResource.None;
-        if (!_potionApplied && _potionElapsedMs >= _potionEventMs)
+        if (!_timeline.EventFired && _timeline.ElapsedMs >= _timeline.EventMs)
         {
-            _potionApplied = true;
+            _timeline.FireEvent();
             restored = _pendingPotion.Restore(_character, random);
             if (_potionCheers)
             {
-                _potionElapsedMs = _potionDurationMs;
+                _timeline.End();
                 _yahooPending = true;
             }
         }
 
-        if (_potionElapsedMs >= _potionDurationMs)
+        if (_timeline.Finished)
         {
             _pendingPotion = null;
-            Action = PlayerActionState.Idle;
-            MoveState = MotionState.Stand;
+            StandIdle();
         }
 
         return restored;
     }
 
-    private float _flinchMsLeft;
-
     // The length of the damage motion: the class fallback until the field sets the body's authored clip (FieldInstance.Add).
     public float FlinchMs { get; set; }
 
-    // A skill motion owns the avatar like a swing; FieldSkills fires its hits from the elapsed time.
-    private float _castElapsedMs;
-    private float _castDurationMs;
-
     public PlayerSkillCooldowns Cooldowns { get; } = new();
     public RegenerationState Regeneration { get; } = new();
-    public float CastElapsedMs => _castElapsedMs;
+    // A skill motion owns the avatar like a swing; FieldSkills fires its hits from the elapsed time while it casts.
+    public float CastElapsedMs => _timeline.ElapsedMs;
     public bool CastCompleted { get; private set; }
     public bool IsCasting => Action == PlayerActionState.Cast;
 
@@ -243,7 +227,7 @@ public sealed class WorldPlayer
     {
         if (IsCasting)
         {
-            _castDurationMs = MathF.Max(_castElapsedMs, MathF.Max(1f, durationMs));
+            _timeline.Shorten(durationMs);
         }
     }
 
@@ -257,8 +241,7 @@ public sealed class WorldPlayer
         Action = PlayerActionState.Cast;
         MoveState = MotionState.Skill;
         CastCompleted = false;
-        _castElapsedMs = 0f;
-        _castDurationMs = MathF.Max(1f, durationMs);
+        _timeline = ActionTimeline.Start(durationMs);
         ClearAttackTarget();
     }
 
@@ -527,14 +510,13 @@ public sealed class WorldPlayer
         _lastReportMs = -1;
         _budgetMs = -1;
         // A paid potion that has not restored yet is drunk again where the player arrives; one that already restored is done.
-        if (Action == PlayerActionState.Eat && _potionApplied)
+        if (Action == PlayerActionState.Eat && _timeline.EventFired)
         {
             _pendingPotion = null;
         }
 
         _yahooPending = false;
-        Action = PlayerActionState.Idle;
-        MoveState = MotionState.Stand;
+        StandIdle();
     }
 
     public void EnterField(Vector3 position, bool inVillage)
@@ -569,10 +551,7 @@ public sealed class WorldPlayer
         Facing = MathF.Atan2(targetPos.X - Position.X, targetPos.Z - Position.Z);
         Action = PlayerActionState.Swing;
         MoveState = MotionState.Attack;
-        _swingElapsedMs = 0f;
-        _swingDurationMs = MathF.Max(durationMs, 1f);
-        _swingHitAtMs = hitAtMs;
-        _swingHitFired = false;
+        _timeline = ActionTimeline.Start(durationMs, hitAtMs);
         _swingTargetId = targetId;
         _swingAttackSequence = AttackSequence;
         CombatTargetId = targetId;
@@ -584,61 +563,43 @@ public sealed class WorldPlayer
 
         switch (Action)
         {
-            case PlayerActionState.Flinch:
-                _flinchMsLeft -= dtMs;
-                if (_flinchMsLeft <= 0f)
+            case PlayerActionState.Flinch or PlayerActionState.Yahoo:
+                _timeline.Advance(dtMs);
+                if (_timeline.Finished)
                 {
-                    Action = PlayerActionState.Idle;
-                    MoveState = MotionState.Stand;
-                }
-
-                return false;
-
-            case PlayerActionState.Yahoo:
-                _yahooMsLeft -= dtMs;
-                if (_yahooMsLeft <= 0f)
-                {
-                    Action = PlayerActionState.Idle;
-                    MoveState = MotionState.Stand;
+                    StandIdle();
                 }
 
                 return false;
 
             case PlayerActionState.Cast:
-                _castElapsedMs += dtMs;
-                if (_castElapsedMs >= _castDurationMs)
+                _timeline.Advance(dtMs);
+                if (_timeline.Finished)
                 {
                     CastCompleted = true;
-                    Action = PlayerActionState.Idle;
-                    MoveState = MotionState.Stand;
+                    StandIdle();
                 }
 
                 return false;
 
             case PlayerActionState.Swing:
-                float before = _swingElapsedMs;
-                _swingElapsedMs += dtMs;
-
-                bool hit = false;
-                if (!_swingHitFired && _swingHitAtMs > before && _swingHitAtMs <= _swingElapsedMs)
+                var before = _timeline.Advance(dtMs);
+                var hit = !_timeline.EventFired && _timeline.EventMs > before && _timeline.EventMs <= _timeline.ElapsedMs;
+                // Malformed offsets past the clip still land once at completion.
+                if (_timeline.Finished && !_timeline.EventFired)
                 {
-                    _swingHitFired = true;
-                    hitTargetId = _swingTargetId;
                     hit = true;
                 }
 
-                if (_swingElapsedMs >= _swingDurationMs)
+                if (hit)
                 {
-                    if (!_swingHitFired)
-                    {
-                        // Malformed offsets past the clip still land once at completion.
-                        _swingHitFired = true;
-                        hitTargetId = _swingTargetId;
-                        hit = true;
-                    }
+                    _timeline.FireEvent();
+                    hitTargetId = _swingTargetId;
+                }
 
-                    Action = PlayerActionState.Idle;
-                    MoveState = MotionState.Stand;
+                if (_timeline.Finished)
+                {
+                    StandIdle();
                     if (!_attackSustained && _swingAttackSequence == AttackSequence)
                     {
                         ClearAttackTarget();
@@ -650,6 +611,12 @@ public sealed class WorldPlayer
             default:
                 return false;
         }
+    }
+
+    private void StandIdle()
+    {
+        Action = PlayerActionState.Idle;
+        MoveState = MotionState.Stand;
     }
 
     public void ApplyDamage(int amount)
@@ -678,7 +645,7 @@ public sealed class WorldPlayer
             if (Action == PlayerActionState.Idle && amount > 1)
             {
                 Action = PlayerActionState.Flinch;
-                _flinchMsLeft = FlinchMs;
+                _timeline = ActionTimeline.Start(FlinchMs);
                 MoveState = MotionState.Damage;
             }
         }
