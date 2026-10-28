@@ -177,28 +177,20 @@ public sealed class EffectLibrary : IDisposable
         return new EffectDefinition { Name = name, Emitters = emitters, Duration = 0 };
     }
 
+    // A colour-blended (blend type 2) animation whose images all exist, read through the shared AnimationData and
+    // ImageData reader.
     private (Texture2D[] Textures, ParticleAnimation Animation) LoadAnimation(string root, string name)
     {
-        var sequence = ReadSection(Path.Combine(root, "Effect", "AnimationData", name), "ANIMATION");
-        if (sequence["BlendType"] != "2")
+        var sequence = BillboardSequence.Read(name, path => AssetFiles.OpenRead(Path.Combine(root, path)));
+        if (sequence.BlendType != 2)
         {
             throw new InvalidDataException($"Unsupported blend type in {name}.");
         }
 
-        var images = ReadSection(Path.Combine(root, "Effect", "ImageData", sequence["DataFile"]), "IMAGE");
-        var imageCount = int.Parse(images["Count"], CultureInfo.InvariantCulture);
-        if (imageCount is < 1 or > 256)
-        {
-            throw new InvalidDataException($"Invalid image count in {name}.");
-        }
-
-        var source = images["Name"].Replace('\\', '/');
-        var extension = Path.GetExtension(source);
-        var stem = source[..^extension.Length];
-        var textures = new Texture2D[imageCount];
+        var textures = new Texture2D[sequence.Images.Count];
         for (var index = 0; index < textures.Length; index++)
         {
-            var image = $"{stem}{index + 1}{extension}";
+            var image = sequence.Images[index];
             if (!AssetFiles.Exists(Path.Combine(root, image)))
             {
                 throw new FileNotFoundException("Required effect texture is missing.", image);
@@ -207,63 +199,19 @@ public sealed class EffectLibrary : IDisposable
             textures[index] = _textures.LoadTexture(root, image);
         }
 
-        var indices = ParseNumbers(sequence["ImageNum"]);
-        var delays = ParseNumbers(sequence["Delay"]);
-        var alpha = ParseNumbers(sequence["BlendValue"]);
-        if (indices.Length != delays.Length || indices.Length != alpha.Length)
-        {
-            throw new InvalidDataException($"Mismatched animation arrays in {name}.");
-        }
-
-        var frames = new ParticleAnimationFrame[indices.Length];
+        var frames = new ParticleAnimationFrame[sequence.Frames.Count];
         for (var index = 0; index < frames.Length; index++)
         {
-            if (indices[index] < 0 || indices[index] >= imageCount)
+            var frame = sequence.Frames[index];
+            if (frame.Image < 0 || frame.Image >= textures.Length)
             {
                 throw new InvalidDataException($"Animation image outside its catalog in {name}.");
             }
 
-            frames[index] = new ParticleAnimationFrame(indices[index], delays[index] * GameUnits.TickSeconds, alpha[index] / 255f);
+            frames[index] = new ParticleAnimationFrame(frame.Image, frame.DelayTicks * GameUnits.TickSeconds, frame.Alpha / 255f);
         }
 
-        var startAlpha = int.Parse(sequence["StartBlendValue"], CultureInfo.InvariantCulture) / 255f;
-        return (textures, new ParticleAnimation(frames, startAlpha));
-    }
-
-    private static int[] ParseNumbers(string value)
-    {
-        return value.Split(',').Select(static part => int.Parse(part.Trim(), CultureInfo.InvariantCulture)).ToArray();
-    }
-
-    private static Dictionary<string, string> ReadSection(string path, string section)
-    {
-        using var stream = AssetFiles.OpenRead(path);
-        // Directives and paths are ASCII; original comments may be CP949. Do not reinterpret their bytes as UTF-8.
-        using var reader = new StreamReader(stream, Encoding.Latin1);
-        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var active = false;
-        while (reader.ReadLine() is { } raw)
-        {
-            var line = raw.Trim();
-            if (line.Length == 0 || line.StartsWith(';') || line.StartsWith("//", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            if (line.StartsWith('['))
-            {
-                active = line.Equals($"[{section}]", StringComparison.OrdinalIgnoreCase);
-                continue;
-            }
-
-            var separator = line.IndexOf('=');
-            if (active && separator > 0)
-            {
-                values.Add(line[..separator].Trim(), line[(separator + 1)..].Trim().Trim('"'));
-            }
-        }
-
-        return values;
+        return (textures, new ParticleAnimation(frames, sequence.StartAlpha / 255f));
     }
 
     public void Dispose()
