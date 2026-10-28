@@ -25,7 +25,8 @@ change. A library from elsewhere fails late and obscurely:
   (a library without the export reports version 0).
 - Both numbers change together with every change of an exported function. Version 1: the exports of the runtime before
   the framework was forked (changes 1–19). Version 2: compute and storage resources (issues 005, 006). Version 3:
-  pipeline statistics (issue 012). Version 4: NoOverwrite uploads in place (issue 013). Version 5: the 32-bit float depth format (issue 014). Version 6: depth surfaces (issue 016).
+  pipeline statistics (issue 012). Version 4: NoOverwrite uploads in place (issue 013). Version 5: the 32-bit float
+  depth format (issue 014). Version 6: depth surfaces (issue 016).
 
 ## Test
 

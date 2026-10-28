@@ -61,7 +61,7 @@ the radiance (clamped at 0) and multiplies the output alpha by `a` after the alp
 | Slot | Resource |
 |---|---|
 | t0 / t1 | Base colour, second layer (anisotropic, wrap) |
-| t2 | Sun cascade atlas (R32F, point) |
+| t2 | Sun cascade atlas (D32F depth surface, point) |
 | t3 | Fog sky capture |
 | t4 | Screen-space occlusion (half resolution) |
 | t5 | Lamp cube-shadow atlas |
