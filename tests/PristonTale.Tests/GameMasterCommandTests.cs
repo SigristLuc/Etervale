@@ -84,9 +84,12 @@ internal static class GameMasterCommandTests
         var fixture = new ChatFixture(new GameMasterOptions(ServerCode: 3));
         var gm = await fixture.JoinAsync("Keeper", 0, 0, GameMasterLevel.Operator);
         var ann = await fixture.JoinAsync("Ann", 100, 0);
+        // The date is read on both sides of the command: a run across midnight sees either day.
+        var before = fixture.World.LocalNow;
         await fixture.SayAsync(gm, "/localtime");
-        var now = fixture.World.LocalNow;
-        Assert.True(gm.Link.Last.StartsWith($"TIME [3]> {now.Year}/{now.Month}/{now.Day} ( ", StringComparison.Ordinal), $"local time {gm.Link.Last}");
+        var after = fixture.World.LocalNow;
+        Assert.True(new[] { before, after }.Any(now => gm.Link.Last.StartsWith($"TIME [3]> {now.Year}/{now.Month}/{now.Day} ( ", StringComparison.Ordinal)),
+            $"local time {gm.Link.Last}");
         await fixture.SayAsync(gm, "/get_bosstime");
         Assert.True(gm.Link.Last == $"3> Boss Time ( {fixture.World.BossMinute} min.)", gm.Link.Last);
         await fixture.SayAsync(ann, "/bosstime");

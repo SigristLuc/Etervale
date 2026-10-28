@@ -411,15 +411,23 @@ if (filterIndex >= 0 && filterIndex + 1 < args.Length)
 var failed = 0;
 foreach (var (name, run) in specifications)
 {
+    Task? task = null;
     try
     {
-        await run().WaitAsync(TimeSpan.FromSeconds(15));
+        task = run();
+        await task.WaitAsync(TimeSpan.FromSeconds(15));
         Console.WriteLine($"PASS {name}");
     }
     catch (Exception ex)
     {
         failed++;
         Console.Error.WriteLine($"FAIL {name}: {ex}");
+        // A timed-out case keeps running and would share the process with the cases after it.
+        if (task is { IsCompleted: false })
+        {
+            Console.Error.WriteLine("Stopping: the timed-out case is still running.");
+            break;
+        }
     }
 }
 

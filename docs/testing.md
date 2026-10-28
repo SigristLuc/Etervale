@@ -88,8 +88,9 @@ git diff --check
   `public static IEnumerable<(string, Func<Task>)> Cases()` that `yield return`s `("behavior sentence", MethodAsync)`.
 - `Program.cs` appends each class with `specifications.AddRange(<Area>Tests.Cases());`. A class not listed there never
   runs.
-- Cases run sequentially in registration order. Each is awaited with a 15 s timeout (`WaitAsync`); a timeout fails the
-  case. A thrown exception of any type fails the case; the runner continues with the next one.
+- Cases run sequentially in registration order. Each is awaited with a 15 s timeout (`WaitAsync`). A thrown exception
+  of any type fails the case and the runner continues with the next one; a timeout fails the case and stops the run,
+  since the case is still running and would share the process with the cases after it.
 - Production assemblies expose internals to the runner through `InternalsVisibleTo` (Application, Geometry, Protocol,
   Client.Net, Engine3D, Gameplay, Server, GltfExport).
 
