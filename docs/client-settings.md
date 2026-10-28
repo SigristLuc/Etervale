@@ -134,8 +134,8 @@ from `Custom` it goes to Low (forward) or Ultra (backward). Anti-aliasing, Sun s
 5. A failing apply (`InvalidOperationException`, `ArgumentException`, `NoSuitableGraphicsDeviceException`) rolls back to
    the accepted settings (defaults on the first apply) and shows the error.
 
-Starting in `Borderless` or `Fullscreen` also asks for confirmation; the fallback is then the default windowed
-settings.
+The saved display applies at start without confirmation: it was confirmed when it was chosen. A first apply that fails
+falls back to the default windowed settings.
 
 ## Quality presets
 

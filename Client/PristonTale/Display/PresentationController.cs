@@ -32,14 +32,11 @@ internal sealed class PresentationController
         _window = window;
         _display = new DisplayController(graphics, window, ConsoleClientLog.Instance);
         DisplayController.DescribeOptions(shared);
+        // The saved display was confirmed when it was chosen, so it applies without asking again; a failing first apply
+        // falls back to the defaults (Apply).
         _accepted = shared.Requested;
         Apply(shared.Requested);
-        if (_applied.WindowMode != WindowMode.Windowed)
-        {
-            _accepted = new ClientSettings();
-            _shared.AwaitingConfirmation = true;
-            _shared.ConfirmationSeconds = 15;
-        }
+        _accepted = _applied;
     }
 
     public void UpdateBoundary()

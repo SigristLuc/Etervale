@@ -4,8 +4,13 @@ using PristonTale.Display;
 
 if (args.Length == 2 && args[0] == "--validate-display")
 {
-    using var probe = new DisplayValidationProbe(args[1]);
-    probe.Run();
+    // The game is disposed on the thread that ran it (SDL and Vulkan objects belong to it) before the report is awaited.
+    var probe = new DisplayValidationProbe(args[1]);
+    using (probe)
+    {
+        probe.Run();
+    }
+
     await probe.WriteReportAsync();
     return 0;
 }
