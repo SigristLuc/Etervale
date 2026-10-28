@@ -23,13 +23,23 @@ public static class PristonDepth
         DepthBufferFunction = CompareFunction.GreaterEqual
     };
 
-    // Tests without writing: blended surfaces, effects, and the lit pass over depth the pre-pass already wrote.
+    // Tests without writing: blended surfaces and effects.
     public static readonly DepthStencilState Read = new()
     {
         Name = "PristonDepthRead",
         DepthBufferEnable = true,
         DepthBufferWriteEnable = false,
         DepthBufferFunction = CompareFunction.GreaterEqual
+    };
+
+    // The lit pass over surfaces the pre-pass already wrote, with the same vertex stage so the depth is bit-identical: only
+    // the surface that won the pre-pass is shaded, and a cut-out's discarded texels fail before their pixel shader runs.
+    public static readonly DepthStencilState Equal = new()
+    {
+        Name = "PristonDepthEqual",
+        DepthBufferEnable = true,
+        DepthBufferWriteEnable = false,
+        DepthBufferFunction = CompareFunction.Equal
     };
 
     // z_ndc = n (f + z_view) / ((f - n) · -z_view): 1 at z_view = -n, 0 at z_view = -f. x, y and w are those of the

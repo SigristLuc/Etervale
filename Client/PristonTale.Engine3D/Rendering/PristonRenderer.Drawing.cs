@@ -134,8 +134,7 @@ public sealed partial class PristonRenderer
             else if (_prepassDrawn && !_drawingTransparent && Prepassed(batch))
             {
                 _stateCache.SetBlendState(batch.Material.BlendState);
-                // The lit pass over surfaces the depth pre-pass already wrote: test against their depth, do not write it.
-                _stateCache.SetDepthStencilState(PristonDepth.Read);
+                _stateCache.SetDepthStencilState(PristonDepth.Equal);
             }
             else
             {
