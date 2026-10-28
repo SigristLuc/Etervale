@@ -51,19 +51,26 @@ public sealed partial class GameScene
             return;
         }
 
-        if (!PointerCaptured && RightAttackEnabled && mouse.RightButton == ButtonState.Pressed
+        if (MovementLocked && (_hasMoveTarget || _followCursor))
+        {
+            _followCursor = false;
+            StopPredictedMovement();
+            _reports.Request();
+        }
+
+        if (!WorldClicksBlocked && RightAttackEnabled && mouse.RightButton == ButtonState.Pressed
             && _lastMouseState.RightButton == ButtonState.Released && TryPickAttackTarget(mouse, rightButton: true))
         {
             _hasMoveTarget = false;
         }
-        else if (!PointerCaptured && !RightAttackEnabled && mouse.RightButton == ButtonState.Pressed
+        else if (!WorldClicksBlocked && !RightAttackEnabled && mouse.RightButton == ButtonState.Pressed
             && _lastMouseState.RightButton == ButtonState.Released && !SelfCasting)
         {
             TryCastSkillClick(mouse, rightButton: true);
         }
 
         UpdateRunMode(mouse);
-        if (!PointerCaptured && mouse.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released)
+        if (!WorldClicksBlocked && mouse.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released)
         {
             var nowMs = gameTime.TotalGameTime.TotalMilliseconds;
             var doubleClick = (nowMs - _lastLeftClickMs) <= DoubleClickMs;
@@ -101,7 +108,7 @@ public sealed partial class GameScene
         UpdateNpcApproach();
         _lootInteraction?.Update(_groundLoot, _playerBody.Position, _serverPlanarPosition, Owner);
         UpdateAttackPresentation(gameTime);
-        if (_followCursor && !PointerCaptured && !SelfCasting)
+        if (_followCursor && !WorldClicksBlocked && !SelfCasting)
         {
             SetMoveTarget(mouse);
         }

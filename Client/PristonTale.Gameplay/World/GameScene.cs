@@ -195,6 +195,11 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     // Over the weight limit the character only walks.
     private bool Overweight => Owner?.Overweight == true;
     public bool PointerCaptured { get; set; }
+
+    // The HUD holds the player in place (GameplayHud.HoldsPlayer).
+    public bool MovementLocked { get; set; }
+
+    private bool WorldClicksBlocked => PointerCaptured || MovementLocked;
     public bool CameraInputEnabled { get; set; } = true;
     public bool RightAttackEnabled { get; set; }
     public ulong AttackTargetId => _attackInput.TargetId;

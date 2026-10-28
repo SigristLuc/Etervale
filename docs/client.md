@@ -344,10 +344,12 @@ Renderer side of stage publication: [rendering.md](rendering.md).
 
 `GameplayHud.PointerCaptured` (pointer over a HUD element or dragging, or any of the NPC and quest dialogs, message
 boxes, the wing warp map, the Teleport Core list, the warehouse, aging and mixing windows open, as the original stops the
-character under them) disables world clicks, hover picking and camera
-mouse input for that frame. Keys are polled with `Keyboard.GetState()` and edge-detected against the previous frame per
-consumer. Typed characters come from the window's text input (`Game1` to `GameClient.TypeCharacter` to
-`ScreenContext.TypedText`) and reach `TextInputField` on the login and name forms and the chat input line.
+character under them) disables world clicks, hover picking and camera mouse input for that frame; a click the HUD took
+stays captured when it closes the window under it. `GameplayHud.HoldsPlayer` (any NPC dialog or service window, the skill
+master, a message box) holds the player: `GameScene.MovementLocked` stops a walk in progress and keeps every world click.
+Keys are polled with `Keyboard.GetState()` and edge-detected against the previous frame per consumer. Typed characters
+come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `ScreenContext.TypedText`) and reach
+`TextInputField` on the login and name forms and the chat input line.
 
 ## HUD and windows
 

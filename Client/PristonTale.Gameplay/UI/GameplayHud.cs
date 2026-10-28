@@ -406,6 +406,8 @@ public sealed partial class GameplayHud : IDisposable
         _hoveredButton = ButtonAt(design);
         _hoveredToggle = ToggleAt(design);
         var clicked = mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
+        // A click the HUD takes stays its own when it closes the window under it (a close button over the ground).
+        var clickTaken = clicked && Captures(layout, pointer, design);
         var typedText = _context.TypedText.Drain();
         if (_countBox.IsOpen)
         {
@@ -447,7 +449,7 @@ public sealed partial class GameplayHud : IDisposable
         _skills.RefreshRanks(_state);
         var hoveredSkill = _skillSlide.FullyOpen && _skillMaster == 0 ? _skills.HoveredSkill(skillOrigin, pointer) : 0;
         _bindings.Update(typing ? default : keyboard, mouse, hoveredSkill);
-        PointerCaptured = Captures(layout, pointer, design) || _chat.Window.Contains(layout, pointer, SideWindowOpen) || _inventory.Dragging != Guid.Empty || _warehouse.Dragging != Guid.Empty;
+        PointerCaptured = clickTaken || Captures(layout, pointer, design) || _chat.Window.Contains(layout, pointer, SideWindowOpen) || _inventory.Dragging != Guid.Empty || _warehouse.Dragging != Guid.Empty;
         _inventory.PickupLocked = PlayerActing || storedCarried;
         _inventory.Update(state, layout, _inventorySlide.FullyOpen && !_settingsOpen && !ModalOpen, keyboard, mouse);
         _previousKeyboard = keyboard;
@@ -475,6 +477,10 @@ public sealed partial class GameplayHud : IDisposable
     // As in the original, a modal or a work window keeps every click from the world (the work windows still trade items
     // with the bag); the status, inventory, skill and shop windows keep only their own area.
     private bool BlocksWorld => ModalOpen || ServiceWindowOpen(blockingOnly: true);
+
+    // As in the original, the player stands still while it deals with an NPC (its dialog, a service window, the skill
+    // master) or a modal: a click into the world neither walks nor acts, and a walk in progress stops.
+    public bool HoldsPlayer => ModalOpen || ServiceWindowOpen(blockingOnly: false) || _skillMaster != 0;
 
     private bool MinimapShown => _mapVisible && !World.MapHidden;
 

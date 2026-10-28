@@ -131,6 +131,7 @@ public sealed class GameplayScreen : GameScreen
         _hud.RestartOffer = _scene.RestartOffer;
         _hud.Update(_scene.Owner);
         _scene.PointerCaptured = _hud.PointerCaptured;
+        _scene.MovementLocked = _hud.HoldsPlayer;
         _scene.KeyboardCaptured = _hud.KeyboardCaptured;
         _hud.Chat.SelfId = _scene.SelfEntityId;
         _scene.CameraInputEnabled = Context.IsWindowActive && !Context.Presentation.AwaitingConfirmation;
