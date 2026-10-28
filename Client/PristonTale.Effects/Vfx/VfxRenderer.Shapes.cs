@@ -221,9 +221,27 @@ public sealed partial class VfxRenderer
     internal static Vector4 Decode(Vector4 color) =>
         new(SrgbToLinear(color.X / 255f), SrgbToLinear(color.Y / 255f), SrgbToLinear(color.Z / 255f), Math.Clamp(color.W / 255f, 0f, 1f));
 
+    // The sRGB curve sampled at 1024 steps and read with linear interpolation (within 1e-6 of the curve): every particle
+    // decodes its colour each frame, and the curve's Pow was the costliest part of building a quad.
+    private const int SrgbSteps = 1024;
+    private static readonly float[] SrgbTable = BuildSrgbTable();
+
     private static float SrgbToLinear(float value)
     {
-        value = Math.Clamp(value, 0f, 1f);
-        return value <= 0.04045f ? value / 12.92f : MathF.Pow((value + 0.055f) / 1.055f, 2.4f);
+        var scaled = Math.Clamp(value, 0f, 1f) * SrgbSteps;
+        var index = Math.Min((int)scaled, SrgbSteps - 1);
+        return SrgbTable[index] + (SrgbTable[index + 1] - SrgbTable[index]) * (scaled - index);
+    }
+
+    private static float[] BuildSrgbTable()
+    {
+        var table = new float[SrgbSteps + 1];
+        for (var index = 0; index <= SrgbSteps; index++)
+        {
+            var value = index / (float)SrgbSteps;
+            table[index] = value <= 0.04045f ? value / 12.92f : MathF.Pow((value + 0.055f) / 1.055f, 2.4f);
+        }
+
+        return table;
     }
 }
