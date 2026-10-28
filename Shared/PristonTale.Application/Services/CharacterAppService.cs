@@ -122,6 +122,12 @@ public sealed class CharacterAppService
 
         foreach (var saved in equipment.Items)
         {
+            // The stored weapon pair shares the hand slots with the held one and is not shown.
+            if (saved is { Hidden: true })
+            {
+                continue;
+            }
+
             if (saved is null || !saved.Slot.HasValue || saved.Anchor != -1 || !occupiedSlots.Add(saved.Slot.Value))
             {
                 throw new InvalidDataException($"Character '{character.Name}' has invalid persisted equipment placement.");
