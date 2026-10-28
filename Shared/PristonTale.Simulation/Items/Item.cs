@@ -129,6 +129,18 @@ public sealed class ItemInstance
 
     public ItemInstance Copy(int count, bool preserveId = false) => Copy(count, preserveId ? InstanceId : Guid.NewGuid());
 
+    // Takes `amount` off this stack (less than all of it) into a new stack.
+    public ItemInstance Split(int amount)
+    {
+        if (amount < 1 || amount >= Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(amount));
+        }
+
+        Count -= amount;
+        return Copy(amount);
+    }
+
     public ItemInstance Copy(int count, Guid instanceId)
     {
         return new ItemInstance(Definition, count)

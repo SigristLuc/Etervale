@@ -41,6 +41,35 @@ public sealed class Inventory
     public ItemInstance this[int index] => _slots[index];
     public event Action Changed;
 
+    // The items with their anchors, in cell order.
+    public IEnumerable<(int Anchor, ItemInstance Item)> Occupied()
+    {
+        for (var anchor = 0; anchor < _slots.Length; anchor++)
+        {
+            if (_slots[anchor] is { } item)
+            {
+                yield return (anchor, item);
+            }
+        }
+    }
+
+    public IEnumerable<ItemInstance> Items()
+    {
+        foreach (var (_, item) in Occupied())
+        {
+            yield return item;
+        }
+    }
+
+    // Copies of another grid's items (ids kept) at the same anchors, into this empty grid of the same size.
+    public void CopyFrom(Inventory source)
+    {
+        foreach (var (anchor, item) in source.Occupied())
+        {
+            TryPlace(item.Copy(item.Count, preserveId: true), anchor);
+        }
+    }
+
     public int Find(Guid instanceId)
     {
         for (var index = 0; index < _slots.Length; index++)
@@ -335,9 +364,23 @@ public sealed class Inventory
             return TakeAt(index);
         }
 
-        item.Count -= amount;
+        var taken = item.Split(amount);
         NotifyChanged();
-        return item.Copy(amount);
+        return taken;
+    }
+
+    // Adds all of a stack to the compatible stack at `anchor`, when the stack limit allows it.
+    public bool TryJoin(int anchor, ItemInstance item)
+    {
+        if (anchor < 0 || anchor >= Capacity || _slots[anchor] is not { } there || !Compatible(there, item)
+            || there.Count + item.Count > there.Definition.MaxStack)
+        {
+            return false;
+        }
+
+        there.Count += item.Count;
+        NotifyChanged();
+        return true;
     }
 
     public ItemInstance TakeAt(int index)

@@ -399,13 +399,8 @@ public sealed partial class WorldServer
             }
 
             var potions = new int[3, 4];
-            for (var anchor = 0; anchor < character.Inventory.Capacity; anchor++)
+            foreach (var item in character.Inventory.Items())
             {
-                if (character.Inventory[anchor] is not { } item)
-                {
-                    continue;
-                }
-
                 var key = item.Definition.CatalogKey;
                 var kind = key.StartsWith("PL", StringComparison.OrdinalIgnoreCase) ? 0
                     : key.StartsWith("PM", StringComparison.OrdinalIgnoreCase) ? 1

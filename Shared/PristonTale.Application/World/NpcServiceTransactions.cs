@@ -255,13 +255,10 @@ internal static class NpcServiceTransactions
     public static ShopQuotes Quotes(PlayerCharacter character)
     {
         var quotes = new List<ShopQuote>();
-        for (var anchor = 0; anchor < character.Inventory.Capacity; anchor++)
+        foreach (var item in character.Inventory.Items())
         {
-            if (character.Inventory[anchor] is { } item)
-            {
-                var sell = NpcShopRules.CanSell(item) ? NpcShopRules.SellPrice(item) : -1;
-                quotes.Add(new ShopQuote(item.InstanceId, sell, NpcShopRules.RepairCost(item), item.DurabilityCurrent, item.DurabilityMax));
-            }
+            var sell = NpcShopRules.CanSell(item) ? NpcShopRules.SellPrice(item) : -1;
+            quotes.Add(new ShopQuote(item.InstanceId, sell, NpcShopRules.RepairCost(item), item.DurabilityCurrent, item.DurabilityMax));
         }
 
         foreach (var equipped in character.Equipment.Values)

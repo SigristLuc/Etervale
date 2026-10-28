@@ -107,9 +107,9 @@ public static class DeathPenalty
     // The inventory anchor of a carried Resurrection Scroll, or -1.
     public static int ScrollAnchor(PlayerCharacter character)
     {
-        for (var anchor = 0; anchor < character.Inventory.Capacity; anchor++)
+        foreach (var (anchor, item) in character.Inventory.Occupied())
         {
-            if (character.Inventory[anchor] is { } item && item.Definition.CatalogKey == ResurrectionScroll)
+            if (item.Definition.CatalogKey == ResurrectionScroll)
             {
                 return anchor;
             }

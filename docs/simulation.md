@@ -381,13 +381,17 @@ totals.
 - `TryAdd` first tops up compatible stacks, then places new stacks first-fit by anchor index; it plans everything
   before mutating and fails without change. Compatible stacks need a stackable, equal definition and identical
   upgrade, durability and roll.
-- `TryPlace`, `TryMove`, `TrySplit` (new instance id), `TryMerge`, `TryExchange` (put a replacement at the same anchor
-  or first fit), `TakeAt`, `ConsumeAt`. Every change bumps `Version` and raises `Changed`.
+- `TryPlace`, `TryMove`, `TrySplit` (new instance id), `TryMerge`, `TryJoin` (a whole stack onto a compatible one),
+  `TrySwap`, `TryExchange` (take an item out and put a replacement at a given cell, or at the same anchor or first fit;
+  `CanExchange` checks it without changing anything), `TakeAt`, `TakeFrom` (`ItemInstance.Split` for part of a stack),
+  `ConsumeAt`. `Covered` names the one item a footprint would lie over. `Occupied`, `Items` and `CopyFrom` walk or copy
+  a grid. Every change bumps `Version` and raises `Changed`.
 
 ### Equipment rules (`PlayerCharacter.CanEquip`)
 
 - `CanHold`: count 1, matching slot (rings fit either ring slot), the same instance not in another slot, and no
-  two-handed weapon together with an off-hand item. `Equip` (and save restore) needs only this: a worn item whose
+  two-handed weapon together with an off-hand item (`PairAllows`, also the stored pair's rule in `RestoreStored`).
+  `Equip` (and save restore) needs only this: a worn item whose
   requirements stop being met stays worn and adds nothing.
 - `CanEquip` adds `ItemUsability.CanUse`; `CanWear` is `CanEquip` without the hand rule. Aged copies
   (`UpgradeLevel > 0`) equip like any other.

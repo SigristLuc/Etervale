@@ -172,6 +172,10 @@ internal static class PotionTests
         Assert.True(character.TryConsumeFromBelt(character.Belt[0].InstanceId) && character.Belt[0].Count == before - 1, "drinking did not take one potion");
         Assert.True(character.TryTakeFromBelt(character.Belt[2].InstanceId, -1) && character.Belt[2] is null && BagCount(mana) == 4,
             "the box's potions did not go back to the bag");
+        var bagMana = character.Inventory.Find(Bag(mana));
+        Assert.True(character.TryPutOnBelt(Bag(mana), 2, 1) && !character.TryTakeFromBelt(character.Belt[2].InstanceId, character.Inventory.Find(Bag(life)))
+            && character.TryTakeFromBelt(character.Belt[2].InstanceId, bagMana) && character.Belt[2] is null && BagCount(mana) == 4,
+            "a box's potions joined another potion's stack, or not their own");
 
         var view = OwnerState.Capture(character).Items.Single(item => item.BeltBox == 0);
         Assert.True(view.Slot == PotionBelt.FirstOwnerSlot && !view.InBag && !view.Equipped && view.Count == before - 1, "the owner view lost the belt box");

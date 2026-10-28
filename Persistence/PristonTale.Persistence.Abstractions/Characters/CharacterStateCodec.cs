@@ -126,29 +126,9 @@ public static class CharacterStateCodec
     public static SavedItems CaptureInventory(PlayerCharacter character)
     {
         var items = new List<SavedItem>();
-        for (var anchor = 0; anchor < character.Inventory.Capacity; anchor++)
-        {
-            if (character.Inventory[anchor] is { } item)
-            {
-                items.Add(CaptureItem(item, anchor, null));
-            }
-        }
-
-        for (var anchor = 0; anchor < character.HiddenBag.Capacity; anchor++)
-        {
-            if (character.HiddenBag[anchor] is { } item)
-            {
-                items.Add(CaptureItem(item, anchor, null) with { Hidden = true });
-            }
-        }
-
-        for (var box = 0; box < PotionBelt.Boxes; box++)
-        {
-            if (character.Belt[box] is { } potion)
-            {
-                items.Add(CaptureItem(potion, -1, null) with { Belt = box });
-            }
-        }
+        items.AddRange(character.Inventory.Occupied().Select(static cell => CaptureItem(cell.Item, cell.Anchor, null)));
+        items.AddRange(character.HiddenBag.Occupied().Select(static cell => CaptureItem(cell.Item, cell.Anchor, null) with { Hidden = true }));
+        items.AddRange(character.Belt.Occupied().Select(static box => CaptureItem(box.Item, -1, null) with { Belt = box.Box }));
 
         return new SavedItems(1, items.ToArray(), character.InventoryRevision, character.InventoryOperations.ToArray(),
             character.ServiceOperations.ToArray(), character.BagPage);

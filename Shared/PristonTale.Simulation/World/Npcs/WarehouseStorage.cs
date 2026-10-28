@@ -35,7 +35,7 @@ public sealed class WarehouseStorage
         get
         {
             var weight = 0;
-            foreach (var item in Items())
+            foreach (var item in Grid.Items())
             {
                 weight += ItemWeight(item);
             }
@@ -44,18 +44,7 @@ public sealed class WarehouseStorage
         }
     }
 
-    public int Count => Items().Count();
-
-    public IEnumerable<ItemInstance> Items()
-    {
-        for (var anchor = 0; anchor < Grid.Capacity; anchor++)
-        {
-            if (Grid[anchor] is { } item)
-            {
-                yield return item;
-            }
-        }
-    }
+    public int Count => Grid.Items().Count();
 
     public static bool CanStore(PlayerCharacter character, ItemInstance item) =>
         !BoundItems.IsBound(character, item) && Storable(item.Definition.Kind, item.Definition.CatalogKey);
@@ -74,14 +63,7 @@ public sealed class WarehouseStorage
     public WarehouseStorage Clone()
     {
         var clone = new WarehouseStorage(Revision, Money);
-        for (var anchor = 0; anchor < Grid.Capacity; anchor++)
-        {
-            if (Grid[anchor] is { } item)
-            {
-                clone.Grid.TryPlace(item.Copy(item.Count, preserveId: true), anchor);
-            }
-        }
-
+        clone.Grid.CopyFrom(Grid);
         return clone;
     }
 
@@ -231,19 +213,7 @@ public sealed class WarehouseStorage
 
     public WarehouseView View()
     {
-        var items = new List<OwnedItemView>();
-        for (var anchor = 0; anchor < Grid.Capacity; anchor++)
-        {
-            if (Grid[anchor] is { } item)
-            {
-                var definition = item.Definition;
-                var key = item.Sealed ? PristonTale.Simulation.Items.Usable.Puzzles.LuckyBagIcon : definition.CatalogKey;
-                items.Add(new OwnedItemView(item.InstanceId, item.Sealed ? ItemCodes.Parse(key) : definition.Code,
-                    item.Sealed ? PristonTale.Simulation.Items.Usable.Puzzles.LuckyBagName : item.DisplayName, definition.Kind, item.Count, anchor, -1,
-                    definition.GridWidth, definition.GridHeight, key));
-            }
-        }
-
+        var items = Grid.Occupied().Select(static cell => OwnedItemView.Of(cell.Item, cell.Anchor, -1)).ToArray();
         return new WarehouseView(Revision, Money, Weight, MaxWeight, Columns, Rows, items);
     }
 }

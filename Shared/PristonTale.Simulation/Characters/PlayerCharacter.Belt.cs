@@ -74,7 +74,7 @@ public sealed partial class PlayerCharacter
 
         var item = Belt[box];
         var placed = anchor < 0 ? Inventory.TryAdd(item)
-            : Inventory[anchor] is { } there && there.Definition == item.Definition ? Join(anchor, item)
+            : Inventory[anchor] is not null ? Inventory.TryJoin(anchor, item)
             : Inventory.TryPlace(item, anchor);
         if (!placed)
         {
@@ -129,25 +129,12 @@ public sealed partial class PlayerCharacter
     private ItemInstance TakeFromBox(int box, int amount)
     {
         var item = Belt[box];
-        if (amount >= item.Count)
+        if (amount < item.Count)
         {
-            Belt.Set(box, null);
-            return item;
+            return item.Split(amount);
         }
 
-        item.Count -= amount;
-        return item.Copy(amount);
-    }
-
-    private bool Join(int anchor, ItemInstance item)
-    {
-        var there = Inventory[anchor];
-        if (there.Count + item.Count > there.Definition.MaxStack)
-        {
-            return false;
-        }
-
-        there.Count += item.Count;
-        return true;
+        Belt.Set(box, null);
+        return item;
     }
 }

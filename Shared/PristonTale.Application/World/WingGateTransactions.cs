@@ -59,16 +59,7 @@ internal static class WingGateTransactions
             arrival);
     }
 
-    private static IEnumerable<uint> Carried(PlayerCharacter character)
-    {
-        for (var anchor = 0; anchor < character.Inventory.Capacity; anchor++)
-        {
-            if (character.Inventory[anchor] is { } item)
-            {
-                yield return item.Definition.Code;
-            }
-        }
-    }
+    private static IEnumerable<uint> Carried(PlayerCharacter character) => character.Inventory.Items().Select(static item => item.Definition.Code);
 
     private static PreparedWingGateOperation Final(PlayerCharacter original, WingGateCommand command, WingGateStatus status, long fee = 0) =>
         new(original, null, null, new WingGateOutcome(status, command.Destination, fee));

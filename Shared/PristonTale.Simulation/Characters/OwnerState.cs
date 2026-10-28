@@ -15,6 +15,18 @@ public sealed record OwnedItemView(
     public bool Equipped => Slot is >= 0 and < PotionBelt.FirstOwnerSlot;
     public int BeltBox => Slot >= PotionBelt.FirstOwnerSlot ? Slot - PotionBelt.FirstOwnerSlot : -1;
 
+    // What a view shows of an item at a bag or grid anchor or an owner slot; a sealed puzzle piece shows as the lucky bag
+    // until it is revealed.
+    public static OwnedItemView Of(ItemInstance item, int anchor, int slot)
+    {
+        var definition = item.Definition;
+        return item.Sealed
+            ? new OwnedItemView(item.InstanceId, ItemCodes.Parse(Puzzles.LuckyBagIcon), Puzzles.LuckyBagName, definition.Kind, item.Count, anchor, slot,
+                definition.GridWidth, definition.GridHeight, Puzzles.LuckyBagIcon)
+            : new OwnedItemView(item.InstanceId, definition.Code, item.DisplayName, definition.Kind, item.Count, anchor, slot, definition.GridWidth,
+                definition.GridHeight, definition.CatalogKey);
+    }
+
     // The item of a view with this id, or null (empty finds nothing); called every frame, so it does not allocate.
     public static OwnedItemView Find(IReadOnlyList<OwnedItemView> items, Guid id)
     {
@@ -136,12 +148,9 @@ public sealed record OwnerState(
     private static IReadOnlyList<OwnedItemView> ProjectItems(PlayerCharacter character)
     {
         var captured = new List<OwnedItemView>();
-        for (var anchor = 0; anchor < character.Inventory.Capacity; anchor++)
+        foreach (var (anchor, item) in character.Inventory.Occupied())
         {
-            if (character.Inventory[anchor] is { } item)
-            {
-                captured.Add(Project(item, anchor, -1, character));
-            }
+            captured.Add(Project(item, anchor, -1, character));
         }
 
         foreach (var pair in character.Equipment)
@@ -160,23 +169,6 @@ public sealed record OwnerState(
         return captured.AsReadOnly();
     }
 
-    private static OwnedItemView Project(ItemInstance item, int anchor, int slot, PlayerCharacter owner)
-    {
-        var definition = item.Definition;
-        if (item.Sealed)
-        {
-            // A sealed puzzle piece shows as the lucky bag until it is revealed.
-            return new OwnedItemView(item.InstanceId, ItemCodes.Parse(Puzzles.LuckyBagIcon), Puzzles.LuckyBagName, definition.Kind, item.Count,
-                anchor, slot, definition.GridWidth, definition.GridHeight, Puzzles.LuckyBagIcon)
-            {
-                Details = ItemDetailView.Of(item, owner)
-            };
-        }
-
-        return new OwnedItemView(item.InstanceId, definition.Code, item.DisplayName, definition.Kind, item.Count,
-            anchor, slot, definition.GridWidth, definition.GridHeight, definition.CatalogKey)
-        {
-            Details = ItemDetailView.Of(item, owner)
-        };
-    }
+    private static OwnedItemView Project(ItemInstance item, int anchor, int slot, PlayerCharacter owner) =>
+        OwnedItemView.Of(item, anchor, slot) with { Details = ItemDetailView.Of(item, owner) };
 }

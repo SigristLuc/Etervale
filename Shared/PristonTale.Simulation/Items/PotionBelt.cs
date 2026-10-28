@@ -15,6 +15,18 @@ public sealed class PotionBelt
 
     public static bool IsBox(int box) => box is >= 0 and < Boxes;
 
+    // The filled boxes with their potions.
+    public IEnumerable<(int Box, ItemInstance Item)> Occupied()
+    {
+        for (var box = 0; box < Boxes; box++)
+        {
+            if (_boxes[box] is { } item)
+            {
+                yield return (box, item);
+            }
+        }
+    }
+
     internal void Set(int box, ItemInstance item) => _boxes[box] = item;
 
     internal void CopyFrom(PotionBelt other)

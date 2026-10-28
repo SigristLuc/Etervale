@@ -263,20 +263,16 @@ public sealed partial class PlayerCharacter
 
     // Whether the slot can hold the item at all, usable or not: a saved item whose requirements are no longer met stays
     // worn without adding anything.
-    public bool CanHold(EquipmentSlot slot, ItemInstance item)
+    public bool CanHold(EquipmentSlot slot, ItemInstance item) =>
+        Fits(slot, item) && PairAllows(slot, item, GetEquipped(EquipmentSlot.Weapon), GetEquipped(EquipmentSlot.OffHand));
+
+    // The hand rule of a weapon and off-hand pair, held or stored: a two-handed weapon leaves the off hand empty.
+    private static bool PairAllows(EquipmentSlot slot, ItemInstance item, ItemInstance weapon, ItemInstance offHand) => slot switch
     {
-        if (!Fits(slot, item))
-        {
-            return false;
-        }
-
-        if (slot == EquipmentSlot.Weapon && item.Definition.TwoHanded && GetEquipped(EquipmentSlot.OffHand) is not null)
-        {
-            return false;
-        }
-
-        return slot != EquipmentSlot.OffHand || GetEquipped(EquipmentSlot.Weapon)?.Definition.TwoHanded != true;
-    }
+        EquipmentSlot.Weapon => !item.Definition.TwoHanded || offHand is null,
+        EquipmentSlot.OffHand => weapon?.Definition.TwoHanded != true,
+        _ => true
+    };
 
     private bool Fits(EquipmentSlot slot, ItemInstance item)
     {
@@ -523,12 +519,9 @@ public sealed partial class PlayerCharacter
 
     public IEnumerable<ItemInstance> OwnedItems()
     {
-        for (var anchor = 0; anchor < Inventory.Capacity; anchor++)
+        foreach (var item in Inventory.Items())
         {
-            if (Inventory[anchor] is { } item)
-            {
-                yield return item;
-            }
+            yield return item;
         }
 
         foreach (var equipped in _equipment.Values)
@@ -536,12 +529,9 @@ public sealed partial class PlayerCharacter
             yield return equipped;
         }
 
-        for (var box = 0; box < PotionBelt.Boxes; box++)
+        foreach (var (_, potion) in Belt.Occupied())
         {
-            if (Belt[box] is { } potion)
-            {
-                yield return potion;
-            }
+            yield return potion;
         }
 
         foreach (var hidden in HiddenItems())
@@ -574,14 +564,7 @@ public sealed partial class PlayerCharacter
     {
         var clone = new PlayerCharacter(Class, Name, Level, Attributes);
         clone.RestoreProgress(Experience, Money, StatPoints, Tier, SkillPoints, EliteSkillPoints);
-        for (var anchor = 0; anchor < Inventory.Capacity; anchor++)
-        {
-            if (Inventory[anchor] is { } item)
-            {
-                clone.Inventory.TryPlace(item.Copy(item.Count, preserveId: true), anchor);
-            }
-        }
-
+        clone.Inventory.CopyFrom(Inventory);
         foreach (var equipped in _equipment)
         {
             clone.Equip(equipped.Key, equipped.Value.Copy(1, preserveId: true));

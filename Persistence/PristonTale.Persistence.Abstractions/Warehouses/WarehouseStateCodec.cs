@@ -46,15 +46,7 @@ public static class WarehouseStateCodec
 
     public static WarehouseRecord Capture(long accountId, WarehouseStorage storage)
     {
-        var items = new List<SavedItem>();
-        for (var anchor = 0; anchor < storage.Grid.Capacity; anchor++)
-        {
-            if (storage.Grid[anchor] is { } item)
-            {
-                items.Add(CharacterStateCodec.CaptureItem(item, anchor, null));
-            }
-        }
-
-        return new WarehouseRecord(accountId, storage.Money, storage.Revision, CharacterJson.Write(new SavedItems(1, items.ToArray())));
+        var items = storage.Grid.Occupied().Select(static cell => CharacterStateCodec.CaptureItem(cell.Item, cell.Anchor, null)).ToArray();
+        return new WarehouseRecord(accountId, storage.Money, storage.Revision, CharacterJson.Write(new SavedItems(1, items)));
     }
 }

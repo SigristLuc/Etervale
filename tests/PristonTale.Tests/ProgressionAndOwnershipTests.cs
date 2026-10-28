@@ -141,6 +141,13 @@ internal static class ProgressionAndOwnershipTests
             && restored.GetEquipped(EquipmentSlot.Weapon)?.Definition == axe && restored.StoredWeapon?.Definition == sword, "the sides were not saved and restored");
         Assert.True(restored.TrySwitchWeaponSet(0) && restored.GetEquipped(EquipmentSlot.Weapon)?.Definition == sword && restored.StoredWeapon?.Definition == axe
             && restored.TrySwitchBagPage(0) && restored.Inventory.Find(carried.InstanceId) >= 0, "switching back did not return pair A and page A");
+
+        // The stored pair keeps the held pair's hand rule whatever order its items are restored in.
+        var paired = classes.CreatePlayer(PlayerClass.Fighter, "Pair", 10);
+        var shield = new ItemDefinition(4, "Shield", ItemKind.Shield, EquipmentSlot.OffHand) { CatalogKey = "DS101" };
+        var greatAxe = new ItemDefinition(5, "Great Axe", ItemKind.Axe, EquipmentSlot.Weapon, TwoHanded: true) { CatalogKey = "WA102" };
+        Assert.True(paired.RestoreStored(EquipmentSlot.OffHand, new ItemInstance(shield)) && !paired.RestoreStored(EquipmentSlot.Weapon, new ItemInstance(greatAxe))
+            && !paired.RestoreStored(EquipmentSlot.Armor, new ItemInstance(sword)), "the stored pair took a two-handed weapon beside a shield, or a third slot");
         return Task.CompletedTask;
     }
 

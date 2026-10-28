@@ -66,34 +66,35 @@ public sealed partial class PlayerCharacter
         WeaponSet = set;
     }
 
+    // A saved item of the stored pair, held by the same rules as the held pair.
     public bool RestoreStored(EquipmentSlot slot, ItemInstance item)
     {
-        if (slot == EquipmentSlot.Weapon && _storedWeapon is null && ItemEquipmentMetadata.Fits(item.Definition.Kind, item.Definition.EquipSlot, slot))
+        var empty = slot switch
+        {
+            EquipmentSlot.Weapon => _storedWeapon is null,
+            EquipmentSlot.OffHand => _storedOffHand is null,
+            _ => false
+        };
+        if (!empty || !Fits(slot, item) || !PairAllows(slot, item, _storedWeapon, _storedOffHand))
+        {
+            return false;
+        }
+
+        if (slot == EquipmentSlot.Weapon)
         {
             _storedWeapon = item;
-            return true;
         }
-
-        if (slot == EquipmentSlot.OffHand && _storedOffHand is null && ItemEquipmentMetadata.Fits(item.Definition.Kind, item.Definition.EquipSlot, slot)
-            && _storedWeapon?.Definition.TwoHanded != true)
+        else
         {
             _storedOffHand = item;
-            return true;
         }
 
-        return false;
+        return true;
     }
 
     private void CopySides(PlayerCharacter source)
     {
-        for (var anchor = 0; anchor < source.HiddenBag.Capacity; anchor++)
-        {
-            if (source.HiddenBag[anchor] is { } item)
-            {
-                HiddenBag.TryPlace(item.Copy(item.Count, preserveId: true), anchor);
-            }
-        }
-
+        HiddenBag.CopyFrom(source.HiddenBag);
         _storedWeapon = source._storedWeapon?.Copy(1, preserveId: true);
         _storedOffHand = source._storedOffHand?.Copy(1, preserveId: true);
         BagPage = source.BagPage;
@@ -102,12 +103,9 @@ public sealed partial class PlayerCharacter
 
     private IEnumerable<ItemInstance> HiddenItems()
     {
-        for (var anchor = 0; anchor < HiddenBag.Capacity; anchor++)
+        foreach (var item in HiddenBag.Items())
         {
-            if (HiddenBag[anchor] is { } item)
-            {
-                yield return item;
-            }
+            yield return item;
         }
 
         if (_storedWeapon is not null)

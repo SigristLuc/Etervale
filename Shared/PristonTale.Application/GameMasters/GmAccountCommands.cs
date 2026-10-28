@@ -57,12 +57,9 @@ internal static class GmAccountCommands
 
         var storage = WarehouseStateCodec.Restore(await warehouses.FindAsync(accountId), context.Commands.WorldData.Current.Items);
         var items = new List<string>();
-        for (var anchor = 0; anchor < storage.Grid.Capacity; anchor++)
+        foreach (var item in storage.Grid.Items())
         {
-            if (storage.Grid[anchor] is { } item)
-            {
-                items.Add(item.Count > 1 ? Format("{0} x{1}", item.DisplayName, item.Count) : item.DisplayName);
-            }
+            items.Add(item.Count > 1 ? Format("{0} x{1}", item.DisplayName, item.Count) : item.DisplayName);
         }
 
         context.Reply(Format("> Warehouse ( {0} ) Gold( {1} ) Items( {2} )", account, storage.Money, items.Count));
