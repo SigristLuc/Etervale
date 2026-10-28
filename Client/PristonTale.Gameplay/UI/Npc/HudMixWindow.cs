@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using PristonTale.Gameplay.UI.Inventory;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
@@ -143,7 +144,7 @@ public sealed class HudMixWindow : HudWorkbench
         var slot = HudCraftLayout.SheltomAt(origin, pointer);
         if (slot >= 0)
         {
-            painter.Fill(HudCraftLayout.Sheltom(origin, slot), Accepts(key) && Slots[slot] == Guid.Empty ? Placement : Refusal);
+            painter.Fill(HudCraftLayout.Sheltom(origin, slot), Accepts(key) && Slots[slot] == Guid.Empty ? HudPlacementColors.Fits : HudPlacementColors.Blocked);
             return;
         }
 
@@ -155,14 +156,14 @@ public sealed class HudMixWindow : HudWorkbench
         var stone = HudCraftLayout.Stone(origin);
         if (stone.Contains(pointer))
         {
-            painter.Fill(stone, key.Equals(MixingWork.RespecStone, StringComparison.OrdinalIgnoreCase) ? Placement : Refusal);
+            painter.Fill(stone, key.Equals(MixingWork.RespecStone, StringComparison.OrdinalIgnoreCase) ? HudPlacementColors.Fits : HudPlacementColors.Blocked);
             return;
         }
 
         var box = HudCraftLayout.ItemBox(origin);
         if (box.Contains(pointer))
         {
-            painter.Fill(box, Mixable(incoming) ? Placement : Refusal);
+            painter.Fill(box, Mixable(incoming) ? HudPlacementColors.Fits : HudPlacementColors.Blocked);
         }
     }
 

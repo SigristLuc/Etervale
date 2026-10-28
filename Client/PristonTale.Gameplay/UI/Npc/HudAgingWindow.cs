@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using PristonTale.Gameplay.UI.Inventory;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items.Aging;
@@ -89,7 +90,7 @@ public sealed class HudAgingWindow : HudWorkbench
             var stone = HudCraftLayout.Stone(origin);
             if (stone.Contains(pointer))
             {
-                painter.Fill(stone, Placement);
+                painter.Fill(stone, HudPlacementColors.Fits);
             }
 
             return;
@@ -103,7 +104,7 @@ public sealed class HudAgingWindow : HudWorkbench
             {
                 var required = MainItem(state)?.Details is { } details ? Required(details.UpgradeLevel) : [];
                 var fits = slot < required.Count && required[slot] == ordinal && Slots[slot] == Guid.Empty;
-                painter.Fill(HudCraftLayout.Sheltom(origin, slot), fits ? Placement : Refusal);
+                painter.Fill(HudCraftLayout.Sheltom(origin, slot), fits ? HudPlacementColors.Fits : HudPlacementColors.Blocked);
             }
 
             return;
@@ -112,7 +113,7 @@ public sealed class HudAgingWindow : HudWorkbench
         var box = HudCraftLayout.ItemBox(origin);
         if (box.Contains(pointer))
         {
-            painter.Fill(box, Ageable(incoming) ? Placement : Refusal);
+            painter.Fill(box, Ageable(incoming) ? HudPlacementColors.Fits : HudPlacementColors.Blocked);
         }
     }
 

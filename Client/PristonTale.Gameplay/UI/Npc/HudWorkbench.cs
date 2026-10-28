@@ -21,8 +21,6 @@ public enum HudWorkActionKind
 // placed item that leaves the bag leaves the window. The start button runs the work once the window is ready.
 public abstract class HudWorkbench : IHudServiceWindow
 {
-    protected static readonly Color Placement = Color.FromNonPremultiplied(160, 235, 255, 128);
-    protected static readonly Color Refusal = Color.FromNonPremultiplied(255, 0, 0, 96);
 
     private readonly HudSlide _slide = new();
     private OwnedItemView _hovered;
@@ -287,7 +285,7 @@ public abstract class HudWorkbench : IHudServiceWindow
         {
             if (item.InstanceId == ItemId)
             {
-                yield return (item, HudCraftLayout.Centered(HudCraftLayout.ItemBox(origin), item.Width, item.Height));
+                yield return (item, HudGridPlacement.Frame(item, HudCraftLayout.ItemBox(origin).Center));
             }
             else if (item.InstanceId == StoneId)
             {

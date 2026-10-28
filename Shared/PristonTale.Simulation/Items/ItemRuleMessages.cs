@@ -7,4 +7,5 @@ public static class ItemRuleMessages
     public const string CannotUse = "Item cannot be used yet";
     public const string CannotDrop = "This item cannot be dropped";
     public const string PotionNotStored = "Potions cannot be stored";
+    public const string StaleInventory = "invalid operation or stale inventory revision";
 }

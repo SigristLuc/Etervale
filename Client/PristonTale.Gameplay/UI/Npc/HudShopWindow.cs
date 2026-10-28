@@ -29,7 +29,6 @@ public enum HudShopAction
 public sealed class HudShopWindow : IHudServiceWindow
 {
     private const int GoodsTab = 2;
-    private static readonly Color Selection = Color.FromNonPremultiplied(255, 200, 0, 128);
     private readonly HudSlide _slide = new();
     private readonly List<List<Placed>>[] _pages = [[], [], []];
     private ShopOffer _hovered;
@@ -164,7 +163,7 @@ public sealed class HudShopWindow : IHudServiceWindow
                 var bounds = HudStoreLayout.Cell(origin, placed.Anchor, placed.Offer.Width, placed.Offer.Height);
                 if (ReferenceEquals(placed.Offer, _hovered))
                 {
-                    painter.Fill(bounds, Selection);
+                    painter.Fill(bounds, HudPlacementColors.Selection);
                 }
 
                 icons.Draw(painter, placed.Offer.CatalogKey, bounds);

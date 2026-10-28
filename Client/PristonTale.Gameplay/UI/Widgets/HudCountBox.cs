@@ -14,6 +14,7 @@ public sealed class HudCountBox
     private string _second = "";
     private int _maximum;
     private Action<int> _accepted;
+    private string _text = "0";
 
     public static Rectangle Bounds => HudMessageBox.Bounds;
     public static Rectangle Field => new(Bounds.X + 34, Bounds.Y + 62, 109, 25);
@@ -28,7 +29,7 @@ public sealed class HudCountBox
     public void Open(string first, string second, int maximum, Action<int> accepted)
     {
         (_first, _second, _maximum, _accepted) = (first, second, Math.Max(0, maximum), accepted);
-        Count = 0;
+        Set(0);
         IsOpen = true;
     }
 
@@ -43,7 +44,7 @@ public sealed class HudCountBox
     {
         foreach (var character in typed)
         {
-            if (char.IsAsciiDigit(character) && Count.ToString().Length < MaxDigits)
+            if (char.IsAsciiDigit(character) && _text.Length < MaxDigits)
             {
                 Set(Count * 10 + (character - '0'));
             }
@@ -86,7 +87,7 @@ public sealed class HudCountBox
         painter.TextCentered(painter.Fit(_first, HudMessageBox.VisibleWidth - 16), bounds.Left, bounds.Right, bounds.Y + 20, new Color(255, 255, 180));
         painter.TextCentered(painter.Fit(_second, HudMessageBox.VisibleWidth - 16), bounds.Left, bounds.Right, bounds.Y + 40);
         painter.Sprite(HudArt.CountField, Field.X, Field.Y);
-        painter.Text(Count.ToString(), Field.X + 8, Field.Y + 6);
+        painter.Text(_text, Field.X + 8, Field.Y + 6);
         if (Up.Contains(pointer))
         {
             painter.Sprite(HudArt.CountUp, Up.X, Up.Y);
@@ -100,7 +101,11 @@ public sealed class HudCountBox
         painter.Sprite(Cancel.Contains(pointer) ? HudArt.CancelYellow : HudArt.CancelGray, Cancel.X, Cancel.Y);
     }
 
-    private void Set(int count) => Count = Math.Clamp(count, 0, _maximum);
+    private void Set(int count)
+    {
+        Count = Math.Clamp(count, 0, _maximum);
+        _text = Count.ToString();
+    }
 
     private void Accept()
     {

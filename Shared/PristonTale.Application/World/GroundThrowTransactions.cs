@@ -16,7 +16,7 @@ internal static class GroundThrowTransactions
         if (command.ExpectedRevision != original.InventoryRevision || anchor < 0 || original.Inventory[anchor] is not { } item
             || command.Count < 1 || command.Count > item.Count)
         {
-            return Refused(original, "invalid operation or stale inventory revision");
+            return Refused(original, ItemRuleMessages.StaleInventory);
         }
 
         if (!ItemDropRules.CanDrop(original, item))
