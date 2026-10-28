@@ -16,13 +16,14 @@ internal sealed class DisplayController
     private const int PrimaryMonitor = 0;
 
     private readonly GraphicsDeviceManager _graphics;
+    private readonly GameWindow _window;
     private readonly IClientLog _log;
-    // The first windowed apply restores the saved position (NativeWindowPlacement); later ones keep the window on screen.
     private bool _placed;
 
-    public DisplayController(GraphicsDeviceManager graphics, IClientLog log)
+    public DisplayController(GraphicsDeviceManager graphics, GameWindow window, IClientLog log)
     {
         _graphics = graphics;
+        _window = window;
         _log = log;
     }
 
@@ -71,15 +72,7 @@ internal sealed class DisplayController
         _graphics.ApplyChanges();
         if (requested.WindowMode == WindowMode.Windowed)
         {
-            if (_placed)
-            {
-                NativeWindowPlacement.KeepOnScreen();
-            }
-            else
-            {
-                NativeWindowPlacement.Restore(requested);
-                _placed = true;
-            }
+            Place(requested, new Rectangle(0, 0, desktop.Width, desktop.Height));
         }
 
         var parameters = _graphics.GraphicsDevice.PresentationParameters;
@@ -87,6 +80,25 @@ internal sealed class DisplayController
             $"scene MSAA {requested.MultiSampleCount}x requested";
         _log.Info($"[Display] requested={requested.WindowMode} {requested.WindowWidth}x{requested.WindowHeight}@{requested.RefreshRate}; effective={effective}");
         return effective;
+    }
+
+    // The platform creates the window centred at MonoGame's default size and a new size grows it from its top-left, so
+    // a large window would spill off the screen. The first windowed apply restores the saved position while its title
+    // bar is on the screen, or centres the window; later applies centre a window that no longer fits.
+    private void Place(ClientSettings requested, Rectangle screen)
+    {
+        var size = new Point(_window.ClientBounds.Width, _window.ClientBounds.Height);
+        var saved = requested.WindowX is int x && requested.WindowY is int y ? new Point(x, y) : (Point?)null;
+        if (!_placed && saved is { } position && WindowPlacement.TitleOnScreen(position, size, screen))
+        {
+            _window.Position = position;
+        }
+        else if (!_placed || !WindowPlacement.OnScreen(_window.Position, size, screen))
+        {
+            _window.Position = WindowPlacement.Centered(size, screen);
+        }
+
+        _placed = true;
     }
 
     public static void DescribeOptions(PresentationSettings shared)

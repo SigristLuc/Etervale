@@ -16,17 +16,19 @@ internal sealed class PresentationController
     private readonly ClientSettingsStore _store;
     private readonly DisplayController _display;
     private readonly GraphicsDeviceManager _graphics;
+    private readonly GameWindow _window;
     private readonly FramePacer _pacer = new();
     private ClientSettings _applied;
     private ClientSettings _accepted;
     private long _confirmationDeadline;
 
-    public PresentationController(PresentationSettings shared, ClientSettingsStore store, GraphicsDeviceManager graphics)
+    public PresentationController(PresentationSettings shared, ClientSettingsStore store, GraphicsDeviceManager graphics, GameWindow window)
     {
         _shared = shared;
         _store = store;
         _graphics = graphics;
-        _display = new DisplayController(graphics, ConsoleClientLog.Instance);
+        _window = window;
+        _display = new DisplayController(graphics, window, ConsoleClientLog.Instance);
         DisplayController.DescribeOptions(shared);
         _accepted = shared.Requested;
         Apply(shared.Requested);
@@ -95,8 +97,7 @@ internal sealed class PresentationController
             return;
         }
 
-        // A maximized window keeps the restored size, the one it returns to.
-        if (width == _applied.WindowWidth && height == _applied.WindowHeight || NativeWindowPlacement.IsMaximized())
+        if (width == _applied.WindowWidth && height == _applied.WindowHeight)
         {
             return;
         }
@@ -106,21 +107,21 @@ internal sealed class PresentationController
         Accept();
     }
 
-    // On exit: where the window was left and whether it was maximized, for the next start (NativeWindowPlacement).
-    public void CaptureWindowPlacement()
+    // On exit: where the windowed window was left, for the next start (DisplayController restores it).
+    public void CaptureWindowPosition()
     {
-        if (_applied is null || _shared.AwaitingConfirmation || _applied.WindowMode != WindowMode.Windowed
-            || _shared.Requested != _applied || !NativeWindowPlacement.TryRead(out var x, out var y, out var maximized))
+        if (_applied is null || _shared.AwaitingConfirmation || _applied.WindowMode != WindowMode.Windowed || _shared.Requested != _applied)
         {
             return;
         }
 
-        if (x == _applied.WindowX && y == _applied.WindowY && maximized == _applied.WindowMaximized)
+        var position = _window.Position;
+        if (position.X == _applied.WindowX && position.Y == _applied.WindowY)
         {
             return;
         }
 
-        _applied = _applied with { WindowX = x, WindowY = y, WindowMaximized = maximized };
+        _applied = _applied with { WindowX = position.X, WindowY = position.Y };
         Accept();
     }
 

@@ -54,7 +54,7 @@ public class Game1 : Game
 
     protected override void LoadContent()
     {
-        _presentationController = new PresentationController(_presentation, _settingsStore, _graphics);
+        _presentationController = new PresentationController(_presentation, _settingsStore, _graphics, Window);
         _client = new GameClient(GraphicsDevice, Content, ResolveAssetRoot(), ServerAddress, _presentation);
         _client.LoadContent();
         Window.TextInput += (_, args) => _client.TypeCharacter(args.Character);
@@ -148,7 +148,7 @@ public class Game1 : Game
         {
             if (_shutdown is null)
             {
-                _presentationController.CaptureWindowPlacement();
+                _presentationController.CaptureWindowPosition();
             }
 
             _shutdown ??= Task.WhenAll(_client.BeginShutdown(), _presentationController.CompleteAsync());
