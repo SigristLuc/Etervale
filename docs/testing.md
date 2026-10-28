@@ -190,7 +190,7 @@ when reading those assets is authorized. GPU probes:
 | `--verify-vfx-lifetimes <assets>` | no | Plays every effect of `Effect/Vfx` (duration up to 60 s) with a moving caster and target and lists those still alive 30 s after their duration; prints `0 of N` when none lingers |
 | `--verify-player-timing <assets>` | no | Per-class attack, damage and EAT timing against actor files |
 | `--verify-equipment <assets>` | no | Equipped attack clips against `PlayerEquipmentTiming` |
-| `--export-equipment-timings <assets> <output.cs>` | no | Writes the generated `PlayerEquipmentTiming.cs` (see Pitfalls) |
+| `--export-equipment-timings <assets> <output.json>` | no | Writes the generated `World/Motion/Data/PlayerEquipmentTiming.json` (see Pitfalls) |
 | `--verify-world-rewards <assets> <disposable.db>` | no | Real catalog checks on a copy of an imported database (see below) |
 | `--validate-binary-assets <assets>` | no | Parses every `.inx`, `.smd`, `.smb` and `.cam` under the root and lists failures |
 | `--inspect-actor <assets> <actor-path>` | no | Prints mesh, skeleton, material and bone details of one actor |
@@ -336,7 +336,7 @@ this is not a readback of write-only GPU buffers or a visual comparison.
   other unknown argument stops the runner with exit code 2 instead of running the suite.
 - `--benchmark` runs after the suite (and honors `--filter`); `--benchmark-world` skips the suite.
 - `--no-build` runs the last build: rebuild after editing tests or production code.
-- `--export-equipment-timings` overwrites a generated source file; review the diff before keeping it.
+- `--export-equipment-timings` overwrites a generated data file; review the diff before keeping it.
 - `--verify-world-rewards` migrates the database it is given: pass a copy, never `data/pristontale.db`.
 - GPU probe timings with `MG_HIDDEN_WINDOW=1` are not comparable with visible-window runs.
 

@@ -67,7 +67,7 @@ internal static class EquipmentTests
         Assert.True(EquipmentVisuals.WeaponBone("WC101", true) == "Bip weapon01", "claw should remain in hand");
         Assert.True(EquipmentVisuals.WeaponBone("WS104", true) == "Bip in-cro", "crossbow back attachment differs from BackObjBip[1]");
         Assert.True(EquipmentVisuals.WeaponBone("WS101", false) == "Bip01 L Hand", "bow uses the wrong hand");
-        Assert.True(PlayerEquipmentTiming.TryGet(2, "WC101", out var timing) && timing.Event0 == 3360, "claw impact retained bare-hand timing");
+        Assert.True(PlayerEquipmentTiming.TryGet(PlayerClass.Mechanician, "WC101", out var timing) && timing.Event0 == 3360, "claw impact retained bare-hand timing");
         return Task.CompletedTask;
     }
 

@@ -37,7 +37,7 @@ How the tick calls these rules belongs to [application.md](application.md).
 | `World/Spawning/BossSpawnSchedule.cs` | Server-wide hourly boss pass at a random minute per day |
 | `World/Loot/` | `DropTable`, `DropRoller`, `KillReward` (experience and kill credit), `GroundDropView` |
 | `World/Motion/` | `MotionClip`, `MotionTiming`, `MotionTimingSet`/`MotionTimingCatalog`, player fallbacks |
-| `World/Motion/PlayerEquipmentTiming.cs` | Generated table of player attack clips by job and weapon key; do not hand-edit |
+| `World/Motion/PlayerEquipmentTiming.cs`, `World/Motion/Data/PlayerEquipmentTiming.json` | Player attack clips by class and weapon key, loaded from the generated embedded JSON (one entry per class and clip with its keys); do not hand-edit |
 | `World/Npcs/` | `NpcDefinition`, `NpcCatalog`, typed services (`NpcServiceKind`), service commands and replies, shop and warehouse rules, teleport routes, sound code map |
 | `Physics/EntityCollision.cs` | Circle-vs-circle blocking between bodies (players, monsters, NPCs) along a swept segment |
 | `Physics/EntityCollisionRadii.cs`, `EntityNeighbour.cs` | Body radii (by `EntityKind`) and neighbour records |
@@ -444,11 +444,11 @@ INX motion tables are extracted by the importer (`MotionTableExtractor`) into th
   `ClipsForState` returns all (NPC stand variants). Zero-length clips are dropped.
 
 Player action timing (`FieldInstance.PlayerActionTiming`): start from `PlayerMotionFallback.GetClip(class, state)`,
-replace with the job body's catalog clip, and for attacks replace with `PlayerEquipmentTiming.TryGet(job, weaponKey)`.
+replace with the job body's catalog clip, and for attacks replace with `PlayerEquipmentTiming.TryGet(class, weaponKey)`.
 Attack rate is `Character.AttackRate`. The hit lands at event 0, or at the clip end if there is none. The flinch lasts
 the damage clip found this way (`WorldPlayer.FlinchMs`, set when the player enters a field).
 
-`PlayerEquipmentTiming.cs` is generated from the shipped INX files by the test runner
+`Data/PlayerEquipmentTiming.json` is generated from the shipped INX files by the test runner
 (`--export-equipment-timings <assetsRoot> <outputFile>`; `--verify-equipment <assetsRoot>` checks it).
 
 ## NPCs and services
@@ -630,7 +630,7 @@ safe. Rules here run inside the tick and must not block: no I/O, no lock waits, 
 - **Add a teleport route**: add the route to `TeleportRoutes`; availability follows. Update `NpcServiceTests` and the
   README teleporter list.
 - **Regenerate player attack timings**: run the test runner with `--export-equipment-timings <assetsRoot>
-  Shared/PristonTale.Simulation/World/Motion/PlayerEquipmentTiming.cs`, then `--verify-equipment <assetsRoot>`.
+  Shared/PristonTale.Simulation/World/Motion/Data/PlayerEquipmentTiming.json`, then `--verify-equipment <assetsRoot>`.
 
 ## Pitfalls
 
@@ -651,7 +651,7 @@ safe. Rules here run inside the tick and must not block: no I/O, no lock waits, 
 - `MonsterAiTuning` is cached per field by monster code; a definition altered with `with` for a summon shares the
   original code's tuning.
 - `Idle` monsters do not wander after the spawn walk; they only react to prey or damage.
-- Do not hand-edit `PlayerEquipmentTiming.cs`; regenerate it.
+- Do not hand-edit `Data/PlayerEquipmentTiming.json`; regenerate it.
 - Appending is the only safe change to `NpcServiceKind`, `NpcServiceAction` and `NpcServiceStatus`: values are stored
   and sent on the wire.
 

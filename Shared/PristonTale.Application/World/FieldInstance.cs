@@ -483,7 +483,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         }
 
         string weaponKey = player.Character.GetEquipped(EquipmentSlot.Weapon)?.Definition.CatalogKey ?? "";
-        if (state == MotionCode.Attack && PlayerEquipmentTiming.TryGet((int)playerClass, weaponKey, out var equipped))
+        if (state == MotionCode.Attack && PlayerEquipmentTiming.TryGet(playerClass, weaponKey, out var equipped))
         {
             clip = equipped;
         }
