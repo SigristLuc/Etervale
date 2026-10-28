@@ -285,10 +285,7 @@ public sealed class PlayerCharacter
             return false;
         }
 
-        var definition = item.Definition;
-        var sameSlot = definition.EquipSlot == slot;
-        var ringSlot = definition.Kind == ItemKind.Ring && slot is EquipmentSlot.RingLeft or EquipmentSlot.RingRight;
-        if (!sameSlot && !ringSlot)
+        if (!ItemEquipmentMetadata.Fits(item.Definition.Kind, item.Definition.EquipSlot, slot))
         {
             return false;
         }

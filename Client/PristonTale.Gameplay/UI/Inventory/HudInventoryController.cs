@@ -14,7 +14,10 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     private OwnerState _state;
     private Point _origin;
     private MouseState _previousMouse;
+    // The item on the cursor (it keeps its place on the server until it is set down), and the one a pending command puts
+    // there once it succeeds: the item an exchange picks up, or an equipped item taken off.
     private Guid _dragging;
+    private Guid _carryAfter;
     private bool _pendingOperation;
     private volatile InventoryOutcome _completedOperation;
 
@@ -25,6 +28,9 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     public int Completions { get; private set; }
     public bool Pending => _pendingOperation;
     public Guid Dragging => _dragging;
+
+    // Set by the HUD each frame: nothing is picked up while the player attacks or casts, as in the original.
+    public bool PickupLocked { get; set; }
     public Point Origin => _origin;
 
     // Shop and warehouse windows take clicks on owned items and drops outside the inventory while they are open.
@@ -60,7 +66,13 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                 ItemSound?.Invoke(_pendingSound);
             }
 
+            if (completed.Ok && _carryAfter != Guid.Empty && state?.Items.Any(item => item.InstanceId == _carryAfter && item.Slot < 0) == true)
+            {
+                _dragging = _carryAfter;
+            }
+
             _pendingSound = null;
+            _carryAfter = Guid.Empty;
         }
 
         if (visible && state is not null && !_pendingOperation)
@@ -76,98 +88,125 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         _previousMouse = mouse;
     }
 
+    // The original's carrying: a click picks an item up (an equipped one is taken off first) and it follows the cursor; the
+    // next click sets it down where HudInventoryPlacement says, or takes it out of the bag above the window.
     private void UpdateInventoryInput(KeyboardState keyboard, MouseState mouse, Point pointer, bool clicked)
     {
-        var grid = HudInventoryLayout.Bag(_origin);
-        OwnedItemView selected = null;
-        foreach (var item in _state.Items)
+        if (_dragging != Guid.Empty)
         {
-            if (ItemBounds(item).Contains(pointer))
+            var carried = _state.Items.FirstOrDefault(item => item.InstanceId == _dragging);
+            if (carried is null)
             {
-                selected = item;
-                break;
+                _dragging = Guid.Empty;
             }
+            else if (clicked)
+            {
+                SetDown(carried, pointer, keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift));
+            }
+
+            return;
         }
 
-        if (clicked && selected is not null && InterceptClick?.Invoke(selected) == true)
+        var hovered = _state.Items.FirstOrDefault(item => ItemBounds(item).Contains(pointer));
+        if (hovered is null)
         {
             return;
         }
 
-        if (clicked && selected is { Slot: < 0 })
+        if (clicked)
         {
-            _dragging = selected.InstanceId;
-            ItemSound?.Invoke(selected.CatalogKey);
+            if (InterceptClick?.Invoke(hovered) != true && !PickupLocked)
+            {
+                PickUp(hovered);
+            }
+
+            return;
         }
 
-        var rightClicked = mouse.RightButton == ButtonState.Pressed && _previousMouse.RightButton == ButtonState.Released;
-        if (rightClicked && selected is not null)
+        if (mouse.RightButton == ButtonState.Pressed && _previousMouse.RightButton == ButtonState.Released)
         {
-            if (selected.Slot < 0 && UsableItemCatalog.IsUsable(selected.CatalogKey))
-            {
-                CancelDrag();
-                UseRequested?.Invoke(selected);
-                return;
-            }
-
-            if (selected.Slot < 0 && selected.Kind == ItemKind.Potion)
-            {
-                CancelDrag();
-                SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision,
-                    InventoryAction.ConsumePotion, selected.InstanceId, 0, 1, default));
-                return;
-            }
-
-            var slot = selected.Slot >= 0 ? (EquipmentSlot?)selected.Slot : SlotFor(selected.Kind);
-            if (slot.HasValue)
-            {
-                SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision,
-                    selected.Slot >= 0 ? InventoryAction.Unequip : InventoryAction.Equip, selected.InstanceId, 0, 0, slot.Value));
-            }
-        }
-
-        if (_dragging != Guid.Empty && mouse.LeftButton == ButtonState.Released)
-        {
-            var identity = _dragging;
-            _dragging = Guid.Empty;
-            if (grid.Contains(pointer))
-            {
-                var destination = HudInventoryLayout.CellAt(_origin, pointer);
-                var source = _state.Items.FirstOrDefault(item => item.InstanceId == identity);
-                if (source is not null && source.Anchor != destination)
-                {
-                    var split = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
-                    var action = InventoryAction.Move;
-                    if (split)
-                    {
-                        action = InventoryAction.Split;
-                    }
-                    else if (selected is not null && selected.InstanceId != identity)
-                    {
-                        action = InventoryAction.Merge;
-                    }
-                    SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, action, identity,
-                        selected is not null && action == InventoryAction.Merge ? selected.Anchor : destination, source.Count / 2, default));
-                }
-            }
-            else if (ExternalDrop?.Invoke(identity, pointer) != true)
-            {
-                for (var slot = 0; slot < 10; slot++)
-                {
-                    if (EquipmentBounds(slot).Contains(pointer))
-                    {
-                        SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision,
-                            InventoryAction.Equip, identity, 0, 0, (EquipmentSlot)slot));
-                        break;
-                    }
-                }
-            }
+            Use(hovered);
         }
     }
 
-    private void SendInventory(InventoryCommand command)
+    private void PickUp(OwnedItemView item)
+    {
+        if (item.Slot >= 0)
+        {
+            SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.Unequip, item.InstanceId, 0, 0,
+                (EquipmentSlot)item.Slot), carryAfter: item.InstanceId);
+            return;
+        }
+
+        _dragging = item.InstanceId;
+        ItemSound?.Invoke(item.CatalogKey);
+    }
+
+    private void SetDown(OwnedItemView carried, Point pointer, bool split)
+    {
+        var placement = HudInventoryPlacement.Of(_origin, _state.Items, carried, pointer, HudInventoryPanel.Usable(carried, _state));
+        switch (placement.Kind)
+        {
+            case HudPlacementKind.Fits or HudPlacementKind.Exchange when placement.Slot is { } slot:
+                Send(InventoryAction.Equip, carried, 0, 0, slot, placement.Covered);
+                break;
+            case HudPlacementKind.Fits when placement.Anchor == carried.Anchor:
+                _dragging = Guid.Empty;
+                ItemSound?.Invoke(carried.CatalogKey);
+                break;
+            case HudPlacementKind.Fits when split && carried.Count > 1:
+                Send(InventoryAction.Split, carried, placement.Anchor, carried.Count / 2);
+                break;
+            case HudPlacementKind.Fits:
+                Send(InventoryAction.Move, carried, placement.Anchor);
+                break;
+            case HudPlacementKind.Merge:
+                Send(InventoryAction.Merge, carried, placement.Covered.Anchor);
+                break;
+            case HudPlacementKind.Exchange:
+                Send(InventoryAction.Swap, carried, placement.Anchor, covered: placement.Covered);
+                break;
+            case HudPlacementKind.Outside when ExternalDrop?.Invoke(carried.InstanceId, pointer) == true:
+                _dragging = Guid.Empty;
+                break;
+        }
+    }
+
+    private void Send(InventoryAction action, OwnedItemView carried, int destination, int count = 0, EquipmentSlot slot = default,
+        OwnedItemView covered = null)
+    {
+        _dragging = Guid.Empty;
+        SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, action, carried.InstanceId, destination, count, slot),
+            covered?.InstanceId ?? Guid.Empty);
+    }
+
+    // Right click: a usable item is used, a potion drunk, and an item worn or taken off.
+    private void Use(OwnedItemView item)
+    {
+        if (item.Slot < 0 && UsableItemCatalog.IsUsable(item.CatalogKey))
+        {
+            UseRequested?.Invoke(item);
+            return;
+        }
+
+        if (item.Slot < 0 && item.Kind == ItemKind.Potion)
+        {
+            SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.ConsumePotion, item.InstanceId, 0, 1, default));
+            return;
+        }
+
+        var slot = item.Slot >= 0 ? (EquipmentSlot?)item.Slot : SlotFor(item.Kind);
+        if (slot.HasValue)
+        {
+            SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision,
+                item.Slot >= 0 ? InventoryAction.Unequip : InventoryAction.Equip, item.InstanceId, 0, 0, slot.Value));
+        }
+    }
+
+    private void SendInventory(InventoryCommand command, Guid carryAfter = default)
     {
         _pendingOperation = true;
+        _carryAfter = carryAfter;
         _pendingSound = command.Action == InventoryAction.ConsumePotion
             ? null
             : _state.Items.FirstOrDefault(item => item.InstanceId == command.ItemId)?.CatalogKey;

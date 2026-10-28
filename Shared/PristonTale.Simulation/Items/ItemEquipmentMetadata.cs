@@ -94,6 +94,13 @@ public static class ItemEquipmentMetadata
         return target;
     }
 
+    // Whether an item goes in the slot: its own slot, or either ring slot for a ring.
+    public static bool Fits(ItemKind kind, EquipmentSlot? itemSlot, EquipmentSlot slot) =>
+        itemSlot == slot || kind == ItemKind.Ring && slot is EquipmentSlot.RingLeft or EquipmentSlot.RingRight;
+
+    // The same for a view that knows only the item's kind.
+    public static bool Fits(ItemKind kind, EquipmentSlot slot) => Fits(kind, SlotOf(kind), slot);
+
     // The slot of an item kind, for views that know only the kind.
     public static EquipmentSlot? SlotOf(ItemKind kind) => kind switch
     {

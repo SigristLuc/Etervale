@@ -59,6 +59,9 @@ public sealed partial class GameScene
             PlayPlayerMotionSound(_player.Class.Class, command.Motion, _playerBody.Position);
     }
 
+    // The local player is swinging or casting: the inventory picks nothing up meanwhile.
+    public bool PlayerActing => _playerController.Current is MotionCode.Attack or MotionCode.Skill;
+
     public void DebugForceMotion(MotionCode motion)
         => ApplyPlayerCommand(_playerController.ApplyAuthoritative(motion));
 

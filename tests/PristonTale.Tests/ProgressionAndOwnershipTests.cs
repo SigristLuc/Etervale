@@ -19,6 +19,7 @@ internal static class ProgressionAndOwnershipTests
     {
         yield return ("original XP thresholds, multi-level rewards and job gate", ProgressionAsync);
         yield return ("inventory footprints, split identities and rejected swaps are atomic", GridAsync);
+        yield return ("an item set down over one other takes its place and the other moves where it was or to free space", SwapAsync);
         yield return ("equipment validates requirements, handedness and original weapon formula", EquipmentAsync);
         yield return ("owned state round-trips detached copies and rejects unknown formats", PersistenceAsync);
     }
@@ -74,6 +75,35 @@ internal static class ProgressionAndOwnershipTests
         var before = inventory.Version;
         var oversized = new ItemInstance(new ItemDefinition(4, "Oversized", ItemKind.Misc, GridWidth: 13));
         Assert.True(!inventory.TryExchange(0, oversized) && inventory[0].InstanceId == small.InstanceId && inventory.Version == before, "failed exchange removed item");
+        return Task.CompletedTask;
+    }
+
+    private static Task SwapAsync()
+    {
+        static ItemInstance Item(uint code, int width, int height) => new(new ItemDefinition(code, "Item" + code, ItemKind.Misc, GridWidth: width, GridHeight: height));
+
+        // A 1x3 sword over a 2x3 armour: the sword takes the armour's place and the armour goes where the sword was.
+        var inventory = new Inventory();
+        var sword = Item(1, 1, 3);
+        var armor = Item(2, 2, 3);
+        Assert.True(inventory.TryPlace(sword, 0) && inventory.TryPlace(armor, 5), "fixture placement failed");
+        Assert.True(inventory.TrySwap(0, 5) && inventory[5].InstanceId == sword.InstanceId && inventory[0].InstanceId == armor.InstanceId,
+            "the sword did not take the armour's place, or the armour did not take the sword's");
+
+        var before = inventory.Version;
+        Assert.True(!inventory.TrySwap(5, 3) && inventory.Version == before, "a swap over no item was accepted");
+        Assert.True(inventory.TryPlace(Item(3, 1, 1), 9) && inventory.TryPlace(Item(4, 1, 1), 21), "fixture placement failed");
+        before = inventory.Version;
+        Assert.True(!inventory.TrySwap(5, 9) && inventory.Version == before && inventory[5].InstanceId == sword.InstanceId,
+            "a swap over two items was accepted");
+
+        // The covered armour does not fit where a 1x1 stone was (a blocker beside it): it goes to the first free space.
+        var crowded = new Inventory();
+        var stone = Item(5, 1, 1);
+        var other = Item(6, 2, 3);
+        Assert.True(crowded.TryPlace(stone, 0) && crowded.TryPlace(Item(7, 1, 1), 1) && crowded.TryPlace(other, 5), "fixture placement failed");
+        Assert.True(crowded.TrySwap(0, 5) && crowded[5].InstanceId == stone.InstanceId && crowded.Find(other.InstanceId) == 2,
+            "the covered item did not go to the first free space");
         return Task.CompletedTask;
     }
 

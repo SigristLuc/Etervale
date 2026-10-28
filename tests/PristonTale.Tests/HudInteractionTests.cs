@@ -32,9 +32,10 @@ internal static class HudInteractionTests
         yield return ("original HUD uses the largest integer scale and the 800x600 bottom/right anchors", LayoutAsync);
         yield return ("owner combat statistics survive the owner-status packet", OwnerStatsAsync);
         yield return ("original HUD hit rectangles stay inside their windows without overlapping", HitRectsAsync);
-        yield return ("inventory drag uses original equipment slots and owner revision without changing local items", EquipmentDragAsync);
+        yield return ("a carried item is set down by a second click on an original equipment slot with the owner revision", EquipmentDragAsync);
         yield return ("the pointer attacks over wild monsters, talks over NPCs and stays the arrow elsewhere", CursorKindAsync);
         yield return ("the settings offer only the monitor's sizes: all in fullscreen, those that fit in a window, none borderless", ResolutionsAsync);
+        yield return ("a carried item lands where the original sets it: free cells, one item to exchange, a potion to join, a slot of its kind", PlacementAsync);
         yield return ("original gauges crop bitmaps from the top and follow the source formulas", GaugeAsync);
         yield return ("atlas gauge separation preserves the frame and masks every rectangular corner", AtlasGaugeAsync);
         yield return ("HUD overlays tolerate uninitialized and tiny resized viewports", OverlayAsync);
@@ -184,11 +185,54 @@ internal static class HudInteractionTests
             Assert.True(controller.Dragging == item.InstanceId, "bag item was not picked up");
             var weapon = HudInventoryLayout.Equipment(origin, (int)EquipmentSlot.Weapon).Center;
             controller.Update(state, layout, true, default, MouseAt(weapon, layout.Scale, ButtonState.Released));
+            Assert.True(sent is null && controller.Dragging == item.InstanceId, "releasing the button set the carried item down");
+            controller.Update(state, layout, true, default, MouseAt(weapon, layout.Scale, ButtonState.Pressed));
             Assert.True(sent is { Action: InventoryAction.Equip, Slot: EquipmentSlot.Weapon, ExpectedRevision: 7 }
-                && sent.ItemId == item.InstanceId && sent.OperationId != Guid.Empty, "drop did not preserve the authoritative equipment command");
+                && sent.ItemId == item.InstanceId && sent.OperationId != Guid.Empty, "a click on the weapon slot did not send the authoritative equipment command");
             Assert.True(state.Items[0].Slot == -1 && controller.Dragging == Guid.Empty, "gesture changed immutable owner state or retained drag");
         }
 
+        return Task.CompletedTask;
+    }
+
+    private static Task PlacementAsync()
+    {
+        static OwnedItemView Item(ItemKind kind, int anchor, int width = 1, int height = 1, string key = "", int slot = -1) =>
+            new(Guid.NewGuid(), 1, kind.ToString(), kind, 1, anchor, slot, width, height, key);
+        var origin = HudInventoryLayout.Origin(HudLayout.Create(800, 600));
+        var bag = HudInventoryLayout.Bag(origin);
+        Point CellCentre(int anchor) => new(bag.X + anchor % 12 * 22 + 11, bag.Y + anchor / 12 * 22 + 11);
+
+        var stone = Item(ItemKind.Material, 0);
+        var other = Item(ItemKind.Material, 5);
+        var potion = Item(ItemKind.Potion, 30, key: "PL101");
+        var potions = Item(ItemKind.Potion, 31, key: "PL101");
+        var upper = Item(ItemKind.Material, 7);
+        var lower = Item(ItemKind.Material, 19);
+        var worn = Item(ItemKind.Sword, -1, 1, 3, slot: (int)EquipmentSlot.Weapon);
+        OwnedItemView[] items = [stone, other, potion, potions, upper, lower, worn];
+
+        var free = HudInventoryPlacement.Of(origin, items, stone, CellCentre(3), true);
+        Assert.True(free.Kind == HudPlacementKind.Fits && free.Anchor == 3, $"a free cell gave {free}");
+        var exchange = HudInventoryPlacement.Of(origin, items, stone, CellCentre(5), true);
+        Assert.True(exchange.Kind == HudPlacementKind.Exchange && exchange.Covered == other && exchange.Anchor == 5, $"one covered item gave {exchange}");
+        var join = HudInventoryPlacement.Of(origin, items, potion, CellCentre(31), true);
+        Assert.True(join.Kind == HudPlacementKind.Merge && join.Covered == potions, $"a potion over its kind gave {join}");
+        var tall = Item(ItemKind.Material, 40, 1, 2);
+        var two = HudInventoryPlacement.Of(origin, [.. items, tall], tall, new Point(bag.X + 7 * 22 + 11, bag.Y + 22), true);
+        Assert.True(two.Kind == HudPlacementKind.Blocked, $"two covered items gave {two}");
+
+        var weaponSlot = HudInventoryLayout.Equipment(origin, (int)EquipmentSlot.Weapon).Center;
+        var sword = Item(ItemKind.Sword, 50, 1, 3);
+        var wield = HudInventoryPlacement.Of(origin, items, sword, weaponSlot, true);
+        Assert.True(wield.Kind == HudPlacementKind.Exchange && wield.Slot == EquipmentSlot.Weapon && wield.Covered == worn, $"a sword over the weapon slot gave {wield}");
+        Assert.True(HudInventoryPlacement.Of(origin, items, sword, weaponSlot, false).Kind == HudPlacementKind.Blocked, "an unusable sword was accepted");
+        Assert.True(HudInventoryPlacement.Of(origin, items, Item(ItemKind.Armor, 60, 2, 3), weaponSlot, true).Kind == HudPlacementKind.Blocked,
+            "an armour was accepted in the weapon slot");
+        Assert.True(HudInventoryPlacement.Of(origin, items, stone, new Point(400, origin.Y + 100), true).Kind == HudPlacementKind.Outside,
+            "an item above the window does not leave the bag");
+        Assert.True(HudInventoryPlacement.Of(origin, items, stone, new Point(200, origin.Y + 585), true).Kind == HudPlacementKind.None,
+            "an item over the window's frame has a place");
         return Task.CompletedTask;
     }
 

@@ -10,6 +10,8 @@ namespace PristonTale.Gameplay.UI.Inventory;
 public sealed class HudInventoryPanel
 {
     private static readonly Color Placement = Color.FromNonPremultiplied(160, 235, 255, 128);
+    // The item a click would pick up in exchange (or join), as the original whitens it.
+    private static readonly Color Exchange = Color.FromNonPremultiplied(255, 255, 255, 128);
     private static readonly Color Selection = Color.FromNonPremultiplied(255, 200, 0, 128);
     // Items the character cannot use, in the bag or worn (a worn one then adds nothing).
     private static readonly Color NotUsable = Color.FromNonPremultiplied(255, 0, 0, 64);
@@ -77,7 +79,7 @@ public sealed class HudInventoryPanel
 
         if (dragged is not null && interactive)
         {
-            DrawPlacement(painter, origin, dragged, pointer, Usable(dragged, state));
+            DrawPlacement(painter, HudInventoryPlacement.Of(origin, state.Items, dragged, pointer, Usable(dragged, state)));
         }
 
         foreach (var item in state.Items)
@@ -140,24 +142,18 @@ public sealed class HudInventoryPanel
         item.Details is null || state is null || item.Details.Usable(state.Level,
             new CharacterAttributes(state.Strength, state.Spirit, state.Talent, state.Agility, state.Health));
 
-    private static void DrawPlacement(HudPainter painter, Point origin, OwnedItemView dragged, Point pointer, bool usable)
+    private static void DrawPlacement(HudPainter painter, HudPlacement placement)
     {
-        var cell = HudInventoryLayout.CellAt(origin, pointer);
-        if (cell >= 0)
+        var color = placement.Kind switch
         {
-            var target = HudInventoryLayout.Cell(origin, cell, dragged.Width, dragged.Height);
-            painter.Fill(Rectangle.Intersect(target, HudInventoryLayout.Bag(origin)), Placement);
-            return;
-        }
-
-        for (var slot = 0; slot < 10; slot++)
+            HudPlacementKind.Fits => Placement,
+            HudPlacementKind.Exchange or HudPlacementKind.Merge => Exchange,
+            HudPlacementKind.Blocked => NotUsable,
+            _ => Color.Transparent
+        };
+        if (color != Color.Transparent)
         {
-            var bounds = HudInventoryLayout.Equipment(origin, slot);
-            if (bounds.Contains(pointer))
-            {
-                painter.Fill(bounds, usable ? Placement : NotUsable);
-                return;
-            }
+            painter.Fill(placement.Highlight, color);
         }
     }
 

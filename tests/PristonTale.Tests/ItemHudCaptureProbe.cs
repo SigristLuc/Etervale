@@ -45,7 +45,11 @@ internal sealed class ItemHudCaptureProbe : Game
         LuckyBagTooltip,
         PuzzleBoard,
         PuzzleComplete,
-        PuzzleExchange
+        PuzzleExchange,
+        // The crystal in the first cell carried over a free cell, over the gift box beside it, and over the weapon slot.
+        CarryFree,
+        CarryExchange,
+        CarrySlot
     }
 
     private sealed record Scenario(string Name, Scene Scene, int Width = 800, int Height = 600, double WaitMs = 4200);
@@ -72,7 +76,10 @@ internal sealed class ItemHudCaptureProbe : Game
         new("item-tooltip-luckybag-800", Scene.LuckyBagTooltip, WaitMs: 300),
         new("puzzle-board-800", Scene.PuzzleBoard, WaitMs: 300),
         new("puzzle-complete-800", Scene.PuzzleComplete, WaitMs: 1500),
-        new("puzzle-exchange-800", Scene.PuzzleExchange, WaitMs: 300)
+        new("puzzle-exchange-800", Scene.PuzzleExchange, WaitMs: 300),
+        new("carry-free-800", Scene.CarryFree, WaitMs: 1200),
+        new("carry-exchange-800", Scene.CarryExchange, WaitMs: 1200),
+        new("carry-slot-800", Scene.CarrySlot, WaitMs: 1200)
     ];
 
     private readonly string _assetRoot;
@@ -88,6 +95,7 @@ internal sealed class ItemHudCaptureProbe : Game
     private OwnerState _board = null!;
     private OwnerState _complete = null!;
     private int _scenario;
+    private bool _carrying;
     private int _frames;
     private bool _prepared;
     private double _startedMs;
@@ -172,7 +180,8 @@ internal sealed class ItemHudCaptureProbe : Game
 
     private OwnerState Owner(Scene scene) => scene switch
     {
-        Scene.CrystalTooltip or Scene.GiftTooltip or Scene.ChocolateTooltip or Scene.CastleTooltip or Scene.LuckyBagTooltip => _items,
+        Scene.CrystalTooltip or Scene.GiftTooltip or Scene.ChocolateTooltip or Scene.CastleTooltip or Scene.LuckyBagTooltip
+            or Scene.CarryFree or Scene.CarryExchange or Scene.CarrySlot => _items,
         Scene.PuzzleBoard => _board,
         Scene.PuzzleComplete or Scene.PuzzleExchange => _complete,
         _ => _owner
@@ -217,6 +226,7 @@ internal sealed class ItemHudCaptureProbe : Game
             _hud.Update(owner, default, default);
             var keys = scenario.Scene is Scene.OrbTooltip or Scene.PackageTooltip or Scene.CrystalTooltip or Scene.GiftTooltip or Scene.ChocolateTooltip
                 or Scene.CastleTooltip or Scene.LuckyBagTooltip or Scene.PuzzleBoard or Scene.PuzzleComplete
+                or Scene.CarryFree or Scene.CarryExchange or Scene.CarrySlot
                 ? new KeyboardState(Keys.I)
                 : default;
             _hud.Update(owner, keys, default);
@@ -249,6 +259,16 @@ internal sealed class ItemHudCaptureProbe : Game
 
             _startedMs = _clock.Elapsed.TotalMilliseconds;
             _prepared = true;
+            _carrying = false;
+        }
+
+        // The window takes clicks once it has slid fully open. The HUD reads the pointer against the back buffer's layout
+        // in Update (the capture target is bound only to draw).
+        if (scenario.Scene is Scene.CarryFree or Scene.CarryExchange or Scene.CarrySlot && !_carrying && _clock.Elapsed.TotalMilliseconds - _startedMs > 700)
+        {
+            var updateLayout = HudLayout.Create(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+            Click(updateLayout, HudInventoryLayout.Cell(HudInventoryLayout.Origin(updateLayout), 0).Center, _items);
+            _carrying = true;
         }
 
         _hud.Update(Owner(scenario.Scene), default, Pointer(scenario, layout));
@@ -287,13 +307,14 @@ internal sealed class ItemHudCaptureProbe : Game
         _batch.Dispose();
     }
 
-    private void Click(HudLayout layout, Point logical)
+    private void Click(HudLayout layout, Point logical, OwnerState? owner = null)
     {
         var x = logical.X * layout.Scale;
         var y = logical.Y * layout.Scale;
-        _hud.Update(_owner, default, new MouseState(x, y, 0, ButtonState.Pressed, ButtonState.Released, ButtonState.Released, ButtonState.Released,
+        owner ??= _owner;
+        _hud.Update(owner, default, new MouseState(x, y, 0, ButtonState.Pressed, ButtonState.Released, ButtonState.Released, ButtonState.Released,
             ButtonState.Released));
-        _hud.Update(_owner, default, new MouseState(x, y, 0, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released,
+        _hud.Update(owner, default, new MouseState(x, y, 0, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released,
             ButtonState.Released));
     }
 
@@ -314,6 +335,9 @@ internal sealed class ItemHudCaptureProbe : Game
             Scene.ChocolateTooltip => HudInventoryLayout.Cell(origin, 4, 1, 1).Center,
             Scene.CastleTooltip => HudInventoryLayout.Cell(origin, 6, 1, 1).Center,
             Scene.LuckyBagTooltip => HudInventoryLayout.Cell(origin, 24, 1, 1).Center,
+            Scene.CarryFree => HudInventoryLayout.Cell(origin, 30, 1, 1).Center,
+            Scene.CarryExchange => HudInventoryLayout.Cell(origin, 2, 1, 1).Center,
+            Scene.CarrySlot => HudInventoryLayout.Equipment(origin, (int)EquipmentSlot.Weapon).Center,
             _ => new Point(layout.Width - 200, layout.Height / 2)
         };
         return new MouseState(point.X * layout.Scale, point.Y * layout.Scale, 0, ButtonState.Released, ButtonState.Released, ButtonState.Released,

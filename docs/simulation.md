@@ -409,6 +409,8 @@ totals.
   only their own members.
 - `InventoryRevision` counts changes, not commands: one equip can bump it more than once. Clients must adopt the
   revision returned in the outcome.
+- `InventoryAction.Swap` sets an item down over exactly one other bag item (`Inventory.TrySwap`), which moves to where
+  the first one was, or to the first free space; anything else refuses it.
 - `InventoryAction.ConsumePotion` only removes one potion; the restore is applied later by the Application when the
   eat motion reaches its event (`WorldPlayer`). `Pickup` is handled by `GroundPickupTransactions`, not here.
 - The Application validates on a copy: `CloneForInventoryOperation` (inventory, equipment, progress, skills, pools,

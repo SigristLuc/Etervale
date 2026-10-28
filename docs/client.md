@@ -360,8 +360,13 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
 - Server results reach the HUD as counters: controllers increment `Completions` and set `Message` and `LastOk`;
   `ForwardMessages` shows each new refusal once as a notice and each confirmation as a chat server line; skill notices
   go to the chat, quest hints to its assistant tab ([chat-and-gm.md](chat-and-gm.md#client-chat-window)).
-- Inventory (`HudInventoryController`): left drag moves, Shift-drag splits, drop on another stack merges, drop on an
-  equipment slot equips, right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
+- Inventory (`HudInventoryController`), carried as in the original: a left click picks an item up (an equipped one is
+  taken off first; nothing is picked up while the player swings or casts) and it follows the cursor, centred; the next
+  click sets it down where `HudInventoryPlacement` says: its top-left rounded to the nearest cell, or an equipment slot
+  its frame (less half a cell a side) overlaps. Free cells move it (Shift splits a stack), one covered item is exchanged
+  (`Swap`, or the slot's item for an equip) and the covered item is then carried, a potion of the same kind is joined
+  (`Merge`), two covered items or a slot of another kind or unmet requirements refuse, and above the window the item
+  leaves the bag (`ExternalDrop`: the shop, the warehouse). Right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
   slot first), drinks a potion or uses a usable item (`HudItemUseController`: the Teleport Core window, confirmations,
   the item-use request). One command in flight; it carries the `InventoryRevision` it was built from. A modal
   (`GameplayHud.ModalOpen`: NPC or quest dialog, yes/no box, skill training box, warp map, Teleport Core list,
@@ -387,8 +392,8 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   game. The scene (`GameScene.Restart.cs`) keeps the last offer and sends `RestartAsync`.
 - Inventory window (`HudInventoryPanel`): carried/maximum weight centred in x 326..406 at y 471 of the window; items the
   character cannot use (level, attributes or class against `OwnedItemView.Details`, re-checked on every owner state)
-  get the original red cell tint, in the bag and in their equipment slot, and the slot under a dragged unusable item
-  turns red. The item box (`HudItemDetailTooltip`) lists, one centred label-and-value line each, the name (unique,
+  get the original red cell tint, in the bag and in their equipment slot. Under a carried item the landing cells or slot
+  turn the original light blue, the item an exchange would pick up turns white, and a refused place turns red. The item box (`HudItemDetailTooltip`) lists, one centred label-and-value line each, the name (unique,
   aged or normal colour), attack power, weapon speed, range, critical, defence, attack rating, absorb (with the catalog
   correction, one decimal), block, speed, integrity, the eight resistances, regeneration, added pools, potion storage,
   the requirements (orange when met, red when not), then the class specialization header and its bonuses in green, the

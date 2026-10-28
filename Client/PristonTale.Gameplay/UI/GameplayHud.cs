@@ -173,6 +173,7 @@ public sealed partial class GameplayHud : IDisposable
 
     // The local player is down, and what standing up would cost (from the server).
     public bool PlayerDead { get; set; }
+    public bool PlayerActing { get; set; }
     public RestartOffer? RestartOffer { get; set; }
 
     // The restart window; the screen sets its request and quits on its exit choice.
@@ -418,6 +419,7 @@ public sealed partial class GameplayHud : IDisposable
         var hoveredSkill = _skillSlide.FullyOpen && _skillMaster == 0 ? _skills.HoveredSkill(skillOrigin, pointer) : 0;
         _bindings.Update(typing ? default : keyboard, mouse, hoveredSkill);
         PointerCaptured = Captures(layout, pointer, design) || _chat.Window.Contains(layout, pointer, SideWindowOpen) || _inventory.Dragging != Guid.Empty || _warehouse.Dragging != Guid.Empty;
+        _inventory.PickupLocked = PlayerActing;
         _inventory.Update(state, layout, _inventorySlide.FullyOpen && !_settingsOpen && !ModalOpen, keyboard, mouse);
         _previousKeyboard = keyboard;
         _previousMouse = mouse;

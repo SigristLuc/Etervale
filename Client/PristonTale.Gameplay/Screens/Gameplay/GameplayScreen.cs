@@ -127,6 +127,7 @@ public sealed class GameplayScreen : GameScreen
         _hud.PremiumTimers = _scene.PremiumTimers;
         _hud.InCastleField = field?.State == Simulation.World.FieldState.Castle;
         _hud.PlayerDead = _scene.PlayerDead;
+        _hud.PlayerActing = _scene.PlayerActing;
         _hud.RestartOffer = _scene.RestartOffer;
         _hud.Update(_scene.Owner);
         _scene.PointerCaptured = _hud.PointerCaptured;

@@ -10,7 +10,9 @@ public enum InventoryAction
     Equip,
     Unequip,
     ConsumePotion,
-    Pickup
+    Pickup,
+    // Sets the item down over exactly one other bag item, which takes its place (Inventory.TrySwap).
+    Swap
 }
 
 public sealed record InventoryCommand(Guid OperationId, long ExpectedRevision, InventoryAction Action,
@@ -38,6 +40,7 @@ public static class InventoryCommands
             InventoryAction.Move => character.Inventory.TryMove(anchor, command.Destination),
             InventoryAction.Split => character.Inventory.TrySplit(anchor, command.Destination, command.Count),
             InventoryAction.Merge => character.Inventory.TryMerge(anchor, command.Destination),
+            InventoryAction.Swap => character.Inventory.TrySwap(anchor, command.Destination),
             InventoryAction.Equip => character.TryEquipFromInventory(anchor, command.Slot),
             InventoryAction.Unequip => character.GetEquipped(command.Slot)?.InstanceId == command.ItemId && character.TryUnequip(command.Slot),
             InventoryAction.ConsumePotion => command.Count == 1 && anchor >= 0 && character.Life > 0

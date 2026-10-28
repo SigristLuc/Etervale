@@ -157,6 +157,65 @@ public sealed class Inventory
         return true;
     }
 
+    // Sets the item at `from` down with its top-left at `to` over exactly one other item, which moves to where the first
+    // one was, or to the first free space: the bag side of the original's exchange, where the covered item is picked up.
+    public bool TrySwap(int from, int to)
+    {
+        if (from < 0 || from >= Capacity || _slots[from] is not { } item || to < 0 || to >= Capacity)
+        {
+            return false;
+        }
+
+        var covered = -1;
+        var x = to % Width;
+        var y = to / Width;
+        for (var index = 0; index < Capacity; index++)
+        {
+            if (index == from || _slots[index] is not { } other || !Overlaps(index, other.Definition, x, y, item.Definition))
+            {
+                continue;
+            }
+
+            if (covered >= 0)
+            {
+                return false;
+            }
+
+            covered = index;
+        }
+
+        if (covered < 0)
+        {
+            return false;
+        }
+
+        var displaced = _slots[covered];
+        Span<uint> rows = stackalloc uint[Height];
+        _rows.CopyTo(rows);
+        SetFootprint(rows, from, item.Definition, false);
+        SetFootprint(rows, covered, displaced.Definition, false);
+        if (!Fits(to, item.Definition, rows))
+        {
+            return false;
+        }
+
+        SetFootprint(rows, to, item.Definition, true);
+        var destination = Fits(from, displaced.Definition, rows) ? from : FindSpace(displaced.Definition, rows);
+        if (destination < 0)
+        {
+            return false;
+        }
+
+        SetFootprint(rows, destination, displaced.Definition, true);
+        _slots[from] = null;
+        _slots[covered] = null;
+        _slots[to] = item;
+        _slots[destination] = displaced;
+        rows.CopyTo(_rows);
+        NotifyChanged();
+        return true;
+    }
+
     public bool TryExchange(int anchor, ItemInstance replacement)
     {
         if (anchor < 0 || anchor >= Capacity || _slots[anchor] is not { } outgoing)
@@ -316,6 +375,13 @@ public sealed class Inventory
         }
 
         return true;
+    }
+
+    private bool Overlaps(int anchor, ItemDefinition definition, int x, int y, ItemDefinition other)
+    {
+        var left = anchor % Width;
+        var top = anchor / Width;
+        return left < x + other.GridWidth && x < left + definition.GridWidth && top < y + other.GridHeight && y < top + definition.GridHeight;
     }
 
     private void SetFootprint(Span<uint> rows, int anchor, ItemDefinition definition, bool occupied)
