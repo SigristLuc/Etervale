@@ -5,9 +5,11 @@ namespace PristonTale.Protocol.Packets;
 // The values of one owned item copy that the owner's tooltips and equipment rules need: durability, rolled stats,
 // requirements, price, class specialization, the fixed values of its kind, the aging under way and the mix's highest
 // sheltom. Flags: bit 0 two-handed, bit 1 the owner's class may use the item.
-public sealed record ItemDetailEntry
+public sealed record ItemDetailEntry : IWireEntry<ItemDetailEntry>
 {
     public const int Size = 16 + 4 * 37 + 4 * 14 + 2 * 8;
+
+    static int IWireEntry<ItemDetailEntry>.Size => Size;
     public const int FlagTwoHanded = 1;
     public const int FlagClassAllowed = 2;
 
@@ -153,16 +155,11 @@ public sealed record ItemDetailsPartPacket(long Revision, int Part, int Parts, I
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.ItemDetails);
-        writer.UInt16(CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, CurrentVersion);
         writer.Int64(Revision);
         writer.Int32(Part);
         writer.Int32(Parts);
-        writer.Int32(Items.Count);
-        foreach (var item in Items)
-        {
-            item.Write(ref writer);
-        }
+        WireList.Write(ref writer, Items);
 
         return writer.Finish();
     }
@@ -179,19 +176,12 @@ public sealed record ItemDetailsPartPacket(long Revision, int Part, int Parts, I
         var revision = reader.Int64();
         var part = reader.Int32();
         var parts = reader.Int32();
-        var count = reader.Int32();
-        if (parts < 1 || part < 0 || part >= parts || count < 0 || count > MaxItemsPerPart || reader.Remaining != count * ItemDetailEntry.Size)
+        if (parts < 1 || part < 0 || part >= parts)
         {
-            throw new InvalidDataException("Item details part has invalid counts.");
+            throw new InvalidDataException("Item details part has an invalid part number.");
         }
 
-        var items = new ItemDetailEntry[count];
-        for (var index = 0; index < count; index++)
-        {
-            items[index] = ItemDetailEntry.Read(ref reader);
-        }
-
-        return new ItemDetailsPartPacket(revision, part, parts, items);
+        return new ItemDetailsPartPacket(revision, part, parts, WireList.Read<ItemDetailEntry>(ref reader, MaxItemsPerPart, "Item details part"));
     }
 }
 
@@ -217,8 +207,7 @@ public sealed record OwnerItemStatusPacket(
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.OwnerItemStatus);
-        writer.UInt16(CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, CurrentVersion);
         writer.Int32(CarriedWeight);
         writer.Int32(MaxWeight);
         writer.Int32(CriticalChance);

@@ -142,8 +142,7 @@ public readonly record struct YahooKeyPacket : IFramePacket
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.YahooKey);
-        writer.UInt16(CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, CurrentVersion);
         return writer.Finish();
     }
 

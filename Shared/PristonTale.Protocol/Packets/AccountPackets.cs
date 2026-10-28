@@ -41,8 +41,7 @@ public readonly record struct ServerHelloPacket(uint Protocol, uint MinimumProto
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.ServerHello);
-        writer.UInt16(AccountWire.CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, AccountWire.CurrentVersion);
         writer.UInt32(Protocol);
         writer.UInt32(MinimumProtocol);
         writer.Int32(FullPlayers);
@@ -68,8 +67,7 @@ public readonly record struct LoginPacket(uint Protocol, string Account, string 
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.Login);
-        writer.UInt16(AccountWire.CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, AccountWire.CurrentVersion);
         writer.UInt32(Protocol);
         Utf8Text.Write(ref writer, Account, AccountWire.MaxAccountBytes);
         Utf8Text.Write(ref writer, Password, AccountWire.MaxPasswordBytes);
@@ -176,8 +174,7 @@ public sealed record CharacterListPacket(IReadOnlyList<CharacterListEntry> Chara
         }
 
         var writer = new PacketWriter(destination, EtervaleOpcodes.CharacterList);
-        writer.UInt16(AccountWire.CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, AccountWire.CurrentVersion);
         writer.Int32(Characters.Count);
         foreach (var character in Characters)
         {
@@ -291,8 +288,7 @@ public readonly record struct HeartbeatPacket(uint Counter, long TimeMs) : IFram
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.Heartbeat);
-        writer.UInt16(AccountWire.CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, AccountWire.CurrentVersion);
         writer.UInt32(Counter);
         writer.Int64(TimeMs);
         return writer.Finish();

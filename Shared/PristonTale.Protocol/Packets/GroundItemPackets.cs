@@ -50,8 +50,7 @@ public static class GroundItemList
         }
 
         var writer = new PacketWriter(destination, EtervaleOpcodes.GroundItems);
-        writer.UInt16(CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, CurrentVersion);
         writer.Int32(items.Length);
         foreach (var item in items)
         {
@@ -102,8 +101,7 @@ public static class GroundItemRemovals
         }
 
         var writer = new PacketWriter(destination, EtervaleOpcodes.GroundItemsRemoved);
-        writer.UInt16(CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, CurrentVersion);
         writer.Int32(ids.Length);
         foreach (var id in ids)
         {
@@ -135,13 +133,5 @@ public static class GroundItemRemovals
 
 internal static class GroundItemWire
 {
-    internal static void ReadVersion(ref PacketReader reader, string what)
-    {
-        if (reader.UInt16() == 0)
-        {
-            throw new InvalidDataException($"{what} has version 0.");
-        }
-
-        reader.Skip(2);
-    }
+    internal static void ReadVersion(ref PacketReader reader, string what) => WireHeader.Read(ref reader, what);
 }

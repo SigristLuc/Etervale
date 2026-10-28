@@ -86,8 +86,7 @@ public static class CloseRequestPacket
     public static int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.CloseRequest);
-        writer.UInt16(ChatWire.CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, ChatWire.CurrentVersion);
         return writer.Finish();
     }
 

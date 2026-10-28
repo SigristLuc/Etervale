@@ -12,21 +12,9 @@ public static class NpcWire
     public const int MaxMessageBytes = 128;
     public const int MaxLineBytes = 256;
 
-    internal static void Header(ref PacketWriter writer)
-    {
-        writer.UInt16(Version);
-        writer.UInt16(0);
-    }
+    internal static void Header(ref PacketWriter writer) => WireHeader.Write(ref writer, Version);
 
-    internal static void ReadHeader(ref PacketReader reader)
-    {
-        if (reader.UInt16() < Version)
-        {
-            throw new InvalidDataException("NPC message has an older layout.");
-        }
-
-        reader.Skip(2);
-    }
+    internal static void ReadHeader(ref PacketReader reader) => WireHeader.Read(ref reader, "NPC message", Version);
 
     internal static void Text(ref PacketWriter writer, string? value, int maxBytes) => Utf8Text.Write(ref writer, value, maxBytes);
 
@@ -348,8 +336,23 @@ public sealed record ShopCatalogPacket(Guid OperationId, ulong NpcId, IReadOnlyL
 }
 
 public readonly record struct ShopQuoteEntry(Guid ItemId, long SellPrice, long RepairCost, int Durability, int MaxDurability)
+    : IWireEntry<ShopQuoteEntry>
 {
     public const int Size = 16 + 8 + 8 + 4 + 4;
+
+    static int IWireEntry<ShopQuoteEntry>.Size => Size;
+
+    public void Write(ref PacketWriter writer)
+    {
+        writer.Guid(ItemId);
+        writer.Int64(SellPrice);
+        writer.Int64(RepairCost);
+        writer.Int32(Durability);
+        writer.Int32(MaxDurability);
+    }
+
+    public static ShopQuoteEntry Read(ref PacketReader reader) =>
+        new(reader.Guid(), reader.Int64(), reader.Int64(), reader.Int32(), reader.Int32());
 }
 
 // What the shop pays for each owned item and what repairing it costs: {header, Guid OperationId, uint64 NpcId,
@@ -373,15 +376,7 @@ public sealed record ShopQuotesPacket(Guid OperationId, ulong NpcId, long Invent
         writer.Guid(OperationId);
         writer.UInt64(NpcId);
         writer.Int64(InventoryRevision);
-        writer.Int32(Items.Count);
-        foreach (var item in Items)
-        {
-            writer.Guid(item.ItemId);
-            writer.Int64(item.SellPrice);
-            writer.Int64(item.RepairCost);
-            writer.Int32(item.Durability);
-            writer.Int32(item.MaxDurability);
-        }
+        WireList.Write(ref writer, Items);
 
         return writer.Finish();
     }
@@ -393,19 +388,7 @@ public sealed record ShopQuotesPacket(Guid OperationId, ulong NpcId, long Invent
         var operation = r.Guid();
         var entityId = r.UInt64();
         var revision = r.Int64();
-        var count = r.Int32();
-        if (count < 0 || count > MaxItems || r.Remaining != count * ShopQuoteEntry.Size)
-        {
-            throw new InvalidDataException("Shop quotes have an invalid count.");
-        }
-
-        var items = new ShopQuoteEntry[count];
-        for (var index = 0; index < count; index++)
-        {
-            items[index] = new ShopQuoteEntry(r.Guid(), r.Int64(), r.Int64(), r.Int32(), r.Int32());
-        }
-
-        return new ShopQuotesPacket(operation, entityId, revision, items);
+        return new ShopQuotesPacket(operation, entityId, revision, WireList.Read<ShopQuoteEntry>(ref r, MaxItems, "Shop quote list"));
     }
 }
 

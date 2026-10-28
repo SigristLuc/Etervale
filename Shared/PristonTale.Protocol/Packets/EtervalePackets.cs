@@ -283,9 +283,11 @@ public readonly record struct CombatEventEntry(
     int Y,
     int Z,
     short Angle,
-    short Clip = -1)
+    short Clip = -1) : IWireEntry<CombatEventEntry>
 {
     public const int Size = 56;
+
+    static int IWireEntry<CombatEventEntry>.Size => Size;
 
     public void Write(ref PacketWriter writer)
     {
@@ -331,11 +333,7 @@ public static class CombatEventList
     public static int Write(Span<byte> destination, ReadOnlySpan<CombatEventEntry> events)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.CombatEvents);
-        writer.Int32(events.Length);
-        foreach (var entry in events)
-        {
-            entry.Write(ref writer);
-        }
+        WireList.Write(ref writer, events);
 
         return writer.Finish();
     }
@@ -343,19 +341,7 @@ public static class CombatEventList
     public static CombatEventEntry[] Read(ReadOnlySpan<byte> packet)
     {
         var reader = new PacketReader(packet, HeaderSize);
-        var count = reader.Int32();
-        if (count < 0 || count > MaxEvents || reader.Remaining != count * CombatEventEntry.Size)
-        {
-            throw new InvalidDataException("Combat event list has an invalid count.");
-        }
-
-        var events = new CombatEventEntry[count];
-        for (var index = 0; index < count; index++)
-        {
-            events[index] = CombatEventEntry.Read(ref reader);
-        }
-
-        return events;
+        return WireList.Read<CombatEventEntry>(ref reader, MaxEvents, "Combat event list");
     }
 }
 
@@ -412,8 +398,7 @@ public readonly record struct PresenceClockPacket(uint ServerTick, uint TickInte
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.PresenceClock);
-        writer.UInt16(CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, CurrentVersion);
         writer.UInt32(ServerTick);
         writer.UInt32(TickIntervalMs);
         return writer.Finish();

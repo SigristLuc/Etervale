@@ -10,21 +10,9 @@ internal static class DescriptionWire
     public const int MaxNameBytes = 64;
     public const int MaxModelBytes = 160;
 
-    public static void Header(ref PacketWriter writer)
-    {
-        writer.UInt16(Version);
-        writer.UInt16(0);
-    }
+    public static void Header(ref PacketWriter writer) => WireHeader.Write(ref writer, Version);
 
-    public static void ReadHeader(ref PacketReader reader)
-    {
-        if (reader.UInt16() == 0)
-        {
-            throw new InvalidDataException("Description message has version 0.");
-        }
-
-        reader.Skip(2);
-    }
+    public static void ReadHeader(ref PacketReader reader) => WireHeader.Read(ref reader, "Description message");
 }
 
 // C->S: asks for the description of an entity in view. {header, uint16 Version = 1, uint16 Flags = 0, varuint EntityId}.

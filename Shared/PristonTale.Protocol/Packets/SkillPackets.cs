@@ -64,8 +64,7 @@ public readonly record struct SkillCastResultPacket(uint Sequence, uint SkillCod
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.SkillCastResult);
-        writer.UInt16(CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, CurrentVersion);
         writer.UInt32(Sequence);
         writer.UInt32(SkillCode);
         writer.Byte((byte)Status);
@@ -114,9 +113,11 @@ public readonly record struct SkillEventEntry(
     int Z,
     short Angle,
     ushort TargetCount,
-    int Radius)
+    int Radius) : IWireEntry<SkillEventEntry>
 {
     public const int Size = 56;
+
+    static int IWireEntry<SkillEventEntry>.Size => Size;
 
     public void Write(ref PacketWriter writer)
     {
@@ -175,13 +176,8 @@ public static class SkillEventList
         }
 
         var writer = new PacketWriter(destination, EtervaleOpcodes.SkillEvents);
-        writer.UInt16(CurrentVersion);
-        writer.UInt16(0);
-        writer.Int32(events.Length);
-        foreach (var entry in events)
-        {
-            entry.Write(ref writer);
-        }
+        WireHeader.Write(ref writer, CurrentVersion);
+        WireList.Write(ref writer, events);
 
         return writer.Finish();
     }
@@ -190,19 +186,7 @@ public static class SkillEventList
     {
         var reader = new PacketReader(packet, HeaderSize);
         SkillWire.ReadVersion(ref reader, "Skill event list");
-        var count = reader.Int32();
-        if (count < 0 || count > MaxEvents || reader.Remaining != count * SkillEventEntry.Size)
-        {
-            throw new InvalidDataException("Skill event list has an invalid count.");
-        }
-
-        var events = new SkillEventEntry[count];
-        for (var index = 0; index < count; index++)
-        {
-            events[index] = SkillEventEntry.Read(ref reader);
-        }
-
-        return events;
+        return WireList.Read<SkillEventEntry>(ref reader, MaxEvents, "Skill event list");
     }
 }
 
@@ -229,9 +213,11 @@ public readonly record struct StatusEffectEntry(
     ushort Flags,
     int DurationMs,
     int RemainingMs,
-    int Value)
+    int Value) : IWireEntry<StatusEffectEntry>
 {
     public const int Size = 40;
+
+    static int IWireEntry<StatusEffectEntry>.Size => Size;
 
     public void Write(ref PacketWriter writer)
     {
@@ -291,13 +277,8 @@ public static class StatusEffectList
         }
 
         var writer = new PacketWriter(destination, EtervaleOpcodes.StatusEffects);
-        writer.UInt16(CurrentVersion);
-        writer.UInt16(0);
-        writer.Int32(entries.Length);
-        foreach (var entry in entries)
-        {
-            entry.Write(ref writer);
-        }
+        WireHeader.Write(ref writer, CurrentVersion);
+        WireList.Write(ref writer, entries);
 
         return writer.Finish();
     }
@@ -306,25 +287,28 @@ public static class StatusEffectList
     {
         var reader = new PacketReader(packet, HeaderSize);
         SkillWire.ReadVersion(ref reader, "Status effect list");
-        var count = reader.Int32();
-        if (count < 0 || count > MaxEntries || reader.Remaining != count * StatusEffectEntry.Size)
-        {
-            throw new InvalidDataException("Status effect list has an invalid count.");
-        }
-
-        var entries = new StatusEffectEntry[count];
-        for (var index = 0; index < count; index++)
-        {
-            entries[index] = StatusEffectEntry.Read(ref reader);
-        }
-
-        return entries;
+        return WireList.Read<StatusEffectEntry>(ref reader, MaxEntries, "Status effect list");
     }
 }
 
-public readonly record struct SkillCooldownEntry(uint SkillCode, uint RemainingMs, uint DurationMs)
+public readonly record struct SkillCooldownEntry(uint SkillCode, uint RemainingMs, uint DurationMs) : IWireEntry<SkillCooldownEntry>
 {
     public const int Size = 12;
+
+    static int IWireEntry<SkillCooldownEntry>.Size => Size;
+
+    public void Write(ref PacketWriter writer)
+    {
+        writer.UInt32(SkillCode);
+        writer.UInt32(RemainingMs);
+        writer.UInt32(DurationMs);
+    }
+
+    public static SkillCooldownEntry Read(ref PacketReader reader)
+    {
+        var entry = new SkillCooldownEntry(reader.UInt32(), reader.UInt32(), reader.UInt32());
+        return entry.RemainingMs <= entry.DurationMs ? entry : throw new InvalidDataException("Skill cooldown remains longer than its duration.");
+    }
 }
 
 // The owner's running cooldowns at ServerTick: {size, code, Version, Flags, ServerTick, Count, entries}. A skill that is
@@ -343,16 +327,9 @@ public sealed record SkillCooldownsPacket(uint ServerTick, IReadOnlyList<SkillCo
         }
 
         var writer = new PacketWriter(destination, EtervaleOpcodes.SkillCooldowns);
-        writer.UInt16(CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, CurrentVersion);
         writer.UInt32(ServerTick);
-        writer.Int32(Cooldowns.Count);
-        foreach (var entry in Cooldowns)
-        {
-            writer.UInt32(entry.SkillCode);
-            writer.UInt32(entry.RemainingMs);
-            writer.UInt32(entry.DurationMs);
-        }
+        WireList.Write(ref writer, Cooldowns);
 
         return writer.Finish();
     }
@@ -362,37 +339,11 @@ public sealed record SkillCooldownsPacket(uint ServerTick, IReadOnlyList<SkillCo
         var reader = new PacketReader(packet, HeaderSize);
         SkillWire.ReadVersion(ref reader, "Skill cooldowns");
         var tick = reader.UInt32();
-        var count = reader.Int32();
-        if (count < 0 || count > MaxEntries || reader.Remaining != count * SkillCooldownEntry.Size)
-        {
-            throw new InvalidDataException("Skill cooldown list has an invalid count.");
-        }
-
-        var entries = new SkillCooldownEntry[count];
-        for (var index = 0; index < count; index++)
-        {
-            var entry = new SkillCooldownEntry(reader.UInt32(), reader.UInt32(), reader.UInt32());
-            if (entry.RemainingMs > entry.DurationMs)
-            {
-                throw new InvalidDataException("Skill cooldown remains longer than its duration.");
-            }
-
-            entries[index] = entry;
-        }
-
-        return new SkillCooldownsPacket(tick, entries);
+        return new SkillCooldownsPacket(tick, WireList.Read<SkillCooldownEntry>(ref reader, MaxEntries, "Skill cooldown list"));
     }
 }
 
 internal static class SkillWire
 {
-    public static void ReadVersion(ref PacketReader reader, string name)
-    {
-        var version = reader.UInt16();
-        reader.Skip(2);
-        if (version == 0)
-        {
-            throw new InvalidDataException($"{name} has version 0.");
-        }
-    }
+    public static void ReadVersion(ref PacketReader reader, string name) => WireHeader.Read(ref reader, name);
 }

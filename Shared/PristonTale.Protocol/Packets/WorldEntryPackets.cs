@@ -27,8 +27,7 @@ public readonly record struct EnterWorldPacket(string Name) : IFramePacket
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.EnterWorld);
-        writer.UInt16(WorldEntryWire.CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, WorldEntryWire.CurrentVersion);
         Utf8Text.Write(ref writer, Name, WorldEntryWire.MaxNameBytes);
         return writer.Finish();
     }
@@ -83,8 +82,7 @@ public readonly record struct JoinWorldPacket(ulong EntityId) : IFramePacket
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.JoinWorld);
-        writer.UInt16(WorldEntryWire.CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, WorldEntryWire.CurrentVersion);
         writer.UInt64(EntityId);
         return writer.Finish();
     }

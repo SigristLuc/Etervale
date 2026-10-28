@@ -7,21 +7,9 @@ internal static class RestartWire
 {
     public const ushort Version = 1;
 
-    public static void Header(ref PacketWriter writer)
-    {
-        writer.UInt16(Version);
-        writer.UInt16(0);
-    }
+    public static void Header(ref PacketWriter writer) => WireHeader.Write(ref writer, Version);
 
-    public static void ReadHeader(ref PacketReader reader)
-    {
-        if (reader.UInt16() == 0)
-        {
-            throw new InvalidDataException("Restart message has version 0.");
-        }
-
-        reader.Skip(2);
-    }
+    public static void ReadHeader(ref PacketReader reader) => WireHeader.Read(ref reader, "Restart message");
 }
 
 // C->S: a dead player chooses where to stand up. {header, Guid OperationId, uint8 Choice (1 field, 2 town, 3 exit),

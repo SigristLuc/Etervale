@@ -21,6 +21,8 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Binary/FrameCodec.cs` | `FrameCodec`: the `{size, code}` header and the 8192-byte limit. |
 | `Binary/PacketReader.cs`, `Binary/PacketWriter.cs` | Little-endian sequential reader/writer; the writer patches the size in `Finish()`. |
 | `Binary/Utf8Text.cs` | Text fields: `{uint16 ByteLength, UTF-8}`, cut at a whole character. |
+| `Binary/WireHeader.cs` | `{uint16 Version, uint16 Flags = 0}` body header: `Write(version)`, `Read(name, minimumVersion = 1)` (newer versions append fields). Domain helpers (`NpcWire.Header`, `ItemUseWire.ReadHeader`...) delegate to it. |
+| `Binary/WireList.cs` | `IWireEntry<T>` (static `Size`, `Read`, instance `Write`) and `WireList`: `{int32 Count, entries}` with the entries filling the rest exactly; every fixed-size list (combat, skill and status events, cooldowns, timers, item effects, shop quotes, item details) uses it. |
 | `Packets/IFramePacket.cs` | `IFramePacket`: a message that writes itself as one frame; every client-to-server message implements it. |
 | `Packets/AccountPackets.cs` | `ProtocolVersion`, `ServerHello`, `Login`/`LoginResult`, `CharacterList`, `CharacterCommand`/`CharacterResult`, `Heartbeat`. |
 | `Packets/PlayerActionPackets.cs` | `MovementReport`, `AttackRequest` and `FieldWarp`. |

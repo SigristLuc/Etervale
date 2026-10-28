@@ -10,21 +10,9 @@ public static class ItemUseWire
     public const int MaxTextBytes = 64;
     public const int MaxMessageBytes = 128;
 
-    internal static void Header(ref PacketWriter writer)
-    {
-        writer.UInt16(Version);
-        writer.UInt16(0);
-    }
+    internal static void Header(ref PacketWriter writer) => WireHeader.Write(ref writer, Version);
 
-    internal static void ReadHeader(ref PacketReader reader)
-    {
-        if (reader.UInt16() == 0)
-        {
-            throw new InvalidDataException("Item use message has version 0.");
-        }
-
-        reader.Skip(2);
-    }
+    internal static void ReadHeader(ref PacketReader reader) => WireHeader.Read(ref reader, "Item use message");
 }
 
 // C->S: use one owned item. {header, Guid OperationId, int64 ExpectedRevision, Guid ItemId, int32 Argument, text Text}.
@@ -67,8 +55,7 @@ public sealed record ItemUseResultPacket(Guid OperationId, bool Ok, long Revisio
         writer.Guid(OperationId);
         writer.Int32(Ok ? 1 : 0);
         writer.Int64(Revision);
-        writer.UInt16(Status);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, Status);
         writer.UInt32(ItemCode);
         NpcWire.Text(ref writer, Message, ItemUseWire.MaxMessageBytes);
         return writer.Finish();
@@ -88,9 +75,27 @@ public sealed record ItemUseResultPacket(Guid OperationId, bool Ok, long Revisio
     }
 }
 
-public readonly record struct PremiumTimerEntry(byte Kind, int Value, uint RemainingSeconds, uint DurationSeconds)
+public readonly record struct PremiumTimerEntry(byte Kind, int Value, uint RemainingSeconds, uint DurationSeconds) : IWireEntry<PremiumTimerEntry>
 {
     public const int Size = 16;
+
+    static int IWireEntry<PremiumTimerEntry>.Size => Size;
+
+    public void Write(ref PacketWriter writer)
+    {
+        writer.Byte(Kind);
+        writer.Zero(3);
+        writer.Int32(Value);
+        writer.UInt32(RemainingSeconds);
+        writer.UInt32(DurationSeconds);
+    }
+
+    public static PremiumTimerEntry Read(ref PacketReader reader)
+    {
+        var kind = reader.Byte();
+        reader.Skip(3);
+        return new PremiumTimerEntry(kind, reader.Int32(), reader.UInt32(), reader.UInt32());
+    }
 }
 
 // S->C, owner only: every running timed item effect. {header, int64 Revision, int32 Count, entries {uint8 Kind,
@@ -110,15 +115,7 @@ public sealed record PremiumTimersPacket(long Revision, IReadOnlyList<PremiumTim
         var writer = new PacketWriter(destination, EtervaleOpcodes.PremiumTimers);
         ItemUseWire.Header(ref writer);
         writer.Int64(Revision);
-        writer.Int32(Timers.Count);
-        foreach (var timer in Timers)
-        {
-            writer.Byte(timer.Kind);
-            writer.Zero(3);
-            writer.Int32(timer.Value);
-            writer.UInt32(timer.RemainingSeconds);
-            writer.UInt32(timer.DurationSeconds);
-        }
+        WireList.Write(ref writer, Timers);
 
         return writer.Finish();
     }
@@ -128,27 +125,38 @@ public sealed record PremiumTimersPacket(long Revision, IReadOnlyList<PremiumTim
         var reader = new PacketReader(packet, HeaderSize);
         ItemUseWire.ReadHeader(ref reader);
         var revision = reader.Int64();
-        var count = reader.Int32();
-        if (count < 0 || count > MaxTimers || reader.Remaining != count * PremiumTimerEntry.Size)
-        {
-            throw new InvalidDataException("Timed item effect list has an invalid count.");
-        }
-
-        var timers = new PremiumTimerEntry[count];
-        for (var index = 0; index < count; index++)
-        {
-            var kind = reader.Byte();
-            reader.Skip(3);
-            timers[index] = new PremiumTimerEntry(kind, reader.Int32(), reader.UInt32(), reader.UInt32());
-        }
-
-        return new PremiumTimersPacket(revision, timers);
+        return new PremiumTimersPacket(revision, WireList.Read<PremiumTimerEntry>(ref reader, MaxTimers, "Timed item effect list"));
     }
 }
 
 public readonly record struct ItemEffectEntry(ulong Entity, uint ItemCode, byte Effect, int X, int Y, int Z, int Variant, ulong Target)
+    : IWireEntry<ItemEffectEntry>
 {
     public const int Size = 40;
+
+    static int IWireEntry<ItemEffectEntry>.Size => Size;
+
+    public void Write(ref PacketWriter writer)
+    {
+        writer.UInt64(Entity);
+        writer.UInt32(ItemCode);
+        writer.Byte(Effect);
+        writer.Zero(3);
+        writer.Int32(X);
+        writer.Int32(Y);
+        writer.Int32(Z);
+        writer.Int32(Variant);
+        writer.UInt64(Target);
+    }
+
+    public static ItemEffectEntry Read(ref PacketReader reader)
+    {
+        var entity = reader.UInt64();
+        var code = reader.UInt32();
+        var effect = reader.Byte();
+        reader.Skip(3);
+        return new ItemEffectEntry(entity, code, effect, reader.Int32(), reader.Int32(), reader.Int32(), reader.Int32(), reader.UInt64());
+    }
 }
 
 // S->C, presence timeline: items whose use plays a visible effect around a player (firecrackers, mastery). {header,
@@ -168,19 +176,7 @@ public sealed record ItemEffectsPacket(IReadOnlyList<ItemEffectEntry> Effects)
 
         var writer = new PacketWriter(destination, EtervaleOpcodes.ItemEffects);
         ItemUseWire.Header(ref writer);
-        writer.Int32(Effects.Count);
-        foreach (var effect in Effects)
-        {
-            writer.UInt64(effect.Entity);
-            writer.UInt32(effect.ItemCode);
-            writer.Byte(effect.Effect);
-            writer.Zero(3);
-            writer.Int32(effect.X);
-            writer.Int32(effect.Y);
-            writer.Int32(effect.Z);
-            writer.Int32(effect.Variant);
-            writer.UInt64(effect.Target);
-        }
+        WireList.Write(ref writer, Effects);
 
         return writer.Finish();
     }
@@ -189,22 +185,6 @@ public sealed record ItemEffectsPacket(IReadOnlyList<ItemEffectEntry> Effects)
     {
         var reader = new PacketReader(packet, HeaderSize);
         ItemUseWire.ReadHeader(ref reader);
-        var count = reader.Int32();
-        if (count < 0 || count > MaxEffects || reader.Remaining != count * ItemEffectEntry.Size)
-        {
-            throw new InvalidDataException("Item effect list has an invalid count.");
-        }
-
-        var effects = new ItemEffectEntry[count];
-        for (var index = 0; index < count; index++)
-        {
-            var entity = reader.UInt64();
-            var code = reader.UInt32();
-            var effect = reader.Byte();
-            reader.Skip(3);
-            effects[index] = new ItemEffectEntry(entity, code, effect, reader.Int32(), reader.Int32(), reader.Int32(), reader.Int32(), reader.UInt64());
-        }
-
-        return new ItemEffectsPacket(effects);
+        return new ItemEffectsPacket(WireList.Read<ItemEffectEntry>(ref reader, MaxEffects, "Item effect list"));
     }
 }

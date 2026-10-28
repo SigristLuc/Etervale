@@ -13,8 +13,7 @@ public sealed record WingGateRequestPacket(Guid OperationId, byte Destination) :
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.WingGateRequest);
-        writer.UInt16(CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, CurrentVersion);
         writer.Guid(OperationId);
         writer.Byte(Destination);
         writer.Zero(3);
@@ -45,8 +44,7 @@ public sealed record WingGateResultPacket(Guid OperationId, byte Status, byte De
     public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.WingGateResult);
-        writer.UInt16(CurrentVersion);
-        writer.UInt16(0);
+        WireHeader.Write(ref writer, CurrentVersion);
         writer.Guid(OperationId);
         writer.Byte(Status);
         writer.Byte(Destination);
