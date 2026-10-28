@@ -21,6 +21,8 @@ internal sealed class PresentationController
     private ClientSettings _applied;
     private ClientSettings _accepted;
     private long _confirmationDeadline;
+    // The last position of the window while windowed and not maximized: the one it is restored to.
+    private Point? _normalPosition;
 
     public PresentationController(PresentationSettings shared, ClientSettingsStore store, GraphicsDeviceManager graphics, GameWindow window)
     {
@@ -89,10 +91,16 @@ internal sealed class PresentationController
         }
     }
 
+    // Every frame: a manual resize becomes the windowed size; a maximized window keeps the size it is restored to.
     public void CaptureWindowSize(int width, int height)
     {
-        if (_applied is null || _shared.AwaitingConfirmation || _applied.WindowMode != WindowMode.Windowed
-            || width < 800 || height < 600 || _shared.Requested != _applied)
+        if (_applied is null || _applied.WindowMode != WindowMode.Windowed || _window.IsMaximized)
+        {
+            return;
+        }
+
+        _normalPosition = _window.Position;
+        if (_shared.AwaitingConfirmation || width < 800 || height < 600 || _shared.Requested != _applied)
         {
             return;
         }
@@ -107,21 +115,25 @@ internal sealed class PresentationController
         Accept();
     }
 
-    // On exit: where the windowed window was left, for the next start (DisplayController restores it).
-    public void CaptureWindowPosition()
+    // On exit: where the windowed window was left and whether it was maximized, for the next start (DisplayController
+    // restores them).
+    public void CaptureWindowPlacement()
     {
         if (_applied is null || _shared.AwaitingConfirmation || _applied.WindowMode != WindowMode.Windowed || _shared.Requested != _applied)
         {
             return;
         }
 
-        var position = _window.Position;
-        if (position.X == _applied.WindowX && position.Y == _applied.WindowY)
+        var maximized = _window.IsMaximized;
+        var position = maximized ? _normalPosition : _window.Position;
+        var x = position?.X ?? _applied.WindowX;
+        var y = position?.Y ?? _applied.WindowY;
+        if (x == _applied.WindowX && y == _applied.WindowY && maximized == _applied.WindowMaximized)
         {
             return;
         }
 
-        _applied = _applied with { WindowX = position.X, WindowY = position.Y };
+        _applied = _applied with { WindowX = x, WindowY = y, WindowMaximized = maximized };
         Accept();
     }
 

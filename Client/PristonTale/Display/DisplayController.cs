@@ -84,9 +84,15 @@ internal sealed class DisplayController
 
     // The platform creates the window centred at MonoGame's default size and a new size grows it from its top-left, so
     // a large window would spill off the screen. The first windowed apply restores the saved position while its title
-    // bar is on the screen, or centres the window; later applies centre a window that no longer fits.
+    // bar is on the screen, or centres the window, then maximizes it if it was; later applies centre a window that no
+    // longer fits.
     private void Place(ClientSettings requested, Rectangle screen)
     {
+        if (_window.IsMaximized)
+        {
+            return;
+        }
+
         var size = new Point(_window.ClientBounds.Width, _window.ClientBounds.Height);
         var saved = requested.WindowX is int x && requested.WindowY is int y ? new Point(x, y) : (Point?)null;
         if (!_placed && saved is { } position && WindowPlacement.TitleOnScreen(position, size, screen))
@@ -96,6 +102,11 @@ internal sealed class DisplayController
         else if (!_placed || !WindowPlacement.OnScreen(_window.Position, size, screen))
         {
             _window.Position = WindowPlacement.Centered(size, screen);
+        }
+
+        if (!_placed && requested.WindowMaximized)
+        {
+            _window.Maximize();
         }
 
         _placed = true;

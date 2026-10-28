@@ -148,7 +148,7 @@ public class Game1 : Game
         {
             if (_shutdown is null)
             {
-                _presentationController.CaptureWindowPosition();
+                _presentationController.CaptureWindowPlacement();
             }
 
             _shutdown ??= Task.WhenAll(_client.BeginShutdown(), _presentationController.CompleteAsync());

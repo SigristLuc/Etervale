@@ -10,7 +10,7 @@ internal static class WindowPlacementTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("a window without a usable saved position opens centred with its title bar on screen", CenteredAsync);
-        yield return ("the window's last position survives close and reopen", PersistenceAsync);
+        yield return ("the window's last position and maximized state survive close and reopen", PersistenceAsync);
     }
 
     private static Task CenteredAsync()
@@ -39,13 +39,14 @@ internal static class WindowPlacementTests
             File.WriteAllText(path, """{ "version": 1, "windowWidth": 1920, "windowHeight": 1009 }""");
             var store = new ClientSettingsStore(path, NullClientLog.Instance);
             var older = store.Load();
-            Assert.True(older.WindowX is null && older.WindowY is null, "a settings document without a window position does not open centred");
-            var placed = older with { WindowX = -1200, WindowY = 140 };
-            Assert.True(placed.HasSameDisplay(older), "moving the window counts as a display change");
-            Assert.True(store.QueueSave(placed), "the window position was rejected by the persistence queue");
+            Assert.True(older.WindowX is null && older.WindowY is null && !older.WindowMaximized,
+                "a settings document without a window position does not open centred");
+            var placed = older with { WindowX = -1200, WindowY = 140, WindowMaximized = true };
+            Assert.True(placed.HasSameDisplay(older), "moving or maximizing the window counts as a display change");
+            Assert.True(store.QueueSave(placed), "the window placement was rejected by the persistence queue");
             await store.CompleteAsync();
             var reopened = new ClientSettingsStore(path, NullClientLog.Instance);
-            Assert.True(reopened.Load() == placed, "the window position was lost on close/reopen");
+            Assert.True(reopened.Load() == placed, "the window position or maximized state was lost on close/reopen");
             await reopened.CompleteAsync();
         }
         finally

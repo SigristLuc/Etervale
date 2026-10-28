@@ -28,3 +28,4 @@ upstream notes, in `../upstream/`.
 | 014 | [float-depth](014-float-depth.md) | runtime, framework |
 | 015 | [msaa-keeps-samples](015-msaa-keeps-samples.md) | runtime |
 | 016 | [depth-surface-targets](016-depth-surface-targets.md) | runtime, framework |
+| 017 | [window-maximize](017-window-maximize.md) | runtime, framework |

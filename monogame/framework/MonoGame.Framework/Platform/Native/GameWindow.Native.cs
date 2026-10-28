@@ -87,6 +87,15 @@ internal class NativeGameWindow : GameWindow
         }
     }
 
+    // Etervale fork: the maximized state (monogame/issues/017-window-maximize.md).
+    public override unsafe bool IsMaximized => HasCreatedWindow && MGP.Window_GetIsMaximized(_handle) != 0;
+
+    public override unsafe void Maximize()
+    {
+        if (HasCreatedWindow)
+            MGP.Window_Maximize(_handle);
+    }
+
     public bool IsFullScreen { get; private set; }
 
     public bool HardwareModeSwitch { get; private set; }

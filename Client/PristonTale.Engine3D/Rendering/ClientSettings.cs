@@ -20,10 +20,12 @@ public sealed record ClientSettings
     public int WindowWidth { get; init; } = 1280;
     public int WindowHeight { get; init; } = 720;
     public WindowMode WindowMode { get; init; }
-    // Where the window was left in windowed mode: its client area's top-left in desktop coordinates (Window.Position).
-    // Without a position the window opens centred. Not part of the display: moving the window applies nothing.
+    // Where the window was left in windowed mode: its client area's top-left in desktop coordinates (Window.Position)
+    // while not maximized, and whether it was maximized. Without a position the window opens centred. Not part of the
+    // display: moving or maximizing the window applies nothing.
     public int? WindowX { get; init; }
     public int? WindowY { get; init; }
+    public bool WindowMaximized { get; init; }
     public int RefreshRate { get; init; }
     public bool VerticalSync { get; init; }
     public bool MusicEnabled { get; init; } = true;

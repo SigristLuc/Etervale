@@ -381,6 +381,13 @@ internal static unsafe partial class MGP
     [DllImport(MonoGameNativeDLL, EntryPoint = "MGP_Window_SetPosition", ExactSpelling = true)]
     public static extern void Window_SetPosition(MGP_Window* window, int x, int y);
 
+    // Etervale fork: the maximized state (monogame/issues/017-window-maximize.md).
+    [DllImport(MonoGameNativeDLL, EntryPoint = "MGP_Window_GetIsMaximized", ExactSpelling = true)]
+    public static extern byte Window_GetIsMaximized(MGP_Window* window);
+
+    [DllImport(MonoGameNativeDLL, EntryPoint = "MGP_Window_Maximize", ExactSpelling = true)]
+    public static extern void Window_Maximize(MGP_Window* window);
+
     [DllImport(MonoGameNativeDLL, EntryPoint = "MGP_Window_SetClientSize", ExactSpelling = true)]
     public static extern void Window_SetClientSize(MGP_Window* window, int width, int height);
 
