@@ -329,6 +329,7 @@ A prepared operation with `Snapshot == null` is final (rejection or replay) and 
 | Inventory move/split/merge/swap/equip/unequip | `WorldServer.PrepareInventoryAsync` -> `InventoryCommands.Apply`; a refusal names the item rule (`InventoryCommands.Refusal`) | inventory, equipment, histories |
 | `ConsumePotion` | same; refused when dead or a potion is pending (`PreparedPotionOperation`) | inventory, then `QueuePotion`; the field starts the eat motion and restores at the clip event; a warp before the event drinks it again where the player arrives |
 | `Pickup` | `GroundPickupTransactions.Prepare` (`PreparedPickupOperation`) | inventory, gold via `TryChangeMoney`, drop removed |
+| `Drop` | `GroundThrowTransactions.Prepare` (`PreparedThrowOperation`): a bag item, `Count` of it, refused for items `ItemDropRules` keeps or a full ground | inventory, then the item laid public where the player stood (`FieldGroundLoot.PlaceThrown`, which may pass the ground's capacity rather than lose a saved item) |
 | Progression (attributes, learn skill) | `ProgressionTransactions.Prepare`; learning needs a reachable skill master | re-applies the command to the live character (`ApplyProgression`) |
 | NPC services | `NpcServiceTransactions.Prepare` (`PreparedNpcOperation`) | inventory, gold delta, open warehouse, teleport arrival |
 | Quest requests | `QuestTransactions.Prepare` (`PreparedQuestOperation`); follow-ups must answer a step the NPC still offers | inventory, equipment, quest journal (merging tick kills), tier, stat/skill point and gold deltas, travel, arena duel |

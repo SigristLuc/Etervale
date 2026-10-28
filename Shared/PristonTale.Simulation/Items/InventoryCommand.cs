@@ -12,7 +12,9 @@ public enum InventoryAction
     ConsumePotion,
     Pickup,
     // Sets the item down over exactly one other bag item, which takes its place (Inventory.TrySwap).
-    Swap
+    Swap,
+    // Puts Count of a bag item on the ground where the player stands (handled by the Application, as Pickup is).
+    Drop
 }
 
 public sealed record InventoryCommand(Guid OperationId, long ExpectedRevision, InventoryAction Action,

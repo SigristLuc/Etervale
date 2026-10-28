@@ -37,6 +37,9 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     public Func<OwnedItemView, bool> InterceptClick { get; set; }
     public Func<Guid, Point, bool> ExternalDrop { get; set; }
 
+    // An item set down above the window where no shop or warehouse takes it: put on the ground (true when the HUD took it).
+    public Func<OwnedItemView, bool> ThrowRequested { get; set; }
+
     // A right click on a carried usable item (premium, travel and effect items).
     public Action<OwnedItemView> UseRequested { get; set; }
 
@@ -167,6 +170,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                 Send(InventoryAction.Swap, carried, placement.Anchor, covered: placement.Covered);
                 break;
             case HudPlacementKind.Outside when ExternalDrop?.Invoke(carried.InstanceId, pointer) == true:
+            case HudPlacementKind.Outside when ThrowRequested?.Invoke(carried) == true:
                 _dragging = Guid.Empty;
                 break;
         }
@@ -178,6 +182,15 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         _dragging = Guid.Empty;
         SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, action, carried.InstanceId, destination, count, slot),
             covered?.InstanceId ?? Guid.Empty);
+    }
+
+    // Puts `count` of a bag item on the ground where the player stands.
+    public void Drop(OwnedItemView item, int count)
+    {
+        if (!_pendingOperation && _state is not null)
+        {
+            SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.Drop, item.InstanceId, 0, count, default));
+        }
     }
 
     // Right click: a usable item is used, a potion drunk, and an item worn or taken off.

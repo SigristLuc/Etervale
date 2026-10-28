@@ -376,6 +376,11 @@ public sealed partial class WorldServer
                 return GroundPickupTransactions.Prepare(session, connection.Player, _fields[connection.FieldId], command);
             }
 
+            if (command.Action == InventoryAction.Drop)
+            {
+                return GroundThrowTransactions.Prepare(session, connection.Player, _fields[connection.FieldId], command);
+            }
+
             if (command.Action == InventoryAction.ConsumePotion && (connection.Player.IsDead || connection.Player.HasPendingPotion))
             {
                 return new PreparedCharacterOperation<InventoryOutcome>(original, null, null,
@@ -423,6 +428,11 @@ public sealed partial class WorldServer
 
                 pickup.Ground.Resolve(pickup.DropId, pickup.OperationId, committed: true);
             }
+            if (operation is PreparedThrowOperation thrown)
+            {
+                thrown.Field.GroundLoot.PlaceThrown(thrown.Item, thrown.Position, thrown.ThrowerId, thrown.Field.NowMs);
+            }
+
             if (operation is PreparedPotionOperation potion && TryGetOwnConnection(session, out var connection))
             {
                 connection.Player.QueuePotion(potion.Potion);

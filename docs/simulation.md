@@ -411,6 +411,10 @@ totals.
   revision returned in the outcome.
 - `InventoryAction.Swap` sets an item down over exactly one other bag item (`Inventory.TrySwap`), which moves to where
   the first one was, or to the first free space; anything else refuses it.
+- `InventoryAction.Drop` is handled by the Application (`GroundThrowTransactions`), as `Pickup` is; `Inventory.TakeFrom`
+  takes all of an item or splits a new stack from it. `ItemDropRules` lists what never goes on the ground: quest items,
+  the quest's bound weapon and ring, the `MA1`, `MA2`, `QW1`, `BI1` and `BI2` groups and the original's premium, event and
+  time-limited keys.
 - `InventoryAction.ConsumePotion` only removes one potion; the restore is applied later by the Application when the
   eat motion reaches its event (`WorldPlayer`). `Pickup` is handled by `GroundPickupTransactions`, not here.
 - The Application validates on a copy: `CloneForInventoryOperation` (inventory, equipment, progress, skills, pools,

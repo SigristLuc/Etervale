@@ -44,6 +44,7 @@ public sealed partial class GameplayHud : IDisposable
     private readonly HudNpcPanel _npc;
     private readonly HudNpcServiceController _services;
     private readonly HudShopWindow _shop = new();
+    private readonly HudCountBox _countBox = new();
     private readonly HudWarehouseWindow _warehouse = new();
     private readonly HudAgingWindow _aging = new();
     private readonly HudMixWindow _mix = new();
@@ -130,6 +131,7 @@ public sealed partial class GameplayHud : IDisposable
         _questDocuments = new HudQuestDocuments(context.AssetRoot, context.Log);
         _inventory.InterceptClick = InterceptInventoryClick;
         _inventory.ExternalDrop = DropFromInventory;
+        _inventory.ThrowRequested = ThrowFromInventory;
         _inventory.ItemSound = key => ItemSound?.Invoke(key);
         _services.Succeeded = ServiceSound;
         _inventoryPanel.Note = InventoryNote;
@@ -267,6 +269,12 @@ public sealed partial class GameplayHud : IDisposable
 
     public bool ClosePanel()
     {
+        if (_countBox.IsOpen)
+        {
+            _countBox.Close();
+            return true;
+        }
+
         // As in the original, Escape first closes an open chat window and nothing else.
         if (_chat.Window.Open && !_settingsOpen)
         {
@@ -386,7 +394,14 @@ public sealed partial class GameplayHud : IDisposable
         _hoveredButton = ButtonAt(design);
         _hoveredToggle = ToggleAt(design);
         var clicked = mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
-        _chat.Update(keyboard, _previousKeyboard, _context.TypedText.Drain(), _clock.Elapsed.TotalMilliseconds, _chat.Window.Log.Tab);
+        var typedText = _context.TypedText.Drain();
+        if (_countBox.IsOpen)
+        {
+            _countBox.Type(typedText, key => Pressed(keyboard, key));
+            typedText = [];
+        }
+
+        _chat.Update(keyboard, _previousKeyboard, typedText, _clock.Elapsed.TotalMilliseconds, _chat.Window.Log.Tab);
         var typing = _chat.KeyboardCaptured;
         if (!typing)
         {
@@ -440,7 +455,7 @@ public sealed partial class GameplayHud : IDisposable
 
     // A dialog, a message box or the warp map: it takes every click, the bag's included.
     private bool ModalOpen =>
-        _npcOpen || _quests.Dialog is not null || _quests.Confirming || _quests.SkillResetBox || _skills.TrainingPending
+        _countBox.IsOpen || _npcOpen || _quests.Dialog is not null || _quests.Confirming || _quests.SkillResetBox || _skills.TrainingPending
         || _wingGate.IsOpen || _wingGate.Confirming || _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming;
 
     // As in the original, a modal or a work window keeps every click from the world (the work windows still trade items
@@ -560,6 +575,11 @@ public sealed partial class GameplayHud : IDisposable
         }
 
         _puzzle.Draw(_painter, pointer);
+        if (_countBox.IsOpen)
+        {
+            _painter.Flush();
+            _countBox.Draw(_painter, pointer);
+        }
 
         if (_settingsOpen)
         {

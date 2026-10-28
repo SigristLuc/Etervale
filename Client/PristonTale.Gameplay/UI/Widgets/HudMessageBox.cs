@@ -6,7 +6,7 @@ namespace PristonTale.Gameplay.UI.Widgets;
 // Original two-button message box: BoxMain.tga at (300,200), top anchored, with two 32x16 buttons and two text lines.
 public static class HudMessageBox
 {
-    private const int VisibleWidth = 168;
+    public const int VisibleWidth = 168;
 
     public static Rectangle Bounds => new(300, 200, VisibleWidth, 124);
     public static Rectangle Accept => new(300 + 40, 200 + 95, 32, 16);

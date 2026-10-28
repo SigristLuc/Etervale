@@ -107,6 +107,11 @@ public static class HudArt
     public const string YesYellow = Sin + "MessageBox/Button_Yes_Yellow.bmp";
     public const string NoGray = Sin + "MessageBox/Button_No_Glay.bmp";
     public const string NoYellow = Sin + "MessageBox/Button_No_Yellow.bmp";
+    public const string CancelGray = Sin + "MessageBox/Button_Cancel_Glay.bmp";
+    public const string CancelYellow = Sin + "MessageBox/Button_Cancel_Yellow.bmp";
+    public const string CountField = Sin + "MessageBox/COUNT.bmp";
+    public const string CountUp = Sin + "MessageBox/Arrow_Up.bmp";
+    public const string CountDown = Sin + "MessageBox/Arrow_Down.bmp";
 
     public const string MapBox = "image/MapBox.tga";
     public const string MapArrow = "image/ARROW.tga";
@@ -132,6 +137,7 @@ public static class HudArt
         HelpTopLeft, HelpTop, HelpTopRight, HelpLeft, HelpCenter, HelpRight, HelpBottomLeft, HelpBottom, HelpBottomRight, HelpLine,
         HelpTitle, HelpButton, ScrollBar, ScrollButton,
         MessageBox, NoticeLeft, NoticeCenter, NoticeRight, OkGray, OkYellow, YesGray, YesYellow, NoGray, NoYellow,
+        CancelGray, CancelYellow, CountField, CountUp, CountDown,
         MapBox, MapArrow, MapNpc, TargetBox, EnergyBack, EnergyFill,
         BroodNormal, BroodMutant, BroodUndead, BroodDemon, BroodMechanic
     ];

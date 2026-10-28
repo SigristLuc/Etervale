@@ -299,6 +299,25 @@ public sealed class Inventory
         return true;
     }
 
+    // Takes `amount` of the item at `index` out of the bag: the item itself when that is all of it, otherwise a new stack
+    // split from it. Null when there is no such item or amount.
+    public ItemInstance TakeFrom(int index, int amount)
+    {
+        if (index < 0 || index >= Capacity || _slots[index] is not { } item || amount < 1 || amount > item.Count)
+        {
+            return null;
+        }
+
+        if (amount == item.Count)
+        {
+            return TakeAt(index);
+        }
+
+        item.Count -= amount;
+        NotifyChanged();
+        return item.Copy(amount);
+    }
+
     public ItemInstance TakeAt(int index)
     {
         if (index < 0 || index >= Capacity || _slots[index] is not { } item)

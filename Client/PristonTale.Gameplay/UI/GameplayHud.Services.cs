@@ -214,6 +214,25 @@ public sealed partial class GameplayHud
         return true;
     }
 
+    // An item set down above the inventory with no window to take it goes to the ground, as in the original: not while a
+    // shop, the warehouse, a work window or a travel window is open, nor an item the rules keep; a stack asks how many.
+    private bool ThrowFromInventory(OwnedItemView item)
+    {
+        if (ServiceWindowOpen(blockingOnly: false) || _wingGate.IsOpen || _itemUse.Teleport.IsOpen || !ItemDropRules.CanDrop(item.Kind, item.CatalogKey))
+        {
+            return false;
+        }
+
+        if (item.Count == 1)
+        {
+            _inventory.Drop(item, 1);
+            return true;
+        }
+
+        _countBox.Open("How many items", "to drop?", item.Count, count => _inventory.Drop(item, count));
+        return true;
+    }
+
     // An inventory item dropped on the shop is sold; on the warehouse grid it is stored in the cell under the pointer.
     private bool DropFromInventory(Guid itemId, Point pointer)
     {

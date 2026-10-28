@@ -92,6 +92,13 @@ public sealed partial class GameplayHud
 
     private void Click(OwnerState state, HudLayout layout, Point pointer, Point design, KeyboardState keyboard)
     {
+        // The count box holds every click until it closes.
+        if (_countBox.IsOpen)
+        {
+            _countBox.Click(pointer);
+            return;
+        }
+
         if (_restart.Click(layout, pointer, RestartOffer?.FieldOpen == true))
         {
             return;

@@ -366,7 +366,9 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   its frame (less half a cell a side) overlaps. Free cells move it (Shift splits a stack), one covered item is exchanged
   (`Swap`, or the slot's item for an equip) and the covered item is then carried, a potion of the same kind is joined
   (`Merge`), two covered items or a slot of another kind or unmet requirements refuse, and above the window the item
-  leaves the bag (`ExternalDrop`: the shop, the warehouse). Right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
+  leaves the bag (`ExternalDrop`: the shop, the warehouse; otherwise `GameplayHud.ThrowFromInventory` puts it on the
+  ground with `InventoryAction.Drop`, not while a shop, the warehouse, a work or travel window is open nor for an item
+  `ItemDropRules` keeps; a stack first asks how many in the count box). Right click equips/unequips (the slot follows `ItemEquipmentMetadata`; rings take the left
   slot first), drinks a potion or uses a usable item (`HudItemUseController`: the Teleport Core window, confirmations,
   the item-use request). One command in flight; it carries the `InventoryRevision` it was built from. A modal
   (`GameplayHud.ModalOpen`: NPC or quest dialog, yes/no box, skill training box, warp map, Teleport Core list,
@@ -390,6 +392,10 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   button stays dark with red help where the server's `RestartOffer` says the field restart is closed (nothing in the
   castle field). The town is chosen after 20 s open; a refused or busy answer opens it again, a stored exit quits the
   game. The scene (`GameScene.Restart.cs`) keeps the last offer and sends `RestartAsync`.
+- Count box (`HudCountBox`), the original's quantity question: `BoxMain.tga` at (300, 200) with two lines, the number
+  in `COUNT.bmp` at (+34, +62), typed with the digit keys (Backspace erases) or stepped with the arrows at (+124, +62)
+  and (+124, +75), never above the maximum; OK or Enter accepts a non-zero count, Cancel or Escape closes. It is modal
+  and takes the typed text from the chat while open.
 - Inventory window (`HudInventoryPanel`): carried/maximum weight centred in x 326..406 at y 471 of the window; items the
   character cannot use (level, attributes or class against `OwnedItemView.Details`, re-checked on every owner state)
   get the original red cell tint, in the bag and in their equipment slot. Under a carried item the landing cells or slot
