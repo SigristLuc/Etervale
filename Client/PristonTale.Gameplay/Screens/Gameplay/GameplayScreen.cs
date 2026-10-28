@@ -52,6 +52,10 @@ public sealed class GameplayScreen : GameScreen
         _hud.PersonalShops = _scene;
         _scene.PresenceObserved += _hud.ObserveParty;
         _hud.Parties = _scene;
+        _scene.PresenceObserved += _hud.ObserveTrade;
+        _hud.Trades = _scene;
+        _scene.PresenceObserved += _hud.ObserveContacts;
+        _hud.Contacts = _scene;
         _hud.PlayerButtonsUsed += _scene.DismissPlayerButtons;
         _scene.SkillNotice += _hud.Chat.System;
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
@@ -264,6 +268,8 @@ public sealed class GameplayScreen : GameScreen
             _scene.NpcSelected -= _hud.OpenNpc;
             _scene.ShopSellerSelected -= _hud.ViewPersonalShop;
             _scene.PresenceObserved -= _hud.ObserveParty;
+            _scene.PresenceObserved -= _hud.ObserveTrade;
+            _scene.PresenceObserved -= _hud.ObserveContacts;
             _hud.PlayerButtonsUsed -= _scene.DismissPlayerButtons;
             _scene.SkillNotice -= _hud.Chat.System;
             _hud.SummonModeRequested -= _scene.ToggleSummonMode;

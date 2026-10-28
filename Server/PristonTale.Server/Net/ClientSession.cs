@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Net;
 using System.Numerics;
+using PristonTale.Application.Contacts;
 using PristonTale.Application.Chat;
 using PristonTale.Application.Services;
 using PristonTale.Application.Sessions;
@@ -42,6 +43,8 @@ internal sealed record SessionServices(
     QuestAppService Quests,
     PersonalShopAppService PersonalShops,
     PartyAppService Parties,
+    TradeAppService Trades,
+    ContactAppService Contacts,
     ChatAppService Chat,
     GameServerControl Control)
 {
@@ -217,6 +220,25 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                 case EtervaleOpcodes.PartyCommand:
                     await CommandPartyAsync(PartyCommandPacket.Read(memory.Span));
                     break;
+                case EtervaleOpcodes.TradeRequest:
+                    await RequestTradeAsync(TradeRequestPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.TradeAnswer:
+                    await AnswerTradeAsync(TradeAnswerPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.TradeOffer:
+                    await OfferTradeAsync(TradeOfferPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.TradeLock or EtervaleOpcodes.TradeCancel:
+                    await SignalTradeAsync(TradeSignalPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.ContactChange:
+                    await ChangeContactAsync(ContactChangePacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.ContactRefresh:
+                    ContactRefreshPacket.Read(memory.Span);
+                    RefreshContacts();
+                    break;
                 case EtervaleOpcodes.LeaveWorld:
                     SendLarge(new LeaveWorldPacket(Saved: await ClosePlayAsync()).Write, LeaveWorldPacket.Size);
                     break;
@@ -371,8 +393,14 @@ internal sealed partial class ClientSession : IMovementVerdictSink
     private async Task JoinWorldAsync(JoinWorldPacket request)
     {
         var session = _session;
-        if (_player is not null || session?.Character is null || session.Loaded is null || request.EntityId != session.EntityId
-            || !session.TryBeginPlay())
+        if (_player is not null || session?.Character is null || session.Loaded is null || request.EntityId != session.EntityId)
+        {
+            throw new InvalidOperationException("JoinWorld before a successful EnterWorld.");
+        }
+
+        // Read before joining, so the player is in the chat as soon as it is in the world.
+        var contacts = await LoadContactsAsync(session);
+        if (!session.TryBeginPlay())
         {
             throw new InvalidOperationException("JoinWorld before a successful EnterWorld.");
         }
@@ -401,7 +429,8 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         SendLarge(new WorldJoinedPacket(session.EntityId, Environment.TickCount64, (byte)Math.Clamp(session.GmLevel, 0, 255),
             _services.World.GameClockMs).Write, WorldJoinedPacket.Size);
         _pump = PumpAsync(outbox, _encoder);
-        JoinChat(session);
+        JoinChat(session, contacts);
+        RefreshContacts();
     }
 
     private async Task PumpAsync(WorldOutbox outbox, PresenceEncoder encoder)

@@ -141,19 +141,61 @@ internal sealed class OnlinePlayChannel : IPlayChannel
     public async Task InviteToPartyAsync(ulong targetId, CancellationToken ct = default)
     {
         await _start.WaitAsync(ct);
-        _connection.SendParty(new PartyInvitePacket(targetId));
+        _connection.SendSocial(new PartyInvitePacket(targetId));
     }
 
     public async Task AnswerPartyAsync(ulong fromId, bool accept, CancellationToken ct = default)
     {
         await _start.WaitAsync(ct);
-        _connection.SendParty(new PartyAnswerPacket(fromId, accept));
+        _connection.SendSocial(new PartyAnswerPacket(fromId, accept));
     }
 
     public async Task CommandPartyAsync(PartyCommand command, ulong memberId, CancellationToken ct = default)
     {
         await _start.WaitAsync(ct);
-        _connection.SendParty(new PartyCommandPacket(command, memberId));
+        _connection.SendSocial(new PartyCommandPacket(command, memberId));
+    }
+
+    public async Task RequestTradeAsync(ulong targetId, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendSocial(new TradeRequestPacket(targetId));
+    }
+
+    public async Task AnswerTradeAsync(ulong fromId, bool accept, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendSocial(new TradeAnswerPacket(fromId, accept));
+    }
+
+    public async Task OfferTradeAsync(Simulation.Trades.TradeOffer offer, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendSocial(new TradeOfferPacket(offer.Money, offer.Entries.Select(static entry => new TradeEntryWire(entry.ItemId, entry.Cell)).ToArray()));
+    }
+
+    public async Task LockTradeAsync(CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendSocial(new TradeSignalPacket(Protocol.Binary.EtervaleOpcodes.TradeLock));
+    }
+
+    public async Task CancelTradeAsync(CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendSocial(new TradeSignalPacket(Protocol.Binary.EtervaleOpcodes.TradeCancel));
+    }
+
+    public async Task ChangeContactAsync(ContactList list, bool add, string name, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendSocial(new ContactChangePacket(list, add, name));
+    }
+
+    public async Task RefreshContactsAsync(CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendSocial(new ContactRefreshPacket());
     }
 
     public async Task SendSkillCommandAsync(uint sequence, uint skillCode, SkillCastCommand command, CancellationToken ct = default)

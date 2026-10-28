@@ -76,6 +76,8 @@ internal sealed partial class PresenceEncoder
     private Simulation.Progression.RestartOffer? _restartOffer;
     private PartyView? _party;
     private PartyRequest? _partyRequest;
+    private TradeView? _trade;
+    private TradeRequest? _tradeRequest;
     private PresenceFrame? _heldFrame;
     private EntityView[] _describeViews = [];
     private EntityGrid? _describeGrid;
@@ -342,6 +344,7 @@ internal sealed partial class PresenceEncoder
         SendCooldowns(snapshot, connection);
         SendRestartOffer(snapshot.Restart, connection);
         SendParty(snapshot, connection);
+        SendTrade(snapshot, connection);
         if (snapshot.Quest is not null)
         {
             SendQuest(snapshot.Quest, connection);
@@ -369,6 +372,49 @@ internal sealed partial class PresenceEncoder
         {
             _partyRequest = request;
             connection.Send(_scratch.AsSpan(0, new PartyRequestPacket(request.FromId, request.FromName, request.Recommendation ? request.JoinerName : "").Write(_scratch)));
+        }
+    }
+
+    // The trade window whenever it changes (an empty one once it ends): the partner items' values first, then the window;
+    // and each new request to trade.
+    private void SendTrade(in WorldSnapshot snapshot, IPacketSink connection)
+    {
+        if (!ReferenceEquals(snapshot.Trade, _trade))
+        {
+            _trade = snapshot.Trade;
+            if (_trade is { } view)
+            {
+                var details = new ItemDetailEntry[view.PartnerItems.Count];
+                var items = new StoreItemEntry[details.Length];
+                for (var index = 0; index < details.Length; index++)
+                {
+                    var item = view.PartnerItems[index];
+                    details[index] = ItemWireMapping.Detail(item);
+                    items[index] = new StoreItemEntry(item.InstanceId, item.Code, (byte)item.Kind, item.Count, item.Anchor, (short)item.Width,
+                        (short)item.Height, item.Name);
+                }
+
+                var own = new TradeEntryWire[view.Own.Entries.Count];
+                for (var index = 0; index < own.Length; index++)
+                {
+                    own[index] = new TradeEntryWire(view.Own.Entries[index].ItemId, view.Own.Entries[index].Cell);
+                }
+
+                var flags = (byte)((view.OwnLocked ? TradeStatePacket.OwnLocked : 0) | (view.PartnerLocked ? TradeStatePacket.PartnerLocked : 0));
+                connection.Send(_scratch.AsSpan(0, new TradeDetailsPacket(details).Write(_scratch)));
+                connection.Send(_scratch.AsSpan(0, new TradeStatePacket(view.PartnerId, view.PartnerName, flags, view.Own.Money, view.PartnerMoney, own, items)
+                    .Write(_scratch)));
+            }
+            else
+            {
+                connection.Send(_scratch.AsSpan(0, new TradeStatePacket(0, "", 0, 0, 0, [], []).Write(_scratch)));
+            }
+        }
+
+        if (snapshot.TradeRequest is { } request && !ReferenceEquals(request, _tradeRequest))
+        {
+            _tradeRequest = request;
+            connection.Send(_scratch.AsSpan(0, new TradeAskedPacket(request.FromId, request.FromName).Write(_scratch)));
         }
     }
 

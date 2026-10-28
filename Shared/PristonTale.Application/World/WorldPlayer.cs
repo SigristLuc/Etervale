@@ -338,6 +338,13 @@ public sealed class WorldPlayer
 
     public bool SharesPartyWith(WorldPlayer other) => Party is { } party && ReferenceEquals(party, other.Party);
 
+    // The trade the player is in and the request to trade it has not answered (WorldServer.Trades).
+    public Trade? Trade { get; internal set; }
+    public TradeRequest? TradeRequest { get; internal set; }
+
+    // An offered bag item changes only through the exchange.
+    public bool Offers(Guid itemId) => Trade is { } trade && trade.OfferOf(trade.SideOf(EntityId)).Holds(itemId);
+
     // The personal shop the player sells from; while it is open the seller stays where it stands and acts on nothing else.
     public PersonalShop? Shop { get; private set; }
 

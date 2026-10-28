@@ -384,7 +384,8 @@ public sealed class GameServerConnection : IGameBackend
         Send(new YahooKeyPacket());
     }
 
-    internal void SendParty(IFramePacket packet) => Send(packet);
+    // Party, trade and contact requests, answered by what the presence stream shows.
+    internal void SendSocial(IFramePacket packet) => Send(packet);
 
     internal IAsyncEnumerable<PresenceUpdate> ReadPresenceAsync(CancellationToken ct) => _presenceUpdates.Reader.ReadAllAsync(ct);
 

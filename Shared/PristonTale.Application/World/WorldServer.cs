@@ -186,11 +186,13 @@ public sealed partial class WorldServer
 
             var save = connection.Session is { } session ? CaptureLeaving(session, connection) : null;
             LeaveParty(connection.Player);
+            LeaveTrade(connection.Player);
+
             _fields[connection.FieldId].Remove(entityId);
             _connections.Remove(entityId);
             _pendingByPlayer.TryRemove(entityId, out _);
             _membershipChanged = true;
-            return new WorldLeave(true, save, TakePartyNotices());
+            return new WorldLeave(true, save, TakeNotices());
         }, waitForCapacity: true);
     }
 
@@ -401,6 +403,12 @@ public sealed partial class WorldServer
             {
                 return new PreparedCharacterOperation<InventoryOutcome>(original, null, null,
                     new InventoryOutcome(false, original.InventoryRevision, PersonalShopMessages.Of(PersonalShopStatus.Selling)));
+            }
+
+            if (connection.Player.Offers(command.ItemId))
+            {
+                return new PreparedCharacterOperation<InventoryOutcome>(original, null, null,
+                    new InventoryOutcome(false, original.InventoryRevision, Simulation.Trades.TradeMessages.InTrade));
             }
 
             if (command.Action == InventoryAction.Pickup)
@@ -679,7 +687,9 @@ public sealed partial class WorldServer
                     Quest = connection.Player.QuestState.TakeUpdate(connection.Player.Character),
                     Restart = connection.Player.IsDead ? DeathPenalty.Offer(connection.Player.Character, field.State) : null,
                     Party = connection.Player.Party?.View,
-                    PartyRequest = connection.Player.PartyRequest
+                    PartyRequest = connection.Player.PartyRequest,
+                    Trade = connection.Player.Trade?.ViewFor(entityId),
+                    TradeRequest = connection.Player.TradeRequest
                 });
                 // Only an outbox pins and releases frames; any other writer may keep the snapshot forever.
                 frame.Retained |= connection.Outbound is not WorldOutbox.OutboxWriter;
@@ -693,8 +703,10 @@ public sealed partial class WorldServer
     // the session now is; the caller then stands the player at position (EnterField, CrossGate or a restart).
     private void Relocate(Connection connection, int fieldCode, Vector3 position, bool inVillage)
     {
-        // A shop sells where its seller opened it.
+        // A shop sells where its seller opened it, and a trade happens where it opened.
         connection.Player.CloseShop();
+        LeaveTrade(connection.Player);
+
         if (connection.FieldId != fieldCode)
         {
             TransferPlayer(connection.Player, _fields[connection.FieldId], GetField(fieldCode));

@@ -117,8 +117,8 @@ public sealed partial class GameplayHud : IDisposable
         _sprites.Request(HudQuestArt.All);
         _painter = new HudPainter(context.SpriteBatch, context.Font, _sprites);
         _icons = new HudItemIcons(context.GraphicsDevice, context.AssetRoot, context.Log);
-        _personalShop = new HudPersonalShopController(context.Log) { Notify = _notice.Show, AskCount = _countBox.Open };
-        _serviceWindows = [_shop, _warehouse, _aging, _mix, _personalShop.Window];
+        _personalShop = new HudPersonalShopController(context.Log) { Notify = _notice.Show, AskCount = (first, second, maximum, accepted) => _countBox.Open(first, second, maximum, accepted) };
+        _serviceWindows = [_shop, _warehouse, _aging, _mix, _personalShop.Window, _trade];
         _sprites.Request(HudPersonalShopArt.All);
         _skills = new HudSkillsPanel(context.Font, _sprites);
         _skillHud = new HudSkillHud(_sprites, context.GraphicsDevice);
@@ -151,12 +151,14 @@ public sealed partial class GameplayHud : IDisposable
         _services.Succeeded = ServiceSucceeded;
         _storedPlacement = StoredPlacement;
         _inventoryPanel.Note = InventoryNote;
-        _inventoryPanel.Withheld = id => _aging.Holds(id) || _mix.Holds(id) || _personalShop.Holds(id);
+        _inventoryPanel.Withheld = id => _aging.Holds(id) || _mix.Holds(id) || _personalShop.Holds(id) || _trade.Holds(id);
         _inventory.ShopRequested = OpenOwnShop;
         _sprites.Request(HudChatWindow.Art);
         _sprites.Request(HudChatBubbles.Art);
         _chat.Lookup = id => (Combat.KindOf(id, out var owner), owner);
         SetUpParty();
+        SetUpTrade();
+        SetUpContacts();
     }
 
     // The chat window, its input line and the speech bubbles.
@@ -368,6 +370,8 @@ public sealed partial class GameplayHud : IDisposable
         _questWindow.Advance(elapsedSeconds);
         _partyWindow.Advance(elapsedSeconds);
         _partyRequest.Update(_clock.Elapsed.TotalMilliseconds);
+        _tradeRequest.Update(_clock.Elapsed.TotalMilliseconds);
+        UpdateContacts(_clock.Elapsed.TotalMilliseconds);
         ForwardMessages();
         ApplyQuests();
         ApplyServices(state);
@@ -404,6 +408,10 @@ public sealed partial class GameplayHud : IDisposable
         if (state is not null && (_state is null || state.InventoryRevision != _state.InventoryRevision))
         {
             RequestIcons(state);
+            if (_trade.IsOpen)
+            {
+                _trade.Follow(state.Items);
+            }
         }
 
         _state = state;
@@ -571,7 +579,7 @@ public sealed partial class GameplayHud : IDisposable
         _partyWindow.Draw(_painter, layout, Party, SelfId, pointer);
 
         var incoming = OwnedItemView.Find(_state?.Items, _inventory.Dragging);
-        var serviceFrame = new HudServiceFrame(_painter, layout, _icons, _state, pointer, incoming, _settingsOpen);
+        var serviceFrame = new HudServiceFrame(_painter, layout, _icons, _state, pointer, incoming, _settingsOpen, _clock.Elapsed.TotalMilliseconds);
         foreach (var window in _serviceWindows)
         {
             if (window.Visible)
@@ -691,6 +699,7 @@ public sealed partial class GameplayHud : IDisposable
         _premium.DrawHover(_painter, pointer, _clock.Elapsed.TotalMilliseconds);
         _painter.Flush();
         _partyRequest.Draw(_painter, pointer, _clock.Elapsed.TotalMilliseconds);
+        _tradeRequest.Draw(_painter, pointer, _clock.Elapsed.TotalMilliseconds);
         _restart.Draw(_painter, layout, pointer, RestartOffer?.FieldOpen == true, InCastleField);
         _painter.Flush();
         _notice.Draw(_painter, layout);

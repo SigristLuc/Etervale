@@ -21,11 +21,9 @@ public sealed partial class WorldServer
 
     public ChannelReader<PlayerSession> QuestUpkeepRequests => _questUpkeep.Reader;
 
-    private long QuestNowUnixMs() => _clock.GetUtcNow().ToUnixTimeMilliseconds();
-
     private void ConfigureQuests(FieldInstance field)
     {
-        field.QuestClock = QuestNowUnixMs;
+        field.QuestClock = () => UnixNowMs;
         field.QuestUpkeepRequested = player =>
         {
             // Read-only lookup during the field phase: the connection map changes only in the command phase.
@@ -50,7 +48,7 @@ public sealed partial class WorldServer
             }
 
             return QuestTransactions.Prepare(session, connection.Player, field, command, _worldData.Current.Items, _catalog, _questRng,
-                QuestNowUnixMs());
+                UnixNowMs);
         });
     }
 
@@ -104,7 +102,7 @@ public sealed partial class WorldServer
                 return null;
             }
 
-            var prepared = QuestTransactions.PrepareUpkeep(session, connection.Player, field, _worldData.Current.Items, _questRng, QuestNowUnixMs());
+            var prepared = QuestTransactions.PrepareUpkeep(session, connection.Player, field, _worldData.Current.Items, _questRng, UnixNowMs);
             if (prepared.Candidate is null)
             {
                 connection.Player.QuestState.UpkeepDue = false;

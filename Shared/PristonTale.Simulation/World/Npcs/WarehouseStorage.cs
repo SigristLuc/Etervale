@@ -10,9 +10,6 @@ public sealed class WarehouseStorage
     public const int MaxWeight = 1000;
     public const long MaxMoney = 100_000_000;
 
-    // What the original keeps out besides BoundItems: potions, and the event (SP1) and CH1 families.
-    private static readonly string[] Families = ["SP1", "CH1"];
-
     public WarehouseStorage(long revision = 0, long money = 0)
     {
         if (revision < 0 || money < 0 || money > MaxMoney)
@@ -44,17 +41,16 @@ public sealed class WarehouseStorage
 
     public int Count => Grid.Items().Count();
 
+    // What BoundItems.CanHandOver lets go, potions apart.
     public static bool CanStore(PlayerCharacter character, ItemInstance item) =>
-        !BoundItems.IsBound(character, item) && Storable(item.Definition.Kind, item.Definition.CatalogKey);
+        BoundItems.CanHandOver(character, item) && !RefusedOnSetDown(item.Definition.Kind);
 
     // The rule a view can check from the item's kind and key (the quest's own items are the server's to refuse).
-    public static bool CanStore(ItemKind kind, string key) => !BoundItems.IsBound(kind, key) && Storable(kind, key);
+    public static bool CanStore(ItemKind kind, string key) => BoundItems.CanHandOver(kind, key) && !RefusedOnSetDown(kind);
 
     // The original places a potion over the grid as any item and refuses it only when it is set down, with
     // ItemRuleMessages.PotionNotStored; the other items CanStore refuses show red where they would land.
     public static bool RefusedOnSetDown(ItemKind kind) => kind == ItemKind.Potion;
-
-    private static bool Storable(ItemKind kind, string key) => !RefusedOnSetDown(kind) && !ItemCodes.InFamily(key, Families);
 
     public WarehouseStorage Clone()
     {

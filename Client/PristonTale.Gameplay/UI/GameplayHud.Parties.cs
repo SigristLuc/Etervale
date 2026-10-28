@@ -11,7 +11,7 @@ namespace PristonTale.Gameplay.UI;
 public sealed partial class GameplayHud
 {
     private readonly HudPartyWindow _partyWindow = new();
-    private readonly HudPartyRequest _partyRequest = new();
+    private readonly HudRequestBox _partyRequest = new(HudPartyArt.Request, Simulation.Parties.PartyRules.InviteMs);
     private readonly List<Vector3> _minimapParty = new(Contracts.Social.PartyLimits.MaxMembers);
 
     // Sends the party requests; set by the screen.
@@ -26,7 +26,7 @@ public sealed partial class GameplayHud
     public event Action PlayerButtonsUsed;
 
     public HudPartyWindow PartyWindow => _partyWindow;
-    public HudPartyRequest PartyRequest => _partyRequest;
+    public HudRequestBox PartyRequest => _partyRequest;
 
     // The party part of each presence update. As in the original, a request is not shown while the warehouse is open.
     public void ObserveParty(PresenceUpdate update)
@@ -42,7 +42,7 @@ public sealed partial class GameplayHud
                 _questWindow.Close();
                 _partyWindow.Show();
             }
-            else if (released)
+            else if (released && !_partyWindow.ShowsFriends)
             {
                 _partyWindow.Close();
             }
@@ -50,7 +50,10 @@ public sealed partial class GameplayHud
 
         if (update.PartyRequest is { } request && !_warehouse.IsOpen)
         {
-            _partyRequest.Show(request, _clock.Elapsed.TotalMilliseconds);
+            var line = request.Recommended.Length > 0
+                ? Simulation.Parties.PartyMessages.Format(Simulation.Parties.PartyMessages.Recommends, request.Recommended)
+                : Simulation.Parties.PartyMessages.Request;
+            _partyRequest.Show(request.FromId, request.FromName, line, _clock.Elapsed.TotalMilliseconds);
         }
     }
 
@@ -81,7 +84,7 @@ public sealed partial class GameplayHud
 
     private bool ClickParty(HudLayout layout, Point pointer)
     {
-        var from = _partyRequest.Current?.FromId ?? 0;
+        var from = _partyRequest.FromId;
         if (_partyRequest.Click(pointer) is { } answer)
         {
             Parties?.AnswerPartyAsync(from, answer);
@@ -93,6 +96,14 @@ public sealed partial class GameplayHud
             if (button == HudPlayerButton.Party)
             {
                 Parties?.InviteToPartyAsync(ButtonsPlayerId);
+            }
+            else if (button == HudPlayerButton.Trade)
+            {
+                Trades?.RequestTradeAsync(ButtonsPlayerId);
+            }
+            else
+            {
+                BefriendReached();
             }
 
             PlayerButtonsUsed?.Invoke();

@@ -82,5 +82,23 @@ public interface IPlayChannel : IAsyncDisposable
 
     Task CommandPartyAsync(PartyCommand command, ulong memberId, CancellationToken ct = default) => Task.CompletedTask;
 
+    // Trade requests: ask a player to trade, answer a request (PresenceUpdate.TradeRequest), the side's whole offer, lock it,
+    // cancel. None is answered: the window (PresenceUpdate.Trade) and chat lines show what changed.
+    Task RequestTradeAsync(ulong targetId, CancellationToken ct = default) => Task.CompletedTask;
+
+    Task AnswerTradeAsync(ulong fromId, bool accept, CancellationToken ct = default) => Task.CompletedTask;
+
+    Task OfferTradeAsync(Simulation.Trades.TradeOffer offer, CancellationToken ct = default) => Task.CompletedTask;
+
+    Task LockTradeAsync(CancellationToken ct = default) => Task.CompletedTask;
+
+    Task CancelTradeAsync(CancellationToken ct = default) => Task.CompletedTask;
+
+    // The friends page: put a name on a list or take it off, or ask for the lists again (who is online); both are answered
+    // by PresenceUpdate.Contacts for each list.
+    Task ChangeContactAsync(ContactList list, bool add, string name, CancellationToken ct = default) => Task.CompletedTask;
+
+    Task RefreshContactsAsync(CancellationToken ct = default) => Task.CompletedTask;
+
     IAsyncEnumerable<PresenceUpdate> ReadAllAsync(CancellationToken ct = default);
 }

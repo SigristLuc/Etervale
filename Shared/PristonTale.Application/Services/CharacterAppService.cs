@@ -62,7 +62,7 @@ public sealed class CharacterAppService
         var session = Authenticate(sessionToken);
 
         var trimmed = name?.Trim() ?? string.Empty;
-        if (trimmed.Length is < 3 or > 16)
+        if (!CharacterNames.IsValidLength(trimmed))
             return CreateCharacterOutcome.Failed(CreateCharacterFailure.NameLength);
 
         if (!Enum.IsDefined(playerClass))

@@ -255,7 +255,7 @@ public sealed partial class GameplayHud
 
     private bool InterceptInventoryClick(OwnedItemView item)
     {
-        if (_personalShop.InterceptBagClick(item))
+        if (InterceptTradeClick(item) || _personalShop.InterceptBagClick(item))
         {
             return true;
         }

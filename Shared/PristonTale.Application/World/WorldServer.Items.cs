@@ -58,7 +58,7 @@ public sealed partial class WorldServer
             if (TryGetPlaying(session, out var connection) && _fields.TryGetValue(connection.FieldId, out var field))
             {
                 var player = connection.Player;
-                var effect = action.Apply(new ItemUseInWorld(player, field, operation, _clock.GetUtcNow().ToUnixTimeMilliseconds()));
+                var effect = action.Apply(new ItemUseInWorld(player, field, operation, UnixNowMs));
                 if (effect.Kind != ItemEffectKind.None)
                 {
                     field.ItemEvents.Add(new ItemEffectView(player.EntityId, operation.ItemCode, effect.Kind, effect.At ?? player.Position, operation.Roll));

@@ -14,7 +14,7 @@ internal static class PartyHudTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("the party page lists members with levels in tens, gives the leader its buttons, picks a member and whispers on a double click", WindowAsync);
-        yield return ("the party request box answers once from its buttons and closes itself after twenty seconds", RequestAsync);
+        yield return ("the party request box answers once from its buttons and closes itself after twenty seconds, the trade's after ten", RequestAsync);
         yield return ("the trade, party and friend buttons sit under the portrait from 36 px left of its centre", PlayerButtonsAsync);
     }
 
@@ -68,17 +68,22 @@ internal static class PartyHudTests
 
     private static Task RequestAsync()
     {
-        var box = new HudPartyRequest();
-        box.Show(new PartyRequestInfo(7, "Ann"), 1000);
+        var box = new HudRequestBox(HudPartyArt.Request, PartyRules.InviteMs);
+        box.Show(7, "Ann", PartyMessages.Request, 1000);
         Assert.True(box.IsOpen && box.Click(new Point(0, 300)) is null && box.IsOpen, "a click elsewhere answered");
-        Assert.True(box.Click(HudPartyRequest.Ok.Center) == true && !box.IsOpen, "OK accepts and closes");
-        box.Show(new PartyRequestInfo(7, "Ann"), 1000);
-        Assert.True(box.Click(HudPartyRequest.Cancel.Center) == false && !box.IsOpen, "cancel refuses and closes");
-        box.Show(new PartyRequestInfo(7, "Ann"), 1000);
+        Assert.True(box.Click(box.Ok.Center) == true && !box.IsOpen, "OK accepts and closes");
+        box.Show(7, "Ann", PartyMessages.Request, 1000);
+        Assert.True(box.Click(box.Cancel.Center) == false && !box.IsOpen && box.FromId == 7, "cancel refuses and closes");
+        box.Show(7, "Ann", PartyMessages.Request, 1000);
         box.Update(1000 + PartyRules.InviteMs - 1);
         Assert.True(box.IsOpen, "the box closed early");
         box.Update(1000 + PartyRules.InviteMs);
-        Assert.True(!box.IsOpen && HudPartyRequest.Ok.Location == new Point(653, 14), "the box outlived its request or moved");
+        Assert.True(!box.IsOpen && box.Ok.Location == new Point(653, 14), "the box outlived its request or moved");
+
+        var trade = new HudRequestBox(PristonTale.Gameplay.UI.Trades.HudTradeArt.Request, PristonTale.Contracts.Social.TradeLimits.RequestMs);
+        trade.Show(9, "Bob", null, 0);
+        trade.Update(PristonTale.Contracts.Social.TradeLimits.RequestMs);
+        Assert.True(!trade.IsOpen && trade.Cancel.Location == new Point(657, 40), "the trade box keeps the original's ten seconds and place");
         return Task.CompletedTask;
     }
 

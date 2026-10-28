@@ -45,7 +45,29 @@ public sealed record PresenceUpdate(
     // The local player's party when it changed (no member once it has none), and a player's request to group.
     public PartyInfo? Party { get; init; }
     public PartyRequestInfo? PartyRequest { get; init; }
+
+    // The local player's trade window when it changed (TradeInfo.None once it ended), and a player's request to trade.
+    public TradeInfo? Trade { get; init; }
+    public TradeRequestInfo? TradeRequest { get; init; }
+
+    // One of the local player's contact lists, as the server answered a change or a refresh.
+    public ContactListInfo? Contacts { get; init; }
 }
+
+// A contact list in the order added; Online tells a friend playing now.
+public sealed record ContactListInfo(ContactList List, IReadOnlyList<(string Name, bool Online)> Entries);
+
+// The trade window as the server holds it: the partner, the local player's own offer, the partner's items (anchored at
+// their trade grid cells, with their values for the local player), the partner's gold and both locks.
+public sealed record TradeInfo(ulong PartnerId, string PartnerName, PristonTale.Simulation.Trades.TradeOffer Own, bool OwnLocked,
+    IReadOnlyList<OwnedItemView> PartnerItems, long PartnerMoney, bool PartnerLocked)
+{
+    public static readonly TradeInfo None = new(0, "", PristonTale.Simulation.Trades.TradeOffer.Empty, false, [], 0, false);
+
+    public bool Open => PartnerId != 0;
+}
+
+public sealed record TradeRequestInfo(ulong FromId, string FromName);
 
 // The local player's party, the leader first; Position is the member's planar place (x, z) in world units.
 public sealed record PartyInfo(IReadOnlyList<PartyMemberInfo> Members)

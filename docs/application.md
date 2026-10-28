@@ -27,6 +27,9 @@ into it is described in [server.md](server.md); skill resolution details are in 
 | `Services/ItemUseAppService.cs` | Use of a carried item: prepare, store, commit ([special-items.md](special-items.md)) |
 | `Services/PersonalShopAppService.cs`, `World/WorldServer.PersonalShops.cs`, `World/PersonalShopTransactions.cs` | Personal shops: open, close, view, and a purchase that holds and stores two characters (below) |
 | `Services/PartyAppService.cs`, `World/WorldServer.Parties.cs`, `World/Parties/Party.cs` | Parties: requests, answers, the leader's commands, the members' view and the chat roster (below) |
+| `Services/TradeAppService.cs`, `World/WorldServer.Trades.cs`, `World/Trades/Trade.cs` | Trades between players: requests, offers, locks and the exchange that holds and stores two characters (below) |
+| `World/WorldServer.Notices.cs`, `World/WorldNotice.cs`, `Services/WorldNoticeRequests.cs` | The lines a party or trade change answers, delivered through the chat (`ChatDirectory.Deliver`) |
+| `Contacts/ContactAppService.cs` | The friends page: each character's friends and ignored players, stored, with the friends' presence (below) |
 | `Chat/`, `GameMasters/` | Chat routing, whispers and notices; game-master commands, levels and audit ([chat-and-gm.md](chat-and-gm.md)) |
 | `World/WorldServer.Chat.cs`, `World/WorldServer.GameMasters.cs` | Players in hearing range; tick-side game-master reads and changes (kill, hide, move, spawn, drop, gifts) |
 | `Shared/PristonTale.Contracts/Sessions/*Outcome.cs`, `CharacterSummary.cs`; `Contracts/World/Restart.cs`, `WingGateTrip.cs` | Result records returned to the edge and read by the client (login, characters, world entry, restart, wing trips); failure enums carry stable codes |
@@ -343,6 +346,7 @@ A prepared operation with `Snapshot == null` is final (rejection or replay) and 
 | Quest upkeep | `QuestTransactions.PrepareUpkeep`, run by the server's `QuestUpkeepService` | quest drops into the pack, quest weapon growth and expiry, leftovers removed; drops return to the player when the write is refused or throws |
 | Item use | `ItemUseTransactions.Prepare` with the item's `ItemUseAction` (`PreparedItemUseOperation`) | inventory, premium state, resets and mastery re-applied with the prepared clock, item effects, hair, arrival |
 | Personal shop purchase | `PersonalShopTransactions.Prepare` (`PreparedShopPurchase`): the buyer's and the seller's candidates, stored together with `ICharacterRepository.UpdateAllAsync` | both inventories, the price from the buyer to the seller, the seller's listing pruned |
+| Trade exchange | `WorldServer.PrepareTradeAsync` (`PreparedTrade`): `TradeRules.Exchange` on candidates of both sides, stored together with `UpdateAllAsync` | both inventories and gold deltas; the trade ends |
 
 Revisions and idempotency:
 
@@ -410,7 +414,7 @@ it), so a listing never changes between a purchase's prepare and commit.
 
 Parties live in memory only, as the original keeps them (`WorldServer.Parties.cs`): two to six players, the leader first
 (`Party`, read by the fields while they step, so a change replaces its member array). Every change runs on the command
-phase and answers `PartyNotice` lines that `PartyAppService` (or the session, for a player leaving) delivers through
+phase and answers `WorldNotice` lines that `PartyAppService` (or the session, for a player leaving) delivers through
 `ChatDirectory.Deliver`: replies to the actor in the server kind, notices to every member in the system kind, with the
 original's texts (`PartyMessages`, [simulation.md](simulation.md)).
 
@@ -437,6 +441,39 @@ original's texts (`PartyMessages`, [simulation.md](simulation.md)).
 - Support skills marked `party` reach only the caster's members, `requiresParty` refuses a cast without a party, and a
   revive looks only for dead members ([skills.md](skills.md)).
 
+## Trades
+
+Trades live in memory (`WorldServer.Trades.cs`): two players of a field within `TradeLimits.Reach` (3D), neither in
+another trade, dead or selling from a personal shop. A request waits `TradeLimits.RequestMs` for its answer, and while
+it waits the asked player is busy to other requests; a yes opens the trade (`Trade`, side 0 the asker), and both sides
+then send their whole offer (`TradeOffer`: bag items at trade grid cells and gold, checked by `TradeRules.Check`;
+[simulation.md](simulation.md)). Each change unlocks both sides, and a side may not lock within
+`TradeLimits.LockDelayMs` of the other's change; the same offer sent again changes nothing, and a refused one answers
+the offer the server holds. A lock is refused when the side could not take what it receives (`TradeRules.Exchange` on
+clones), or when an offered stack no longer has the count the other side was shown (both read the original's "changed"
+line).
+
+The lock that completes the trade (`TradeAppService.LockAsync`) holds the locker's save gate, waits up to 2 s for its
+partner's (a gate still busy unlocks the trade), prepares the exchange on clones of both (exempt from the command
+quota), stores both snapshots in one transaction and commits both; a refusal or failed storage unlocks the trade with
+the original's line. While the exchange is stored a cancel ends the trade only if it fails, and a side that leaves ends
+it without a line (the exchange still commits; the leaving save waits for it). Otherwise a cancel (never dropped by the
+command quota), leaving the world or changing place ends the trade for both; the lines a change of place leaves are
+delivered after the tick (`TakeTickNotices`). Every snapshot carries the receiver's `TradeView` (the partner items with
+their values for it) and pending `TradeRequest`. Meanwhile inventory commands and item uses on an offered item
+(`Offers`), NPC services and opening a personal shop are refused.
+
+## Contacts
+
+The friends page (`ContactAppService`) keeps, per character, a friends list and an ignored list (`ContactBook`, at most
+`ContactLimits.MaxEntries` names each, a name once whatever its case, never the character's own;
+[simulation.md](simulation.md)). The server loads them before the player joins the world (`ChatMember.Contacts`; lists
+it could not read stay empty and refuse changes) and stores each change at once (`IContactRepository`,
+[persistence.md](persistence.md)); a name need not belong to a character, as the original's lists take any name. Every
+change and refresh answers both lists, each friend with whether a player of that name is in the world. A whisper from an
+ignored player is refused ([chat-and-gm.md](chat-and-gm.md)). The recent players are the client's
+([client.md](client.md)).
+
 ## Published outcomes and events
 
 - Command results return through the `Task` of the call (`MovementVerdict`, `SkillCastOutcome`, `InventoryOutcome`,
@@ -448,8 +485,8 @@ original's texts (`PartyMessages`, [simulation.md](simulation.md)).
   statuses (`ActiveStatuses`) and clock (`FieldNowMs`). `WithOwner` stamps each copy with the receiver's `OwnerState`
   (only
   when changed) and its cooldowns (null when unchanged since the last send); each copy also carries the receiver's
-  `QuestUpdate` (journal view when its revision moved, quest notices, a dialog the world opened), its `PartyView` and its
-  pending `PartyRequest`.
+  `QuestUpdate` (journal view when its revision moved, quest notices, a dialog the world opened), its `PartyView`, its
+  `TradeView` and its pending `PartyRequest` and `TradeRequest`.
 - `WorldOutbox` is the per-connection `Channel<WorldSnapshot>`: a write never blocks; the reader receives the latest
   entity state plus every event accumulated since its last read (state is coalesced, events are reliable, the newest
   cooldown list wins; quest notices stay in order up to 256 and the newest journal view and dialog win). A reader that

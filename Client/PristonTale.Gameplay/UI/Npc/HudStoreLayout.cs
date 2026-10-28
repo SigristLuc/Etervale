@@ -24,14 +24,14 @@ public static class HudStoreLayout
         HudGridPlacement.Cell(Grid(origin), Columns, anchor, width, height);
 
     // The first free place for an item, down each column from the left as the original's shops lay items, on a grid of
-    // occupied cells (row-major); -1 when none.
-    public static int FindSpace(bool[] occupied, int width, int height)
+    // occupied cells (row-major, Columns wide and rows high: the store's, or the trade's shorter one); -1 when none.
+    public static int FindSpace(bool[] occupied, int width, int height, int rows = Rows)
     {
-        for (var place = 0; place < Columns * Rows; place++)
+        for (var place = 0; place < Columns * rows; place++)
         {
-            var x = place / Rows;
-            var y = place % Rows;
-            if (x + width > Columns || y + height > Rows)
+            var x = place / rows;
+            var y = place % rows;
+            if (x + width > Columns || y + height > rows)
             {
                 continue;
             }

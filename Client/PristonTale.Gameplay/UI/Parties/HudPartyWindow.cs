@@ -6,8 +6,9 @@ using PristonTale.Gameplay.UI.Widgets;
 
 namespace PristonTale.Gameplay.UI.Parties;
 
-// The party page of the original party window, where its quest page (HudQuestWindow) stands: 256x256 at x = 539 of the
-// 800-wide frame (right anchored) and y = 155, sliding in from the right edge. Members go down from (80, 38) at 30 px
+// The party window's party and friends pages (its "Party" and "chatting" tabs over the frame, at x 60 and 120), where its
+// quest page (HudQuestWindow) stands: 256x256 at x = 539 of the 800-wide frame (right anchored) and y = 155, sliding in
+// from the right edge. The friends page is HudFriendsPage. On the party page, members go down from (80, 38) at 30 px
 // steps: the life bar (94 px) under the name, the member's mark (the leader's own) before it and the level after it,
 // shown in tens past level 10 ("L4x"). Under them the delegate, disband, kick, leave and close buttons: the first three
 // are the leader's, and without a party only close works. A click picks a member for delegate and kick (neither acts
@@ -31,6 +32,10 @@ public sealed class HudPartyWindow
     private double _lastClickSeconds;
 
     public bool Open => _slide.Open;
+
+    // The friends page shows instead of the party page.
+    public bool ShowsFriends { get; private set; }
+    public Contacts.HudFriendsPage Friends { get; } = new();
     public bool Visible => _slide.Visible;
     public bool FullyOpen => _slide.FullyOpen;
 
@@ -66,9 +71,35 @@ public sealed class HudPartyWindow
 
     public Point CurrentOrigin(HudLayout layout) => Origin(layout, _slide.Move);
 
-    public void Show() => _slide.Open = true;
+    public HudPartyWindow() => Friends.Closed = Close;
 
-    public void Toggle() => _slide.Open = !_slide.Open;
+    public static Rectangle PartyTab(Point origin) => new(origin.X + 60, origin.Y + 2, 60, 20);
+    public static Rectangle FriendsTab(Point origin) => new(origin.X + 120, origin.Y + 2, 60, 20);
+
+    public void Show()
+    {
+        ShowsFriends = false;
+        _slide.Open = true;
+    }
+
+    public void ShowFriends(Contacts.HudFriendsView view)
+    {
+        ShowsFriends = true;
+        Friends.Show(view);
+        _slide.Open = true;
+    }
+
+    public void Toggle()
+    {
+        if (_slide.Open)
+        {
+            Close();
+        }
+        else
+        {
+            Show();
+        }
+    }
 
     public void Close()
     {
@@ -98,6 +129,18 @@ public sealed class HudPartyWindow
         }
 
         var origin = CurrentOrigin(layout);
+        if (PartyTab(origin).Contains(pointer) || FriendsTab(origin).Contains(pointer))
+        {
+            ShowsFriends = FriendsTab(origin).Contains(pointer);
+            return true;
+        }
+
+        if (ShowsFriends)
+        {
+            Friends.Click(origin, pointer);
+            return true;
+        }
+
         for (var index = 0; index <= CloseButton; index++)
         {
             if (!Button(origin, index).Contains(pointer))
@@ -153,9 +196,15 @@ public sealed class HudPartyWindow
 
         var origin = CurrentOrigin(layout);
         painter.Stretch(HudPartyArt.Window, new Rectangle(origin.X, origin.Y, Width, Height));
-        painter.Stretch(HudPartyArt.Title, new Rectangle(origin.X, origin.Y - 8, Width, 32));
+        painter.Stretch(ShowsFriends ? Contacts.HudContactArt.Title : HudPartyArt.Title, new Rectangle(origin.X, origin.Y - 8, Width, 32));
         if (!_slide.FullyOpen)
         {
+            return;
+        }
+
+        if (ShowsFriends)
+        {
+            Friends.Draw(painter, origin, pointer);
             return;
         }
 

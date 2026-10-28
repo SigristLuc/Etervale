@@ -55,6 +55,6 @@ public sealed partial class WorldServer
     public Task<bool> YahooAsync(ulong entityId, bool key)
     {
         return EnqueueAsync(entityId, () =>
-            _connections.TryGetValue(entityId, out var connection) && connection.Player.AskYahoo(key, _clock.GetUtcNow().ToUnixTimeMilliseconds()));
+            _connections.TryGetValue(entityId, out var connection) && connection.Player.AskYahoo(key, UnixNowMs));
     }
 }

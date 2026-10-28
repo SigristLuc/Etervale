@@ -186,6 +186,9 @@ Correlation rules (requests without an operation id):
   `PersonalShopResult` and come back with it as one `PersonalShopReply` (the offers with their copies' values). A
   player's shop sign arrives in its description (`PlayerAppearanceInfo.ShopSign`); `RemoteEntityManager.ShopSigns`
   keeps the signs in view, the local player's included, and a new sign alone rebuilds no model.
+- Trade requests (`IPlayChannel.RequestTradeAsync`, `AnswerTradeAsync`, `OfferTradeAsync`, `LockTradeAsync`,
+  `CancelTradeAsync`) are sent without an answer; `TradeAsked` arrives as `PresenceUpdate.TradeRequest`, and `TradeState`
+  (with the `TradeDetails` just before it) as `PresenceUpdate.Trade` (`TradeInfo`, `TradeInfo.None` once it ended).
 - Party requests (`IPlayChannel.InviteToPartyAsync`, `AnswerPartyAsync`, `CommandPartyAsync`) are sent without an
   answer; `PartyRequest` and `PartyMembers` arrive as `PresenceUpdate.PartyRequest` and `PresenceUpdate.Party`
   (`PartyInfo`, the leader first, empty once the player has no party).
@@ -557,17 +560,34 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
   `PresentationController` applies it at the next frame boundary. Display changes require confirmation within 15 s
   (`DisplayConfirmation`), otherwise they revert.
 - System menu entries other than Settings are drawn without behaviour.
+- Trade (`UI/Trades/`, art `HudTradeArt`; `GameplayHud.Trades.cs`, `GameScene.Trades.cs` as `ITradeClient`): the request
+  box (`HudTradeArt.Request`, 10 s) is not shown while a service window is open. When the server opens the trade, the
+  window (`HudTradeWindow`, a service window on the store frame) opens, closing the other service windows and opening
+  the bag. The partner's grid (9x4 at (21, 86)) shows its offer with the values for the player, its name, gold, weight
+  and lock mark; a click on a bag item lays it at the first free place down the columns of the player's grid (21, 195)
+  and sends the whole offer, a click on an offered item takes it back, the gold button asks how much in the count box
+  (zero accepted). The lock greys for 2 s after the partner's offer changed; a locked side changes nothing. Closing the
+  window (its button, Escape, another service window) cancels the trade; the server's end closes it without a cancel.
+  Offered items keep their bag cells (`Withheld`), and the player is held while the window shows.
 - Party (`UI/Parties/`, art `HudPartyArt`; `GameplayHud.Parties.cs`, `GameScene.Parties.cs` as `IPartyClient`):
   - The party page (`HudPartyWindow`, D or the bar's party button) stands where the quest page does, so one closes the
     other; it opens when a party forms and closes when it is released. Members go down from (80, 38) at 30 px steps
     with the life bar (94 px), the mark (the leader's own) and the level in tens past 10 (`L4x`); a click picks a
     member for delegate and kick, a double click whispers to it. Delegate, disband and kick work for the leader, leave
     for any member, close always.
-  - The request box (`HudPartyRequest`) at (513, 3) blinks, answers once from OK or cancel and closes after 20 s; a
-    request is not shown while the warehouse is open.
+  - The request box (`HudRequestBox` with `HudPartyArt.Request`, the trade's too) at (513, 3) blinks, answers once from
+    OK or cancel and closes after 20 s; a request is not shown while the warehouse is open.
   - A click on another player (not selling) approaches it as an NPC; once reached, its portrait shows the trade, party
     and friend buttons (`HudPlayerButtons`, on `cw-1.tga`) instead of the life bar while it stays the target within
-    256 units. Party asks it to group; trade and friend close the row until those systems exist.
+    `TradeLimits.Reach`. Trade asks it to trade, party to group; friend puts it on the friends list and opens the
+    friends page there.
+  - The party window has two tabs at (60, 2) and (120, 2): the party and the friends page (`HudFriendsPage`, art
+    `HudContactArt`, title `title-NoClan_chatting.tga`; `GameplayHud.Contacts.cs`, `GameScene.Contacts.cs` as
+    `IContactClient`). Its buttons at (85, 220) show the recent players, the friends (an online or offline mark each,
+    asked again every 10 s while the page shows) or the ignored players, 7 names a page from (100, 55); on the recent
+    list "make friend" and "ignore" move the picked name onto a list, elsewhere the arrows page and "delete" takes it
+    off. A click picks a name and a click on the picked one whispers to it (marked red). The recent players are the
+    last seven whispered (either way), traded with or befriended, kept by the client for the session.
   - Members show on the minimap (`image/party.tga`, red past `PartyLimits.NearRange`), in name boxes with their life
     bar and in the bubbles' party colour.
 

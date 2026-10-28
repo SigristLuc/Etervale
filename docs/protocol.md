@@ -36,6 +36,8 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Packets/SkillPackets.cs` | Skill cast, cast result, skill events, status effects, cooldowns. |
 | `Packets/PersonalShopPackets.cs` | Personal shop open, close, view and buy requests; result, listing and details. |
 | `Packets/PartyPackets.cs` | Party invite, answer and command requests; the request a player receives and the party's members. |
+| `Packets/TradePackets.cs` | Trade request, answer, offer, lock and cancel; the request a player receives, the trade window and its items' values. |
+| `Packets/ContactPackets.cs` | Friends page: a change to a list, a refresh, and one list with the friends' presence. |
 | `Packets/NpcPackets.cs` | NPC result, service request/result, shop catalog and quotes, warehouse, teleport list, item work result. |
 | [Transport/FrameConnection.cs](../Shared/PristonTale.Protocol/Transport/FrameConnection.cs) | One TLS stream: receive loop and coalesced single-writer send. |
 | `Transport/TlsTransport.cs` | Server and client handshakes, `ServerCertificatePolicy` (system trust, loopback, pin). |
@@ -200,6 +202,10 @@ Every message code has the high word `0x4554` ("ET"); every message keeps the `{
 | `0x45540605` / `0x45540606` | `PersonalShopListing` / `PersonalShopDetails` | S→C | A seller's shop as the viewer sees it and its copies' values, sent before the result of a view or a purchase while the shop is open. |
 | `0x45540700` .. `0x45540702` | `PartyInvite`, `PartyAnswer`, `PartyCommand` | C→S | Ask a player to group, answer a request, a party window button (see below). |
 | `0x45540703` / `0x45540704` | `PartyRequest` / `PartyMembers` | S→C | A player asks the receiver to group; the receiver's party when it changed. |
+| `0x45540800` .. `0x45540804` | `TradeRequest`, `TradeAnswer`, `TradeOffer`, `TradeLock`, `TradeCancel` | C→S | Ask a player to trade, answer a request, the side's whole offer, lock it, close the trade (see below). |
+| `0x45540805` .. `0x45540807` | `TradeAsked`, `TradeState`, `TradeDetails` | S→C | A player asks the receiver to trade; the trade window when it changed, after its partner items' values. |
+| `0x45541000` / `0x45541001` | `ContactChange` / `ContactRefresh` | C→S | Put a name on the friends or ignored list or take it off; send the lists again. |
+| `0x45541002` | `ContactList` | S→C | One list (friends, then ignored) answering each change or refresh. |
 | `0x45540A00` / `0x45540A01` | `RestartRequest` / `RestartResult` | C→S / S→C | A dead player's restart (field, town, exit), correlated by operation id; a stored restart also sends a forced `FieldWarp`. |
 | `0x45540A02` | `RestartOffer` | S→C | While the owner is dead, what a restart would cost, whenever it changes. |
 | `0x45540B00` / `0x45540B01` | `GroundItems` / `GroundItemsRemoved` | S→C | Drops entering and leaving the receiver's view: within the ground-item range (squared `0xC8000` units, about 905 units), private drops only to their owner. |
@@ -424,6 +430,34 @@ bytes). Requests are not answered: `PartyMembers` and chat lines show what chang
 | `PartyRequest` | `uint64 FromId, text FromName, text Recommended` (the player a member recommends to its leader; empty for a request to join) |
 | `PartyMembers` | `uint8 Count` (0..6; 0 once the receiver has no party), members `{uint64 EntityId, text Name, int32 Level, int32 Life, int32 MaxLife, float X, float Z}`, the leader first |
 
+### Trades
+
+Every body starts with `{uint16 Version = 1, uint16 Flags = 0}`; names are UTF-8 with a `uint16` byte length (64
+bytes); a side offers at most 20 items (`TradeLimits`, Contracts). Requests are not answered: `TradeState` and chat lines
+show what changed.
+
+| Message | Layout after the header |
+| --- | --- |
+| `TradeRequest` | `uint64 TargetId` |
+| `TradeAnswer` | `uint64 FromId` (the request's), `uint8 Accept` (0 or 1; anything else is refused) |
+| `TradeOffer` | `int64 Money, int32 Count, entries {Guid ItemId, int32 Cell}` (a cell of the 9x4 trade grid) |
+| `TradeLock`, `TradeCancel` | nothing |
+| `TradeAsked` | `uint64 FromId, text FromName` |
+| `TradeState` | `uint64 PartnerId` (0 once the trade ended), `text PartnerName, uint8 Flags (1 own offer locked, 2 the partner's), int64 OwnMoney, int64 PartnerMoney, int32 Count, own entries, int32 Count, the partner's StoreItemEntry items` (anchored at their trade grid cells) |
+| `TradeDetails` | `int32 Count, ItemDetailEntry entries`: the partner items' values for the receiver, sent just before `TradeState` |
+
+### Contacts
+
+Every body starts with `{uint16 Version = 1, uint16 Flags = 0}`; names are UTF-8 with a `uint16` byte length (64 bytes).
+Both requests are answered by a `ContactList` for each list (one per message, as both would pass the frame limit); a
+refused change also by a chat line.
+
+| Message | Layout after the header |
+| --- | --- |
+| `ContactChange` | `uint8 List` (`ContactList`: 0 friends, 1 ignored), `uint8 Add` (0 or 1), `text Name` |
+| `ContactRefresh` | nothing |
+| `ContactList` | `uint8 List, uint8 Count` (at most 100), entries `{text Name, uint8 Online}` in the order added (`Online` 0 on the ignored list) |
+
 ### Death and restart
 
 Bodies start with `{uint16 Version = 1, uint16 Flags = 0}`.
@@ -573,9 +607,9 @@ connection every `Server:ReportSeconds` (30 by default).
 1. **Code.** Add a constant to `EtervaleOpcodes` in `Binary/EtervaleOpcodes.cs`, in the range of its area (`0x455401xx`
    owner state, `0x4554011x` inventory, `0x4554012x` progression, `0x4554013x` NPC, `0x4554014x` combat, `0x4554015x`
    removals, `0x4554016x` leave, `0x4554017x` clock, `0x455402xx` skills, `0x455403xx` item details, `0x455404xx`
-   usable items, `0x455405xx` quests, `0x455406xx` personal shops, `0x455407xx` parties, `0x455409xx` presence, `0x45540Axx` restart,
+   usable items, `0x455405xx` quests, `0x455406xx` personal shops, `0x455407xx` parties, `0x455408xx` trades, `0x455409xx` presence, `0x45540Axx` restart,
    `0x45540Bxx` ground items, `0x45540Cxx` chat, `0x45540Dxx` player actions, `0x45540Exx` world entry, `0x45540Fxx`
-   account).
+   account, `0x455410xx` contacts).
 2. **Packet type.** Add a record in `Packets/` with `Size` or `HeaderSize` constants, `int Write(Span<byte>)` built on
    `PacketWriter` (returning `Finish()`), and `static Read(ReadOnlySpan<byte>)` built on `PacketReader(packet,
    minimum)`. Start new bodies with `{uint16 Version, uint16 Flags}`, reject version 0, append fields only at the end,

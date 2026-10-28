@@ -7,19 +7,18 @@ using PristonTale.Simulation.Parties;
 namespace PristonTale.Application.World;
 
 // Parties live in memory only, as the original keeps them: leaving the world leaves the party. Every change runs on the
-// tick's command phase and answers the lines its players receive (PartyNotice). What the members see is rebuilt after
+// tick's command phase and answers the lines its players receive (WorldNotice). What the members see is rebuilt after
 // each change and every PartyRefreshTicks, before the fields step.
 public sealed partial class WorldServer
 {
     private const uint PartyRefreshTicks = 10;
     private readonly HashSet<Party> _parties = new();
-    private readonly List<PartyNotice> _partyNotices = new();
     private readonly PartyMemberView[] _partyScratch = new PartyMemberView[PartyLimits.MaxMembers];
 
     // Who hears a party line.
     public PartyRoster Parties { get; } = new();
 
-    public Task<PartyNotice[]> InviteToPartyAsync(PlayerSession session, ulong targetId) =>
+    public Task<WorldNotice[]> InviteToPartyAsync(PlayerSession session, ulong targetId) =>
         EnqueueAsync(session.EntityId, () => PartyAction(session, player =>
         {
             if (_connections.TryGetValue(targetId, out var target))
@@ -29,7 +28,7 @@ public sealed partial class WorldServer
         }));
 
     // The original's "//party name" command.
-    public Task<PartyNotice[]> InviteToPartyByNameAsync(PlayerSession session, string name) =>
+    public Task<WorldNotice[]> InviteToPartyByNameAsync(PlayerSession session, string name) =>
         EnqueueAsync(session.EntityId, () => PartyAction(session, player =>
         {
             if (PlayerNamed(name) is { } target)
@@ -42,28 +41,13 @@ public sealed partial class WorldServer
             }
         }));
 
-    public Task<PartyNotice[]> AnswerPartyAsync(PlayerSession session, ulong fromId, bool accept) =>
+    public Task<WorldNotice[]> AnswerPartyAsync(PlayerSession session, ulong fromId, bool accept) =>
         EnqueueAsync(session.EntityId, () => PartyAction(session, player => Answer(player, fromId, accept)));
 
-    public Task<PartyNotice[]> CommandPartyAsync(PlayerSession session, PartyCommand command, ulong memberId) =>
+    public Task<WorldNotice[]> CommandPartyAsync(PlayerSession session, PartyCommand command, ulong memberId) =>
         EnqueueAsync(session.EntityId, () => PartyAction(session, player => Command(player, command, memberId)));
 
-    private PartyNotice[] PartyAction(PlayerSession session, Action<WorldPlayer> action)
-    {
-        if (TryGetPlaying(session, out var connection))
-        {
-            action(connection.Player);
-        }
-
-        return TakePartyNotices();
-    }
-
-    private PartyNotice[] TakePartyNotices()
-    {
-        var notices = _partyNotices.ToArray();
-        _partyNotices.Clear();
-        return notices;
-    }
+    private WorldNotice[] PartyAction(PlayerSession session, Action<WorldPlayer> action) => NoticeAction(session, connection => action(connection.Player));
 
     private WorldPlayer? PlayerNamed(string name)
     {
@@ -93,7 +77,7 @@ public sealed partial class WorldServer
             return;
         }
 
-        var expires = PartyNowMs + PartyRules.InviteMs;
+        var expires = UnixNowMs + PartyRules.InviteMs;
         if (target.Party is null || inviter.Party is null && target.Party.LeaderId == target.EntityId)
         {
             if (inviter.Party is { } own && own.LeaderId != inviter.EntityId && _connections.TryGetValue(own.LeaderId, out var leader))
@@ -121,7 +105,7 @@ public sealed partial class WorldServer
         }
 
         player.PartyRequest = null;
-        if (!accept || request.ExpiresMs < PartyNowMs)
+        if (!accept || request.ExpiresMs < UnixNowMs)
         {
             return;
         }
@@ -297,13 +281,9 @@ public sealed partial class WorldServer
     {
         foreach (var id in party.Members)
         {
-            _partyNotices.Add(new PartyNotice(id, ChatKind.System, text));
+            Notify(id, ChatKind.System, text);
         }
     }
-
-    private void Reply(WorldPlayer player, string text) => _partyNotices.Add(new PartyNotice(player.EntityId, ChatKind.Server, text));
-
-    private long PartyNowMs => _clock.GetUtcNow().ToUnixTimeMilliseconds();
 
     // Tick only, before the fields step: what the members see, and the average level their kills and requests use.
     private void RefreshParties(uint serverTick)

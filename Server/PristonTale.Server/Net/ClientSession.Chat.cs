@@ -1,6 +1,7 @@
 using System.Numerics;
 using PristonTale.Application.Chat;
 using PristonTale.Application.Sessions;
+using PristonTale.Simulation.Social;
 using PristonTale.Protocol.Binary;
 using PristonTale.Protocol.Packets;
 using PristonTale.Protocol.Transport;
@@ -34,12 +35,25 @@ internal sealed partial class ClientSession
         }
     }
 
-    private void JoinChat(PlayerSession session)
+    private void JoinChat(PlayerSession session, ContactBook contacts)
     {
         var link = new ChatLink(this);
         _chatLink = link;
         var name = session.CharacterName ?? session.Character?.Name ?? "";
-        _services.Chat.Directory.Join(new ChatMember(session, name, link, Environment.TickCount64, session.Loaded?.Money ?? 0));
+        _services.Chat.Directory.Join(new ChatMember(session, name, link, Environment.TickCount64, session.Loaded?.Money ?? 0) { Contacts = contacts });
+    }
+
+    private async Task<ContactBook> LoadContactsAsync(PlayerSession session)
+    {
+        try
+        {
+            return await _services.Contacts.LoadAsync(session.Loaded!.Id);
+        }
+        catch (System.Data.Common.DbException ex)
+        {
+            _services.Logger.LogWarning("Could not load the contacts of {Name}: {Message}", session.CharacterName, ex.Message);
+            return ContactBook.Unavailable();
+        }
     }
 
     private void LeaveChat(PlayerSession session)

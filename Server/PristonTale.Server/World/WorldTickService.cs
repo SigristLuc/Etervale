@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using PristonTale.Application.Chat;
 using PristonTale.Application.World;
 
 namespace PristonTale.Server.World;
@@ -9,12 +10,14 @@ public sealed class WorldTickService : BackgroundService
     public const int DefaultReportSeconds = 30;
 
     private readonly WorldServer _world;
+    private readonly ChatDirectory _chat;
     private readonly ILogger<WorldTickService> _logger;
     private readonly TimeSpan _reportInterval;
 
-    public WorldTickService(WorldServer world, ILogger<WorldTickService> logger, IConfiguration configuration)
+    public WorldTickService(WorldServer world, ChatDirectory chat, ILogger<WorldTickService> logger, IConfiguration configuration)
     {
         _world = world;
+        _chat = chat;
         _logger = logger;
         var seconds = configuration.GetValue("Server:ReportSeconds", DefaultReportSeconds);
         if (seconds < 1)
@@ -43,6 +46,7 @@ public sealed class WorldTickService : BackgroundService
             try
             {
                 _world.Tick(dt, ++tick);
+                _chat.Deliver(_world.TakeTickNotices());
             }
             catch (Exception ex)
             {

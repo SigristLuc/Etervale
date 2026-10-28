@@ -46,6 +46,3 @@ public sealed record PartyRequest(ulong FromId, string FromName, ulong JoinerId,
 {
     public bool Recommendation => JoinerId != FromId;
 }
-
-// A line for one player, delivered through the chat after the world answered.
-public readonly record struct PartyNotice(ulong To, ChatKind Kind, string Text);

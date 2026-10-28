@@ -225,7 +225,7 @@ public sealed class ChatAppService
     }
 
     // "/:name text" or "/;name text": the sender sees "To> name: text", the receiver "From> sender: text". A receiver who
-    // refuses whispers, or a missing text, gets the sender a server line instead.
+    // refuses whispers or ignores the sender, or a missing text, gets the sender a server line instead.
     private void Whisper(ChatMember sender, string text)
     {
         var index = 2;
@@ -239,6 +239,12 @@ public sealed class ChatAppService
                 sender.Link.Deliver(ChatLine.Reply(name + " is currently offline, or cannot be found"));
             }
 
+            return;
+        }
+
+        if (target.Contacts.Ignores(sender.Name))
+        {
+            sender.Link.Deliver(ChatLine.Reply(ContactMessages.WhisperRefused));
             return;
         }
 

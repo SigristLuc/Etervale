@@ -28,10 +28,12 @@ public sealed partial class WorldServer
     // The minute of each hour at which scheduled bosses appear today (an int is read atomically off the tick).
     public int BossMinute => _bossSchedule.Minute;
 
-    // The server's clock, local and in Unix seconds, as the world reads it.
+    // The server's clock, local and in Unix seconds or milliseconds, as the world reads it.
     public DateTimeOffset LocalNow => _clock.GetLocalNow();
 
     public long UnixSeconds => _clock.GetUtcNow().ToUnixTimeSeconds();
+
+    private long UnixNowMs => _clock.GetUtcNow().ToUnixTimeMilliseconds();
 
     // The display name of a field (the catalog is immutable, so any thread may read it).
     public string FieldName(int fieldId) => _catalog.TryGetFieldByCode(fieldId, out var definition) ? definition.Name : fieldId.ToString();

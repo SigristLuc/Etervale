@@ -6,18 +6,12 @@ namespace PristonTale.Simulation.Items;
 // authored weight per unit. Gold weighs nothing.
 public static class CarriedWeight
 {
-    public static int Of(ItemInstance item)
-    {
-        if (item.Definition.Kind == ItemKind.Potion)
-        {
-            return item.Count;
-        }
+    public static int Of(ItemInstance item) => Of(item.Definition, item.Count);
 
-        return Math.Max(0, item.Definition.Weight) * item.Count;
-    }
+    public static int Of(ItemDefinition definition, int count) => Of(definition.Kind, definition.Weight, count);
 
-    public static int Of(ItemDefinition definition, int count) =>
-        definition.Kind == ItemKind.Potion ? count : Math.Max(0, definition.Weight) * count;
+    // The rule a view applies from an item's kind, authored weight and count.
+    public static int Of(ItemKind kind, int weight, int count) => kind == ItemKind.Potion ? count : Math.Max(0, weight) * count;
 
     public static int Of(PlayerCharacter character)
     {

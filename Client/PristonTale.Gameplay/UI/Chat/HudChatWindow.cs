@@ -141,14 +141,15 @@ public sealed class HudChatWindow
     }
 
     // The other side of a whisper line ("From> name: ..." or "To> name: ...").
-    public static string WhisperPartner(HudChatEntry entry)
+    public static string WhisperPartner(HudChatEntry entry) => WhisperPartnerOf(entry.Kind, entry.Text);
+
+    public static string WhisperPartnerOf(ChatKind kind, string text)
     {
-        if (entry.Kind != ChatKind.Whisper)
+        if (kind != ChatKind.Whisper)
         {
             return null;
         }
 
-        var text = entry.Text;
         var start = text.StartsWith("From> ", StringComparison.Ordinal) ? 6 : text.StartsWith("To> ", StringComparison.Ordinal) ? 4 : -1;
         var colon = start < 0 ? -1 : text.IndexOf(':', start);
         return colon > start ? text[start..colon].Trim() : null;

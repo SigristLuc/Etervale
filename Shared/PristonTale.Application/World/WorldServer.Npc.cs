@@ -1,5 +1,6 @@
 using PristonTale.Application.Sessions;
 using PristonTale.Simulation.PersonalShops;
+using PristonTale.Simulation.Trades;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 
@@ -60,11 +61,13 @@ public sealed partial class WorldServer
                 return null;
             }
 
-            if (connection.Player.Shop is not null)
+            // A trade's offered items and gold change only through its exchange.
+            if (connection.Player.Shop is not null || connection.Player.Trade is not null)
             {
                 var revision = connection.Player.Character.InventoryRevision;
+                var message = connection.Player.Shop is not null ? PersonalShopMessages.Of(PersonalShopStatus.Selling) : TradeMessages.Trading;
                 return new PreparedNpcOperation(connection.Player.Character, null, null, new NpcServiceReply(NpcServiceOutcome.Failed(NpcServiceStatus.Rejected,
-                    PersonalShopMessages.Of(PersonalShopStatus.Selling), revision)));
+                    message, revision)));
             }
 
             return NpcServiceTransactions.Prepare(session, connection.Player, field, command, _worldData.Current.Items, _catalog);

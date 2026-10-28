@@ -489,8 +489,8 @@ Shop rules (`NpcShopRules`):
   higher 100M.
 
 Warehouse (`WarehouseStorage`, one per account): 9×9 grid, at most 100 items, weight 1000, gold 100,000,000.
-`CanStore` keeps out what the original does: `BoundItems`, potions (`RefusedOnSetDown`: the client refuses them only
-when set down) and the SP1 and CH1 families. Deposit, Withdraw and Move set an item down at a cell; over one other item
+`CanStore` keeps out what the original does: what `BoundItems.CanHandOver` refuses (the bound items and the SP1 and CH1
+families, which a trade refuses too) and potions (`RefusedOnSetDown`: the client refuses them only when set down). Deposit, Withdraw and Move set an item down at a cell; over one other item
 the two are exchanged (`Inventory.Covered` finds it from the footprint; the request's `Covered` must name the same item,
 or the client's view was stale), the covered one going to the moved item's cell or wherever its side has room.
 `Inventory.CanExchange` checks both sides before either changes. Every change increments `Revision`;

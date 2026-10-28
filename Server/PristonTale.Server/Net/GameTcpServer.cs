@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using PristonTale.Application.Contacts;
 using PristonTale.Application.Chat;
 using PristonTale.Application.Services;
 using PristonTale.Application.Sessions;
@@ -25,6 +26,8 @@ public sealed class GameTcpServer(
     QuestAppService quests,
     PersonalShopAppService personalShops,
     PartyAppService parties,
+    TradeAppService trades,
+    ContactAppService contacts,
     ChatAppService chat,
     GameServerControl control,
     IConfiguration configuration,
@@ -58,7 +61,7 @@ public sealed class GameTcpServer(
         _loginThrottle = new LoginThrottle(_limits.LoginFailuresPerAccount, _limits.LoginFailuresPerIp, _limits.LoginFailureWindowMs);
         control.Attach(() => _clients.Count, _loginThrottle);
         var services = new SessionServices(auth, characters, sessionsApp, sessions, world, worldData, logger, _limits, _loginThrottle, npc, itemUse,
-            restart, wingGates, quests, personalShops, parties, chat, control);
+            restart, wingGates, quests, personalShops, parties, trades, contacts, chat, control);
         using var certificate = ServerCertificate.Load(configuration, logger);
         var certificateContext = SslStreamCertificateContext.Create(certificate, additionalCertificates: null);
         using var listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp) { DualMode = true };

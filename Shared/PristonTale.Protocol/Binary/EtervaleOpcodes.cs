@@ -52,6 +52,17 @@ public static class EtervaleOpcodes
     public const uint PartyCommand = 0x45540702;
     public const uint PartyRequest = 0x45540703;
     public const uint PartyMembers = 0x45540704;
+    public const uint TradeRequest = 0x45540800;
+    public const uint TradeAnswer = 0x45540801;
+    public const uint TradeOffer = 0x45540802;
+    public const uint TradeLock = 0x45540803;
+    public const uint TradeCancel = 0x45540804;
+    public const uint TradeAsked = 0x45540805;
+    public const uint TradeState = 0x45540806;
+    public const uint TradeDetails = 0x45540807;
+    public const uint ContactChange = 0x45541000;
+    public const uint ContactRefresh = 0x45541001;
+    public const uint ContactList = 0x45541002;
 
     public const uint PresenceEntries = 0x45540900;
     public const uint DescribeEntity = 0x45540901;

@@ -7,7 +7,7 @@ namespace PristonTale.Gameplay.UI.Widgets;
 // The original's count box, the quantity question (items to drop, goods to sell or buy, money to move): two lines and a
 // number typed with the digit keys (Backspace erases) or stepped with the arrows. A number typed above the maximum shows
 // the maximum at once (the arrows stay within it too). OK or Enter accepts, Cancel or Escape (GameplayHud.ClosePanel)
-// closes. It starts at zero; accepting zero does nothing.
+// closes. It starts at zero; accepting zero does nothing unless the question takes it (the gold a trade offers).
 public sealed class HudCountBox
 {
     private const int MaxDigits = 9;
@@ -15,6 +15,7 @@ public sealed class HudCountBox
     private string _second = "";
     private int _maximum;
     private Action<int> _accepted;
+    private bool _zeroAccepted;
     private string _text = "0";
 
     public static Rectangle Bounds => HudMessageBox.Bounds;
@@ -28,9 +29,9 @@ public sealed class HudCountBox
     public int Count { get; private set; }
 
     // maximum: as much as the question allows (gold may pass what the box can count; it stops there).
-    public void Open(string first, string second, long maximum, Action<int> accepted)
+    public void Open(string first, string second, long maximum, Action<int> accepted, bool zeroAccepted = false)
     {
-        (_first, _second, _maximum, _accepted) = (first, second, (int)Math.Clamp(maximum, 0, int.MaxValue), accepted);
+        (_first, _second, _maximum, _accepted, _zeroAccepted) = (first, second, (int)Math.Clamp(maximum, 0, int.MaxValue), accepted, zeroAccepted);
         Show(0);
         IsOpen = true;
     }
@@ -113,8 +114,9 @@ public sealed class HudCountBox
     {
         var accepted = _accepted;
         var count = Count;
+        var zeroAccepted = _zeroAccepted;
         Close();
-        if (count > 0)
+        if (count > 0 || zeroAccepted)
         {
             accepted?.Invoke(count);
         }

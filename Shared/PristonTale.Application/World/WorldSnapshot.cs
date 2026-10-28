@@ -248,6 +248,10 @@ public readonly struct WorldSnapshot
     public PartyView? Party { get; init; }
     public PartyRequest? PartyRequest { get; init; }
 
+    // The receiver's trade window (null when it trades with nobody) and the request to trade it has not answered.
+    public TradeView? Trade { get; init; }
+    public TradeRequest? TradeRequest { get; init; }
+
     public WorldSnapshot WithOwner(OwnerState? owner, SkillCooldownView[]? cooldowns = null) => new(ServerTick, Entities, Events, FieldId, owner, GroundDrops)
     {
         Grid = Grid,
@@ -278,6 +282,8 @@ public readonly struct WorldSnapshot
         Restart = Restart,
         Party = Party,
         PartyRequest = PartyRequest,
+        Trade = Trade,
+        TradeRequest = TradeRequest,
         Pinned = Pinned,
         PinKey = PinKey
     };

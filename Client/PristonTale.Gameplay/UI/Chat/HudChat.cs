@@ -34,6 +34,9 @@ public sealed class HudChat
     // Raised when a whisper or notice opens the closed window (the whisper sound).
     public event Action WhisperArrived;
 
+    // The other side of each whisper line, sent or received (the friends page's recent players).
+    public Action<string> WhisperPartner { get; set; }
+
     // Raised when the server asks the client to save and quit.
     public event Action CloseRequested;
 
@@ -67,6 +70,11 @@ public sealed class HudChat
         }
 
         Window.Log.Add(line.Text, line.Kind);
+        if (HudChatWindow.WhisperPartnerOf(line.Kind, line.Text) is { } partner)
+        {
+            WhisperPartner?.Invoke(partner);
+        }
+
         if (line.Kind is ChatKind.Whisper or ChatKind.Notice && !Window.Open)
         {
             Window.Reveal();

@@ -114,7 +114,7 @@ internal static class ItemUseTransactions
             return player.IsDead ? ItemUseStatus.Dead : ItemUseStatus.NotUsable;
         }
 
-        if (player.Shop is not null)
+        if (player.Shop is not null || player.Offers(use.Item.InstanceId))
         {
             return ItemUseStatus.Busy;
         }

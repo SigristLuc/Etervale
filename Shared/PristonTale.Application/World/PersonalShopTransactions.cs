@@ -34,7 +34,7 @@ internal static class PersonalShopTransactions
             return PersonalShopOutcome.Failed(PersonalShopStatus.Selling, revision);
         }
 
-        if (player.IsDead || player.IsBusy)
+        if (player.IsDead || player.IsBusy || player.Trade is not null)
         {
             return PersonalShopOutcome.Failed(PersonalShopStatus.Rejected, revision);
         }

@@ -1,4 +1,6 @@
+using Microsoft.Xna.Framework;
 using PristonTale.Gameplay.UI.Quests;
+using PristonTale.Gameplay.UI.Widgets;
 
 namespace PristonTale.Gameplay.UI.Parties;
 
@@ -29,11 +31,9 @@ public static class HudPartyArt
     public const string MemberHovered = Effect + "Man2.bmp";
     public const string Leader = Effect + "Man3.bmp";
 
-    public const string RequestBox = Effect + "MessageBackGround.tga";
-    public const string Ok = Effect + "Ok1.bmp";
-    public const string OkHovered = Effect + "Ok2.bmp";
-    public const string Cancel = Effect + "Cancel1.bmp";
-    public const string CancelHovered = Effect + "Cancel2.bmp";
+    // The request box: who asks at (36, 16), the request line at (28, 38), OK at (140, 11), cancel at (144, 37).
+    public static readonly HudRequestBoxArt Request = new(Effect + "MessageBackGround.tga", Effect + "Ok1.bmp", Effect + "Ok2.bmp", new Rectangle(140, 11, 23, 23),
+        Effect + "Cancel1.bmp", Effect + "Cancel2.bmp", new Rectangle(144, 37, 15, 15), new Point(36, 16), new Point(28, 38), BlinkOver: true);
 
     public const string MapMark = "image/party.tga";
 
@@ -45,7 +45,7 @@ public static class HudPartyArt
 
     public static readonly string[] All =
     [
-        Window, Title, .. Buttons, .. ButtonsIdle, .. Tips, LifeRed, LifeBlue, Member, MemberHovered, Leader, RequestBox, Ok, OkHovered, Cancel,
-        CancelHovered, MapMark, PlayerMenu, .. PlayerButtons, .. PlayerButtonsIdle, .. PlayerTips
+        Window, Title, .. Buttons, .. ButtonsIdle, .. Tips, LifeRed, LifeBlue, Member, MemberHovered, Leader, .. Request.All, MapMark, PlayerMenu,
+        .. PlayerButtons, .. PlayerButtonsIdle, .. PlayerTips
     ];
 }

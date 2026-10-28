@@ -69,7 +69,8 @@ Kinds: 0 server, 1 whisper, 2 system, 3 notice, 4 party, 5 clan, 6 trade, 9 assi
 - Lines starting with `/` (or `` ` `` and `/`) are commands: never spoken, answered only when a command matches.
 - Whisper answers: an empty whisper reports `name is currently online`; a missing player
   `name is currently offline, or cannot be found`; a receiver with `/disable_whisper` gets the sender
-  `Unable to send private messages` (`/enable_whisper` undoes it).
+  `Unable to send private messages` (`/enable_whisper` undoes it); a receiver that ignores the sender (its friends page)
+  gets the sender `Private Message has been refused`.
 - `/bosstime` answers `Boss Time: XX:mm` with the minute bosses appear.
 - A line that is only `yahoo`, `/yahoo` or `Yes!` (any case) is not spoken: the player cheers (the Yahoo motion, the
   weapon on the back) from standing, walking or running. For a minute after, Space (`YahooKey`) cheers again for 3% of

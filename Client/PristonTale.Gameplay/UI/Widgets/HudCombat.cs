@@ -299,6 +299,9 @@ public sealed partial class HudCombat
         return _percentText;
     }
 
+    // A player's name while it is in view; null otherwise.
+    public string PlayerName(ulong id) => _entities.TryGetValue(id, out var entity) && entity.Spawn.Player is { } player ? player.Name : null;
+
     private string Name(ulong id)
     {
         if (!_entities.TryGetValue(id, out var entity))

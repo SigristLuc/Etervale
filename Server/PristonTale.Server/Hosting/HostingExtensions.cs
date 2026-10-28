@@ -1,3 +1,4 @@
+using PristonTale.Application.Contacts;
 using PristonTale.Application.Chat;
 using PristonTale.Application.GameMasters;
 using PristonTale.Application.Services;
@@ -39,6 +40,8 @@ public static class HostingExtensions
         builder.Services.AddSingleton<QuestAppService>();
         builder.Services.AddSingleton<PersonalShopAppService>();
         builder.Services.AddSingleton<PartyAppService>();
+        builder.Services.AddSingleton<TradeAppService>();
+        builder.Services.AddSingleton<ContactAppService>();
 
         var provider = builder.Configuration["Database:Provider"] ?? "Sqlite";
         if (string.Equals(provider, "Sqlite", StringComparison.OrdinalIgnoreCase))

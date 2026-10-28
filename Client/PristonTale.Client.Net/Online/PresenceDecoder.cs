@@ -41,6 +41,7 @@ internal sealed class PresenceDecoder
     private IReadOnlyList<OwnedSkillView> _skills = [];
     private long _tick;
     private double? _clockMs;
+    private IReadOnlyList<ItemDetailEntry> _tradeDetails = [];
 
     public PresenceDecoder(WorldRenderCatalog catalog, Action<ulong> requestDescription)
     {
@@ -109,6 +110,10 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.CloseRequest => OnCloseRequest(packet),
             EtervaleOpcodes.PartyMembers => OnPartyMembers(PartyMembersPacket.Read(packet)),
             EtervaleOpcodes.PartyRequest => OnPartyRequest(PartyRequestPacket.Read(packet)),
+            EtervaleOpcodes.TradeDetails => OnTradeDetails(TradeDetailsPacket.Read(packet)),
+            EtervaleOpcodes.TradeState => OnTradeState(TradeStatePacket.Read(packet)),
+            EtervaleOpcodes.TradeAsked => OnTradeAsked(TradeAskedPacket.Read(packet)),
+            EtervaleOpcodes.ContactList => OnContactList(ContactListPacket.Read(packet)),
             _ => null
         };
         return update is not null || code is EtervaleOpcodes.PresenceEntries or EtervaleOpcodes.EntityDescription or EtervaleOpcodes.RemoveObjects
@@ -117,8 +122,58 @@ internal sealed class PresenceDecoder
             or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult
             or EtervaleOpcodes.ItemDetails or EtervaleOpcodes.OwnerItemStatus or EtervaleOpcodes.AgingProgress
             or EtervaleOpcodes.PremiumTimers or EtervaleOpcodes.ItemEffects or EtervaleOpcodes.RestartOffer or EtervaleOpcodes.QuestJournal or EtervaleOpcodes.QuestNotices
-            or EtervaleOpcodes.ChatLine or EtervaleOpcodes.CloseRequest or EtervaleOpcodes.PartyMembers or EtervaleOpcodes.PartyRequest;
+            or EtervaleOpcodes.ChatLine or EtervaleOpcodes.CloseRequest or EtervaleOpcodes.PartyMembers or EtervaleOpcodes.PartyRequest
+            or EtervaleOpcodes.TradeDetails or EtervaleOpcodes.TradeState or EtervaleOpcodes.TradeAsked or EtervaleOpcodes.ContactList;
     }
+
+    private PresenceUpdate OnContactList(ContactListPacket packet) =>
+        Update([], []) with { Contacts = new ContactListInfo(packet.List, packet.Entries.Select(static entry => (entry.Name, entry.Online)).ToArray()) };
+
+    // The partner items' values arrive just before the window they belong to.
+    private PresenceUpdate? OnTradeDetails(TradeDetailsPacket packet)
+    {
+        _tradeDetails = packet.Items;
+        return null;
+    }
+
+    private PresenceUpdate OnTradeState(TradeStatePacket packet)
+    {
+        if (packet.PartnerId == 0)
+        {
+            return Update([], []) with { Trade = TradeInfo.None };
+        }
+
+        var items = new OwnedItemView[packet.PartnerItems.Count];
+        for (var index = 0; index < items.Length; index++)
+        {
+            var view = StoreItems.View(packet.PartnerItems[index]);
+            foreach (var detail in _tradeDetails)
+            {
+                if (detail.InstanceId == view.InstanceId)
+                {
+                    view = view with { Details = OwnerItemDecoder.View(detail) };
+                    break;
+                }
+            }
+
+            items[index] = view;
+        }
+
+        var own = new Simulation.Trades.TradeEntry[packet.Own.Count];
+        for (var index = 0; index < own.Length; index++)
+        {
+            own[index] = new Simulation.Trades.TradeEntry(packet.Own[index].ItemId, packet.Own[index].Cell);
+        }
+
+        return Update([], []) with
+        {
+            Trade = new TradeInfo(packet.PartnerId, packet.PartnerName, new Simulation.Trades.TradeOffer(own, packet.OwnMoney),
+                (packet.Flags & TradeStatePacket.OwnLocked) != 0, items, packet.PartnerMoney, (packet.Flags & TradeStatePacket.PartnerLocked) != 0)
+        };
+    }
+
+    private PresenceUpdate OnTradeAsked(TradeAskedPacket packet) =>
+        Update([], []) with { TradeRequest = new TradeRequestInfo(packet.FromId, packet.FromName) };
 
     private PresenceUpdate OnPartyMembers(PartyMembersPacket packet)
     {
