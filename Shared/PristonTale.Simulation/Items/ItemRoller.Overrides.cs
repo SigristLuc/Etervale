@@ -20,17 +20,12 @@ public static partial class ItemRoller
         return job == 0 || definition.Template is { } template && (template.SpecJob == job || template.RandomSpecJobs.Contains(job));
     }
 
-    // A dropped copy rolled as Create does, with a game master's overrides.
+    // A dropped copy with a game master's overrides; without them (None) the roll draws exactly as an ordinary drop.
     public static ItemInstance Create(ItemDefinition definition, int count, ISimRng rng, ItemRollOverrides overrides)
     {
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(rng);
         ArgumentNullException.ThrowIfNull(overrides);
-        if (overrides == ItemRollOverrides.None)
-        {
-            return Create(definition, count, rng);
-        }
-
         var item = new ItemInstance(definition, count);
         var template = definition.Template;
         if (template is null)

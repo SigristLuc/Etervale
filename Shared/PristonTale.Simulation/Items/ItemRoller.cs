@@ -59,98 +59,7 @@ public static partial class ItemRoller
 
     // A dropped copy: every range is rolled; four times in ten the copy is specialized, taking one of the random
     // classes three times in ten when the item has any, and then costs a fifth more.
-    public static ItemInstance Create(ItemDefinition definition, int count, ISimRng rng)
-    {
-        ArgumentNullException.ThrowIfNull(rng);
-        var item = new ItemInstance(definition, count);
-        var template = definition.Template;
-        if (template is null)
-        {
-            return item;
-        }
-
-        if (template.Durability.Min != 0)
-        {
-            var maximum = template.Durability.Max != 0 ? Range(rng, template.Durability) : template.Durability.Min;
-            item.DurabilityMax = maximum;
-            item.DurabilityCurrent = Range(rng, new ItemRange(maximum / 2, maximum));
-        }
-
-        var resistances = new short[8];
-        for (var element = 0; element < resistances.Length; element++)
-        {
-            var range = element < template.Resistances.Count ? template.Resistances[element] : default;
-            resistances[element] = (short)(range.Max != 0 ? Range(rng, range) : range.Min);
-        }
-
-        int damageMin = 0;
-        int damageMax = 0;
-        if (template.DamageMin.Max != 0 || template.DamageMax.Max != 0)
-        {
-            damageMin = Range(rng, template.DamageMin);
-            damageMax = Range(rng, template.DamageMax);
-        }
-
-        var attackRating = Pick(rng, template.AttackRating);
-        var absorb = Tenths(rng, template.Absorb);
-        var defence = Pick(rng, template.Defence);
-        var block = Hundredths(rng, template.Block);
-        var speed = Tenths(rng, template.MoveSpeed);
-        var manaRegen = Tenths(rng, template.ManaRegen);
-        var lifeRegen = Tenths(rng, template.LifeRegen);
-        var staminaRegen = Tenths(rng, template.StaminaRegen);
-        var addLife = Pick(rng, template.AddLife);
-        var addMana = Pick(rng, template.AddMana);
-        var addStamina = Pick(rng, template.AddStamina);
-
-        var specJob = 0u;
-        var price = definition.Price;
-        var requirements = definition.Requirements;
-        var bonus = ItemSpecBonus.None;
-        if (template.CanSpecialize && rng.NextExclusive(0, 10) <= 3)
-        {
-            var mask = template.SpecJob;
-            var chosen = mask;
-            if (rng.NextExclusive(0, 10) < 3 && template.RandomSpecJobs.Count > 0)
-            {
-                mask = 0;
-            }
-
-            if (mask == 0 && template.RandomSpecJobs.Count > 0)
-            {
-                chosen = template.RandomSpecJobs[rng.NextExclusive(0, template.RandomSpecJobs.Count)];
-                mask = chosen;
-            }
-
-            if (mask != 0)
-            {
-                price += price * 2 / 10;
-            }
-
-            requirements = Shift(requirements, chosen, range => Range(rng, range));
-            var spec = template.Spec;
-            var specAbsorb = Hundredths(rng, spec.Absorb);
-            var specDefence = Pick(rng, spec.Defence);
-            var specSpeed = Hundredths(rng, spec.MoveSpeed);
-            var mastery = Hundredths(rng, spec.MagicMastery);
-            var specLife = spec.LifeRegenRange.Max != 0 ? Hundredths(rng, spec.LifeRegenRange) : spec.LifeRegen;
-            var specMana = Hundredths(rng, spec.ManaRegen);
-            var levelRating = Pick(rng, spec.LevelAttackRating);
-            specJob = mask;
-            if (mask != 0)
-            {
-                bonus = new ItemSpecBonus(specAbsorb, specDefence, specSpeed, spec.Block, spec.AttackSpeed, spec.Critical, spec.ShootingRange,
-                    mastery, spec.LevelLife, spec.LevelMana, levelRating, spec.LevelDamage, specLife, specMana, spec.StaminaRegen);
-            }
-        }
-
-        item.Roll = new ItemRoll(damageMin, damageMax, attackRating, defence, absorb, block, speed, lifeRegen, manaRegen, staminaRegen,
-            addLife, addMana, addStamina,
-            new ResistanceBlock(resistances[0], resistances[1], resistances[2], resistances[3], resistances[4], resistances[5], resistances[6],
-                resistances[7]),
-            definition.RequiredLevel, requirements, price, specJob, bonus);
-        return item;
-    }
+    public static ItemInstance Create(ItemDefinition definition, int count, ISimRng rng) => Create(definition, count, rng, ItemRollOverrides.None);
 
     private static CharacterAttributes Shift(CharacterAttributes requirements, uint job, Func<ItemRange, int> percent)
     {
@@ -178,8 +87,6 @@ public static partial class ItemRoller
     }
 
     private static short Low(IReadOnlyList<ItemRange> ranges, int element) => (short)(element < ranges.Count ? ranges[element].Min : 0);
-
-    private static int Pick(ISimRng rng, ItemRange range) => range.Max != 0 ? Range(rng, range) : range.Min;
 
     private static int Range(ISimRng rng, ItemRange range) => range.Max <= range.Min ? range.Max : rng.NextInclusive(range.Min, range.Max);
 
