@@ -23,7 +23,6 @@ public sealed partial class PristonRenderer : IDisposable
     private static readonly bool ShadowDiagnostics =
         Environment.GetEnvironmentVariable("PRISTON_SHADOW_DIAG") == "1";
     // PlaybackRate supplies the rules-layer frame step / 80 ratio for speed-scaled motions.
-    private const float DamageEatRateFactor = 92f / 80f;
     private const int MinimumShadowMapSize = 1024;
     private const float ShadowTeleportRefreshDistance = 350f;
     private const uint TexFormScroll = 4;
@@ -1154,7 +1153,7 @@ public sealed partial class PristonRenderer : IDisposable
                 MotionCode.Attack or
                 MotionCode.Skill => PlaybackRate,
                 MotionCode.Damage or
-                MotionCode.Eat => DamageEatRateFactor,
+                MotionCode.Eat => MotionCodes.DamageAndEatRate,
                 _ => 1f,
             };
         }

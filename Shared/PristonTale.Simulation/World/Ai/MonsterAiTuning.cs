@@ -126,7 +126,7 @@ public sealed class MonsterAiTuning
 
             if (timing.TryGetClip(MotionCode.Damage, out MotionClip damage))
             {
-                FlinchDurationMs = MotionTiming.DurationMs(damage.Frames, MotionTiming.DamageRateFactor);
+                FlinchDurationMs = MotionTiming.DurationMs(damage.Frames, MotionCodes.DamageAndEatRate);
             }
 
             if (timing.TryGetClip(MotionCode.Dead, out MotionClip dead))

@@ -270,7 +270,7 @@ else chases or idles. Every blow (landed or not) adds one to `AttackAnger`.
 Timing: with an imported attack clip, cooldown is the clip duration at rate 1 and windup its first event; without one,
 `rate = 256 + 32 * clamp(AttackSpeed - 6, 0, 6)`, cooldown `1000 * 256 / rate` ms, windup `cooldown * 40 / 72`.
 Babel's and Valento's skill blows land 120 frames (1714 ms) into the clip; Babel's normal attack strikes at its event
-and again 40 frames later. Flinch duration is the damage clip at `DamageRateFactor`; drinking and changing shape use
+and again 40 frames later. Flinch duration is the damage clip at `MotionCodes.DamageAndEatRate`; drinking and changing shape use
 their clips at rate 1 (one second without one); walk and run cycles come from their clips.
 
 Host-called rules:
@@ -437,7 +437,7 @@ INX motion tables are extracted by the importer (`MotionTableExtractor`) into th
   `TicksPerFrame = 160`; an event is valid only if `0 < ticks <= Frames * 160`.
 - `MotionTiming.DurationMs(frames, rate) = frames * 33 / rate`;
   `EventOffsetMs(ticks, rate) = ticks * 33 / (160 * rate)`.
-  `DamageRateFactor = 92 / 80` is used for flinch clips and the potion (`Eat`) clip.
+  `MotionCodes.DamageAndEatRate = 92 / 80` (Contracts) is used for flinch clips and the potion (`Eat`) clip, by the server's timing and the renderer alike.
 - `MotionCode` (`Shared/PristonTale.Contracts`, shared with the renderer): Stand 0x40, Walk 0x50, Run 0x60, Attack 0x100,
   Damage 0x110, Dead 0x120, Eat 0x140, Skill 0x150, Restart 0x200, Warp 0x210, Yahoo 0x220, and the talk codes from
   0x400. `MotionCodes.Of(MotionState)` is the one mapping from a motion state to its clip code.

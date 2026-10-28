@@ -4,8 +4,6 @@ namespace PristonTale.Simulation.World.Motion;
 
 public static class MotionTiming
 {
-    public const float DamageRateFactor = 92f / 80f;
-
     public static float DurationMs(int rawFrames, float rate)
     {
         if (rawFrames <= 0)
