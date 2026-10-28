@@ -229,6 +229,10 @@ internal static class HudInteractionTests
         Assert.True(HudInventoryPlacement.Of(origin, items, sword, weaponSlot, false).Kind == HudPlacementKind.Blocked, "an unusable sword was accepted");
         Assert.True(HudInventoryPlacement.Of(origin, items, Item(ItemKind.Armor, 60, 2, 3), weaponSlot, true).Kind == HudPlacementKind.Blocked,
             "an armour was accepted in the weapon slot");
+        var box = HudInventoryLayout.Belt(origin, 1).Center;
+        var belt = HudInventoryPlacement.Of(origin, items, potion, box, true);
+        Assert.True(belt.Kind == HudPlacementKind.Fits && belt.Belt == 1, $"a potion over an empty belt box gave {belt}");
+        Assert.True(HudInventoryPlacement.Of(origin, items, stone, box, true).Kind == HudPlacementKind.Blocked, "a stone was accepted in a belt box");
         Assert.True(HudInventoryPlacement.Of(origin, items, stone, new Point(400, origin.Y + 100), true).Kind == HudPlacementKind.Outside,
             "an item above the window does not leave the bag");
         Assert.True(HudInventoryPlacement.Of(origin, items, stone, new Point(200, origin.Y + 585), true).Kind == HudPlacementKind.None,

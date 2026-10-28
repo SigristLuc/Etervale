@@ -46,6 +46,22 @@ public static class HudInventoryLayout
         return bounds == Rectangle.Empty ? bounds : new Rectangle(bounds.X + origin.X, bounds.Y + origin.Y, bounds.Width, bounds.Height);
     }
 
+    // The potion belt's boxes on the bottom bar, 26 pixels apart; the potion sits centred in its box.
+    public static Rectangle Belt(Point origin, int box) => new(origin.X + 495 + 26 * box, origin.Y + 565, 26, 26);
+
+    // Where an owned item is drawn and hit: its bag cells, its equipment slot, or centred in its belt box.
+    public static Rectangle Bounds(Point origin, Simulation.Characters.OwnedItemView item)
+    {
+        if (item.BeltBox >= 0)
+        {
+            var box = Belt(origin, item.BeltBox);
+            return new Rectangle(box.Center.X - item.Width * CellSize / 2, box.Center.Y - item.Height * CellSize / 2, item.Width * CellSize,
+                item.Height * CellSize);
+        }
+
+        return item.Equipped ? Equipment(origin, item.Slot) : Cell(origin, item.Anchor, item.Width, item.Height);
+    }
+
     // CoverLarge 66x110, CoverMiddle 44x44 and CoverSmall 22x22 are drawn from the slot's top-left behind equipped items.
     public static string Cover(int slot) => (EquipmentSlot)slot switch
     {

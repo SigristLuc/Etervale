@@ -527,6 +527,7 @@ public sealed partial class GameplayHud : IDisposable
         var left = _bindings.LeftSkillId == HudSkillBindings.BasicAttackId;
         _bar.Draw(_painter, layout, _state, new HudBarView(World.TimeOfDay, World.Running, _mapVisible, left, RightAttackEnabled,
             _hoveredButton, pressed && _hoveredButton is not null, _hoveredToggle));
+        _inventoryPanel.DrawBelt(_painter, HudInventoryLayout.Origin(layout), _state, _inventory, _icons);
         _skillHud.DrawSockets(_painter, layout.BottomOffset, _bindings.LeftSkillId, _bindings.RightSkillId, Cooldowns, SkillClockMs);
         if (Statuses is not null && SelfId != 0)
         {

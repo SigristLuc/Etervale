@@ -88,6 +88,15 @@ public sealed partial class GameplayHud
         {
             YahooKeyPressed?.Invoke();
         }
+
+        var shift = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
+        for (var box = 0; box < BeltKeys.Length; box++)
+        {
+            if (Pressed(keyboard, BeltKeys[box]))
+            {
+                _inventory.BeltKey(box, shift);
+            }
+        }
     }
 
     private void Click(OwnerState state, HudLayout layout, Point pointer, Point design, KeyboardState keyboard)
@@ -413,6 +422,9 @@ public sealed partial class GameplayHud
         _skills.CancelTraining();
         _inventory.CancelDrag();
     }
+
+    // The potion belt's boxes, left to right.
+    private static readonly Keys[] BeltKeys = [Keys.D1, Keys.D2, Keys.D3];
 
     private bool Pressed(KeyboardState state, Keys key) => state.IsKeyDown(key) && !_previousKeyboard.IsKeyDown(key);
 }

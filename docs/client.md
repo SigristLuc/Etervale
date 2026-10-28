@@ -392,6 +392,11 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   button stays dark with red help where the server's `RestartOffer` says the field restart is closed (nothing in the
   castle field). The town is chosen after 20 s open; a refused or busy answer opens it again, a stored exit quits the
   game. The scene (`GameScene.Restart.cs`) keeps the last offer and sends `RestartAsync`.
+- Potion belt (`HudInventoryPanel.DrawBelt`, after the bottom bar, the window open or not): the three boxes of
+  `PotionBack.bmp` at (495 + 26 x box, 565), each potion centred with its count. A right click drinks one (the window
+  closed too); keys 1 to 3 drink from their box, and Shift with them fills the box from the bag potion under the pointer
+  (`HudInventoryController.BeltKey`). A carried potion goes into a box (`BeltPut`; another kind's stack is picked up in
+  exchange), and a belt potion goes back to free bag cells or onto a bag stack of its kind (`BeltTake`).
 - Count box (`HudCountBox`), the original's quantity question: `BoxMain.tga` at (300, 200) with two lines, the number
   in `COUNT.bmp` at (+34, +62), typed with the digit keys (Backspace erases) or stepped with the arrows at (+124, +62)
   and (+124, +75), never above the maximum; OK or Enter accepts a non-zero count, Cancel or Escape closes. It is modal

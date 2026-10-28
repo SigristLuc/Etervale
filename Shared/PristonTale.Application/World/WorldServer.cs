@@ -400,8 +400,7 @@ public sealed partial class WorldServer
             var outcome = new InventoryOutcome(true, candidate.InventoryRevision, "");
             if (command.Action == InventoryAction.ConsumePotion)
             {
-                var anchor = original.Inventory.Find(command.ItemId);
-                return new PreparedPotionOperation(original, candidate, snapshot, outcome, original.Inventory[anchor]!.Definition.Potion!);
+                return new PreparedPotionOperation(original, candidate, snapshot, outcome, original.FindOwnedItem(command.ItemId)!.Definition.Potion!);
             }
 
             return new PreparedCharacterOperation<InventoryOutcome>(original, candidate, snapshot, outcome);

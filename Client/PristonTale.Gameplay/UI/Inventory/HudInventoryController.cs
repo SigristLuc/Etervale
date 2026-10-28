@@ -18,6 +18,8 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     // there once it succeeds: the item an exchange picks up, or an equipped item taken off.
     private Guid _dragging;
     private Guid _carryAfter;
+    // The item under the pointer this frame (the window open), for Shift and a belt key.
+    private OwnedItemView _hovered;
     private bool _pendingOperation;
     private volatile InventoryOutcome _completedOperation;
 
@@ -69,7 +71,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                 ItemSound?.Invoke(_pendingSound);
             }
 
-            if (completed.Ok && _carryAfter != Guid.Empty && state?.Items.Any(item => item.InstanceId == _carryAfter && item.Slot < 0) == true)
+            if (completed.Ok && _carryAfter != Guid.Empty && state?.Items.Any(item => item.InstanceId == _carryAfter && item.InBag) == true)
             {
                 _dragging = _carryAfter;
             }
@@ -78,6 +80,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             _carryAfter = Guid.Empty;
         }
 
+        _hovered = null;
         if (visible && state is not null && !_pendingOperation)
         {
             var clicked = mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
@@ -86,6 +89,13 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         else
         {
             CancelDrag();
+            // The belt is on the bottom bar: its potions are drunk with a right click while the window is closed too.
+            var pointer = layout.ToLogical(mouse.Position);
+            if (state is not null && !_pendingOperation && mouse.RightButton == ButtonState.Pressed && _previousMouse.RightButton == ButtonState.Released
+                && state.Items.FirstOrDefault(item => item.BeltBox >= 0 && ItemBounds(item).Contains(pointer)) is { } potion)
+            {
+                Use(potion);
+            }
         }
 
         _previousMouse = mouse;
@@ -111,6 +121,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         }
 
         var hovered = _state.Items.FirstOrDefault(item => ItemBounds(item).Contains(pointer));
+        _hovered = hovered;
         if (hovered is null)
         {
             return;
@@ -134,7 +145,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
 
     private void PickUp(OwnedItemView item)
     {
-        if (item.Slot >= 0)
+        if (item.Equipped)
         {
             SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.Unequip, item.InstanceId, 0, 0,
                 (EquipmentSlot)item.Slot), carryAfter: item.InstanceId);
@@ -148,6 +159,12 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     private void SetDown(OwnedItemView carried, Point pointer, bool split)
     {
         var placement = HudInventoryPlacement.Of(_origin, _state.Items, carried, pointer, HudInventoryPanel.Usable(carried, _state));
+        if (placement.Belt >= 0 || carried.BeltBox >= 0)
+        {
+            SetDownPotion(carried, placement);
+            return;
+        }
+
         switch (placement.Kind)
         {
             case HudPlacementKind.Fits or HudPlacementKind.Exchange when placement.Slot is { } slot:
@@ -176,6 +193,55 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         }
     }
 
+    // The belt's side of setting down: into a box (a bag potion over another kind's box picks that stack up in exchange),
+    // or from a box back to free bag cells or onto a bag stack of its kind.
+    private void SetDownPotion(OwnedItemView carried, HudPlacement placement)
+    {
+        if (placement.Belt >= 0 && placement.Belt == carried.BeltBox)
+        {
+            _dragging = Guid.Empty;
+            ItemSound?.Invoke(carried.CatalogKey);
+        }
+        else if (placement.Belt >= 0 && placement.Kind != HudPlacementKind.Blocked)
+        {
+            var displaced = placement.Kind == HudPlacementKind.Exchange && carried.InBag ? placement.Covered : null;
+            Send(InventoryAction.BeltPut, carried, placement.Belt, covered: displaced);
+        }
+        else if (placement.Kind == HudPlacementKind.Fits)
+        {
+            Send(InventoryAction.BeltTake, carried, placement.Anchor);
+        }
+        else if (placement.Kind == HudPlacementKind.Merge)
+        {
+            Send(InventoryAction.BeltTake, carried, placement.Covered.Anchor);
+        }
+    }
+
+    // Keys 1 to 3, as in the original: drink the box's potion; with Shift, fill the box from the bag potion under the
+    // pointer.
+    public void BeltKey(int box, bool shift)
+    {
+        if (_pendingOperation || _state is null || _dragging != Guid.Empty)
+        {
+            return;
+        }
+
+        if (shift)
+        {
+            if (_hovered is { InBag: true, Kind: ItemKind.Potion } potion)
+            {
+                SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.BeltPut, potion.InstanceId, box, 0, default));
+            }
+
+            return;
+        }
+
+        if (_state.Items.FirstOrDefault(item => item.BeltBox == box) is { } held)
+        {
+            Use(held);
+        }
+    }
+
     private void Send(InventoryAction action, OwnedItemView carried, int destination, int count = 0, EquipmentSlot slot = default,
         OwnedItemView covered = null)
     {
@@ -196,23 +262,23 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     // Right click: a usable item is used, a potion drunk, and an item worn or taken off.
     private void Use(OwnedItemView item)
     {
-        if (item.Slot < 0 && UsableItemCatalog.IsUsable(item.CatalogKey))
+        if (item.InBag && UsableItemCatalog.IsUsable(item.CatalogKey))
         {
             UseRequested?.Invoke(item);
             return;
         }
 
-        if (item.Slot < 0 && item.Kind == ItemKind.Potion)
+        if (!item.Equipped && item.Kind == ItemKind.Potion)
         {
             SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.ConsumePotion, item.InstanceId, 0, 1, default));
             return;
         }
 
-        var slot = item.Slot >= 0 ? (EquipmentSlot?)item.Slot : SlotFor(item.Kind);
+        var slot = item.Equipped ? (EquipmentSlot?)item.Slot : SlotFor(item.Kind);
         if (slot.HasValue)
         {
             SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision,
-                item.Slot >= 0 ? InventoryAction.Unequip : InventoryAction.Equip, item.InstanceId, 0, 0, slot.Value));
+                item.Equipped ? InventoryAction.Unequip : InventoryAction.Equip, item.InstanceId, 0, 0, slot.Value));
         }
     }
 
@@ -241,8 +307,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
 
     public Rectangle EquipmentBounds(int slot) => HudInventoryLayout.Equipment(_origin, slot);
 
-    public Rectangle ItemBounds(OwnedItemView item) =>
-        item.Slot >= 0 ? EquipmentBounds(item.Slot) : HudInventoryLayout.Cell(_origin, item.Anchor, item.Width, item.Height);
+    public Rectangle ItemBounds(OwnedItemView item) => HudInventoryLayout.Bounds(_origin, item);
 
     private EquipmentSlot? SlotFor(ItemKind kind) =>
         ItemEquipmentMetadata.DefaultSlot(kind, ItemEquipmentMetadata.SlotOf(kind), slot => _state.Items.Any(item => item.Slot == (int)slot));

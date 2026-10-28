@@ -24,6 +24,9 @@ public sealed class HudInventoryPanel
     private OwnerState _state;
     private OwnedItemView _hovered;
     private OwnedItemView _dragged;
+    // What the window colours on the belt boxes, drawn over the bottom bar by DrawBelt: the hovered potion, the landing box.
+    private Rectangle _beltSelection;
+    private (Rectangle Bounds, Color Color) _beltPlacement;
 
     // The HUD clock that sweeps the finished puzzle's scan lines.
     public double ClockMs { get; set; }
@@ -38,6 +41,8 @@ public sealed class HudInventoryPanel
     {
         _hovered = null;
         _dragged = null;
+        _beltSelection = Rectangle.Empty;
+        _beltPlacement = default;
         painter.Sprite(HudArt.Inventory, origin.X, origin.Y + 400);
         if (state is null)
         {
@@ -49,7 +54,7 @@ public sealed class HudInventoryPanel
         DrawPuzzleBoard(painter, origin, state);
         foreach (var item in state.Items)
         {
-            if (item.Slot >= 0)
+            if (item.Equipped)
             {
                 var slot = HudInventoryLayout.Equipment(origin, item.Slot);
                 painter.Sprite(HudInventoryLayout.Cover(item.Slot), slot.X, slot.Y);
@@ -57,7 +62,7 @@ public sealed class HudInventoryPanel
 
             if (!Usable(item, state))
             {
-                painter.Fill(Bounds(origin, item), NotUsable);
+                painter.Fill(HudInventoryLayout.Bounds(origin, item), NotUsable);
             }
         }
 
@@ -65,7 +70,7 @@ public sealed class HudInventoryPanel
         OwnedItemView dragged = null;
         foreach (var item in state.Items)
         {
-            var bounds = Bounds(origin, item);
+            var bounds = HudInventoryLayout.Bounds(origin, item);
             if (controller.Dragging == item.InstanceId)
             {
                 dragged = item;
@@ -73,19 +78,39 @@ public sealed class HudInventoryPanel
             else if (interactive && bounds.Contains(pointer))
             {
                 hovered = item;
-                painter.Fill(bounds, Selection);
+                if (item.BeltBox >= 0)
+                {
+                    _beltSelection = HudInventoryLayout.Belt(origin, item.BeltBox);
+                }
+                else
+                {
+                    painter.Fill(bounds, Selection);
+                }
             }
         }
 
         if (dragged is not null && interactive)
         {
-            DrawPlacement(painter, HudInventoryPlacement.Of(origin, state.Items, dragged, pointer, Usable(dragged, state)));
+            var placement = HudInventoryPlacement.Of(origin, state.Items, dragged, pointer, Usable(dragged, state));
+            if (placement.Belt >= 0)
+            {
+                _beltPlacement = (placement.Highlight, PlacementColor(placement.Kind));
+            }
+            else
+            {
+                DrawPlacement(painter, placement);
+            }
         }
 
         foreach (var item in state.Items)
         {
+            if (item.BeltBox >= 0)
+            {
+                continue;
+            }
+
             var tint = controller.Dragging == item.InstanceId || Withheld?.Invoke(item.InstanceId) == true ? Color.White * 0.4f : Color.White;
-            DrawItem(painter, icons, item, Bounds(origin, item), tint);
+            DrawItem(painter, icons, item, HudInventoryLayout.Bounds(origin, item), tint);
         }
 
         var money = HudInventoryLayout.Money(origin);
@@ -142,15 +167,50 @@ public sealed class HudInventoryPanel
         item.Details is null || state is null || item.Details.Usable(state.Level,
             new CharacterAttributes(state.Strength, state.Spirit, state.Talent, state.Agility, state.Health));
 
+    // The belt's potions over the bottom bar (drawn after it, the window open or not), with the window's colours on its
+    // boxes; origin is the window's origin when fully open (HudInventoryLayout.Origin).
+    public void DrawBelt(HudPainter painter, Point origin, OwnerState state, HudInventoryController controller, HudItemIcons icons)
+    {
+        if (state is null)
+        {
+            return;
+        }
+
+        Refresh(state);
+        if (_beltSelection != Rectangle.Empty)
+        {
+            painter.Fill(_beltSelection, Selection);
+        }
+
+        if (_beltPlacement.Color != Color.Transparent)
+        {
+            painter.Fill(_beltPlacement.Bounds, _beltPlacement.Color);
+        }
+
+        foreach (var item in state.Items)
+        {
+            if (item.BeltBox >= 0)
+            {
+                DrawItem(painter, icons, item, HudInventoryLayout.Bounds(origin, item), controller.Dragging == item.InstanceId ? Color.White * 0.4f : Color.White);
+            }
+        }
+
+        // Set again by the next Draw of the window; a closed window colours nothing.
+        _beltSelection = Rectangle.Empty;
+        _beltPlacement = default;
+    }
+
+    private static Color PlacementColor(HudPlacementKind kind) => kind switch
+    {
+        HudPlacementKind.Fits => Placement,
+        HudPlacementKind.Exchange or HudPlacementKind.Merge => Exchange,
+        HudPlacementKind.Blocked => NotUsable,
+        _ => Color.Transparent
+    };
+
     private static void DrawPlacement(HudPainter painter, HudPlacement placement)
     {
-        var color = placement.Kind switch
-        {
-            HudPlacementKind.Fits => Placement,
-            HudPlacementKind.Exchange or HudPlacementKind.Merge => Exchange,
-            HudPlacementKind.Blocked => NotUsable,
-            _ => Color.Transparent
-        };
+        var color = PlacementColor(placement.Kind);
         if (color != Color.Transparent)
         {
             painter.Fill(placement.Highlight, color);
@@ -159,11 +219,11 @@ public sealed class HudInventoryPanel
 
     private void DrawTooltip(HudPainter painter, HudLayout layout, OwnedItemView item, Point pointer)
     {
-        var usable = item.Slot < 0 && UsableItemCatalog.IsUsable(item.CatalogKey);
-        var action = item.Slot >= 0 ? "Right-click: unequip"
+        var usable = item.InBag && UsableItemCatalog.IsUsable(item.CatalogKey);
+        var action = item.Equipped ? "Right-click: unequip"
             : item.Kind == ItemKind.Potion ? "Right-click: drink one"
             : usable ? "Right-click: use"
-            : "Drag: move  Shift-drag: split  Right-click: equip";
+            : "Click: carry  Shift-click: split  Right-click: equip";
         var count = _counts.GetValueOrDefault(item.InstanceId, "");
         var named = count.Length > 0 ? item with { Name = $"{item.Name} ({count})" } : item;
         var note = Note?.Invoke(item) ?? "";
@@ -177,15 +237,12 @@ public sealed class HudInventoryPanel
             HudItemDetailTooltip.Gauge(item, _state));
     }
 
-    public static Rectangle Bounds(Point origin, OwnedItemView item) =>
-        item.Slot >= 0 ? HudInventoryLayout.Equipment(origin, item.Slot) : HudInventoryLayout.Cell(origin, item.Anchor, item.Width, item.Height);
-
     private void DrawItem(HudPainter painter, HudItemIcons icons, OwnedItemView item, Rectangle bounds, Color tint)
     {
         icons.Draw(painter, item.CatalogKey, bounds, tint);
 
         var count = _counts.GetValueOrDefault(item.InstanceId, "");
-        if (count.Length > 0 && item.Slot < 0)
+        if (count.Length > 0 && !item.Equipped)
         {
             painter.Text(count, bounds.Right - painter.Measure(count) - 1, bounds.Bottom - 13);
         }

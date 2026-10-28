@@ -21,6 +21,7 @@ internal static class PotionTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("potions restore at the EAT event once, clamp resources and cannot revive", TimingAsync);
+        yield return ("the potion belt fills its boxes up to the potion space, exchanges kinds, drinks, returns to the bag and is saved", BeltAsync);
         yield return ("potion storage failure preserves stacks; commit and replay consume once", DurabilityAsync);
     }
 
@@ -145,5 +146,41 @@ internal static class PotionTests
         await WorldPump.RunAsync(world, replay);
         Assert.True((await replay).Ok && repository.UpdateCount == writes && session.Character.Life == 11
             && session.Character.Inventory[0].Count == 2 && !player.HasPendingPotion, "retry consumed or healed twice");
+    }
+
+    private static Task BeltAsync()
+    {
+        static ItemDefinition Potion(uint code, string key) =>
+            new(code, key, ItemKind.Potion, MaxStack: 100) { CatalogKey = key, Potion = new PotionDefinition(10, 10, 0, 0, 0, 0) };
+        var life = Potion(1, "PL101");
+        var mana = Potion(2, "PM101");
+        var classes = new CharacterClassRegistry();
+        var character = classes.CreatePlayer(PlayerClass.Fighter, "Belt");
+        Assert.True(character.Inventory.TryAdd(new ItemInstance(life, 10)) && character.Inventory.TryAdd(new ItemInstance(mana, 4)), "fixture potions did not fit");
+        Guid Bag(ItemDefinition definition) => character.OwnedItems().First(item => item.Definition == definition && character.Inventory.Find(item.InstanceId) >= 0).InstanceId;
+        int BagCount(ItemDefinition definition) => character.OwnedItems().Where(item => item.Definition == definition && character.Inventory.Find(item.InstanceId) >= 0).Sum(item => item.Count);
+        var space = character.Derived.PotionSpace;
+
+        Assert.True(character.TryPutOnBelt(Bag(life), 0, 0) && character.Belt[0].Count == space && BagCount(life) == 10 - space,
+            "the box did not take the potion space from the bag");
+        Assert.True(!character.TryPutOnBelt(Bag(life), 0, 0), "a full box took more");
+        Assert.True(character.TryPutOnBelt(Bag(mana), 0, 1) && character.Belt[0].Definition == mana && character.Belt[0].Count == 1 && BagCount(life) == 10,
+            "another potion did not send the box's stack back to the bag");
+        Assert.True(character.TryPutOnBelt(Bag(life), 2, 0) && character.TryPutOnBelt(character.Belt[2].InstanceId, 0, 0)
+            && character.Belt[0].Definition == life && character.Belt[2].Definition == mana, "two boxes did not change places");
+        var before = character.Belt[0].Count;
+        Assert.True(character.TryConsumeFromBelt(character.Belt[0].InstanceId) && character.Belt[0].Count == before - 1, "drinking did not take one potion");
+        Assert.True(character.TryTakeFromBelt(character.Belt[2].InstanceId, -1) && character.Belt[2] is null && BagCount(mana) == 4,
+            "the box's potions did not go back to the bag");
+
+        var view = OwnerState.Capture(character).Items.Single(item => item.BeltBox == 0);
+        Assert.True(view.Slot == PotionBelt.FirstOwnerSlot && !view.InBag && !view.Equipped && view.Count == before - 1, "the owner view lost the belt box");
+        var starter = CharacterRecordFactory.NewStarter(classes, 1, "Belt", 0, PlayerClass.Fighter, 3) with { Id = 1 };
+        var record = CharacterRecordFactory.FromLiveSession(starter, character, 3, Vector3.Zero);
+        var restored = classes.CreatePlayer(PlayerClass.Fighter, "Belt");
+        CharacterStateCodec.Restore(restored, record, new ItemCatalog([life, mana]));
+        Assert.True(restored.Belt[0]?.InstanceId == character.Belt[0].InstanceId && restored.Belt[0].Count == before - 1 && restored.Belt[2] is null,
+            "the belt was not saved and restored");
+        return Task.CompletedTask;
     }
 }

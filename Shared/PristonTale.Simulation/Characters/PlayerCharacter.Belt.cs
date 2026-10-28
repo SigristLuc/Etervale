@@ -1,0 +1,153 @@
+using PristonTale.Simulation.Items;
+
+namespace PristonTale.Simulation.Characters;
+
+// The potion belt: what goes into its boxes, what comes out, and how a smaller potion space trims it.
+public sealed partial class PlayerCharacter
+{
+    public PotionBelt Belt { get; } = new();
+
+    // Potions from the bag or another box into a box, as the original sets them: an empty box takes up to the potion space,
+    // a box of the same potion fills up to it, and a box of another potion first sends its stack to the bag (from another
+    // box the two stacks change places). count 0 moves as many as fit; what the space leaves stays where it was.
+    public bool TryPutOnBelt(Guid itemId, int box, int count)
+    {
+        var anchor = Inventory.Find(itemId);
+        var fromBox = anchor < 0 ? Belt.Find(itemId) : -1;
+        var source = anchor >= 0 ? Inventory[anchor] : fromBox >= 0 ? Belt[fromBox] : null;
+        if (!PotionBelt.IsBox(box) || count < 0 || fromBox == box || source is not { Definition: { Kind: ItemKind.Potion, Potion.IsValid: true } })
+        {
+            return false;
+        }
+
+        var held = Belt[box];
+        if (held is not null && held.Definition != source.Definition)
+        {
+            if (fromBox >= 0)
+            {
+                Belt.Set(box, source);
+                Belt.Set(fromBox, held);
+                OnInventoryChanged();
+                return true;
+            }
+
+            if (!Inventory.TryAdd(held))
+            {
+                return false;
+            }
+
+            Belt.Set(box, null);
+            held = null;
+        }
+
+        var wanted = count == 0 ? source.Count : Math.Min(count, source.Count);
+        var amount = Math.Min(wanted, Derived.PotionSpace - (held?.Count ?? 0));
+        // A box already full of this potion: nothing moves (an emptied box of another potion always has room).
+        if (amount <= 0)
+        {
+            return false;
+        }
+
+        var moved = fromBox >= 0 ? TakeFromBox(fromBox, amount) : Inventory.TakeFrom(anchor, amount);
+        if (held is null)
+        {
+            Belt.Set(box, moved);
+        }
+        else
+        {
+            held.Count += amount;
+        }
+
+        OnInventoryChanged();
+        return true;
+    }
+
+    // A box's stack into the bag: at the anchor (joining a stack of the same potion there), or wherever it fits when the
+    // anchor is -1.
+    public bool TryTakeFromBelt(Guid itemId, int anchor)
+    {
+        var box = Belt.Find(itemId);
+        if (box < 0)
+        {
+            return false;
+        }
+
+        var item = Belt[box];
+        var placed = anchor < 0 ? Inventory.TryAdd(item)
+            : Inventory[anchor] is { } there && there.Definition == item.Definition ? Join(anchor, item)
+            : Inventory.TryPlace(item, anchor);
+        if (!placed)
+        {
+            return false;
+        }
+
+        Belt.Set(box, null);
+        OnInventoryChanged();
+        return true;
+    }
+
+    // A saved box's stack, as loaded: a valid potion, in an empty box, within the potion space.
+    public bool RestoreBelt(int box, ItemInstance item)
+    {
+        if (!PotionBelt.IsBox(box) || Belt[box] is not null || item is not { Count: > 0, Definition: { Kind: ItemKind.Potion, Potion.IsValid: true } }
+            || item.Count > Derived.PotionSpace)
+        {
+            return false;
+        }
+
+        Belt.Set(box, item);
+        return true;
+    }
+
+    public bool TryConsumeFromBelt(Guid itemId)
+    {
+        var box = Belt.Find(itemId);
+        if (box < 0 || Belt[box] is not { Definition.Potion.IsValid: true })
+        {
+            return false;
+        }
+
+        TakeFromBox(box, 1);
+        OnInventoryChanged();
+        return true;
+    }
+
+    // After the potion space falls (gear taken off), a box keeps what fits and the rest goes back to the bag when it has
+    // room, as the original resets the belt.
+    public void FitBeltToPotionSpace()
+    {
+        for (var box = 0; box < PotionBelt.Boxes; box++)
+        {
+            if (Belt[box] is { } item && item.Count > Derived.PotionSpace && Inventory.TryAdd(item.Copy(item.Count - Derived.PotionSpace)))
+            {
+                item.Count = Derived.PotionSpace;
+                OnInventoryChanged();
+            }
+        }
+    }
+
+    private ItemInstance TakeFromBox(int box, int amount)
+    {
+        var item = Belt[box];
+        if (amount >= item.Count)
+        {
+            Belt.Set(box, null);
+            return item;
+        }
+
+        item.Count -= amount;
+        return item.Copy(amount);
+    }
+
+    private bool Join(int anchor, ItemInstance item)
+    {
+        var there = Inventory[anchor];
+        if (there.Count + item.Count > there.Definition.MaxStack)
+        {
+            return false;
+        }
+
+        there.Count += item.Count;
+        return true;
+    }
+}

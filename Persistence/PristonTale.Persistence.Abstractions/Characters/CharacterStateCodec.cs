@@ -23,7 +23,8 @@ public sealed record SavedItem(
     bool Sealed = false,
     Simulation.Items.Aging.AgingMaturity? Maturity = null,
     int MixSheltom = 0,
-    Simulation.Items.Mixing.MixStat MixStats = Simulation.Items.Mixing.MixStat.None);
+    Simulation.Items.Mixing.MixStat MixStats = Simulation.Items.Mixing.MixStat.None,
+    int? Belt = null);
 
 public sealed record SavedItems(int Version, SavedItem[] Items, long Revision = 0, AppliedInventoryOperation[]? Operations = null,
     AppliedServiceOperation[]? ServiceOperations = null);
@@ -50,7 +51,8 @@ public static class CharacterStateCodec
         character.RestoreProgress(unchecked((ulong)record.Exp), record.Money, record.StatPoints, record.Tier, skills.Points, skills.ElitePoints);
         character.RestoreQuests(QuestStateCodec.Read(record.Quests));
 
-        foreach (var saved in inventory.Items)
+        // Gear restores first: the potion space it gives bounds the belt's stacks.
+        foreach (var saved in inventory.Items.Where(static saved => saved.Belt is null))
         {
             var item = RestoreItem(saved, catalog, identities);
             // Footprints follow the item table; an item saved where its footprint no longer fits moves to the first free place.
@@ -70,6 +72,14 @@ public static class CharacterStateCodec
             }
 
             character.Equip(saved.Slot.Value, item);
+        }
+
+        foreach (var saved in inventory.Items.Where(static saved => saved.Belt is not null))
+        {
+            if (saved.Slot.HasValue || saved.Anchor != -1 || !character.RestoreBelt(saved.Belt!.Value, RestoreItem(saved, catalog, identities)))
+            {
+                throw new InvalidDataException("Invalid saved potion belt.");
+            }
         }
 
         foreach (var skill in skills.Skills)
@@ -103,6 +113,14 @@ public static class CharacterStateCodec
             if (character.Inventory[anchor] is { } item)
             {
                 items.Add(CaptureItem(item, anchor, null));
+            }
+        }
+
+        for (var box = 0; box < PotionBelt.Boxes; box++)
+        {
+            if (character.Belt[box] is { } potion)
+            {
+                items.Add(CaptureItem(potion, -1, null) with { Belt = box });
             }
         }
 
@@ -181,7 +199,7 @@ public static class CharacterStateCodec
         }
 
         var state = JsonSerializer.Deserialize<SavedItems>(json.Value, Options);
-        if (state is null || state.Version != 1 || state.Items is null || state.Items.Length > 72)
+        if (state is null || state.Version != 1 || state.Items is null || state.Items.Length > Inventory.DefaultWidth * Inventory.DefaultHeight + PotionBelt.Boxes)
         {
             throw new InvalidDataException("Unsupported item-state version or size.");
         }

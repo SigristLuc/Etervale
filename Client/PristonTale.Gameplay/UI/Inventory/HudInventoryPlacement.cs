@@ -19,14 +19,14 @@ public enum HudPlacementKind
     Blocked
 }
 
-// Highlight: the rectangle the original colours (the landing cells or slot, or the covered item). Covered: the item a
-// click picks up in exchange, or joins.
+// Highlight: the rectangle the original colours (the landing cells, slot or belt box, or the covered item). Covered: the
+// item a click picks up in exchange, or joins. Belt: the potion belt box it lands in, or -1.
 public readonly record struct HudPlacement(HudPlacementKind Kind, Rectangle Highlight, int Anchor = -1, EquipmentSlot? Slot = null,
-    OwnedItemView Covered = null);
+    OwnedItemView Covered = null, int Belt = -1);
 
 // Where a carried item would go, as the original decides it: the item is drawn centred on the pointer and lands with its
-// top-left rounded to the nearest cell; an equipment slot takes it when the item's frame, less half a cell on each side,
-// overlaps the slot.
+// top-left rounded to the nearest cell; an equipment slot or a potion belt box takes it when the item's frame, less half
+// a cell on each side, overlaps it. A belt potion goes back to the bag only on free cells or onto its own kind.
 public static class HudInventoryPlacement
 {
     private const int HalfCell = HudInventoryLayout.CellSize / 2;
@@ -54,15 +54,37 @@ public static class HudInventoryPlacement
             }
         }
 
+        for (var box = 0; box < PotionBelt.Boxes; box++)
+        {
+            var bounds = HudInventoryLayout.Belt(origin, box);
+            if (inner.Intersects(bounds))
+            {
+                return Belt(items, carried, box, bounds);
+            }
+        }
+
         var bag = HudInventoryLayout.Bag(origin);
         var column = FloorDivide(frame.X + HalfCell - bag.X, HudInventoryLayout.CellSize);
         var row = FloorDivide(frame.Y + HalfCell - bag.Y, HudInventoryLayout.CellSize);
         if (column >= 0 && row >= 0 && column + carried.Width <= HudInventoryLayout.Columns && row + carried.Height <= HudInventoryLayout.Rows)
         {
-            return Bag(origin, items, carried, row * HudInventoryLayout.Columns + column);
+            var placement = Bag(origin, items, carried, row * HudInventoryLayout.Columns + column);
+            return carried.BeltBox >= 0 && placement.Kind == HudPlacementKind.Exchange ? placement with { Kind = HudPlacementKind.Blocked } : placement;
         }
 
         return frame.Bottom < origin.Y + OutsideLine ? new HudPlacement(HudPlacementKind.Outside, Rectangle.Empty) : default;
+    }
+
+    private static HudPlacement Belt(IReadOnlyList<OwnedItemView> items, OwnedItemView carried, int box, Rectangle bounds)
+    {
+        if (carried.Kind != ItemKind.Potion)
+        {
+            return new HudPlacement(HudPlacementKind.Blocked, bounds, Belt: box);
+        }
+
+        var held = items.FirstOrDefault(item => item.BeltBox == box && item.InstanceId != carried.InstanceId);
+        var kind = held is null ? HudPlacementKind.Fits : held.CatalogKey == carried.CatalogKey ? HudPlacementKind.Merge : HudPlacementKind.Exchange;
+        return new HudPlacement(kind, bounds, Covered: held, Belt: box);
     }
 
     private static HudPlacement Equipment(IReadOnlyList<OwnedItemView> items, OwnedItemView carried, EquipmentSlot slot, Rectangle bounds, bool usable)
@@ -90,7 +112,7 @@ public static class HudInventoryPlacement
         OwnedItemView covered = null;
         foreach (var item in items)
         {
-            if (item.Slot >= 0 || item.InstanceId == carried.InstanceId
+            if (!item.InBag || item.InstanceId == carried.InstanceId
                 || !target.Intersects(HudInventoryLayout.Cell(origin, item.Anchor, item.Width, item.Height)))
             {
                 continue;

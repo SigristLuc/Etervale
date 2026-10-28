@@ -14,7 +14,11 @@ public enum InventoryAction
     // Sets the item down over exactly one other bag item, which takes its place (Inventory.TrySwap).
     Swap,
     // Puts Count of a bag item on the ground where the player stands (handled by the Application, as Pickup is).
-    Drop
+    Drop,
+    // Potions from the bag or a box into belt box Destination, Count of them (0: as many as fit; PlayerCharacter.TryPutOnBelt).
+    BeltPut,
+    // A belt box's potions into the bag at Destination (-1: wherever they fit).
+    BeltTake
 }
 
 public sealed record InventoryCommand(Guid OperationId, long ExpectedRevision, InventoryAction Action,
@@ -43,13 +47,26 @@ public static class InventoryCommands
             InventoryAction.Split => character.Inventory.TrySplit(anchor, command.Destination, command.Count),
             InventoryAction.Merge => character.Inventory.TryMerge(anchor, command.Destination),
             InventoryAction.Swap => character.Inventory.TrySwap(anchor, command.Destination),
-            InventoryAction.Equip => character.TryEquipFromInventory(anchor, command.Slot),
-            InventoryAction.Unequip => character.GetEquipped(command.Slot)?.InstanceId == command.ItemId && character.TryUnequip(command.Slot),
-            InventoryAction.ConsumePotion => command.Count == 1 && anchor >= 0 && character.Life > 0
-                && character.Inventory[anchor]?.Definition is { Kind: ItemKind.Potion, Potion.IsValid: true }
-                && character.Inventory.ConsumeAt(anchor),
+            InventoryAction.Equip => Fitted(character, character.TryEquipFromInventory(anchor, command.Slot)),
+            InventoryAction.Unequip => character.GetEquipped(command.Slot)?.InstanceId == command.ItemId && Fitted(character, character.TryUnequip(command.Slot)),
+            InventoryAction.ConsumePotion => command.Count == 1 && character.Life > 0 && (anchor >= 0
+                ? character.Inventory[anchor]?.Definition is { Kind: ItemKind.Potion, Potion.IsValid: true } && character.Inventory.ConsumeAt(anchor)
+                : character.TryConsumeFromBelt(command.ItemId)),
+            InventoryAction.BeltPut => character.TryPutOnBelt(command.ItemId, command.Destination, command.Count),
+            InventoryAction.BeltTake => character.TryTakeFromBelt(command.ItemId, command.Destination),
             _ => false
         };
+    }
+
+    // Gear changes the potion space, which the belt then fits (only after a change that went through).
+    private static bool Fitted(PlayerCharacter character, bool changed)
+    {
+        if (changed)
+        {
+            character.FitBeltToPotionSpace();
+        }
+
+        return changed;
     }
 
     // The item rule that refuses a command, for the player's message; null when the command fails for another reason.

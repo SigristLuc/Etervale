@@ -9,6 +9,11 @@ public sealed record OwnedItemView(
 {
     // The copy's values for tooltips and equipment rules; null until the owner receives them.
     public ItemDetailView Details { get; init; }
+
+    // Where it is: the bag (Anchor), an equipment slot (Slot), or a potion belt box (Slot from PotionBelt.FirstOwnerSlot).
+    public bool InBag => Slot < 0;
+    public bool Equipped => Slot is >= 0 and < PotionBelt.FirstOwnerSlot;
+    public int BeltBox => Slot >= PotionBelt.FirstOwnerSlot ? Slot - PotionBelt.FirstOwnerSlot : -1;
 }
 public sealed record OwnedSkillView(uint Code, int Rank);
 
@@ -117,6 +122,14 @@ public sealed record OwnerState(
         foreach (var pair in character.Equipment)
         {
             captured.Add(Project(pair.Value, -1, (int)pair.Key, character));
+        }
+
+        for (var box = 0; box < PotionBelt.Boxes; box++)
+        {
+            if (character.Belt[box] is { } potion)
+            {
+                captured.Add(Project(potion, -1, PotionBelt.FirstOwnerSlot + box, character));
+            }
         }
 
         return captured.AsReadOnly();

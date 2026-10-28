@@ -9,7 +9,7 @@ using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Simulation.Characters;
 
-public sealed class PlayerCharacter
+public sealed partial class PlayerCharacter
 {
     private readonly Dictionary<EquipmentSlot, ItemInstance> _equipment = new();
 
@@ -519,24 +519,7 @@ public sealed class PlayerCharacter
         return matured;
     }
 
-    public ItemInstance FindOwnedItem(Guid instanceId)
-    {
-        var anchor = Inventory.Find(instanceId);
-        if (anchor >= 0)
-        {
-            return Inventory[anchor];
-        }
-
-        foreach (var equipped in _equipment.Values)
-        {
-            if (equipped.InstanceId == instanceId)
-            {
-                return equipped;
-            }
-        }
-
-        return null;
-    }
+    public ItemInstance FindOwnedItem(Guid instanceId) => OwnedItems().FirstOrDefault(item => item.InstanceId == instanceId);
 
     public IEnumerable<ItemInstance> OwnedItems()
     {
@@ -551,6 +534,14 @@ public sealed class PlayerCharacter
         foreach (var equipped in _equipment.Values)
         {
             yield return equipped;
+        }
+
+        for (var box = 0; box < PotionBelt.Boxes; box++)
+        {
+            if (Belt[box] is { } potion)
+            {
+                yield return potion;
+            }
         }
     }
 
@@ -590,6 +581,8 @@ public sealed class PlayerCharacter
         {
             clone.Equip(equipped.Key, equipped.Value.Copy(1, preserveId: true));
         }
+
+        clone.Belt.CopyFrom(Belt);
 
         foreach (var skill in Skills.Ranks)
         {
@@ -747,6 +740,8 @@ public sealed class PlayerCharacter
         {
             _equipment.Add(equipped.Key, equipped.Value);
         }
+
+        Belt.CopyFrom(candidate.Belt);
 
         RestoreInventoryHistory(candidate.InventoryRevision, candidate.InventoryOperations);
         RestoreServiceHistory(candidate.ServiceOperations);

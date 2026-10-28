@@ -411,6 +411,12 @@ totals.
   revision returned in the outcome.
 - `InventoryAction.Swap` sets an item down over exactly one other bag item (`Inventory.TrySwap`), which moves to where
   the first one was, or to the first free space; anything else refuses it.
+- The potion belt (`PotionBelt`, `PlayerCharacter.Belt`): three boxes of one potion stack each, of at most
+  `Derived.PotionSpace` potions. `BeltPut` fills a box from the bag or another box (count 0: as many as fit; a box of
+  another potion sends its stack to the bag first, or two boxes change places), `BeltTake` returns a box to the bag,
+  `ConsumePotion` drinks from a box as from the bag, and an equip or unequip that lowers the space sends the excess
+  back to the bag (`FitBeltToPotionSpace`). Owner views give a belt item the slot `PotionBelt.FirstOwnerSlot` + box
+  (`OwnedItemView.BeltBox`); saved items carry `Belt` and restore after the gear that sets the space.
 - `InventoryAction.Drop` is handled by the Application (`GroundThrowTransactions`), as `Pickup` is; `Inventory.TakeFrom`
   takes all of an item or splits a new stack from it. `ItemDropRules` lists what never goes on the ground: quest items,
   the quest's bound weapon and ring, the `MA1`, `MA2`, `QW1`, `BI1` and `BI2` groups and the original's premium, event and

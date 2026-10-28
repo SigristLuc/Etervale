@@ -154,7 +154,8 @@ internal sealed class ItemHudCaptureProbe : Game
         _stack = _items with
         {
             InventoryRevision = _items.InventoryRevision + 10,
-            Items = [.. _items.Items, Sized("PL101", "Mini Life Potion", 40) with { Kind = ItemKind.Potion, Count = 5 }]
+            Items = [.. _items.Items, Sized("PL101", "Mini Life Potion", 40) with { Kind = ItemKind.Potion, Count = 5 },
+                Sized("PM101", "Mini Mana Potion", -1) with { Kind = ItemKind.Potion, Count = 2, Slot = PotionBelt.FirstOwnerSlot + 1 }]
         };
         _board = _owner with { InventoryRevision = _owner.InventoryRevision + 2, Items = Puzzle(6).Append(Sized(Puzzles.LuckyBagIcon, Puzzles.LuckyBagName, 0, "PZ107")).ToArray() };
         _complete = _owner with { InventoryRevision = _owner.InventoryRevision + 3, Items = Puzzle(8).ToArray() };
