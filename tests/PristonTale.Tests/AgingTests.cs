@@ -20,6 +20,7 @@ internal static class AgingTests
         yield return ("an aging roll fails by the level's chance, doubles below +10 and copper ores turn a loss into a fall", RollAsync);
         yield return ("an aging starts the next level's maturity; a fall takes the stats down and starts half way", ApplyAsync);
         yield return ("worn aging copies count their events up to the goal and the upkeep gives the level", MaturityAsync);
+        yield return ("an aged item marks the stats its family raises, bows and javelins their mana too", RaisedStatsAsync);
         yield return ("the aging NPC spends the sheltoms, the stone and the price on the candidate and refuses wrong materials", WorkAsync);
         yield return ("the aging ring at +6 and +8 lightens the death's share", DeathPenaltyAsync);
         yield return ("aging requests, results, progress and saved maturities round-trip", WireAsync);
@@ -296,5 +297,32 @@ internal static class AgingTests
         public float NextUnit() => Next() / 100f;
 
         private int Next() => _next < values.Length ? values[_next++] : 0;
+    }
+
+    private static Task RaisedStatsAsync()
+    {
+        string[] Of(AgedStats stat) => stat switch
+        {
+            AgedStats.Damage => ["WA1", "WC1", "WH1", "WM1", "WP1", "WS1", "WS2", "WT1"],
+            AgedStats.Critical => ["WC1", "WP1", "WS1", "WT1", "WS2"],
+            AgedStats.Defence => ["OM1", "DA1", "DA2", "DB1", "DG1", "OA2"],
+            AgedStats.AttackRating => ["WA1", "WC1", "WM1", "WH1", "WP1", "WS2", "OA2"],
+            AgedStats.Absorb => ["OM1", "DA1", "DS1", "DA2", "DB1", "DG1"],
+            AgedStats.Block => ["DS1"],
+            AgedStats.Integrity => ["WA1", "WH1", "WS1", "DS1", "OM1", "DA1", "DA2", "DB1", "DG1", "OA2"],
+            _ => ["WM1", "WS1", "WT1"]
+        };
+
+        string[] families = ["WA1", "WC1", "WH1", "WM1", "WP1", "WS1", "WS2", "WT1", "DA1", "DS1", "OM1", "DA2", "DG1", "DB1", "OA2", "OR2"];
+        foreach (var family in families)
+        {
+            foreach (var stat in Enum.GetValues<AgedStats>().Where(static stat => stat != AgedStats.None))
+            {
+                var marked = (AgingRules.RaisedBy(family + "01") & stat) != 0;
+                Assert.True(marked == Of(stat).Contains(family), $"{family} marks {stat} wrongly");
+            }
+        }
+
+        return Task.CompletedTask;
     }
 }

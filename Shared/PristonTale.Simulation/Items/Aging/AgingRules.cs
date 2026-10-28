@@ -38,6 +38,21 @@ public enum AgingResult : byte
 internal sealed record AgingFamily(AgingCounter Counter, int[] Goal, bool Wears, bool Damage = false, int AttackRating = 0, bool Critical = false,
     int Mana = 0, bool Block = false, float AbsorbStep = 0f, int DefencePercent = 0, bool GameMasterAging = true);
 
+// The stats an aged item shows as raised by its aging.
+[Flags]
+public enum AgedStats
+{
+    None = 0,
+    Damage = 1,
+    Critical = 2,
+    Defence = 4,
+    AttackRating = 8,
+    Absorb = 16,
+    Block = 32,
+    Integrity = 64,
+    Mana = 128
+}
+
 public enum AgingCounter : byte
 {
     None = 0,
@@ -136,6 +151,27 @@ public static class AgingRules
     }
 
     private static AgingFamily FamilyOf(ItemInstance item) => Families.GetValueOrDefault(Family(item));
+
+    // What a level of the family changes, as the item tooltip marks it. Bows and javelins mark their added mana too,
+    // though their aging adds none, as the original tooltip does.
+    public static AgedStats RaisedBy(string key)
+    {
+        if (!Families.TryGetValue(Family(key), out var family))
+        {
+            return AgedStats.None;
+        }
+
+        var stats = AgedStats.None;
+        stats |= family.Damage ? AgedStats.Damage : 0;
+        stats |= family.Critical ? AgedStats.Critical : 0;
+        stats |= family.DefencePercent > 0 ? AgedStats.Defence : 0;
+        stats |= family.AttackRating > 0 ? AgedStats.AttackRating : 0;
+        stats |= family.AbsorbStep > 0 ? AgedStats.Absorb : 0;
+        stats |= family.Block ? AgedStats.Block : 0;
+        stats |= family.Wears ? AgedStats.Integrity : 0;
+        stats |= family.Mana > 0 || Family(key) is "WS1" or "WT1" ? AgedStats.Mana : 0;
+        return stats;
+    }
 
     private static bool IsRing(string key) => string.Equals(key, AgeableRing, StringComparison.OrdinalIgnoreCase);
 
