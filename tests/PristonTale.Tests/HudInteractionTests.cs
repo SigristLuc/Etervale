@@ -34,7 +34,7 @@ internal static class HudInteractionTests
         yield return ("owner combat statistics survive the owner-status packet", OwnerStatsAsync);
         yield return ("original HUD hit rectangles stay inside their windows without overlapping", HitRectsAsync);
         yield return ("a carried item is set down by a second click on an original equipment slot with the owner revision", EquipmentDragAsync);
-        yield return ("the count box takes any number typed and gives the most its question allows when accepted", CountBoxAsync);
+        yield return ("a number typed above the count box's maximum shows the maximum at once", CountBoxAsync);
         yield return ("the weapon pair key holds the other pair with the window closed once the motion in progress ends, the next swing's start included", WeaponPairKeyAsync);
         yield return ("the pointer attacks over wild monsters, talks over NPCs and stays the arrow elsewhere", CursorKindAsync);
         yield return ("the settings offer only the monitor's sizes: all in fullscreen, those that fit in a window, none borderless", ResolutionsAsync);
@@ -167,9 +167,9 @@ internal static class HudInteractionTests
         var accepted = -1;
         box.Open("How many items", "do you wanna buy?", 25, count => accepted = count);
         box.Type("100", static _ => false);
-        Assert.True(box.Count == 100, "the typed number was cut while typing");
+        Assert.True(box.Count == 25, $"a number above the maximum did not show the maximum while typing: {box.Count}");
         box.Type([], static key => key == Keys.Enter);
-        Assert.True(accepted == 25 && !box.IsOpen, $"a number above the maximum did not give the maximum: {accepted}");
+        Assert.True(accepted == 25 && !box.IsOpen, $"the maximum shown was not accepted: {accepted}");
 
         box.Open("How many items", "do you wanna sell?", 25, count => accepted = count);
         box.Type("7", static _ => false);

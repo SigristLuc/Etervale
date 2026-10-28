@@ -437,8 +437,8 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
   closes it instead of switching, and nothing is thrown while it is open.
 - Count box (`HudCountBox`), the original's quantity question: `BoxMain.tga` at (300, 200) with two lines, the number
   in `COUNT.bmp` at (+34, +62), typed with the digit keys (Backspace erases) or stepped with the arrows at (+124, +62)
-  and (+124, +75). Any number may be typed (nine digits); one above the question's maximum gives the maximum when
-  accepted, and the arrows stay within it. OK or Enter accepts a non-zero count, Cancel or Escape closes. It is modal
+  and (+124, +75). A number typed above the question's maximum shows the maximum at once, and the arrows stay within
+  it. OK or Enter accepts a non-zero count, Cancel or Escape closes. It is modal
   and takes the keyboard from the chat and the game keys while open.
 - Inventory window (`HudInventoryPanel`): carried/maximum weight centred in x 326..406 at y 471 of the window; items the
   character cannot use (level, attributes or class against `OwnedItemView.Details`, re-checked on every owner state)
