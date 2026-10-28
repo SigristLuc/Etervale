@@ -97,16 +97,16 @@ public sealed partial class VfxRenderer
                         }
                         else
                         {
-                            AppendTurnedBillboard(texture, source.Blend, position, halfWidth, halfHeight, color, Rotation(particle.Angle));
+                            AppendTurnedBillboard(texture, source.Blend, position, halfWidth, halfHeight, color, VfxAngles.Rotation(particle.Angle));
                         }
 
                         break;
                     case VfxSequenceShape.Ground:
-                        AppendGround(texture, source.Blend, position, halfWidth, halfHeight, color, Rotation(particle.Angle) * turn);
+                        AppendGround(texture, source.Blend, position, halfWidth, halfHeight, color, VfxAngles.Rotation(particle.Angle) * turn);
                         break;
                     case VfxSequenceShape.Upright:
                     {
-                        var axis = Vector3.TransformNormal(new Vector3(0f, halfHeight, 0f), Rotation(particle.Angle) * turn);
+                        var axis = Vector3.TransformNormal(new Vector3(0f, halfHeight, 0f), VfxAngles.Rotation(particle.Angle) * turn);
                         AppendStrip(texture, source.Blend, position + axis, position - axis, halfWidth, color, camera, true);
                         break;
                     }
@@ -211,19 +211,6 @@ public sealed partial class VfxRenderer
         _scratch[at + 1] = new VfxVertex { Position = b, Color = color, TexCoord = new Vector2(uv.Z, uv.Y), Params = parameters };
         _scratch[at + 2] = new VfxVertex { Position = c, Color = color, TexCoord = new Vector2(uv.Z, uv.W), Params = parameters };
         _scratch[at + 3] = new VfxVertex { Position = d, Color = color, TexCoord = new Vector2(uv.X, uv.W), Params = parameters };
-    }
-
-    // RotationX(x) * RotationY(y) * RotationZ(z) written out (row vectors), without building and multiplying three matrices.
-    internal static Matrix Rotation(Vector3 degrees)
-    {
-        var (sx, cx) = MathF.SinCos(MathHelper.ToRadians(degrees.X));
-        var (sy, cy) = MathF.SinCos(MathHelper.ToRadians(degrees.Y));
-        var (sz, cz) = MathF.SinCos(MathHelper.ToRadians(degrees.Z));
-        return new Matrix(
-            cy * cz, cy * sz, -sy, 0f,
-            sx * sy * cz - cx * sz, sx * sy * sz + cx * cz, sx * cy, 0f,
-            cx * sy * cz + sx * sz, cx * sy * sz - sx * cz, cx * cy, 0f,
-            0f, 0f, 0f, 1f);
     }
 
     // Original colours are display values 0..255: rgb decode to linear, alpha stays linear.

@@ -27,7 +27,7 @@ internal static class VfxLayerTests
         {
             var expected = Matrix.CreateRotationX(MathHelper.ToRadians(degrees.X)) * Matrix.CreateRotationY(MathHelper.ToRadians(degrees.Y))
                 * Matrix.CreateRotationZ(MathHelper.ToRadians(degrees.Z));
-            var actual = VfxRenderer.Rotation(degrees);
+            var actual = VfxAngles.Rotation(degrees);
             for (var cell = 0; cell < 16; cell++)
             {
                 Assert.True(MathF.Abs(actual[cell] - expected[cell]) < 1e-5f, $"rotation {degrees} differs at {cell}");

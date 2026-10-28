@@ -342,9 +342,7 @@ internal sealed class SequenceState
             return particle.Local;
         }
 
-        var rotation = Matrix.CreateRotationX(MathHelper.ToRadians(particle.Orbit.X)) * Matrix.CreateRotationY(MathHelper.ToRadians(particle.Orbit.Y))
-            * Matrix.CreateRotationZ(MathHelper.ToRadians(particle.Orbit.Z));
-        return Vector3.Transform(particle.Local, rotation);
+        return Vector3.Transform(particle.Local, VfxAngles.Rotation(particle.Orbit));
     }
 
     private void RunEvents(ref VfxSequenceParticle particle, ref uint random)
