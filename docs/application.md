@@ -460,6 +460,8 @@ Add an NPC service or action:
 - `SubscriberPresence` is not the production diff; the server's `PresenceEncoder` has its own. Keep both consistent
   when adding `EntityView` fields that need a full respawn.
 - `CharacterSummary` building throws on inconsistent persisted equipment so corruption is visible; do not swallow it.
+  The stored weapon pair (`SavedItem.Hidden`) shares the hand slots with the held one and is skipped: the summary shows
+  the held pair.
 
 ## Related
 

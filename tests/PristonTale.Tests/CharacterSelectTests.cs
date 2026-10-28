@@ -16,7 +16,7 @@ internal static class CharacterSelectTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("character summary carries persisted equipment into character selection", EquipmentSummaryAsync);
+        yield return ("character summary carries persisted equipment into character selection, a stored weapon pair beside it", EquipmentSummaryAsync);
         yield return ("character-select roster and class positions preserve the original ordering", OriginalPlacementAsync);
         yield return ("character-select face layout scales the authored canvas uniformly", FaceLayoutAsync);
         yield return ("Assassin and Shaman use the original creation definitions", ExtendedClassDefinitionsAsync);
@@ -37,11 +37,19 @@ internal static class CharacterSelectTests
         {
             CatalogKey = "DS101"
         };
-        var itemCatalog = new ItemCatalog([armor, weapon, shield]);
+        var spare = new ItemDefinition(0x0100_0005, "Spare Claw", ItemKind.Claw, EquipmentSlot.Weapon)
+        {
+            CatalogKey = "WC102"
+        };
+        var itemCatalog = new ItemCatalog([armor, weapon, shield, spare]);
         var player = classes.CreatePlayer(PlayerClass.Mechanician, "Armored", 80);
         player.Equip(EquipmentSlot.Armor, new ItemInstance(armor));
         player.Equip(EquipmentSlot.Weapon, new ItemInstance(weapon));
         player.Equip(EquipmentSlot.OffHand, new ItemInstance(shield));
+        // The stored weapon pair (key W) is saved in the hand slots beside the held one; the summary shows the held pair.
+        Assert.True(player.TrySwitchWeaponSet(1), "pair B was not shown");
+        player.Equip(EquipmentSlot.Weapon, new ItemInstance(spare));
+        Assert.True(player.TrySwitchWeaponSet(0) && player.StoredWeapon?.Definition == spare, "pair A was not held back with pair B stored");
 
         var starter = CharacterRecordFactory.NewStarter(classes, 1, player.Name, 0, player.Class.Class, 3);
         var record = CharacterRecordFactory.FromLiveSession(starter, player, 3, System.Numerics.Vector3.Zero);
