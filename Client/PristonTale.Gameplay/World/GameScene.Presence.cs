@@ -220,7 +220,6 @@ public sealed partial class GameScene
         _targetSelection.Clear();
         _monsterFx?.Clear();
         _renderer?.TransientLights.Clear();
-        _effects?.Clear();
         while (_presenceQueue.Reader.TryRead(out _))
         {
         }

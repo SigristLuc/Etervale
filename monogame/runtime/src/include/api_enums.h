@@ -73,6 +73,9 @@ enum class MGSurfaceFormat : mgint
     Astc8X8Rgba = 99,
     Astc10X10Rgba = 100,
     Astc12X12Rgba = 101,
+    // Etervale fork: a render target that is a 32-bit float depth buffer, sampled as a float texture
+    // (monogame/issues/016-depth-surface-targets.md).
+    Depth32Float = 120,
 };
 
 enum class MGDepthFormat : mgint

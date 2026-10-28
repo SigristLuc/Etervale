@@ -2,7 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using PristonTale.Effects;
+using PristonTale.Effects.Vfx;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Effects;
@@ -34,17 +34,16 @@ public sealed class CharacterSelectScreen : GameScreen
     private CharacterSelectScene _scene;
     private CharacterSelectPortrait _portrait;
 
-    private EffectsEngine _effects;
+    private VfxSystem _vfx;
+    private VfxRenderer _vfxRenderer;
+    private CharSelectFlames _flames;
 
-    private static readonly Vector3[] BrazierPositions =
+    // Where the green flames burn (CharSelectEffects).
+    public static readonly Vector3[] BrazierPositions =
     [
         new(-70f, 55f, 156f), new(-77f, 60f, 143f), new(-81f, 65f, 143f),
         new(70f, 56f, 155f),  new(75f, 60f, 152f),  new(81f, 66f, 142f),
     ];
-
-    private const string FlameFrameDir = "image";
-    private static readonly string[] FlameFrameNames =
-        ["flame1.bmp", "flame2.bmp", "flame3.bmp", "flame4.bmp", "flame5.bmp", "flame6.bmp", "flame7.bmp", "flame8.bmp"];
 
     private SoundEffectInstance _bgmInstance;
     private MouseState _lastMouse;
@@ -117,19 +116,21 @@ public sealed class CharacterSelectScreen : GameScreen
 
     private void InitEffects()
     {
-        _effects = new EffectsEngine(Context.GraphicsDevice, Context.Content);
-
-        var beam = CharSelectEffects.BuildGreenBeam(_assets.LoadFlipbook(FlameFrameDir, FlameFrameNames));
-        if (beam == null)
+        var library = Context.Effects?.Vfx.Library;
+        if (library is null)
         {
             return;
         }
 
-        _effects.Catalog.Register(beam);
-        foreach (var pos in BrazierPositions)
+        library.Register(CharSelectEffects.GreenBeamDefinition());
+        if (!library.TryGet(CharSelectEffects.GreenBeam, out var beam))
         {
-            _effects.Spawn(beam, pos);
+            return;
         }
+
+        _vfx = new VfxSystem(VfxNoAnchors.Instance, new TransientLightServices(_renderer.TransientLights), library);
+        _vfxRenderer = new VfxRenderer(Context.GraphicsDevice, Context.Content);
+        _flames = new CharSelectFlames(_vfx, beam, BrazierPositions);
     }
 
     public override void Update(GameTime gameTime)
@@ -146,7 +147,7 @@ public sealed class CharacterSelectScreen : GameScreen
         _scene.UpdateRun(dt);
 
         _renderer.Update(gameTime);
-        _effects?.Update(gameTime);
+        _flames?.Update(dt);
 
         var mouse = Mouse.GetState();
         var keyboard = Keyboard.GetState();
@@ -761,7 +762,11 @@ public sealed class CharacterSelectScreen : GameScreen
         _renderer.Draw(_cameraCtl.Camera);
 
         // Effects retain scene depth; the 2D view must remain last.
-        _effects?.Draw(_cameraCtl.View, _cameraCtl.Projection, _cameraCtl.Position);
+        if (_vfx is not null)
+        {
+            _vfxRenderer.Draw(_vfx, _cameraCtl.View, _cameraCtl.Projection, _cameraCtl.Position, _renderer.SceneLinearDepth);
+        }
+
         _renderer.ComposeScene();
 
         _view.Draw(viewport, viewModel);
@@ -851,7 +856,7 @@ public sealed class CharacterSelectScreen : GameScreen
         _backendCts?.Dispose();
         _bgmInstance?.Stop();
         _bgmInstance?.Dispose();
-        _effects?.Dispose();
+        _vfxRenderer?.Dispose();
         _portrait?.Dispose();
         _assets?.Dispose();
         _renderer?.Dispose();

@@ -104,17 +104,17 @@ internal static class ServerSettingsTests
         repository.Rows["server.max_users"] = "100";
         repository.Rows["server.debug"] = "true";
         repository.Rows["experience.multiplier"] = "3";
-        await Advance(world, settings.ReloadAsync());
+        await WorldPump.RunAsync(world, settings.ReloadAsync());
         Assert.True(repository.Seeded && world.Options.ExperienceMultiplier == 3 && gameMasters.Options.DebugServer && server.ServerName == "Babel"
             && server.UserLimit == 100, "the reading was not applied");
 
         server.UserLimit = 50;
-        await Advance(world, settings.ReloadAsync());
+        await WorldPump.RunAsync(world, settings.ReloadAsync());
         Assert.True(server.UserLimit == 50, "an unchanged player limit overrode the game master's");
         repository.Rows["server.max_users"] = "200";
-        Assert.True(await Advance(world, settings.SetAsync("aging.price_percent", "0")) && world.Options.Aging.PricePercent == 0
+        Assert.True(await WorldPump.RunAsync(world, settings.SetAsync("aging.price_percent", "0")) && world.Options.Aging.PricePercent == 0
             && server.UserLimit == 200, "a written setting was not applied");
-        Assert.True(!await Advance(world, settings.SetAsync("aging.price_percent", "-1")) && !await Advance(world, settings.SetAsync("nope", "1")),
+        Assert.True(!await WorldPump.RunAsync(world, settings.SetAsync("aging.price_percent", "-1")) && !await WorldPump.RunAsync(world, settings.SetAsync("nope", "1")),
             "a refused setting was written");
     }
 
@@ -126,9 +126,9 @@ internal static class ServerSettingsTests
 
         Assert.True(AgingRules.Price(3, 1000, 0) == 0 && AgingRules.Price(3, 1000, 50) == 1000, "the aging price does not follow its percent");
         var sure = new AgingSettings(FailurePercent: 0);
-        Assert.True(AgingRules.Roll(12, AgingStone.None, new FixedRng(10, 60, 0), sure) == AgingResult.Success, "a failure happened at 0%");
+        Assert.True(AgingRules.Roll(12, AgingStone.None, new ScriptedRng(10, 60, 0), sure) == AgingResult.Success, "a failure happened at 0%");
         var doubled = new AgingSettings(DoublePercent: 200);
-        Assert.True(AgingRules.Roll(0, AgingStone.None, new FixedRng(50, 50, 59), doubled) == AgingResult.Double, "the double chance was not scaled");
+        Assert.True(AgingRules.Roll(0, AgingStone.None, new ScriptedRng(50, 50, 59), doubled) == AgingResult.Double, "the double chance was not scaled");
         return Task.CompletedTask;
     }
 
@@ -138,17 +138,6 @@ internal static class ServerSettingsTests
         var hello = new ServerHelloPacket(ProtocolVersion.Current, ProtocolVersion.Minimum, 0, "Babel");
         Assert.True(ServerHelloPacket.Read(buffer.AsSpan(0, hello.Write(buffer))) == hello, "the server name was not carried");
         return Task.CompletedTask;
-    }
-
-    private static async Task<T> Advance<T>(WorldServer world, Task<T> task)
-    {
-        for (uint tick = 0; !task.IsCompleted && tick < 1000; tick++)
-        {
-            world.Tick(0.05f, tick);
-            await Task.Delay(1);
-        }
-
-        return await task.WaitAsync(TimeSpan.FromSeconds(1));
     }
 
     private sealed class MemorySettings : IServerSettingsRepository
@@ -180,16 +169,5 @@ internal static class ServerSettingsTests
             Rows[name] = value;
             return Task.FromResult(true);
         }
-    }
-
-    private sealed class FixedRng(params int[] values) : ISimRng
-    {
-        private int _next;
-
-        public int NextInclusive(int minInclusive, int maxInclusive) => Next();
-        public int NextExclusive(int minInclusive, int maxExclusive) => Next();
-        public float NextUnit() => Next() / 100f;
-
-        private int Next() => _next < values.Length ? values[_next++] : 0;
     }
 }

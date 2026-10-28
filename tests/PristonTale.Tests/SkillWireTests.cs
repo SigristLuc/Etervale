@@ -53,10 +53,10 @@ internal static class SkillWireTests
         }
 
         var length = new SkillCastPacket(3, 0x03080002, 77, 0, 0, 0, 0, 0, (SkillCastCommand)4).Write(buffer);
-        Assert.ThrowsAsync(() => Task.Run(() => SkillCastPacket.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
+        Assert.Throws<InvalidDataException>(() => SkillCastPacket.Read(buffer.AsSpan(0, length).ToArray()), "a malformed SkillCastPacket was read");
         length = new SkillCastPacket(3, 0x03080002, 77, 0, 0, 0, 0, 0).Write(buffer);
         BitConverter.TryWriteBytes(buffer.AsSpan(8), (ushort)2);
-        Assert.ThrowsAsync(() => Task.Run(() => SkillCastPacket.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
+        Assert.Throws<InvalidDataException>(() => SkillCastPacket.Read(buffer.AsSpan(0, length).ToArray()), "a malformed SkillCastPacket was read");
         var wide = new SkillCastPacket(3, 0x03080002, 0x1_0000_0001UL, 0, 0, 0, 0, 0);
         Assert.True(SkillCastPacket.Read(buffer.AsSpan(0, wide.Write(buffer))).TargetId == 0x1_0000_0001UL, "64-bit cast target round trip");
 
@@ -71,7 +71,7 @@ internal static class SkillWireTests
         length = SkillEventList.Write(buffer, events);
         Assert.True(SkillEventList.Read(buffer.AsSpan(0, length)).SequenceEqual(events), "release, charged, counter and mode events round trip");
         buffer[16 + 20] = 5;
-        Assert.ThrowsAsync(() => Task.Run(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
+        Assert.Throws<InvalidDataException>(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray()), "a malformed SkillEventList was read");
 
         var classes = new Simulation.Characters.CharacterClassRegistry();
         var character = classes.CreatePlayer(PlayerClass.Archer, "Tier", 80);

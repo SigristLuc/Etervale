@@ -1,7 +1,6 @@
 using Microsoft.Xna.Framework;
-using PristonTale.Effects;
-using PristonTale.Effects.Effects;
 using PristonTale.Effects.Vfx;
+using PristonTale.Engine3D.Rendering.Lighting;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -14,23 +13,10 @@ public interface IScriptEffect
     void Stop();
 }
 
-// Starts original particle scripts by name: the converted effects ("particle.<name>" under Effect/Vfx) of the game's skill
-// presentation, of a scene's own effect system (the opening flight), or the original engine reading the scripts directly.
+// Starts original particle scripts by name: their converted effects ("particle.<name>" under Effect/Vfx).
 public interface IScriptEffects
 {
     IScriptEffect Spawn(string script, Vector3 position, Matrix orientation);
-}
-
-public sealed class VfxScriptEffects(Func<SkillPresentation> presentation) : IScriptEffects
-{
-    public IScriptEffect Spawn(string script, Vector3 position, Matrix orientation)
-    {
-        return presentation()?.SpawnAt(ParticlePrefix + script, position, orientation) is { Spawned: true } instance
-            ? new VfxScriptHandle(instance)
-            : null;
-    }
-
-    public const string ParticlePrefix = "particle.";
 }
 
 internal sealed class VfxScriptHandle(VfxHandle instance) : IScriptEffect
@@ -44,7 +30,7 @@ public sealed class SystemScriptEffects(VfxSystem system, VfxLibrary library) : 
 {
     public IScriptEffect Spawn(string script, Vector3 position, Matrix orientation)
     {
-        if (!library.TryGet(VfxScriptEffects.ParticlePrefix + script, out var effect)
+        if (!library.TryGet("particle." + script, out var effect)
             || system.Spawn(effect, new VfxSpawn(0, 0, position, 0f)) is not { Spawned: true } instance)
         {
             return null;
@@ -55,25 +41,12 @@ public sealed class SystemScriptEffects(VfxSystem system, VfxLibrary library) : 
     }
 }
 
-public sealed class EngineScriptEffects(EffectLibrary library, EffectsEngine engine, string assetRoot) : IScriptEffects
+// The scene's transient lights for effect layers; effect sounds are not played.
+public sealed class TransientLightServices(PristonTransientLights lights) : IVfxServices
 {
-    // The original engine stops spawning beyond this many live effects.
-    public const int Budget = 128;
+    public void AddLight(Vector3 position, Color color, int power, int decay) => lights.Add(position, color, power, decay);
 
-    public IScriptEffect Spawn(string script, Vector3 position, Matrix orientation)
+    public void PlaySound(string path, Vector3 position, float volume)
     {
-        if (engine.Instances.Count >= Budget || library.ParticleScript(assetRoot, script) is not { } definition)
-        {
-            return null;
-        }
-
-        return new Handle(engine.Spawn(definition, position, orientation));
-    }
-
-    private sealed class Handle(EffectInstance instance) : IScriptEffect
-    {
-        public void MoveTo(Vector3 position) => instance.Position = position;
-
-        public void Stop() => instance.Stop();
     }
 }

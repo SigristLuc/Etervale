@@ -16,17 +16,19 @@ internal sealed class PresentationController
     private readonly ClientSettingsStore _store;
     private readonly DisplayController _display;
     private readonly GraphicsDeviceManager _graphics;
+    private readonly GameWindow _window;
     private readonly FramePacer _pacer = new();
     private ClientSettings _applied;
     private ClientSettings _accepted;
     private long _confirmationDeadline;
 
-    public PresentationController(PresentationSettings shared, ClientSettingsStore store, GraphicsDeviceManager graphics)
+    public PresentationController(PresentationSettings shared, ClientSettingsStore store, GraphicsDeviceManager graphics, GameWindow window)
     {
         _shared = shared;
         _store = store;
         _graphics = graphics;
-        _display = new DisplayController(graphics, ConsoleClientLog.Instance);
+        _window = window;
+        _display = new DisplayController(graphics, window, ConsoleClientLog.Instance);
         DisplayController.DescribeOptions(shared);
         _accepted = shared.Requested;
         Apply(shared.Requested);
@@ -102,6 +104,24 @@ internal sealed class PresentationController
 
         _applied = _applied with { WindowWidth = width, WindowHeight = height };
         _shared.Requested = _applied;
+        Accept();
+    }
+
+    // On exit: where the windowed window was left, for the next start (DisplayController restores it).
+    public void CaptureWindowPosition()
+    {
+        if (_applied is null || _shared.AwaitingConfirmation || _applied.WindowMode != WindowMode.Windowed || _shared.Requested != _applied)
+        {
+            return;
+        }
+
+        var position = _window.Position;
+        if (position.X == _applied.WindowX && position.Y == _applied.WindowY)
+        {
+            return;
+        }
+
+        _applied = _applied with { WindowX = position.X, WindowY = position.Y };
         Accept();
     }
 

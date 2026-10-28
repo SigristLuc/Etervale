@@ -293,114 +293,13 @@ for (var index = 0; index < args.Length; index++)
     }
 }
 
-var specifications = new List<(string Name, Func<Task> Run)>();
-specifications.AddRange(DomainTests.Cases());
-specifications.AddRange(ChatRoutingTests.Cases());
-specifications.AddRange(GameMasterCommandTests.Cases());
-specifications.AddRange(ChatClientTests.Cases());
-specifications.AddRange(GameMasterStorageTests.Cases());
-specifications.AddRange(ClientTests.Cases());
-specifications.AddRange(RemotePlaybackTests.Cases());
-specifications.AddRange(RenderTests.Cases());
-specifications.AddRange(RenderFidelityTests.Cases());
-specifications.AddRange(MaterialAdapterTests.Cases());
-specifications.AddRange(GltfExportTests.Cases());
-specifications.AddRange(MovementAndStreamingTests.Cases());
-specifications.AddRange(GroundTraversalTests.Cases());
-specifications.AddRange(TerrainTests.Cases());
-specifications.AddRange(CameraTests.Cases());
-specifications.AddRange(ProgressionAndOwnershipTests.Cases());
-specifications.AddRange(OutboxTests.Cases());
-specifications.AddRange(InventoryTransactionTests.Cases());
-specifications.AddRange(PotionTests.Cases());
-specifications.AddRange(YahooTests.Cases());
-specifications.AddRange(ParticleScriptTests.Cases());
-specifications.AddRange(TransientLightTests.Cases());
-specifications.AddRange(SpawnGateTests.Cases());
-specifications.AddRange(SpawnScheduleTests.Cases());
-specifications.AddRange(MonsterMovementTests.Cases());
-specifications.AddRange(DeathPenaltyTests.Cases());
-specifications.AddRange(WingGateTests.Cases());
-specifications.AddRange(HeldItemGlowTests.Cases());
-specifications.AddRange(TerrainMarksTests.Cases());
-specifications.AddRange(PlayerShotTests.Cases());
-specifications.AddRange(MonsterNavigationTests.Cases());
-specifications.AddRange(NetworkHardeningTests.Cases());
-specifications.AddRange(MultiplayerMovementTests.Cases());
-specifications.AddRange(MultiplayerCombatTests.Cases());
-specifications.AddRange(MultiplayerPresenceTests.Cases());
-specifications.AddRange(MultiplayerSessionTests.Cases());
-specifications.AddRange(MultiplayerSocialTests.Cases());
-specifications.AddRange(PresencePipelineTests.Cases());
-specifications.AddRange(MonsterSkillTests.Cases());
-specifications.AddRange(MonsterSkillStatusTests.Cases());
-specifications.AddRange(MonsterBossSkillTests.Cases());
-specifications.AddRange(MonsterPresentationTests.Cases());
-specifications.AddRange(SpatialIndexTests.Cases());
-specifications.AddRange(HudInteractionTests.Cases());
-specifications.AddRange(ClassSkillDataTests.Cases());
-specifications.AddRange(ProgressionTransactionTests.Cases());
-specifications.AddRange(FrameTimingTests.Cases());
-specifications.AddRange(ClientSettingsTests.Cases());
-specifications.AddRange(PhotorealTests.Cases());
-specifications.AddRange(BinaryCursorTests.Cases());
-specifications.AddRange(BinaryProtocolTests.Cases());
-specifications.AddRange(AuthTests.Cases());
-specifications.AddRange(ShadowProjectionTests.Cases());
-specifications.AddRange(SkinPaletteTests.Cases());
-specifications.AddRange(EffectLoadingTests.Cases());
-specifications.AddRange(PassiveSkillTests.Cases());
-specifications.AddRange(AnimationFallbackTests.Cases());
-specifications.AddRange(ModelNormalTests.Cases());
-specifications.AddRange(PhysiqueRepairTests.Cases());
-specifications.AddRange(EquipmentTests.Cases());
-specifications.AddRange(RangedEquipmentTests.Cases());
-specifications.AddRange(WorldRewardsTests.Cases());
-specifications.AddRange(WorldDataRulesTests.Cases());
-specifications.AddRange(ItemRulesTests.Cases());
-specifications.AddRange(NpcPlacementMigrationTests.Cases());
-specifications.AddRange(NpcMovementTests.Cases());
-specifications.AddRange(GroundPickupTransactionTests.Cases());
-specifications.AddRange(EntitySweepTests.Cases());
-specifications.AddRange(CharacterHeadTests.Cases());
-specifications.AddRange(CharacterSelectTests.Cases());
-specifications.AddRange(FieldAudioTests.Cases());
-specifications.AddRange(MonsterCombatTests.Cases());
-specifications.AddRange(AttackInputTests.Cases());
-specifications.AddRange(MonsterNameTests.Cases());
-specifications.AddRange(WorldImportTests.Cases());
-specifications.AddRange(NpcServiceTests.Cases());
-specifications.AddRange(SkyTests.Cases());
-specifications.AddRange(SkillSystemTests.Cases());
-specifications.AddRange(SkillPresentationTests.Cases());
-specifications.AddRange(SkillLookTests.Cases());
-specifications.AddRange(VfxLayerTests.Cases());
-specifications.AddRange(VfxImportTests.Cases());
-specifications.AddRange(SkillCatalogTests.Cases());
-specifications.AddRange(SkillAllyTests.Cases());
-specifications.AddRange(SkillDefenseTests.Cases());
-specifications.AddRange(SkillAreaTests.Cases());
-specifications.AddRange(SkillEnchantTests.Cases());
-specifications.AddRange(SkillResurrectionTests.Cases());
-specifications.AddRange(SkillControlTests.Cases());
-specifications.AddRange(SkillWireTests.Cases());
-specifications.AddRange(ProgressionDataTests.Cases());
-specifications.AddRange(SkillSummonTests.Cases());
-specifications.AddRange(SkillStealthTests.Cases());
-specifications.AddRange(SkillChargeTests.Cases());
-specifications.AddRange(SkillCompanionTests.Cases());
-specifications.AddRange(SpecialItemTests.Cases());
-specifications.AddRange(MonsterCrystalTests.Cases());
-specifications.AddRange(SummonAllianceTests.Cases());
-specifications.AddRange(CastleItemTests.Cases());
-specifications.AddRange(EventItemTests.Cases());
-specifications.AddRange(PuzzleTests.Cases());
-specifications.AddRange(QuestTests.Cases());
-specifications.AddRange(QuestServiceTests.Cases());
-specifications.AddRange(QuestHudTests.Cases());
-specifications.AddRange(AgingTests.Cases());
-specifications.AddRange(ServerSettingsTests.Cases());
-specifications.AddRange(MixingTests.Cases());
+// Every class's static Cases(), in class-name order: a new area file runs without being listed here.
+var specifications = typeof(Assert).Assembly.GetTypes()
+    .Select(static type => type.GetMethod("Cases", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static, Type.EmptyTypes))
+    .Where(static method => method?.ReturnType == typeof(IEnumerable<(string, Func<Task>)>))
+    .OrderBy(static method => method!.DeclaringType!.FullName, StringComparer.Ordinal)
+    .SelectMany(static method => (IEnumerable<(string Name, Func<Task> Run)>)method!.Invoke(null, null)!)
+    .ToList();
 // --filter <text> runs only the cases whose name contains the text.
 var filterIndex = Array.IndexOf(args, "--filter");
 if (filterIndex >= 0 && filterIndex + 1 < args.Length)
@@ -411,15 +310,23 @@ if (filterIndex >= 0 && filterIndex + 1 < args.Length)
 var failed = 0;
 foreach (var (name, run) in specifications)
 {
+    Task? task = null;
     try
     {
-        await run().WaitAsync(TimeSpan.FromSeconds(15));
+        task = run();
+        await task.WaitAsync(TimeSpan.FromSeconds(15));
         Console.WriteLine($"PASS {name}");
     }
     catch (Exception ex)
     {
         failed++;
         Console.Error.WriteLine($"FAIL {name}: {ex}");
+        // A timed-out case keeps running and would share the process with the cases after it.
+        if (task is { IsCompleted: false })
+        {
+            Console.Error.WriteLine("Stopping: the timed-out case is still running.");
+            break;
+        }
     }
 }
 

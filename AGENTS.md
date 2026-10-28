@@ -1,15 +1,23 @@
 # Agent instructions
 
-Applies throughout this repository. Follow the user's explicit instructions first. Read the affected code and relevant
-documentation before editing.
+Applies throughout this repository. Follow the user's explicit instructions first.
+
+## Understand before changing
+
+- Read the code you will change, what calls it and what it calls, and its doc in `docs/`, before editing. Know how the
+  feature works end to end (client, server, protocol, persistence, shaders) before deciding where a change belongs.
+- Never write from an assumption about an API, format, rule or behavior: open it and check. If the task needs more
+  than you have read, read more or narrow the task; never guess.
+- Look for an existing helper, rule or table before adding one; extend it instead of writing a second copy.
 
 ## Working rules
 
 - Start at [docs/README.md](docs/README.md): it routes each task to the doc that maps the code involved. Read that doc
   before searching the source.
-- Keep documentation current when changing behavior, contracts, formats, settings, or commands: update the matching
-  doc in `docs/` in the same change. Docs are in English and describe the current state only, never a changelog.
-  Use [README.md](README.md) only for setup and run instructions; keep this file limited to agent guidance.
+- Keep documentation current when changing behavior, contracts, formats, settings, or commands: a change is done only
+  when its docs match it, so update the matching doc in `docs/` in the same change. A doc that contradicts the code is
+  a defect: fix it when you find it, or report it. Docs are in English and describe the current state only, never a
+  changelog. Use [README.md](README.md) only for setup and run instructions; keep this file limited to agent guidance.
 - Treat restore, build, and analyzer warnings as errors. Build in Release with `-warnaserror`; keep
   `TreatWarningsAsErrors=true`. Fix causes instead of suppressing diagnostics.
 - Write readable C#: lines at most 240 characters, one statement per line, clear names, and braces on separate lines for
@@ -26,13 +34,37 @@ documentation before editing.
   scratch scripts and file copies live there only while a step needs them; delete them as soon as it is done, and
   leave nothing behind at the end of a task.
 
+## Platforms
+
+Etervale is multi-platform: the client, the server and the tools must build and run on Windows, Linux and macOS.
+
+- Build paths with `Path.Combine` and resolve asset references through `AssetFiles` (case-insensitive on case-sensitive
+  file systems); never hard-code separators, drive letters or a file name's case.
+- No OS-only APIs in product code (registry, Win32 P/Invoke, COM, WinForms/WPF). A platform that needs its own code gets
+  it behind one interface, implemented for all three.
+- Files the game writes live beside the executable, never in user-profile folders (AppData, `~/Library`, `~/.config`).
+- Graphics are Vulkan through the MonoGame fork in `monogame/`; macOS runs it on MoltenVK. Check that MoltenVK supports
+  a Vulkan feature or shader capability before relying on it.
+- Every build or tool script exists for each platform (`.sh` for Linux and macOS, `.ps1` for Windows), or is a `dotnet`
+  command.
+- Text in the repository is UTF-8 with LF line endings (`.gitattributes` normalizes it); read the original CP949 files
+  through `Cp949`.
+- When reporting, say which platforms were built and run; a change to platform-specific code (native runtime, scripts,
+  file access) names the platforms not verified.
+
 ## Architecture and data
 
 - Keep shared gameplay rules in `Shared/PristonTale.Simulation` and online authority in
   `Shared/PristonTale.Application`. Keep MonoGame in the client, transport mapping at the network edges, and SQL in
   persistence.
-- Use `AssetFiles` (`Shared/PristonTale.Assets`) for original asset paths. Check version and encoding before extracting behavior from
-  local reference material.
+- Organize code and data by domain (a class, a mechanic, a topic), never by tier (`FirstTier`, `SecondTier`) or by
+  faction.
+- The wire protocol is Etervale's own: never limit a value to the original game's struct sizes (experience and entity
+  ids are 64-bit, life is 32-bit).
+- The original game is a reference, not a specification to copy: Etervale may do better. Judge visual work by its
+  quality and validate it with captures.
+- Use `AssetFiles` (`Shared/PristonTale.Assets`) for original asset paths. Check version and encoding before extracting
+  behavior from local reference material.
 - Never cite the original source in this repository: no file names, paths, line numbers, function or struct names
   from it in code, comments, identifiers, messages, tests or documentation, and no mention of where local reference
   material is kept. Describe behavior, rules and binary formats in Etervale's own terms.

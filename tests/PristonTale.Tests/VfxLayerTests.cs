@@ -16,6 +16,7 @@ internal static class VfxLayerTests
         yield return ("parts wait for their delays, start on their ring and end with their life", PartRingAsync);
         yield return ("parts fly to their goal, start their end effect there and fade out", PartGoalAsync);
         yield return ("orbiting parts with a goal sweep at the goal's distance and bearing", PartOrbitAsync);
+        yield return ("spiral parts follow their straight path turned by the swirl, settle at their move time and fade", PartSpiralAsync);
         yield return ("a handle reaches only its own effect once the pooled instance runs another", HandleAsync);
         yield return ("a part's degree angles turn it about X, then Y, then Z", RotationAsync);
     }
@@ -26,7 +27,7 @@ internal static class VfxLayerTests
         {
             var expected = Matrix.CreateRotationX(MathHelper.ToRadians(degrees.X)) * Matrix.CreateRotationY(MathHelper.ToRadians(degrees.Y))
                 * Matrix.CreateRotationZ(MathHelper.ToRadians(degrees.Z));
-            var actual = VfxRenderer.Rotation(degrees);
+            var actual = VfxAngles.Rotation(degrees);
             for (var cell = 0; cell < 16; cell++)
             {
                 Assert.True(MathF.Abs(actual[cell] - expected[cell]) < 1e-5f, $"rotation {degrees} differs at {cell}");
@@ -147,6 +148,35 @@ internal static class VfxLayerTests
         Run(system, 1f);
         var later = sweep.PartStates[0].Parts[0].Position;
         Assert.True(MathF.Abs(later.Length() - 30f) < 0.01f && Vector3.Distance(later, start) > 30f, $"a quarter turn at the target's distance: {later}");
+        return Task.CompletedTask;
+    }
+
+    // Moving 10 units a second along X for one second: a quarter turn at 90 degrees a second, or a swirl growing at 180
+    // degrees a second each second, puts the part at -Z (the straight path turned), where it settles and fades.
+    private static Task PartSpiralAsync()
+    {
+        static VfxPartDefinition Part(float swirl, float growth) => new()
+        {
+            Texture = "x.bmp", VelocityMin = [10f, 0f, 0f], VelocityMax = [10f, 0f, 0f], Swirl = [swirl, swirl], SwirlGrowth = [growth, growth],
+            Spiral = true, MoveTime = [1f, 1f], End = VfxPartEnd.Hold, FadeOut = 0.5f
+        };
+
+        var (library, system) = Setup(new VfxDefinition { Name = "test.spiral", Duration = 5f, Parts = [Part(90f, 0f), Part(0f, 180f)] });
+        library.TryGet("test.spiral", out var effect);
+        var instance = system.Spawn(effect, new VfxSpawn(0, 0, Vector3.Zero, 0f)).Instance!;
+        Run(system, 1.1f);
+        foreach (var (layer, tolerance) in new[] { (0, 0.05f), (1, 0.3f) })
+        {
+            var parts = instance.PartStates[layer];
+            var part = parts.Parts[0];
+            Assert.True(Vector3.Distance(part.Position, new Vector3(0f, 0f, -10f)) < tolerance, $"layer {layer} ended at {part.Position}");
+            Assert.True(part.Exiting && MathF.Abs(part.Velocity.Length() - 10f) < 0.01f && parts.Fade(part) < 1f,
+                $"layer {layer} settles keeping its velocity and fades");
+        }
+
+        var settled = instance.PartStates[0].Parts[0].Position;
+        Run(system, 0.2f);
+        Assert.True(Vector3.Distance(instance.PartStates[0].Parts[0].Position, settled) < 1e-4f, "a settled part does not move");
         return Task.CompletedTask;
     }
 

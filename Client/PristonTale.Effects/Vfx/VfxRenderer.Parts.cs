@@ -188,7 +188,7 @@ public sealed partial class VfxRenderer
                 }
 
                 var scale = Matrix.CreateScale(part.Scale * state.PulseScale(part));
-                var rotation = Rotation(part.Angles);
+                var rotation = VfxAngles.Rotation(part.Angles);
                 Matrix world;
                 if (source.BoneWorld)
                 {

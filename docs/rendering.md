@@ -173,7 +173,7 @@ and lamps at full.
 | Motion | HalfVector4 | TAA only: uv motion, previous view depth, view depth (negative on cut-outs). |
 | Linear depth, normals | R32F, RGBA8 | Pre-pass only; `SceneLinearDepth` exposes the depth to effects (null without pre-pass). |
 | Sky | 8-bit sRGB | Dome layers with original blends, decoded into the scene. |
-| Sun shadow atlas | R32F + D24, `shadowMapSize` | 2x2 tiles from two cascades; falls back by halves to 1024 if allocation fails. |
+| Sun shadow atlas | D32F depth surface, `shadowMapSize` | 2x2 tiles from two cascades; casters write depth only (an opaque caster runs no pixel shader) and the lighting samples it; falls back by halves to 1024 if allocation fails. |
 | Lamp shadow atlas | R32F | One row per lamp, six faces of `lampShadowTileSize`. |
 | TAA history | 2 x HalfVector4 | Compressed colour and view depth, ping-pong. |
 | Environment | 64-px face atlas, octahedral 128 base + 5 levels atlas, 32x32 BRDF LUT, SH buffer (10 entries) | Rebuilt every 250 ms. |

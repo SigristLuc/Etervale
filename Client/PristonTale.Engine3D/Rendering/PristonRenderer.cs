@@ -232,7 +232,8 @@ public sealed partial class PristonRenderer : IDisposable
     }
 
     // A device that cannot allocate the map throws; each failure steps down to the next smaller size, 2048 being the
-    // low tier and 1024 the last resort. Shadow depth is stored in R32F rather than a quantized colour channel.
+    // low tier and 1024 the last resort. The map is a depth surface: the casters write only its 32-bit float depth (no
+    // colour, so an opaque caster runs no pixel work) and the lighting samples that depth, the orthographic z.
     private RenderTarget2D CreateShadowTarget(int requestedSize)
     {
         for (var size = requestedSize; ; size /= 2)
@@ -240,7 +241,7 @@ public sealed partial class PristonRenderer : IDisposable
             try
             {
                 // PreserveContents: the cascades refresh at different rates, and binding a DiscardContents target clears it.
-                return new RenderTarget2D(_graphicsDevice, size, size, false, SurfaceFormat.Single, DepthFormat.Depth24, 0,
+                return new RenderTarget2D(_graphicsDevice, size, size, false, SurfaceFormat.Depth32Float, DepthFormat.None, 0,
                     RenderTargetUsage.PreserveContents);
             }
             catch (Exception exception) when (size > MinimumShadowMapSize && exception is ArgumentException or InvalidOperationException or OutOfMemoryException)

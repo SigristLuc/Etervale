@@ -233,13 +233,13 @@ internal static class SkillSystemTests
 
         length = SkillEventList.Write(buffer, events);
         buffer[16 + 20] = 9;
-        Assert.ThrowsAsync(() => Task.Run(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
+        Assert.Throws<InvalidDataException>(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray()), "a malformed SkillEventList was read");
         length = StatusEffectList.Write(buffer, statuses);
         BitConverter.TryWriteBytes(buffer.AsSpan(16 + 32), 20000);
-        Assert.ThrowsAsync(() => Task.Run(() => StatusEffectList.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
+        Assert.Throws<InvalidDataException>(() => StatusEffectList.Read(buffer.AsSpan(0, length).ToArray()), "a malformed StatusEffectList was read");
         length = SkillEventList.Write(buffer, events);
         BitConverter.TryWriteBytes(buffer.AsSpan(12), 3);
-        Assert.ThrowsAsync(() => Task.Run(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
+        Assert.Throws<InvalidDataException>(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray()), "a malformed SkillEventList was read");
         return Task.CompletedTask;
     }
 

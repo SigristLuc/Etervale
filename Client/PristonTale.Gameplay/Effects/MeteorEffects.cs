@@ -1,6 +1,5 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Effects;
-using PristonTale.Effects.Effects;
 using PristonTale.Engine3D.Physics;
 using PristonTale.Engine3D.Rendering.Lighting;
 using PristonTale.Contracts.Units;

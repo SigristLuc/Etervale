@@ -60,7 +60,7 @@ internal static class OutboxTests
         var snapshot = new WorldSnapshot(1, [], [new CombatEventView(1, 2, CombatEventKind.Hit)]);
         Assert.True(outbox.Writer.TryWrite(snapshot) && !outbox.Writer.TryWrite(snapshot), "event capacity not enforced");
         Assert.True(outbox.Reader.TryRead(out var accepted) && accepted.Events.Length == 1, "previously accepted event was lost");
-        await Assert.ThrowsAsync(async () => await outbox.Reader.WaitToReadAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await outbox.Reader.WaitToReadAsync(), "the faulted outbox stayed readable");
     }
 
     private static Task PresenceAsync()

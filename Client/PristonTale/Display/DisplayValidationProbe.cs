@@ -57,7 +57,7 @@ internal sealed class DisplayValidationProbe : Game
 
     protected override void LoadContent()
     {
-        _controller = new PresentationController(_settings, _store, _graphics);
+        _controller = new PresentationController(_settings, _store, _graphics, Window);
         _requested = _settings.Requested;
     }
 

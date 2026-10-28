@@ -15,12 +15,13 @@ benchmarks, and the asset/GPU probes that read game data or create a Vulkan devi
 
 | Path | Responsibility |
 | --- | --- |
-| [Program.cs](../tests/PristonTale.Tests/Program.cs) | Probe/benchmark flag dispatch, case registration, `--filter`, run loop, exit code |
+| [Program.cs](../tests/PristonTale.Tests/Program.cs) | Probe/benchmark flag dispatch, case discovery, `--filter`, run loop, exit code |
 | `PristonTale.Tests.csproj` | Console exe; embeds `Fixtures/*.json`; imports `Client/MonoGameRuntime.targets` (native runtime) |
-| `Assert.cs` | `Assert.True(condition, message)`, `Assert.Near(expected, actual, tolerance)`, `Assert.ThrowsAsync` |
+| `Assert.cs` | `Assert.True`, `Assert.Near`, `Assert.Throws<T>`/`ThrowsAsync<T>` (the expected type; an `AssertionException` never counts) |
 | `Fixtures/` | Embedded tables: `class-skill-source.json` (class skills), `job-head-source.json` (416 job-head rows) |
 | `SkillFixtures.cs`, `SkillScenario.cs` | Synthetic field, players, monsters, weapons and 50 ms tick stepping for skill cases |
 | `MemoryCharacters.cs` | In-memory `ICharacterRepository` with update hooks for persistence-failure cases |
+| `WorldPump.cs` | Ticks a `WorldServer` at 50 ms until an operation it serves completes (service and transaction cases) |
 | `WireRoundTrip.cs` | Snapshots through server `PresenceEncoder` and client `PresenceDecoder` over original packet bytes |
 | `MultiplayerServer.cs`, `MultiplayerClient.cs` | A whole server in the runner (real host, disposable SQLite, ephemeral port, synthetic world) and real TCP clients with the world each one observed |
 | `AllocationSampler.cs` | Allocation ticks by type for benchmarks (`PRESENCE_ALLOCATIONS=1`) |
@@ -61,7 +62,7 @@ Default case files by area (all `tests/PristonTale.Tests/<Name>.cs`):
 | Client | `RemotePlaybackTests`, `AttackInputTests`, `FrameTimingTests`, `ClientSettingsTests`, `FieldAudioTests` | Playback, input, settings |
 | HUD and screens | `HudInteractionTests`, `CharacterHeadTests`, `CharacterSelectTests` | 800x600 layout, hit tests |
 | Rendering | `RenderTests`, `RenderFidelityTests`, `PhotorealTests`, `MaterialAdapterTests`, `ShadowProjectionTests`, `SkyTests` | CPU-side renderer |
-| Meshes, effects | `SkinPaletteTests`, `ModelNormalTests`, `AnimationFallbackTests`, `TransientLightTests`, `ParticleScriptTests` | Skinning, particles |
+| Meshes, effects | `SkinPaletteTests`, `ModelNormalTests`, `AnimationFallbackTests`, `TransientLightTests` | Skinning, lights |
 | Formats | `BinaryCursorTests`, `EffectLoadingTests`, `GltfExportTests` | Binary readers, shader load failure, glTF export |
 
 ## Running
@@ -85,10 +86,11 @@ git diff --check
 
 - Every test class is `internal static class <Area>Tests` in namespace `PristonTale.Tests` with
   `public static IEnumerable<(string, Func<Task>)> Cases()` that `yield return`s `("behavior sentence", MethodAsync)`.
-- `Program.cs` appends each class with `specifications.AddRange(<Area>Tests.Cases());`. A class not listed there never
-  runs.
-- Cases run sequentially in registration order. Each is awaited with a 15 s timeout (`WaitAsync`); a timeout fails the
-  case. A thrown exception of any type fails the case; the runner continues with the next one.
+- `Program.cs` discovers every class with a public static `Cases()` of that type by reflection; nothing to register.
+- Cases run sequentially, classes in full-name order and cases in their `Cases()` order. Each is awaited with a 15 s
+  timeout (`WaitAsync`). A thrown exception of any type fails the case and the runner continues with the next one; a
+  timeout fails the case and stops the run, since the case is still running and would share the process with the cases
+  after it.
 - Production assemblies expose internals to the runner through `InternalsVisibleTo` (Application, Geometry, Protocol,
   Client.Net, Engine3D, Gameplay, Server, GltfExport).
 
@@ -183,7 +185,7 @@ when reading those assets is authorized. GPU probes:
 | `--capture-ground-loot <assets> <content> <output.png>` | yes | Ground drop elevation, coordinate remapping, the drop names with `A` held (one hovered) and a label click target per drop spot, and the plain and highlighted name box in the corner; `<output>-close.png` shows how the drops lie (weapons flat) |
 | `--capture-combat-effects <assets> <content> <output-dir>` | yes | Temporary lights, meteors and the return effect over time |
 | `--capture-monster-skills <assets> <content> <output-dir> [<case,case,...>]` | yes | Real monsters' attack, skill and death clips with their effects, and monster statuses on a player |
-| `--capture-potions <assets> <content> <output-dir>` | yes | Potion particle captures over time |
+| `--capture-potions <assets> <content> <output-dir>` | yes | The three potions (`ItemVfx.Potion`) over a dark floor at night at 0.15, 0.45, 0.8 and 1.2 s |
 | `--capture-vfx <assets> <content> <output-dir> [<name,name,...>]` | yes | Plays named effects of `assets/Effect/Vfx` (see below) |
 | `--verify-skill-motions <assets>` | no | Every skill rule's motions (index, length, events, class tag) against the class motion tables |
 | `--verify-monster-skills <assets>` | no | Monster skill windup and duration from real models |
@@ -279,7 +281,7 @@ Draws the static and skinned surface effects into a float target and checks agai
 
 | Mode | Fails when |
 | --- | --- |
-| `charselect` | Character-select stage, braziers, roster: > 2 % of the frame clipped to white or > 5 % with a clipped channel |
+| `charselect` | Character-select stage, braziers with their green flames (`CharSelectFlames`), roster: > 2 % of the frame clipped to white or > 5 % with a clipped channel |
 | `actor` | NPCs at noon, front and back: the two-pixel silhouette ring is more than 1.25 times the interior luminance |
 | `opening` | Login flythrough with meteors: the town in the lower third is more than 1.8 times redder than blue |
 | `scenery` | Ricarten metal on a stage quad vs an animated scenery model, noon and 17:00: luminance > 8 % apart, saturation > 0.05 apart, |
@@ -302,10 +304,9 @@ this is not a readback of write-only GPU buffers or a visual comparison.
    `--filter` matches and what `PASS`/`FAIL` print; make it unique and descriptive.
 3. Write `private static Task <Name>Async()` (or `async Task`) using `Assert.True(condition, "what broke")`.
    Build data in code; reuse `SkillScenario`/`SkillFixtures` for skills, `MemoryCharacters` for persistence failures,
-   `WireRoundTrip` for presence on the wire.
-4. New class only: add `specifications.AddRange(<Area>Tests.Cases());` to `Program.cs`.
-5. Keep each case under the 15 s timeout and free of assets, GPU and fixed ports.
-6. Run the build and the suite (Running). Update this doc when you add an area file or a probe.
+   `WorldPump` to run a service call through the world's ticks, `WireRoundTrip` for presence on the wire.
+4. Keep each case under the 15 s timeout and free of assets, GPU and fixed ports.
+5. Run the build and the suite (Running). Update this doc when you add an area file or a probe.
 
 ### Add a fixture
 

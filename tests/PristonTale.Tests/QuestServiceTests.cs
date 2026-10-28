@@ -214,7 +214,7 @@ internal static class QuestServiceTests
             && world.Player.QuestState.Drops.Count == 1, "a failed upkeep lost or stored its drop");
         world.Characters.BeforeUpdate = _ => throw new InvalidOperationException("storage down");
         var thrown = world.Quests.RunUpkeepAsync(world.Session);
-        await Assert.ThrowsAsync(() => world.Advance(thrown));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => world.Advance(thrown), "the upkeep hid the storage failure");
         Assert.True(world.Player.QuestState.Drops.Count == 1, "a storage exception during the upkeep lost its drop");
         world.Characters.BeforeUpdate = null;
         Assert.True(await world.Advance(world.Quests.RunUpkeepAsync(world.Session)) && QuestInventory.Has(character, QuestItems.SilverWolverineTrophy)
@@ -338,16 +338,7 @@ internal static class QuestServiceTests
             };
         }
 
-        public async Task<T> Advance<T>(Task<T> task)
-        {
-            for (var step = 0; !task.IsCompleted && step < 1000; step++)
-            {
-                Server.Tick(0.05f, ++_tick);
-                await Task.Delay(1);
-            }
-
-            return await task.WaitAsync(TimeSpan.FromSeconds(1));
-        }
+        public Task<T> Advance<T>(Task<T> task) => WorldPump.RunAsync(Server, task, () => ++_tick);
 
         public WorldSnapshot WaitFor(Func<WorldSnapshot, bool> condition, int ticks = 1500)
         {

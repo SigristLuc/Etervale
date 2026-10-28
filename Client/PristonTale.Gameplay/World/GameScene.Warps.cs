@@ -67,7 +67,7 @@ public sealed partial class GameScene
             {
                 _pendingWarp = null;
                 _warpCooldown = WarpCooldownSeconds;
-                _returnEffect?.Clear();
+                _warpSparkle.StopNow();
             }
 
             return;
@@ -140,7 +140,7 @@ public sealed partial class GameScene
         StopPredictedMovement();
         HoldAtSpecialWarp(warp);
         _reports.Request();
-        _returnEffect?.Start(_playerBody.Position + Vector3.Up * GroundTraversal.VisualOffset);
+        _warpSparkle = PlayReturn(_playerBody.Position);
         _fieldAudio?.PlayPortalWarp();
         RequestField(_worldCatalog.GetField(warp.DestinationFieldId));
     }

@@ -19,6 +19,24 @@ public interface IVfxAnchors
     }
 }
 
+// For scenes whose effects attach to points only.
+public sealed class VfxNoAnchors : IVfxAnchors
+{
+    public static readonly VfxNoAnchors Instance = new();
+
+    public bool TryGetPosition(ulong entityId, out Vector3 position)
+    {
+        position = default;
+        return false;
+    }
+
+    public bool TryGetBone(ulong entityId, string bone, out Vector3 position)
+    {
+        position = default;
+        return false;
+    }
+}
+
 // Side effects of a layer that live outside the particle system: scene lights and sounds.
 public interface IVfxServices
 {

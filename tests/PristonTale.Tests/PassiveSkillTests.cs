@@ -66,7 +66,7 @@ internal static class PassiveSkillTests
         return Task.CompletedTask;
     }
 
-    private static async Task RestoreAsync()
+    private static Task RestoreAsync()
     {
         var percentages = new[] { 5, 8, 11, 14, 17, 20, 23, 26, 28, 30 };
         for (var rank = 1; rank <= 10; rank++)
@@ -81,11 +81,7 @@ internal static class PassiveSkillTests
             Assert.True(clone.MaxStamina == expected && clone.Stamina == 17, "transaction clone lost or doubled training");
             player.Equip(EquipmentSlot.Weapon, Weapon(ItemKind.Sword));
             Assert.True(player.MaxStamina == expected, "recompute compounded training");
-            await Assert.ThrowsAsync(() =>
-            {
-                player.Skills.Restore(0x02010001, 1);
-                return Task.CompletedTask;
-            });
+            Assert.Throws<ArgumentException>(() => player.Skills.Restore(0x02010001, 1), "a foreign class skill was restored");
             Assert.True(player.Skills.Ranks.Count == 1, "foreign class skill changed ownership before rejection");
         }
 
@@ -94,6 +90,7 @@ internal static class PassiveSkillTests
         var attributes = overflow.Attributes;
         Assert.True(!overflow.TryAllocateAttribute(CharacterAttribute.Strength, int.MaxValue)
             && overflow.Attributes == attributes && overflow.StatPoints == int.MaxValue, "overflow spent points or corrupted attributes");
+        return Task.CompletedTask;
     }
 
     private static ItemInstance Weapon(ItemKind kind) => new(new ItemDefinition(1, "Fixture", kind, EquipmentSlot.Weapon)

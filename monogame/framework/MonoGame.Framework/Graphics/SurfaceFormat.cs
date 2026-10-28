@@ -209,6 +209,14 @@ namespace Microsoft.Xna.Framework.Graphics
         Astc12X12Rgba = 101,
 
         #endregion
+
+        // Etervale fork: depth surfaces (monogame/issues/016-depth-surface-targets.md).
+        /// <summary>
+        /// A render target that is a 32-bit floating-point depth buffer: drawn into as the depth attachment of a pass
+        /// without colour and sampled as a single-channel float texture (Native platform). Create it with
+        /// <see cref="DepthFormat.None"/>, no mipmaps and no multisampling.
+        /// </summary>
+        Depth32Float = 120,
     }
 }
 

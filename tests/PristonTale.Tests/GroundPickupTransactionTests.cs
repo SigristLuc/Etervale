@@ -54,7 +54,7 @@ internal static class GroundPickupTransactionTests
         var service = new SessionAppService(sessions, classes, repository, catalog, world, holder);
         Assert.True((await service.EnterWorldAsync(session.SessionToken, starter.Name)).Ok && session.TryBeginPlay(), "fixture entry failed");
         var outbox = new WorldOutbox();
-        await AdvanceAsync(world, world.JoinAsync(3, WorldPlayerFactory.Create(session), outbox.Writer, session));
+        await WorldPump.RunAsync(world, world.JoinAsync(3, WorldPlayerFactory.Create(session), outbox.Writer, session));
         WorldSnapshot snapshot = default;
         for (uint tick = 0; tick < 100; tick++)
         {
@@ -66,7 +66,7 @@ internal static class GroundPickupTransactionTests
         }
 
         var target = snapshot.Entities.Single(entity => entity.Kind == EntityKind.Monster);
-        await AdvanceAsync(world, world.SetAttackTargetAsync(3, session.EntityId, target.EntityId, true));
+        await WorldPump.RunAsync(world, world.SetAttackTargetAsync(3, session.EntityId, target.EntityId, true));
         for (uint tick = 0; tick < 800; tick++)
         {
             world.Tick(0.05f, tick);
@@ -88,33 +88,16 @@ internal static class GroundPickupTransactionTests
         };
         var command = new InventoryCommand(Guid.NewGuid(), session.Character.InventoryRevision, InventoryAction.Pickup, drop.Id, 0, 1, default);
         var pending = service.ApplyInventoryAsync(session.SessionToken, command);
-        await AdvanceAsync(world, writing.Task);
+        await WorldPump.RunAsync(world, writing.Task);
         Assert.True(session.Character.Money == money && !pending.IsCompleted, "pickup appeared before storage committed");
         storage.SetResult(false);
-        Assert.True(!(await AdvanceAsync(world, pending)).Ok, "storage rejection reported success");
+        Assert.True(!(await WorldPump.RunAsync(world, pending)).Ok, "storage rejection reported success");
         repository.BeforeUpdate = null;
-        Assert.True((await AdvanceAsync(world, service.ApplyInventoryAsync(session.SessionToken, command))).Ok, "failed storage left drop reserved");
+        Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, command))).Ok, "failed storage left drop reserved");
         Assert.True(session.Character.Money == money + 8, "gold pickup changed the wrong amount");
         int writes = repository.UpdateCount;
-        Assert.True((await AdvanceAsync(world, service.ApplyInventoryAsync(session.SessionToken, command))).Ok && repository.UpdateCount == writes,
+        Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, command))).Ok && repository.UpdateCount == writes,
             "retry duplicated ground reward or storage");
         Assert.True(session.Character.Money == money + 8, "retry granted gold twice");
-    }
-
-    private static async Task AdvanceAsync(WorldServer world, Task task)
-    {
-        for (uint tick = 0; !task.IsCompleted && tick < 1000; tick++)
-        {
-            world.Tick(.05f, tick);
-            await Task.Delay(1);
-        }
-
-        await task.WaitAsync(TimeSpan.FromSeconds(1));
-    }
-
-    private static async Task<T> AdvanceAsync<T>(WorldServer world, Task<T> task)
-    {
-        await AdvanceAsync(world, (Task)task);
-        return await task;
     }
 }

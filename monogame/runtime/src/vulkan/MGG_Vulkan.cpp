@@ -162,6 +162,7 @@ struct MGVK_TargetSetCache
 	VkFramebuffer framebuffer = VK_NULL_HANDLE;
 	VkRenderPass renderPass = VK_NULL_HANDLE;
     std::optional<VkImageView> arraySlicesViews[MGVK_NUM_TARGETS];
+	int colorAttachments = 0;	// Etervale fork: 0 for a depth surface (issue 016); the pipelines' blend attachment count
 };
 
 struct MGVK_PipelineState
@@ -773,9 +774,18 @@ static VkFormat ToVkFormat(MGSurfaceFormat format)
 		return VK_FORMAT_BC3_SRGB_BLOCK;
 	case MGSurfaceFormat::Dxt1a:
 		return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+	case MGSurfaceFormat::Depth32Float:
+		return VK_FORMAT_D32_SFLOAT;
 	default:
 		MGVK_UNREACHABLE();
 	}
+}
+
+// Etervale fork: a render target whose image is its depth buffer (issue 016): bound as the depth attachment of a pass
+// without colour, sampled through a depth view.
+static bool MGVK_IsDepthSurface(const MGG_Texture* texture)
+{
+	return texture->format == MGSurfaceFormat::Depth32Float;
 }
 
 static VkFormat ToVkFormat(MGDepthFormat format)
@@ -2618,7 +2628,9 @@ void MGG_GraphicsDevice_Clear(MGG_GraphicsDevice* device, MGClearOptions options
 
 	auto targets = device->pipelineState.targets;
 
-	if (((int)options & (int)MGClearOptions::Target) != 0)
+	// Etervale fork: a depth surface (issue 016) has no colour to clear; its depth is the target's own image.
+	const bool depthSurface = MGVK_IsDepthSurface(targets->set.targets[0]);
+	if (((int)options & (int)MGClearOptions::Target) != 0 && !depthSurface)
 	{
 		for (int i = 0; i < targets->set.numTargets; i++)
 		{
@@ -2644,7 +2656,7 @@ void MGG_GraphicsDevice_Clear(MGG_GraphicsDevice* device, MGClearOptions options
 		if (clearStencil)
 			attachment->aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
-		auto depthTexture = targets->set.targets[0]->depthTexture;
+		auto depthTexture = depthSurface ? targets->set.targets[0] : targets->set.targets[0]->depthTexture;
 		if (depthTexture) {
 			attachment->aspectMask &= DetermineAspectMask(depthTexture->info.format);
 		}
@@ -2659,6 +2671,9 @@ void MGG_GraphicsDevice_Clear(MGG_GraphicsDevice* device, MGClearOptions options
 			num_attachments++;
 		}
 	}
+
+	if (num_attachments == 0)
+		return;
 
 	VkClearRect rect;
 	rect.rect.offset.x = 0;
@@ -3569,7 +3584,10 @@ static void MGVK_UpdateRenderPass(MGG_GraphicsDevice* device, FrameCounter curre
 		int num_attachments = 0;
 		int num_color_attachments = 0;
 
-		for (int i = 0; i < cached->set.numTargets; i++)
+		// Etervale fork: a depth surface (issue 016) is the pass's depth attachment and it has no colour attachment.
+		const bool depthSurface = MGVK_IsDepthSurface(first);
+		assert(!depthSurface || cached->set.numTargets == 1);
+		for (int i = 0; i < cached->set.numTargets && !depthSurface; i++)
 		{
 			auto target = cached->set.targets[i];
 			auto firstUse = cached->set.firstUse[i];
@@ -3645,6 +3663,26 @@ static void MGVK_UpdateRenderPass(MGG_GraphicsDevice* device, FrameCounter curre
 			num_color_attachments++;
 		}
 
+		if (depthSurface)
+		{
+			bool firstUse = cached->set.firstUse[0];
+			depth_stencil_attachment.attachment = num_attachments;
+			depth_stencil_attachment.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			attachments[num_attachments] = first->target_view;
+			cached->arraySlicesViews[0] = std::nullopt;
+
+			auto& desc = attachment_descs[num_attachments];
+			desc.format = first->info.format;
+			desc.samples = VK_SAMPLE_COUNT_1_BIT;
+			desc.loadOp = firstUse ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : VK_ATTACHMENT_LOAD_OP_LOAD;
+			desc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+			desc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			desc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			desc.initialLayout = firstUse ? VK_IMAGE_LAYOUT_UNDEFINED : first->optimal_layout;
+			desc.finalLayout = first->optimal_layout;
+			num_attachments++;
+		}
+
 		auto depth = cached->set.targets[0]->depthTexture;
 		if (depth)
 		{
@@ -3700,8 +3738,9 @@ static void MGVK_UpdateRenderPass(MGG_GraphicsDevice* device, FrameCounter curre
             if (isMsaa)
                 subpass_desc.pResolveAttachments = &resolve_attachment_ref;
 
-			if (depth)
+			if (depth || depthSurface)
 				subpass_desc.pDepthStencilAttachment = &depth_stencil_attachment;
+			cached->colorAttachments = num_color_attachments;
 
 			// Add subpass dependencies for proper synchronization
 			VkSubpassDependency dependencies[2];
@@ -3756,8 +3795,9 @@ static void MGVK_UpdateRenderPass(MGG_GraphicsDevice* device, FrameCounter curre
 
 				dependencies[1].srcSubpass = 0;
 				dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-				dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-				dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				// Etervale fork: a depth surface (issue 016) is read by later shaders too, so its depth writes are made visible.
+				dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+				dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 				dependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
 				dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 				dependencies[1].dependencyFlags = 0;
@@ -4257,7 +4297,7 @@ static VkPipeline MGVK_CreatePipeline(MGG_GraphicsDevice* device)
 
 	// Setup the blend, rasterizer, and depth/stencil states.
 	VkPipelineColorBlendStateCreateInfo colorBlending = pstate.blendState->info;
-	colorBlending.attachmentCount = pstate.targets->set.numTargets;
+	colorBlending.attachmentCount = pstate.targets->colorAttachments;
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pRasterizationState = &pstate.rasterizerState->info;
 	pipelineInfo.pDepthStencilState = &pstate.depthStencilState->info;
@@ -6009,6 +6049,13 @@ MGG_Texture* MGG_RenderTarget_Create(
                         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
                         VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                         VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		// Etervale fork: a depth surface (issue 016) is its own depth attachment: one level, one sample, no separate depth
+		// buffer. Between passes it rests sampled, in the read-only layout its descriptors expect.
+		if (MGVK_IsDepthSurface(texture))
+		{
+			assert(type == MGTextureType::_2D && mipmaps == 1 && multiSampleCount <= 1 && depthFormat == MGDepthFormat::None);
+			create_info.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		}
 		create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
@@ -7110,7 +7157,7 @@ MG_EXPORT void MGG_GraphicsDevice_GetNativeHandles(const MGG_GraphicsDevice* dev
 // MGG.EnsureRuntimeVersion) checks before anything else: a library built from other sources (the official package, or
 // a stale build of the fork) would fail later at the first missing export, or worse, call an export whose arguments
 // changed. Bumped with every change of an exported function (monogame/issues/002-runtime-version.md).
-#define MGVK_ETERVALE_RUNTIME_VERSION 5
+#define MGVK_ETERVALE_RUNTIME_VERSION 6
 
 MG_EXPORT mgint MGG_Etervale_RuntimeVersion()
 {

@@ -52,7 +52,7 @@ public sealed class VfxBuiltinTextures : IDisposable
             }
         }
 
-        var texture = new Texture2D(device, Size, Size, false, SurfaceFormat.Color);
+        var texture = new Texture2D(device, Size, Size, false, SurfaceFormat.ColorSRgb);
         texture.SetData(pixels);
         _textures[name] = texture;
     }

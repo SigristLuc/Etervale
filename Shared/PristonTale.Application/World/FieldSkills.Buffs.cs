@@ -144,7 +144,7 @@ internal sealed partial class FieldSkills
                 continue;
             }
 
-            if (player.Appearance.InVillage)
+            if (player.InVillage)
             {
                 // Skill buffs end in town, as the original ends them on entering a village.
                 player.Character.Effects.RemoveTimedFrom(EffectSourceKind.PlayerSkill, player.EntityId, _changes);

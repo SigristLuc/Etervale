@@ -25,6 +25,7 @@ the in-game Settings panel, and how a change reaches the display, the renderer a
 | `Client/PristonTale.Engine3D/Rendering/PresentationSettings.cs` | Shared state between the UI and the display controller: `Requested`, confirmation flags, `ApplyRendering` and the `RenderingChanged` event. |
 | `Client/PristonTale/Display/PresentationController.cs` | Applies requested settings at the frame boundary, display preview and 15-second confirmation, rollback, frame pacing, save on accept. |
 | `Client/PristonTale/Display/DisplayController.cs` | Window mode, back-buffer size and vertical sync through the Vulkan platform. |
+| `Client/PristonTale.Engine3D/Rendering/WindowPlacement.cs` | Where the windowed window goes: centred on the primary monitor, or its saved position while the title bar stays on screen. |
 | `Client/PristonTale/Display/DisplayValidationProbe.cs` | `--validate-display REPORT.json`: cycles display configurations and checks pacing. |
 | `Client/PristonTale.Gameplay/UI/Widgets/HudSettingsPanel.cs` | The in-game Settings panel (system menu, entry Settings). |
 | `Client/PristonTale.Gameplay/UI/DisplayConfirmation.cs` | Confirm (Enter or button) / revert (Escape or button) prompt of a display change. |
@@ -63,6 +64,7 @@ renderer through `PresentationSettings.ApplyRendering` and apply at once.
 | `version` | int, `1` | must be 1 | | Any other value: defaults and a read-only store. |
 | `monitor` | int, `-1` | >= -1 | yes | -1 current. The Vulkan platform offers the primary monitor only; a value above 0 logs a warning and uses the primary monitor. Display. |
 | `windowWidth`, `windowHeight` | int, `1280`, `720` | 800-16384, 600-16384 | yes (resolution) | Windowed size (the window is resizable; a manual resize is accepted and saved). Fullscreen picks the closest primary-monitor mode; borderless uses the desktop size. Display. |
+| `windowX`, `windowY` | int or null, null | any | no (saved on exit) | Where the windowed window was left: its client area's top-left in desktop coordinates (MonoGame's `Window.Position`). The first windowed apply restores it while the title bar lands on the primary monitor; otherwise, or without a position, the window opens centred on the primary monitor with its title bar on screen. Later applies centre a window that no longer fits. A platform that places windows itself (a Wayland session) may ignore the position. Not display fields: moving the window applies nothing. |
 | `windowMode` | `Windowed` (default), `Borderless`, `Fullscreen` | defined enum | yes | Fullscreen is an exclusive mode switch. Display. |
 | `refreshRate` | int, `0` | 0-1000 | yes (fullscreen only) | 0 desktop frequency. The platform switches at the desktop frequency only; a nonzero value logs a warning. Display. |
 | `verticalSync` | bool, `false` | | yes | Applied without a display reset. |
@@ -89,7 +91,7 @@ renderer through `PresentationSettings.ApplyRendering` and apply at once.
 | `sharpening` | float, `0.35` | finite, 0-1 | | Contrast-adaptive sharpening in the final pass. |
 | `localLightLimit` | int, `32` | 8, 16, 32 | | Local lights shaded per pixel: transient combat lights first (at most 8), then the stage lamps nearest the camera focus. |
 | `shadowsEnabled` | bool, `true` | | yes (Shadows) | All shadows: sun cascades and lamp cube shadows. |
-| `shadowMapSize` | int, `4096` | 1024, 2048, 4096, 8192 | yes (Sun shadow) | Size of the sun's cascade atlas (R32F). If allocation fails the renderer halves the size down to 1024. |
+| `shadowMapSize` | int, `4096` | 1024, 2048, 4096, 8192 | yes (Sun shadow) | Size of the sun's cascade atlas (a 32-bit float depth surface). If allocation fails the renderer halves the size down to 1024. |
 | `shadowCascades` | int, `4` | 1-4 | | Stabilized cascades over 9000 units of view depth; from 2 cascades on the atlas is a 2x2 grid. |
 | `shadowFilter` | `Pcss` (default), `Pcf` | defined enum | | PCSS widens the penumbra with the blocker distance; the moon always uses PCF. |
 | `shadowUpdateRate` | int Hz, `60` | 0, 30, 60, 120 | yes (Shadow animation: 30, 60, 120, every frame) | Sun cascade refit and refresh rate; 0 every frame. Far cascades refresh less often; at night the rate is halved (at least 30 Hz). The two near cascades redraw every frame regardless, so characters cast from their current pose. |
