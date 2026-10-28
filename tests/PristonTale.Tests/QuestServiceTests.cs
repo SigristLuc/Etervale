@@ -214,7 +214,7 @@ internal static class QuestServiceTests
             && world.Player.QuestState.Drops.Count == 1, "a failed upkeep lost or stored its drop");
         world.Characters.BeforeUpdate = _ => throw new InvalidOperationException("storage down");
         var thrown = world.Quests.RunUpkeepAsync(world.Session);
-        await Assert.ThrowsAsync(() => world.Advance(thrown));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => world.Advance(thrown), "the upkeep hid the storage failure");
         Assert.True(world.Player.QuestState.Drops.Count == 1, "a storage exception during the upkeep lost its drop");
         world.Characters.BeforeUpdate = null;
         Assert.True(await world.Advance(world.Quests.RunUpkeepAsync(world.Session)) && QuestInventory.Has(character, QuestItems.SilverWolverineTrophy)

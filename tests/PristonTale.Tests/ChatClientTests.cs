@@ -34,7 +34,7 @@ internal static class ChatClientTests
         Assert.True(party.Party && party.Text == "pull", "party lines lost their channel");
         size = say.Write(buffer);
         buffer[10] = 2;
-        Assert.ThrowsAsync(() => Task.Run(() => ChatSayPacket.Read(buffer.AsSpan(0, size).ToArray()))).Wait();
+        Assert.Throws<InvalidDataException>(() => ChatSayPacket.Read(buffer.AsSpan(0, size).ToArray()), "a malformed ChatSayPacket was read");
         var cut = new ChatSayPacket(false, new string('é', ChatWire.MaxTextBytes));
         Assert.True(ChatSayPacket.Read(buffer.AsSpan(0, cut.Write(buffer))).Text.Length == ChatWire.MaxTextBytes / 2,
             "a long line must be cut at a whole character");

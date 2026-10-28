@@ -17,7 +17,7 @@ benchmarks, and the asset/GPU probes that read game data or create a Vulkan devi
 | --- | --- |
 | [Program.cs](../tests/PristonTale.Tests/Program.cs) | Probe/benchmark flag dispatch, case registration, `--filter`, run loop, exit code |
 | `PristonTale.Tests.csproj` | Console exe; embeds `Fixtures/*.json`; imports `Client/MonoGameRuntime.targets` (native runtime) |
-| `Assert.cs` | `Assert.True(condition, message)`, `Assert.Near(expected, actual, tolerance)`, `Assert.ThrowsAsync` |
+| `Assert.cs` | `Assert.True`, `Assert.Near`, `Assert.Throws<T>`/`ThrowsAsync<T>` (the expected type; an `AssertionException` never counts) |
 | `Fixtures/` | Embedded tables: `class-skill-source.json` (class skills), `job-head-source.json` (416 job-head rows) |
 | `SkillFixtures.cs`, `SkillScenario.cs` | Synthetic field, players, monsters, weapons and 50 ms tick stepping for skill cases |
 | `MemoryCharacters.cs` | In-memory `ICharacterRepository` with update hooks for persistence-failure cases |

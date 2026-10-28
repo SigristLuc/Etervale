@@ -1,12 +1,15 @@
 namespace PristonTale.Tests;
 
+// A failed assertion: its own type, so an expected refusal is never satisfied by an assertion failing inside it.
+internal sealed class AssertionException(string message) : Exception(message);
+
 internal static class Assert
 {
     public static void True(bool condition, string message)
     {
         if (!condition)
         {
-            throw new InvalidOperationException(message);
+            throw new AssertionException(message);
         }
     }
 
@@ -15,18 +18,34 @@ internal static class Assert
         True(float.IsFinite(actual) && MathF.Abs(expected - actual) <= tolerance, $"expected {expected}, got {actual}");
     }
 
-    public static async Task ThrowsAsync(Func<Task> operation)
+    public static TException Throws<TException>(Action operation, string message) where TException : Exception
     {
-        var threw = false;
+        try
+        {
+            operation();
+        }
+        catch (Exception ex) when (ex is not AssertionException)
+        {
+            return Expected<TException>(ex, message);
+        }
+
+        throw new AssertionException($"{message}: nothing was thrown");
+    }
+
+    public static async Task<TException> ThrowsAsync<TException>(Func<Task> operation, string message) where TException : Exception
+    {
         try
         {
             await operation();
         }
-        catch
+        catch (Exception ex) when (ex is not AssertionException)
         {
-            threw = true;
+            return Expected<TException>(ex, message);
         }
 
-        True(threw, "expected operation to fail");
+        throw new AssertionException($"{message}: nothing was thrown");
     }
+
+    private static TException Expected<TException>(Exception thrown, string message) where TException : Exception =>
+        thrown as TException ?? throw new AssertionException($"{message}: {thrown.GetType().Name} instead of {typeof(TException).Name}: {thrown.Message}");
 }
