@@ -28,8 +28,9 @@ and draws the result.
 | `.../Usable/ItemScrolls.cs`, `ForceOrbs.cs`, `TeleportCoreDestinations.cs` | Scroll effects, force orb tables, the 33 Teleport Core fields |
 | `.../Usable/ItemUseCommand.cs`, `ItemUseMessages.cs`, `ItemEffectKind.cs` | Command, statuses, outcome and history; the effect kinds sent to clients |
 | `Shared/PristonTale.Application/Services/ItemUseAppService.cs` | Prepare, store, commit under the session's `SaveGate` |
-| `Shared/PristonTale.Application/World/ItemUseTransactions.cs` | Tick-side checks and the candidate of a use |
-| `Shared/PristonTale.Application/World/WorldServer.Items.cs` | `PrepareItemUseAsync`, `CommitItemUseAsync` and the world part of a use |
+| `Shared/PristonTale.Application/World/ItemUseTransactions.cs` | Tick-side shared checks and the candidate of a use |
+| `Shared/PristonTale.Application/World/ItemUses/ItemUseAction.cs` | `ItemUseAction`, one per `UsableItemAction` (`ItemUseActions.For`): `ForTheDead`, `Consumes`, `ReappliesAtCommit`, `Check`, `Arrival`, `Extend`, `Message`, `Store`, `Commit` (session), `Apply` (world, returns the effect viewers see) |
+| `Shared/PristonTale.Application/World/WorldServer.Items.cs` | `PrepareItemUseAsync`, `CommitItemUseAsync` (calls the kind's `Commit` and `Apply`) |
 | `Shared/PristonTale.Application/World/FieldPremium.cs`, `FieldInstance.Premium.cs` | Timer expiry, per-attack life and mana, pets |
 | `Shared/PristonTale.Application/World/FieldItemEvents.cs`, `FieldSkills.Items.cs` | Item effects published per tick; item status effects |
 | `Shared/PristonTale.Application/World/MobileShopTransactions.cs` | The NPC-less shop a mobile shop item opens |
@@ -46,7 +47,7 @@ and draws the result.
 | `.../Usable/EventFoods.cs`, `GiftBoxes.cs`, `Chocolates.cs` | Event foods and the soccer-ball head, prize tables, Virtual Life levels |
 | `.../Usable/Puzzles.cs`, `PuzzleExchange.cs` | Pieces, board cells, reveal cost, drop weights, reward table, the collector's exchange |
 | `Shared/PristonTale.Simulation/World/Loot/ItemEventDrops.cs` | Item events that replace drop rolls (`ItemEventRates`) |
-| `Shared/PristonTale.Application/World/ItemUseTransactions.*.cs` | Per family checks: `Crystals`, `Castle` (and Restoration), `Events` (foods, boxes, chocolates, puzzle bags) |
+| `Shared/PristonTale.Application/World/ItemUses/*Uses.cs` | The kinds by family: `CharacterUses` (timers, resets, masteries, gravity), `ScrollUses` (scrolls, force orbs), `TravelUses` (cores, return, mobile shop, union core), `LookUses` (hair, firecracker, soccer head), `CastleUses` (castle items, Restoration), `CrystalUses`, `EventUses` (foods, boxes, chocolates, puzzle bags) |
 | `Shared/PristonTale.Application/World/FieldSkills.Crystals.cs`, `FieldInstance.Items.cs` | Crystal pets, soul monsters, castle items on the field |
 | `Client/PristonTale.Gameplay/UI/Widgets/HudPremiumKeeps.cs` | Boosters and the skill-delay item in the effects bar |
 | `Client/PristonTale.Gameplay/UI/Inventory/HudPuzzleExchange.cs` | The collector's question; the board is drawn by `HudInventoryPanel` |
@@ -238,7 +239,9 @@ clan and refuses (`ClanOnly`).
 - `PremiumTimers.Expire` runs every tick before the rules read the timers; reading them elsewhere sees the state of
   the last tick.
 - The commit re-applies the character part with the prepared clock and roll; it must not re-apply aging (the
-  inventory commit already carries the upgraded item).
+  inventory commit already carries the upgraded item): `AgingMasteryUse.ReappliesAtCommit` is false.
+- A new usable item kind is one `ItemUseAction` subclass in the family's `*Uses.cs` and one row in `ItemUseActions`;
+  a kind without a row behaves as the plain character rules.
 - Package timers share one expiry; a single item of a kind a package runs is refused while the package runs.
 - `HudNpcServiceController` accepts NPC id 0 only for the shop: that is the mobile shop.
 - Crystal pets are summons (`OwnerId`) but not in the skill summon table; `FieldSkills.StepSummon` steps them through
