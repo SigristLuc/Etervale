@@ -59,7 +59,7 @@ Default case files by area (all `tests/PristonTale.Tests/<Name>.cs`):
 | Quests | `QuestTests` (with `QuestFixture`), `QuestServiceTests`, `QuestHudTests` | Every quest family's steps, rank-ups and the tier; journal storage, quest messages, durable requests, kill credit, upkeep, the arena duel; quest HUD flows and layout |
 | Chat, game masters | `ChatRoutingTests`, `GameMasterCommandTests` (with `ChatFixture`), `ChatClientTests`, `GameMasterStorageTests` | Spoken range, whispers, channels, notices, shutdown; every command and the level table; window, input, flood and bubbles; `gm_level`, audit and character moves on SQLite |
 | Client | `RemotePlaybackTests`, `AttackInputTests`, `FrameTimingTests`, `ClientSettingsTests`, `FieldAudioTests` | Playback, input, settings |
-| HUD and screens | `HudInteractionTests`, `CharacterHeadTests`, `CharacterSelectTests`, `GroundLootLabelTests` | 800x600 layout, hit tests |
+| HUD and screens | `HudInteractionTests`, `CharacterHeadTests`, `CharacterSelectTests` | 800x600 layout, hit tests |
 | Rendering | `RenderTests`, `RenderFidelityTests`, `PhotorealTests`, `MaterialAdapterTests`, `ShadowProjectionTests`, `SkyTests` | CPU-side renderer |
 | Meshes, effects | `SkinPaletteTests`, `ModelNormalTests`, `AnimationFallbackTests`, `TransientLightTests`, `ParticleScriptTests` | Skinning, particles |
 | Formats | `BinaryCursorTests`, `EffectLoadingTests`, `GltfExportTests` | Binary readers, shader load failure, glTF export |
@@ -180,7 +180,7 @@ when reading those assets is authorized. GPU probes:
 | `--capture-job-heads <assets> <content> <output.png>` | yes | Job-head presentation capture |
 | `--capture-equipment <assets> <content> <output-dir>` | yes | Equipment captures |
 | `--capture-ranged-equipment <assets> <content> <output-dir>` | yes | Bow and crossbow attachment captures |
-| `--capture-ground-loot <assets> <content> <output.png>` | yes | Ground drop elevation, coordinate remapping and distinct label click targets; `<output>-close.png` shows how the drops lie (weapons flat) |
+| `--capture-ground-loot <assets> <content> <output.png>` | yes | Ground drop elevation, coordinate remapping, the drop names with `A` held (one hovered) and a label click target per drop spot, and the plain and highlighted name box in the corner; `<output>-close.png` shows how the drops lie (weapons flat) |
 | `--capture-combat-effects <assets> <content> <output-dir>` | yes | Temporary lights, meteors and the return effect over time |
 | `--capture-monster-skills <assets> <content> <output-dir> [<case,case,...>]` | yes | Real monsters' attack, skill and death clips with their effects, and monster statuses on a player |
 | `--capture-potions <assets> <content> <output-dir>` | yes | Potion particle captures over time |

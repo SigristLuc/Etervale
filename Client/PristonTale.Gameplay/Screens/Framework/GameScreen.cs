@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Assets;
+using PristonTale.Gameplay.UI.Rendering;
 
 namespace PristonTale.Gameplay.Screens.Framework;
 
@@ -10,6 +11,9 @@ public abstract class GameScreen : IDisposable
     protected ScreenContext Context { get; }
 
     public virtual string StatusText => string.Empty;
+
+    // The pointer this screen shows after its update.
+    public virtual HudCursorKind Cursor => HudCursorKind.Default;
 
     public virtual void Enter() { }
 

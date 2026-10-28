@@ -6,6 +6,7 @@ using PristonTale.Gameplay.World;
 using PristonTale.Gameplay.UI;
 using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Contracts.Motion;
+using PristonTale.Gameplay.UI.Rendering;
 
 namespace PristonTale.Gameplay.Screens.Gameplay;
 
@@ -14,6 +15,7 @@ public sealed class GameplayScreen : GameScreen
     private readonly EnteredCharacter _entered;
     private GameScene _scene;
     private GameplayHud _hud;
+    private readonly List<PristonTale.Gameplay.World.Remote.GroundLabel> _groundLabels = [];
     private KeyboardState _lastKeyboard;
     private bool _showRenderStats = true;
     private volatile PristonTale.Client.Net.WorldCatalog.WorldRenderCatalog _pendingHudCatalog;
@@ -55,6 +57,8 @@ public sealed class GameplayScreen : GameScreen
         _hud.Chat.PlayerName = _scene.Player.Name;
         _hud.Chat.Send = _scene.SendChatAsync;
         _hud.Overhead = _scene.Overhead;
+        _hud.GroundLabels = _groundLabels;
+        _hud.GroundLabelPlaced = _scene.PlaceGroundLabel;
         _scene.PresenceObserved += _hud.ObserveChat;
         _hud.Chat.WhisperArrived += _scene.PlayWhisper;
         _hud.Chat.CloseRequested += RequestExit;
@@ -152,8 +156,8 @@ public sealed class GameplayScreen : GameScreen
         _hud.RenderPortrait();
         Context.GraphicsDevice.Clear(_scene.SkyColor);
         _scene.Draw();
+        _scene.CollectGroundLabels(_groundLabels);
         Context.SpriteBatch.Begin();
-        _scene.DrawGroundLabels(Context.SpriteBatch, Context.Font);
         _scene.DrawSummonPlates(Context.SpriteBatch, Context.Font);
         Context.SpriteBatch.End();
         _scene.DrawCombatText(Context.SpriteBatch, Context.Font);
@@ -220,6 +224,13 @@ public sealed class GameplayScreen : GameScreen
         keyboard.IsKeyDown(key) && !_lastKeyboard.IsKeyDown(key);
 
     public override bool HandleEscape() => _hud?.ClosePanel() == true;
+
+    // The scene clears its hovered entity while the HUD has the pointer, so windows always show the arrow.
+    public override HudCursorKind Cursor =>
+        _scene is null || _hud is null
+            ? HudCursorKind.Default
+            : HudCursor.ForHovered(_scene.HoveredDropId != Guid.Empty, Mouse.GetState().LeftButton == ButtonState.Pressed,
+                _hud.Combat.KindOf(_scene.HoveredTargetId, out var owner), owner);
 
     // The server's shutdown asks every client to save and quit: the game closes as from the window's close button.
     private void RequestExit() => Context.ExitRequested = true;

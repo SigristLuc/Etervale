@@ -14,13 +14,15 @@ namespace PristonTale.Gameplay.World.Remote;
 // The server settles drops on its copy of the stage collision; its height selects the surface among stacked floors.
 public delegate bool FloorHeightQuery(float x, float referenceHeight, float z, out float y);
 
+// A drop's name to draw over the scene: its screen point (back-buffer pixels) and whether the cursor is on the drop.
+public readonly record struct GroundLabel(Guid Id, string Text, Vector2 Anchor, bool Hovered);
+
 public sealed class GroundLootPresentation(IActorScene scene, PristonActorLoader loader, string root, IClientLog log) : IDisposable
 {
     private readonly Dictionary<Guid, Entry> _entries = new();
     private readonly Dictionary<string, Task<PristonActor>> _prepared = new(StringComparer.OrdinalIgnoreCase);
     private int _floorRevision;
     private Guid _hovered;
-    private readonly GroundLootLabelLayout _labels = new();
 
     public void InvalidateFloor() => _floorRevision++;
 
@@ -168,6 +170,14 @@ public sealed class GroundLootPresentation(IActorScene scene, PristonActorLoader
     {
         id = Guid.Empty;
         position = default;
+        // The hovered label draws on top of the others it overlaps, so it keeps the cursor first.
+        if (_entries.TryGetValue(_hovered, out var top) && top.FloorFound && top.LabelBounds.Contains(cursor))
+        {
+            id = top.Drop.Id;
+            position = top.Position;
+            return true;
+        }
+
         float nearest = float.MaxValue;
         foreach (var entry in _entries.Values)
         {
@@ -195,41 +205,58 @@ public sealed class GroundLootPresentation(IActorScene scene, PristonActorLoader
         return id != Guid.Empty;
     }
 
-    public void DrawLabels(SpriteBatch batch, SpriteFont font, Viewport viewport, PristonCamera camera, Guid hovered = default, bool showAll = false)
+    // The labels to draw this frame, as the original names drops: each at its own drop, 16 units up, with no attempt to
+    // keep labels apart, so they hold still while the camera moves. Holding A names the drops 32 to 768 units from the
+    // camera; the hovered drop is named at any distance and comes last, on top. The HUD reports where each label landed
+    // (SetLabelBounds) so a click on it picks the drop.
+    public void CollectLabels(Viewport viewport, PristonCamera camera, Guid hovered, bool showAll, List<GroundLabel> labels)
     {
+        labels.Clear();
         _hovered = hovered;
-        _labels.Begin(viewport.Bounds, font.LineSpacing + 4);
+        GroundLabel? top = null;
         foreach (var entry in _entries.Values)
         {
             entry.LabelBounds = Rectangle.Empty;
-            if (!entry.FloorFound || (!showAll && entry.Drop.Id != hovered))
+            var isHovered = entry.Drop.Id == hovered;
+            if (!entry.FloorFound || (!showAll && !isHovered))
             {
                 continue;
             }
 
             float depth = -Vector3.Transform(entry.Position, camera.View).Z;
-            if (entry.Drop.Id != hovered && (depth < 32 || depth >= 768))
+            if (!isHovered && (depth < 32 || depth >= 768))
             {
                 continue;
             }
 
             var point = viewport.Project(entry.Position + Vector3.Up * 16, camera.Projection, camera.View, Matrix.Identity);
-            if (point.Z < 0 || point.Z > 1 || point.X < 0 || point.Y < 0 || point.X > viewport.Width || point.Y > viewport.Height)
+            if (point.Z < 0 || point.Z > 1)
             {
                 continue;
             }
 
-            var size = font.MeasureString(entry.Label);
-            if (!_labels.TryPlace(new Vector2(point.X, point.Y), (int)MathF.Ceiling(size.X) + 8, out var bounds))
+            var label = new GroundLabel(entry.Drop.Id, entry.Label, new Vector2(point.X, point.Y), isHovered);
+            if (isHovered)
             {
-                continue;
+                top = label;
             }
+            else
+            {
+                labels.Add(label);
+            }
+        }
 
+        if (top is { } last)
+        {
+            labels.Add(last);
+        }
+    }
+
+    public void SetLabelBounds(Guid id, Rectangle bounds)
+    {
+        if (_entries.TryGetValue(id, out var entry))
+        {
             entry.LabelBounds = bounds;
-            var position = new Vector2(bounds.X + 4, bounds.Y + 2);
-            batch.DrawString(font, entry.Label, position + Vector2.One, Color.Black);
-            var color = entry.Drop.Id == hovered ? new Color(180, 180, 180) : new Color(110, 110, 110);
-            batch.DrawString(font, entry.Label, position, color);
         }
     }
 

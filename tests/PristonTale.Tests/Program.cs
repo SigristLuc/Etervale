@@ -360,7 +360,6 @@ specifications.AddRange(WorldDataRulesTests.Cases());
 specifications.AddRange(ItemRulesTests.Cases());
 specifications.AddRange(NpcPlacementMigrationTests.Cases());
 specifications.AddRange(NpcMovementTests.Cases());
-specifications.AddRange(GroundLootLabelTests.Cases());
 specifications.AddRange(GroundPickupTransactionTests.Cases());
 specifications.AddRange(EntitySweepTests.Cases());
 specifications.AddRange(CharacterHeadTests.Cases());

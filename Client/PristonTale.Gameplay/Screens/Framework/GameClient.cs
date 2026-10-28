@@ -26,6 +26,7 @@ public sealed class GameClient : IDisposable
     private Task _shutdown;
     private SpriteFont _font;
     private HudAtlas _uiAtlas;
+    private HudCursor _cursor;
     private PristonSkyLibrary _sky;
     private PristonTale.Gameplay.Effects.EffectLibrary _effects;
     private PristonAudioLibrary _audio;
@@ -60,6 +61,8 @@ public sealed class GameClient : IDisposable
         var font = _content.Load<SpriteFont>("Fonts/UI");
         _font = font;
         _uiAtlas = HudAtlas.LoadBootstrap(_graphicsDevice, _assetRoot, ConsoleClientLog.Instance);
+        _cursor = HudCursor.Load(_graphicsDevice, _assetRoot, ConsoleClientLog.Instance);
+        _cursor.Show(HudCursorKind.Default);
         _sky = PristonSkyLibrary.LoadBootstrap(_graphicsDevice, _assetRoot, ConsoleClientLog.Instance);
         _effects = PristonTale.Gameplay.Effects.EffectLibrary.LoadBootstrap(_graphicsDevice, _content, _assetRoot, ConsoleClientLog.Instance);
         _audio = PristonAudioLibrary.LoadBootstrap(_assetRoot, ConsoleClientLog.Instance);
@@ -103,6 +106,7 @@ public sealed class GameClient : IDisposable
 
         _displayConfirmation?.Update();
         _screen?.Update(gameTime);
+        _cursor?.Show(_screen?.Cursor ?? HudCursorKind.Default);
         if (_pendingScreen != null)
         {
             var next = _pendingScreen;
@@ -188,6 +192,7 @@ public sealed class GameClient : IDisposable
     {
         _ = BeginShutdown();
         _uiAtlas?.Dispose();
+        _cursor?.Dispose();
         _sky?.Dispose();
         _effects?.Dispose();
         _audio?.Dispose();

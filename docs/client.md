@@ -39,7 +39,7 @@ rendering internals, skill presentation and VFX data have their own documents (s
 | `Client/PristonTale.Gameplay/UI/Inventory/` | Inventory window layout, drag/drop and equip commands |
 | `Client/PristonTale.Gameplay/UI/Npc/` | NPC service controller, shop and warehouse windows, store layout, NPC art |
 | `Client/PristonTale.Gameplay/UI/Quests/` | Quest controller, quest dialog and yes/no boxes, quest window, quest texts and art (see [quests.md](quests.md#client)) |
-| `Client/PristonTale.Gameplay/UI/Rendering/` | `HudSprites` (original UI images), `HudIconCache` (item icons), `HudAtlas` (login atlas), `HudPainter`/`HudCanvas` |
+| `Client/PristonTale.Gameplay/UI/Rendering/` | `HudSprites` (original UI images), `HudIconCache` (item icons), `HudAtlas` (login atlas), `HudCursor` (mouse pointer), `HudPainter`/`HudCanvas` |
 | `Client/PristonTale.Gameplay/Audio/` | `PristonAudioLibrary` (bootstrap sound load), `FieldAudioController` (music, field and positional ambience), `NpcAudioController`, `TalkSound`, `CombatSounds` and `CharacterSoundBanks` (character, weapon and footstep sounds), `MonsterSoundCues`, `ItemSoundRules` (item sounds) |
 | `Client/PristonTale.Gameplay/Effects/` | Effect glue: `EffectLibrary`, `VfxContent` (effect data from `<assetRoot>/Effect/Vfx`, loaded off the game thread), `SkillPresentation`, `ScriptEffects`, `SkillSoundBank`, `SkillState`, combat text, meteor, monster mesh and return effects ([effects.md](effects.md)) |
 | [`Client/PristonTale.Client.Net/GameServerConnection.cs`](../Client/PristonTale.Client.Net/GameServerConnection.cs) | TCP session: connect, login, characters, world entry, request correlation, heartbeat, receive dispatch |
@@ -242,10 +242,19 @@ coordinates; their consumers mirror them with `WorldSpace` instead of negating Z
   or NPC whose template is not in the catalog yet is held in `_pendingModels` until `SetCatalog`; a spawn whose models
   are loading waits in `_preparingActors` and keeps receiving the latest state. A player appearance change re-composes
   the actor from the drawn pose. Summons record their owner and are not pickable; summons and crystal pets carry
-  a name plate (`SummonPlates`, drawn after the ground labels) at the model's authored height.
+  a name plate (`SummonPlates`, drawn before the HUD and so under the drop names) at the model's authored height.
 - `GroundLootPresentation` lays each drop as the original does: a yaw drawn from its position
   (`(x + z) >> 2` in fixed point, 4096 per turn), and weapons (`0x01xxxxxx` codes) turned a quarter turn about X so they
   lie flat. The turned mesh rests on the floor by its lowest rotated corner (`GroundLootPresentation.Orientation`).
+- Drop names, as the original draws them: each at its own drop's point 16 units up, recomputed every frame with no
+  attempt to keep labels apart, so they hold still while the camera moves and may overlap. Holding `A` names the drops
+  32 to 768 units from the camera; the drop under the cursor (`GameScene.HoveredDropId`, picked in `Update` by its
+  label or a sphere around it) is named at any distance and drawn last, on top. `GroundLootPresentation.CollectLabels`
+  lists them; `HudGroundLabels` draws them first in `GameplayHud.Draw`, under the monster and NPC names: a
+  `HudPainter.NameBox` 36 pixels above the point in the classic name box geometry, the text in (150, 144, 206),
+  (196, 186, 255) under the cursor, and a label that would leave the screen is skipped. Where each label landed goes
+  back through `GameScene.PlaceGroundLabel` so a click on it picks the drop; where labels overlap, the hovered one
+  keeps the cursor.
 
 ## Local player: prediction and authority
 
@@ -321,7 +330,7 @@ Renderer side of stage publication: [rendering.md](rendering.md).
 | Shift held while running (game masters) | `GameScene.MovementSpeed` | Dash at 3000/256 units per original tick; `WorldJoined` carries the game master level and the server allows game masters that speed |
 | Shift + click on a monster | same | Automatic attack (keeps attacking after release) |
 | Right click | same | Attack if the right socket holds the basic attack, otherwise cast the right socket skill |
-| Hold `A` | `GameScene.DrawGroundLabels`, `TryPickLoot` | Show and pick every ground item label |
+| Hold `A` | `GameScene.CollectGroundLabels`, `TryPickLoot` | Show and pick every ground item label |
 | Middle drag, cursor at screen edge, wheel | `PristonCamera.UpdateOrbit` (Engine3D) | Orbit, edge orbit, zoom; ignored while the HUD captures the pointer |
 | `I` or `V`, `C`, `S`, `X`, `Q` | `GameplayHud.UpdateKeys` | Inventory, status, skills, system menu, quest window (ignored with Ctrl held) |
 | `F1`-`F8` | `HudSkillBindings` | Select a skill shortcut; while pressing a skill in the tree, bind it ([skills.md](skills.md)) |
@@ -435,21 +444,27 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   for 0x50 frames at 70 Hz. With `classicTargetHealthBar` false (default) the bar shows with level and life
   percentage; when true the bar shows without numbers, only after the local player started attacking that monster at
   full life.
-- Name boxes over the scene (`HudCombat.DrawNamePlates`, drawn first in `GameplayHud.Draw`, at the speech bubbles' head
-  point): an NPC's name always within 768 units of the camera (180, 180, 255, as in the chat); a monster's only while
-  hovered or the clicked target (`TargetSelection.HoveredId`, `TracedId`), in (255, 210, 210), or (255, 230, 200) when
-  clicked. Farther
-  boxes draw first, the hovered and clicked ones last; a box that would leave the screen is skipped. With
-  `classicNamePlates` false (default) the box is the speech bubble frame without its tail, highlighted under the cursor,
-  around the name at text scale 0.6 (`HudPainter.Text` with a scale), the capitals centred inside with room for
-  descenders (`HudPainter.LetterHeightsAt`), and the 60x11 life bar (`DrawHealthBar`, the target frame's colours) shows under a
-  monster once it was clicked or the local player swung at it (`Entity.Attacked`, set by `NoteAttack`); when true the
-  box is the speech bubble frame without its tail at the HUD text size, highlighted under the cursor, and the bar shows
-  while the cursor is on the monster (`ShowsPlateBar`).
+- Name boxes over the scene (`HudCombat.DrawNamePlates`, drawn right after the drop names in `GameplayHud.Draw`, at
+  the speech bubbles' head point): an NPC's name always within 768 units of the camera (180, 180, 255, as in the chat);
+  a monster's only while hovered or the clicked target (`TargetSelection.HoveredId`, `TracedId`), in (255, 210, 210),
+  or (255, 230, 200) when clicked. Farther boxes draw first, the hovered and clicked ones last; a box that would leave
+  the screen is skipped. Every box is `HudPainter.NameBox`: the speech bubble's dark translucent fill and gold rim (its
+  texture's colours) with rounded corners, drawn from a generated 20-pixel nine-slice texture, its rim lighter under
+  the cursor. With `classicNamePlates` false (default) the box holds the name at text scale 0.6 (`HudPainter.Text` with
+  a scale), the capitals centred inside with room for descenders (`HudPainter.LetterHeightsAt`), and the 60x11 life
+  bar (`DrawHealthBar`, the target frame's colours) shows under a monster once it was clicked or the local player swung
+  at it (`Entity.Attacked`, set by `NoteAttack`); when true the box holds the name at the HUD text size and the bar
+  shows while the cursor is on the monster (`ShowsPlateBar`).
 - Hover outline (`GameScene.Outline.cs`, `PristonRenderer.SetActorOutline`): every actor of the hovered entity is
   outlined, red (255, 30, 0) for monsters and white for players; NPCs only with `classicNamePlates`, in green
   (0, 255, 100). The width share is 1 within 300 units of the camera and falls to 0 at 1300 (`OutlineStrength`). It is
   set again each frame and cleared when the cursor leaves.
+- Mouse pointer (`HudCursor`, loaded by `GameClient`): the original yellow arrow (`image/Sinimage/Cursor`) as a system
+  cursor tipped at its top-left pixel, on every screen. `GameClient` shows the screen's `GameScreen.Cursor` after each
+  update; in play it is the attack arrow over a monster without an owner, the speech balloon over an NPC, the open hand
+  (`GetItem_Cursor1`) over a drop and the closed hand (`GetItem_Cursor2`) while the left button is held, a drop winning
+  over the monster or NPC behind it, and the plain arrow over players, summons, the HUD and the ground. A missing image
+  keeps the system arrow.
 - 3D portrait (`HudTargetPortrait`): rendered each frame into its own 4x MSAA target through
   `PristonRenderer.DrawActorPortrait`, framed on the `Bip01 Head` bone (fallback: model height) plus the authored
   portrait offsets from `MonsterRenderInfo`/`NpcRenderInfo`, with its own studio lighting.

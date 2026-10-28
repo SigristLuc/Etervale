@@ -204,6 +204,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     public ulong AttackTargetId => _attackInput.TargetId;
     public ulong SelectedTargetId => _targetSelection.FrameId;
     public ulong HoveredTargetId => _targetSelection.HoveredId;
+
+    public Guid HoveredDropId { get; private set; }
     public ulong TracedTargetId => _targetSelection.TracedId;
     public FieldDef ActiveFieldDefinition => _activeField?.Definition;
     public PristonIntRectangle ActiveMapRectangle => _activeField?.Stage.AuthoredMapRectangle ?? default;
@@ -544,23 +546,20 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         }
     }
 
-    public void DrawGroundLabels(SpriteBatch batch, SpriteFont font)
+    // The drop names the HUD draws this frame (GroundLootPresentation.CollectLabels); the HUD reports back where each
+    // landed through PlaceGroundLabel.
+    public void CollectGroundLabels(List<GroundLabel> labels)
     {
-        if (_groundLoot is null)
+        if (_groundLoot is null || _camera is null)
         {
+            labels.Clear();
             return;
         }
 
-        bool showAll = !PointerCaptured && !KeyboardCaptured && Keyboard.GetState().IsKeyDown(Keys.A);
-        Guid hovered = Guid.Empty;
-        var mouse = Mouse.GetState();
-        if (!PointerCaptured && TryCursorRay(mouse, out var ray))
-        {
-            _groundLoot.Pick(mouse.Position, ray, out hovered, out _, showAll);
-        }
-
-        _groundLoot.DrawLabels(batch, font, _graphicsDevice.Viewport, _camera, hovered, showAll);
+        _groundLoot.CollectLabels(_graphicsDevice.Viewport, _camera, HoveredDropId, ShowAllDropLabels, labels);
     }
+
+    public void PlaceGroundLabel(Guid id, Rectangle bounds) => _groundLoot?.SetLabelBounds(id, bounds);
 
     public void Dispose()
     {

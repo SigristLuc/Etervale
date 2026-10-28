@@ -8,10 +8,10 @@ namespace PristonTale.Gameplay.UI.Widgets;
 
 // Name boxes over the scene: an NPC's name always within 768 units of the camera, a monster's only while it is under the
 // cursor or is the clicked target. Summons carry their own plates (SummonPlates). Farther boxes draw first; the hovered
-// and the clicked one draw last. Classic (classicNamePlates) is the original's: the speech bubble frame (highlighted
-// under the cursor), the HUD text size and the life bar while the cursor is on the monster. Otherwise the same frame
-// holds smaller text, and the bar shows once the monster was clicked or the local player swung at it, not for the
-// cursor alone.
+// and the clicked one draw last. Every box is HudPainter.NameBox, the speech bubble's fill and gold rim with rounded
+// corners, highlighted under the cursor. Classic (classicNamePlates) is the original's layout: the HUD text size and the
+// life bar while the cursor is on the monster. Otherwise the same box holds smaller text, and the bar shows once the
+// monster was clicked or the local player swung at it, not for the cursor alone.
 public sealed partial class HudCombat
 {
     private const float NpcPlateDepth = 12 * 64;
@@ -79,7 +79,7 @@ public sealed partial class HudCombat
         }
 
         painter.Flush();
-        HudChatBubbles.DrawFrame(painter, x, y, width, lineHeight, 1, tail: false, selected: hovered);
+        painter.NameBox(new Rectangle(x, y, width + 18, frameHeight), hovered);
         painter.Flush();
         painter.Text(name, x + 9, y + 5 + 2, color, false);
         if (bar is not null)
@@ -88,7 +88,7 @@ public sealed partial class HudCombat
         }
     }
 
-    // The original's speech bubble frame around the smaller text, the capitals centred inside with room for descenders.
+    // The name box around the smaller text, the capitals centred inside with room for descenders.
     private static void DrawPlate(HudPainter painter, HudLayout layout, string name, int anchorX, int anchorY, Color color, bool hovered, Entity bar)
     {
         var textWidth = painter.MeasureAt(name, PlateTextScale);
@@ -106,7 +106,7 @@ public sealed partial class HudCombat
         }
 
         painter.Flush();
-        HudChatBubbles.DrawFrame(painter, x, y, textWidth, content - 6, 1, tail: false, selected: hovered);
+        painter.NameBox(new Rectangle(x, y, width, height), hovered);
         painter.Flush();
         painter.Text(name, x + 9, (int)(y + 4 + pad - HudPainter.CapTop), color, PlateTextScale);
         if (bar is not null)

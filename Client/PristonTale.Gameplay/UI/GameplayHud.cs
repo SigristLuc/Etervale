@@ -162,6 +162,9 @@ public sealed partial class GameplayHud : IDisposable
     // The entity under the cursor and the clicked one, for the name boxes over the scene.
     public ulong HoveredId { get; set; }
     public ulong TracedId { get; set; }
+    // The drop names to draw under the entity names, and where each one landed (back-buffer pixels) for clicks on it.
+    public IReadOnlyList<PristonTale.Gameplay.World.Remote.GroundLabel> GroundLabels { get; set; } = [];
+    public Action<Guid, Rectangle> GroundLabelPlaced { get; set; }
     public HudWorldView World { get; set; }
 
     // The player stands in a castle field, where a Restoration revives.
@@ -449,6 +452,7 @@ public sealed partial class GameplayHud : IDisposable
         var pointer = layout.ToLogical(_previousMouse.Position);
         var pressed = _previousMouse.LeftButton == ButtonState.Pressed;
         _painter.Begin(layout);
+        HudGroundLabels.Draw(_painter, layout, GroundLabels, GroundLabelPlaced);
         Combat.DrawNamePlates(_painter, layout, Overhead, HoveredId, TracedId, _context.Presentation.Requested.ClassicNamePlates);
         _chat.Bubbles.Draw(_painter, layout, _clock.Elapsed.TotalMilliseconds, Overhead, id => _chat.NameColor(id, TargetId), TargetId);
         _painter.Flush();

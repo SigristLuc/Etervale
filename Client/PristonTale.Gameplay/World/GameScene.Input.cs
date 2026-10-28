@@ -159,7 +159,7 @@ public sealed partial class GameScene
     private bool TryPickLoot(MouseState mouse)
     {
         if (_groundLoot is null || _lootInteraction.Busy || !TryCursorRay(mouse, out var ray)
-            || !_groundLoot.Pick(mouse.Position, ray, out var id, out var position, !KeyboardCaptured && Keyboard.GetState().IsKeyDown(Keys.A)))
+            || !_groundLoot.Pick(mouse.Position, ray, out var id, out var position, ShowAllDropLabels))
         {
             return false;
         }
@@ -286,7 +286,24 @@ public sealed partial class GameScene
         _targetSelection.Hover(hovered);
         UpdateOutline(hovered, hoveredKind);
         _targetSelection.Update(gameTime.TotalGameTime.TotalMilliseconds, _targetLiveness);
+        UpdateHoveredDrop();
     }
+
+    // The drop under the cursor, by its label or its model: it names the label to highlight and turns the pointer into
+    // the original's grabbing hand.
+    private void UpdateHoveredDrop()
+    {
+        var mouse = Mouse.GetState();
+        HoveredDropId = Guid.Empty;
+        if (_groundLoot is not null && _camera is not null && !PointerCaptured && CameraInputEnabled && TryCursorRay(mouse, out var ray)
+            && _groundLoot.Pick(mouse.Position, ray, out var id, out _, ShowAllDropLabels))
+        {
+            HoveredDropId = id;
+        }
+    }
+
+    // Holding A names every drop in view, as in the original.
+    private bool ShowAllDropLabels => !PointerCaptured && !KeyboardCaptured && Keyboard.GetState().IsKeyDown(Keys.A);
 
     private TargetLiveness QueryTargetLiveness(ulong entityId)
     {

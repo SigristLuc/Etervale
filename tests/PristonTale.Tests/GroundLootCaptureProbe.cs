@@ -5,6 +5,9 @@ using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.World;
+using PristonTale.Gameplay.UI;
+using PristonTale.Gameplay.UI.Rendering;
+using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.World.Loot;
 
@@ -21,6 +24,9 @@ internal sealed class GroundLootCaptureProbe : Game
     private SpriteFont _font = null!;
     private GroundDropView[] _drops = [];
     private int _frames;
+    private HudSprites _sprites = null!;
+    private HudPainter _painter = null!;
+    private readonly List<GroundLabel> _labels = [];
 
     public GroundLootCaptureProbe(string root, string content, string output)
     {
@@ -44,6 +50,8 @@ internal sealed class GroundLootCaptureProbe : Game
         _camera = new PristonCamera(Vector3.Zero, Vector3.Forward, new PristonCameraSettings());
         _batch = new SpriteBatch(GraphicsDevice);
         _font = Content.Load<SpriteFont>("Fonts/UI");
+        _sprites = new HudSprites(GraphicsDevice, _root, ConsoleClientLog.Instance);
+        _painter = new HudPainter(_batch, _font, _sprites);
         _drops =
         [
             Drop("GG101", "Gold", 13, 0),
@@ -96,9 +104,8 @@ internal sealed class GroundLootCaptureProbe : Game
         _camera.SetScriptedView(GraphicsDevice, new Vector3(0, 195, 230), new Vector3(0, 50, 20));
         _renderer.Draw(_camera);
         _renderer.ComposeScene();
-        _batch.Begin();
-        _ground.DrawLabels(_batch, _font, GraphicsDevice.Viewport, _camera, showAll: true);
-        _batch.End();
+        DrawLabels(_drops[3].Id, showAll: true);
+        DrawBoxSamples();
         foreach (var drop in _drops)
         {
             Assert.True(_ground.TryGet(drop.Id, out var position), "resident drop has no floor position");
@@ -121,10 +128,11 @@ internal sealed class GroundLootCaptureProbe : Game
             }
         }
 
-        Assert.True(clicked.Count == _drops.Length, "overlapping gold drops cannot be selected individually by label");
-        _batch.Begin();
-        _ground.DrawLabels(_batch, _font, GraphicsDevice.Viewport, _camera);
-        _batch.End();
+        // Labels stay at their own drops as in the original, so the two gold drops on one spot share a label: one is
+        // picked by it, the other once the first is gone.
+        var spots = _drops.Select(drop => (drop.Position.X, drop.Position.Z)).Distinct().Count();
+        Assert.True(clicked.Count == spots, "a drop on its own spot cannot be selected by its label");
+        DrawLabels(Guid.Empty, showAll: false);
         for (int y = 0; y < 540; y += 4)
         {
             for (int x = 0; x < 960; x += 4)
@@ -152,12 +160,42 @@ internal sealed class GroundLootCaptureProbe : Game
             target.SaveAsPng(close, 960, 540);
         }
 
-        Console.WriteLine($"Verified ground elevation, coordinate remapping and {_drops.Length} distinct label click targets: {_output}");
+        Console.WriteLine($"Verified ground elevation, coordinate remapping and a label click target on each of {spots} drop spots: {_output}");
         Exit();
+    }
+
+    private void DrawLabels(Guid hovered, bool showAll)
+    {
+        _ground.CollectLabels(GraphicsDevice.Viewport, _camera, hovered, showAll, _labels);
+        var layout = HudLayout.Create(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+        _painter.Begin(layout);
+        HudGroundLabels.Draw(_painter, layout, _labels, _ground.SetLabelBounds);
+        _painter.End();
+    }
+
+    // The name box as the monster and NPC names use it, plain and highlighted under the cursor.
+    private void DrawBoxSamples()
+    {
+        var layout = HudLayout.Create(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+        _painter.Begin(layout);
+        var x = 16;
+        foreach (var (name, highlighted) in new[] { ("Hopy", false), ("Lena", true) })
+        {
+            var width = _painter.Measure(name) + 18;
+            _painter.NameBox(new Rectangle(x, 16, width, 28), highlighted);
+            _painter.Flush();
+            _painter.Text(name, x + 9, 16 + 7, highlighted ? new Color(180, 180, 255) : new Color(255, 210, 210), false);
+            _painter.Flush();
+            x += width + 12;
+        }
+
+        _painter.End();
     }
 
     protected override void UnloadContent()
     {
+        _painter.Dispose();
+        _sprites.Dispose();
         _ground.Dispose();
         _batch.Dispose();
         _renderer.Dispose();

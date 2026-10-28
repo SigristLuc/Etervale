@@ -19,6 +19,8 @@ public sealed class HudPainter : IDisposable
     private HashSet<char> _glyphs;
     private readonly HudSprites _sprites;
     private readonly Texture2D _white;
+    private readonly Texture2D _nameBox;
+    private readonly Texture2D _nameBoxHighlighted;
     private readonly List<TextRun> _text = new(128);
     private readonly float _textShift;
     private readonly float _capCropping;
@@ -33,6 +35,8 @@ public sealed class HudPainter : IDisposable
         _sprites = sprites;
         _white = new Texture2D(batch.GraphicsDevice, 1, 1);
         _white.SetData([Color.White]);
+        _nameBox = NameBoxTexture(batch.GraphicsDevice, new Color(170, 136, 65), new Color(98, 84, 48));
+        _nameBoxHighlighted = NameBoxTexture(batch.GraphicsDevice, new Color(236, 200, 110), new Color(150, 120, 60));
         _capCropping = font.GetGlyphs().TryGetValue('M', out var glyph) ? glyph.Cropping.Y : CapTop / TextScale;
         _textShift = MathF.Round(CapTop - _capCropping * TextScale);
     }
@@ -300,6 +304,65 @@ public sealed class HudPainter : IDisposable
 
     public static Rectangle HelpBoxBounds(int x, int y, int sizeW, int sizeH) => new(x, y, Math.Max(2, sizeW) * 32 + 64, Math.Max(2, sizeH) * 32 + 32);
 
+    // The box behind a name over the scene (monsters, NPCs, drops): the speech bubble's dark fill and gold rim with
+    // rounded corners. Nine slices of a 20-pixel texture: fixed corners, stretched edges and centre.
+    public void NameBox(Rectangle bounds, bool highlighted = false)
+    {
+        const int corner = NameBoxCorner;
+        if (bounds.Width < corner * 2 || bounds.Height < corner * 2)
+        {
+            return;
+        }
+
+        var texture = highlighted ? _nameBoxHighlighted : _nameBox;
+        int[] destinationX = [bounds.X, bounds.X + corner, bounds.Right - corner, bounds.Right];
+        int[] destinationY = [bounds.Y, bounds.Y + corner, bounds.Bottom - corner, bounds.Bottom];
+        int[] sourceX = [0, corner, NameBoxSize - corner, NameBoxSize];
+        for (var row = 0; row < 3; row++)
+        {
+            for (var column = 0; column < 3; column++)
+            {
+                var destination = new Rectangle(destinationX[column], destinationY[row],
+                    destinationX[column + 1] - destinationX[column], destinationY[row + 1] - destinationY[row]);
+                var source = new Rectangle(sourceX[column], sourceX[row], sourceX[column + 1] - sourceX[column], sourceX[row + 1] - sourceX[row]);
+                if (destination.Width > 0 && destination.Height > 0)
+                {
+                    _batch.Draw(texture, destination, source, Color.White);
+                }
+            }
+        }
+    }
+
+    private const int NameBoxSize = 20;
+    private const int NameBoxCorner = 8;
+    private const float NameBoxRadius = 7f;
+
+    // A rounded rectangle filling the texture: a soft dark shadow outside the rim, the rim's light and dark gold, then
+    // the translucent fill, measured from the edge with a signed distance so the corners are smooth at any scale step.
+    private static Texture2D NameBoxTexture(GraphicsDevice device, Color rim, Color innerRim)
+    {
+        var shadow = new Color(0, 0, 0, 150);
+        var fill = new Color(11, 11, 11, 190);
+        var pixels = new Color[NameBoxSize * NameBoxSize];
+        var half = NameBoxSize / 2f;
+        for (var y = 0; y < NameBoxSize; y++)
+        {
+            for (var x = 0; x < NameBoxSize; x++)
+            {
+                var qx = MathF.Max(MathF.Abs(x + 0.5f - half) - (half - NameBoxRadius), 0f);
+                var qy = MathF.Max(MathF.Abs(y + 0.5f - half) - (half - NameBoxRadius), 0f);
+                var depth = NameBoxRadius - MathF.Sqrt(qx * qx + qy * qy);
+                var color = depth < 1f ? shadow : depth < 2f ? rim : depth < 3f ? innerRim : fill;
+                var coverage = Math.Clamp(depth + 0.5f, 0f, 1f);
+                pixels[y * NameBoxSize + x] = Color.FromNonPremultiplied(color.R, color.G, color.B, (int)(color.A * coverage));
+            }
+        }
+
+        var texture = new Texture2D(device, NameBoxSize, NameBoxSize, false, SurfaceFormat.Color);
+        texture.SetData(pixels);
+        return texture;
+    }
+
     private void BeginSprites()
     {
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None,
@@ -307,5 +370,10 @@ public sealed class HudPainter : IDisposable
         _active = true;
     }
 
-    public void Dispose() => _white.Dispose();
+    public void Dispose()
+    {
+        _white.Dispose();
+        _nameBox.Dispose();
+        _nameBoxHighlighted.Dispose();
+    }
 }

@@ -13,6 +13,7 @@ using PristonTale.Gameplay.World;
 using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Contracts.Characters;
+using PristonTale.Contracts.World;
 
 namespace PristonTale.Tests;
 
@@ -32,6 +33,7 @@ internal static class HudInteractionTests
         yield return ("owner combat statistics survive the owner-status packet", OwnerStatsAsync);
         yield return ("original HUD hit rectangles stay inside their windows without overlapping", HitRectsAsync);
         yield return ("inventory drag uses original equipment slots and owner revision without changing local items", EquipmentDragAsync);
+        yield return ("the pointer attacks over wild monsters, talks over NPCs and stays the arrow elsewhere", CursorKindAsync);
         yield return ("original gauges crop bitmaps from the top and follow the source formulas", GaugeAsync);
         yield return ("atlas gauge separation preserves the frame and masks every rectangular corner", AtlasGaugeAsync);
         yield return ("HUD overlays tolerate uninitialized and tiny resized viewports", OverlayAsync);
@@ -186,6 +188,24 @@ internal static class HudInteractionTests
             Assert.True(state.Items[0].Slot == -1 && controller.Dragging == Guid.Empty, "gesture changed immutable owner state or retained drag");
         }
 
+        return Task.CompletedTask;
+    }
+
+    private static Task CursorKindAsync()
+    {
+        Assert.True(HudCursor.ForHovered(EntityKind.Monster, 0) == HudCursorKind.Attack, "a wild monster does not show the attack pointer");
+        Assert.True(HudCursor.ForHovered(EntityKind.Npc, 0) == HudCursorKind.Talk, "an NPC does not show the talk pointer");
+        Assert.True(HudCursor.ForHovered(EntityKind.Player, 0) == HudCursorKind.Default, "a player changes the pointer");
+        Assert.True(HudCursor.ForHovered(EntityKind.Monster, 42) == HudCursorKind.Default, "a summon changes the pointer");
+        Assert.True(HudCursor.ForHovered(EntityKind.None, 0) == HudCursorKind.Default, "nothing under the pointer changes it");
+        Assert.True(HudCursor.ArtPath(HudCursorKind.Attack).EndsWith("Attack_Cursor.tga", StringComparison.Ordinal)
+            && HudCursor.ArtPath(HudCursorKind.Talk).EndsWith("Talk_Cursor.tga", StringComparison.Ordinal)
+            && HudCursor.ArtPath(HudCursorKind.Default).EndsWith("DefaultCursor.tga", StringComparison.Ordinal), "pointer art differs");
+        Assert.True(HudCursor.ForHovered(true, false, EntityKind.Monster, 0) == HudCursorKind.GetItem, "a drop before a monster does not show the open hand");
+        Assert.True(HudCursor.ForHovered(true, true, EntityKind.None, 0) == HudCursorKind.GetItemHeld, "a held button over a drop does not close the hand");
+        Assert.True(HudCursor.ForHovered(false, true, EntityKind.Npc, 0) == HudCursorKind.Talk, "a held button without a drop changes the pointer");
+        Assert.True(HudCursor.ArtPath(HudCursorKind.GetItem).EndsWith("GetItem_Cursor1.tga", StringComparison.Ordinal)
+            && HudCursor.ArtPath(HudCursorKind.GetItemHeld).EndsWith("GetItem_Cursor2.tga", StringComparison.Ordinal), "the hand art differs");
         return Task.CompletedTask;
     }
 
