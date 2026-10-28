@@ -84,6 +84,17 @@ public sealed class HudInventoryPanel
             }
         }
 
+        var shadow = HudInventoryLayout.TwoHandedShadow(items);
+        var offHand = HudInventoryLayout.Equipment(origin, (int)EquipmentSlot.OffHand);
+        if (shadow is not null)
+        {
+            painter.Sprite(HudInventoryLayout.Cover((int)EquipmentSlot.OffHand), offHand.X, offHand.Y);
+            if (!Usable(shadow, state))
+            {
+                painter.Fill(offHand, HudPlacementColors.Blocked);
+            }
+        }
+
         var dragged = OwnedItemView.Find(state.Items, controller.Dragging);
         var hovered = interactive && stored is null ? controller.Hovered : null;
         if (hovered?.BeltBox >= 0)
@@ -92,7 +103,8 @@ public sealed class HudInventoryPanel
         }
         else if (hovered is not null)
         {
-            painter.Fill(HudInventoryLayout.Bounds(origin, hovered), HudPlacementColors.Selection);
+            var onShadow = hovered.InstanceId == shadow?.InstanceId && offHand.Contains(pointer);
+            painter.Fill(onShadow ? offHand : HudInventoryLayout.Bounds(origin, hovered), HudPlacementColors.Selection);
         }
 
         // A box item goes back to its box, and a bag item the box keeps goes into it, wherever they are set down: no landing
@@ -122,6 +134,10 @@ public sealed class HudInventoryPanel
 
             var tint = controller.Dragging == item.InstanceId || Withheld?.Invoke(item.InstanceId) == true ? HudPlacementColors.Carried : Color.White;
             _counts.Draw(painter, icons, item, HudInventoryLayout.Bounds(origin, item), tint);
+            if (item.InstanceId == shadow?.InstanceId)
+            {
+                _counts.Draw(painter, icons, item, offHand, tint);
+            }
         }
 
         DrawButtons(painter, origin, state, boxShown, pointer, interactive);

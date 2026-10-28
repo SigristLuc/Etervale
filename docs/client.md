@@ -440,7 +440,9 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
   and (+124, +75). A number typed above the question's maximum shows the maximum at once, and the arrows stay within
   it. OK or Enter accepts a non-zero count, Cancel or Escape closes. It is modal
   and takes the keyboard from the chat and the game keys while open.
-- Inventory window (`HudInventoryPanel`): carried/maximum weight centred in x 326..406 at y 471 of the window; items the
+- Inventory window (`HudInventoryPanel`): a worn two-handed weapon is also drawn in the empty off-hand slot, as the
+  original draws it in both hands, and the pointer there is on the weapon (`HudInventoryLayout.TwoHandedShadow`, used by
+  `ItemAt`). Carried/maximum weight centred in x 326..406 at y 471 of the window; items the
   character cannot use (level, attributes or class against `OwnedItemView.Details`, re-checked on every owner state)
   get the original red cell tint, in the bag and in their equipment slot. Under a carried item the landing cells or slot
   turn the original light blue, the item an exchange would pick up turns white, and a refused place turns red. The item box (`HudItemDetailTooltip`) lists, one centred label-and-value line each, the name (unique,
