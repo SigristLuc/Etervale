@@ -121,7 +121,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         if (run != _runMode)
         {
             _runMode = run;
-            _reportDue = true;
+            _reports.Request();
         }
     }
 
@@ -155,21 +155,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             SingleWriter = true,
             FullMode = BoundedChannelFullMode.Wait
         });
-    // Movement report cadence: the original sends every 64 frames; moving avatars report at 5 Hz for smoother peers.
-    private const double MovingReportMs = 200;
-    private const double IdleReportMs = 1000;
-    // At most one movement report per server tick: the server closes a connection that sends more than 251 packets in
-    // 5 s, so a report asked for every frame waits for the next slot instead.
-    private const double MinReportGapMs = 50;
     // A walk toward a skill target reports its destination again once the target has moved this far from it.
     private const float ApproachReportDistance = 16f;
-    private double _reportClockMs;
-    private double _lastReportMs = double.NegativeInfinity;
-    private bool _reportDue;
-    private bool _lastReportMoving;
-    private bool _lastReportRunning;
-    private ulong _lastReportTarget;
-    private int _lastSentFieldCode = -1;
+    private readonly MovementReportPacer _reports = new();
 
     private readonly PristonSkyLibrary _sky;
     private readonly PresentationSettings _presentation;
@@ -547,7 +535,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _remote.PlayerMotionStarted += OnRemotePlayerMotionStarted;
         _renderer.RequirePreparedTextures();
         _playChannel = channel;
-        _lastSentFieldCode = entered.FieldCode;
+        _reports.SetField(entered.FieldCode);
         _presenceCts = new CancellationTokenSource();
         _presenceReader = Task.Run(() => ReadPresenceAsync(channel, _presenceCts.Token));
     }
@@ -695,7 +683,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _playChannel = null;
         _presenceReader = null;
         _presenceCts = null;
-        _lastSentFieldCode = -1;
+        _reports.SetField(-1);
         _selfAttacking = false;
         _attackInput.Cancel();
         _targetSelection.Clear();
@@ -987,7 +975,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _lootInteraction?.Cancel();
         StopPredictedMovement();
         HoldAtSpecialWarp(warp);
-        _reportDue = true;
+        _reports.Request();
         _returnEffect?.Start(_playerBody.Position + Vector3.Up * GroundTraversal.VisualOffset);
         _fieldAudio?.PlayPortalWarp();
         RequestField(_worldCatalog.GetField(warp.DestinationFieldId));
@@ -1216,7 +1204,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             }
 
             SetActiveField(loaded);
-            _lastSentFieldCode = field.FieldCode;
+            _reports.SetField(field.FieldCode);
             _hasMoveTarget = false;
             changedField = true;
         }
@@ -1244,7 +1232,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             EndFall(landed: false);
             ApplyPlayerWorld();
             _camera?.SnapFollow(_playerBody.Position, _fieldCollision);
-            _reportDue = true;
+            _reports.Request();
         }
     }
 
@@ -1367,7 +1355,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
     private void UpdateMovementReport(float dt)
     {
-        _reportClockMs += dt * 1000.0;
+        _reports.Advance(dt);
         if (_playChannel == null || _activeField == null || _playerBody == null)
         {
             return;
@@ -1378,25 +1366,11 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         var running = current == MotionCode.Run;
         var target = _attackInput.TargetId;
         var fieldCode = _activeField.Definition.FieldCode;
-        var elapsed = _reportClockMs - _lastReportMs;
-        var changed = moving != _lastReportMoving || running != _lastReportRunning || target != _lastReportTarget || fieldCode != _lastSentFieldCode;
-        if (!_reportDue && !changed && elapsed < (moving ? MovingReportMs : IdleReportMs))
+        if (!_reports.TryTake(moving, running, target, fieldCode))
         {
             return;
         }
 
-        if (elapsed < MinReportGapMs)
-        {
-            _reportDue = true;
-            return;
-        }
-
-        _reportDue = false;
-        _lastReportMs = _reportClockMs;
-        _lastReportMoving = moving;
-        _lastReportRunning = running;
-        _lastReportTarget = target;
-        _lastSentFieldCode = fieldCode;
         var planar = _playerBody.PlanarPosition;
         var position = WorldSpace.Mirror(new NumVector3(planar.X, _playerBody.Height, planar.Y));
         var facing = WorldSpace.TransportFacing(_playerForward);
@@ -1523,7 +1497,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
                 ClearAttackTarget();
                 _lootInteraction.Cancel();
                 _followCursor = doubleClick;
-                _reportDue = true;
+                _reports.Request();
             }
         }
 
@@ -1630,7 +1604,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _lootInteraction.Select(id);
         _moveTarget = new Vector2(position.X, position.Z);
         _hasMoveTarget = true;
-        _reportDue = true;
+        _reports.Request();
         return true;
     }
 
@@ -1792,7 +1766,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         if (decision.SendStop)
         {
             _npcMoveSent = true;
-            _reportDue = true;
+            _reports.Request();
         }
 
         if (decision.OpenDialog)
@@ -1808,7 +1782,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             _moveTarget = decision.Destination;
             _hasMoveTarget = true;
             _npcMoveSent = true;
-            _reportDue = true;
+            _reports.Request();
         }
     }
 
@@ -1949,7 +1923,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             if (float.IsFinite(_fallTop))
             {
                 EndFall(landed: true, _fallTop - floor);
-                _reportDue = true;
+                _reports.Request();
             }
 
             return;
@@ -1960,7 +1934,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         if (!float.IsFinite(_fallTop))
         {
             _fallTop = feet;
-            _reportDue = true;
+            _reports.Request();
         }
 
         if (feet - floor > GroundFall.MotionDistance && _playerController.Current != MotionCode.FallDown)

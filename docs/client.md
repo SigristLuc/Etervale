@@ -257,8 +257,9 @@ The client owns its own locomotion; the server validates and corrects.
   Target reachability is checked with `GroundTraversal.CanReachSurface`.
 - Reports: `UpdateMovementReport` sends `MovementReport` (position in PT-global, facing, moving, running, action target,
   field code) every 200 ms while moving, every 1000 ms idle, and at once when motion, run mode, target or field
-  changes, or when `_reportDue` is set, never twice within 50 ms (`MinReportGapMs`: the server closes a connection over
-  251 packets in 5 s). The walk toward a skill target reports only a new destination (`ApproachReportDistance`).
+  changes, or when a report is requested (`_reports.Request()`), never twice within 50 ms (the server closes a
+  connection over 251 packets in 5 s). The cadence lives in `MovementReportPacer` (`World/MovementReportPacer.cs`); the
+  scene only builds and sends the report. The walk toward a skill target reports only a new destination (`ApproachReportDistance`).
 - Server echoes of the self state do not move the avatar. They update HP, move speed, attack rate, the attack-target
   reconcile (`AttackInputController.Reconcile` by sequence) and authoritative motions (Attack, Damage, Dead, Eat,
   the restart after death). The last echoed position is kept as `_serverPlanarPosition` for reach checks (NPC dialog,

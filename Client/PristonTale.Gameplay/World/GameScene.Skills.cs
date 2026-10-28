@@ -285,7 +285,7 @@ public sealed partial class GameScene : ISkillSceneHost
         // The approach runs every frame: only a new destination (or a target that moved away from it) is reported.
         if (!_hasMoveTarget || Vector2.DistanceSquared(_moveTarget, planar) > ApproachReportDistance * ApproachReportDistance)
         {
-            _reportDue = true;
+            _reports.Request();
         }
 
         _moveTarget = planar;
@@ -305,7 +305,7 @@ public sealed partial class GameScene : ISkillSceneHost
         StopPredictedMovement();
         _castLockUntilMs = _skillClockMs + CastAnswerTimeoutMs;
         _hasMoveTarget = false;
-        _reportDue = true;
+        _reports.Request();
         var planar = _playerBody.PlanarPosition;
         // Transport is PT-global (x, z); presentation uses (x, -z).
         var point = new NumVector3(planar.X, _playerBody.Height, -planar.Y);

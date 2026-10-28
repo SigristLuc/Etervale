@@ -23,6 +23,7 @@ internal static class ClientTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("original presence packets retain combat events, skill motion and field identity", PresenceAsync);
+        yield return ("movement reports go out on change, at 5 Hz moving and 1 Hz standing, never twice within 50 ms", MovementPacingAsync);
         yield return ("crowded presence keeps position updates inside the per-receiver budget without starving walkers", CrowdBudgetAsync);
         yield return ("remote rates and explicit swing events replace per-frame restarts", RemoteMotionAsync);
         yield return ("NPC duplicate Stand clips preserve exact INX indices and weighted selection", NpcStandMotionsAsync);
@@ -30,6 +31,30 @@ internal static class ClientTests
         yield return ("remote height follows the server sample instead of the highest floor", ServerHeightAsync);
         yield return ("NPC, monster and player collision survives pending assets", CollisionRosterAsync);
         yield return ("cursor rays originate at the camera and reject an enclosing NPC pick volume", CursorPickingAsync);
+    }
+
+    private static Task MovementPacingAsync()
+    {
+        var pacer = new PristonTale.Gameplay.World.MovementReportPacer();
+        pacer.SetField(3);
+        Assert.True(pacer.TryTake(false, false, 0, 3), "the first report did not go out");
+        Assert.True(!pacer.TryTake(true, false, 0, 3), "a change inside the 50 ms gap went out at once");
+        pacer.Advance(0.05f);
+        Assert.True(pacer.TryTake(true, false, 0, 3), "the change did not go out once the gap passed");
+        pacer.Advance(0.1f);
+        Assert.True(!pacer.TryTake(true, false, 0, 3), "an unchanged walk reported before 200 ms");
+        pacer.Advance(0.11f);
+        Assert.True(pacer.TryTake(true, false, 0, 3), "an unchanged walk did not report at 200 ms");
+        pacer.Advance(0.06f);
+        pacer.Request();
+        Assert.True(pacer.TryTake(true, false, 0, 3), "a requested report did not go out after the gap");
+        pacer.Advance(0.06f);
+        Assert.True(pacer.TryTake(false, false, 0, 3), "a stop did not report");
+        pacer.Advance(0.9f);
+        Assert.True(!pacer.TryTake(false, false, 0, 3), "a standing player reported before a second");
+        pacer.Advance(0.11f);
+        Assert.True(pacer.TryTake(false, false, 0, 3), "a standing player did not report after a second");
+        return Task.CompletedTask;
     }
 
     private static Task PresenceAsync()
