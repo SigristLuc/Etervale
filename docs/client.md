@@ -405,6 +405,10 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   outcome over once (progression, item use, NPC dialog and services, wing gates, quests).
 - `HudNpcServiceController`: one request in flight; `Open` replies set the open service and its state; `OutOfReach`,
   `NotOpen` and `Conflict` close it. While the shop is open, an inventory revision change triggers a quote refresh.
+- The four service windows implement `IHudServiceWindow` (`UI/Npc/IHudServiceWindow.cs`): open and slide state,
+  `BlocksWorld` (the work windows keep every click from the world, the shop only its area), `Contains`, `Hide`, body
+  and overlay draw with one `HudServiceFrame`. `GameplayHud` keeps them in one list (`_serviceWindows`, draw order shop,
+  warehouse, aging, mix) for closing, advancing, capturing clicks and drawing; a new service window joins that list.
 - Shop (`HudShopWindow`): buy, sell (click or drop an inventory item on the shop), repair, repair all; opens next to the
   inventory. Stock fills pages in authored order, each item at the first free place down the columns from the left; an
   item that does not fit starts the next page. Warehouse (`HudWarehouseWindow`): grid drag/drop between warehouse and inventory sends Deposit, Move and

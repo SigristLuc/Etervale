@@ -46,6 +46,8 @@ public sealed class GameplayHud : IDisposable
     private readonly HudWarehouseWindow _warehouse = new();
     private readonly HudAgingWindow _aging = new();
     private readonly HudMixWindow _mix = new();
+    // The service windows in draw order: bodies, then overlays, shop first.
+    private readonly IHudServiceWindow[] _serviceWindows;
     private Simulation.Items.Mixing.MixFormula _mixFormula;
     private readonly HudQuestController _quests;
     private readonly HudQuestDocuments _questDocuments;
@@ -110,6 +112,7 @@ public sealed class GameplayHud : IDisposable
         _sprites.Request(HudQuestArt.All);
         _painter = new HudPainter(context.SpriteBatch, context.Font, _sprites);
         _icons = new HudItemIcons(context.GraphicsDevice, context.AssetRoot, context.Log);
+        _serviceWindows = [_shop, _warehouse, _aging, _mix];
         _skills = new HudSkillsPanel(context.Font, _sprites);
         _skillHud = new HudSkillHud(_sprites, context.GraphicsDevice);
         _inventory = new HudInventoryController(context, applyInventory);
@@ -269,7 +272,7 @@ public sealed class GameplayHud : IDisposable
 
         _npc.Dismiss();
         var closed = _npcOpen || _settingsOpen || _systemMenu || _skills.TrainingPending
-            || _inventorySlide.Open || _statusSlide.Open || _skillSlide.Open || _shop.IsOpen || _warehouse.IsOpen || _aging.IsOpen || _mix.IsOpen
+            || _inventorySlide.Open || _statusSlide.Open || _skillSlide.Open || ServiceWindowOpen(blockingOnly: false)
             || _questWindow.Open || _quests.Dialog is not null || _quests.SkillResetBox;
         CloseServices();
         closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming || _wingGate.IsOpen || _wingGate.Confirming;
@@ -319,10 +322,11 @@ public sealed class GameplayHud : IDisposable
         _inventorySlide.Advance(elapsedSeconds);
         _statusSlide.Advance(elapsedSeconds);
         _skillSlide.Advance(elapsedSeconds);
-        _shop.Advance(elapsedSeconds);
-        _warehouse.Advance(elapsedSeconds);
-        _aging.Advance(elapsedSeconds);
-        _mix.Advance(elapsedSeconds);
+        foreach (var window in _serviceWindows)
+        {
+            window.Advance(elapsedSeconds);
+        }
+
         _questWindow.Advance(elapsedSeconds);
         ForwardMessages();
         ApplyQuests();
@@ -875,7 +879,33 @@ public sealed class GameplayHud : IDisposable
 
     // As in the original, a modal or a work window keeps every click from the world (the work windows still trade items
     // with the bag); the status, inventory, skill and shop windows keep only their own area.
-    private bool BlocksWorld => ModalOpen || _warehouse.IsOpen || _aging.IsOpen || _mix.IsOpen;
+    private bool BlocksWorld => ModalOpen || ServiceWindowOpen(blockingOnly: true);
+
+    private bool ServiceWindowOpen(bool blockingOnly)
+    {
+        foreach (var window in _serviceWindows)
+        {
+            if (window.IsOpen && (!blockingOnly || window.BlocksWorld))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool ServiceWindowContains(Point pointer)
+    {
+        foreach (var window in _serviceWindows)
+        {
+            if (window.Contains(pointer))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private bool Captures(HudLayout layout, Point pointer, Point design)
     {
@@ -895,7 +925,7 @@ public sealed class GameplayHud : IDisposable
             return true;
         }
 
-        if (_shop.Contains(pointer) || _warehouse.Contains(pointer) || _aging.Contains(pointer) || _mix.Contains(pointer))
+        if (ServiceWindowContains(pointer))
         {
             return true;
         }
@@ -963,27 +993,14 @@ public sealed class GameplayHud : IDisposable
             _questWindow.Draw(_painter, layout, _context.Font, _questView, _questDocuments, pointer);
         }
 
-        if (_shop.Visible)
+        var incoming = _inventory.Dragging == Guid.Empty ? null : _state?.Items.FirstOrDefault(item => item.InstanceId == _inventory.Dragging);
+        var serviceFrame = new HudServiceFrame(_painter, layout, _icons, _state, pointer, incoming, _settingsOpen);
+        foreach (var window in _serviceWindows)
         {
-            _shop.Draw(_painter, _icons, _state, pointer, _shop.FullyOpen && !_settingsOpen);
-        }
-
-        if (_warehouse.Visible)
-        {
-            var incoming = _inventory.Dragging == Guid.Empty ? null : _state?.Items.FirstOrDefault(item => item.InstanceId == _inventory.Dragging);
-            _warehouse.Draw(_painter, _icons, pointer, incoming, _warehouse.FullyOpen && !_settingsOpen);
-        }
-
-        if (_aging.Visible)
-        {
-            var incoming = _inventory.Dragging == Guid.Empty ? null : _state?.Items.FirstOrDefault(item => item.InstanceId == _inventory.Dragging);
-            _aging.Draw(_painter, _icons, pointer, _state, incoming, _aging.FullyOpen && !_settingsOpen);
-        }
-
-        if (_mix.Visible)
-        {
-            var incoming = _inventory.Dragging == Guid.Empty ? null : _state?.Items.FirstOrDefault(item => item.InstanceId == _inventory.Dragging);
-            _mix.Draw(_painter, _icons, pointer, _state, incoming, _mix.FullyOpen && !_settingsOpen);
+            if (window.Visible)
+            {
+                window.Draw(serviceFrame);
+            }
         }
 
         _painter.Flush();
@@ -1045,24 +1062,12 @@ public sealed class GameplayHud : IDisposable
             _settings.Draw(_painter, pointer);
         }
 
-        if (_shop.FullyOpen)
+        foreach (var window in _serviceWindows)
         {
-            _shop.DrawOverlay(_painter, layout, pointer);
-        }
-
-        if (_warehouse.FullyOpen)
-        {
-            _warehouse.DrawOverlay(_painter, layout, _icons, pointer);
-        }
-
-        if (_aging.FullyOpen)
-        {
-            _aging.DrawOverlay(_painter, layout, pointer, _state);
-        }
-
-        if (_mix.FullyOpen)
-        {
-            _mix.DrawOverlay(_painter, layout, pointer, _state);
+            if (window.FullyOpen)
+            {
+                window.DrawOverlay(serviceFrame);
+            }
         }
 
         if (_inventorySlide.FullyOpen)
@@ -1317,10 +1322,10 @@ public sealed class GameplayHud : IDisposable
     private void CloseServices()
     {
         _services.Close();
-        _shop.Hide();
-        _warehouse.Hide();
-        _aging.Hide();
-        _mix.Hide();
+        foreach (var window in _serviceWindows)
+        {
+            window.Hide();
+        }
     }
 
     private void ClickShop(OwnerState state, Point pointer)

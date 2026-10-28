@@ -26,7 +26,7 @@ public enum HudShopAction
 // The NPC shop in the original window: weapon and armour tabs (or the goods title), pages of stock packed into the grid,
 // and the buy, sell, repair and repair-all buttons. Buying is a click on the stock; selling and repairing are clicks on
 // owned items while that mode is active.
-public sealed class HudShopWindow
+public sealed class HudShopWindow : IHudServiceWindow
 {
     private const int GoodsTab = 2;
     private static readonly Color Selection = Color.FromNonPremultiplied(255, 200, 0, 128);
@@ -78,6 +78,12 @@ public sealed class HudShopWindow
     }
 
     public void Advance(double seconds) => _slide.Advance(seconds);
+
+    public bool BlocksWorld => false;
+
+    void IHudServiceWindow.Draw(in HudServiceFrame frame) => Draw(frame.Painter, frame.Icons, frame.State, frame.Pointer, FullyOpen && !frame.SettingsOpen);
+
+    void IHudServiceWindow.DrawOverlay(in HudServiceFrame frame) => DrawOverlay(frame.Painter, frame.Layout, frame.Pointer);
 
     public bool Contains(Point pointer) => _slide.Visible && HudStoreLayout.Window(Origin).Contains(pointer);
 

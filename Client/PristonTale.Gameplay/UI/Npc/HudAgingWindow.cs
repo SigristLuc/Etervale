@@ -16,7 +16,7 @@ public enum HudWorkActionKind
     Start
 }
 
-public sealed class HudAgingWindow
+public sealed class HudAgingWindow : IHudServiceWindow
 {
     private static readonly Color Placement = Color.FromNonPremultiplied(160, 235, 255, 128);
     private static readonly Color Refusal = Color.FromNonPremultiplied(255, 0, 0, 96);
@@ -59,6 +59,12 @@ public sealed class HudAgingWindow
     }
 
     public void Advance(double seconds) => _slide.Advance(seconds);
+
+    public bool BlocksWorld => true;
+
+    void IHudServiceWindow.Draw(in HudServiceFrame frame) => Draw(frame.Painter, frame.Icons, frame.Pointer, frame.State, frame.Incoming, FullyOpen && !frame.SettingsOpen);
+
+    void IHudServiceWindow.DrawOverlay(in HudServiceFrame frame) => DrawOverlay(frame.Painter, frame.Layout, frame.Pointer, frame.State);
 
     public bool Contains(Point pointer) => _slide.Visible && HudStoreLayout.Window(Origin).Contains(pointer);
 
