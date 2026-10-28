@@ -22,7 +22,9 @@ public enum InventoryAction
     // Shows bag page Destination (0 A, 1 B) and hides the other (PlayerCharacter.TrySwitchBagPage); ItemId is unused.
     SwitchBagPage,
     // Holds weapon pair Destination (0 A, 1 B) and stores the other (PlayerCharacter.TrySwitchWeaponSet); ItemId is unused.
-    SwitchWeaponSet
+    SwitchWeaponSet,
+    // Puts Count gold on the ground where the player stands, as Drop does an item; ItemId is unused.
+    DropGold
 }
 
 public sealed record InventoryCommand(Guid OperationId, long ExpectedRevision, InventoryAction Action,

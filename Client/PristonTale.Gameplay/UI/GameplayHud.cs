@@ -134,6 +134,7 @@ public sealed partial class GameplayHud : IDisposable
         _inventory.InterceptClick = InterceptInventoryClick;
         _inventory.ExternalDrop = DropFromInventory;
         _inventory.ThrowRequested = ThrowFromInventory;
+        _inventory.GoldRequested = GoldFromInventory;
         _inventory.ItemSound = key => ItemSound?.Invoke(key);
         _services.Succeeded = ServiceSucceeded;
         _storedPlacement = StoredPlacement;

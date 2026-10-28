@@ -426,11 +426,11 @@ totals.
   `ConsumePotion` drinks from a box as from the bag, and an equip or unequip that lowers the space sends the excess
   back to the bag (`FitBeltToPotionSpace`). Owner views give a belt item the slot `PotionBelt.FirstOwnerSlot` + box
   (`OwnedItemView.BeltBox`); saved items carry `Belt` and restore after the gear that sets the space.
-- `InventoryAction.Drop` is handled by the Application (`GroundThrowTransactions`), as `Pickup` is; `Inventory.TakeFrom`
-  takes all of an item or splits a new stack from it. `BoundItems` is what never leaves the character, neither on the
-  ground nor in the warehouse: quest items, the quest's bound weapon and ring, the `MA1`, `MA2` and `QW1` families and
-  `GF101`. `ItemDropRules` adds the `BI1` and `BI2` families and the original's premium, event and time-limited keys.
-  `ItemCodes.FamilyOf` and `InFamily` read a key's family (its first three characters).
+- `InventoryAction.Drop` and `DropGold` are handled by the Application (`GroundThrowTransactions`), as `Pickup` is;
+  `Inventory.TakeFrom` takes all of an item or splits a new stack from it. `BoundItems` is what never leaves the
+  character, neither on the ground nor in the warehouse: quest items, the quest's bound weapon and ring, the `MA1`,
+  `MA2` and `QW1` families and `GF101`. `ItemDropRules` adds the `BI1` and `BI2` families and the original's premium,
+  event and time-limited keys. `ItemCodes.FamilyOf` and `InFamily` read a key's family (its first three characters).
 - `InventoryAction.ConsumePotion` only removes one potion; the restore is applied later by the Application when the
   eat motion reaches its event (`WorldPlayer`). `Pickup` is handled by `GroundPickupTransactions`, not here.
 - The Application validates on a copy: `CloneForInventoryOperation` (inventory, equipment, progress, skills, pools,

@@ -20,7 +20,7 @@ internal static class GroundPickupTransactionTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("pickup reserves through storage, rolls back failure and replays without duplication", DurableAsync);
-        yield return ("a thrown item leaves the bag (the asked part of a stack) and lies on the ground where the player stands", ThrowAsync);
+        yield return ("a thrown item (the asked part of a stack) or gold leaves the character and lies on the ground where the player stands", ThrowAsync);
     }
 
     private static async Task ThrowAsync()
@@ -34,6 +34,7 @@ internal static class GroundPickupTransactionTests
         var classes = new CharacterClassRegistry();
         var starter = CharacterRecordFactory.NewStarter(classes, 1, "Thrower", 0, PlayerClass.Fighter, 3) with { Id = 1 };
         var character = classes.CreatePlayer(PlayerClass.Fighter, starter.Name);
+        character.RestoreProgress(0, 500);
         Assert.True(character.Inventory.TryAdd(new ItemInstance(potion, 5)) && character.Inventory.TryAdd(new ItemInstance(sword))
             && character.Inventory.TryAdd(new ItemInstance(quest)), "fixture items did not fit");
         var repository = new MemoryCharacters(CharacterRecordFactory.FromLiveSession(starter, character, 3, Vector3.Zero));
@@ -62,13 +63,18 @@ internal static class GroundPickupTransactionTests
         Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, Throw(sword, 1)))).Ok, "the sword was not thrown");
         var refused = await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, Throw(quest, 1)));
         Assert.True(!refused.Ok && refused.Message == ItemRuleMessages.CannotDrop, $"a quest item was thrown or refused as {refused.Message}");
+        InventoryCommand Gold(int amount) =>
+            new(Guid.NewGuid(), session.Character!.InventoryRevision, InventoryAction.DropGold, Guid.Empty, 0, amount, default);
+        Assert.True(!(await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, Gold(501)))).Ok
+            && (await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, Gold(120)))).Ok
+            && session.Character!.Money == 380 && repository.Record.Money == 380, "gold beyond what is carried was thrown, or 120 gold was not taken and saved");
         var carried = session.Character!.Inventory;
         Assert.True(Enumerable.Range(0, carried.Capacity).Sum(index => carried[index]?.Definition == potion ? carried[index]!.Count : 0) == 3
             && Enumerable.Range(0, carried.Capacity).All(index => carried[index]?.Definition != sword)
             && Enumerable.Range(0, carried.Capacity).Any(index => carried[index]?.Definition == quest), "the bag kept the wrong items");
 
         GroundDropState[] ground = [];
-        for (uint tick = 0; tick < 20 && ground.Length < 2; tick++)
+        for (uint tick = 0; tick < 20 && ground.Length < 3; tick++)
         {
             world.Tick(0.05f, tick);
             while (outbox.Reader.TryRead(out var snapshot))
@@ -81,7 +87,9 @@ internal static class GroundPickupTransactionTests
         }
 
         Assert.True(ground.Any(drop => drop.View.CatalogKey == "PL101" && drop.View.Amount == 2 && drop.Public)
-            && ground.Any(drop => drop.View.CatalogKey == "WS101" && drop.View.Amount == 1) && ground.All(drop => drop.View.Position == Vector3.Zero),
+            && ground.Any(drop => drop.View.CatalogKey == "WS101" && drop.View.Amount == 1)
+            && ground.Any(drop => drop.View.Gold && drop.View.CatalogKey == ItemCodes.GoldKey && drop.View.Amount == 120 && drop.Public)
+            && ground.All(drop => drop.View.Position == Vector3.Zero),
             $"the ground holds {string.Join(", ", ground.Select(drop => $"{drop.View.CatalogKey} x{drop.View.Amount} at {drop.View.Position}"))}");
     }
 

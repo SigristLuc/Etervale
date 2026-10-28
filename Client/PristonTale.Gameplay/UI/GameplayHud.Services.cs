@@ -124,7 +124,7 @@ public sealed partial class GameplayHud
             ? ItemCodes.TryFormat(command.ItemCode, out var bought) ? bought : null
             : command.Action is NpcServiceAction.Sell or NpcServiceAction.Deposit or NpcServiceAction.Withdraw or NpcServiceAction.Move
                 ? _itemKeys.GetValueOrDefault(command.ItemId)
-                : null;
+                : command.Action is NpcServiceAction.DepositGold or NpcServiceAction.WithdrawGold ? ItemCodes.GoldKey : null;
         if (key is not null)
         {
             ItemSound?.Invoke(key);
@@ -252,6 +252,33 @@ public sealed partial class GameplayHud
         return true;
     }
 
+    // The first line of the count box's gold questions; the second says what the gold is for.
+    private const string GoldQuestion = "How much gold";
+
+    // The coin by the gold: with the warehouse open it stores gold there (as much as is carried and the warehouse still
+    // holds), otherwise it drops gold on the ground, not while a work window or the wing gate is open, as the original
+    // refuses it; each asks how much.
+    private void GoldFromInventory()
+    {
+        if (_state is null)
+        {
+            return;
+        }
+
+        if (_warehouse.FullyOpen && _warehouse.View is { } view)
+        {
+            _countBox.Open(GoldQuestion, "to store?", Math.Min(_state.Money, WarehouseStorage.MaxMoney - view.Money),
+                amount => _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Warehouse, NpcServiceAction.DepositGold,
+                    _state?.InventoryRevision ?? 0, amount: amount));
+            return;
+        }
+
+        if (!ServiceWindowOpen(blockingOnly: true) && !_wingGate.IsOpen)
+        {
+            _countBox.Open(GoldQuestion, "to drop?", _state.Money, amount => _inventory.Drop(null, amount));
+        }
+    }
+
     // An inventory item set down on the shop is sold; on the warehouse grid it is stored where HudWarehouseWindow places it.
     private bool DropFromInventory(Guid itemId, Point pointer)
     {
@@ -314,8 +341,7 @@ public sealed partial class GameplayHud
                 break;
             case HudWarehouseActionKind.WithdrawGold when state is not null && _warehouse.View is { } view:
                 // As much as is stored and the character may still carry, as the original bounds the count.
-                var room = MoneyLimits.CarryLimit(state.Level, state.Tier) - state.Money;
-                _countBox.Open("How much gold", "to take out?", (int)Math.Clamp(Math.Min(view.Money, room), 0, int.MaxValue),
+                _countBox.Open(GoldQuestion, "to take out?", Math.Min(view.Money, MoneyLimits.CarryLimit(state.Level, state.Tier) - state.Money),
                     amount => _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Warehouse, NpcServiceAction.WithdrawGold,
                         _state?.InventoryRevision ?? 0, amount: amount));
                 break;

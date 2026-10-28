@@ -51,7 +51,11 @@ internal sealed class ItemHudCaptureProbe : Game
         CarryExchange,
         CarrySlot,
         // A stack of five potions carried above the window: the count box asks how many to drop.
-        ThrowCount
+        ThrowCount,
+        // The gold coin clicked: the count box asks how much gold to drop.
+        GoldCount,
+        // The pointer over the weapon pair B button: it lights and shows its label.
+        PairHint
     }
 
     private sealed record Scenario(string Name, Scene Scene, int Width = 800, int Height = 600, double WaitMs = 4200);
@@ -82,7 +86,9 @@ internal sealed class ItemHudCaptureProbe : Game
         new("carry-free-800", Scene.CarryFree, WaitMs: 1200),
         new("carry-exchange-800", Scene.CarryExchange, WaitMs: 1200),
         new("carry-slot-800", Scene.CarrySlot, WaitMs: 1200),
-        new("throw-count-800", Scene.ThrowCount, WaitMs: 1200)
+        new("throw-count-800", Scene.ThrowCount, WaitMs: 1200),
+        new("gold-count-800", Scene.GoldCount, WaitMs: 1200),
+        new("pair-hint-800", Scene.PairHint, WaitMs: 1200)
     ];
 
     private readonly string _assetRoot;
@@ -193,7 +199,7 @@ internal sealed class ItemHudCaptureProbe : Game
     {
         Scene.CrystalTooltip or Scene.GiftTooltip or Scene.ChocolateTooltip or Scene.CastleTooltip or Scene.LuckyBagTooltip
             or Scene.CarryFree or Scene.CarryExchange or Scene.CarrySlot => _items,
-        Scene.ThrowCount => _stack,
+        Scene.ThrowCount or Scene.GoldCount or Scene.PairHint => _stack,
         Scene.PuzzleBoard => _board,
         Scene.PuzzleComplete or Scene.PuzzleExchange => _complete,
         _ => _owner
@@ -219,7 +225,11 @@ internal sealed class ItemHudCaptureProbe : Game
         {
             _target?.Dispose();
             _target = new RenderTarget2D(GraphicsDevice, scenario.Width, scenario.Height);
-            _hud.ClosePanel();
+            // Escape's order: one call closes one thing (a count box left open first).
+            while (_hud.ClosePanel())
+            {
+            }
+
             _hud.Statuses = scenario.Scene switch
             {
                 Scene.ItemBuffs => ItemBuffs(),
@@ -238,7 +248,7 @@ internal sealed class ItemHudCaptureProbe : Game
             _hud.Update(owner, default, default);
             var keys = scenario.Scene is Scene.OrbTooltip or Scene.PackageTooltip or Scene.CrystalTooltip or Scene.GiftTooltip or Scene.ChocolateTooltip
                 or Scene.CastleTooltip or Scene.LuckyBagTooltip or Scene.PuzzleBoard or Scene.PuzzleComplete
-                or Scene.CarryFree or Scene.CarryExchange or Scene.CarrySlot or Scene.ThrowCount
+                or Scene.CarryFree or Scene.CarryExchange or Scene.CarrySlot or Scene.ThrowCount or Scene.GoldCount or Scene.PairHint
                 ? new KeyboardState(Keys.I)
                 : default;
             _hud.Update(owner, keys, default);
@@ -297,6 +307,13 @@ internal sealed class ItemHudCaptureProbe : Game
                 Click(updateLayout, new Point(400, HudInventoryLayout.Origin(updateLayout).Y + 150), _stack);
                 _thrown = true;
             }
+        }
+
+        if (scenario.Scene == Scene.GoldCount && !_carrying && _clock.Elapsed.TotalMilliseconds - _startedMs > 700)
+        {
+            var updateLayout = HudLayout.Create(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+            Click(updateLayout, HudInventoryLayout.GoldButton(HudInventoryLayout.Origin(updateLayout)).Center, _stack);
+            _carrying = true;
         }
 
         _hud.Update(Owner(scenario.Scene), default, Pointer(scenario, layout));
@@ -366,6 +383,7 @@ internal sealed class ItemHudCaptureProbe : Game
             Scene.CarryFree => HudInventoryLayout.Cell(origin, 30, 1, 1).Center,
             Scene.CarryExchange => HudInventoryLayout.Cell(origin, 2, 1, 1).Center,
             Scene.CarrySlot => HudInventoryLayout.Equipment(origin, (int)EquipmentSlot.Weapon).Center,
+            Scene.PairHint => HudInventoryLayout.PairButton(origin, 1).Center,
             _ => new Point(layout.Width - 200, layout.Height / 2)
         };
         return new MouseState(point.X * layout.Scale, point.Y * layout.Scale, 0, ButtonState.Released, ButtonState.Released, ButtonState.Released,

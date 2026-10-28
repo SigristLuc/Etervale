@@ -376,7 +376,7 @@ public sealed partial class WorldServer
                 return GroundPickupTransactions.Prepare(session, connection.Player, _fields[connection.FieldId], command);
             }
 
-            if (command.Action == InventoryAction.Drop)
+            if (command.Action is InventoryAction.Drop or InventoryAction.DropGold)
             {
                 return GroundThrowTransactions.Prepare(session, connection.Player, _fields[connection.FieldId], command);
             }
@@ -429,7 +429,12 @@ public sealed partial class WorldServer
             }
             if (operation is PreparedThrowOperation thrown)
             {
-                thrown.Field.GroundLoot.PlaceThrown(thrown.Item, thrown.Position, thrown.ThrowerId, thrown.Field.NowMs);
+                if (!operation.Original.TryChangeMoney(-thrown.Gold))
+                {
+                    throw new CommitInvariantException("Money changed beyond capacity during a gold throw commit.");
+                }
+
+                thrown.Field.GroundLoot.PlaceThrown(thrown.Item, thrown.Gold, thrown.Position, thrown.ThrowerId, thrown.Field.NowMs);
             }
 
             if (operation is PreparedPotionOperation potion && TryGetOwnConnection(session, out var connection))

@@ -26,9 +26,10 @@ public sealed class HudCountBox
     public bool IsOpen { get; private set; }
     public int Count { get; private set; }
 
-    public void Open(string first, string second, int maximum, Action<int> accepted)
+    // maximum: as much as the question allows (gold may pass what the box can count; it stops there).
+    public void Open(string first, string second, long maximum, Action<int> accepted)
     {
-        (_first, _second, _maximum, _accepted) = (first, second, Math.Max(0, maximum), accepted);
+        (_first, _second, _maximum, _accepted) = (first, second, (int)Math.Clamp(maximum, 0, int.MaxValue), accepted);
         Set(0);
         IsOpen = true;
     }

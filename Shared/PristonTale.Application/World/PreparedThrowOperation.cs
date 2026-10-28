@@ -11,7 +11,8 @@ public sealed record PreparedThrowOperation(
     CharacterSaveSnapshot Snapshot,
     InventoryOutcome Outcome,
     FieldInstance Field,
-    ItemInstance Item,
+    ItemInstance? Item,
+    int Gold,
     Vector3 Position,
     ulong ThrowerId)
     : PreparedCharacterOperation<InventoryOutcome>(Original, Candidate, Snapshot, Outcome);

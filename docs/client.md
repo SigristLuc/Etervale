@@ -399,6 +399,13 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   11 below the original's table); `LeftArrow.bmp`/`RightArrow.bmp` light the shown page and the held pair, and the
   button under the pointer. A click or the keys E and W switch (`SwitchBagPage`, `SwitchWeaponSet`), not while an item
   is carried; a pair asked for while the player swings or casts is held once the motion ends, as the original waits.
+  The button under the pointer shows its label `HudInventoryLayout.HintRise` (27) pixels above it, as the original's
+  `Inven/InfoBox` art: `ButtonItemA`/`B` over the pages, `ButtonA`/`B` over the pairs (the shipped art reads
+  "Equipemt2" over A and "Equipemt1" over B), and over the close button its exit sign and `ButtonExit` 8 pixels left.
+- Gold coin (`HudInventoryLayout.GoldButton`, (120, 572)): a click with nothing carried asks how much gold in the count
+  box (`GameplayHud.GoldFromInventory`). With the warehouse open it stores it (`DepositGold`, at most what is carried and
+  what the warehouse still holds); otherwise it drops it on the ground (`InventoryAction.DropGold`), not while a work
+  window or the wing gate is open, as the original refuses it. The warehouse's own coin takes gold out.
 - Potion belt (`HudInventoryPanel.DrawBelt`, after the bottom bar, the window open or not): the three boxes of
   `PotionBack.bmp` at (495 + 26 x box, 565), each potion centred with its count. A right click drinks one (the window
   closed too); keys 1 to 3 drink from their box, and Shift with them fills the box from the bag potion under the pointer

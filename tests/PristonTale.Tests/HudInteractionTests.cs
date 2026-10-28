@@ -198,6 +198,15 @@ internal static class HudInteractionTests
             Assert.True(controller.Dragging == Guid.Empty, "an item was carried before the state that holds it arrived");
             controller.Update(state with { InventoryRevision = 9, Items = [item, handed] }, layout, true, default, MouseAt(weapon, layout.Scale, ButtonState.Released));
             Assert.True(controller.Dragging == handed.InstanceId, "the item the reply handed over was not carried once its state arrived");
+
+            var asked = 0;
+            controller.GoldRequested = () => asked++;
+            var coin = HudInventoryLayout.GoldButton(origin).Center;
+            controller.Update(state, layout, true, default, MouseAt(coin, layout.Scale, ButtonState.Pressed));
+            controller.CancelDrag();
+            controller.Update(state, layout, true, default, MouseAt(coin, layout.Scale, ButtonState.Released));
+            controller.Update(state, layout, true, default, MouseAt(coin, layout.Scale, ButtonState.Pressed));
+            Assert.True(asked == 1, "the gold coin asked for gold while an item was carried, or not once nothing was");
         }
 
         return Task.CompletedTask;

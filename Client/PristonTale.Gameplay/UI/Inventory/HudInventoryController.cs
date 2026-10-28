@@ -49,6 +49,9 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     // An item set down above the window where no shop or warehouse takes it: put on the ground (true when the HUD took it).
     public Func<OwnedItemView, bool> ThrowRequested { get; set; }
 
+    // The coin by the gold, clicked with nothing carried.
+    public Action GoldRequested { get; set; }
+
     // A right click on a carried usable item (premium, travel and effect items).
     public Action<OwnedItemView> UseRequested { get; set; }
 
@@ -169,6 +172,12 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                     HoldWeaponPair(side);
                     return;
                 }
+            }
+
+            if (HudInventoryLayout.GoldButton(_origin).Contains(pointer))
+            {
+                GoldRequested?.Invoke();
+                return;
             }
         }
 
@@ -322,12 +331,13 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             covered?.InstanceId ?? Guid.Empty);
     }
 
-    // Puts `count` of a bag item on the ground where the player stands.
+    // Puts `count` of a bag item, or with no item `count` gold, on the ground where the player stands.
     public void Drop(OwnedItemView item, int count)
     {
         if (!_pendingOperation && _state is not null)
         {
-            SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.Drop, item.InstanceId, 0, count, default));
+            SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, item is null ? InventoryAction.DropGold : InventoryAction.Drop,
+                item?.InstanceId ?? Guid.Empty, 0, count, default));
         }
     }
 
@@ -358,9 +368,12 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     {
         _pendingOperation = true;
         _carryOnSuccess = carryOnSuccess;
-        _pendingSound = command.Action == InventoryAction.ConsumePotion
-            ? null
-            : OwnedItemView.Find(_state.Items, command.ItemId)?.CatalogKey;
+        _pendingSound = command.Action switch
+        {
+            InventoryAction.ConsumePotion => null,
+            InventoryAction.DropGold => ItemCodes.GoldKey,
+            _ => OwnedItemView.Find(_state.Items, command.ItemId)?.CatalogKey
+        };
         _ = CompleteInventoryAsync(command);
     }
 

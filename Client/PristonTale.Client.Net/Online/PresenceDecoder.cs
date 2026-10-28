@@ -397,7 +397,7 @@ internal sealed class PresenceDecoder
         var added = new List<GroundDropView>(items.Length);
         foreach (var item in items)
         {
-            var key = item.Gold ? "GG101" : ItemCodes.KeyOf(item.ItemCode);
+            var key = item.Gold ? ItemCodes.GoldKey : ItemCodes.KeyOf(item.ItemCode);
             added.Add(new GroundDropView(item.Id, item.ItemCode, key, item.Name, item.Amount, item.Gold, Position(item.X, item.Y, item.Z)));
         }
 

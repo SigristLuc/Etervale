@@ -101,7 +101,7 @@ public sealed class HudInventoryPanel
             _counts.Draw(painter, icons, item, HudInventoryLayout.Bounds(origin, item), tint);
         }
 
-        DrawSides(painter, origin, state, pointer, interactive);
+        DrawButtons(painter, origin, state, pointer, interactive);
         var money = HudInventoryLayout.Money(origin);
         painter.TextCentered(_gold, money.Left, money.Right, money.Y);
         var weight = HudInventoryLayout.Weight(origin);
@@ -187,23 +187,31 @@ public sealed class HudInventoryPanel
         _beltPlacement = default;
     }
 
-    // The original lights the shown page's and the held pair's arrow, and the one under the pointer.
-    private static void DrawSides(HudPainter painter, Point origin, OwnerState state, Point pointer, bool interactive)
+    // The original lights the shown page's and the held pair's arrow; the button under the pointer lights too and shows
+    // its label above it, and the close button shows its exit sign.
+    private static void DrawButtons(HudPainter painter, Point origin, OwnerState state, Point pointer, bool interactive)
     {
         for (var side = 0; side < PlayerCharacter.Sides; side++)
         {
             var art = side == 0 ? HudArt.SideLeft : HudArt.SideRight;
-            var page = HudInventoryLayout.PageButton(origin, side);
-            if (side == state.BagPage || interactive && page.Contains(pointer))
-            {
-                painter.Sprite(art, page.X, page.Y);
-            }
+            DrawButton(painter, HudInventoryLayout.PageButton(origin, side), art, side == state.BagPage, HudArt.PageHints[side], 0, pointer, interactive);
+            DrawButton(painter, HudInventoryLayout.PairButton(origin, side), art, side == state.WeaponSet, HudArt.PairHints[side], 0, pointer, interactive);
+        }
 
-            var pair = HudInventoryLayout.PairButton(origin, side);
-            if (side == state.WeaponSet || interactive && pair.Contains(pointer))
-            {
-                painter.Sprite(art, pair.X, pair.Y);
-            }
+        DrawButton(painter, HudInventoryLayout.Close(origin), Npc.HudNpcArt.Exit, false, HudArt.CloseHint, -8, pointer, interactive);
+    }
+
+    private static void DrawButton(HudPainter painter, Rectangle button, string art, bool lit, string hint, int hintShift, Point pointer, bool interactive)
+    {
+        var hovered = interactive && button.Contains(pointer);
+        if (lit || hovered)
+        {
+            painter.Sprite(art, button.X, button.Y);
+        }
+
+        if (hovered)
+        {
+            painter.Sprite(hint, button.X + hintShift, button.Y - HudInventoryLayout.HintRise);
         }
     }
 

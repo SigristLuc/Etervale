@@ -72,6 +72,12 @@ public static class HudArt
     public const string SideLeft = Sin + "Inven/LeftArrow.bmp";
     public const string SideRight = Sin + "Inven/RightArrow.bmp";
 
+    // The labels the original shows above an inventory button under the pointer: the bag page (A, B), the weapon pair
+    // (A, B) and the close button.
+    public static readonly string[] PageHints = [Sin + "Inven/InfoBox/ButtonItemA.bmp", Sin + "Inven/InfoBox/ButtonItemB.bmp"];
+    public static readonly string[] PairHints = [Sin + "Inven/InfoBox/ButtonA.bmp", Sin + "Inven/InfoBox/ButtonB.bmp"];
+    public const string CloseHint = Sin + "Inven/InfoBox/ButtonExit.bmp";
+
     public const string Status = Sin + "Status/Status.bmp";
     public const string StatusPoint = Sin + "Status/StatusPoint.bmp";
     public const string StatusArrow = Sin + "Status/ChangeArrow.bmp";
@@ -134,7 +140,8 @@ public static class HudArt
         SystemMenu, SystemSettings, SystemHelp, SystemExit, RestartMain, RestartField, RestartTown, RestartExit, SelectSkill, SelectSkillGray, SelectJobGray, SelectJob,
         .. MenuButtons, .. MenuButtonsDown, .. MenuInfo,
         SkillNormal, SkillWindow, SkillSelect, SkillGauge, SkillGaugeBack, SkillGaugePassive, .. ShortKeys,
-        Inventory, PuzzleBoard, CoverLarge, CoverMiddle, CoverSmall, PotionBack, SideLeft, SideRight, Status, StatusPoint, StatusArrow, StatusArrowDown,
+        Inventory, PuzzleBoard, CoverLarge, CoverMiddle, CoverSmall, PotionBack, SideLeft, SideRight, .. PageHints, .. PairHints, CloseHint,
+        Status, StatusPoint, StatusArrow, StatusArrowDown,
         .. InfoBox,
         HelpTopLeft, HelpTop, HelpTopRight, HelpLeft, HelpCenter, HelpRight, HelpBottomLeft, HelpBottom, HelpBottomRight, HelpLine,
         HelpTitle, HelpButton, ScrollBar, ScrollButton,

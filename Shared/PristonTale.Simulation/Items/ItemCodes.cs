@@ -9,6 +9,11 @@ public static class ItemCodes
 {
     private const int FamilySymbols = 36;
 
+    // The key, code and name gold shows as: its ground model, icon and coin sound.
+    public const string GoldKey = "GG101";
+    public const string GoldName = "Gold";
+    public static readonly uint GoldCode = Parse(GoldKey);
+
     public static bool TryParse(string key, out uint code)
     {
         code = 0;

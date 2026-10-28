@@ -44,7 +44,7 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
             // A sealed puzzle piece lies on the ground as the lucky bag.
             var view = drop.Sealed
                 ? new GroundDropView(id, ItemCodes.Parse(Puzzles.LuckyBagIcon), Puzzles.LuckyBagIcon, Puzzles.LuckyBagName, drop.Amount, false, position)
-                : new GroundDropView(id, drop.ItemCode, gold ? "GG101" : definition!.CatalogKey, gold ? "Gold" : definition!.Name, drop.Amount, gold, position);
+                : new GroundDropView(id, drop.ItemCode, gold ? ItemCodes.GoldKey : definition!.CatalogKey, gold ? ItemCodes.GoldName : definition!.Name, drop.Amount, gold, position);
             var item = gold ? null : ItemRoller.Create(definition!, drop.Amount, rng);
             if (item is not null)
             {
@@ -68,15 +68,15 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
         return true;
     }
 
-    // An item a player threw, laid once its removal from the bag is saved: the room was checked when the throw was
-    // prepared, so the few throws in flight may pass the capacity rather than lose a saved item. Public at once.
-    public void PlaceThrown(ItemInstance item, Vector3 position, ulong ownerId, long nowMs) => Add(item, 0, position, ownerId, nowMs);
+    // An item or gold a player threw, laid once its removal is saved: the room was checked when the throw was prepared, so
+    // the few throws in flight may pass the capacity rather than lose what was saved. Public at once.
+    public void PlaceThrown(ItemInstance? item, int gold, Vector3 position, ulong ownerId, long nowMs) => Add(item, gold, position, ownerId, nowMs);
 
     private void Add(ItemInstance? item, int gold, Vector3 position, ulong ownerId, long nowMs)
     {
         var id = Guid.NewGuid();
         var view = item is null
-            ? new GroundDropView(id, 0u, "GG101", "Gold", gold, true, position)
+            ? new GroundDropView(id, 0u, ItemCodes.GoldKey, ItemCodes.GoldName, gold, true, position)
             : new GroundDropView(id, item.Definition.Code, item.Definition.CatalogKey, item.Definition.Name, item.Count, false, position);
         _entries.Add(id, new Entry(view, item, ownerId, nowMs, nowMs + LifetimeMs(item?.Definition)));
         _dirty = true;

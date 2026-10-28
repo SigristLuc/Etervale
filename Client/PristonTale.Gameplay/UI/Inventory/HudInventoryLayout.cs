@@ -82,6 +82,12 @@ public static class HudInventoryLayout
     public static Rectangle PairButton(Point origin, int pair) => new(origin.X + 524 + 22 * pair, origin.Y + 525, 19, 19);
 
     public static Rectangle Close(Point origin) => new(origin.X + 266, origin.Y + 572, 22, 19);
+
+    // The coin left of the gold: it drops gold, or stores it while the warehouse is open.
+    public static Rectangle GoldButton(Point origin) => new(origin.X + 120, origin.Y + 572, 20, 19);
+
+    // How far above its button a button's label is drawn.
+    public const int HintRise = 27;
     public static Rectangle Money(Point origin) => new(origin.X + 147, origin.Y + 574, 110, 18);
     public static Rectangle Weight(Point origin) => new(origin.X + 326, origin.Y + 471, 80, 15);
     public static Rectangle Window(Point origin) => new(origin.X, origin.Y + 400, HudLayout.DesignWidth, 200);
