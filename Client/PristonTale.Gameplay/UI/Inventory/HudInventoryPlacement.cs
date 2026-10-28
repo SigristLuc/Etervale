@@ -82,7 +82,9 @@ public static class HudInventoryPlacement
             return new HudPlacement(HudPlacementKind.Blocked, bounds, Slot: slot);
         }
 
-        var covered = OwnedItemView.InSlot(items, (int)slot);
+        // A two-handed weapon shown in the off-hand slot is what an off-hand item picks up there, as the original exchanges
+        // it.
+        var covered = OwnedItemView.InSlot(items, (int)slot) ?? (slot == EquipmentSlot.OffHand ? HudInventoryLayout.TwoHandedShadow(items) : null);
         covered = covered == carried ? null : covered;
 
         return new HudPlacement(covered is null ? HudPlacementKind.Fits : HudPlacementKind.Exchange, bounds, Slot: slot, Covered: covered);

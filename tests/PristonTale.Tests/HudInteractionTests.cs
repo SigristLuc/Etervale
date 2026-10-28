@@ -36,7 +36,7 @@ internal static class HudInteractionTests
         yield return ("a carried item is set down by a second click on an original equipment slot with the owner revision", EquipmentDragAsync);
         yield return ("a number typed above the count box's maximum shows the maximum at once", CountBoxAsync);
         yield return ("the weapon pair key holds the other pair with the window closed once the motion in progress ends, the next swing's start included", WeaponPairKeyAsync);
-        yield return ("a worn two-handed weapon is also shown and taken in the empty off-hand slot", TwoHandedShadowAsync);
+        yield return ("a worn two-handed weapon is also shown, taken and exchanged in the empty off-hand slot", TwoHandedShadowAsync);
         yield return ("the pointer attacks over wild monsters, talks over NPCs and stays the arrow elsewhere", CursorKindAsync);
         yield return ("the settings offer only the monitor's sizes: all in fullscreen, those that fit in a window, none borderless", ResolutionsAsync);
         yield return ("a carried item lands where the original sets it: free cells, one item to exchange, a potion to join, a slot of its kind", PlacementAsync);
@@ -301,6 +301,9 @@ internal static class HudInteractionTests
             "a worn two-handed weapon does not fill the empty off-hand slot");
         Assert.True(HudInventoryLayout.TwoHandedShadow([twoHanded, Worn("DS101", EquipmentSlot.OffHand)]) is null,
             "a two-handed weapon was shown over an off-hand item");
+        var shield = new OwnedItemView(Guid.NewGuid(), 2, "DS101", ItemKind.Shield, 1, 0, -1, 2, 3, "DS101");
+        Assert.True(HudInventoryPlacement.Of(origin, [twoHanded, shield], shield, offHand, true) is { Kind: HudPlacementKind.Exchange, Slot: EquipmentSlot.OffHand } swap
+            && swap.Covered == twoHanded, "a shield over the two-handed weapon's off-hand slot does not pick the weapon up");
         var oneHanded = Worn("WA101", EquipmentSlot.Weapon);
         Assert.True(HudInventoryLayout.TwoHandedShadow([oneHanded]) is null && HudInventoryLayout.ItemAt(origin, [oneHanded], offHand, false) is null,
             "a one-handed weapon filled the off-hand slot");
