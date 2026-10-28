@@ -102,7 +102,7 @@ public sealed class LoginPanel
         var tint = InputEnabled ? Color.White : new Color(155, 155, 155);
         _canvas.Begin(layout.Scale);
         _canvas.Image("LoginPanel", layout.Panel);
-        _canvas.Text("PRISTON TALE", layout.Title, scale: 1.25f, centered: true);
+        _canvas.Text("ETERVALE", layout.Title, scale: 1.25f, centered: true);
         _canvas.Text("Your adventure begins here", layout.Subtitle, HudCanvas.Muted, 0.7f, centered: true);
         DrawField("Account", Account, layout.Account, tint);
         DrawField("Password", Password, layout.Password, tint);

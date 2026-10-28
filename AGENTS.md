@@ -28,6 +28,8 @@ Applies throughout this repository. Follow the user's explicit instructions firs
   section banners, implementation history, and commented-out code.
 - Verify claims against the current implementation. Preserve the user's changes and stay within the task.
   Inspect `git status` and `git diff`; do not run `git add`, `git commit`, or `git push`.
+- When the owner asks for a commit, never add a `Co-Authored-By` trailer or any other co-author or attribution line to
+  the message, whatever a tool's defaults suggest.
 - Use the user's language when reporting work. State the changes, checks performed, and remaining limitations.
 - Hard rule: keep the agent's temporary folder clean, `claude` under the system temporary directory
   (`%LOCALAPPDATA%\Temp\claude` on Windows, `$TMPDIR/claude` on macOS, `/tmp/claude` on Linux). Captures, probe output,
