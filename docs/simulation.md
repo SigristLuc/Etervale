@@ -43,6 +43,7 @@ progression, regeneration and movement rates. `World/`, `Physics/` and `Skills/`
 | `Items/ItemAbsorbCorrection.cs` | Absorb added to armor, robes, boots, gloves and shields by catalog number |
 | `Items/ItemDetailView.cs`, `ItemRuleMessages.cs` | Owner view of one copy; the texts of item refusals |
 | `Items/Inventory.cs` | Bitmask grid with anchors, stacking, move/split/merge/exchange |
+| `Items/StoreGrid.cs` | The 9x9 store grid of the warehouse and the shops |
 | `Items/InventoryCommand.cs` | `InventoryCommand` and `InventoryCommands.Apply` |
 | `Items/ItemCodes.cs` | Catalog key (`WA101`) to 32-bit item code and back, for every item family; `KeyOf` gives the key or "" for an empty slot |
 | `Items/ItemEquipmentMetadata.cs` | Kind and slot by catalog family; the two-handed list taken from the item table |
@@ -50,6 +51,7 @@ progression, regeneration and movement rates. `World/`, `Physics/` and `Skills/`
 | `Items/ItemClassRestrictions.cs` | Class/gender restriction masks for armor, robes and orbs by catalog key |
 | `Items/ItemCatalog.cs`, `PotionDefinition.cs` | Definition lookup by code; potion restore ranges |
 | `Items/Usable/` | Usable item rules, premium timers and their effects, pets, scrolls, force orbs ([special-items.md](special-items.md)) |
+| `PersonalShops/` | Personal shops: `PersonalShopRules` (listing, opening, a sale on candidates), `PersonalShop` (an open listing), purchases, outcomes, listings and texts |
 | [`Combat/CombatResolver.cs`](../Shared/PristonTale.Simulation/Combat/CombatResolver.cs) | Hit, block, damage, critical, element and absorption resolution |
 | `Combat/CombatProfiles.cs`, `CombatProfileFactory.cs` | `AttackProfile`/`DefenderProfile` and how they are built from characters and monsters |
 | `Combat/WeaponDamage.cs` | Weapon damage range of a player |
@@ -371,13 +373,15 @@ totals.
 - Prices: the copy's `Price` (`Roll.Price`), weight and durability feed `NpcShopRules` and `MoneyLimits.CarryLimit`
   in `World/Npcs` (see [world.md](world.md)).
 - `PotionDefinition.Restore` adds `NextExclusive(min, max)` (upper bound excluded unless min == max) to each pool,
-  clamped to the maximum; does nothing to a dead character.
+  clamped to the maximum; does nothing to a dead character. The authored data gives potions no stack size; the catalog
+  (`WorldDataFactory.ToItemDefinition`) stacks them to `PotionDefinition.StackSize` (9999), as the original counts the
+  potions of one bag item without a limit of its own.
 
 ### Inventory grid
 
 - `Inventory()` is the 12x6 carried grid (72 cells); `Inventory(width, height)` builds any grid up to 32x32 (the
-  warehouse uses 9x9). Cell index = `y * Width + x`; an item is stored only at its top-left anchor and its footprint
-  (`GridWidth x GridHeight`) is tracked in one `uint` bit row per grid row.
+  warehouse and the shops use the 9x9 `StoreGrid`). Cell index = `y * Width + x`; an item is stored only at its top-left
+  anchor and its footprint (`GridWidth x GridHeight`) is tracked in one `uint` bit row per grid row.
 - `TryAdd` first tops up compatible stacks, then places new stacks first-fit by anchor index; it plans everything
   before mutating and fails without change. Compatible stacks need a stackable, equal definition and identical
   upgrade, durability and roll.
@@ -405,12 +409,12 @@ totals.
 
 ## Commands, revisions and transactions
 
-- `InventoryCommand` and `ProgressionCommand` carry an `OperationId` (non-empty) and `ExpectedRevision`; they apply
-  only when it equals the current `InventoryRevision`/`ProgressionRevision`. The last 64 applied operations of each
-  kind (plus NPC service operations, item uses and quest operations) are kept for idempotent replay and persisted with
-  the character, each in an `OperationHistory<T>` (`Characters/OperationHistory.cs`: `Find`, `Record`, `Restore` with
-  the kind's own validity check). Applied records implement `IAppliedOperation` explicitly, so their stored JSON is
-  only their own members.
+- `InventoryCommand` and `ProgressionCommand` carry an `OperationId` (non-empty) and `ExpectedRevision`; they apply only
+  when it equals the current `InventoryRevision`/`ProgressionRevision`. The last 64 applied operations of each kind
+  (plus NPC service operations, personal shop purchases, item uses and quest operations) are kept for idempotent replay
+  and persisted with the character, each in an `OperationHistory<T>` (`Characters/OperationHistory.cs`: `Find`,
+  `Record`, `Restore` with the kind's own validity check). Applied records implement `IAppliedOperation` explicitly, so
+  their stored JSON is only their own members.
 - `InventoryRevision` counts changes, not commands: one equip can bump it more than once. Clients must adopt the
   revision returned in the outcome.
 - `InventoryAction.Swap` sets an item down over exactly one other bag item (`Inventory.TrySwap`), which moves to where
@@ -439,6 +443,14 @@ totals.
   character, neither on the ground nor in the warehouse: quest items, the quest's bound weapon and ring, the `MA1`,
   `MA2` and `QW1` families and `GF101`. `ItemDropRules` adds the `BI1` and `BI2` families and the original's premium,
   event and time-limited keys. `ItemCodes.FamilyOf` and `InFamily` read a key's family (its first three characters).
+- Personal shops (`PersonalShops/`): a character in a town lays up to 30 bag items (`PersonalShopLimits`, Contracts) on
+  the store grid, each at a price per unit from 1 to 100,000,000, under a sign of at most 128 UTF-8 bytes. Only items
+  `ItemDropRules` lets go sell, never the `PZ1` and `PZ2` puzzle pieces, and the character's gold with the whole listing
+  sold must stay within `MoneyLimits.CarryLimit` (`TryOpen`). The items stay in the seller's bag; `PersonalShop.Prune`
+  drops an entry whose item left it. `TrySell` moves `Count` units and their price between two candidates when the
+  unit price and the units are the ones the buyer was shown (`PriceChanged`, `CountChanged`, `SoldOut` otherwise),
+  the buyer has the gold, room and weight, and the seller may carry the gold. The buyer records the purchase
+  (`ShopPurchases`, `AppliedShopPurchase`).
 - `InventoryAction.ConsumePotion` only removes one potion; the restore is applied later by the Application when the
   eat motion reaches its event (`WorldPlayer`). `Pickup` is handled by `GroundPickupTransactions`, not here.
 - The Application validates on a copy: `CloneForInventoryOperation` (inventory, equipment, progress, skills, pools,

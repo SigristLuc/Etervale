@@ -40,6 +40,13 @@ public static class EtervaleOpcodes
     public const uint QuestResult = 0x45540501;
     public const uint QuestJournal = 0x45540502;
     public const uint QuestNotices = 0x45540503;
+    public const uint PersonalShopOpen = 0x45540600;
+    public const uint PersonalShopClose = 0x45540601;
+    public const uint PersonalShopView = 0x45540602;
+    public const uint PersonalShopBuy = 0x45540603;
+    public const uint PersonalShopResult = 0x45540604;
+    public const uint PersonalShopListing = 0x45540605;
+    public const uint PersonalShopDetails = 0x45540606;
 
     public const uint PresenceEntries = 0x45540900;
     public const uint DescribeEntity = 0x45540901;

@@ -23,6 +23,9 @@ public sealed class ActorMotionController
 
     public bool IsDead => Current == MotionCode.Dead;
 
+    // Swings and casts begun so far: each one that begins ends the one before it.
+    public long ActionStarts { get; private set; }
+
     // A landing holds the player until its clip ends, as every motion from 0x100 up does in the original.
     public bool LocomotionFrozen => Current is MotionCode.Damage or MotionCode.Dead or MotionCode.Eat
         or MotionCode.FallStand or MotionCode.FallDamage or MotionCode.Yahoo;
@@ -34,7 +37,7 @@ public sealed class ActorMotionController
             return MotionCommand.None;
         }
 
-        Current = motion;
+        Begin(motion);
         return new MotionCommand(IsOneShotBusy(motion) ? MotionCommandKind.Restart : MotionCommandKind.Set, motion);
     }
 
@@ -57,8 +60,17 @@ public sealed class ActorMotionController
             return MotionCommand.None;
         }
 
-        Current = oneShot;
+        Begin(oneShot);
         return new MotionCommand(MotionCommandKind.Restart, oneShot);
+    }
+
+    private void Begin(MotionCode motion)
+    {
+        Current = motion;
+        if (motion is MotionCode.Attack or MotionCode.Skill)
+        {
+            ActionStarts++;
+        }
     }
 
     private static bool IsOneShotBusy(MotionCode motion) => motion is

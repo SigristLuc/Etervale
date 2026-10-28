@@ -30,7 +30,7 @@ public sealed record SavedItem(
 
 // ActiveSide: the bag page shown (inventory) or the weapon pair held (equipment); Hidden items are on the other side.
 public sealed record SavedItems(int Version, SavedItem[] Items, long Revision = 0, AppliedInventoryOperation[]? Operations = null,
-    AppliedServiceOperation[]? ServiceOperations = null, int ActiveSide = 0);
+    AppliedServiceOperation[]? ServiceOperations = null, int ActiveSide = 0, Simulation.PersonalShops.AppliedShopPurchase[]? ShopPurchases = null);
 public sealed record SavedSkill(uint Code, int Rank, int Uses = 0);
 public sealed record SavedSkills(int Version, int Points, int ElitePoints, SavedSkill[] Skills,
     long Revision = 0, AppliedProgressionOperation[]? Operations = null);
@@ -116,6 +116,7 @@ public static class CharacterStateCodec
 
         character.RestoreInventoryHistory(inventory.Revision, inventory.Operations ?? []);
         character.RestoreServiceHistory(inventory.ServiceOperations ?? []);
+        character.RestorePurchaseHistory(inventory.ShopPurchases ?? []);
         character.RestoreProgressionHistory(skills.Revision, skills.Operations ?? []);
     }
 
@@ -128,7 +129,7 @@ public static class CharacterStateCodec
         items.AddRange(character.QuestBox.Occupied().Select(static box => CaptureItem(box.Item, -1, null) with { QuestBox = box.Slot }));
 
         return new SavedItems(1, items.ToArray(), character.InventoryRevision, character.InventoryOperations.ToArray(),
-            character.ServiceOperations.ToArray(), character.BagPage);
+            character.ServiceOperations.ToArray(), character.BagPage, character.ShopPurchases.ToArray());
     }
 
     public static SavedItems CaptureEquipment(PlayerCharacter character)

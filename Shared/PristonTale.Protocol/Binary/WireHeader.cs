@@ -12,13 +12,16 @@ public static class WireHeader
         writer.UInt16(0);
     }
 
-    public static void Read(ref PacketReader reader, string name, ushort minimumVersion = 1)
+    // The received version, for a reader that fills the fields a newer version appended.
+    public static ushort Read(ref PacketReader reader, string name, ushort minimumVersion = 1)
     {
-        if (reader.UInt16() < minimumVersion)
+        var version = reader.UInt16();
+        if (version < minimumVersion)
         {
             throw new InvalidDataException(minimumVersion == 1 ? $"{name} has version 0." : $"{name} has an older layout.");
         }
 
         reader.Skip(2);
+        return version;
     }
 }

@@ -598,7 +598,7 @@ internal sealed class HudCaptureProbe : Game
             },
             NpcServiceKind.Warehouse => new NpcServiceReply(ok)
             {
-                Warehouse = new WarehouseView(1, 125000, 37, WarehouseStorage.MaxWeight, WarehouseStorage.Columns, WarehouseStorage.Rows,
+                Warehouse = new WarehouseView(1, 125000, 37, WarehouseStorage.MaxWeight, StoreGrid.Columns, StoreGrid.Rows,
                 [
                     new(Guid.NewGuid(), ItemCodes.Parse("WA101"), "Stone Axe", ItemKind.Axe, 1, 2, -1, 2, 3, "WA101"),
                     new(Guid.NewGuid(), ItemCodes.Parse("DA102"), "Battle Suit", ItemKind.Armor, 1, 5, -1, 2, 3, "DA102"),

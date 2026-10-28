@@ -25,6 +25,7 @@ into it is described in [server.md](server.md); skill resolution details are in 
 | [`Services/NpcAppService.cs`](../Shared/PristonTale.Application/Services/NpcAppService.cs) | NPC click and NPC service requests; warehouse load and joint character+warehouse write |
 | [`Services/QuestAppService.cs`](../Shared/PristonTale.Application/Services/QuestAppService.cs) | Quest requests and the quest upkeep (see [quests.md](quests.md)) |
 | `Services/ItemUseAppService.cs` | Use of a carried item: prepare, store, commit ([special-items.md](special-items.md)) |
+| `Services/PersonalShopAppService.cs`, `World/WorldServer.PersonalShops.cs`, `World/PersonalShopTransactions.cs` | Personal shops: open, close, view, and a purchase that holds and stores two characters (below) |
 | `Chat/`, `GameMasters/` | Chat routing, whispers and notices; game-master commands, levels and audit ([chat-and-gm.md](chat-and-gm.md)) |
 | `World/WorldServer.Chat.cs`, `World/WorldServer.GameMasters.cs` | Players in hearing range; tick-side game-master reads and changes (kill, hide, move, spawn, drop, gifts) |
 | `Shared/PristonTale.Contracts/Sessions/*Outcome.cs`, `CharacterSummary.cs`; `Contracts/World/Restart.cs`, `WingGateTrip.cs` | Result records returned to the edge and read by the client (login, characters, world entry, restart, wing trips); failure enums carry stable codes |
@@ -110,7 +111,11 @@ progression and NPC operations try it with zero timeout and answer "save or char
 
 Lifecycle seen from the edge: `LoginAsync` -> `EnterWorldAsync` -> `TryBeginPlay` -> `WorldPlayerFactory.Create` ->
 `WorldServer.JoinAsync(field, player, outbox.Writer, session)` -> play commands -> `LeaveAsync` -> `EndPlay` ->
-`SaveLeftCharacterAsync` (the capture `LeaveAsync` took) -> `SessionRegistry.Remove`.
+`SaveLeftCharacterAsync` (the capture `LeaveAsync` took) -> `SessionRegistry.Remove`. While a durable operation holds
+the session's `SaveGate`, `LeaveAsync` takes no capture (it only records the placement): that operation commits after
+the leaving tick, possibly on another character too (a personal shop sale), so the save waits for the gate and captures
+the character the operation leaves (`SaveCharacterAsync`); a player that left dead (`PlayerSession.LeftDead`) is then
+captured through its town restart (`WorldServer.CaptureLeftAsync`).
 
 ## Authoritative world
 
@@ -336,6 +341,7 @@ A prepared operation with `Snapshot == null` is final (rejection or replay) and 
 | Quest requests | `QuestTransactions.Prepare` (`PreparedQuestOperation`); follow-ups must answer a step the NPC still offers | inventory, equipment, quest journal (merging tick kills), tier, stat/skill point and gold deltas, travel, arena duel |
 | Quest upkeep | `QuestTransactions.PrepareUpkeep`, run by the server's `QuestUpkeepService` | quest drops into the pack, quest weapon growth and expiry, leftovers removed; drops return to the player when the write is refused or throws |
 | Item use | `ItemUseTransactions.Prepare` with the item's `ItemUseAction` (`PreparedItemUseOperation`) | inventory, premium state, resets and mastery re-applied with the prepared clock, item effects, hair, arrival |
+| Personal shop purchase | `PersonalShopTransactions.Prepare` (`PreparedShopPurchase`): the buyer's and the seller's candidates, stored together with `ICharacterRepository.UpdateAllAsync` | both inventories, the price from the buyer to the seller, the seller's listing pruned |
 
 Revisions and idempotency:
 
@@ -377,6 +383,27 @@ Flow (`NpcAppService.RequestAsync`):
 
 Other `NpcServiceKind` values answer `NotAvailable`. Prices, stock, totals and destinations always come from the
 catalogs, never from the client. `InteractNpcAsync` returns all offers with their availability and one random line.
+
+## Personal shops
+
+A player in a town opens a shop over its own bag items (`PersonalShopRules`, [simulation.md](simulation.md)); the open
+listing lives on `WorldPlayer.Shop` and its sign rides on the player's appearance (`PlayerAppearanceView.ShopSign`, part
+of the descriptor revision). Nothing of it is stored: a shop closes when its seller closes it, sells its last unit,
+dies, leaves or is moved (`Relocate`). Opening and closing hold the seller's `SaveGate` (`Busy` while a purchase holds
+it), so a listing never changes between a purchase's prepare and commit.
+
+- An open shop holds its seller: movement reports keep it where it stands (as a swing does), and attacks, skill casts,
+  item uses, NPC services (the mobile shop included) and every inventory command but a potion are refused
+  (`PersonalShopStatus.Selling`). A drunk potion prunes the listing.
+- A view (`ViewAsync`) needs the seller in the viewer's field within `NpcInteraction.Reach`, as an NPC is reached, and
+  answers the listing as the viewer sees it (`PersonalShopListing`: each copy's values for the viewer's class).
+- A purchase (`BuyAsync`) admits the buyer's `SaveGate`, finds the seller's session on the tick, then admits the
+  seller's gate without waiting (`Busy` otherwise, after answering a retried purchase's first outcome, so two players
+  buying from each other never block). The tick
+  checks replay first (the buyer's `ShopPurchases`), then the shop, reach, revision and `PersonalShopRules.TrySell` on
+  clones of both characters; both snapshots are written in one transaction, then the commit applies both inventories
+  and the gold, prunes the listing and answers what remains on sale. Both players read the sale as a trade chat line.
+  A purchase that met another price, fewer units or a sold item answers what the shop offers now.
 
 ## Published outcomes and events
 

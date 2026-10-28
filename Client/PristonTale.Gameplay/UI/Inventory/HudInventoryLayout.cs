@@ -102,6 +102,9 @@ public static class HudInventoryLayout
     // The special item box's button, left of the shop button.
     public static Rectangle QuestBoxButton(Point origin) => new(origin.X + 70, origin.Y + 572, 22, 19);
 
+    // The personal shop button, right of the special item box's.
+    public static Rectangle ShopButton(Point origin) => new(origin.X + 98, origin.Y + 572, 22, 19);
+
     // The coin left of the gold: it drops gold, or stores it while the warehouse is open.
     public static Rectangle GoldButton(Point origin) => new(origin.X + 120, origin.Y + 572, 20, 19);
 

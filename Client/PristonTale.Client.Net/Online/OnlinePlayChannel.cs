@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
+using PristonTale.Simulation.PersonalShops;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World;
@@ -73,6 +74,30 @@ internal sealed class OnlinePlayChannel : IPlayChannel
     {
         await _start.WaitAsync(ct);
         return await _connection.RestartAsync(choice, ct);
+    }
+
+    public async Task<PersonalShopReply> OpenPersonalShopAsync(string sign, IReadOnlyList<PersonalShopEntry> entries, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        return await _connection.PersonalShops.OpenAsync(sign, entries, ct);
+    }
+
+    public async Task<PersonalShopReply> ClosePersonalShopAsync(CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        return await _connection.PersonalShops.CloseAsync(ct);
+    }
+
+    public async Task<PersonalShopReply> ViewPersonalShopAsync(ulong sellerId, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        return await _connection.PersonalShops.ViewAsync(sellerId, ct);
+    }
+
+    public async Task<PersonalShopReply> BuyFromPersonalShopAsync(PersonalShopPurchase purchase, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        return await _connection.PersonalShops.BuyAsync(purchase, ct);
     }
 
     public async Task<WingGateOutcome> TravelWingGateAsync(int destination, CancellationToken ct = default)

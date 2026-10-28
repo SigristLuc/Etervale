@@ -523,7 +523,8 @@ internal sealed class PresenceDecoder
                 Phoenix = looks.Phoenix,
                 BigHead = looks.BigHead,
                 WeaponGlow = Glow(looks.WeaponGlow),
-                OffHandGlow = Glow(looks.OffHandGlow)
+                OffHandGlow = Glow(looks.OffHandGlow),
+                ShopSign = looks.ShopSign
             };
         }
 

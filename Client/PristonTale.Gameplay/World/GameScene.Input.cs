@@ -234,11 +234,14 @@ public sealed partial class GameScene
         {
             return false;
         }
-        if (kind == EntityKind.Npc)
+        // A seller is approached and its shop opened as an NPC's dialog is.
+        var sells = kind == EntityKind.Player && _remote.ShopSigns.ContainsKey(entityId);
+        if (kind == EntityKind.Npc || sells)
         {
             _lootInteraction.Cancel();
             ClearAttackTarget();
             _npcTargetId = entityId;
+            _npcTargetSells = sells;
             _npcMoveSent = false;
             _targetSelection.Trace(entityId);
             StopPredictedMovement();
@@ -368,7 +371,14 @@ public sealed partial class GameScene
         {
             var entityId = _npcTargetId;
             ClearAttackTarget();
-            NpcSelected?.Invoke(entityId);
+            if (!_npcTargetSells)
+            {
+                NpcSelected?.Invoke(entityId);
+            }
+            else if (_remote.ShopSigns.ContainsKey(entityId))
+            {
+                ShopSellerSelected?.Invoke(entityId);
+            }
             return;
         }
 

@@ -3,6 +3,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
+using PristonTale.Simulation.PersonalShops;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Social;
@@ -331,6 +332,23 @@ public sealed class WorldPlayer
 
     public bool InVillage => _inVillage;
 
+    // The personal shop the player sells from; while it is open the seller stays where it stands and acts on nothing else.
+    public PersonalShop? Shop { get; private set; }
+
+    public void OpenShop(PersonalShop shop) => Shop = shop;
+
+    public void CloseShop() => Shop = null;
+
+    // Drops what the seller no longer holds; a shop with nothing left closes.
+    public void PruneShop()
+    {
+        Shop?.Prune(_character.Inventory);
+        if (Shop is { IsEmpty: true })
+        {
+            Shop = null;
+        }
+    }
+
     private PlayerAppearanceView _appearance;
     // Built on every read from the equipment and premium state: read InVillage for the flag alone.
     public PlayerAppearanceView Appearance => _appearance with
@@ -344,7 +362,8 @@ public sealed class WorldPlayer
         Tier = _character.Tier,
         HelperPet = PremiumPets.HelperPet(_character.Premium) is { } pet ? pet - PremiumEffectKind.HelpPetTerry + 1 : 0,
         Phoenix = _character.Premium.IsActive(PremiumEffectKind.PhoenixPet),
-        BigHead = _character.Premium.BigHeadMode
+        BigHead = _character.Premium.BigHeadMode,
+        ShopSign = Shop?.Sign ?? ""
     };
 
     // A hair tint changes the head every viewer draws.
@@ -375,9 +394,10 @@ public sealed class WorldPlayer
         float dx = position.X - Position.X;
         float dz = position.Z - Position.Z;
         float distance = MathF.Sqrt(dx * dx + dz * dz);
-        if (IsBusy || _character.Effects.Has(Simulation.Modifiers.ControlFlags.Stun))
+        if (IsBusy || Shop is not null || _character.Effects.Has(Simulation.Modifiers.ControlFlags.Stun))
         {
-            // Swings, flinches, potions, cheers and stuns own the avatar; small drift is tolerated, large drift is corrected.
+            // Swings, flinches, potions, cheers, stuns and an open shop own the avatar; small drift is tolerated, large drift
+            // is corrected.
             return distance > BusyCorrectionDistance ? MovementVerdict.Rejected : MovementVerdict.Ignored;
         }
 
@@ -634,6 +654,7 @@ public sealed class WorldPlayer
         {
             _character.Life = 0;
             IsDead = true;
+            Shop = null;
             _pendingPotion = null;
             _yahooPending = false;
             Action = PlayerActionState.Idle;

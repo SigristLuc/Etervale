@@ -11,4 +11,7 @@ public interface ICharacterRepository
     Task<bool> DeleteByNameAsync(long accountId, string name, CancellationToken ct = default);
 
     Task<bool> UpdateAsync(CharacterRecord record, CancellationToken ct = default);
+
+    // Every record or none, in one transaction (a trade between characters).
+    Task<bool> UpdateAllAsync(IReadOnlyList<CharacterRecord> records, CancellationToken ct = default);
 }

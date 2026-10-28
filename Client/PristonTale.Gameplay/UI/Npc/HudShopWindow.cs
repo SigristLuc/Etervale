@@ -31,6 +31,8 @@ public sealed class HudShopWindow : IHudServiceWindow
     private const int GoodsTab = 2;
     private readonly HudSlide _slide = new();
     private readonly List<List<Placed>>[] _pages = [[], [], []];
+    private readonly HudNumberText _price = new();
+    private readonly HudNumberText _money = new();
     private ShopOffer _hovered;
     private HudShopButton? _hoveredButton;
 
@@ -172,13 +174,9 @@ public sealed class HudShopWindow : IHudServiceWindow
 
         painter.Sprite(HudNpcArt.Gold, HudStoreLayout.GoldPlate(origin).X, HudStoreLayout.GoldPlate(origin).Y);
         var upper = HudStoreLayout.UpperBar(origin);
-        if (_hovered is not null)
-        {
-            painter.TextCentered(_hovered.Price.ToString("N0"), upper.Left, upper.Right, upper.Y + 3);
-        }
-
+        painter.TextCentered(_price.Of(_hovered?.Price ?? 0, _hovered is not null), upper.Left, upper.Right, upper.Y + 3);
         var lower = HudStoreLayout.LowerBar(origin);
-        painter.TextCentered((state?.Money ?? 0).ToString("N0"), lower.Left, lower.Right, lower.Y + 3);
+        painter.TextCentered(_money.Of(state?.Money ?? 0), lower.Left, lower.Right, lower.Y + 3);
     }
 
     public void DrawOverlay(HudPainter painter, HudLayout layout, Point pointer)
@@ -315,61 +313,19 @@ public sealed class HudShopWindow : IHudServiceWindow
             }
 
             var page = pages.Count - 1;
-            var anchor = page >= 0 ? FindSpace(occupied[page], offer) : -1;
+            var anchor = page >= 0 ? HudStoreLayout.FindSpace(occupied[page], offer.Width, offer.Height) : -1;
             if (anchor < 0)
             {
                 pages.Add([]);
                 occupied.Add(new bool[HudStoreLayout.Columns * HudStoreLayout.Rows]);
                 page = pages.Count - 1;
-                anchor = FindSpace(occupied[page], offer);
+                anchor = HudStoreLayout.FindSpace(occupied[page], offer.Width, offer.Height);
             }
 
-            Occupy(occupied[page], offer, anchor);
+            HudStoreLayout.Occupy(occupied[page], anchor, offer.Width, offer.Height);
             pages[page].Add(new Placed(offer, anchor));
         }
 
         return pages;
-    }
-
-    private static int FindSpace(bool[] occupied, ShopOffer offer)
-    {
-        for (var place = 0; place < occupied.Length; place++)
-        {
-            var x = place / HudStoreLayout.Rows;
-            var y = place % HudStoreLayout.Rows;
-            if (x + offer.Width > HudStoreLayout.Columns || y + offer.Height > HudStoreLayout.Rows)
-            {
-                continue;
-            }
-
-            var free = true;
-            for (var row = y; row < y + offer.Height && free; row++)
-            {
-                for (var column = x; column < x + offer.Width && free; column++)
-                {
-                    free = !occupied[row * HudStoreLayout.Columns + column];
-                }
-            }
-
-            if (free)
-            {
-                return y * HudStoreLayout.Columns + x;
-            }
-        }
-
-        return -1;
-    }
-
-    private static void Occupy(bool[] occupied, ShopOffer offer, int anchor)
-    {
-        var x = anchor % HudStoreLayout.Columns;
-        var y = anchor / HudStoreLayout.Columns;
-        for (var row = y; row < y + offer.Height; row++)
-        {
-            for (var column = x; column < x + offer.Width; column++)
-            {
-                occupied[row * HudStoreLayout.Columns + column] = true;
-            }
-        }
     }
 }

@@ -37,6 +37,7 @@ public static class HostingExtensions
         builder.Services.AddSingleton<RestartAppService>();
         builder.Services.AddSingleton<WingGateAppService>();
         builder.Services.AddSingleton<QuestAppService>();
+        builder.Services.AddSingleton<PersonalShopAppService>();
 
         var provider = builder.Configuration["Database:Provider"] ?? "Sqlite";
         if (string.Equals(provider, "Sqlite", StringComparison.OrdinalIgnoreCase))

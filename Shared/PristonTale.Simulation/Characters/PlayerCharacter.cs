@@ -5,6 +5,7 @@ using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.Skills;
+using PristonTale.Simulation.PersonalShops;
 using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Simulation.Characters;
@@ -144,6 +145,7 @@ public sealed partial class PlayerCharacter
     public long InventoryRevision { get; private set; }
     public OperationHistory<AppliedInventoryOperation> InventoryOperations { get; } = new();
     public OperationHistory<AppliedServiceOperation> ServiceOperations { get; } = new();
+    public OperationHistory<AppliedShopPurchase> ShopPurchases { get; } = new();
     public long ProgressionRevision { get; private set; }
     public OperationHistory<AppliedProgressionOperation> ProgressionOperations { get; } = new();
     public LearnedSkills Skills { get; }
@@ -475,6 +477,16 @@ public sealed partial class PlayerCharacter
         ServiceOperations.Record(new AppliedServiceOperation(command, InventoryRevision));
     }
 
+    public void RestorePurchaseHistory(IEnumerable<AppliedShopPurchase> purchases)
+    {
+        ShopPurchases.Restore(purchases, purchase => purchase.Revision >= 0 && purchase.Revision <= InventoryRevision, "personal shop purchase");
+    }
+
+    public void RecordShopPurchase(PersonalShopPurchase purchase)
+    {
+        ShopPurchases.Record(new AppliedShopPurchase(purchase, InventoryRevision));
+    }
+
     // Aging counts change no stat and so leave the inventory revision alone.
     public long AgingRevision { get; private set; }
 
@@ -586,6 +598,7 @@ public sealed partial class PlayerCharacter
 
         clone.RestoreInventoryHistory(InventoryRevision, InventoryOperations);
         clone.RestoreServiceHistory(ServiceOperations);
+        clone.RestorePurchaseHistory(ShopPurchases);
         clone.RestoreProgressionHistory(ProgressionRevision, ProgressionOperations);
         clone.Quests = Quests.Clone();
         clone.Premium.CopyFrom(Premium);
@@ -744,6 +757,7 @@ public sealed partial class PlayerCharacter
 
         RestoreInventoryHistory(candidate.InventoryRevision, candidate.InventoryOperations);
         RestoreServiceHistory(candidate.ServiceOperations);
+        RestorePurchaseHistory(candidate.ShopPurchases);
         Recompute();
         Life = Math.Min(Life, MaxLife);
         Mana = Math.Min(Mana, MaxMana);

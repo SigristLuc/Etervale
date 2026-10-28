@@ -48,6 +48,8 @@ public sealed class GameplayScreen : GameScreen
         _hud.QuestFanfare += _scene.PlayQuestFanfare;
         _hud.CraftResult += _scene.PlayCraftResult;
         _scene.NpcSelected += _hud.OpenNpc;
+        _scene.ShopSellerSelected += _hud.ViewPersonalShop;
+        _hud.PersonalShops = _scene;
         _scene.SkillNotice += _hud.Chat.System;
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
         _hud.RunToggleRequested += _scene.ToggleRun;
@@ -126,8 +128,11 @@ public sealed class GameplayScreen : GameScreen
             _scene.PlayerForward, _scene.TimeOfDay, _scene.RunFlag, mapHidden, neighbour, neighbourMap);
         _hud.PremiumTimers = _scene.PremiumTimers;
         _hud.InCastleField = field?.State == Simulation.World.FieldState.Castle;
+        _hud.InTown = field?.State == Simulation.World.FieldState.Village;
+        _hud.ShopSigns = _scene.ShopSigns;
         _hud.PlayerDead = _scene.PlayerDead;
         _hud.PlayerActing = _scene.PlayerActing;
+        _hud.PlayerActionStarts = _scene.PlayerActionStarts;
         _hud.RestartOffer = _scene.RestartOffer;
         _hud.Update(_scene.Owner);
         _scene.PointerCaptured = _hud.PointerCaptured;
@@ -253,6 +258,7 @@ public sealed class GameplayScreen : GameScreen
             _hud.QuestFanfare -= _scene.PlayQuestFanfare;
             _hud.CraftResult -= _scene.PlayCraftResult;
             _scene.NpcSelected -= _hud.OpenNpc;
+            _scene.ShopSellerSelected -= _hud.ViewPersonalShop;
             _scene.SkillNotice -= _hud.Chat.System;
             _hud.SummonModeRequested -= _scene.ToggleSummonMode;
             _hud.RunToggleRequested -= _scene.ToggleRun;

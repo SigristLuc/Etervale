@@ -144,13 +144,14 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
             return SkillCastOutcome.Refused(request, SkillCastVerdict.Stale);
         }
 
-        return _skills.Cast(player, request);
+        // An open personal shop holds its seller (WorldPlayer.Shop).
+        return player.Shop is null ? _skills.Cast(player, request) : SkillCastOutcome.Refused(request, SkillCastVerdict.Busy);
     }
     public bool TryGet(ulong entityId, [MaybeNullWhen(false)] out WorldPlayer player) => _players.TryGetValue(entityId, out player);
 
     public bool SetAttackTarget(ulong attackerEntityId, ulong targetEntityId, bool sustained, ulong sequence = 0)
     {
-        if (!_players.TryGetValue(attackerEntityId, out var attacker) || attacker.IsDead)
+        if (!_players.TryGetValue(attackerEntityId, out var attacker) || attacker.IsDead || attacker.Shop is not null)
         {
             return false;
         }

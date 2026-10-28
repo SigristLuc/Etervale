@@ -12,11 +12,8 @@ namespace PristonTale.Application.World;
 // the service and the service running in Etervale. Prices, stock and totals come from the catalogs, never the client.
 internal static class NpcServiceTransactions
 {
-    public static bool CanReach(WorldPlayer player, WorldNpc npc)
-    {
-        var delta = player.Position - npc.Position;
-        return !player.IsDead && delta.X * delta.X + delta.Z * delta.Z <= NpcInteraction.Reach * NpcInteraction.Reach;
-    }
+    public static bool CanReach(WorldPlayer player, WorldNpc npc) =>
+        !player.IsDead && player.Shop is null && NpcInteraction.WithinReach(player.Position, npc.Position);
 
     public static NpcServiceOutcome Check(WorldPlayer player, FieldInstance field, NpcServiceCommand command, out WorldNpc? npc,
         out NpcService? service)

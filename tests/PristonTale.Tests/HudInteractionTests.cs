@@ -34,6 +34,7 @@ internal static class HudInteractionTests
         yield return ("owner combat statistics survive the owner-status packet", OwnerStatsAsync);
         yield return ("original HUD hit rectangles stay inside their windows without overlapping", HitRectsAsync);
         yield return ("a carried item is set down by a second click on an original equipment slot with the owner revision", EquipmentDragAsync);
+        yield return ("the weapon pair key holds the other pair with the window closed once the motion in progress ends, the next swing's start included", WeaponPairKeyAsync);
         yield return ("the pointer attacks over wild monsters, talks over NPCs and stays the arrow elsewhere", CursorKindAsync);
         yield return ("the settings offer only the monitor's sizes: all in fullscreen, those that fit in a window, none borderless", ResolutionsAsync);
         yield return ("a carried item lands where the original sets it: free cells, one item to exchange, a potion to join, a slot of its kind", PlacementAsync);
@@ -157,6 +158,38 @@ internal static class HudInteractionTests
                 Assert.True(!rectangles[index].Intersects(rectangles[other]), $"{name} overlap");
             }
         }
+    }
+
+    private static Task WeaponPairKeyAsync()
+    {
+        var layout = HudLayout.Create(800, 600);
+        var state = OwnerState.Capture(new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Pair")) with { InventoryRevision = 3 };
+        InventoryCommand? sent = null;
+        var controller = new HudInventoryController(null!, command =>
+        {
+            sent = command;
+            return Task.FromResult(new InventoryOutcome(true, 4, ""));
+        });
+        controller.Update(state, layout, false, default, default);
+        controller.PickupLocked = true;
+        controller.ToggleWeaponPair();
+        controller.Update(state, layout, false, default, default);
+        Assert.True(sent is null, "the pair changed during a swing");
+        controller.ActionStarts++;
+        controller.Update(state, layout, false, default, default);
+        Assert.True(sent is { Action: InventoryAction.SwitchWeaponSet, Destination: 1, ExpectedRevision: 3 },
+            $"the next swing of a fight did not end the wait for the other pair: {sent}");
+
+        sent = null;
+        var swapped = state with { WeaponSet = 1, InventoryRevision = 4 };
+        controller.Update(swapped, layout, false, default, default);
+        controller.ToggleWeaponPair();
+        controller.Update(swapped, layout, false, default, default);
+        Assert.True(sent is null, "the pair changed during the swing it was asked in");
+        controller.PickupLocked = false;
+        controller.Update(swapped, layout, false, default, default);
+        Assert.True(sent is { Action: InventoryAction.SwitchWeaponSet, Destination: 0 }, $"the pair did not change once the player stopped: {sent}");
+        return Task.CompletedTask;
     }
 
     private static Task EquipmentDragAsync()

@@ -10,6 +10,7 @@ using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.PersonalShops;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Fields;
@@ -183,7 +184,7 @@ public sealed partial class WorldServer
                 return new WorldLeave(false, null);
             }
 
-            var save = connection.Session is { } session ? CaptureForSave(session, connection) : null;
+            var save = connection.Session is { } session ? CaptureLeaving(session, connection) : null;
             _fields[connection.FieldId].Remove(entityId);
             _connections.Remove(entityId);
             _pendingByPlayer.TryRemove(entityId, out _);
@@ -295,7 +296,7 @@ public sealed partial class WorldServer
 
         if (connection is not null)
         {
-            if (connection.Player.IsDead && CaptureDead(session, connection) is { } dead)
+            if (connection.Player.IsDead && CaptureDead(session, connection.Player.Character, connection.FieldId, connection.Player.Position) is { } dead)
             {
                 return dead;
             }
@@ -304,6 +305,30 @@ public sealed partial class WorldServer
         }
 
         return CharacterRecordFactory.Capture(session.Loaded, session.Character, session.FieldId, session.SpawnPosition);
+    }
+
+    // A durable operation still holding the save gate commits after this tick, possibly on another character too (a
+    // personal shop sale): the leave save then waits for it and captures the character it leaves (no snapshot here), a
+    // dead one through its town restart.
+    private CharacterSaveSnapshot? CaptureLeaving(PlayerSession session, Connection connection)
+    {
+        if (session.SaveGate.CurrentCount > 0)
+        {
+            return CaptureForSave(session, connection);
+        }
+
+        UpdatePlacement(session, connection.FieldId, connection.Player.Position);
+        session.LeftDead = connection.Player.IsDead;
+        return null;
+    }
+
+    // The save of a character that left dead while an operation held its gate, once that operation is done.
+    public Task<CharacterSaveSnapshot?> CaptureLeftAsync(PlayerSession session)
+    {
+        return EnqueueAsync(NoOwner, () => session.Character is null || session.Loaded is null
+            ? null
+            : CaptureDead(session, session.Character, session.FieldId, session.SpawnPosition)
+                ?? CharacterRecordFactory.Capture(session.Loaded, session.Character, session.FieldId, session.SpawnPosition), waitForCapacity: true);
     }
 
     public int PlayerCount => Volatile.Read(ref _playerCount);
@@ -369,6 +394,12 @@ public sealed partial class WorldServer
                 var duplicate = applied.Command == command;
                 return new PreparedCharacterOperation<InventoryOutcome>(original, null, null,
                     new InventoryOutcome(duplicate, applied.Revision, duplicate ? "already committed" : "operation identity conflict"));
+            }
+
+            if (connection.Player.Shop is not null && command.Action != InventoryAction.ConsumePotion)
+            {
+                return new PreparedCharacterOperation<InventoryOutcome>(original, null, null,
+                    new InventoryOutcome(false, original.InventoryRevision, PersonalShopMessages.Of(PersonalShopStatus.Selling)));
             }
 
             if (command.Action == InventoryAction.Pickup)
@@ -440,6 +471,8 @@ public sealed partial class WorldServer
             if (operation is PreparedPotionOperation potion && TryGetOwnConnection(session, out var connection))
             {
                 connection.Player.QueuePotion(potion.Potion);
+                // A seller may drink the potions it offers.
+                connection.Player.PruneShop();
             }
 
             return true;
@@ -626,6 +659,8 @@ public sealed partial class WorldServer
     // the session now is; the caller then stands the player at position (EnterField, CrossGate or a restart).
     private void Relocate(Connection connection, int fieldCode, Vector3 position, bool inVillage)
     {
+        // A shop sells where its seller opened it.
+        connection.Player.CloseShop();
         if (connection.FieldId != fieldCode)
         {
             TransferPlayer(connection.Player, _fields[connection.FieldId], GetField(fieldCode));

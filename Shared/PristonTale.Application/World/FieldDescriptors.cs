@@ -1,8 +1,9 @@
 namespace PristonTale.Application.World;
 
 // The descriptor revision of every entity of one field: it rises when anything a viewer's description shows changes
-// (level, maximum life, template, speed, attack rate, equipment, looks, village flag, owner, size). It is computed once per
-// tick for the whole field, so every viewer sees the same revision and the encoders never compare descriptions themselves.
+// (level, maximum life, template, speed, attack rate, equipment, looks, village flag, shop sign, owner, size). It is
+// computed once per tick for the whole field, so every viewer sees the same revision and the encoders never compare
+// descriptions themselves.
 internal sealed class FieldDescriptors
 {
     // Entries of entities that left are dropped after this many ticks without a view.
@@ -86,6 +87,7 @@ internal sealed class FieldDescriptors
                 && string.Equals(_appearance.OffHandKey, appearance.OffHandKey, StringComparison.Ordinal)
                 && _appearance.WeaponGlow == appearance.WeaponGlow && _appearance.OffHandGlow == appearance.OffHandGlow
                 && string.Equals(_appearance.Name, appearance.Name, StringComparison.Ordinal)
+                && string.Equals(_appearance.ShopSign, appearance.ShopSign, StringComparison.Ordinal)
                 && string.Equals(_appearance.ModelName, appearance.ModelName, StringComparison.Ordinal)
                 && string.Equals(_appearance.ModelName2, appearance.ModelName2, StringComparison.Ordinal);
         }

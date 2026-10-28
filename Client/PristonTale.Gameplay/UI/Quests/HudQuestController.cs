@@ -196,7 +196,7 @@ public sealed class HudQuestController(Func<QuestCommand, Task<QuestOutcome>> re
         _pendingAction = command.Action;
         _pendingNpc = command.NpcEntityId;
         _request.Start(() => request(command),
-            cancelled => QuestOutcome.Failed(QuestStatus.Rejected, cancelled ? "" : "Connection error. Please try again."));
+            cancelled => QuestOutcome.Failed(QuestStatus.Rejected, cancelled ? "" : HudRequest.ConnectionError));
     }
 
     private void Apply(QuestOutcome outcome, QuestAction action, ulong npc)

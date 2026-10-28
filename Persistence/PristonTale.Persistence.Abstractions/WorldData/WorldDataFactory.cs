@@ -30,7 +30,7 @@ public static class WorldDataFactory
             (ItemKind)r.Kind,
             GridWidth: Math.Max(1, r.GridWidth),
             GridHeight: Math.Max(1, r.GridHeight),
-            MaxStack: Math.Max(1, r.MaxStack))
+            MaxStack: (ItemKind)r.Kind == ItemKind.Potion ? PotionDefinition.StackSize : Math.Max(1, r.MaxStack))
         {
             CatalogKey = r.Code,
             // Potions and event foods restore their authored ranges; only potions are drunk from the belt.

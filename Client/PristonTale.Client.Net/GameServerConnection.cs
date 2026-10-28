@@ -88,7 +88,10 @@ public sealed class GameServerConnection : IGameBackend
         _port = uri.Port;
         _certificatePolicy = ServerCertificatePolicy.FromAddress(uri);
         _presence = new PresenceDecoder(_catalog, RequestDescription);
+        PersonalShops = new PersonalShopRequests(packet => Send(packet));
     }
+
+    internal PersonalShopRequests PersonalShops { get; }
 
     public string? SessionToken { get; private set; }
 
@@ -446,6 +449,7 @@ public sealed class GameServerConnection : IGameBackend
             _npcDialogs.FailAll(error);
             _services.FailAll(error);
             _quests.FailAll(error);
+            PersonalShops.FailAll(error);
 
             _presenceUpdates.Writer.TryComplete(error);
         }
@@ -578,6 +582,9 @@ public sealed class GameServerConnection : IGameBackend
 
                 break;
             }
+            default:
+                PersonalShops.Handle(code, packet);
+                break;
         }
 
         return ValueTask.CompletedTask;
@@ -619,8 +626,7 @@ public sealed class GameServerConnection : IGameBackend
                 var warehouse = WarehousePacket.Read(packet);
                 if (_services.IsWaiting(warehouse.OperationId))
                 {
-                    var items = warehouse.Items.Select(entry => new OwnedItemView(entry.InstanceId, entry.Code, entry.Name, (ItemKind)entry.Kind, entry.Count,
-                        entry.Anchor, -1, entry.Width, entry.Height, ItemCodes.KeyOf(entry.Code))).ToArray();
+                    var items = warehouse.Items.Select(StoreItems.View).ToArray();
                     var view = new WarehouseView(warehouse.Revision, warehouse.Money, warehouse.Weight, warehouse.MaxWeight, warehouse.Columns,
                         warehouse.Rows, items);
                     AddServicePart(warehouse.OperationId, reply => reply with { Warehouse = view });

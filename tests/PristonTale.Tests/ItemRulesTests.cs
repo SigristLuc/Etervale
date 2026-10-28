@@ -37,6 +37,7 @@ internal static class ItemRulesTests
         yield return ("item copies keep their values through saves and older saves take the shop form with their specialization", PersistenceAsync);
         yield return ("item details and the equipment status reach the owner over the wire", WireAsync);
         yield return ("the item reader keeps the known specialization classes and every special bonus", ImportAsync);
+        yield return ("potions stack in the bag, so a shop sells them by the count onto one stack", PotionStacksAsync);
     }
 
     private static ItemTemplateRecord Record(string code) => new(
@@ -45,6 +46,20 @@ internal static class ItemRulesTests
 
     private static ItemDefinition Def(string code, Func<ItemTemplateRecord, ItemTemplateRecord>? change = null) =>
         WorldDataFactory.ToItemDefinition(change is null ? Record(code) : change(Record(code)));
+
+    private static Task PotionStacksAsync()
+    {
+        var potion = Def("PL101", record => record with { Kind = (int)ItemKind.Potion, Price = 25, Weight = 1 });
+        Assert.True(potion.MaxStack == PotionDefinition.StackSize && Def("WA101").MaxStack == 1, "potions stack to their stack size; other items keep the authored one");
+
+        var character = Fighter();
+        character.TryChangeMoney(1000 - character.Money);
+        Assert.True(NpcShopRules.TryBuy(character, potion, 30, -1, out var cost) == NpcServiceStatus.Ok && cost == 750, "thirty potions were bought");
+        Assert.True(NpcShopRules.TryBuy(character, potion, 9, -1, out _) == NpcServiceStatus.Ok, "nine more were bought");
+        var stacks = character.Inventory.Items().Where(item => item.Definition == potion).ToArray();
+        Assert.True(stacks is [{ Count: 39 }] && character.Money == 25, $"the potions share one stack: {string.Join(",", stacks.Select(item => item.Count))}");
+        return Task.CompletedTask;
+    }
 
     private static PlayerCharacter Fighter(int level = 50) => new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Items", level);
 

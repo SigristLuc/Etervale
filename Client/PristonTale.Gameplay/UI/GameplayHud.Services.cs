@@ -205,7 +205,7 @@ public sealed partial class GameplayHud
                 CloseServices();
                 break;
             case HudShopAction.Buy when _shop.Selected is { } offer && state is not null:
-                _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Shop, NpcServiceAction.Buy, state.InventoryRevision, offer.Code);
+                BuyFromShop(offer, state);
                 break;
             case HudShopAction.RepairAll when state is not null:
                 _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Shop, NpcServiceAction.RepairAll, state.InventoryRevision);
@@ -213,8 +213,37 @@ public sealed partial class GameplayHud
         }
     }
 
+    // As in the original, goods sold in stacks (potions) ask how many, up to a stack and what the gold pays for; other
+    // items buy one at a click.
+    private void BuyFromShop(ShopOffer offer, OwnerState state)
+    {
+        if (offer.MaxStack <= 1)
+        {
+            BuyFromShop(offer, 1);
+            return;
+        }
+
+        var affordable = offer.Price > 0 ? state.Money / offer.Price : offer.MaxStack;
+        if (affordable < 1)
+        {
+            _notice.Show(ItemRuleMessages.NotEnoughGold);
+            return;
+        }
+
+        _countBox.Open("How many items", "do you wanna buy?", Math.Min(offer.MaxStack, affordable), count => BuyFromShop(offer, count));
+    }
+
+    private void BuyFromShop(ShopOffer offer, int count) =>
+        _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Shop, NpcServiceAction.Buy, _state?.InventoryRevision ?? 0, offer.Code,
+            count: count);
+
     private bool InterceptInventoryClick(OwnedItemView item)
     {
+        if (_personalShop.InterceptBagClick(item))
+        {
+            return true;
+        }
+
         if (_aging.Holds(item.InstanceId) || _mix.Holds(item.InstanceId))
         {
             return true;
@@ -363,7 +392,7 @@ public sealed partial class GameplayHud
             case HudWorkActionKind.Start when state is not null:
                 if (state.Money < bench.Price(state))
                 {
-                    _notice.Show("Not enough gold");
+                    _notice.Show(ItemRuleMessages.NotEnoughGold);
                     break;
                 }
 

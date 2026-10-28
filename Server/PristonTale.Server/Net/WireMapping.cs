@@ -52,7 +52,8 @@ internal static class WireMapping
                     appearance.HelperPet, appearance.BigHead)
                 {
                     WeaponGlow = Glow(appearance.WeaponGlow),
-                    OffHandGlow = Glow(appearance.OffHandGlow)
+                    OffHandGlow = Glow(appearance.OffHandGlow),
+                    ShopSign = appearance.ShopSign
                 };
                 return new EntityDescriptionPacket(view.EntityId, revision, EntityKind.Player, view.Level, view.MoveSpeed, view.AttackRate,
                     appearance.Name ?? "", appearance.ModelName ?? "", looks);

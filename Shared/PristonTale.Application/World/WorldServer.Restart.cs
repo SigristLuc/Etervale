@@ -1,6 +1,7 @@
 using System.Numerics;
 using PristonTale.Application.Sessions;
 using PristonTale.Persistence.Abstractions.Characters;
+using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.World;
 using PristonTale.Contracts.Combat;
@@ -71,10 +72,10 @@ public sealed partial class WorldServer
 
     // The record a dead player is saved with: the town restart with its costs, so leaving while down neither skips the
     // penalty nor brings the player back dead.
-    private CharacterSaveSnapshot? CaptureDead(PlayerSession session, Connection connection)
+    private CharacterSaveSnapshot? CaptureDead(PlayerSession session, PlayerCharacter character, int fieldId, Vector3 fellAt)
     {
-        if (session.Loaded is null || !_fields.TryGetValue(connection.FieldId, out var field)
-            || RestartTransactions.Resolve(connection.Player.Character, field.State, RestartChoice.Town, out _, out _, out _) is not { } candidate)
+        if (session.Loaded is null || !_fields.TryGetValue(fieldId, out var field)
+            || RestartTransactions.Resolve(character, field.State, RestartChoice.Town, out _, out _, out _) is not { } candidate)
         {
             return null;
         }
@@ -82,7 +83,7 @@ public sealed partial class WorldServer
         var town = DeathPenalty.TownField(candidate.Class.Class);
         var position = _catalog.TryGetFieldByCode(town, out var definition) && definition.StartPoints.Count > 0
             ? new Vector3(definition.StartPoints[0].X, 0f, definition.StartPoints[0].Z)
-            : connection.Player.Position;
+            : fellAt;
         return CharacterRecordFactory.Capture(session.Loaded, candidate, town, position);
     }
 }

@@ -34,6 +34,7 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Packets/EtervalePackets.cs` | Owner status, inventory parts, skills, inventory/progression commands and results, combat events, removals, presence clock. |
 | `Packets/ItemPackets.cs` | Owner item details (`ItemDetailEntry`, `ItemDetailsPartPacket`), the equipment status (`OwnerItemStatusPacket`) and the aging progress (`AgingProgressPacket`). |
 | `Packets/SkillPackets.cs` | Skill cast, cast result, skill events, status effects, cooldowns. |
+| `Packets/PersonalShopPackets.cs` | Personal shop open, close, view and buy requests; result, listing and details. |
 | `Packets/NpcPackets.cs` | NPC result, service request/result, shop catalog and quotes, warehouse, teleport list, item work result. |
 | [Transport/FrameConnection.cs](../Shared/PristonTale.Protocol/Transport/FrameConnection.cs) | One TLS stream: receive loop and coalesced single-writer send. |
 | `Transport/TlsTransport.cs` | Server and client handshakes, `ServerCertificatePolicy` (system trust, loopback, pin). |
@@ -193,6 +194,9 @@ Every message code has the high word `0x4554` ("ET"); every message keeps the `{
 | `0x45540500` / `0x45540501` | `QuestRequest` / `QuestResult` | C→S / S→C | One quest step (talk, proceed, accept, class change, reward choice, skill redistribution), correlated by operation id (see below). |
 | `0x45540502` | `QuestJournal` | S→C | The owner's quest journal view whenever its revision changes. |
 | `0x45540503` | `QuestNotices` | S→C | Quest notices of the world tick and a quest dialog the world opened. |
+| `0x45540600` .. `0x45540603` | `PersonalShopOpen`, `PersonalShopClose`, `PersonalShopView`, `PersonalShopBuy` | C→S | Open a personal shop over bag items, close it, show a seller's shop, buy from it (see below). |
+| `0x45540604` | `PersonalShopResult` | S→C | The answer to a personal shop request, by operation id. |
+| `0x45540605` / `0x45540606` | `PersonalShopListing` / `PersonalShopDetails` | S→C | A seller's shop as the viewer sees it and its copies' values, sent before the result of a view or a purchase while the shop is open. |
 | `0x45540A00` / `0x45540A01` | `RestartRequest` / `RestartResult` | C→S / S→C | A dead player's restart (field, town, exit), correlated by operation id; a stored restart also sends a forced `FieldWarp`. |
 | `0x45540A02` | `RestartOffer` | S→C | While the owner is dead, what a restart would cost, whenever it changes. |
 | `0x45540B00` / `0x45540B01` | `GroundItems` / `GroundItemsRemoved` | S→C | Drops entering and leaving the receiver's view: within the ground-item range (squared `0xC8000` units, about 905 units), private drops only to their owner. |
@@ -302,14 +306,15 @@ Rules: [special-items.md](special-items.md).
 
 ### Entity descriptions
 
-Bodies start with `{uint16 Version = 1, uint16 Flags = 0}`; text is UTF-8 with a `uint16` byte length (name 64 bytes,
+Bodies start with `{uint16 Version = 2, uint16 Flags = 0}` (version 2 appended the player's shop sign to
+`EntityDescription`; a reader fills it only from version 2); text is UTF-8 with a `uint16` byte length (name 64 bytes,
 model paths 160).
 
 | Message | Layout after the header |
 | --- | --- |
 | `DescribeEntity` | `varuint EntityId` |
 | `EntityDescription` | `varuint EntityId, uint8 Revision, uint8 Kind (1 player, 2 monster, 3 NPC), varuint Level, varuint MoveSpeed, float32 AttackRate, text Name, text Model`, then the player or template part |
-| Player part | `varuint Job, Tier, Face, Hair, text HeadModel, uint32 Weapon, Armor, OffHand (item codes, 0 none), uint8 Flags (1 village, 2 Phoenix), uint8 HelperPet, uint8 BigHead, glow WeaponGlow, glow OffHandGlow` |
+| Player part | `varuint Job, Tier, Face, Hair, text HeadModel, uint32 Weapon, Armor, OffHand (item codes, 0 none), uint8 Flags (1 village, 2 Phoenix), uint8 HelperPet, uint8 BigHead, glow WeaponGlow, glow OffHandGlow, text ShopSign (128 B, empty when the player sells nothing)` |
 | Glow (`DescribedGlow`, 16 bytes) | `int8 Blink (0 none, below 0 steady), int16 R, G, B, A, float32 Scale, int8 Mix (-1 none), uint8 MixScroll, uint8 Flags (1 class-up light)` (`HeldItemGlow`) |
 | Template part | `varuint Template, float32 TemplateScale, varuint SoundCode, varint PortraitY, PortraitZ, uint8 Brood, varuint Owner, float32 InstanceScale, uint32 NpcServices, varuint Class, varint ShadowSize` (the monster class: 1 boss, 200 hammer; the ground shadow -1 none, 0 small to 3 large) |
 
@@ -381,6 +386,27 @@ to 64 bytes, item names 40, messages 128, dialog lines 256), and counts are 32-b
 The server checks every request against the NPC in the player's field (alive, within 96 units, offering the service),
 writes durable changes before applying them and records the operation id with the character, so a retried request
 returns its first outcome without charging again.
+
+### Personal shops
+
+Every body starts with `{uint16 Version = 1, uint16 Flags = 0}`; text is UTF-8 with a `uint16` byte length (the sign
+128 bytes, names 64, item names 40, messages 128); a shop holds at most 30 items (`PersonalShopLimits`, Contracts).
+
+| Message | Layout after the header |
+| --- | --- |
+| `PersonalShopOpen` | `Guid OperationId, text Sign, int32 Count, entries {Guid ItemId, int64 UnitPrice, int32 Cell}` (a store grid cell) |
+| `PersonalShopClose` | `Guid OperationId` |
+| `PersonalShopView` | `Guid OperationId, uint64 SellerId` |
+| `PersonalShopBuy` | `Guid OperationId, uint64 SellerId, Guid ItemId, int64 UnitPrice, int32 Count, int32 0, int64 ExpectedRevision` (the buyer's inventory) |
+| `PersonalShopResult` | `Guid OperationId, uint8 Action (0 open, 1 close, 2 view, 3 buy), uint8 0, uint16 Status, int32 Count, int64 Revision, int64 UnitPrice, text Message` |
+| `PersonalShopListing` | `Guid OperationId, uint64 SellerId, int32 Count, offers {StoreItemEntry, int64 UnitPrice}`; a store item entry is `{Guid, uint32 Code, uint8 Kind, uint8 0, uint16 0, int32 Count, int32 Cell, int16 Width, int16 Height, text Name}` (the warehouse's too) |
+| `PersonalShopDetails` | `Guid OperationId, uint64 SellerId, int32 Count, ItemDetailEntry entries` |
+
+`Status` is `PersonalShopStatus` (Simulation): 0 ok, `Rejected`, `NotInTown`, `NotListable`, `GoldLimit`, `Closed`,
+`SoldOut`, `CountChanged` and `PriceChanged` (then `Count` and `UnitPrice` name what the shop offers now),
+`NotEnoughGold`, `NoSpace`, `OverWeight`, `Busy`, `StorageFailed`, `Stale`, `OutOfReach`, `Conflict`, `Selling` (the
+requester's own shop holds it). The client never sends a total or an item: the server prices the purchase from the
+listing and moves the copies it holds. A player's sign reaches the others in its `EntityDescription`.
 
 ### Death and restart
 
@@ -531,8 +557,9 @@ connection every `Server:ReportSeconds` (30 by default).
 1. **Code.** Add a constant to `EtervaleOpcodes` in `Binary/EtervaleOpcodes.cs`, in the range of its area (`0x455401xx`
    owner state, `0x4554011x` inventory, `0x4554012x` progression, `0x4554013x` NPC, `0x4554014x` combat, `0x4554015x`
    removals, `0x4554016x` leave, `0x4554017x` clock, `0x455402xx` skills, `0x455403xx` item details, `0x455404xx`
-   usable items, `0x455405xx` quests, `0x455409xx` presence, `0x45540Axx` restart, `0x45540Bxx` ground items,
-   `0x45540Cxx` chat, `0x45540Dxx` player actions, `0x45540Exx` world entry, `0x45540Fxx` account).
+   usable items, `0x455405xx` quests, `0x455406xx` personal shops, `0x455409xx` presence, `0x45540Axx` restart,
+   `0x45540Bxx` ground items, `0x45540Cxx` chat, `0x45540Dxx` player actions, `0x45540Exx` world entry, `0x45540Fxx`
+   account).
 2. **Packet type.** Add a record in `Packets/` with `Size` or `HeaderSize` constants, `int Write(Span<byte>)` built on
    `PacketWriter` (returning `Finish()`), and `static Read(ReadOnlySpan<byte>)` built on `PacketReader(packet,
    minimum)`. Start new bodies with `{uint16 Version, uint16 Flags}`, reject version 0, append fields only at the end,

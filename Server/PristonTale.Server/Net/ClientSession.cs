@@ -40,6 +40,7 @@ internal sealed record SessionServices(
     RestartAppService Restart,
     WingGateAppService WingGates,
     QuestAppService Quests,
+    PersonalShopAppService PersonalShops,
     ChatAppService Chat,
     GameServerControl Control)
 {
@@ -193,6 +194,18 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                     break;
                 case EtervaleOpcodes.SkillCast:
                     await CastSkillAsync(SkillCastPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.PersonalShopOpen:
+                    await OpenPersonalShopAsync(PersonalShopOpenPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.PersonalShopClose:
+                    await ClosePersonalShopAsync(PersonalShopClosePacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.PersonalShopView:
+                    await ViewPersonalShopAsync(PersonalShopViewPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.PersonalShopBuy:
+                    await BuyFromPersonalShopAsync(PersonalShopBuyPacket.Read(memory.Span));
                     break;
                 case EtervaleOpcodes.LeaveWorld:
                     SendLarge(new LeaveWorldPacket(Saved: await ClosePlayAsync()).Write, LeaveWorldPacket.Size);

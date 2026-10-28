@@ -100,7 +100,7 @@ public sealed class HudNpcPanel(
             _dismissed = false;
             _firstLine = 0;
             Destinations = [];
-            _request.Start(() => interact(entityId), _ => NpcInteraction.Rejected("Connection error. Please try again."));
+            _request.Start(() => interact(entityId), _ => NpcInteraction.Rejected(HudRequest.ConnectionError));
         }
     }
 

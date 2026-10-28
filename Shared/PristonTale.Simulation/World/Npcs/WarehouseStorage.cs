@@ -3,11 +3,9 @@ using PristonTale.Simulation.Items;
 
 namespace PristonTale.Simulation.World.Npcs;
 
-// Account storage kept by warehouse NPCs: the original 9x9 grid of 22-pixel cells, at most 100 items and 1000 weight.
+// Account storage kept by warehouse NPCs: the store grid (StoreGrid), at most 100 items and 1000 weight.
 public sealed class WarehouseStorage
 {
-    public const int Columns = 9;
-    public const int Rows = 9;
     public const int MaxItems = 100;
     public const int MaxWeight = 1000;
     public const long MaxMoney = 100_000_000;
@@ -26,7 +24,7 @@ public sealed class WarehouseStorage
         Money = money;
     }
 
-    public Inventory Grid { get; } = new(Columns, Rows);
+    public Inventory Grid { get; } = StoreGrid.Create();
     public long Money { get; private set; }
     public long Revision { get; private set; }
 
@@ -212,6 +210,6 @@ public sealed class WarehouseStorage
     public WarehouseView View()
     {
         var items = Grid.Occupied().Select(static cell => OwnedItemView.Of(cell.Item, cell.Anchor, -1)).ToArray();
-        return new WarehouseView(Revision, Money, Weight, MaxWeight, Columns, Rows, items);
+        return new WarehouseView(Revision, Money, Weight, MaxWeight, StoreGrid.Columns, StoreGrid.Rows, items);
     }
 }

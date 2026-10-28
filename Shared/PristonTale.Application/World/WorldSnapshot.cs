@@ -38,6 +38,9 @@ public readonly struct PlayerAppearanceView
     public bool Phoenix { get; init; }
     public int BigHead { get; init; }
 
+    // The sign of the personal shop the player sells from, empty when it sells nothing.
+    public string ShopSign { get; init; } = "";
+
     public string Name { get; }
     public PlayerClass Class { get; }
     public int Tier { get; init; }

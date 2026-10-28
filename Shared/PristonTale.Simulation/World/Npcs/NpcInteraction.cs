@@ -9,6 +9,14 @@ public sealed record NpcInteraction(bool Ok, ulong EntityId, string Name, IReadO
 {
     public const float Reach = 96f;
 
+    // Within Reach on the ground plane (an NPC, or a personal shop's seller, from where the player stands).
+    public static bool WithinReach(System.Numerics.Vector3 from, System.Numerics.Vector3 to)
+    {
+        var dx = from.X - to.X;
+        var dz = from.Z - to.Z;
+        return dx * dx + dz * dz <= Reach * Reach;
+    }
+
     public NpcServiceSet ServiceSet
     {
         get

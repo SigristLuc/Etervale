@@ -181,6 +181,11 @@ Correlation rules (requests without an operation id):
 - NPC interaction is an `AttackRequest` on the NPC id; one request per NPC id at a time; `NpcResult` completes it.
 - NPC service requests carry an operation id. Shop catalog, quotes, warehouse and teleport list messages arrive before
   `NpcServiceResult` and are collected in `_serviceParts`, then returned with the result's outcome as one `NpcServiceReply`.
+- Personal shop requests (`Online/PersonalShopRequests.cs`, `GameServerConnection.PersonalShops`): open, close, view
+  and buy carry an operation id; the listing and the details of a view or a purchase arrive before
+  `PersonalShopResult` and come back with it as one `PersonalShopReply` (the offers with their copies' values). A
+  player's shop sign arrives in its description (`PlayerAppearanceInfo.ShopSign`); `RemoteEntityManager.ShopSigns`
+  keeps the signs in view, the local player's included, and a new sign alone rebuilds no model.
 - A receive-loop failure fails every pending request and completes the presence channel with the error; later calls
   throw `IOException`.
 
@@ -403,7 +408,8 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
   (48, 572), and the weapon pair A/B at (524, 525) and (546, 525) (the shipped `Inven.bmp`'s place, 5 pixels right of and
   11 below the original's table); `LeftArrow.bmp`/`RightArrow.bmp` light the shown page and the held pair, and the
   button under the pointer. A click or the keys E and W switch (`SwitchBagPage`, `SwitchWeaponSet`), not while an item
-  is carried; a pair asked for while the player swings or casts is held once the motion ends, as the original waits.
+  is carried; a pair asked for while the player swings or casts is held once that motion ends (the player stops, or the
+  next swing or cast begins: `ActorMotionController.ActionStarts`), as the original swaps at the end of the motion.
   The button under the pointer shows its label `HudInventoryLayout.HintRise` (27) pixels above it, as the original's
   `Inven/InfoBox` art: `ButtonItemA`/`B` over the pages, `ButtonA`/`B` over the pairs (the shipped art reads
   "Equipemt2" over A and "Equipemt1" over B), and over the close button its exit sign and `ButtonExit` 8 pixels left.
@@ -457,35 +463,52 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
   outcome over once (progression, item use, NPC dialog and services, wing gates, quests).
 - `HudNpcServiceController`: one request in flight; `Open` replies set the open service and its state; `OutOfReach`,
   `NotOpen` and `Conflict` close it. While the shop is open, an inventory revision change triggers a quote refresh.
-- The four service windows implement `IHudServiceWindow` (`UI/Npc/IHudServiceWindow.cs`): open and slide state,
-  `BlocksWorld` (the work windows keep every click from the world, the shop only its area), `Contains`, `Hide`, body
-  and overlay draw with one `HudServiceFrame`. `GameplayHud` keeps them in one list (`_serviceWindows`, draw order shop,
-  warehouse, aging, mix) for closing, advancing, capturing clicks and drawing; a new service window joins that list.
+- The service windows implement `IHudServiceWindow` (`UI/Npc/IHudServiceWindow.cs`): open and slide state, `BlocksWorld`
+  (the work windows and the personal shop keep every click from the world, the shop only its area), `Contains`, `Hide`,
+  body and overlay draw with one `HudServiceFrame`. `GameplayHud` keeps them in one list (`_serviceWindows`, draw order
+  shop, warehouse, aging, mix, personal shop) for closing, advancing, capturing clicks and drawing; a new service window
+  joins that list.
+- Personal shop (`UI/PersonalShops/`, `HudPersonalShopController` with `HudPersonalShopWindow` on the store window,
+  `HudSignBox`, art `HudPersonalShopArt`; `GameplayHud.PersonalShops.cs`): the inventory's shop button (98, 572) opens
+  the player's own listing in a town, closing the other service windows and the special item box. While it does not
+  sell, a click on a bag item the rules let go (`PersonalShopRules.IsListable`) asks its price per unit in the count
+  box, bounded by `PersonalShopRules.MaxPrice` and the gold the player may still carry, and lays it at the first free
+  place down the columns (`HudStoreLayout.FindSpace`); a listed item keeps its bag cell (`Withheld`) and a click on it
+  in the window asks to take it back. The start button asks for the sign and sends the listing; the stop button closes
+  the shop; hiding the window (exit, Escape, another service window) forgets an unsold listing. The player sells while
+  its own sign hangs (`GameScene.ShopSigns`), or for a few seconds after an opened shop's reply while the sign is on its
+  way: nothing in the bag moves, the player is held (`HoldsPlayer`), and a button at (10, 220) reopens the window. A
+  count box or the sign box takes the keyboard from the chat and the game keys while it is open. A reply to a view or a
+  purchase changes the window only while it still shows that shop (a view never replaces the player's own listing); one
+  request is in flight at a time. A click on a selling player approaches it as an NPC (`GameScene.ShopSellerSelected`)
+  and shows its shop: the price under the pointer, the player's gold, and a click on an offer asks how many (a stack, up
+  to what the gold pays for) or whether to buy it. A reply shows the shop as it is now or closes it, and a refusal shows
+  its text. Signs hang over their sellers in the shop's bubble frame while they say nothing (`HudChatBubbles.Signs`).
 - Shop (`HudShopWindow`): buy, sell (click or drop an inventory item on the shop), repair, repair all; opens next to the
-  inventory. Stock fills pages in authored order, each item at the first free place down the columns from the left; an
-  item that does not fit starts the next page. Warehouse (`HudWarehouseWindow`): items are carried as in the bag. A
-  stored item set down on the grid sends Move, in the bag (`HudInventoryPlacement.OfStored`: bag cells only) Withdraw;
-  a bag item set down on the grid sends Deposit (`GameplayHud.DropFromInventory` through the same
-  `HudWarehouseWindow.SetDownOnGrid`). Over one item the request names it
-  (`Covered`) and the HUD carries it once the reply shows it where it went; what `WarehouseStorage.CanStore` keeps out
-  shows red, a potion is refused on the click with the original's message and stays carried. The coin of the upper bar
-  opens the count box for gold to take out, bounded by the stored gold and the carry limit. Aging and mixing share their frame in `HudWorkbench` (slide, main item, stone and sheltom slots, drop placement,
-  right-click take-back, start and exit, tooltips); each window supplies its placement rule, readiness, price, panel and
-  start info, whether taking the main item back clears the window (aging) and when the start button shows, and its work
-  (`Service`, `WorkAction`, `ResultText`, `Succeeded`; mixing keeps the formula it started with). `GameplayHud` sends and
-  shows any bench's work through `ApplyWorkAction` and `ShowWorkResult`. Aging
-  (`HudAgingWindow`, layout `HudCraftLayout`, art `HudCraftArt`): the shop
-  frame with the aging title and the work panel; an inventory item dropped on it goes to the item box (refused with
-  "Item can't be aged"), a sheltom to a cell whose grey hint asks it, a stone or ore to the stone cell. Placed items stay
-  in the bag, dimmed and fixed; a right click gives one back. The plate shows `(level + 1) * price / 2`; the start button
-  lights when every asked sheltom is in place and sends `Age` with the materials. The result shows the original message
-  (+1, +2, -1, -2 or failed) with the drink sound or `sheltom-failure.wav`, and the window closes as the original's does.
-  Mixing (`HudMixWindow`): the same frame with the mixing title and panel, or the alchemist's panel and title; an item
-  in the item box (mixing only), sheltoms or seals in the twelve cells (alchemy: sheltoms up to the eleventh), the respec
-  stone in the stone cell. The plate shows the item's price or the alchemy prices, both scaled by the offer's
-  `PricePercent`; the result shows what the mix added (the formula's lines), the reconstruction, the refining or the
-  failure.
-  Server rules: [application.md](application.md), [world.md](world.md).
+  inventory. Stock fills pages in authored order, each item at the first free place down the columns from the left
+  (`HudStoreLayout.FindSpace`); an item that does not fit starts the next page. Goods sold in stacks (potions) ask how
+  many in the count box, up to a stack and what the gold pays for; other items buy one at a click. Warehouse
+  (`HudWarehouseWindow`): items are carried as in the bag. A stored item set down on the grid sends Move, in the bag
+  (`HudInventoryPlacement.OfStored`: bag cells only) Withdraw; a bag item set down on the grid sends Deposit
+  (`GameplayHud.DropFromInventory` through the same `HudWarehouseWindow.SetDownOnGrid`). Over one item the request names
+  it (`Covered`) and the HUD carries it once the reply shows it where it went; what `WarehouseStorage.CanStore` keeps
+  out shows red, a potion is refused on the click with the original's message and stays carried. The coin of the upper
+  bar opens the count box for gold to take out, bounded by the stored gold and the carry limit. Aging and mixing share
+  their frame in `HudWorkbench` (slide, main item, stone and sheltom slots, drop placement, right-click take-back, start
+  and exit, tooltips); each window supplies its placement rule, readiness, price, panel and start info, whether taking
+  the main item back clears the window (aging) and when the start button shows, and its work (`Service`, `WorkAction`,
+  `ResultText`, `Succeeded`; mixing keeps the formula it started with). `GameplayHud` sends and shows any bench's work
+  through `ApplyWorkAction` and `ShowWorkResult`. Aging (`HudAgingWindow`, layout `HudCraftLayout`, art `HudCraftArt`):
+  the shop frame with the aging title and the work panel; an inventory item dropped on it goes to the item box (refused
+  with "Item can't be aged"), a sheltom to a cell whose grey hint asks it, a stone or ore to the stone cell. Placed
+  items stay in the bag, dimmed and fixed; a right click gives one back. The plate shows `(level + 1) * price / 2`; the
+  start button lights when every asked sheltom is in place and sends `Age` with the materials. The result shows the
+  original message (+1, +2, -1, -2 or failed) with the drink sound or `sheltom-failure.wav`, and the window closes as
+  the original's does. Mixing (`HudMixWindow`): the same frame with the mixing title and panel, or the alchemist's panel
+  and title; an item in the item box (mixing only), sheltoms or seals in the twelve cells (alchemy: sheltoms up to the
+  eleventh), the respec stone in the stone cell. The plate shows the item's price or the alchemy prices, both scaled by
+  the offer's `PricePercent`; the result shows what the mix added (the formula's lines), the reconstruction, the
+  refining or the failure. Server rules: [application.md](application.md), [world.md](world.md).
 - Target frame (`HudCombat.DrawTarget`, `TargetSelection`): a clicked monster or NPC owns the frame; otherwise the
   hovered entity. The frame stays after an attack is cancelled and closes when the entity is removed or has been dead
   for 0x50 frames at 70 Hz. With `classicTargetHealthBar` false (default) the bar shows with level and life

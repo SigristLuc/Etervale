@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Gameplay.UI.Rendering;
+using PristonTale.Gameplay.World.Remote;
 
 namespace PristonTale.Gameplay.UI.Chat;
 
@@ -8,7 +9,8 @@ public readonly record struct HudOverheadPoint(Vector2 Screen, float Depth);
 
 // Speech bubbles over characters. A line shows five seconds over another character and seven over the local player,
 // only within 768 units of the camera; nearer bubbles draw over farther ones and the selected character's on top. The
-// speaker's name, up to the first colon, takes the speaker's colour; the rest is white.
+// speaker's name, up to the first colon, takes the speaker's colour; the rest is white. A player selling from a personal
+// shop shows its sign ("Name: sign") in the shop's frame while it says nothing.
 public sealed class HudChatBubbles
 {
     public const float MaxDepth = 12 * 64;
@@ -18,16 +20,27 @@ public sealed class HudChatBubbles
     private const string Box = "StartImage/MessageBox/ChatBox/";
     public static readonly string[] Frame = Enumerable.Range(0, 10).Select(index => $"{Box}MessageBox00{index}.tga").ToArray();
     public static readonly string[] SelectedFrame = Enumerable.Range(0, 10).Select(index => $"{Box}MessageBoxa00{index}.tga").ToArray();
-    public static readonly string[] Art = [.. Frame, .. SelectedFrame.Where((_, index) => index != 4)];
+    // The shop sign's frame has no fill of its own: it takes the bubble's.
+    public static readonly string[] ShopFrame = Enumerable.Range(0, 10).Select(index => $"{Box}BMessageBox00{index}.tga").ToArray();
+    public static readonly string[] ShopSelectedFrame = Enumerable.Range(0, 10).Select(index => $"{Box}BMessageBoxA00{index}.tga").ToArray();
+    public static readonly string[] Art =
+        [.. Frame, .. SelectedFrame.Where((_, index) => index != 4), .. ShopFrame.Where((_, index) => index != 4), .. ShopSelectedFrame.Where((_, index) => index != 4)];
     private static readonly Color DefaultName = new(255, 220, 100);
+    private static readonly string[][] Plain = [Frame];
+    private static readonly string[][] PlainSelected = [Frame, SelectedFrame];
+    private static readonly string[][] Shop = [ShopFrame];
+    private static readonly string[][] ShopSelected = [ShopFrame, ShopSelectedFrame];
     private readonly Dictionary<ulong, (string Text, double UntilMs)> _lines = new();
-    private readonly List<(ulong Id, HudOverheadPoint Point)> _visible = new();
+    private readonly List<(ulong Id, HudOverheadPoint Point, bool Sign)> _visible = new();
     private readonly HudWrapCache _wrap = new(WrapPixels, MaxLineChars);
 
     // The frame is drawn unless the player switched frames off; a named line always keeps its frame and tail.
     public bool Framed { get; set; } = true;
 
     public int Count => _lines.Count;
+
+    // The signs of the players selling from a personal shop, by player (RemoteEntityManager.ShopSigns, read only).
+    public Dictionary<ulong, string> Signs { get; set; } = RemoteEntityManager.NoShopSigns;
 
     public bool TryGet(ulong entityId, out string text)
     {
@@ -52,7 +65,15 @@ public sealed class HudChatBubbles
 
             if (project(id) is { } point && point.Depth < MaxDepth)
             {
-                _visible.Add((id, point));
+                _visible.Add((id, point, false));
+            }
+        }
+
+        foreach (var (id, _) in Signs)
+        {
+            if (!_lines.ContainsKey(id) && project(id) is { } point && point.Depth < MaxDepth)
+            {
+                _visible.Add((id, point, true));
             }
         }
 
@@ -60,14 +81,15 @@ public sealed class HudChatBubbles
             ? (left.Id == selected ? 1 : -1)
             : right.Point.Depth.CompareTo(left.Point.Depth));
         var scale = Math.Max(1, layout.Scale);
-        foreach (var (id, point) in _visible)
+        foreach (var (id, point, sign) in _visible)
         {
             painter.Flush();
-            DrawBubble(painter, layout, _lines[id].Text, (int)(point.Screen.X / scale), (int)(point.Screen.Y / scale), nameColor(id), id == selected);
+            var text = sign ? Signs[id] : _lines[id].Text;
+            DrawBubble(painter, layout, text, (int)(point.Screen.X / scale), (int)(point.Screen.Y / scale), nameColor(id), id == selected, sign);
         }
     }
 
-    private void DrawBubble(HudPainter painter, HudLayout layout, string text, int anchorX, int anchorY, Color name, bool selected)
+    private void DrawBubble(HudPainter painter, HudLayout layout, string text, int anchorX, int anchorY, Color name, bool selected, bool sign)
     {
         var lines = _wrap.Wrap(text, MaxLines, painter.Measure);
         if (lines.Count == 0)
@@ -88,7 +110,7 @@ public sealed class HudChatBubbles
             x -= 2;
         }
 
-        DrawFrame(painter, x, y, textWidth, lineHeight, lines.Count, named, selected, Framed);
+        DrawFrame(painter, x, y, textWidth, lineHeight, lines.Count, named, selected, Framed || sign, sign);
         painter.Flush();
         for (var index = 0; index < lines.Count; index++)
         {
@@ -101,9 +123,10 @@ public sealed class HudChatBubbles
         }
     }
 
-    // The fill is one translucent tile stretched over the inside; the border is cut from the corner, edge and tail tiles.
-    // The classic name boxes over the scene use it too (HudCombat.DrawNamePlates).
-    public static void DrawFrame(HudPainter painter, int x, int y, int width, int lineHeight, int lineCount, bool tail, bool selected, bool framed = true)
+    // The fill is one translucent tile stretched over the inside; the border is cut from the corner, edge and tail tiles
+    // (the shop sign's own tiles for a sign). The classic name boxes over the scene use it too (HudCombat.DrawNamePlates).
+    public static void DrawFrame(HudPainter painter, int x, int y, int width, int lineHeight, int lineCount, bool tail, bool selected, bool framed = true,
+        bool shop = false)
     {
         var content = lineHeight * lineCount + 6;
         var bottom = y + 4 + content;
@@ -113,7 +136,7 @@ public sealed class HudChatBubbles
             return;
         }
 
-        var sets = selected ? new[] { Frame, SelectedFrame } : new[] { Frame };
+        var sets = shop ? selected ? ShopSelected : Shop : selected ? PlainSelected : Plain;
         foreach (var set in sets)
         {
             for (var offset = 0; offset < content; offset += 16)

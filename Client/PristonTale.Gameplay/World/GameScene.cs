@@ -253,13 +253,20 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     public bool RunMode => _runMode;
     public event Action<PresenceUpdate> PresenceObserved;
 
+    // What a request answers when the scene has no world connection.
+    private const string NoConnection = "world connection unavailable";
+
     public Task<PristonTale.Simulation.Items.InventoryOutcome> ApplyInventoryAsync(PristonTale.Simulation.Items.InventoryCommand command)
     {
         return _playChannel is not null ? _playChannel.ApplyInventoryAsync(command, _presenceCts.Token)
-            : Task.FromResult(new PristonTale.Simulation.Items.InventoryOutcome(false, 0, "world connection unavailable"));
+            : Task.FromResult(new PristonTale.Simulation.Items.InventoryOutcome(false, 0, NoConnection));
     }
     public event Action<ulong> NpcSelected;
+    // A player selling from a personal shop was reached: its shop opens.
+    public event Action<ulong> ShopSellerSelected;
+    // The NPC, or the seller (_npcTargetSells), a click approaches.
     private ulong _npcTargetId;
+    private bool _npcTargetSells;
     private bool _npcMoveSent;
     private Vector2 _serverPlanarPosition;
     private float _serverCollisionHeight;
@@ -269,27 +276,27 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     public Task<PristonTale.Simulation.Progression.ProgressionOutcome> ApplyProgressionAsync(PristonTale.Simulation.Progression.ProgressionCommand command)
     {
         return _playChannel is not null ? _playChannel.ApplyProgressionAsync(command, _presenceCts.Token)
-            : Task.FromResult(new PristonTale.Simulation.Progression.ProgressionOutcome(false, 0, "world connection unavailable"));
+            : Task.FromResult(new PristonTale.Simulation.Progression.ProgressionOutcome(false, 0, NoConnection));
     }
 
     public Task<PristonTale.Simulation.World.Npcs.NpcInteraction> InteractNpcAsync(ulong entityId)
     {
         return _playChannel is not null ? _playChannel.InteractNpcAsync(entityId, _presenceCts.Token)
-            : Task.FromResult(PristonTale.Simulation.World.Npcs.NpcInteraction.Rejected("world connection unavailable"));
+            : Task.FromResult(PristonTale.Simulation.World.Npcs.NpcInteraction.Rejected(NoConnection));
     }
 
     public Task<PristonTale.Simulation.World.Npcs.NpcServiceReply> RequestNpcServiceAsync(PristonTale.Simulation.World.Npcs.NpcServiceCommand command)
     {
         return _playChannel is not null ? _playChannel.RequestNpcServiceAsync(command, _presenceCts.Token)
             : Task.FromResult(new PristonTale.Simulation.World.Npcs.NpcServiceReply(PristonTale.Simulation.World.Npcs.NpcServiceOutcome.Failed(
-                PristonTale.Simulation.World.Npcs.NpcServiceStatus.Rejected, "world connection unavailable")));
+                PristonTale.Simulation.World.Npcs.NpcServiceStatus.Rejected, NoConnection)));
     }
 
     public Task<PristonTale.Simulation.Quests.QuestOutcome> RequestQuestAsync(PristonTale.Simulation.Quests.QuestCommand command)
     {
         return _playChannel is not null ? _playChannel.RequestQuestAsync(command, _presenceCts.Token)
             : Task.FromResult(PristonTale.Simulation.Quests.QuestOutcome.Failed(PristonTale.Simulation.Quests.QuestStatus.Rejected,
-                "world connection unavailable"));
+                NoConnection));
     }
 
     public void PlayItemSound(string catalogKey) => _fieldAudio?.PlayItem(catalogKey);

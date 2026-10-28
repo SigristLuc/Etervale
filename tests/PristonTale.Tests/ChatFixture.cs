@@ -29,7 +29,7 @@ internal sealed class ChatFixture
     private long _accounts;
 
     public ChatFixture(GameMasterOptions? options = null, IPartyRoster? parties = null, IClanRoster? clans = null,
-        FieldTerrain? terrain = null, IReadOnlyList<FieldPoint>? startPoints = null)
+        FieldTerrain? terrain = null, IReadOnlyList<FieldPoint>? startPoints = null, FieldState state = FieldState.Forest)
     {
         var empty = WorldData.Empty;
         Data = new WorldDataHolder
@@ -37,7 +37,7 @@ internal sealed class ChatFixture
             Current = new WorldData(new ItemCatalog([Axe, Potion]), new MonsterCatalog([Hopy]), empty.Npcs,
                 new Dictionary<int, FieldSpawnData> { [Field] = FieldSpawnData.Empty }, empty.Motions)
         };
-        var catalog = new WorldCatalog([new FieldDef("fixture", "Fixture Field", FieldState.Forest, new FieldBackdrop("", "", ""), "", [])
+        var catalog = Catalog = new WorldCatalog([new FieldDef("fixture", "Fixture Field", state, new FieldBackdrop("", "", ""), "", [])
         {
             FieldCode = Field,
             StartPoints = startPoints ?? []
@@ -89,6 +89,8 @@ internal sealed class ChatFixture
 
     public static readonly ItemDefinition Potion = new(0x0405_0100, "Mini Life Potion", ItemKind.Potion, MaxStack: 100) { CatalogKey = "PL101", Weight = 1 };
 
+    public ISessionRegistry Sessions => _sessions;
+    public WorldCatalog Catalog { get; }
     public WorldDataHolder Data { get; }
     public WorldServer World { get; }
     public ChatDirectory Directory { get; }
@@ -289,6 +291,25 @@ internal sealed class MemoryCharacterBook : ICharacterRepository
         Updates++;
         Records[record.Name] = record;
         return Task.FromResult(true);
+    }
+
+    // Runs before a write of several characters; false refuses it with nothing written.
+    public Func<IReadOnlyList<CharacterRecord>, Task<bool>>? BeforeUpdateAll { get; set; }
+
+    public async Task<bool> UpdateAllAsync(IReadOnlyList<CharacterRecord> records, CancellationToken ct = default)
+    {
+        if (BeforeUpdateAll is not null && !await BeforeUpdateAll(records))
+        {
+            return false;
+        }
+
+        Updates++;
+        foreach (var record in records)
+        {
+            Records[record.Name] = record;
+        }
+
+        return true;
     }
 
     public Task<IReadOnlyList<CharacterRecord>> ListByAccountAsync(long accountId, CancellationToken ct = default) =>

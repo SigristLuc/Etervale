@@ -25,6 +25,10 @@ internal sealed class MemoryCharacters(CharacterRecord initial) : ICharacterRepo
         return true;
     }
 
+    // One character's rows only: a trade between two characters needs MemoryCharacterBook.
+    public Task<bool> UpdateAllAsync(IReadOnlyList<CharacterRecord> records, CancellationToken ct = default) =>
+        records.Count == 1 ? UpdateAsync(records[0], ct) : throw new NotSupportedException();
+
     public Task<IReadOnlyList<CharacterRecord>> ListByAccountAsync(long accountId, CancellationToken ct = default)
     {
         return Task.FromResult<IReadOnlyList<CharacterRecord>>([Record]);

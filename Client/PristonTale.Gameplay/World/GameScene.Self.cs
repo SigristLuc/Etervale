@@ -62,6 +62,8 @@ public sealed partial class GameScene
     // The local player is swinging or casting: the inventory picks nothing up meanwhile.
     public bool PlayerActing => _playerController.Current is MotionCode.Attack or MotionCode.Skill;
 
+    public long PlayerActionStarts => _playerController.ActionStarts;
+
     public void DebugForceMotion(MotionCode motion)
         => ApplyPlayerCommand(_playerController.ApplyAuthoritative(motion));
 

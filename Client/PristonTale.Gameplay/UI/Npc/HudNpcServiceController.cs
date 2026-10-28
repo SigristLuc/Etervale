@@ -50,7 +50,7 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
 
         _pendingCommand = command;
         _request.Start(() => request(command),
-            _ => new NpcServiceReply(NpcServiceOutcome.Failed(NpcServiceStatus.Rejected, "Connection error. Please try again.")));
+            _ => new NpcServiceReply(NpcServiceOutcome.Failed(NpcServiceStatus.Rejected, HudRequest.ConnectionError)));
         return true;
     }
 

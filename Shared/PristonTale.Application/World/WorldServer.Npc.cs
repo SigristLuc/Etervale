@@ -1,4 +1,5 @@
 using PristonTale.Application.Sessions;
+using PristonTale.Simulation.PersonalShops;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 
@@ -57,6 +58,13 @@ public sealed partial class WorldServer
             if (session.Loaded is null || !TryGetPlaying(session, out var connection) || !_fields.TryGetValue(connection.FieldId, out var field))
             {
                 return null;
+            }
+
+            if (connection.Player.Shop is not null)
+            {
+                var revision = connection.Player.Character.InventoryRevision;
+                return new PreparedNpcOperation(connection.Player.Character, null, null, new NpcServiceReply(NpcServiceOutcome.Failed(NpcServiceStatus.Rejected,
+                    PersonalShopMessages.Of(PersonalShopStatus.Selling), revision)));
             }
 
             return NpcServiceTransactions.Prepare(session, connection.Player, field, command, _worldData.Current.Items, _catalog);

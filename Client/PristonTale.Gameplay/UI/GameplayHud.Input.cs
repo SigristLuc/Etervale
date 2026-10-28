@@ -118,6 +118,12 @@ public sealed partial class GameplayHud
             return;
         }
 
+        if (_personalShop.ModalOpen)
+        {
+            _personalShop.Click(pointer);
+            return;
+        }
+
         if (_restart.Click(layout, pointer, RestartOffer?.FieldOpen == true))
         {
             return;
@@ -159,6 +165,11 @@ public sealed partial class GameplayHud
         }
 
         if (_npcOpen && ClickNpc(state, layout, pointer))
+        {
+            return;
+        }
+
+        if (_personalShop.Click(pointer))
         {
             return;
         }
@@ -349,7 +360,7 @@ public sealed partial class GameplayHud
             return true;
         }
 
-        if (_itemUse.Captures(pointer) || _wingGate.Captures(pointer) || _puzzle.Captures(pointer) || _premium.Contains(pointer))
+        if (_personalShop.Captures(pointer) || _itemUse.Captures(pointer) || _wingGate.Captures(pointer) || _puzzle.Captures(pointer) || _premium.Contains(pointer))
         {
             return true;
         }

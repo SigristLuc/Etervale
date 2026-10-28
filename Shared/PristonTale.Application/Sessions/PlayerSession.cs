@@ -36,6 +36,10 @@ public sealed class PlayerSession
     // A used mobile shop item lets the player sell and repair without a shop NPC until the shop is closed.
     public bool MobileShopOpen { get; set; }
 
+    // The character left the world dead while a durable operation held its save gate: the save after it stores the town
+    // restart with its costs (WorldServer.CaptureLeftAsync).
+    public bool LeftDead { get; set; }
+
     public CharacterRecord? Loaded { get; set; }
 
     // The account warehouse as last loaded or committed, while this session has it open; changed only under SaveGate.

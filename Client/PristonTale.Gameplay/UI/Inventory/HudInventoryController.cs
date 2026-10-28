@@ -24,8 +24,10 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     private long _carryAt;
     // The item under the pointer this frame (the window open), for Shift and a belt key.
     private OwnedItemView _hovered;
-    // A weapon pair asked for while the player swings or casts: held once the motion ends, as the original waits for it.
+    // A weapon pair asked for while the player swings or casts: held once that motion ends (the player stops, or the next
+    // swing or cast begins), as the original swaps at the end of the motion in progress.
     private int _pairWanted = -1;
+    private long _pairWantedDuring;
     private bool _pendingOperation;
     private volatile InventoryOutcome _completedOperation;
 
@@ -42,6 +44,9 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     // Set by the HUD each frame: nothing is picked up while the player attacks or casts, as in the original.
     public bool PickupLocked { get; set; }
 
+    // The player's swings and casts begun so far (GameScene.PlayerActionStarts).
+    public long ActionStarts { get; set; }
+
     // Shop and warehouse windows take clicks on owned items and drops outside the inventory while they are open.
     public Func<OwnedItemView, bool> InterceptClick { get; set; }
     public Func<Guid, Point, bool> ExternalDrop { get; set; }
@@ -54,6 +59,9 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
 
     // The special item box's button; the HUD opens or closes the box where the original allows it.
     public Action QuestBoxRequested { get; set; }
+
+    // The personal shop button; the HUD opens the player's own shop where the original allows it.
+    public Action ShopRequested { get; set; }
 
     // Whether the special item box shows over the bag (the bag's items hidden), and the bag's item count it closes on
     // when the bag gains an item, as the original closes it to show what was received.
@@ -118,7 +126,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             _carryAfter = Guid.Empty;
         }
 
-        if (_pairWanted >= 0 && !PickupLocked && !_pendingOperation && state is not null)
+        if (_pairWanted >= 0 && (!PickupLocked || ActionStarts != _pairWantedDuring) && !_pendingOperation && state is not null)
         {
             if (_pairWanted != state.WeaponSet)
             {
@@ -204,6 +212,12 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             if (HudInventoryLayout.QuestBoxButton(_origin).Contains(pointer))
             {
                 QuestBoxRequested?.Invoke();
+                return;
+            }
+
+            if (HudInventoryLayout.ShopButton(_origin).Contains(pointer))
+            {
+                ShopRequested?.Invoke();
                 return;
             }
         }
@@ -340,6 +354,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         if (_state is not null && _dragging == Guid.Empty && pair != _state.WeaponSet)
         {
             _pairWanted = pair;
+            _pairWantedDuring = ActionStarts;
         }
     }
 

@@ -173,9 +173,9 @@ public sealed class SessionAppService
                 return false;
             }
 
-            var snapshot = left ?? (_host is null || !session.IsPlaying
+            var snapshot = left ?? (_host is null || !session.IsPlaying && !session.LeftDead
                 ? CharacterRecordFactory.Capture(session.Loaded, session.Character, session.FieldId, session.SpawnPosition)
-                : await _host.CaptureForSaveAsync(session));
+                : session.IsPlaying ? await _host.CaptureForSaveAsync(session) : await _host.CaptureLeftAsync(session));
             if (snapshot is null)
             {
                 return false;

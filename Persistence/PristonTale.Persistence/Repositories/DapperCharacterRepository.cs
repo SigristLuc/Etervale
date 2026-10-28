@@ -106,4 +106,21 @@ public sealed class DapperCharacterRepository(IDbConnectionFactory connectionFac
             record, cancellationToken: ct));
         return rows > 0;
     }
+
+    public async Task<bool> UpdateAllAsync(IReadOnlyList<CharacterRecord> records, CancellationToken ct = default)
+    {
+        await using var connection = await connectionFactory.OpenAsync(ct);
+        await using var transaction = await connection.BeginTransactionAsync(ct);
+        foreach (var record in records)
+        {
+            if (await connection.ExecuteAsync(new CommandDefinition(UpdateSql, record, transaction, cancellationToken: ct)) == 0)
+            {
+                await transaction.RollbackAsync(ct);
+                return false;
+            }
+        }
+
+        await transaction.CommitAsync(ct);
+        return true;
+    }
 }

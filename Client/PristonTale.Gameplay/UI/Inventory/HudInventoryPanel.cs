@@ -228,6 +228,8 @@ public sealed class HudInventoryPanel
             DrawButton(painter, HudInventoryLayout.PairButton(origin, side), art, side == state.WeaponSet, HudArt.PairHints[side], 0, pointer, interactive);
         }
 
+        DrawButton(painter, HudInventoryLayout.ShopButton(origin), PersonalShops.HudPersonalShopArt.InventoryButton, false,
+            PersonalShops.HudPersonalShopArt.InventoryInfo, -39, pointer, interactive);
         DrawButton(painter, HudInventoryLayout.Close(origin), Npc.HudNpcArt.Exit, false, HudArt.CloseHint, -8, pointer, interactive);
     }
 

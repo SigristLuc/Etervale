@@ -14,6 +14,10 @@ public enum PotionResource
 
 public sealed record PotionDefinition(int LifeMin, int LifeMax, int ManaMin, int ManaMax, int StaminaMin, int StaminaMax)
 {
+    // The original counts the potions of one bag item without a limit of its own (their weight and the gold that buys
+    // them bound it); the authored data gives potions no stack size, so a potion stacks to the four digits a bag item shows.
+    public const int StackSize = 9999;
+
     public bool IsValid => LifeMin >= 0 && LifeMax >= LifeMin
         && ManaMin >= 0 && ManaMax >= ManaMin
         && StaminaMin >= 0 && StaminaMax >= StaminaMin

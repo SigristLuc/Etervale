@@ -144,9 +144,29 @@ public sealed partial class RemoteEntityManager
     }
 
     private readonly Dictionary<ulong, PlayerAppearanceInfo> _playerAppearances = new();
+    private readonly Dictionary<ulong, string> _shopSigns = new();
+
+    // No sign, for views without a world; never written.
+    public static readonly Dictionary<ulong, string> NoShopSigns = new();
+
+    // The signs of the players selling from a personal shop, the local player's included, as their bubbles read them.
+    // Read only: a dictionary rather than its interface so the HUD walks it every frame without allocating.
+    public Dictionary<ulong, string> ShopSigns => _shopSigns;
 
     private void ApplySpawn(EntitySpawnInfo spawn, bool publish = false)
     {
+        if (spawn.Player is { ShopSign: var sign })
+        {
+            if (sign.Length > 0)
+            {
+                _shopSigns[spawn.EntityId] = $"{spawn.Player.Name}: {sign}";
+            }
+            else
+            {
+                _shopSigns.Remove(spawn.EntityId);
+            }
+        }
+
         if (spawn.IsSelf)
         {
             _selfEntityId = spawn.EntityId;
@@ -154,9 +174,15 @@ public sealed partial class RemoteEntityManager
             return;
         }
 
+        // A new sign alone changes no model.
         if (_entities.ContainsKey(spawn.EntityId) && !publish
-            && (spawn.Player is null || (_playerAppearances.TryGetValue(spawn.EntityId, out var known) && known == spawn.Player)))
+            && (spawn.Player is null || (_playerAppearances.TryGetValue(spawn.EntityId, out var known) && known with { ShopSign = spawn.Player.ShopSign } == spawn.Player)))
         {
+            if (spawn.Player is not null)
+            {
+                _playerAppearances[spawn.EntityId] = spawn.Player;
+            }
+
             if (_preparingActors.Remove(spawn.EntityId, out var superseded))
             {
                 _ = ObservePreparationAsync(superseded.Preparation);
@@ -412,6 +438,7 @@ public sealed partial class RemoteEntityManager
         _summonOwners.Remove(entityId);
         _summonPlates.Remove(entityId);
         _playerAppearances.Remove(entityId);
+        _shopSigns.Remove(entityId);
         _collisionRoster.Remove(entityId);
         _pendingModels.Remove(entityId);
         if (_preparingActors.Remove(entityId, out var pending))
@@ -712,6 +739,7 @@ public sealed partial class RemoteEntityManager
         _entities.Clear();
         _summonPlates.Clear();
         _playerAppearances.Clear();
+        _shopSigns.Clear();
         _collisionRoster.Clear();
         _pendingModels.Clear();
         foreach (var pending in _preparingActors.Values)

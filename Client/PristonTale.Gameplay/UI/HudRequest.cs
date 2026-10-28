@@ -4,6 +4,12 @@ namespace PristonTale.Gameplay.UI;
 
 // The one request a HUD controller keeps in flight. A send that throws becomes the controller's failure outcome
 // (logged unless it was cancelled), so the controller always takes an outcome back, once, on a frame after it finished.
+public static class HudRequest
+{
+    // What a controller shows when its send failed.
+    public const string ConnectionError = "Connection error. Please try again.";
+}
+
 public sealed class HudRequest<TOutcome>(IClientLog log, string what)
 {
     private Task<TOutcome> _pending;

@@ -2,6 +2,7 @@ using System.Numerics;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
+using PristonTale.Simulation.PersonalShops;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World;
@@ -35,6 +36,20 @@ public interface IPlayChannel : IAsyncDisposable
     // A dead player chooses where to stand up; the server takes the death's costs and places it.
     Task<RestartOutcome> RestartAsync(RestartChoice choice, CancellationToken ct = default) =>
         Task.FromResult(new RestartOutcome(RestartStatus.Rejected, choice));
+
+    // Personal shops: open the player's own over bag items, close it, show a seller's, buy from one. A view or a purchase
+    // answers the shop as the server shows it now (PersonalShopReply.Listing), null once it closed.
+    Task<PersonalShopReply> OpenPersonalShopAsync(string sign, IReadOnlyList<PersonalShopEntry> entries, CancellationToken ct = default) =>
+        Task.FromResult(new PersonalShopReply(PersonalShopOutcome.Failed(PersonalShopStatus.Rejected, 0)));
+
+    Task<PersonalShopReply> ClosePersonalShopAsync(CancellationToken ct = default) =>
+        Task.FromResult(new PersonalShopReply(PersonalShopOutcome.Failed(PersonalShopStatus.Rejected, 0)));
+
+    Task<PersonalShopReply> ViewPersonalShopAsync(ulong sellerId, CancellationToken ct = default) =>
+        Task.FromResult(new PersonalShopReply(PersonalShopOutcome.Failed(PersonalShopStatus.Rejected, 0)));
+
+    Task<PersonalShopReply> BuyFromPersonalShopAsync(PersonalShopPurchase purchase, CancellationToken ct = default) =>
+        Task.FromResult(new PersonalShopReply(PersonalShopOutcome.Failed(PersonalShopStatus.Rejected, 0)));
 
     // A player on a warp stone travels to a stone of the wing warp map; the server checks the wing, level and fee.
     Task<WingGateOutcome> TravelWingGateAsync(int destination, CancellationToken ct = default) =>

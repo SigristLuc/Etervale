@@ -209,7 +209,7 @@ internal static class NpcServiceTests
         var quotes = new ShopQuotesPacket(request.OperationId, 7, 12, [new ShopQuoteEntry(Guid.NewGuid(), 12, 4, 10, 36)]);
         Assert.True(ShopQuotesPacket.Read(buffer.AsSpan(0, quotes.Write(buffer))).Items.SequenceEqual(quotes.Items), "quotes round trip differs");
         var warehouse = new WarehousePacket(request.OperationId, 7, 3, 500, 40, 1000, 9, 9, Enumerable.Range(0, WarehousePacket.MaxItems)
-            .Select(index => new WarehouseItemEntry(Guid.NewGuid(), AxeCode, 1, 1, index, 2, 3, "Warehouse item with a long name")).ToArray());
+            .Select(index => new StoreItemEntry(Guid.NewGuid(), AxeCode, 1, 1, index, 2, 3, "Warehouse item with a long name")).ToArray());
         var readWarehouse = WarehousePacket.Read(buffer.AsSpan(0, warehouse.Write(buffer)));
         Assert.True(readWarehouse.Items.SequenceEqual(warehouse.Items) && readWarehouse.Money == 500 && readWarehouse.Rows == 9,
             "a full warehouse does not fit one frame");

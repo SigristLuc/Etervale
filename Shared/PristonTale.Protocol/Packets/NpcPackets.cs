@@ -394,14 +394,41 @@ public sealed record ShopQuotesPacket(Guid OperationId, ulong NpcId, long Invent
     }
 }
 
-public readonly record struct WarehouseItemEntry(Guid InstanceId, uint Code, byte Kind, int Count, int Anchor, short Width, short Height,
-    string Name);
+// An item on the store grid (the warehouse, a personal shop): {Guid, uint32 Code, uint8 Kind, uint8 0, uint16 0, int32 Count,
+// int32 Anchor, int16 Width, int16 Height, text Name}.
+public readonly record struct StoreItemEntry(Guid InstanceId, uint Code, byte Kind, int Count, int Anchor, short Width, short Height,
+    string Name)
+{
+    public const int MaxSize = 16 + 4 + 4 + 4 + 4 + 2 + 2 + 2 + NpcWire.MaxItemNameBytes;
+
+    public void Write(ref PacketWriter writer)
+    {
+        writer.Guid(InstanceId);
+        writer.UInt32(Code);
+        writer.Byte(Kind);
+        writer.Byte(0);
+        writer.UInt16(0);
+        writer.Int32(Count);
+        writer.Int32(Anchor);
+        writer.Int16(Width);
+        writer.Int16(Height);
+        NpcWire.Text(ref writer, Name, NpcWire.MaxItemNameBytes);
+    }
+
+    public static StoreItemEntry Read(ref PacketReader reader)
+    {
+        var id = reader.Guid();
+        var code = reader.UInt32();
+        var kind = reader.Byte();
+        reader.Skip(3);
+        return new StoreItemEntry(id, code, kind, reader.Int32(), reader.Int32(), reader.Int16(), reader.Int16(), NpcWire.Text(ref reader, NpcWire.MaxItemNameBytes));
+    }
+}
 
 // The account warehouse after an open or a change: {header, Guid OperationId, uint64 NpcId, int64 Revision, int64 Money,
-// int32 Weight, int32 MaxWeight, int16 Columns, int16 Rows, int32 Count, entries {Guid, uint32 Code, uint8 Kind, uint8 0,
-// uint16 0, int32 Count, int32 Anchor, int16 Width, int16 Height, text Name}}.
+// int32 Weight, int32 MaxWeight, int16 Columns, int16 Rows, int32 Count, StoreItemEntry items}.
 public sealed record WarehousePacket(Guid OperationId, ulong NpcId, long Revision, long Money, int Weight, int MaxWeight, short Columns,
-    short Rows, IReadOnlyList<WarehouseItemEntry> Items)
+    short Rows, IReadOnlyList<StoreItemEntry> Items)
 {
     public const int MaxItems = 100;
     private const int HeaderSize = 8 + 4 + 16 + 8 + 8 + 8 + 4 + 4 + 2 + 2 + 4;
@@ -426,16 +453,7 @@ public sealed record WarehousePacket(Guid OperationId, ulong NpcId, long Revisio
         writer.Int32(Items.Count);
         foreach (var item in Items)
         {
-            writer.Guid(item.InstanceId);
-            writer.UInt32(item.Code);
-            writer.Byte(item.Kind);
-            writer.Byte(0);
-            writer.UInt16(0);
-            writer.Int32(item.Count);
-            writer.Int32(item.Anchor);
-            writer.Int16(item.Width);
-            writer.Int16(item.Height);
-            NpcWire.Text(ref writer, item.Name, NpcWire.MaxItemNameBytes);
+            item.Write(ref writer);
         }
 
         return writer.Finish();
@@ -459,14 +477,10 @@ public sealed record WarehousePacket(Guid OperationId, ulong NpcId, long Revisio
             throw new InvalidDataException("Warehouse message has an invalid size.");
         }
 
-        var items = new WarehouseItemEntry[count];
+        var items = new StoreItemEntry[count];
         for (var index = 0; index < count; index++)
         {
-            var id = r.Guid();
-            var code = r.UInt32();
-            var kind = r.Byte();
-            r.Skip(3);
-            items[index] = new WarehouseItemEntry(id, code, kind, r.Int32(), r.Int32(), r.Int16(), r.Int16(), NpcWire.Text(ref r, NpcWire.MaxItemNameBytes));
+            items[index] = StoreItemEntry.Read(ref r);
         }
 
         return new WarehousePacket(operation, entityId, revision, money, weight, maxWeight, columns, rows, items);

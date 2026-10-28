@@ -5,6 +5,7 @@ using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Gameplay.UI.Chat;
 using PristonTale.Gameplay.UI.Inventory;
 using PristonTale.Gameplay.UI.Npc;
+using PristonTale.Gameplay.UI.PersonalShops;
 using PristonTale.Gameplay.UI.Quests;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Gameplay.UI.Travel;
@@ -115,7 +116,9 @@ public sealed partial class GameplayHud : IDisposable
         _sprites.Request(HudQuestArt.All);
         _painter = new HudPainter(context.SpriteBatch, context.Font, _sprites);
         _icons = new HudItemIcons(context.GraphicsDevice, context.AssetRoot, context.Log);
-        _serviceWindows = [_shop, _warehouse, _aging, _mix];
+        _personalShop = new HudPersonalShopController(context.Log) { Notify = _notice.Show, AskCount = _countBox.Open };
+        _serviceWindows = [_shop, _warehouse, _aging, _mix, _personalShop.Window];
+        _sprites.Request(HudPersonalShopArt.All);
         _skills = new HudSkillsPanel(context.Font, _sprites);
         _skillHud = new HudSkillHud(_sprites, context.GraphicsDevice);
         _inventory = new HudInventoryController(context, applyInventory);
@@ -147,7 +150,8 @@ public sealed partial class GameplayHud : IDisposable
         _services.Succeeded = ServiceSucceeded;
         _storedPlacement = StoredPlacement;
         _inventoryPanel.Note = InventoryNote;
-        _inventoryPanel.Withheld = id => _aging.Holds(id) || _mix.Holds(id);
+        _inventoryPanel.Withheld = id => _aging.Holds(id) || _mix.Holds(id) || _personalShop.Holds(id);
+        _inventory.ShopRequested = OpenOwnShop;
         _sprites.Request(HudChatWindow.Art);
         _sprites.Request(HudChatBubbles.Art);
         _chat.Lookup = id => (Combat.KindOf(id, out var owner), owner);
@@ -188,6 +192,7 @@ public sealed partial class GameplayHud : IDisposable
     // The local player is down, and what standing up would cost (from the server).
     public bool PlayerDead { get; set; }
     public bool PlayerActing { get; set; }
+    public long PlayerActionStarts { get; set; }
     public RestartOffer? RestartOffer { get; set; }
 
     // The restart window; the screen sets its request and quits on its exit choice.
@@ -287,6 +292,11 @@ public sealed partial class GameplayHud : IDisposable
             return true;
         }
 
+        if (_personalShop.ModalOpen)
+        {
+            return _personalShop.Close();
+        }
+
         // As in the original, Escape first closes an open chat window and nothing else.
         if (_chat.Window.Open && !_settingsOpen)
         {
@@ -298,6 +308,7 @@ public sealed partial class GameplayHud : IDisposable
         var closed = _npcOpen || _settingsOpen || _systemMenu || _skills.TrainingPending
             || _inventorySlide.Open || _statusSlide.Open || _skillSlide.Open || ServiceWindowOpen(blockingOnly: false)
             || _questWindow.Open || _quests.Dialog is not null || _quests.SkillResetBox;
+        closed |= _personalShop.Close();
         CloseServices();
         closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming || _wingGate.IsOpen || _wingGate.Confirming;
         _itemUse.Close();
@@ -355,6 +366,8 @@ public sealed partial class GameplayHud : IDisposable
         ForwardMessages();
         ApplyQuests();
         ApplyServices(state);
+        _personalShop.SignShown = SelfId != 0 && ShopSigns.ContainsKey(SelfId);
+        _personalShop.Update(state);
         if (_npc.ReadyToOpen)
         {
             _skillMaster = 0;
@@ -409,14 +422,22 @@ public sealed partial class GameplayHud : IDisposable
         // A click the HUD takes stays its own when it closes the window under it (a close button over the ground).
         var clickTaken = clicked && Captures(layout, pointer, design);
         var typedText = _context.TypedText.Drain();
+        // A count box or the shop's sign box takes the keyboard: neither the chat nor a game key sees what is typed there.
+        var boxTyping = _countBox.IsOpen || _personalShop.SignOpen;
         if (_countBox.IsOpen)
         {
             _countBox.Type(typedText, key => Pressed(keyboard, key));
-            typedText = [];
+        }
+        else if (_personalShop.SignOpen)
+        {
+            _personalShop.Type(typedText, key => Pressed(keyboard, key), _painter.CanDraw, _painter.Measure);
+        }
+        else
+        {
+            _chat.Update(keyboard, _previousKeyboard, typedText, _clock.Elapsed.TotalMilliseconds, _chat.Window.Log.Tab);
         }
 
-        _chat.Update(keyboard, _previousKeyboard, typedText, _clock.Elapsed.TotalMilliseconds, _chat.Window.Log.Tab);
-        var typing = _chat.KeyboardCaptured;
+        var typing = boxTyping || _chat.KeyboardCaptured;
         if (!typing)
         {
             UpdateKeys(keyboard);
@@ -451,6 +472,7 @@ public sealed partial class GameplayHud : IDisposable
         _bindings.Update(typing ? default : keyboard, mouse, hoveredSkill);
         PointerCaptured = clickTaken || Captures(layout, pointer, design) || _chat.Window.Contains(layout, pointer, SideWindowOpen) || _inventory.Dragging != Guid.Empty || _warehouse.Dragging != Guid.Empty;
         _inventory.PickupLocked = PlayerActing || storedCarried;
+        _inventory.ActionStarts = PlayerActionStarts;
         _inventory.Update(state, layout, _inventorySlide.FullyOpen && !_settingsOpen && !ModalOpen, keyboard, mouse);
         _previousKeyboard = keyboard;
         _previousMouse = mouse;
@@ -471,7 +493,7 @@ public sealed partial class GameplayHud : IDisposable
 
     // A dialog, a message box or the warp map: it takes every click, the bag's included.
     private bool ModalOpen =>
-        _countBox.IsOpen || _npcOpen || _quests.Dialog is not null || _quests.Confirming || _quests.SkillResetBox || _skills.TrainingPending
+        _countBox.IsOpen || _personalShop.ModalOpen || _npcOpen || _quests.Dialog is not null || _quests.Confirming || _quests.SkillResetBox || _skills.TrainingPending
         || _wingGate.IsOpen || _wingGate.Confirming || _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming;
 
     // As in the original, a modal or a work window keeps every click from the world (the work windows still trade items
@@ -480,7 +502,7 @@ public sealed partial class GameplayHud : IDisposable
 
     // As in the original, the player stands still while it deals with an NPC (its dialog, a service window, the skill
     // master) or a modal: a click into the world neither walks nor acts, and a walk in progress stops.
-    public bool HoldsPlayer => ModalOpen || ServiceWindowOpen(blockingOnly: false) || _skillMaster != 0;
+    public bool HoldsPlayer => ModalOpen || ServiceWindowOpen(blockingOnly: false) || _skillMaster != 0 || _personalShop.Selling;
 
     private bool MinimapShown => _mapVisible && !World.MapHidden;
 
@@ -500,6 +522,7 @@ public sealed partial class GameplayHud : IDisposable
         _painter.Begin(layout);
         HudGroundLabels.Draw(_painter, layout, GroundLabels, GroundLabelPlaced);
         Combat.DrawNamePlates(_painter, layout, Overhead, HoveredId, TracedId, _context.Presentation.Requested.ClassicNamePlates);
+        _chat.Bubbles.Signs = ShopSigns;
         _chat.Bubbles.Draw(_painter, layout, _clock.Elapsed.TotalMilliseconds, Overhead, id => _chat.NameColor(id, TargetId), TargetId);
         _painter.Flush();
         if (MinimapShown)
@@ -510,6 +533,7 @@ public sealed partial class GameplayHud : IDisposable
 
         Combat.DrawTarget(_painter, layout, TargetId, _context.Presentation.Requested.ClassicTargetHealthBar, _portrait.Texture(TargetId));
         _premium.Draw(_painter, _clock.Elapsed.TotalMilliseconds);
+        _personalShop.Draw(_painter);
         _chat.Window.Draw(_painter, layout, SideWindowOpen);
 
         if (_statusSlide.Visible)
@@ -597,6 +621,12 @@ public sealed partial class GameplayHud : IDisposable
         }
 
         _puzzle.Draw(_painter, pointer);
+        if (_personalShop.ModalOpen)
+        {
+            _painter.Flush();
+            _personalShop.DrawModal(_painter, pointer);
+        }
+
         if (_countBox.IsOpen)
         {
             _painter.Flush();

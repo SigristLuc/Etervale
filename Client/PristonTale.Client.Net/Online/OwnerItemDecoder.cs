@@ -81,7 +81,8 @@ internal sealed class OwnerItemDecoder
         };
     }
 
-    private static ItemDetailView View(ItemDetailEntry e)
+    // The values of one copy as its wire entry carries them (owner items and the copies a personal shop offers).
+    internal static ItemDetailView View(ItemDetailEntry e)
     {
         var r = e.Resistances;
         var spec = new ItemSpecBonus(e.SpecAbsorb, e.SpecDefence, e.SpecMoveSpeed, e.SpecBlock, e.SpecAttackSpeed, e.SpecCritical, e.SpecShootingRange,
