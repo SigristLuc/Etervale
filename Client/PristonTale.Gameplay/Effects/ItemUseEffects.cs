@@ -7,8 +7,9 @@ namespace PristonTale.Gameplay.Effects;
 // What other players and the user see when an item is used, with the converted particle scripts and item effects:
 // firecrackers fire four rockets half a second apart, each bursting 150 units up into a scripted shape chosen from the
 // use's roll; hair tints, force orbs, ether cores, crystal summons and head changes play the skill-learn sound (their
-// light is ItemVfx.Learn or the return sparkle), skill masters, boosters and puzzle reveals the drink sound, and an
-// opened gift box the eat sound under an orange light.
+// light is ItemVfx.Learn or the return sparkle), skill masters, boosters and puzzle reveals the drink sound, an opened
+// gift box the eat sound under an orange light, and a potion taking effect its drops with the eat sound, as the original
+// plays at the eat motion's event for every drinker in view.
 public sealed class ItemUseEffects
 {
     public const string LearnSound = "wav/Effects/Skill/Learn_Skill.wav";
@@ -73,6 +74,21 @@ public sealed class ItemUseEffects
                 _sounds?.Play(EatSound, position, listener);
                 break;
         }
+    }
+
+    // A potion taking effect at chest height: the drops of each resource it restores (bit 0 life, 1 mana, 2 stamina) and the
+    // potion sound once.
+    public void Potion(int resources, Vector3 chest, Vector3 listener)
+    {
+        for (var resource = 0; resource < 3; resource++)
+        {
+            if ((resources & (1 << resource)) != 0)
+            {
+                _skills?.SpawnAt(ItemVfx.Potion(resource), chest, Matrix.Identity);
+            }
+        }
+
+        _sounds?.Play(EatSound, chest, listener);
     }
 
     // Fires the bursts that came due; position resolves the entity's drawn position (null when it left the view).

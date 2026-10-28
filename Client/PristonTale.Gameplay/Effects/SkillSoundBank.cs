@@ -26,6 +26,9 @@ public sealed class SkillSoundBank : IDisposable
 
     public int ReadyCount => _ready.Count;
 
+    // A sound asked to play, ready or not (diagnostics and cases).
+    public event Action<string> Requested;
+
     public void Preload(IEnumerable<string> paths)
     {
         var batch = paths.Where(path => !string.IsNullOrWhiteSpace(path) && _requested.Add(path)).ToArray();
@@ -66,6 +69,7 @@ public sealed class SkillSoundBank : IDisposable
     // octaves (-1 to 1).
     public void Play(string path, Vector3 source, Vector3 listener, float volume = 1f, float pitch = 0f)
     {
+        Requested?.Invoke(path);
         if (!Enabled || string.IsNullOrEmpty(path) || !_ready.TryGetValue(path, out var sound))
         {
             return;

@@ -38,7 +38,7 @@ and draws the result.
 | `Shared/PristonTale.Protocol/Packets/ItemUsePackets.cs` | `ItemUseCommand`, `ItemUseResult`, `PremiumTimers`, `ItemEffects` |
 | `Client/PristonTale.Gameplay/UI/Inventory/HudItemUseController.cs`, `HudTeleportCore.cs`, `HudUsableTooltip.cs` | Right-click use, Teleport Core window, confirmations, tooltips |
 | `Client/PristonTale.Gameplay/UI/Widgets/HudPremiumTimers.cs` | The premium timer column |
-| `Client/PristonTale.Gameplay/Effects/ItemUseEffects.cs` | Firecrackers (converted burst scripts and `ItemVfx` launch sparks and flash) and item sounds |
+| `Client/PristonTale.Gameplay/Effects/ItemUseEffects.cs` | Firecrackers (converted burst scripts and `ItemVfx` launch sparks and flash), item sounds, and a potion taking effect (`PotionApplied`, for every drinker in view): its drops and `drink1.wav` once |
 | `Client/PristonTale.Gameplay/Effects/ItemVfx.cs`, `ForceOrbPresentation.cs` | Effects built in code: skill-learn light, force orb weapon glow and hit spark, potion drops, firecracker launch sparks and flash, the return sparkle (`ItemVfx.Return`) |
 | `Client/PristonTale.Gameplay/World/Remote/PremiumPetPresentation.cs` | Pet actors, their animation and strikes |
 | `Client/PristonTale.Gameplay/World/GameScene.Items.cs` | Item use, timers and item effects in the scene |

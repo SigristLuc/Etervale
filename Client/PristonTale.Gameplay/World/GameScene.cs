@@ -501,7 +501,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         ObservePlayerSwings(update);
         foreach (var effect in update.Events)
         {
-            if (effect.Kind != CombatEventKind.PotionApplied || _skillFx is null)
+            if (effect.Kind != CombatEventKind.PotionApplied || _itemEffects is null)
             {
                 continue;
             }
@@ -517,13 +517,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             }
 
             position.Y += 48f;
-            for (var resource = 0; resource < 3; resource++)
-            {
-                if ((effect.Resources & (1 << resource)) != 0)
-                {
-                    _skillFx.SpawnAt(PristonTale.Gameplay.Effects.ItemVfx.Potion(resource), position, Matrix.Identity);
-                }
-            }
+            _itemEffects.Potion(effect.Resources, position, PlayerPosition);
         }
     }
 

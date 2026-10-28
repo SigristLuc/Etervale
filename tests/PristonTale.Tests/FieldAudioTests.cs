@@ -24,6 +24,21 @@ internal static class FieldAudioTests
         yield return ("swings pick the original weapon sound by weapon family, hand and class", WeaponSoundCodesAsync);
         yield return ("character sound banks cover monsters, summons, NPCs and every class with an asset folder", CharacterBanksAsync);
         yield return ("items sound by family with their own exceptions, and every item sound file exists", ItemSoundsAsync);
+        yield return ("a potion taking effect plays the original's potion sound once with its drops", PotionSoundAsync);
+    }
+
+    private static Task PotionSoundAsync()
+    {
+        using var sounds = new PristonTale.Gameplay.Effects.SkillSoundBank(Path.GetTempPath(), PristonTale.Engine3D.Diagnostics.NullClientLog.Instance)
+        {
+            Enabled = false
+        };
+        var played = new List<string>();
+        sounds.Requested += played.Add;
+        var effects = new PristonTale.Gameplay.Effects.ItemUseEffects(null, null, sounds);
+        effects.Potion(0b111, new Vector3(0f, 48f, 0f), Vector3.Zero);
+        Assert.True(played.SequenceEqual([PristonTale.Gameplay.Effects.ItemUseEffects.EatSound]), $"a potion played {string.Join(", ", played)}");
+        return Task.CompletedTask;
     }
 
     private static Task ItemSoundsAsync()
