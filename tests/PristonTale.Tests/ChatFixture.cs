@@ -29,7 +29,7 @@ internal sealed class ChatFixture
     private long _accounts;
 
     public ChatFixture(GameMasterOptions? options = null, IPartyRoster? parties = null, IClanRoster? clans = null,
-        FieldTerrain? terrain = null, IReadOnlyList<FieldPoint>? startPoints = null, FieldState state = FieldState.Forest)
+        FieldTerrain? terrain = null, IReadOnlyList<FieldPoint>? startPoints = null, FieldState state = FieldState.Forest, TimeProvider? clock = null)
     {
         var empty = WorldData.Empty;
         Data = new WorldDataHolder
@@ -48,7 +48,7 @@ internal sealed class ChatFixture
             terrains.Publish(new Dictionary<int, FieldTerrain> { [Field] = terrain });
         }
 
-        World = new WorldServer(Data, catalog, terrain: terrains);
+        World = new WorldServer(Data, catalog, clock, terrain: terrains);
         Directory = new ChatDirectory();
         Server = new FakeServer();
         GameMasters = new GameMasterCommands(Directory, World, Data, options, Server, Audit)
@@ -103,13 +103,13 @@ internal sealed class ChatFixture
     public ChatAppService Chat { get; }
     public long NowMs { get; set; } = 1_000_000;
 
-    public async Task<Player> JoinAsync(string name, float x, float z, int gmLevel = 0, PlayerClass playerClass = PlayerClass.Fighter)
+    public async Task<Player> JoinAsync(string name, float x, float z, int gmLevel = 0, PlayerClass playerClass = PlayerClass.Fighter, int level = 1)
     {
         var session = _sessions.Create(++_accounts, name.ToLowerInvariant() + "-account");
         session.GmLevel = gmLevel;
         Assert.True(session.TryBeginEntry(), "fixture entry");
         var record = CharacterRecordFactory.NewStarter(_classes, session.AccountId, name, 0, playerClass, Field) with { Id = (long)session.EntityId };
-        session.Character = _classes.CreatePlayer(playerClass, name);
+        session.Character = _classes.CreatePlayer(playerClass, name, level);
         session.Loaded = record;
         session.CharacterName = name;
         session.FieldId = Field;

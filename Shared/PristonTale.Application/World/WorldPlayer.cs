@@ -332,6 +332,12 @@ public sealed class WorldPlayer
 
     public bool InVillage => _inVillage;
 
+    // The party the player belongs to and the request to join one it has not answered (WorldServer.Parties).
+    public Party? Party { get; internal set; }
+    public PartyRequest? PartyRequest { get; internal set; }
+
+    public bool SharesPartyWith(WorldPlayer other) => Party is { } party && ReferenceEquals(party, other.Party);
+
     // The personal shop the player sells from; while it is open the seller stays where it stands and acts on nothing else.
     public PersonalShop? Shop { get; private set; }
 

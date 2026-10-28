@@ -185,11 +185,12 @@ public sealed partial class WorldServer
             }
 
             var save = connection.Session is { } session ? CaptureLeaving(session, connection) : null;
+            LeaveParty(connection.Player);
             _fields[connection.FieldId].Remove(entityId);
             _connections.Remove(entityId);
             _pendingByPlayer.TryRemove(entityId, out _);
             _membershipChanged = true;
-            return new WorldLeave(true, save);
+            return new WorldLeave(true, save, TakePartyNotices());
         }, waitForCapacity: true);
     }
 
@@ -404,7 +405,7 @@ public sealed partial class WorldServer
 
             if (command.Action == InventoryAction.Pickup)
             {
-                return GroundPickupTransactions.Prepare(session, connection.Player, _fields[connection.FieldId], command);
+                return GroundPickupTransactions.Prepare(session, connection.Player, _fields[connection.FieldId], command, GoldSharers(connection));
             }
 
             if (command.Action is InventoryAction.Drop or InventoryAction.DropGold)
@@ -456,6 +457,15 @@ public sealed partial class WorldServer
                     throw new CommitInvariantException("Money changed beyond capacity during pickup commit.");
                 }
 
+                // A member who left or reloaded since the pickup was prepared gets nothing.
+                foreach (var share in pickup.Shares)
+                {
+                    if (_connections.TryGetValue(share.MemberId, out var member) && ReferenceEquals(member.Player.Character, share.Character))
+                    {
+                        share.Character.TryChangeMoney(share.Gold);
+                    }
+                }
+
                 pickup.Ground.Resolve(pickup.DropId, pickup.OperationId, committed: true);
             }
             if (operation is PreparedThrowOperation thrown)
@@ -477,6 +487,27 @@ public sealed partial class WorldServer
 
             return true;
         }, waitForCapacity: true);
+    }
+
+    // The party members who split a pickup's gold with the picker: in its field and share range.
+    private List<WorldPlayer> GoldSharers(Connection picker)
+    {
+        var sharers = new List<WorldPlayer>();
+        if (picker.Player.Party is not { } party)
+        {
+            return sharers;
+        }
+
+        foreach (var id in party.Members)
+        {
+            if (id != picker.Player.EntityId && _connections.TryGetValue(id, out var member) && member.FieldId == picker.FieldId
+                && Simulation.Parties.PartyRules.InShareRange(picker.Player.Position, member.Player.Position))
+            {
+                sharers.Add(member.Player);
+            }
+        }
+
+        return sharers;
     }
 
     public IReadOnlyList<(int FieldId, int PlayerCount)> ActiveFieldCounts()
@@ -576,6 +607,7 @@ public sealed partial class WorldServer
             }
         }
 
+        RefreshParties(serverTick);
         var localNow = _clock.GetLocalNow();
         bool bossPassDue = _bossSchedule.TryBeginPass(localNow, _clock.GetElapsedTime(_clockOrigin));
         int? bossHour = bossPassDue ? localNow.Hour : null;
@@ -645,7 +677,9 @@ public sealed partial class WorldServer
                 connection.Outbound.TryWrite(snapshot.WithOwner(owner, cooldowns) with
                 {
                     Quest = connection.Player.QuestState.TakeUpdate(connection.Player.Character),
-                    Restart = connection.Player.IsDead ? DeathPenalty.Offer(connection.Player.Character, field.State) : null
+                    Restart = connection.Player.IsDead ? DeathPenalty.Offer(connection.Player.Character, field.State) : null,
+                    Party = connection.Player.Party?.View,
+                    PartyRequest = connection.Player.PartyRequest
                 });
                 // Only an outbox pins and releases frames; any other writer may keep the snapshot forever.
                 frame.Retained |= connection.Outbound is not WorldOutbox.OutboxWriter;

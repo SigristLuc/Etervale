@@ -37,12 +37,15 @@ public sealed record SkillMotionVariant
     public int[] ExtraEvents { get; init; } = [];
 }
 
-// Which players a support skill reaches besides its target. There is no party system yet: allies are the other living
-// players of the field within Radius of the caster (and within Height vertically).
+// Which players a support skill reaches besides its target: the other living players of the field within Radius of the
+// caster (and within Height vertically), only the caster's party members when Party is set (an ally target too).
+// RequiresParty refuses the cast to a player without a party.
 public sealed record SkillAllyRule
 {
     public int[] Radius { get; init; } = [];
     public bool IncludeCaster { get; init; } = true;
+    public bool Party { get; init; }
+    public bool RequiresParty { get; init; }
     // Strength of the effect on players other than the caster, in percent.
     public int OthersPercent { get; init; } = 100;
     public int Height { get; init; } = 80;

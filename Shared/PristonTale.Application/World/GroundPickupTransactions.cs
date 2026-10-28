@@ -1,12 +1,15 @@
 using PristonTale.Application.Sessions;
 using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Parties;
 
 namespace PristonTale.Application.World;
 
 internal static class GroundPickupTransactions
 {
-    public static PreparedCharacterOperation<InventoryOutcome> Prepare(PlayerSession session, WorldPlayer player, FieldInstance field, InventoryCommand command)
+    // Sharers: the picker's party members in its field and share range (WorldServer.GoldSharers).
+    public static PreparedCharacterOperation<InventoryOutcome> Prepare(PlayerSession session, WorldPlayer player, FieldInstance field, InventoryCommand command,
+        List<WorldPlayer> sharers)
     {
         var original = player.Character;
         var dropId = command.ItemId;
@@ -25,7 +28,9 @@ internal static class GroundPickupTransactions
                 return new(original, null, null, new(false, original.InventoryRevision, ItemRuleMessages.OverWeight));
             }
 
-            if (!candidate.ReceiveGroundLoot(item, drop!.Gold ? drop.Amount : 0))
+            long gold = drop!.Gold ? drop.Amount : 0;
+            var shares = PartyRules.SharesGold(gold) ? Shares(gold, sharers, out gold) : [];
+            if (!candidate.ReceiveGroundLoot(item, (int)gold))
             {
                 return new(original, null, null, new(false, original.InventoryRevision, "inventory full or money limit reached"));
             }
@@ -33,7 +38,7 @@ internal static class GroundPickupTransactions
             candidate.RecordInventoryOperation(command);
             var snapshot = CharacterRecordFactory.Capture(session.Loaded!, candidate, field.FieldId, player.Position);
             var result = new PreparedPickupOperation(original, candidate, snapshot,
-                new(true, candidate.InventoryRevision, string.Empty), field.GroundLoot, drop.Id, command.OperationId, drop.Gold ? drop.Amount : 0);
+                new(true, candidate.InventoryRevision, string.Empty), field.GroundLoot, drop.Id, command.OperationId, gold, shares);
             prepared = true;
             return result;
         }
@@ -43,6 +48,34 @@ internal static class GroundPickupTransactions
             {
                 field.GroundLoot.Resolve(dropId, command.OperationId, committed: false);
             }
+        }
+    }
+
+    // A member who cannot carry its part is left out and the gold is split again among the others.
+    private static List<GoldShare> Shares(long gold, List<WorldPlayer> takers, out long pickerPart)
+    {
+        while (true)
+        {
+            var (mine, each) = PartyRules.SplitGold(gold, takers.Count + 1);
+            if (each == 0)
+            {
+                pickerPart = gold;
+                return [];
+            }
+
+            if (takers.RemoveAll(taker => !taker.Character.CanChangeMoney(each)) > 0)
+            {
+                continue;
+            }
+
+            pickerPart = mine;
+            var shares = new List<GoldShare>(takers.Count);
+            foreach (var member in takers)
+            {
+                shares.Add(new GoldShare(member.EntityId, member.Character, each));
+            }
+
+            return shares;
         }
     }
 }

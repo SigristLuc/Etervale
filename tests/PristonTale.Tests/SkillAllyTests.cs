@@ -10,15 +10,15 @@ using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
-// Support skills on allies: area buffs on the players around the caster, single-ally buffs at reduced strength, group
-// heals and the pulses a field keeps giving to the players inside it.
+// Support skills on allies: area buffs on the players (or the party members) around the caster, single-ally buffs at
+// reduced strength, group heals and the pulses a field keeps giving to the players inside it.
 internal static class SkillAllyTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("an area buff reaches the caster and the allies in range, not the far ones", AreaBuffAsync);
-        yield return ("a buff cast on another player applies its reduced share and refuses a second copy", AllyBuffAsync);
-        yield return ("a group heal heals the allies in range, not the caster, and virtual life lowers heals", GroupHealAsync);
+        yield return ("an area buff reaches the caster and the allies in range, not the far ones, a party buff only its members", AreaBuffAsync);
+        yield return ("a buff cast on another player applies its reduced share and refuses a second copy; an enchant needs a party member", AllyBuffAsync);
+        yield return ("a group heal needs a party and heals its members in range, not the caster, and virtual life lowers heals", GroupHealAsync);
         yield return ("a regeneration field pulses short buffs to the allies around its holder", PulseAsync);
     }
 
@@ -28,12 +28,15 @@ internal static class SkillAllyTests
         var knight = SkillFixtures.Player(field, 1, PlayerClass.Knight, 40, Vector3.Zero, SkillFixtures.Weapon(ItemKind.Sword));
         var near = SkillFixtures.Player(field, 2, PlayerClass.Priestess, 40, new Vector3(150, 0, 0));
         var far = SkillFixtures.Player(field, 3, PlayerClass.Magician, 40, new Vector3(400, 0, 0));
+        var stranger = SkillFixtures.Player(field, 5, PlayerClass.Fighter, 40, new Vector3(-150, 0, 0));
+        SkillFixtures.Group(knight, near, far);
         knight.Character.Skills.Restore(0x05020001, 10);
         SkillFixtures.Accept("Holy Valor", field, knight, 0x05020001);
         SkillFixtures.Finish(field, knight);
         Assert.True(knight.Character.Effects.Totals.Flat(StatKind.DamageVsUndead) == 54, "Holy Valor missing on the caster");
-        Assert.True(near.Character.Effects.Totals.Flat(StatKind.DamageVsUndead) == 54, "Holy Valor missing on the near ally");
-        Assert.True(far.Character.Effects.Totals.Flat(StatKind.DamageVsUndead) == 0, "Holy Valor reached a far player");
+        Assert.True(near.Character.Effects.Totals.Flat(StatKind.DamageVsUndead) == 54, "Holy Valor missing on the near member");
+        Assert.True(far.Character.Effects.Totals.Flat(StatKind.DamageVsUndead) == 0, "Holy Valor reached a far member");
+        Assert.True(stranger.Character.Effects.Totals.Flat(StatKind.DamageVsUndead) == 0, "Holy Valor reached a player outside the party");
 
         var atalanta = SkillFixtures.Player(field, 4, PlayerClass.Atalanta, 80, new Vector3(0, 0, 50), SkillFixtures.Weapon(ItemKind.ThrowingWeapon));
         atalanta.Character.Skills.Restore(0x06040002, 10);
@@ -45,6 +48,7 @@ internal static class SkillAllyTests
             "Hall of Valhalla values on the caster");
         Assert.True(near.Character.Effects.Totals.Flat(StatKind.Evasion) == 16 && near.Character.Effects.Totals.Flat(StatKind.DamageMax) == 35,
             "Hall of Valhalla share on an ally");
+        Assert.True(stranger.Character.Effects.Totals.Flat(StatKind.Evasion) == 16, "Hall of Valhalla reaches any player around, as in the original");
         SkillFixtures.Refuse(SkillCastVerdict.AlreadyActive, "Triumph stacked on Hall of Valhalla", field, atalanta, 0x06040002);
         return Task.CompletedTask;
     }
@@ -72,6 +76,8 @@ internal static class SkillAllyTests
 
         var mage = SkillFixtures.Player(field, 4, PlayerClass.Magician, 60, new Vector3(0, 0, -60), SkillFixtures.Weapon(ItemKind.Staff));
         mage.Character.Skills.Restore(0x08020003, 5);
+        SkillFixtures.Refuse(SkillCastVerdict.InvalidTarget, "Enchant Weapon on a player outside the party", field, mage, 0x08020003, ally.EntityId);
+        SkillFixtures.Group(mage, ally);
         SkillFixtures.Accept("Enchant Weapon on an ally", field, mage, 0x08020003, ally.EntityId);
         SkillFixtures.Finish(field, mage);
         Assert.True(ally.Character.Effects.TryGet(0x08020003, out _), "enchant missing on the ally");
@@ -84,7 +90,11 @@ internal static class SkillAllyTests
         var priest = SkillFixtures.Player(field, 1, PlayerClass.Priestess, 40, Vector3.Zero, SkillFixtures.Weapon(ItemKind.Staff));
         var hurt = SkillFixtures.Player(field, 2, PlayerClass.Knight, 40, new Vector3(250, 0, 0));
         var away = SkillFixtures.Player(field, 3, PlayerClass.Knight, 40, new Vector3(600, 0, 0));
+        var stranger = SkillFixtures.Player(field, 4, PlayerClass.Knight, 40, new Vector3(0, 0, 100));
         priest.Character.Skills.Restore(0x07020004, 1);
+        SkillFixtures.Refuse(SkillCastVerdict.InvalidTarget, "Grand Healing without a party", field, priest, 0x07020004);
+        SkillFixtures.Group(priest, hurt, away);
+        stranger.Character.Life = 10;
         priest.Character.Life = priest.Character.MaxLife / 2;
         hurt.Character.Life = 10;
         away.Character.Life = 10;

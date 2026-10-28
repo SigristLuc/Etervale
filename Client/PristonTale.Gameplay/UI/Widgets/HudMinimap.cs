@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.World;
+using PristonTale.Contracts.Social;
 using PristonTale.Contracts.Units;
 using PristonTale.Engine3D;
 
@@ -157,7 +158,8 @@ public sealed class HudMinimap
         _viewSize = EaseViewSize(_viewSize, ViewSize(world.Underground), elapsedSeconds);
     }
 
-    public void Draw(HudPainter painter, HudLayout layout, HudWorldView world, IReadOnlyList<Vector3> npcs, bool hovered)
+    // party: the other members' places, marked red past PartyLimits.NearRange, as the original marks them.
+    public void Draw(HudPainter painter, HudLayout layout, HudWorldView world, IReadOnlyList<Vector3> npcs, IReadOnlyList<Vector3> party, bool hovered)
     {
         var box = Box(layout);
         painter.ColorBox(box, 0, 0, 0, 128);
@@ -179,6 +181,20 @@ public sealed class HudMinimap
             {
                 var offset = MarkerOffset(world.PlayerPosition, npc, _viewSize);
                 painter.Sprite(HudArt.MapNpc, (int)(center.X + offset.X) - 3, (int)(center.Y + offset.Y) - 3);
+            }
+        }
+
+        for (var index = 0; index < party.Count; index++)
+        {
+            var member = party[index];
+            var dx = member.X - world.PlayerPosition.X;
+            var dz = member.Z - world.PlayerPosition.Z;
+            if (MathF.Abs(dx) < _viewSize && MathF.Abs(dz) < _viewSize)
+            {
+                var offset = MarkerOffset(world.PlayerPosition, member, _viewSize);
+                var near = dx * dx + dz * dz < PartyLimits.NearRange * PartyLimits.NearRange;
+                painter.Stretch(Parties.HudPartyArt.MapMark, new Rectangle((int)(center.X + offset.X) - 3, (int)(center.Y + offset.Y) - 3, 8, 8), null,
+                    near ? Color.White : Color.Red);
             }
         }
 

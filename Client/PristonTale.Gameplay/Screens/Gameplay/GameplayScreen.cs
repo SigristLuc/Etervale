@@ -50,6 +50,9 @@ public sealed class GameplayScreen : GameScreen
         _scene.NpcSelected += _hud.OpenNpc;
         _scene.ShopSellerSelected += _hud.ViewPersonalShop;
         _hud.PersonalShops = _scene;
+        _scene.PresenceObserved += _hud.ObserveParty;
+        _hud.Parties = _scene;
+        _hud.PlayerButtonsUsed += _scene.DismissPlayerButtons;
         _scene.SkillNotice += _hud.Chat.System;
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
         _hud.RunToggleRequested += _scene.ToggleRun;
@@ -156,6 +159,7 @@ public sealed class GameplayScreen : GameScreen
         _hud.TargetId = _scene.SelectedTargetId;
         _hud.HoveredId = _scene.HoveredTargetId;
         _hud.TracedId = _scene.TracedTargetId;
+        _hud.ButtonsPlayerId = _scene.ReachedPlayerId;
         _lastKeyboard = Keyboard.GetState();
     }
 
@@ -259,6 +263,8 @@ public sealed class GameplayScreen : GameScreen
             _hud.CraftResult -= _scene.PlayCraftResult;
             _scene.NpcSelected -= _hud.OpenNpc;
             _scene.ShopSellerSelected -= _hud.ViewPersonalShop;
+            _scene.PresenceObserved -= _hud.ObserveParty;
+            _hud.PlayerButtonsUsed -= _scene.DismissPlayerButtons;
             _scene.SkillNotice -= _hud.Chat.System;
             _hud.SummonModeRequested -= _scene.ToggleSummonMode;
             _hud.RunToggleRequested -= _scene.ToggleRun;

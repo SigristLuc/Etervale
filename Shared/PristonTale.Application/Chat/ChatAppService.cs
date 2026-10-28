@@ -7,8 +7,8 @@ using PristonTale.Contracts.Social;
 namespace PristonTale.Application.Chat;
 
 // The chat on the server. A spoken line reaches the players near the speaker with the speaker's name in front; lines
-// that start with a slash are commands: whispers, the trade and clan channels, whisper refusal, the boss minute, then the
-// game-master commands. A slash line is never spoken, nor is a yahoo word, which cheers instead. Runs on the caller's thread; positions come from the tick.
+// that start with a slash are commands: whispers, the trade and clan channels, whisper refusal, the boss minute, a party
+// request by name, then the game-master commands. A slash line is never spoken, nor is a yahoo word, which cheers instead. Runs on the caller's thread; positions come from the tick.
 public sealed class ChatAppService
 {
     private const string WhisperRefused = "Unable to send private messages";
@@ -20,7 +20,7 @@ public sealed class ChatAppService
         Directory = directory;
         World = world;
         GameMasters = gameMasters;
-        _parties = parties ?? NoParties.Instance;
+        _parties = parties ?? world.Parties;
         _clans = clans ?? NoClans.Instance;
     }
 
@@ -74,7 +74,7 @@ public sealed class ChatAppService
         }
     }
 
-    // A party line: every other member of the speaker's party receives it (nobody while there are no parties).
+    // A party line: every other member of the speaker's party receives it.
     public Task PartyAsync(ulong entityId, string text)
     {
         if (!Directory.TryGet(entityId, out var member))
@@ -175,6 +175,11 @@ public sealed class ChatAppService
             return Task.FromResult(true);
         }
 
+        if (PartyRequestLength(text) is var party and > 0)
+        {
+            return InviteToPartyAsync(member, text, party);
+        }
+
         var clan = _clans.ClanOf(member.EntityId);
         if (clan != 0 && ChatCommandText.Match("/CLAN>", text) is var clanLength and > 0)
         {
@@ -195,6 +200,28 @@ public sealed class ChatAppService
         }
 
         return Task.FromResult(false);
+    }
+
+    private static int PartyRequestLength(string text) => Math.Max(ChatCommandText.Match("//party", text), ChatCommandText.Match("//PARTY", text));
+
+    // "//party name": the original's party request, also what the button under a player's portrait sends.
+    private async Task<bool> InviteToPartyAsync(ChatMember member, string text, int length)
+    {
+        var name = ChatCommandText.ReadWord(text, ref length);
+        if (name.Length == 0)
+        {
+            return true;
+        }
+
+        try
+        {
+            Directory.Deliver(await World.InviteToPartyByNameAsync(member.Session, name));
+        }
+        catch (WorldBusyException)
+        {
+        }
+
+        return true;
     }
 
     // "/:name text" or "/;name text": the sender sees "To> name: text", the receiver "From> sender: text". A receiver who

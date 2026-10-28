@@ -32,7 +32,7 @@ rendering internals, skill presentation and VFX data have their own documents (s
 | `Client/PristonTale.Gameplay/World/Remote/` | Remote actors: `RemoteEntityManager`, `RemoteSnapshotBuffer`, `RemoteServerClock`, actor composers, equipment visuals, ground loot, picking |
 | `Client/PristonTale.Gameplay/World/*.cs` (other) | `TargetSelection` (target frame owner), `NpcApproach`, `GroundTraversal`, `FieldCollisionQuery`, `LoadedField`, `EnteredCharacter` |
 | `Client/PristonTale.Gameplay/Combat/` | `ActorMotionController` (local motion state machine), `AttackInputController` (attack press/release and server reconcile) |
-| [`Client/PristonTale.Gameplay/UI/GameplayHud.cs`](../Client/PristonTale.Gameplay/UI/GameplayHud.cs) | In-game HUD root: windows, state, update and draw order. Partials: `.Input` (keys, click routing by priority, menu buttons and toggles, captures), `.Services` (NPC service windows and their actions, drops from the bag, icons), `.Quests` (dialog, boxes, quest window), `.Messages` (completed requests to the chat or the notice strip) |
+| [`Client/PristonTale.Gameplay/UI/GameplayHud.cs`](../Client/PristonTale.Gameplay/UI/GameplayHud.cs) | In-game HUD root: windows, state, update and draw order. Partials: `.Input` (keys, click routing by priority, menu buttons and toggles, captures), `.Services` (NPC service windows and their actions, drops from the bag, icons), `.Quests` (dialog, boxes, quest window), `.Parties` (party window, request box, buttons under a player's portrait), `.PersonalShops`, `.Messages` (completed requests to the chat or the notice strip) |
 | `Client/PristonTale.Gameplay/UI/` (root) | `HudLayout` (800x600 design space), `LoginPanel`/`LoginLayout`/`TextInputField`, `DisplayConfirmation` |
 | `Client/PristonTale.Gameplay/UI/Widgets/` | Bottom bar, status window, skill tree and sockets, minimap, target frame and combat history (`HudCombat`), 3D target portrait, NPC dialog, settings panel, system menu, notices |
 | `Client/PristonTale.Gameplay/UI/Chat/` | Chat window, tabs, input line and speech bubbles (see [chat-and-gm.md](chat-and-gm.md)) |
@@ -186,6 +186,9 @@ Correlation rules (requests without an operation id):
   `PersonalShopResult` and come back with it as one `PersonalShopReply` (the offers with their copies' values). A
   player's shop sign arrives in its description (`PlayerAppearanceInfo.ShopSign`); `RemoteEntityManager.ShopSigns`
   keeps the signs in view, the local player's included, and a new sign alone rebuilds no model.
+- Party requests (`IPlayChannel.InviteToPartyAsync`, `AnswerPartyAsync`, `CommandPartyAsync`) are sent without an
+  answer; `PartyRequest` and `PartyMembers` arrive as `PresenceUpdate.PartyRequest` and `PresenceUpdate.Party`
+  (`PartyInfo`, the leader first, empty once the player has no party).
 - A receive-loop failure fails every pending request and completes the presence channel with the error; later calls
   throw `IOException`.
 
@@ -346,7 +349,7 @@ Renderer side of stage publication: [rendering.md](rendering.md).
 | Right click | same | Attack if the right socket holds the basic attack, otherwise cast the right socket skill |
 | Hold `A` | `GameScene.CollectGroundLabels`, `TryPickLoot` | Show and pick every ground item label |
 | Middle drag, cursor at screen edge, wheel | `PristonCamera.UpdateOrbit` (Engine3D) | Orbit, edge orbit, zoom; ignored while the HUD captures the pointer |
-| `I` or `V`, `C`, `S`, `X`, `Q` | `GameplayHud.UpdateKeys` | Inventory, status, skills, system menu, quest window (ignored with Ctrl held) |
+| `I` or `V`, `C`, `S`, `X`, `Q`, `D` | `GameplayHud.UpdateKeys` | Inventory, status, skills, system menu, quest window, party window (ignored with Ctrl held) |
 | `F1`-`F8` | `HudSkillBindings` | Select a skill shortcut; while pressing a skill in the tree, bind it ([skills.md](skills.md)) |
 | `Enter`, `Page Up`/`Page Down`, `Up`/`Down` | `HudChat.Update` | Open the chat input or send its line, scroll the chat, recall commands; while typing, HUD, binding, debug and motion keys and the `A` labels are suppressed |
 | `Esc` | `Game1` | Close the chat window first, then HUD panels, else quit |
@@ -553,7 +556,20 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
 - Settings (`HudSettingsPanel`, system menu entry Settings) edits `PresentationSettings.Requested`;
   `PresentationController` applies it at the next frame boundary. Display changes require confirmation within 15 s
   (`DisplayConfirmation`), otherwise they revert.
-- Party, quest and system menu entries other than Settings are drawn without behaviour.
+- System menu entries other than Settings are drawn without behaviour.
+- Party (`UI/Parties/`, art `HudPartyArt`; `GameplayHud.Parties.cs`, `GameScene.Parties.cs` as `IPartyClient`):
+  - The party page (`HudPartyWindow`, D or the bar's party button) stands where the quest page does, so one closes the
+    other; it opens when a party forms and closes when it is released. Members go down from (80, 38) at 30 px steps
+    with the life bar (94 px), the mark (the leader's own) and the level in tens past 10 (`L4x`); a click picks a
+    member for delegate and kick, a double click whispers to it. Delegate, disband and kick work for the leader, leave
+    for any member, close always.
+  - The request box (`HudPartyRequest`) at (513, 3) blinks, answers once from OK or cancel and closes after 20 s; a
+    request is not shown while the warehouse is open.
+  - A click on another player (not selling) approaches it as an NPC; once reached, its portrait shows the trade, party
+    and friend buttons (`HudPlayerButtons`, on `cw-1.tga`) instead of the life bar while it stays the target within
+    256 units. Party asks it to group; trade and friend close the row until those systems exist.
+  - Members show on the minimap (`image/party.tga`, red past `PartyLimits.NearRange`), in name boxes with their life
+    bar and in the bubbles' party colour.
 
 ## Audio
 
@@ -665,7 +681,7 @@ budget; never read files in `Update`/`Draw` after `BeginRemotePresence`. Resolve
   published, but spawns that arrived before `SetCatalog` reached the scene wait in `_pendingModels`.
 - `GameplayHud.Update` has an `internal` overload taking keyboard and mouse state for tests; the public one reads the
   devices.
-- HUD keys `I`, `V`, `C`, `S`, `X`, `Q` act on any press without Ctrl unless the chat input has focus
+- HUD keys `I`, `V`, `C`, `S`, `X`, `Q`, `D` act on any press without Ctrl unless the chat input has focus
   (`GameplayHud.KeyboardCaptured`); a new key handler must check it too.
 - Quest texts load on the thread pool; `GameplayHud.IconsIdle` waits for them so captures show the text.
 - `IPlayChannel.SendSkillCommandAsync` has a default no-op implementation; test doubles inherit it silently.

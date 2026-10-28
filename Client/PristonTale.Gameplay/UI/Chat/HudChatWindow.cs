@@ -55,6 +55,13 @@ public sealed class HudChatWindow
         Focused = true;
     }
 
+    // The input line takes the keyboard holding "/:name " (a whisper line clicked, a party member double-clicked).
+    public void WhisperTo(string name)
+    {
+        Input.WhisperTo(name);
+        OpenInput();
+    }
+
     // A whisper (and Enter) opens the window without taking the keyboard.
     public void Reveal() => Open = true;
 
@@ -125,8 +132,7 @@ public sealed class HudChatWindow
         {
             if (bounds.Contains(pointer) && WhisperPartner(entry) is { } partner)
             {
-                Input.WhisperTo(partner);
-                Focused = true;
+                WhisperTo(partner);
                 return true;
             }
         }

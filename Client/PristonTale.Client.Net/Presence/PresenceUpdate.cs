@@ -41,7 +41,37 @@ public sealed record PresenceUpdate(
     // Chat lines from the server, and the server's request to save and quit (its shutdown).
     public IReadOnlyList<ChatLineInfo> Chat { get; init; } = [];
     public bool CloseRequested { get; init; }
+
+    // The local player's party when it changed (no member once it has none), and a player's request to group.
+    public PartyInfo? Party { get; init; }
+    public PartyRequestInfo? PartyRequest { get; init; }
 }
+
+// The local player's party, the leader first; Position is the member's planar place (x, z) in world units.
+public sealed record PartyInfo(IReadOnlyList<PartyMemberInfo> Members)
+{
+    public static readonly PartyInfo None = new([]);
+
+    public bool Leads(ulong entityId) => Members.Count > 0 && Members[0].EntityId == entityId;
+
+    public bool Contains(ulong entityId)
+    {
+        for (var index = 0; index < Members.Count; index++)
+        {
+            if (Members[index].EntityId == entityId)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+public sealed record PartyMemberInfo(ulong EntityId, string Name, int Level, int Life, int MaxLife, System.Numerics.Vector2 Position);
+
+// Recommended: the player a member asks its leader to take (empty for a request to join).
+public sealed record PartyRequestInfo(ulong FromId, string FromName, string Recommended = "");
 
 // One chat line: Kind is the server's colour and tab code, SpeakerId the entity that said it (0 for server lines).
 // Direct lines (the plain chat message) go to the log as they are; the others show over a speaker the client sees.

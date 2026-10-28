@@ -41,6 +41,7 @@ internal sealed record SessionServices(
     WingGateAppService WingGates,
     QuestAppService Quests,
     PersonalShopAppService PersonalShops,
+    PartyAppService Parties,
     ChatAppService Chat,
     GameServerControl Control)
 {
@@ -206,6 +207,15 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                     break;
                 case EtervaleOpcodes.PersonalShopBuy:
                     await BuyFromPersonalShopAsync(PersonalShopBuyPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.PartyInvite:
+                    await InviteToPartyAsync(PartyInvitePacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.PartyAnswer:
+                    await AnswerPartyAsync(PartyAnswerPacket.Read(memory.Span));
+                    break;
+                case EtervaleOpcodes.PartyCommand:
+                    await CommandPartyAsync(PartyCommandPacket.Read(memory.Span));
                     break;
                 case EtervaleOpcodes.LeaveWorld:
                     SendLarge(new LeaveWorldPacket(Saved: await ClosePlayAsync()).Write, LeaveWorldPacket.Size);
@@ -765,6 +775,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         LeaveChat(session);
         outbox.Writer.TryComplete();
         var leave = await _services.World.LeaveAsync(session.FieldId, session.EntityId, outbox.Writer);
+        _services.Chat.Directory.Deliver(leave.Notices);
         session.EndPlay();
         var saved = false;
         try

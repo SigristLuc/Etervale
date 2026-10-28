@@ -107,6 +107,8 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.QuestNotices => OnQuestNotices(QuestNoticesPacket.Read(packet)),
             EtervaleOpcodes.ChatLine => OnChat(ChatLinePacket.Read(packet)),
             EtervaleOpcodes.CloseRequest => OnCloseRequest(packet),
+            EtervaleOpcodes.PartyMembers => OnPartyMembers(PartyMembersPacket.Read(packet)),
+            EtervaleOpcodes.PartyRequest => OnPartyRequest(PartyRequestPacket.Read(packet)),
             _ => null
         };
         return update is not null || code is EtervaleOpcodes.PresenceEntries or EtervaleOpcodes.EntityDescription or EtervaleOpcodes.RemoveObjects
@@ -115,8 +117,23 @@ internal sealed class PresenceDecoder
             or EtervaleOpcodes.SkillEvents or EtervaleOpcodes.StatusEffects or EtervaleOpcodes.SkillCooldowns or EtervaleOpcodes.SkillCastResult
             or EtervaleOpcodes.ItemDetails or EtervaleOpcodes.OwnerItemStatus or EtervaleOpcodes.AgingProgress
             or EtervaleOpcodes.PremiumTimers or EtervaleOpcodes.ItemEffects or EtervaleOpcodes.RestartOffer or EtervaleOpcodes.QuestJournal or EtervaleOpcodes.QuestNotices
-            or EtervaleOpcodes.ChatLine or EtervaleOpcodes.CloseRequest;
+            or EtervaleOpcodes.ChatLine or EtervaleOpcodes.CloseRequest or EtervaleOpcodes.PartyMembers or EtervaleOpcodes.PartyRequest;
     }
+
+    private PresenceUpdate OnPartyMembers(PartyMembersPacket packet)
+    {
+        var members = new PartyMemberInfo[packet.Members.Count];
+        for (var index = 0; index < members.Length; index++)
+        {
+            var member = packet.Members[index];
+            members[index] = new PartyMemberInfo(member.EntityId, member.Name, member.Level, member.Life, member.MaxLife, new Vector2(member.X, member.Z));
+        }
+
+        return Update([], []) with { Party = new PartyInfo(members) };
+    }
+
+    private PresenceUpdate OnPartyRequest(PartyRequestPacket packet) =>
+        Update([], []) with { PartyRequest = new PartyRequestInfo(packet.FromId, packet.FromName, packet.Recommended) };
 
     private PresenceUpdate OnChat(ChatLinePacket packet) =>
         Update([], []) with { Chat = [new ChatLineInfo(packet.Kind, packet.Speaker, packet.Text)] };

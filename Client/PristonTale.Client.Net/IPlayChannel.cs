@@ -8,6 +8,7 @@ using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Skills;
+using PristonTale.Contracts.Social;
 using PristonTale.Contracts.World;
 
 namespace PristonTale.Client.Net;
@@ -72,6 +73,14 @@ public interface IPlayChannel : IAsyncDisposable
 
     // Space inside the minute a yahoo word opened; the cheer arrives on the presence timeline.
     Task SendYahooKeyAsync(CancellationToken ct = default) => Task.CompletedTask;
+
+    // Party requests: ask a player to group, answer a request (PresenceUpdate.PartyRequest), or a party window button. None
+    // is answered: the members (PresenceUpdate.Party) and chat lines show what changed.
+    Task InviteToPartyAsync(ulong targetId, CancellationToken ct = default) => Task.CompletedTask;
+
+    Task AnswerPartyAsync(ulong fromId, bool accept, CancellationToken ct = default) => Task.CompletedTask;
+
+    Task CommandPartyAsync(PartyCommand command, ulong memberId, CancellationToken ct = default) => Task.CompletedTask;
 
     IAsyncEnumerable<PresenceUpdate> ReadAllAsync(CancellationToken ct = default);
 }

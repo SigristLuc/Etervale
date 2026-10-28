@@ -148,4 +148,16 @@ public sealed class ChatDirectory
             member.Link.Deliver(line);
         }
     }
+
+    // The lines a party change answered, to those of their players still in the chat.
+    public void Deliver(IReadOnlyList<World.PartyNotice>? notices)
+    {
+        foreach (var notice in notices ?? [])
+        {
+            if (TryGet(notice.To, out var member))
+            {
+                member.Link.Deliver(new ChatLine(notice.Kind, 0, notice.Text));
+            }
+        }
+    }
 }

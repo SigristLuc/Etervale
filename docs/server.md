@@ -198,6 +198,7 @@ the same switch.
 | --- | --- | --- | --- |
 | `Heartbeat` | inline | `ChatAppService.Heartbeat` (the standing notice) | Echo with the server's `Environment.TickCount64`. |
 | `ChatSay` | `SayAsync` | `ChatAppService.SayAsync` (spoken line, player or game-master command) or `PartyAsync` (party flag) | Chat lines to the hearers or the other party members ([chat-and-gm.md](chat-and-gm.md)). |
+| `PartyInvite`, `PartyAnswer`, `PartyCommand` | `InviteToPartyAsync`, `AnswerPartyAsync`, `CommandPartyAsync` | `PartyAppService` | None; chat lines, and `PartyRequest` / `PartyMembers` from the snapshots ([application.md](application.md#parties)). |
 | `Login` | `LoginAsync` | `LoginThrottle.IsBlocked`, `AuthAppService.LoginAsync`, `ISessionRegistry.TryGet` | `CharacterList` + `LoginResult` 0, or `LoginResult` with the failure. |
 | `CharacterCommand` | `ApplyCharacterCommandAsync` | `CharacterAppService.CreateCharacterAsync(token, name, class, face)` or `DeleteCharacterAsync` | New list on success, then `CharacterResult`. |
 | `EnterWorld` | `EnterWorldAsync` | `SessionAppService.EnterWorldAsync` | `WorldEntry` (id, field and spawn point, or the `EnterWorldFailure`). |

@@ -5,6 +5,7 @@ using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
+using PristonTale.Simulation.Parties;
 using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Loot;
@@ -297,12 +298,10 @@ internal sealed class FieldCombat
         if (credited != 0 && _host.TryGetPlayer(credited, out var creditedPlayer))
         {
             creditedTier = creditedPlayer.Character.Tier;
-            exp = KillReward.ExpForKill(monster.Def.ExpReward, monster.Def.Combat.Level, creditedPlayer.Level, ExperienceMultiplier,
-                ExperienceEventPercent);
-            exp = PremiumRules.BoostExperience(exp, creditedPlayer.Character.Premium);
-            _expByPlayer.TryGetValue(credited, out var total);
-            _expByPlayer[credited] = exp > ulong.MaxValue - total ? ulong.MaxValue : total + exp;
-            creditedPlayer.Character.AwardExperience(exp);
+            exp = creditedPlayer.Party is { } party
+                ? AwardParty(monster, creditedPlayer, party)
+                : Award(creditedPlayer, KillReward.ExpForKill(monster.Def.ExpReward, monster.Def.Combat.Level, creditedPlayer.Level,
+                    ExperienceMultiplier, ExperienceEventPercent));
         }
 
         // The monster's event item goes to the credited player before the drop rolls.
@@ -317,6 +316,44 @@ internal sealed class FieldCombat
         _corpseMsLeft[monster.EntityId] = CorpseDespawnMs;
 
         return new KillPayout(monster.EntityId, credited, exp, drops);
+    }
+
+    // The kill's experience at the party's average level, shared by its size (PartyRules); members in other fields share
+    // nothing. Answers the killer's award.
+    private ulong AwardParty(MonsterInstance monster, WorldPlayer killer, Party party)
+    {
+        var exp = KillReward.ExpForKill(monster.Def.ExpReward, monster.Def.Combat.Level, party.AverageLevel, ExperienceMultiplier,
+            ExperienceEventPercent);
+        var (killerShare, otherShare) = PartyRules.ExpShare(party.Count);
+        ulong killerAward = 0;
+        foreach (var id in party.Members)
+        {
+            if (id == killer.EntityId)
+            {
+                killerAward = Award(killer, PartyRules.Share(exp, killerShare));
+            }
+            else if (_host.TryGetPlayer(id, out var member) && PartyRules.InShareRange(killer.Position, member.Position))
+            {
+                Award(member, PartyRules.Share(exp, otherShare));
+            }
+        }
+
+        return killerAward;
+    }
+
+    // Each player's premium boosts its own part.
+    private ulong Award(WorldPlayer player, ulong experience)
+    {
+        var exp = PremiumRules.BoostExperience(experience, player.Character.Premium);
+        if (exp == 0)
+        {
+            return 0;
+        }
+
+        _expByPlayer.TryGetValue(player.EntityId, out var total);
+        _expByPlayer[player.EntityId] = exp > ulong.MaxValue - total ? ulong.MaxValue : total + exp;
+        player.Character.AwardExperience(exp);
+        return exp;
     }
 
     // Items over their daily limit do not fall; the monster's own death gold falls on top of the table with its chance.

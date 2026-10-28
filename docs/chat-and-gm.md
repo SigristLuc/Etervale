@@ -21,7 +21,7 @@ composes, shows and limits what the player types.
 | `Shared/PristonTale.Application/Chat/ChatAppService.cs` | Spoken and party lines, player commands, whispers, the standing notice on heartbeat |
 | `Shared/PristonTale.Application/Chat/ChatDirectory.cs` | Players in the world by entity, name and account; level, whisper refusal, notice state |
 | `Shared/PristonTale.Application/Chat/ChatLine.cs`, `IChatLink.cs` | `ChatKind`, the line a player receives, the session-side delivery port |
-| `Shared/PristonTale.Application/Chat/SocialRosters.cs` | `IPartyRoster`, `IClanRoster` and their empty defaults |
+| `Shared/PristonTale.Application/Chat/SocialRosters.cs` | `IPartyRoster` (the world's `PartyRoster` by default), `IClanRoster` and its empty default |
 | `Shared/PristonTale.Application/Chat/ChatCommandText.cs` | Word, quoted phrase and number parsing; case-sensitive prefix matching |
 | `Shared/PristonTale.Application/GameMasters/GameMasterLevel.cs` | Levels 0 to 4 |
 | `Shared/PristonTale.Application/GameMasters/GameMasterCommands.cs` | The command table, `HandleAsync`, the audit entry of every matched command |
@@ -75,8 +75,11 @@ Kinds: 0 server, 1 whisper, 2 system, 3 notice, 4 party, 5 clan, 6 trade, 9 assi
   weapon on the back) from standing, walking or running. For a minute after, Space (`YahooKey`) cheers again for 3% of
   the maximum stamina, refused while stamina is not above that (`YahooRules`). A firecracker cheers after the motion in
   progress, and the tiger capsule cheers at its eating event.
-- Party and clan lines go through `IPartyRoster` and `IClanRoster`. Etervale has no party or clan system yet; the
-  default rosters are empty, so these lines reach nobody until those systems register real rosters.
+- Party and clan lines go through `IPartyRoster` and `IClanRoster`: the party roster is the world's parties
+  ([application.md](application.md#parties)); Etervale has no clan system yet, so the empty clan roster refuses clan
+  lines.
+- `//party name` (or `//PARTY`) asks that player to group, as the button under a player's portrait does; an unknown
+  name answers `name is currently offline, or cannot be found`.
 - English builds had no chat profanity filter, so none is applied.
 
 ## Client chat window
@@ -170,7 +173,7 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
 - The client shows its own spoken and party lines at once; the server never echoes them back.
 - The standing notice is delivered on the heartbeat, not on the command.
 - Not ported because Etervale has no such system: siege and castle commands, billing and PC-room time, event levels,
-  client checksum commands, party management commands, item-age revision, the wishing fountain, Bellatra (`/sod_view`, `/sod_enter`), billing time (`/time`), couple rings and
+  client checksum commands, item-age revision, the wishing fountain, Bellatra (`/sod_view`, `/sod_enter`), billing time (`/time`), couple rings and
   only one game master pet at a time. The classic password elevation is replaced by the stored level.
 - The classic client's own commands: `/field` and `/player_location` (and `/expup`) are server commands here, since the
   server owns position and experience; `/save` has no counterpart (every change is stored as it happens); the lighting

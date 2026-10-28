@@ -106,6 +106,7 @@ public sealed partial class GameScene
         EndSkillMotion();
         UpdatePendingCast();
         UpdateNpcApproach();
+        UpdateReachedPlayer();
         _lootInteraction?.Update(_groundLoot, _playerBody.Position, _serverPlanarPosition, Owner);
         UpdateAttackPresentation(gameTime);
         if (_followCursor && !WorldClicksBlocked && !SelfCasting)
@@ -234,14 +235,14 @@ public sealed partial class GameScene
         {
             return false;
         }
-        // A seller is approached and its shop opened as an NPC's dialog is.
-        var sells = kind == EntityKind.Player && _remote.ShopSigns.ContainsKey(entityId);
-        if (kind == EntityKind.Npc || sells)
+        // A seller is approached and its shop opened as an NPC's dialog is; another player is approached for the buttons
+        // under its portrait.
+        if (kind is EntityKind.Npc or EntityKind.Player)
         {
             _lootInteraction.Cancel();
             ClearAttackTarget();
             _npcTargetId = entityId;
-            _npcTargetSells = sells;
+            _approach = kind == EntityKind.Npc ? ApproachKind.Npc : _remote.ShopSigns.ContainsKey(entityId) ? ApproachKind.Seller : ApproachKind.Player;
             _npcMoveSent = false;
             _targetSelection.Trace(entityId);
             StopPredictedMovement();
@@ -371,14 +372,19 @@ public sealed partial class GameScene
         {
             var entityId = _npcTargetId;
             ClearAttackTarget();
-            if (!_npcTargetSells)
+            switch (_approach)
             {
-                NpcSelected?.Invoke(entityId);
+                case ApproachKind.Npc:
+                    NpcSelected?.Invoke(entityId);
+                    break;
+                case ApproachKind.Seller when _remote.ShopSigns.ContainsKey(entityId):
+                    ShopSellerSelected?.Invoke(entityId);
+                    break;
+                case ApproachKind.Player:
+                    ReachedPlayerId = entityId;
+                    break;
             }
-            else if (_remote.ShopSigns.ContainsKey(entityId))
-            {
-                ShopSellerSelected?.Invoke(entityId);
-            }
+
             return;
         }
 

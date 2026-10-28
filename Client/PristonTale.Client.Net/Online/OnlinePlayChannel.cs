@@ -9,7 +9,9 @@ using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.Contracts.Skills;
+using PristonTale.Contracts.Social;
 using PristonTale.Contracts.World;
+using PristonTale.Protocol.Packets;
 
 namespace PristonTale.Client.Net.Online;
 
@@ -134,6 +136,24 @@ internal sealed class OnlinePlayChannel : IPlayChannel
     {
         await _start.WaitAsync(ct);
         _connection.SendYahooKey();
+    }
+
+    public async Task InviteToPartyAsync(ulong targetId, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendParty(new PartyInvitePacket(targetId));
+    }
+
+    public async Task AnswerPartyAsync(ulong fromId, bool accept, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendParty(new PartyAnswerPacket(fromId, accept));
+    }
+
+    public async Task CommandPartyAsync(PartyCommand command, ulong memberId, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendParty(new PartyCommandPacket(command, memberId));
     }
 
     public async Task SendSkillCommandAsync(uint sequence, uint skillCode, SkillCastCommand command, CancellationToken ct = default)

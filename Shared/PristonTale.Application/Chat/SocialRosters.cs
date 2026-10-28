@@ -13,14 +13,6 @@ public interface IClanRoster
     uint ClanOf(ulong entityId);
 }
 
-// Used while the server runs no party system: nobody is in a party, so party lines reach no one.
-public sealed class NoParties : IPartyRoster
-{
-    public static readonly NoParties Instance = new();
-
-    public IReadOnlyCollection<ulong> MembersOf(ulong entityId) => [];
-}
-
 // Used while the server runs no clan system: nobody has a clan, so clan lines are not accepted.
 public sealed class NoClans : IClanRoster
 {

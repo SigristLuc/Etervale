@@ -5,6 +5,7 @@ using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Gameplay.UI.Chat;
 using PristonTale.Gameplay.UI.Inventory;
 using PristonTale.Gameplay.UI.Npc;
+using PristonTale.Gameplay.UI.Parties;
 using PristonTale.Gameplay.UI.PersonalShops;
 using PristonTale.Gameplay.UI.Quests;
 using PristonTale.Gameplay.UI.Rendering;
@@ -20,10 +21,10 @@ using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Gameplay.UI;
 
-// The original in-game interface in its draw order: speech bubbles, the chat window, status, skill, inventory and quest
-// windows behind the bottom bar, then item overlays, help boxes and message boxes. Party and the system menu entries
-// other than Settings have no server support and are drawn without behaviour. Refusals show in the notice strip;
-// confirmations and server lines go to the chat.
+// The original in-game interface in its draw order: speech bubbles, the chat window, status, skill, inventory, quest and
+// party windows behind the bottom bar, then item overlays, help boxes and message boxes. The system menu entries other
+// than Settings have no server support and are drawn without behaviour. Refusals show in the notice strip; confirmations
+// and server lines go to the chat.
 public sealed partial class GameplayHud : IDisposable
 {
     private readonly ScreenContext _context;
@@ -155,6 +156,7 @@ public sealed partial class GameplayHud : IDisposable
         _sprites.Request(HudChatWindow.Art);
         _sprites.Request(HudChatBubbles.Art);
         _chat.Lookup = id => (Combat.KindOf(id, out var owner), owner);
+        SetUpParty();
     }
 
     // The chat window, its input line and the speech bubbles.
@@ -307,7 +309,7 @@ public sealed partial class GameplayHud : IDisposable
         _npc.Dismiss();
         var closed = _npcOpen || _settingsOpen || _systemMenu || _skills.TrainingPending
             || _inventorySlide.Open || _statusSlide.Open || _skillSlide.Open || ServiceWindowOpen(blockingOnly: false)
-            || _questWindow.Open || _quests.Dialog is not null || _quests.SkillResetBox;
+            || _questWindow.Open || _partyWindow.Open || _quests.Dialog is not null || _quests.SkillResetBox;
         closed |= _personalShop.Close();
         CloseServices();
         closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming || _wingGate.IsOpen || _wingGate.Confirming;
@@ -318,6 +320,7 @@ public sealed partial class GameplayHud : IDisposable
         _quests.AnswerSkillReset(false);
         _quests.LeaveNpc();
         _questWindow.Close();
+        _partyWindow.Close();
         _npcOpen = false;
         _settingsOpen = false;
         _systemMenu = false;
@@ -363,6 +366,8 @@ public sealed partial class GameplayHud : IDisposable
         }
 
         _questWindow.Advance(elapsedSeconds);
+        _partyWindow.Advance(elapsedSeconds);
+        _partyRequest.Update(_clock.Elapsed.TotalMilliseconds);
         ForwardMessages();
         ApplyQuests();
         ApplyServices(state);
@@ -528,10 +533,15 @@ public sealed partial class GameplayHud : IDisposable
         if (MinimapShown)
         {
             Combat.CollectNpcPositions(_minimapNpcs);
-            _minimap.Draw(_painter, layout, World, _minimapNpcs, HudMinimap.Box(layout).Contains(pointer));
+            _minimap.Draw(_painter, layout, World, _minimapNpcs, MinimapParty(), HudMinimap.Box(layout).Contains(pointer));
         }
 
-        Combat.DrawTarget(_painter, layout, TargetId, _context.Presentation.Requested.ClassicTargetHealthBar, _portrait.Texture(TargetId));
+        Combat.DrawTarget(_painter, layout, TargetId, _context.Presentation.Requested.ClassicTargetHealthBar, _portrait.Texture(TargetId),
+            ShowsPlayerButtons);
+        if (ShowsPlayerButtons)
+        {
+            HudPlayerButtons.Draw(_painter, HudCombat.TargetFrame(layout), pointer);
+        }
         _premium.Draw(_painter, _clock.Elapsed.TotalMilliseconds);
         _personalShop.Draw(_painter);
         _chat.Window.Draw(_painter, layout, SideWindowOpen);
@@ -557,6 +567,8 @@ public sealed partial class GameplayHud : IDisposable
         {
             _questWindow.Draw(_painter, layout, _context.Font, _questView, _questDocuments, pointer);
         }
+
+        _partyWindow.Draw(_painter, layout, Party, SelfId, pointer);
 
         var incoming = OwnedItemView.Find(_state?.Items, _inventory.Dragging);
         var serviceFrame = new HudServiceFrame(_painter, layout, _icons, _state, pointer, incoming, _settingsOpen);
@@ -678,6 +690,7 @@ public sealed partial class GameplayHud : IDisposable
         _painter.Flush();
         _premium.DrawHover(_painter, pointer, _clock.Elapsed.TotalMilliseconds);
         _painter.Flush();
+        _partyRequest.Draw(_painter, pointer, _clock.Elapsed.TotalMilliseconds);
         _restart.Draw(_painter, layout, pointer, RestartOffer?.FieldOpen == true, InCastleField);
         _painter.Flush();
         _notice.Draw(_painter, layout);

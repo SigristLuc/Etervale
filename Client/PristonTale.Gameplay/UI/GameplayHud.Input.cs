@@ -76,7 +76,12 @@ public sealed partial class GameplayHud
 
         if (Pressed(keyboard, Keys.Q))
         {
-            _questWindow.Toggle();
+            ToggleQuestWindow();
+        }
+
+        if (Pressed(keyboard, Keys.D))
+        {
+            TogglePartyWindow();
         }
 
         if (Pressed(keyboard, Keys.R))
@@ -159,7 +164,7 @@ public sealed partial class GameplayHud
             return;
         }
 
-        if (ClickQuests(layout, pointer))
+        if (ClickQuests(layout, pointer) || ClickParty(layout, pointer))
         {
             return;
         }
@@ -277,7 +282,10 @@ public sealed partial class GameplayHud
                 _systemMenu = !_systemMenu;
                 break;
             case HudMenuButton.Quest:
-                _questWindow.Toggle();
+                ToggleQuestWindow();
+                break;
+            case HudMenuButton.Party:
+                TogglePartyWindow();
                 break;
         }
     }
@@ -360,7 +368,7 @@ public sealed partial class GameplayHud
             return true;
         }
 
-        if (_personalShop.Captures(pointer) || _itemUse.Captures(pointer) || _wingGate.Captures(pointer) || _puzzle.Captures(pointer) || _premium.Contains(pointer))
+        if (CapturesParty(layout, pointer) || _personalShop.Captures(pointer) || _itemUse.Captures(pointer) || _wingGate.Captures(pointer) || _puzzle.Captures(pointer) || _premium.Contains(pointer))
         {
             return true;
         }

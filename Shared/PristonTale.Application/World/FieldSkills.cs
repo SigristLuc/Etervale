@@ -411,6 +411,11 @@ internal sealed partial class FieldSkills
             return SkillCastVerdict.WeaponNotAllowed;
         }
 
+        if (rule.Allies is { RequiresParty: true } && player.Party is null)
+        {
+            return SkillCastVerdict.InvalidTarget;
+        }
+
         switch (rule.Target)
         {
             case SkillTarget.None when rule.Resurrect is { } resurrect:
@@ -453,7 +458,7 @@ internal sealed partial class FieldSkills
                     return SupportBlocked(player, rule) ? SkillCastVerdict.AlreadyActive : SkillCastVerdict.Accepted;
                 }
 
-                if (!_host.TryGetPlayer(request.TargetId, out var ally) || ally.IsDead)
+                if (!_host.TryGetPlayer(request.TargetId, out var ally) || ally.IsDead || rule.Allies is { Party: true } && !player.SharesPartyWith(ally))
                 {
                     return SkillCastVerdict.InvalidTarget;
                 }

@@ -6,12 +6,13 @@ using PristonTale.Contracts.World;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
-// Name boxes over the scene: an NPC's name always within 768 units of the camera, a monster's only while it is under the
-// cursor or is the clicked target. Summons carry their own plates (SummonPlates). Farther boxes draw first; the hovered
-// and the clicked one draw last. Every box is HudPainter.NameBox, the speech bubble's fill and gold rim with rounded
-// corners, highlighted under the cursor. Classic (classicNamePlates) is the original's layout: the HUD text size and the
-// life bar while the cursor is on the monster. Otherwise the same box holds smaller text, and the bar shows once the
-// monster was clicked or the local player swung at it, not for the cursor alone.
+// Name boxes over the scene: an NPC's name always within 768 units of the camera, a party member's always with its life
+// bar, a monster's only while it is under the cursor or is the clicked target. Summons carry their own plates
+// (SummonPlates). Farther boxes draw first; the hovered and the clicked one draw last. Every box is HudPainter.NameBox,
+// the speech bubble's fill and gold rim with rounded corners, highlighted under the cursor. Classic (classicNamePlates)
+// is the original's layout: the HUD text size and the life bar while the cursor is on the monster. Otherwise the same box
+// holds smaller text, and the bar shows once the monster was clicked or the local player swung at it, not for the
+// cursor alone.
 public sealed partial class HudCombat
 {
     private const float NpcPlateDepth = 12 * 64;
@@ -26,7 +27,11 @@ public sealed partial class HudCombat
     private static readonly Color PlateMonster = new(255, 210, 210);
     private static readonly Color PlateTracedMonster = new(255, 230, 200);
     private static readonly Color PlateNpc = new(180, 180, 255);
+    private static readonly Color PlateParty = new(220, 255, 160);
     private readonly List<(ulong Id, HudOverheadPoint Point, bool Focus)> _plates = new();
+
+    // Whether a player is in the local player's party.
+    public Func<ulong, bool> InParty { get; set; } = static _ => false;
 
     // Whether a monster's name box carries its life bar.
     public static bool ShowsPlateBar(bool classic, bool hovered, bool traced, bool attacked) => classic ? hovered : traced || attacked;
@@ -38,8 +43,9 @@ public sealed partial class HudCombat
         {
             var focus = id == hovered || id == traced;
             var kind = entity.Spawn.Kind;
-            var shown = kind == EntityKind.Npc || (kind == EntityKind.Monster && focus && entity.Life > 0 && entity.Spawn.OwnerId == 0);
-            if (shown && project(id) is { } point && (focus || point.Depth < NpcPlateDepth))
+            var member = kind == EntityKind.Player && InParty(id);
+            var shown = kind == EntityKind.Npc || member || (kind == EntityKind.Monster && focus && entity.Life > 0 && entity.Spawn.OwnerId == 0);
+            if (shown && project(id) is { } point && (focus || member || point.Depth < NpcPlateDepth))
             {
                 _plates.Add((id, point, focus));
             }
@@ -51,16 +57,19 @@ public sealed partial class HudCombat
         {
             var entity = _entities[id];
             var monster = entity.Spawn.Kind == EntityKind.Monster;
-            var color = !monster ? PlateNpc : id == traced ? PlateTracedMonster : PlateMonster;
+            var member = entity.Spawn.Kind == EntityKind.Player;
+            var color = member ? PlateParty : !monster ? PlateNpc : id == traced ? PlateTracedMonster : PlateMonster;
             var x = (int)(point.Screen.X / scale);
             var y = (int)(point.Screen.Y / scale);
             if (classic)
             {
-                DrawClassicPlate(painter, layout, Name(id), x, y, color, id == hovered, monster && ShowsPlateBar(true, id == hovered, id == traced, entity.Attacked) ? entity : null);
+                DrawClassicPlate(painter, layout, Name(id), x, y, color, id == hovered,
+                    member || monster && ShowsPlateBar(true, id == hovered, id == traced, entity.Attacked) ? entity : null);
             }
             else
             {
-                DrawPlate(painter, layout, Name(id), x, y, color, id == hovered, monster && ShowsPlateBar(false, id == hovered, id == traced, entity.Attacked) ? entity : null);
+                DrawPlate(painter, layout, Name(id), x, y, color, id == hovered,
+                    member || monster && ShowsPlateBar(false, id == hovered, id == traced, entity.Attacked) ? entity : null);
             }
         }
     }

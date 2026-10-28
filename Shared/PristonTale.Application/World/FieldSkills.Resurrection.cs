@@ -4,8 +4,8 @@ using PristonTale.Contracts.Combat;
 
 namespace PristonTale.Application.World;
 
-// Revive skills: the nearest dead player within the skill's radius rises where it fell, with a share of its life and a
-// short time in which it cannot be hurt, when the rank's chance succeeds.
+// Revive skills: the nearest dead member of the caster's party within the skill's radius rises where it fell, with a
+// share of its life and a short time in which it cannot be hurt, when the rank's chance succeeds.
 internal sealed partial class FieldSkills
 {
     private WorldPlayer? FindDeadAlly(WorldPlayer caster, int radius)
@@ -14,7 +14,8 @@ internal sealed partial class FieldSkills
         var best = radius * (float)radius;
         foreach (var player in _host.Players)
         {
-            if (!player.IsDead || player.EntityId == caster.EntityId || MathF.Abs(player.Position.Y - caster.Position.Y) > radius)
+            if (!player.IsDead || player.EntityId == caster.EntityId || !caster.SharesPartyWith(player)
+                || MathF.Abs(player.Position.Y - caster.Position.Y) > radius)
             {
                 continue;
             }

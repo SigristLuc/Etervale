@@ -26,6 +26,7 @@ into it is described in [server.md](server.md); skill resolution details are in 
 | [`Services/QuestAppService.cs`](../Shared/PristonTale.Application/Services/QuestAppService.cs) | Quest requests and the quest upkeep (see [quests.md](quests.md)) |
 | `Services/ItemUseAppService.cs` | Use of a carried item: prepare, store, commit ([special-items.md](special-items.md)) |
 | `Services/PersonalShopAppService.cs`, `World/WorldServer.PersonalShops.cs`, `World/PersonalShopTransactions.cs` | Personal shops: open, close, view, and a purchase that holds and stores two characters (below) |
+| `Services/PartyAppService.cs`, `World/WorldServer.Parties.cs`, `World/Parties/Party.cs` | Parties: requests, answers, the leader's commands, the members' view and the chat roster (below) |
 | `Chat/`, `GameMasters/` | Chat routing, whispers and notices; game-master commands, levels and audit ([chat-and-gm.md](chat-and-gm.md)) |
 | `World/WorldServer.Chat.cs`, `World/WorldServer.GameMasters.cs` | Players in hearing range; tick-side game-master reads and changes (kill, hide, move, spawn, drop, gifts) |
 | `Shared/PristonTale.Contracts/Sessions/*Outcome.cs`, `CharacterSummary.cs`; `Contracts/World/Restart.cs`, `WingGateTrip.cs` | Result records returned to the edge and read by the client (login, characters, world entry, restart, wing trips); failure enums carry stable codes |
@@ -405,6 +406,37 @@ it), so a listing never changes between a purchase's prepare and commit.
   and the gold, prunes the listing and answers what remains on sale. Both players read the sale as a trade chat line.
   A purchase that met another price, fewer units or a sold item answers what the shop offers now.
 
+## Parties
+
+Parties live in memory only, as the original keeps them (`WorldServer.Parties.cs`): two to six players, the leader first
+(`Party`, read by the fields while they step, so a change replaces its member array). Every change runs on the command
+phase and answers `PartyNotice` lines that `PartyAppService` (or the session, for a player leaving) delivers through
+`ChatDirectory.Deliver`: replies to the actor in the server kind, notices to every member in the system kind, with the
+original's texts (`PartyMessages`, [simulation.md](simulation.md)).
+
+- A request (`InviteAsync`, or `//party name` in the chat) needs levels less than `PartyRules.LevelGap` apart, a party's
+  average level standing for its members. A player alone or a leader asks the target, which then holds a `PartyRequest`
+  for `PartyRules.InviteMs`; a member's request goes to its leader, whose acceptance asks the player in the party's name
+  (the original joined the player without asking it), and its box names that player. A leader asked by a player alone
+  answers for its party. Members of the same or another party are told so.
+- `AnswerAsync` acts only on the pending request from that player while it lasts: yes joins the asker's party, has the
+  asker join the answerer's, or forms a new one led by the asker. A party joined this way must still be led by the
+  asker or the answerer, and the levels must still match; a full party refuses the joiner (`CannotEnter`).
+- `CommandAsync` (`PartyCommand`): the leader delegates, disbands or kicks; any member leaves. A leader who leaves hands
+  the party to the next member first, and a party of two is released when one leaves. `LeaveAsync` (every way a
+  connection ends) leaves the party the same way and returns the lines in `WorldLeave.Notices`; a request from a player
+  who left answers nothing. A player who enters again has no party.
+- `RefreshParties` rebuilds each party's `PartyView` (name, level, life, planar place) and its average level after a
+  change and every 10 ticks; every snapshot carries the receiver's view and pending request, and the encoder sends what
+  changed. `WorldServer.Parties` (`PartyRoster`) is the chat's `IPartyRoster`.
+- Shares: a kill's experience is taken at the party's average level and split by size (`FieldCombat.AwardParty`); gold
+  under `PartyRules.SharedGoldBelow` picked up is split with the members in the picker's field and share range
+  (`GroundPickupTransactions`; one who cannot carry its part is left out). Only the picker's part is stored with its
+  pickup: the members' parts are rewards, as experience is, given at the commit to members still playing that
+  character and stored with their next save, so no member's save gate is held for them.
+- Support skills marked `party` reach only the caster's members, `requiresParty` refuses a cast without a party, and a
+  revive looks only for dead members ([skills.md](skills.md)).
+
 ## Published outcomes and events
 
 - Command results return through the `Task` of the call (`MovementVerdict`, `SkillCastOutcome`, `InventoryOutcome`,
@@ -416,7 +448,8 @@ it), so a listing never changes between a purchase's prepare and commit.
   statuses (`ActiveStatuses`) and clock (`FieldNowMs`). `WithOwner` stamps each copy with the receiver's `OwnerState`
   (only
   when changed) and its cooldowns (null when unchanged since the last send); each copy also carries the receiver's
-  `QuestUpdate` (journal view when its revision moved, quest notices, a dialog the world opened).
+  `QuestUpdate` (journal view when its revision moved, quest notices, a dialog the world opened), its `PartyView` and its
+  pending `PartyRequest`.
 - `WorldOutbox` is the per-connection `Channel<WorldSnapshot>`: a write never blocks; the reader receives the latest
   entity state plus every event accumulated since its last read (state is coalesced, events are reliable, the newest
   cooldown list wins; quest notices stay in order up to 256 and the newest journal view and dialog win). A reader that

@@ -74,6 +74,8 @@ internal sealed partial class PresenceEncoder
     private uint _pass;
     private SharedPresenceWire? _wire;
     private Simulation.Progression.RestartOffer? _restartOffer;
+    private PartyView? _party;
+    private PartyRequest? _partyRequest;
     private PresenceFrame? _heldFrame;
     private EntityView[] _describeViews = [];
     private EntityGrid? _describeGrid;
@@ -339,9 +341,34 @@ internal sealed partial class PresenceEncoder
         SendPremium(snapshot.Owner, connection);
         SendCooldowns(snapshot, connection);
         SendRestartOffer(snapshot.Restart, connection);
+        SendParty(snapshot, connection);
         if (snapshot.Quest is not null)
         {
             SendQuest(snapshot.Quest, connection);
+        }
+    }
+
+    // The party's members whenever they change (none once the receiver leaves it), and each new request to join one.
+    private void SendParty(in WorldSnapshot snapshot, IPacketSink connection)
+    {
+        if (!ReferenceEquals(snapshot.Party, _party))
+        {
+            _party = snapshot.Party;
+            var members = _party?.Members ?? [];
+            var wire = new PartyMemberWire[members.Count];
+            for (var index = 0; index < wire.Length; index++)
+            {
+                var member = members[index];
+                wire[index] = new PartyMemberWire(member.EntityId, member.Name, member.Level, member.Life, member.MaxLife, member.X, member.Z);
+            }
+
+            connection.Send(_scratch.AsSpan(0, new PartyMembersPacket(wire).Write(_scratch)));
+        }
+
+        if (snapshot.PartyRequest is { } request && !ReferenceEquals(request, _partyRequest))
+        {
+            _partyRequest = request;
+            connection.Send(_scratch.AsSpan(0, new PartyRequestPacket(request.FromId, request.FromName, request.Recommendation ? request.JoinerName : "").Write(_scratch)));
         }
     }
 

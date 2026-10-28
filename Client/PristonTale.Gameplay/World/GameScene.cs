@@ -264,9 +264,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     public event Action<ulong> NpcSelected;
     // A player selling from a personal shop was reached: its shop opens.
     public event Action<ulong> ShopSellerSelected;
-    // The NPC, or the seller (_npcTargetSells), a click approaches.
+    // The NPC, seller or other player a click approaches (_approach says which).
     private ulong _npcTargetId;
-    private bool _npcTargetSells;
+    private ApproachKind _approach;
     private bool _npcMoveSent;
     private Vector2 _serverPlanarPosition;
     private float _serverCollisionHeight;

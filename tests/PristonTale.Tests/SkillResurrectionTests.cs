@@ -8,12 +8,12 @@ using PristonTale.Contracts.Characters;
 
 namespace PristonTale.Tests;
 
-// Revive skills: a dead player near the caster rises where it fell with half its life and a short guard.
+// Revive skills: a dead party member near the caster rises where it fell with half its life and a short guard.
 internal static class SkillResurrectionTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("resurrection revives the nearest dead ally with half life and a guard, and needs one", ReviveAsync);
+        yield return ("resurrection revives the nearest dead party member with half life and a guard, and needs one", ReviveAsync);
     }
 
     private static Task ReviveAsync()
@@ -23,6 +23,10 @@ internal static class SkillResurrectionTests
         var fallen = SkillFixtures.Player(field, 2, PlayerClass.Knight, 40, new Vector3(200, 0, 0));
         priest.Character.Skills.Restore(0x07040002, 10);
         SkillFixtures.Refuse(SkillCastVerdict.InvalidTarget, "resurrection cast without a dead ally", field, priest, 0x07040002);
+        fallen.ApplyDamage(fallen.Life + 1000);
+        SkillFixtures.Refuse(SkillCastVerdict.InvalidTarget, "resurrection of a player outside the party", field, priest, 0x07040002);
+        fallen.Revive(fallen.MaxLife, 0f);
+        SkillFixtures.Group(priest, fallen);
         var revived = false;
         var fellAt = Vector3.Zero;
         for (var attempt = 0; attempt < 6 && !revived; attempt++)

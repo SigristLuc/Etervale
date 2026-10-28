@@ -174,6 +174,9 @@ public sealed class HudChat
         _ = Send?.Invoke(line.Text, line.Kind == HudChatSendKind.Party);
     }
 
+    // Whether a player is in the local player's party (its name takes the party colour).
+    public Func<ulong, bool> InParty { get; set; } = static _ => false;
+
     // The colour of a speaker's name in a bubble: players, the party and owned summons, monsters, NPCs; the hovered or
     // selected speaker is drawn brighter.
     public Color NameColor(ulong id, ulong hovered)
@@ -188,7 +191,7 @@ public sealed class HudChat
         {
             EntityKind.Monster => owner != 0 ? PartyName : MonsterName,
             EntityKind.Npc => NpcName,
-            _ => PlayerNameColor
+            _ => InParty(id) ? PartyName : PlayerNameColor
         };
     }
 }

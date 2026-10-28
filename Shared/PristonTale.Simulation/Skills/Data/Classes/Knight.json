@@ -48,7 +48,7 @@
     "description": "Increase in attack against undead with brave force.", "requiredLevel": 20, "mouse": "Right",
     "mana": [23, 26, 29, 32, 35, 38, 41, 44, 47, 50], "stamina": [36, 2],
     "kind": "SelfBuff", "target": "Self", "masteryBase": 100, "masteryPerRank": 3,
-    "allies": { "radius": [200, 200, 200, 200, 200, 200, 200, 200, 200, 200], "height": 200 },
+    "allies": { "party": true, "radius": [200, 200, 200, 200, 200, 200, 200, 200, 200, 200], "height": 200 },
     "buff": { "durationTenths": [600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400],
       "modifiers": [{ "stat": "DamageVsUndead", "op": "Flat", "values": [18, 22, 26, 30, 34, 38, 42, 46, 50, 54] }] },
     "exclusive": ["0x05010002", "0x05020001", "0x05020004"],

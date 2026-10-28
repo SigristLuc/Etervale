@@ -243,6 +243,11 @@ public readonly struct WorldSnapshot
     // What standing up again would cost the receiver; set while it is dead.
     public Simulation.Progression.RestartOffer? Restart { get; init; }
 
+    // The receiver's party (null when it has none) and the request to join one it has not answered; every snapshot
+    // carries the current ones, and the encoder sends what changed.
+    public PartyView? Party { get; init; }
+    public PartyRequest? PartyRequest { get; init; }
+
     public WorldSnapshot WithOwner(OwnerState? owner, SkillCooldownView[]? cooldowns = null) => new(ServerTick, Entities, Events, FieldId, owner, GroundDrops)
     {
         Grid = Grid,
@@ -271,6 +276,8 @@ public readonly struct WorldSnapshot
         Cooldowns = Cooldowns,
         Quest = Quest,
         Restart = Restart,
+        Party = Party,
+        PartyRequest = PartyRequest,
         Pinned = Pinned,
         PinKey = PinKey
     };

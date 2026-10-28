@@ -384,6 +384,8 @@ public sealed class GameServerConnection : IGameBackend
         Send(new YahooKeyPacket());
     }
 
+    internal void SendParty(IFramePacket packet) => Send(packet);
+
     internal IAsyncEnumerable<PresenceUpdate> ReadPresenceAsync(CancellationToken ct) => _presenceUpdates.Reader.ReadAllAsync(ct);
 
     private FrameConnection Connection

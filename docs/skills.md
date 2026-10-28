@@ -208,8 +208,10 @@ owner's target while the owner fights) or `radius` (300, nearest enemy around th
 ### Other blocks
 
 - `allies`: `radius[10]`, `includeCaster` (true), `othersPercent` (100; 0..100 strength on other players), `height`
-  (80), `excludeWith` (codes whose holders are skipped). No party system: allies are the other living players of the
-  field within the radius.
+  (80), `excludeWith` (codes whose holders are skipped), `party` (only the caster's party members, an ally target
+  too), `requiresParty` (a cast without a party is refused). Allies are the other living players of the field within
+  the radius. As in the original, Holy Valor, Grand Healing (which needs a party) and Enchant Weapon are party skills;
+  Force of Nature, Triumph and Hall of Valhalla, Virtual Life and Regeneration Field reach any player.
 - `passive`: `effect` with `values[10]`: `Resistance` (with `element`), `WeaponDamagePercent`, `MaxStaminaPercent`,
   `CriticalChance`, `BlockChance` (`withoutShield`), `MaxLife`, `WeaponAttackRatingPercent`, `Evasion`; weapon effects
   need a weapon the skill lists, or one made for the class with `classWeapon`. Or `modifiers` (permanent effect via
@@ -221,7 +223,7 @@ owner's target while the owner fights) or `radius` (300, nearest enemy around th
 - `charm`: `chance[10]` (lowered by bionic resistance), `lifePercent[10]` (life kept), `broods`; `buff` gives the
   duration.
 - `resurrect`: `chance[10]`, `radius` (300), `lifePercent` (50), `guardTenths` (50; time the revived player cannot be
-  hurt).
+  hurt). It revives the nearest dead member of the caster's party.
 - `charge`: `startFrame` > 0, `fullFrame` > `startFrame`, `releaseSpeed` > 0 (frame step after release), `maxHits`,
   `full` (rule fragment that resolves a full charge). Requires `motionSpeedByRank[10]` and a hit event >= `fullFrame`.
 

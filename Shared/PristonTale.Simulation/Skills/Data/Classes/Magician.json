@@ -77,7 +77,7 @@
     "mana": [30, 32, 34, 37, 40, 44, 48, 53, 58, 64], "stamina": [28, 1], "weapons": ["Staff"],
     "kind": "SelfBuff", "target": "Ally", "masteryBase": 104, "masteryPerRank": 2,
     "range": [140, 140, 140, 140, 140, 140, 140, 140, 140, 140],
-    "allies": { "excludeWith": ["0x08020003"] },
+    "allies": { "party": true, "excludeWith": ["0x08020003"] },
     "buff": { "durationTenths": [600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400],
       "enchant": { "choices": [
         { "element": "Ice", "min": [3, 6, 9, 12, 15, 18, 21, 24, 27, 30], "max": [8, 12, 16, 20, 24, 28, 32, 36, 40, 44],

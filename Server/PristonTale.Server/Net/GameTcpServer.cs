@@ -24,6 +24,7 @@ public sealed class GameTcpServer(
     WingGateAppService wingGates,
     QuestAppService quests,
     PersonalShopAppService personalShops,
+    PartyAppService parties,
     ChatAppService chat,
     GameServerControl control,
     IConfiguration configuration,
@@ -57,7 +58,7 @@ public sealed class GameTcpServer(
         _loginThrottle = new LoginThrottle(_limits.LoginFailuresPerAccount, _limits.LoginFailuresPerIp, _limits.LoginFailureWindowMs);
         control.Attach(() => _clients.Count, _loginThrottle);
         var services = new SessionServices(auth, characters, sessionsApp, sessions, world, worldData, logger, _limits, _loginThrottle, npc, itemUse,
-            restart, wingGates, quests, personalShops, chat, control);
+            restart, wingGates, quests, personalShops, parties, chat, control);
         using var certificate = ServerCertificate.Load(configuration, logger);
         var certificateContext = SslStreamCertificateContext.Create(certificate, additionalCertificates: null);
         using var listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp) { DualMode = true };

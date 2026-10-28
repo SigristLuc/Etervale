@@ -84,7 +84,7 @@
     "description": "Heal life of a party member.", "requiredLevel": 30, "mouse": "Right",
     "mana": [24, 26, 29, 32, 36, 40, 44, 49, 54, 59], "stamina": [27, 1], "weapons": ["Staff"],
     "kind": "Heal", "target": "Self", "masteryBase": 82, "masteryPerRank": 2,
-    "allies": { "radius": [300, 310, 320, 330, 340, 350, 360, 370, 380, 390], "includeCaster": false, "height": 300 },
+    "allies": { "party": true, "requiresParty": true, "radius": [300, 310, 320, 330, 340, 350, 360, 370, 380, 390], "includeCaster": false, "height": 300 },
     "healMin": [40, 50, 60, 70, 80, 90, 100, 110, 120, 130], "healMax": [50, 60, 70, 80, 90, 100, 110, 120, 130, 140],
     "motionIndex": 62, "motionFrames": 50, "motionEvents": [30], "motionSpeed": 70,
     "castEffect": "vfx.priestess.grandhealing.cast", "impactEffect": "vfx.priestess.grandhealing.member", "castSound": "wav/Effects/Skill/Morion/GrandHealing 1.wav",

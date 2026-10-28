@@ -47,6 +47,11 @@ public static class EtervaleOpcodes
     public const uint PersonalShopResult = 0x45540604;
     public const uint PersonalShopListing = 0x45540605;
     public const uint PersonalShopDetails = 0x45540606;
+    public const uint PartyInvite = 0x45540700;
+    public const uint PartyAnswer = 0x45540701;
+    public const uint PartyCommand = 0x45540702;
+    public const uint PartyRequest = 0x45540703;
+    public const uint PartyMembers = 0x45540704;
 
     public const uint PresenceEntries = 0x45540900;
     public const uint DescribeEntity = 0x45540901;
