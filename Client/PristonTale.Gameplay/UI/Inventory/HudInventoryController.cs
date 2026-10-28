@@ -52,6 +52,14 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     // The coin by the gold, clicked with nothing carried.
     public Action GoldRequested { get; set; }
 
+    // The special item box's button; the HUD opens or closes the box where the original allows it.
+    public Action QuestBoxRequested { get; set; }
+
+    // Whether the special item box shows over the bag (the bag's items hidden), and the bag's item count it closes on
+    // when the bag gains an item, as the original closes it to show what was received.
+    public bool QuestBoxShown { get; private set; }
+    private (long Revision, int Count) _bagCount = (-1, 0);
+
     // A right click on a carried usable item (premium, travel and effect items).
     public Action<OwnedItemView> UseRequested { get; set; }
 
@@ -63,6 +71,10 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     {
         _dragging = Guid.Empty;
     }
+
+    public void ToggleQuestBox() => QuestBoxShown = !QuestBoxShown;
+
+    public void CloseQuestBox() => QuestBoxShown = false;
 
     public void CarryAfter(Guid itemId, long revision)
     {
@@ -117,7 +129,16 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         }
 
         // The hover shows while a command is pending too; only the clicks wait for it.
-        _hovered = visible && state is not null && _dragging == Guid.Empty ? HudInventoryLayout.ItemAt(_origin, state.Items, layout.ToLogical(mouse.Position)) : null;
+        if (state is not null && state.InventoryRevision != _bagCount.Revision)
+        {
+            var count = Count(state.Items, HudInventoryLayout.InBag);
+            QuestBoxShown &= _bagCount.Revision < 0 || count <= _bagCount.Count;
+            _bagCount = (state.InventoryRevision, count);
+        }
+
+        _hovered = visible && state is not null && _dragging == Guid.Empty
+            ? HudInventoryLayout.ItemAt(_origin, state.Items, layout.ToLogical(mouse.Position), QuestBoxShown)
+            : null;
         if (visible && state is not null && !_pendingOperation)
         {
             var clicked = mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
@@ -129,7 +150,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             // The belt is on the bottom bar: its potions are drunk with a right click while the window is closed too.
             var pointer = layout.ToLogical(mouse.Position);
             if (state is not null && !_pendingOperation && mouse.RightButton == ButtonState.Pressed && _previousMouse.RightButton == ButtonState.Released
-                && HudInventoryLayout.ItemAt(_origin, state.Items, pointer) is { BeltBox: >= 0 } potion)
+                && HudInventoryLayout.ItemAt(_origin, state.Items, pointer, QuestBoxShown) is { BeltBox: >= 0 } potion)
             {
                 Use(potion);
             }
@@ -179,6 +200,12 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                 GoldRequested?.Invoke();
                 return;
             }
+
+            if (HudInventoryLayout.QuestBoxButton(_origin).Contains(pointer))
+            {
+                QuestBoxRequested?.Invoke();
+                return;
+            }
         }
 
         var hovered = _hovered;
@@ -218,6 +245,21 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
 
     private void SetDown(OwnedItemView carried, Point pointer, bool split)
     {
+        // A box item goes back to its box wherever it is set down; a box item the full box left in the bag goes to the box
+        // once there is room, as the original sets it.
+        if (carried.QuestBox >= 0)
+        {
+            _dragging = Guid.Empty;
+            ItemSound?.Invoke(carried.CatalogKey);
+            return;
+        }
+
+        if (GoesToQuestBox(carried))
+        {
+            Send(InventoryAction.StoreQuestItem, carried, 0);
+            return;
+        }
+
         var placement = HudInventoryPlacement.Of(_origin, _state.Items, carried, pointer, HudInventoryPanel.Usable(carried, _state));
         if (placement.Belt >= 0 || carried.BeltBox >= 0)
         {
@@ -247,7 +289,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                 Send(InventoryAction.Swap, carried, placement.Anchor, covered: placement.Covered);
                 break;
             case HudPlacementKind.Outside when ExternalDrop?.Invoke(carried.InstanceId, pointer) == true:
-            case HudPlacementKind.Outside when ThrowRequested?.Invoke(carried) == true:
+            case HudPlacementKind.Outside when !QuestBoxShown && ThrowRequested?.Invoke(carried) == true:
                 _dragging = Guid.Empty;
                 break;
         }
@@ -280,6 +322,13 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     // The bag page and the weapon pair (the side buttons, keys E and W): not while an item is carried or a command waits.
     public void ShowBagPage(int page)
     {
+        // With the special item box open the page buttons close it instead, as the original does.
+        if (QuestBoxShown)
+        {
+            QuestBoxShown = false;
+            return;
+        }
+
         if (!_pendingOperation && _state is not null && _dragging == Guid.Empty && page != _state.BagPage)
         {
             SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.SwitchBagPage, Guid.Empty, page, 0, default));
@@ -388,6 +437,21 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             _context.Log.Error("inventory operation failed", exception);
             _completedOperation = new InventoryOutcome(false, 0, "Operation failed; reconnect to verify saved state.");
         }
+    }
+
+    // A carried bag item the special item box keeps goes there, wherever it is set down, while the box has room.
+    public bool GoesToQuestBox(OwnedItemView carried) =>
+        carried.InBag && _state is not null && QuestItemBox.Keeps(carried.CatalogKey) && Count(_state.Items, static item => item.QuestBox >= 0) < QuestItemBox.Boxes;
+
+    private static int Count(IReadOnlyList<OwnedItemView> items, Func<OwnedItemView, bool> counts)
+    {
+        var count = 0;
+        for (var index = 0; index < items.Count; index++)
+        {
+            count += counts(items[index]) ? 1 : 0;
+        }
+
+        return count;
     }
 
     private EquipmentSlot? SlotFor(ItemKind kind) =>

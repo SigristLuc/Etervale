@@ -41,5 +41,15 @@ public static class QuestItems
     // on the ground.
     public static bool IsQuestDrop(uint code) => ItemCodes.Family(code) == QuestFamily || IsIngredient(code);
 
+    // The original's special item box keeps these, with the wings (QuestItemBox): the quest items through the lost
+    // hammer and the ingredients.
+    private static readonly uint[] BoxedCodes =
+    [
+        SilverWolverineTrophy, BronzeWolverineTrophy, GoldenWolverineTrophy, RoyalJelly, HairTonic, Vamp, Level90Token, KhaliaTear,
+        BonusVampOne, BonusVampTwo, BonusVampThree, Recommendation, RoyalAmulet, Candy, Cake, LostHammer, GlassBottle, Honey, Oil
+    ];
+
+    public static bool Boxed(uint code) => Array.IndexOf(BoxedCodes, code) >= 0;
+
     public static bool IsIngredient(uint code) => ItemCodes.Family(code) == IngredientFamily || ItemCodes.Family(code) == BottleFamily;
 }

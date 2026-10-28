@@ -52,6 +52,19 @@ public static class WingGates
         new(ItemCodes.Parse("QW106"), "Extreme Wing", 9, 4000)
     ];
 
+    public static bool IsWing(uint code)
+    {
+        foreach (var wing in Wings)
+        {
+            if (wing.Code == code)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // The best wing among the carried item codes; null without one.
     public static WingGateWing BestWing(IEnumerable<uint> carried)
     {

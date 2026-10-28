@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Items;
 
 namespace PristonTale.Gameplay.UI.Inventory;
 
@@ -20,12 +21,22 @@ public static class HudInventoryLayout
     public static Rectangle Cell(Point origin, int anchor, int width = 1, int height = 1) =>
         HudGridPlacement.Cell(Bag(origin), Columns, anchor, width, height);
 
-    // The owned item under the pointer: in the bag, an equipment slot or a belt box.
-    public static OwnedItemView ItemAt(Point origin, IReadOnlyList<OwnedItemView> items, Point pointer)
+    // One box of the special item box, QuestBoxSpan cells a side, over the bag.
+    public const int QuestBoxSpan = 2;
+
+    public static Rectangle QuestBoxCell(Point origin, int box) =>
+        Cell(origin, box / QuestItemBox.Columns * QuestBoxSpan * Columns + box % QuestItemBox.Columns * QuestBoxSpan, QuestBoxSpan, QuestBoxSpan);
+
+    // Whether the window shows an item: the special item box, open, takes the bag's place.
+    public static bool Shows(OwnedItemView item, bool questBoxShown) => item.InBag ? !questBoxShown : item.QuestBox < 0 || questBoxShown;
+
+    // The owned item under the pointer: in the bag or the special item box (whichever shows), an equipment slot or a belt
+    // box.
+    public static OwnedItemView ItemAt(Point origin, IReadOnlyList<OwnedItemView> items, Point pointer, bool questBoxShown)
     {
         for (var index = 0; index < items.Count; index++)
         {
-            if (Bounds(origin, items[index]).Contains(pointer))
+            if (Shows(items[index], questBoxShown) && Bounds(origin, items[index]).Contains(pointer))
             {
                 return items[index];
             }
@@ -64,6 +75,11 @@ public static class HudInventoryLayout
             return HudGridPlacement.Frame(item, Belt(origin, item.BeltBox).Center);
         }
 
+        if (item.QuestBox >= 0)
+        {
+            return HudGridPlacement.Frame(item, QuestBoxCell(origin, item.QuestBox).Center);
+        }
+
         return item.Equipped ? Equipment(origin, item.Slot) : Cell(origin, item.Anchor, item.Width, item.Height);
     }
 
@@ -82,6 +98,9 @@ public static class HudInventoryLayout
     public static Rectangle PairButton(Point origin, int pair) => new(origin.X + 524 + 22 * pair, origin.Y + 525, 19, 19);
 
     public static Rectangle Close(Point origin) => new(origin.X + 266, origin.Y + 572, 22, 19);
+
+    // The special item box's button, left of the shop button.
+    public static Rectangle QuestBoxButton(Point origin) => new(origin.X + 70, origin.Y + 572, 22, 19);
 
     // The coin left of the gold: it drops gold, or stores it while the warehouse is open.
     public static Rectangle GoldButton(Point origin) => new(origin.X + 120, origin.Y + 572, 20, 19);

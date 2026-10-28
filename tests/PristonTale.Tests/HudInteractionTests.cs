@@ -207,6 +207,32 @@ internal static class HudInteractionTests
             controller.Update(state, layout, true, default, MouseAt(coin, layout.Scale, ButtonState.Released));
             controller.Update(state, layout, true, default, MouseAt(coin, layout.Scale, ButtonState.Pressed));
             Assert.True(asked == 1, "the gold coin asked for gold while an item was carried, or not once nothing was");
+
+            // The special item box: its button asks the HUD, a page button closes it, and a box item set down goes back.
+            var kept = new OwnedItemView(Guid.NewGuid(), 2, "Letter", ItemKind.Quest, 1, -1, QuestItemBox.FirstOwnerSlot, 2, 2, "QT101");
+            var boxed = state with { Items = [item, kept], InventoryRevision = state.InventoryRevision + 1 };
+            var requested = 0;
+            controller.QuestBoxRequested = () =>
+            {
+                requested++;
+                controller.ToggleQuestBox();
+            };
+            var questButton = HudInventoryLayout.QuestBoxButton(origin).Center;
+            controller.Update(boxed, layout, true, default, MouseAt(questButton, layout.Scale, ButtonState.Released));
+            controller.Update(boxed, layout, true, default, MouseAt(questButton, layout.Scale, ButtonState.Pressed));
+            var keptAt = HudInventoryLayout.QuestBoxCell(origin, 0).Center;
+            Assert.True(requested == 1 && controller.QuestBoxShown && HudInventoryLayout.ItemAt(origin, boxed.Items, keptAt, true) == kept
+                && HudInventoryLayout.ItemAt(origin, boxed.Items, HudInventoryLayout.Cell(origin, 0).Center, true) != item,
+                "the box did not open over the bag, or the bag's item still showed");
+            sent = null;
+            controller.Update(boxed, layout, true, default, MouseAt(keptAt, layout.Scale, ButtonState.Released));
+            controller.Update(boxed, layout, true, default, MouseAt(keptAt, layout.Scale, ButtonState.Pressed));
+            controller.Update(boxed, layout, true, default, MouseAt(keptAt, layout.Scale, ButtonState.Released));
+            Assert.True(controller.Dragging == kept.InstanceId, "a box item was not picked up");
+            controller.Update(boxed, layout, true, default, MouseAt(weapon, layout.Scale, ButtonState.Pressed));
+            Assert.True(controller.Dragging == Guid.Empty && sent is null, "a box item set down did not go back to its box, or sent a command");
+            controller.ShowBagPage(1);
+            Assert.True(!controller.QuestBoxShown && sent is null, "a page button switched the page instead of closing the box");
         }
 
         return Task.CompletedTask;

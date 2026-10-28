@@ -7,6 +7,7 @@ using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Progression;
+using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Loot;
 using PristonTale.Contracts.Characters;
@@ -21,6 +22,8 @@ internal static class ProgressionAndOwnershipTests
         yield return ("inventory footprints, split identities and rejected swaps are atomic", GridAsync);
         yield return ("an item set down over one other takes its place and the other moves where it was or to free space", SwapAsync);
         yield return ("the second bag page and weapon pair hide and return their items, still carried and saved", SidesAsync);
+        yield return ("quest items go to the special item box down each column, the bag takes them when it is full, and quests find them there",
+            QuestBoxAsync);
         yield return ("equipment validates requirements, handedness and original weapon formula", EquipmentAsync);
         yield return ("owned state round-trips detached copies and rejects unknown formats", PersistenceAsync);
     }
@@ -150,6 +153,55 @@ internal static class ProgressionAndOwnershipTests
         var greatAxe = new ItemDefinition(5, "Great Axe", ItemKind.Axe, EquipmentSlot.Weapon, TwoHanded: true) { CatalogKey = "WA102" };
         Assert.True(paired.RestoreStored(EquipmentSlot.OffHand, new ItemInstance(shield)) && !paired.RestoreStored(EquipmentSlot.Weapon, new ItemInstance(greatAxe))
             && !paired.RestoreStored(EquipmentSlot.Armor, new ItemInstance(sword)), "the stored pair took a two-handed weapon beside a shield, or a third slot");
+        return Task.CompletedTask;
+    }
+
+    private static Task QuestBoxAsync()
+    {
+        static ItemDefinition Kept(string key, string name, ItemKind kind) => new(ItemCodes.Parse(key), name, kind) { CatalogKey = key };
+        var letters = Enumerable.Range(1, 16).Select(number => Kept($"QT1{number:D2}", $"Letter {number}", ItemKind.Quest)).ToArray();
+        var honey = Kept("MA201", "Honey", ItemKind.Material);
+        var oil = Kept("MA202", "Mystic Oil", ItemKind.Material);
+        var stray = Kept("QT117", "Late Letter", ItemKind.Quest);
+        var wing = Kept("QW101", "Metal Wing", ItemKind.Misc);
+        var sword = new ItemDefinition(ItemCodes.Parse("WS101"), "Sword", ItemKind.Sword, EquipmentSlot.Weapon) { CatalogKey = "WS101" };
+        var classes = new CharacterClassRegistry();
+        var character = classes.CreatePlayer(PlayerClass.Fighter, "Keeper", 10);
+
+        Assert.True(character.TryReceive(new ItemInstance(letters[0])) && character.TryReceive(new ItemInstance(letters[1]))
+            && character.TryReceive(new ItemInstance(letters[2])) && character.TryReceive(new ItemInstance(letters[3]))
+            && character.QuestBox[0]?.Definition == letters[0] && character.QuestBox[QuestItemBox.Columns]?.Definition == letters[1]
+            && character.QuestBox[2 * QuestItemBox.Columns]?.Definition == letters[2] && character.QuestBox[1]?.Definition == letters[3],
+            "the box was not filled down each column, then the next");
+        Assert.True(character.TryReceive(new ItemInstance(sword)) && character.TryReceive(new ItemInstance(stray))
+            && character.Inventory.Items().Count() == 2, "an item the box does not keep went elsewhere than the bag");
+        foreach (var letter in letters.Skip(4))
+        {
+            character.TryReceive(new ItemInstance(letter));
+        }
+
+        Assert.True(character.TryReceive(new ItemInstance(honey)) && character.TryReceive(new ItemInstance(oil)) && character.TryReceive(new ItemInstance(wing))
+            && character.QuestBox.Occupied().Count() == QuestItemBox.Boxes && character.Inventory.Items().Any(item => item.Definition == wing),
+            "a full box did not leave the next item to the bag");
+        var leftOver = character.Inventory.Items().Single(item => item.Definition == wing).InstanceId;
+        Assert.True(!character.TryStoreQuestItem(leftOver), "a full box took the bag's item");
+        var revision = character.InventoryRevision;
+        Assert.True(QuestInventory.Remove(character, letters[5].Code) == 1 && character.InventoryRevision > revision
+            && QuestInventory.Count(character, letters[5].Code) == 0, "a quest removed nothing from the box, or left the revision");
+        Assert.True(InventoryCommands.Apply(character, new InventoryCommand(Guid.NewGuid(), character.InventoryRevision, InventoryAction.StoreQuestItem,
+            leftOver, 0, 0, default)) && character.QuestBox.Find(leftOver) >= 0 && character.Inventory.Find(leftOver) < 0,
+            "the bag's box item did not go to the freed box");
+        Assert.True(QuestInventory.RemoveInstance(character, character.QuestBox[0]!.InstanceId) && character.QuestBox[0] is null, "a box item was not removed by identity");
+
+        var view = OwnerState.Capture(character).Items.Single(item => item.InstanceId == character.QuestBox[1]!.InstanceId);
+        Assert.True(view.Slot == QuestItemBox.FirstOwnerSlot + 1 && view.QuestBox == 1 && view.BeltBox < 0 && !view.InBag && !view.Equipped,
+            "the owner view lost the special item box");
+        var starter = CharacterRecordFactory.NewStarter(classes, 1, "Keeper", 0, PlayerClass.Fighter, 3) with { Id = 1 };
+        var record = CharacterRecordFactory.FromLiveSession(starter, character, 3, Vector3.Zero);
+        var restored = classes.CreatePlayer(PlayerClass.Fighter, "Keeper", 10);
+        CharacterStateCodec.Restore(restored, record, new ItemCatalog([.. letters, honey, oil, stray, sword, wing]));
+        Assert.True(Enumerable.Range(0, QuestItemBox.Boxes).All(box => restored.QuestBox[box]?.InstanceId == character.QuestBox[box]?.InstanceId)
+            && restored.Inventory.Items().Count() == character.Inventory.Items().Count(), "the special item box was not saved and restored");
         return Task.CompletedTask;
     }
 

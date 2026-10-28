@@ -135,6 +135,14 @@ public sealed partial class GameplayHud : IDisposable
         _inventory.ExternalDrop = DropFromInventory;
         _inventory.ThrowRequested = ThrowFromInventory;
         _inventory.GoldRequested = GoldFromInventory;
+        // The special item box opens and closes but not while a service window is open, which closes it.
+        _inventory.QuestBoxRequested = () =>
+        {
+            if (!ServiceWindowOpen(blockingOnly: false))
+            {
+                _inventory.ToggleQuestBox();
+            }
+        };
         _inventory.ItemSound = key => ItemSound?.Invoke(key);
         _services.Succeeded = ServiceSucceeded;
         _storedPlacement = StoredPlacement;

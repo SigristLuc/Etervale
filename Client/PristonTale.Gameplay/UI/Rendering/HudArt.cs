@@ -78,6 +78,14 @@ public static class HudArt
     public static readonly string[] PairHints = [Sin + "Inven/InfoBox/ButtonA.bmp", Sin + "Inven/InfoBox/ButtonB.bmp"];
     public const string CloseHint = Sin + "Inven/InfoBox/ButtonExit.bmp";
 
+    // The special item box: its button closed and open (or under the pointer), the 44-pixel box drawn for each of its
+    // boxes over the bag, and its labels (open it, close it).
+    public const string QuestBoxButton = Sin + "Inven/QuestItem_.bmp";
+    public const string QuestBoxButtonOpen = Sin + "Inven/QuestItem.bmp";
+    public const string QuestBoxTile = Sin + "Inven/QuestItembox.bmp";
+    public const string QuestBoxHint = Sin + "Inven/InfoBox/Questitem.bmp";
+    public const string QuestBoxCloseHint = Sin + "Inven/InfoBox/close.bmp";
+
     public const string Status = Sin + "Status/Status.bmp";
     public const string StatusPoint = Sin + "Status/StatusPoint.bmp";
     public const string StatusArrow = Sin + "Status/ChangeArrow.bmp";
@@ -141,6 +149,7 @@ public static class HudArt
         .. MenuButtons, .. MenuButtonsDown, .. MenuInfo,
         SkillNormal, SkillWindow, SkillSelect, SkillGauge, SkillGaugeBack, SkillGaugePassive, .. ShortKeys,
         Inventory, PuzzleBoard, CoverLarge, CoverMiddle, CoverSmall, PotionBack, SideLeft, SideRight, .. PageHints, .. PairHints, CloseHint,
+        QuestBoxButton, QuestBoxButtonOpen, QuestBoxTile, QuestBoxHint, QuestBoxCloseHint,
         Status, StatusPoint, StatusArrow, StatusArrowDown,
         .. InfoBox,
         HelpTopLeft, HelpTop, HelpTopRight, HelpLeft, HelpCenter, HelpRight, HelpBottomLeft, HelpBottom, HelpBottomRight, HelpLine,

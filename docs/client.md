@@ -411,6 +411,13 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   closed too); keys 1 to 3 drink from their box, and Shift with them fills the box from the bag potion under the pointer
   (`HudInventoryController.BeltKey`). A carried potion goes into a box (`BeltPut`; another kind's stack is picked up in
   exchange), and a belt potion goes back to free bag cells or onto a bag stack of its kind (`BeltTake`).
+- Special item box (`HudInventoryController.QuestBoxShown`, a view of the client): its button at (70, 572)
+  (`QuestItem_.bmp` closed, `QuestItem.bmp` open or under the pointer, labels `Questitem.bmp` and `close.bmp`) opens it
+  over the bag, not while a service window is open; `QuestItembox.bmp` draws each of its 44-pixel boxes
+  (`HudInventoryLayout.QuestBoxCell`), its items centred in them and the bag's items hidden. A box item is carried as any
+  item and goes back to its box wherever it is set down; a box item left in the bag goes to the box when set down and
+  there is room (`HudInventoryController.GoesToQuestBox`, `StoreQuestItem`), neither showing a landing colour. Opening a service window or receiving an item into the bag closes the box, a page button
+  closes it instead of switching, and nothing is thrown while it is open.
 - Count box (`HudCountBox`), the original's quantity question: `BoxMain.tga` at (300, 200) with two lines, the number
   in `COUNT.bmp` at (+34, +62), typed with the digit keys (Backspace erases) or stepped with the arrows at (+124, +62)
   and (+124, +75), never above the maximum; OK or Enter accepts a non-zero count, Cancel or Escape closes. It is modal

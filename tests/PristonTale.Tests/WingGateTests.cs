@@ -19,7 +19,7 @@ internal static class WingGateTests
     {
         yield return ("wing gates: the best carried wing sets the reach and fee; Ricarten, Pillai and the current field are free", RulesAsync);
         yield return ("every stone the wing map lists exists, and a trip lands on the exit of the destination's stone", StonesAsync);
-        yield return ("a trip from a stone pays the wing's fee, is stored and lands on the destination stone", TravelAsync);
+        yield return ("a trip from a stone pays the wing's fee, is stored and lands on the destination stone; a boxed wing counts", TravelAsync);
         yield return ("a trip off the stone, beyond the wing, below the level or without the fee changes nothing", RefusalsAsync);
         yield return ("the wing gate request and result packets round trip", PacketsAsync);
         yield return ("field and gate level limits: the deserts, the dungeons, the iron, ice and lost fields", LimitsAsync);
@@ -87,6 +87,13 @@ internal static class WingGateTests
             "the player did not land on the Forbidden Land stone");
         Assert.True(harness.Repository.Record.FieldId == 12 && harness.Repository.Record.Money == 300, "the trip was not stored");
         Assert.True(harness.World.Currency[Application.GameMasters.CurrencySink.Teleports] == 1000, "the fee was not counted as a teleport");
+
+        // A wing kept in the special item box sets the reach as one in the bag does.
+        var boxed = await OnStone(60, 1300, "QW104");
+        var flyer = boxed.Session.Character!;
+        Assert.True(flyer.Inventory.Items().FirstOrDefault(item => WingGates.IsWing(item.Definition.Code)) is { } wing && flyer.TryStoreQuestItem(wing.InstanceId)
+            && flyer.QuestBox.Occupied().Any(), "the fixture wing did not go to the special item box");
+        Assert.True((await Travel(boxed, 6)).Outcome.Ok && boxed.Session.FieldId == 12, "a wing in the special item box did not reach the destination");
 
         var free = await OnStone(1, 0);
         var pillai = await Travel(free, 1);

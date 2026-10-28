@@ -64,7 +64,9 @@ quest data the importer reads, and the client's quest dialog, quest window, clas
   (`QuestItems.IsQuestDrop`) are taken out of the kill's loot and queued as `PendingQuestDrop`s for the credited
   player. The main drop table gives quest items only to first-tier characters (and the vamp to the second tier); bonus
   drops and the monster's event item pass. A drop is stored only while a running quest wants it, one copy at a time
-  (`QuestDrops.Accepts`). The royal amulet event item drops 21 times in 100 and only below the final tier.
+  (`QuestDrops.Accepts`). The royal amulet event item drops 21 times in 100 and only below the final tier. Granted
+  items reach the character through `PlayerCharacter.TryReceive`, so quest items land in the special item box
+  (`QuestItemBox`); quests count and remove them there and on both bag pages.
 - Dialogs name a document; the client shows `image/Sinimage/Quest/<document>.sin`. `QuestFollowup` says what OK does:
   close, send `Proceed`, open the yes/no box whose yes sends `Accept`, list rewards (`ChooseReward`), or show a reward
   whose arrows browse the list before `Accept` claims the browsed one.

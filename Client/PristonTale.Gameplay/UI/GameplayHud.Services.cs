@@ -131,8 +131,10 @@ public sealed partial class GameplayHud
         }
     }
 
+    // A service window closes the special item box, as the original does for every window it opens.
     private void OpenService()
     {
+        _inventory.CloseQuestBox();
         switch (_services.Open)
         {
             case NpcServiceKind.Shop:

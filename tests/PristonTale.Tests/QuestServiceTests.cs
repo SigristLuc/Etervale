@@ -33,6 +33,8 @@ internal static class QuestServiceTests
         yield return ("quest presence reaches the client and the arena shows only the player's own duel", PresenceAsync);
         yield return ("quest requests store once, replay idempotently, refuse on storage failure and credit field kills", RequestsAsync);
         yield return ("the quest upkeep stores quest drops in the pack and keeps them when storage fails", UpkeepAsync);
+        yield return ("a quest item a monster drops reaches the special item box through the upkeep and the master takes it for the rank-up",
+            KillToMasterAsync);
         yield return ("the master duel travels to the arena, yields at a sixteenth and promotes from the victory dialog", ArenaAsync);
     }
 
@@ -201,6 +203,41 @@ internal static class QuestServiceTests
             && reward.Notices.Any(n => n.Text == QuestTexts.StatPointsFive), "the reward was not stored");
         Assert.True(!(await world.Advance(quests.RequestAsync(token, new QuestCommand(Guid.NewGuid(), npc, QuestAction.Proceed, QuestCode.Level30, 2, 0)))).Ok
             && character.StatPoints == points + 5, "a new request paid the reward twice");
+    }
+
+    private static async Task KillToMasterAsync()
+    {
+        var wolverine = Monster(1, "Wolverine", 0, life: 6) with
+        {
+            Drops = new DropTable([new DropEntry(DropKind.Item, 100, QuestItems.SilverWolverineTrophy, 0, 0, IsBonus: false)], 1, false)
+        };
+        var spawn = new FieldSpawnData([new SpawnPoint(24, 0, true)], [new SpawnTableEntry(1, 100)], [], [])
+        {
+            MaxConcurrentMonsters = 1,
+            MaxPerSpawnPoint = 1
+        };
+        var world = await QuestWorld.CreateAsync(PlayerClass.Fighter, 20, 0, [new NpcService(NpcServiceKind.SkillMaster, 4)], [wolverine], spawn);
+        var character = world.Session.Character!;
+        character.Quests.Active = new ActiveQuest { Code = QuestCode.RankUpTrophies, State = 1 };
+        foreach (var gathered in new[] { QuestItems.BronzeWolverineTrophy, QuestItems.GoldenWolverineTrophy })
+        {
+            Assert.True(Items.TryGet(gathered, out var trophy) && character.TryReceive(new ItemInstance(trophy)), "fixture trophy missing");
+        }
+
+        var target = world.WaitFor(snapshot => snapshot.Entities.Any(entity => entity.Kind == EntityKind.Monster))
+            .Entities.First(entity => entity.Kind == EntityKind.Monster);
+        await world.Advance(world.Server.SetAttackTargetAsync(3, world.Session.EntityId, target.EntityId, true));
+        world.WaitFor(_ => world.Player.QuestState.Drops.Count > 0);
+        Assert.True(await world.Advance(world.Quests.RunUpkeepAsync(world.Session)) && QuestInventory.Has(character, QuestItems.SilverWolverineTrophy)
+            && character.QuestBox.Occupied().Count() == 3 && character.Inventory.Items().All(item => !RankUpByTrophies.IsTrophy(item.Definition.Code)),
+            "the killed wolverine's trophy did not reach the special item box");
+
+        var promoted = await world.Advance(world.Quests.RequestAsync(world.Session.SessionToken,
+            new QuestCommand(Guid.NewGuid(), world.NpcId, QuestAction.Accept, QuestCode.RankUpTrophies, 1, 0)));
+        var record = Classes.CreatePlayer(PlayerClass.Fighter, character.Name, 20);
+        CharacterStateCodec.Restore(record, world.Characters.Record, Items);
+        Assert.True(promoted.Ok && character.Tier == 1 && character.QuestBox.Occupied().Count() == 0
+            && world.Characters.Record.Tier == 1 && !QuestInventory.Has(record, QuestItems.SilverWolverineTrophy), "the master did not take the trophies for the rank-up");
     }
 
     private static async Task UpkeepAsync()

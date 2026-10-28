@@ -426,6 +426,14 @@ totals.
   `ConsumePotion` drinks from a box as from the bag, and an equip or unequip that lowers the space sends the excess
   back to the bag (`FitBeltToPotionSpace`). Owner views give a belt item the slot `PotionBelt.FirstOwnerSlot` + box
   (`OwnedItemView.BeltBox`); saved items carry `Belt` and restore after the gear that sets the space.
+- The special item box (`QuestItemBox`, `PlayerCharacter.QuestBox`): 18 boxes of one unit each (6 columns by 3 rows)
+  for the quest items QT101 to QT116 and the ingredients MA101, MA201 and MA202 (`QuestItems.Boxed`) and the wings
+  QW101 to QW106 (`WingGates.IsWing`), which the wing gate reads there too. What the character
+  receives (`TryReceive`: pickups, quest grants and drops, prizes) goes into the first free box down each column, then
+  the next column, and to the bag when the box is full or does not keep it; `StoreQuestItem` moves such an item left in
+  the bag into a freed box. Quests count and remove items there and on both bag pages (`BagPages`). Owner views give a
+  box item the slot `QuestItemBox.FirstOwnerSlot` + box (`OwnedItemView.QuestBox`); saved items carry `QuestBox`.
+  `ItemSlots` is the row of one-item boxes the belt and this box share (`Find`, `TakeAt`, `Occupied`).
 - `InventoryAction.Drop` and `DropGold` are handled by the Application (`GroundThrowTransactions`), as `Pickup` is;
   `Inventory.TakeFrom` takes all of an item or splits a new stack from it. `BoundItems` is what never leaves the
   character, neither on the ground nor in the warehouse: quest items, the quest's bound weapon and ring, the `MA1`,

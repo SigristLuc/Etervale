@@ -59,7 +59,9 @@ internal static class WingGateTransactions
             arrival);
     }
 
-    private static IEnumerable<uint> Carried(PlayerCharacter character) => character.Inventory.Items().Select(static item => item.Definition.Code);
+    // The shown bag page and the special item box, where wings are kept.
+    private static IEnumerable<uint> Carried(PlayerCharacter character) =>
+        character.Inventory.Items().Concat(character.QuestBox.Occupied().Select(static box => box.Item)).Select(static item => item.Definition.Code);
 
     private static PreparedWingGateOperation Final(PlayerCharacter original, WingGateCommand command, WingGateStatus status, long fee = 0) =>
         new(original, null, null, new WingGateOutcome(status, command.Destination, fee));

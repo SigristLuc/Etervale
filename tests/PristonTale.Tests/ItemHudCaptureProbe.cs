@@ -55,7 +55,9 @@ internal sealed class ItemHudCaptureProbe : Game
         // The gold coin clicked: the count box asks how much gold to drop.
         GoldCount,
         // The pointer over the weapon pair B button: it lights and shows its label.
-        PairHint
+        PairHint,
+        // The special item box opened over the bag with three quest items, the pointer on its button (the close label).
+        QuestBox
     }
 
     private sealed record Scenario(string Name, Scene Scene, int Width = 800, int Height = 600, double WaitMs = 4200);
@@ -88,7 +90,8 @@ internal sealed class ItemHudCaptureProbe : Game
         new("carry-slot-800", Scene.CarrySlot, WaitMs: 1200),
         new("throw-count-800", Scene.ThrowCount, WaitMs: 1200),
         new("gold-count-800", Scene.GoldCount, WaitMs: 1200),
-        new("pair-hint-800", Scene.PairHint, WaitMs: 1200)
+        new("pair-hint-800", Scene.PairHint, WaitMs: 1200),
+        new("quest-box-800", Scene.QuestBox, WaitMs: 1200)
     ];
 
     private readonly string _assetRoot;
@@ -102,6 +105,7 @@ internal sealed class ItemHudCaptureProbe : Game
     private OwnerState _owner = null!;
     private OwnerState _items = null!;
     private OwnerState _stack = null!;
+    private OwnerState _boxed = null!;
     private OwnerState _board = null!;
     private OwnerState _complete = null!;
     private int _scenario;
@@ -163,6 +167,13 @@ internal sealed class ItemHudCaptureProbe : Game
             Items = [.. _items.Items, Sized("PL101", "Mini Life Potion", 40) with { Kind = ItemKind.Potion, Count = 5 },
                 Sized("PM101", "Mini Mana Potion", -1) with { Kind = ItemKind.Potion, Count = 2, Slot = PotionBelt.FirstOwnerSlot + 1 }]
         };
+        _boxed = _stack with
+        {
+            InventoryRevision = _stack.InventoryRevision + 1,
+            Items = [.. _stack.Items, Sized("QT101", "Letter", -1) with { Kind = ItemKind.Quest, Slot = QuestItemBox.FirstOwnerSlot },
+                Sized("QT106", "Old Ring", -1) with { Kind = ItemKind.Quest, Slot = QuestItemBox.FirstOwnerSlot + QuestItemBox.Columns },
+                Sized("MA201", "Honey", -1) with { Kind = ItemKind.Material, Slot = QuestItemBox.FirstOwnerSlot + 1 }]
+        };
         _board = _owner with { InventoryRevision = _owner.InventoryRevision + 2, Items = Puzzle(6).Append(Sized(Puzzles.LuckyBagIcon, Puzzles.LuckyBagName, 0, "PZ107")).ToArray() };
         _complete = _owner with { InventoryRevision = _owner.InventoryRevision + 3, Items = Puzzle(8).ToArray() };
         _clock.Start();
@@ -200,6 +211,7 @@ internal sealed class ItemHudCaptureProbe : Game
         Scene.CrystalTooltip or Scene.GiftTooltip or Scene.ChocolateTooltip or Scene.CastleTooltip or Scene.LuckyBagTooltip
             or Scene.CarryFree or Scene.CarryExchange or Scene.CarrySlot => _items,
         Scene.ThrowCount or Scene.GoldCount or Scene.PairHint => _stack,
+        Scene.QuestBox => _boxed,
         Scene.PuzzleBoard => _board,
         Scene.PuzzleComplete or Scene.PuzzleExchange => _complete,
         _ => _owner
@@ -248,7 +260,7 @@ internal sealed class ItemHudCaptureProbe : Game
             _hud.Update(owner, default, default);
             var keys = scenario.Scene is Scene.OrbTooltip or Scene.PackageTooltip or Scene.CrystalTooltip or Scene.GiftTooltip or Scene.ChocolateTooltip
                 or Scene.CastleTooltip or Scene.LuckyBagTooltip or Scene.PuzzleBoard or Scene.PuzzleComplete
-                or Scene.CarryFree or Scene.CarryExchange or Scene.CarrySlot or Scene.ThrowCount or Scene.GoldCount or Scene.PairHint
+                or Scene.CarryFree or Scene.CarryExchange or Scene.CarrySlot or Scene.ThrowCount or Scene.GoldCount or Scene.PairHint or Scene.QuestBox
                 ? new KeyboardState(Keys.I)
                 : default;
             _hud.Update(owner, keys, default);
@@ -309,10 +321,12 @@ internal sealed class ItemHudCaptureProbe : Game
             }
         }
 
-        if (scenario.Scene == Scene.GoldCount && !_carrying && _clock.Elapsed.TotalMilliseconds - _startedMs > 700)
+        if (scenario.Scene is Scene.GoldCount or Scene.QuestBox && !_carrying && _clock.Elapsed.TotalMilliseconds - _startedMs > 700)
         {
             var updateLayout = HudLayout.Create(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
-            Click(updateLayout, HudInventoryLayout.GoldButton(HudInventoryLayout.Origin(updateLayout)).Center, _stack);
+            var origin = HudInventoryLayout.Origin(updateLayout);
+            var button = scenario.Scene == Scene.GoldCount ? HudInventoryLayout.GoldButton(origin) : HudInventoryLayout.QuestBoxButton(origin);
+            Click(updateLayout, button.Center, Owner(scenario.Scene));
             _carrying = true;
         }
 
@@ -384,6 +398,7 @@ internal sealed class ItemHudCaptureProbe : Game
             Scene.CarryExchange => HudInventoryLayout.Cell(origin, 2, 1, 1).Center,
             Scene.CarrySlot => HudInventoryLayout.Equipment(origin, (int)EquipmentSlot.Weapon).Center,
             Scene.PairHint => HudInventoryLayout.PairButton(origin, 1).Center,
+            Scene.QuestBox => HudInventoryLayout.QuestBoxButton(origin).Center,
             _ => new Point(layout.Width - 200, layout.Height / 2)
         };
         return new MouseState(point.X * layout.Scale, point.Y * layout.Scale, 0, ButtonState.Released, ButtonState.Released, ButtonState.Released,

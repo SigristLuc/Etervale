@@ -24,7 +24,9 @@ public enum InventoryAction
     // Holds weapon pair Destination (0 A, 1 B) and stores the other (PlayerCharacter.TrySwitchWeaponSet); ItemId is unused.
     SwitchWeaponSet,
     // Puts Count gold on the ground where the player stands, as Drop does an item; ItemId is unused.
-    DropGold
+    DropGold,
+    // A special item left in the bag into the first free box of the special item box (PlayerCharacter.TryStoreQuestItem).
+    StoreQuestItem
 }
 
 public sealed record InventoryCommand(Guid OperationId, long ExpectedRevision, InventoryAction Action,
@@ -60,6 +62,7 @@ public static class InventoryCommands
                 ? character.Inventory[anchor]?.Definition is { Kind: ItemKind.Potion, Potion.IsValid: true } && character.Inventory.ConsumeAt(anchor)
                 : character.TryConsumeFromBelt(command.ItemId)),
             InventoryAction.BeltPut => character.TryPutOnBelt(command.ItemId, command.Destination, command.Count),
+            InventoryAction.StoreQuestItem => character.TryStoreQuestItem(command.ItemId),
             InventoryAction.BeltTake => character.TryTakeFromBelt(command.ItemId, command.Destination),
             InventoryAction.SwitchBagPage => character.TrySwitchBagPage(command.Destination),
             InventoryAction.SwitchWeaponSet => Fitted(character, character.TrySwitchWeaponSet(command.Destination)),

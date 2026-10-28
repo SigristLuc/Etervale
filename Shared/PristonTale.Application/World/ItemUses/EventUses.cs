@@ -66,7 +66,7 @@ internal sealed class GiftBoxUse : ItemUseAction
             return new ItemUseExtra(ItemUseStatus.NotUsable);
         }
 
-        if (!candidate.Inventory.TryAdd(item))
+        if (!candidate.TryReceive(item))
         {
             return new ItemUseExtra(ItemUseStatus.NoSpace);
         }

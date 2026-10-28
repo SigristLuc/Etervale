@@ -114,7 +114,7 @@ public sealed partial class PlayerCharacter
 
         if (item is not null)
         {
-            return gold == 0 && Items.CarriedWeight.CanTake(this, Items.CarriedWeight.Of(item)) && Inventory.TryAdd(item);
+            return gold == 0 && Items.CarriedWeight.CanTake(this, Items.CarriedWeight.Of(item)) && TryReceive(item);
         }
 
         if (gold <= 0 || !TryChangeMoney(gold))
@@ -534,6 +534,11 @@ public sealed partial class PlayerCharacter
             yield return potion;
         }
 
+        foreach (var (_, kept) in QuestBox.Occupied())
+        {
+            yield return kept;
+        }
+
         foreach (var hidden in HiddenItems())
         {
             yield return hidden;
@@ -571,6 +576,7 @@ public sealed partial class PlayerCharacter
         }
 
         clone.Belt.CopyFrom(Belt);
+        clone.QuestBox.CopyFrom(QuestBox);
         clone.CopySides(this);
 
         foreach (var skill in Skills.Ranks)
@@ -731,6 +737,7 @@ public sealed partial class PlayerCharacter
         }
 
         Belt.CopyFrom(candidate.Belt);
+        QuestBox.CopyFrom(candidate.QuestBox);
         HiddenBag = candidate.HiddenBag;
         (_storedWeapon, _storedOffHand) = (candidate._storedWeapon, candidate._storedOffHand);
         (BagPage, WeaponSet) = (candidate.BagPage, candidate.WeaponSet);

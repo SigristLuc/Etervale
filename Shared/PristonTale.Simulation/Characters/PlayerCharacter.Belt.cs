@@ -15,7 +15,7 @@ public sealed partial class PlayerCharacter
         var anchor = Inventory.Find(itemId);
         var fromBox = anchor < 0 ? Belt.Find(itemId) : -1;
         var source = anchor >= 0 ? Inventory[anchor] : fromBox >= 0 ? Belt[fromBox] : null;
-        if (!PotionBelt.IsBox(box) || count < 0 || fromBox == box || source is not { Definition: { Kind: ItemKind.Potion, Potion.IsValid: true } })
+        if (!Belt.Contains(box) || count < 0 || fromBox == box || source is not { Definition: { Kind: ItemKind.Potion, Potion.IsValid: true } })
         {
             return false;
         }
@@ -36,7 +36,7 @@ public sealed partial class PlayerCharacter
                 return false;
             }
 
-            Belt.Set(box, null);
+            Belt.TakeAt(box);
             held = null;
         }
 
@@ -81,7 +81,7 @@ public sealed partial class PlayerCharacter
             return false;
         }
 
-        Belt.Set(box, null);
+        Belt.TakeAt(box);
         OnInventoryChanged();
         return true;
     }
@@ -89,7 +89,7 @@ public sealed partial class PlayerCharacter
     // A saved box's stack, as loaded: a valid potion, in an empty box, within the potion space.
     public bool RestoreBelt(int box, ItemInstance item)
     {
-        if (!PotionBelt.IsBox(box) || Belt[box] is not null || item is not { Count: > 0, Definition: { Kind: ItemKind.Potion, Potion.IsValid: true } }
+        if (!Belt.Contains(box) || Belt[box] is not null || item is not { Count: > 0, Definition: { Kind: ItemKind.Potion, Potion.IsValid: true } }
             || item.Count > Derived.PotionSpace)
         {
             return false;
@@ -129,12 +129,6 @@ public sealed partial class PlayerCharacter
     private ItemInstance TakeFromBox(int box, int amount)
     {
         var item = Belt[box];
-        if (amount < item.Count)
-        {
-            return item.Split(amount);
-        }
-
-        Belt.Set(box, null);
-        return item;
+        return amount < item.Count ? item.Split(amount) : Belt.TakeAt(box);
     }
 }

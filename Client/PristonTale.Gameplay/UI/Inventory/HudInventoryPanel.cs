@@ -48,9 +48,29 @@ public sealed class HudInventoryPanel
 
         Refresh(state);
         _state = state;
-        DrawPuzzleBoard(painter, origin);
-        foreach (var item in state.Items)
+        var boxShown = controller.QuestBoxShown;
+        if (boxShown)
         {
+            for (var box = 0; box < QuestItemBox.Boxes; box++)
+            {
+                var cell = HudInventoryLayout.QuestBoxCell(origin, box);
+                painter.Sprite(HudArt.QuestBoxTile, cell.X, cell.Y);
+            }
+        }
+        else
+        {
+            DrawPuzzleBoard(painter, origin);
+        }
+
+        var items = state.Items;
+        for (var index = 0; index < items.Count; index++)
+        {
+            var item = items[index];
+            if (!HudInventoryLayout.Shows(item, boxShown))
+            {
+                continue;
+            }
+
             if (item.Equipped)
             {
                 var slot = HudInventoryLayout.Equipment(origin, item.Slot);
@@ -75,7 +95,9 @@ public sealed class HudInventoryPanel
             painter.Fill(HudInventoryLayout.Bounds(origin, hovered), HudPlacementColors.Selection);
         }
 
-        if ((dragged ?? stored) is { } carried && interactive)
+        // A box item goes back to its box, and a bag item the box keeps goes into it, wherever they are set down: no landing
+        // to colour.
+        if ((dragged ?? stored) is { QuestBox: < 0 } carried && interactive && !controller.GoesToQuestBox(carried))
         {
             var placement = dragged is null
                 ? HudInventoryPlacement.OfStored(origin, state.Items, carried, pointer)
@@ -90,9 +112,10 @@ public sealed class HudInventoryPanel
             }
         }
 
-        foreach (var item in state.Items)
+        for (var index = 0; index < items.Count; index++)
         {
-            if (item.BeltBox >= 0)
+            var item = items[index];
+            if (item.BeltBox >= 0 || !HudInventoryLayout.Shows(item, boxShown))
             {
                 continue;
             }
@@ -101,7 +124,7 @@ public sealed class HudInventoryPanel
             _counts.Draw(painter, icons, item, HudInventoryLayout.Bounds(origin, item), tint);
         }
 
-        DrawButtons(painter, origin, state, pointer, interactive);
+        DrawButtons(painter, origin, state, boxShown, pointer, interactive);
         var money = HudInventoryLayout.Money(origin);
         painter.TextCentered(_gold, money.Left, money.Right, money.Y);
         var weight = HudInventoryLayout.Weight(origin);
@@ -187,10 +210,17 @@ public sealed class HudInventoryPanel
         _beltPlacement = default;
     }
 
-    // The original lights the shown page's and the held pair's arrow; the button under the pointer lights too and shows
-    // its label above it, and the close button shows its exit sign.
-    private static void DrawButtons(HudPainter painter, Point origin, OwnerState state, Point pointer, bool interactive)
+    // The original lights the shown page's and the held pair's arrow and the open special item box's button; the button
+    // under the pointer lights too and shows its label above it, and the close button shows its exit sign.
+    private static void DrawButtons(HudPainter painter, Point origin, OwnerState state, bool boxShown, Point pointer, bool interactive)
     {
+        var questBox = HudInventoryLayout.QuestBoxButton(origin);
+        if (!boxShown)
+        {
+            painter.Sprite(HudArt.QuestBoxButton, questBox.X, questBox.Y);
+        }
+
+        DrawButton(painter, questBox, HudArt.QuestBoxButtonOpen, boxShown, boxShown ? HudArt.QuestBoxCloseHint : HudArt.QuestBoxHint, 0, pointer, interactive);
         for (var side = 0; side < PlayerCharacter.Sides; side++)
         {
             var art = side == 0 ? HudArt.SideLeft : HudArt.SideRight;
@@ -219,6 +249,7 @@ public sealed class HudInventoryPanel
     {
         var usable = item.InBag && UsableItemCatalog.IsUsable(item.CatalogKey);
         var action = item.Equipped ? "Right-click: unequip"
+            : item.QuestBox >= 0 ? "Click: carry"
             : item.Kind == ItemKind.Potion ? "Right-click: drink one"
             : usable ? "Right-click: use"
             : "Click: carry  Shift-click: split  Right-click: equip";

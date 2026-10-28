@@ -249,7 +249,7 @@ public sealed class HudWingGate(IClientLog log)
     }
 
     private static WingGateWing Wing(OwnerState state) =>
-        state is null ? null : WingGates.BestWing(state.Items.Where(static item => item.Slot < 0).Select(static item => item.Code));
+        state is null ? null : WingGates.BestWing(state.Items.Where(static item => item.InBag || item.QuestBox >= 0).Select(static item => item.Code));
 
     private void Report(WingGateStatus status)
     {

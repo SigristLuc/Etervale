@@ -25,22 +25,24 @@ public static class QuestInventory
 
     public static bool Holds(PlayerCharacter character, Guid instanceId) => instanceId != Guid.Empty && character.FindOwnedItem(instanceId) is not null;
 
-    // Removes up to amount units of the code from the pack and the equipment; returns how many were removed.
+    // Removes up to amount units of the code from both bag pages, the special item box and the equipment; returns how
+    // many were removed.
     public static int Remove(PlayerCharacter character, uint code, int amount = int.MaxValue)
     {
-        var removed = 0;
-        var inventory = character.Inventory;
-        for (var anchor = 0; anchor < inventory.Capacity && removed < amount; anchor++)
+        var removed = RemoveFrom(character.Inventory, code, amount);
+        var hidden = RemoveFrom(character.HiddenBag, code, amount - removed);
+        removed += hidden;
+        var boxed = 0;
+        foreach (var (box, item) in character.QuestBox.Occupied().ToArray())
         {
-            if (inventory[anchor] is not { } item || item.Definition.Code != code)
+            if (removed + boxed < amount && item.Definition.Code == code)
             {
-                continue;
+                character.QuestBox.TakeAt(box);
+                boxed++;
             }
-
-            var take = Math.Min(item.Count, amount - removed);
-            inventory.TakeFrom(anchor, take);
-            removed += take;
         }
+
+        removed += boxed;
 
         foreach (var pair in character.Equipment.ToArray())
         {
@@ -48,6 +50,28 @@ public static class QuestInventory
             {
                 character.Equip(pair.Key, null);
                 removed++;
+            }
+        }
+
+        // The shown page counts its own change; the hidden page and the box do not.
+        if (hidden + boxed > 0)
+        {
+            character.TouchInventory();
+        }
+
+        return removed;
+    }
+
+    private static int RemoveFrom(Inventory inventory, uint code, int amount)
+    {
+        var removed = 0;
+        foreach (var (anchor, item) in inventory.Occupied().ToArray())
+        {
+            if (removed < amount && item.Definition.Code == code)
+            {
+                var take = Math.Min(item.Count, amount - removed);
+                inventory.TakeFrom(anchor, take);
+                removed += take;
             }
         }
 
@@ -61,10 +85,15 @@ public static class QuestInventory
             return false;
         }
 
-        var anchor = character.Inventory.Find(instanceId);
-        if (anchor >= 0)
+        if (character.Inventory.TakeAt(character.Inventory.Find(instanceId)) is not null)
         {
-            character.Inventory.TakeAt(anchor);
+            return true;
+        }
+
+        if (character.HiddenBag.TakeAt(character.HiddenBag.Find(instanceId)) is not null
+            || character.QuestBox.TakeAt(character.QuestBox.Find(instanceId)) is not null)
+        {
+            character.TouchInventory();
             return true;
         }
 
@@ -93,7 +122,7 @@ public static class QuestInventory
         var trial = character.CloneForInventoryOperation();
         foreach (var item in items)
         {
-            if (item is null || !trial.Inventory.TryAdd(item.Copy(item.Count, preserveId: true)))
+            if (item is null || !trial.TryReceive(item.Copy(item.Count, preserveId: true)))
             {
                 return QuestGrantCheck.NoSpace;
             }
@@ -114,7 +143,7 @@ public static class QuestInventory
 
         foreach (var item in items)
         {
-            character.Inventory.TryAdd(item);
+            character.TryReceive(item);
         }
 
         return true;

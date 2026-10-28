@@ -12,6 +12,7 @@ public sealed partial class PlayerCharacter
 
     // The page not shown (Inventory is the shown one), and which page (0 A, 1 B) is shown.
     public Inventory HiddenBag { get; private set; } = new();
+
     public int BagPage { get; private set; }
 
     // The pair not held, and which pair (0 A, 1 B) is held.
