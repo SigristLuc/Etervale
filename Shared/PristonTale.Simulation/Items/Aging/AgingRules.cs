@@ -31,6 +31,13 @@ public enum AgingResult : byte
     Double = 4
 }
 
+// How an ageable item family ages: what its uses count toward the next level and against which goal table, whether each
+// level wears its durability, and what each level adds (taken back on a fall): damage, attack rating, a critical or block
+// point on odd levels, mana, absorption per step and defence by percent. A game master ages directly only the families
+// marked so.
+internal sealed record AgingFamily(AgingCounter Counter, int[] Goal, bool Wears, bool Damage = false, int AttackRating = 0, bool Critical = false,
+    int Mana = 0, bool Block = false, float AbsorbStep = 0f, int DefencePercent = 0, bool GameMasterAging = true);
+
 public enum AgingCounter : byte
 {
     None = 0,
@@ -47,9 +54,6 @@ public static class AgingRules
 
     // Attacks, blocks and blows count only against a foe within this many levels.
     public const int CountLevelSpread = 10;
-
-    private static readonly string[] AgeableFamilies =
-        ["WA1", "WC1", "WH1", "WM1", "WP1", "WS1", "WS2", "WT1", "DA1", "DS1", "OM1", "DA2", "DG1", "DB1", "OA2"];
 
     // Costumes and timed items of ageable families that the NPC refuses.
     private static readonly HashSet<string> Refused = new(StringComparer.OrdinalIgnoreCase)
@@ -75,8 +79,8 @@ public static class AgingRules
 
     // Chance in percent (against 0..100) that the aging of each level fails.
     private static readonly int[] FailPlain = [0, 0, 0, 0, 0, 5, 10, 15, 20, 30, 35, 40, 45, 50, 55, 65, 75, 85, 95, 95];
+    // The aging stone and the super aging stone share their failure chances.
     private static readonly int[] FailAgingStone = [0, 0, 0, 0, 0, 3, 5, 8, 11, 18, 21, 25, 29, 33, 38, 48, 60, 74, 90, 90];
-    private static readonly int[] FailSuperStone = [0, 0, 0, 0, 0, 3, 5, 8, 11, 18, 21, 25, 29, 33, 38, 48, 60, 74, 90, 90];
     private static readonly int[] FailSuperiorOre = [0, 0, 0, 0, 0, 3, 7, 11, 14, 22, 26, 31, 35, 40, 45, 55, 67, 79, 93, 93];
 
     // Chance in percent that a level that did not fail is gained at once (the aging stone doubles it).
@@ -98,9 +102,42 @@ public static class AgingRules
     private static readonly int[] HitGoal =
         [45, 58, 75, 97, 126, 164, 213, 277, 360, 468, 608, 790, 1026, 1332, 1730, 2247, 2918, 3790, 4922, 6392, 6392];
 
+    // Bows and javelins count critical hits toward the attack table's goal, as in the original.
+    private static readonly Dictionary<string, AgingFamily> Families = Build();
+
     // The ring that ages counts twenty minutes.
     private const string AgeableRing = "OR201";
     private const int RingGoal = 60 * 20;
+
+    private static Dictionary<string, AgingFamily> Build()
+    {
+        var axe = new AgingFamily(AgingCounter.Attack, AttackGoal, Wears: true, Damage: true, AttackRating: 10);
+        var claw = new AgingFamily(AgingCounter.Critical, CriticalGoal, Wears: false, Damage: true, AttackRating: 5, Critical: true);
+        var robe = new AgingFamily(AgingCounter.Hit, HitGoal, Wears: true, AbsorbStep: 0.5f, DefencePercent: 10);
+        var armor = new AgingFamily(AgingCounter.Hit, HitGoal, Wears: true, AbsorbStep: 0.5f, DefencePercent: 5);
+        return new Dictionary<string, AgingFamily>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["WA1"] = axe,
+            ["WH1"] = axe,
+            ["WC1"] = claw,
+            ["WP1"] = claw,
+            ["WS2"] = claw,
+            ["WM1"] = new(AgingCounter.Attack, AttackGoal, Wears: false, Damage: true, AttackRating: 10, Mana: 10),
+            ["WS1"] = new(AgingCounter.Critical, AttackGoal, Wears: true, Damage: true, Critical: true),
+            ["WT1"] = new(AgingCounter.Critical, AttackGoal, Wears: false, Damage: true, Critical: true),
+            ["DS1"] = new(AgingCounter.Block, BlockGoal, Wears: true, Block: true, AbsorbStep: 0.2f),
+            ["OM1"] = robe with { GameMasterAging = false },
+            ["DB1"] = robe,
+            ["DG1"] = robe,
+            ["DA1"] = armor,
+            ["DA2"] = armor,
+            ["OA2"] = new(AgingCounter.Hit, HitGoal, Wears: true, AttackRating: 5, DefencePercent: 10, GameMasterAging: false)
+        };
+    }
+
+    private static AgingFamily FamilyOf(ItemInstance item) => Families.GetValueOrDefault(Family(item));
+
+    private static bool IsRing(string key) => string.Equals(key, AgeableRing, StringComparison.OrdinalIgnoreCase);
 
     public static string Family(ItemInstance item) => Family(item.Definition.CatalogKey);
 
@@ -110,7 +147,7 @@ public static class AgingRules
         Ageable(item.Definition.CatalogKey, item.Definition.Kind, item.Definition.UniqueItem, item.MixSheltom, item.Maturity is not null, item.UpgradeLevel);
 
     public static bool Ageable(string key, ItemKind kind, int unique, int mixSheltom, bool maturing, int level) =>
-        (AgeableFamilies.Contains(Family(key)) || string.Equals(key, AgeableRing, StringComparison.OrdinalIgnoreCase))
+        (Families.ContainsKey(Family(key)) || IsRing(key))
         && !Refused.Contains(key) && unique == 0 && kind != ItemKind.Quest && mixSheltom == 0 && !maturing && level < MaxLevel;
 
     public static IReadOnlyList<int> SheltomsFor(int level) => Sheltoms[Math.Clamp(level, 0, Sheltoms.Length - 1)];
@@ -150,8 +187,7 @@ public static class AgingRules
         var index = Math.Clamp(level, 0, FailPlain.Length - 1);
         var fail = stone switch
         {
-            AgingStone.AgingStone => FailAgingStone[index],
-            AgingStone.SuperAgingStone => FailSuperStone[index],
+            AgingStone.AgingStone or AgingStone.SuperAgingStone => FailAgingStone[index],
             AgingStone.SuperiorCopperOre => FailSuperiorOre[index],
             _ => FailPlain[index]
         };
@@ -203,14 +239,8 @@ public static class AgingRules
         item.Maturity = new AgingMaturity(result <= AgingResult.DownTwo ? goal / 2 : 0, goal, stone);
     }
 
-    public static AgingCounter CounterOf(ItemInstance item) => Family(item) switch
-    {
-        "WA1" or "WH1" or "WM1" => AgingCounter.Attack,
-        "WC1" or "WS2" or "WS1" or "WP1" or "WT1" => AgingCounter.Critical,
-        "DS1" => AgingCounter.Block,
-        "DA1" or "DA2" or "OM1" or "DB1" or "DG1" or "OA2" => AgingCounter.Hit,
-        _ => string.Equals(item.Definition.CatalogKey, AgeableRing, StringComparison.OrdinalIgnoreCase) ? AgingCounter.Time : AgingCounter.None
-    };
+    public static AgingCounter CounterOf(ItemInstance item) =>
+        FamilyOf(item)?.Counter ?? (IsRing(item.Definition.CatalogKey) ? AgingCounter.Time : AgingCounter.None);
 
     public static bool Matured(ItemInstance item) => item.Maturity is { Goal: > 0 } maturity && maturity.Count >= maturity.Goal;
 
@@ -241,7 +271,7 @@ public static class AgingRules
 
     public static void AgeTo(ItemInstance item, int level)
     {
-        if (Family(item) is not ("WA1" or "WC1" or "WH1" or "WM1" or "WP1" or "WS1" or "WS2" or "WT1" or "DA1" or "DB1" or "DG1" or "DS1" or "DA2"))
+        if (FamilyOf(item) is not { GameMasterAging: true })
         {
             return;
         }
@@ -274,19 +304,7 @@ public static class AgingRules
     private static int GoalFor(ItemInstance item)
     {
         var level = Math.Clamp(item.UpgradeLevel, 0, AttackGoal.Length - 1);
-        if (string.Equals(item.Definition.CatalogKey, AgeableRing, StringComparison.OrdinalIgnoreCase))
-        {
-            return RingGoal;
-        }
-
-        // Bows and javelins count critical hits (CounterOf) toward the attack table's goal, as in the original.
-        return Family(item) switch
-        {
-            "WC1" or "WS2" or "WP1" => CriticalGoal[level],
-            "WA1" or "WH1" or "WM1" or "WS1" or "WT1" => AttackGoal[level],
-            "DS1" => BlockGoal[level],
-            _ => HitGoal[level]
-        };
+        return IsRing(item.Definition.CatalogKey) ? RingGoal : (FamilyOf(item)?.Goal ?? HitGoal)[level];
     }
 
     // The level requirement rises on even levels unless the item asks level 100, 102 or 105 or the aging used the elder
@@ -298,50 +316,22 @@ public static class AgingRules
         var odd = level % 2 == 1;
         int Damage() => 1 + (level >= 9 ? 1 : 0) + (level >= 19 ? 1 : 0);
         float Absorb(float step) => step * (1 + (level >= 9 ? 1 : 0) + (level >= 19 ? 1 : 0));
-        var wear = false;
-        switch (Family(item))
+        var family = FamilyOf(item);
+        var wear = family?.Wears ?? false;
+        if (family is not null)
         {
-            case "WA1" or "WH1":
-                roll = roll with { DamageMin = roll.DamageMin + Damage(), DamageMax = roll.DamageMax + Damage(), AttackRating = roll.AttackRating + 10 };
-                wear = true;
-                break;
-            case "WC1" or "WP1" or "WS2":
-                roll = roll with
-                {
-                    DamageMin = roll.DamageMin + Damage(), DamageMax = roll.DamageMax + Damage(), AttackRating = roll.AttackRating + 5,
-                    CriticalBonus = roll.CriticalBonus + (odd ? 1 : 0)
-                };
-                break;
-            case "WM1":
-                roll = roll with
-                {
-                    DamageMin = roll.DamageMin + Damage(), DamageMax = roll.DamageMax + Damage(), AttackRating = roll.AttackRating + 10,
-                    AddMana = roll.AddMana + 10
-                };
-                break;
-            case "WS1":
-                roll = roll with { DamageMin = roll.DamageMin + Damage(), DamageMax = roll.DamageMax + Damage(), CriticalBonus = roll.CriticalBonus + (odd ? 1 : 0) };
-                wear = true;
-                break;
-            case "WT1":
-                roll = roll with { DamageMin = roll.DamageMin + Damage(), DamageMax = roll.DamageMax + Damage(), CriticalBonus = roll.CriticalBonus + (odd ? 1 : 0) };
-                break;
-            case "DS1":
-                roll = roll with { Block = roll.Block + (odd ? 1 : 0), Absorb = roll.Absorb + Absorb(0.2f) };
-                wear = true;
-                break;
-            case "OM1" or "DB1" or "DG1":
-                roll = roll with { Defence = roll.Defence + (int)(roll.Defence / 10f), Absorb = roll.Absorb + Absorb(0.5f) };
-                wear = true;
-                break;
-            case "DA1" or "DA2":
-                roll = roll with { Defence = roll.Defence + (int)(roll.Defence / 20f), Absorb = roll.Absorb + Absorb(0.5f) };
-                wear = true;
-                break;
-            case "OA2":
-                roll = roll with { Defence = roll.Defence + (int)(roll.Defence / 10f), AttackRating = roll.AttackRating + 5 };
-                wear = true;
-                break;
+            var damage = family.Damage ? Damage() : 0;
+            roll = roll with
+            {
+                DamageMin = roll.DamageMin + damage,
+                DamageMax = roll.DamageMax + damage,
+                AttackRating = roll.AttackRating + family.AttackRating,
+                CriticalBonus = roll.CriticalBonus + (family.Critical && odd ? 1 : 0),
+                AddMana = roll.AddMana + family.Mana,
+                Block = roll.Block + (family.Block && odd ? 1 : 0),
+                Absorb = roll.Absorb + Absorb(family.AbsorbStep),
+                Defence = roll.Defence + (family.DefencePercent > 0 ? (int)(roll.Defence / (100f / family.DefencePercent)) : 0)
+            };
         }
 
         if (wear)
@@ -394,50 +384,22 @@ public static class AgingRules
             return value;
         }
 
-        var wear = false;
-        switch (Family(item))
+        var family = FamilyOf(item);
+        var wear = family?.Wears ?? false;
+        if (family is not null)
         {
-            case "WA1" or "WH1":
-                roll = roll with { DamageMin = roll.DamageMin - damage, DamageMax = roll.DamageMax - damage, AttackRating = roll.AttackRating - 10 * steps };
-                wear = true;
-                break;
-            case "WC1" or "WP1" or "WS2":
-                roll = roll with
-                {
-                    DamageMin = roll.DamageMin - damage, DamageMax = roll.DamageMax - damage, AttackRating = roll.AttackRating - 5 * steps,
-                    CriticalBonus = roll.CriticalBonus - Critical()
-                };
-                break;
-            case "WM1":
-                roll = roll with
-                {
-                    DamageMin = roll.DamageMin - damage, DamageMax = roll.DamageMax - damage, AttackRating = roll.AttackRating - 10 * steps,
-                    AddMana = roll.AddMana - 10 * steps
-                };
-                break;
-            case "WS1":
-                roll = roll with { DamageMin = roll.DamageMin - damage, DamageMax = roll.DamageMax - damage, CriticalBonus = roll.CriticalBonus - Critical() };
-                wear = true;
-                break;
-            case "WT1":
-                roll = roll with { DamageMin = roll.DamageMin - damage, DamageMax = roll.DamageMax - damage, CriticalBonus = roll.CriticalBonus - Critical() };
-                break;
-            case "DS1":
-                roll = roll with { Block = roll.Block - Critical(), Absorb = roll.Absorb - Absorb(0.2f) };
-                wear = true;
-                break;
-            case "OM1" or "DB1" or "DG1":
-                roll = roll with { Defence = Defence(10), Absorb = roll.Absorb - Absorb(0.5f) };
-                wear = true;
-                break;
-            case "DA1" or "DA2":
-                roll = roll with { Defence = Defence(5), Absorb = roll.Absorb - Absorb(0.5f) };
-                wear = true;
-                break;
-            case "OA2":
-                roll = roll with { Defence = Defence(10), AttackRating = roll.AttackRating - 5 * steps };
-                wear = true;
-                break;
+            var lost = family.Damage ? damage : 0;
+            roll = roll with
+            {
+                DamageMin = roll.DamageMin - lost,
+                DamageMax = roll.DamageMax - lost,
+                AttackRating = roll.AttackRating - family.AttackRating * steps,
+                CriticalBonus = roll.CriticalBonus - (family.Critical ? Critical() : 0),
+                AddMana = roll.AddMana - family.Mana * steps,
+                Block = roll.Block - (family.Block ? Critical() : 0),
+                Absorb = roll.Absorb - Absorb(family.AbsorbStep),
+                Defence = family.DefencePercent > 0 ? Defence(family.DefencePercent) : roll.Defence
+            };
         }
 
         if (wear)

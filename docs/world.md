@@ -499,7 +499,9 @@ one to `Mcave`.
 
 ## Aging
 
-`AgingRules` and `AgingWork` (Simulation, `Items/Aging/`) hold the rules; `NpcServiceTransactions` runs an aging
+`AgingRules` and `AgingWork` (Simulation, `Items/Aging/`) hold the rules; each ageable family is one `AgingFamily` row
+(counter, goal table, wear, and what a level adds: damage, attack rating, odd-level critical or block, mana, absorb
+step, defence percent), which both a level gained and a fall read; `NpcServiceTransactions` runs an aging
 (`NpcServiceAction.Age`) on a candidate copy; `FieldInstance.Aging` counts maturity in the field.
 
 - Ageable: axes, claws, hammers, staves, poles, bows, swords, javelins, armours, robes, shields, orbs, gloves, boots,
