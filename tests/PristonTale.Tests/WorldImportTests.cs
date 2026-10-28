@@ -7,6 +7,7 @@ using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Npcs;
 using PristonTale.WorldImport;
 using PristonTale.Assets;
+using PristonTale.Simulation.World.Monsters;
 
 namespace PristonTale.Tests;
 

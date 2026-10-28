@@ -39,29 +39,8 @@ public static partial class SkillFormulas
         return false;
     }
 
-    public static bool MatchesBrood(string[] broods, MonsterDefinition target)
-    {
-        if (target is null)
-        {
-            return false;
-        }
+    public static bool MatchesBrood(MonsterBrood[] broods, MonsterDefinition target) => target is not null && Array.IndexOf(broods, target.Brood) >= 0;
 
-        foreach (var name in broods)
-        {
-            if (Enum.TryParse<MonsterBrood>(name, ignoreCase: true, out var brood) && target.Brood == brood)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    public static int BroodBonusPercent(SkillDamageRule damage, int rank, MonsterDefinition target)
-    {
-        var percent = damage.BonusPercentByRank.Length == 10 ? damage.BonusPercentByRank[Math.Clamp(rank, 1, 10) - 1] : damage.BonusPercent;
-        return percent != 0 && MatchesBrood(damage.BonusBroods, target) ? percent : 0;
-    }
 
     // What the main target's own spell hit of an area skill deals: brood bonus first, then element resistance (divided by
     // the rule's divisor), absorption in percent and the dealt/taken scaling; unlike PowerAgainst, no magic resistance.

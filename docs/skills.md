@@ -172,7 +172,7 @@ means absent); `SkillRule.At` clamps the rank into the table. Distances are worl
 | `element` (`Bionic`), `flatElement`, `resistAddedOnly` | Element; `flatElement` makes `min..max` an add resisted by its own element |
 | `resistanceDivisor` (1) | Target resistance divided by this before it applies |
 | `noCritical`, `neverMiss` | No critical; weapon hits skip the accuracy roll |
-| `bonusBroods`, `bonusPercent`, `bonusPercentByRank[10]` | Extra percent vs broods (`Normal`, `Undead`, `Mutant`, `Demon`, `Mechanic`) |
+| `bonusBroods`, `bonusPercent`, `bonusPercentByRank[10]` | Extra percent vs broods (`Normal`, `Undead`, `Mutant`, `Demon`, `Mechanic`); every brood list loads as `MonsterBrood[]` and is matched with `SkillFormulas.MatchesBrood` |
 | `mode` | `Rolled` (default), `MaxLifeShare`, `CurrentLifeShare` (percent of each target's life) |
 | `share[10]`, `chance[10]`, `chanceLevelDivisor`, `shareResistedByBionic` | Share modes: percent, chance (+ level / divisor), bionic resistance |
 | `minLifePercent`, `onlyBroods`, `excludeBroods`, `lifeToCasterCapPercent` | Share filters; drained life returns to the caster up to a cap |

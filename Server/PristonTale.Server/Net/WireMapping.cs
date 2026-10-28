@@ -9,6 +9,7 @@ using PristonTale.Contracts.World;
 using PristonTale.Contracts.Skills;
 using PristonTale.Contracts.Sessions;
 using PristonTale.Contracts.Units;
+using PristonTale.Simulation.World.Monsters;
 
 namespace PristonTale.Server.Net;
 

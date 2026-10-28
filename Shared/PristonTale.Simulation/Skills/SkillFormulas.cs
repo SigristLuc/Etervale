@@ -295,7 +295,7 @@ public static partial class SkillFormulas
 
     public static int WithBroodBonus(int damage, SkillDamageRule rule, MonsterDefinition target, int rank)
     {
-        if (rule is null || damage <= 0 || !BroodMatches(rule, target))
+        if (rule is null || damage <= 0 || !MatchesBrood(rule.BonusBroods, target))
         {
             return damage;
         }
@@ -476,18 +476,4 @@ public static partial class SkillFormulas
     private static int LevelDivisor(SkillDamageRule damage, int rank) =>
         damage.LevelDivisorByRank.Length == 10 ? damage.LevelDivisorByRank[Math.Clamp(rank, 1, 10) - 1] : damage.LevelDivisor;
 
-    public static bool BroodMatches(SkillDamageRule damage, MonsterDefinition target) => target is not null && BroodListed(damage.BonusBroods, target);
-
-    public static bool BroodListed(string[] broods, MonsterDefinition target)
-    {
-        foreach (var name in broods)
-        {
-            if (Enum.TryParse<MonsterBrood>(name, ignoreCase: true, out var brood) && target.Brood == brood)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

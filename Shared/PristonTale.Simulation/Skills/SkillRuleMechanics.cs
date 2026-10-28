@@ -1,6 +1,7 @@
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Modifiers;
+using PristonTale.Simulation.World.Monsters;
 
 namespace PristonTale.Simulation.Skills;
 
@@ -80,14 +81,14 @@ public sealed record SkillAbsorbRule
 public sealed record SkillReflectRule
 {
     public int[] Percent { get; init; } = [];
-    public string[] Broods { get; init; } = [];
+    public MonsterBrood[] Broods { get; init; } = [];
 }
 
 // Life the holder recovers from the attacks of matching monsters: a percent of the hit, on a block or on every hit.
 public sealed record SkillGuardRule
 {
     public int[] HealPercent { get; init; } = [];
-    public string[] Broods { get; init; } = [];
+    public MonsterBrood[] Broods { get; init; } = [];
     public bool OnBlock { get; init; }
 }
 
@@ -104,7 +105,7 @@ public sealed record SkillCharmRule
 {
     public int[] Chance { get; init; } = [];
     public int[] LifePercent { get; init; } = [];
-    public string[] Broods { get; init; } = [];
+    public MonsterBrood[] Broods { get; init; } = [];
 }
 
 // Revives the nearest dead player within Radius: success percent per rank, the life it returns with and the time it
@@ -163,8 +164,8 @@ public sealed partial record SkillDamageRule
     public int ChanceLevelDivisor { get; init; }
     public bool ShareResistedByBionic { get; init; }
     public int MinLifePercent { get; init; }
-    public string[] OnlyBroods { get; init; } = [];
-    public string[] ExcludeBroods { get; init; } = [];
+    public MonsterBrood[] OnlyBroods { get; init; } = [];
+    public MonsterBrood[] ExcludeBroods { get; init; } = [];
     // The life taken is returned to the caster, at most this percent of the caster's maximum life.
     public int LifeToCasterCapPercent { get; init; }
 }

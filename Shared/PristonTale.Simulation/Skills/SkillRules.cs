@@ -1,6 +1,7 @@
 using System.Text.Json;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Modifiers;
+using PristonTale.Simulation.World.Monsters;
 
 namespace PristonTale.Simulation.Skills;
 
@@ -144,7 +145,7 @@ public sealed partial record SkillDamageRule
     // Bolts and areas: the weapon term (WeaponDivisor) uses the caster's attack damage instead of the weapon's own.
     public bool WeaponFromAttack { get; init; }
     // Extra percent against monster broods ("Undead", "Demon", "Mutant", "Normal", "Mechanic").
-    public string[] BonusBroods { get; init; } = [];
+    public MonsterBrood[] BonusBroods { get; init; } = [];
     public int BonusPercent { get; init; }
 }
 
@@ -262,7 +263,7 @@ public sealed record SkillCompanionRule
     public uint BorrowSkill { get; init; }
     public int[] Percent { get; init; } = [];
     public Element Element { get; init; } = Element.Bionic;
-    public string[] BonusBroods { get; init; } = [];
+    public MonsterBrood[] BonusBroods { get; init; } = [];
     public int BonusPercent { get; init; }
 }
 
@@ -273,7 +274,7 @@ public sealed record SkillCounterRule
     public uint BorrowSkill { get; init; }
     public int[] Percent { get; init; } = [];
     public Element Element { get; init; } = Element.Bionic;
-    public string[] BonusBroods { get; init; } = [];
+    public MonsterBrood[] BonusBroods { get; init; } = [];
     public int BonusPercent { get; init; }
 }
 

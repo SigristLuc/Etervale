@@ -15,6 +15,7 @@ using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Assets;
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.World.Monsters;
 
 namespace PristonTale.Tests;
 
