@@ -145,12 +145,27 @@ public sealed partial class GameScene
         else if (combatEvent.Kind == CombatEventKind.SwingBegin && !_playerController.LocomotionFrozen)
         {
             _selfAttacking = true;
+            FaceSwingTarget(combatEvent.TargetId);
             ApplyPlayerCommand(_playerController.Retrigger(MotionCode.Attack));
         }
         else if (combatEvent.Kind == CombatEventKind.Hit && !combatEvent.Killed && _playerController.Current == MotionCode.Damage)
         {
             ApplyPlayerCommand(_playerController.Retrigger(MotionCode.Damage));
         }
+    }
+
+    // Chained swings (the next target picked while the last swing ends) never leave the attack state, so the turn of the
+    // attack approach (UpdateAttackPresentation) never runs between them; each swing turns toward its own target here.
+    private void FaceSwingTarget(ulong targetId)
+    {
+        if (_remote is null || _playerBody is null || !_remote.TryGetTarget(targetId, out var target, out _))
+        {
+            return;
+        }
+
+        var facing = AttackPresentation.SwingFacing(_playerBody.PlanarPosition, new Vector2(target.X, target.Z), new Vector2(_playerForward.X, _playerForward.Z));
+        _playerForward = new Vector3(facing.X, 0f, facing.Y);
+        ApplyPlayerWorld();
     }
 
     private float PlayerRateFor(MotionCode motion)

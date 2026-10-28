@@ -1,8 +1,10 @@
 using System.Numerics;
 using PristonTale.Application.World;
 using PristonTale.Gameplay.Combat;
+using PristonTale.Gameplay.World.Remote;
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Characters;
+using XnaVector2 = Microsoft.Xna.Framework.Vector2;
 
 namespace PristonTale.Tests;
 
@@ -12,6 +14,7 @@ internal static class AttackInputTests
     {
         yield return ("attack gestures distinguish tap, hold, Shift, release and stale acknowledgements", GesturesAsync);
         yield return ("a queued click survives the preceding swing and release does not queue an extra blow", QueuedAsync);
+        yield return ("each swing turns toward its own target, one behind the player included", SwingFacingAsync);
     }
 
     private static Task GesturesAsync()
@@ -64,6 +67,19 @@ internal static class AttackInputTests
         var diff = presence.Diff([player.ToView()]);
         Assert.True(diff.States.Count == 1 && diff.States[0].AttackSequence == 4,
             "idle suppression dropped the acknowledgement of a rejected/finished command");
+        return Task.CompletedTask;
+    }
+
+    private static Task SwingFacingAsync()
+    {
+        var player = new XnaVector2(100f, 100f);
+        var forward = new XnaVector2(1f, 0f);
+        var behind = AttackPresentation.SwingFacing(player, new XnaVector2(70f, 100f), forward);
+        Assert.True(XnaVector2.Distance(behind, new XnaVector2(-1f, 0f)) < 1e-5f, $"a swing at a target behind faces {behind}");
+        var far = AttackPresentation.SwingFacing(player, new XnaVector2(100f, 400f), forward);
+        Assert.True(XnaVector2.Distance(far, new XnaVector2(0f, 1f)) < 1e-5f, $"a swing at a target past the reach faces {far}");
+        var same = AttackPresentation.SwingFacing(player, player, forward);
+        Assert.True(same == forward, $"a target on the player's spot turned it to {same}");
         return Task.CompletedTask;
     }
 }

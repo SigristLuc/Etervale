@@ -272,7 +272,9 @@ The client owns its own locomotion; the server validates and corrects.
 - Server echoes of the self state do not move the avatar. They update HP, move speed, attack rate, the attack-target
   reconcile (`AttackInputController.Reconcile` by sequence) and authoritative motions (Attack, Damage, Dead, Eat,
   the restart after death). The last echoed position is kept as `_serverPlanarPosition` for reach checks (NPC dialog,
-  loot pickup).
+  loot pickup). Each `SwingBegin` of the player's own swing turns the avatar toward that swing's target
+  (`FaceSwingTarget`, `AttackPresentation.SwingFacing`), as the server turns it: chained swings never leave the attack
+  state, so the turn of the attack approach does not run between them.
 - Only `FieldWarp` moves the avatar: a forced warp (server rejected a report), a warp that activates another field, or a
   difference above 200 units snaps the body and camera and stands it on the floor nearest the warp's height (within 64
   units, else the highest floor). A warp to another field code activates that field if loaded; otherwise it requests the
