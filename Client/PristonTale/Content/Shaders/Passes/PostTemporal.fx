@@ -45,7 +45,6 @@ SamplerState HistorySampler : register(s3) = sampler_state
 };
 
 static const float SkyMotion = 3.0;          // motion x at or above: the sky marker (Passes/SkyComposite.fx)
-static const float SkyDepth = 60000.0;       // the history's depth of sky pixels (within half-float range)
 static const float FoliageWeight = 0.3;
 static const float FoliageGamma = 0.9;
 static const float2 Diagonals[4] = { float2(-1, -1), float2(1, -1), float2(-1, 1), float2(1, 1) };

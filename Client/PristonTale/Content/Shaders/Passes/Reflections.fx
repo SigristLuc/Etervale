@@ -45,7 +45,6 @@ SamplerState EnvironmentSampler : register(s3) = sampler_state
     Texture = (EnvironmentMap); MinFilter = Linear; MagFilter = Linear; MipFilter = Point; AddressU = Clamp; AddressV = Clamp;
 };
 
-static const float SkyDepth = 50000.0;
 static const float MinSmoothness = 0.55;
 static const uint Steps = 24;
 static const uint RefineSteps = 4;
@@ -99,7 +98,7 @@ float4 PS_Reflect(FullscreenOut i) : SV_Target0
     float4 normalSample = NormalMap.SampleLevel(NormalSampler, i.Uv, 0);
     float smoothness = normalSample.a;
     float depth = DepthAt(i.Uv);
-    if (smoothness < MinSmoothness || depth > SkyDepth)
+    if (smoothness < MinSmoothness || depth > SkyDepthThreshold)
     {
         discard;
     }
