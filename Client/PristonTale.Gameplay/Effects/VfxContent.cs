@@ -25,6 +25,7 @@ public sealed class VfxContent : IVfxResources, IDisposable
     private readonly IClientLog _log;
     private readonly Task<Prepared> _preparation;
     private readonly Dictionary<string, PristonMeshEffect?> _models = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, BillboardSequence?> _readOnUse = new(StringComparer.OrdinalIgnoreCase);
     private Prepared? _prepared;
     private int _next;
 
@@ -198,8 +199,23 @@ public sealed class VfxContent : IVfxResources, IDisposable
         return new Prepared(catalog, models, animations);
     }
 
-    BillboardSequence? IVfxResources.Animation(string name) =>
-        _prepared is not null && _prepared.Animations.TryGetValue(name, out var animation) ? animation : null;
+    // Effects defined in code (ItemVfx) may name animations no catalog file uses, and may register before the catalog is
+    // prepared: those are read on first use.
+    BillboardSequence? IVfxResources.Animation(string name)
+    {
+        if (_prepared is not null && _prepared.Animations.TryGetValue(name, out var prepared))
+        {
+            return prepared;
+        }
+
+        if (!_readOnUse.TryGetValue(name, out var animation))
+        {
+            animation = ReadAnimation(name);
+            _readOnUse[name] = animation;
+        }
+
+        return animation;
+    }
 
     private BillboardSequence? ReadAnimation(string name)
     {

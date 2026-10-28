@@ -145,15 +145,16 @@ public sealed record VfxPartDefinition
     // Vertical acceleration (negative falls).
     public float[] Gravity { get; init; } = [0f, 0f];
     // Degrees per second the part's offset from its origin turns about the vertical.
-    public float Swirl { get; init; }
+    public float[] Swirl { get; init; } = [0f, 0f];
 
     public VfxPartGoal Goal { get; init; } = VfxPartGoal.None;
     public float[] GoalOffset { get; init; } = [0f, 0f, 0f];
     public float Speed { get; init; }
     // Distance at which the part has arrived.
     public float Reach { get; init; } = 4f;
-    // Seconds a freely moving part moves before it stops where it is; 0 keeps it moving.
-    public float MoveTime { get; init; }
+    // Seconds a freely moving part moves before it stops where it is; 0 keeps it moving. A Hold part then settles there
+    // as on arriving (a potion drop that stops and fades through its animation's last frame).
+    public float[] MoveTime { get; init; } = [0f, 0f];
     public float[] BeamTo { get; init; } = [0f, 0f, 0f];
     // Lob: an initial upward speed under Gravity while Speed carries the part across the ground towards the goal; it
     // arrives on coming down to the goal's height.

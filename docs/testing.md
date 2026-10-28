@@ -183,7 +183,7 @@ when reading those assets is authorized. GPU probes:
 | `--capture-ground-loot <assets> <content> <output.png>` | yes | Ground drop elevation, coordinate remapping and distinct label click targets; `<output>-close.png` shows how the drops lie (weapons flat) |
 | `--capture-combat-effects <assets> <content> <output-dir>` | yes | Temporary lights, meteors and the return effect over time |
 | `--capture-monster-skills <assets> <content> <output-dir> [<case,case,...>]` | yes | Real monsters' attack, skill and death clips with their effects, and monster statuses on a player |
-| `--capture-potions <assets> <content> <output-dir>` | yes | Potion particle captures over time |
+| `--capture-potions <assets> <content> <output-dir>` | yes | The three potions (`ItemVfx.Potion`) over a dark floor at night at 0.15, 0.45, 0.8 and 1.2 s |
 | `--capture-vfx <assets> <content> <output-dir> [<name,name,...>]` | yes | Plays named effects of `assets/Effect/Vfx` (see below) |
 | `--verify-skill-motions <assets>` | no | Every skill rule's motions (index, length, events, class tag) against the class motion tables |
 | `--verify-monster-skills <assets>` | no | Monster skill windup and duration from real models |

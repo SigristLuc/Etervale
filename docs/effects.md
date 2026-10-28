@@ -11,7 +11,7 @@ writes that data, and the gameplay glue in `Client/PristonTale.Gameplay/Effects/
 - Adding a field to the `.vfx.json` format, a builtin texture, or a new layer behaviour.
 - Debugging an effect that is invisible, a white square, stuck alive, at the wrong position or on the wrong bone.
 - Working on skill looks on actors (tints, translucency, shield swaps, enlarged weapons, afterimages) or costume wings.
-- Working on potion, firecracker or character-select effects that use the original `EffectsEngine`.
+- Working on the character-select effects that still use the original `EffectsEngine`.
 
 ## Code map
 
@@ -27,8 +27,8 @@ writes that data, and the gameplay glue in `Client/PristonTale.Gameplay/Effects/
 | `Client/PristonTale.Effects/Vfx/VfxRenderer*.cs` | Quads of every layer in one dynamic vertex buffer; effect models through their own draws |
 | `Client/PristonTale.Effects/Vfx/VfxBuiltinTextures.cs` | Procedural `builtin:` sprite textures |
 | `Client/PristonTale.Effects/Scripts/BillboardSequence.cs` | Original animated billboards (`Effect/AnimationData/*.ini`) and their tick-exact player |
-| `Client/PristonTale.Effects/Scripts/`, `EffectsEngine.cs`, `Effects/`, `Particles/`, `Rendering/` | Original particle engine still used by potions, firecrackers and character select |
-| [`Client/PristonTale.Gameplay/Effects/VfxContent.cs`](../Client/PristonTale.Gameplay/Effects/VfxContent.cs) | Loads the catalog, models, animations and textures on a worker; registers them on the game thread in 2 ms slices |
+| `Client/PristonTale.Effects/Scripts/`, `EffectsEngine.cs`, `Effects/`, `Particles/`, `Rendering/` | Original particle engine still used by character select |
+| [`Client/PristonTale.Gameplay/Effects/VfxContent.cs`](../Client/PristonTale.Gameplay/Effects/VfxContent.cs) | Loads the catalog, models, animations and textures on a worker; registers them on the game thread in 2 ms slices; an animation no catalog file names (effects built in code) is read on first use |
 | [`Client/PristonTale.Gameplay/Effects/SkillPresentation.cs`](../Client/PristonTale.Gameplay/Effects/SkillPresentation.cs) | Implements `IVfxServices`, maps skill events and statuses to effects |
 | `Client/PristonTale.Gameplay/Effects/ScriptEffects.cs` | `IScriptEffects`: meteors, force-orb hits and premium pet shots start converted scripts (`particle.<name>`) through a `VfxSystem` (the skill presentation's, or the opening flight's own); `VfxNoAnchors` and `TransientLightServices` serve a scene without entities |
 | [`Client/PristonTale.Gameplay/Effects/MonsterPresentation.cs`](../Client/PristonTale.Gameplay/Effects/MonsterPresentation.cs) | Monster effects: follows each monster's clip and starts `vfx.monster.*`; monster status effects and body tints |
@@ -162,7 +162,7 @@ seconds; a zero lifetime lives as long as its animation, model clip or flight, o
 | Model | `model`, `skeleton`, `modelStart`, `modelFrames`, `modelSpeed` (clip frames per second), `loopFrom`, `angles`, `tumble`, `scale`, `pulse` + `pulsePeriod`, `faceGoal` (face the velocity) |
 | Fade | `fade`: `Rise` (up over 25.5 % of the life, down at the same rate), `Fall` (down over the last 25.5 %), `InOut` (`fadeIn`, `fadeOut` seconds); `fadeOut` also times the fade after arriving |
 | Place | `anchor`, `bone`, `boneWorld` (full bone transform, offset in bone space), `offset`, `follow`, `turn` (true), `jitterMin`/`jitterMax`, `ring` radius with `ringStart` + `ringStep` x index or `ringRandom`, `shell` (ellipsoid radii), `slideFrom` (a billboard sliding on the screen from that many pixels of a 600-pixel-high view, negative left, closing like `VfxScreenSlide`: 35 px every fourth tick, 3 fewer each time down to 4, rising 2 px a tick 45 ticks after it closed) |
-| Motion | `radial` (outward along the ring angle), `rise`, `velocityMin`/`velocityMax`, `burst` (along the shell direction), `gravity`, `swirl` (deg/s about the vertical), `moveTime` (stop after) |
+| Motion | `radial` (outward along the ring angle), `rise`, `velocityMin`/`velocityMax`, `burst` (along the shell direction), `gravity`, `swirl` (deg/s about the vertical), `moveTime` (stop after; with `end: Hold` the part then settles as on arriving); `swirl` and `moveTime` are ranges drawn per part |
 | Goal | `goal` (Caster, Target, Point) + `goalOffset`, `speed`, `reach`, `lift` (lob under `gravity`), `end`: `Vanish`, `LastFrame` (keep flying through the last frame or `fadeOut`), `Hold` (stop and fade out) |
 | Orbit | `orbitRadius`, `orbitSpeed`, `orbitTilt`, `orbitRise`, `orbitGrowth`, `orbitPhase` + `orbitPhaseStep`, `orbitAlternate`; with a goal the orbit starts at the goal's bearing and distance |
 | Effects | `endEffect` (where a part arrives or its life ends), `everyEffect` every `every` seconds at each part, `carryEffect` (started at birth, moved with the part, stopped when it ends) |

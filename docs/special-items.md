@@ -38,8 +38,8 @@ and draws the result.
 | `Shared/PristonTale.Protocol/Packets/ItemUsePackets.cs` | `ItemUseCommand`, `ItemUseResult`, `PremiumTimers`, `ItemEffects` |
 | `Client/PristonTale.Gameplay/UI/Inventory/HudItemUseController.cs`, `HudTeleportCore.cs`, `HudUsableTooltip.cs` | Right-click use, Teleport Core window, confirmations, tooltips |
 | `Client/PristonTale.Gameplay/UI/Widgets/HudPremiumTimers.cs` | The premium timer column |
-| `Client/PristonTale.Gameplay/Effects/ItemUseEffects.cs` | Firecrackers and item sounds on the original particle engine |
-| `Client/PristonTale.Gameplay/Effects/ItemVfx.cs`, `ForceOrbPresentation.cs` | Skill-learn light, force orb weapon glow and hit spark |
+| `Client/PristonTale.Gameplay/Effects/ItemUseEffects.cs` | Firecrackers (converted burst scripts and `ItemVfx` launch sparks and flash) and item sounds |
+| `Client/PristonTale.Gameplay/Effects/ItemVfx.cs`, `ForceOrbPresentation.cs` | Effects built in code: skill-learn light, force orb weapon glow and hit spark, potion drops, firecracker launch sparks and flash |
 | `Client/PristonTale.Gameplay/World/Remote/PremiumPetPresentation.cs` | Pet actors, their animation and strikes |
 | `Client/PristonTale.Gameplay/World/GameScene.Items.cs` | Item use, timers and item effects in the scene |
 | `.../Usable/MonsterCrystals.cs` | Crystal and soul stone tables, pet lifetime and life, the shared delay, the crystal event |
@@ -224,7 +224,7 @@ clan and refuses (`ClanOnly`).
 - While a puzzle piece or lucky bag is carried, the board backdrop (`NYEAR_00.bmp`) covers the last four columns'
   top four rows; a finished puzzle glows yellow under two orange lines sweeping one pixel every three 70 Hz frames. The
   collector asks "Do you wanna / exchange to the item?" under "Completed Puzzle", or explains the board.
-- Item effects (`ItemEffects` message): firecracker bursts with the original particle scripts and sounds, the
+- Item effects (`ItemEffects` message): firecracker bursts with the converted particle scripts and sounds, the
   skill-learn light of hair tints and force orbs (`ItemVfx.Learn`, rising streaks registered in code), the agony glow
   of skill masters, and pet strikes.
 - A running force orb keeps a flare glow in the orb's colour on the holder's weapon bone, renewed every 29 s until the

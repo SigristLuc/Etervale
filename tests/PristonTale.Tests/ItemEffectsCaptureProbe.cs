@@ -2,7 +2,6 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Client.Net.Presence;
 using PristonTale.Client.Net.WorldCatalog;
-using PristonTale.Effects;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.IO;
@@ -65,7 +64,6 @@ internal sealed class ItemEffectsCaptureProbe : Game
     private PristonCamera _camera = null!;
     private RemoteEntityManager _remote = null!;
     private EffectLibrary _library = null!;
-    private EffectsEngine _effects = null!;
     private ItemUseEffects _items = null!;
     private PremiumPetPresentation _pets = null!;
     private SkillPresentation _skills = null!;
@@ -139,12 +137,11 @@ internal sealed class ItemEffectsCaptureProbe : Game
                 1000, new PlayerAppearanceInfo("Kicker", PlayerClass.Fighter, 0, 0, 0, "", "", 52) { BigHead = CharacterHead.SoccerLook }, 0)
         ], [], [], []));
         _library = EffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assetRoot, ConsoleClientLog.Instance);
-        _effects = new EffectsEngine(GraphicsDevice, Content);
         _sounds = new SkillSoundBank(_assetRoot, ConsoleClientLog.Instance) { Enabled = false };
-        _items = new ItemUseEffects(_library, _assetRoot, _effects, _renderer.TransientLights, _sounds);
         _skills = new SkillPresentation(GraphicsDevice, Content, _library, _renderer.TransientLights, new SceneHost(this), _sounds, ConsoleClientLog.Instance);
         _library.Vfx.CompileAll();
         ItemVfx.Register(_skills.Library);
+        _items = new ItemUseEffects(_skills, _renderer.TransientLights, _sounds);
         var scripts = new SystemScriptEffects(_skills.System, _skills.Library);
         _orbs = new ForceOrbPresentation(_skills, scripts, _renderer.TransientLights);
         _pets = new PremiumPetPresentation(actorScene, loader, _assetRoot, scripts, _renderer.TransientLights, _sounds, ConsoleClientLog.Instance);
@@ -254,7 +251,6 @@ internal sealed class ItemEffectsCaptureProbe : Game
         _items.Update(_seconds * 1000d, Anchor, _eye);
         _orbs.Update(_seconds * 1000d, Anchor);
         _skills.Update(step, _seconds * 1000d);
-        _effects.Update(new GameTime(TimeSpan.FromSeconds(_seconds), TimeSpan.FromSeconds(step)));
         _renderer.Update(new GameTime(TimeSpan.FromSeconds(_seconds), TimeSpan.FromSeconds(step)));
         _return.Update(step);
     }
@@ -280,7 +276,6 @@ internal sealed class ItemEffectsCaptureProbe : Game
         }
 
         _renderer.Draw(_camera);
-        _effects.Draw(_camera.View, _camera.Projection, _camera.Position);
         _skills.Draw(_camera.View, _camera.Projection, _camera.Position, _renderer.SceneLinearDepth);
         _return.Draw(_camera.View, _camera.Projection, _camera.Position);
         _renderer.ComposeScene();
@@ -306,7 +301,7 @@ internal sealed class ItemEffectsCaptureProbe : Game
         }
 
         var vfx = $"{_skills.System.Instances.Count}/{_skills.System.ParticleCount}/{_skills.Renderer.LastQuadCount}";
-        Console.WriteLine($"Item effects {shot.Name}: captured; pets={_pets.OwnerCount}; effects={_effects.Instances.Count}; vfx={vfx}; bursts={_items.PendingBursts}");
+        Console.WriteLine($"Item effects {shot.Name}: captured; pets={_pets.OwnerCount}; vfx={vfx}; bursts={_items.PendingBursts}");
         foreach (var (owner, kind, position) in _pets.Pets)
         {
             Console.WriteLine($"  pet {kind} of {owner} at {position - (Anchor(owner) ?? Vector3.Zero)} from its owner");
@@ -322,7 +317,6 @@ internal sealed class ItemEffectsCaptureProbe : Game
         _pixel.Dispose();
         _pets.Dispose();
         _remote.Dispose();
-        _effects.Dispose();
         _library.Dispose();
         _sounds.Dispose();
     }

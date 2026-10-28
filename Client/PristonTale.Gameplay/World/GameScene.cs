@@ -56,7 +56,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private ModelActorComposer _monsterComposer;
     private PristonCamera _camera;
     private readonly PristonTale.Gameplay.Effects.EffectLibrary _effectLibrary;
-    private readonly PristonTale.Effects.EffectsEngine _effects;
     private readonly FieldAudioController _fieldAudio;
     private readonly NpcAudioController _npcAudio;
     private readonly PristonAudioLibrary _audio;
@@ -168,10 +167,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _presentation = presentation;
         _sky = sky;
         _effectLibrary = effects;
-        if (effects is not null)
-        {
-            _effects = new PristonTale.Effects.EffectsEngine(graphicsDevice, content);
-        }
         if (audio is not null)
         {
             _audio = audio;
@@ -415,7 +410,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         UpdateMonsterEffects((float)gameTime.ElapsedGameTime.TotalSeconds);
         UpdateCombatSounds();
         _returnEffect?.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
-        _effects?.Update(gameTime);
         var frameDt = (float)gameTime.ElapsedGameTime.TotalSeconds;
         if (_playerBody is not null)
         {
@@ -497,7 +491,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
     private void ObserveEffects(PresenceUpdate update)
     {
-        if (_effects is null)
+        if (_effectLibrary is null)
         {
             return;
         }
@@ -506,7 +500,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         ObservePlayerSwings(update);
         foreach (var effect in update.Events)
         {
-            if (effect.Kind != CombatEventKind.PotionApplied || _effects.Instances.Count >= 128)
+            if (effect.Kind != CombatEventKind.PotionApplied || _skillFx is null)
             {
                 continue;
             }
@@ -522,11 +516,11 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             }
 
             position.Y += 48f;
-            for (var resource = 0; resource < 3 && _effects.Instances.Count < 128; resource++)
+            for (var resource = 0; resource < 3; resource++)
             {
                 if ((effect.Resources & (1 << resource)) != 0)
                 {
-                    _effects.Spawn(_effectLibrary.Potion(resource), position);
+                    _skillFx.SpawnAt(PristonTale.Gameplay.Effects.ItemVfx.Potion(resource), position, Matrix.Identity);
                 }
             }
         }
@@ -538,7 +532,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         {
             _renderer.Draw(_camera);
             _returnEffect?.Draw(_camera.View, _camera.Projection, _camera.Position);
-            _effects?.Draw(_camera.View, _camera.Projection, _camera.Position);
             DrawSkillEffects();
             _renderer.ComposeScene();
         }
@@ -575,7 +568,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         _renderer?.Dispose();
         _monsterFx?.Clear();
         _combatSounds?.Dispose();
-        _effects?.Dispose();
         _fieldAudio?.Dispose();
         _npcAudio?.Dispose();
     }

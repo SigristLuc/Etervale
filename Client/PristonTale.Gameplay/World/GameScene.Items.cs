@@ -27,15 +27,15 @@ public sealed partial class GameScene
     // Loads the item effects with the scene's effects, at the field load that creates the renderer.
     private void CreateItemEffects()
     {
-        if (_itemEffects is null && _effects is not null && _effectLibrary is not null && _renderer is not null)
+        if (_skillFx is not null && _itemEffects is null)
         {
-            _itemEffects = new ItemUseEffects(_effectLibrary, _assetRoot ?? "", _effects, _renderer.TransientLights, _skillSounds);
+            ItemVfx.Register(_skillFx.Library);
+            _itemEffects = new ItemUseEffects(_skillFx, _renderer?.TransientLights, _skillSounds);
         }
 
         var scripts = _skillFx is null ? null : new SystemScriptEffects(_skillFx.System, _skillFx.Library);
         if (_forceOrbs is null && _skillFx is not null)
         {
-            ItemVfx.Register(_skillFx.Library);
             _forceOrbs = new ForceOrbPresentation(_skillFx, scripts, _renderer?.TransientLights);
         }
 
