@@ -49,11 +49,7 @@ public sealed partial class GameScene
         {
             anchor = head + Vector3.Up * BubbleAboveHead;
         }
-        else if (entityId == SelfEntityId)
-        {
-            anchor = _playerBody.Position + Vector3.Up * BubbleAboveFeet;
-        }
-        else if (_remote is not null && _remote.TryGetDrawnPosition(entityId, out var feet))
+        else if (TryGetDrawnPosition(entityId, out var feet))
         {
             anchor = feet + Vector3.Up * BubbleAboveFeet;
         }

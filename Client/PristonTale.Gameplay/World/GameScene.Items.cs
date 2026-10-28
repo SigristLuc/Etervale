@@ -110,25 +110,35 @@ public sealed partial class GameScene
         _forceOrbs?.Update(_skillClockMs, ItemAnchor);
     }
 
-    private (Vector3 Position, float Facing)? PetOwnerPose(ulong entityId)
+    private (Vector3 Position, float Facing)? PetOwnerPose(ulong entityId) =>
+        TryGetDrawnPosition(entityId, out var position) && TryGetDrawnFacing(entityId, out var facing) ? (position, facing) : null;
+
+    private Vector3? ItemAnchor(ulong entityId) => TryGetDrawnPosition(entityId, out var position) ? position : null;
+
+    // Where an entity is drawn: the local player's body (its collision position) or a remote entity's drawn position.
+    private bool TryGetDrawnPosition(ulong entityId, out Vector3 position)
     {
-        if (_remote is not null && entityId == _remote.SelfEntityId && _playerBody is not null)
+        if (IsSelf(entityId))
         {
-            return (_playerBody.Position, PlayerYaw);
+            position = _playerBody.Position;
+            return true;
         }
 
-        return _remote is not null && _remote.TryGetDrawnPosition(entityId, out var position) && _remote.TryGetDrawnFacing(entityId, out var facing)
-            ? (position, facing)
-            : null;
+        position = default;
+        return _remote is not null && _remote.TryGetDrawnPosition(entityId, out position);
     }
 
-    private Vector3? ItemAnchor(ulong entityId)
+    private bool TryGetDrawnFacing(ulong entityId, out float facing)
     {
-        if (_remote is not null && entityId == _remote.SelfEntityId && _playerBody is not null)
+        if (IsSelf(entityId))
         {
-            return _playerBody.Position;
+            facing = PlayerYaw;
+            return true;
         }
 
-        return _remote is not null && _remote.TryGetDrawnPosition(entityId, out var position) ? position : null;
+        facing = 0f;
+        return _remote is not null && _remote.TryGetDrawnFacing(entityId, out facing);
     }
+
+    private bool IsSelf(ulong entityId) => _remote is not null && entityId == _remote.SelfEntityId && _playerBody is not null;
 }

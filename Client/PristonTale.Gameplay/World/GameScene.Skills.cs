@@ -405,22 +405,7 @@ public sealed partial class GameScene : ISkillSceneHost
         return null;
     }
 
-    bool PristonTale.Effects.Vfx.IVfxAnchors.TryGetPosition(ulong entityId, out Vector3 position)
-    {
-        if (_remote is not null && entityId == _remote.SelfEntityId && _playerBody is not null)
-        {
-            position = _playerBody.Position;
-            return true;
-        }
-
-        if (_remote is not null && _remote.TryGetDrawnPosition(entityId, out position))
-        {
-            return true;
-        }
-
-        position = default;
-        return false;
-    }
+    bool PristonTale.Effects.Vfx.IVfxAnchors.TryGetPosition(ulong entityId, out Vector3 position) => TryGetDrawnPosition(entityId, out position);
 
     bool PristonTale.Effects.Vfx.IVfxAnchors.TryGetBone(ulong entityId, string bone, out Vector3 position)
     {

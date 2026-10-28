@@ -61,13 +61,7 @@ public sealed partial class GameScene
         _shots.Hold(_skillFx, entityId, motion, ticks, weaponKey ?? "", weapon, glow, position, staffCaster, _shotTarget);
     }
 
-    private Vector3? ShotTarget(ulong entityId)
-    {
-        if (_remote is not null && entityId == _remote.SelfEntityId && _playerBody is not null)
-        {
-            return _playerBody.Position + Vector3.Up * GroundTraversal.VisualOffset;
-        }
-
-        return _remote is not null && _remote.TryGetDrawnPosition(entityId, out var drawn) ? drawn : null;
-    }
+    // Shots aim at the local player's drawn feet, which sit the visual offset above its body.
+    private Vector3? ShotTarget(ulong entityId) =>
+        TryGetDrawnPosition(entityId, out var position) ? position + (IsSelf(entityId) ? Vector3.Up * GroundTraversal.VisualOffset : Vector3.Zero) : null;
 }
