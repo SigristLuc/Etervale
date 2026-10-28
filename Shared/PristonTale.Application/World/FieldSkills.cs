@@ -93,7 +93,7 @@ internal sealed partial class FieldSkills
             return SkillCastOutcome.Refused(request, SkillCastVerdict.Busy);
         }
 
-        if (player.Appearance.InVillage)
+        if (player.InVillage)
         {
             return SkillCastOutcome.Refused(request, SkillCastVerdict.InVillage);
         }

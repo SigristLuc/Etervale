@@ -329,7 +329,10 @@ public sealed class WorldPlayer
 
     public bool IsBusy => Action != PlayerActionState.Idle;
 
+    public bool InVillage => _inVillage;
+
     private PlayerAppearanceView _appearance;
+    // Built on every read from the equipment and premium state: read InVillage for the flag alone.
     public PlayerAppearanceView Appearance => _appearance with
     {
         WeaponKey = _character.GetEquipped(EquipmentSlot.Weapon)?.Definition.CatalogKey ?? "",
