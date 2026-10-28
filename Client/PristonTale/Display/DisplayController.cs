@@ -126,6 +126,8 @@ internal sealed class DisplayController
         }
 
         shared.DisplayModes = options;
+        var desktop = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
+        shared.Desktop = new DisplayModeOption(PrimaryMonitor, desktop.Width, desktop.Height, 0);
     }
 
     private DisplayMode SelectMode(ClientSettings requested, DisplayMode desktop)

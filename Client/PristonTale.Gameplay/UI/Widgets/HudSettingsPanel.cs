@@ -18,7 +18,6 @@ internal sealed class HudSettingsPanel
     private static readonly int[] ShadowSizes = [1024, 2048, 4096, 8192];
     private static readonly GraphicsQuality[] Presets = [GraphicsQuality.Low, GraphicsQuality.Medium, GraphicsQuality.High, GraphicsQuality.Ultra];
     private static readonly int[] ShadowUpdateRates = [30, 60, 120, 0];
-    private static readonly Point[] WindowSizes = [new(800, 600), new(1024, 768), new(1280, 720), new(1920, 1080), new(2560, 1440)];
     private readonly PresentationSettings _settings;
     private readonly string[] _labels = new string[16];
     private ClientSettings _labelSettings;
@@ -100,25 +99,39 @@ internal sealed class HudSettingsPanel
 
     private ClientSettings NextResolution(ClientSettings current, int direction)
     {
-        var sizes = current.WindowMode == WindowMode.Fullscreen ? new List<Point>() : new List<Point>(WindowSizes);
-        foreach (var mode in _settings.DisplayModes)
-        {
-            var size = new Point(mode.Width, mode.Height);
-            if ((current.Monitor == -1 || mode.Monitor == current.Monitor) && !sizes.Contains(size))
-            {
-                sizes.Add(size);
-            }
-        }
-
-        sizes.Sort(static (left, right) => ((long)left.X * left.Y).CompareTo((long)right.X * right.Y));
+        var sizes = Resolutions(current.WindowMode, _settings.DisplayModes, _settings.Desktop);
         if (sizes.Count == 0)
         {
             return current;
         }
 
         var index = sizes.IndexOf(new Point(current.WindowWidth, current.WindowHeight));
-        var next = sizes[(index + direction + sizes.Count) % sizes.Count];
+        var next = index < 0 && direction < 0 ? sizes[^1] : sizes[(index + direction + sizes.Count) % sizes.Count];
         return current with { WindowWidth = next.X, WindowHeight = next.Y };
+    }
+
+    // The sizes a mode offers, smallest first, all from the modes the monitor reports: fullscreen any of them; a window
+    // those that fit on the desktop below its title bar; borderless none, since it always covers the desktop.
+    internal static List<Point> Resolutions(WindowMode mode, IReadOnlyList<DisplayModeOption> modes, DisplayModeOption desktop)
+    {
+        var sizes = new List<Point>();
+        if (mode == WindowMode.Borderless)
+        {
+            return sizes;
+        }
+
+        foreach (var option in modes)
+        {
+            var size = new Point(option.Width, option.Height);
+            var fits = mode == WindowMode.Fullscreen || option.Width <= desktop.Width && option.Height <= desktop.Height - WindowPlacement.TitleBar;
+            if (fits && !sizes.Contains(size))
+            {
+                sizes.Add(size);
+            }
+        }
+
+        sizes.Sort(static (left, right) => ((long)left.X * left.Y).CompareTo((long)right.X * right.Y));
+        return sizes;
     }
 
     private int NextFrequency(ClientSettings current, int direction)
@@ -179,7 +192,7 @@ internal sealed class HudSettingsPanel
         _labelSettings = settings;
         _labels[0] = $"Window: {settings.WindowMode}";
         _labels[1] = settings.Monitor < 0 ? "Monitor: current" : $"Monitor: {settings.Monitor}";
-        _labels[2] = $"Resolution: {settings.WindowWidth} x {settings.WindowHeight}";
+        _labels[2] = settings.WindowMode == WindowMode.Borderless ? "Resolution: desktop" : $"Resolution: {settings.WindowWidth} x {settings.WindowHeight}";
         _labels[3] = settings.WindowMode != WindowMode.Fullscreen ? "Frequency: desktop" : $"Frequency: {settings.RefreshRate} Hz (0 = automatic)";
         _labels[4] = settings.VerticalSync ? "VSync: on" : "VSync: off";
         _labels[5] = settings.MusicEnabled ? "BGM: on" : "BGM: off";

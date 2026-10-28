@@ -34,6 +34,7 @@ internal static class HudInteractionTests
         yield return ("original HUD hit rectangles stay inside their windows without overlapping", HitRectsAsync);
         yield return ("inventory drag uses original equipment slots and owner revision without changing local items", EquipmentDragAsync);
         yield return ("the pointer attacks over wild monsters, talks over NPCs and stays the arrow elsewhere", CursorKindAsync);
+        yield return ("the settings offer only the monitor's sizes: all in fullscreen, those that fit in a window, none borderless", ResolutionsAsync);
         yield return ("original gauges crop bitmaps from the top and follow the source formulas", GaugeAsync);
         yield return ("atlas gauge separation preserves the frame and masks every rectangular corner", AtlasGaugeAsync);
         yield return ("HUD overlays tolerate uninitialized and tiny resized viewports", OverlayAsync);
@@ -188,6 +189,20 @@ internal static class HudInteractionTests
             Assert.True(state.Items[0].Slot == -1 && controller.Dragging == Guid.Empty, "gesture changed immutable owner state or retained drag");
         }
 
+        return Task.CompletedTask;
+    }
+
+    private static Task ResolutionsAsync()
+    {
+        DisplayModeOption[] modes = [new(0, 1920, 1080, 0), new(0, 800, 600, 0), new(0, 1600, 900, 0), new(0, 1280, 720, 0)];
+        var desktop = new DisplayModeOption(0, 1920, 1080, 0);
+        var full = HudSettingsPanel.Resolutions(WindowMode.Fullscreen, modes, desktop);
+        Assert.True(full.SequenceEqual([new Point(800, 600), new Point(1280, 720), new Point(1600, 900), new Point(1920, 1080)]),
+            $"fullscreen offers {string.Join(' ', full)}");
+        var windowed = HudSettingsPanel.Resolutions(WindowMode.Windowed, modes, desktop);
+        Assert.True(windowed.SequenceEqual([new Point(800, 600), new Point(1280, 720), new Point(1600, 900)]),
+            $"a window offers {string.Join(' ', windowed)}, more than fits below its title bar");
+        Assert.True(HudSettingsPanel.Resolutions(WindowMode.Borderless, modes, desktop).Count == 0, "borderless offers a size");
         return Task.CompletedTask;
     }
 

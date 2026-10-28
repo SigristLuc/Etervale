@@ -12,7 +12,9 @@ public sealed class PresentationSettings
     public bool ConfirmRequested { get; set; }
     public bool RevertRequested { get; set; }
     public int MonitorCount { get; set; } = 1;
+    // The modes the monitor reports (at least 800 x 600), and its desktop size: the only sizes the settings offer.
     public IReadOnlyList<DisplayModeOption> DisplayModes { get; set; } = Array.Empty<DisplayModeOption>();
+    public DisplayModeOption Desktop { get; set; }
     public ClientSettings Rendering { get; private set; } = new();
     public event Action<ClientSettings> RenderingChanged;
 

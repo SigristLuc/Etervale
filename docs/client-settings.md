@@ -113,8 +113,9 @@ booleans have no validation. An unknown enum name is a JSON error (whole file ig
 
 `HudSettingsPanel` rows, in order: Window, Monitor, Resolution, Frequency, VSync, BGM, Audio, Maximum FPS, Background
 FPS, Anti-aliasing, Sun shadow, Graphics quality, Shadow animation, Shadows, Target HP, Name plates. Click cycles
-forward, Shift+click backward. Resolution offers 800x600, 1024x768, 1280x720, 1920x1080, 2560x1440 (windowed and
-borderless) plus the primary monitor's modes. Graphics quality cycles Low, Medium, High, Ultra; from `Custom` it goes
+forward, Shift+click backward. Resolution offers only the sizes the primary monitor reports (at least 800x600,
+`HudSettingsPanel.Resolutions`): any of them in fullscreen, those that fit on the desktop below the window's title bar
+when windowed, and none when borderless (it covers the desktop). Graphics quality cycles Low, Medium, High, Ultra; from `Custom` it goes
 to Low (forward) or Ultra (backward). Anti-aliasing, Sun shadow, Shadow animation and Shadows set `quality` to `Custom`.
 Rows are inert while a display change awaits confirmation.
 
