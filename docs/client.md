@@ -412,7 +412,10 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
 - Shop (`HudShopWindow`): buy, sell (click or drop an inventory item on the shop), repair, repair all; opens next to the
   inventory. Stock fills pages in authored order, each item at the first free place down the columns from the left; an
   item that does not fit starts the next page. Warehouse (`HudWarehouseWindow`): grid drag/drop between warehouse and inventory sends Deposit, Move and
-  Withdraw with the warehouse revision. Aging (`HudAgingWindow`, layout `HudCraftLayout`, art `HudCraftArt`): the shop
+  Withdraw with the warehouse revision. Aging and mixing share their frame in `HudWorkbench` (slide, main item, stone and sheltom slots, drop placement,
+  right-click take-back, start and exit, tooltips); each window supplies its placement rule, readiness, price, panel and
+  start info, whether taking the main item back clears the window (aging) and when the start button shows. Aging
+  (`HudAgingWindow`, layout `HudCraftLayout`, art `HudCraftArt`): the shop
   frame with the aging title and the work panel; an inventory item dropped on it goes to the item box (refused with
   "Item can't be aged"), a sheltom to a cell whose grey hint asks it, a stone or ore to the stone cell. Placed items stay
   in the bag, dimmed and fixed; a right click gives one back. The plate shows `(level + 1) * price / 2`; the start button
