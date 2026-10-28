@@ -32,7 +32,7 @@ public sealed class HudNpcPanel(
     private static readonly Color Unavailable = new(130, 130, 130);
     private static readonly Color Highlight = new(255, 220, 90);
 
-    private Task<NpcInteraction> _pending;
+    private readonly HudRequest<NpcInteraction> _request = new(log, "NPC interaction failed");
     private string[] _dialog = [];
     private NpcServiceOffer[] _services = [];
     private bool _dismissed;
@@ -94,39 +94,25 @@ public sealed class HudNpcPanel(
 
     public void Request(ulong entityId)
     {
-        if (_pending is null && interact is not null)
+        if (!_request.Pending && interact is not null)
         {
             Current = null;
             _dismissed = false;
             _firstLine = 0;
             Destinations = [];
-            _pending = InteractAsync(entityId);
-        }
-    }
-
-    private async Task<NpcInteraction> InteractAsync(ulong entityId)
-    {
-        try
-        {
-            return await interact(entityId);
-        }
-        catch (Exception exception)
-        {
-            log.Error("NPC interaction failed", exception);
-            return NpcInteraction.Rejected("Connection error. Please try again.");
+            _request.Start(() => interact(entityId), _ => NpcInteraction.Rejected("Connection error. Please try again."));
         }
     }
 
     public void Update(SpriteFont font)
     {
         ReadyToOpen = false;
-        if (_pending is null || !_pending.IsCompleted)
+        if (!_request.TryTake(out var current))
         {
             return;
         }
 
-        Current = _pending.Result;
-        _pending = null;
+        Current = current;
         if (_dismissed)
         {
             Current = null;

@@ -11,7 +11,7 @@ namespace PristonTale.Gameplay.UI.Inventory;
 // mobile shop asks for confirmation. One use is in flight at a time and carries the inventory revision it was built on.
 public sealed class HudItemUseController(Func<ItemUseCommand, Task<ItemUseOutcome>> use, IClientLog log)
 {
-    private Task<ItemUseOutcome> _pending;
+    private readonly HudRequest<ItemUseOutcome> _request = new(log, "Item use failed");
     private OwnedItemView _confirmItem;
     private TeleportCoreDestination _confirmDestination;
     private Guid _confirmTeleportItem;
@@ -20,7 +20,7 @@ public sealed class HudItemUseController(Func<ItemUseCommand, Task<ItemUseOutcom
     private const double RestorationDelayMs = 10_000d;
 
     public HudTeleportCore Teleport { get; } = new();
-    public bool Pending => _pending is not null;
+    public bool Pending => _request.Pending;
     public bool Confirming => _confirmItem is not null || _confirmDestination is not null;
     public string Message { get; private set; } = "";
     public int Completions { get; private set; }
@@ -131,13 +131,11 @@ public sealed class HudItemUseController(Func<ItemUseCommand, Task<ItemUseOutcom
 
     public void Update()
     {
-        if (_pending is null || !_pending.IsCompleted)
+        if (!_request.TryTake(out var outcome))
         {
             return;
         }
 
-        var outcome = _pending.Result;
-        _pending = null;
         LastOutcome = outcome;
         Message = outcome.Message;
         Completions++;
@@ -179,22 +177,10 @@ public sealed class HudItemUseController(Func<ItemUseCommand, Task<ItemUseOutcom
             return;
         }
 
-        _pending = UseAsync(command);
+        _request.Start(() => use(command), _ => ItemUseOutcome.Refused(command.ExpectedRevision, ItemUseStatus.StorageFailed) with
+        {
+            Message = "Connection error. Check your inventory before retrying."
+        });
     }
 
-    private async Task<ItemUseOutcome> UseAsync(ItemUseCommand command)
-    {
-        try
-        {
-            return await use(command);
-        }
-        catch (Exception exception)
-        {
-            log.Error("Item use failed", exception);
-            return ItemUseOutcome.Refused(command.ExpectedRevision, ItemUseStatus.StorageFailed) with
-            {
-                Message = "Connection error. Check your inventory before retrying."
-            };
-        }
-    }
 }

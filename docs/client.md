@@ -400,6 +400,9 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   a rank-up; teleporter destinations replace the buttons. An NPC whose only working service is a shop, warehouse or the aging
   opens it directly (`DirectService`); the aging NPC also keeps its quest role (the rank-up brew). An NPC with a quest role also gets a quest `Talk` (`HudQuestController`); a quest
   dialog it answers with takes the help box, and its confirmation box is modal.
+- HUD controllers keep their one request in flight in a `HudRequest<TOutcome>` (`UI/HudRequest.cs`): `Start(send,
+  failed)` turns a thrown send into the controller's failure outcome (logged unless cancelled) and `TryTake` hands the
+  outcome over once (progression, item use, NPC dialog and services, wing gates, quests).
 - `HudNpcServiceController`: one request in flight; `Open` replies set the open service and its state; `OutOfReach`,
   `NotOpen` and `Conflict` close it. While the shop is open, an inventory revision change triggers a quote refresh.
 - Shop (`HudShopWindow`): buy, sell (click or drop an inventory item on the shop), repair, repair all; opens next to the

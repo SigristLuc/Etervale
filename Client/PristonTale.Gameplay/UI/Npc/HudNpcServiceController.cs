@@ -8,7 +8,7 @@ namespace PristonTale.Gameplay.UI.Npc;
 // waits on the network. Opened windows show the state that came with the last reply.
 public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServiceReply>> request, IClientLog log)
 {
-    private Task<NpcServiceReply> _pending;
+    private readonly HudRequest<NpcServiceReply> _request = new(log, "NPC service request failed");
     private NpcServiceCommand _pendingCommand;
 
     public ulong NpcId { get; private set; }
@@ -18,7 +18,7 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
     public ShopQuotes Quotes { get; private set; }
     public WarehouseView Warehouse { get; private set; }
     public IReadOnlyList<TeleportOffer> Destinations { get; private set; } = [];
-    public bool Pending => _pending is not null;
+    public bool Pending => _request.Pending;
     public string Message { get; private set; } = "";
 
     public bool LastOk { get; private set; }
@@ -35,7 +35,7 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
         uint itemCode = 0, Guid itemId = default, int anchor = -1, int count = 1, long amount = 0, Guid[] materials = null)
     {
         // NPC entityId 0 names the mobile shop a used item opens; every other service needs an NPC.
-        if (_pending is not null || request is null || npcId == 0 && service != NpcServiceKind.Shop)
+        if (_request.Pending || request is null || npcId == 0 && service != NpcServiceKind.Shop)
         {
             return false;
         }
@@ -49,13 +49,14 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
         }
 
         _pendingCommand = command;
-        _pending = SendAsync(command);
+        _request.Start(() => request(command),
+            _ => new NpcServiceReply(NpcServiceOutcome.Failed(NpcServiceStatus.Rejected, "Connection error. Please try again.")));
         return true;
     }
 
     public void Close()
     {
-        if (Open is { } service && _pending is null)
+        if (Open is { } service && !_request.Pending)
         {
             Request(NpcId, NpcName, service, NpcServiceAction.Close);
         }
@@ -69,14 +70,12 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
 
     public void Update()
     {
-        if (_pending is null || !_pending.IsCompleted)
+        if (!_request.TryTake(out var reply))
         {
             return;
         }
 
-        var reply = _pending.Result;
         var command = _pendingCommand;
-        _pending = null;
         Apply(command, reply);
     }
 
@@ -160,16 +159,4 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
         }
     }
 
-    private async Task<NpcServiceReply> SendAsync(NpcServiceCommand command)
-    {
-        try
-        {
-            return await request(command).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            log.Error("NPC service request failed", exception);
-            return new NpcServiceReply(NpcServiceOutcome.Failed(NpcServiceStatus.Rejected, "Connection error. Please try again."));
-        }
-    }
 }

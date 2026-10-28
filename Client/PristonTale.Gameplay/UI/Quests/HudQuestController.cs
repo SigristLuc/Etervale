@@ -9,7 +9,7 @@ namespace PristonTale.Gameplay.UI.Quests;
 public sealed class HudQuestController(Func<QuestCommand, Task<QuestOutcome>> request, IClientLog log)
 {
     private readonly Queue<QuestNotice> _notices = new();
-    private Task<QuestOutcome> _pending;
+    private readonly HudRequest<QuestOutcome> _request = new(log, "Quest request failed");
     private QuestAction _pendingAction;
     private ulong _pendingNpc;
     private bool _resetDeclined;
@@ -27,7 +27,7 @@ public sealed class HudQuestController(Func<QuestCommand, Task<QuestOutcome>> re
 
     // The skill master whose class-change button works for this player (0 for none).
     public ulong ClassChangeNpc { get; private set; }
-    public bool Pending => _pending is not null;
+    public bool Pending => _request.Pending;
     public int Completions { get; private set; }
     public string Message { get; private set; } = "";
 
@@ -36,14 +36,11 @@ public sealed class HudQuestController(Func<QuestCommand, Task<QuestOutcome>> re
 
     public void Update()
     {
-        if (_pending is null || !_pending.IsCompleted)
+        if (!_request.TryTake(out var outcome))
         {
             return;
         }
 
-        // SendAsync turns every failure into an outcome.
-        var outcome = _pending.Result;
-        _pending = null;
         Apply(outcome, _pendingAction, _pendingNpc);
     }
 
@@ -198,24 +195,8 @@ public sealed class HudQuestController(Func<QuestCommand, Task<QuestOutcome>> re
 
         _pendingAction = command.Action;
         _pendingNpc = command.NpcEntityId;
-        _pending = SendAsync(command);
-    }
-
-    private async Task<QuestOutcome> SendAsync(QuestCommand command)
-    {
-        try
-        {
-            return await request(command);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            log.Error("Quest request failed", exception);
-            return QuestOutcome.Failed(QuestStatus.Rejected, "Connection error. Please try again.");
-        }
-        catch (OperationCanceledException)
-        {
-            return QuestOutcome.Failed(QuestStatus.Rejected, "");
-        }
+        _request.Start(() => request(command),
+            cancelled => QuestOutcome.Failed(QuestStatus.Rejected, cancelled ? "" : "Connection error. Please try again."));
     }
 
     private void Apply(QuestOutcome outcome, QuestAction action, ulong npc)

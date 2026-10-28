@@ -34,7 +34,7 @@ public sealed class HudWingGate(IClientLog log)
 
     public static readonly string[] Art = [WingGates.MapArt, WingGates.IconArt, WingGates.SelectArt, CancelBox, CancelButton, CancelButtonHover];
 
-    private Task<WingGateOutcome> _pending;
+    private readonly HudRequest<WingGateOutcome> _request = new(log, "Wing gate trip failed");
     private WingGateDestination _confirm;
     private WingGateDestination _ringAt;
     private double _ringStartMs = double.NegativeInfinity;
@@ -48,7 +48,7 @@ public sealed class HudWingGate(IClientLog log)
 
     public bool IsOpen { get; private set; }
     public bool Confirming => _confirm is not null;
-    public bool Pending => _pending is not null;
+    public bool Pending => _request.Pending;
     public string Message { get; private set; } = "";
     public int Completions { get; private set; }
     public WingGateOutcome LastOutcome { get; private set; }
@@ -160,13 +160,11 @@ public sealed class HudWingGate(IClientLog log)
 
     public void Update()
     {
-        if (_pending is null || !_pending.IsCompleted)
+        if (!_request.TryTake(out var outcome))
         {
             return;
         }
 
-        var outcome = _pending.Result;
-        _pending = null;
         LastOutcome = outcome;
         Message = WingGates.Message(outcome.Status);
         Completions++;
@@ -268,19 +266,8 @@ public sealed class HudWingGate(IClientLog log)
             return;
         }
 
-        _pending = TravelAsync(destination.Index);
+        var index = destination.Index;
+        _request.Start(() => Travel(index), _ => new WingGateOutcome(WingGateStatus.StorageFailed, index));
     }
 
-    private async Task<WingGateOutcome> TravelAsync(int destination)
-    {
-        try
-        {
-            return await Travel(destination);
-        }
-        catch (Exception exception)
-        {
-            log.Error("Wing gate trip failed", exception);
-            return new WingGateOutcome(WingGateStatus.StorageFailed, destination);
-        }
-    }
 }

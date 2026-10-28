@@ -5,8 +5,8 @@ namespace PristonTale.Gameplay.UI.Widgets;
 
 public sealed class HudProgressionController(Func<ProgressionCommand, Task<ProgressionOutcome>> apply, IClientLog log)
 {
-    private Task<ProgressionOutcome> _pending;
-    public bool Pending => _pending is not null;
+    private readonly HudRequest<ProgressionOutcome> _request = new(log, "Character progression request failed");
+    public bool Pending => _request.Pending;
     public string Message { get; private set; } = "";
 
     public bool LastOk { get; private set; }
@@ -20,33 +20,19 @@ public sealed class HudProgressionController(Func<ProgressionCommand, Task<Progr
         }
 
         Message = "Saving...";
-        _pending = ApplyAsync(command);
-    }
-
-    private async Task<ProgressionOutcome> ApplyAsync(ProgressionCommand command)
-    {
-        try
-        {
-            return await apply(command);
-        }
-        catch (Exception exception)
-        {
-            log.Error("Character progression request failed", exception);
-            return new ProgressionOutcome(false, command.ExpectedRevision, "Connection error. Check your character state before retrying.");
-        }
+        _request.Start(() => apply(command),
+            _ => new ProgressionOutcome(false, command.ExpectedRevision, "Connection error. Check your character state before retrying."));
     }
 
     public void Update()
     {
-        if (_pending is null || !_pending.IsCompleted)
+        if (!_request.TryTake(out var outcome))
         {
             return;
         }
 
-        var outcome = _pending.Result;
         Message = outcome.Ok ? "Saved" : outcome.Message;
         LastOk = outcome.Ok;
-        _pending = null;
         Completions++;
     }
 }
