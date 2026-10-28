@@ -86,11 +86,6 @@ public sealed partial class GameScene
             return;
         _renderer = new PristonRenderer(_graphicsDevice, _content, _log, _presentation) { Sky = _sky };
         _actorScene = new RendererActorScene(_renderer);
-        if (_effectLibrary is not null)
-        {
-            _returnEffect = new PristonTale.Gameplay.Effects.ReturnEffect(_graphicsDevice, _effectLibrary, _renderer.TransientLights);
-        }
-
         CreateSkillPresentation();
         CreateItemEffects();
         var actorScene = _actorScene;

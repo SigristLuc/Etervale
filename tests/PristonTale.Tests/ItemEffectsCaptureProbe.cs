@@ -74,7 +74,6 @@ internal sealed class ItemEffectsCaptureProbe : Game
     private int _shot;
     private double _seconds;
     private bool _begun;
-    private ReturnEffect _return = null!;
     private SpriteBatch _batch = null!;
     private SpriteFont _font = null!;
     private Texture2D _pixel = null!;
@@ -145,7 +144,6 @@ internal sealed class ItemEffectsCaptureProbe : Game
         var scripts = new SystemScriptEffects(_skills.System, _skills.Library);
         _orbs = new ForceOrbPresentation(_skills, scripts, _renderer.TransientLights);
         _pets = new PremiumPetPresentation(actorScene, loader, _assetRoot, scripts, _renderer.TransientLights, _sounds, ConsoleClientLog.Instance);
-        _return = new ReturnEffect(GraphicsDevice, _library, _renderer.TransientLights);
         _batch = new SpriteBatch(GraphicsDevice);
         _font = Content.Load<SpriteFont>("Fonts/UI");
         _pixel = new Texture2D(GraphicsDevice, 1, 1);
@@ -169,7 +167,7 @@ internal sealed class ItemEffectsCaptureProbe : Game
                 OwnerId = FriendId
             }
         ], [], [], []));
-        _return.Start(own);
+        _skills.SpawnAt(ItemVfx.Return, own, Matrix.Identity);
         _items.Play(ItemEffectKind.Return, SelfId, 0, own, _eye, _seconds * 1000d);
     }
 
@@ -252,7 +250,6 @@ internal sealed class ItemEffectsCaptureProbe : Game
         _orbs.Update(_seconds * 1000d, Anchor);
         _skills.Update(step, _seconds * 1000d);
         _renderer.Update(new GameTime(TimeSpan.FromSeconds(_seconds), TimeSpan.FromSeconds(step)));
-        _return.Update(step);
     }
 
     protected override void Draw(GameTime gameTime)
@@ -277,7 +274,6 @@ internal sealed class ItemEffectsCaptureProbe : Game
 
         _renderer.Draw(_camera);
         _skills.Draw(_camera.View, _camera.Projection, _camera.Position, _renderer.SceneLinearDepth);
-        _return.Draw(_camera.View, _camera.Projection, _camera.Position);
         _renderer.ComposeScene();
         if (shot.Name.StartsWith("crystal", StringComparison.Ordinal))
         {
@@ -312,7 +308,6 @@ internal sealed class ItemEffectsCaptureProbe : Game
 
     protected override void UnloadContent()
     {
-        _return.Dispose();
         _batch.Dispose();
         _pixel.Dispose();
         _pets.Dispose();

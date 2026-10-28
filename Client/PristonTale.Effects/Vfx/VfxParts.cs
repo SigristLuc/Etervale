@@ -92,6 +92,7 @@ internal struct VfxPart
     public float Gravity;
     public float MoveTime;
     public float Swirl;
+    public float SwirlGrowth;
     public float Size;
     public float Height;
     public float HalfWidth;
@@ -309,6 +310,7 @@ internal sealed class PartState
         part.Gravity = Range(source.Gravity, ref random);
         part.MoveTime = Draw(source.MoveTime, ref random);
         part.Swirl = Draw(source.Swirl, ref random);
+        part.SwirlGrowth = Draw(source.SwirlGrowth, ref random);
         part.Life = Range(source.Lifetime, ref random);
         part.Size = Range(source.Size, ref random);
         part.Height = source.Height[1] > 0f ? Range(source.Height, ref random) : part.Size;
@@ -393,14 +395,23 @@ internal sealed class PartState
         {
             part.Velocity.Y += part.Gravity * dt;
             part.Local += part.Velocity * dt;
-            if (part.Swirl != 0f)
+            if (part.Swirl != 0f || part.SwirlGrowth != 0f)
             {
-                part.Local = Vector3.Transform(part.Local, Matrix.CreateRotationY(MathHelper.ToRadians(part.Swirl * dt)));
+                var turn = Matrix.CreateRotationY(MathHelper.ToRadians(part.Swirl * dt));
+                part.Local = Vector3.Transform(part.Local, turn);
+                if (source.Spiral)
+                {
+                    part.Velocity = Vector3.TransformNormal(part.Velocity, turn);
+                }
+
+                part.Swirl += part.SwirlGrowth * dt;
             }
         }
         else if (source.End == VfxPartEnd.Hold && part.MoveTime > 0f && !part.Arrived)
         {
-            arrived = true;
+            part.Arrived = true;
+            End(ref part, instance, system);
+            Exit(ref part);
         }
 
         part.Size += source.Growth * dt;

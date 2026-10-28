@@ -301,7 +301,7 @@ public sealed record VfxDefinition
             part.Offset, part.JitterMin, part.JitterMax, part.Shell, part.VelocityMin, part.VelocityMax, part.GoalOffset, part.Angles, part.Tumble, part.BeamTo
         };
         var ranges = new[] { part.Lifetime, part.Size, part.Height, part.Rotation, part.Width, part.Scale, part.Pulse, part.Ring, part.Radial, part.Rise, part.Burst,
-            part.Gravity, part.Swirl, part.MoveTime };
+            part.Gravity, part.Swirl, part.SwirlGrowth, part.MoveTime };
         var scalars = new[] { part.Delay, part.DelayStep, part.DelayRandom, part.FrameTime, part.ModelFrames, part.ModelSpeed, part.ModelStart, part.Growth,
             part.Spin, part.FadeIn, part.FadeOut, part.PulsePeriod, part.BladeLength, part.LineSeconds, part.TrailFade, part.RingStart, part.RingStep,
             part.Speed, part.Reach, part.Lift, part.OrbitRadius, part.OrbitSpeed, part.OrbitTilt, part.OrbitRise, part.OrbitGrowth, part.OrbitPhase,

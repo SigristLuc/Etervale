@@ -59,7 +59,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
     private readonly FieldAudioController _fieldAudio;
     private readonly NpcAudioController _npcAudio;
     private readonly PristonAudioLibrary _audio;
-    private PristonTale.Gameplay.Effects.ReturnEffect _returnEffect;
+    // The sparkle of a special warp, ended when the warp moves the player away.
+    private PristonTale.Effects.Vfx.VfxHandle _warpSparkle;
     private readonly List<LoadedField> _fields = [];
     private readonly FieldCollisionQuery _fieldCollision;
     private readonly List<EntityNeighbour> _entityNeighbours = [];
@@ -409,7 +410,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         }
         UpdateMonsterEffects((float)gameTime.ElapsedGameTime.TotalSeconds);
         UpdateCombatSounds();
-        _returnEffect?.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
         var frameDt = (float)gameTime.ElapsedGameTime.TotalSeconds;
         if (_playerBody is not null)
         {
@@ -531,7 +531,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         if (_renderer != null && _camera != null)
         {
             _renderer.Draw(_camera);
-            _returnEffect?.Draw(_camera.View, _camera.Projection, _camera.Position);
             DrawSkillEffects();
             _renderer.ComposeScene();
         }
@@ -561,7 +560,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         TearDownRemotePresence();
         _equipmentPresentation?.Stop();
         _groundLoot?.Dispose();
-        _returnEffect?.Dispose();
         _platePixel?.Dispose();
         _looks?.Clear();
         _skillFx?.Dispose();

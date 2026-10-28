@@ -20,7 +20,6 @@ internal sealed class CombatEffectsCaptureProbe : Game
     private VfxRenderer _effects = null!;
     private VfxSystem _effectSystem = null!;
     private MeteorEffects _meteors = null!;
-    private ReturnEffect _return = null!;
     private PristonCamera _camera = null!;
     private RenderTarget2D _target = null!;
     private int _sample;
@@ -48,6 +47,7 @@ internal sealed class CombatEffectsCaptureProbe : Game
         _target = new RenderTarget2D(GraphicsDevice, 960, 540, false, SurfaceFormat.Color, DepthFormat.Depth24);
         _library = EffectLibrary.LoadBootstrap(GraphicsDevice, Content, _assets, ConsoleClientLog.Instance);
         _library.Vfx.CompileAll();
+        ItemVfx.Register(_library.Vfx.Library);
         _effects = new VfxRenderer(GraphicsDevice, Content);
         Assert.True(Content.Load<Effect>("Effects/StaticSurface").Parameters["LocalLightCount"] is not null,
             "capture requires the rebuilt production shader");
@@ -71,7 +71,6 @@ internal sealed class CombatEffectsCaptureProbe : Game
         var scripts = new SystemScriptEffects(_effectSystem, _library.Vfx.Library);
         _meteors = new MeteorEffects(scripts, _renderer.TransientLights, new PristonCollisionWorld(stage));
         _camera = new PristonCamera(Vector3.Zero, Vector3.Forward);
-        _return = new ReturnEffect(GraphicsDevice, _library, _renderer.TransientLights);
         _meteors.Clear();
         _effectSystem.Clear();
     }
@@ -80,7 +79,6 @@ internal sealed class CombatEffectsCaptureProbe : Game
     {
         _meteors.Clear();
         _effectSystem.Clear();
-        _return.Clear();
         _renderer.TransientLights.Clear();
         bool returning = _sample >= 9;
         bool meteor = _sample >= 3 && !returning;
@@ -97,16 +95,17 @@ internal sealed class CombatEffectsCaptureProbe : Game
         if (returning)
         {
             _camera.SetScriptedView(GraphicsDevice, new Vector3(0, 110, 240), new Vector3(0, 45, 0));
-            _return.Start(Vector3.Zero);
+            Assert.True(_library.Vfx.Library.TryGet(ItemVfx.Return, out var sparkle), "the return effect is not registered");
+            var handle = _effectSystem.Spawn(sparkle, new VfxSpawn(0, 0, Vector3.Zero, 0f));
             for (float elapsed = 0f; elapsed < time;)
             {
                 var step = MathF.Min(1f / 140f, time - elapsed);
-                _return.Update(step);
+                _effectSystem.Update(step);
                 _renderer.Update(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(step)));
                 elapsed += step;
             }
 
-            Assert.True(_return.Active == (time < 4f), "return effect lifetime changed");
+            Assert.True(handle.Alive == (time < 4f), "return effect lifetime changed");
         }
         else if (meteor)
         {
@@ -139,7 +138,6 @@ internal sealed class CombatEffectsCaptureProbe : Game
         GraphicsDevice.SetRenderTarget(_target);
         GraphicsDevice.Clear(new Color(18, 22, 25));
         _renderer.Draw(_camera);
-        _return.Draw(_camera.View, _camera.Projection, _camera.Position);
         _effects.Draw(_effectSystem, _camera.View, _camera.Projection, _camera.Position, _renderer.SceneLinearDepth);
         _renderer.ComposeScene();
         GraphicsDevice.SetRenderTarget(null);
@@ -185,7 +183,6 @@ internal sealed class CombatEffectsCaptureProbe : Game
     protected override void UnloadContent()
     {
         _meteors.Clear();
-        _return.Dispose();
         _effects.Dispose();
         _renderer.Dispose();
         _library.Dispose();

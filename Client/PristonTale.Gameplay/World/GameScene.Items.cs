@@ -24,6 +24,10 @@ public sealed partial class GameScene
             : Task.FromResult(ItemUseOutcome.Refused(command.ExpectedRevision, ItemUseStatus.Rejected));
     }
 
+    // The return sparkle (ItemVfx.Return) over feet at a point: ether cores, crystal summons, warps and wing gates.
+    private PristonTale.Effects.Vfx.VfxHandle PlayReturn(Vector3 feet) =>
+        _skillFx?.SpawnAt(ItemVfx.Return, feet + Vector3.Up * GroundTraversal.VisualOffset, Matrix.Identity) ?? default;
+
     // Loads the item effects with the scene's effects, at the field load that creates the renderer.
     private void CreateItemEffects()
     {
@@ -74,7 +78,7 @@ public sealed partial class GameScene
             else if (effect.Effect == ItemEffectKind.Return)
             {
                 // The sparkle stands where the server placed it: the user, the called monster or the revived player.
-                _returnEffect?.Start(effect.Position + Vector3.Up * GroundTraversal.VisualOffset);
+                PlayReturn(effect.Position);
             }
 
             _itemEffects?.Play(effect.Effect, effect.Entity, effect.Variant, position, PlayerPosition, _skillClockMs);
