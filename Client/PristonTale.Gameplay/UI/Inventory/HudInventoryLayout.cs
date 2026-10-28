@@ -42,7 +42,28 @@ public static class HudInventoryLayout
             }
         }
 
-        return null;
+        return TwoHandedShadow(items) is { } weapon && Equipment(origin, (int)EquipmentSlot.OffHand).Contains(pointer) ? weapon : null;
+    }
+
+    // A worn two-handed weapon also fills the empty off-hand slot, as the original draws it in both hands; the pointer there
+    // is on the weapon.
+    public static OwnedItemView TwoHandedShadow(IReadOnlyList<OwnedItemView> items)
+    {
+        OwnedItemView weapon = null;
+        for (var index = 0; index < items.Count; index++)
+        {
+            if (items[index].Slot == (int)EquipmentSlot.OffHand)
+            {
+                return null;
+            }
+
+            if (items[index].Slot == (int)EquipmentSlot.Weapon)
+            {
+                weapon = items[index];
+            }
+        }
+
+        return weapon is not null && ItemEquipmentMetadata.IsTwoHanded(weapon.CatalogKey) ? weapon : null;
     }
 
     public static Rectangle Equipment(Point origin, int slot)

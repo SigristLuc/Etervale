@@ -34,6 +34,7 @@ internal static class HudInteractionTests
         yield return ("owner combat statistics survive the owner-status packet", OwnerStatsAsync);
         yield return ("original HUD hit rectangles stay inside their windows without overlapping", HitRectsAsync);
         yield return ("a carried item is set down by a second click on an original equipment slot with the owner revision", EquipmentDragAsync);
+        yield return ("a worn two-handed weapon is also shown and taken in the empty off-hand slot", TwoHandedShadowAsync);
         yield return ("the pointer attacks over wild monsters, talks over NPCs and stays the arrow elsewhere", CursorKindAsync);
         yield return ("the settings offer only the monitor's sizes: all in fullscreen, those that fit in a window, none borderless", ResolutionsAsync);
         yield return ("a carried item lands where the original sets it: free cells, one item to exchange, a potion to join, a slot of its kind", PlacementAsync);
@@ -235,6 +236,22 @@ internal static class HudInteractionTests
             Assert.True(!controller.QuestBoxShown && sent is null, "a page button switched the page instead of closing the box");
         }
 
+        return Task.CompletedTask;
+    }
+
+    private static Task TwoHandedShadowAsync()
+    {
+        var origin = HudInventoryLayout.Origin(HudLayout.Create(800, 600));
+        var offHand = HudInventoryLayout.Equipment(origin, (int)EquipmentSlot.OffHand).Center;
+        OwnedItemView Worn(string key, EquipmentSlot slot) => new(Guid.NewGuid(), 1, key, ItemKind.Axe, 1, -1, (int)slot, 2, 3, key);
+        var twoHanded = Worn("WA105", EquipmentSlot.Weapon);
+        Assert.True(HudInventoryLayout.TwoHandedShadow([twoHanded]) == twoHanded && HudInventoryLayout.ItemAt(origin, [twoHanded], offHand, false) == twoHanded,
+            "a worn two-handed weapon does not fill the empty off-hand slot");
+        Assert.True(HudInventoryLayout.TwoHandedShadow([twoHanded, Worn("DS101", EquipmentSlot.OffHand)]) is null,
+            "a two-handed weapon was shown over an off-hand item");
+        var oneHanded = Worn("WA101", EquipmentSlot.Weapon);
+        Assert.True(HudInventoryLayout.TwoHandedShadow([oneHanded]) is null && HudInventoryLayout.ItemAt(origin, [oneHanded], offHand, false) is null,
+            "a one-handed weapon filled the off-hand slot");
         return Task.CompletedTask;
     }
 
