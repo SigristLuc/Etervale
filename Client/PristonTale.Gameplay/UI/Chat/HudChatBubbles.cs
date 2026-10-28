@@ -22,6 +22,7 @@ public sealed class HudChatBubbles
     private static readonly Color DefaultName = new(255, 220, 100);
     private readonly Dictionary<ulong, (string Text, double UntilMs)> _lines = new();
     private readonly List<(ulong Id, HudOverheadPoint Point)> _visible = new();
+    private readonly HudWrapCache _wrap = new(WrapPixels, MaxLineChars);
 
     // The frame is drawn unless the player switched frames off; a named line always keeps its frame and tail.
     public bool Framed { get; set; } = true;
@@ -68,7 +69,7 @@ public sealed class HudChatBubbles
 
     private void DrawBubble(HudPainter painter, HudLayout layout, string text, int anchorX, int anchorY, Color name, bool selected)
     {
-        var lines = HudChatText.Wrap(text, WrapPixels, MaxLines, MaxLineChars, painter.Measure);
+        var lines = _wrap.Wrap(text, MaxLines, painter.Measure);
         if (lines.Count == 0)
         {
             return;

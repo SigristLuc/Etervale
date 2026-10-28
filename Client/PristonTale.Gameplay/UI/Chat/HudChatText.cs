@@ -69,3 +69,28 @@ public static class HudChatText
     private static int SkipNewline(string text, int at) =>
         text[at] == '\r' && at + 1 < text.Length && text[at + 1] == '\n' ? at + 2 : at + 1;
 }
+
+// The wrapped lines of texts drawn every frame (the chat log, speech bubbles), so a frame measures only new texts. The
+// font and its scale are fixed, so a text and its line cap decide the lines; the cache starts over past Capacity texts.
+public sealed class HudWrapCache(int maxPixels, int maxChars)
+{
+    private const int Capacity = 256;
+    private readonly Dictionary<(string Text, int MaxLines), List<string>> _lines = new();
+
+    public IReadOnlyList<string> Wrap(string text, int maxLines, Func<string, int> measure)
+    {
+        if (_lines.TryGetValue((text, maxLines), out var lines))
+        {
+            return lines;
+        }
+
+        if (_lines.Count >= Capacity)
+        {
+            _lines.Clear();
+        }
+
+        lines = HudChatText.Wrap(text, maxPixels, maxLines, maxChars, measure);
+        _lines[(text, maxLines)] = lines;
+        return lines;
+    }
+}
