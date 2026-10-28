@@ -414,7 +414,9 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   item that does not fit starts the next page. Warehouse (`HudWarehouseWindow`): grid drag/drop between warehouse and inventory sends Deposit, Move and
   Withdraw with the warehouse revision. Aging and mixing share their frame in `HudWorkbench` (slide, main item, stone and sheltom slots, drop placement,
   right-click take-back, start and exit, tooltips); each window supplies its placement rule, readiness, price, panel and
-  start info, whether taking the main item back clears the window (aging) and when the start button shows. Aging
+  start info, whether taking the main item back clears the window (aging) and when the start button shows, and its work
+  (`Service`, `WorkAction`, `ResultText`, `Succeeded`; mixing keeps the formula it started with). `GameplayHud` sends and
+  shows any bench's work through `ApplyWorkAction` and `ShowWorkResult`. Aging
   (`HudAgingWindow`, layout `HudCraftLayout`, art `HudCraftArt`): the shop
   frame with the aging title and the work panel; an inventory item dropped on it goes to the item box (refused with
   "Item can't be aged"), a sheltom to a cell whose grey hint asks it, a stone or ore to the stone cell. Placed items stay

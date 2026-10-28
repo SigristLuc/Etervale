@@ -4,6 +4,7 @@ using PristonTale.Gameplay.UI.Inventory;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Gameplay.UI.Npc;
 
@@ -45,6 +46,21 @@ public abstract class HudWorkbench : IHudServiceWindow
     public abstract bool Ready(OwnerState state);
 
     public abstract long Price(OwnerState state);
+
+    // The NPC service and the action the start button asks for.
+    public abstract NpcServiceKind Service { get; }
+
+    public abstract NpcServiceAction WorkAction { get; }
+
+    // The work starts (the request goes out); a window keeps what its result line needs.
+    public virtual void Started(OwnerState state)
+    {
+    }
+
+    // The line the player reads for a finished work's result code, and whether the work succeeded.
+    public abstract string ResultText(int result);
+
+    public abstract bool Succeeded(int result);
 
     public void Hide()
     {

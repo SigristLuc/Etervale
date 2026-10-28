@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items.Aging;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Gameplay.UI.Npc;
 
@@ -10,6 +11,21 @@ namespace PristonTale.Gameplay.UI.Npc;
 public sealed class HudAgingWindow : HudWorkbench
 {
     public void Show(int pricePercent = 100) => Open(pricePercent);
+
+    public override NpcServiceKind Service => NpcServiceKind.ItemAging;
+
+    public override NpcServiceAction WorkAction => NpcServiceAction.Age;
+
+    public override string ResultText(int result) => (AgingResult)result switch
+    {
+        AgingResult.Destroyed => "Item aging has failed",
+        AgingResult.DownOne => "Aging level has been decreased by -1",
+        AgingResult.DownTwo => "Aging level has been decreased by -2",
+        AgingResult.Double => "Aging level has been increased by +2",
+        _ => "Aging level has been increased by +1"
+    };
+
+    public override bool Succeeded(int result) => (AgingResult)result >= AgingResult.Success;
 
     public static bool Ageable(OwnedItemView item) =>
         item?.Details is { } details && AgingRules.Ageable(item.CatalogKey, item.Kind, details.UniqueItem, details.MixSheltom, details.AgingGoal > 0,

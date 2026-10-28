@@ -48,7 +48,6 @@ public sealed class GameplayHud : IDisposable
     private readonly HudMixWindow _mix = new();
     // The service windows in draw order: bodies, then overlays, shop first.
     private readonly IHudServiceWindow[] _serviceWindows;
-    private Simulation.Items.Mixing.MixFormula _mixFormula;
     private readonly HudQuestController _quests;
     private readonly HudQuestDocuments _questDocuments;
     private readonly HudQuestDialog _questDialog = new();
@@ -399,11 +398,11 @@ public sealed class GameplayHud : IDisposable
         }
         else if (agingAction != HudWorkActionKind.None)
         {
-            ApplyAgingAction(state, agingAction);
+            ApplyWorkAction(_aging, state, agingAction);
         }
         else if (mixAction != HudWorkActionKind.None)
         {
-            ApplyMixAction(state, mixAction);
+            ApplyWorkAction(_mix, state, mixAction);
         }
         else if (clicked)
         {
@@ -464,8 +463,8 @@ public sealed class GameplayHud : IDisposable
         {
             _serviceCompletions = _services.Completions;
             Report(_services.LastOk, _services.Message);
-            ShowAgingResult();
-            ShowMixResult();
+            ShowWorkResult(_aging);
+            ShowWorkResult(_mix);
         }
 
         if (_itemUse.Completions != _itemUseCompletions)
@@ -1421,7 +1420,7 @@ public sealed class GameplayHud : IDisposable
         }
     }
 
-    private void ApplyAgingAction(OwnerState state, HudWorkActionKind action)
+    private void ApplyWorkAction(HudWorkbench bench, OwnerState state, HudWorkActionKind action)
     {
         switch (action)
         {
@@ -1429,42 +1428,23 @@ public sealed class GameplayHud : IDisposable
                 CloseServices();
                 break;
             case HudWorkActionKind.Start when state is not null:
-                if (state.Money < _aging.Price(state))
+                if (state.Money < bench.Price(state))
                 {
                     _notice.Show("Not enough gold");
                     break;
                 }
 
-                _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.ItemAging, NpcServiceAction.Age, state.InventoryRevision,
-                    itemId: _aging.Item, materials: _aging.Materials);
+                bench.Started(state);
+                _services.Request(_services.NpcId, _services.NpcName, bench.Service, bench.WorkAction, state.InventoryRevision, itemId: bench.Item,
+                    materials: bench.Materials);
                 break;
         }
     }
 
-    private void ApplyMixAction(OwnerState state, HudWorkActionKind action)
+    // The result of the work the bench sent last, once it arrived; a refusal without a result ends the craft as failed.
+    private void ShowWorkResult(HudWorkbench bench)
     {
-        switch (action)
-        {
-            case HudWorkActionKind.Exit:
-                CloseServices();
-                break;
-            case HudWorkActionKind.Start when state is not null:
-                if (state.Money < _mix.Price(state))
-                {
-                    _notice.Show("Not enough gold");
-                    break;
-                }
-
-                _mixFormula = _mix.Formula(state);
-                _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.ItemMix, _mix.Alchemy ? NpcServiceAction.Refine : NpcServiceAction.Mix,
-                    state.InventoryRevision, itemId: _mix.Item, materials: _mix.Materials);
-                break;
-        }
-    }
-
-    private void ShowMixResult()
-    {
-        if (_services.LastCommand is not { Action: NpcServiceAction.Mix or NpcServiceAction.Refine })
+        if (_services.LastCommand is not { } command || command.Action != bench.WorkAction)
         {
             return;
         }
@@ -1479,45 +1459,8 @@ public sealed class GameplayHud : IDisposable
             return;
         }
 
-        var result = (Simulation.Items.Mixing.MixResult)work.Result;
-        _notice.Show(result switch
-        {
-            Simulation.Items.Mixing.MixResult.Mixed => "Item Mixture Result: " + string.Join(", ", _mixFormula?.Description ?? []),
-            Simulation.Items.Mixing.MixResult.Reconstructed => "The item was re-constructed.",
-            Simulation.Items.Mixing.MixResult.Refined => "The sheltoms were refined into force orbs.",
-            _ => "Item Mixture has failed"
-        });
-        CraftResult?.Invoke(result != Simulation.Items.Mixing.MixResult.Failed);
-        CloseServices();
-    }
-
-    private void ShowAgingResult()
-    {
-        if (_services.LastCommand is not { Action: NpcServiceAction.Age })
-        {
-            return;
-        }
-
-        if (_services.LastWork is not { } work)
-        {
-            if (!_services.LastOk)
-            {
-                CraftResult?.Invoke(false);
-            }
-
-            return;
-        }
-
-        var result = (Simulation.Items.Aging.AgingResult)work.Result;
-        _notice.Show(result switch
-        {
-            Simulation.Items.Aging.AgingResult.Destroyed => "Item aging has failed",
-            Simulation.Items.Aging.AgingResult.DownOne => "Aging level has been decreased by -1",
-            Simulation.Items.Aging.AgingResult.DownTwo => "Aging level has been decreased by -2",
-            Simulation.Items.Aging.AgingResult.Double => "Aging level has been increased by +2",
-            _ => "Aging level has been increased by +1"
-        });
-        CraftResult?.Invoke(result >= Simulation.Items.Aging.AgingResult.Success);
+        _notice.Show(bench.ResultText(work.Result));
+        CraftResult?.Invoke(bench.Succeeded(work.Result));
         CloseServices();
     }
 

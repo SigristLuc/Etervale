@@ -3,6 +3,7 @@ using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items.Aging;
 using PristonTale.Simulation.Items.Mixing;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Gameplay.UI.Npc;
 
@@ -11,7 +12,26 @@ namespace PristonTale.Gameplay.UI.Npc;
 // the price show once the window is ready.
 public sealed class HudMixWindow : HudWorkbench
 {
+    private MixFormula _startedFormula;
+
     public bool Alchemy { get; private set; }
+
+    public override NpcServiceKind Service => NpcServiceKind.ItemMix;
+
+    public override NpcServiceAction WorkAction => Alchemy ? NpcServiceAction.Refine : NpcServiceAction.Mix;
+
+    // The formula the started mix matches, for its result line.
+    public override void Started(OwnerState state) => _startedFormula = Formula(state);
+
+    public override string ResultText(int result) => (MixResult)result switch
+    {
+        MixResult.Mixed => "Item Mixture Result: " + string.Join(", ", _startedFormula?.Description ?? []),
+        MixResult.Reconstructed => "The item was re-constructed.",
+        MixResult.Refined => "The sheltoms were refined into force orbs.",
+        _ => "Item Mixture has failed"
+    };
+
+    public override bool Succeeded(int result) => (MixResult)result != MixResult.Failed;
 
     public void Show(bool alchemy, int pricePercent)
     {
