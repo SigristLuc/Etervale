@@ -52,6 +52,24 @@ Etervale is multi-platform: the client, the server and the tools must build and 
 - When reporting, say which platforms were built and run; a change to platform-specific code (native runtime, scripts,
   file access) names the platforms not verified.
 
+## Code organization and quality
+
+- One implementation per rule: a formula, table or check lives in one place (gameplay rules in Simulation) and every
+  caller uses it. Search before adding a helper; extend the one that exists instead of writing a second copy.
+- A type that grows past one responsibility is split into topic partials or classes (`GameScene.*`,
+  `PristonRenderer.*`, `GameplayHud.*`). Rule tables are data (typed tables or JSON), not switch chains repeated
+  across files.
+- Small immutable values are readonly record structs; equality-compared data are records; classes are for identity and
+  lifetime. Use the shared codes (Contracts: `MotionCode`, `EntityKind`, ...) and named constants, never raw numbers.
+- `Update`, `Draw` and the server tick allocate nothing per frame (no LINQ, closures, arrays or string formatting
+  there): cache, reuse or use spans. A performance change is measured with the render benchmark before and after.
+- MonoGame first: use what MonoGame offers; extend the fork in `monogame/` only for what it lacks, with its issue
+  document, interface version and regenerated patch.
+- Every behavior change gets a regression case on production code (`WorldPump` for world operations,
+  `Assert.Throws<T>` for refusals, `ScriptedRng`/`SeededSimRng` for rolls). Visual changes are compared with captures
+  against a baseline of the same build, after measuring the run-to-run noise.
+- Pull requests follow these rules before merging; a reviewer adapts one that does not, and says what changed.
+
 ## Architecture and data
 
 - Keep shared gameplay rules in `Shared/PristonTale.Simulation` and online authority in
