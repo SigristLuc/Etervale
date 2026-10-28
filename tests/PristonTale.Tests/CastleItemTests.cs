@@ -3,6 +3,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.World;
 
 namespace PristonTale.Tests;
 
@@ -25,7 +26,7 @@ internal static class CastleItemTests
         Assert.True(!UsableItemCatalog.IsUsable("BC104") && !UsableItemCatalog.IsUsable("BC117") && !UsableItemCatalog.IsUsable("BC136"),
             "castle items without a defined use stay unusable");
 
-        var harness = await SpecialItemTests.Harness.CreateAsync(CastleItems.CastleFieldId, "BC102", "BC102", "BC103", "BC101", "BI105");
+        var harness = await SpecialItemTests.Harness.CreateAsync(FieldCodes.Castle, "BC102", "BC102", "BC103", "BC101", "BI105");
         var character = harness.Session.Character!;
         var crit = character.Effects.Totals.Flat(StatKind.CriticalChance);
         var edge = harness.Use(new ItemUseCommand(Guid.NewGuid(), character.InventoryRevision, harness.Id("BC102")));
@@ -70,20 +71,20 @@ internal static class CastleItemTests
 
     private static async Task LeaveAsync()
     {
-        var harness = await SpecialItemTests.Harness.CreateAsync(CastleItems.CastleFieldId, "BC109");
+        var harness = await SpecialItemTests.Harness.CreateAsync(FieldCodes.Castle, "BC109");
         var character = harness.Session.Character!;
         var stone = harness.Use(new ItemUseCommand(Guid.NewGuid(), character.InventoryRevision, harness.Id("BC109")));
         await harness.AdvanceAsync(stone);
         harness.Tick(1);
         Assert.True((await stone).Outcome.Ok && character.Effects.TryGet(CastleItems.StatusBase + 9, out _), "Might Stone did not start");
-        Assert.True(harness.World.TryGetOpenField(CastleItems.CastleFieldId, out var castle), "castle field missing");
+        Assert.True(harness.World.TryGetOpenField(FieldCodes.Castle, out var castle), "castle field missing");
         castle.Remove(harness.Player.EntityId);
         Assert.True(!character.Effects.TryGet(CastleItems.StatusBase + 9, out _), "the stone outlived leaving the castle");
     }
 
     private static async Task RestorationAsync()
     {
-        var harness = await SpecialItemTests.Harness.CreateAsync(CastleItems.CastleFieldId, "BC105");
+        var harness = await SpecialItemTests.Harness.CreateAsync(FieldCodes.Castle, "BC105");
         var character = harness.Session.Character!;
         var alive = harness.Use(new ItemUseCommand(Guid.NewGuid(), character.InventoryRevision, harness.Id("BC105")));
         await harness.AdvanceAsync(alive);

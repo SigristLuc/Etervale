@@ -51,8 +51,8 @@ internal static class DeathPenaltyTests
         Assert.True(DeathPenalty.CanRestartInField(At(20, Span(20) / 100), FieldState.Dungeon), "enough experience was refused the field restart");
         Assert.True(!DeathPenalty.CanRestartInField(At(20, Span(20) / 2), FieldState.Castle), "the castle field allowed a field restart");
 
-        Assert.True(DeathPenalty.TownField(PlayerClass.Pikeman) == QuestClasses.RicartenField && DeathPenalty.TownField(PlayerClass.Knight) == QuestClasses.PillaiField
-            && DeathPenalty.TownField(PlayerClass.Assassin) == QuestClasses.RicartenField, "restart towns differ");
+        Assert.True(DeathPenalty.TownField(PlayerClass.Pikeman) == FieldCodes.Ricarten && DeathPenalty.TownField(PlayerClass.Knight) == FieldCodes.Pillai
+            && DeathPenalty.TownField(PlayerClass.Assassin) == FieldCodes.Ricarten, "restart towns differ");
 
         var floored = At(30, 5);
         Assert.True(floored.LoseExperience(Span(30)) == 5 && floored.Experience == ExperienceTable.ForLevel(30) && floored.Level == 30,
@@ -91,9 +91,9 @@ internal static class DeathPenaltyTests
             $"town restart costs differ: {town.Outcome}");
         Assert.True(character.Experience == before - Span(20) / 33 && character.Money == 3200 && !harness.Player.IsDead
             && character.Life == character.MaxLife / 2 && harness.Player.GuardMsLeft > 9000f, "the town restart was not applied");
-        Assert.True(town.FieldId == QuestClasses.RicartenField && harness.Repository.Record.FieldId == QuestClasses.RicartenField
+        Assert.True(town.FieldId == FieldCodes.Ricarten && harness.Repository.Record.FieldId == FieldCodes.Ricarten
             && harness.Repository.Record.Exp == (long)character.Experience, "the town restart was not stored in Ricarten");
-        Assert.True(harness.Session.FieldId == QuestClasses.RicartenField, "the player did not move to Ricarten");
+        Assert.True(harness.Session.FieldId == FieldCodes.Ricarten, "the player did not move to Ricarten");
 
         var field = await Fallen(20, Span(20) / 2, 3300);
         var fallen = field.Player.Position;
@@ -176,7 +176,7 @@ internal static class DeathPenaltyTests
         var left = await leave;
         Assert.True(left.Left && left.Save is not null, "the dead player did not leave with a capture");
         var record = left.Save!.Encode();
-        Assert.True(record.FieldId == QuestClasses.RicartenField && (ulong)record.Exp == character.Experience - Span(20) / 33 && record.Money == 3200
+        Assert.True(record.FieldId == FieldCodes.Ricarten && (ulong)record.Exp == character.Experience - Span(20) / 33 && record.Money == 3200
             && record.Life == character.MaxLife / 2, "leaving while dead skipped the penalty or kept the player down where it fell");
         Assert.True(harness.Player.IsDead && character.Money == 3300, "saving a dead player changed the live character");
     }

@@ -4,6 +4,7 @@ using PristonTale.Simulation.Quests;
 using PristonTale.Simulation.World.Npcs;
 using static PristonTale.Tests.QuestFixture;
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.World;
 
 namespace PristonTale.Tests;
 
@@ -347,7 +348,7 @@ internal static class QuestTests
         Assert.True(RankUpByMasterTrial.OnDuelWon(won) && won.Prompt is { State: 8, Followup: QuestFollowup.Confirm }, "the victory dialog differs");
         var promoted = Expect(fighter, QuestNpc.None, QuestAction.Accept, QuestCode.RankUpMasterTrial, 8, "the final rank-up failed",
             field: QuestArena.FieldCode);
-        Assert.True(fighter.Tier == 3 && promoted.Travel is { Kind: QuestTravelKind.Home, FieldCode: QuestClasses.RicartenField }
+        Assert.True(fighter.Tier == 3 && promoted.Travel is { Kind: QuestTravelKind.Home, FieldCode: FieldCodes.Ricarten }
             && !Talk(fighter, HomeMaster).ClassChangeOffered, "the final tier differs");
 
         var morion = Character(PlayerClass.Magician, "Mage", 60, tier: 2);
@@ -380,7 +381,7 @@ internal static class QuestTests
             Assert.True(FuryOfPhantomQuest.OnDuelWon(won) && won.Prompt is { Document: "100LVQuest_Victory" }, "the Fury victory dialog differs");
             var back = Expect(hero, QuestNpc.None, QuestAction.Proceed, QuestCode.FuryOfPhantom, fighting, "the victory step failed",
                 field: QuestArena.FieldCode);
-            Assert.True(back.Travel is { Kind: QuestTravelKind.Home, FieldCode: QuestClasses.PillaiField } && !hero.Quests.Active.ArenaWon,
+            Assert.True(back.Travel is { Kind: QuestTravelKind.Home, FieldCode: FieldCodes.Pillai } && !hero.Quests.Active.ArenaWon,
                 "a won battle did not send the player to Pillai");
             if (battle == 3)
             {
@@ -519,7 +520,7 @@ internal static class QuestTests
         // The quests split the classes by class number: the assassin takes the Morion side but gathers trophies.
         var assassin = Character(PlayerClass.Assassin, "Shade", 30);
         Assert.True(Talk(assassin, new QuestNpc(GiverCode: 1001)).Prompt is null && Talk(assassin, new QuestNpc(GiverCode: 1002)).Prompt is
-            { Code: QuestCode.Level30 } && QuestClasses.HomeField(assassin) == QuestClasses.PillaiField, "the assassin's quest side differs");
+            { Code: QuestCode.Level30 } && QuestClasses.HomeField(assassin) == FieldCodes.Pillai, "the assassin's quest side differs");
         Assert.True(Run(Character(PlayerClass.Assassin, "Shade", 20), HomeMaster, QuestAction.ChangeClass, QuestCode.None, 0).Prompt is
             { Code: QuestCode.RankUpTrophies }, "the assassin's first rank-up differs");
         Assert.True(Run(Character(PlayerClass.Shaman, "Mystic", 20), HomeMaster, QuestAction.ChangeClass, QuestCode.None, 0).Prompt?.Code is

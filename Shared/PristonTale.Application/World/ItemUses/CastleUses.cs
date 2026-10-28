@@ -16,7 +16,7 @@ internal sealed class CastleItemUse : ItemUseAction
             return ItemUseStatus.NotUsable;
         }
 
-        if (use.Context.Field.FieldId != CastleItems.CastleFieldId)
+        if (use.Context.Field.FieldId != FieldCodes.Castle)
         {
             return ItemUseStatus.NotHere;
         }

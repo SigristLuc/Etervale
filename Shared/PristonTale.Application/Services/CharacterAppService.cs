@@ -14,7 +14,6 @@ public sealed class CharacterAppService
     // Up to 6 characters per account, matching the original character slot count.
     private const int MaxCharactersPerAccount = CharacterSlots.Maximum;
     // New characters start in the starting town (Ricarten = field 3) at its spawn (resolved later).
-    private const int StartingFieldId = 3;
 
     private readonly ISessionRegistry _sessions;
     private readonly ICharacterRepository _characters;
@@ -86,7 +85,7 @@ public sealed class CharacterAppService
             trimmed,
             slot,
             playerClass,
-            StartingFieldId,
+            FieldCodes.Ricarten,
             faceIndex);
 
         var created = await _characters.CreateAsync(record, ct);

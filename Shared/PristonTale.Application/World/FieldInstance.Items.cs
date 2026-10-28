@@ -123,7 +123,7 @@ public sealed partial class FieldInstance
     // Castle items end when their holder leaves the castle field.
     private void LeaveCastleItems(WorldPlayer player)
     {
-        if (FieldId != CastleItems.CastleFieldId)
+        if (FieldId != FieldCodes.Castle)
         {
             return;
         }

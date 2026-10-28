@@ -31,9 +31,6 @@ public sealed class HudMinimap
     // The original adds a specular 96 to the frame (a quarter of it to the title) under the cursor; adding the sprite's own
     // colour once (a quarter for the title) gives the same brightening on the grey frame art.
     private const int HoverHighlight = 255;
-    private const int SodField = 30;
-    private const int QuestArenaField = 32;
-    private const int BossField = 36;
 
     private string _field;
     private string _neighbour;
@@ -51,7 +48,7 @@ public sealed class HudMinimap
 
     // The original shows no minimap in the Bellatra arena, the quest arena and the boss field.
     public static bool HiddenOn(int fieldCode, FieldState state) =>
-        fieldCode is SodField or QuestArenaField or BossField || state is FieldState.QuestArena or FieldState.Room;
+        fieldCode is FieldCodes.Bellatra or FieldCodes.QuestArena or FieldCodes.Boss || state is FieldState.QuestArena or FieldState.Room;
 
     // Original stage coordinates are fixed point with Z mirrored relative to the engine (stage vertex Z = -z).
     public static Vector2 MapPoint(PristonIntRectangle rectangle, Vector3 position) =>

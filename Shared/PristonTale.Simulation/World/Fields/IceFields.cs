@@ -1,3 +1,5 @@
+using PristonTale.Simulation.World;
+
 namespace PristonTale.Simulation.World.Fields;
 
 public static class Ice1Field
@@ -58,7 +60,7 @@ public static class IceUraField
             "Field\\Ice\\ice_ani_01.smd"
         ])
     {
-        FieldCode = 29,
+        FieldCode = FieldCodes.InnerIce,
         LimitLevel = 90,
         SightCells = 1,
         WarpGates = [new FieldWarpGate(30407, 22232, 1349, 64, 32, "ice_ura", 30610, 22164, 1304, 0, 2)],

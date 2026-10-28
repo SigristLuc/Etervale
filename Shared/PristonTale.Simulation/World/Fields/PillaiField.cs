@@ -1,3 +1,5 @@
+using PristonTale.Simulation.World;
+
 namespace PristonTale.Simulation.World.Fields;
 
 public static class PillaiField
@@ -53,7 +55,7 @@ public static class PillaiField
             "Field\\forever-fall\\piani-43.smd"
         ])
     {
-        FieldCode = 21,
+        FieldCode = FieldCodes.Pillai,
         Center = new FieldPoint(2981, 75486),
         StartPoints = [new FieldPoint(2287, 74131), new FieldPoint(3547, 75500)],
         WarpGates =

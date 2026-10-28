@@ -1,3 +1,5 @@
+using PristonTale.Simulation.World;
+
 namespace PristonTale.Simulation.World.Fields;
 
 public static class CastleField
@@ -18,7 +20,7 @@ public static class CastleField
             "Field\\castle\\wf_gate_ani.smd"
         ])
     {
-        FieldCode = 33,
+        FieldCode = FieldCodes.Castle,
         WarpGates = [new FieldWarpGate(32527, -30693, 774, 64, 32, "castle", 32739, -30474, 711, 0, 2)],
         Center = new FieldPoint(35225, -23847),
         StartPoints =
