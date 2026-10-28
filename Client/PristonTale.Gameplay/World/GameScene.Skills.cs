@@ -271,13 +271,7 @@ public sealed partial class GameScene : ISkillSceneHost
         if (offset.Length() <= MathF.Max(range - RangeMargin, 10f))
         {
             _hasMoveTarget = false;
-            if (offset.LengthSquared() > 1e-4f)
-            {
-                var facing = Vector2.Normalize(offset);
-                _playerForward = new Vector3(facing.X, 0f, facing.Y);
-                ApplyPlayerWorld();
-            }
-
+            FaceToward(planar);
             Send(pending, pending.TargetId);
             return;
         }

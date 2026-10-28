@@ -155,15 +155,20 @@ public sealed partial class GameScene
     }
 
     // Chained swings (the next target picked while the last swing ends) never leave the attack state, so the turn of the
-    // attack approach (UpdateAttackPresentation) never runs between them; each swing turns toward its own target here.
+    // attack approach (UpdateAttackPresentation) never runs between them; each swing turns toward its own target here, as
+    // the server and the original turn the attacker at every swing.
     private void FaceSwingTarget(ulong targetId)
     {
-        if (_remote is null || _playerBody is null || !_remote.TryGetTarget(targetId, out var target, out _))
+        if (_remote is not null && _playerBody is not null && _remote.TryGetTarget(targetId, out var target, out _))
         {
-            return;
+            FaceToward(new Vector2(target.X, target.Z));
         }
+    }
 
-        var facing = AttackPresentation.SwingFacing(_playerBody.PlanarPosition, new Vector2(target.X, target.Z), new Vector2(_playerForward.X, _playerForward.Z));
+    // Turns the avatar toward a planar point: a swing's or a cast's target (AttackPresentation.FacingToward).
+    private void FaceToward(Vector2 targetPlanar)
+    {
+        var facing = AttackPresentation.FacingToward(_playerBody.PlanarPosition, targetPlanar, new Vector2(_playerForward.X, _playerForward.Z));
         _playerForward = new Vector3(facing.X, 0f, facing.Y);
         ApplyPlayerWorld();
     }

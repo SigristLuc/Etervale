@@ -403,12 +403,7 @@ public sealed partial class GameScene
         var decision = AttackPresentation.Decide(current, targetPlanar, Owner?.AttackRange ?? AttackPresentation.MeleeRange);
         if (decision.ShouldAttack)
         {
-            if (decision.Facing.LengthSquared() > 1e-6f)
-            {
-                _playerForward = new Vector3(decision.Facing.X, 0f, decision.Facing.Y);
-            }
-
-            ApplyPlayerWorld();
+            FaceToward(targetPlanar);
             ApplyPlayerCommand(_playerController.ApplyLocomotion(MotionCode.Stand));
 
             return;

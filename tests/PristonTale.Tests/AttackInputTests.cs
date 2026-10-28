@@ -74,11 +74,11 @@ internal static class AttackInputTests
     {
         var player = new XnaVector2(100f, 100f);
         var forward = new XnaVector2(1f, 0f);
-        var behind = AttackPresentation.SwingFacing(player, new XnaVector2(70f, 100f), forward);
+        var behind = AttackPresentation.FacingToward(player, new XnaVector2(70f, 100f), forward);
         Assert.True(XnaVector2.Distance(behind, new XnaVector2(-1f, 0f)) < 1e-5f, $"a swing at a target behind faces {behind}");
-        var far = AttackPresentation.SwingFacing(player, new XnaVector2(100f, 400f), forward);
+        var far = AttackPresentation.FacingToward(player, new XnaVector2(100f, 400f), forward);
         Assert.True(XnaVector2.Distance(far, new XnaVector2(0f, 1f)) < 1e-5f, $"a swing at a target past the reach faces {far}");
-        var same = AttackPresentation.SwingFacing(player, player, forward);
+        var same = AttackPresentation.FacingToward(player, player, forward);
         Assert.True(same == forward, $"a target on the player's spot turned it to {same}");
         return Task.CompletedTask;
     }

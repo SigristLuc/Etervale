@@ -13,7 +13,7 @@ public static class AttackPresentation
         Attack,
     }
 
-    public readonly record struct Decision(Action Action, Vector2 ApproachDirection, Vector2 Facing)
+    public readonly record struct Decision(Action Action, Vector2 ApproachDirection)
     {
         public bool ShouldAttack => Action == Action.Attack;
     }
@@ -25,20 +25,20 @@ public static class AttackPresentation
 
         if (distSq <= 1e-6f)
         {
-            return new Decision(Action.Attack, Vector2.Zero, Vector2.Zero);
+            return new Decision(Action.Attack, Vector2.Zero);
         }
 
         var dir = toTarget / MathF.Sqrt(distSq);
         return distSq <= attackRange * attackRange
-            ? new Decision(Action.Attack, Vector2.Zero, dir)
-            : new Decision(Action.Approach, dir, dir);
+            ? new Decision(Action.Attack, Vector2.Zero)
+            : new Decision(Action.Approach, dir);
     }
 
-    // The forward a swing starts with: toward its target, as the server turns the attacker at every swing, whatever the
-    // range; a target on the player's own spot keeps the current forward.
-    public static Vector2 SwingFacing(Vector2 playerPlanar, Vector2 targetPlanar, Vector2 current)
+    // The forward that looks from the player toward a target (a swing's, a cast's), whatever the range; a target on the
+    // player's own spot keeps the current forward.
+    public static Vector2 FacingToward(Vector2 playerPlanar, Vector2 targetPlanar, Vector2 current)
     {
-        var facing = Decide(playerPlanar, targetPlanar).Facing;
-        return facing.LengthSquared() > 1e-6f ? facing : current;
+        var toTarget = targetPlanar - playerPlanar;
+        return toTarget.LengthSquared() > 1e-6f ? Vector2.Normalize(toTarget) : current;
     }
 }
