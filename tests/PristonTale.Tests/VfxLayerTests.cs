@@ -17,6 +17,23 @@ internal static class VfxLayerTests
         yield return ("parts fly to their goal, start their end effect there and fade out", PartGoalAsync);
         yield return ("orbiting parts with a goal sweep at the goal's distance and bearing", PartOrbitAsync);
         yield return ("a handle reaches only its own effect once the pooled instance runs another", HandleAsync);
+        yield return ("a part's degree angles turn it about X, then Y, then Z", RotationAsync);
+    }
+
+    private static Task RotationAsync()
+    {
+        foreach (var degrees in new[] { Vector3.Zero, new Vector3(90f, 0f, 0f), new Vector3(30f, -45f, 120f), new Vector3(-170f, 260f, 15f) })
+        {
+            var expected = Matrix.CreateRotationX(MathHelper.ToRadians(degrees.X)) * Matrix.CreateRotationY(MathHelper.ToRadians(degrees.Y))
+                * Matrix.CreateRotationZ(MathHelper.ToRadians(degrees.Z));
+            var actual = VfxRenderer.Rotation(degrees);
+            for (var cell = 0; cell < 16; cell++)
+            {
+                Assert.True(MathF.Abs(actual[cell] - expected[cell]) < 1e-5f, $"rotation {degrees} differs at {cell}");
+            }
+        }
+
+        return Task.CompletedTask;
     }
 
     private static Task HandleAsync()

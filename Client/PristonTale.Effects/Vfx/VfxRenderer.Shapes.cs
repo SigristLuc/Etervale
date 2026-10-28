@@ -213,9 +213,18 @@ public sealed partial class VfxRenderer
         _scratch[at + 3] = new VfxVertex { Position = d, Color = color, TexCoord = new Vector2(uv.X, uv.W), Params = parameters };
     }
 
-    internal static Matrix Rotation(Vector3 degrees) =>
-        Matrix.CreateRotationX(MathHelper.ToRadians(degrees.X)) * Matrix.CreateRotationY(MathHelper.ToRadians(degrees.Y))
-        * Matrix.CreateRotationZ(MathHelper.ToRadians(degrees.Z));
+    // RotationX(x) * RotationY(y) * RotationZ(z) written out (row vectors), without building and multiplying three matrices.
+    internal static Matrix Rotation(Vector3 degrees)
+    {
+        var (sx, cx) = MathF.SinCos(MathHelper.ToRadians(degrees.X));
+        var (sy, cy) = MathF.SinCos(MathHelper.ToRadians(degrees.Y));
+        var (sz, cz) = MathF.SinCos(MathHelper.ToRadians(degrees.Z));
+        return new Matrix(
+            cy * cz, cy * sz, -sy, 0f,
+            sx * sy * cz - cx * sz, sx * sy * sz + cx * cz, sx * cy, 0f,
+            cx * sy * cz + sx * sz, cx * sy * sz - sx * cz, cx * cy, 0f,
+            0f, 0f, 0f, 1f);
+    }
 
     // Original colours are display values 0..255: rgb decode to linear, alpha stays linear.
     internal static Vector4 Decode(Vector4 color) =>
