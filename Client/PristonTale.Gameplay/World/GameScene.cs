@@ -1301,8 +1301,7 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         var d = _player.Derived;
         return motion switch
         {
-            MotionCode.Walk => AnimationRate.MoveRate(Locomotion.BaseTranslation(_serverMoveSpeed ?? d.MoveSpeed)),
-            MotionCode.Run => AnimationRate.MoveRate((Locomotion.BaseTranslation(_serverMoveSpeed ?? d.MoveSpeed) * 460) >> 8),
+            MotionCode.Walk or MotionCode.Run => Locomotion.StepRate(_serverMoveSpeed ?? d.MoveSpeed, motion == MotionCode.Run),
             MotionCode.Attack or MotionCode.Skill => _serverMoveSpeed.HasValue ? _serverAttackRate : AnimationRate.AttackRate(d.AttackSpeed),
             _ => 1f,
         };

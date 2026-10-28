@@ -16,7 +16,7 @@ public static class Locomotion
     public static float WalkUnitsPerSecond(int moveSpeedStat, bool inVillage)
     {
         int baseTranslation = BaseTranslation(moveSpeedStat);
-        int perTick = inVillage ? baseTranslation : (baseTranslation * WalkFieldFactor) >> 8;
+        int perTick = inVillage ? baseTranslation : (baseTranslation * WalkFieldFactor) >> GameUnits.FixedShift;
         return PerTickToUnitsPerSecond(perTick);
     }
 
@@ -25,8 +25,13 @@ public static class Locomotion
 
     public static float GameMasterDashUnitsPerSecond => PerTickToUnitsPerSecond(GameMasterDashPerTick);
 
-    public static float RunUnitsPerSecond(int moveSpeedStat)
-        => PerTickToUnitsPerSecond((BaseTranslation(moveSpeedStat) * RunFactor) >> 8);
+    public static float RunUnitsPerSecond(int moveSpeedStat) => PerTickToUnitsPerSecond(RunTranslation(moveSpeedStat));
+
+    public static int RunTranslation(int moveSpeedStat) => (BaseTranslation(moveSpeedStat) * RunFactor) >> GameUnits.FixedShift;
+
+    // The walk or run clip's playback rate for the move speed (the frame step follows the per-tick translation).
+    public static float StepRate(int moveSpeedStat, bool running) =>
+        AnimationRate.MoveRate(running ? RunTranslation(moveSpeedStat) : BaseTranslation(moveSpeedStat));
 
     private static float PerTickToUnitsPerSecond(int perTick)
         => perTick / GameUnits.FixedScale * GameUnits.TicksPerSecond;
