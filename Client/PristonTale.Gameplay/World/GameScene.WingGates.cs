@@ -34,7 +34,7 @@ public sealed partial class GameScene
 
         if (_playerBody is not null)
         {
-            _returnEffect?.Start(_playerBody.Position + Vector3.Up * GroundTraversal.VisualOffset);
+            PlayReturn(_playerBody.Position);
             _fieldAudio?.PlayPortalWarp();
         }
 
@@ -80,7 +80,7 @@ public sealed partial class GameScene
         _lootInteraction?.Cancel();
         StopPredictedMovement();
         HoldAtSpecialWarp(standing);
-        _reportDue = true;
+        _reports.Request();
         WingGateEntered?.Invoke(_activeField.Definition.FieldCode);
     }
 }

@@ -1,7 +1,5 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Client.Net.Presence;
-using PristonTale.Effects;
-using PristonTale.Effects.Effects;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
@@ -30,23 +28,22 @@ public sealed class PremiumPetPresentation : IDisposable
     private readonly IActorScene _scene;
     private readonly string _assetRoot;
     private readonly IClientLog _log;
-    private readonly EffectsEngine _engine;
+    private readonly IScriptEffects _scripts;
     private readonly PristonTransientLights _lights;
     private readonly SkillSoundBank _sounds;
     private readonly Task<PristonActor>[] _helpers = new Task<PristonActor>[4];
     private readonly Task<PristonActor> _phoenix;
     private readonly Dictionary<ulong, Owner> _owners = new();
     private readonly List<Projectile> _projectiles = new();
-    private readonly Dictionary<string, EffectDefinition> _scripts = new(StringComparer.Ordinal);
     private readonly Random _random = new();
 
-    public PremiumPetPresentation(IActorScene scene, PristonActorLoader loader, string assetRoot, EffectLibrary library, EffectsEngine engine,
+    public PremiumPetPresentation(IActorScene scene, PristonActorLoader loader, string assetRoot, IScriptEffects scripts,
         PristonTransientLights lights, SkillSoundBank sounds, IClientLog log)
     {
         _scene = scene;
         _assetRoot = assetRoot;
         _log = log;
-        _engine = engine;
+        _scripts = scripts;
         _lights = lights;
         _sounds = sounds;
         for (var index = 0; index < HelperMeshes.Length; index++)
@@ -58,14 +55,6 @@ public sealed class PremiumPetPresentation : IDisposable
 
         var phoenix = Path.Combine(assetRoot, "Effect", "PcBangPet", "Pet_Phoenimin", "Phoenix");
         _phoenix = Prepare(loader, phoenix + ".smd", phoenix + ".smb");
-        foreach (var name in new[] { "FireShot1", "FireHIt1", "IceShot1", "IceHIt1", "LightStart1", "LightHIt1" })
-        {
-            if (library?.ParticleScript(assetRoot, name) is { } script)
-            {
-                _scripts[name] = script;
-            }
-        }
-
         sounds?.Preload(Sounds(PremiumEffectKind.HelpPetTerry).Concat(Sounds(PremiumEffectKind.HelpPetNepsys)).Concat(Sounds(PremiumEffectKind.HelpPetIo)));
     }
 
@@ -235,15 +224,11 @@ public sealed class PremiumPetPresentation : IDisposable
             }
 
             projectile.Position += Vector3.Normalize(toTarget) * step;
-            if (projectile.Trail is not null)
-            {
-                projectile.Trail.Position = projectile.Position;
-            }
+            projectile.Trail?.MoveTo(projectile.Position);
         }
     }
 
-    private EffectInstance Spawn(string name, Vector3 position) =>
-        _engine is not null && _scripts.TryGetValue(name, out var script) && _engine.Instances.Count < 128 ? _engine.Spawn(script, position) : null;
+    private IScriptEffect Spawn(string name, Vector3 position) => _scripts?.Spawn(name, position, Matrix.Identity);
 
     private static string[] Sounds(PremiumEffectKind kind) => kind switch
     {
@@ -283,9 +268,9 @@ public sealed class PremiumPetPresentation : IDisposable
         public Pet Phoenix { get; set; }
     }
 
-    private sealed class Projectile(EffectInstance trail, Vector3 position, Vector3 target, bool ice)
+    private sealed class Projectile(IScriptEffect trail, Vector3 position, Vector3 target, bool ice)
     {
-        public EffectInstance Trail { get; } = trail;
+        public IScriptEffect Trail { get; } = trail;
         public Vector3 Position { get; set; } = position;
         public Vector3 Target { get; } = target;
         public bool Ice { get; } = ice;

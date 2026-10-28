@@ -121,7 +121,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     public void Add(WorldPlayer player)
     {
         _players[player.EntityId] = player;
-        player.FlinchMs = PlayerActionTiming(player, MotionCode.Damage, MotionTiming.DamageRateFactor).DurationMs;
+        player.FlinchMs = PlayerActionTiming(player, MotionCode.Damage, MotionCodes.DamageAndEatRate).DurationMs;
     }
     public void Remove(ulong entityId)
     {
@@ -469,7 +469,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
     private (float DurationMs, float HitAtMs) PlayerPotionTiming(WorldPlayer player)
     {
-        return PlayerActionTiming(player, MotionCode.Eat, MotionTiming.DamageRateFactor);
+        return PlayerActionTiming(player, MotionCode.Eat, MotionCodes.DamageAndEatRate);
     }
 
     private (float DurationMs, float HitAtMs) PlayerActionTiming(WorldPlayer player, MotionCode state, float rate)

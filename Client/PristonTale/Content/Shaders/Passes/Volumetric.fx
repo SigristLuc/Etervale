@@ -61,7 +61,6 @@ SamplerState HistorySampler : register(s3) = sampler_state
 };
 
 static const uint Steps = 16;
-static const float SkyDepth = 50000.0;
 
 float3 ViewRay(float2 uv)
 {
@@ -81,7 +80,7 @@ float OpticalDepth(float3 direction, float t)
 // The distance a view ray marches: to the surface (view depth to distance along the ray), at most the march distance.
 float MarchDistance(float depth, float rayLength)
 {
-    return min(depth >= SkyDepth ? VolumeProjection.z : depth * rayLength, VolumeProjection.z);
+    return min(depth >= SkyDepthThreshold ? VolumeProjection.z : depth * rayLength, VolumeProjection.z);
 }
 
 float SunVisibility(float3 position, float viewDepth)
@@ -123,7 +122,7 @@ float4 PS_March(FullscreenOut i) : SV_Target0
     float3 direction = ray / rayLength;
     float distance = MarchDistance(depth, rayLength);
     float2 q = pixel + VolumeProjection.w * 5.588238;
-    float jitter = frac(52.9829189 * frac(dot(q, float2(0.06711056, 0.00583715))));
+    float jitter = InterleavedGradientNoise(q);
     float cosTheta = dot(direction, SunDirection);
     float g = PhaseG;
     float phase = (1.0 - g * g) / (4.0 * PI * pow(max(1.0 + g * g - 2.0 * g * cosTheta, 1.0e-4), 1.5));
@@ -141,7 +140,7 @@ float4 PS_March(FullscreenOut i) : SV_Target0
 
     // The sky dome already holds the light the whole air scatters along its rays, this haze included: in front of it only
     // the light the shadows take out of the haze counts (crepuscular rays darken the sky), and the dome is not dimmed.
-    if (depth >= SkyDepth)
+    if (depth >= SkyDepthThreshold)
     {
         scattered -= 1.0 - entering;
     }
@@ -176,7 +175,7 @@ float4 PS_Accumulate(FullscreenOut i) : SV_Target0
         }
     }
 
-    float viewDepth = min(current.w, SkyDepth);
+    float viewDepth = min(current.w, SkyDepthThreshold);
     float3 position = CameraPosition + ViewRay(uv) * viewDepth;
     float4 previousClip = mul(float4(position, 1.0), PreviousViewProjection);
     float2 previousUv = float2(previousClip.x, -previousClip.y) / max(previousClip.w, 1.0e-4) * 0.5 + 0.5;
@@ -187,8 +186,8 @@ float4 PS_Accumulate(FullscreenOut i) : SV_Target0
     }
 
     float4 history = History.SampleLevel(HistorySampler, previousUv, 0);
-    float expected = min(previousClip.w, SkyDepth);
-    if (abs(min(history.w, SkyDepth) - expected) > 0.05 * expected + 10.0)
+    float expected = min(previousClip.w, SkyDepthThreshold);
+    if (abs(min(history.w, SkyDepthThreshold) - expected) > 0.05 * expected + 10.0)
     {
         return current;
     }
@@ -214,7 +213,7 @@ float4 PS_Composite(FullscreenOut i) : SV_Target0
             float4 s = Inscatter.SampleLevel(InscatterSampler, (p + 0.5) / VolumeSize.xy, 0);
             float spatial = exp(-0.5 * dot(offset, offset)) + 1.0e-3;
             // Depth weight steep enough to pick the nearest-depth texels at an edge (no fog bled onto a silhouette).
-            float relative = abs(min(s.w, SkyDepth) - min(depth, SkyDepth)) / max(min(depth, SkyDepth), 1.0);
+            float relative = abs(min(s.w, SkyDepthThreshold) - min(depth, SkyDepthThreshold)) / max(min(depth, SkyDepthThreshold), 1.0);
             float w = spatial / (1.0e-4 + relative * relative);
             sum += s.rgb * w;
             weights += w;
@@ -223,7 +222,7 @@ float4 PS_Composite(FullscreenOut i) : SV_Target0
 
     float3 ray = ViewRay(i.Uv);
     float rayLength = length(ray);
-    float transmittance = depth >= SkyDepth ? 1.0 : exp(-OpticalDepth(ray / rayLength, MarchDistance(depth, rayLength)));
+    float transmittance = depth >= SkyDepthThreshold ? 1.0 : exp(-OpticalDepth(ray / rayLength, MarchDistance(depth, rayLength)));
     return float4(sum / max(weights, 1.0e-6), transmittance);
 }
 

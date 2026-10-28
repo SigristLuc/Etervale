@@ -21,7 +21,7 @@ public sealed partial class GameScene
             return;
         }
 
-        _returnEffect?.Start(monster.Position + Vector3.Up * GroundTraversal.VisualOffset);
+        PlayReturn(monster.Position);
         _itemEffects?.Play(ItemEffectKind.Return, monster.EntityId, 0, monster.Position, PlayerPosition, _skillClockMs);
     }
 

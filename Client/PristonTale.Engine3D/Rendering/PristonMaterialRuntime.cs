@@ -110,7 +110,7 @@ internal sealed class PristonMaterialRuntime
     internal const float SolidTransparencyThreshold = 0.2f;
 
     // The alpha blend (1) is not a late blend in the original game.
-    private bool IsLateBlend => BlendType is 2 or 3 or 4 or 5 or 6;
+    private bool IsLateBlend => PristonBlendType.IsLate(BlendType);
 
     public bool CastsShadow =>
         !IsLateBlend && (AlphaTest || Transparency <= SolidTransparencyThreshold);
@@ -132,15 +132,15 @@ internal sealed class PristonMaterialRuntime
             if (AlphaTest && Transparency <= SolidTransparencyThreshold)
                 return BlendState.Opaque;
 
-            // These follow the original blend table (PristonBlendType); several modes are not alpha blends.
+            // These follow the original blend table; several modes are not alpha blends.
             return BlendType switch
             {
-                1 => BlendState.NonPremultiplied, // Alpha:     SrcAlpha, InvSrcAlpha
-                2 => BlendColor,                  // Color:     SrcColor, InvSrcColor
-                3 => BlendShadow,                 // Shadow:    Zero, SrcColor      (darken)
-                4 => BlendState.Additive,         // Lamp:      SrcAlpha, One       (== MG Additive)
-                5 => BlendAddColor,               // AddColor:  SrcColor, One       (additive)
-                6 => BlendInvShadow,              // InverseShadow: Zero, InvSrcColor
+                PristonBlendType.Alpha => BlendState.NonPremultiplied,    // SrcAlpha, InvSrcAlpha
+                PristonBlendType.Color => BlendColor,                     // SrcColor, InvSrcColor
+                PristonBlendType.Shadow => BlendShadow,                   // Zero, SrcColor (darken)
+                PristonBlendType.Lamp => BlendState.Additive,             // SrcAlpha, One
+                PristonBlendType.AddColor => BlendAddColor,               // SrcColor, One (additive)
+                PristonBlendType.InverseShadow => BlendInvShadow,         // Zero, InvSrcColor
                 _ => Transparent ? BlendState.NonPremultiplied : BlendState.Opaque,
             };
         }

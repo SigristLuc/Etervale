@@ -114,7 +114,7 @@ internal static class ItemUseTransactions
             return player.IsDead ? ItemUseStatus.Dead : ItemUseStatus.NotUsable;
         }
 
-        if (use.Rule.ForbiddenInVillage && player.Appearance.InVillage)
+        if (use.Rule.ForbiddenInVillage && player.InVillage)
         {
             return ItemUseStatus.NotHere;
         }

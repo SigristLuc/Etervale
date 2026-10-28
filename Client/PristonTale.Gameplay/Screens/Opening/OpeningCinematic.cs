@@ -109,7 +109,7 @@ internal sealed class OpeningCinematic : IDisposable
             var collision = new PristonCollisionWorld(stage);
             // The converted scripts are registered here, while loading, so the flight never waits for them.
             _effectLibrary.Vfx.CompileAll();
-            _effectSystem = new VfxSystem(new NoAnchors(), new SceneLights(_renderer), _effectLibrary.Vfx.Library);
+            _effectSystem = new VfxSystem(VfxNoAnchors.Instance, new TransientLightServices(_renderer.TransientLights), _effectLibrary.Vfx.Library);
             _terrainFire = new MeteorEffects(new SystemScriptEffects(_effectSystem, _effectLibrary.Vfx.Library), _renderer.TransientLights, collision);
         }
         _renderer.ConfigureFieldLighting(intensity: 4f, rangeScale: 1f, overrideLights: null, glowIntensity: 1f, glowScale: 1f);
@@ -274,27 +274,4 @@ internal sealed class OpeningCinematic : IDisposable
     }
 
     // The flight has no entities to anchor effects to.
-    private sealed class NoAnchors : IVfxAnchors
-    {
-        public bool TryGetPosition(ulong entityId, out Vector3 position)
-        {
-            position = default;
-            return false;
-        }
-
-        public bool TryGetBone(ulong entityId, string bone, out Vector3 position)
-        {
-            position = default;
-            return false;
-        }
-    }
-
-    private sealed class SceneLights(PristonRenderer renderer) : IVfxServices
-    {
-        public void AddLight(Vector3 position, Color color, int power, int decay) => renderer.TransientLights.Add(position, color, power, decay);
-
-        public void PlaySound(string path, Vector3 position, float volume)
-        {
-        }
-    }
 }

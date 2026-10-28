@@ -159,20 +159,6 @@ internal sealed class CharSelectAssets : IDisposable
         }
     }
 
-    public IReadOnlyList<Texture2D> LoadFlipbook(string dir, IReadOnlyList<string> names)
-    {
-        var frames = new List<Texture2D>(names.Count);
-        foreach (var name in names)
-        {
-            var tex = _loader.LoadTexture(_assetPath(dir), name, string.Empty);
-            if (tex != null && tex != _loader.White)
-            {
-                frames.Add(tex);
-            }
-        }
-        return frames;
-    }
-
     private Texture2D Ui(string name) => _loader.LoadUiTexture(_assetPath(UiDir), name);
     private Texture2D UiParent(string name) => _loader.LoadUiTexture(_assetPath(UiParentDir), name);
 

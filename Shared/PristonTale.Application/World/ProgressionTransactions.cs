@@ -34,6 +34,6 @@ internal static class ProgressionTransactions
 
         var snapshot = CharacterRecordFactory.Capture(session.Loaded!, candidate, field.FieldId, player.Position);
         return new PreparedCharacterOperation<ProgressionOutcome>(original, candidate, snapshot,
-            new ProgressionOutcome(true, candidate.ProgressionRevision, "committed"));
+            new ProgressionOutcome(true, candidate.ProgressionRevision, ""));
     }
 }

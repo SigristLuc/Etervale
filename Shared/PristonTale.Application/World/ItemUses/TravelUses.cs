@@ -11,8 +11,9 @@ namespace PristonTale.Application.World.ItemUses;
 // point, settled on the floor on arrival.
 internal static class TravelRules
 {
-    public static readonly int[] ReturnBlockedFields = [30, 32];
-    public static readonly int[] MobileShopBlockedFields = [3, 21, 33, 30, 29];
+    public static readonly int[] ReturnBlockedFields = [FieldCodes.Bellatra, FieldCodes.QuestArena];
+    public static readonly int[] MobileShopBlockedFields =
+        [FieldCodes.Ricarten, FieldCodes.Pillai, FieldCodes.Castle, FieldCodes.Bellatra, FieldCodes.InnerIce];
 
     public static TeleportArrival ArrivalAt(FieldDef target)
     {

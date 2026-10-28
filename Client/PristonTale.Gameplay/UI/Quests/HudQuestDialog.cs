@@ -145,7 +145,7 @@ public sealed class HudQuestDialog
             y += HudPainter.LineHeight + 2;
         }
 
-        var lines = WrapMeasured(painter, $"{first} {second}".Trim(), width);
+        var lines = HudTextLayout.Wrap($"{first} {second}".Trim(), width, candidate => painter.Measure(candidate));
         var room = (HudMessageBox.Accept.Y - 6 - y) / HudPainter.LineHeight;
         for (var line = 0; line < lines.Count && line < room; line++)
         {
@@ -154,29 +154,4 @@ public sealed class HudQuestDialog
         }
     }
 
-    private static List<string> WrapMeasured(HudPainter painter, string text, int width)
-    {
-        var lines = new List<string>();
-        var line = "";
-        foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var candidate = line.Length == 0 ? word : line + " " + word;
-            if (line.Length > 0 && painter.Measure(candidate) > width)
-            {
-                lines.Add(line);
-                line = word;
-            }
-            else
-            {
-                line = candidate;
-            }
-        }
-
-        if (line.Length > 0)
-        {
-            lines.Add(line);
-        }
-
-        return lines;
-    }
 }

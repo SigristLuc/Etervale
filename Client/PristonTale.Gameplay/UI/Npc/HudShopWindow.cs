@@ -26,7 +26,7 @@ public enum HudShopAction
 // The NPC shop in the original window: weapon and armour tabs (or the goods title), pages of stock packed into the grid,
 // and the buy, sell, repair and repair-all buttons. Buying is a click on the stock; selling and repairing are clicks on
 // owned items while that mode is active.
-public sealed class HudShopWindow
+public sealed class HudShopWindow : IHudServiceWindow
 {
     private const int GoodsTab = 2;
     private static readonly Color Selection = Color.FromNonPremultiplied(255, 200, 0, 128);
@@ -78,6 +78,12 @@ public sealed class HudShopWindow
     }
 
     public void Advance(double seconds) => _slide.Advance(seconds);
+
+    public bool BlocksWorld => false;
+
+    void IHudServiceWindow.Draw(in HudServiceFrame frame) => Draw(frame.Painter, frame.Icons, frame.State, frame.Pointer, FullyOpen && !frame.SettingsOpen);
+
+    void IHudServiceWindow.DrawOverlay(in HudServiceFrame frame) => DrawOverlay(frame.Painter, frame.Layout, frame.Pointer);
 
     public bool Contains(Point pointer) => _slide.Visible && HudStoreLayout.Window(Origin).Contains(pointer);
 
@@ -161,7 +167,7 @@ public sealed class HudShopWindow
                     painter.Fill(bounds, Selection);
                 }
 
-                DrawIcon(painter, icons, placed.Offer.CatalogKey, bounds);
+                icons.Draw(painter, placed.Offer.CatalogKey, bounds);
             }
         }
 
@@ -194,21 +200,6 @@ public sealed class HudShopWindow
         var price = $"Price: {offer.Price:N0} gold";
         const string action = "Click: buy";
         HudItemTooltip.Draw(painter, layout, pointer, offer.Name, price, action);
-    }
-
-    public static void DrawIcon(HudPainter painter, HudItemIcons icons, string catalogKey, Rectangle bounds, Color? tint = null)
-    {
-        var texture = icons.Find(catalogKey);
-        if (texture is null)
-        {
-            painter.Fill(new Rectangle(bounds.X + 2, bounds.Y + 2, bounds.Width - 4, bounds.Height - 4), Color.FromNonPremultiplied(60, 60, 60, 160));
-            return;
-        }
-
-        // Item bitmaps are authored at their cell size; they are drawn unscaled and centred as in the inventory.
-        var x = bounds.X + (bounds.Width - texture.Width) / 2;
-        var y = bounds.Y + (bounds.Height - texture.Height) / 2;
-        painter.Image(texture, new Rectangle(x, y, texture.Width, texture.Height), tint ?? Color.White);
     }
 
     private void DrawTabs(HudPainter painter, Point origin)

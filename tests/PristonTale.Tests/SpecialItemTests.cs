@@ -467,13 +467,7 @@ internal static class SpecialItemTests
 
         public async Task AdvanceAsync(Task task)
         {
-            for (var index = 0; !task.IsCompleted && index < 1000; index++)
-            {
-                World.Tick(0.05f, ++_tick);
-                await Task.Delay(1);
-            }
-
-            await task.WaitAsync(TimeSpan.FromSeconds(1));
+            await WorldPump.RunAsync(World, task, () => ++_tick);
             Drain();
         }
 

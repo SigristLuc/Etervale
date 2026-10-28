@@ -30,11 +30,11 @@ static const float2 PoissonDisk[16] =
     float2( 0.199841,  0.786414), float2( 0.143832, -0.141008)
 };
 
-// Interleaved gradient noise (Jimenez 2014) of a pixel, offset per frame when the temporal anti-aliasing integrates it.
+// The pixel's interleaved gradient noise, offset per frame when the temporal anti-aliasing integrates it.
 float PixelNoise(float2 pixel)
 {
     float2 p = pixel + NoiseParams.x * 5.588238;
-    return frac(52.9829189 * frac(dot(p, float2(0.06711056, 0.00583715))));
+    return InterleavedGradientNoise(p);
 }
 
 // The four texels around uv and their bilinear weights, in Gather's order (0, 1), (1, 1), (1, 0), (0, 0); the weights sum

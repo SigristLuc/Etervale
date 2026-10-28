@@ -45,7 +45,6 @@ SamplerState EnvironmentSampler : register(s3) = sampler_state
     Texture = (EnvironmentMap); MinFilter = Linear; MagFilter = Linear; MipFilter = Point; AddressU = Clamp; AddressV = Clamp;
 };
 
-static const float SkyDepth = 50000.0;
 static const float MinSmoothness = 0.55;
 static const uint Steps = 24;
 static const uint RefineSteps = 4;
@@ -99,7 +98,7 @@ float4 PS_Reflect(FullscreenOut i) : SV_Target0
     float4 normalSample = NormalMap.SampleLevel(NormalSampler, i.Uv, 0);
     float smoothness = normalSample.a;
     float depth = DepthAt(i.Uv);
-    if (smoothness < MinSmoothness || depth > SkyDepth)
+    if (smoothness < MinSmoothness || depth > SkyDepthThreshold)
     {
         discard;
     }
@@ -112,7 +111,7 @@ float4 PS_Reflect(FullscreenOut i) : SV_Target0
     float nv = saturate(dot(n, v));
     float fresnel = 0.04 + 0.96 * pow(1.0 - nv, 5.0) * (1.0 - roughness);
     float2 q = i.Position.xy + ReflectProjection.w * 5.588238;
-    float jitter = frac(52.9829189 * frac(dot(q, float2(0.06711056, 0.00583715))));
+    float jitter = InterleavedGradientNoise(q);
 
     float3 start = p + n * (0.003 * depth);
     float rayLength = ReflectProjection.z;

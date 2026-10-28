@@ -26,13 +26,13 @@ rendering internals, skill presentation and VFX data have their own documents (s
 | `Client/PristonTale.Gameplay/Screens/Opening/` | Opening cinematic, login form overlay and login polling |
 | `Client/PristonTale.Gameplay/Screens/CharacterSelect/` | Character list, creation flow (race, job, face, name), delete, enter world; its own renderer, scene and camera |
 | `Client/PristonTale.Gameplay/Screens/Gameplay/GameplayScreen.cs` | Wires `GameScene` and `GameplayHud`, debug keys, render-stats status text |
-| [`Client/PristonTale.Gameplay/World/GameScene.cs`](../Client/PristonTale.Gameplay/World/GameScene.cs) | The in-world scene: fields, local player, input, prediction, movement reports, warps, presence drain, draw |
+| [`Client/PristonTale.Gameplay/World/GameScene.cs`](../Client/PristonTale.Gameplay/World/GameScene.cs) | The in-world scene: state, construction, the frame update and draw, movement reports. One partial per topic: `.Presence` (play channel, drain, remap), `.Fields` (loading, streaming, active field, lighting), `.Warps` (gates, warps, server placements), `.Self` (the server's state and events for the local player, its clips), `.Input` (movement, loot and target picking, NPC approach), `.Ground` (floor, falls, collision, world matrix), plus `.Skills`, `.Items`, `.Audio`, `.Chat` and the others below |
 | `Client/PristonTale.Gameplay/World/GameScene.Skills.cs` | Skill casting from the mouse sockets and the skill timeline glue ([skills.md](skills.md)) |
 | `Client/PristonTale.Gameplay/World/Streaming/` | `FieldResourceStreamer` (off-thread field preparation, budgeted GPU upload), `FieldStreamingPolicy` (prefetch and retention distances, budgets) |
 | `Client/PristonTale.Gameplay/World/Remote/` | Remote actors: `RemoteEntityManager`, `RemoteSnapshotBuffer`, `RemoteServerClock`, actor composers, equipment visuals, ground loot, picking |
 | `Client/PristonTale.Gameplay/World/*.cs` (other) | `TargetSelection` (target frame owner), `NpcApproach`, `GroundTraversal`, `FieldCollisionQuery`, `LoadedField`, `EnteredCharacter` |
 | `Client/PristonTale.Gameplay/Combat/` | `ActorMotionController` (local motion state machine), `AttackInputController` (attack press/release and server reconcile) |
-| [`Client/PristonTale.Gameplay/UI/GameplayHud.cs`](../Client/PristonTale.Gameplay/UI/GameplayHud.cs) | In-game HUD root: windows, input routing, draw order, NPC service windows |
+| [`Client/PristonTale.Gameplay/UI/GameplayHud.cs`](../Client/PristonTale.Gameplay/UI/GameplayHud.cs) | In-game HUD root: windows, state, update and draw order. Partials: `.Input` (keys, click routing by priority, menu buttons and toggles, captures), `.Services` (NPC service windows and their actions, drops from the bag, icons), `.Quests` (dialog, boxes, quest window), `.Messages` (completed requests to the chat or the notice strip) |
 | `Client/PristonTale.Gameplay/UI/` (root) | `HudLayout` (800x600 design space), `LoginPanel`/`LoginLayout`/`TextInputField`, `DisplayConfirmation` |
 | `Client/PristonTale.Gameplay/UI/Widgets/` | Bottom bar, status window, skill tree and sockets, minimap, target frame and combat history (`HudCombat`), 3D target portrait, NPC dialog, settings panel, system menu, notices |
 | `Client/PristonTale.Gameplay/UI/Chat/` | Chat window, tabs, input line and speech bubbles (see [chat-and-gm.md](chat-and-gm.md)) |
@@ -257,8 +257,9 @@ The client owns its own locomotion; the server validates and corrects.
   Target reachability is checked with `GroundTraversal.CanReachSurface`.
 - Reports: `UpdateMovementReport` sends `MovementReport` (position in PT-global, facing, moving, running, action target,
   field code) every 200 ms while moving, every 1000 ms idle, and at once when motion, run mode, target or field
-  changes, or when `_reportDue` is set, never twice within 50 ms (`MinReportGapMs`: the server closes a connection over
-  251 packets in 5 s). The walk toward a skill target reports only a new destination (`ApproachReportDistance`).
+  changes, or when a report is requested (`_reports.Request()`), never twice within 50 ms (the server closes a
+  connection over 251 packets in 5 s). The cadence lives in `MovementReportPacer` (`World/MovementReportPacer.cs`); the
+  scene only builds and sends the report. The walk toward a skill target reports only a new destination (`ApproachReportDistance`).
 - Server echoes of the self state do not move the avatar. They update HP, move speed, attack rate, the attack-target
   reconcile (`AttackInputController.Reconcile` by sequence) and authoritative motions (Attack, Damage, Dead, Eat,
   the restart after death). The last echoed position is kept as `_serverPlanarPosition` for reach checks (NPC dialog,
@@ -405,10 +406,19 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   outcome over once (progression, item use, NPC dialog and services, wing gates, quests).
 - `HudNpcServiceController`: one request in flight; `Open` replies set the open service and its state; `OutOfReach`,
   `NotOpen` and `Conflict` close it. While the shop is open, an inventory revision change triggers a quote refresh.
+- The four service windows implement `IHudServiceWindow` (`UI/Npc/IHudServiceWindow.cs`): open and slide state,
+  `BlocksWorld` (the work windows keep every click from the world, the shop only its area), `Contains`, `Hide`, body
+  and overlay draw with one `HudServiceFrame`. `GameplayHud` keeps them in one list (`_serviceWindows`, draw order shop,
+  warehouse, aging, mix) for closing, advancing, capturing clicks and drawing; a new service window joins that list.
 - Shop (`HudShopWindow`): buy, sell (click or drop an inventory item on the shop), repair, repair all; opens next to the
   inventory. Stock fills pages in authored order, each item at the first free place down the columns from the left; an
   item that does not fit starts the next page. Warehouse (`HudWarehouseWindow`): grid drag/drop between warehouse and inventory sends Deposit, Move and
-  Withdraw with the warehouse revision. Aging (`HudAgingWindow`, layout `HudCraftLayout`, art `HudCraftArt`): the shop
+  Withdraw with the warehouse revision. Aging and mixing share their frame in `HudWorkbench` (slide, main item, stone and sheltom slots, drop placement,
+  right-click take-back, start and exit, tooltips); each window supplies its placement rule, readiness, price, panel and
+  start info, whether taking the main item back clears the window (aging) and when the start button shows, and its work
+  (`Service`, `WorkAction`, `ResultText`, `Succeeded`; mixing keeps the formula it started with). `GameplayHud` sends and
+  shows any bench's work through `ApplyWorkAction` and `ShowWorkResult`. Aging
+  (`HudAgingWindow`, layout `HudCraftLayout`, art `HudCraftArt`): the shop
   frame with the aging title and the work panel; an inventory item dropped on it goes to the item box (refused with
   "Item can't be aged"), a sheltom to a cell whose grey hint asks it, a stone or ore to the stone cell. Placed items stay
   in the bag, dimmed and fixed; a right click gives one back. The plate shows `(level + 1) * price / 2`; the start button

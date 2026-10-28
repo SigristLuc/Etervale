@@ -97,16 +97,16 @@ public sealed partial class VfxRenderer
                         }
                         else
                         {
-                            AppendTurnedBillboard(texture, source.Blend, position, halfWidth, halfHeight, color, Rotation(particle.Angle));
+                            AppendTurnedBillboard(texture, source.Blend, position, halfWidth, halfHeight, color, VfxAngles.Rotation(particle.Angle));
                         }
 
                         break;
                     case VfxSequenceShape.Ground:
-                        AppendGround(texture, source.Blend, position, halfWidth, halfHeight, color, Rotation(particle.Angle) * turn);
+                        AppendGround(texture, source.Blend, position, halfWidth, halfHeight, color, VfxAngles.Rotation(particle.Angle) * turn);
                         break;
                     case VfxSequenceShape.Upright:
                     {
-                        var axis = Vector3.TransformNormal(new Vector3(0f, halfHeight, 0f), Rotation(particle.Angle) * turn);
+                        var axis = Vector3.TransformNormal(new Vector3(0f, halfHeight, 0f), VfxAngles.Rotation(particle.Angle) * turn);
                         AppendStrip(texture, source.Blend, position + axis, position - axis, halfWidth, color, camera, true);
                         break;
                     }
@@ -213,17 +213,31 @@ public sealed partial class VfxRenderer
         _scratch[at + 3] = new VfxVertex { Position = d, Color = color, TexCoord = new Vector2(uv.X, uv.W), Params = parameters };
     }
 
-    internal static Matrix Rotation(Vector3 degrees) =>
-        Matrix.CreateRotationX(MathHelper.ToRadians(degrees.X)) * Matrix.CreateRotationY(MathHelper.ToRadians(degrees.Y))
-        * Matrix.CreateRotationZ(MathHelper.ToRadians(degrees.Z));
-
     // Original colours are display values 0..255: rgb decode to linear, alpha stays linear.
     internal static Vector4 Decode(Vector4 color) =>
         new(SrgbToLinear(color.X / 255f), SrgbToLinear(color.Y / 255f), SrgbToLinear(color.Z / 255f), Math.Clamp(color.W / 255f, 0f, 1f));
 
+    // The sRGB curve sampled at 1024 steps and read with linear interpolation (within 1e-6 of the curve): every particle
+    // decodes its colour each frame, and the curve's Pow was the costliest part of building a quad.
+    private const int SrgbSteps = 1024;
+    private static readonly float[] SrgbTable = BuildSrgbTable();
+
     private static float SrgbToLinear(float value)
     {
-        value = Math.Clamp(value, 0f, 1f);
-        return value <= 0.04045f ? value / 12.92f : MathF.Pow((value + 0.055f) / 1.055f, 2.4f);
+        var scaled = Math.Clamp(value, 0f, 1f) * SrgbSteps;
+        var index = Math.Min((int)scaled, SrgbSteps - 1);
+        return SrgbTable[index] + (SrgbTable[index + 1] - SrgbTable[index]) * (scaled - index);
+    }
+
+    private static float[] BuildSrgbTable()
+    {
+        var table = new float[SrgbSteps + 1];
+        for (var index = 0; index <= SrgbSteps; index++)
+        {
+            var value = index / (float)SrgbSteps;
+            table[index] = value <= 0.04045f ? value / 12.92f : MathF.Pow((value + 0.055f) / 1.055f, 2.4f);
+        }
+
+        return table;
     }
 }

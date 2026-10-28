@@ -1,10 +1,12 @@
+using PristonTale.Simulation.World;
+
 namespace PristonTale.Simulation.Quests;
 
 // The duel arena of the third rank-up and of Fury of Phantom. Each duel is one player against the opponent the quest
 // opened for that player; inside the arena a player sees and fights only that opponent and its helpers.
 public static class QuestArena
 {
-    public const int FieldCode = 32;
+    public const int FieldCode = FieldCodes.QuestArena;
     public const int EntryX = 22497;
     public const int EntryZ = 9605;
     public const int OpponentX = 22091;

@@ -24,24 +24,28 @@ public sealed partial class GameScene
             : Task.FromResult(ItemUseOutcome.Refused(command.ExpectedRevision, ItemUseStatus.Rejected));
     }
 
+    // The return sparkle (ItemVfx.Return) over feet at a point: ether cores, crystal summons, warps and wing gates.
+    private PristonTale.Effects.Vfx.VfxHandle PlayReturn(Vector3 feet) =>
+        _skillFx?.SpawnAt(ItemVfx.Return, feet + Vector3.Up * GroundTraversal.VisualOffset, Matrix.Identity) ?? default;
+
     // Loads the item effects with the scene's effects, at the field load that creates the renderer.
     private void CreateItemEffects()
     {
-        if (_itemEffects is null && _effects is not null && _effectLibrary is not null && _renderer is not null)
-        {
-            _itemEffects = new ItemUseEffects(_effectLibrary, _assetRoot ?? "", _effects, _renderer.TransientLights, _skillSounds);
-        }
-
-        if (_forceOrbs is null && _effects is not null && _skillFx is not null)
+        if (_skillFx is not null && _itemEffects is null)
         {
             ItemVfx.Register(_skillFx.Library);
-            _forceOrbs = new ForceOrbPresentation(_skillFx, _effectLibrary, _assetRoot ?? "", _effects, _renderer?.TransientLights);
+            _itemEffects = new ItemUseEffects(_skillFx, _renderer?.TransientLights, _skillSounds);
+        }
+
+        var scripts = _skillFx is null ? null : new SystemScriptEffects(_skillFx.System, _skillFx.Library);
+        if (_forceOrbs is null && _skillFx is not null)
+        {
+            _forceOrbs = new ForceOrbPresentation(_skillFx, scripts, _renderer?.TransientLights);
         }
 
         if (_pets is null && _renderer is not null)
         {
-            _pets = new PremiumPetPresentation(new RendererActorScene(_renderer), _actorLoader, _assetRoot ?? "", _effectLibrary, _effects,
-                _renderer.TransientLights, _skillSounds, _log);
+            _pets = new PremiumPetPresentation(_actorScene, _actorLoader, _assetRoot ?? "", scripts, _renderer.TransientLights, _skillSounds, _log);
         }
     }
 
@@ -74,7 +78,7 @@ public sealed partial class GameScene
             else if (effect.Effect == ItemEffectKind.Return)
             {
                 // The sparkle stands where the server placed it: the user, the called monster or the revived player.
-                _returnEffect?.Start(effect.Position + Vector3.Up * GroundTraversal.VisualOffset);
+                PlayReturn(effect.Position);
             }
 
             _itemEffects?.Play(effect.Effect, effect.Entity, effect.Variant, position, PlayerPosition, _skillClockMs);
@@ -110,25 +114,35 @@ public sealed partial class GameScene
         _forceOrbs?.Update(_skillClockMs, ItemAnchor);
     }
 
-    private (Vector3 Position, float Facing)? PetOwnerPose(ulong entityId)
+    private (Vector3 Position, float Facing)? PetOwnerPose(ulong entityId) =>
+        TryGetDrawnPosition(entityId, out var position) && TryGetDrawnFacing(entityId, out var facing) ? (position, facing) : null;
+
+    private Vector3? ItemAnchor(ulong entityId) => TryGetDrawnPosition(entityId, out var position) ? position : null;
+
+    // Where an entity is drawn: the local player's body (its collision position) or a remote entity's drawn position.
+    private bool TryGetDrawnPosition(ulong entityId, out Vector3 position)
     {
-        if (_remote is not null && entityId == _remote.SelfEntityId && _playerBody is not null)
+        if (IsSelf(entityId))
         {
-            return (_playerBody.Position, PlayerYaw);
+            position = _playerBody.Position;
+            return true;
         }
 
-        return _remote is not null && _remote.TryGetDrawnPosition(entityId, out var position) && _remote.TryGetDrawnFacing(entityId, out var facing)
-            ? (position, facing)
-            : null;
+        position = default;
+        return _remote is not null && _remote.TryGetDrawnPosition(entityId, out position);
     }
 
-    private Vector3? ItemAnchor(ulong entityId)
+    private bool TryGetDrawnFacing(ulong entityId, out float facing)
     {
-        if (_remote is not null && entityId == _remote.SelfEntityId && _playerBody is not null)
+        if (IsSelf(entityId))
         {
-            return _playerBody.Position;
+            facing = PlayerYaw;
+            return true;
         }
 
-        return _remote is not null && _remote.TryGetDrawnPosition(entityId, out var position) ? position : null;
+        facing = 0f;
+        return _remote is not null && _remote.TryGetDrawnFacing(entityId, out facing);
     }
+
+    private bool IsSelf(ulong entityId) => _remote is not null && entityId == _remote.SelfEntityId && _playerBody is not null;
 }

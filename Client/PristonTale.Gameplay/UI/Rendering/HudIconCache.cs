@@ -17,7 +17,7 @@ public sealed class HudIconCache : IDisposable
     private readonly Dictionary<string, Texture2D> _textures = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _requested = new(StringComparer.OrdinalIgnoreCase);
     private readonly Queue<string> _pending = new();
-    private Task<PreparedIcon> _decode;
+    private readonly List<Task<PreparedIcon>> _decoding = [];
     private bool _disposed;
     private bool _failed;
 
@@ -31,11 +31,13 @@ public sealed class HudIconCache : IDisposable
     }
 
     public Texture2D Find(string key) => _textures.GetValueOrDefault(key);
-    public bool IsIdle => _pending.Count == 0 && _decode is null;
+    public bool IsIdle => _pending.Count == 0 && _decoding.Count == 0;
     public bool Failed => _failed || _index.IsFaulted;
 
     // A pack, a full shop and a full warehouse at once, with room to spare.
     private const int MaxIcons = 512;
+    // Icons decoding at once; every finished one uploads on the next update (each is at most 256 x 256).
+    private const int MaxDecodes = 4;
 
     public void Request(IEnumerable<string> keys)
     {
@@ -83,52 +85,58 @@ public sealed class HudIconCache : IDisposable
             return;
         }
 
-        if (_decode is not null)
+        for (var index = _decoding.Count - 1; index >= 0; index--)
         {
-            if (!_decode.IsCompleted)
+            var decode = _decoding[index];
+            if (!decode.IsCompleted)
             {
-                return;
+                continue;
             }
 
-            if (_decode.IsCompletedSuccessfully)
+            _decoding.RemoveAt(index);
+            if (decode.IsCompletedSuccessfully)
             {
-                var prepared = _decode.Result;
-                if (prepared.Image.IsValid && _requested.Contains(prepared.Key))
-                {
-                    var image = prepared.Image;
-                    var texture = new Texture2D(_device, image.Width, image.Height);
-                    try
-                    {
-                        texture.SetData(image.Pixels);
-                        if (_textures.Remove(prepared.Key, out var previous))
-                        {
-                            previous.Dispose();
-                        }
-
-                        _textures.Add(prepared.Key, texture);
-                    }
-                    catch
-                    {
-                        texture.Dispose();
-                        throw;
-                    }
-                }
+                Upload(decode.Result);
             }
             else
             {
                 _failed = true;
             }
+        }
 
-            _decode = null;
+        while (_decoding.Count < MaxDecodes && _pending.TryDequeue(out var key))
+        {
+            var paths = _index.Result;
+            var decode = Task.Run(() => Decode(key, paths));
+            _ = decode.ContinueWith(task => _log.Error($"HUD item icon failed: {key}", task.Exception),
+                CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            _decoding.Add(decode);
+        }
+    }
+
+    private void Upload(PreparedIcon prepared)
+    {
+        if (!prepared.Image.IsValid || !_requested.Contains(prepared.Key))
+        {
             return;
         }
 
-        if (_pending.TryDequeue(out var key))
+        var image = prepared.Image;
+        var texture = new Texture2D(_device, image.Width, image.Height);
+        try
         {
-            var paths = _index.Result;
-            _decode = Task.Run(() => Decode(key, paths));
-            _ = _decode.ContinueWith(task => _log.Error($"HUD item icon failed: {key}", task.Exception),
-                CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            texture.SetData(image.Pixels);
+            if (_textures.Remove(prepared.Key, out var previous))
+            {
+                previous.Dispose();
+            }
+
+            _textures.Add(prepared.Key, texture);
+        }
+        catch
+        {
+            texture.Dispose();
+            throw;
         }
     }
 
@@ -160,6 +168,6 @@ public sealed class HudIconCache : IDisposable
 
         _textures.Clear();
         _pending.Clear();
-        _decode = null;
+        _decoding.Clear();
     }
 }

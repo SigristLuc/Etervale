@@ -56,7 +56,7 @@ internal sealed partial class ShaderValidationProbe : Game
 
         _white = Texture(Color.White);
         _grey = Texture(new Color(128, 128, 128, 255));
-        _halves = new Texture2D(GraphicsDevice, 2, 1);
+        _halves = new Texture2D(GraphicsDevice, 2, 1, false, SurfaceFormat.ColorSRgb);
         _halves.SetData(new[] { Color.White, Color.Transparent });
         _target = new RenderTarget2D(GraphicsDevice, TargetSize, TargetSize, false, SurfaceFormat.Vector4, DepthFormat.None);
         _shaders = new PristonShaderLibrary(Content, ConsoleClientLog.Instance, _white);
@@ -418,7 +418,7 @@ internal sealed partial class ShaderValidationProbe : Game
 
     private Texture2D Texture(Color color)
     {
-        var texture = new Texture2D(GraphicsDevice, 1, 1);
+        var texture = new Texture2D(GraphicsDevice, 1, 1, false, SurfaceFormat.ColorSRgb);
         texture.SetData(new[] { color });
         return texture;
     }

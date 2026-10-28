@@ -67,7 +67,6 @@ public sealed class HudPuzzleExchange
         }
 
         painter.Flush();
-        HudMessageBox.Draw(painter, Title, "Do you wanna", pointer);
-        painter.TextCentered("exchange to the item?", HudMessageBox.Bounds.Left, HudMessageBox.Bounds.Right, HudMessageBox.Bounds.Y + 60);
+        HudMessageBox.Draw(painter, Title, "Do you wanna", pointer, "exchange to the item?");
     }
 }

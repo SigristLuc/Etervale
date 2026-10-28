@@ -410,8 +410,8 @@ Add a player command (tick-only, not durable):
    players must see them; add a `CombatEventKind`/`SkillEventPhase` value (Contracts) only together with its encoding.
 3. Map the packet in `Server/PristonTale.Server/Net/ClientSession.cs`, catch `WorldBusyException`, and document the
    opcode in [protocol.md](protocol.md) and the edge in [server.md](server.md).
-4. Add a regression case in `tests/PristonTale.Tests` (e.g. `NetworkHardeningTests.cs` for quota behaviour) and
-   register it in `Program.cs` with `specifications.AddRange(X.Cases())`.
+4. Add a regression case in `tests/PristonTale.Tests` (e.g. `NetworkHardeningTests.cs` for quota behaviour); the runner
+   discovers its class's `Cases()`.
 
 Add a durable character operation:
 

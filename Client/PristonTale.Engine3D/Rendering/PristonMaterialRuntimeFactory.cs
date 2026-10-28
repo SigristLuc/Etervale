@@ -99,7 +99,7 @@ internal sealed class PristonMaterialRuntimeFactory
         var alphaTest = !softAlpha && UsesAlphaTest(material);
 
         // The alpha blend (1) with zero transparency is opaque in the original game and remains mergeable.
-        var lateBlend = material.BlendType is 2 or 3 or 4 or 5 or 6;
+        var lateBlend = PristonBlendType.IsLate(material.BlendType);
         // Most late-flagged materials are foliage cut-outs drawn opaque with their depth: they stay in the alpha-tested
         // queue, so the depth pre-pass gives them depth, motion and occlusion like any other leaf. Drawn late, their
         // leaves would take the depth, motion and fog of the surface behind them (a ghosted, see-through canopy).
@@ -109,7 +109,8 @@ internal sealed class PristonMaterialRuntimeFactory
         return (alphaTest, transparent);
     }
 
-    private static bool UsesAlphaTest(PristonMaterial material)
+    // A material with an opacity map or a TGA texture (the texture carries its alpha) is cut out by that alpha.
+    internal static bool UsesAlphaTest(PristonMaterial material)
     {
         if (material.OpacityName.Length > 0 || IsTga(material.TextureName))
             return true;

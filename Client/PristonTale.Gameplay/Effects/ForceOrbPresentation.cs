@@ -1,7 +1,5 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Client.Net.Presence;
-using PristonTale.Effects;
-using PristonTale.Effects.Effects;
 using PristonTale.Effects.Vfx;
 using PristonTale.Engine3D.Rendering.Lighting;
 using PristonTale.Protocol.Packets;
@@ -16,17 +14,15 @@ namespace PristonTale.Gameplay.Effects;
 public sealed class ForceOrbPresentation
 {
     private readonly SkillPresentation _skills;
-    private readonly EffectsEngine _engine;
+    private readonly IScriptEffects _scripts;
     private readonly PristonTransientLights _lights;
-    private readonly EffectDefinition _hit;
     private readonly Dictionary<ulong, Glow> _active = new();
 
-    public ForceOrbPresentation(SkillPresentation skills, EffectLibrary library, string assetRoot, EffectsEngine engine, PristonTransientLights lights)
+    public ForceOrbPresentation(SkillPresentation skills, IScriptEffects scripts, PristonTransientLights lights)
     {
         _skills = skills;
-        _engine = engine;
+        _scripts = scripts;
         _lights = lights;
-        _hit = library?.ParticleScript(assetRoot, "ShellTomWeaponHit");
     }
 
     public int ActiveCount => _active.Count;
@@ -56,11 +52,7 @@ public sealed class ForceOrbPresentation
             if (hit.Kind == CombatEventKind.Hit && _active.ContainsKey(hit.AttackerId) && position(hit.TargetId) is { } target)
             {
                 var at = target + Vector3.Up * 22f;
-                if (_hit is not null && _engine.Instances.Count < 128)
-                {
-                    _engine.Spawn(_hit, at);
-                }
-
+                _scripts?.Spawn("ShellTomWeaponHit", at, Matrix.Identity);
                 _lights?.Add(at, new Color(255, 255, 255), 250, 1);
             }
         }

@@ -42,7 +42,6 @@ SamplerState AoInputSampler : register(s2) = sampler_state
     Texture = (AoInput); MinFilter = Point; MagFilter = Point; MipFilter = Point; AddressU = Clamp; AddressV = Clamp;
 };
 
-static const float SkyDepth = 50000.0;
 static const uint SliceCount = 2;
 static const uint StepCount = 3;
 static const uint ContactSteps = 10;
@@ -144,7 +143,7 @@ float ContactShadow(float2 pixel, float3 p, float3 n)
 
     // A fixed jitter per pixel: one moving every frame shimmered wherever the temporal history was rejected (a turning
     // camera, moving actors).
-    float jitter = frac(52.9829189 * frac(dot(pixel, float2(0.06711056, 0.00583715))));
+    float jitter = InterleavedGradientNoise(pixel);
     float3 start = p + n * (0.002 * length(p));
     float3 stepWorld = toSun * (ContactParams.x / ContactSteps);
     float occlusion = 0.0;
@@ -182,7 +181,7 @@ float4 PS_Occlusion(FullscreenOut i) : SV_Target0
     float2 pixel = floor(i.Uv * AoSize.xy);
     float2 uv = (pixel + 0.5) * AoSize.zw;
     float depth = DepthAt(uv);
-    if (depth > SkyDepth)
+    if (depth > SkyDepthThreshold)
     {
         return float4(1.0, 1.0, depth, 1.0);
     }
@@ -201,7 +200,7 @@ float4 PS_Blur(FullscreenOut i) : SV_Target0
 {
     float2 pixel = floor(i.Uv * AoSize.xy);
     float4 centre = AoInput.SampleLevel(AoInputSampler, (pixel + 0.5) * AoSize.zw, 0);
-    if (centre.z > SkyDepth)
+    if (centre.z > SkyDepthThreshold)
     {
         return centre;
     }

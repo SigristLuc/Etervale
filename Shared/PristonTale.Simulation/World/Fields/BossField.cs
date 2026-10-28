@@ -1,3 +1,4 @@
+using PristonTale.Simulation.World;
 namespace PristonTale.Simulation.World.Fields;
 
 public static class BossField
@@ -6,7 +7,7 @@ public static class BossField
         "Boss", "Boss", FieldState.Dungeon, FieldBackdrops.Ruin2,
         "Field\\Boss\\Boss.smd", [])
     {
-        FieldCode = 36,
+        FieldCode = FieldCodes.Boss,
         Center = new FieldPoint(33000, 50036),
         WarpGates =
         [

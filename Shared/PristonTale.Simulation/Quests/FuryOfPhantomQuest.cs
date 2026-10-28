@@ -1,5 +1,6 @@
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Simulation.World;
 
 namespace PristonTale.Simulation.Quests;
 
@@ -156,7 +157,7 @@ public static class FuryOfPhantomQuest
             case 3 or 4 or 8 or 9 or 10 or 11 when active.ArenaWon:
                 // Each won duel moves the quest on and sends the player back to Pillai.
                 journal.Active = active with { State = state + 1, ArenaWon = false };
-                context.Travel = new QuestTravel(QuestTravelKind.Home, QuestClasses.PillaiField, 0, 0);
+                context.Travel = new QuestTravel(QuestTravelKind.Home, FieldCodes.Pillai, 0, 0);
                 return true;
             case 5:
                 journal.Active = QuestSteps.StartHunt(context, active with { State = 7 }, QuestMonsters.GalluviaValley, SecondHunt, QuestTimerKind.Display);

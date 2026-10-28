@@ -29,7 +29,7 @@ internal sealed class MonsterCrystalUse : ItemUseAction
             return ItemUseStatus.LevelTooLow;
         }
 
-        if (use.Here is null || use.Here.State == FieldState.Village || context.Field.FieldId == MonsterCrystals.QuestArenaField)
+        if (use.Here is null || use.Here.State == FieldState.Village || context.Field.FieldId == FieldCodes.QuestArena)
         {
             return ItemUseStatus.NotHere;
         }

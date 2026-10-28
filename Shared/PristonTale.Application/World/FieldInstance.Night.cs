@@ -23,6 +23,7 @@ public sealed partial class FieldInstance
     private readonly Dictionary<int, ulong> _eventCreatures = new();
     private readonly Dictionary<ulong, WorldNpc> _hiddenNpcs = new();
     private int _appearDraw = -1;
+    private MonsterDefinition[]? _nightCreatures;
 
     // Set by the world before each step.
     internal bool Night { get; set; }
@@ -118,10 +119,10 @@ public sealed partial class FieldInstance
     // An event creature of this field that is not walking (never opened, or killed and gone) walks again at a random point.
     private void ReopenEventCreatures()
     {
-        foreach (var creature in _catalog.All)
+        _nightCreatures ??= _catalog.All.Where(c => c.EventCode == NightCreatureEvent && c.EventInfo == FieldId).ToArray();
+        foreach (var creature in _nightCreatures)
         {
-            if (creature.EventCode != NightCreatureEvent || creature.EventInfo != FieldId
-                || _eventCreatures.TryGetValue(creature.Code, out var id) && _monsters.ContainsKey(id))
+            if (_eventCreatures.TryGetValue(creature.Code, out var id) && _monsters.ContainsKey(id))
             {
                 continue;
             }

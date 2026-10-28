@@ -65,10 +65,8 @@ internal sealed class MaterialFactory
         }
 
         var source = SelectBaseTexture(material);
-        var alphaTest = UsesAlphaTest(material);
-        var lateBlend = material.BlendType is 2 or 3 or 4 or 5 or 6;
-        var transparent = material.RenderLast
-            || (!(alphaTest && !lateBlend) && (lateBlend || material.Transparency > 0.001f));
+        // The engine's queue decision, so a late-flagged foliage cut-out exports as MASK, drawn opaque as the game does.
+        var (alphaTest, transparent) = PristonMaterialRuntimeFactory.Classify(material);
         var alphaMode = AlphaMode.OPAQUE;
         if (transparent)
         {
@@ -147,9 +145,9 @@ internal sealed class MaterialFactory
         // stage vertex alpha, so alpha-blend and plain transparent materials keep an opaque texture.
         return material.BlendType switch
         {
-            2 or 4 or 5 => BlendAlpha.Luminance,
-            3 => BlendAlpha.Shadow,
-            6 => BlendAlpha.InverseShadow,
+            PristonBlendType.Color or PristonBlendType.Lamp or PristonBlendType.AddColor => BlendAlpha.Luminance,
+            PristonBlendType.Shadow => BlendAlpha.Shadow,
+            PristonBlendType.InverseShadow => BlendAlpha.InverseShadow,
             _ => BlendAlpha.Opaque
         };
     }
@@ -301,24 +299,6 @@ internal sealed class MaterialFactory
             string.Empty);
     }
 
-    private static bool UsesAlphaTest(PristonMaterial material)
-    {
-        if (material.OpacityName.Length > 0
-            || material.TextureName.EndsWith(".tga", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        foreach (var textureName in material.AnimationTextureNames)
-        {
-            if (textureName.EndsWith(".tga", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     private void ReportTextureIssue(string textureName, string reason)
     {

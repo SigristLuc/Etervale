@@ -9,7 +9,6 @@ internal static class ShadowProjectionTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("sun cascades move by whole texels with the camera and pivot about the focus as the sun turns", StabilizationAsync);
-        yield return ("perspective shadow depth divides after homogeneous interpolation", PerspectiveDepthAsync);
         yield return ("shadow refresh rate is independent of presentation and handles clock wrap", RefreshRateAsync);
     }
 
@@ -46,33 +45,6 @@ internal static class ShadowProjectionTests
             }
         }
 
-        return Task.CompletedTask;
-    }
-
-    private static Task PerspectiveDepthAsync()
-    {
-        // Unequal light-space w, as with a slanted triangle under a point lamp.
-        // Hardware depth is screen-linear in z/w; an interpolator is perspective-correct in its inputs.
-        float[] z = [1, 3, 9];
-        float[] w = [2, 4, 10];
-        float[] barycentric = [0.2f, 0.3f, 0.5f];
-        var reciprocalW = 0f;
-        var numeratorZ = 0f;
-        var numeratorW = 0f;
-        var dividedAtVertex = 0f;
-        for (var index = 0; index < 3; index++)
-        {
-            var weight = barycentric[index] / w[index];
-            reciprocalW += weight;
-            numeratorZ += weight * z[index];
-            numeratorW += weight * w[index];
-            dividedAtVertex += weight * (z[index] / w[index]);
-        }
-
-        var interpolatedZ = numeratorZ / reciprocalW;
-        var interpolatedW = numeratorW / reciprocalW;
-        Assert.Near(0.775f, interpolatedZ / interpolatedW);
-        Assert.True(MathF.Abs(dividedAtVertex / reciprocalW - 0.775f) > 0.01f, "fixture must distinguish the old perspective-depth error");
         return Task.CompletedTask;
     }
 

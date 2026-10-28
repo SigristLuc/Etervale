@@ -8,13 +8,14 @@ using PristonTale.Persistence.Postgres;
 using PristonTale.Persistence.Sqlite;
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.World;
 
 // Dev CLI to seed accounts + characters into the same database as the online server.
 // Reuses the real persistence layer (PasswordHasher, repositories, CharacterRecordFactory) so seeded data
 // is identical to what the server would create. The schema is ensured idempotently via DatabaseMigrator.
 
 const string DefaultSqlitePath = "data/pristontale.db";
-const int StartingFieldId = 3; // Ricarten
+const int FieldCodes.Ricarten = 3; // Ricarten
 const int MaxSlots = 6;
 
 var argv = new List<string>(args);
@@ -108,7 +109,7 @@ async Task<int> CreateBots(List<string> a)
     if (placed && (!TryParseClass(classText!, out playerClass) || fieldText is null || atText is null))
         return Usage("placed bots need --class, --field and --at");
     var level = int.TryParse(levelText, out var parsedLevel) ? Math.Max(1, parsedLevel) : 1;
-    var field = int.TryParse(fieldText, out var parsedField) ? parsedField : StartingFieldId;
+    var field = int.TryParse(fieldText, out var parsedField) ? parsedField : FieldCodes.Ricarten;
     var at = (atText ?? "0,0").Split(',').Select(value => float.Parse(value, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
     // Spacing 0 packs every bot into one 500-unit square (a crowd); otherwise a grid with that spacing.
     var spacing = float.TryParse(spacingText, System.Globalization.CultureInfo.InvariantCulture, out var parsedSpacing) ? parsedSpacing : 0f;
@@ -172,7 +173,7 @@ async Task<int> AddCharacter(List<string> a)
     short slot = 0;
     while (used.Contains(slot)) slot++;
 
-    var record = CharacterRecordFactory.NewStarter(classes, account.Id, name, slot, playerClass, StartingFieldId, level: level);
+    var record = CharacterRecordFactory.NewStarter(classes, account.Id, name, slot, playerClass, FieldCodes.Ricarten, level: level);
     var created = await characters.CreateAsync(record);
     Console.WriteLine($"created character #{created.Id} '{created.Name}' ({playerClass}, level {created.Level}) in slot {slot} of '{user}'");
     return 0;

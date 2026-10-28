@@ -4,6 +4,7 @@ using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Simulation.World;
 
 namespace PristonTale.Application.World;
 
@@ -26,7 +27,6 @@ internal interface IFieldPremiumHost
 internal sealed class FieldPremium
 {
     // Bless Castle: the per-attack premium effects do not work there.
-    public const int CastleFieldId = 33;
 
     private readonly Dictionary<ulong, Attack> _attacks = new();
     private readonly Dictionary<ulong, PetCycle> _helpers = new();
@@ -48,7 +48,7 @@ internal sealed class FieldPremium
 
     public void RecordHit(WorldPlayer player, MonsterInstance monster, int damage)
     {
-        if (_petStriking || _fieldId == CastleFieldId || damage <= 0)
+        if (_petStriking || _fieldId == FieldCodes.Castle || damage <= 0)
         {
             return;
         }

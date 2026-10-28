@@ -40,18 +40,13 @@ public sealed partial class HudCombat
     }
 
     private readonly Dictionary<ulong, Entity> _entities = new();
-    private readonly (string Text, Color Color)[] _history = new (string, Color)[64];
     private WorldRenderCatalog _catalog = WorldRenderCatalog.Empty;
     private ulong _self;
     private int _levelValue = -1;
     private string _levelText = "";
     private int _percentValue = -1;
     private string _percentText = "";
-    private int _historyCount;
-    private int _historyEnd;
 
-    public int HistoryCount => _historyCount;
-    public string LatestMessage => _historyCount > 0 ? _history[(_historyEnd + 63) % 64].Text : "";
     public void SetCatalog(WorldRenderCatalog catalog) => _catalog = catalog;
 
     // What the client knows of an entity in view: its kind and a summon's owner (Unspecified when not in view).
@@ -107,34 +102,12 @@ public sealed partial class HudCombat
             {
                 NoteAttack(combat.TargetId);
             }
-
-            if (combat.Kind != CombatEventKind.Hit || combat.AttackerId != _self && combat.TargetId != _self)
-            {
-                continue;
-            }
-
-            var prefix = combat.Critical ? "Critical! " : "";
-            var outgoing = combat.AttackerId == _self;
-            var text = outgoing ? $"{prefix}{Name(combat.TargetId)}: -{combat.Damage} HP" : $"{prefix}You received {combat.Damage} damage";
-            if (combat.Killed)
-            {
-                text += " (defeated)";
-            }
-
-            Add(text, outgoing ? Color.White : MonsterColor);
         }
 
         foreach (var id in update.Removed)
         {
             _entities.Remove(id);
         }
-    }
-
-    public void Add(string text, Color color)
-    {
-        _history[_historyEnd] = (text, color);
-        _historyEnd = (_historyEnd + 1) % _history.Length;
-        _historyCount = Math.Min(_historyCount + 1, _history.Length);
     }
 
     // As in the original, only an attack that finds the monster at full life enables the classic bar.

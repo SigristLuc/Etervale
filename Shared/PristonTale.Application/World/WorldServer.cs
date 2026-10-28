@@ -392,7 +392,7 @@ public sealed partial class WorldServer
 
             candidate.RecordInventoryOperation(command);
             var snapshot = CharacterRecordFactory.Capture(session.Loaded, candidate, connection.FieldId, connection.Player.Position);
-            var outcome = new InventoryOutcome(true, candidate.InventoryRevision, "committed");
+            var outcome = new InventoryOutcome(true, candidate.InventoryRevision, "");
             if (command.Action == InventoryAction.ConsumePotion)
             {
                 var anchor = original.Inventory.Find(command.ItemId);

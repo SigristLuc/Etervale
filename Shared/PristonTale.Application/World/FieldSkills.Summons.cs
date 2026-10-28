@@ -29,7 +29,7 @@ internal sealed partial class FieldSkills
     private bool CallSummon(WorldPlayer owner, SkillRule rule, int rank)
     {
         var summon = rule.Summon;
-        if (summon is null || owner.Appearance.InVillage || !_host.TryFindMonsterDefinition(summon.Monster, out var definition))
+        if (summon is null || owner.InVillage || !_host.TryFindMonsterDefinition(summon.Monster, out var definition))
         {
             return false;
         }

@@ -230,16 +230,24 @@ public sealed class HudPainter : IDisposable
             return value;
         }
 
-        for (var length = value.Length - 1; length > 0; length--)
+        // The longest prefix that fits with the ellipsis; a prefix's width grows with its length, so bisect it.
+        var fitted = string.Empty;
+        for (int low = 1, high = value.Length - 1; low <= high;)
         {
+            var length = (low + high) / 2;
             var candidate = value[..length] + "...";
             if (Measure(candidate) <= width)
             {
-                return candidate;
+                fitted = candidate;
+                low = length + 1;
+            }
+            else
+            {
+                high = length - 1;
             }
         }
 
-        return string.Empty;
+        return fitted;
     }
 
     // Item info box: nine 16x16 tiles repeated over a box measured in whole tiles.

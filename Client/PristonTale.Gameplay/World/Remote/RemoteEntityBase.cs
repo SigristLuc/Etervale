@@ -370,7 +370,6 @@ public abstract class RemoteEntityBase
             return 1f;
         }
 
-        var translation = Locomotion.BaseTranslation(_moveSpeed);
-        return motion == MotionCode.Walk ? AnimationRate.MoveRate(translation) : AnimationRate.MoveRate((translation * 460) >> 8);
+        return Locomotion.StepRate(_moveSpeed, motion != MotionCode.Walk);
     }
 }

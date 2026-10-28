@@ -1,0 +1,411 @@
+using System.Diagnostics;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
+using PristonTale.Gameplay.Screens.Framework;
+using PristonTale.Gameplay.UI.Chat;
+using PristonTale.Gameplay.UI.Inventory;
+using PristonTale.Gameplay.UI.Npc;
+using PristonTale.Gameplay.UI.Quests;
+using PristonTale.Gameplay.UI.Rendering;
+using PristonTale.Gameplay.UI.Travel;
+using PristonTale.Gameplay.UI.Widgets;
+using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Progression;
+using PristonTale.Simulation.Quests;
+using PristonTale.Simulation.World.Npcs;
+using PristonTale.Contracts.Characters;
+
+namespace PristonTale.Gameplay.UI;
+
+// Mouse and keyboard: keys, clicks routed to the windows in priority order, menu buttons and toggles, and what the HUD captures.
+public sealed partial class GameplayHud
+{
+    private bool ClickBuff(Point pointer)
+    {
+        if (Statuses is null || SelfId == 0)
+        {
+            return false;
+        }
+
+        var code = _skillHud.BuffAt(pointer);
+        if (code == 0)
+        {
+            return false;
+        }
+
+        var now = _clock.Elapsed.TotalSeconds;
+        if (code == _lastBuffClicked && now - _lastBuffClickSeconds < 0.4 && PristonTale.Simulation.Skills.SkillRuleCatalog.TryGet(code, out var rule) && rule.Summon is not null)
+        {
+            _lastBuffClicked = 0;
+            SummonModeRequested?.Invoke(code);
+            return true;
+        }
+
+        _lastBuffClicked = code;
+        _lastBuffClickSeconds = now;
+        return true;
+    }
+
+    private void UpdateKeys(KeyboardState keyboard)
+    {
+        if (keyboard.IsKeyDown(Keys.LeftControl) || keyboard.IsKeyDown(Keys.RightControl))
+        {
+            return;
+        }
+
+        if (Pressed(keyboard, Keys.I) || Pressed(keyboard, Keys.V))
+        {
+            TogglePanel(_inventorySlide);
+        }
+
+        if (Pressed(keyboard, Keys.C))
+        {
+            TogglePanel(_statusSlide);
+        }
+
+        if (Pressed(keyboard, Keys.S))
+        {
+            TogglePanel(_skillSlide);
+        }
+
+        if (Pressed(keyboard, Keys.X))
+        {
+            _systemMenu = !_systemMenu;
+        }
+
+        if (Pressed(keyboard, Keys.Q))
+        {
+            _questWindow.Toggle();
+        }
+
+        if (Pressed(keyboard, Keys.R))
+        {
+            RunToggleRequested?.Invoke();
+        }
+
+        if (Pressed(keyboard, Keys.Space))
+        {
+            YahooKeyPressed?.Invoke();
+        }
+    }
+
+    private void Click(OwnerState state, HudLayout layout, Point pointer, Point design, KeyboardState keyboard)
+    {
+        if (_restart.Click(layout, pointer, RestartOffer?.FieldOpen == true))
+        {
+            return;
+        }
+
+        if (_settingsOpen && HudSettingsPanel.Box.Contains(pointer))
+        {
+            if (HudSettingsPanel.OkButton.Contains(pointer))
+            {
+                _settingsOpen = false;
+            }
+            else
+            {
+                _settings.Click(pointer, keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift));
+            }
+
+            return;
+        }
+
+        if (_chat.Window.Click(layout, pointer, SideWindowOpen))
+        {
+            return;
+        }
+
+        if (_itemUse.Click(pointer, state) || _wingGate.Click(pointer, state) || _puzzle.Click(pointer, state, _services))
+        {
+            return;
+        }
+
+        if (_skills.TrainingPending)
+        {
+            _skills.HandleTrainingClick(PanelOrigin(layout, _skillSlide), pointer, state, _skillMaster, _progression);
+            return;
+        }
+
+        if (ClickQuests(layout, pointer))
+        {
+            return;
+        }
+
+        if (_npcOpen && ClickNpc(state, layout, pointer))
+        {
+            return;
+        }
+
+        if (_shop.Contains(pointer))
+        {
+            ClickShop(state, pointer);
+            return;
+        }
+
+        if (_systemMenu)
+        {
+            var entry = HudSystemMenu.At(design);
+            if (entry == HudSystemEntry.Settings)
+            {
+                _settingsOpen = true;
+                _systemMenu = false;
+                return;
+            }
+
+            if (entry is not null)
+            {
+                return;
+            }
+
+            if (_hoveredButton != HudMenuButton.System)
+            {
+                _systemMenu = false;
+            }
+        }
+
+        if (_hoveredButton is { } button)
+        {
+            PressButton(button);
+            return;
+        }
+
+        if (ClickBuff(pointer))
+        {
+            return;
+        }
+
+        if (_hoveredToggle == HudToggle.Map)
+        {
+            _mapVisible = !_mapVisible;
+            return;
+        }
+
+        if (_hoveredToggle == HudToggle.Walk)
+        {
+            RunToggleRequested?.Invoke();
+            return;
+        }
+
+        ClickPanels(state, layout, pointer);
+    }
+
+    private bool ClickNpc(OwnerState state, HudLayout layout, Point pointer)
+    {
+        var current = _npc.Current;
+        if (_npc.CanTrain && _npc.Destinations.Count == 0 && HudNpcPanel.TrainingButton(layout).Contains(pointer))
+        {
+            _services.Request(current.EntityId, current.Name, NpcServiceKind.SkillMaster, NpcServiceAction.Open);
+            return true;
+        }
+
+        if (_npc.DestinationAt(pointer) is { } destination && state is not null)
+        {
+            _services.Request(current.EntityId, current.Name, NpcServiceKind.Teleporter, NpcServiceAction.Teleport, state.InventoryRevision,
+                anchor: destination.Index);
+            return true;
+        }
+
+        if (_npc.ServiceAt(pointer) is { } service)
+        {
+            _services.Request(current.EntityId, current.Name, service.Kind, NpcServiceAction.Open);
+            return true;
+        }
+
+        if (HudNpcPanel.OkButton.Contains(pointer) || _npc.CanTrain && HudNpcPanel.ExitButton(layout).Contains(pointer))
+        {
+            _npcOpen = false;
+            _npc.Dismiss();
+            _quests.LeaveNpc();
+            return true;
+        }
+
+        return HudNpcPanel.Box.Contains(pointer) || _npc.CanTrain && HudNpcPanel.SkillMasterBox(layout).Contains(pointer);
+    }
+
+    private void PressButton(HudMenuButton button)
+    {
+        switch (button)
+        {
+            case HudMenuButton.Status:
+                TogglePanel(_statusSlide);
+                break;
+            case HudMenuButton.Inventory:
+                TogglePanel(_inventorySlide);
+                break;
+            case HudMenuButton.Skills:
+                TogglePanel(_skillSlide);
+                break;
+            case HudMenuButton.System:
+                _systemMenu = !_systemMenu;
+                break;
+            case HudMenuButton.Quest:
+                _questWindow.Toggle();
+                break;
+        }
+    }
+
+    private void ClickPanels(OwnerState state, HudLayout layout, Point pointer)
+    {
+        if (_inventorySlide.FullyOpen && HudInventoryLayout.Close(PanelOrigin(layout, _inventorySlide)).Contains(pointer))
+        {
+            _inventorySlide.Open = false;
+            _inventory.CancelDrag();
+            return;
+        }
+
+        if (_statusSlide.FullyOpen)
+        {
+            var origin = PanelOrigin(layout, _statusSlide);
+            if (HudStatusPanel.Close(origin).Contains(pointer))
+            {
+                _statusSlide.Open = false;
+                return;
+            }
+
+            if (state is not null && state.StatPoints > 0 && !_progression.Pending)
+            {
+                for (var index = 0; index < 5; index++)
+                {
+                    if (HudStatusPanel.AllocateButton(origin, index).Contains(pointer))
+                    {
+                        _progression.Submit(new ProgressionCommand(Guid.NewGuid(), state.ProgressionRevision,
+                            ProgressionAction.AllocateAttribute, (CharacterAttribute)index, 1));
+                    }
+                }
+            }
+        }
+
+        if (_skillSlide.FullyOpen)
+        {
+            var origin = PanelOrigin(layout, _skillSlide);
+            if (HudSkillTreeLayout.Close(origin).Contains(pointer))
+            {
+                _skillSlide.Open = false;
+                _skillMaster = 0;
+                return;
+            }
+
+            _skills.HandleTrainingClick(origin, pointer, state, _skillMaster, _progression);
+        }
+    }
+
+    private bool ServiceWindowOpen(bool blockingOnly)
+    {
+        foreach (var window in _serviceWindows)
+        {
+            if (window.IsOpen && (!blockingOnly || window.BlocksWorld))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool ServiceWindowContains(Point pointer)
+    {
+        foreach (var window in _serviceWindows)
+        {
+            if (window.Contains(pointer))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool Captures(HudLayout layout, Point pointer, Point design)
+    {
+        if (BlocksWorld)
+        {
+            return true;
+        }
+
+        if (_itemUse.Captures(pointer) || _wingGate.Captures(pointer) || _puzzle.Captures(pointer) || _premium.Contains(pointer))
+        {
+            return true;
+        }
+
+        if (HudBar.Captures(design) || MinimapShown && HudMinimap.Box(layout).Contains(pointer) || _skillHud.BuffAt(pointer) != 0
+            || WindowContains(layout, _inventorySlide, pointer) || WindowContains(layout, _statusSlide, pointer) || WindowContains(layout, _skillSlide, pointer))
+        {
+            return true;
+        }
+
+        if (ServiceWindowContains(pointer))
+        {
+            return true;
+        }
+
+        if (_quests.SkillResetBox || _quests.Confirming || _quests.Dialog is not null && HudQuestDialog.Box.Contains(pointer)
+            || _questWindow.Contains(layout, pointer) || _skillHud.QuestTimerAt(pointer))
+        {
+            return true;
+        }
+
+        return _restart.Open && HudRestartPanel.Box(layout).Contains(pointer)
+            || _systemMenu && HudSystemMenu.Bounds.Contains(design)
+            || _settingsOpen && HudSettingsPanel.Box.Contains(pointer)
+            || _npcOpen && (HudNpcPanel.Box.Contains(pointer) || _npc.CanTrain && HudNpcPanel.SkillMasterBox(layout).Contains(pointer))
+            || _skills.TrainingPending && HudMessageBox.Bounds.Contains(pointer);
+    }
+
+    private static HudMenuButton? ButtonAt(Point design)
+    {
+        foreach (var button in Enum.GetValues<HudMenuButton>())
+        {
+            if (HudBar.MenuButton(button).Contains(design))
+            {
+                return button;
+            }
+        }
+
+        return null;
+    }
+
+    private static HudToggle? ToggleAt(Point design)
+    {
+        foreach (var toggle in Enum.GetValues<HudToggle>())
+        {
+            if (HudBar.Toggle(toggle).Contains(design))
+            {
+                return toggle;
+            }
+        }
+
+        return null;
+    }
+
+    private void TogglePanel(HudSlide slide)
+    {
+        if (slide.Open)
+        {
+            slide.Open = false;
+            if (slide == _skillSlide)
+            {
+                _skillMaster = 0;
+                _skills.CancelTraining();
+            }
+
+            _inventory.CancelDrag();
+            return;
+        }
+
+        _skillMaster = 0;
+        OpenOnly(slide);
+    }
+
+    // The status, skill and inventory windows share the same screen area; opening one closes the others.
+    private void OpenOnly(HudSlide slide)
+    {
+        _inventorySlide.Open = slide == _inventorySlide;
+        _statusSlide.Open = slide == _statusSlide;
+        _skillSlide.Open = slide == _skillSlide;
+        _skills.CancelTraining();
+        _inventory.CancelDrag();
+    }
+
+    private bool Pressed(KeyboardState state, Keys key) => state.IsKeyDown(key) && !_previousKeyboard.IsKeyDown(key);
+}

@@ -1,5 +1,6 @@
-// The material model: metallic-roughness inputs from the adapted legacy textures. Base colour, the second layer and
-// vertex colours are sRGB-encoded and decoded exactly. Requires MATERIAL_CONSTANTS and MATERIAL_RESOURCES.
+// The material model: metallic-roughness inputs from the adapted legacy textures. Base colour and the second layer are
+// sRGB textures the sampler decodes before filtering; vertex colours arrive decoded. Requires MATERIAL_CONSTANTS and
+// MATERIAL_RESOURCES.
 #ifndef MATERIALS_MATERIAL_HLSLI
 #define MATERIALS_MATERIAL_HLSLI
 
@@ -20,7 +21,7 @@ struct Surface
 float4 SampleBaseColor(float2 uv, float4 vertexColour)
 {
     float4 texel = BaseColorMap.Sample(BaseColorSampler, uv);
-    return BaseColorFactor * float4(SrgbToLinear(texel.rgb) * vertexColour.rgb, texel.a * vertexColour.a);
+    return BaseColorFactor * float4(texel.rgb * vertexColour.rgb, texel.a * vertexColour.a);
 }
 
 void AlphaTest(float coverage)
@@ -63,7 +64,7 @@ Surface SampleSurface(float2 uv0, float2 layerUv, float4 vertexColour, float3 no
     [branch]
     if (LayerMode > 0.5)
     {
-        float3 layer = SrgbToLinear(LayerMap.SampleGrad(LayerSampler, layerUv, layerDx, layerDy).rgb) * LayerStrength;
+        float3 layer = LayerMap.SampleGrad(LayerSampler, layerUv, layerDx, layerDy).rgb * LayerStrength;
         if (LayerMode < 1.5)
         {
             s.Albedo *= layer;

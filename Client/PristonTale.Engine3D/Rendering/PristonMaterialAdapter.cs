@@ -108,4 +108,8 @@ internal static class PristonBlendType
     public const uint AddColor = 5;
     // Zero, inverse source colour.
     public const uint InverseShadow = 6;
+
+    // A colour-weighted, darkening or additive mode (everything but plain alpha): drawn with the blended surfaces, never
+    // as a cut-out.
+    public static bool IsLate(uint blendType) => blendType is >= Color and <= InverseShadow;
 }

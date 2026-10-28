@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Application.Services;
+using PristonTale.Effects.Vfx;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Effects;
@@ -14,7 +15,8 @@ using PristonTale.Contracts.Characters;
 namespace PristonTale.Tests;
 
 // Look regressions of the photometric renderer on real assets (needs the game data and the compiled content):
-//  - "charselect": the character-select stage with its braziers and a roster character, as the screen builds them;
+//  - "charselect": the character-select stage with its braziers, their green flames and a roster character, as the screen
+//    builds them;
 //    fails when more than BlownLimit of the frame is clipped to white (the statues beside the braziers were), or more
 //    than SaturatedLimit has a channel clipped (the flames and their glow have one; statues burnt to orange would exceed it);
 //  - "actor": NPCs in daylight on a flat background, front and back; fails when the ring of pixels along a silhouette is
@@ -46,6 +48,9 @@ internal sealed partial class SceneLookProbe : Game
     private OpeningCinematic? _opening;
     private PristonSkyLibrary? _sky;
     private EffectLibrary? _effects;
+    private VfxSystem? _flameSystem;
+    private VfxRenderer? _flameRenderer;
+    private CharSelectFlames? _flames;
     private bool _built;
     private int _frames;
 
@@ -106,6 +111,13 @@ internal sealed partial class SceneLookProbe : Game
             _selectScene = new CharacterSelectScene(_renderer, new PristonActorLoader(cache), _root, _selectCamera, stage,
                 PristonTale.Engine3D.Diagnostics.ConsoleClientLog.Instance);
             _roster = [new CharacterSummary("Probe", PlayerClass.Fighter, 10, 0), new CharacterSummary("Probe2", PlayerClass.Atalanta, 10, 0)];
+            _effects = EffectLibrary.LoadBootstrap(GraphicsDevice, Content, _root, PristonTale.Engine3D.Diagnostics.ConsoleClientLog.Instance);
+            var library = _effects.Vfx.Library;
+            library.Register(CharSelectEffects.GreenBeamDefinition());
+            Assert.True(library.TryGet(CharSelectEffects.GreenBeam, out var beam), "the brazier flames did not compile");
+            _flameSystem = new VfxSystem(VfxNoAnchors.Instance, new TransientLightServices(_renderer.TransientLights), library);
+            _flameRenderer = new VfxRenderer(GraphicsDevice, Content);
+            _flames = new CharSelectFlames(_flameSystem, beam, CharacterSelectScreen.BrazierPositions);
             _preparation = _selectScene.PrepareRosterAsync(_roster, CancellationToken.None);
             return;
         }
@@ -185,6 +197,7 @@ internal sealed partial class SceneLookProbe : Game
         {
             _selectCamera.Update(GraphicsDevice, 0, 1f / 60f);
             _selectScene.UpdateRun(1f / 60f);
+            _flames?.Update(1f / 60f);
         }
 
         _renderer.Update(new GameTime(TimeSpan.FromSeconds(_frames / 60d), step));
@@ -226,6 +239,7 @@ internal sealed partial class SceneLookProbe : Game
         }
 
         _renderer.Draw(camera);
+        DrawFlames(camera);
         _renderer.ComposeScene();
         if (_mode == "charselect" && _frames == 150)
         {
@@ -255,6 +269,7 @@ internal sealed partial class SceneLookProbe : Game
         }
 
         _renderer.Draw(camera);
+        DrawFlames(camera);
         _renderer.ComposeScene();
         GraphicsDevice.SetRenderTarget(null);
         Directory.CreateDirectory(_output);
@@ -402,8 +417,17 @@ internal sealed partial class SceneLookProbe : Game
         return limit + 1;
     }
 
+    private void DrawFlames(PristonCamera camera)
+    {
+        if (_flameSystem is not null)
+        {
+            _flameRenderer!.Draw(_flameSystem, camera.View, camera.Projection, camera.Position, _renderer.SceneLinearDepth);
+        }
+    }
+
     protected override void UnloadContent()
     {
+        _flameRenderer?.Dispose();
         _opening?.Dispose();
         _effects?.Dispose();
         _sky?.Dispose();

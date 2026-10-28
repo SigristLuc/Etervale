@@ -26,7 +26,6 @@ SamplerState LinearDepthSampler : register(s0) = sampler_state
 
 RWStructuredBuffer<uint> TileMasks : register(u0);
 
-static const float SkyDepth = 50000.0;
 
 groupshared uint TileMin;
 groupshared uint TileMax;
@@ -47,7 +46,7 @@ void CS_Cull(uint3 group : SV_GroupID, uint3 thread : SV_GroupThreadID, uint ind
     if (Grid.w > 0.5 && pixel.x < (uint)Target.x && pixel.y < (uint)Target.y)
     {
         float depth = LinearDepth.SampleLevel(LinearDepthSampler, (float2(pixel) + 0.5) / Target.xy, 0).r;
-        if (depth < SkyDepth)
+        if (depth < SkyDepthThreshold)
         {
             // Positive floats keep their order as unsigned integers.
             InterlockedMin(TileMin, asuint(depth));

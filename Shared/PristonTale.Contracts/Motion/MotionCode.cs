@@ -36,6 +36,10 @@ public enum MotionCode : uint
 
 public static class MotionCodes
 {
+    // The damage and eat clips play at a frame step of 92 against the 80 of rate 1, on the server's timing and the
+    // client's playback alike.
+    public const float DamageAndEatRate = 92f / 80f;
+
     // The clip a motion state plays.
     public static MotionCode Of(MotionState state) => state switch
     {

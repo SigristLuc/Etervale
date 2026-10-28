@@ -59,23 +59,23 @@ public static class HudItemDetailTooltip
             lines.Add(("", ValueColor));
         }
 
-        var family = aged && details.UpgradeLevel > 0 ? AgingRules.Family(item.CatalogKey) : "";
+        var raised = aged && details.UpgradeLevel > 0 ? AgingRules.RaisedBy(item.CatalogKey) : AgedStats.None;
         Add(lines, roll.DamageMin != 0 || roll.DamageMax != 0, "Attack Power:  ", $"{roll.DamageMin}-{roll.DamageMax}",
-            Raised(family, "WA1", "WC1", "WH1", "WM1", "WP1", "WS1", "WS2", "WT1") ?? Mixed(mixed, MixStat.DamageMin | MixStat.DamageMax));
+            Raised(raised, AgedStats.Damage) ?? Mixed(mixed, MixStat.DamageMin | MixStat.DamageMax));
         Add(lines, details.AttackSpeed != 0, "Weapon Speed:  ", Whole(details.AttackSpeed), Mixed(mixed, MixStat.AttackSpeed));
         Add(lines, details.ShootingRange != 0, "Range:  ", Whole(details.ShootingRange));
         Add(lines, details.Critical != 0, "Critical:  ", details.Critical + "%",
-            Raised(family, "WC1", "WP1", "WS1", "WT1", "WS2") ?? Mixed(mixed, MixStat.Critical));
+            Raised(raised, AgedStats.Critical) ?? Mixed(mixed, MixStat.Critical));
         Add(lines, roll.Defence != 0, "Defense Rating:  ", Whole(roll.Defence),
-            Raised(family, "OM1", "DA1", "DA2", "DB1", "DG1", "OA2") ?? Mixed(mixed, MixStat.Defence));
+            Raised(raised, AgedStats.Defence) ?? Mixed(mixed, MixStat.Defence));
         Add(lines, roll.AttackRating != 0, "Attack Rating:  ", Whole(roll.AttackRating),
-            Raised(family, "WA1", "WC1", "WM1", "WH1", "WP1", "WS2", "OA2") ?? Mixed(mixed, MixStat.AttackRating));
+            Raised(raised, AgedStats.AttackRating) ?? Mixed(mixed, MixStat.AttackRating));
         Add(lines, roll.Absorb != 0, "Absorb Rating:  ", Tenths(roll.Absorb + ItemAbsorbCorrection.For(item.CatalogKey)),
-            Raised(family, "OM1", "DA1", "DS1", "DA2", "DB1", "DG1") ?? Mixed(mixed, MixStat.Absorb));
-        Add(lines, roll.Block != 0, "Block Rating:  ", (int)roll.Block + "%", Raised(family, "DS1") ?? Mixed(mixed, MixStat.Block));
+            Raised(raised, AgedStats.Absorb) ?? Mixed(mixed, MixStat.Absorb));
+        Add(lines, roll.Block != 0, "Block Rating:  ", (int)roll.Block + "%", Raised(raised, AgedStats.Block) ?? Mixed(mixed, MixStat.Block));
         Add(lines, roll.MoveSpeed != 0, "Speed:  ", Tenths(roll.MoveSpeed), Mixed(mixed, MixStat.MoveSpeed));
         Add(lines, details.DurabilityCurrent != 0 || details.DurabilityMax != 0, "Integrity:  ", $"{details.DurabilityCurrent}/{details.DurabilityMax}",
-            Raised(family, "WA1", "WH1", "WS1", "DS1", "OM1", "DA1", "DA2", "DB1", "DG1", "OA2"));
+            Raised(raised, AgedStats.Integrity));
         var resistances = roll.Resistances;
         short[] elements = [resistances.Bionic, resistances.Earth, resistances.Fire, resistances.Ice, resistances.Lighting, resistances.Poison,
             resistances.Water, resistances.Wind];
@@ -89,7 +89,7 @@ public static class HudItemDetailTooltip
         Add(lines, roll.ManaRegen != 0 && !forceOrb, "MP Regen: ", Tenths(roll.ManaRegen), Mixed(mixed, MixStat.ManaRegen));
         Add(lines, roll.StaminaRegen != 0 && !forceOrb, "STM Regen: ", Tenths(roll.StaminaRegen), Mixed(mixed, MixStat.StaminaRegen));
         Add(lines, roll.AddLife != 0, "Add. HP: ", Whole(roll.AddLife), Mixed(mixed, MixStat.Life));
-        Add(lines, roll.AddMana != 0, "Add. MP:  ", Whole(roll.AddMana), Raised(family, "WM1", "WS1", "WT1") ?? Mixed(mixed, MixStat.Mana));
+        Add(lines, roll.AddMana != 0, "Add. MP:  ", Whole(roll.AddMana), Raised(raised, AgedStats.Mana) ?? Mixed(mixed, MixStat.Mana));
         Add(lines, roll.AddStamina != 0, "Add. STM:  ", Whole(roll.AddStamina), Mixed(mixed, MixStat.Stamina));
         Add(lines, details.PotionSpace != 0, "Potion Storage:  ", Whole(details.PotionSpace));
 
@@ -185,8 +185,7 @@ public static class HudItemDetailTooltip
 
     private static bool Aged(ItemDetailView details) => details.UpgradeLevel > 0 || details.AgingGoal > 0;
 
-    private static Color? Raised(string family, params string[] families) =>
-        family.Length > 0 && Array.IndexOf(families, family) >= 0 ? AgingColor : null;
+    private static Color? Raised(AgedStats raised, AgedStats stat) => (raised & stat) != 0 ? AgingColor : null;
 
     private static Color? Mixed(MixStat mixed, MixStat stats) => (mixed & stats) != 0 ? MixedColor : null;
 

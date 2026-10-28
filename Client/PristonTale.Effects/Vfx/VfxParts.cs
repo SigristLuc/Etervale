@@ -90,6 +90,9 @@ internal struct VfxPart
     public Vector3 Start;
     public Vector3 Velocity;
     public float Gravity;
+    public float MoveTime;
+    public float Swirl;
+    public float SwirlGrowth;
     public float Size;
     public float Height;
     public float HalfWidth;
@@ -305,6 +308,9 @@ internal sealed class PartState
 
         part.Start = part.Position;
         part.Gravity = Range(source.Gravity, ref random);
+        part.MoveTime = Draw(source.MoveTime, ref random);
+        part.Swirl = Draw(source.Swirl, ref random);
+        part.SwirlGrowth = Draw(source.SwirlGrowth, ref random);
         part.Life = Range(source.Lifetime, ref random);
         part.Size = Range(source.Size, ref random);
         part.Height = source.Height[1] > 0f ? Range(source.Height, ref random) : part.Size;
@@ -385,14 +391,27 @@ internal sealed class PartState
         {
             arrived = Fly(ref part, instance, dt);
         }
-        else if (!(part.Arrived && source.End == VfxPartEnd.Hold) && (source.MoveTime <= 0f || part.Age <= source.MoveTime))
+        else if (!(part.Arrived && source.End == VfxPartEnd.Hold) && (part.MoveTime <= 0f || part.Age <= part.MoveTime))
         {
             part.Velocity.Y += part.Gravity * dt;
             part.Local += part.Velocity * dt;
-            if (source.Swirl != 0f)
+            if (part.Swirl != 0f || part.SwirlGrowth != 0f)
             {
-                part.Local = Vector3.Transform(part.Local, Matrix.CreateRotationY(MathHelper.ToRadians(source.Swirl * dt)));
+                var turn = Matrix.CreateRotationY(MathHelper.ToRadians(part.Swirl * dt));
+                part.Local = Vector3.Transform(part.Local, turn);
+                if (source.Spiral)
+                {
+                    part.Velocity = Vector3.TransformNormal(part.Velocity, turn);
+                }
+
+                part.Swirl += part.SwirlGrowth * dt;
             }
+        }
+        else if (source.End == VfxPartEnd.Hold && part.MoveTime > 0f && !part.Arrived)
+        {
+            part.Arrived = true;
+            End(ref part, instance, system);
+            Exit(ref part);
         }
 
         part.Size += source.Growth * dt;
@@ -709,6 +728,9 @@ internal sealed class PartState
             min.Z + (max.Z - min.Z) * VfxInstance.NextUnit(ref random));
 
     private static float Range(float[] range, ref uint random) => range[0] + (range[1] - range[0]) * VfxInstance.NextUnit(ref random);
+
+    // A range drawn only when it spans values, so effects that keep it constant draw the same random sequence as before.
+    private static float Draw(float[] range, ref uint random) => range[1] > range[0] ? Range(range, ref random) : range[0];
 
     private static Vector3 RandomDirection(ref uint random)
     {

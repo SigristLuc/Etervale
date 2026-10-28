@@ -1,6 +1,6 @@
-// Unlit textured geometry in the HDR scene (PristonUnlitEffect): particles, lamp glows, original mesh effects and the
-// return-scroll effect. Texture and vertex colour are sRGB-encoded and decoded exactly; Tint scales the result into
-// radiance, so additive effects add light in linear space. VertexPositionColorTexture input.
+// Unlit textured geometry in the HDR scene (PristonUnlitEffect): lamp glows and original mesh effects. The texture is
+// an sRGB format the sampler decodes; the vertex colour is decoded exactly here. Tint scales the result into radiance,
+// so additive effects add light in linear space. VertexPositionColorTexture input.
 #include "../Core/Common.hlsli"
 #include "../Core/Color.hlsli"
 
@@ -47,7 +47,7 @@ VSOut VS_Unlit(VSIn i)
 float4 PS_Unlit(VSOut i) : SV_Target0
 {
     float4 texel = Texture.Sample(TextureSampler, i.Uv);
-    float3 radiance = min(SrgbToLinear(texel.rgb) * i.Color.rgb * Tint.rgb / Exposure, HdrCap);
+    float3 radiance = min(texel.rgb * i.Color.rgb * Tint.rgb / Exposure, HdrCap);
     float alpha = texel.a * i.Color.a * Tint.a;
     if (DisplayOutput > 0.5)
     {

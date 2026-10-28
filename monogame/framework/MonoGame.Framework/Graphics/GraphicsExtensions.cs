@@ -907,6 +907,8 @@ namespace Microsoft.Xna.Framework.Graphics
                 case SurfaceFormat.Bgra32SRgb:
                 case SurfaceFormat.Bgr32:
                 case SurfaceFormat.Bgr32SRgb:
+                // Etervale fork: depth surfaces (issue 016).
+                case SurfaceFormat.Depth32Float:
                     return 4;
                 case SurfaceFormat.HalfVector4:
                 case SurfaceFormat.Rgba64:

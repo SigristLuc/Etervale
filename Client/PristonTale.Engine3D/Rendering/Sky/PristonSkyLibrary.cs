@@ -17,7 +17,7 @@ public sealed class PristonSkyLibrary : IDisposable
 
     private PristonSkyLibrary(GraphicsDevice device, IClientLog log)
     {
-        _textures = new PristonTextureLoader(device, log);
+        _textures = new PristonTextureLoader(device, log, displayReferred: true);
         _textures.Initialize();
     }
 

@@ -2,6 +2,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Contracts.Characters;
 using PristonTale.Simulation.World.Npcs;
+using PristonTale.Simulation.World;
 
 namespace PristonTale.Simulation.Quests;
 
@@ -9,8 +10,6 @@ namespace PristonTale.Simulation.Quests;
 // the beginner weapon and the duel master of the third rank-up.
 public static class QuestClasses
 {
-    public const int RicartenField = 3;
-    public const int PillaiField = 21;
 
     // The quests split the classes by class number, not by tribe: the first four take the Tempskron side (Ricarten, its
     // NPCs and monsters), every later class the Morion side, the assassin included.
@@ -24,7 +23,7 @@ public static class QuestClasses
 
     public static PlayerClass ClassOf(PlayerCharacter character) => character.Definition.Class;
 
-    public static int HomeField(PlayerCharacter character) => IsTempskron(character) ? RicartenField : PillaiField;
+    public static int HomeField(PlayerCharacter character) => IsTempskron(character) ? FieldCodes.Ricarten : FieldCodes.Pillai;
 
     // Rank-up quests run only at the skill master of the class's home town.
     public static bool IsHomeTown(PlayerCharacter character, int fieldCode) => fieldCode == HomeField(character);

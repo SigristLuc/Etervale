@@ -24,7 +24,6 @@ SamplerState SkyColorSampler : register(s0) = sampler_state
 
 // Motion x at or above this marks "no surface: reproject as a direction" (Passes/PostTemporal.fx SkyMotion).
 static const float SkyMotionMarker = 4.0;
-static const float SkyDepth = 60000.0;
 
 struct SceneOut
 {

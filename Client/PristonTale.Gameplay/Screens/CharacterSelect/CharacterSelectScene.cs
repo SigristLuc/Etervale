@@ -587,8 +587,7 @@ internal sealed class CharacterSelectScene
             return;
         }
 
-        _actorScene.SetActorMotion(job.Handles.Body, motion);
-        _actorScene.SetActorMotion(job.Handles.Head, motion);
+        job.Handles.SetMotion(_actorScene, motion);
     }
 
     private void ApplySelectPose(PlayerActorHandles handles)
@@ -650,8 +649,7 @@ internal sealed class CharacterSelectScene
 
     private void SetHandlesWorld(PlayerActorHandles handles, Matrix world)
     {
-        _actorScene.SetActorWorld(handles.Body, world);
-        _actorScene.SetActorWorld(handles.Head, world);
+        handles.SetWorld(_actorScene, world);
         if (handles.Weapon.IsValid)
         {
             _actorScene.SetActorWorld(handles.Weapon, world);
@@ -665,8 +663,7 @@ internal sealed class CharacterSelectScene
 
     private void SetHandlesColorAdd(PlayerActorHandles handles, Vector3 colorAdd)
     {
-        _actorScene.SetActorColorAdd(handles.Body, colorAdd);
-        _actorScene.SetActorColorAdd(handles.Head, colorAdd);
+        handles.SetColorAdd(_actorScene, colorAdd);
         if (handles.Weapon.IsValid)
         {
             _actorScene.SetActorColorAdd(handles.Weapon, colorAdd);

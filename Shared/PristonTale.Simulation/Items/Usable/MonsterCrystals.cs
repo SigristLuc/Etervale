@@ -1,5 +1,6 @@
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Contracts.Units;
+using PristonTale.Simulation.World;
 
 namespace PristonTale.Simulation.Items.Usable;
 
@@ -68,7 +69,7 @@ public static class MonsterCrystals
     public const int MercenaryKindLimit = 5;
 
     // Fields where soul stones do not work besides towns: the castle, the ice field and the office room.
-    public static readonly int[] SoulStoneBlockedFields = [33, 29, 16];
+    public static readonly int[] SoulStoneBlockedFields = [FieldCodes.Castle, FieldCodes.InnerIce, FieldCodes.OfficeRoom];
 
     // A web pet's blow slows its target to half speed for 36 frames of 70 Hz; monsters with Kelvezu's sound are immune.
     public const uint WebSlowStatusCode = 0xF0000301;
@@ -78,7 +79,6 @@ public static class MonsterCrystals
         new(WebSlowStatusCode, EffectSourceKind.Item, true, [StatModifier.Percent(StatKind.MoveSpeed, -50)], control: ControlFlags.Slow);
 
     // The quest arena refuses every crystal.
-    public const int QuestArenaField = 32;
 
     private static readonly Dictionary<string, MonsterCrystalDefinition> Crystals = Build();
 

@@ -1,3 +1,5 @@
+using PristonTale.Simulation.World;
+
 namespace PristonTale.Simulation.World.Fields;
 
 public static class Sod1Field
@@ -26,7 +28,7 @@ public static class Sod1Field
             "Field\\Sod\\s-ani18_Bip.smd"
         ])
     {
-        FieldCode = 30,
+        FieldCode = FieldCodes.Bellatra,
         Center = new FieldPoint(22018, 6569),
         BackMusicCode = "BGM_CODE_CUSTOM",
         ServerCode = "PLAY_SERVER_CODE_EXTEND"

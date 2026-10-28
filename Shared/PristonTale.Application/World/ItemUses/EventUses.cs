@@ -109,7 +109,7 @@ internal sealed class ChocolateUse : ItemUseAction
             return ItemUseStatus.NotUsable;
         }
 
-        return use.Context.Player.Appearance.InVillage ? ItemUseStatus.NotHere : Chocolates.Check(chocolate, use.Character);
+        return use.Context.Player.InVillage ? ItemUseStatus.NotHere : Chocolates.Check(chocolate, use.Character);
     }
 
     public override ItemUseEffect Apply(in ItemUseInWorld use)

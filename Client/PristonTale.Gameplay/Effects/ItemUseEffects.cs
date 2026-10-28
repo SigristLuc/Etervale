@@ -1,13 +1,10 @@
 using Microsoft.Xna.Framework;
-using PristonTale.Effects;
-using PristonTale.Effects.Effects;
-using PristonTale.Effects.Particles;
 using PristonTale.Engine3D.Rendering.Lighting;
 using PristonTale.Simulation.Items.Usable;
 
 namespace PristonTale.Gameplay.Effects;
 
-// What other players and the user see when an item is used, with the original particle scripts and billboards:
+// What other players and the user see when an item is used, with the converted particle scripts and item effects:
 // firecrackers fire four rockets half a second apart, each bursting 150 units up into a scripted shape chosen from the
 // use's roll; hair tints, force orbs, ether cores, crystal summons and head changes play the skill-learn sound (their
 // light is ItemVfx.Learn or the return sparkle), skill masters, boosters and puzzle reveals the drink sound, and an
@@ -22,33 +19,18 @@ public sealed class ItemUseEffects
     private static readonly string[] Crackers = ["FireCrackerAll", "FireCrackerHeart", "FireCrackerMoon", "FireCrackerStar", "FireCrackerNormal"];
     private static readonly string[] Bombs = ["FireCrackerBombHeart", "FireCrackerBombMoon", "FireCrackerBombStar"];
     private const float BurstHeight = 100f;
-    private const int MaxInstances = 128;
 
-    private readonly EffectsEngine _engine;
+    private readonly SkillPresentation _skills;
     private readonly PristonTransientLights _lights;
     private readonly SkillSoundBank _sounds;
-    private readonly Dictionary<string, EffectDefinition> _scripts = new(StringComparer.Ordinal);
-    private readonly EffectDefinition _rocket;
-    private readonly EffectDefinition _flash;
     private readonly List<Burst> _bursts = new();
     private readonly Random _random = new();
 
-    public ItemUseEffects(EffectLibrary library, string assetRoot, EffectsEngine engine, PristonTransientLights lights, SkillSoundBank sounds)
+    public ItemUseEffects(SkillPresentation skills, PristonTransientLights lights, SkillSoundBank sounds)
     {
-        _engine = engine;
+        _skills = skills;
         _lights = lights;
         _sounds = sounds;
-        foreach (var name in Crackers.Concat(Bombs))
-        {
-            if (library.ParticleScript(assetRoot, name) is { } script)
-            {
-                _scripts[name] = script;
-            }
-        }
-
-        _rocket = Billboards(library.Animation(assetRoot, "FireParticle1.ini"), "FirecrackerRocket", 24, 5f, new FloatRange(20f, 45f), MathHelper.Pi,
-            new Vector3(0f, -60f, 0f));
-        _flash = Billboards(library.Animation(assetRoot, "Power1.ini"), "FirecrackerFlash", 1, 50f, FloatRange.Constant(0f), 0f, Vector3.Zero);
         sounds?.Preload(FirecrackerSounds.Append(LearnSound).Append(DrinkSound).Append(EatSound));
     }
 
@@ -112,60 +94,24 @@ public sealed class ItemUseEffects
 
             var start = feet + new Vector3(_random.Next(-20, 21), _random.Next(-5, 6) + 50, _random.Next(-20, 21));
             var top = start + Vector3.Up * BurstHeight;
-            Spawn(_rocket, start);
-            Spawn(_flash, top);
+            Spawn(ItemVfx.FirecrackerRocket, start);
+            Spawn(ItemVfx.FirecrackerFlash, top);
             var (cracker, bomb) = Shapes(burst.Shape);
-            if (cracker is not null && _scripts.TryGetValue(cracker, out var shape))
+            if (cracker is not null)
             {
-                Spawn(shape, top);
+                Spawn("particle." + cracker, top);
             }
 
-            if (bomb is not null && _scripts.TryGetValue(bomb, out var bombShape))
+            if (bomb is not null)
             {
-                Spawn(bombShape, top);
+                Spawn("particle." + bomb, top);
             }
 
             _sounds?.Play(FirecrackerSounds[_random.Next(FirecrackerSounds.Length)], top, listener);
         }
     }
 
-    private void Spawn(EffectDefinition definition, Vector3 position)
-    {
-        if (definition is not null && _engine.Instances.Count < MaxInstances)
-        {
-            _engine.Spawn(definition, position);
-        }
-    }
-
-    private static EffectDefinition Billboards(BillboardAnimation animation, string name, int count, float size, FloatRange speed, float spread,
-        Vector3 gravity)
-    {
-        if (animation is null)
-        {
-            return null;
-        }
-
-        return new EffectDefinition
-        {
-            Name = name,
-            Duration = 0.001f,
-            Emitters =
-            [
-                new EmitterDefinition
-                {
-                    MaxParticles = count,
-                    BurstCount = count,
-                    Frames = animation.Textures,
-                    Animation = animation.Animation,
-                    Lifetime = FloatRange.Constant(animation.Animation.Duration),
-                    InitialSpeed = speed,
-                    DirectionSpreadRadians = spread,
-                    Gravity = gravity,
-                    Size = SizeOverLife.Constant(size)
-                }
-            ]
-        };
-    }
+    private void Spawn(string effect, Vector3 position) => _skills?.SpawnAt(effect, position, Matrix.Identity);
 
     private readonly record struct Burst(ulong Entity, double DueMs, int Shape);
 }

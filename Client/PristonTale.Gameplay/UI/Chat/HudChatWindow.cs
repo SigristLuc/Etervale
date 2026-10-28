@@ -34,6 +34,7 @@ public sealed class HudChatWindow
     public const int InputPixels = 266;
     private static readonly Color InputColor = Color.White;
     private readonly List<(Rectangle Bounds, HudChatEntry Entry)> _drawnLines = new();
+    private readonly HudWrapCache _wrap = new(WrapPixels, 255);
 
     public HudChatLog Log { get; } = new();
     public HudChatInput Input { get; } = new();
@@ -244,7 +245,7 @@ public sealed class HudChatWindow
                 break;
             }
 
-            var lines = HudChatText.Wrap(entry.Text, WrapPixels, maxLines, 255, painter.Measure);
+            var lines = _wrap.Wrap(entry.Text, maxLines, painter.Measure);
             messages++;
             var color = HudChatLog.ColorOf(entry.Kind);
             for (var index = lines.Count - 1; index >= 0 && drawn < maxLines; index--)

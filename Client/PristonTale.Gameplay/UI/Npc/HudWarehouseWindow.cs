@@ -21,7 +21,7 @@ public readonly record struct HudWarehouseAction(HudWarehouseActionKind Kind, Gu
 
 // The account warehouse in the original window: stored gold in the upper bar, weight in the lower one and the 9x9 grid.
 // Items are dragged between the grid and the inventory; a right click takes an item to the first free inventory cell.
-public sealed class HudWarehouseWindow
+public sealed class HudWarehouseWindow : IHudServiceWindow
 {
     private static readonly Color Placement = Color.FromNonPremultiplied(160, 235, 255, 128);
     private static readonly Color Selection = Color.FromNonPremultiplied(255, 200, 0, 128);
@@ -56,6 +56,12 @@ public sealed class HudWarehouseWindow
     public void CancelDrag() => _dragging = Guid.Empty;
 
     public void Advance(double seconds) => _slide.Advance(seconds);
+
+    public bool BlocksWorld => true;
+
+    void IHudServiceWindow.Draw(in HudServiceFrame frame) => Draw(frame.Painter, frame.Icons, frame.Pointer, frame.Incoming, FullyOpen && !frame.SettingsOpen);
+
+    void IHudServiceWindow.DrawOverlay(in HudServiceFrame frame) => DrawOverlay(frame.Painter, frame.Layout, frame.Icons, frame.Pointer);
 
     public bool Contains(Point pointer) => _slide.Visible && HudStoreLayout.Window(Origin).Contains(pointer);
 
@@ -146,7 +152,7 @@ public sealed class HudWarehouseWindow
         {
             var tint = item.InstanceId == _dragging ? Color.White * 0.4f : Color.White;
             var bounds = HudStoreLayout.Cell(origin, item.Anchor, item.Width, item.Height);
-            HudShopWindow.DrawIcon(painter, icons, item.CatalogKey, bounds, tint);
+            icons.Draw(painter, item.CatalogKey, bounds, tint);
             if (item.Count > 1)
             {
                 var count = item.Count.ToString();
@@ -169,7 +175,7 @@ public sealed class HudWarehouseWindow
         if (_dragged is not null)
         {
             var size = new Point(_dragged.Width * HudStoreLayout.CellSize, _dragged.Height * HudStoreLayout.CellSize);
-            HudShopWindow.DrawIcon(painter, icons, _dragged.CatalogKey, new Rectangle(pointer.X - size.X / 2, pointer.Y - size.Y / 2, size.X, size.Y));
+            icons.Draw(painter, _dragged.CatalogKey, new Rectangle(pointer.X - size.X / 2, pointer.Y - size.Y / 2, size.X, size.Y));
         }
         else if (_hovered is not null)
         {

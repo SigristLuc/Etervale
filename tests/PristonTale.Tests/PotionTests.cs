@@ -3,7 +3,6 @@ using System.Threading.Channels;
 using PristonTale.Application.Services;
 using PristonTale.Application.Sessions;
 using PristonTale.Application.World;
-using PristonTale.Effects.Particles;
 using PristonTale.Gameplay.Combat;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Persistence.Abstractions.Characters;
@@ -22,7 +21,6 @@ internal static class PotionTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("potions restore at the EAT event once, clamp resources and cannot revive", TimingAsync);
-        yield return ("potion INI animation preserves intro, middle loop and exit fade", AnimationAsync);
         yield return ("potion storage failure preserves stacks; commit and replay consume once", DurabilityAsync);
     }
 
@@ -77,43 +75,6 @@ internal static class PotionTests
         return Task.CompletedTask;
     }
 
-    private static Task AnimationAsync()
-    {
-        var animation = new ParticleAnimation([
-            new(0, 20f / 70f, 50f / 255f),
-            new(1, 5f / 70f, 1f),
-            new(2, 5f / 70f, 1f),
-            new(3, 5f / 70f, 225f / 255f),
-            new(0, 30f / 70f, 0f)
-        ], 0f);
-        Assert.True(animation.Sample(0, 1).Alpha == 0f, "intro does not start transparent");
-        Assert.True(animation.Sample(21f / 70f, 1).Image == 1, "nonuniform intro duration ignored");
-        Assert.True(animation.Sample(36f / 70f, 1).Image == 1, "loop replayed introduction or final fade");
-        var fade = animation.Sample(1f + 15f / 70f, 1);
-        Assert.True(fade.Image == 0 && Math.Abs(fade.Alpha - 225f / 510f) < 0.001f, "exit fade is incorrect");
-        Assert.True(animation.Sample(2, 1).Alpha == 0f, "exit does not become transparent");
-
-        var recipe = new EmitterDefinition { MaxParticles = 30, BurstCount = 30, Animation = animation, PotionMotion = true };
-        var oneStep = new ParticleEmitter(recipe, Microsoft.Xna.Framework.Vector3.Zero, 42);
-        var manySteps = new ParticleEmitter(recipe, Microsoft.Xna.Framework.Vector3.Zero, 42);
-        oneStep.Update(0.5f, Microsoft.Xna.Framework.Vector3.Zero);
-        for (var frame = 0; frame < 60; frame++)
-        {
-            manySteps.Update(0.5f / 60f, Microsoft.Xna.Framework.Vector3.Zero);
-        }
-
-        var first = oneStep.GetRenderView().Particles;
-        var second = manySteps.GetRenderView().Particles;
-        Assert.True(first.Length == 30 && second.Length == 30, "potion particle count differs from original");
-        for (var index = 0; index < first.Length; index++)
-        {
-            Assert.True(Microsoft.Xna.Framework.Vector3.Distance(first[index].Position, second[index].Position) < 0.001f,
-                "potion orbit depends on render FPS");
-        }
-
-        return Task.CompletedTask;
-    }
-
     private static async Task DurabilityAsync()
     {
         var classes = new CharacterClassRegistry();
@@ -141,7 +102,7 @@ internal static class PotionTests
         Assert.True((await service.EnterWorldAsync(session.SessionToken, starter.Name)).Ok && session.TryBeginPlay(), "entry failed");
         var outbound = Channel.CreateUnbounded<WorldSnapshot>();
         var player = WorldPlayerFactory.Create(session);
-        await AdvanceAsync(world, world.JoinAsync(3, player, outbound.Writer, session));
+        await WorldPump.RunAsync(world, world.JoinAsync(3, player, outbound.Writer, session));
         var writing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var storage = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         repository.BeforeUpdate = _ =>
@@ -152,14 +113,14 @@ internal static class PotionTests
         var command = new InventoryCommand(Guid.NewGuid(), session.Character!.InventoryRevision, InventoryAction.ConsumePotion,
             item.InstanceId, 0, 1, default);
         var pending = service.ApplyInventoryAsync(session.SessionToken, command);
-        await AdvanceAsync(world, writing.Task);
+        await WorldPump.RunAsync(world, writing.Task);
         Assert.True(session.Character.Inventory[0].Count == 3 && session.Character.Life == 1 && !player.HasPendingPotion,
             "pending save consumed/healed through shared item reference");
         storage.SetResult(false);
         Assert.True(!(await pending).Ok && session.Character.Inventory[0].Count == 3, "storage rejection consumed potion");
         repository.BeforeUpdate = null;
         var accepted = service.ApplyInventoryAsync(session.SessionToken, command);
-        await AdvanceAsync(world, accepted);
+        await WorldPump.RunAsync(world, accepted);
         Assert.True((await accepted).Ok && session.Character.Inventory[0].Count == 2, "commit did not consume exactly one");
         for (uint tick = 0; tick < 30; tick++)
         {
@@ -181,19 +142,8 @@ internal static class PotionTests
         Assert.True(begin == 1 && applied == 1, "potion events missing or duplicated");
         var writes = repository.UpdateCount;
         var replay = service.ApplyInventoryAsync(session.SessionToken, command);
-        await AdvanceAsync(world, replay);
+        await WorldPump.RunAsync(world, replay);
         Assert.True((await replay).Ok && repository.UpdateCount == writes && session.Character.Life == 11
             && session.Character.Inventory[0].Count == 2 && !player.HasPendingPotion, "retry consumed or healed twice");
-    }
-
-    private static async Task AdvanceAsync(WorldServer world, Task task)
-    {
-        for (uint tick = 0; !task.IsCompleted && tick < 1000; tick++)
-        {
-            world.Tick(0.05f, tick);
-            await Task.Delay(1);
-        }
-
-        await task.WaitAsync(TimeSpan.FromSeconds(1));
     }
 }

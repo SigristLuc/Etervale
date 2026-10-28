@@ -108,7 +108,7 @@ internal static class BinaryProtocolTests
         Assert.True(CharacterCommandPacket.Read(buffer.AsSpan(0, create.Write(buffer))) == create, "character command round trip changed fields");
         var length = create.Write(buffer);
         buffer[10] = 9;
-        Assert.ThrowsAsync(() => Task.Run(() => CharacterCommandPacket.Read(buffer.AsSpan(0, length).ToArray()))).Wait();
+        Assert.Throws<InvalidDataException>(() => CharacterCommandPacket.Read(buffer.AsSpan(0, length).ToArray()), "a malformed CharacterCommandPacket was read");
         var result = new CharacterResultPacket(CharacterAction.Create, false, 4, "Nova");
         Assert.True(CharacterResultPacket.Read(buffer.AsSpan(0, result.Write(buffer))) == result, "character result round trip changed fields");
         var beat = new HeartbeatPacket(uint.MaxValue, long.MaxValue);
@@ -126,12 +126,12 @@ internal static class BinaryProtocolTests
         Assert.True(read with { Facing = report.Facing } == report && MathF.Abs(read.Facing - report.Facing) < 1e-4f && read.Moving,
             $"movement report read back as {read}");
         buffer[10] = (byte)MotionState.Attack;
-        Assert.ThrowsAsync(() => Task.Run(() => MovementReportPacket.Read(buffer.AsSpan(0, MovementReportPacket.Size).ToArray()))).Wait();
+        Assert.Throws<InvalidDataException>(() => MovementReportPacket.Read(buffer.AsSpan(0, MovementReportPacket.Size).ToArray()), "a malformed MovementReportPacket was read");
 
         var attack = new AttackRequestPacket(0x1_0000_0003UL, true, ulong.MaxValue - 1);
         Assert.True(AttackRequestPacket.Read(buffer.AsSpan(0, attack.Write(buffer))) == attack, "attack request round trip changed fields");
         buffer[10] = 2;
-        Assert.ThrowsAsync(() => Task.Run(() => AttackRequestPacket.Read(buffer.AsSpan(0, AttackRequestPacket.Size).ToArray()))).Wait();
+        Assert.Throws<InvalidDataException>(() => AttackRequestPacket.Read(buffer.AsSpan(0, AttackRequestPacket.Size).ToArray()), "a malformed AttackRequestPacket was read");
 
         var warp = new FieldWarpPacket(21, 512.5f, 300.75f, -256.25f, true);
         Assert.True(FieldWarpPacket.Read(buffer.AsSpan(0, warp.Write(buffer))) == warp, "field warp round trip changed fields");

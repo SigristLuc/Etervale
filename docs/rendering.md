@@ -28,7 +28,7 @@ sources are in [shaders.md](shaders.md); option fields in [client-settings.md](c
 | `IO/PristonWaveDecoder.cs` | WAV decoding for the audio library. |
 | `IO/ItemIconFiles.cs` | Item inventory sprites (`it<KEY>.bmp`) by key and the inventory cells a sprite covers (22 pixels each); used by the HUD and the world importer. |
 | `Physics/` | `PristonCollisionWorld`: client view of the shared `CollisionMesh` (`Shared/PristonTale.Geometry`) built from the stage faces flagged for collision; floor height and segment traces. |
-| [`Rendering/PristonRenderer.cs`](../Client/PristonTale.Engine3D/Rendering/PristonRenderer.cs) | The renderer: stage/actor residency, animation, light selection, frame graph (`Draw`), post chain (`ComposeScene`). `PristonRenderer.Portrait.cs`: actor portraits with a studio light. |
+| [`Rendering/PristonRenderer.cs`](../Client/PristonTale.Engine3D/Rendering/PristonRenderer.cs) | The renderer: state, construction, quality, the frame update and animation, frame graph (`Draw`), post chain (`ComposeScene`), disposal. One partial per topic: `.Actors` (actor API), `.ActorGeometry` (skinned meshes, bone maps, actor GPU resources, motion selection), `.Stages` (stage loading, budgeted streaming uploads, static shadow aggregates), `.StageGeometry` (groups, animated stage models and merges, bounds), `.Sky`, `.Lighting` (glow tuning, emitter colours, light selection), `.Shadows` (cascades, sun and lamp passes), `.Drawing` (queues, batches, depth pre-pass, outlines, temporal blend), `.Appearance` (gameplay looks), `.Portrait` (actor portraits with a studio light). |
 | `Rendering/PristonSceneTargets.cs` | HDR scene, motion, pre-pass targets; sky composition; caller target capture and restore. |
 | `Rendering/PristonShaderLibrary.cs` | Surface effects, frame constants, technique selection. |
 | `Rendering/PristonMaterial*.cs`, `PristonMaterialAdapter.cs` | Original material to runtime material: queue classification, textures and layers, roughness/reflectance/shading model. |
@@ -147,7 +147,7 @@ Described in Etervale's terms; readers keep every field, including padding, for 
 | 9 | `AmbientOcclusion` | pre-pass ran and AO or contact shadows on | GTAO and contact shadows at half resolution, blur. |
 | 10 | `LightCulling` | any local light | 16x16 tile masks (depth-bounded after the pre-pass). |
 | - | (outline) | an actor with `SetActorOutline` | `DrawOutlines`: the actor flat in one colour, shifted 1.4 px scaled by the screen height over 600 (times the outline strength) in four directions, pushed back 16 units and writing depth, so the lit actor covers it and only a rim stays. |
-| 11 | `Opaque`, `Masked` | always | Lit pass; after the pre-pass it tests depth without writing it. Without the pre-pass, TAA motion is written here. |
+| 11 | `Opaque`, `Masked` | always | Lit pass; after the pre-pass it tests its surfaces for equal depth without writing it (cut-out texels the pre-pass discarded fail before shading). Without the pre-pass, TAA motion is written here. |
 | 12 | `Reflections` | pre-pass, SSR on, a surface with roughness < 0.3 seen | Scene copy and screen-space reflections. |
 | 13 | `Transparent` | always | Blended queue, back to front. |
 | - | (calibration) | `calibrationSpheres` | Grey and chrome sphere through the lit pass. |
@@ -173,7 +173,7 @@ and lamps at full.
 | Motion | HalfVector4 | TAA only: uv motion, previous view depth, view depth (negative on cut-outs). |
 | Linear depth, normals | R32F, RGBA8 | Pre-pass only; `SceneLinearDepth` exposes the depth to effects (null without pre-pass). |
 | Sky | 8-bit sRGB | Dome layers with original blends, decoded into the scene. |
-| Sun shadow atlas | R32F + D24, `shadowMapSize` | 2x2 tiles from two cascades; falls back by halves to 1024 if allocation fails. |
+| Sun shadow atlas | D32F depth surface, `shadowMapSize` | 2x2 tiles from two cascades; casters write depth only (an opaque caster runs no pixel shader) and the lighting samples it; falls back by halves to 1024 if allocation fails. |
 | Lamp shadow atlas | R32F | One row per lamp, six faces of `lampShadowTileSize`. |
 | TAA history | 2 x HalfVector4 | Compressed colour and view depth, ping-pong. |
 | Environment | 64-px face atlas, octahedral 128 base + 5 levels atlas, 32x32 BRDF LUT, SH buffer (10 entries) | Rebuilt every 250 ms. |
@@ -328,7 +328,8 @@ All light is photometric (`Lighting/PristonPhotometry.cs`, `PristonDayNightCycle
 - `Draw` leaves the HDR scene bound; anything drawn before `ComposeScene` lands in it, and the UI must come after.
 - Scene depth is reversed (`PristonDepth`): 1 at the near plane, cleared to 0, tested with `GreaterEqual`, in a 32-bit
   float buffer. A camera, portrait or effect projection comes from `PristonDepth.Perspective`, and a scene draw uses
-  `PristonDepth.Write`/`Read`; MonoGame's `DepthStencilState.Default`/`DepthRead` and `Clear(Color)` (depth 1) reject
+  `PristonDepth.Write`/`Read` (`Equal` for the lit pass over pre-passed surfaces, which must keep the pre-pass's vertex
+  stage so their depth is bit-identical); MonoGame's `DepthStencilState.Default`/`DepthRead` and `Clear(Color)` (depth 1) reject
   everything there. Shadow maps keep the ordinary range. A 24-bit buffer with the near plane at 1 could not separate
   the original models' layered faces at range, and they flickered under the jitter.
 - Binding a render target ends the Vulkan render pass; the profiler resets timestamps only outside one, so

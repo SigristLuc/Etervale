@@ -124,22 +124,9 @@ internal sealed class ChatFixture
 
     public async Task SayAsync(Player player, string text) => await RunAsync(Chat.SayAsync(player.Session.EntityId, text));
 
-    public async Task RunAsync(Task task)
-    {
-        for (var step = 0; !task.IsCompleted && step < 2000; step++)
-        {
-            World.Tick(0.05f, ++_tick);
-            await Task.Delay(1);
-        }
+    public Task RunAsync(Task task) => WorldPump.RunAsync(World, task, () => ++_tick);
 
-        await task.WaitAsync(TimeSpan.FromSeconds(5));
-    }
-
-    public async Task<T> RunAsync<T>(Task<T> task)
-    {
-        await RunAsync((Task)task);
-        return await task;
-    }
+    public Task<T> RunAsync<T>(Task<T> task) => WorldPump.RunAsync(World, task, () => ++_tick);
 
     public void Tick(int ticks)
     {
