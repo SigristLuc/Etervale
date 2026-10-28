@@ -1,10 +1,23 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Quests;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
 public sealed class ArcherClass : CharacterClass
 {
+    public static readonly ClassProfile Profile = new(
+        ["Archer", "Huntress Master", "Dion's Disciple", "Sagittarion"],
+        new MotionFallback(3200, 24, 2400),
+        static weapon => weapon.Definition.Kind == ItemKind.Bow,
+        CastingWeapon: null,
+        Shift: new RequirementShift(new(-25, -15), new(-20, -10), default, new(15, 25)),
+        QuestWeapon: "WS110",
+        BeginnerWeapon: "WS102",
+        QuestWeaponHunt.Ranged,
+        QuestItems.FocusRing);
+
     public ArcherClass()
         : base(BuildDefinition(
             PlayerClass.Archer,

@@ -1,10 +1,23 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Quests;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
 public sealed class MechanicianClass : CharacterClass
 {
+    public static readonly ClassProfile Profile = new(
+        ["Mechanician", "Mechanic Master", "Metal Leader", "Metallion"],
+        new MotionFallback(3520, 22, 2880),
+        static weapon => (weapon.JobSpecMask & (uint)JobBitCode.Mechanician) != 0 || weapon.Definition.UniqueItem == 2,
+        CastingWeapon: null,
+        Shift: new RequirementShift(new(5, 15), new(-20, -10), default, new(-25, -15)),
+        QuestWeapon: "WC108",
+        BeginnerWeapon: "WC102",
+        QuestWeaponHunt.Melee,
+        QuestItems.EmperorRing);
+
     public MechanicianClass()
         : base(BuildDefinition(
             PlayerClass.Mechanician,

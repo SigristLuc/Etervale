@@ -97,7 +97,12 @@ progression, regeneration and movement rates. `World/`, `Physics/` and `Skills/`
 
 ## Classes
 
-`CharacterClassRegistry` builds the ten classes; each `Classes/<Name>Class.cs` calls `CharacterClass.BuildDefinition`.
+`CharacterClassRegistry` builds the ten classes; each `Classes/<Name>Class.cs` calls `CharacterClass.BuildDefinition`
+and declares the class's `ClassProfile` (`Characters/ClassProfile.cs`, looked up with `ClassProfiles.Of(class)` or
+`CharacterClassDef.Profile`): the four tier titles, the fallback motion timing (`PlayerMotionFallback`), the favoured
+weapon (`WeaponDamage`'s level / 6 bonus), the casting weapon that attacks at range (`PlayerAttackReach`), the
+requirement shift of items specialised for it (`ItemRoller`), and the quest weapon, beginner weapon, hunt and rank-up
+ring (`QuestClasses`). A per-class fact belongs in the profile, not in a switch over `PlayerClass`.
 The class also loads its skill window from `ClassSkillCatalog.For(class)` (see [skills.md](skills.md)).
 
 | Class | Id | `JobBitCode` | Brood | Str/Spi/Tal/Agi/Hlt | Sight | Life/Mana/Sta/Melee/Ranged/Magic fn |
@@ -357,8 +362,8 @@ totals.
   half of it and it; every other range rolled inclusive (absorb, move speed and regeneration in tenths, block in
   hundredths). A kind with a fixed or random specialization specializes four times in ten (`rng 0..9 <= 3`); then,
   three times in ten when it has random classes, one random class replaces the fixed one. A specialized copy costs a
-  fifth more, its requirements shift by a random percent of its class's range (strength, spirit, talent, agility; see
-  `ItemRoller.RequirementShift`) and its bonus ranges are rolled in hundredths. Unspecialized copies carry no bonus.
+  fifth more, its requirements shift by a random percent of its class's range (strength, spirit, talent, agility; see the
+  class's `ClassProfile.Shift`) and its bonus ranges are rolled in hundredths. Unspecialized copies carry no bonus.
 - `ItemUsability.CanUse`: level and the five attribute requirements of the copy, and `AllowedJobs`.
 - Weight: `CarriedWeight.CanTake(character, weight)` allows carried + weight up to `MaxWeight`; `IsOverweight` is
   carried above it. See [Equipment rules](#equipment-rules-playercharactercanequip) and the NPC rules in
@@ -478,7 +483,7 @@ server steps it per player in `FieldSkills.StepEffects` and resets it on death. 
 - Add an `ItemKind`: append it, update `ItemDefinition.IsWeapon`, `WeaponDamage` favoured kinds,
   `PlayerAttackReach` and the client item presentation.
 - Add a class: new `Classes/<Name>Class.cs`, register it in `CharacterClassRegistry`, add `PlayerClass` (Contracts), its `JobBitCode` and the `JobBits` row,
-  head patterns in `CharacterHeadModels`, the favoured weapon in `WeaponDamage`, restrictions in
+  its `ClassProfile` in the class file and the `ClassProfiles.Of` row, head patterns in `CharacterHeadModels`, restrictions in
   `ItemClassRestrictions`, and the skill data ([skills.md](skills.md)).
 - Change level rewards or training: `PlayerCharacter.LevelUp`, `ExperienceTable`, `SkillLearning`; tests in
   `ProgressionDataTests`, `ProgressionTransactionTests`.

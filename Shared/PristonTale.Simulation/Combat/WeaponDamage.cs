@@ -55,19 +55,7 @@ public static class WeaponDamage
             secondary = (attributes.Talent + attributes.Agility) / secondaryDivisor;
         }
 
-        var favoured = character.Definition.Class switch
-        {
-            PlayerClass.Fighter => weapon.Definition.Kind == ItemKind.Axe,
-            PlayerClass.Mechanician => (weapon.JobSpecMask & (uint)JobBitCode.Mechanician) != 0 || weapon.Definition.UniqueItem == 2,
-            PlayerClass.Archer => weapon.Definition.Kind == ItemKind.Bow,
-            PlayerClass.Pikeman => weapon.Definition.Kind == ItemKind.Pole,
-            PlayerClass.Knight => weapon.Definition.Kind == ItemKind.Sword,
-            PlayerClass.Atalanta => weapon.Definition.Kind == ItemKind.ThrowingWeapon,
-            PlayerClass.Assassin => weapon.Definition.Kind == ItemKind.Dagger,
-            PlayerClass.Priestess or PlayerClass.Magician => weapon.Definition.Kind == ItemKind.Staff,
-            PlayerClass.Shaman => weapon.Definition.Kind == ItemKind.Phantom,
-            _ => false
-        };
+        var favoured = ClassProfiles.Of(character.Definition.Class).Favours(weapon);
         var jobDamage = favoured ? character.Level / 6 : 0;
         var mastery = PassiveSkills.WeaponBonus(character, weapon);
         var passive = PassiveSkillEffects.WeaponBonus(character, weapon);

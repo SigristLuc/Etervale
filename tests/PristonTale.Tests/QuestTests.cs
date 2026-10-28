@@ -514,7 +514,7 @@ internal static class QuestTests
         var done = Character(PlayerClass.Fighter, "Done", 100, tier: 3);
         Assert.True(!Talk(done, HomeMaster).ClassChangeOffered
             && Run(done, HomeMaster, QuestAction.ChangeClass, QuestCode.None, 0).Status == QuestStatus.Rejected, "a final-tier class changed again");
-        Assert.True(JobTitles.At(PlayerClass.Fighter, 1).Length > 0, "job titles are missing");
+        Assert.True(ClassProfiles.Of(PlayerClass.Fighter).TitleAt(1).Length > 0, "job titles are missing");
 
         // The quests split the classes by class number: the assassin takes the Morion side but gathers trophies.
         var assassin = Character(PlayerClass.Assassin, "Shade", 30);

@@ -1,9 +1,22 @@
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Quests;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
 public sealed class AssassinClass : CharacterClass
 {
+    public static readonly ClassProfile Profile = new(
+        ["Assassin", "Rogue", "Shadow", "Shadow Walker"],
+        new MotionFallback(3200, 24, 2400),
+        static weapon => weapon.Definition.Kind == ItemKind.Dagger,
+        CastingWeapon: null,
+        Shift: null,
+        QuestWeapon: "WD109",
+        BeginnerWeapon: "",
+        QuestWeaponHunt.Melee,
+        QuestItems.EmperorRing);
+
     public AssassinClass()
         : base(BuildDefinition(
             PlayerClass.Assassin,

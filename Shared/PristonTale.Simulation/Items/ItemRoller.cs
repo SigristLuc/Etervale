@@ -8,20 +8,6 @@ namespace PristonTale.Simulation.Items;
 // every range, and may specialize the copy for a class.
 public static partial class ItemRoller
 {
-    // Percent ranges a specialization moves the requirements by: strength, spirit, talent, agility. A zero lower
-    // bound leaves the requirement unchanged.
-    private static readonly Dictionary<JobBitCode, (ItemRange Strength, ItemRange Spirit, ItemRange Talent, ItemRange Agility)> RequirementShift = new()
-    {
-        [JobBitCode.Mechanician] = (new(5, 15), new(-20, -10), default, new(-25, -15)),
-        [JobBitCode.Fighter] = (new(10, 15), new(-20, -15), default, new(-20, -15)),
-        [JobBitCode.Pikeman] = (new(10, 15), new(-20, -15), default, new(-25, -15)),
-        [JobBitCode.Archer] = (new(-25, -15), new(-20, -10), default, new(15, 25)),
-        [JobBitCode.Knight] = (new(5, 15), new(-15, -10), new(5, 10), new(-25, -15)),
-        [JobBitCode.Atalanta] = (new(-20, -15), new(-20, -10), default, new(15, 25)),
-        [JobBitCode.Priestess] = (new(-25, -20), new(15, 20), new(-15, -10), new(-20, -15)),
-        [JobBitCode.Magician] = (new(-25, -20), new(15, 25), new(-15, -10), new(-20, -15))
-    };
-
     public static int LowerDurability(ItemDefinition definition)
     {
         var template = definition.Template;
@@ -168,7 +154,7 @@ public static partial class ItemRoller
 
     private static CharacterAttributes Shift(CharacterAttributes requirements, uint job, Func<ItemRange, int> percent)
     {
-        if (!RequirementShift.TryGetValue((JobBitCode)job, out var shift))
+        if (JobBits.ClassOf((JobBitCode)job) is not { } owner || ClassProfiles.Of(owner).Shift is not { } shift)
         {
             return requirements;
         }

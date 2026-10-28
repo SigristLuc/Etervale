@@ -35,7 +35,7 @@ quest data the importer reads, and the client's quest dialog, quest window, clas
 | `Shared/PristonTale.Simulation/Quests/QuestDrops.cs` | `QuestDropSource`, `PendingQuestDrop`, which drops a player receives, the quest upkeep, `QuestTick` (kills, deaths, timers) |
 | `Shared/PristonTale.Simulation/Quests/QuestRewards.cs` | Lasting rewards and `QuestEffects` (permanent system effects synced in `PlayerCharacter.Recompute`) |
 | `Shared/PristonTale.Simulation/Quests/QuestArena.cs`, `World/Fields/QuestArenaField.cs` | Arena field 32, entry and duel spots, opponent scaling, potions, helpers, blink |
-| `Shared/PristonTale.Simulation/Quests/QuestItems.cs`, `QuestMonsters.cs`, `QuestClasses.cs`, `QuestInventory.cs` | Item and monster codes, class facts (tribe, home town, quest weapon, ring), pack helpers and `QuestGrant` |
+| `Shared/PristonTale.Simulation/Quests/QuestItems.cs`, `QuestMonsters.cs`, `QuestClasses.cs`, `QuestInventory.cs` | Item and monster codes, class facts (tribe, home town; the quest weapon, hunt and ring come from the class's `ClassProfile`), pack helpers and `QuestGrant` |
 | `Shared/PristonTale.Simulation/Quests/QuestSteps.cs`, `QuestTexts.cs`, `QuestBoard.cs`, `QuestView.cs` | Dialog helpers and the one-quest rule, English texts, quest window lines, the journal view sent to the owner |
 | [QuestTransactions.cs](../Shared/PristonTale.Application/World/QuestTransactions.cs) | Prepare a request or an upkeep on the tick against a candidate copy; follow-up validation; travel destination |
 | `Shared/PristonTale.Application/World/WorldServer.Quests.cs`, `PreparedQuestOperation.cs` | Prepare and commit on the tick, upkeep requests channel, travel, opening the duel |

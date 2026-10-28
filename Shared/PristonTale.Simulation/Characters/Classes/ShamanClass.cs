@@ -1,9 +1,22 @@
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Quests;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
 public sealed class ShamanClass : CharacterClass
 {
+    public static readonly ClassProfile Profile = new(
+        ["Shaman", "Clairvoyant", "Soul Mage", "Necromancer"],
+        new MotionFallback(3360, 22, 3040),
+        static weapon => weapon.Definition.Kind == ItemKind.Phantom,
+        CastingWeapon: ItemKind.Phantom,
+        Shift: null,
+        QuestWeapon: "WN109",
+        BeginnerWeapon: "",
+        QuestWeaponHunt.Field,
+        QuestItems.EmperorRing);
+
     public ShamanClass()
         : base(BuildDefinition(
             PlayerClass.Shaman,

@@ -1,10 +1,23 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Quests;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
 public sealed class MagicianClass : CharacterClass
 {
+    public static readonly ClassProfile Profile = new(
+        ["Magician", "Wizard", "RoyalWizard", "ArchMage"],
+        new MotionFallback(3360, 22, 3040),
+        static weapon => weapon.Definition.Kind == ItemKind.Staff,
+        CastingWeapon: ItemKind.Staff,
+        Shift: new RequirementShift(new(-25, -20), new(15, 25), new(-15, -10), new(-20, -15)),
+        QuestWeapon: "WM109",
+        BeginnerWeapon: "WM101",
+        QuestWeaponHunt.Field,
+        QuestItems.ArcaneRing);
+
     public MagicianClass()
         : base(BuildDefinition(
             PlayerClass.Magician,

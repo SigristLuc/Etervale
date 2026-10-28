@@ -1,10 +1,23 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Quests;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
 public sealed class PriestessClass : CharacterClass
 {
+    public static readonly ClassProfile Profile = new(
+        ["Priestess", "Saintess", "Bishop", "Celestial"],
+        new MotionFallback(3200, 20, 3040),
+        static weapon => weapon.Definition.Kind == ItemKind.Staff,
+        CastingWeapon: ItemKind.Staff,
+        Shift: new RequirementShift(new(-25, -20), new(15, 20), new(-15, -10), new(-20, -15)),
+        QuestWeapon: "WM109",
+        BeginnerWeapon: "WM101",
+        QuestWeaponHunt.Field,
+        QuestItems.ArcaneRing);
+
     public PriestessClass()
         : base(BuildDefinition(
             PlayerClass.Priestess,

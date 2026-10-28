@@ -1,10 +1,23 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Quests;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
 public sealed class PikemanClass : CharacterClass
 {
+    public static readonly ClassProfile Profile = new(
+        ["Pikeman", "Combatant", "Lancer", "Lancelot"],
+        new MotionFallback(3680, 22, 2560),
+        static weapon => weapon.Definition.Kind == ItemKind.Pole,
+        CastingWeapon: null,
+        Shift: new RequirementShift(new(10, 15), new(-20, -15), default, new(-25, -15)),
+        QuestWeapon: "WP109",
+        BeginnerWeapon: "WP102",
+        QuestWeaponHunt.Melee,
+        QuestItems.EmperorRing);
+
     public PikemanClass()
         : base(BuildDefinition(
             PlayerClass.Pikeman,

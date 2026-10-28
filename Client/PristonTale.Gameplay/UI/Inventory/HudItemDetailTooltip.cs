@@ -264,6 +264,6 @@ public static class HudItemDetailTooltip
     private static string SpecClassName(uint job)
     {
         var characterClass = JobBits.ClassOf((JobBitCode)job);
-        return characterClass.HasValue ? HudJobTitles.For(characterClass.Value)[0] : "Class";
+        return characterClass.HasValue ? ClassProfiles.Of(characterClass.Value).Titles[0] : "Class";
     }
 }

@@ -28,50 +28,18 @@ public static class QuestClasses
     // Rank-up quests run only at the skill master of the class's home town.
     public static bool IsHomeTown(PlayerCharacter character, int fieldCode) => fieldCode == HomeField(character);
 
-    public static uint QuestWeapon(PlayerClass playerClass) => playerClass switch
-    {
-        PlayerClass.Fighter => ItemCodes.Parse("WA108"),
-        PlayerClass.Mechanician => ItemCodes.Parse("WC108"),
-        PlayerClass.Archer => ItemCodes.Parse("WS110"),
-        PlayerClass.Pikeman => ItemCodes.Parse("WP109"),
-        PlayerClass.Atalanta => ItemCodes.Parse("WT109"),
-        PlayerClass.Knight => ItemCodes.Parse("WS210"),
-        PlayerClass.Magician or PlayerClass.Priestess => ItemCodes.Parse("WM109"),
-        PlayerClass.Assassin => CodeOrZero("WD109"),
-        PlayerClass.Shaman => CodeOrZero("WN109"),
-        _ => 0
-    };
+    public static uint QuestWeapon(PlayerClass playerClass) => CodeOrZero(ClassProfiles.Of(playerClass).QuestWeapon);
 
-    // Dagger and phantom codes resolve only once the item codes cover their categories.
+    // Dagger and phantom codes resolve only once the item codes cover their categories; a class without the item has "".
     private static uint CodeOrZero(string code) => ItemCodes.TryParse(code, out var value) ? value : 0;
 
     // How the quest weapon counts kills while it grows.
-    public static QuestWeaponHunt WeaponHunt(PlayerClass playerClass) => playerClass switch
-    {
-        PlayerClass.Archer or PlayerClass.Atalanta => QuestWeaponHunt.Ranged,
-        PlayerClass.Magician or PlayerClass.Priestess or PlayerClass.Shaman => QuestWeaponHunt.Field,
-        _ => QuestWeaponHunt.Melee
-    };
+    public static QuestWeaponHunt WeaponHunt(PlayerClass playerClass) => ClassProfiles.Of(playerClass).Hunt;
 
-    public static uint RankUpRing(PlayerClass playerClass) => playerClass switch
-    {
-        PlayerClass.Magician or PlayerClass.Priestess => QuestItems.ArcaneRing,
-        PlayerClass.Archer or PlayerClass.Atalanta => QuestItems.FocusRing,
-        _ => QuestItems.EmperorRing
-    };
+    public static uint RankUpRing(PlayerClass playerClass) => ClassProfiles.Of(playerClass).RankUpRing;
 
     // The first beginner quest's weapon, specialised for the class.
-    public static uint BeginnerWeapon(PlayerClass playerClass) => playerClass switch
-    {
-        PlayerClass.Mechanician => ItemCodes.Parse("WC102"),
-        PlayerClass.Fighter => ItemCodes.Parse("WA102"),
-        PlayerClass.Pikeman => ItemCodes.Parse("WP102"),
-        PlayerClass.Archer => ItemCodes.Parse("WS102"),
-        PlayerClass.Knight => ItemCodes.Parse("WS202"),
-        PlayerClass.Atalanta => ItemCodes.Parse("WT102"),
-        PlayerClass.Priestess or PlayerClass.Magician => ItemCodes.Parse("WM101"),
-        _ => 0
-    };
+    public static uint BeginnerWeapon(PlayerClass playerClass) => CodeOrZero(ClassProfiles.Of(playerClass).BeginnerWeapon);
 
     public static uint JobMask(PlayerCharacter character) => (uint)character.Definition.JobBitCode;
 

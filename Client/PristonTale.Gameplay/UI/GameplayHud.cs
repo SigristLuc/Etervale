@@ -241,7 +241,7 @@ public sealed class GameplayHud : IDisposable
             _syncedSkills = null;
             _skillHud.SetClass(value);
             _skills.SetClass(value);
-            _status.ClassName = HudJobTitles.For(value)[0];
+            _status.ClassName = ClassProfiles.Of(value).Titles[0];
             _status.Invalidate();
         }
     }

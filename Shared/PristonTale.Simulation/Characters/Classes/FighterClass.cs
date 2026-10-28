@@ -1,10 +1,23 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Quests;
 
 namespace PristonTale.Simulation.Characters.Classes;
 
 public sealed class FighterClass : CharacterClass
 {
+    public static readonly ClassProfile Profile = new(
+        ["Fighter", "Warrior", "Champion", "Immortal Warrior"],
+        new MotionFallback(3520, 22, 2880),
+        static weapon => weapon.Definition.Kind == ItemKind.Axe,
+        CastingWeapon: null,
+        Shift: new RequirementShift(new(10, 15), new(-20, -15), default, new(-20, -15)),
+        QuestWeapon: "WA108",
+        BeginnerWeapon: "WA102",
+        QuestWeaponHunt.Melee,
+        QuestItems.EmperorRing);
+
     public FighterClass()
         : base(BuildDefinition(
             PlayerClass.Fighter,
