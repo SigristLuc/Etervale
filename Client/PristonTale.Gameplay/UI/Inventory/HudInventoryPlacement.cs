@@ -69,16 +69,9 @@ public static class HudInventoryPlacement
             return new HudPlacement(HudPlacementKind.Blocked, bounds, Belt: box);
         }
 
-        OwnedItemView held = null;
-        for (var index = 0; index < items.Count; index++)
-        {
-            if (items[index].BeltBox == box && items[index].InstanceId != carried.InstanceId)
-            {
-                held = items[index];
-            }
-        }
-
-        var kind = held is null ? HudPlacementKind.Fits : held.CatalogKey == carried.CatalogKey ? HudPlacementKind.Merge : HudPlacementKind.Exchange;
+        var held = OwnedItemView.InBox(items, box);
+        held = held == carried ? null : held;
+        var kind = held is null ? HudPlacementKind.Fits : held.Joins(carried) ? HudPlacementKind.Merge : HudPlacementKind.Exchange;
         return new HudPlacement(kind, bounds, Covered: held, Belt: box);
     }
 
@@ -89,14 +82,8 @@ public static class HudInventoryPlacement
             return new HudPlacement(HudPlacementKind.Blocked, bounds, Slot: slot);
         }
 
-        OwnedItemView covered = null;
-        for (var index = 0; index < items.Count; index++)
-        {
-            if (items[index].Slot == (int)slot && items[index].InstanceId != carried.InstanceId)
-            {
-                covered = items[index];
-            }
-        }
+        var covered = OwnedItemView.InSlot(items, (int)slot);
+        covered = covered == carried ? null : covered;
 
         return new HudPlacement(covered is null ? HudPlacementKind.Fits : HudPlacementKind.Exchange, bounds, Slot: slot, Covered: covered);
     }

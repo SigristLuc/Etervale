@@ -116,9 +116,9 @@ public sealed partial class PlayerCharacter
     // room, as the original resets the belt.
     public void FitBeltToPotionSpace()
     {
-        for (var box = 0; box < PotionBelt.Boxes; box++)
+        foreach (var (_, item) in Belt.Occupied())
         {
-            if (Belt[box] is { } item && item.Count > Derived.PotionSpace && Inventory.TryAdd(item.Copy(item.Count - Derived.PotionSpace)))
+            if (item.Count > Derived.PotionSpace && Inventory.TryAdd(item.Copy(item.Count - Derived.PotionSpace)))
             {
                 item.Count = Derived.PotionSpace;
                 OnInventoryChanged();

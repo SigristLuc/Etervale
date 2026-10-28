@@ -235,7 +235,7 @@ public sealed class Inventory
         }
 
         SetFootprint(rows, to, item.Definition, true);
-        var destination = Fits(from, displaced.Definition, rows) ? from : FindSpace(displaced.Definition, rows);
+        var destination = Destination(rows, from, displaced.Definition);
         if (destination < 0)
         {
             return false;
@@ -252,23 +252,18 @@ public sealed class Inventory
     }
 
     // Whether TryExchange would succeed, changing nothing.
-    public bool CanExchange(int anchor, ItemDefinition incoming, int at = -1)
+    public bool CanExchange(int anchor, ItemInstance replacement, int at = -1)
     {
         Span<uint> rows = stackalloc uint[Height];
-        return PlanExchange(rows, anchor, incoming, at) >= 0;
+        return PlanExchange(rows, anchor, replacement, at) >= 0;
     }
 
     // Takes the item at `anchor` out and sets `replacement` (when given) at `at`, or with `at` -1 where the item was or in
     // the first free space. Nothing changes when the replacement does not fit.
     public bool TryExchange(int anchor, ItemInstance replacement, int at = -1)
     {
-        if (replacement is not null && (replacement.Count < 1 || replacement.Count > replacement.Definition.MaxStack || Find(replacement.InstanceId) >= 0))
-        {
-            return false;
-        }
-
         Span<uint> rows = stackalloc uint[Height];
-        var destination = PlanExchange(rows, anchor, replacement?.Definition, at);
+        var destination = PlanExchange(rows, anchor, replacement, at);
         if (destination < 0)
         {
             return false;
@@ -285,29 +280,33 @@ public sealed class Inventory
         return true;
     }
 
-    // The rows after the exchange and where the incoming item goes (the anchor when there is none); -1 when it fails.
-    private int PlanExchange(Span<uint> rows, int anchor, ItemDefinition incoming, int at)
+    // The rows after the exchange and where the replacement goes (the anchor when there is none); -1 when it fails.
+    private int PlanExchange(Span<uint> rows, int anchor, ItemInstance replacement, int at)
     {
-        if (anchor < 0 || anchor >= Capacity || _slots[anchor] is not { } outgoing)
+        if (anchor < 0 || anchor >= Capacity || _slots[anchor] is not { } outgoing
+            || replacement is not null && (replacement.Count < 1 || replacement.Count > replacement.Definition.MaxStack || Find(replacement.InstanceId) >= 0))
         {
             return -1;
         }
 
         _rows.CopyTo(rows);
         SetFootprint(rows, anchor, outgoing.Definition, false);
-        if (incoming is null)
+        if (replacement is null)
         {
             return anchor;
         }
 
-        var destination = at >= 0 ? (Fits(at, incoming, rows) ? at : -1) : Fits(anchor, incoming, rows) ? anchor : FindSpace(incoming, rows);
+        var destination = at >= 0 ? (Fits(at, replacement.Definition, rows) ? at : -1) : Destination(rows, anchor, replacement.Definition);
         if (destination >= 0)
         {
-            SetFootprint(rows, destination, incoming, true);
+            SetFootprint(rows, destination, replacement.Definition, true);
         }
 
         return destination;
     }
+
+    // Places an item, without joining stacks, at the first cells that fit.
+    public bool TryPlaceFirstFree(ItemInstance item) => item is not null && FindSpace(item.Definition, _rows) is var anchor && anchor >= 0 && TryPlace(item, anchor);
 
     public bool TrySplit(int from, int to, int amount)
     {
@@ -317,8 +316,7 @@ public sealed class Inventory
             return false;
         }
 
-        _slots[to] = item.Copy(amount);
-        item.Count -= amount;
+        _slots[to] = item.Split(amount);
         SetFootprint(_rows, to, item.Definition, true);
         NotifyChanged();
         return true;
@@ -420,6 +418,10 @@ public sealed class Inventory
 
         return true;
     }
+
+    // Where an item moved aside goes, as the original's exchange puts it: back at `preferred`, or the first free space.
+    private int Destination(ReadOnlySpan<uint> rows, int preferred, ItemDefinition definition) =>
+        Fits(preferred, definition, rows) ? preferred : FindSpace(definition, rows);
 
     private int FindSpace(ItemDefinition definition, ReadOnlySpan<uint> rows)
     {

@@ -38,16 +38,7 @@ public static class QuestInventory
             }
 
             var take = Math.Min(item.Count, amount - removed);
-            if (take == item.Count)
-            {
-                inventory.TakeAt(anchor);
-            }
-            else
-            {
-                item.Count -= take;
-                character.TouchInventory();
-            }
-
+            inventory.TakeFrom(anchor, take);
             removed += take;
         }
 

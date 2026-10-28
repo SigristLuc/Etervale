@@ -144,7 +144,7 @@ public sealed class CombatSounds : IDisposable
             return 14;
         }
 
-        return weaponKey[..3].ToUpperInvariant() switch
+        return ItemCodes.FamilyOf(weaponKey) switch
         {
             "WA1" => twoHanded ? 2 : 1,
             "WS2" when ItemCodes.Ordinal(code) <= 3 => 15,

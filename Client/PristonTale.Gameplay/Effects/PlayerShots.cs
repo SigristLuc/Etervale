@@ -78,7 +78,7 @@ public sealed class PlayerShots
             return;
         }
 
-        var family = weaponKey[..3].ToUpperInvariant();
+        var family = ItemCodes.FamilyOf(weaponKey);
         var chest = target + Vector3.Up * 24f;
         if (family == "WM1")
         {

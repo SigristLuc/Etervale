@@ -27,17 +27,24 @@ public sealed record OwnedItemView(
                 definition.GridHeight, definition.CatalogKey);
     }
 
-    // The item of a view with this id, or null (empty finds nothing); called every frame, so it does not allocate.
-    public static OwnedItemView Find(IReadOnlyList<OwnedItemView> items, Guid id)
-    {
-        if (items is null || id == Guid.Empty)
-        {
-            return null;
-        }
+    // Whether a carried potion joins this stack: the same potion. The server joins only compatible stacks
+    // (Inventory.TryJoin), which for potions, without durability or rolls, is the same rule.
+    public bool Joins(OwnedItemView carried) => carried.Kind == ItemKind.Potion && carried.CatalogKey == CatalogKey;
 
-        for (var index = 0; index < items.Count; index++)
+    // The item of a view with this id, in this owner slot or in this belt box, or null; called every frame, so they do
+    // not allocate.
+    public static OwnedItemView Find(IReadOnlyList<OwnedItemView> items, Guid id) =>
+        id == Guid.Empty ? null : First(items, static (item, id) => item.InstanceId == id, id);
+
+    public static OwnedItemView InSlot(IReadOnlyList<OwnedItemView> items, int slot) => First(items, static (item, slot) => item.Slot == slot, slot);
+
+    public static OwnedItemView InBox(IReadOnlyList<OwnedItemView> items, int box) => InSlot(items, PotionBelt.FirstOwnerSlot + box);
+
+    private static OwnedItemView First<T>(IReadOnlyList<OwnedItemView> items, Func<OwnedItemView, T, bool> matches, T value)
+    {
+        for (var index = 0; index < (items?.Count ?? 0); index++)
         {
-            if (items[index].InstanceId == id)
+            if (matches(items[index], value))
             {
                 return items[index];
             }
@@ -158,12 +165,9 @@ public sealed record OwnerState(
             captured.Add(Project(pair.Value, -1, (int)pair.Key, character));
         }
 
-        for (var box = 0; box < PotionBelt.Boxes; box++)
+        foreach (var (box, potion) in character.Belt.Occupied())
         {
-            if (character.Belt[box] is { } potion)
-            {
-                captured.Add(Project(potion, -1, PotionBelt.FirstOwnerSlot + box, character));
-            }
+            captured.Add(Project(potion, -1, PotionBelt.FirstOwnerSlot + box, character));
         }
 
         return captured.AsReadOnly();

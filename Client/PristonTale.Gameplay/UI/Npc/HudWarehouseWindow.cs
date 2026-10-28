@@ -254,8 +254,7 @@ public sealed class HudWarehouseWindow : IHudServiceWindow
         }
         else if (_hovered is not null)
         {
-            var count = _counts.Label(_hovered);
-            HudItemTooltip.Draw(painter, layout, pointer, count.Length > 0 ? $"{_hovered.Name} ({count})" : _hovered.Name, "Click: carry");
+            HudItemTooltip.Draw(painter, layout, pointer, _counts.Named(_hovered).Name, "Click: carry");
         }
     }
 

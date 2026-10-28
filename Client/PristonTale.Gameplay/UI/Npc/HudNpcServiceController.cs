@@ -28,8 +28,8 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
     public ItemWorkResult LastWork { get; private set; }
     public int Opened { get; private set; }
 
-    // Every service request the server carried out, for its sound.
-    public Action<NpcServiceCommand> Succeeded { get; set; }
+    // Every service request the server carried out, with its outcome (the revisions it left).
+    public Action<NpcServiceCommand, NpcServiceOutcome> Succeeded { get; set; }
 
     public bool Request(ulong npcId, string npcName, NpcServiceKind service, NpcServiceAction action, long expectedRevision = 0,
         uint itemCode = 0, Guid itemId = default, int anchor = -1, int count = 1, long amount = 0, Guid[] materials = null, Guid covered = default)
@@ -94,7 +94,7 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
         Completions++;
         if (outcome.Ok)
         {
-            Succeeded?.Invoke(command);
+            Succeeded?.Invoke(command, outcome);
         }
         if (!outcome.Ok)
         {

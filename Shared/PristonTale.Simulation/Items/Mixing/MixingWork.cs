@@ -158,7 +158,7 @@ public static class MixingWork
             return NpcServiceStatus.Ok;
         }
 
-        if (MixFormulas.Find(Aging.AgingRules.Family(item), counts) is not { } formula)
+        if (MixFormulas.Find(ItemCodes.FamilyOf(item.Definition.CatalogKey), counts) is not { } formula)
         {
             work = new ItemWorkResult((byte)MixResult.Failed, item.InstanceId, code);
             return NpcServiceStatus.Ok;

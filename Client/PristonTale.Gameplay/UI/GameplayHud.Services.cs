@@ -100,7 +100,7 @@ public sealed partial class GameplayHud
     }
 
     // A warehouse exchange hands the item it picked up to the cursor, in the bag or on the grid where it now lies.
-    private void ServiceSucceeded(NpcServiceCommand command)
+    private void ServiceSucceeded(NpcServiceCommand command, NpcServiceOutcome outcome)
     {
         ServiceSound(command);
         if (command.Covered == Guid.Empty)
@@ -110,7 +110,7 @@ public sealed partial class GameplayHud
 
         if (command.Action == NpcServiceAction.Deposit)
         {
-            _inventory.CarryAfter(command.Covered);
+            _inventory.CarryAfter(command.Covered, outcome.Revision);
         }
         else if (command.Action is NpcServiceAction.Move or NpcServiceAction.Withdraw)
         {

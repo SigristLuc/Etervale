@@ -1,6 +1,5 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Simulation.Characters;
-using PristonTale.Simulation.Items;
 
 namespace PristonTale.Gameplay.UI.Inventory;
 
@@ -10,7 +9,7 @@ namespace PristonTale.Gameplay.UI.Inventory;
 // refused.
 public static class HudGridPlacement
 {
-    public const int CellSize = 22;
+    public const int CellSize = Engine3D.IO.ItemIconFiles.CellPixels;
     public const int HalfCell = CellSize / 2;
 
     public static Rectangle Frame(OwnedItemView item, Point center) => Frame(item.Width, item.Height, center);
@@ -76,8 +75,7 @@ public static class HudGridPlacement
             return new HudPlacement(HudPlacementKind.Fits, target, anchor);
         }
 
-        var merge = carried.Kind == ItemKind.Potion && covered.CatalogKey == carried.CatalogKey;
-        return new HudPlacement(merge ? HudPlacementKind.Merge : HudPlacementKind.Exchange, Cell(grid, columns, covered.Anchor, covered.Width, covered.Height),
+        return new HudPlacement(covered.Joins(carried) ? HudPlacementKind.Merge : HudPlacementKind.Exchange, Cell(grid, columns, covered.Anchor, covered.Width, covered.Height),
             anchor, Covered: covered);
     }
 

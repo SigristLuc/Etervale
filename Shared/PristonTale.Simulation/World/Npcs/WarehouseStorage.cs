@@ -37,7 +37,7 @@ public sealed class WarehouseStorage
             var weight = 0;
             foreach (var item in Grid.Items())
             {
-                weight += ItemWeight(item);
+                weight += CarriedWeight.Of(item);
             }
 
             return weight;
@@ -57,8 +57,6 @@ public sealed class WarehouseStorage
     public static bool RefusedOnSetDown(ItemKind kind) => kind == ItemKind.Potion;
 
     private static bool Storable(ItemKind kind, string key) => !RefusedOnSetDown(kind) && !ItemCodes.InFamily(key, Families);
-
-    public static int ItemWeight(ItemInstance item) => Math.Max(0, item.Definition.Weight) * item.Count;
 
     public WarehouseStorage Clone()
     {
@@ -80,17 +78,13 @@ public sealed class WarehouseStorage
             return NpcServiceStatus.Rejected;
         }
 
-        if (Weight - (displaced is null ? 0 : ItemWeight(displaced)) + ItemWeight(item) > MaxWeight || displaced is null && Count >= MaxItems)
+        if (displaced is null && Count >= MaxItems)
         {
             return NpcServiceStatus.NoSpace;
         }
 
-        if (displaced is not null && !CarriedWeight.CanTake(character, CarriedWeight.Of(displaced) - CarriedWeight.Of(item)))
-        {
-            return NpcServiceStatus.OverWeight;
-        }
-
-        return SetDown(character.Inventory, source, Grid, anchor, displaced) ? Changed() : NpcServiceStatus.NoSpace;
+        return Weigh(character, item, displaced) is var weighed && weighed != NpcServiceStatus.Ok ? weighed
+            : SetDown(character.Inventory, source, Grid, anchor, displaced) ? Changed() : NpcServiceStatus.NoSpace;
     }
 
     // A stored item set down in the bag: on free cells, or over one bag item, which goes to the stored item's cell (or
@@ -104,17 +98,8 @@ public sealed class WarehouseStorage
             return NpcServiceStatus.Rejected;
         }
 
-        if (!CarriedWeight.CanTake(character, CarriedWeight.Of(item) - (displaced is null ? 0 : CarriedWeight.Of(displaced))))
-        {
-            return NpcServiceStatus.OverWeight;
-        }
-
-        if (displaced is not null && Weight - ItemWeight(item) + ItemWeight(displaced) > MaxWeight)
-        {
-            return NpcServiceStatus.NoSpace;
-        }
-
-        return SetDown(Grid, source, character.Inventory, anchor, displaced) ? Changed() : NpcServiceStatus.NoSpace;
+        return Weigh(character, displaced, item) is var weighed && weighed != NpcServiceStatus.Ok ? weighed
+            : SetDown(Grid, source, character.Inventory, anchor, displaced) ? Changed() : NpcServiceStatus.NoSpace;
     }
 
     // A stored item set down elsewhere on the grid, over free cells or one other stored item (carried in turn).
@@ -166,6 +151,19 @@ public sealed class WarehouseStorage
         return NpcServiceStatus.Ok;
     }
 
+    // Whether the warehouse can bear `stored` coming in and the character `taken` coming out to it (either may be null);
+    // a side whose load falls is never refused, even over its limit.
+    private NpcServiceStatus Weigh(PlayerCharacter character, ItemInstance stored, ItemInstance taken)
+    {
+        var change = (stored is null ? 0 : CarriedWeight.Of(stored)) - (taken is null ? 0 : CarriedWeight.Of(taken));
+        if (change > 0 && Weight + change > MaxWeight)
+        {
+            return NpcServiceStatus.NoSpace;
+        }
+
+        return change < 0 && !CarriedWeight.CanTake(character, -change) ? NpcServiceStatus.OverWeight : NpcServiceStatus.Ok;
+    }
+
     private NpcServiceStatus Changed()
     {
         Revision++;
@@ -203,7 +201,7 @@ public sealed class WarehouseStorage
         }
 
         var under = to.Find(displaced.InstanceId);
-        if (!to.CanExchange(under, item.Definition, anchor) || !from.CanExchange(source, displaced.Definition))
+        if (!to.CanExchange(under, item, anchor) || !from.CanExchange(source, displaced))
         {
             return false;
         }

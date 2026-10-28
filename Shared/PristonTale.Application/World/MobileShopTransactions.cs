@@ -1,6 +1,7 @@
 using PristonTale.Application.Sessions;
 using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Application.World;
@@ -49,7 +50,7 @@ internal static class MobileShopTransactions
 
         if (command.OperationId == Guid.Empty || command.ExpectedRevision != original.InventoryRevision)
         {
-            return Final(original, NpcServiceOutcome.Failed(NpcServiceStatus.Stale, "stale inventory revision", original.InventoryRevision));
+            return Final(original, NpcServiceOutcome.Failed(NpcServiceStatus.Stale, ItemRuleMessages.StaleInventory, original.InventoryRevision));
         }
 
         var candidate = original.CloneForInventoryOperation();

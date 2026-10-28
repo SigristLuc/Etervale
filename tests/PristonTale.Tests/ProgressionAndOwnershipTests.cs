@@ -76,6 +76,8 @@ internal static class ProgressionAndOwnershipTests
         var before = inventory.Version;
         var oversized = new ItemInstance(new ItemDefinition(4, "Oversized", ItemKind.Misc, GridWidth: 13));
         Assert.True(!inventory.TryExchange(0, oversized) && inventory[0].InstanceId == small.InstanceId && inventory.Version == before, "failed exchange removed item");
+        Assert.True(!inventory.CanExchange(0, oversized) && !inventory.CanExchange(0, inventory[8]) && !inventory.TryExchange(0, inventory[8])
+            && inventory.Version == before, "the exchange check accepted what the exchange refuses (an item too wide or already in the grid)");
         return Task.CompletedTask;
     }
 

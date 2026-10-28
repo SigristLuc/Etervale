@@ -190,6 +190,14 @@ internal static class HudInteractionTests
             Assert.True(sent is { Action: InventoryAction.Equip, Slot: EquipmentSlot.Weapon, ExpectedRevision: 7 }
                 && sent.ItemId == item.InstanceId && sent.OperationId != Guid.Empty, "a click on the weapon slot did not send the authoritative equipment command");
             Assert.True(state.Items[0].Slot == -1 && controller.Dragging == Guid.Empty, "gesture changed immutable owner state or retained drag");
+
+            // An item a reply hands to the cursor waits for the owner state of that reply's revision, which travels apart.
+            var handed = item with { InstanceId = Guid.NewGuid(), Anchor = 30 };
+            controller.CarryAfter(handed.InstanceId, 9);
+            controller.Update(state with { InventoryRevision = 8 }, layout, true, default, MouseAt(weapon, layout.Scale, ButtonState.Released));
+            Assert.True(controller.Dragging == Guid.Empty, "an item was carried before the state that holds it arrived");
+            controller.Update(state with { InventoryRevision = 9, Items = [item, handed] }, layout, true, default, MouseAt(weapon, layout.Scale, ButtonState.Released));
+            Assert.True(controller.Dragging == handed.InstanceId, "the item the reply handed over was not carried once its state arrived");
         }
 
         return Task.CompletedTask;

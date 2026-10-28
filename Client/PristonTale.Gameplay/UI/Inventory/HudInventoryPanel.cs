@@ -10,6 +10,9 @@ namespace PristonTale.Gameplay.UI.Inventory;
 public sealed class HudInventoryPanel
 {
     private readonly HudItemCounts _counts = new();
+    // Whether the bag holds a puzzle piece or lucky bag (the board shows) and the puzzle is finished, per revision.
+    private (bool Shown, bool Complete) _puzzle;
+    private long _puzzleRevision = long.MinValue;
     private long _money = -1;
     private string _gold = "";
     private (int Carried, int Max) _weightValue = (-1, -1);
@@ -45,7 +48,7 @@ public sealed class HudInventoryPanel
 
         Refresh(state);
         _state = state;
-        DrawPuzzleBoard(painter, origin, state);
+        DrawPuzzleBoard(painter, origin);
         foreach (var item in state.Items)
         {
             if (item.Equipped)
@@ -109,17 +112,16 @@ public sealed class HudInventoryPanel
 
     // While a puzzle piece or lucky bag is carried, the board backdrop covers the last four columns' top four rows; a
     // finished puzzle glows yellow under two orange lines that sweep the board one pixel every three 70 Hz frames.
-    private void DrawPuzzleBoard(HudPainter painter, Point origin, OwnerState state)
+    private void DrawPuzzleBoard(HudPainter painter, Point origin)
     {
-        var carried = state.Items.Where(static item => item.Slot < 0).ToList();
-        if (!carried.Any(static item => Puzzles.IsPiece(item.CatalogKey) || item.CatalogKey.Equals(Puzzles.LuckyBagIcon, StringComparison.OrdinalIgnoreCase)))
+        if (!_puzzle.Shown)
         {
             return;
         }
 
         var board = HudInventoryLayout.Cell(origin, Puzzles.BoardColumn, Puzzles.BoardSize, Puzzles.BoardSize);
         painter.Sprite(HudArt.PuzzleBoard, board.X, board.Y);
-        if (!Puzzles.Complete(carried.Select(static item => (item.CatalogKey, item.Anchor)), HudInventoryLayout.Columns))
+        if (!_puzzle.Complete)
         {
             return;
         }
@@ -212,8 +214,7 @@ public sealed class HudInventoryPanel
             : item.Kind == ItemKind.Potion ? "Right-click: drink one"
             : usable ? "Right-click: use"
             : "Click: carry  Shift-click: split  Right-click: equip";
-        var count = _counts.Label(item);
-        var named = count.Length > 0 ? item with { Name = $"{item.Name} ({count})" } : item;
+        var named = _counts.Named(item);
         var note = Note?.Invoke(item) ?? "";
         if (usable && note.Length == 0)
         {
@@ -228,6 +229,14 @@ public sealed class HudInventoryPanel
     private void Refresh(OwnerState state)
     {
         _counts.Refresh(state.InventoryRevision, state.Items);
+        if (_puzzleRevision != state.InventoryRevision)
+        {
+            _puzzleRevision = state.InventoryRevision;
+            var bag = state.Items.Where(static item => item.InBag).ToList();
+            var shown = bag.Any(static item => Puzzles.IsPiece(item.CatalogKey) || item.CatalogKey.Equals(Puzzles.LuckyBagIcon, StringComparison.OrdinalIgnoreCase));
+            _puzzle = (shown, shown && Puzzles.Complete(bag.Select(static item => (item.CatalogKey, item.Anchor)), HudInventoryLayout.Columns));
+        }
+
         if (_money != state.Money)
         {
             _money = state.Money;

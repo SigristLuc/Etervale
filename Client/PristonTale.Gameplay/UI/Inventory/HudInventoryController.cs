@@ -14,11 +14,14 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     private OwnerState _state;
     private Point _origin;
     private MouseState _previousMouse;
-    // The item on the cursor (it keeps its place on the server until it is set down), and the one put there once no
-    // command is pending and it lies in the bag: what an exchange picks up, an equipped item taken off, or what a
-    // warehouse exchange put in the bag.
+    // The item on the cursor (it keeps its place on the server until it is set down). _carryOnSuccess: what the pending
+    // command hands to the cursor when it succeeds (the item an exchange picks up, an equipped item taken off).
+    // _carryAfter: an item carried once the owner state reaches the inventory revision _carryAt and shows it in the bag
+    // (the state travels apart from the replies).
     private Guid _dragging;
+    private Guid _carryOnSuccess;
     private Guid _carryAfter;
+    private long _carryAt;
     // The item under the pointer this frame (the window open), for Shift and a belt key.
     private OwnedItemView _hovered;
     // A weapon pair asked for while the player swings or casts: held once the motion ends, as the original waits for it.
@@ -31,7 +34,6 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     // Whether the last completed operation succeeded (its message is a confirmation rather than a refusal).
     public bool LastOk { get; private set; }
     public int Completions { get; private set; }
-    public bool Pending => _pendingOperation;
     public Guid Dragging => _dragging;
 
     // The owned item under the pointer while the window takes input and nothing is carried.
@@ -59,7 +61,11 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         _dragging = Guid.Empty;
     }
 
-    public void CarryAfter(Guid itemId) => _carryAfter = itemId;
+    public void CarryAfter(Guid itemId, long revision)
+    {
+        _carryAfter = itemId;
+        _carryAt = revision;
+    }
 
     public void Update(OwnerState state, HudLayout layout, bool visible, KeyboardState keyboard, MouseState mouse)
     {
@@ -78,17 +84,18 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                 ItemSound?.Invoke(_pendingSound);
             }
 
-            if (!completed.Ok)
+            if (completed.Ok && _carryOnSuccess != Guid.Empty)
             {
-                _carryAfter = Guid.Empty;
+                CarryAfter(_carryOnSuccess, completed.Revision);
             }
 
+            _carryOnSuccess = Guid.Empty;
             _pendingSound = null;
         }
 
-        if (_carryAfter != Guid.Empty && !_pendingOperation)
+        if (_carryAfter != Guid.Empty && state is not null && state.InventoryRevision >= _carryAt)
         {
-            if (OwnedItemView.Find(state?.Items, _carryAfter) is { InBag: true })
+            if (OwnedItemView.Find(state.Items, _carryAfter) is { InBag: true })
             {
                 _dragging = _carryAfter;
             }
@@ -106,7 +113,8 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             _pairWanted = -1;
         }
 
-        _hovered = null;
+        // The hover shows while a command is pending too; only the clicks wait for it.
+        _hovered = visible && state is not null && _dragging == Guid.Empty ? HudInventoryLayout.ItemAt(_origin, state.Items, layout.ToLogical(mouse.Position)) : null;
         if (visible && state is not null && !_pendingOperation)
         {
             var clicked = mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
@@ -164,8 +172,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             }
         }
 
-        var hovered = HudInventoryLayout.ItemAt(_origin, _state.Items, pointer);
-        _hovered = hovered;
+        var hovered = _hovered;
         if (hovered is null)
         {
             return;
@@ -192,7 +199,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         if (item.Equipped)
         {
             SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.Unequip, item.InstanceId, 0, 0,
-                (EquipmentSlot)item.Slot), carryAfter: item.InstanceId);
+                (EquipmentSlot)item.Slot), carryOnSuccess: item.InstanceId);
             return;
         }
 
@@ -301,7 +308,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             return;
         }
 
-        if (_state.Items.FirstOrDefault(item => item.BeltBox == box) is { } held)
+        if (OwnedItemView.InBox(_state.Items, box) is { } held)
         {
             Use(held);
         }
@@ -347,10 +354,10 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         }
     }
 
-    private void SendInventory(InventoryCommand command, Guid carryAfter = default)
+    private void SendInventory(InventoryCommand command, Guid carryOnSuccess = default)
     {
         _pendingOperation = true;
-        _carryAfter = carryAfter;
+        _carryOnSuccess = carryOnSuccess;
         _pendingSound = command.Action == InventoryAction.ConsumePotion
             ? null
             : OwnedItemView.Find(_state.Items, command.ItemId)?.CatalogKey;
@@ -371,6 +378,6 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     }
 
     private EquipmentSlot? SlotFor(ItemKind kind) =>
-        ItemEquipmentMetadata.DefaultSlot(kind, ItemEquipmentMetadata.SlotOf(kind), slot => _state.Items.Any(item => item.Slot == (int)slot));
+        ItemEquipmentMetadata.DefaultSlot(kind, ItemEquipmentMetadata.SlotOf(kind), slot => OwnedItemView.InSlot(_state.Items, (int)slot) is not null);
 
 }

@@ -150,7 +150,7 @@ public static class AgingRules
         };
     }
 
-    private static AgingFamily FamilyOf(ItemInstance item) => Families.GetValueOrDefault(Family(item));
+    private static AgingFamily FamilyOf(ItemInstance item) => Families.GetValueOrDefault(ItemCodes.FamilyOf(item.Definition.CatalogKey));
 
     // What a level of the family changes, as the item tooltip marks it. Bows and javelins mark their added mana too,
     // though their aging adds none, as the original tooltip does.
@@ -175,7 +175,6 @@ public static class AgingRules
 
     private static bool IsRing(string key) => string.Equals(key, AgeableRing, StringComparison.OrdinalIgnoreCase);
 
-    public static string Family(ItemInstance item) => ItemCodes.FamilyOf(item.Definition.CatalogKey);
 
     public static bool Ageable(ItemInstance item) =>
         Ageable(item.Definition.CatalogKey, item.Definition.Kind, item.Definition.UniqueItem, item.MixSheltom, item.Maturity is not null, item.UpgradeLevel);

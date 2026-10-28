@@ -60,7 +60,7 @@ public static class CharacterStateCodec
             var item = RestoreItem(saved, catalog, identities);
             var bag = saved.Hidden ? character.HiddenBag : character.Inventory;
             // Footprints follow the item table; an item saved where its footprint no longer fits moves to the first free place.
-            if (saved.Slot.HasValue || !bag.TryPlace(item, saved.Anchor) && !PlaceInFirstFree(bag, item))
+            if (saved.Slot.HasValue || !bag.TryPlace(item, saved.Anchor) && !bag.TryPlaceFirstFree(item))
             {
                 throw new InvalidDataException("Invalid saved inventory footprint.");
             }
@@ -108,19 +108,6 @@ public static class CharacterStateCodec
         character.RestoreInventoryHistory(inventory.Revision, inventory.Operations ?? []);
         character.RestoreServiceHistory(inventory.ServiceOperations ?? []);
         character.RestoreProgressionHistory(skills.Revision, skills.Operations ?? []);
-    }
-
-    private static bool PlaceInFirstFree(Inventory inventory, ItemInstance item)
-    {
-        for (var anchor = 0; anchor < inventory.Capacity; anchor++)
-        {
-            if (inventory.TryPlace(item, anchor))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     public static SavedItems CaptureInventory(PlayerCharacter character)

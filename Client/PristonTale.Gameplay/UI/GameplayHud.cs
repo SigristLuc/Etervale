@@ -46,6 +46,8 @@ public sealed partial class GameplayHud : IDisposable
     private readonly HudShopWindow _shop = new();
     private readonly HudCountBox _countBox = new();
     private readonly HudWarehouseWindow _warehouse = new();
+    // StoredPlacement as a delegate made once, for the warehouse's per-frame update.
+    private readonly Func<OwnedItemView, Point, HudPlacement> _storedPlacement;
     private readonly HudAgingWindow _aging = new();
     private readonly HudMixWindow _mix = new();
     // The service windows in draw order: bodies, then overlays, shop first.
@@ -134,6 +136,7 @@ public sealed partial class GameplayHud : IDisposable
         _inventory.ThrowRequested = ThrowFromInventory;
         _inventory.ItemSound = key => ItemSound?.Invoke(key);
         _services.Succeeded = ServiceSucceeded;
+        _storedPlacement = StoredPlacement;
         _inventoryPanel.Note = InventoryNote;
         _inventoryPanel.Withheld = id => _aging.Holds(id) || _mix.Holds(id);
         _sprites.Request(HudChatWindow.Art);
@@ -411,7 +414,7 @@ public sealed partial class GameplayHud : IDisposable
         var workLocked = _services.Pending || _settingsOpen || ModalOpen;
         // A click that sets a warehouse item down in the bag is not also a pick-up there.
         var storedCarried = _warehouse.Dragging != Guid.Empty;
-        var warehouseAction = _warehouse.Update(mouse, _previousMouse, pointer, StoredPlacement, workLocked, _inventory.Dragging != Guid.Empty);
+        var warehouseAction = _warehouse.Update(mouse, _previousMouse, pointer, _storedPlacement, workLocked, _inventory.Dragging != Guid.Empty);
         var agingAction = _aging.Update(mouse, _previousMouse, pointer, state, workLocked);
         var mixAction = _mix.Update(mouse, _previousMouse, pointer, state, workLocked);
         if (warehouseAction.Kind != HudWarehouseActionKind.None)
