@@ -126,9 +126,9 @@ internal static class ServerSettingsTests
 
         Assert.True(AgingRules.Price(3, 1000, 0) == 0 && AgingRules.Price(3, 1000, 50) == 1000, "the aging price does not follow its percent");
         var sure = new AgingSettings(FailurePercent: 0);
-        Assert.True(AgingRules.Roll(12, AgingStone.None, new FixedRng(10, 60, 0), sure) == AgingResult.Success, "a failure happened at 0%");
+        Assert.True(AgingRules.Roll(12, AgingStone.None, new ScriptedRng(10, 60, 0), sure) == AgingResult.Success, "a failure happened at 0%");
         var doubled = new AgingSettings(DoublePercent: 200);
-        Assert.True(AgingRules.Roll(0, AgingStone.None, new FixedRng(50, 50, 59), doubled) == AgingResult.Double, "the double chance was not scaled");
+        Assert.True(AgingRules.Roll(0, AgingStone.None, new ScriptedRng(50, 50, 59), doubled) == AgingResult.Double, "the double chance was not scaled");
         return Task.CompletedTask;
     }
 
@@ -169,16 +169,5 @@ internal static class ServerSettingsTests
             Rows[name] = value;
             return Task.FromResult(true);
         }
-    }
-
-    private sealed class FixedRng(params int[] values) : ISimRng
-    {
-        private int _next;
-
-        public int NextInclusive(int minInclusive, int maxInclusive) => Next();
-        public int NextExclusive(int minInclusive, int maxExclusive) => Next();
-        public float NextUnit() => Next() / 100f;
-
-        private int Next() => _next < values.Length ? values[_next++] : 0;
     }
 }

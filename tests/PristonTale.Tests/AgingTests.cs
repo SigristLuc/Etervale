@@ -288,17 +288,6 @@ internal static class AgingTests
         return Task.CompletedTask;
     }
 
-    private sealed class ScriptedRng(params int[] values) : ISimRng
-    {
-        private int _next;
-
-        public int NextInclusive(int minInclusive, int maxInclusive) => Next();
-        public int NextExclusive(int minInclusive, int maxExclusive) => Next();
-        public float NextUnit() => Next() / 100f;
-
-        private int Next() => _next < values.Length ? values[_next++] : 0;
-    }
-
     private static Task RaisedStatsAsync()
     {
         string[] Of(AgedStats stat) => stat switch
