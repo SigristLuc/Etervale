@@ -3,6 +3,7 @@ using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Simulation.World.Motion;
 using PristonTale.Contracts.Motion;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Simulation.World.Ai;
 
@@ -41,8 +42,9 @@ public sealed class MonsterAiTuning
 
     public const int ChaseHysteresis = 24;
 
-    // The four great bosses (by sound code) that skills never knock back or taunt and that see through stealth.
-    public static bool IsUnyielding(MonsterDefinition def) => def.SoundCode is 0x1600 or 0x1680 or 0x1830 or 0x18B0;
+    // The four great bosses that skills never knock back or taunt and that see through stealth.
+    public static bool IsUnyielding(MonsterDefinition def) => def.SoundCode is CharacterSoundCodes.Babel or CharacterSoundCodes.DeathKnight or CharacterSoundCodes.Kelvezu
+        or CharacterSoundCodes.Mokova;
 
     public bool SeesStealth { get; }
 

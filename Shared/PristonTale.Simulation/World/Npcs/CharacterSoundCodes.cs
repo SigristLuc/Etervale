@@ -1,5 +1,7 @@
 namespace PristonTale.Simulation.World.Npcs;
 
+// Sound family codes. A model's sound family picks its sounds and, for the monsters below with rules of their own, its
+// behaviour (see docs/world.md). Every named code lives here; Resolve maps a model's sound name to its code.
 public static class CharacterSoundCodes
 {
     public const int Wolverine = 0x11E0;
@@ -14,14 +16,49 @@ public static class CharacterSoundCodes
     public const int MetalGolem = 0x3020;
     public const int FireElemental = 0x3030;
     public const int CastleDoor = 0x5010;
-    public const int CastleCrystalRed = 0x5020;
-    public const int CastleCrystalGreen = 0x5021;
-    public const int CastleCrystalBlue = 0x5022;
+    // The castle tower crystals: red fire, green lightning, blue ice.
+    public const int CastleCrystalFire = 0x5020;
+    public const int CastleCrystalLightning = 0x5021;
+    public const int CastleCrystalIce = 0x5022;
     public const int CastleCrystalNeutral = 0x5023;
     public const int CastleTower = 0x5030;
     public const int CastleSoldierA = 0x5100;
     public const int CastleSoldierB = 0x5110;
     public const int CastleSoldierC = 0x5120;
+
+    // Monsters whose skills, attacks or movement carry rules of their own.
+    public const int Imp = 0x1020;
+    public const int Mushroom = 0x10B0;
+    public const int Scorpion = 0x10D0;
+    public const int Web = 0x1120;
+    public const int Greven = 0x11A0;
+    public const int Hulk = 0x12B0;
+    public const int Succubus = 0x12C0;
+    public const int Hungky = 0x1330;
+    public const int Ratoo = 0x1340;
+    public const int EvilPlant = 0x1440;
+    public const int DarkKnight = 0x1460;
+    public const int GuardianSaint = 0x1470;
+    public const int VampiricBee = 0x15B0;
+    public const int VampiricMachine = 0x15C0;
+    public const int Babel = 0x1600;
+    public const int Mystic = 0x1610;
+    public const int ColdEye = 0x1630;
+    public const int Frozen = 0x1640;
+    public const int Frost = 0x1660;
+    public const int ChaosCara = 0x1670;
+    public const int DeathKnight = 0x1680;
+    public const int Stingray = 0x1740;
+    public const int Kelvezu = 0x1830;
+    public const int BloodyKnight = 0x1850;
+    public const int Chimera = 0x1860;
+    public const int DarkGuard = 0x1890;
+    public const int Mokova = 0x18B0;
+    public const int DeadHopt = 0x1970;
+    public const int DeadKingHopy = 0x1980;
+    public const int KingBat = 0x19D0;
+    public const int BebeChick = 0x2170;
+    public const int PapaChick = 0x2180;
 
     public static int Resolve(string key)
     {

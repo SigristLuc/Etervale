@@ -26,7 +26,7 @@ How the tick calls these rules belongs to [application.md](application.md).
 | `World/MonsterStepping.cs` | Server monster step: full step, then two side probes; `IStepOccupancy` |
 | `World/WorldPosition.cs` | `IsValid`: finite and within ±1,000,000 units on every axis |
 | `World/Monsters/` | `MonsterDefinition` (stats, AI block, skill block, potions, drops), `MonsterCatalog`, `MonsterInstance` (live state, motion as `MotionState`), `MotionStateExtensions` |
-| `World/Monsters/Skills/` | Monster skill rules: `MonsterSkillRules` (curses, blow and skill riders, timings), `MonsterStatuses` (codes and effect specs), `MonsterLifeRules` (potions, virtual lives, Babel's regeneration), `MonsterTransformRules`, `MonsterSounds` |
+| `World/Monsters/Skills/` | Monster skill rules: `MonsterSkillRules` (curses, blow and skill riders, timings), `MonsterStatuses` (codes and effect specs), `MonsterLifeRules` (potions, virtual lives, Babel's regeneration), `MonsterTransformRules` |
 | [`World/Ai/MonsterAiBrain.cs`](../Shared/PristonTale.Simulation/World/Ai/MonsterAiBrain.cs) | Wild monster state machine: target scan, chase, attack, leash and stuck manoeuvres, flinch, boss retarget |
 | `World/Ai/MonsterAiTuning.cs` | Per-definition derived constants and clip timings; global AI constants |
 | `World/Ai/SummonBrain.cs` | Owned summon behaviour (follow owner, attack ordered target) |
@@ -572,7 +572,9 @@ Ruinen Village (6), Navisko (9), Forbidden Land (12), Eura (29), Land of Chaos (
 - Bless Castle's stone has no map entry: the castle destination belongs to the castle's owner clan, and there is no
   castle ownership yet.
 
-`CharacterSoundCodes.Resolve(key)` maps the authored sound keyword of a monster or NPC to its sound family code. The
+`CharacterSoundCodes` names every sound family code a rule or sound reads (NPCs, castle objects, and the monsters
+with rules of their own); `CharacterSoundCodes.Resolve(key)` maps the authored sound keyword of a monster or NPC to its
+sound family code. The
 importer stores it; the client audio library and the AI rules key on it. The 54 keywords of monsters newer than the
 original sound table (Greedy, Hestian, the invaders, the lizards, the mine and laboratory monsters...) have Etervale's
 own codes from 0x6000, one per sound folder; MapleFairy, MapleTree, Furia, Lucifer, KhanDoor, LizardDoor, Sakura and
@@ -631,7 +633,7 @@ safe. Rules here run inside the tick and must not block: no I/O, no lock waits, 
 ## Pitfalls
 
 - `SoundCode` selects behaviour: ranged basic reach (`MonsterAttackReach.HasRangedBasicAttack`), the monster skill rules
-  (`MonsterSkillRules`, `MonsterSounds`), unyielding bosses, locomotion speed and the client's effect family. Changing a
+  (`MonsterSkillRules`; the named codes are `CharacterSoundCodes`), unyielding bosses, locomotion speed and the client's effect family. Changing a
   sound mapping changes combat and visuals.
 - Motion clip slots are the model's INX motion indices and keys their authored key characters (`motion_slots.slot`,
   `key_code`); re-import after changing models so server swings and client clips agree.

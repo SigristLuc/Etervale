@@ -1,3 +1,4 @@
+using PristonTale.Simulation.World.Npcs;
 namespace PristonTale.Simulation.World.Monsters.Skills;
 
 // Monsters that turn into another monster when hurt or after many blows: they play their transformation clip, then the
@@ -8,7 +9,7 @@ public static class MonsterTransformRules
     public const int AngerLimit = 80;
 
     public static bool IsShapeShifter(MonsterDefinition definition) =>
-        definition.SoundCode is MonsterSounds.Hungky or MonsterSounds.DeadHopt or MonsterSounds.BebeChick;
+        definition.SoundCode is CharacterSoundCodes.Hungky or CharacterSoundCodes.DeadHopt or CharacterSoundCodes.BebeChick;
 
     public static bool Wants(MonsterInstance monster)
     {
@@ -20,7 +21,7 @@ public static class MonsterTransformRules
 
         var max = definition.Combat.MaxLife;
         var percent = max > 0 ? monster.Life * 100L / max : 100;
-        var threshold = definition.SoundCode == MonsterSounds.DeadHopt ? 20 : 30;
+        var threshold = definition.SoundCode == CharacterSoundCodes.DeadHopt ? 20 : 30;
         return percent < threshold || monster.AttackAnger > AngerLimit;
     }
 
@@ -30,10 +31,10 @@ public static class MonsterTransformRules
     {
         return monster.Def.SoundCode switch
         {
-            MonsterSounds.Hungky => candidate.SoundCode == MonsterSounds.Hulk
+            CharacterSoundCodes.Hungky => candidate.SoundCode == CharacterSoundCodes.Hulk
                 && (monster.AttackAnger > AngerLimit ? candidate.Combat.Level >= 80 : candidate.Combat.Level < 80),
-            MonsterSounds.DeadHopt => candidate.SoundCode == MonsterSounds.DeadKingHopy && candidate.Combat.Level >= 108,
-            MonsterSounds.BebeChick => candidate.SoundCode == MonsterSounds.PapaChick,
+            CharacterSoundCodes.DeadHopt => candidate.SoundCode == CharacterSoundCodes.DeadKingHopy && candidate.Combat.Level >= 108,
+            CharacterSoundCodes.BebeChick => candidate.SoundCode == CharacterSoundCodes.PapaChick,
             _ => false
         };
     }

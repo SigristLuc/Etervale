@@ -9,6 +9,7 @@ using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Units;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Application.World;
 
@@ -72,12 +73,12 @@ internal sealed class FieldMonsterSkills
             monster.AliveMs += dtMs;
         }
 
-        if (monster.Def.SoundCode == MonsterSounds.VampiricMachine)
+        if (monster.Def.SoundCode == CharacterSoundCodes.VampiricMachine)
         {
             monster.Position = before;
         }
 
-        if (monster.Def.SoundCode == MonsterSounds.Mystic)
+        if (monster.Def.SoundCode == CharacterSoundCodes.Mystic)
         {
             StepMystic(monster);
         }
@@ -99,7 +100,7 @@ internal sealed class FieldMonsterSkills
         }
 
         monster.SwingJustBegan = false;
-        if (monster.Def.SoundCode == MonsterSounds.VampiricMachine && PointCount(monster) > BeeCap - 1)
+        if (monster.Def.SoundCode == CharacterSoundCodes.VampiricMachine && PointCount(monster) > BeeCap - 1)
         {
             // The machine waits while four of its brood stand on its point.
             monster.AiState = MonsterAiState.Chase;
@@ -108,7 +109,7 @@ internal sealed class FieldMonsterSkills
             return;
         }
 
-        if (monster.AttackIsSkill && monster.Def.SoundCode == MonsterSounds.MagicMaster && _rng.NextExclusive(0, 100) < MagicMasterDrinkPercent)
+        if (monster.AttackIsSkill && monster.Def.SoundCode == CharacterSoundCodes.MagicMaster && _rng.NextExclusive(0, 100) < MagicMasterDrinkPercent)
         {
             // The magic master sometimes drinks a mana potion instead of casting; it restores no life.
             monster.AttackIsSkill = false;
@@ -177,7 +178,7 @@ internal sealed class FieldMonsterSkills
                 break;
         }
 
-        if (definition.SoundCode == MonsterSounds.Ratoo)
+        if (definition.SoundCode == CharacterSoundCodes.Ratoo)
         {
             foreach (var other in _host.Monsters)
             {
@@ -299,8 +300,8 @@ internal sealed class FieldMonsterSkills
             var remaining = monster.VirtualLives + monster.LivesSpent;
             var called = monster.Def.SoundCode switch
             {
-                MonsterSounds.Kelvezu => MonsterSounds.ChaosCara,
-                MonsterSounds.Mokova => MonsterSounds.DarkGuard,
+                CharacterSoundCodes.Kelvezu => CharacterSoundCodes.ChaosCara,
+                CharacterSoundCodes.Mokova => CharacterSoundCodes.DarkGuard,
                 _ => 0
             };
             if (called == 0 || (remaining & 1) != 0)
@@ -407,7 +408,7 @@ internal sealed class FieldMonsterSkills
     private void DropFarSummonTarget(MonsterInstance monster)
     {
         const float limit = 120f;
-        if (monster.Def.SoundCode == MonsterSounds.DeathKnight && monster.AiState != MonsterAiState.Attack
+        if (monster.Def.SoundCode == CharacterSoundCodes.DeathKnight && monster.AiState != MonsterAiState.Attack
             && _host.TryGetMonster(monster.TargetId, out var summon) && summon.IsSummon
             && Vector2.DistanceSquared(new Vector2(monster.Position.X, monster.Position.Z), new Vector2(summon.Position.X, summon.Position.Z)) > limit * limit)
         {
@@ -541,7 +542,7 @@ internal sealed class FieldMonsterSkills
     // A skill on a summon strikes it alone; the Guardian Saint's strikes every monster around it.
     private void SkillOnMonster(MonsterInstance attacker, MonsterInstance target)
     {
-        if (attacker.Def.SoundCode != MonsterSounds.GuardianSaint)
+        if (attacker.Def.SoundCode != CharacterSoundCodes.GuardianSaint)
         {
             Combat?.MonsterOnMonster(attacker, target, skill: true);
             return;
@@ -577,7 +578,7 @@ internal sealed class FieldMonsterSkills
     // Babel's roll for a normal blow: whether it splashes and the percent of the roll its target takes.
     public (int Percent, bool Splash) BeginBlow(MonsterInstance attacker, WorldPlayer target)
     {
-        if (attacker.Def.SoundCode != MonsterSounds.Babel || _rng.NextExclusive(0, 100) >= MonsterSkillRules.BabelSplashChance)
+        if (attacker.Def.SoundCode != CharacterSoundCodes.Babel || _rng.NextExclusive(0, 100) >= MonsterSkillRules.BabelSplashChance)
         {
             return (100, false);
         }
@@ -617,12 +618,12 @@ internal sealed class FieldMonsterSkills
     // The vampiric machine's blow sends a bee out of it instead of striking.
     public bool ReplacesBlow(MonsterInstance attacker)
     {
-        if (attacker.Def.SoundCode != MonsterSounds.VampiricMachine)
+        if (attacker.Def.SoundCode != CharacterSoundCodes.VampiricMachine)
         {
             return false;
         }
 
-        CallReinforcement(attacker, MonsterSounds.VampiricBee, attacker.Position, BeeCap);
+        CallReinforcement(attacker, CharacterSoundCodes.VampiricBee, attacker.Position, BeeCap);
         return true;
     }
 

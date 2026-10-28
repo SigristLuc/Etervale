@@ -3,6 +3,7 @@ using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Contracts.Motion;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Application.World;
 
@@ -65,7 +66,7 @@ internal sealed partial class FieldSkills
     // A web's blow slows the struck monster for a moment; Kelvezu is immune.
     private void SlowFromWeb(MonsterInstance summon, MonsterInstance target)
     {
-        if (summon.Def.SoundCode != MonsterCrystals.WebSoundCode || target.Def.SoundCode == MonsterCrystals.KelvezuSoundCode || !target.IsAlive)
+        if (summon.Def.SoundCode != CharacterSoundCodes.Web || target.Def.SoundCode == CharacterSoundCodes.Kelvezu || !target.IsAlive)
         {
             return;
         }

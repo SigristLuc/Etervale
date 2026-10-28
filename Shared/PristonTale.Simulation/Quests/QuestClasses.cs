@@ -1,6 +1,7 @@
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Simulation.Quests;
 

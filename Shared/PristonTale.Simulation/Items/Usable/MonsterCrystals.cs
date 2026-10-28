@@ -71,8 +71,6 @@ public static class MonsterCrystals
     public static readonly int[] SoulStoneBlockedFields = [33, 29, 16];
 
     // A web pet's blow slows its target to half speed for 36 frames of 70 Hz; monsters with Kelvezu's sound are immune.
-    public const int WebSoundCode = 0x1120;
-    public const int KelvezuSoundCode = 0x1830;
     public const uint WebSlowStatusCode = 0xF0000301;
     public const float WebSlowMs = 36 * GameUnits.TickMs;
 

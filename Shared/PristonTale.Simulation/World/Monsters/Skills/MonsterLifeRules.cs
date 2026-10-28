@@ -1,4 +1,5 @@
 using PristonTale.Simulation.World.Ai;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Simulation.World.Monsters.Skills;
 
@@ -14,7 +15,7 @@ public static class MonsterLifeRules
     public const int VirtualLifeThresholdPercent = 10;
 
     public static bool HasVirtualLives(MonsterDefinition definition) =>
-        definition.SoundCode is MonsterSounds.DeathKnight or MonsterSounds.Kelvezu or MonsterSounds.Mokova;
+        definition.SoundCode is CharacterSoundCodes.DeathKnight or CharacterSoundCodes.Kelvezu or CharacterSoundCodes.Mokova;
 
     // Potions or lives a new monster carries: lives for the three bosses, otherwise rand[1, count] potions with the
     // definition's percent chance.
@@ -92,5 +93,5 @@ public static class MonsterLifeRules
         return BabelRegenTable[row, column];
     }
 
-    public static bool Regenerates(MonsterDefinition definition) => definition.SoundCode == MonsterSounds.Babel;
+    public static bool Regenerates(MonsterDefinition definition) => definition.SoundCode == CharacterSoundCodes.Babel;
 }

@@ -7,6 +7,7 @@ using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Tests;
 
@@ -37,7 +38,7 @@ internal static class MonsterSkillStatusTests
 
     private static Task IceSlowAsync()
     {
-        foreach (var (sound, frames) in new[] { (MonsterSounds.ColdEye, MonsterStatuses.ColdSlowFrames), (MonsterSounds.Frost, MonsterStatuses.FrostSlowFrames) })
+        foreach (var (sound, frames) in new[] { (CharacterSoundCodes.ColdEye, MonsterStatuses.ColdSlowFrames), (CharacterSoundCodes.Frost, MonsterStatuses.FrostSlowFrames) })
         {
             var definition = MonsterSkillField.Monster(sound);
             var world = new MonsterSkillField(definition);
@@ -58,7 +59,7 @@ internal static class MonsterSkillStatusTests
 
     private static Task PoisonAsync()
     {
-        var definition = MonsterSkillField.Monster(MonsterSounds.Stingray, skillMin: 0, skillMax: 0);
+        var definition = MonsterSkillField.Monster(CharacterSoundCodes.Stingray, skillMin: 0, skillMax: 0);
         var world = new MonsterSkillField(definition);
         var player = world.AddPlayer(1, new Vector3(50, 0, 0));
         var monster = CastOnce(world, definition, 1);
@@ -76,7 +77,7 @@ internal static class MonsterSkillStatusTests
 
     private static Task StunAsync()
     {
-        foreach (var sound in new[] { MonsterSounds.BloodyKnight, MonsterSounds.Chimera })
+        foreach (var sound in new[] { CharacterSoundCodes.BloodyKnight, CharacterSoundCodes.Chimera })
         {
             var definition = MonsterSkillField.Monster(sound);
             var world = new MonsterSkillField(definition);
@@ -98,7 +99,7 @@ internal static class MonsterSkillStatusTests
 
     private static Task ManaDrainAsync()
     {
-        var definition = MonsterSkillField.Monster(MonsterSounds.ChaosCara, skillMin: 40, skillMax: 40);
+        var definition = MonsterSkillField.Monster(CharacterSoundCodes.ChaosCara, skillMin: 40, skillMax: 40);
         var other = MonsterSkillField.Timing(twoSkills: true);
         foreach (var (key, drains) in new[] { ('J', false), ('K', true) })
         {
@@ -116,7 +117,7 @@ internal static class MonsterSkillStatusTests
 
     private static Task BlowRidersAsync()
     {
-        var web = MonsterSkillField.Monster(MonsterSounds.Web, rating: 0, attack: 50);
+        var web = MonsterSkillField.Monster(CharacterSoundCodes.Web, rating: 0, attack: 50);
         var world = new MonsterSkillField(web);
         var player = world.AddPlayer(1, new Vector3(50, 0, 0));
         world.Spawn(web, Vector3.Zero, target: 1);
@@ -124,7 +125,7 @@ internal static class MonsterSkillStatusTests
         Assert.True(player.Character.Effects.TryGet(MonsterStatuses.WebSlow, out var slow), "web blow did not slow");
         Assert.Near(2000, slow.DurationMs, 1f);
 
-        var bat = MonsterSkillField.Monster(MonsterSounds.KingBat, rating: 0, attack: 50);
+        var bat = MonsterSkillField.Monster(CharacterSoundCodes.KingBat, rating: 0, attack: 50);
         world = new MonsterSkillField(bat);
         player = world.AddPlayer(1, new Vector3(50, 0, 0));
         world.Spawn(bat, Vector3.Zero, target: 1);
@@ -133,7 +134,7 @@ internal static class MonsterSkillStatusTests
 
         foreach (var (level, mana) in new[] { (77, false), (82, true), (75, false) })
         {
-            var succubus = MonsterSkillField.Monster(MonsterSounds.Succubus, level: level, rating: 0, attack: 50);
+            var succubus = MonsterSkillField.Monster(CharacterSoundCodes.Succubus, level: level, rating: 0, attack: 50);
             world = new MonsterSkillField(succubus);
             player = world.AddPlayer(1, new Vector3(50, 0, 0));
             player.Character.Mana = player.Character.MaxMana;
@@ -151,7 +152,7 @@ internal static class MonsterSkillStatusTests
 
     private static Task CrystalsAsync()
     {
-        var fire = MonsterSkillField.Monster(MonsterSounds.CrystalFire, skillMin: 100, skillMax: 100);
+        var fire = MonsterSkillField.Monster(CharacterSoundCodes.CastleCrystalFire, skillMin: 100, skillMax: 100);
         var world = new MonsterSkillField(fire);
         var player = world.AddPlayer(1, new Vector3(50, 0, 0));
         CastOnce(world, fire, 1);
@@ -159,7 +160,7 @@ internal static class MonsterSkillStatusTests
         var expected = MonsterStatuses.Resisted(100, player.Character.Derived.Resistances[Simulation.Combat.Element.Fire]) - player.Character.Derived.Absorption;
         Assert.True(hit.Damage == Math.Max(1, expected), "fire crystal did not resist its power by fire");
 
-        var lightning = MonsterSkillField.Monster(MonsterSounds.CrystalLightning, skillMin: 1, skillMax: 1);
+        var lightning = MonsterSkillField.Monster(CharacterSoundCodes.CastleCrystalLightning, skillMin: 1, skillMax: 1);
         world = new MonsterSkillField(lightning);
         player = world.AddPlayer(1, new Vector3(50, 0, 0));
         world.Field.QueueItemEffect(1, MonsterStatuses.StunSpec(MonsterStatuses.Stun), 60000);
@@ -177,7 +178,7 @@ internal static class MonsterSkillStatusTests
 
     private static Task CursesAsync()
     {
-        var witch = MonsterSkillField.Monster(MonsterSounds.Succubus, level: 71, skillMin: 0, skillMax: 0, rating: 100, curse: 101);
+        var witch = MonsterSkillField.Monster(CharacterSoundCodes.Succubus, level: 71, skillMin: 0, skillMax: 0, rating: 100, curse: 101);
         var world = new MonsterSkillField(witch);
         var player = world.AddPlayer(1, new Vector3(50, 0, 0));
         var absorption = player.Character.Derived.Absorption;
@@ -188,7 +189,7 @@ internal static class MonsterSkillStatusTests
         Assert.True(lowered is >= 2 and <= 6, $"defence curse lowered absorption by {lowered}");
         Assert.True(world.HitsOn(1).Any(value => value.Skill && value.Damage == 1), "a curse skill without damage did not strike for 1");
 
-        var mystic = MonsterSkillField.Monster(MonsterSounds.Mystic, skillMin: 400, skillMax: 400, range: 140, rating: 100, curse: 101);
+        var mystic = MonsterSkillField.Monster(CharacterSoundCodes.Mystic, skillMin: 400, skillMax: 400, range: 140, rating: 100, curse: 101);
         world = new MonsterSkillField(mystic);
         player = world.AddPlayer(1, new Vector3(50, 0, 0));
         absorption = player.Character.Derived.Absorption;
@@ -197,7 +198,7 @@ internal static class MonsterSkillStatusTests
         lowered = absorption - player.Character.Derived.Absorption;
         Assert.True(lowered is >= 10 and <= 16 && player.Life == life, "mystic curse dealt damage or the wrong curse");
 
-        var incubus = MonsterSkillField.Monster(MonsterSounds.Succubus, level: 82, skillMin: 0, skillMax: 0, rating: 100, curse: 103);
+        var incubus = MonsterSkillField.Monster(CharacterSoundCodes.Succubus, level: 82, skillMin: 0, skillMax: 0, rating: 100, curse: 103);
         world = new MonsterSkillField(incubus);
         player = world.AddPlayer(1, new Vector3(50, 0, 0));
         CastOnce(world, incubus, 1);
@@ -209,7 +210,7 @@ internal static class MonsterSkillStatusTests
 
     private static Task AllyPowerAsync()
     {
-        var succubus = MonsterSkillField.Monster(MonsterSounds.Succubus, level: 75, skillMin: 0, skillMax: 0, rating: 100, curse: 102);
+        var succubus = MonsterSkillField.Monster(CharacterSoundCodes.Succubus, level: 75, skillMin: 0, skillMax: 0, rating: 100, curse: 102);
         var ally = MonsterSkillField.Monster(0x1000, rating: 0);
         var world = new MonsterSkillField(succubus, ally);
         world.AddPlayer(1, new Vector3(50, 0, 0));
@@ -233,7 +234,7 @@ internal static class MonsterSkillStatusTests
 
     private static Task CurseTargetAsync()
     {
-        var witch = MonsterSkillField.Monster(MonsterSounds.Succubus, level: 71, skillMin: 0, skillMax: 0, rating: 0, curse: 101);
+        var witch = MonsterSkillField.Monster(CharacterSoundCodes.Succubus, level: 71, skillMin: 0, skillMax: 0, rating: 0, curse: 101);
         var world = new MonsterSkillField(witch);
         world.AddPlayer(1, new Vector3(50, 0, 0));
         var monster = world.Spawn(witch, Vector3.Zero, target: 1);

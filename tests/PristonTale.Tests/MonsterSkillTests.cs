@@ -10,6 +10,7 @@ using PristonTale.Simulation.World.Motion;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Tests;
 
@@ -58,7 +59,7 @@ internal static class MonsterSkillTests
         Assert.Near(330, tuning.SkillWindupMs);
         Assert.Near(990, tuning.SkillDurationMs);
         Assert.Near(990, new MonsterAiTuning(definition, Timing(uint.MaxValue)).SkillWindupMs);
-        foreach (var late in new[] { MonsterSounds.Babel, MonsterSounds.DeathKnight })
+        foreach (var late in new[] { CharacterSoundCodes.Babel, CharacterSoundCodes.DeathKnight })
         {
             var lateTuning = new MonsterAiTuning(definition with { SoundCode = late },
                 MotionTimingSet.Build([new((int)MotionCode.Skill, new MotionClip(0, 165, 1600, 0, 0, 0, false))]));

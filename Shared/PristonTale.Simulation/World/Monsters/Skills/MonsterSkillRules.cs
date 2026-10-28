@@ -1,6 +1,7 @@
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Contracts.Units;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Simulation.World.Monsters.Skills;
 
@@ -37,7 +38,7 @@ public static class MonsterSkillRules
     public static bool HasSkill(MonsterDefinition definition) => definition.Skill.SkillRatingPercent > 0;
 
     // The mystic's skill only curses; every other skill deals its damage roll.
-    public static bool DealsSkillDamage(MonsterDefinition definition) => definition.SoundCode != MonsterSounds.Mystic;
+    public static bool DealsSkillDamage(MonsterDefinition definition) => definition.SoundCode != CharacterSoundCodes.Mystic;
 
     public static MonsterCurse Curse(MonsterDefinition definition) => definition.Skill.CurseSkillCode switch
     {
@@ -48,7 +49,7 @@ public static class MonsterSkillRules
     };
 
     public static (int Min, int Max) CurseDefenceRange(MonsterDefinition definition) =>
-        definition.SoundCode == MonsterSounds.Mystic ? (10, 16) : (2, 6);
+        definition.SoundCode == CharacterSoundCodes.Mystic ? (10, 16) : (2, 6);
 
     public static readonly (int Min, int Max) CurseAttackRange = (10, 15);
 
@@ -68,9 +69,9 @@ public static class MonsterSkillRules
     // Babel's normal attack strikes at its event and again 40 frames later.
     public const float BabelSecondHitMs = 40 * GameUnits.TickMs;
 
-    public static bool HasLateSkillHit(MonsterDefinition definition) => definition.SoundCode is MonsterSounds.Babel or MonsterSounds.DeathKnight;
+    public static bool HasLateSkillHit(MonsterDefinition definition) => definition.SoundCode is CharacterSoundCodes.Babel or CharacterSoundCodes.DeathKnight;
 
-    public static bool StrikesTwice(MonsterDefinition definition) => definition.SoundCode == MonsterSounds.Babel;
+    public static bool StrikesTwice(MonsterDefinition definition) => definition.SoundCode == CharacterSoundCodes.Babel;
 
     // Babel: each blow has a 60 % chance to also hit the players within 100 units of its target with half the damage, and a
     // target farther than 200 units takes 70 %.
@@ -86,12 +87,12 @@ public static class MonsterSkillRules
 
     // The great bosses deal eight times their roll to monsters; Kelvezu's blow kills a monster outright.
     public static bool MultipliesAgainstMonsters(MonsterDefinition definition) =>
-        definition.SoundCode is MonsterSounds.Babel or MonsterSounds.ChaosCara or MonsterSounds.DeathKnight or MonsterSounds.Mokova
-            or MonsterSounds.Kelvezu;
+        definition.SoundCode is CharacterSoundCodes.Babel or CharacterSoundCodes.ChaosCara or CharacterSoundCodes.DeathKnight or CharacterSoundCodes.Mokova
+            or CharacterSoundCodes.Kelvezu;
 
     public const int MonsterDamageMultiplier = 8;
 
-    public static bool KillsMonsters(MonsterDefinition definition) => definition.SoundCode == MonsterSounds.Kelvezu;
+    public static bool KillsMonsters(MonsterDefinition definition) => definition.SoundCode == CharacterSoundCodes.Kelvezu;
 
     // What a normal blow adds when it lands on a player.
     public static int BlowRiders(MonsterDefinition definition, Span<MonsterHitRider> riders)
@@ -99,11 +100,11 @@ public static class MonsterSkillRules
         var count = 0;
         switch (definition.SoundCode)
         {
-            case MonsterSounds.Web:
+            case CharacterSoundCodes.Web:
                 riders[count++] = new MonsterHitRider(MonsterRiderKind.Status, MonsterStatuses.WebSlow, MonsterStatuses.WebSlowFrames,
                     Speed: MonsterStatuses.WebSlowSpeed);
                 break;
-            case MonsterSounds.KingBat:
+            case CharacterSoundCodes.KingBat:
                 riders[count++] = PoisonRider;
                 break;
         }
@@ -118,33 +119,33 @@ public static class MonsterSkillRules
         var count = 0;
         switch (definition.SoundCode)
         {
-            case MonsterSounds.ColdEye:
-            case MonsterSounds.Frozen:
+            case CharacterSoundCodes.ColdEye:
+            case CharacterSoundCodes.Frozen:
                 riders[count++] = IceSlow(MonsterStatuses.ColdSlowFrames);
                 break;
-            case MonsterSounds.Frost:
-            case MonsterSounds.DeathKnight:
+            case CharacterSoundCodes.Frost:
+            case CharacterSoundCodes.DeathKnight:
                 riders[count++] = IceSlow(MonsterStatuses.FrostSlowFrames);
                 break;
-            case MonsterSounds.Stingray:
-            case MonsterSounds.KingBat:
+            case CharacterSoundCodes.Stingray:
+            case CharacterSoundCodes.KingBat:
                 riders[count++] = PoisonRider;
                 break;
-            case MonsterSounds.BloodyKnight:
-            case MonsterSounds.Chimera:
+            case CharacterSoundCodes.BloodyKnight:
+            case CharacterSoundCodes.Chimera:
                 riders[count++] = new MonsterHitRider(MonsterRiderKind.Status, MonsterStatuses.Stun, MonsterStatuses.StunFrames);
                 break;
-            case MonsterSounds.ChaosCara when char.ToUpperInvariant(key) != 'J':
+            case CharacterSoundCodes.ChaosCara when char.ToUpperInvariant(key) != 'J':
                 riders[count++] = new MonsterHitRider(MonsterRiderKind.ManaByPower);
                 break;
-            case MonsterSounds.CrystalIce:
+            case CharacterSoundCodes.CastleCrystalIce:
                 riders[count++] = IceSlow(MonsterStatuses.CrystalIceFrames);
                 break;
-            case MonsterSounds.CrystalLightning:
+            case CharacterSoundCodes.CastleCrystalLightning:
                 riders[count++] = new MonsterHitRider(MonsterRiderKind.Status, MonsterStatuses.LightningStun, MonsterStatuses.CrystalStunFrames,
                     Element.Lighting, UnlessStunned: true);
                 break;
-            case MonsterSounds.CrystalFire:
+            case CharacterSoundCodes.CastleCrystalFire:
                 riders[count++] = new MonsterHitRider(MonsterRiderKind.ResistedPower, ResistedBy: Element.Fire);
                 break;
         }
@@ -157,7 +158,7 @@ public static class MonsterSkillRules
     private static int DrainRiders(MonsterDefinition definition, Span<MonsterHitRider> riders)
     {
         var level = definition.Combat.Level;
-        if (definition.SoundCode != MonsterSounds.Succubus || level <= 75)
+        if (definition.SoundCode != CharacterSoundCodes.Succubus || level <= 75)
         {
             return 0;
         }

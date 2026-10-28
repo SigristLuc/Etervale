@@ -9,6 +9,7 @@ using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.VfxImport;
 using PristonTale.Contracts.Skills;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Tests;
 
@@ -117,9 +118,9 @@ internal static class MonsterPresentationTests
         sink.Statuses.Apply(Status(1, 5, MonsterStatuses.IceSlow, StatusEffectOp.Remove, ControlFlags.Slow), 0);
         sink.Statuses.Apply(Status(1, 5, MonsterStatuses.Poison, StatusEffectOp.Remove), 0);
         Assert.True(scene.Tints[1] == Vector3.Zero && sink.Stopped == 1, "removed statuses kept their tint or effect");
-        Assert.True(MonsterPresentation.StatusEffect(MonsterStatuses.Stun, MonsterSounds.Chimera) is null
-            && MonsterPresentation.StatusEffect(MonsterStatuses.CurseDefence, MonsterSounds.Mystic) is null
-            && MonsterPresentation.StatusEffect(MonsterStatuses.LightningStun, MonsterSounds.CrystalLightning) == "vfx.debuff.stun", "status visual choice");
+        Assert.True(MonsterPresentation.StatusEffect(MonsterStatuses.Stun, CharacterSoundCodes.Chimera) is null
+            && MonsterPresentation.StatusEffect(MonsterStatuses.CurseDefence, CharacterSoundCodes.Mystic) is null
+            && MonsterPresentation.StatusEffect(MonsterStatuses.LightningStun, CharacterSoundCodes.CastleCrystalLightning) == "vfx.debuff.stun", "status visual choice");
         return Task.CompletedTask;
     }
 

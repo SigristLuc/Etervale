@@ -5,6 +5,7 @@ using PristonTale.Engine3D.Rendering;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Contracts.Units;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Gameplay.Effects;
 
@@ -300,9 +301,9 @@ public sealed class MonsterPresentation
     public static string StatusEffect(uint code, int sourceSound) => code switch
     {
         MonsterStatuses.Poison => "vfx.monster.status.poison",
-        MonsterStatuses.Stun when sourceSound == MonsterSounds.BloodyKnight => "vfx.monster.status.bloodyknightstun",
+        MonsterStatuses.Stun when sourceSound == CharacterSoundCodes.BloodyKnight => "vfx.monster.status.bloodyknightstun",
         MonsterStatuses.LightningStun => "vfx.debuff.stun",
-        MonsterStatuses.CurseDefence when sourceSound != MonsterSounds.Mystic => "vfx.monster.status.cursedefence",
+        MonsterStatuses.CurseDefence when sourceSound != CharacterSoundCodes.Mystic => "vfx.monster.status.cursedefence",
         MonsterStatuses.CurseAttack => "vfx.monster.status.curseattack",
         _ => null
     };

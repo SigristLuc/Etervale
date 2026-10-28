@@ -7,6 +7,7 @@ using PristonTale.Simulation.World.Monsters;
 using PristonTale.Simulation.World.Monsters.Skills;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Combat;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Tests;
 
@@ -29,7 +30,7 @@ internal static class MonsterBossSkillTests
 
     private static Task BabelAsync()
     {
-        var babel = MonsterSkillField.Monster(MonsterSounds.Babel, rating: 0, attack: 2, life: 1_000_000);
+        var babel = MonsterSkillField.Monster(CharacterSoundCodes.Babel, rating: 0, attack: 2, life: 1_000_000);
         var timing = Simulation.World.Motion.MotionTimingSet.Build([
             new((int)MotionCode.Attack, new Simulation.World.Motion.MotionClip(0, 55, 2880, 5280, 0, 0, false) { Slot = 2 })
         ]);
@@ -56,9 +57,9 @@ internal static class MonsterBossSkillTests
 
     private static Task VirtualLivesAsync()
     {
-        var kelvezu = MonsterSkillField.Monster(MonsterSounds.Kelvezu, rating: 0, life: 1000) with { PotionCount = 4 };
-        var chaos = MonsterSkillField.Monster(MonsterSounds.ChaosCara, level: 100, rating: 0);
-        var greater = MonsterSkillField.Monster(MonsterSounds.ChaosCara, level: 130, rating: 0);
+        var kelvezu = MonsterSkillField.Monster(CharacterSoundCodes.Kelvezu, rating: 0, life: 1000) with { PotionCount = 4 };
+        var chaos = MonsterSkillField.Monster(CharacterSoundCodes.ChaosCara, level: 100, rating: 0);
+        var greater = MonsterSkillField.Monster(CharacterSoundCodes.ChaosCara, level: 130, rating: 0);
         var world = new MonsterSkillField(kelvezu, chaos, greater);
         world.AddPlayer(1, new Vector3(500, 0, 0));
         var boss = world.Spawn(kelvezu, Vector3.Zero);
@@ -66,10 +67,10 @@ internal static class MonsterBossSkillTests
         boss.ApplyDamage(5000);
         Assert.True(boss.IsAlive && boss.Life == 1000 && boss.VirtualLives == 3, "a lethal blow did not spend a life");
         world.Step();
-        Assert.True(world.Monsters.Count(m => m.Def.SoundCode == MonsterSounds.ChaosCara) == 0, "an odd life called reinforcements");
+        Assert.True(world.Monsters.Count(m => m.Def.SoundCode == CharacterSoundCodes.ChaosCara) == 0, "an odd life called reinforcements");
         boss.ApplyDamage(950);
         world.Step();
-        var called = world.Monsters.Where(m => m.Def.SoundCode == MonsterSounds.ChaosCara).ToList();
+        var called = world.Monsters.Where(m => m.Def.SoundCode == CharacterSoundCodes.ChaosCara).ToList();
         Assert.True(called.Count == 2 && called.All(m => m.Def.Combat.Level == 100), "an even life did not call two ordinary chaos cara");
         Assert.True(FieldMonsterSkills.ViewLife(boss).Life == 200 + 100, "the life bar did not span the lives");
         boss.ApplyDamage(950);
@@ -77,15 +78,15 @@ internal static class MonsterBossSkillTests
         boss.ApplyDamage(5000);
         Assert.True(!boss.IsAlive && boss.VirtualLives == 0, "the last life did not end the boss");
 
-        var mokova = MonsterSkillField.Monster(MonsterSounds.Mokova, rating: 0, life: 1000) with { PotionCount = 2 };
-        var guard = MonsterSkillField.Monster(MonsterSounds.DarkGuard, rating: 0);
+        var mokova = MonsterSkillField.Monster(CharacterSoundCodes.Mokova, rating: 0, life: 1000) with { PotionCount = 2 };
+        var guard = MonsterSkillField.Monster(CharacterSoundCodes.DarkGuard, rating: 0);
         world = new MonsterSkillField(mokova, guard);
         world.AddPlayer(1, new Vector3(500, 0, 0));
         boss = world.Spawn(mokova, Vector3.Zero);
         boss.ApplyDamage(950);
         boss.ApplyDamage(950);
         world.Step();
-        Assert.True(world.Monsters.Count(m => m.Def.SoundCode == MonsterSounds.DarkGuard) == 2, "mokova did not call two dark guards");
+        Assert.True(world.Monsters.Count(m => m.Def.SoundCode == CharacterSoundCodes.DarkGuard) == 2, "mokova did not call two dark guards");
 
         var ordinary = MonsterSkillField.Monster(0x1000, rating: 0) with { PotionCount = 4 };
         world = new MonsterSkillField(ordinary);
@@ -119,9 +120,9 @@ internal static class MonsterBossSkillTests
     {
         foreach (var angry in new[] { false, true })
         {
-            var hungky = MonsterSkillField.Monster(MonsterSounds.Hungky, rating: 0, life: 1000);
-            var hulk = MonsterSkillField.Monster(MonsterSounds.Hulk, level: 60, rating: 0);
-            var typhoon = MonsterSkillField.Monster(MonsterSounds.Hulk, level: 85, rating: 0);
+            var hungky = MonsterSkillField.Monster(CharacterSoundCodes.Hungky, rating: 0, life: 1000);
+            var hulk = MonsterSkillField.Monster(CharacterSoundCodes.Hulk, level: 60, rating: 0);
+            var typhoon = MonsterSkillField.Monster(CharacterSoundCodes.Hulk, level: 85, rating: 0);
             var world = new MonsterSkillField(hungky, hulk, typhoon);
             world.AddPlayer(1, new Vector3(50, 0, 0));
             var monster = world.Spawn(hungky, new Vector3(5, 0, 5), target: 1);
@@ -135,12 +136,12 @@ internal static class MonsterBossSkillTests
             }
 
             world.StepUntil(() => monster.Motion == MotionState.Warp, 80, "the shape-shifter never started changing");
-            world.StepUntil(() => world.MonsterOf(MonsterSounds.Hulk) is not null, 60, "the shape-shifter never changed");
-            var changed = world.MonsterOf(MonsterSounds.Hulk)!;
+            world.StepUntil(() => world.MonsterOf(CharacterSoundCodes.Hulk) is not null, 60, "the shape-shifter never changed");
+            var changed = world.MonsterOf(CharacterSoundCodes.Hulk)!;
             Assert.True(changed.Def.Combat.Level == (angry ? 85 : 60) && changed.Life == changed.Def.Combat.MaxLife
                 && Vector2.Distance(new Vector2(changed.Position.X, changed.Position.Z), new Vector2(5, 5)) < 1f,
                 "the change chose the wrong form or place");
-            Assert.True(world.MonsterOf(MonsterSounds.Hungky) is null, "the old form stayed");
+            Assert.True(world.MonsterOf(CharacterSoundCodes.Hungky) is null, "the old form stayed");
         }
 
         return Task.CompletedTask;
@@ -148,22 +149,22 @@ internal static class MonsterBossSkillTests
 
     private static Task VampiricMachineAsync()
     {
-        var machine = MonsterSkillField.Monster(MonsterSounds.VampiricMachine, rating: 0);
-        var bee = MonsterSkillField.Monster(MonsterSounds.VampiricBee, rating: 0);
+        var machine = MonsterSkillField.Monster(CharacterSoundCodes.VampiricMachine, rating: 0);
+        var bee = MonsterSkillField.Monster(CharacterSoundCodes.VampiricBee, rating: 0);
         var world = new MonsterSkillField(machine, bee);
         var player = world.AddPlayer(1, new Vector3(60, 0, 0));
         var monster = world.Spawn(machine, Vector3.Zero, target: 1, point: 3);
         var life = player.Life;
         world.Step(400);
         Assert.True(monster.Position == Vector3.Zero, "the machine moved");
-        Assert.True(world.Monsters.Count(m => m.Def.SoundCode == MonsterSounds.VampiricBee && m.SpawnPointIndex == 3) == 3, "the machine sent the wrong number of bees");
+        Assert.True(world.Monsters.Count(m => m.Def.SoundCode == CharacterSoundCodes.VampiricBee && m.SpawnPointIndex == 3) == 3, "the machine sent the wrong number of bees");
         Assert.True(!world.HitsOn(1).Any(value => value.AttackerId == monster.EntityId), "the machine struck instead of sending bees");
         return Task.CompletedTask;
     }
 
     private static Task MysticAsync()
     {
-        var mystic = MonsterSkillField.Monster(MonsterSounds.Mystic, skillMin: 400, skillMax: 400, range: 140, rating: 0, curse: 101);
+        var mystic = MonsterSkillField.Monster(CharacterSoundCodes.Mystic, skillMin: 400, skillMax: 400, range: 140, rating: 0, curse: 101);
         var world = new MonsterSkillField(mystic);
         var near = world.AddPlayer(1, new Vector3(100, 0, 0));
         var away = world.AddPlayer(2, new Vector3(300, 0, 0));
@@ -186,7 +187,7 @@ internal static class MonsterBossSkillTests
 
     private static Task RatooAsync()
     {
-        var ratoo = MonsterSkillField.Monster(MonsterSounds.Ratoo, range: 70, distance: 110);
+        var ratoo = MonsterSkillField.Monster(CharacterSoundCodes.Ratoo, range: 70, distance: 110);
         var other = MonsterSkillField.Monster(0x1000, rating: 0);
         var world = new MonsterSkillField(ratoo, other);
         world.AddPlayer(1, new Vector3(50, 0, 0));
@@ -199,7 +200,7 @@ internal static class MonsterBossSkillTests
 
         world.Step();
         world.Spawn(ratoo, Vector3.Zero, target: 1);
-        world.StepUntil(() => world.Swings(world.MonsterOf(MonsterSounds.Ratoo)!.EntityId).Any(), 5, "ratoo never cast");
+        world.StepUntil(() => world.Swings(world.MonsterOf(CharacterSoundCodes.Ratoo)!.EntityId).Any(), 5, "ratoo never cast");
         Assert.True(!stunned.Effects.Has(ControlFlags.Stun) && distant.Effects.Has(ControlFlags.Stun), "ratoo woke the wrong monsters");
         return Task.CompletedTask;
     }
@@ -207,11 +208,11 @@ internal static class MonsterBossSkillTests
     private static Task BossesOnSummonsAsync()
     {
         var summon = new MonsterInstance(50, MonsterSkillField.Monster(0x3020, rating: 0, life: 100000), Vector3.Zero, 0f, -1) { OwnerId = 1 };
-        Assert.True(FieldMonsterSkills.AgainstMonster(new MonsterInstance(51, MonsterSkillField.Monster(MonsterSounds.Babel), Vector3.Zero, 0f, 0), summon, 100)
+        Assert.True(FieldMonsterSkills.AgainstMonster(new MonsterInstance(51, MonsterSkillField.Monster(CharacterSoundCodes.Babel), Vector3.Zero, 0f, 0), summon, 100)
             == 800, "babel did not deal eight times its roll");
         Assert.True(FieldMonsterSkills.AgainstMonster(new MonsterInstance(52, MonsterSkillField.Monster(0x1000), Vector3.Zero, 0f, 0), summon, 100) == 100,
             "an ordinary monster was multiplied");
-        Assert.True(FieldMonsterSkills.AgainstMonster(new MonsterInstance(53, MonsterSkillField.Monster(MonsterSounds.Kelvezu), Vector3.Zero, 0f, 0), summon, 1)
+        Assert.True(FieldMonsterSkills.AgainstMonster(new MonsterInstance(53, MonsterSkillField.Monster(CharacterSoundCodes.Kelvezu), Vector3.Zero, 0f, 0), summon, 1)
             == summon.Life, "kelvezu did not kill a summon");
         return Task.CompletedTask;
     }
