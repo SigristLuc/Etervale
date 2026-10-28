@@ -29,7 +29,7 @@ public static class ItemUseWire
 
 // C->S: use one owned item. {header, Guid OperationId, int64 ExpectedRevision, Guid ItemId, int32 Argument, text Text}.
 // Argument names a destination of a travel item; Text is the line a firecracker shows.
-public sealed record ItemUseCommandPacket(Guid OperationId, long ExpectedRevision, Guid ItemId, int Argument, string Text)
+public sealed record ItemUseCommandPacket(Guid OperationId, long ExpectedRevision, Guid ItemId, int Argument, string Text) : IFramePacket
 {
     public const int MinimumSize = 8 + 4 + 16 + 8 + 16 + 4 + 2;
 

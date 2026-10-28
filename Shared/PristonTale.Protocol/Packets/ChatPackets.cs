@@ -21,7 +21,7 @@ public static class ChatWire
 
 // C->S {header, uint16 Version = 1, uint8 Party (0 nearby or a command, 1 the party channel), uint8 0, text Text}: a line
 // typed in the chat window.
-public readonly record struct ChatSayPacket(bool Party, string Text)
+public readonly record struct ChatSayPacket(bool Party, string Text) : IFramePacket
 {
     public const int MaxSize = ChatWire.HeaderSize + 2 + ChatWire.MaxTextBytes;
 

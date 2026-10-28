@@ -5,7 +5,7 @@ namespace PristonTale.Protocol.Packets;
 
 // C->S {header, uint16 Version = 1, uint16 0, Guid OperationId, uint8 Destination, uint8 0, uint16 0}: a player standing
 // on a warp stone travels to the stone of the wing warp map at this index.
-public sealed record WingGateRequestPacket(Guid OperationId, byte Destination)
+public sealed record WingGateRequestPacket(Guid OperationId, byte Destination) : IFramePacket
 {
     public const ushort CurrentVersion = 1;
     public const int Size = 8 + 4 + 16 + 4;

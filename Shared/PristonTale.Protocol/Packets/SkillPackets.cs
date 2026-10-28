@@ -10,7 +10,7 @@ namespace PristonTale.Protocol.Packets;
 // {header, uint16 Version = 3, uint16 Flags, uint32 Sequence, SkillCode, uint64 TargetId, int32 X, Y, Z, int16 Angle,
 // int16 0, uint32 ClientTimeMs}.
 public readonly record struct SkillCastPacket(uint Sequence, uint SkillCode, ulong TargetId, int X, int Y, int Z, short Angle, uint ClientTimeMs,
-    SkillCastCommand Command = SkillCastCommand.Cast)
+    SkillCastCommand Command = SkillCastCommand.Cast) : IFramePacket
 {
     public const ushort CurrentVersion = 3;
     public const int Size = 8 + 4 + 4 * 2 + 8 + 4 * 3 + 4 + 4;

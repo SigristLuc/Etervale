@@ -9,7 +9,7 @@ namespace PristonTale.Protocol.Packets;
 // current field), int32 X, Y, Z (x256), uint16 Facing (65536 per turn), uint16 0, uint64 ActionTarget (0 none)}: the
 // client's own position, sent every 200 ms while moving, on state changes and every second while idle. A field other
 // than the current one asks to cross into it.
-public readonly record struct MovementReportPacket(MotionState Motion, int Field, Vector3 Position, float Facing, ulong ActionTarget)
+public readonly record struct MovementReportPacket(MotionState Motion, int Field, Vector3 Position, float Facing, ulong ActionTarget) : IFramePacket
 {
     public const ushort CurrentVersion = 1;
     public const int Size = 8 + 4 + 4 + 12 + 4 + 8;
@@ -57,7 +57,7 @@ public readonly record struct MovementReportPacket(MotionState Motion, int Field
 
 // C->S {header, uint16 Version = 1, uint8 Flags (1 held attack), uint8 0, uint64 Target, uint64 Sequence}: the attack
 // target the client clicked (0 stops attacking); an NPC target opens the NPC. The server resolves every swing itself.
-public readonly record struct AttackRequestPacket(ulong Target, bool Sustained, ulong Sequence)
+public readonly record struct AttackRequestPacket(ulong Target, bool Sustained, ulong Sequence) : IFramePacket
 {
     public const ushort CurrentVersion = 1;
     public const int Size = 8 + 4 + 8 + 8;
@@ -134,12 +134,12 @@ public readonly record struct FieldWarpPacket(int Field, float X, float Y, float
 
 // C->S {header, uint16 Version = 1, uint16 0}: Space pressed while the yahoo window a chat word opened is still running.
 // The server checks the window, the motion and the stamina itself; the cheer shows on the presence timeline.
-public static class YahooKeyPacket
+public readonly record struct YahooKeyPacket : IFramePacket
 {
     public const ushort CurrentVersion = 1;
     public const int Size = 8 + 4;
 
-    public static int Write(Span<byte> destination)
+    public int Write(Span<byte> destination)
     {
         var writer = new PacketWriter(destination, EtervaleOpcodes.YahooKey);
         writer.UInt16(CurrentVersion);

@@ -104,7 +104,7 @@ internal static class YahooTests
         Assert.True(read.Single().Motion == MotionState.Yahoo, "the cheer motion did not round-trip");
 
         var packet = new byte[YahooKeyPacket.Size];
-        Assert.True(YahooKeyPacket.Write(packet) == YahooKeyPacket.Size, "yahoo key size");
+        Assert.True(new YahooKeyPacket().Write(packet) == YahooKeyPacket.Size, "yahoo key size");
         YahooKeyPacket.Read(packet);
         Assert.True(BitConverter.ToUInt32(packet, 4) == EtervaleOpcodes.YahooKey, "yahoo key opcode");
         return Task.CompletedTask;

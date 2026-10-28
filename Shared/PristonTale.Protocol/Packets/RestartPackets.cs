@@ -26,7 +26,7 @@ internal static class RestartWire
 
 // C->S: a dead player chooses where to stand up. {header, Guid OperationId, uint8 Choice (1 field, 2 town, 3 exit),
 // uint8 0, uint16 0}.
-public sealed record RestartRequestPacket(Guid OperationId, byte Choice)
+public sealed record RestartRequestPacket(Guid OperationId, byte Choice) : IFramePacket
 {
     public const int Size = 8 + 4 + 16 + 4;
 

@@ -187,7 +187,7 @@ public sealed record SkillsPacket(long Revision, IReadOnlyList<(uint Code, int R
     }
 }
 
-public sealed record InventoryCommandPacket(Guid OperationId, long ExpectedRevision, int Action, Guid ItemId, int Destination, int Count, int Slot)
+public sealed record InventoryCommandPacket(Guid OperationId, long ExpectedRevision, int Action, Guid ItemId, int Destination, int Count, int Slot) : IFramePacket
 {
     public const int Size = 8 + 16 + 8 + 4 + 16 + 4 * 3;
 
@@ -211,7 +211,7 @@ public sealed record InventoryCommandPacket(Guid OperationId, long ExpectedRevis
     }
 }
 
-public sealed record ProgressionCommandPacket(Guid OperationId, long ExpectedRevision, int Action, int Attribute, int Amount, uint SkillCode, ulong NpcId)
+public sealed record ProgressionCommandPacket(Guid OperationId, long ExpectedRevision, int Action, int Attribute, int Amount, uint SkillCode, ulong NpcId) : IFramePacket
 {
     public const int Size = 8 + 16 + 8 + 4 * 4 + 8;
 

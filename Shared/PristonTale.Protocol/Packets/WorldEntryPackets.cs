@@ -20,7 +20,7 @@ public static class WorldEntryWire
 }
 
 // C->S {header, uint16 Version = 1, uint16 0, text Name (64 B)}.
-public readonly record struct EnterWorldPacket(string Name)
+public readonly record struct EnterWorldPacket(string Name) : IFramePacket
 {
     public const int MaxSize = 8 + 4 + 2 + WorldEntryWire.MaxNameBytes;
 
@@ -76,7 +76,7 @@ public readonly record struct WorldEntryPacket(byte Status, ulong EntityId, int 
 }
 
 // C->S {header, uint16 Version = 1, uint16 0, uint64 EntityId}: EntityId must be the one WorldEntry handed out.
-public readonly record struct JoinWorldPacket(ulong EntityId)
+public readonly record struct JoinWorldPacket(ulong EntityId) : IFramePacket
 {
     public const int Size = 8 + 4 + 8;
 
@@ -131,7 +131,7 @@ public readonly record struct WorldJoinedPacket(ulong EntityId, long ServerTimeM
 
 // Both directions {header, uint16 Version = 1, uint8 Saved, uint8 0}: the client asks to leave (Saved 0); the server
 // answers with Saved 1 once the character is stored.
-public readonly record struct LeaveWorldPacket(bool Saved)
+public readonly record struct LeaveWorldPacket(bool Saved) : IFramePacket
 {
     public const int Size = 8 + 4;
 

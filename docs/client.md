@@ -172,11 +172,15 @@ Correlation rules (requests without an operation id):
 
 - Login, character and world-entry requests, open play and leave are serialised by `_requestGate` and complete on
   their reply opcodes.
-- Inventory and progression commands carry a `Guid` operation id; `InventoryResult`/`ProgressionResult` complete the
-  matching entry in `_operations`.
+- Every request that waits for a reply goes through a `PendingReplies<TKey, TReply>` (`Client.Net/PendingReplies.cs`):
+  `RequestAsync(key, send, ct)` registers, sends and waits; the reply handler calls `Complete(key, reply)`; `FailAll`
+  ends every waiter. Inventory and progression commands carry a `Guid` operation id; `InventoryResult`/
+  `ProgressionResult` complete `_operations`. Item uses, restarts, wing gates, NPC dialogs (keyed by NPC id), NPC
+  services and quests have one table each. Every message the client sends implements `IFramePacket` and goes through
+  `Send<TPacket>` (one send lock, no boxing).
 - NPC interaction is an `AttackRequest` on the NPC id; one request per NPC id at a time; `NpcResult` completes it.
 - NPC service requests carry an operation id. Shop catalog, quotes, warehouse and teleport list messages arrive before
-  `NpcServiceResult` and are collected on the pending `ServiceRequest`, then returned together as `NpcServiceReply`.
+  `NpcServiceResult` and are collected in `_serviceParts`, then returned with the result's outcome as one `NpcServiceReply`.
 - A receive-loop failure fails every pending request and completes the presence channel with the error; later calls
   throw `IOException`.
 
@@ -520,10 +524,10 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
    in its return expression), convert to neutral types in `Client.Net/Presence`, and add an `init` property to
    `PresenceUpdate`. Remap coordinates in `GameScene.RemapToWorld` if the property carries positions consumed in world
    space, or flip Z in the consumer. Consume it in `GameScene.DrainPresence` or through `PresenceObserved`.
-3. Request/reply data: add a case to `GameServerConnection.HandleAsync` that completes a pending
-   `TaskCompletionSource` keyed by operation id (or collects state on the pending `ServiceRequest`), expose it through
-   `IPlayChannel`/`OnlinePlayChannel` (await `_start` first) and fail it in `RunAsync`'s `finally` when the connection
-   ends.
+3. Request/reply data: a `PendingReplies` table keyed by operation id (state messages go to `_serviceParts`), a case
+   in `GameServerConnection.HandleAsync` that calls its `Complete`, its `FailAll` in `RunAsync`'s `finally`, and the
+   request through `IPlayChannel`/`OnlinePlayChannel` (await `_start` first). The request message implements
+   `IFramePacket`.
 4. Add a wire round trip to `tests/PristonTale.Tests/RemotePlaybackTests.cs` or `ClientTests.cs` (`WireRoundTrip` runs
    the server encoder and the client decoder over real packet bytes); register new case classes in `Program.cs`.
 

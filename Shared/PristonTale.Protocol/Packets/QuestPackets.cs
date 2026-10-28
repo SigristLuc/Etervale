@@ -146,7 +146,7 @@ public readonly record struct QuestNoticeEntry(byte Kind, string Text);
 public readonly record struct QuestBoardLine(string Title, string Description);
 
 // C->S, 48 bytes: {header, Guid OperationId, uint64 NpcId, uint8 Action, uint8 0, uint16 Code, int32 State, int32 Choice}.
-public sealed record QuestRequestPacket(Guid OperationId, ulong NpcId, byte Action, ushort Code, int State, int Choice)
+public sealed record QuestRequestPacket(Guid OperationId, ulong NpcId, byte Action, ushort Code, int State, int Choice) : IFramePacket
 {
     public const int Size = 48;
 

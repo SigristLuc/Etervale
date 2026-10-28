@@ -44,13 +44,15 @@ public sealed class GameServerConnection : IGameBackend
     private readonly CancellationTokenSource _lifetime = new();
     private readonly WorldRenderCatalog _catalog = new();
     private readonly PresenceDecoder _presence;
-    private readonly ConcurrentDictionary<Guid, TaskCompletionSource<OperationResultPacket>> _operations = new();
-    private readonly ConcurrentDictionary<Guid, TaskCompletionSource<ItemUseResultPacket>> _itemUses = new();
-    private readonly ConcurrentDictionary<Guid, TaskCompletionSource<RestartResultPacket>> _restarts = new();
-    private readonly ConcurrentDictionary<Guid, TaskCompletionSource<WingGateResultPacket>> _wingGates = new();
-    private readonly ConcurrentDictionary<ulong, NpcRequest> _npcRequests = new();
-    private readonly ConcurrentDictionary<Guid, ServiceRequest> _serviceRequests = new();
-    private readonly ConcurrentDictionary<Guid, TaskCompletionSource<QuestOutcome>> _questRequests = new();
+    private readonly PendingReplies<Guid, OperationResultPacket> _operations = new();
+    private readonly PendingReplies<Guid, ItemUseResultPacket> _itemUses = new();
+    private readonly PendingReplies<Guid, RestartResultPacket> _restarts = new();
+    private readonly PendingReplies<Guid, WingGateResultPacket> _wingGates = new();
+    private readonly PendingReplies<ulong, NpcInteraction> _npcDialogs = new();
+    private readonly PendingReplies<Guid, NpcServiceReply> _services = new();
+    private readonly PendingReplies<Guid, QuestOutcome> _quests = new();
+    // The state messages of a service request, collected until its result: they precede it on the same connection.
+    private readonly ConcurrentDictionary<Guid, NpcServiceReply> _serviceParts = new();
     private readonly Channel<PresenceUpdate> _presenceUpdates = Channel.CreateBounded<PresenceUpdate>(new BoundedChannelOptions(4096)
     {
         SingleReader = true,
@@ -118,7 +120,7 @@ public sealed class GameServerConnection : IGameBackend
             var pending = new PendingLogin();
             _login = pending;
             _account = account;
-            SendFrame(new LoginPacket(ProtocolVersion.Current, account, password).Write);
+            Send(new LoginPacket(ProtocolVersion.Current, account, password));
             var outcome = await pending.Completion.Task.WaitAsync(ct);
             if (outcome.Ok)
             {
@@ -170,15 +172,13 @@ public sealed class GameServerConnection : IGameBackend
 
     private static bool Fits(string text, int maxBytes) => text.Length > 0 && System.Text.Encoding.UTF8.GetByteCount(text) <= maxBytes;
 
-    private void SendFrame(ClientWrite write)
+    private void Send<TPacket>(in TPacket packet) where TPacket : IFramePacket
     {
         lock (_sendGate)
         {
-            Connection.Send(_scratch.AsSpan(0, write(_scratch)));
+            Connection.Send(_scratch.AsSpan(0, packet.Write(_scratch)));
         }
     }
-
-    private delegate int ClientWrite(Span<byte> destination);
 
     private async Task<CharacterResultPacket> CharacterRequestAsync(CharacterCommandPacket request, CancellationToken ct)
     {
@@ -187,7 +187,7 @@ public sealed class GameServerConnection : IGameBackend
         {
             var pending = new TaskCompletionSource<CharacterResultPacket>(TaskCreationOptions.RunContinuationsAsynchronously);
             _characterReply = pending;
-            SendFrame(request.Write);
+            Send(request);
             return await pending.Task.WaitAsync(ct);
         }
         finally
@@ -210,10 +210,7 @@ public sealed class GameServerConnection : IGameBackend
             var pending = new TaskCompletionSource<EnterWorldOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
             _enter = pending;
             var request = new EnterWorldPacket(characterName);
-            lock (_sendGate)
-            {
-                Connection.Send(_scratch.AsSpan(0, request.Write(_scratch)));
-            }
+            Send(request);
 
             return await pending.Task.WaitAsync(ct);
         }
@@ -238,10 +235,7 @@ public sealed class GameServerConnection : IGameBackend
             _joined = pending;
             _presence.SelfEntityId = entered.EntityId;
             var join = new JoinWorldPacket(entered.EntityId);
-            lock (_sendGate)
-            {
-                Connection.Send(_scratch.AsSpan(0, join.Write(_scratch)));
-            }
+            Send(join);
 
             await pending.Task.WaitAsync(ct);
         }
@@ -259,10 +253,7 @@ public sealed class GameServerConnection : IGameBackend
         {
             var pending = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             _left = pending;
-            lock (_sendGate)
-            {
-                Connection.Send(_scratch.AsSpan(0, new LeaveWorldPacket(Saved: false).Write(_scratch)));
-            }
+            Send(new LeaveWorldPacket(Saved: false));
 
             await pending.Task.WaitAsync(ct);
             _entered = null;
@@ -278,206 +269,96 @@ public sealed class GameServerConnection : IGameBackend
     {
         var packet = new InventoryCommandPacket(command.OperationId, command.ExpectedRevision, (int)command.Action, command.ItemId, command.Destination,
             command.Count, (int)command.Slot);
-        var result = await OperationAsync(command.OperationId, buffer => packet.Write(buffer), ct);
+        var result = await OperationAsync(command.OperationId, packet, ct);
         return new InventoryOutcome(result.Ok, result.Revision, result.Message);
     }
 
     internal async Task<ItemUseOutcome> UseItemAsync(ItemUseCommand command, CancellationToken ct)
     {
         ThrowIfDisconnected();
-        var pending = new TaskCompletionSource<ItemUseResultPacket>(TaskCreationOptions.RunContinuationsAsynchronously);
-        if (!_itemUses.TryAdd(command.OperationId, pending))
-        {
-            throw new InvalidOperationException("An item use with this id is already in flight.");
-        }
-
-        try
-        {
-            var packet = new ItemUseCommandPacket(command.OperationId, command.ExpectedRevision, command.ItemId, command.Argument, command.Text);
-            lock (_sendGate)
-            {
-                Connection.Send(_scratch.AsSpan(0, packet.Write(_scratch)));
-            }
-
-            var result = await pending.Task.WaitAsync(ct);
-            return new ItemUseOutcome(result.Ok, result.Revision, (ItemUseStatus)result.Status, result.ItemCode, result.Message);
-        }
-        finally
-        {
-            _itemUses.TryRemove(command.OperationId, out _);
-        }
+        var packet = new ItemUseCommandPacket(command.OperationId, command.ExpectedRevision, command.ItemId, command.Argument, command.Text);
+        var result = await _itemUses.RequestAsync(command.OperationId, () => Send(packet), ct);
+        return new ItemUseOutcome(result.Ok, result.Revision, (ItemUseStatus)result.Status, result.ItemCode, result.Message);
     }
 
     // A dead player's restart; the new place arrives as a forced FieldWarp and the presence stream.
     internal async Task<RestartOutcome> RestartAsync(RestartChoice choice, CancellationToken ct)
     {
         ThrowIfDisconnected();
-        var operation = Guid.NewGuid();
-        var pending = new TaskCompletionSource<RestartResultPacket>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _restarts[operation] = pending;
-        try
-        {
-            var packet = new RestartRequestPacket(operation, (byte)choice);
-            lock (_sendGate)
-            {
-                Connection.Send(_scratch.AsSpan(0, packet.Write(_scratch)));
-            }
-
-            var result = await pending.Task.WaitAsync(ct);
-            return new RestartOutcome((RestartStatus)result.Status, (RestartChoice)result.Choice, result.ExperienceLost, result.GoldLost, result.ScrollUsed);
-        }
-        finally
-        {
-            _restarts.TryRemove(operation, out _);
-        }
+        var packet = new RestartRequestPacket(Guid.NewGuid(), (byte)choice);
+        var result = await _restarts.RequestAsync(packet.OperationId, () => Send(packet), ct);
+        return new RestartOutcome((RestartStatus)result.Status, (RestartChoice)result.Choice, result.ExperienceLost, result.GoldLost, result.ScrollUsed);
     }
 
     // A trip through the wing warp gates; the new place arrives as a forced FieldWarp.
     internal async Task<WingGateOutcome> TravelWingGateAsync(int destination, CancellationToken ct)
     {
         ThrowIfDisconnected();
-        var operation = Guid.NewGuid();
-        var pending = new TaskCompletionSource<WingGateResultPacket>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _wingGates[operation] = pending;
-        try
-        {
-            var packet = new WingGateRequestPacket(operation, (byte)destination);
-            lock (_sendGate)
-            {
-                Connection.Send(_scratch.AsSpan(0, packet.Write(_scratch)));
-            }
-
-            var result = await pending.Task.WaitAsync(ct);
-            return new WingGateOutcome((WingGateStatus)result.Status, result.Destination, result.Fee);
-        }
-        finally
-        {
-            _wingGates.TryRemove(operation, out _);
-        }
+        var packet = new WingGateRequestPacket(Guid.NewGuid(), (byte)destination);
+        var result = await _wingGates.RequestAsync(packet.OperationId, () => Send(packet), ct);
+        return new WingGateOutcome((WingGateStatus)result.Status, result.Destination, result.Fee);
     }
 
     internal async Task<ProgressionOutcome> ApplyProgressionAsync(ProgressionCommand command, CancellationToken ct)
     {
         var packet = new ProgressionCommandPacket(command.OperationId, command.ExpectedRevision, (int)command.Action, (int)command.Attribute,
             command.Amount, command.SkillCode, command.NpcEntityId);
-        var result = await OperationAsync(command.OperationId, buffer => packet.Write(buffer), ct);
+        var result = await OperationAsync(command.OperationId, packet, ct);
         return new ProgressionOutcome(result.Ok, result.Revision, result.Message);
     }
 
-    private async Task<OperationResultPacket> OperationAsync(Guid operationId, Func<byte[], int> write, CancellationToken ct)
+    private Task<OperationResultPacket> OperationAsync<TPacket>(Guid operationId, TPacket packet, CancellationToken ct) where TPacket : IFramePacket
     {
         ThrowIfDisconnected();
-        var pending = new TaskCompletionSource<OperationResultPacket>(TaskCreationOptions.RunContinuationsAsynchronously);
-        if (!_operations.TryAdd(operationId, pending))
-        {
-            throw new InvalidOperationException("An operation with this id is already in flight.");
-        }
-
-        try
-        {
-            lock (_sendGate)
-            {
-                Connection.Send(_scratch.AsSpan(0, write(_scratch)));
-            }
-
-            return await pending.Task.WaitAsync(ct);
-        }
-        finally
-        {
-            _operations.TryRemove(operationId, out _);
-        }
+        return _operations.RequestAsync(operationId, () => Send(packet), ct);
     }
 
     internal async Task<NpcInteraction> InteractNpcAsync(ulong entityId, CancellationToken ct)
     {
         ThrowIfDisconnected();
-        var request = new NpcRequest();
-        if (!_npcRequests.TryAdd(entityId, request))
+        if (_npcDialogs.IsWaiting(entityId))
         {
             return NpcInteraction.Rejected("already talking to this NPC");
         }
 
-        try
-        {
-            SendAttackRequest(entityId, sustained: false, 0);
-            return await request.Completion.Task.WaitAsync(ct);
-        }
-        finally
-        {
-            _npcRequests.TryRemove(entityId, out _);
-        }
+        return await _npcDialogs.RequestAsync(entityId, () => SendAttackRequest(entityId, sustained: false, 0), ct);
     }
 
     internal async Task<NpcServiceReply> RequestNpcServiceAsync(NpcServiceCommand command, CancellationToken ct)
     {
         ThrowIfDisconnected();
-        var request = new ServiceRequest();
-        if (!_serviceRequests.TryAdd(command.OperationId, request))
-        {
-            throw new InvalidOperationException("A service request with this id is already in flight.");
-        }
-
+        var packet = new NpcServiceRequestPacket(command.OperationId, command.NpcEntityId, (byte)command.Service, (byte)command.Action,
+            command.ExpectedRevision, command.ExpectedStorageRevision, command.ItemCode, command.ItemId, command.Anchor, command.Count, command.Amount,
+            command.Materials);
         try
         {
-            var packet = new NpcServiceRequestPacket(command.OperationId, command.NpcEntityId, (byte)command.Service, (byte)command.Action,
-                command.ExpectedRevision, command.ExpectedStorageRevision, command.ItemCode, command.ItemId, command.Anchor, command.Count, command.Amount,
-                command.Materials);
-            lock (_sendGate)
-            {
-                Connection.Send(_scratch.AsSpan(0, packet.Write(_scratch)));
-            }
-
-            return await request.Completion.Task.WaitAsync(ct);
+            return await _services.RequestAsync(command.OperationId, () => Send(packet), ct);
         }
         finally
         {
-            _serviceRequests.TryRemove(command.OperationId, out _);
+            _serviceParts.TryRemove(command.OperationId, out _);
         }
     }
 
-    internal async Task<QuestOutcome> RequestQuestAsync(QuestCommand command, CancellationToken ct)
+    internal Task<QuestOutcome> RequestQuestAsync(QuestCommand command, CancellationToken ct)
     {
         ThrowIfDisconnected();
-        var pending = new TaskCompletionSource<QuestOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
-        if (!_questRequests.TryAdd(command.OperationId, pending))
-        {
-            throw new InvalidOperationException("A quest request with this id is already in flight.");
-        }
-
-        try
-        {
-            var packet = QuestWireReader.ToPacket(command);
-            lock (_sendGate)
-            {
-                Connection.Send(_scratch.AsSpan(0, packet.Write(_scratch)));
-            }
-
-            return await pending.Task.WaitAsync(ct);
-        }
-        finally
-        {
-            _questRequests.TryRemove(command.OperationId, out _);
-        }
+        var packet = QuestWireReader.ToPacket(command);
+        return _quests.RequestAsync(command.OperationId, () => Send(packet), ct);
     }
 
     internal void SendMovement(Vector3 position, float facing, bool moving, bool running, ulong actionTarget, int fieldCode)
     {
         var motion = !moving ? MotionState.Stand : running ? MotionState.Run : MotionState.Walk;
         var report = new MovementReportPacket(motion, fieldCode, position, facing, actionTarget);
-        lock (_sendGate)
-        {
-            Connection.Send(_scratch.AsSpan(0, report.Write(_scratch)));
-        }
+        Send(report);
     }
 
     // The clicked target (0 stops attacking) and the request sequence; the server resolves every swing.
     internal void SendAttackRequest(ulong target, bool sustained, ulong sequence)
     {
         var attack = new AttackRequestPacket(target, sustained, sequence);
-        lock (_sendGate)
-        {
-            Connection.Send(_scratch.AsSpan(0, attack.Write(_scratch)));
-        }
+        Send(attack);
     }
 
     internal void SendSkillCast(uint sequence, uint skillCode, ulong target, Vector3? point, SkillCastCommand command = SkillCastCommand.Cast)
@@ -485,28 +366,19 @@ public sealed class GameServerConnection : IGameBackend
         var aimed = point ?? Vector3.Zero;
         var cast = new SkillCastPacket(sequence, skillCode, target, GameUnits.ToFixed(aimed.X), GameUnits.ToFixed(aimed.Y), GameUnits.ToFixed(aimed.Z),
             0, (uint)Environment.TickCount, command);
-        lock (_sendGate)
-        {
-            Connection.Send(_scratch.AsSpan(0, cast.Write(_scratch)));
-        }
+        Send(cast);
     }
 
     // A typed line: party lines or everything else (spoken lines, whispers, commands); the server adds the speaker's name.
     internal void SendChat(string text, bool party)
     {
         var input = new ChatSayPacket(party, text);
-        lock (_sendGate)
-        {
-            Connection.Send(_scratch.AsSpan(0, input.Write(_scratch)));
-        }
+        Send(input);
     }
 
     internal void SendYahooKey()
     {
-        lock (_sendGate)
-        {
-            Connection.Send(_scratch.AsSpan(0, YahooKeyPacket.Write(_scratch)));
-        }
+        Send(new YahooKeyPacket());
     }
 
     internal IAsyncEnumerable<PresenceUpdate> ReadPresenceAsync(CancellationToken ct) => _presenceUpdates.Reader.ReadAllAsync(ct);
@@ -567,40 +439,13 @@ public sealed class GameServerConnection : IGameBackend
             _enter?.TrySetException(error);
             _joined?.TrySetException(error);
             _left?.TrySetException(error);
-            foreach (var pending in _operations.Values)
-            {
-                pending.TrySetException(error);
-            }
-
-            foreach (var pending in _itemUses.Values)
-            {
-                pending.TrySetException(error);
-            }
-
-            foreach (var pending in _restarts.Values)
-            {
-                pending.TrySetException(error);
-            }
-
-            foreach (var pending in _wingGates.Values)
-            {
-                pending.TrySetException(error);
-            }
-
-            foreach (var pending in _npcRequests.Values)
-            {
-                pending.Completion.TrySetException(error);
-            }
-
-            foreach (var pending in _serviceRequests.Values)
-            {
-                pending.Completion.TrySetException(error);
-            }
-
-            foreach (var pending in _questRequests.Values)
-            {
-                pending.TrySetException(error);
-            }
+            _operations.FailAll(error);
+            _itemUses.FailAll(error);
+            _restarts.FailAll(error);
+            _wingGates.FailAll(error);
+            _npcDialogs.FailAll(error);
+            _services.FailAll(error);
+            _quests.FailAll(error);
 
             _presenceUpdates.Writer.TryComplete(error);
         }
@@ -623,7 +468,7 @@ public sealed class GameServerConnection : IGameBackend
                 }
 
                 elapsed = TimeSpan.Zero;
-                SendFrame(new HeartbeatPacket(++counter, Environment.TickCount64).Write);
+                Send(new HeartbeatPacket(++counter, Environment.TickCount64));
             }
         }
         catch (Exception ex) when (ex is OperationCanceledException or IOException or InvalidOperationException)
@@ -678,51 +523,39 @@ public sealed class GameServerConnection : IGameBackend
             case EtervaleOpcodes.ProgressionResult:
             {
                 var result = OperationResultPacket.Read(packet);
-                if (_operations.TryGetValue(result.OperationId, out var pending))
-                {
-                    pending.TrySetResult(result);
-                }
+                _operations.Complete(result.OperationId, result);
 
                 break;
             }
             case EtervaleOpcodes.RestartResult:
             {
                 var restart = RestartResultPacket.Read(packet);
-                if (_restarts.TryGetValue(restart.OperationId, out var waiting))
-                {
-                    waiting.TrySetResult(restart);
-                }
+                _restarts.Complete(restart.OperationId, restart);
 
                 break;
             }
             case EtervaleOpcodes.WingGateResult:
             {
                 var wingGate = WingGateResultPacket.Read(packet);
-                if (_wingGates.TryGetValue(wingGate.OperationId, out var waiting))
-                {
-                    waiting.TrySetResult(wingGate);
-                }
+                _wingGates.Complete(wingGate.OperationId, wingGate);
 
                 break;
             }
             case EtervaleOpcodes.ItemUseResult:
             {
                 var result = ItemUseResultPacket.Read(packet);
-                if (_itemUses.TryGetValue(result.OperationId, out var pending))
-                {
-                    pending.TrySetResult(result);
-                }
+                _itemUses.Complete(result.OperationId, result);
 
                 break;
             }
             case EtervaleOpcodes.NpcResult:
             {
                 var dialog = NpcDialogPacket.Read(packet);
-                if (_npcRequests.TryGetValue(dialog.NpcId, out var request))
+                if (_npcDialogs.IsWaiting(dialog.NpcId))
                 {
                     var offers = dialog.Services
                         .Select(entry => new NpcServiceOffer((NpcServiceKind)entry.Kind, entry.Value, entry.Available, entry.PricePercent)).ToArray();
-                    request.Completion.TrySetResult(new NpcInteraction(dialog.Ok, dialog.NpcId, dialog.Name, offers, dialog.Lines, dialog.Message));
+                    _npcDialogs.Complete(dialog.NpcId, new NpcInteraction(dialog.Ok, dialog.NpcId, dialog.Name, offers, dialog.Lines, dialog.Message));
                 }
 
                 break;
@@ -738,9 +571,9 @@ public sealed class GameServerConnection : IGameBackend
             case EtervaleOpcodes.QuestResult:
             {
                 var result = QuestResultPacket.Read(packet);
-                if (_questRequests.TryGetValue(result.OperationId, out var pending))
+                if (_quests.IsWaiting(result.OperationId))
                 {
-                    pending.TrySetResult(QuestWireReader.ToOutcome(result));
+                    _quests.Complete(result.OperationId, QuestWireReader.ToOutcome(result));
                 }
 
                 break;
@@ -750,6 +583,9 @@ public sealed class GameServerConnection : IGameBackend
         return ValueTask.CompletedTask;
     }
 
+    private void AddServicePart(Guid operationId, Func<NpcServiceReply, NpcServiceReply> add) =>
+        _serviceParts.AddOrUpdate(operationId, _ => add(new NpcServiceReply(NpcServiceOutcome.Failed(NpcServiceStatus.Rejected, ""))), (_, reply) => add(reply));
+
     private void OnServiceMessage(uint code, ReadOnlySpan<byte> packet)
     {
         switch (code)
@@ -757,10 +593,11 @@ public sealed class GameServerConnection : IGameBackend
             case EtervaleOpcodes.ShopCatalog:
             {
                 var catalog = ShopCatalogPacket.Read(packet);
-                if (_serviceRequests.TryGetValue(catalog.OperationId, out var request))
+                if (_services.IsWaiting(catalog.OperationId))
                 {
-                    request.Catalog = catalog.Items.Select(entry => new ShopOffer(entry.Code, entry.Tab, entry.Ordinal, entry.Name, (ItemKind)entry.Kind,
+                    var offers = catalog.Items.Select(entry => new ShopOffer(entry.Code, entry.Tab, entry.Ordinal, entry.Name, (ItemKind)entry.Kind,
                         entry.Price, entry.Width, entry.Height, entry.MaxStack, ItemCodes.KeyOf(entry.Code))).ToArray();
+                    AddServicePart(catalog.OperationId, reply => reply with { Catalog = offers });
                 }
 
                 break;
@@ -768,10 +605,11 @@ public sealed class GameServerConnection : IGameBackend
             case EtervaleOpcodes.ShopQuotes:
             {
                 var quotes = ShopQuotesPacket.Read(packet);
-                if (_serviceRequests.TryGetValue(quotes.OperationId, out var request))
+                if (_services.IsWaiting(quotes.OperationId))
                 {
-                    request.Quotes = new ShopQuotes(quotes.InventoryRevision, quotes.Items
+                    var shopQuotes = new ShopQuotes(quotes.InventoryRevision, quotes.Items
                         .Select(entry => new ShopQuote(entry.ItemId, entry.SellPrice, entry.RepairCost, entry.Durability, entry.MaxDurability)).ToArray());
+                    AddServicePart(quotes.OperationId, reply => reply with { Quotes = shopQuotes });
                 }
 
                 break;
@@ -779,12 +617,13 @@ public sealed class GameServerConnection : IGameBackend
             case EtervaleOpcodes.Warehouse:
             {
                 var warehouse = WarehousePacket.Read(packet);
-                if (_serviceRequests.TryGetValue(warehouse.OperationId, out var request))
+                if (_services.IsWaiting(warehouse.OperationId))
                 {
                     var items = warehouse.Items.Select(entry => new OwnedItemView(entry.InstanceId, entry.Code, entry.Name, (ItemKind)entry.Kind, entry.Count,
                         entry.Anchor, -1, entry.Width, entry.Height, ItemCodes.KeyOf(entry.Code))).ToArray();
-                    request.Warehouse = new WarehouseView(warehouse.Revision, warehouse.Money, warehouse.Weight, warehouse.MaxWeight, warehouse.Columns,
+                    var view = new WarehouseView(warehouse.Revision, warehouse.Money, warehouse.Weight, warehouse.MaxWeight, warehouse.Columns,
                         warehouse.Rows, items);
+                    AddServicePart(warehouse.OperationId, reply => reply with { Warehouse = view });
                 }
 
                 break;
@@ -792,10 +631,11 @@ public sealed class GameServerConnection : IGameBackend
             case EtervaleOpcodes.TeleportList:
             {
                 var list = TeleportListPacket.Read(packet);
-                if (_serviceRequests.TryGetValue(list.OperationId, out var request))
+                if (_services.IsWaiting(list.OperationId))
                 {
-                    request.Destinations = list.Destinations
+                    var destinations = list.Destinations
                         .Select(entry => new TeleportOffer(entry.Index, entry.FieldCode, entry.Name, entry.Price, entry.MinimumLevel)).ToArray();
+                    AddServicePart(list.OperationId, reply => reply with { Destinations = destinations });
                 }
 
                 break;
@@ -803,9 +643,10 @@ public sealed class GameServerConnection : IGameBackend
             case EtervaleOpcodes.ItemWork:
             {
                 var work = ItemWorkPacket.Read(packet);
-                if (_serviceRequests.TryGetValue(work.OperationId, out var request))
+                if (_services.IsWaiting(work.OperationId))
                 {
-                    request.Work = new ItemWorkResult(work.Result, work.ItemId, work.Code);
+                    var result = new ItemWorkResult(work.Result, work.ItemId, work.Code);
+                    AddServicePart(work.OperationId, reply => reply with { Work = result });
                 }
 
                 break;
@@ -813,17 +654,11 @@ public sealed class GameServerConnection : IGameBackend
             case EtervaleOpcodes.NpcServiceResult:
             {
                 var result = NpcServiceResultPacket.Read(packet);
-                if (_serviceRequests.TryGetValue(result.OperationId, out var request))
+                if (_services.IsWaiting(result.OperationId))
                 {
                     var outcome = new NpcServiceOutcome(result.Ok, (NpcServiceStatus)result.Status, result.Revision, result.StorageRevision, result.Message);
-                    request.Completion.TrySetResult(new NpcServiceReply(outcome)
-                    {
-                        Catalog = request.Catalog,
-                        Quotes = request.Quotes,
-                        Warehouse = request.Warehouse,
-                        Destinations = request.Destinations,
-                        Work = request.Work
-                    });
+                    var reply = _serviceParts.TryGetValue(result.OperationId, out var collected) ? collected with { Outcome = outcome } : new NpcServiceReply(outcome);
+                    _services.Complete(result.OperationId, reply);
                 }
 
                 break;
@@ -876,10 +711,7 @@ public sealed class GameServerConnection : IGameBackend
 
     private void RequestDescription(ulong entityId)
     {
-        lock (_sendGate)
-        {
-            Connection.Send(_scratch.AsSpan(0, new DescribeEntityPacket(entityId).Write(_scratch)));
-        }
+        Send(new DescribeEntityPacket(entityId));
     }
 
     private void ThrowIfDisconnected()
@@ -925,19 +757,5 @@ public sealed class GameServerConnection : IGameBackend
         public TaskCompletionSource<LoginOutcome> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
-    private sealed class NpcRequest
-    {
-        public TaskCompletionSource<NpcInteraction> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    }
 
-    // State messages precede the result of their request on the same connection, so they are collected until it arrives.
-    private sealed class ServiceRequest
-    {
-        public TaskCompletionSource<NpcServiceReply> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public IReadOnlyList<ShopOffer>? Catalog { get; set; }
-        public ShopQuotes? Quotes { get; set; }
-        public WarehouseView? Warehouse { get; set; }
-        public IReadOnlyList<TeleportOffer>? Destinations { get; set; }
-        public ItemWorkResult? Work { get; set; }
-    }
 }

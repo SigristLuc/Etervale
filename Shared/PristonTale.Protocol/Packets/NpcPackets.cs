@@ -134,7 +134,7 @@ public sealed record NpcServiceRequestPacket(
     int Anchor,
     int Count,
     long Amount,
-    Guid[]? Materials = null)
+    Guid[]? Materials = null) : IFramePacket
 {
     public const int Size = 8 + 4 + 16 + 8 + 4 + 8 + 8 + 4 + 16 + 4 + 4 + 8;
     public const int MaxMaterials = 16;

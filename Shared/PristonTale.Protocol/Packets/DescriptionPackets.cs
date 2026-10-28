@@ -28,7 +28,7 @@ internal static class DescriptionWire
 }
 
 // C->S: asks for the description of an entity in view. {header, uint16 Version = 1, uint16 Flags = 0, varuint EntityId}.
-public readonly record struct DescribeEntityPacket(ulong EntityId)
+public readonly record struct DescribeEntityPacket(ulong EntityId) : IFramePacket
 {
     public const int MaximumSize = 8 + 4 + VarInt.MaxBytes64;
 
