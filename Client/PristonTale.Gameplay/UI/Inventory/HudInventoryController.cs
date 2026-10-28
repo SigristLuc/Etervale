@@ -14,8 +14,9 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     private OwnerState _state;
     private Point _origin;
     private MouseState _previousMouse;
-    // The item on the cursor (it keeps its place on the server until it is set down), and the one a pending command puts
-    // there once it succeeds: the item an exchange picks up, or an equipped item taken off.
+    // The item on the cursor (it keeps its place on the server until it is set down), and the one put there once no
+    // command is pending and it lies in the bag: what an exchange picks up, an equipped item taken off, or what a
+    // warehouse exchange put in the bag.
     private Guid _dragging;
     private Guid _carryAfter;
     // The item under the pointer this frame (the window open), for Shift and a belt key.
@@ -33,9 +34,11 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     public bool Pending => _pendingOperation;
     public Guid Dragging => _dragging;
 
+    // The owned item under the pointer while the window takes input and nothing is carried.
+    public OwnedItemView Hovered => _hovered;
+
     // Set by the HUD each frame: nothing is picked up while the player attacks or casts, as in the original.
     public bool PickupLocked { get; set; }
-    public Point Origin => _origin;
 
     // Shop and warehouse windows take clicks on owned items and drops outside the inventory while they are open.
     public Func<OwnedItemView, bool> InterceptClick { get; set; }
@@ -56,6 +59,8 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         _dragging = Guid.Empty;
     }
 
+    public void CarryAfter(Guid itemId) => _carryAfter = itemId;
+
     public void Update(OwnerState state, HudLayout layout, bool visible, KeyboardState keyboard, MouseState mouse)
     {
         _state = state;
@@ -73,12 +78,21 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                 ItemSound?.Invoke(_pendingSound);
             }
 
-            if (completed.Ok && _carryAfter != Guid.Empty && state?.Items.Any(item => item.InstanceId == _carryAfter && item.InBag) == true)
+            if (!completed.Ok)
+            {
+                _carryAfter = Guid.Empty;
+            }
+
+            _pendingSound = null;
+        }
+
+        if (_carryAfter != Guid.Empty && !_pendingOperation)
+        {
+            if (OwnedItemView.Find(state?.Items, _carryAfter) is { InBag: true })
             {
                 _dragging = _carryAfter;
             }
 
-            _pendingSound = null;
             _carryAfter = Guid.Empty;
         }
 
@@ -104,7 +118,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             // The belt is on the bottom bar: its potions are drunk with a right click while the window is closed too.
             var pointer = layout.ToLogical(mouse.Position);
             if (state is not null && !_pendingOperation && mouse.RightButton == ButtonState.Pressed && _previousMouse.RightButton == ButtonState.Released
-                && state.Items.FirstOrDefault(item => item.BeltBox >= 0 && ItemBounds(item).Contains(pointer)) is { } potion)
+                && HudInventoryLayout.ItemAt(_origin, state.Items, pointer) is { BeltBox: >= 0 } potion)
             {
                 Use(potion);
             }
@@ -119,7 +133,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     {
         if (_dragging != Guid.Empty)
         {
-            var carried = _state.Items.FirstOrDefault(item => item.InstanceId == _dragging);
+            var carried = OwnedItemView.Find(_state.Items, _dragging);
             if (carried is null)
             {
                 _dragging = Guid.Empty;
@@ -150,7 +164,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             }
         }
 
-        var hovered = _state.Items.FirstOrDefault(item => ItemBounds(item).Contains(pointer));
+        var hovered = HudInventoryLayout.ItemAt(_origin, _state.Items, pointer);
         _hovered = hovered;
         if (hovered is null)
         {
@@ -339,7 +353,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         _carryAfter = carryAfter;
         _pendingSound = command.Action == InventoryAction.ConsumePotion
             ? null
-            : _state.Items.FirstOrDefault(item => item.InstanceId == command.ItemId)?.CatalogKey;
+            : OwnedItemView.Find(_state.Items, command.ItemId)?.CatalogKey;
         _ = CompleteInventoryAsync(command);
     }
 
@@ -355,10 +369,6 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             _completedOperation = new InventoryOutcome(false, 0, "Operation failed; reconnect to verify saved state.");
         }
     }
-
-    public Rectangle EquipmentBounds(int slot) => HudInventoryLayout.Equipment(_origin, slot);
-
-    public Rectangle ItemBounds(OwnedItemView item) => HudInventoryLayout.Bounds(_origin, item);
 
     private EquipmentSlot? SlotFor(ItemKind kind) =>
         ItemEquipmentMetadata.DefaultSlot(kind, ItemEquipmentMetadata.SlotOf(kind), slot => _state.Items.Any(item => item.Slot == (int)slot));

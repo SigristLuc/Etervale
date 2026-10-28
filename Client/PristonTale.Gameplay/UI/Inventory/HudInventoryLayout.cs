@@ -7,24 +7,31 @@ namespace PristonTale.Gameplay.UI.Inventory;
 // Origin is the top-left of the bottom-anchored 800x600 frame; panel animation adds its slide offset to Y.
 public static class HudInventoryLayout
 {
-    public const int CellSize = 22;
-    public const int Columns = 12;
-    public const int Rows = 6;
+    public const int Columns = Simulation.Items.Inventory.DefaultWidth;
+    public const int Rows = Simulation.Items.Inventory.DefaultHeight;
+
+    // Which owned items lie on the bag grid, for HudGridPlacement.
+    public static readonly Func<OwnedItemView, bool> InBag = static item => item.InBag;
 
     public static Point Origin(HudLayout layout, int slideOffset = 0) => new(0, layout.BottomOffset + slideOffset);
 
-    public static Rectangle Bag(Point origin) => new(origin.X + 23, origin.Y + 436, Columns * CellSize, Rows * CellSize);
+    public static Rectangle Bag(Point origin) => new(origin.X + 23, origin.Y + 436, Columns * HudGridPlacement.CellSize, Rows * HudGridPlacement.CellSize);
 
-    public static Rectangle Cell(Point origin, int anchor, int width = 1, int height = 1)
-    {
-        var bag = Bag(origin);
-        return new Rectangle(bag.X + anchor % Columns * CellSize, bag.Y + anchor / Columns * CellSize, width * CellSize, height * CellSize);
-    }
+    public static Rectangle Cell(Point origin, int anchor, int width = 1, int height = 1) =>
+        HudGridPlacement.Cell(Bag(origin), Columns, anchor, width, height);
 
-    public static int CellAt(Point origin, Point pointer)
+    // The owned item under the pointer: in the bag, an equipment slot or a belt box.
+    public static OwnedItemView ItemAt(Point origin, IReadOnlyList<OwnedItemView> items, Point pointer)
     {
-        var bag = Bag(origin);
-        return bag.Contains(pointer) ? (pointer.Y - bag.Y) / CellSize * Columns + (pointer.X - bag.X) / CellSize : -1;
+        for (var index = 0; index < items.Count; index++)
+        {
+            if (Bounds(origin, items[index]).Contains(pointer))
+            {
+                return items[index];
+            }
+        }
+
+        return null;
     }
 
     public static Rectangle Equipment(Point origin, int slot)
@@ -54,9 +61,7 @@ public static class HudInventoryLayout
     {
         if (item.BeltBox >= 0)
         {
-            var box = Belt(origin, item.BeltBox);
-            return new Rectangle(box.Center.X - item.Width * CellSize / 2, box.Center.Y - item.Height * CellSize / 2, item.Width * CellSize,
-                item.Height * CellSize);
+            return HudGridPlacement.Frame(item, Belt(origin, item.BeltBox).Center);
         }
 
         return item.Equipped ? Equipment(origin, item.Slot) : Cell(origin, item.Anchor, item.Width, item.Height);

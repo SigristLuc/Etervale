@@ -99,6 +99,25 @@ public sealed partial class GameplayHud
         }
     }
 
+    // A warehouse exchange hands the item it picked up to the cursor, in the bag or on the grid where it now lies.
+    private void ServiceSucceeded(NpcServiceCommand command)
+    {
+        ServiceSound(command);
+        if (command.Covered == Guid.Empty)
+        {
+            return;
+        }
+
+        if (command.Action == NpcServiceAction.Deposit)
+        {
+            _inventory.CarryAfter(command.Covered);
+        }
+        else if (command.Action is NpcServiceAction.Move or NpcServiceAction.Withdraw)
+        {
+            _warehouse.CarryAfter(command.Covered);
+        }
+    }
+
     private void ServiceSound(NpcServiceCommand command)
     {
         var key = command.Action == NpcServiceAction.Buy
@@ -233,7 +252,7 @@ public sealed partial class GameplayHud
         return true;
     }
 
-    // An inventory item dropped on the shop is sold; on the warehouse grid it is stored in the cell under the pointer.
+    // An inventory item set down on the shop is sold; on the warehouse grid it is stored where HudWarehouseWindow places it.
     private bool DropFromInventory(Guid itemId, Point pointer)
     {
         if (_state is null)
@@ -247,7 +266,7 @@ public sealed partial class GameplayHud
             return true;
         }
 
-        var dropped = _state.Items.FirstOrDefault(item => item.InstanceId == itemId);
+        var dropped = OwnedItemView.Find(_state.Items, itemId);
         if ((_aging.FullyOpen ? _aging.Place(dropped, pointer, _state) : _mix.FullyOpen ? _mix.Place(dropped, pointer, _state) : null) is { } refusal)
         {
             if (refusal.Length > 0)
@@ -258,12 +277,11 @@ public sealed partial class GameplayHud
             return true;
         }
 
-        var cell = HudStoreLayout.CellAt(_warehouse.Origin, pointer);
-        if (_warehouse.FullyOpen && cell >= 0)
+        // Over the grid: free cells store it, one stored item is exchanged; a refusal keeps it on the cursor.
+        if (_warehouse.SetDownOnGrid(dropped, pointer) is { Kind: not HudWarehouseActionKind.None } action)
         {
-            _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Warehouse, NpcServiceAction.Deposit, _state.InventoryRevision,
-                itemId: itemId, anchor: cell);
-            return true;
+            ApplyWarehouseAction(_state, action);
+            return action.Kind == HudWarehouseActionKind.Deposit;
         }
 
         return false;
@@ -277,13 +295,32 @@ public sealed partial class GameplayHud
             case HudWarehouseActionKind.Exit:
                 CloseServices();
                 break;
-            case HudWarehouseActionKind.Move:
-                _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Warehouse, NpcServiceAction.Move, revision,
-                    itemId: action.ItemId, anchor: action.Anchor);
+            case HudWarehouseActionKind.Lifted:
+                if (_itemKeys.GetValueOrDefault(action.ItemId) is { } key)
+                {
+                    ItemSound?.Invoke(key);
+                }
+
                 break;
-            case HudWarehouseActionKind.Withdraw:
-                _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Warehouse, NpcServiceAction.Withdraw, revision,
-                    itemId: action.ItemId, anchor: action.Anchor);
+            case HudWarehouseActionKind.Deposit or HudWarehouseActionKind.Move or HudWarehouseActionKind.Withdraw:
+                var service = action.Kind switch
+                {
+                    HudWarehouseActionKind.Deposit => NpcServiceAction.Deposit,
+                    HudWarehouseActionKind.Move => NpcServiceAction.Move,
+                    _ => NpcServiceAction.Withdraw
+                };
+                _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Warehouse, service, revision, itemId: action.ItemId,
+                    anchor: action.Anchor, covered: action.Covered);
+                break;
+            case HudWarehouseActionKind.WithdrawGold when state is not null && _warehouse.View is { } view:
+                // As much as is stored and the character may still carry, as the original bounds the count.
+                var room = MoneyLimits.CarryLimit(state.Level, state.Tier) - state.Money;
+                _countBox.Open("How much gold", "to take out?", (int)Math.Clamp(Math.Min(view.Money, room), 0, int.MaxValue),
+                    amount => _services.Request(_services.NpcId, _services.NpcName, NpcServiceKind.Warehouse, NpcServiceAction.WithdrawGold,
+                        _state?.InventoryRevision ?? 0, amount: amount));
+                break;
+            case HudWarehouseActionKind.Refused:
+                _notice.Show(action.Message);
                 break;
         }
     }
@@ -332,15 +369,11 @@ public sealed partial class GameplayHud
         CloseServices();
     }
 
-    private int InventoryCellAt(Point pointer)
-    {
-        if (!_inventorySlide.FullyOpen)
-        {
-            return -1;
-        }
-
-        return HudInventoryLayout.CellAt(PanelOrigin(Layout(), _inventorySlide), pointer);
-    }
+    // Where a warehouse item carried over the inventory window would land in the bag.
+    private HudPlacement StoredPlacement(OwnedItemView carried, Point pointer) =>
+        _inventorySlide.FullyOpen && _state is not null
+            ? HudInventoryPlacement.OfStored(PanelOrigin(Layout(), _inventorySlide), _state.Items, carried, pointer)
+            : default;
 
     private string InventoryNote(OwnedItemView item)
     {

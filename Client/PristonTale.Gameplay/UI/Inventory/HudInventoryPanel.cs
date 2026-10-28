@@ -9,14 +9,7 @@ namespace PristonTale.Gameplay.UI.Inventory;
 // The original inventory window and its text, with the original equipment covers and selection colors.
 public sealed class HudInventoryPanel
 {
-    private static readonly Color Placement = Color.FromNonPremultiplied(160, 235, 255, 128);
-    // The item a click would pick up in exchange (or join), as the original whitens it.
-    private static readonly Color Exchange = Color.FromNonPremultiplied(255, 255, 255, 128);
-    private static readonly Color Selection = Color.FromNonPremultiplied(255, 200, 0, 128);
-    // Items the character cannot use, in the bag or worn (a worn one then adds nothing).
-    private static readonly Color NotUsable = Color.FromNonPremultiplied(255, 0, 0, 64);
-    private readonly Dictionary<Guid, string> _counts = new();
-    private long _revision = -1;
+    private readonly HudItemCounts _counts = new();
     private long _money = -1;
     private string _gold = "";
     private (int Carried, int Max) _weightValue = (-1, -1);
@@ -36,8 +29,9 @@ public sealed class HudInventoryPanel
 
     public Func<Guid, bool> Withheld { get; set; }
 
+    // stored: the warehouse item on the cursor, whose landing the window colours too.
     public void Draw(HudPainter painter, Point origin, OwnerState state, HudInventoryController controller, HudItemIcons icons,
-        Point pointer, bool interactive)
+        Point pointer, bool interactive, OwnedItemView stored = null)
     {
         _hovered = null;
         _dragged = null;
@@ -62,43 +56,34 @@ public sealed class HudInventoryPanel
 
             if (!Usable(item, state))
             {
-                painter.Fill(HudInventoryLayout.Bounds(origin, item), NotUsable);
+                // Items the character cannot use, in the bag or worn (a worn one then adds nothing).
+                painter.Fill(HudInventoryLayout.Bounds(origin, item), HudPlacementColors.Blocked);
             }
         }
 
-        OwnedItemView hovered = null;
-        OwnedItemView dragged = null;
-        foreach (var item in state.Items)
+        var dragged = OwnedItemView.Find(state.Items, controller.Dragging);
+        var hovered = interactive && stored is null ? controller.Hovered : null;
+        if (hovered?.BeltBox >= 0)
         {
-            var bounds = HudInventoryLayout.Bounds(origin, item);
-            if (controller.Dragging == item.InstanceId)
-            {
-                dragged = item;
-            }
-            else if (interactive && bounds.Contains(pointer))
-            {
-                hovered = item;
-                if (item.BeltBox >= 0)
-                {
-                    _beltSelection = HudInventoryLayout.Belt(origin, item.BeltBox);
-                }
-                else
-                {
-                    painter.Fill(bounds, Selection);
-                }
-            }
+            _beltSelection = HudInventoryLayout.Belt(origin, hovered.BeltBox);
+        }
+        else if (hovered is not null)
+        {
+            painter.Fill(HudInventoryLayout.Bounds(origin, hovered), HudPlacementColors.Selection);
         }
 
-        if (dragged is not null && interactive)
+        if ((dragged ?? stored) is { } carried && interactive)
         {
-            var placement = HudInventoryPlacement.Of(origin, state.Items, dragged, pointer, Usable(dragged, state));
+            var placement = dragged is null
+                ? HudInventoryPlacement.OfStored(origin, state.Items, carried, pointer)
+                : HudInventoryPlacement.Of(origin, state.Items, carried, pointer, Usable(carried, state));
             if (placement.Belt >= 0)
             {
-                _beltPlacement = (placement.Highlight, PlacementColor(placement.Kind));
+                _beltPlacement = (placement.Highlight, HudPlacementColors.Of(placement.Kind));
             }
             else
             {
-                DrawPlacement(painter, placement);
+                HudPlacementColors.Draw(painter, placement);
             }
         }
 
@@ -109,8 +94,8 @@ public sealed class HudInventoryPanel
                 continue;
             }
 
-            var tint = controller.Dragging == item.InstanceId || Withheld?.Invoke(item.InstanceId) == true ? Color.White * 0.4f : Color.White;
-            DrawItem(painter, icons, item, HudInventoryLayout.Bounds(origin, item), tint);
+            var tint = controller.Dragging == item.InstanceId || Withheld?.Invoke(item.InstanceId) == true ? HudPlacementColors.Carried : Color.White;
+            _counts.Draw(painter, icons, item, HudInventoryLayout.Bounds(origin, item), tint);
         }
 
         DrawSides(painter, origin, state, pointer, interactive);
@@ -153,8 +138,7 @@ public sealed class HudInventoryPanel
     {
         if (_dragged is not null)
         {
-            var size = new Point(_dragged.Width * HudInventoryLayout.CellSize, _dragged.Height * HudInventoryLayout.CellSize);
-            DrawItem(painter, icons, _dragged, new Rectangle(pointer.X - size.X / 2, pointer.Y - size.Y / 2, size.X, size.Y), Color.White);
+            _counts.Draw(painter, icons, _dragged, HudGridPlacement.Frame(_dragged, pointer), Color.White);
         }
         else if (_hovered is not null)
         {
@@ -180,7 +164,7 @@ public sealed class HudInventoryPanel
         Refresh(state);
         if (_beltSelection != Rectangle.Empty)
         {
-            painter.Fill(_beltSelection, Selection);
+            painter.Fill(_beltSelection, HudPlacementColors.Selection);
         }
 
         if (_beltPlacement.Color != Color.Transparent)
@@ -192,7 +176,7 @@ public sealed class HudInventoryPanel
         {
             if (item.BeltBox >= 0)
             {
-                DrawItem(painter, icons, item, HudInventoryLayout.Bounds(origin, item), controller.Dragging == item.InstanceId ? Color.White * 0.4f : Color.White);
+                _counts.Draw(painter, icons, item, HudInventoryLayout.Bounds(origin, item), controller.Dragging == item.InstanceId ? HudPlacementColors.Carried : Color.White);
             }
         }
 
@@ -221,23 +205,6 @@ public sealed class HudInventoryPanel
         }
     }
 
-    private static Color PlacementColor(HudPlacementKind kind) => kind switch
-    {
-        HudPlacementKind.Fits => Placement,
-        HudPlacementKind.Exchange or HudPlacementKind.Merge => Exchange,
-        HudPlacementKind.Blocked => NotUsable,
-        _ => Color.Transparent
-    };
-
-    private static void DrawPlacement(HudPainter painter, HudPlacement placement)
-    {
-        var color = PlacementColor(placement.Kind);
-        if (color != Color.Transparent)
-        {
-            painter.Fill(placement.Highlight, color);
-        }
-    }
-
     private void DrawTooltip(HudPainter painter, HudLayout layout, OwnedItemView item, Point pointer)
     {
         var usable = item.InBag && UsableItemCatalog.IsUsable(item.CatalogKey);
@@ -245,7 +212,7 @@ public sealed class HudInventoryPanel
             : item.Kind == ItemKind.Potion ? "Right-click: drink one"
             : usable ? "Right-click: use"
             : "Click: carry  Shift-click: split  Right-click: equip";
-        var count = _counts.GetValueOrDefault(item.InstanceId, "");
+        var count = _counts.Label(item);
         var named = count.Length > 0 ? item with { Name = $"{item.Name} ({count})" } : item;
         var note = Note?.Invoke(item) ?? "";
         if (usable && note.Length == 0)
@@ -258,29 +225,9 @@ public sealed class HudInventoryPanel
             HudItemDetailTooltip.Gauge(item, _state));
     }
 
-    private void DrawItem(HudPainter painter, HudItemIcons icons, OwnedItemView item, Rectangle bounds, Color tint)
-    {
-        icons.Draw(painter, item.CatalogKey, bounds, tint);
-
-        var count = _counts.GetValueOrDefault(item.InstanceId, "");
-        if (count.Length > 0 && !item.Equipped)
-        {
-            painter.Text(count, bounds.Right - painter.Measure(count) - 1, bounds.Bottom - 13);
-        }
-    }
-
     private void Refresh(OwnerState state)
     {
-        if (_revision != state.InventoryRevision)
-        {
-            _revision = state.InventoryRevision;
-            _counts.Clear();
-            foreach (var item in state.Items)
-            {
-                _counts[item.InstanceId] = item.Count > 1 ? item.Count.ToString() : "";
-            }
-        }
-
+        _counts.Refresh(state.InventoryRevision, state.Items);
         if (_money != state.Money)
         {
             _money = state.Money;

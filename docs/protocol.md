@@ -350,8 +350,8 @@ interpolated ground speed, and a walk or run state without ground motion is show
 
 ### NPC services
 
-Every NPC and quest message body starts with `{uint16 Version = 2, uint16 Flags = 0}` (version 2 widened the NPC id
-to 64 bits; older versions are refused); readers accept newer versions that append fields, except `ShopQuotes`, whose
+Every NPC and quest message body starts with `{uint16 Version = 3, uint16 Flags = 0}` (version 2 widened the NPC id
+to 64 bits, version 3 added the service request's `Covered`; older versions are refused); readers accept newer versions that append fields, except `ShopQuotes`, whose
 list length is checked exactly. Text is UTF-8 with a `uint16` byte length (names up
 to 64 bytes, item names 40, messages 128, dialog lines 256), and counts are 32-bit. The click itself is an
 `AttackRequest` on the NPC id; the server answers with `NpcResult`.
@@ -360,9 +360,9 @@ to 64 bytes, item names 40, messages 128, dialog lines 256), and counts are 32-b
   Available, uint16 PricePercent, int32 Value}, int32 LineCount, text lines}` (at most 32 services and 20 lines). `Kind` is
   `NpcServiceKind`, `Value` the authored argument (class-change group, teleport route, mix mode, quest code...). One
   dialog line is sent, chosen at random as the original does.
-- `NpcServiceRequest` (92 bytes, more with materials): `{Guid OperationId, uint64 NpcId, uint8 Service, uint8
+- `NpcServiceRequest` (108 bytes, more with materials): `{Guid OperationId, uint64 NpcId, uint8 Service, uint8
   Action, uint16 0, int64 ExpectedRevision, int64 ExpectedStorageRevision, uint32 ItemCode, Guid ItemId, int32 Anchor,
-  int32 Count, int64 Amount}`, then for a work on an item `{uint8 Count (1..16), Guid Materials[Count]}` (one unit of an
+  int32 Count, int64 Amount, Guid Covered}` (Covered: the one item a warehouse item set down lies over), then for a work on an item `{uint8 Count (1..16), Guid Materials[Count]}` (one unit of an
   owned item per entry). The client names a stock entry, an owned item, a grid cell (-1 = first free), a destination
   index or the materials; it never sends an item, a price or a total. The original buy and warehouse layouts, which carry a whole client-built item
   or warehouse, are not used.

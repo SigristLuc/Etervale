@@ -6,7 +6,7 @@ namespace PristonTale.Protocol.Packets;
 // versions that append fields. Text is UTF-8 with a uint16 byte length, so localized names keep their characters.
 public static class NpcWire
 {
-    public const ushort Version = 2;
+    public const ushort Version = 3;
     public const int MaxNameBytes = 64;
     public const int MaxItemNameBytes = 40;
     public const int MaxMessageBytes = 128;
@@ -107,9 +107,9 @@ public sealed record NpcDialogPacket(ulong NpcId, bool Ok, string Name, string M
     }
 }
 
-// C→S request for one NPC service, correlated by OperationId. Item, anchor, count and amount fields are read only by
-// the actions that use them; the client never sends items, prices or totals. A work on an item appends its materials:
-// {uint8 Count, Guid[Count]} (absent when none).
+// C→S request for one NPC service, correlated by OperationId. Item, anchor, count, amount and covered fields are read
+// only by the actions that use them; the client never sends items, prices or totals. A work on an item appends its
+// materials: {uint8 Count, Guid[Count]} (absent when none).
 public sealed record NpcServiceRequestPacket(
     Guid OperationId,
     ulong NpcId,
@@ -122,16 +122,17 @@ public sealed record NpcServiceRequestPacket(
     int Anchor,
     int Count,
     long Amount,
-    Guid[]? Materials = null) : IFramePacket
+    Guid[]? Materials = null,
+    Guid Covered = default) : IFramePacket
 {
-    public const int Size = 8 + 4 + 16 + 8 + 4 + 8 + 8 + 4 + 16 + 4 + 4 + 8;
+    public const int Size = 8 + 4 + 16 + 8 + 4 + 8 + 8 + 4 + 16 + 4 + 4 + 8 + 16;
     public const int MaxMaterials = 16;
     public const int MaxSize = Size + 1 + 16 * MaxMaterials;
 
     public bool Equals(NpcServiceRequestPacket? other) =>
         other is not null && OperationId == other.OperationId && NpcId == other.NpcId && Service == other.Service && Action == other.Action
         && ExpectedRevision == other.ExpectedRevision && ExpectedStorageRevision == other.ExpectedStorageRevision && ItemCode == other.ItemCode
-        && ItemId == other.ItemId && Anchor == other.Anchor && Count == other.Count && Amount == other.Amount
+        && ItemId == other.ItemId && Anchor == other.Anchor && Count == other.Count && Amount == other.Amount && Covered == other.Covered
         && (Materials ?? []).AsSpan().SequenceEqual(other.Materials ?? []);
 
     public override int GetHashCode() => HashCode.Combine(OperationId, NpcId, Service, Action, ItemId, Amount);
@@ -152,6 +153,7 @@ public sealed record NpcServiceRequestPacket(
         writer.Int32(Anchor);
         writer.Int32(Count);
         writer.Int64(Amount);
+        writer.Guid(Covered);
         if (Materials is { Length: > 0 } materials)
         {
             if (materials.Length > MaxMaterials)
@@ -179,7 +181,7 @@ public sealed record NpcServiceRequestPacket(
         var action = r.Byte();
         r.Skip(2);
         var request = new NpcServiceRequestPacket(operation, entityId, service, action, r.Int64(), r.Int64(), r.UInt32(), r.Guid(), r.Int32(), r.Int32(),
-            r.Int64());
+            r.Int64(), Covered: r.Guid());
         if (r.Remaining == 0)
         {
             return request;

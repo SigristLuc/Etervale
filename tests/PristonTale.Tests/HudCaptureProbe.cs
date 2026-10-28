@@ -45,6 +45,9 @@ internal sealed class HudCaptureProbe : Game
         AllocateArrow,
         ShopItem,
         WarehouseItem,
+        WarehouseSuit,
+        BagFree,
+        WarehouseCell,
         Buff,
         QuestTimer,
         ClassChange,
@@ -68,6 +71,14 @@ internal sealed class HudCaptureProbe : Game
         SkillReset
     }
 
+    // What a warehouse scenario carries once the window is open: a stored axe, or a bag potion set down on the grid.
+    private enum ProbeCarry
+    {
+        None,
+        StoredAxe,
+        RefusedPotion
+    }
+
     private const uint SkillMasterNpc = 7;
     private const uint MerchantNpc = 8;
     private const uint WarehouseNpc = 9;
@@ -79,7 +90,7 @@ internal sealed class HudCaptureProbe : Game
         PlayerClass Class = PlayerClass.Mechanician, bool Npc = false, bool Settings = false, bool SystemMenu = false, bool Learned = false,
         bool Training = false, bool LowHealth = false, float Hour = 13, bool ClassicTarget = false, ulong Target = 2, ulong NpcId = SkillMasterNpc,
         int ServiceButton = -1, bool SellMode = false, int ServiceCount = 2, int RightSelect = -1, bool Buffs = false, bool Block = false,
-        ProbeQuest Quest = ProbeQuest.None, bool Dead = false, bool FieldOpen = true);
+        ProbeQuest Quest = ProbeQuest.None, bool Dead = false, bool FieldOpen = true, ProbeCarry Carry = ProbeCarry.None);
 
     private static readonly Scenario[] Scenarios =
     [
@@ -134,6 +145,11 @@ internal sealed class HudCaptureProbe : Game
         new("npc-shop-1280", 1280, 720, Npc: true, NpcId: MerchantNpc, ServiceButton: 1),
         new("npc-warehouse-800", 800, 600, Hover: Hover.WarehouseItem, Npc: true, NpcId: WarehouseNpc, ServiceButton: 1),
         new("npc-warehouse-1600x1200-scale2", 1600, 1200, Npc: true, NpcId: WarehouseNpc, ServiceButton: 1),
+        new("npc-warehouse-carry-exchange-800", 800, 600, Hover: Hover.WarehouseSuit, Npc: true, NpcId: WarehouseNpc, ServiceButton: 1,
+            Carry: ProbeCarry.StoredAxe),
+        new("npc-warehouse-carry-bag-800", 800, 600, Hover: Hover.BagFree, Npc: true, NpcId: WarehouseNpc, ServiceButton: 1, Carry: ProbeCarry.StoredAxe),
+        new("npc-warehouse-potion-refused-800", 800, 600, Hover: Hover.WarehouseCell, Npc: true, NpcId: WarehouseNpc, ServiceButton: 1,
+            Carry: ProbeCarry.RefusedPotion),
         new("npc-aging-800", 800, 600, Npc: true, NpcId: TeleporterNpc, ServiceButton: 2, ServiceCount: 4),
         new("npc-aging-1600x1200-scale2", 1600, 1200, Npc: true, NpcId: TeleporterNpc, ServiceButton: 2, ServiceCount: 4),
         new("npc-mix-800", 800, 600, Npc: true, NpcId: MixerNpc, ServiceButton: 1),
@@ -166,6 +182,8 @@ internal sealed class HudCaptureProbe : Game
     private int _scenario;
     private int _frames;
     private bool _prepared;
+    private int _preparedFrame;
+    private bool _carried;
     private readonly PresentationSettings _presentation = new();
 
     public HudCaptureProbe(string assetRoot, string contentRoot, string output, string? background)
@@ -357,11 +375,22 @@ internal sealed class HudCaptureProbe : Game
             }
 
             _prepared = true;
+            _preparedFrame = _frames;
+            _carried = scenario.Carry == ProbeCarry.None;
         }
         else
         {
             GraphicsDevice.SetRenderTarget(_target);
-            _hud.Update(ScenarioState(scenario), default, Pointer(scenario));
+            // The windows take clicks once they have slid fully open.
+            if (!_carried && _frames - _preparedFrame > 60)
+            {
+                Carry(scenario);
+                _carried = true;
+                _preparedFrame = _frames;
+            }
+
+            // A carry keeps the HUD clock at the frame rate, so the notice its refusal shows is still up when captured.
+            _hud.Update(ScenarioState(scenario), default, Pointer(scenario), scenario.Carry == ProbeCarry.None ? 1 : 1d / 60);
             if (scenario.Block)
             {
                 _hud.StringEffect.Show(HudArt.BlockText);
@@ -371,8 +400,9 @@ internal sealed class HudCaptureProbe : Game
 
     protected override void Draw(GameTime gameTime)
     {
-        // A dead scenario waits for the restart window to open after the death motion.
-        if (!_prepared || !_hud.IsReady || !_hud.IconsIdle || _scenario >= Scenarios.Length || Scenarios[_scenario].Dead && !_hud.Restart.Open)
+        // A dead scenario waits for the restart window to open after the death motion; a carry for its clicks to settle.
+        if (!_prepared || !_hud.IsReady || !_hud.IconsIdle || _scenario >= Scenarios.Length || Scenarios[_scenario].Dead && !_hud.Restart.Open
+            || !_carried || Scenarios[_scenario].Carry != ProbeCarry.None && _frames - _preparedFrame < 10)
         {
             GraphicsDevice.SetRenderTarget(null);
             return;
@@ -405,6 +435,21 @@ internal sealed class HudCaptureProbe : Game
         _batch.Dispose();
     }
 
+    private void Carry(Scenario scenario)
+    {
+        var state = ScenarioState(scenario);
+        var layout = HudLayout.Create(scenario.Width, scenario.Height);
+        var store = HudStoreLayout.Origin(0);
+        if (scenario.Carry == ProbeCarry.StoredAxe)
+        {
+            Click(state, layout, HudStoreLayout.Cell(store, 2, 2, 3).Center);
+            return;
+        }
+
+        Click(state, layout, HudInventoryLayout.Cell(HudInventoryLayout.Origin(layout), 8).Center);
+        Click(state, layout, HudStoreLayout.Cell(store, 40).Center);
+    }
+
     private void Click(OwnerState state, HudLayout layout, Point logical)
     {
         var x = logical.X * layout.Scale;
@@ -433,6 +478,9 @@ internal sealed class HudCaptureProbe : Game
             Hover.AllocateArrow => HudStatusPanel.AllocateButton(origin, 0).Center,
             Hover.ShopItem => HudStoreLayout.Cell(HudStoreLayout.Origin(0), 0, 2, 3).Center,
             Hover.WarehouseItem => HudStoreLayout.Cell(HudStoreLayout.Origin(0), 2, 2, 3).Center,
+            Hover.WarehouseSuit => HudStoreLayout.Cell(HudStoreLayout.Origin(0), 5, 2, 3).Center,
+            Hover.BagFree => HudInventoryLayout.Cell(origin, 6, 2, 3).Center,
+            Hover.WarehouseCell => HudStoreLayout.Cell(HudStoreLayout.Origin(0), 40).Center,
             Hover.Buff => new Point(10 + 16, 26),
             Hover.QuestTimer => new Point(10 + 16, 26),
             Hover.ClassChange => HudNpcPanel.ClassChangeButton(layout).Center,

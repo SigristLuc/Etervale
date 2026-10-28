@@ -54,6 +54,28 @@ public static class ItemCodes
 
     public static int Ordinal(uint code) => (int)(code & 0xFF);
 
+    // The family of a catalog key, its first three characters upper-cased ("WA1"); empty for a shorter key.
+    public static string FamilyOf(string key) => key is { Length: >= 3 } ? key[..3].ToUpperInvariant() : "";
+
+    // Whether a key belongs to one of these families, without allocating.
+    public static bool InFamily(string key, ReadOnlySpan<string> families)
+    {
+        if (key is not { Length: >= 3 })
+        {
+            return false;
+        }
+
+        foreach (var family in families)
+        {
+            if (key.AsSpan(0, 3).Equals(family, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static bool TryFamily(ReadOnlySpan<char> prefix, out uint family)
     {
         family = 0;

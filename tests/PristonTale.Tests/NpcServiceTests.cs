@@ -33,6 +33,7 @@ internal static class NpcServiceTests
     {
         yield return ("NPC import types every service key, reads localized names and dialog and prefers placed files", ImportAsync);
         yield return ("shop prices, sell wear, repair cost, carry limit and warehouse rules follow the original", RulesAsync);
+        yield return ("the warehouse keeps out what the original keeps out and exchanges the item a set-down covers", WarehouseExchangeAsync);
         yield return ("NPC service messages round-trip their layouts", ProtocolAsync);
         yield return ("shop buy, sell and repair are durable, idempotent and validated on the server", ShopAsync);
         yield return ("warehouse deposit, withdraw, move and gold persist with the character and reject conflicts", WarehouseAsync);
@@ -140,6 +141,51 @@ internal static class NpcServiceTests
         return Task.CompletedTask;
     }
 
+    private static Task WarehouseExchangeAsync()
+    {
+        foreach (var (kind, key, storable) in new[]
+                 {
+                     (ItemKind.Axe, "WA101", true), (ItemKind.Misc, "GF102", true), (ItemKind.Misc, "SP201", true), (ItemKind.Potion, "PL101", false),
+                     (ItemKind.Material, "MA101", false), (ItemKind.Material, "MA202", false), (ItemKind.Misc, "SP101", false),
+                     (ItemKind.Misc, "CH101", false), (ItemKind.Misc, "GF101", false), (ItemKind.Misc, "QW101", false), (ItemKind.Quest, "QT107", false)
+                 })
+        {
+            Assert.True(WarehouseStorage.CanStore(kind, key) == storable, $"{key} storable should be {storable}");
+        }
+
+        var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Keeper");
+        var storage = new WarehouseStorage();
+        var potion = new ItemInstance(Potion() with { MaxStack = 20 }, 3);
+        Assert.True(character.Inventory.TryPlace(potion, 30), "the potion fixture was not placed");
+        Assert.True(storage.TryDeposit(character, potion.InstanceId, 0) == NpcServiceStatus.Rejected, "a potion was stored");
+
+        var carried = new ItemInstance(Axe());
+        var stored = new ItemInstance(Axe());
+        var other = new ItemInstance(Axe());
+        Assert.True(character.Inventory.TryPlace(carried, 0) && storage.Restore(stored, 0) && storage.Restore(other, 3), "the fixture was not placed");
+        Assert.True(storage.TryDeposit(character, carried.InstanceId, 0, stored.InstanceId) == NpcServiceStatus.Ok
+            && Is(storage.Grid[0], carried) && Is(character.Inventory[0], stored) && storage.Revision == 1, "deposit over a stored item did not exchange");
+        Assert.True(storage.TryWithdraw(character, carried.InstanceId, 0, stored.InstanceId) == NpcServiceStatus.Ok
+            && Is(character.Inventory[0], carried) && Is(storage.Grid[0], stored) && storage.Revision == 2, "withdraw over a bag item did not exchange");
+        Assert.True(storage.TryMove(stored.InstanceId, 3, other.InstanceId) == NpcServiceStatus.Ok && Is(storage.Grid[3], stored) && Is(storage.Grid[0], other),
+            "move over a stored item did not exchange");
+
+        Assert.True(storage.TryWithdraw(character, other.InstanceId, 30, potion.InstanceId) == NpcServiceStatus.Rejected, "a potion was exchanged into storage");
+        Assert.True(storage.TryWithdraw(character, other.InstanceId, 11, carried.InstanceId) == NpcServiceStatus.Rejected
+            && Is(storage.Grid[0], other) && Is(character.Inventory[0], carried) && storage.Revision == 3, "an item the set-down does not cover was exchanged");
+        Assert.True(storage.TryDeposit(character, carried.InstanceId, -1, other.InstanceId) == NpcServiceStatus.Rejected && Is(character.Inventory[0], carried),
+            "an exchange without a cell was accepted");
+        // A ring set down over a stored item too wide for the bag: neither side changes.
+        var wide = new ItemInstance(Axe() with { GridWidth = 9, GridHeight = 6 });
+        var ring = new ItemInstance(new ItemDefinition(ItemCodes.Parse("OR101"), "Ring", ItemKind.Ring) { Weight = 1, CatalogKey = "OR101" });
+        Assert.True(storage.Restore(wide, 27) && character.Inventory.TryPlace(ring, 11), "the exchange fixture was not placed");
+        Assert.True(storage.TryDeposit(character, ring.InstanceId, 27, wide.InstanceId) == NpcServiceStatus.NoSpace && Is(storage.Grid[27], wide)
+            && Is(character.Inventory[11], ring) && storage.Revision == 3, "an exchange whose covered item does not fit changed something");
+        return Task.CompletedTask;
+
+        static bool Is(ItemInstance? item, ItemInstance expected) => item?.InstanceId == expected.InstanceId;
+    }
+
     private static Task ProtocolAsync()
     {
         var buffer = new byte[Protocol.Binary.FrameCodec.MaxFrameSize];
@@ -149,7 +195,7 @@ internal static class NpcServiceTests
         Assert.True(readDialog.Name == dialog.Name && readDialog.Services.SequenceEqual(dialog.Services) && readDialog.Lines.SequenceEqual(dialog.Lines),
             "dialog round trip differs");
 
-        var request = new NpcServiceRequestPacket(Guid.NewGuid(), 7, 1, 10, 3, 4, AxeCode, Guid.NewGuid(), 5, 1, 99);
+        var request = new NpcServiceRequestPacket(Guid.NewGuid(), 7, 1, 10, 3, 4, AxeCode, Guid.NewGuid(), 5, 1, 99, Covered: Guid.NewGuid());
         Assert.True(NpcServiceRequestPacket.Read(buffer.AsSpan(0, request.Write(buffer))) == request && request.Write(buffer) == NpcServiceRequestPacket.Size,
             "request round trip differs");
         var result = new NpcServiceResultPacket(request.OperationId, 7, 1, 10, (ushort)NpcServiceStatus.NotEnoughGold, false, 3, 4, "not enough gold");

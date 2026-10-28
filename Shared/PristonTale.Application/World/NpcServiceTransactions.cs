@@ -124,13 +124,13 @@ internal static class NpcServiceTransactions
                 status = NpcShopRules.TryRepairAll(candidate, out _);
                 break;
             case NpcServiceAction.Deposit:
-                status = storage!.TryDeposit(candidate, command.ItemId, command.Anchor);
+                status = storage!.TryDeposit(candidate, command.ItemId, command.Anchor, command.Covered);
                 break;
             case NpcServiceAction.Withdraw:
-                status = storage!.TryWithdraw(candidate, command.ItemId, command.Anchor);
+                status = storage!.TryWithdraw(candidate, command.ItemId, command.Anchor, command.Covered);
                 break;
             case NpcServiceAction.Move:
-                status = storage!.TryMove(command.ItemId, command.Anchor);
+                status = storage!.TryMove(command.ItemId, command.Anchor, command.Covered);
                 break;
             case NpcServiceAction.DepositGold:
                 status = storage!.TryDepositGold(candidate, command.Amount);

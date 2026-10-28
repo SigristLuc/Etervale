@@ -36,3 +36,8 @@ public enum EquipmentSlot
     RingRight,
     Sheltom
 }
+
+public static class EquipmentSlots
+{
+    public const int Count = (int)EquipmentSlot.Sheltom + 1;
+}

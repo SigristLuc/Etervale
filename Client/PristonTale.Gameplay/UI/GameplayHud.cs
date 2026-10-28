@@ -133,7 +133,7 @@ public sealed partial class GameplayHud : IDisposable
         _inventory.ExternalDrop = DropFromInventory;
         _inventory.ThrowRequested = ThrowFromInventory;
         _inventory.ItemSound = key => ItemSound?.Invoke(key);
-        _services.Succeeded = ServiceSound;
+        _services.Succeeded = ServiceSucceeded;
         _inventoryPanel.Note = InventoryNote;
         _inventoryPanel.Withheld = id => _aging.Holds(id) || _mix.Holds(id);
         _sprites.Request(HudChatWindow.Art);
@@ -409,7 +409,9 @@ public sealed partial class GameplayHud : IDisposable
         }
 
         var workLocked = _services.Pending || _settingsOpen || ModalOpen;
-        var warehouseAction = _warehouse.Update(mouse, _previousMouse, pointer, InventoryCellAt, workLocked);
+        // A click that sets a warehouse item down in the bag is not also a pick-up there.
+        var storedCarried = _warehouse.Dragging != Guid.Empty;
+        var warehouseAction = _warehouse.Update(mouse, _previousMouse, pointer, StoredPlacement, workLocked, _inventory.Dragging != Guid.Empty);
         var agingAction = _aging.Update(mouse, _previousMouse, pointer, state, workLocked);
         var mixAction = _mix.Update(mouse, _previousMouse, pointer, state, workLocked);
         if (warehouseAction.Kind != HudWarehouseActionKind.None)
@@ -434,7 +436,7 @@ public sealed partial class GameplayHud : IDisposable
         var hoveredSkill = _skillSlide.FullyOpen && _skillMaster == 0 ? _skills.HoveredSkill(skillOrigin, pointer) : 0;
         _bindings.Update(typing ? default : keyboard, mouse, hoveredSkill);
         PointerCaptured = Captures(layout, pointer, design) || _chat.Window.Contains(layout, pointer, SideWindowOpen) || _inventory.Dragging != Guid.Empty || _warehouse.Dragging != Guid.Empty;
-        _inventory.PickupLocked = PlayerActing;
+        _inventory.PickupLocked = PlayerActing || storedCarried;
         _inventory.Update(state, layout, _inventorySlide.FullyOpen && !_settingsOpen && !ModalOpen, keyboard, mouse);
         _previousKeyboard = keyboard;
         _previousMouse = mouse;
@@ -505,7 +507,8 @@ public sealed partial class GameplayHud : IDisposable
         if (_inventorySlide.Visible)
         {
             _inventoryPanel.ClockMs = _clock.Elapsed.TotalMilliseconds;
-            _inventoryPanel.Draw(_painter, PanelOrigin(layout, _inventorySlide), _state, _inventory, _icons, pointer, _inventorySlide.FullyOpen);
+            _inventoryPanel.Draw(_painter, PanelOrigin(layout, _inventorySlide), _state, _inventory, _icons, pointer, _inventorySlide.FullyOpen,
+                _warehouse.Carried);
         }
 
         if (_questWindow.Visible)
@@ -513,7 +516,7 @@ public sealed partial class GameplayHud : IDisposable
             _questWindow.Draw(_painter, layout, _context.Font, _questView, _questDocuments, pointer);
         }
 
-        var incoming = _inventory.Dragging == Guid.Empty ? null : _state?.Items.FirstOrDefault(item => item.InstanceId == _inventory.Dragging);
+        var incoming = OwnedItemView.Find(_state?.Items, _inventory.Dragging);
         var serviceFrame = new HudServiceFrame(_painter, layout, _icons, _state, pointer, incoming, _settingsOpen);
         foreach (var window in _serviceWindows)
         {

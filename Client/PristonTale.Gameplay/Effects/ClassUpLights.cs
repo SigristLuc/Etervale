@@ -66,7 +66,7 @@ public sealed class ClassUpLights
     // The lights' centre in the weapon's model space, its length along Y.
     public static Vector3 Center(string weaponKey, float reach, bool leftHand, bool twoHanded)
     {
-        var family = weaponKey.Length >= 3 ? weaponKey[..3].ToUpperInvariant() : "";
+        var family = ItemCodes.FamilyOf(weaponKey);
         Vector3 point;
         if (leftHand && family == "WS1")
         {
@@ -98,7 +98,7 @@ public sealed class ClassUpLights
 
     private static bool Across(string weaponKey, bool leftHand)
     {
-        var family = weaponKey.Length >= 3 ? weaponKey[..3].ToUpperInvariant() : "";
+        var family = ItemCodes.FamilyOf(weaponKey);
         return leftHand || family is "WC1" or "WS1";
     }
 

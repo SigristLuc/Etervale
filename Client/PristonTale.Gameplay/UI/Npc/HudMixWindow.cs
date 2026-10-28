@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Simulation.Characters;
+using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Aging;
 using PristonTale.Simulation.Items.Mixing;
 using PristonTale.Simulation.World.Npcs;
@@ -75,7 +76,7 @@ public sealed class HudMixWindow : HudWorkbench
             }
         }
 
-        return MixFormulas.Find(AgingRules.Family(item.CatalogKey), counts);
+        return MixFormulas.Find(ItemCodes.FamilyOf(item.CatalogKey), counts);
     }
 
     protected override string PlaceItem(OwnedItemView item, Point origin, Point pointer, OwnerState state)

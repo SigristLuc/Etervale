@@ -329,7 +329,7 @@ public sealed class GameServerConnection : IGameBackend
         ThrowIfDisconnected();
         var packet = new NpcServiceRequestPacket(command.OperationId, command.NpcEntityId, (byte)command.Service, (byte)command.Action,
             command.ExpectedRevision, command.ExpectedStorageRevision, command.ItemCode, command.ItemId, command.Anchor, command.Count, command.Amount,
-            command.Materials);
+            command.Materials, command.Covered);
         try
         {
             return await _services.RequestAsync(command.OperationId, () => Send(packet), ct);

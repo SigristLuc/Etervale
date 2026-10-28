@@ -549,7 +549,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         var command = new NpcServiceCommand(request.OperationId, request.NpcId, (NpcServiceKind)request.Service,
             (NpcServiceAction)request.Action,
             request.ExpectedRevision, request.ExpectedStorageRevision, request.ItemCode, request.ItemId, request.Anchor, request.Count, request.Amount,
-            request.Materials);
+            request.Materials, request.Covered);
         NpcServiceReply reply;
         try
         {

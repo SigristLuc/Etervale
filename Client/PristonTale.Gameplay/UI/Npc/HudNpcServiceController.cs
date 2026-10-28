@@ -32,7 +32,7 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
     public Action<NpcServiceCommand> Succeeded { get; set; }
 
     public bool Request(ulong npcId, string npcName, NpcServiceKind service, NpcServiceAction action, long expectedRevision = 0,
-        uint itemCode = 0, Guid itemId = default, int anchor = -1, int count = 1, long amount = 0, Guid[] materials = null)
+        uint itemCode = 0, Guid itemId = default, int anchor = -1, int count = 1, long amount = 0, Guid[] materials = null, Guid covered = default)
     {
         // NPC entityId 0 names the mobile shop a used item opens; every other service needs an NPC.
         if (_request.Pending || request is null || npcId == 0 && service != NpcServiceKind.Shop)
@@ -42,7 +42,7 @@ public sealed class HudNpcServiceController(Func<NpcServiceCommand, Task<NpcServ
 
         var storageRevision = Warehouse?.Revision ?? 0;
         var command = new NpcServiceCommand(Guid.NewGuid(), npcId, service, action, expectedRevision, storageRevision, itemCode, itemId, anchor, count,
-            amount, materials);
+            amount, materials, covered);
         if (action == NpcServiceAction.Open)
         {
             NpcName = npcName;

@@ -362,8 +362,10 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   go to the chat, quest hints to its assistant tab ([chat-and-gm.md](chat-and-gm.md#client-chat-window)).
 - Inventory (`HudInventoryController`), carried as in the original: a left click picks an item up (an equipped one is
   taken off first; nothing is picked up while the player swings or casts) and it follows the cursor, centred; the next
-  click sets it down where `HudInventoryPlacement` says: its top-left rounded to the nearest cell, or an equipment slot
-  its frame (less half a cell a side) overlaps. Free cells move it (Shift splits a stack), one covered item is exchanged
+  click sets it down where `HudInventoryPlacement` says: on the bag as `HudGridPlacement` (the original's 22-pixel item
+  grids, shared with the warehouse: cells, the item under the pointer, landing) rounds its top-left to the nearest cell,
+  or an equipment slot its frame (less half a cell a side) overlaps. `HudPlacement` holds the result and
+  `HudPlacementColors` the original's colours; `HudItemCounts` caches the stack counts drawn on items. Free cells move it (Shift splits a stack), one covered item is exchanged
   (`Swap`, or the slot's item for an equip) and the covered item is then carried, a potion of the same kind is joined
   (`Merge`), two covered items or a slot of another kind or unmet requirements refuse, and above the window the item
   leaves the bag (`ExternalDrop`: the shop, the warehouse; otherwise `GameplayHud.ThrowFromInventory` puts it on the
@@ -442,8 +444,13 @@ consumer. Typed characters come from the window's text input (`Game1` to `GameCl
   warehouse, aging, mix) for closing, advancing, capturing clicks and drawing; a new service window joins that list.
 - Shop (`HudShopWindow`): buy, sell (click or drop an inventory item on the shop), repair, repair all; opens next to the
   inventory. Stock fills pages in authored order, each item at the first free place down the columns from the left; an
-  item that does not fit starts the next page. Warehouse (`HudWarehouseWindow`): grid drag/drop between warehouse and inventory sends Deposit, Move and
-  Withdraw with the warehouse revision. Aging and mixing share their frame in `HudWorkbench` (slide, main item, stone and sheltom slots, drop placement,
+  item that does not fit starts the next page. Warehouse (`HudWarehouseWindow`): items are carried as in the bag. A
+  stored item set down on the grid sends Move, in the bag (`HudInventoryPlacement.OfStored`: bag cells only) Withdraw;
+  a bag item set down on the grid sends Deposit (`GameplayHud.DropFromInventory` through the same
+  `HudWarehouseWindow.SetDownOnGrid`). Over one item the request names it
+  (`Covered`) and the HUD carries it once the reply shows it where it went; what `WarehouseStorage.CanStore` keeps out
+  shows red, a potion is refused on the click with the original's message and stays carried. The coin of the upper bar
+  opens the count box for gold to take out, bounded by the stored gold and the carry limit. Aging and mixing share their frame in `HudWorkbench` (slide, main item, stone and sheltom slots, drop placement,
   right-click take-back, start and exit, tooltips); each window supplies its placement rule, readiness, price, panel and
   start info, whether taking the main item back clears the window (aging) and when the start button shows, and its work
   (`Service`, `WorkAction`, `ResultText`, `Succeeded`; mixing keeps the formula it started with). `GameplayHud` sends and

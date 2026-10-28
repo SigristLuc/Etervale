@@ -157,34 +157,40 @@ public sealed class Inventory
         return true;
     }
 
-    // Sets the item at `from` down with its top-left at `to` over exactly one other item, which moves to where the first
-    // one was, or to the first free space: the bag side of the original's exchange, where the covered item is picked up.
-    public bool TrySwap(int from, int to)
-    {
-        if (from < 0 || from >= Capacity || _slots[from] is not { } item || to < 0 || to >= Capacity)
-        {
-            return false;
-        }
+    // Covered returns this when an item set down would lie over more than one item.
+    public const int Several = -2;
 
+    // The anchor of the one item an item of this footprint set down at `anchor` would lie over (except the item at
+    // `except`, the one being moved): -1 on free cells, Several over more than one.
+    public int Covered(int anchor, ItemDefinition definition, int except = -1)
+    {
         var covered = -1;
-        var x = to % Width;
-        var y = to / Width;
+        var x = anchor % Width;
+        var y = anchor / Width;
         for (var index = 0; index < Capacity; index++)
         {
-            if (index == from || _slots[index] is not { } other || !Overlaps(index, other.Definition, x, y, item.Definition))
+            if (index == except || _slots[index] is not { } other || !Overlaps(index, other.Definition, x, y, definition))
             {
                 continue;
             }
 
             if (covered >= 0)
             {
-                return false;
+                return Several;
             }
 
             covered = index;
         }
 
-        if (covered < 0)
+        return covered;
+    }
+
+    // Sets the item at `from` down with its top-left at `to` over exactly one other item, which moves to where the first
+    // one was, or to the first free space: the bag side of the original's exchange, where the covered item is picked up.
+    public bool TrySwap(int from, int to)
+    {
+        if (from < 0 || from >= Capacity || _slots[from] is not { } item || to < 0 || to >= Capacity
+            || Covered(to, item.Definition, from) is var covered && covered < 0)
         {
             return false;
         }
@@ -216,35 +222,27 @@ public sealed class Inventory
         return true;
     }
 
-    public bool TryExchange(int anchor, ItemInstance replacement)
+    // Whether TryExchange would succeed, changing nothing.
+    public bool CanExchange(int anchor, ItemDefinition incoming, int at = -1)
     {
-        if (anchor < 0 || anchor >= Capacity || _slots[anchor] is not { } outgoing)
+        Span<uint> rows = stackalloc uint[Height];
+        return PlanExchange(rows, anchor, incoming, at) >= 0;
+    }
+
+    // Takes the item at `anchor` out and sets `replacement` (when given) at `at`, or with `at` -1 where the item was or in
+    // the first free space. Nothing changes when the replacement does not fit.
+    public bool TryExchange(int anchor, ItemInstance replacement, int at = -1)
+    {
+        if (replacement is not null && (replacement.Count < 1 || replacement.Count > replacement.Definition.MaxStack || Find(replacement.InstanceId) >= 0))
         {
             return false;
         }
 
         Span<uint> rows = stackalloc uint[Height];
-        _rows.CopyTo(rows);
-        SetFootprint(rows, anchor, outgoing.Definition, false);
-        var destination = anchor;
-        if (replacement is not null)
+        var destination = PlanExchange(rows, anchor, replacement?.Definition, at);
+        if (destination < 0)
         {
-            if (replacement.Count < 1 || replacement.Count > replacement.Definition.MaxStack || Find(replacement.InstanceId) >= 0)
-            {
-                return false;
-            }
-
-            if (!Fits(destination, replacement.Definition, rows))
-            {
-                destination = FindSpace(replacement.Definition, rows);
-            }
-
-            if (destination < 0)
-            {
-                return false;
-            }
-
-            SetFootprint(rows, destination, replacement.Definition, true);
+            return false;
         }
 
         _slots[anchor] = null;
@@ -256,6 +254,30 @@ public sealed class Inventory
         rows.CopyTo(_rows);
         NotifyChanged();
         return true;
+    }
+
+    // The rows after the exchange and where the incoming item goes (the anchor when there is none); -1 when it fails.
+    private int PlanExchange(Span<uint> rows, int anchor, ItemDefinition incoming, int at)
+    {
+        if (anchor < 0 || anchor >= Capacity || _slots[anchor] is not { } outgoing)
+        {
+            return -1;
+        }
+
+        _rows.CopyTo(rows);
+        SetFootprint(rows, anchor, outgoing.Definition, false);
+        if (incoming is null)
+        {
+            return anchor;
+        }
+
+        var destination = at >= 0 ? (Fits(at, incoming, rows) ? at : -1) : Fits(anchor, incoming, rows) ? anchor : FindSpace(incoming, rows);
+        if (destination >= 0)
+        {
+            SetFootprint(rows, destination, incoming, true);
+        }
+
+        return destination;
     }
 
     public bool TrySplit(int from, int to, int amount)

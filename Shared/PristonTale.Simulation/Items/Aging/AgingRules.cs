@@ -156,7 +156,7 @@ public static class AgingRules
     // though their aging adds none, as the original tooltip does.
     public static AgedStats RaisedBy(string key)
     {
-        if (!Families.TryGetValue(Family(key), out var family))
+        if (!Families.TryGetValue(ItemCodes.FamilyOf(key), out var family))
         {
             return AgedStats.None;
         }
@@ -169,28 +169,26 @@ public static class AgingRules
         stats |= family.AbsorbStep > 0 ? AgedStats.Absorb : 0;
         stats |= family.Block ? AgedStats.Block : 0;
         stats |= family.Wears ? AgedStats.Integrity : 0;
-        stats |= family.Mana > 0 || Family(key) is "WS1" or "WT1" ? AgedStats.Mana : 0;
+        stats |= family.Mana > 0 || ItemCodes.FamilyOf(key) is "WS1" or "WT1" ? AgedStats.Mana : 0;
         return stats;
     }
 
     private static bool IsRing(string key) => string.Equals(key, AgeableRing, StringComparison.OrdinalIgnoreCase);
 
-    public static string Family(ItemInstance item) => Family(item.Definition.CatalogKey);
-
-    public static string Family(string key) => key.Length >= 3 ? key[..3].ToUpperInvariant() : "";
+    public static string Family(ItemInstance item) => ItemCodes.FamilyOf(item.Definition.CatalogKey);
 
     public static bool Ageable(ItemInstance item) =>
         Ageable(item.Definition.CatalogKey, item.Definition.Kind, item.Definition.UniqueItem, item.MixSheltom, item.Maturity is not null, item.UpgradeLevel);
 
     public static bool Ageable(string key, ItemKind kind, int unique, int mixSheltom, bool maturing, int level) =>
-        (Families.ContainsKey(Family(key)) || IsRing(key))
+        (Families.ContainsKey(ItemCodes.FamilyOf(key)) || IsRing(key))
         && !Refused.Contains(key) && unique == 0 && kind != ItemKind.Quest && mixSheltom == 0 && !maturing && level < MaxLevel;
 
     public static IReadOnlyList<int> SheltomsFor(int level) => Sheltoms[Math.Clamp(level, 0, Sheltoms.Length - 1)];
 
     // The magic sheltoms do not age.
     public static int SheltomOrdinal(string key) =>
-        Family(key) == "OS1" && int.TryParse(key.AsSpan(3), out var ordinal) && ordinal is >= 1 and <= 14 ? ordinal : 0;
+        ItemCodes.FamilyOf(key) == "OS1" && int.TryParse(key.AsSpan(3), out var ordinal) && ordinal is >= 1 and <= 14 ? ordinal : 0;
 
     public static AgingStone StoneOf(string key) => key.ToUpperInvariant() switch
     {

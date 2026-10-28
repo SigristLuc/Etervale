@@ -4,6 +4,7 @@ using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World;
 using PristonTale.Gameplay.UI.Inventory;
+using PristonTale.Gameplay.UI.Npc;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using PristonTale.Engine3D.Formats;
@@ -107,8 +108,7 @@ internal static class HudInteractionTests
         AssertDisjointInside(Enumerable.Range(0, 10).Select(slot => HudInventoryLayout.Equipment(origin, slot)).Append(bag).ToArray(), window,
             "equipment slots and bag");
         Assert.True(HudInventoryLayout.Equipment(origin, (int)EquipmentSlot.Weapon) == new Rectangle(575, 434, 65, 110), "weapon slot moved");
-        Assert.True(HudInventoryLayout.CellAt(origin, new Point(23 + 22 * 11 + 3, 436 + 22 * 5 + 3)) == 71, "last bag cell not addressed");
-        Assert.True(HudInventoryLayout.CellAt(origin, new Point(22, 436)) == -1, "pointer outside bag picked a cell");
+        Assert.True(HudInventoryLayout.Cell(origin, 71) == new Rectangle(23 + 22 * 11, 436 + 22 * 5, 22, 22), "last bag cell not addressed");
         Assert.True(window.Contains(HudInventoryLayout.Close(origin)) && !HudInventoryLayout.Close(origin).Intersects(bag), "inventory close misplaced");
 
         // Skill node rectangles overlap at their transparent hexagon corners; every centre must hit only its own node.
@@ -237,6 +237,23 @@ internal static class HudInteractionTests
             "an item above the window does not leave the bag");
         Assert.True(HudInventoryPlacement.Of(origin, items, stone, new Point(200, origin.Y + 585), true).Kind == HudPlacementKind.None,
             "an item over the window's frame has a place");
+
+        // The warehouse grid: what it keeps out is red where it would land, a potion is placed (and refused on the click),
+        // and a stored item over the bag goes only to bag cells.
+        var store = HudStoreLayout.Origin(0);
+        var grid = HudStoreLayout.Grid(store);
+        var kept = Item(ItemKind.Axe, 2, 2, 3, "WA101");
+        Point StoreCentre(int anchor) => new(grid.X + anchor % 9 * 22 + 11, grid.Y + anchor / 9 * 22 + 11);
+        var bottle = HudWarehouseWindow.Placement(store, [kept], Item(ItemKind.Material, 0, key: "MA101"), StoreCentre(40));
+        Assert.True(bottle.Kind == HudPlacementKind.Blocked && bottle.Highlight == HudStoreLayout.Cell(store, 40), $"a crafting material gave {bottle}");
+        Assert.True(HudWarehouseWindow.Placement(store, [kept], potion, StoreCentre(40)).Kind == HudPlacementKind.Fits, "a potion was refused before the click");
+        var swapped = HudWarehouseWindow.Placement(store, [kept], Item(ItemKind.Sword, 0, 1, 3, "WS101"), StoreCentre(12));
+        Assert.True(swapped.Kind == HudPlacementKind.Exchange && swapped.Covered == kept, $"a sword over a stored axe gave {swapped}");
+        Assert.True(HudInventoryPlacement.OfStored(origin, items, kept, weaponSlot).Kind == HudPlacementKind.Blocked, "a stored item was worn straight away");
+        Assert.True(HudInventoryPlacement.OfStored(origin, items, potion with { InstanceId = Guid.NewGuid() }, CellCentre(31)).Kind == HudPlacementKind.Blocked,
+            "a stored potion joined a bag stack");
+        Assert.True(HudInventoryPlacement.OfStored(origin, items, kept, new Point(bag.X + 9 * 22 + 22, bag.Y + 3 * 22 + 33)).Kind == HudPlacementKind.Fits,
+            "a stored item found no free bag cells");
         return Task.CompletedTask;
     }
 

@@ -89,7 +89,7 @@ public abstract class HudWorkbench : IHudServiceWindow
             return;
         }
 
-        bool Owned(Guid id) => id == Guid.Empty || state.Items.Any(item => item.InstanceId == id && item.Slot < 0);
+        bool Owned(Guid id) => id == Guid.Empty || OwnedItemView.Find(state.Items, id) is { InBag: true };
         if (!Owned(ItemId))
         {
             MainItemLeft();
@@ -241,7 +241,7 @@ public abstract class HudWorkbench : IHudServiceWindow
     protected abstract void MainItemLeft();
 
     protected OwnedItemView MainItem(OwnerState state) =>
-        ItemId == Guid.Empty ? null : state?.Items.FirstOrDefault(item => item.InstanceId == ItemId);
+        OwnedItemView.Find(state?.Items, ItemId);
 
     private void Remove(Guid id)
     {

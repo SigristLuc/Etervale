@@ -487,8 +487,12 @@ Shop rules (`NpcShopRules`):
 - Carry limit: 200,000 up to level 10; tier 0 `max(200,000, level * 200,000 - 1,800,000)`; tier 1 10M; tier 2 50M;
   higher 100M.
 
-Warehouse (`WarehouseStorage`, one per account): 9×9 grid, at most 100 items, weight 1000, gold 100,000,000; quest
-items, materials and the quest weapon and ring a running rank-up holds are refused. Every change increments `Revision`;
+Warehouse (`WarehouseStorage`, one per account): 9×9 grid, at most 100 items, weight 1000, gold 100,000,000.
+`CanStore` keeps out what the original does: `BoundItems`, potions (`RefusedOnSetDown`: the client refuses them only
+when set down) and the SP1 and CH1 families. Deposit, Withdraw and Move set an item down at a cell; over one other item
+the two are exchanged (`Inventory.Covered` finds it from the footprint; the request's `Covered` must name the same item,
+or the client's view was stale), the covered one going to the moved item's cell or wherever its side has room.
+`Inventory.CanExchange` checks both sides before either changes. Every change increments `Revision`;
 `Clone` supports prepare-then-commit. A withdrawal that would carry the character over its weight limit is refused
 (`OverWeight`), and an overweight character cannot open the warehouse (`NpcServiceTransactions.Check`).
 

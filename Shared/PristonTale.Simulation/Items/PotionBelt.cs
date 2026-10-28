@@ -5,7 +5,8 @@ namespace PristonTale.Simulation.Items;
 public sealed class PotionBelt
 {
     public const int Boxes = 3;
-    public const int FirstOwnerSlot = 10;
+    // Owner slots follow the equipment's, as the original numbers the belt after it.
+    public const int FirstOwnerSlot = Characters.EquipmentSlots.Count;
     private readonly ItemInstance[] _boxes = new ItemInstance[Boxes];
 
     public ItemInstance this[int box] => _boxes[box];

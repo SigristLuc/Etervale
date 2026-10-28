@@ -14,6 +14,25 @@ public sealed record OwnedItemView(
     public bool InBag => Slot < 0;
     public bool Equipped => Slot is >= 0 and < PotionBelt.FirstOwnerSlot;
     public int BeltBox => Slot >= PotionBelt.FirstOwnerSlot ? Slot - PotionBelt.FirstOwnerSlot : -1;
+
+    // The item of a view with this id, or null (empty finds nothing); called every frame, so it does not allocate.
+    public static OwnedItemView Find(IReadOnlyList<OwnedItemView> items, Guid id)
+    {
+        if (items is null || id == Guid.Empty)
+        {
+            return null;
+        }
+
+        for (var index = 0; index < items.Count; index++)
+        {
+            if (items[index].InstanceId == id)
+            {
+                return items[index];
+            }
+        }
+
+        return null;
+    }
 }
 public sealed record OwnedSkillView(uint Code, int Rank);
 
