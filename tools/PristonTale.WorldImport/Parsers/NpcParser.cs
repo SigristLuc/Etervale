@@ -18,7 +18,7 @@ public sealed class NpcParser
         var npc = new ParsedNpc { Name = FindName(lines) };
         var facts = new Facts();
         ApplyLines(lines, npc, facts);
-        npc.DisplayName = facts.LocalNames.FirstOrDefault(static name => !string.IsNullOrEmpty(name)) ?? facts.PlainName;
+        npc.DisplayName = EnglishNames.Npc(npc.Name, facts.LocalNames.FirstOrDefault(static name => !string.IsNullOrEmpty(name)) ?? facts.PlainName);
         ChooseDialog(npc, facts);
         BuildServices(npc, facts);
         return npc;

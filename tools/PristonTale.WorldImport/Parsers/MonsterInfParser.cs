@@ -193,7 +193,7 @@ public sealed class MonsterInfParser
         var m = new ParsedMonster
         {
             Name = name,
-            DisplayName = displayName,
+            DisplayName = EnglishNames.Monster(path, displayName),
             Model = model,
             SoundCode = soundCode,
             ModelScale = modelScale,

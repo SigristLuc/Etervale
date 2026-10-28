@@ -18,6 +18,7 @@ internal static class WorldImportTests
         yield return ("world import follows linked data, retains variants and unresolved references", ImportAsync);
         yield return ("every key of the monster, item and NPC files reaches the world data, and unknown keys are reported", EveryKeyAsync);
         yield return ("set bonuses are read from the comment that states them", SetBonusAsync);
+        yield return ("names the data gives only in Portuguese are imported in English", EnglishNamesAsync);
     }
 
     private static Task SetBonusAsync()
@@ -198,6 +199,35 @@ internal static class WorldImportTests
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    private static async Task EnglishNamesAsync()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"priston-english-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var item = Path.Combine(directory, "DA130.txt");
+            var monster = Path.Combine(directory, "Cristal_Hopy.inf");
+            var npc = Path.Combine(directory, "ribbon.npc");
+            await WriteCp949Async(item, Lines("*코드 DA130", "*이름 \"임페리얼 아머\"", "*B_NAME \"Armadura Imperial\""));
+            await WriteCp949Async(monster, Lines("*이름 \" 호피 \"", "*E_NAME \"Hopi\""));
+            await WriteCp949Async(npc, Lines("*이름 \"리본 호피\"", "*E_NAME \"Ribbon Hopi\""));
+            var english = await WriteAndParse();
+            Assert.True(english == ("Imperial Armor", "HOPY", "Ribbon Hopy"), $"the Portuguese names stayed: {english}");
+
+            await WriteCp949Async(item, Lines("*코드 DA101", "*이름 \"배틀 슈트\"", "*B_NAME \"Battle Suit\""));
+            Assert.True((await WriteAndParse()).Item == "Battle Suit", "a name the data gives in English was replaced");
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+
+        Task<(string Item, string Monster, string Npc)> WriteAndParse() => Task.FromResult((
+            new PristonTale.WorldImport.Parsers.ItemTxtParser().Parse(Path.Combine(directory, "DA130.txt")).Name,
+            new PristonTale.WorldImport.Parsers.MonsterInfParser().Parse(Path.Combine(directory, "Cristal_Hopy.inf")).DisplayName,
+            new PristonTale.WorldImport.Parsers.NpcParser().Parse(Path.Combine(directory, "ribbon.npc")).DisplayName));
     }
 
     private static string Lines(params string[] lines) => string.Join("\n", lines) + "\n";

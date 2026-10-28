@@ -163,7 +163,7 @@ public sealed class ItemTxtParser
         var item = new ParsedItem
         {
             Code = code,
-            Name = SelectDisplayName(displayName, englishName, string.IsNullOrWhiteSpace(brazilianName) ? koreanName : brazilianName, code),
+            Name = EnglishNames.Item(code, SelectDisplayName(displayName, englishName, string.IsNullOrWhiteSpace(brazilianName) ? koreanName : brazilianName, code)),
             Kind = ItemKinds.Classify(code),
             UniqueItem = unique,
             MaxStack = maxStack,

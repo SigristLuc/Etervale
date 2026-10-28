@@ -274,7 +274,13 @@ several share an identity.
 | NPC | First file placed by a field `.spc`, else first in path order | Variant only, warning |
 
 Every parsed file is a `world_entity_variants` row (`is_catalog_entry` marks the winner); the others also produce a
-"retained outside the catalog" warning. Parse exceptions skip the file with a warning.
+"retained outside the catalog" warning. Parse exceptions skip the file with a warning. The original server also resolves
+a monster identity to the first file in path order, so the source must not carry another release's files ahead of the
+original ones: a second data set's variant of an identity replaces the original monster's stats, drops and quest items.
+
+Names follow Etervale's English standard. `EnglishNames` holds the names the data gives only in Portuguese: a monster's
+label by its file, an item's name by its code and an NPC's label by its identity, applied where each parser picks the
+name; a monster variant that the original set also has takes that monster's English label verbatim.
 
 `world_import_unresolved_refs.kind` values:
 
