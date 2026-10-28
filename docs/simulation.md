@@ -384,8 +384,8 @@ totals.
 - `TryPlace`, `TryMove`, `TrySplit` (new instance id), `TryMerge`, `TryJoin` (a whole stack onto a compatible one),
   `TrySwap`, `TryExchange` (take an item out and put a replacement at a given cell, or at the same anchor or first fit;
   `CanExchange` checks it without changing anything), `TakeAt`, `TakeFrom` (`ItemInstance.Split` for part of a stack),
-  `TryPlaceFirstFree` (no stacking), `ConsumeAt`. `Covered` names the one item a footprint would lie over. `Occupied`, `Items` and `CopyFrom` walk or copy
-  a grid. Every change bumps `Version` and raises `Changed`.
+  `TryPlaceFirstFree` (no stacking), `ConsumeAt`. `Covered` names the one item a footprint would lie over. `Occupied`,
+  `Items` and `CopyFrom` walk or copy a grid. Every change bumps `Version` and raises `Changed`.
 
 ### Equipment rules (`PlayerCharacter.CanEquip`)
 
