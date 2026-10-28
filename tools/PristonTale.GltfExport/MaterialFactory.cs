@@ -65,10 +65,8 @@ internal sealed class MaterialFactory
         }
 
         var source = SelectBaseTexture(material);
-        var alphaTest = PristonMaterialRuntimeFactory.UsesAlphaTest(material);
-        var lateBlend = PristonBlendType.IsLate(material.BlendType);
-        var transparent = material.RenderLast
-            || (!(alphaTest && !lateBlend) && (lateBlend || material.Transparency > 0.001f));
+        // The engine's queue decision, so a late-flagged foliage cut-out exports as MASK, drawn opaque as the game does.
+        var (alphaTest, transparent) = PristonMaterialRuntimeFactory.Classify(material);
         var alphaMode = AlphaMode.OPAQUE;
         if (transparent)
         {

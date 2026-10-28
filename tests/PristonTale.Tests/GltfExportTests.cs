@@ -296,6 +296,13 @@ internal static class GltfExportTests
             Assert.True(
                 !ReferenceEquals(opaqueMaterial, maskMaterial),
                 "material cache merged distinct alpha modes");
+
+            // A late-flagged cut-out stays a mask, as the engine draws it; a late colour blend stays blended.
+            var lateCutout = Material("stage.tga") with { SurfaceFlags = PristonMaterialSurfaceFlags.RenderLast };
+            Assert.True(resolutionFactory.Create(lateCutout, 5)!.AlphaMode == SharpGLTF.Materials.AlphaMode.MASK,
+                "a late-flagged foliage cut-out exported as a blended material");
+            Assert.True(resolutionFactory.Create(lateCutout with { BlendType = 4 }, 6)!.AlphaMode == SharpGLTF.Materials.AlphaMode.BLEND,
+                "a late additive material exported without blending");
         }
         finally
         {

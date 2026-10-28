@@ -114,6 +114,8 @@ dotnet run --project tools/PristonTale.GltfExport -c Release --no-build -- <armo
 - Option names are case-insensitive; options that take a value accept it once; any other `--` argument is an error.
 - A physique `.smd` model with a sibling `.smb` is exported skinned to that skeleton.
 - Textures are converted to PNG in a temporary directory that is deleted afterwards.
+- Alpha modes follow the engine's queue (`PristonMaterialRuntimeFactory.Classify`): a cut-out is `MASK` even when
+  flagged to draw late (the foliage), a late colour blend or a transparent material is `BLEND`, the rest `OPAQUE`.
 - `PTGLTF_DEBUG=1` prints full exception stacks and cleanup failures. Exit 0 on success, 1 on any error.
 
 ## WorldImport (`ptworld`)
