@@ -65,8 +65,8 @@ internal sealed class MaterialFactory
         }
 
         var source = SelectBaseTexture(material);
-        var alphaTest = UsesAlphaTest(material);
-        var lateBlend = material.BlendType is 2 or 3 or 4 or 5 or 6;
+        var alphaTest = PristonMaterialRuntimeFactory.UsesAlphaTest(material);
+        var lateBlend = PristonBlendType.IsLate(material.BlendType);
         var transparent = material.RenderLast
             || (!(alphaTest && !lateBlend) && (lateBlend || material.Transparency > 0.001f));
         var alphaMode = AlphaMode.OPAQUE;
@@ -147,9 +147,9 @@ internal sealed class MaterialFactory
         // stage vertex alpha, so alpha-blend and plain transparent materials keep an opaque texture.
         return material.BlendType switch
         {
-            2 or 4 or 5 => BlendAlpha.Luminance,
-            3 => BlendAlpha.Shadow,
-            6 => BlendAlpha.InverseShadow,
+            PristonBlendType.Color or PristonBlendType.Lamp or PristonBlendType.AddColor => BlendAlpha.Luminance,
+            PristonBlendType.Shadow => BlendAlpha.Shadow,
+            PristonBlendType.InverseShadow => BlendAlpha.InverseShadow,
             _ => BlendAlpha.Opaque
         };
     }
@@ -301,24 +301,6 @@ internal sealed class MaterialFactory
             string.Empty);
     }
 
-    private static bool UsesAlphaTest(PristonMaterial material)
-    {
-        if (material.OpacityName.Length > 0
-            || material.TextureName.EndsWith(".tga", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        foreach (var textureName in material.AnimationTextureNames)
-        {
-            if (textureName.EndsWith(".tga", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     private void ReportTextureIssue(string textureName, string reason)
     {
