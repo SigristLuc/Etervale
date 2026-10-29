@@ -37,5 +37,5 @@ public sealed record CharacterRecord(
     DateTime? LastPlayedAt,
     long SaveSeq = 0,
     int StarterGiftsReceived = Simulation.Characters.StarterGifts.Count,
-    int HelpPet = 0,
+    short HelpPet = 0,
     bool HelpPetHidden = false);

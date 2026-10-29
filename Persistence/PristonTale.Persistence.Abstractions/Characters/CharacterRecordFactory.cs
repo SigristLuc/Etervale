@@ -86,7 +86,7 @@ public static class CharacterRecordFactory
             StatPoints = character.StatPoints,
             Tier = character.Tier,
             StarterGiftsReceived = character.StarterGiftsReceived,
-            HelpPet = character.HelpPet,
+            HelpPet = (short)character.HelpPet,
             HelpPetHidden = character.HelpPetHidden,
             Strength = attributes.Strength,
             Spirit = attributes.Spirit,
