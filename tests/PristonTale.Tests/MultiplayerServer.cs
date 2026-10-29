@@ -121,6 +121,14 @@ internal sealed class MultiplayerServer : IAsyncDisposable
         return userId;
     }
 
+    // An account with no character, as a new player registers; returns the account name.
+    public async Task<string> CreateAccountAsync(string name)
+    {
+        var userId = $"mp{Interlocked.Increment(ref _accounts):D3}{name}".ToLowerInvariant();
+        await _host.Services.GetRequiredService<IAccountRepository>().CreateAsync(userId, PasswordHash.Value);
+        return userId;
+    }
+
     public async Task SetGameMasterAsync(string account, int level) =>
         Assert.True(await _host.Services.GetRequiredService<Persistence.Abstractions.GameMasters.IGameMasterRepository>().SetGmLevelAsync(account, level),
             $"no account {account}");

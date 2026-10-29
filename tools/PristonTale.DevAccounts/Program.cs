@@ -172,7 +172,7 @@ async Task<int> AddCharacter(List<string> a)
     short slot = 0;
     while (used.Contains(slot)) slot++;
 
-    var record = CharacterRecordFactory.NewStarter(classes, account.Id, name, slot, playerClass, FieldCodes.Ricarten, level: level);
+    var record = CharacterRecordFactory.NewStarter(classes, account.Id, name, slot, playerClass, PristonTale.Simulation.Progression.DeathPenalty.TownField(playerClass), level: level);
     var created = await characters.CreateAsync(record);
     Console.WriteLine($"created character #{created.Id} '{created.Name}' ({playerClass}, level {created.Level}) in slot {slot} of '{user}'");
     return 0;

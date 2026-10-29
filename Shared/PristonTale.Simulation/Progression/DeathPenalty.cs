@@ -118,7 +118,8 @@ public static class DeathPenalty
         return -1;
     }
 
-    // The town a player stands up in: Ricarten for the Tempskron classes and the assassin, Pillai for the Morion classes.
+    // The town of a class, where a new character starts and a player stands up: Ricarten for the Tempskron classes and
+    // the assassin, Pillai for the Morion classes.
     public static int TownField(PlayerClass playerClass) =>
         (int)playerClass <= (int)PlayerClass.Pikeman || playerClass == PlayerClass.Assassin ? FieldCodes.Ricarten : FieldCodes.Pillai;
 }

@@ -85,7 +85,7 @@ public sealed class CharacterAppService
             trimmed,
             slot,
             playerClass,
-            FieldCodes.Ricarten,
+            Simulation.Progression.DeathPenalty.TownField(playerClass),
             faceIndex);
 
         var created = await _characters.CreateAsync(record, ct);

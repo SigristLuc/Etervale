@@ -75,7 +75,7 @@ to `PristonTale.Tests`. No sockets, packets, SQL or MonoGame.
 | --- | --- |
 | `AuthAppService.LoginAsync` | Empty input, unknown account, wrong password: `BadCredentials` (-2); blocked: `LoginDenied` (-24). Values are wire codes. Success returns a token. |
 | `CharacterAppService.ListCharactersAsync` | Summaries with armour/weapon/off-hand catalog keys and `InVillage`; throws `InvalidDataException` on corrupt saved equipment |
-| `CharacterAppService.CreateCharacterAsync` | Trimmed name 3-16, defined class, valid face, unique name, `CharacterSlots.Maximum` per account, first free slot, starter record in field 3 |
+| `CharacterAppService.CreateCharacterAsync` | Trimmed name 3-16, defined class, valid face, unique name, `CharacterSlots.Maximum` per account, first free slot, starter record in its class's town (`DeathPenalty.TownField`: Ricarten for the Tempskron classes and the assassin, Pillai for the Morion classes) |
 | `CharacterAppService.DeleteCharacterAsync` / `NameExistsAsync` | Account-scoped delete by name; global name check. |
 | `SessionAppService.EnterWorldAsync` | Load record, validate field and class, claim the character, `CharacterStateCodec.Restore`, clamp resources, resolve spawn, mark ready |
 | `SessionAppService.SaveCharacterAsync` | Waits for `SaveGate`; captures on the tick while playing, else from the session; `ICharacterSaves.SaveAsync`, which completes once storage (or, at shutdown, the journal) has it. |

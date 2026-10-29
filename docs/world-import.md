@@ -381,7 +381,7 @@ external field-streaming prototype. No database.
 | --- | --- |
 | `create-account <user> <password>` | Creates the account with `PasswordHasher`; existing accounts are left unchanged |
 | `create-bots <prefix> <count> <password>` | Accounts `<prefix>0001`..; count 1-100000; existing ones skipped |
-| `add-char <user> <name> <class> [level]` | Starter character via `CharacterRecordFactory.NewStarter` in Ricarten (field 3), first free of 6 slots; name 3-16 characters and globally unique; class by `PlayerClass` name or number |
+| `add-char <user> <name> <class> [level]` | Starter character via `CharacterRecordFactory.NewStarter` in its class's town (Ricarten or Pillai), first free of 6 slots; name 3-16 characters and globally unique; class by `PlayerClass` name or number |
 | `list <user>` | Characters by slot |
 
 Options: `--sqlite <path>` (default `data/pristontale.db`, resolved against the repository root), `--conn "<npgsql>"`.

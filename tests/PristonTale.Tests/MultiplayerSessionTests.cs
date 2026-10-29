@@ -19,6 +19,7 @@ internal static class MultiplayerSessionTests
         yield return ("multiplayer: two logins racing for one character admit exactly one and viewers see one avatar", RaceAsync);
         yield return ("multiplayer: a login whose character list storage refuses answers busy, and the connection logs in again", ListRefusedAsync);
         yield return ("multiplayer: a client speaking an older protocol is refused as outdated before it plays", OutdatedAsync);
+        yield return ("multiplayer: a new character starts in its class's town, Ricarten for Tempskron, Pillai for Morion", NewCharacterTownAsync);
     }
 
     private static async Task LeaveAsync()
@@ -127,5 +128,20 @@ internal static class MultiplayerSessionTests
         Assert.True(await answer.Task.WaitAsync(timeout.Token) == (byte)LoginFailure.OutdatedClient, "a client of an older protocol was let in");
         connection.Close("test done");
         await run;
+    }
+
+    private static async Task NewCharacterTownAsync()
+    {
+        await using var server = await MultiplayerServer.StartAsync(MultiplayerServer.WorldWith());
+        foreach (var (playerClass, town) in new[] { (PlayerClass.Fighter, Simulation.World.FieldCodes.Ricarten), (PlayerClass.Knight, Simulation.World.FieldCodes.Pillai) })
+        {
+            var name = "New" + playerClass;
+            var account = await server.CreateAccountAsync(name);
+            await using var connection = new Client.Net.GameServerConnection(server.Address);
+            Assert.True((await connection.LoginAsync(account, MultiplayerServer.Password)).Ok, "the new player could not log in");
+            Assert.True((await connection.CreateCharacterAsync(name, playerClass, 0)).Ok, $"a {playerClass} could not be created");
+            var entered = await connection.EnterWorldAsync(name);
+            Assert.True(entered is { Ok: true } && entered.FieldId == town, $"a new {playerClass} started in field {entered.FieldId}, not {town}");
+        }
     }
 }
