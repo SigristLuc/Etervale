@@ -1,3 +1,4 @@
+using PristonTale.Persistence.Abstractions.GameLogs;
 using System.Numerics;
 using System.Threading.Channels;
 using Dapper;
@@ -338,6 +339,9 @@ internal static class NpcServiceTests
         var stored = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, deposit));
         Assert.True(stored.Outcome.Ok && stored.Warehouse!.Items.Single().Anchor == 3 && character.FindOwnedItem(axe.InstanceId) is null
             && fixture.Warehouses.Record?.Revision == 1, "deposit was not durable");
+        Assert.True(fixture.Log.Rows.Single() is { Kind: ItemTransferKind.WarehouseDeposit, ItemCode: "WA101", ToCharacterId: null } logged
+            && logged.InstanceId == axe.InstanceId.ToString() && logged.FromCharacterId == fixture.Characters.Record.Id
+            && logged.AccountId == session.AccountId, "the deposit was not logged from the character to its account's warehouse");
         var move = new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Warehouse, NpcServiceAction.Move, character.InventoryRevision, 1,
             ItemId: axe.InstanceId, Anchor: 40);
         var moved = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, move));
@@ -347,6 +351,8 @@ internal static class NpcServiceTests
         var deposited = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, gold));
         Assert.True(deposited.Outcome.Ok && deposited.Warehouse!.Money == 200 && character.Money == 300 && fixture.Characters.Record.Money == 300,
             "gold was not moved with the character");
+        Assert.True(fixture.Log.Rows[^1] is { Kind: ItemTransferKind.WarehouseDeposit, ItemCode: null, Amount: 200, ToCharacterId: null }
+            && fixture.Log.Rows[^1].AccountId == session.AccountId, "the gold deposit was not logged");
 
         fixture.Warehouses.Bump();
         var conflicted = gold with { OperationId = Guid.NewGuid(), ExpectedRevision = character.InventoryRevision, ExpectedStorageRevision = 3 };
@@ -360,6 +366,9 @@ internal static class NpcServiceTests
         var taken = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, withdraw));
         Assert.True(taken.Outcome.Ok && character.Inventory[0]?.InstanceId == axe.InstanceId && taken.Warehouse!.Items.Count == 0 && taken.Warehouse.Money == 200,
             "withdraw did not restore the item");
+        Assert.True(fixture.Log.Rows[^1] is { Kind: ItemTransferKind.WarehouseWithdrawal, ItemCode: "WA101", FromCharacterId: null, Amount: 1 } withdrawn
+            && withdrawn.InstanceId == axe.InstanceId.ToString() && withdrawn.ToCharacterId == fixture.Characters.Record.Id && fixture.Log.Rows.Count == 3,
+            "the withdrawal was not logged, or a move inside the warehouse was");
         var reload = WarehouseStateCodec.Restore(fixture.Warehouses.Record, fixture.Items);
         Assert.True(reload.Count == 0 && reload.Money == 200 && reload.Revision == revision + 1, "warehouse state was not persisted");
     }
@@ -497,6 +506,7 @@ internal static class NpcServiceTests
         public required NpcAppService Npc { get; init; }
         public required MemoryCharacters Characters { get; init; }
         public required MemoryWarehouses Warehouses { get; init; }
+        public required RecordingLog Log { get; init; }
         public required WorldPlayer Player { get; init; }
         public required ItemCatalog Items { get; init; }
 
@@ -519,7 +529,8 @@ internal static class NpcServiceTests
                     empty.Motions)
             };
             catalog ??= new WorldCatalog();
-            var world = new WorldServer(holder, catalog);
+            var log = new RecordingLog();
+            var world = new WorldServer(holder, catalog, log: log);
             var sessions = new SessionRegistry();
             var session = sessions.Create(1, "owner");
             var sessionService = new SessionAppService(sessions, classes, characters, new ImmediateSaves(characters), catalog, world, holder);
@@ -537,6 +548,7 @@ internal static class NpcServiceTests
                 Npc = new NpcAppService(sessions, new ImmediateSaves(characters), warehouses, world, holder),
                 Characters = characters,
                 Warehouses = warehouses,
+                Log = log,
                 Player = player,
                 Items = items
             };

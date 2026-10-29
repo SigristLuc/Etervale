@@ -1,3 +1,4 @@
+using PristonTale.Persistence.Abstractions.GameLogs;
 using System.Numerics;
 using PristonTale.Application.Services;
 using PristonTale.Application.World;
@@ -83,6 +84,11 @@ internal static class PersonalShopTests
         Assert.True(buyer.Session.Character.Money == 4000 && seller.Session.Character.Money == 1000, "the gold changed hands");
         Assert.True(fixture.Characters.Updates == updates + 1, "both characters were stored in one write");
         Assert.True(fixture.Characters.Records["Buyer"].Money == 4000 && fixture.Characters.Records["Seller"].Money == 1000, "the stored rows hold the trade");
+        var (sellerId, buyerId) = (fixture.Characters.Records["Seller"].Id, fixture.Characters.Records["Buyer"].Id);
+        Assert.True(fixture.Log.Rows is [var sale, var paid] && sale.Kind == ItemTransferKind.PersonalShop && sale.InstanceId == axeId.ToString()
+            && sale.FromCharacterId == sellerId && sale.ToCharacterId == buyerId && paid is { ItemCode: null, Amount: 1000 }
+            && paid.FromCharacterId == buyerId && paid.ToCharacterId == sellerId && paid.TransferId == sale.TransferId,
+            "the purchase was not logged as the axe to the buyer and the price to the seller");
         Assert.True(bought.Listing is { Offers.Count: 1 }, "the reply shows what remains on sale");
         Assert.True(seller.Link.Last.Contains("Buyer player has bought 1 number of Stone Axe by 1000 Gold") && seller.Link.Last == buyer.Link.Last,
             "both read the sale");

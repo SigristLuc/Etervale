@@ -1,3 +1,4 @@
+using PristonTale.Persistence.Abstractions.GameLogs;
 using System.Numerics;
 using PristonTale.Application.Chat;
 using PristonTale.Application.GameMasters;
@@ -295,6 +296,8 @@ internal static class GameMasterCommandTests
         var carried = Enumerable.Range(0, ann.Session.Character!.Inventory.Capacity).Select(anchor => ann.Session.Character.Inventory[anchor])
             .Where(item => item is not null).ToArray();
         Assert.True(carried.Any(item => item.Definition.CatalogKey == "PL101"), "the gift did not reach the player's bag");
+        Assert.True(fixture.Log.Rows.Single(row => row.Kind == ItemTransferKind.GameMasterGift) is { ItemCode: "PL101", FromCharacterId: null } gift
+            && gift.ToCharacterId == fixture.Characters.Records["Ann"].Id, "the gift was not logged");
     }
 
     private static async Task CharacterAsync()

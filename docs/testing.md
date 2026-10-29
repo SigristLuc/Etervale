@@ -21,6 +21,7 @@ benchmarks, and the asset/GPU probes that read game data or create a Vulkan devi
 | `Fixtures/` | Embedded tables: `class-skill-source.json` (class skills), `job-head-source.json` (416 job-head rows) |
 | `SkillFixtures.cs`, `SkillScenario.cs` | Synthetic field, players, monsters, weapons and 50 ms tick stepping for skill cases |
 | `MemoryCharacters.cs` | In-memory `ICharacterRepository` with update hooks for persistence-failure cases |
+| `RecordingLog.cs` | `IGameLog` that keeps the item transfers the world reports |
 | `ImmediateSaves.cs` | `ICharacterSaves` that stores each capture at once, so a case reads storage right after the operation that queued it |
 | `WorldPump.cs` | Ticks a `WorldServer` at 50 ms until an operation it serves completes (service and transaction cases) |
 | `WireRoundTrip.cs` | Snapshots through server `PresenceEncoder` and client `PresenceDecoder` over original packet bytes |

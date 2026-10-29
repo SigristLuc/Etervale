@@ -80,6 +80,13 @@ public sealed partial class WorldServer
                 throw new CommitInvariantException("Character ownership changed during a personal shop purchase.");
             }
 
+            if (Transfer(Persistence.Abstractions.GameLogs.ItemTransferKind.PersonalShop, Guid.NewGuid(), seller.FieldId) is { } log)
+            {
+                log.Left(sold, purchase.SellerCandidate, CharacterIdOf(seller), CharacterIdOf(buyer));
+                log.Gold(CharacterIdOf(buyer), CharacterIdOf(seller), purchase.Price);
+                Log(log);
+            }
+
             purchase.Original.CommitInventoryOperation(purchase.Candidate);
             purchase.Original.TryChangeMoney(-purchase.Price);
             sold.CommitInventoryOperation(purchase.SellerCandidate);

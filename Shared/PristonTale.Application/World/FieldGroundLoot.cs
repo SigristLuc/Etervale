@@ -64,7 +64,7 @@ public sealed class FieldGroundLoot(ItemCatalog catalog, FieldTerrain? terrain =
                 item.Sealed = drop.Sealed;
             }
 
-            _entries.Add(id, new Entry(view, item, payout.CreditedPlayerId, publicDrop ? nowMs : nowMs + 5000, nowMs + LifetimeMs(definition)));
+            _entries.Add(id, new Entry(view, item, payout.CreditedPlayerId, publicDrop ? nowMs : nowMs + 5000, nowMs + LifetimeMs(definition), NoThrower));
             _dirty = true;
         }
     }
@@ -81,20 +81,29 @@ public sealed class FieldGroundLoot(ItemCatalog catalog, FieldTerrain? terrain =
         return true;
     }
 
-    // An item or gold a player threw, laid once its removal is saved: the room was checked when the throw was prepared, so
-    // the few throws in flight may pass the capacity rather than lose what was saved. Public at once.
-    public void PlaceThrown(ItemInstance? item, int gold, Vector3 position, ulong ownerId, long nowMs) => Add(item, gold, position, ownerId, nowMs);
+    // The character id a drop nobody threw names (ThrownBy).
+    public const long NoThrower = 0;
 
-    private void Add(ItemInstance? item, int gold, Vector3 position, ulong ownerId, long nowMs)
+    // An item or gold a player threw, laid once its removal is saved: the room was checked when the throw was prepared, so
+    // the few throws in flight may pass the capacity rather than lose what was saved. Public at once, and remembered by
+    // the thrower's character id so its pickup names where it came from.
+    public Guid PlaceThrown(ItemInstance? item, int gold, Vector3 position, ulong ownerId, long nowMs, long thrownBy) =>
+        Add(item, gold, position, ownerId, nowMs, thrownBy);
+
+    private Guid Add(ItemInstance? item, int gold, Vector3 position, ulong ownerId, long nowMs, long thrownBy = NoThrower)
     {
         var id = Guid.NewGuid();
         var spot = Spot(position);
         var view = item is null
             ? new GroundDropView(id, 0u, ItemCodes.GoldKey, ItemCodes.GoldName, gold, true, spot)
             : new GroundDropView(id, item.Definition.Code, item.Definition.CatalogKey, item.Definition.Name, item.Count, false, spot);
-        _entries.Add(id, new Entry(view, item, ownerId, nowMs, nowMs + LifetimeMs(item?.Definition)));
+        _entries.Add(id, new Entry(view, item, ownerId, nowMs, nowMs + LifetimeMs(item?.Definition), thrownBy));
         _dirty = true;
+        return id;
     }
+
+    // The character id that threw a drop; NoThrower for a monster's drop or one that is gone.
+    public long ThrownBy(Guid id) => _entries.TryGetValue(id, out var entry) ? entry.ThrownBy : NoThrower;
 
     // Where a drop from the origin (a corpse, the thrower's feet) lies, as the original lays drops: on a ring cell taken in
     // turn with one counter for the whole field, whose floor is within DropTolerance of the origin. The original meant to
@@ -244,8 +253,9 @@ public sealed class FieldGroundLoot(ItemCatalog catalog, FieldTerrain? terrain =
         }
     }
 
-    private sealed class Entry(GroundDropView view, ItemInstance? item, ulong ownerId, long publicAt, long expiresAt)
+    private sealed class Entry(GroundDropView view, ItemInstance? item, ulong ownerId, long publicAt, long expiresAt, long thrownBy)
     {
+        public long ThrownBy { get; } = thrownBy;
         public GroundDropView View { get; } = view;
         public ItemInstance? Item { get; } = item;
         public ulong OwnerId { get; } = ownerId;

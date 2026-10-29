@@ -85,6 +85,20 @@ public sealed partial class WorldServer
                 throw new CommitInvariantException("Character ownership changed during NPC service commit.");
             }
 
+            // A warehouse change moves items and gold between the character and its account's warehouse.
+            if (operation.Warehouse is not null
+                && Transfer(Persistence.Abstractions.GameLogs.ItemTransferKind.WarehouseDeposit, Guid.NewGuid(), session.FieldId) is { } deposit
+                && Transfer(Persistence.Abstractions.GameLogs.ItemTransferKind.WarehouseWithdrawal, Guid.NewGuid(), session.FieldId) is { } withdrawal)
+            {
+                var self = CharacterIdOf(session);
+                deposit.Left(operation.Original, operation.Candidate, self, null, session.AccountId);
+                deposit.Gold(self, null, -operation.MoneyDelta, session.AccountId);
+                withdrawal.Arrived(operation.Original, operation.Candidate, null, self, session.AccountId);
+                withdrawal.Gold(null, self, operation.MoneyDelta, session.AccountId);
+                Log(deposit);
+                Log(withdrawal);
+            }
+
             operation.Original.CommitInventoryOperation(operation.Candidate);
             operation.Original.TryChangeMoney(operation.MoneyDelta);
             RecordSpending(operation);

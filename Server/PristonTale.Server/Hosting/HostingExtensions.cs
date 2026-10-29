@@ -8,6 +8,7 @@ using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Persistence.Abstractions.GameMasters;
 using PristonTale.Persistence.Abstractions.Settings;
 using PristonTale.Persistence.Abstractions.Warehouses;
+using PristonTale.Application.GameLogs;
 using PristonTale.Application.Saves;
 using PristonTale.Application.Sessions;
 using PristonTale.Application.World;
@@ -63,6 +64,7 @@ public static class HostingExtensions
         }
         builder.Services.AddHostedService<DatabaseMigrationService>();
         AddCharacterSaves(builder);
+        AddGameLogs(builder);
 
         builder.Services.AddSingleton<WorldDataAppService>();
         builder.Services.AddSingleton<WorldDataHolder>();
@@ -82,7 +84,8 @@ public static class HostingExtensions
             services.GetRequiredService<PristonTale.Simulation.World.WorldCatalog>(),
             terrain: services.GetRequiredService<FieldTerrainCatalog>(),
             options: worldOptions,
-            saves: services.GetRequiredService<ICharacterSaves>()));
+            saves: services.GetRequiredService<ICharacterSaves>(),
+            log: services.GetRequiredService<IGameLog>()));
         builder.Services.AddHostedService<WorldTickService>();
         AddChat(builder);
         builder.Services.AddSingleton(services =>
@@ -129,6 +132,21 @@ public static class HostingExtensions
     }
 
     private static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(60);
+
+    private static void AddGameLogs(HostApplicationBuilder builder)
+    {
+        builder.Services.AddSingleton(services =>
+        {
+            var logger = services.GetRequiredService<ILogger<GameLogQueue>>();
+            return new GameLogQueue(services.GetRequiredService<PristonTale.Persistence.Abstractions.GameLogs.IGameLogRepository>())
+            {
+                Failed = exception => logger.LogError(exception, "An item transfer log batch failed; it is retried")
+            };
+        });
+        builder.Services.AddSingleton<IGameLog>(services => services.GetRequiredService<GameLogQueue>());
+        builder.Services.AddSingleton(GameLogOptions.From(builder.Configuration));
+        builder.Services.AddHostedService<GameLogService>();
+    }
 
     private static void AddChat(HostApplicationBuilder builder)
     {

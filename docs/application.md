@@ -51,6 +51,7 @@ into it is described in [server.md](server.md); skill resolution details are in 
 | `World/*Transactions.cs`, `World/Prepared*Operation.cs` | Prepare side of durable operations (pickup, progression, NPC services, quests); `PreparedOperation` is the base |
 | `Services/DurableOperations.cs` | `DurableOperations`, `DurableLease`, `DurableFailure`: the admit, prepare, commit (and store-first, abort) runner every durable service uses |
 | `Saves/` | `ICharacterSaves`, `CharacterSaveQueue` (background character storage), `SaveJournal` (captures storage could not take at shutdown) |
+| `GameLogs/` | `IGameLog`, `GameLogQueue` (background writer of item transfers), `TransferLog` (the rows of one transfer) |
 | `World/WorldSnapshot.cs` | Published view types: `EntityView`, `CombatEventView`, `SkillEventView`, `StatusEventView`, `WorldSnapshot` |
 | `World/WorldOutbox.cs` | Per-connection coalescing channel between the tick and the edge; pins frames on read, keeps events per tick |
 | `World/SubscriberPresence.cs` | Spawn/state/remove diff of snapshots per subscriber (used by tests; the server encoder diffs itself) |
@@ -403,6 +404,30 @@ Revisions and idempotency:
   still queued, and up to that period of what no operation queued (experience, life, position).
 - `EnterWorldAsync` claims the character and then reads its record again: a leave save of the previous session may
   have been stored, and its claim released, after the first read, and the session must continue from it.
+
+## Game logs
+
+The world reports every item and gold that changes hands to `IGameLog` on the tick, as one transfer's rows
+(`TransferLog`, kind and transfer id per `ItemTransferKind`), just before the commit applies it:
+
+| Transfer | Rows |
+| --- | --- |
+| Trade | the items and the gold each side offered, from it to the other (each whole offer moves, `TradeRules`) |
+| Personal shop purchase | the items the seller sold, to the buyer; the price, from the buyer to the seller |
+| Warehouse (an NPC service that changed the open warehouse) | items and gold that left the character (deposit, to its account) and that reached it (withdrawal) |
+| Ground throw | the thrown item or gold, from the character to the ground, under the drop's id |
+| Ground pickup | only of a drop a character threw (`FieldGroundLoot.ThrownBy`): the item and the picker's and each party member's gold, from the thrower, under the drop's id |
+| Game-master gift | the items that reached the character, from nobody |
+
+A transfer's items are the owned items (bag, equipment, belt, quest box) the candidate lost or gained compared with the
+character before the commit, by instance id and count; the comparison runs on the tick, at a transfer's commit only. Monster drops, NPC shop purchases and sales, crafting and consumption are
+not transfers between holders and are not logged.
+
+`GameLogQueue` (the server's `IGameLog`) keeps up to 65536 rows; a full queue drops new rows and counts them, so a log
+never holds the game. One writer inserts up to 500 rows per transaction and retries a refused batch (`RetryBackoff`,
+0.5 s doubling up to 30 s, the same as the character store); on stop it tries what is left once, a batch at a time, and
+counts what storage refuses as dropped. `CurrencyLedger` keeps, besides the totals the game-master report shows, the
+gold each sink took since the last take (`TakeUnrecorded`, `Restore` for a take the log could not store).
 
 ## NPC services
 

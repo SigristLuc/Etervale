@@ -1,3 +1,4 @@
+using PristonTale.Persistence.Abstractions.GameLogs;
 using System.Numerics;
 using PristonTale.Application.GameMasters;
 using PristonTale.Application.Services;
@@ -106,7 +107,8 @@ internal static class TradeTests
         Assert.True(ann.Session.Character!.TryChangeMoney(800), "fixture gold");
         await Open(fixture, ann, bob);
         await Offer(fixture, ann, 500, axe);
-        await Offer(fixture, bob, 0, potions);
+        Assert.True(bob.Session.Character!.TryChangeMoney(100), "fixture gold");
+        await Offer(fixture, bob, 100, potions);
         Assert.True(View(fixture, bob) is { PartnerMoney: 500, PartnerItems: [{ Name: "Stone Axe" } shown] } && shown.Details is not null,
             "Bob does not see Ann's offer with its values");
 
@@ -119,10 +121,19 @@ internal static class TradeTests
         var bobBag = bob.Session.Character!.Inventory;
         Assert.True(annBag.Find(potions.InstanceId) >= 0 && annBag.Find(axe.InstanceId) < 0 && bobBag.Find(axe.InstanceId) >= 0
             && bobBag.Find(potions.InstanceId) < 0, "the items did not cross");
-        Assert.True(ann.Session.Character.Money == 300 && bob.Session.Character.Money == 500, "the gold did not cross");
+        Assert.True(ann.Session.Character.Money == 400 && bob.Session.Character.Money == 500, "the gold did not cross");
         Assert.True(fixture.World.Characters.Updates == updates + 1 && fixture.World.Characters.Records["Bob"].Money == 500
-            && fixture.World.Characters.Records["Ann"].Money == 300, "both characters were not stored together");
+            && fixture.World.Characters.Records["Ann"].Money == 400, "both characters were not stored together");
         Assert.True(View(fixture, ann) is null && View(fixture, bob) is null, "the trade outlived its exchange");
+        var (annId, bobId) = (fixture.World.Characters.Records["Ann"].Id, fixture.World.Characters.Records["Bob"].Id);
+        var rows = fixture.World.Log.Rows;
+        Assert.True(rows.Count == 4 && rows.All(row => row.Kind == ItemTransferKind.Trade && row.TransferId == rows[0].TransferId)
+            && rows.Any(row => row.InstanceId == axe.InstanceId.ToString() && row.ItemCode == "WA101" && row is { Amount: 1 }
+                && row.FromCharacterId == annId && row.ToCharacterId == bobId)
+            && rows.Any(row => row.InstanceId == potions.InstanceId.ToString() && row.Amount == 10 && row.FromCharacterId == bobId && row.ToCharacterId == annId)
+            && rows.Any(row => row.ItemCode is null && row.Amount == 500 && row.FromCharacterId == annId && row.ToCharacterId == bobId)
+            && rows.Any(row => row.ItemCode is null && row.Amount == 100 && row.FromCharacterId == bobId && row.ToCharacterId == annId),
+            "the exchange was not logged as one transfer of its items and each side's gold");
     }
 
     private static async Task LockAsync()

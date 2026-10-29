@@ -5,7 +5,9 @@ using PristonTale.Simulation.World.Npcs;
 using System.Collections.Concurrent;
 using System.Numerics;
 using System.Threading.Channels;
+using PristonTale.Application.GameLogs;
 using PristonTale.Application.Saves;
+using PristonTale.Persistence.Abstractions.GameLogs;
 using PristonTale.Application.Sessions;
 using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Combat;
@@ -45,6 +47,7 @@ public sealed partial class WorldServer
     private readonly FieldTerrainCatalog _terrain;
     private WorldServerOptions _options;
     private readonly ICharacterSaves? _saves;
+    private readonly IGameLog? _log;
     // Commands each player has waiting in the shared queue; entries are dropped when the player leaves the world.
     private readonly ConcurrentDictionary<ulong, PendingCommands> _pendingByPlayer = new();
 
@@ -71,9 +74,11 @@ public sealed partial class WorldServer
         ISimRng? bossRng = null,
         FieldTerrainCatalog? terrain = null,
         WorldServerOptions? options = null,
-        ICharacterSaves? saves = null)
+        ICharacterSaves? saves = null,
+        IGameLog? log = null)
     {
         _saves = saves;
+        _log = log;
         _options = (options ?? WorldServerOptions.Default).Validated();
         _worldData = worldData;
         _terrain = terrain ?? new FieldTerrainCatalog();
@@ -481,9 +486,15 @@ public sealed partial class WorldServer
                 throw new CommitInvariantException("Character ownership changed during inventory commit.");
             }
 
+            // A pickup of what a character threw is a transfer from that character; a monster's drop is not logged.
+            var picking = operation as PreparedPickupOperation;
+            var thrower = picking?.Ground.ThrownBy(picking.DropId) ?? FieldGroundLoot.NoThrower;
+            var pickedUp = thrower != FieldGroundLoot.NoThrower ? Transfer(ItemTransferKind.GroundPickup, picking!.DropId, session.FieldId) : null;
+            pickedUp?.Arrived(operation.Original, operation.Candidate, thrower, CharacterIdOf(session));
             operation.Original.CommitInventoryOperation(operation.Candidate);
             if (operation is PreparedPickupOperation pickup)
             {
+                pickedUp?.Gold(thrower, CharacterIdOf(session), pickup.Gold);
                 if (!operation.Original.TryChangeMoney(pickup.Gold))
                 {
                     throw new CommitInvariantException("Money changed beyond capacity during pickup commit.");
@@ -496,10 +507,12 @@ public sealed partial class WorldServer
                         && TakesGoldShare(member) && MoneyLimits.CanCarry(share.Character, share.Gold))
                     {
                         share.Character.TryChangeMoney(share.Gold);
+                        pickedUp?.Gold(thrower, CharacterIdOf(member.Session), share.Gold);
                     }
                 }
 
                 pickup.Ground.Resolve(pickup.DropId, pickup.OperationId, committed: true);
+                Log(pickedUp);
             }
             if (operation is PreparedThrowOperation thrown)
             {
@@ -508,7 +521,18 @@ public sealed partial class WorldServer
                     throw new CommitInvariantException("Money changed beyond capacity during a gold throw commit.");
                 }
 
-                thrown.Field.GroundLoot.PlaceThrown(thrown.Item, thrown.Gold, thrown.Position, thrown.ThrowerId, thrown.Field.NowMs);
+                var dropId = thrown.Field.GroundLoot.PlaceThrown(thrown.Item, thrown.Gold, thrown.Position, thrown.ThrowerId, thrown.Field.NowMs,
+                    CharacterIdOf(session) ?? FieldGroundLoot.NoThrower);
+                if (Transfer(ItemTransferKind.GroundThrow, dropId, thrown.Field.FieldId) is { } throwLog)
+                {
+                    if (thrown.Item is { } item)
+                    {
+                        throwLog.Item(CharacterIdOf(session), null, null, item, item.Count);
+                    }
+
+                    throwLog.Gold(CharacterIdOf(session), null, thrown.Gold);
+                    Log(throwLog);
+                }
             }
 
             if (operation is PreparedPotionOperation potion && TryGetOwnConnection(session, out var connection))
@@ -553,6 +577,20 @@ public sealed partial class WorldServer
     }
 
     private const ulong NoOwner = 0;
+
+    // The rows of a transfer committed now; null when no game log is attached.
+    private TransferLog? Transfer(ItemTransferKind kind, Guid transferId, int fieldId) =>
+        _log is null ? null : new TransferLog(kind, transferId.ToString(), fieldId, _clock.GetUtcNow().UtcDateTime);
+
+    private void Log(TransferLog? transfer)
+    {
+        if (transfer is { Rows.Count: > 0 })
+        {
+            _log!.ItemTransfers(transfer.Rows);
+        }
+    }
+
+    private static long? CharacterIdOf(PlayerSession? session) => session?.Loaded?.Id;
 
     public int PendingCommandsOf(ulong entityId) => _pendingByPlayer.TryGetValue(entityId, out var pending) ? Volatile.Read(ref pending.Count) : 0;
 

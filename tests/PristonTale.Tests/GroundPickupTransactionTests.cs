@@ -1,3 +1,4 @@
+using PristonTale.Persistence.Abstractions.GameLogs;
 using System.Numerics;
 using PristonTale.Application.Services;
 using PristonTale.Application.Sessions;
@@ -44,7 +45,8 @@ internal static class GroundPickupTransactionTests
             Current = new WorldData(new ItemCatalog([potion, sword, quest]), empty.Monsters, empty.Npcs, empty.FieldSpawns, empty.Motions)
         };
         var catalog = new WorldCatalog([new FieldDef("fixture", "Fixture", FieldState.Forest, new FieldBackdrop("", "", ""), "", []) { FieldCode = 3 }]);
-        var world = new WorldServer(holder, catalog);
+        var log = new RecordingLog();
+        var world = new WorldServer(holder, catalog, log: log);
         var sessions = new SessionRegistry();
         var session = sessions.Create(1, "owner");
         var service = new SessionAppService(sessions, classes, repository, new ImmediateSaves(repository), catalog, world, holder);
@@ -98,6 +100,22 @@ internal static class GroundPickupTransactionTests
             && ground.All(drop => MathF.Max(MathF.Abs(drop.View.Position.X), MathF.Abs(drop.View.Position.Z)) == FieldGroundLoot.CellSpacing)
             && ground.Select(drop => drop.View.Position).Distinct().Count() == ground.Length,
             $"the ground holds {string.Join(", ", ground.Select(drop => $"{drop.View.CatalogKey} x{drop.View.Amount} at {drop.View.Position}"))}");
+
+        // Each throw is logged from the character to the ground under its drop's id; picking up what a character threw is
+        // logged from that character under the same id.
+        var thrownSword = log.Rows.Single(row => row.ItemCode == "WS101");
+        Assert.True(log.Rows.Count == 3 && log.Rows.All(row => row.Kind == ItemTransferKind.GroundThrow && row.FromCharacterId == starter.Id
+                && row.ToCharacterId is null && row.FieldId == 3)
+            && log.Rows.Any(row => row.ItemCode == "PL101" && row.Amount == 2) && log.Rows.Any(row => row.ItemCode is null && row.Amount == 120),
+            "the throws were not logged");
+        var swordDrop = ground.Single(drop => drop.View.CatalogKey == "WS101").View;
+        Assert.True(swordDrop.Id.ToString() == thrownSword.TransferId, "the throw is not logged under its drop's id");
+        Assert.True(await WorldPump.RunAsync(world, world.ReportMovementAsync(3, session.EntityId, swordDrop.Position, 0f, true, true, 0))
+            == MovementVerdict.Accepted, "the walk to the sword was refused");
+        var pickup = new InventoryCommand(Guid.NewGuid(), session.Character!.InventoryRevision, InventoryAction.Pickup, swordDrop.Id, 0, 1, default);
+        Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, pickup))).Ok, "the sword was not picked up");
+        Assert.True(log.Rows[^1] is { Kind: ItemTransferKind.GroundPickup, ItemCode: "WS101", Amount: 1 } picked && picked.TransferId == thrownSword.TransferId
+            && picked.FromCharacterId == starter.Id && picked.ToCharacterId == starter.Id, "the pickup of a thrown item was not logged");
     }
 
     private static async Task DurableAsync()
@@ -126,7 +144,8 @@ internal static class GroundPickupTransactionTests
                 new Dictionary<int, FieldSpawnData> { [3] = spawn }, empty.Motions)
         };
         var catalog = new WorldCatalog([new FieldDef("fixture", "Fixture", FieldState.Forest, new FieldBackdrop("", "", ""), "", []) { FieldCode = 3 }]);
-        var world = new WorldServer(holder, catalog);
+        var log = new RecordingLog();
+        var world = new WorldServer(holder, catalog, log: log);
         var sessions = new SessionRegistry();
         var session = sessions.Create(1, "owner");
         var service = new SessionAppService(sessions, classes, repository, new ImmediateSaves(repository), catalog, world, holder);
@@ -168,6 +187,7 @@ internal static class GroundPickupTransactionTests
         var command = new InventoryCommand(Guid.NewGuid(), session.Character.InventoryRevision, InventoryAction.Pickup, drop.Id, 0, 1, default);
         Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, command))).Ok, "the pickup failed");
         Assert.True(session.Character.Money == money + 8 && repository.Record.Money == money + 8, "the gold was not taken, or its capture not stored");
+        Assert.True(log.Rows.Count == 0, "a monster's drop was logged as a transfer");
         int writes = repository.UpdateCount;
         Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, command))).Ok && repository.UpdateCount == writes,
             "retry duplicated ground reward or storage");

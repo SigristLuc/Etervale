@@ -132,6 +132,18 @@ public sealed partial class WorldServer
                 throw new CommitInvariantException("Character ownership changed during a trade.");
             }
 
+            if (Transfer(Persistence.Abstractions.GameLogs.ItemTransferKind.Trade, Guid.NewGuid(), session.FieldId) is { } log)
+            {
+                var (self, partner) = (CharacterIdOf(session), CharacterIdOf(partnerSession));
+                log.Left(prepared.Original, prepared.Candidate, self, partner);
+                log.Left(prepared.Partner!, prepared.PartnerCandidate, partner, self);
+                // Each side's whole offer moves (TradeRules), not the difference.
+                var side = prepared.Trade!.SideOf(session.EntityId);
+                log.Gold(self, partner, prepared.Trade.OfferOf(side).Money);
+                log.Gold(partner, self, prepared.Trade.OfferOf(1 - side).Money);
+                Log(log);
+            }
+
             prepared.Original.CommitInventoryOperation(prepared.Candidate);
             prepared.Original.TryChangeMoney(prepared.MoneyDelta);
             prepared.Partner.CommitInventoryOperation(prepared.PartnerCandidate);

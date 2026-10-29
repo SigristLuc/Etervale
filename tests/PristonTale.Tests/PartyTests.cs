@@ -1,3 +1,4 @@
+using PristonTale.Persistence.Abstractions.GameLogs;
 using System.Numerics;
 using PristonTale.Application.Chat;
 using PristonTale.Application.Services;
@@ -291,9 +292,17 @@ internal static class PartyTests
         var field = fixture.World.FieldFor(ChatFixture.Field)!;
 
         // betweenTicks runs after the tick that prepares the pickup and before the one that commits it.
-        async Task<long> PickUp(int gold, Func<Task>? betweenTicks = null)
+        async Task<long> PickUp(int gold, Func<Task>? betweenTicks = null, long thrownBy = FieldGroundLoot.NoThrower)
         {
-            Assert.True(field.GroundLoot.PlaceCreated(null, gold, Vector3.Zero, ann.Id, field.NowMs), "fixture gold not placed");
+            if (thrownBy == FieldGroundLoot.NoThrower)
+            {
+                Assert.True(field.GroundLoot.PlaceCreated(null, gold, Vector3.Zero, ann.Id, field.NowMs), "fixture gold not placed");
+            }
+            else
+            {
+                field.GroundLoot.PlaceThrown(null, gold, Vector3.Zero, ann.Id, field.NowMs, thrownBy);
+            }
+
             fixture.Tick(1);
             var drop = field.GroundLoot.Snapshot().Single().View;
             // The gold falls on a cell around the spot; the picker walks to it, as the client does.
@@ -337,6 +346,15 @@ internal static class PartyTests
         await PickUp(800);
         Assert.True(ann.Session.Character!.Money == 12_501 && MoneyLimits.CanCarry(bobCharacter, 399) && !MoneyLimits.CanCarry(bobCharacter, 400),
             "a member who cannot carry its part within the carry limit kept the picker from the whole gold");
+
+        // Gold a character threw is logged from it to the picker and to each member given a part; nothing else here was.
+        Assert.True(fixture.Log.Rows.Count == 0, "a pickup of gold nobody threw was logged");
+        Assert.True(bobCharacter.TryChangeMoney(-bobCharacter.Money), "fixture gold not taken");
+        await PickUp(1000, thrownBy: 77);
+        Assert.True(fixture.Log.Rows is [var picked, var shared] && picked is { Kind: ItemTransferKind.GroundPickup, FromCharacterId: 77, Amount: 500 }
+            && picked.ToCharacterId == fixture.Characters.Records["Ann"].Id && shared is { FromCharacterId: 77, Amount: 500 }
+            && shared.ToCharacterId == fixture.Characters.Records["Bob"].Id && shared.TransferId == picked.TransferId,
+            "the thrown gold was not logged to the picker and the member given a part");
     }
 
     private static Task RulesAsync()

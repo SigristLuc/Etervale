@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Threading.Channels;
+using PristonTale.Application.Services;
 using PristonTale.Application.Sessions;
 using PristonTale.Persistence.Abstractions.Characters;
 
@@ -11,7 +12,7 @@ public readonly record struct SaveQueueStats(int Pending, long Written, long Bat
 // up to batchSize characters per transaction, the captures a leaving character waits for first.
 //
 // A batch storage refuses is tried again one character at a time. When the first of them is refused too, storage is
-// unavailable and the batch waits, backing off from firstBackoff up to MaxBackoff, until storage takes it. A capture
+// unavailable and the batch waits, backing off from firstBackoff (RetryBackoff), until storage takes it. A capture
 // refused alone counts a refusal only when storage answers an empty write (it is reachable), so an unavailable storage
 // never counts; at MaxRefusals it is one storage can never take, and it is dropped (reported, its waiters answered
 // false) so it cannot hold the others or the next start. Once the server is stopping, the first failure sends everything left to the journal without another
@@ -24,9 +25,6 @@ public sealed class CharacterSaveQueue(
 {
     public const int DefaultBatchSize = 100;
     private const int MaxRefusals = 3;
-    private static readonly TimeSpan DefaultFirstBackoff = TimeSpan.FromMilliseconds(500);
-    private static readonly TimeSpan MaxBackoff = TimeSpan.FromSeconds(30);
-    private readonly TimeSpan _firstBackoff = firstBackoff ?? DefaultFirstBackoff;
 
     private readonly object _gate = new();
     private readonly Dictionary<long, Pending> _pending = new();
@@ -128,7 +126,7 @@ public sealed class CharacterSaveQueue(
     public async Task RunAsync(CancellationToken stopping, CancellationToken stop)
     {
         using var either = CancellationTokenSource.CreateLinkedTokenSource(stopping, stop);
-        var backoff = _firstBackoff;
+        var backoff = new RetryBackoff(firstBackoff);
         while (true)
         {
             var batch = Take();
@@ -162,7 +160,7 @@ public sealed class CharacterSaveQueue(
             var unstored = await StoreAsync(batch);
             if (unstored.Count == 0)
             {
-                backoff = _firstBackoff;
+                backoff.Reset();
                 continue;
             }
 
@@ -176,13 +174,12 @@ public sealed class CharacterSaveQueue(
             Requeue(unstored);
             try
             {
-                await Task.Delay(backoff, either.Token);
+                await Task.Delay(backoff.Next(), either.Token);
             }
             catch (OperationCanceledException)
             {
             }
 
-            backoff = backoff * 2 < MaxBackoff ? backoff * 2 : MaxBackoff;
         }
     }
 

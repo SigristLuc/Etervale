@@ -1,7 +1,7 @@
 namespace PristonTale.Application.GameMasters;
 
-// Where gold left the economy since the server started, as the game masters' currency report shows it. Mixing, aging
-// and force-orb smelting have no service on this server yet, so their totals stay zero until those services record them.
+// Where gold left the economy: the totals since the server started, as the game masters' currency report shows them, and
+// what the game log has not stored yet (TakeUnrecorded).
 public enum CurrencySink
 {
     Mixing = 0,
@@ -18,12 +18,34 @@ public enum CurrencySink
 public sealed class CurrencyLedger
 {
     private readonly long[] _totals = new long[Enum.GetValues<CurrencySink>().Length];
+    private readonly long[] _unrecorded = new long[Enum.GetValues<CurrencySink>().Length];
 
     public void Record(CurrencySink sink, long gold)
     {
         if (gold > 0)
         {
             Interlocked.Add(ref _totals[(int)sink], gold);
+            Interlocked.Add(ref _unrecorded[(int)sink], gold);
+        }
+    }
+
+    // The gold each sink took since the last take, by CurrencySink; Restore puts back a take the log could not store.
+    public long[] TakeUnrecorded()
+    {
+        var taken = new long[_unrecorded.Length];
+        for (var sink = 0; sink < taken.Length; sink++)
+        {
+            taken[sink] = Interlocked.Exchange(ref _unrecorded[sink], 0);
+        }
+
+        return taken;
+    }
+
+    public void Restore(long[] taken)
+    {
+        for (var sink = 0; sink < taken.Length; sink++)
+        {
+            Interlocked.Add(ref _unrecorded[sink], taken[sink]);
         }
     }
 

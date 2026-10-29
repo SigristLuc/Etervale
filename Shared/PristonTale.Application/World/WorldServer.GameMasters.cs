@@ -374,6 +374,12 @@ public sealed partial class WorldServer
                 throw new CommitInvariantException("Character ownership changed during a game master's gift.");
             }
 
+            if (Transfer(Persistence.Abstractions.GameLogs.ItemTransferKind.GameMasterGift, Guid.NewGuid(), session.FieldId) is { } log)
+            {
+                log.Arrived(operation.Original, operation.Candidate, null, CharacterIdOf(session));
+                Log(log);
+            }
+
             operation.Original.CommitInventoryOperation(operation.Candidate);
             return true;
         }, waitForCapacity: true);

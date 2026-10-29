@@ -48,7 +48,7 @@ internal sealed class ChatFixture
             terrains.Publish(new Dictionary<int, FieldTerrain> { [Field] = terrain });
         }
 
-        World = new WorldServer(Data, catalog, clock, terrain: terrains);
+        World = new WorldServer(Data, catalog, clock, terrain: terrains, log: Log);
         Directory = new ChatDirectory();
         Server = new FakeServer();
         GameMasters = new GameMasterCommands(Directory, World, Data, options, Server, Audit)
@@ -98,6 +98,7 @@ internal sealed class ChatFixture
     public MemoryGameMasters Audit { get; } = new();
     public MemoryAccounts Accounts { get; } = new();
     public MemoryCharacterBook Characters { get; } = new();
+    public RecordingLog Log { get; } = new();
     public MemoryWarehouses Warehouses { get; } = new();
     public GameMasterCommands GameMasters { get; }
     public ChatAppService Chat { get; }

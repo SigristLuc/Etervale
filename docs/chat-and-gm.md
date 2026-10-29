@@ -27,7 +27,7 @@ composes, shows and limits what the player types.
 | `Shared/PristonTale.Application/GameMasters/GameMasterCommands.cs` | The command table, `HandleAsync`, the audit entry of every matched command |
 | `.../GameMasters/Gm*Commands.cs` | Information, player, item, monster, server and account commands |
 | `.../GameMasters/GameMasterServices.cs` | `GameMasterOptions`, `IServerOperations`, item-creation overrides |
-| `.../GameMasters/ShutdownCountdown.cs`, `CurrencyLedger.cs`, `GmGifts.cs` | Shutdown notices; gold that left the economy; durable item gifts |
+| `.../GameMasters/ShutdownCountdown.cs`, `CurrencyLedger.cs`, `GmGifts.cs` | Shutdown notices; gold that left the economy (also logged per period, [application.md](application.md#game-logs)); durable item gifts |
 | `Shared/PristonTale.Application/World/WorldServer.Chat.cs`, `WorldServer.GameMasters.cs` | Tick-side reads and changes |
 | `Shared/PristonTale.Protocol/Packets/ChatPackets.cs` | The typed line the client sends and the lines it receives |
 | `Shared/PristonTale.Contracts/Social/ChatKind.cs` | The kind of a chat line, used by the server, the wire and the chat log |
