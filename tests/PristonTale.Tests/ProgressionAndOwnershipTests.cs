@@ -21,6 +21,7 @@ internal static class ProgressionAndOwnershipTests
         yield return ("original XP thresholds, multi-level rewards and job gate", ProgressionAsync);
         yield return ("inventory footprints, split identities and rejected swaps are atomic", GridAsync);
         yield return ("an item set down over one other takes its place and the other moves where it was or to free space", SwapAsync);
+        yield return ("items received fill the bag down each column before the next, as the original sets them", FillAsync);
         yield return ("the second bag page and weapon pair hide and return their items, still carried and saved", SidesAsync);
         yield return ("a bag item on the cursor goes along to the page shown, and a page without room for it refuses the switch", CarriedPageAsync);
         yield return ("quest items go to the special item box down each column, the bag takes them when it is full, and quests find them there",
@@ -104,13 +105,24 @@ internal static class ProgressionAndOwnershipTests
         Assert.True(!inventory.TrySwap(5, 9) && inventory.Version == before && inventory[5].InstanceId == sword.InstanceId,
             "a swap over two items was accepted");
 
-        // The covered armour does not fit where a 1x1 stone was (a blocker beside it): it goes to the first free space.
+        // The covered armour does not fit where a 1x1 stone was (a blocker beside it): it goes to the first free space down
+        // the first column, under the stone's old cell.
         var crowded = new Inventory();
         var stone = Item(5, 1, 1);
         var other = Item(6, 2, 3);
         Assert.True(crowded.TryPlace(stone, 0) && crowded.TryPlace(Item(7, 1, 1), 1) && crowded.TryPlace(other, 5), "fixture placement failed");
-        Assert.True(crowded.TrySwap(0, 5) && crowded[5].InstanceId == stone.InstanceId && crowded.Find(other.InstanceId) == 2,
+        Assert.True(crowded.TrySwap(0, 5) && crowded[5].InstanceId == stone.InstanceId && crowded.Find(other.InstanceId) == crowded.Width,
             "the covered item did not go to the first free space");
+        return Task.CompletedTask;
+    }
+
+    private static Task FillAsync()
+    {
+        var bag = new Inventory();
+        var crystals = Enumerable.Range(0, 4).Select(_ => new ItemInstance(new ItemDefinition(1, "Crystal", ItemKind.Misc, GridWidth: 2, GridHeight: 2))).ToArray();
+        Assert.True(crystals.All(bag.TryAdd), "a crystal did not fit");
+        var anchors = crystals.Select(crystal => bag.Find(crystal.InstanceId)).ToArray();
+        Assert.True(anchors.SequenceEqual([0, 2 * bag.Width, 4 * bag.Width, 2]), $"the crystals were not set down each column first: {string.Join(", ", anchors)}");
         return Task.CompletedTask;
     }
 

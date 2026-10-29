@@ -44,7 +44,7 @@ progression, regeneration and movement rates. `World/`, `Physics/` and `Skills/`
 | `Items/ItemUsability.cs`, `CarriedWeight.cs` | Requirement and class checks; carried weight and the weight limit checks |
 | `Items/ItemAbsorbCorrection.cs` | Absorb added to armor, robes, boots, gloves and shields by catalog number |
 | `Items/ItemDetailView.cs`, `ItemRuleMessages.cs` | Owner view of one copy; the texts of item refusals |
-| `Items/Inventory.cs` | Bitmask grid with anchors, stacking, move/split/merge/exchange |
+| `Items/Inventory.cs` | Bitmask grid with anchors, stacking, move/split/merge/exchange; an item added without a place goes to the first free space down each column from the left |
 | `Items/StoreGrid.cs` | The 9x9 store grid of the warehouse and the shops |
 | `Items/InventoryCommand.cs` | `InventoryCommand` and `InventoryCommands.Apply` |
 | `Items/ItemCodes.cs` | Catalog key (`WA101`) to 32-bit item code and back, for every item family; `KeyOf` gives the key or "" for an empty slot |

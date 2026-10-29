@@ -423,13 +423,18 @@ public sealed class Inventory
     private int Destination(ReadOnlySpan<uint> rows, int preferred, ItemDefinition definition) =>
         Fits(preferred, definition, rows) ? preferred : FindSpace(definition, rows);
 
+    // The first free space down each column from the left, as the original's client fills the bag: items received one
+    // after another stack under each other before taking the next column.
     private int FindSpace(ItemDefinition definition, ReadOnlySpan<uint> rows)
     {
-        for (var index = 0; index < Capacity; index++)
+        for (var x = 0; x < Width; x++)
         {
-            if (Fits(index, definition, rows))
+            for (var y = 0; y < Height; y++)
             {
-                return index;
+                if (Fits(y * Width + x, definition, rows))
+                {
+                    return y * Width + x;
+                }
             }
         }
 
