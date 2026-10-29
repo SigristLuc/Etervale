@@ -3,7 +3,8 @@ using PristonTale.Simulation.Items;
 namespace PristonTale.Simulation.Characters;
 
 // The special item box (QuestItemBox) and how items reach the character: what it receives goes to the box when the box
-// keeps it, as the original sets it, and to the bag otherwise.
+// keeps it, as the original sets it, a potion to the belt, an item that can be worn on its empty slot, and to the bag
+// otherwise.
 public sealed partial class PlayerCharacter
 {
     public QuestItemBox QuestBox { get; } = new();
@@ -17,7 +18,7 @@ public sealed partial class PlayerCharacter
             return true;
         }
 
-        return Inventory.TryAdd(item);
+        return TryReceiveOnBelt(item) || TryWearReceived(item) || Inventory.TryAdd(item);
     }
 
     // A box item left in the bag (the box was full) into the first free box (InventoryAction.StoreQuestItem).

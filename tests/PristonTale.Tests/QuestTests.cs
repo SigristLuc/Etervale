@@ -259,9 +259,13 @@ internal static class QuestTests
             && active is { State: 3, WeaponStage: 1, WeaponKillsLeft: 30, WeaponCreatedUnixMs: 1000 }, "the quest weapon differs");
         Assert.True(RankUpByQuestWeapon.IsBound(fighter, weapon), "the quest weapon is not bound");
 
+        // The forged weapon goes on the empty weapon slot, as any item received; taken off, it counts no kill.
+        Assert.True(fighter.GetEquipped(EquipmentSlot.Weapon) == weapon && fighter.TryUnequip(EquipmentSlot.Weapon), "the forged weapon was not worn");
         Kill(fighter, QuestMonsters.Bargon, 30);
         Assert.True(fighter.Quests.Active.WeaponKillsLeft == 30, "kills counted with the weapon unequipped");
         Assert.True(fighter.TryEquipFromInventory(fighter.Inventory.Find(weapon.InstanceId), EquipmentSlot.Weapon), "the quest weapon cannot be wielded");
+        // The bag kept a copy of the weapon taken off: follow the one worn now.
+        weapon = fighter.GetEquipped(EquipmentSlot.Weapon);
         Kill(fighter, QuestMonsters.HeadCutter, 5);
         var context = Context(fighter);
         var grows = false;

@@ -412,8 +412,11 @@ totals.
   to the bag (first free place); an off-hand item first sends a held two-handed weapon there; then the item in the
   slot takes the bag cell. Without room nothing changes. `InventoryCommands.Refusal` names an unusable item
   (`ItemRuleMessages.CannotUse`).
-- `WearIfFree(itemId)`: a bag item goes on the first empty slot that `CanEquip` allows, as the original's client does
-  with an item it receives (a starter gift); otherwise it stays in the bag.
+- An item the character receives (`TryReceive`: a pickup, a starter or game master's gift, a quest grant, a prize)
+  goes on the first empty slot that `CanEquip` allows (`TryWearReceived`), as the original's client wears what it
+  receives: an armour on an empty armour slot, rings on either free ring slot, never a two-handed weapon beside an
+  off-hand item or an item whose requirements are not met. A full bag does not keep it off an empty slot; otherwise
+  it goes to the bag.
 - `TryUnequip` needs inventory space and is refused while the character is overweight (`ItemRuleMessages.OverWeight`).
 - `ReceiveGroundLoot` refuses an item that would carry the character over the weight limit.
 - `EquipmentSlot` has no helmet and keeps `Sheltom` separate (the persisted equipment order).
@@ -440,14 +443,19 @@ totals.
   `Derived.PotionSpace` potions. `BeltPut` fills a box from the bag or another box (count 0: as many as fit; a box of
   another potion sends its stack to the bag first, or two boxes change places), `BeltTake` returns a box to the bag,
   `ConsumePotion` drinks from a box as from the bag, and an equip or unequip that lowers the space sends the excess
-  back to the bag (`FitBeltToPotionSpace`). Owner views give a belt item the slot `PotionBelt.FirstOwnerSlot` + box
+  back to the bag (`FitBeltToPotionSpace`). A potion the character receives (`TryReceive`, so a pickup too) goes to the
+  belt first (`TryReceiveOnBelt`): it fills the boxes of the same potion up to the space, then the empty boxes in
+  order, and the bag takes the rest; when the bag has no room for the rest, nothing moves and the receive fails. The
+  original takes the boxes strictly in order (an empty first box before a half-full second one of the same potion) and
+  sends a box's overflow straight to the bag. Owner views give a belt item the slot `PotionBelt.FirstOwnerSlot` + box
   (`OwnedItemView.BeltBox`); saved items carry `Belt` and restore after the gear that sets the space.
 - The special item box (`QuestItemBox`, `PlayerCharacter.QuestBox`): 18 boxes of one unit each (6 columns by 3 rows)
   for the quest items QT101 to QT116 and the ingredients MA101, MA201 and MA202 (`QuestItems.Boxed`) and the wings
   QW101 to QW106 (`WingGates.IsWing`), which the wing gate reads there too. What the character
   receives (`TryReceive`: pickups, quest grants and drops, prizes) goes into the first free box down each column, then
-  the next column, and to the bag when the box is full or does not keep it; `StoreQuestItem` moves such an item left in
-  the bag into a freed box. Quests count and remove items there and on both bag pages (`BagPages`). Owner views give a
+  the next column, and when the box is full or does not keep it to the potion belt (a potion) or the bag;
+  `StoreQuestItem` moves such an item left in the bag into a freed box. Quests count and remove items there and on both
+  bag pages (`BagPages`). Owner views give a
   box item the slot `QuestItemBox.FirstOwnerSlot` + box (`OwnedItemView.QuestBox`); saved items carry `QuestBox`.
   `ItemSlots` is the row of one-item boxes the belt and this box share (`Find`, `TakeAt`, `Occupied`).
 - `InventoryAction.Drop` and `DropGold` are handled by the Application (`GroundThrowTransactions`), as `Pickup` is;

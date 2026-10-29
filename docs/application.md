@@ -574,8 +574,8 @@ a hammer whatever its specialization; Etervale gives each class the family its l
 
 - Pace: the first gift 5 s after the character entered the world, each next one 3 s after the last ended. Once a
   second the tick hands a playing character whose gift is due to `StarterGiftRequests` (`OfferStarterGifts`).
-- `StarterGiftAppService.GiveAsync` runs it as a durable operation: the copy goes into the bag and on the first empty
-  slot that may hold it (`PlayerCharacter.WearIfFree`, as the original's client does with an item it receives), the
+- `StarterGiftAppService.GiveAsync` runs it as a durable operation: the copy is received as any item
+  (`PlayerCharacter.TryReceive`: on the first empty slot that may hold it, else into the bag), the
   count rises with it, the chat tells the player "You received <item> as a gift.", and an item effect
   (`ItemEffectKind.StarterGift`, the gift's order in `Variant`) lets its client open the beginner's guide to the first
   weapon and armour. A gift without room in the bag

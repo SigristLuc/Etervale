@@ -23,6 +23,7 @@ internal static class PotionTests
         yield return ("potions restore at the EAT event once, clamp resources and cannot revive", TimingAsync);
         yield return ("the potion belt fills its boxes up to the potion space, exchanges kinds, drinks, returns to the bag and is saved", BeltAsync);
         yield return ("a potion is consumed and restores only at its commit, once, and a replay consumes nothing more", DurabilityAsync);
+        yield return ("a received potion fills the boxes of the same potion, then the empty ones, and the bag takes the rest", ReceivedOnBeltAsync);
     }
 
     private static Task TimingAsync()
@@ -174,6 +175,45 @@ internal static class PotionTests
         CharacterStateCodec.Restore(restored, record, new ItemCatalog([life, mana]));
         Assert.True(restored.Belt[0]?.InstanceId == character.Belt[0].InstanceId && restored.Belt[0].Count == before - 1 && restored.Belt[2] is null,
             "the belt was not saved and restored");
+        return Task.CompletedTask;
+    }
+
+    private static Task ReceivedOnBeltAsync()
+    {
+        static ItemDefinition Potion(uint code, string key) =>
+            new(code, key, ItemKind.Potion, MaxStack: 100) { CatalogKey = key, Potion = new PotionDefinition(10, 10, 0, 0, 0, 0) };
+        var life = Potion(1, "PL101");
+        var mana = Potion(2, "PM101");
+        var classes = new CharacterClassRegistry();
+        var character = classes.CreatePlayer(PlayerClass.Fighter, "Pickup");
+        int BagCount(ItemDefinition definition) => character.OwnedItems().Where(item => item.Definition == definition && character.Inventory.Find(item.InstanceId) >= 0).Sum(item => item.Count);
+        var space = character.Derived.PotionSpace;
+        Assert.True(space >= 2, "the fixture needs room for two potions in a box");
+
+        // Box 1 holds one mana potion, box 2 one life potion, box 3 is empty.
+        Assert.True(character.TryReceive(new ItemInstance(mana, 1)) && character.Belt[0]?.Definition == mana && BagCount(mana) == 0,
+            "a received potion did not go to the first empty box");
+        Assert.True(character.Inventory.TryAdd(new ItemInstance(life, 1)) && character.TryPutOnBelt(character.OwnedItems().First(item => item.Definition == life).InstanceId, 1, 1),
+            "fixture life potion did not reach box 2");
+
+        // The life potion box fills first, the empty box next, the mana box is passed over and the bag takes the rest.
+        Assert.True(character.ReceiveGroundLoot(new ItemInstance(life, space - 1 + space + 3), 0), "the potion pickup was refused");
+        Assert.True(character.Belt[1].Count == space && character.Belt[2]?.Definition == life && character.Belt[2].Count == space
+            && character.Belt[0].Definition == mana && character.Belt[0].Count == 1 && BagCount(life) == 3,
+            "the pickup did not fill the same potion's box, then the empty box, leaving the rest in the bag");
+        Assert.True(character.TryReceive(new ItemInstance(mana, space)) && character.Belt[0].Count == space && BagCount(mana) == 1,
+            "a mana potion did not top up its own box before the bag");
+        Assert.True(character.TryReceive(new ItemInstance(life, 2)) && BagCount(life) == 5, "with its boxes full a potion did not join its bag stack");
+
+        // With the bag full, a pickup the belt cannot hold whole is refused and nothing moves; one it can hold is taken.
+        var full = classes.CreatePlayer(PlayerClass.Fighter, "Full");
+        var block = new ItemDefinition(3, "Block", ItemKind.Misc, GridWidth: Inventory.DefaultWidth, GridHeight: Inventory.DefaultHeight);
+        Assert.True(full.Inventory.TryPlace(new ItemInstance(block), 0), "fixture block did not fill the bag");
+        var tooMany = new ItemInstance(life, PotionBelt.Boxes * space + 1);
+        var revision = full.InventoryRevision;
+        Assert.True(!full.TryReceive(tooMany) && tooMany.Count == PotionBelt.Boxes * space + 1 && full.Belt.Occupied().Count() == 0
+            && full.InventoryRevision == revision, "a refused potion pickup changed the belt or the stack");
+        Assert.True(full.TryReceive(new ItemInstance(life, space)) && full.Belt[0].Count == space, "a potion the belt can hold was refused with the bag full");
         return Task.CompletedTask;
     }
 }
