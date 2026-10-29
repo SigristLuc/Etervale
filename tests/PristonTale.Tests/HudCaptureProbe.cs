@@ -9,6 +9,7 @@ using PristonTale.Engine3D.IO;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Gameplay.UI;
+using PristonTale.Gameplay.UI.Help;
 using PristonTale.Gameplay.UI.Inventory;
 using PristonTale.Gameplay.UI.Npc;
 using PristonTale.Gameplay.UI.Quests;
@@ -56,6 +57,17 @@ internal sealed class HudCaptureProbe : Game
         RestartTown
     }
 
+    // The help window's page a scenario opens, or the level guide's notice it offers.
+    private enum ProbeHelp
+    {
+        None,
+        Window,
+        GuideList,
+        GuidePage,
+        Notice,
+        Summary
+    }
+
     // Quest states a scenario sets up: the server's answer to the talk, the journal and the clicks that follow.
     private enum ProbeQuest
     {
@@ -90,7 +102,8 @@ internal sealed class HudCaptureProbe : Game
         PlayerClass Class = PlayerClass.Mechanician, bool Npc = false, bool Settings = false, bool SystemMenu = false, bool Learned = false,
         bool Training = false, bool LowHealth = false, float Hour = 13, bool ClassicTarget = false, ulong Target = 2, ulong NpcId = SkillMasterNpc,
         int ServiceButton = -1, bool SellMode = false, int ServiceCount = 2, int RightSelect = -1, bool Buffs = false, bool Block = false,
-        ProbeQuest Quest = ProbeQuest.None, bool Dead = false, bool FieldOpen = true, ProbeCarry Carry = ProbeCarry.None);
+        ProbeQuest Quest = ProbeQuest.None, bool Dead = false, bool FieldOpen = true, ProbeCarry Carry = ProbeCarry.None,
+        ProbeHelp Help = ProbeHelp.None);
 
     private static readonly Scenario[] Scenarios =
     [
@@ -167,7 +180,13 @@ internal sealed class HudCaptureProbe : Game
         new("quest-window-1600x1200-scale2", 1600, 1200, Keys.Q, Quest: ProbeQuest.WindowDescription),
         new("quest-timer-800", 800, 600, Hover: Hover.QuestTimer, Quest: ProbeQuest.Timer),
         new("quest-timer-buffs-800", 800, 600, Buffs: true, Quest: ProbeQuest.Timer),
-        new("quest-skill-reset-800", 800, 600, Quest: ProbeQuest.SkillReset)
+        new("quest-skill-reset-800", 800, 600, Quest: ProbeQuest.SkillReset),
+        new("help-window-800", 800, 600, Help: ProbeHelp.Window),
+        new("help-guide-list-800", 800, 600, Learned: true, Help: ProbeHelp.GuideList),
+        new("help-guide-page-800", 800, 600, Learned: true, Help: ProbeHelp.GuidePage),
+        new("help-guide-page-1600x1200-scale2", 1600, 1200, Learned: true, Help: ProbeHelp.GuidePage),
+        new("help-level-notice-800", 800, 600, Help: ProbeHelp.Notice),
+        new("help-level-summary-800", 800, 600, Help: ProbeHelp.Summary)
     ];
 
     private readonly string _assetRoot;
@@ -184,6 +203,8 @@ internal sealed class HudCaptureProbe : Game
     private bool _prepared;
     private int _preparedFrame;
     private bool _carried;
+    // The help scenario's window page or notice is up (they wait for the guide's files).
+    private bool _helpReady;
     private readonly PresentationSettings _presentation = new();
 
     public HudCaptureProbe(string assetRoot, string contentRoot, string output, string? background)
@@ -368,6 +389,7 @@ internal sealed class HudCaptureProbe : Game
                 Click(state, layout, HudQuestWindow.Row(HudQuestWindow.Origin(layout), 0).Center);
             }
 
+            _helpReady = scenario.Help == ProbeHelp.None;
             if (scenario.Training)
             {
                 Click(state, layout, HudNpcPanel.TrainingButton(layout).Center);
@@ -389,6 +411,12 @@ internal sealed class HudCaptureProbe : Game
                 _preparedFrame = _frames;
             }
 
+            if (!_helpReady && _hud.HelpWindow.Book.Subjects.Count > 0)
+            {
+                PrepareHelp(scenario);
+                _helpReady = true;
+            }
+
             // A carry keeps the HUD clock at the frame rate, so the notice its refusal shows is still up when captured.
             _hud.Update(ScenarioState(scenario), default, Pointer(scenario), scenario.Carry == ProbeCarry.None ? 1 : 1d / 60);
             if (scenario.Block)
@@ -402,7 +430,7 @@ internal sealed class HudCaptureProbe : Game
     {
         // A dead scenario waits for the restart window to open after the death motion; a carry for its clicks to settle.
         if (!_prepared || !_hud.IsReady || !_hud.IconsIdle || _scenario >= Scenarios.Length || Scenarios[_scenario].Dead && !_hud.Restart.Open
-            || !_carried || Scenarios[_scenario].Carry != ProbeCarry.None && _frames - _preparedFrame < 10)
+            || !_carried || !_helpReady || Scenarios[_scenario].Carry != ProbeCarry.None && _frames - _preparedFrame < 10)
         {
             GraphicsDevice.SetRenderTarget(null);
             return;
@@ -433,6 +461,30 @@ internal sealed class HudCaptureProbe : Game
         _target?.Dispose();
         _background?.Dispose();
         _batch.Dispose();
+    }
+
+    // Opens the help window on the scenario's page through its clicks, or offers the notice of the level-10 guide page.
+    private void PrepareHelp(Scenario scenario)
+    {
+        var state = ScenarioState(scenario);
+        var layout = HudLayout.Create(scenario.Width, scenario.Height);
+        if (scenario.Help is ProbeHelp.Notice or ProbeHelp.Summary)
+        {
+            _hud.LevelGuide.Offer(_hud.HelpWindow.Book.Page(10, tempskron: true)!, atOnce: scenario.Help == ProbeHelp.Summary);
+            return;
+        }
+
+        Click(state, layout, layout.Bottom(HudBar.MenuButton(HudMenuButton.System)).Center);
+        Click(state, layout, layout.Bottom(HudSystemMenu.Entry(HudSystemEntry.Help)).Center);
+        if (scenario.Help != ProbeHelp.Window)
+        {
+            Click(state, layout, HudHelpWindow.GuideLink.Center);
+        }
+
+        if (scenario.Help == ProbeHelp.GuidePage)
+        {
+            Click(state, layout, HudHelpWindow.ListRow(0).Center);
+        }
     }
 
     private void Carry(Scenario scenario)

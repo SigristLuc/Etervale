@@ -4,6 +4,7 @@ using PristonTale.Application.World;
 using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Contracts.Characters;
 
@@ -51,11 +52,17 @@ internal static class StarterGiftTests
         var (fixture, gifts, fresh) = await NewcomerAsync();
         var character = fresh.Session.Character!;
         var ticks = new List<int>();
+        var effects = new List<ItemEffectView>();
         var tick = 0;
         while (ticks.Count < StarterGifts.Count && tick < OfferTicks * (StarterGifts.Count + 1))
         {
             fixture.Tick(1);
             tick++;
+            while (fresh.Outbox.Reader.TryRead(out var snapshot))
+            {
+                effects.AddRange(snapshot.ItemEffects.Where(effect => effect.Effect == ItemEffectKind.StarterGift));
+            }
+
             if (fixture.World.StarterGiftRequests.TryRead(out var session))
             {
                 ticks.Add(tick);
@@ -73,6 +80,15 @@ internal static class StarterGiftTests
             && fixture.Characters.Records["Fresh"].StarterGiftsReceived == StarterGifts.Count, "the crystals or the stored count are wrong");
         Assert.True(fresh.Link.Lines.Count(line => line.Text == StarterGifts.Message("Short Bow")) == 1
             && fresh.Link.Lines.Count(line => line.Text == StarterGifts.Message("Hopy Crystal")) == 3, "each gift was not told in the chat");
+
+        fixture.Tick(2);
+        while (fresh.Outbox.Reader.TryRead(out var snapshot))
+        {
+            effects.AddRange(snapshot.ItemEffects.Where(effect => effect.Effect == ItemEffectKind.StarterGift));
+        }
+
+        Assert.True(effects.Select(effect => (effect.EntityId, effect.Variant)).SequenceEqual(Enumerable.Range(0, StarterGifts.Count).Select(index => (fresh.Id, index)))
+            && effects[0].ItemCode == Bow.Code, $"the gifts' effects for the beginner's guide are wrong: {string.Join(", ", effects.Select(effect => effect.Variant))}");
 
         fixture.Tick(OfferTicks * 2);
         Assert.True(!fixture.World.StarterGiftRequests.TryRead(out _), "a character with every gift was offered another");

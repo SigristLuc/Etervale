@@ -3,11 +3,12 @@ using PristonTale.Application.Sessions;
 using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
+using PristonTale.Simulation.Items.Usable;
 
 namespace PristonTale.Application.World;
 
 // What a starter gift gave: the item's name, or null when it found no room (it is offered again after the interval).
-public sealed record StarterGiftOutcome(string? ItemName);
+public sealed record StarterGiftOutcome(string? ItemName, uint ItemCode = 0, int Index = 0);
 
 // The starter gifts of new characters (StarterGifts): the tick hands a playing character whose gift is due to the gift
 // service, which gives it as a durable operation; the next comes StarterGifts.Interval after that one ended.
@@ -70,7 +71,7 @@ public sealed partial class WorldServer
                 candidate.CountStarterGift();
             });
             return new PreparedCharacterOperation<StarterGiftOutcome>(original, candidate, snapshot,
-                new StarterGiftOutcome(candidate is null ? null : item?.DisplayName));
+                new StarterGiftOutcome(candidate is null ? null : item?.DisplayName, item?.Definition.Code ?? 0, original.StarterGiftsReceived));
         }, waitForCapacity: true);
     }
 
@@ -81,6 +82,12 @@ public sealed partial class WorldServer
             var candidate = CheckReceived(session, operation, "a starter gift");
             operation.Original.CommitInventoryOperation(candidate);
             operation.Original.RestoreStarterGifts(candidate.StarterGiftsReceived);
+            if (operation.Outcome.ItemName is not null && TryGetPlaying(session, out var connection) && _fields.TryGetValue(connection.FieldId, out var field))
+            {
+                field.ItemEvents.Add(new ItemEffectView(connection.Player.EntityId, operation.Outcome.ItemCode,
+                    ItemEffectKind.StarterGift, connection.Player.Position, operation.Outcome.Index));
+            }
+
             return true;
         }, waitForCapacity: true);
     }

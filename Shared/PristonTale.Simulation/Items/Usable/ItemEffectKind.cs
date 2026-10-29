@@ -16,5 +16,8 @@ public enum ItemEffectKind : byte
     // The drink sound of a booster or a puzzle reveal.
     Drink = 8,
     // A gift box or capsule opened: the orange light of the eat event.
-    GiftBox = 9
+    GiftBox = 9,
+    // A new character's starter gift came (its order in Variant, its item in ItemCode); its owner's client shows the
+    // beginner's guide to it.
+    StarterGift = 10
 }

@@ -70,6 +70,7 @@ public sealed class GameplayScreen : GameScreen
         _hud.GroundLabels = _groundLabels;
         _hud.GroundLabelPlaced = _scene.PlaceGroundLabel;
         _scene.PresenceObserved += _hud.ObserveChat;
+        _scene.PresenceObserved += _hud.ObserveGuide;
         _hud.Chat.WhisperArrived += _scene.PlayWhisper;
         _hud.Chat.CloseRequested += RequestExit;
         _hud.ExitRequested += RequestExit;
@@ -263,6 +264,7 @@ public sealed class GameplayScreen : GameScreen
             _scene.PresenceObserved -= _hud.StringEffect.Observe;
             _scene.PresenceObserved -= _hud.ObserveQuests;
             _scene.PresenceObserved -= _hud.ObserveChat;
+            _scene.PresenceObserved -= _hud.ObserveGuide;
             _hud.Chat.WhisperArrived -= _scene.PlayWhisper;
             _hud.Chat.CloseRequested -= RequestExit;
             _hud.ExitRequested -= RequestExit;

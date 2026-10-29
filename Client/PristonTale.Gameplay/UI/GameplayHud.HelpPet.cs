@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
+using PristonTale.Gameplay.UI.Help;
 using PristonTale.Gameplay.UI.HelpPet;
 using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Simulation.Characters;
@@ -26,7 +27,7 @@ public sealed partial class GameplayHud
         if (state is not null)
         {
             var percent = (int)(HudBar.ExperienceFraction(state) * 100);
-            _helpPet.Update(new HelpPetState(HelperPet.Kind, state.Level, percent, state.Level == 1 && state.Experience == 0, _class, InTown, PlayerActing),
+            _helpPet.Update(new HelpPetState(HelperPet.Kind, state.Level, percent, HudLevelGuide.Fresh(state.Level, state.Experience), _class, InTown, PlayerActing),
                 nowMs);
         }
 

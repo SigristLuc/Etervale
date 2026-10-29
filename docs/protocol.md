@@ -329,7 +329,8 @@ Every body starts with `{uint16 Version = 1, uint16 Flags = 0}`; text is UTF-8 w
 
 `Status` is `ItemUseStatus`; `Kind` is `PremiumEffectKind`; `Effect` is `ItemEffectKind` (1 firecracker with its roll
 in `Variant`, 2 mastery, 3 force orb, 4 learn, 5 pet strike with the pet kind in `ItemCode` and the struck entity in
-`Target`, 6 return sparkle at the given position, 7 head change, 8 drink, 9 gift box). Player descriptions carry the
+`Target`, 6 return sparkle at the given position, 7 head change, 8 drink, 9 gift box, 10 a new character's starter gift
+with its order in `Variant`, for its owner's beginner's guide). Player descriptions carry the
 Phoenix flag, the helper pet and the head look (1-2 big head, 3 soccer ball). A sealed puzzle piece travels as the PZ100
 code with the name "Lucky Bag". The puzzle
 collector's exchange is the NPC service action `Exchange` (40) on `QuestEvent`.

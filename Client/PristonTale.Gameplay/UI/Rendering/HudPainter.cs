@@ -310,6 +310,57 @@ public sealed class HudPainter : IDisposable
         }
     }
 
+    // The help boxes' scroll bar: an 8-pixel bar of the given length and its knob, which travels the length less
+    // ScrollKnobSlack as position goes from 0 to range.
+    public const int ScrollKnobSlack = 20;
+
+    public void ScrollBar(int x, int y, int length, int position, int range)
+    {
+        Stretch(HudArt.ScrollBar, new Rectangle(x, y, 8, length));
+        Sprite(HudArt.ScrollButton, x - 4, y + (length - ScrollKnobSlack) * position / Math.Max(1, range));
+    }
+
+    // The position a click at pointerY on a scroll bar from y of the given length asks for.
+    public static int ScrollPosition(int y, int length, int pointerY, int range) =>
+        Math.Clamp((int)Math.Round((pointerY - y) * range / (double)(length - ScrollKnobSlack)), 0, Math.Max(0, range));
+
+    // Guide box (the helper pet's and the level guide's): 32-pixel corners, 16-pixel edge and fill tiles, columns of 16
+    // pixels between the corners and rows 13 pixels apart (the tiles overlap).
+    public const int GuideCorner = 32;
+    public const int GuideTile = 16;
+    public const int GuideRowStep = 13;
+
+    public void GuideBox(int x, int y, int columns, int rows)
+    {
+        var right = GuideBoxRight(x, columns);
+        var bottom = GuideBoxBottom(y, rows);
+        Stretch(HudArt.GuideBox[0], new Rectangle(x, y, GuideCorner, GuideCorner));
+        Stretch(HudArt.GuideBox[2], new Rectangle(right, y, GuideCorner, GuideCorner));
+        for (var row = 0; row < rows; row++)
+        {
+            var rowY = y + GuideCorner + row * GuideRowStep;
+            Stretch(HudArt.GuideBox[3], new Rectangle(x, rowY, GuideCorner, GuideTile));
+            Stretch(HudArt.GuideBox[5], new Rectangle(right, rowY, GuideCorner, GuideTile));
+            for (var column = 0; column < columns; column++)
+            {
+                Stretch(HudArt.GuideBox[4], new Rectangle(x + GuideCorner + column * GuideTile, rowY, GuideTile, GuideTile));
+            }
+        }
+
+        Stretch(HudArt.GuideBox[6], new Rectangle(x, bottom, GuideCorner, GuideCorner));
+        Stretch(HudArt.GuideBox[8], new Rectangle(right, bottom, GuideCorner, GuideCorner));
+        for (var column = 0; column < columns; column++)
+        {
+            Stretch(HudArt.GuideBox[1], new Rectangle(x + GuideCorner + column * GuideTile, y, GuideTile, GuideCorner));
+            Stretch(HudArt.GuideBox[7], new Rectangle(x + GuideCorner + column * GuideTile, bottom, GuideTile, GuideCorner));
+        }
+    }
+
+    // The left of the guide box's right corners, and the top of its bottom edge.
+    public static int GuideBoxRight(int x, int columns) => x + GuideCorner + GuideTile * columns;
+
+    public static int GuideBoxBottom(int y, int rows) => y + GuideCorner - 2 + rows * GuideRowStep;
+
     public static Rectangle HelpBoxBounds(int x, int y, int sizeW, int sizeH) => new(x, y, Math.Max(2, sizeW) * 32 + 64, Math.Max(2, sizeH) * 32 + 32);
 
     // The box behind a name over the scene (monsters, NPCs, drops): the speech bubble's dark fill and gold rim with

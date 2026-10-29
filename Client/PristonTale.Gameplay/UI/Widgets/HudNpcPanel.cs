@@ -226,9 +226,7 @@ public sealed class HudNpcPanel(
         {
             var barX = BoxX + (SizeW - 1) * 32 + 80 - 6;
             var height = capacity * 15 + 16;
-            painter.Stretch(HudArt.ScrollBar, new Rectangle(barX, BoxY + 53, 8, height));
-            var travel = (height - 20) * _firstLine / Math.Max(1, lines.Length - capacity);
-            painter.Sprite(HudArt.ScrollButton, barX - 4, BoxY + 53 + travel);
+            painter.ScrollBar(barX, BoxY + 53, height, _firstLine, lines.Length - capacity);
         }
 
         DrawButtons(painter, pointer);

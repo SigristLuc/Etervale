@@ -163,6 +163,7 @@ public sealed partial class GameplayHud : IDisposable
         SetUpParty();
         SetUpTrade();
         SetUpContacts();
+        SetUpHelp();
     }
 
     // The chat window, its input line and the speech bubbles.
@@ -213,7 +214,7 @@ public sealed partial class GameplayHud : IDisposable
     public float MinimapViewSize => _minimap.CurrentViewSize;
     public bool PointerCaptured { get; private set; }
     public bool AssetsFailed => _sprites.Failed || _icons.Failed;
-    public bool IconsIdle => _icons.IsIdle && _sprites.IsIdle && !_questDocuments.IsLoading;
+    public bool IconsIdle => _icons.IsIdle && _sprites.IsIdle && !_questDocuments.IsLoading && !_helpTexts.IsLoading;
     public long TextureBytes => _sprites.TextureBytes;
     public bool RightAttackEnabled => _bindings.RightSkillId == HudSkillBindings.BasicAttackId;
     internal uint LeftSkillId => _bindings.LeftSkillId;
@@ -321,7 +322,8 @@ public sealed partial class GameplayHud : IDisposable
             || _questWindow.Open || _partyWindow.Open || _quests.Dialog is not null || _quests.SkillResetBox;
         closed |= _personalShop.Close();
         CloseServices();
-        closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming || _wingGate.IsOpen || _wingGate.Confirming;
+        closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming || _wingGate.IsOpen || _wingGate.Confirming || _helpWindow.IsOpen;
+        _helpWindow.Close();
         _itemUse.Close();
         _wingGate.Close();
         _puzzle.Close();
@@ -411,6 +413,10 @@ public sealed partial class GameplayHud : IDisposable
         {
             _npc.Scroll(mouse.ScrollWheelValue - _previousMouse.ScrollWheelValue);
         }
+        else if (mouse.ScrollWheelValue != _previousMouse.ScrollWheelValue && _helpWindow.Contains(pointer))
+        {
+            _helpWindow.Scroll(mouse.ScrollWheelValue - _previousMouse.ScrollWheelValue);
+        }
 
         if (state is not null && (_state is null || state.InventoryRevision != _state.InventoryRevision))
         {
@@ -439,6 +445,7 @@ public sealed partial class GameplayHud : IDisposable
         _hoveredButton = ButtonAt(design);
         _hoveredToggle = ToggleAt(design);
         UpdateHelpPet(state, layout, pointer, design, mouse, _clock.Elapsed.TotalMilliseconds);
+        UpdateHelp(state);
         var clicked = mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
         // A click the HUD takes stays its own when it closes the window under it (a close button over the ground).
         var clickTaken = clicked && Captures(layout, pointer, design);
@@ -627,6 +634,7 @@ public sealed partial class GameplayHud : IDisposable
 
         _painter.Flush();
         _helpPet.Draw(_painter, pointer);
+        DrawHelp(pointer);
 
         // The quest dialog takes the help box from the NPC dialog; its yes/no box replaces both, as the classic client closed
         // the help box before asking.

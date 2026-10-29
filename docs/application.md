@@ -567,7 +567,9 @@ specialization where the item takes it.
   second the tick hands a playing character whose gift is due to `StarterGiftRequests` (`OfferStarterGifts`).
 - `StarterGiftAppService.GiveAsync` runs it as a durable operation: the copy goes into the bag and on the first empty
   slot that may hold it (`PlayerCharacter.WearIfFree`, as the original's client does with an item it receives), the
-  count rises with it, and the chat tells the player "You received <item> as a gift.". A gift without room in the bag
+  count rises with it, the chat tells the player "You received <item> as a gift.", and an item effect
+  (`ItemEffectKind.StarterGift`, the gift's order in `Variant`) lets its client open the beginner's guide to the first
+  weapon and armour. A gift without room in the bag
   waits for the next offer; one the catalog lacks counts as given; a save gate held by another operation leaves it for
   the next offer. The game master's gift into a bag (`PrepareGiftAsync`) takes the same path (`Receive`,
   `CheckReceived`).

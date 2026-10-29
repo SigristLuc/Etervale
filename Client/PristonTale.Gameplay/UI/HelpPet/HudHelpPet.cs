@@ -33,14 +33,11 @@ public sealed class HudHelpPet(Task<HelpPetMessages> messages, Random random, IC
     public const int TextWidth = 440;
     // The original's steps also end at 100%, which the level's experience never passes.
     private static readonly int[] BattleSteps = [5, 10, 20, 30, 35, 40, 50, 60, 70, 80, 90];
-    // The box: 32-pixel corners, 16-pixel edge and fill tiles, rows 13 pixels apart (the tiles overlap).
+    // The box (HudPainter.GuideBox).
     private const int BoxX = 3;
     private const int BoxY = 3;
-    private const int Corner = 32;
-    private const int Tile = 16;
     private const int BoxColumns = 32;
     private const int MinRows = 4;
-    private const int RowStep = 13;
     // The text height the four rows hold (six lines); each further 13 pixels adds a row.
     private const int MinRowsText = 90;
     private const int TextX = 75;
@@ -55,10 +52,9 @@ public sealed class HudHelpPet(Task<HelpPetMessages> messages, Random random, IC
     private const string PetFolder = "image/Sinimage/PetData/";
     private const string OkArt = BoxFolder + "bltr_bt3_.bmp";
     private const string OkLitArt = BoxFolder + "bltr_bt3.bmp";
-    private static readonly string[] Frame = Enumerable.Range(1, 9).Select(index => $"{BoxFolder}GH-Box0{index}.tga").ToArray();
     private static readonly string[] Portraits =
         [PetFolder + "Pet_terry-pose.tga", PetFolder + "Pet_nepsys-pose.tga", PetFolder + "Pet_io-pose.tga", PetFolder + "Pet-mute-pose.tga"];
-    public static readonly string[] Art = [.. Frame, .. Portraits, OkArt, OkLitArt];
+    public static readonly string[] Art = [.. Portraits, OkArt, OkLitArt];
 
     private readonly Queue<Box> _queue = new();
     private readonly List<int> _idleLeft = new();
@@ -231,30 +227,8 @@ public sealed class HudHelpPet(Task<HelpPetMessages> messages, Random random, IC
         }
 
         _box.Wrapped ??= [.. _box.Lines.SelectMany(line => HudTextLayout.Wrap(line, TextWidth, text => painter.Measure(text)))];
-        _box.Rows = MinRows + Math.Max(0, (int)Math.Ceiling((_box.Wrapped.Length * LineHeight - MinRowsText) / (double)RowStep));
-        var right = BoxX + Corner + Tile * BoxColumns;
-        var bottom = Bottom(_box.Rows);
-        painter.Stretch(Frame[0], new Rectangle(BoxX, BoxY, Corner, Corner));
-        painter.Stretch(Frame[2], new Rectangle(right, BoxY, Corner, Corner));
-        for (var row = 0; row < _box.Rows; row++)
-        {
-            var y = BoxY + Corner + row * RowStep;
-            painter.Stretch(Frame[3], new Rectangle(BoxX, y, Corner, Tile));
-            painter.Stretch(Frame[5], new Rectangle(right, y, Corner, Tile));
-            for (var column = 0; column < BoxColumns; column++)
-            {
-                painter.Stretch(Frame[4], new Rectangle(BoxX + Corner + column * Tile, y, Tile, Tile));
-            }
-        }
-
-        painter.Stretch(Frame[6], new Rectangle(BoxX, bottom, Corner, Corner));
-        painter.Stretch(Frame[8], new Rectangle(right, bottom, Corner, Corner));
-        for (var column = 0; column < BoxColumns; column++)
-        {
-            painter.Stretch(Frame[1], new Rectangle(BoxX + Corner + column * Tile, BoxY, Tile, Corner));
-            painter.Stretch(Frame[7], new Rectangle(BoxX + Corner + column * Tile, bottom, Tile, Corner));
-        }
-
+        _box.Rows = MinRows + Math.Max(0, (int)Math.Ceiling((_box.Wrapped.Length * LineHeight - MinRowsText) / (double)HudPainter.GuideRowStep));
+        painter.GuideBox(BoxX, BoxY, BoxColumns, _box.Rows);
         painter.Stretch(Portraits[_box.Kind - 1], Portrait);
         var ok = OkButton(_box);
         painter.Sprite(ok.Contains(pointer) ? OkLitArt : OkArt, ok.X, ok.Y);
@@ -268,7 +242,7 @@ public sealed class HudHelpPet(Task<HelpPetMessages> messages, Random random, IC
     private bool Speaks => _book is not null && _kind != 0 && _level < HelpPets.LeaveLevel;
 
     // The top of the box's bottom edge: 85, as the original's, for four rows.
-    private static int Bottom(int rows) => BoxY + Corner - 2 + rows * RowStep;
+    private static int Bottom(int rows) => HudPainter.GuideBoxBottom(BoxY, rows);
 
     private static Rectangle OkButton(Box box) => new(OkX, Bottom(Math.Max(MinRows, box.Rows)) + OkBelowEdge, OkSize.X, OkSize.Y);
 

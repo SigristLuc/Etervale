@@ -137,7 +137,8 @@ public sealed partial class GameplayHud
             return;
         }
 
-        if (_helpPet.Click(pointer, _clock.Elapsed.TotalMilliseconds))
+        // The help window lies over the helper pet's box.
+        if (ClickHelp(pointer) || _helpPet.Click(pointer, _clock.Elapsed.TotalMilliseconds))
         {
             return;
         }
@@ -205,6 +206,13 @@ public sealed partial class GameplayHud
             {
                 _settingsOpen = true;
                 _systemMenu = false;
+                return;
+            }
+
+            if (entry == HudSystemEntry.Help)
+            {
+                _systemMenu = false;
+                _helpWindow.OpenHelp();
                 return;
             }
 
@@ -388,7 +396,7 @@ public sealed partial class GameplayHud
             return true;
         }
 
-        if (_helpPet.Captures(pointer) || CapturesParty(layout, pointer) || _tradeRequest.Captures(pointer) || _personalShop.Captures(pointer) || _itemUse.Captures(pointer) || _wingGate.Captures(pointer) || _puzzle.Captures(pointer) || _premium.Contains(pointer))
+        if (_helpPet.Captures(pointer) || CapturesHelp(pointer) || CapturesParty(layout, pointer) || _tradeRequest.Captures(pointer) || _personalShop.Captures(pointer) || _itemUse.Captures(pointer) || _wingGate.Captures(pointer) || _puzzle.Captures(pointer) || _premium.Contains(pointer))
         {
             return true;
         }

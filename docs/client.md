@@ -32,10 +32,11 @@ rendering internals, skill presentation and VFX data have their own documents (s
 | `Client/PristonTale.Gameplay/World/Remote/` | Remote actors: `RemoteEntityManager`, `RemoteSnapshotBuffer`, `RemoteServerClock`, actor composers, equipment visuals, ground loot, picking |
 | `Client/PristonTale.Gameplay/World/*.cs` (other) | `TargetSelection` (target frame owner), `NpcApproach`, `GroundTraversal`, `FieldCollisionQuery`, `LoadedField`, `EnteredCharacter` |
 | `Client/PristonTale.Gameplay/Combat/` | `ActorMotionController` (local motion state machine), `AttackInputController` (attack press/release and server reconcile) |
-| [`Client/PristonTale.Gameplay/UI/GameplayHud.cs`](../Client/PristonTale.Gameplay/UI/GameplayHud.cs) | In-game HUD root: windows, state, update and draw order. Partials: `.Input` (keys, click routing by priority, menu buttons and toggles, captures), `.Services` (NPC service windows and their actions, drops from the bag, icons), `.Quests` (dialog, boxes, quest window), `.Parties` (party window, request box, buttons under a player's portrait), `.PersonalShops`, `.Messages` (completed requests to the chat or the notice strip), `.HelpPet` (what the helper pet speaks of) |
+| [`Client/PristonTale.Gameplay/UI/GameplayHud.cs`](../Client/PristonTale.Gameplay/UI/GameplayHud.cs) | In-game HUD root: windows, state, update and draw order. Partials: `.Input` (keys, click routing by priority, menu buttons and toggles, captures), `.Services` (NPC service windows and their actions, drops from the bag, icons), `.Quests` (dialog, boxes, quest window), `.Parties` (party window, request box, buttons under a player's portrait), `.PersonalShops`, `.Messages` (completed requests to the chat or the notice strip), `.HelpPet` (what the helper pet speaks of), `.Help` (the help window, the level guide and its switch) |
 | `Client/PristonTale.Gameplay/UI/` (root) | `HudLayout` (800x600 design space), `LoginPanel`/`LoginLayout`/`TextInputField`, `DisplayConfirmation` |
 | `Client/PristonTale.Gameplay/UI/Widgets/` | Bottom bar, status window, skill tree and sockets, minimap, target frame and combat history (`HudCombat`), 3D target portrait, NPC dialog, settings panel, system menu, notices |
 | `Client/PristonTale.Gameplay/UI/Chat/` | Chat window, tabs, input line and speech bubbles (see [chat-and-gm.md](chat-and-gm.md)) |
+| `Client/PristonTale.Gameplay/UI/Help/` | The help window and the game guide: `HudHelpWindow` (help, guide list, guide page), `LevelGuideBook` (the guide's data), `HudLevelGuide` (the level guide's notice and summary), `HudHelpArt` |
 | `Client/PristonTale.Gameplay/UI/HelpPet/` | The beginner's helper pet's talk: `HelpPetMessages` (its texts) and `HudHelpPet` (help boxes and speech) |
 | `Client/PristonTale.Gameplay/UI/Inventory/` | Inventory window layout, drag/drop and equip commands |
 | `Client/PristonTale.Gameplay/UI/Npc/` | NPC service controller, shop and warehouse windows, store layout, NPC art |
@@ -586,7 +587,22 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
   (`DisplayConfirmation`), otherwise they revert.
 - System menu (`HudSystemMenu`, the X button): the original 128x64 `ExitMenu.tga` sheet at 698,504 (Help above Quit,
   with their hover plaques `Option.bmp` and `Exit.bmp`) and the Settings plaque (`Settings.bmp`) just above it. Quit
-  closes the game; Help is drawn without behaviour (the help window is not ported yet).
+  closes the game; Help opens the help window.
+- Help window (`UI/Help/`, `GameplayHud.Help.cs`): the help box at 208,11 (11 by 11 tiles) with three pages. Help shows
+  the client's `image/Sinimage/Help/Help.sin` (code page 949; arrows the font lacks become `< > v ^`) in 18 lines of
+  15 pixels; the icons at its top switch between help and the game guide. The guide's list holds the subject of every
+  level up to the character's (`image/clanImage/Help/AutoHelp/LevelSubj.ini`), the latest first, ten at a time; a
+  subject opens its page, the `.msg` text and `GHI-*.tga` picture that `LevelUp_Content.ini` names for the level and
+  the character's faction (`LevelGuideBook`), its lines wrapping around the picture; "Guide Content" goes back to the
+  list. The guide pages carry the level guide's On/Off switch (`ClientSettings.LevelGuide`). The wheel and the scroll bar
+  move a long text; OK and Escape close the window, which keeps the world's clicks inside it.
+- Level guide (`HudLevelGuide`): reaching a level the guide has a page for, or entering as a level-1 character without
+  experience, shows a picture blinking every 0.7 s at the top left while the switch is on; a click opens its summary (a
+  guide box with the first six lines beside the page's picture, Close, and ">>more..." opening the page in the help
+  window when it is longer). A new character's first weapon and armour gifts (`ItemEffectKind.StarterGift`, order 0
+  and 1) open the summaries of their beginner's pages at once, whatever the switch (once the guide's files are read).
+  The window and the notice sit under the dialogs, the settings and the restart window, which take their clicks. The notice waits while the helper pet's box holds the
+  corner; a later offer replaces an earlier one.
 - Helper pet (`UI/HelpPet/`, `GameplayHud.HelpPet.cs`; the scene's `SelfHelperPet` gives the pet beside the player
   and the screen point over it): the texts are the client's `image/Sinimage/PetData/PetMessage.txt` (code page 949,
   `*Topic` sections closed by `end`). Below level 10, while the pet is shown, it speaks over itself in a chat bubble

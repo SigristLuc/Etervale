@@ -112,6 +112,8 @@ public static class HudArt
     public const string HelpButton = Sin + "help/box-test-title2.bmp";
     public const string ScrollBar = Sin + "help/scl_bar.tga";
     public const string ScrollButton = Sin + "help/scl_icon.tga";
+    // The guide box (HudPainter.GuideBox): corners, edges and fill, left to right and top to bottom.
+    public static readonly string[] GuideBox = Enumerable.Range(1, 9).Select(index => $"{Sin}Help/GH-Box0{index}.tga").ToArray();
 
     public const string MessageBox = Sin + "MessageBox/BoxMain.tga";
     public const string NoticeLeft = Sin + "MessageBox/CutBox/BoxLeft.tga";
@@ -153,7 +155,7 @@ public static class HudArt
         Status, StatusPoint, StatusArrow, StatusArrowDown,
         .. InfoBox,
         HelpTopLeft, HelpTop, HelpTopRight, HelpLeft, HelpCenter, HelpRight, HelpBottomLeft, HelpBottom, HelpBottomRight, HelpLine,
-        HelpTitle, HelpButton, ScrollBar, ScrollButton,
+        HelpTitle, HelpButton, ScrollBar, ScrollButton, .. GuideBox,
         MessageBox, NoticeLeft, NoticeCenter, NoticeRight, OkGray, OkYellow, YesGray, YesYellow, NoGray, NoYellow,
         CancelGray, CancelYellow, CountField, CountUp, CountDown,
         MapBox, MapArrow, MapNpc, TargetBox, EnergyBack, EnergyFill,

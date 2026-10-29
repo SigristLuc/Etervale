@@ -1,10 +1,7 @@
-using System.Collections.Concurrent;
 using System.Text;
 using Microsoft.Xna.Framework.Graphics;
 using PristonTale.Engine3D.Diagnostics;
-using PristonTale.Engine3D.IO;
 using PristonTale.Gameplay.UI.Rendering;
-using PristonTale.Assets;
 
 namespace PristonTale.Gameplay.UI.Quests;
 
@@ -17,8 +14,7 @@ public sealed partial class HudQuestDocuments(string assetRoot, IClientLog log)
     public const string BoardFolder = "image/party/party_DATA";
 
     private static readonly Encoding Latin = CreateEncoding();
-    private readonly ConcurrentDictionary<string, string[]> _texts = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, byte> _loading = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HudTextFiles _files = new(assetRoot, Latin, log, "Quest");
     private readonly Dictionary<(string Path, int Width), string[]> _wrapped = new();
 
     public static string DialogPath(string document) => $"{DialogFolder}/{document}.sin";
@@ -26,25 +22,7 @@ public sealed partial class HudQuestDocuments(string assetRoot, IClientLog log)
     public static string BoardPath(string description) => $"{BoardFolder}/{description.Replace('\\', '/')}";
 
     // The raw lines of a file, or null while it loads.
-    public string[] Lines(string relativePath)
-    {
-        if (string.IsNullOrEmpty(relativePath))
-        {
-            return [];
-        }
-
-        if (_texts.TryGetValue(relativePath, out var lines))
-        {
-            return lines;
-        }
-
-        if (_loading.TryAdd(relativePath, 0))
-        {
-            _ = Task.Run(() => Load(relativePath));
-        }
-
-        return null;
-    }
+    public string[] Lines(string relativePath) => _files.Lines(relativePath);
 
     // The lines of a file wrapped to a width in design pixels, or null while it loads.
     public string[] Wrapped(string relativePath, SpriteFont font, int width)
@@ -87,7 +65,7 @@ public sealed partial class HudQuestDocuments(string assetRoot, IClientLog log)
         return wrapped;
     }
 
-    public bool IsLoading => !_loading.IsEmpty;
+    public bool IsLoading => _files.IsLoading;
 
     // The files break their lines for the classic client's narrower font; consecutive lines are joined again so the text
     // wraps to the HUD's own width. A blank line ends a paragraph (several count as one); a line opening with a list mark
@@ -174,48 +152,7 @@ public sealed partial class HudQuestDocuments(string assetRoot, IClientLog log)
         }
     }
 
-    internal static string[] Decode(byte[] bytes)
-    {
-        var text = Latin.GetString(bytes).Replace('\t', ' ');
-        var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
-        var first = 0;
-        while (first < lines.Length && lines[first].Trim().Length == 0)
-        {
-            first++;
-        }
-
-        var last = lines.Length;
-        while (last > first && lines[last - 1].Trim().Length == 0)
-        {
-            last--;
-        }
-
-        return lines[first..last].Select(static line => line.TrimEnd()).ToArray();
-    }
-
-    private void Load(string relativePath)
-    {
-        string[] lines = [];
-        try
-        {
-            var path = Path.Combine(assetRoot, relativePath);
-            if (AssetFiles.Exists(path))
-            {
-                lines = Decode(AssetFiles.ReadAllBytes(path));
-            }
-            else
-            {
-                log.Warn($"[Quest] missing quest text {relativePath}");
-            }
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            log.Error($"[Quest] cannot read {relativePath}", exception);
-        }
-
-        _texts[relativePath] = lines;
-        _loading.TryRemove(relativePath, out _);
-    }
+    internal static string[] Decode(byte[] bytes) => HudTextFiles.Decode(bytes, Latin);
 
     private static Encoding CreateEncoding()
     {
