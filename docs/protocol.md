@@ -555,7 +555,9 @@ receives what, in which order and how often is specified in [server.md](server.m
   per tick, ranked by how overdue they are (a bounded heap keeps only what the budget can carry), which plays the role
   of the original per-receiver user limit and round-robin cursor.
 - Entity descriptions are encoded once per frame and entity (`SharedPresenceWire`) and copied by every receiver that
-  needs them; presence entries are each receiver's own (handles, changes from what it was sent).
+  needs them; each takes a buffer from the shared array pool, given back when the field reuses the frame, so a frame
+  costs only the entities its tick describes. Presence entries are each receiver's own (handles, changes from what it
+  was sent).
 - Movement reports travel through the command queue as values (no closure or task per report); the verdict comes back
   through `IMovementVerdictSink`.
 - Sockets use .NET asynchronous I/O (IOCP on Windows) with pooled buffers and coalesced writes; the writer and the

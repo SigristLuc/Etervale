@@ -22,6 +22,7 @@ internal static class PresencePipelineTests
     {
         yield return ("presence frames are reused only when no reader pins them and never while an outbox can still hand them out", FramesAsync);
         yield return ("a description encoded once for all receivers is byte for byte what one receiver would encode", SharedWireAsync);
+        yield return ("a new large frame describing one entity takes one pooled buffer, not one for every entity", SharedWireBuffersAsync);
         yield return ("events routed by the entities a receiver knows are the events a full scan finds, in the field's order", RoutedEventsAsync);
         yield return ("presence entries carry handles, 64-bit ids and sequences, 32-bit life, only the values that changed and world-wide positions at an eighth of a unit, whole or as a change",
             EntriesAsync);
@@ -82,6 +83,22 @@ internal static class PresencePipelineTests
         Assert.True(scanned.Events.Select(item => item.Damage).SequenceEqual([1000, 2000, 3000]), $"scanned {string.Join(",", scanned.Events.Select(item => item.Damage))}");
         Assert.True(routed.StatusEffects.Select(item => item.StatusCode).SequenceEqual([8u]) && scanned.StatusEffects.Select(item => item.StatusCode).SequenceEqual([8u]),
             "a status of an unseen entity was routed, or a seen one was lost");
+        return Task.CompletedTask;
+    }
+
+    // A field that cannot reuse its frames (encoders holding them all) makes a new frame each tick.
+    private static Task SharedWireBuffersAsync()
+    {
+        const int crowd = 200;
+        const int maxFrameBytes = 16 * 1024;
+        var view = new EntityView(42, EntityKind.Monster, false, Vector3.Zero, 0f, MotionState.Stand, 30, 77, 120, default, templateId: 9) { Revision = 3 };
+        var first = SharedPresenceWire.Create(crowd).Description(7, view, WorldData.Empty).ToArray();
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var wire = SharedPresenceWire.Create(crowd);
+        var again = wire.Description(7, view, WorldData.Empty);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.True(again.SequenceEqual(first) && allocated < maxFrameBytes, $"a new frame of {crowd} describing one entity allocated {allocated} bytes");
+        wire.Reset(crowd);
         return Task.CompletedTask;
     }
 

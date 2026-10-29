@@ -33,7 +33,7 @@ layouts live in [protocol.md](protocol.md).
 | `Net/ClientSession.Chat.cs` | The session's `IChatLink`: chat lines, forced warps, close requests and kicks from game masters. |
 | `Net/GameServerControl.cs` | `IServerOperations` for game masters: user limit, blocked logins, the shutdown countdown and host stop. |
 | `Net/PresenceEncoder.cs` | Turns the receiver's `WorldSnapshot` into presence packets (presence entries, events, drops, owner state, the restart offer); the crowd cap, the movement budget and descriptions. |
-| `Net/SharedPresenceWire.cs` | The entity descriptions of one presence frame, encoded once for every receiver. |
+| `Net/SharedPresenceWire.cs` | The entity descriptions of one presence frame, encoded once for every receiver into pooled buffers. |
 | `Net/VisibleSet.cs`, `Net/MotionCandidates.cs` | The receiver's visible crowd (nearest 100 players and up to 256 entities in all, plus essentials, keep band) and its most overdue position updates. |
 | `Net/WireMapping.cs`, `Net/NpcWireMapping.cs`, `Net/QuestWireMapping.cs` | Authoritative views to wire structs (presence entries, descriptions, events, NPC service state, quest messages). |
 | `Net/NetworkLimits.cs` | `Network:*` settings with defaults and validation; IPv4-mapped address normalisation. |
