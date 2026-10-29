@@ -3,7 +3,6 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Dapper;
 using PristonTale.Persistence.Abstractions;
-using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.World;
@@ -13,11 +12,11 @@ using PristonTale.Assets;
 namespace PristonTale.WorldImport;
 
 // Orchestrates the idempotent world-data import. Reads the original CP949 config files, resolves
-// cross-references (drop/shop item codes → item_templates; spawn monster/NPC names → FK rows), and writes
-// the baseline tables in dependency order:
+// cross-references (drop/shop item codes → item_templates; authored monster/NPC identities → their registry id,
+// IdentityRegistry), and writes the baseline tables in dependency order:
 // item_templates → monsters(+drops) → npcs(+shop) → fields(+spawn children).
 //
-// Idempotency contract: parents upsert by their natural PK via INSERT … ON CONFLICT … DO UPDATE
+// Idempotency contract: parents upsert by their key (item code, monster/NPC id) via INSERT … ON CONFLICT … DO UPDATE
 // (valid on Postgres and SQLite ≥ 3.35); variadic children are delete-then-reinsert per parent, so
 // a 2nd run produces zero net row changes. The whole import runs in one transaction.
 //
@@ -31,6 +30,8 @@ public sealed class Importer
     private readonly string _root;
     private readonly string? _assetRoot;
     private readonly List<EntityVariant> _entityVariants = [];
+    private IdentityRegistry _monsterIds = null!;
+    private IdentityRegistry _npcIds = null!;
 
     // assetRoot: game assets root (the directory containing assets/…-relative INX paths) for the motion-timing
     // pass. Null = skip the pass (the motion tables stay empty; the world host keeps its fallback timing constants).
@@ -50,6 +51,8 @@ public sealed class Importer
         _unknownKeys.Clear();
         _npcNamesByFile.Clear();
         _fieldCodeByBase.Clear();
+        _monsterIds = IdentityRegistry.Monsters();
+        _npcIds = IdentityRegistry.Npcs();
 
         // ---- 1. Parse all sources -------------------------------------------------------------------
         var items = ParseItems(report);
@@ -76,13 +79,10 @@ public sealed class Importer
         foreach (var it in items)
             itemCodes[it.Code] = it.Code;
 
-        var monsterNames = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var m in monsters)
-            monsterNames.Add(m.Name);
-
-        var npcNames = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var n in npcs)
-            npcNames.Add(n.Name);
+        var monsterIds = monsters.ToDictionary(static m => m.Name, m => _monsterIds.Resolve(m.Name, m.DisplayName), StringComparer.Ordinal);
+        var npcIds = npcs.ToDictionary(static n => n.Name, n => _npcIds.Resolve(n.Name, n.DisplayName), StringComparer.Ordinal);
+        ReportUnregistered(_monsterIds, report);
+        ReportUnregistered(_npcIds, report);
 
         await using var conn = await _connections.OpenAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
@@ -91,10 +91,10 @@ public sealed class Importer
         var footprints = ItemFootprints.Measure(_assetRoot, items.Select(static item => item.Code), report);
         await WriteItemsAsync(conn, tx, items, _questVariants, _namedUniques, footprints, report, ct);
         await WriteItemSetsAsync(conn, tx, items, report, ct);
-        await WriteMonstersAsync(conn, tx, monsters, itemCodes, report, ct);
-        await WriteNpcsAsync(conn, tx, npcs, itemCodes, report, ct);
-        await WriteFieldsAsync(conn, tx, fields, monsterNames, npcNames, report, ct);
-        await WriteMotionTimingAsync(conn, tx, monsters, npcs, report, ct);
+        await WriteMonstersAsync(conn, tx, monsters, monsterIds, itemCodes, report, ct);
+        await WriteNpcsAsync(conn, tx, npcs, npcIds, itemCodes, report, ct);
+        await WriteFieldsAsync(conn, tx, fields, monsterIds, npcIds, report, ct);
+        await WriteMotionTimingAsync(conn, tx, monsters, npcs, monsterIds, npcIds, report, ct);
         await WriteSourceFilesAsync(conn, tx, report, ct);
         await WriteEntityVariantsAsync(conn, tx, report, ct);
 
@@ -117,10 +117,26 @@ public sealed class Importer
                 INSERT INTO world_entity_variants (source_path, kind, identity_key, is_catalog_entry, data_json)
                 VALUES (@SourcePath, @Kind, @IdentityKey, @IsCatalogEntry, @DataJson)
                 """,
-                variant,
+                new { variant.SourcePath, variant.Kind, IdentityKey = IdentityKeyOf(variant), variant.IsCatalogEntry, variant.DataJson },
                 tx,
                 cancellationToken: ct));
             report.EntityVariants++;
+        }
+    }
+
+    // A monster or NPC variant is listed under its English key; an item under its code; an unkeyed file under none.
+    private string IdentityKeyOf(EntityVariant variant) => variant.Kind switch
+    {
+        "monster" => _monsterIds.TryGet(variant.Identity, out var monster) ? monster.Key : "",
+        "npc" => _npcIds.TryGet(variant.Identity, out var npc) ? npc.Key : "",
+        _ => variant.Identity
+    };
+
+    private static void ReportUnregistered(IdentityRegistry registry, ImportReport report)
+    {
+        foreach (var entry in registry.Added)
+        {
+            report.Warnings.Add($"Identities/{registry.FileName} lacks '{entry.Key}': imported as id {entry.Id}; add {IdentityRegistry.Line(entry)}");
         }
     }
 
@@ -133,10 +149,11 @@ public sealed class Importer
         return new EntityVariant(relativePath, kind, identity, selected, JsonSerializer.Serialize(value, VariantJson));
     }
 
+    // Identity: the item code, or the monster's or NPC's authored identity (IdentityKeyOf gives its key).
     private sealed record EntityVariant(
         string SourcePath,
         string Kind,
-        string IdentityKey,
+        string Identity,
         bool IsCatalogEntry,
         string DataJson);
 
@@ -246,6 +263,8 @@ public sealed class Importer
         DbTransaction tx,
         IReadOnlyList<ParsedMonster> monsters,
         IReadOnlyList<ParsedNpc> npcs,
+        IReadOnlyDictionary<string, IdentityRegistry.Entry> monsterIds,
+        IReadOnlyDictionary<string, IdentityRegistry.Entry> npcIds,
         ImportReport report, CancellationToken ct)
     {
         if (_assetRoot is null)
@@ -261,7 +280,7 @@ public sealed class Importer
             if (!extractor.TryExtract(m.Model, out var failure))
             {
                 report.MotionUnresolvedModels++;
-                report.Warnings.Add($"motion: {m.Name}: {failure}");
+                report.Warnings.Add($"motion: {monsterIds[m.Name].Key}: {failure}");
             }
         }
 
@@ -270,7 +289,7 @@ public sealed class Importer
             if (!extractor.TryExtract(npc.Model, out var failure))
             {
                 report.MotionUnresolvedModels++;
-                report.Warnings.Add($"motion: NPC {npc.Name}: {failure}");
+                report.Warnings.Add($"motion: NPC {npcIds[npc.Name].Key}: {failure}");
             }
         }
 
@@ -463,12 +482,12 @@ public sealed class Importer
             }
             if (!selected)
             {
-                report.Warnings.Add($"monster variant '{m.Name}' ({Path.GetFileName(path)}) — retained outside the catalog");
+                report.Warnings.Add($"monster variant '{m.DisplayName}' ({Path.GetFileName(path)}) — retained outside the catalog");
                 continue;
             }
             if (string.IsNullOrWhiteSpace(m.DisplayName))
             {
-                report.Warnings.Add($"monster '{Path.GetFileName(path)}' has no *Name; using its original identity");
+                report.Warnings.Add($"monster {Path.GetFileName(path)} has no English name; its key is shown");
             }
             result.Add(m);
         }
@@ -523,7 +542,7 @@ public sealed class Importer
             _npcNamesByFile[Path.GetFileName(path)] = n.Name;
             if (!selected)
             {
-                report.Warnings.Add($"npc variant '{n.Name}' ({Path.GetFileName(path)}) — retained outside the catalog");
+                report.Warnings.Add($"npc variant '{n.DisplayName}' ({Path.GetFileName(path)}) — retained outside the catalog");
                 continue;
             }
 
@@ -541,7 +560,7 @@ public sealed class Importer
 
             if (n.DisplayName.Length == 0)
             {
-                report.Warnings.Add($"npc '{n.Name}' has no localized name in any definition; the original identity is shown");
+                report.Warnings.Add($"npc {Path.GetFileName(chosen[n.Name])} has no English name in any definition; its key is shown");
             }
         }
 
@@ -635,9 +654,30 @@ public sealed class Importer
                 new
                 {
                     SetCode = set.Key, Pieces = set.Max(static item => item.SetPieces), bonus.Life, bonus.Absorb, bonus.Block, bonus.LifeRegen,
-                    bonus.ManaRegen, bonus.StaminaRegen, Description = text,
+                    bonus.ManaRegen, bonus.StaminaRegen, Description = Describe(bonus),
                 }, tx, cancellationToken: ct));
         }
+    }
+
+    // The set bonus in English, as the item window would list it ("Life +400, Absorb +2").
+    private static string Describe(ParsedSetBonus bonus)
+    {
+        var terms = new List<string>();
+        void Add(string name, float value)
+        {
+            if (value != 0)
+            {
+                terms.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{name} +{value:0.##}"));
+            }
+        }
+
+        Add("Life", bonus.Life);
+        Add("Absorb", bonus.Absorb);
+        Add("Block", bonus.Block);
+        Add("Life Regen", bonus.LifeRegen);
+        Add("Mana Regen", bonus.ManaRegen);
+        Add("Stamina Regen", bonus.StaminaRegen);
+        return string.Join(", ", terms);
     }
 
     private static async Task WriteItemsAsync(
@@ -762,6 +802,15 @@ public sealed class Importer
                 "DELETE FROM item_template_special WHERE item_code = @Code", new { Code = key }, tx, cancellationToken: ct));
             await conn.ExecuteAsync(new CommandDefinition(
                 "DELETE FROM item_template_job_random WHERE item_code = @Code", new { Code = key }, tx, cancellationToken: ct));
+            await conn.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM item_labels WHERE item_code = @Code", new { Code = key }, tx, cancellationToken: ct));
+            foreach (var (sourceKey, text) in it.Labels.OrderBy(static label => label.Key, StringComparer.Ordinal))
+            {
+                await conn.ExecuteAsync(new CommandDefinition(
+                    "INSERT INTO item_labels (item_code, source_key, text) VALUES (@Code, @SourceKey, @Text)",
+                    new { Code = key, SourceKey = sourceKey, Text = text }, tx, cancellationToken: ct));
+                report.LabelRows++;
+            }
 
             foreach (var (bonusCode, v0, v1) in it.Specials)
             {
@@ -781,30 +830,43 @@ public sealed class Importer
         }
     }
 
+    // A monster or NPC no longer in the source leaves with its children, so a re-keyed identity never meets its old row.
+    private static async Task DeleteStaleAsync(DbConnection conn, DbTransaction tx, string table, IEnumerable<IdentityRegistry.Entry> current,
+        CancellationToken ct)
+    {
+        var kept = current.Select(static identity => identity.Id).ToHashSet();
+        var stale = (await conn.QueryAsync<int>(new CommandDefinition($"SELECT id FROM {table}", transaction: tx, cancellationToken: ct)))
+            .Where(id => !kept.Contains(id))
+            .Select(static id => new { Id = id })
+            .ToArray();
+        await conn.ExecuteAsync(new CommandDefinition($"DELETE FROM {table} WHERE id = @Id", stale, tx, cancellationToken: ct));
+    }
+
     private static async Task WriteMonstersAsync(
-        DbConnection conn, DbTransaction tx, IReadOnlyList<ParsedMonster> monsters,
+        DbConnection conn, DbTransaction tx, IReadOnlyList<ParsedMonster> monsters, IReadOnlyDictionary<string, IdentityRegistry.Entry> monsterIds,
         IReadOnlyDictionary<string, string> itemCodes, ImportReport report, CancellationToken ct)
     {
         const string upsert = """
             INSERT INTO monsters (
-                name, model, level, attack_min, attack_max, attack_speed, attack_range, accuracy,
+                id, key, display_name, model, level, attack_min, attack_max, attack_speed, attack_range, accuracy,
                 defence, absorb_pct, block_pct, hp, sight, skill_damage_min, skill_damage_max,
                 skill_distance, skill_range, skill_rating_pct, skill_curse_code, move_speed, move_range,
                 iq, group_min, group_max, exp, active_hour, nature, brood, class,
                 res_bionic, res_earth, res_fire, res_ice, res_lighting, res_poison, res_water, res_wind,
-                stun_pct, display_name, sound_code, model_scale, portrait_offset_y, portrait_offset_z,
+                stun_pct, sound_code, model_scale, portrait_offset_y, portrait_offset_z,
                 quest_code, event_item, potion_count, potion_percent, hostile, size_level, res_magic, move_type,
                 special_attack_pct, gold_min, gold_max, gold_pct, event_model, event_code, event_info)
             VALUES (
-                @Name, @Model, @Level, @AtkMin, @AtkMax, @AtkSpeed, @AtkRange, @Accuracy,
+                @Id, @Key, @DisplayName, @Model, @Level, @AtkMin, @AtkMax, @AtkSpeed, @AtkRange, @Accuracy,
                 @Defence, @Absorb, @Block, @Life, @Sight, @SkDmgMin, @SkDmgMax,
                 @SkDist, @SkRange, @SkRating, @SkCurse, @MoveSpeed, @MoveRange,
                 @Iq, @GroupMin, @GroupMax, @Exp, @ActiveHour, @Nature, @Brood, @Class,
                 @R0, @R1, @R2, @R3, @R4, @R5, @R6, @R7,
-                @StunPct, @DisplayName, @SoundCode, @ModelScale, @PortraitOffsetY, @PortraitOffsetZ,
+                @StunPct, @SoundCode, @ModelScale, @PortraitOffsetY, @PortraitOffsetZ,
                 @QuestCode, @EventItem, @PotionCount, @PotionPercent, @Hostile, @SizeLevel, @MagicResistance, @MoveType,
                 @SpecialAttackPct, @GoldMin, @GoldMax, @GoldPct, @EventModel, @EventCode, @EventInfo)
-            ON CONFLICT (name) DO UPDATE SET
+            ON CONFLICT (id) DO UPDATE SET
+                key=excluded.key, display_name=excluded.display_name,
                 model=excluded.model, level=excluded.level, attack_min=excluded.attack_min, attack_max=excluded.attack_max,
                 attack_speed=excluded.attack_speed, attack_range=excluded.attack_range, accuracy=excluded.accuracy,
                 defence=excluded.defence, absorb_pct=excluded.absorb_pct, block_pct=excluded.block_pct, hp=excluded.hp,
@@ -817,7 +879,7 @@ public sealed class Importer
                 res_bionic=excluded.res_bionic, res_earth=excluded.res_earth, res_fire=excluded.res_fire,
                 res_ice=excluded.res_ice, res_lighting=excluded.res_lighting, res_poison=excluded.res_poison,
                 res_water=excluded.res_water, res_wind=excluded.res_wind, stun_pct=excluded.stun_pct,
-                display_name=excluded.display_name, sound_code=excluded.sound_code,
+                sound_code=excluded.sound_code,
                 model_scale=excluded.model_scale, portrait_offset_y=excluded.portrait_offset_y,
                 portrait_offset_z=excluded.portrait_offset_z, quest_code=excluded.quest_code, event_item=excluded.event_item,
                 potion_count=excluded.potion_count, potion_percent=excluded.potion_percent, hostile=excluded.hostile,
@@ -827,11 +889,13 @@ public sealed class Importer
                 event_info=excluded.event_info;
             """;
 
+        await DeleteStaleAsync(conn, tx, "monsters", monsterIds.Values, ct);
         foreach (var m in monsters)
         {
+            var identity = monsterIds[m.Name];
             await conn.ExecuteAsync(new CommandDefinition(upsert, new
             {
-                m.Name, m.Model, m.Level, AtkMin = m.AttackMin, AtkMax = m.AttackMax,
+                identity.Id, identity.Key, m.DisplayName, m.Model, m.Level, AtkMin = m.AttackMin, AtkMax = m.AttackMax,
                 AtkSpeed = m.AttackSpeed, AtkRange = m.AttackRange, m.Accuracy,
                 m.Defence, Absorb = m.AbsorbPct, Block = m.BlockPct, m.Life, m.Sight,
                 SkDmgMin = m.SkillDamageMin, SkDmgMax = m.SkillDamageMax,
@@ -841,7 +905,7 @@ public sealed class Importer
                 Nature = m.Nature, Brood = m.Brood, Class = m.Class,
                 R0 = m.Resistances[0], R1 = m.Resistances[1], R2 = m.Resistances[2], R3 = m.Resistances[3],
                 R4 = m.Resistances[4], R5 = m.Resistances[5], R6 = m.Resistances[6], R7 = m.Resistances[7],
-                m.StunPct, m.DisplayName, m.SoundCode, m.ModelScale, m.PortraitOffsetY, m.PortraitOffsetZ,
+                m.StunPct, m.SoundCode, m.ModelScale, m.PortraitOffsetY, m.PortraitOffsetZ,
                 m.QuestCode, EventItem = itemCodes.TryGetValue(m.EventItem, out var eventItem) ? eventItem : m.EventItem, m.PotionCount, m.PotionPercent,
                 m.Hostile, m.SizeLevel, m.MagicResistance, m.MoveType, m.SpecialAttackPct, m.GoldMin, m.GoldMax, m.GoldPct,
                 m.EventModel, m.EventCode, m.EventInfo,
@@ -851,18 +915,26 @@ public sealed class Importer
 
         foreach (var m in monsters)
         {
-            await conn.ExecuteAsync(new CommandDefinition(
-                "DELETE FROM monster_drop_items WHERE monster_name = @Name", new { m.Name }, tx, cancellationToken: ct));
-            await conn.ExecuteAsync(new CommandDefinition(
-                "DELETE FROM monster_drops_plus WHERE monster_name = @Name", new { m.Name }, tx, cancellationToken: ct));
-            await conn.ExecuteAsync(new CommandDefinition(
-                "DELETE FROM monster_drops WHERE monster_name = @Name", new { m.Name }, tx, cancellationToken: ct));
+            var identity = monsterIds[m.Name];
+            var owner = new { identity.Id };
+            await conn.ExecuteAsync(new CommandDefinition("DELETE FROM monster_labels WHERE monster_id = @Id", owner, tx, cancellationToken: ct));
+            await conn.ExecuteAsync(new CommandDefinition("DELETE FROM monster_drop_items WHERE monster_id = @Id", owner, tx, cancellationToken: ct));
+            await conn.ExecuteAsync(new CommandDefinition("DELETE FROM monster_drops_plus WHERE monster_id = @Id", owner, tx, cancellationToken: ct));
+            await conn.ExecuteAsync(new CommandDefinition("DELETE FROM monster_drops WHERE monster_id = @Id", owner, tx, cancellationToken: ct));
+
+            foreach (var (sourceKey, text) in m.Labels.OrderBy(static label => label.Key, StringComparer.Ordinal))
+            {
+                await conn.ExecuteAsync(new CommandDefinition(
+                    "INSERT INTO monster_labels (monster_id, source_key, text) VALUES (@Id, @SourceKey, @Text)",
+                    new { identity.Id, SourceKey = sourceKey, Text = text }, tx, cancellationToken: ct));
+                report.LabelRows++;
+            }
 
             if (m.AllPlayersSee || m.MaxItemsPerKill != 0 || m.DropItems.Count > 0 || m.DropsPlus.Count > 0)
             {
                 await conn.ExecuteAsync(new CommandDefinition(
-                    "INSERT INTO monster_drops (monster_name, max_items_per_kill, all_players_see) VALUES (@Name,@Max,@All)",
-                    new { m.Name, Max = m.MaxItemsPerKill, All = m.AllPlayersSee }, tx, cancellationToken: ct));
+                    "INSERT INTO monster_drops (monster_id, max_items_per_kill, all_players_see) VALUES (@Id,@Max,@All)",
+                    new { identity.Id, Max = m.MaxItemsPerKill, All = m.AllPlayersSee }, tx, cancellationToken: ct));
                 report.MonsterDropConfigRows++;
             }
 
@@ -879,16 +951,16 @@ public sealed class Importer
                     else
                     {
                         await RecordUnresolvedAsync(
-                            conn, tx, "monster_drop", m.Name, itemCode,
+                            conn, tx, "monster_drop", identity.Key, itemCode,
                             new { Kind = d.Kind, d.Weight, d.GoldMin, d.GoldMax }, report, ct);
                         report.DropItemCodesDangling++;
                         itemCode = null;
                     }
                 }
                 await conn.ExecuteAsync(new CommandDefinition(
-                    "INSERT INTO monster_drop_items (monster_name, kind, weight, item_code, gold_min, gold_max) " +
-                    "VALUES (@Name,@Kind,@Weight,@Code,@GMin,@GMax)",
-                    new { m.Name, Kind = (int)d.Kind, d.Weight, Code = itemCode, GMin = d.GoldMin, GMax = d.GoldMax },
+                    "INSERT INTO monster_drop_items (monster_id, kind, weight, item_code, gold_min, gold_max) " +
+                    "VALUES (@Id,@Kind,@Weight,@Code,@GMin,@GMax)",
+                    new { identity.Id, Kind = (int)d.Kind, d.Weight, Code = itemCode, GMin = d.GoldMin, GMax = d.GoldMax },
                     tx, cancellationToken: ct));
                 report.MonsterDropItemRows++;
             }
@@ -906,78 +978,50 @@ public sealed class Importer
                     else
                     {
                         await RecordUnresolvedAsync(
-                            conn, tx, "monster_bonus_drop", m.Name, itemCode,
+                            conn, tx, "monster_bonus_drop", identity.Key, itemCode,
                             new { p.Weight }, report, ct);
                         report.DropItemCodesDangling++;
                         itemCode = null;
                     }
                 }
                 await conn.ExecuteAsync(new CommandDefinition(
-                    "INSERT INTO monster_drops_plus (monster_name, weight, item_code) VALUES (@Name,@Weight,@Code)",
-                    new { m.Name, p.Weight, Code = itemCode }, tx, cancellationToken: ct));
+                    "INSERT INTO monster_drops_plus (monster_id, weight, item_code) VALUES (@Id,@Weight,@Code)",
+                    new { identity.Id, p.Weight, Code = itemCode }, tx, cancellationToken: ct));
                 report.MonsterDropPlusRows++;
             }
         }
     }
 
     private static async Task WriteNpcsAsync(
-        DbConnection conn, DbTransaction tx, IReadOnlyList<ParsedNpc> npcs,
+        DbConnection conn, DbTransaction tx, IReadOnlyList<ParsedNpc> npcs, IReadOnlyDictionary<string, IdentityRegistry.Entry> npcIds,
         IReadOnlyDictionary<string, string> itemCodes, ImportReport report, CancellationToken ct)
     {
         const string upsert = """
             INSERT INTO npcs (
-                name, model, linked_file, svc_warehouse, svc_shop, svc_skill_master, svc_job_change,
-                svc_teleport, svc_item_mix, svc_item_aging, svc_smelting, svc_manufacture, svc_mixture_reset,
-                svc_clan, svc_bless_castle, svc_quest, svc_event_booth, svc_collect_money, svc_give_money,
-                job_change_code, teleport_code, quest_code, quest_param, dialog, sound_code, move_range, model_scale,
-                display_name, portrait_offset_y, portrait_offset_z, hostile, level, size_level, appear_slot, appear_cycle)
+                id, key, display_name, model, linked_file, dialog_key, sound_code, move_range, model_scale,
+                portrait_offset_y, portrait_offset_z, hostile, level, size_level, appear_slot, appear_cycle)
             VALUES (
-                @Name, @Model, @Linked, @Warehouse, @Shop, @SkillMaster, @JobChange,
-                @Teleport, @ItemMix, @ItemAging, @Smelting, @Manufacture, @MixtureReset,
-                @Clan, @BlessCastle, @Quest, @EventBooth, @CollectMoney, @GiveMoney,
-                @JobChangeCode, @TeleportCode, @QuestCode, @QuestParam, @Dialog, @SoundCode, @MoveRange, @ModelScale,
-                @DisplayName, @PortraitOffsetY, @PortraitOffsetZ, @Hostile, @Level, @SizeLevel, @AppearSlot, @AppearCycle)
-            ON CONFLICT (name) DO UPDATE SET
-                model=excluded.model, linked_file=excluded.linked_file,
-                svc_warehouse=excluded.svc_warehouse, svc_shop=excluded.svc_shop,
-                svc_skill_master=excluded.svc_skill_master, svc_job_change=excluded.svc_job_change,
-                svc_teleport=excluded.svc_teleport, svc_item_mix=excluded.svc_item_mix,
-                svc_item_aging=excluded.svc_item_aging, svc_smelting=excluded.svc_smelting,
-                svc_manufacture=excluded.svc_manufacture, svc_mixture_reset=excluded.svc_mixture_reset,
-                svc_clan=excluded.svc_clan, svc_bless_castle=excluded.svc_bless_castle,
-                svc_quest=excluded.svc_quest, svc_event_booth=excluded.svc_event_booth,
-                svc_collect_money=excluded.svc_collect_money, svc_give_money=excluded.svc_give_money,
-                job_change_code=excluded.job_change_code, teleport_code=excluded.teleport_code,
-                quest_code=excluded.quest_code, quest_param=excluded.quest_param, dialog=excluded.dialog,
-                sound_code=excluded.sound_code, move_range=excluded.move_range,
-                model_scale=excluded.model_scale, display_name=excluded.display_name,
-                portrait_offset_y=excluded.portrait_offset_y, portrait_offset_z=excluded.portrait_offset_z,
-                hostile=excluded.hostile, level=excluded.level, size_level=excluded.size_level,
-                appear_slot=excluded.appear_slot, appear_cycle=excluded.appear_cycle;
+                @Id, @Key, @DisplayName, @Model, @Linked, @DialogKey, @SoundCode, @MoveRange, @ModelScale,
+                @PortraitOffsetY, @PortraitOffsetZ, @Hostile, @Level, @SizeLevel, @AppearSlot, @AppearCycle)
+            ON CONFLICT (id) DO UPDATE SET
+                key=excluded.key, display_name=excluded.display_name, model=excluded.model, linked_file=excluded.linked_file,
+                dialog_key=excluded.dialog_key, sound_code=excluded.sound_code, move_range=excluded.move_range,
+                model_scale=excluded.model_scale, portrait_offset_y=excluded.portrait_offset_y,
+                portrait_offset_z=excluded.portrait_offset_z, hostile=excluded.hostile, level=excluded.level,
+                size_level=excluded.size_level, appear_slot=excluded.appear_slot, appear_cycle=excluded.appear_cycle;
             """;
 
+        await DeleteStaleAsync(conn, tx, "npcs", npcIds.Values, ct);
         foreach (var n in npcs)
         {
-            // Bind dialog as JsonText so the registered per-provider Dapper handler emits jsonb on Postgres
-            // (NpgsqlDbType.Jsonb) and TEXT on SQLite — a plain string param sends text and PG rejects it
-            // against the jsonb column ("column dialog is of type jsonb but expression is of type text").
-            var dialogJson = new JsonText(System.Text.Json.JsonSerializer.Serialize(n.Dialog));
+            var identity = npcIds[n.Name];
             await conn.ExecuteAsync(new CommandDefinition(upsert, new
             {
-                n.Name, n.Model, Linked = n.LinkedFile,
-                Warehouse = n.SvcWarehouse, Shop = n.SvcShop, SkillMaster = n.SvcSkillMaster,
-                JobChange = n.SvcJobChange, Teleport = n.SvcTeleport, ItemMix = n.SvcItemMix,
-                ItemAging = n.SvcItemAging, Smelting = n.SvcSmelting, Manufacture = n.SvcManufacture,
-                MixtureReset = n.SvcMixtureReset, Clan = n.SvcClan, BlessCastle = n.SvcBlessCastle,
-                Quest = n.SvcQuest, EventBooth = n.SvcEventBooth, CollectMoney = n.SvcCollectMoney,
-                GiveMoney = n.SvcGiveMoney,
-                JobChangeCode = n.JobChangeCode, TeleportCode = n.TeleportCode,
-                n.MoveRange, n.ModelScale,
-                QuestCode = n.QuestCode, QuestParam = n.QuestParam, Dialog = dialogJson, n.SoundCode,
-                n.DisplayName, n.PortraitOffsetY, n.PortraitOffsetZ, n.Hostile, n.Level, n.SizeLevel, n.AppearSlot, n.AppearCycle,
+                identity.Id, identity.Key, n.DisplayName, n.Model, Linked = n.LinkedFile, n.DialogKey, n.SoundCode, n.MoveRange,
+                n.ModelScale, n.PortraitOffsetY, n.PortraitOffsetZ, n.Hostile, n.Level, n.SizeLevel, n.AppearSlot, n.AppearCycle,
             }, tx, cancellationToken: ct));
             report.NpcRows++;
-            if (n.Dialog.Count > 0)
+            if (n.DialogKey.Length > 0)
             {
                 report.NpcDialogRows++;
             }
@@ -985,45 +1029,65 @@ public sealed class Importer
 
         foreach (var n in npcs)
         {
-            await conn.ExecuteAsync(new CommandDefinition(
-                "DELETE FROM npc_services WHERE npc_name = @Name", new { n.Name }, tx, cancellationToken: ct));
+            var identity = npcIds[n.Name];
+            var owner = new { identity.Id };
+            await conn.ExecuteAsync(new CommandDefinition("DELETE FROM npc_labels WHERE npc_id = @Id", owner, tx, cancellationToken: ct));
+            await conn.ExecuteAsync(new CommandDefinition("DELETE FROM npc_dialog_lines WHERE npc_id = @Id", owner, tx, cancellationToken: ct));
+            await conn.ExecuteAsync(new CommandDefinition("DELETE FROM npc_services WHERE npc_id = @Id", owner, tx, cancellationToken: ct));
+            await conn.ExecuteAsync(new CommandDefinition("DELETE FROM npc_shop_stock WHERE npc_id = @Id", owner, tx, cancellationToken: ct));
+
+            foreach (var (sourceKey, text) in n.Labels.OrderBy(static label => label.Key, StringComparer.Ordinal))
+            {
+                await conn.ExecuteAsync(new CommandDefinition(
+                    "INSERT INTO npc_labels (npc_id, source_key, text) VALUES (@Id, @SourceKey, @Text)",
+                    new { identity.Id, SourceKey = sourceKey, Text = text }, tx, cancellationToken: ct));
+                report.LabelRows++;
+            }
+
+            foreach (var (sourceKey, lines) in n.DialogLines.OrderBy(static dialog => dialog.Key, StringComparer.Ordinal))
+            {
+                for (var ordinal = 0; ordinal < lines.Count; ordinal++)
+                {
+                    await conn.ExecuteAsync(new CommandDefinition(
+                        "INSERT INTO npc_dialog_lines (npc_id, source_key, ordinal, text) VALUES (@Id, @SourceKey, @Ordinal, @Text)",
+                        new { identity.Id, SourceKey = sourceKey, Ordinal = ordinal, Text = lines[ordinal] }, tx, cancellationToken: ct));
+                    report.DialogLineRows++;
+                }
+            }
+
             for (var ordinal = 0; ordinal < n.Services.Count; ordinal++)
             {
                 var service = n.Services[ordinal];
                 await conn.ExecuteAsync(new CommandDefinition(
-                    "INSERT INTO npc_services (npc_name, ordinal, kind, value, value2, text) VALUES (@Name,@Ordinal,@Kind,@Value,@Value2,@Text)",
-                    new { n.Name, Ordinal = ordinal, Kind = (int)service.Kind, service.Value, service.Value2, service.Text },
+                    "INSERT INTO npc_services (npc_id, ordinal, kind, value, value2, text) VALUES (@Id,@Ordinal,@Kind,@Value,@Value2,@Text)",
+                    new { identity.Id, Ordinal = ordinal, Kind = (int)service.Kind, service.Value, service.Value2, service.Text },
                     tx, cancellationToken: ct));
                 report.NpcServiceRows++;
             }
-        }
 
-        foreach (var n in npcs)
-        {
-            await conn.ExecuteAsync(new CommandDefinition(
-                "DELETE FROM npc_shop_stock WHERE npc_name = @Name", new { n.Name }, tx, cancellationToken: ct));
             foreach (var (tab, ordinal, code) in n.Shop)
             {
                 if (!itemCodes.TryGetValue(code, out var canon))
                 {
                     report.ShopItemCodesDangling++;
+                    // The empty-slot placeholder is kept as "none"; it holds its ordinal.
                     await RecordUnresolvedAsync(
-                        conn, tx, "npc_shop", n.Name, code,
+                        conn, tx, "npc_shop", identity.Key, code == KeyMaps.DropNone ? "none" : code,
                         new { Tab = tab, Ordinal = ordinal }, report, ct);
                     continue;
                 }
                 report.ShopItemCodesResolved++;
                 await conn.ExecuteAsync(new CommandDefinition(
-                    "INSERT INTO npc_shop_stock (npc_name, tab, ordinal, item_code) VALUES (@Name,@Tab,@Ord,@Code)",
-                    new { n.Name, Tab = tab, Ord = ordinal, Code = canon }, tx, cancellationToken: ct));
+                    "INSERT INTO npc_shop_stock (npc_id, tab, ordinal, item_code) VALUES (@Id,@Tab,@Ord,@Code)",
+                    new { identity.Id, Tab = tab, Ord = ordinal, Code = canon }, tx, cancellationToken: ct));
                 report.NpcShopRows++;
             }
         }
     }
 
     private async Task WriteFieldsAsync(
-        DbConnection conn, DbTransaction tx, IReadOnlyList<ParsedField> fields,
-        HashSet<string> monsterNames, HashSet<string> npcNames, ImportReport report, CancellationToken ct)
+        DbConnection conn, DbTransaction tx, IReadOnlyList<ParsedField> fields, IReadOnlyDictionary<string, IdentityRegistry.Entry> monsterIds,
+        IReadOnlyDictionary<string, IdentityRegistry.Entry> npcIds, ImportReport report, CancellationToken ct)
     {
         const string upsert = """
             INSERT INTO fields (field_code, ase_base, max_concurrent_monsters, max_per_spawn_point,
@@ -1065,7 +1129,7 @@ public sealed class Importer
 
             foreach (var (monster, weight) in f.MonsterSpawns)
             {
-                if (!monsterNames.Contains(monster))
+                if (!monsterIds.TryGetValue(monster, out var spawned))
                 {
                     report.SpawnMonsterRefsDangling++;
                     report.Warnings.Add($"field '{f.AseBase}' spawn references unknown monster '{monster}'");
@@ -1076,14 +1140,14 @@ public sealed class Importer
                 }
                 report.SpawnMonsterRefsResolved++;
                 await conn.ExecuteAsync(new CommandDefinition(
-                    "INSERT INTO field_monster_spawns (field_code, monster_name, weight) VALUES (@Code,@Mon,@W)",
-                    new { Code = code, Mon = monster, W = weight }, tx, cancellationToken: ct));
+                    "INSERT INTO field_monster_spawns (field_code, monster_id, weight) VALUES (@Code,@Mon,@W)",
+                    new { Code = code, Mon = spawned.Id, W = weight }, tx, cancellationToken: ct));
                 report.MonsterSpawnRows++;
             }
 
             foreach (var boss in f.Bosses)
             {
-                if (!monsterNames.Contains(boss.MasterName))
+                if (!monsterIds.TryGetValue(boss.MasterName, out var master))
                 {
                     report.BossMonsterRefsDangling++;
                     report.Warnings.Add($"field '{f.AseBase}' boss references unknown master '{boss.MasterName}'");
@@ -1093,38 +1157,43 @@ public sealed class Importer
                     continue;
                 }
                 report.BossMonsterRefsResolved++;
-                string? escort = boss.SlaveName;
-                if (escort is not null && !monsterNames.Contains(escort))
+                int? escort = null;
+                if (boss.SlaveName is { } slave)
                 {
-                    await RecordUnresolvedAsync(
-                        conn, tx, "field_boss_escort", f.AseBase, escort,
-                        new { f.AseBase, boss.MasterName, boss.SlaveCount, boss.Hours }, report, ct);
-                    escort = null;
+                    if (monsterIds.TryGetValue(slave, out var escorted))
+                    {
+                        escort = escorted.Id;
+                    }
+                    else
+                    {
+                        await RecordUnresolvedAsync(
+                            conn, tx, "field_boss_escort", f.AseBase, slave,
+                            new { f.AseBase, Boss = master.Key, boss.SlaveCount, boss.Hours }, report, ct);
+                    }
                 }
                 var hoursCsv = string.Join(',', boss.Hours);
                 await conn.ExecuteAsync(new CommandDefinition(
-                    "INSERT INTO field_boss_spawns (field_code, boss_monster_name, escort_monster_name, escort_count, spawn_hours) " +
+                    "INSERT INTO field_boss_spawns (field_code, boss_monster_id, escort_monster_id, escort_count, spawn_hours) " +
                     "VALUES (@Code,@Boss,@Escort,@Count,@Hours)",
-                    new { Code = code, Boss = boss.MasterName, Escort = escort, Count = boss.SlaveCount, Hours = hoursCsv },
+                    new { Code = code, Boss = master.Id, Escort = escort, Count = boss.SlaveCount, Hours = hoursCsv },
                     tx, cancellationToken: ct));
                 report.BossSpawnRows++;
             }
 
             foreach (var placement in f.FixedNpcs)
             {
-                var npcName = placement.NpcName;
-                if (!npcNames.Contains(npcName))
+                if (!npcIds.TryGetValue(placement.NpcName, out var placed))
                 {
                     report.FixedNpcRefsDangling++;
                     await RecordUnresolvedAsync(
-                        conn, tx, "field_fixed_npc", f.AseBase, npcName,
+                        conn, tx, "field_fixed_npc", f.AseBase, placement.NpcName,
                         new { f.AseBase, placement.X, placement.Z, placement.Angle, placement.Y }, report, ct);
                     continue;
                 }
                 report.FixedNpcRefsResolved++;
                 await conn.ExecuteAsync(new CommandDefinition(
-                    "INSERT INTO field_fixed_npcs (field_code, npc_name, x, z, angle, y) VALUES (@Code,@Npc,@X,@Z,@A,@Y)",
-                    new { Code = code, Npc = npcName, X = placement.X, Z = placement.Z, A = placement.Angle, Y = placement.Y }, tx, cancellationToken: ct));
+                    "INSERT INTO field_fixed_npcs (field_code, npc_id, x, z, angle, y) VALUES (@Code,@Npc,@X,@Z,@A,@Y)",
+                    new { Code = code, Npc = placed.Id, X = placement.X, Z = placement.Z, A = placement.Angle, Y = placement.Y }, tx, cancellationToken: ct));
                 report.FixedNpcRows++;
             }
         }

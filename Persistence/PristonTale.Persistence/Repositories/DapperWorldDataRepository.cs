@@ -60,40 +60,39 @@ public sealed class DapperWorldDataRepository(IDbConnectionFactory connectionFac
     {
         await using var connection = await connectionFactory.OpenAsync(ct);
 
-        // Runtime monster IDs derive from this deterministic order.
         var monsters = (await connection.QueryAsync<MonsterRecord>(new CommandDefinition(
             """
             SELECT
-                name, model, level, attack_min, attack_max, attack_speed, attack_range, accuracy, defence,
+                id, key, display_name, model, level, attack_min, attack_max, attack_speed, attack_range, accuracy, defence,
                 absorb_pct, block_pct, hp, sight, skill_damage_min, skill_damage_max, skill_distance, skill_range,
                 skill_rating_pct, skill_curse_code, move_speed, move_range, iq, group_min, group_max, exp,
                 active_hour, nature, brood, class, res_bionic, res_earth, res_fire, res_ice, res_lighting,
-                res_poison, res_water, res_wind, stun_pct, display_name, sound_code, model_scale,
+                res_poison, res_water, res_wind, stun_pct, sound_code, model_scale,
                 portrait_offset_y, portrait_offset_z, quest_code, event_item, potion_count, potion_percent,
                 hostile, size_level, res_magic, move_type, special_attack_pct, gold_min, gold_max, gold_pct,
                 event_model, event_code, event_info
-            FROM monsters ORDER BY name
+            FROM monsters ORDER BY id
             """, cancellationToken: ct))).ToList();
         if (monsters.Count == 0)
             return monsters;
 
         var config = (await connection.QueryAsync<MonsterDropConfigRecord>(new CommandDefinition(
-                "SELECT monster_name, max_items_per_kill, all_players_see FROM monster_drops", cancellationToken: ct)))
-            .ToDictionary(static c => c.MonsterName);
+                "SELECT monster_id, max_items_per_kill, all_players_see FROM monster_drops", cancellationToken: ct)))
+            .ToDictionary(static c => c.MonsterId);
         var dropItems = (await connection.QueryAsync<MonsterDropItemRecord>(new CommandDefinition(
-                "SELECT id, monster_name, kind, weight, item_code, gold_min, gold_max FROM monster_drop_items ORDER BY id",
+                "SELECT id, monster_id, kind, weight, item_code, gold_min, gold_max FROM monster_drop_items ORDER BY id",
                 cancellationToken: ct)))
-            .ToLookup(static d => d.MonsterName);
+            .ToLookup(static d => d.MonsterId);
         var dropsPlus = (await connection.QueryAsync<MonsterDropPlusRecord>(new CommandDefinition(
-                "SELECT id, monster_name, weight, item_code FROM monster_drops_plus ORDER BY id", cancellationToken: ct)))
-            .ToLookup(static d => d.MonsterName);
+                "SELECT id, monster_id, weight, item_code FROM monster_drops_plus ORDER BY id", cancellationToken: ct)))
+            .ToLookup(static d => d.MonsterId);
 
         return monsters
             .Select(m => m with
             {
-                DropConfig = config.GetValueOrDefault(m.Name),
-                DropItems = dropItems[m.Name].ToList(),
-                DropsPlus = dropsPlus[m.Name].ToList(),
+                DropConfig = config.GetValueOrDefault(m.Id),
+                DropItems = dropItems[m.Id].ToList(),
+                DropsPlus = dropsPlus[m.Id].ToList(),
             })
             .ToList();
     }
@@ -102,30 +101,35 @@ public sealed class DapperWorldDataRepository(IDbConnectionFactory connectionFac
     {
         await using var connection = await connectionFactory.OpenAsync(ct);
 
-        // Runtime NPC IDs derive from this deterministic order.
         var npcs = (await connection.QueryAsync<NpcRecord>(new CommandDefinition(
             """
-            SELECT name, model, linked_file, svc_warehouse, svc_shop, svc_skill_master, svc_job_change,
-                   svc_teleport, svc_item_mix, svc_item_aging, svc_smelting, svc_manufacture, svc_mixture_reset,
-                   svc_clan, svc_bless_castle, svc_quest, svc_event_booth, svc_collect_money, svc_give_money,
-                   job_change_code, teleport_code, quest_code, quest_param, dialog, sound_code, move_range,
-                   model_scale, display_name, portrait_offset_y, portrait_offset_z, hostile, level, size_level, appear_slot, appear_cycle
-            FROM npcs ORDER BY name
+            SELECT id, key, display_name, model, linked_file, dialog_key, sound_code, move_range, model_scale,
+                   portrait_offset_y, portrait_offset_z, hostile, level, size_level, appear_slot, appear_cycle
+            FROM npcs ORDER BY id
             """, cancellationToken: ct))).ToList();
         if (npcs.Count == 0)
             return npcs;
 
         var stock = (await connection.QueryAsync<NpcShopStockRecord>(new CommandDefinition(
-                "SELECT id, npc_name, tab, ordinal, item_code FROM npc_shop_stock ORDER BY tab, ordinal",
+                "SELECT id, npc_id, tab, ordinal, item_code FROM npc_shop_stock ORDER BY tab, ordinal",
                 cancellationToken: ct)))
-            .ToLookup(static s => s.NpcName);
+            .ToLookup(static s => s.NpcId);
         var services = (await connection.QueryAsync<NpcServiceRecord>(new CommandDefinition(
-                "SELECT id, npc_name, ordinal, kind, value, value2, text FROM npc_services ORDER BY npc_name, ordinal",
+                "SELECT id, npc_id, ordinal, kind, value, value2, text FROM npc_services ORDER BY npc_id, ordinal",
                 cancellationToken: ct)))
-            .ToLookup(static s => s.NpcName);
+            .ToLookup(static s => s.NpcId);
+        var dialog = (await connection.QueryAsync<NpcDialogLineRecord>(new CommandDefinition(
+                "SELECT npc_id, source_key, ordinal, text FROM npc_dialog_lines ORDER BY npc_id, source_key, ordinal",
+                cancellationToken: ct)))
+            .ToLookup(static line => (line.NpcId, line.SourceKey));
 
         return npcs
-            .Select(n => n with { ShopStock = stock[n.Name].ToList(), Services = services[n.Name].ToList() })
+            .Select(n => n with
+            {
+                ShopStock = stock[n.Id].ToList(),
+                Services = services[n.Id].ToList(),
+                Dialog = dialog[(n.Id, n.DialogKey)].Select(static line => line.Text).ToList(),
+            })
             .ToList();
     }
 
@@ -147,16 +151,16 @@ public sealed class DapperWorldDataRepository(IDbConnectionFactory connectionFac
                 cancellationToken: ct)))
             .ToLookup(static p => p.FieldCode);
         var spawns = (await connection.QueryAsync<FieldMonsterSpawnRecord>(new CommandDefinition(
-                "SELECT id, field_code, monster_name, weight FROM field_monster_spawns ORDER BY id", cancellationToken: ct)))
+                "SELECT id, field_code, monster_id, weight FROM field_monster_spawns ORDER BY id", cancellationToken: ct)))
             .ToLookup(static s => s.FieldCode);
         var bosses = (await connection.QueryAsync<FieldBossSpawnRecord>(new CommandDefinition(
                 """
-                SELECT id, field_code, boss_monster_name, escort_monster_name, escort_count, spawn_hours
+                SELECT id, field_code, boss_monster_id, escort_monster_id, escort_count, spawn_hours
                 FROM field_boss_spawns ORDER BY id
                 """, cancellationToken: ct)))
             .ToLookup(static b => b.FieldCode);
         var fixedNpcs = (await connection.QueryAsync<FieldFixedNpcRecord>(new CommandDefinition(
-                "SELECT id, field_code, npc_name, x, z, angle, y FROM field_fixed_npcs ORDER BY id", cancellationToken: ct)))
+                "SELECT id, field_code, npc_id, x, z, angle, y FROM field_fixed_npcs ORDER BY id", cancellationToken: ct)))
             .ToLookup(static n => n.FieldCode);
 
         return fields

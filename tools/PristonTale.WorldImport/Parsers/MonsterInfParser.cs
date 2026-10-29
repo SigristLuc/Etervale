@@ -10,10 +10,9 @@ namespace PristonTale.WorldImport.Parsers;
 // KeyMaps.MonsterResistances). *시야 sight is stored RAW (the runtime squares it;
 // the schema/Simulation expect the raw reach).
 //
-// The name is preserved VERBATIM (including the original's leading/trailing spaces inside the quotes,
-// e.g. " 산타고블린 ") because field .spm spawn tables cross-reference monsters by this exact
-// string — trimming would break the join; quoted strings are copied verbatim between the quotes.
-// The separate *Name label supplied by these files is trimmed into DisplayName for the HUD.
+// The authored identity (*이름) is read VERBATIM, spaces included, because field .spm spawn tables reference monsters by
+// this exact string; the importer turns it into the monster's id and English key (IdentityRegistry) and keeps nothing
+// else of it. The English label is *E_NAME, then *Name, then *B_NAME; every label is kept (ParsedMonster.Labels).
 public sealed class MonsterInfParser
 {
     public ParsedMonster Parse(string path)
@@ -23,8 +22,7 @@ public sealed class MonsterInfParser
         string name = "", model = "";
         int soundCode = 0;
         float modelScale = 1f;
-        var displayName = "";
-        var displayRank = 0;
+        var labels = new Dictionary<string, string>(StringComparer.Ordinal);
         int portraitY = 0, portraitZ = 0;
         int level = 0, atkMin = 0, atkMax = 0, atkSpeed = 0, atkRange = 0, accuracy = 0;
         int defence = 0, absorb = 0, block = 0, life = 0, sight = 0;
@@ -60,23 +58,7 @@ public sealed class MonsterInfParser
             var t = new Tokenizer(line);
             t.NextWord();
 
-            // Display name: *E_NAME, then *Name, then *B_NAME (the Brazilian build's English text).
-            var locale = key.Equals("*E_NAME", StringComparison.OrdinalIgnoreCase) ? 3
-                : key.Equals(KeyMaps.CharDisplayName, StringComparison.OrdinalIgnoreCase) ? 2
-                : key.Equals("*B_NAME", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-            if (locale > 0)
-            {
-                var label = t.NextValueOrQuoted().Trim();
-                if (label.Length > 0 && locale >= displayRank)
-                {
-                    displayName = label;
-                    displayRank = locale;
-                }
-
-                continue;
-            }
-
-            if (KeyMaps.IsUnshippedLocale(key))
+            if (AuthoredLabels.TryRead(key, t, labels))
             {
                 continue;
             }
@@ -193,7 +175,7 @@ public sealed class MonsterInfParser
         var m = new ParsedMonster
         {
             Name = name,
-            DisplayName = EnglishNames.Monster(path, displayName),
+            DisplayName = EnglishNames.Monster(path, AuthoredLabels.First(labels, "*E_NAME", "*NAME", "*B_NAME")),
             Model = model,
             SoundCode = soundCode,
             ModelScale = modelScale,
@@ -219,6 +201,11 @@ public sealed class MonsterInfParser
         Array.Copy(res, m.Resistances, 8);
         m.DropItems.AddRange(dropItems);
         m.DropsPlus.AddRange(dropsPlus);
+        foreach (var (key, text) in labels)
+        {
+            m.Labels[key] = text;
+        }
+
         return m;
     }
 

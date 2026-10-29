@@ -45,9 +45,9 @@ internal static class NpcPlacementMigrationTests
                 "the baseline omitted character appearance columns");
 
             await connection.ExecuteAsync("INSERT INTO fields (field_code, ase_base) VALUES (3, 'fixture')");
-            await connection.ExecuteAsync("INSERT INTO npcs (name, model) VALUES ('Warehouse', 'fixture.inx')");
+            await connection.ExecuteAsync("INSERT INTO npcs (id, key, model) VALUES (124, 'Warehouse', 'fixture.inx')");
             await connection.ExecuteAsync(
-                "INSERT INTO field_fixed_npcs (field_code, npc_name, x, y, z, angle) VALUES (3, 'Warehouse', 1, 2, 3, 4)");
+                "INSERT INTO field_fixed_npcs (field_code, npc_id, x, y, z, angle) VALUES (3, 124, 1, 2, 3, 4)");
             await connection.ExecuteAsync(
                 "INSERT INTO motion_models (model_key, motion_table_key) VALUES ('char/npc/tn-010/tn-010.inx', 'custom/npc-motion.inx')");
             await connection.ExecuteAsync(
@@ -65,13 +65,13 @@ internal static class NpcPlacementMigrationTests
                 await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM \"VersionInfo\"") == versions,
                 "rerunning the migrations recorded another version");
             Assert.True(
-                await connection.ExecuteScalarAsync<int>("SELECT move_range FROM npcs WHERE name = 'Warehouse'") == 64,
+                await connection.ExecuteScalarAsync<int>("SELECT move_range FROM npcs WHERE key = 'Warehouse'") == 64,
                 "the baseline omitted the NPC movement default");
             Assert.True(
-                await connection.ExecuteScalarAsync<int>("SELECT sound_code FROM npcs WHERE name = 'Warehouse'") == 0,
+                await connection.ExecuteScalarAsync<int>("SELECT sound_code FROM npcs WHERE key = 'Warehouse'") == 0,
                 "the baseline omitted the NPC sound-code column");
             Assert.True(
-                await connection.ExecuteScalarAsync<int>("SELECT y FROM field_fixed_npcs WHERE npc_name = 'Warehouse'") == 2,
+                await connection.ExecuteScalarAsync<int>("SELECT y FROM field_fixed_npcs WHERE npc_id = 124") == 2,
                 "rerunning the baseline changed an imported NPC position");
             Assert.True(
                 await connection.ExecuteScalarAsync<string>(

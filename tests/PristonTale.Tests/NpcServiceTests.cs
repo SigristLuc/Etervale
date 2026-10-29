@@ -31,7 +31,7 @@ internal static class NpcServiceTests
 
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("NPC import types every service key, reads localized names and dialog and prefers placed files", ImportAsync);
+        yield return ("NPC import types every service key, keys NPCs in English, keeps every label and dialog key and prefers placed files", ImportAsync);
         yield return ("shop prices, sell wear, repair cost, carry limit and warehouse rules follow the original", RulesAsync);
         yield return ("the warehouse keeps out what the original keeps out and exchanges the item a set-down covers", WarehouseExchangeAsync);
         yield return ("NPC service messages round-trip their layouts", ProtocolAsync);
@@ -78,7 +78,7 @@ internal static class NpcServiceTests
 
             await using var connection = await connections.OpenAsync();
             var rows = (await connection.QueryAsync<(long Kind, long Value, string Text)>(
-                "SELECT kind, value, text FROM npc_services WHERE npc_name = '잡화점' ORDER BY ordinal")).ToArray();
+                "SELECT s.kind, s.value, s.text FROM npc_services s JOIN npcs n ON n.id = s.npc_id WHERE n.key = 'Miscellaneous Store' ORDER BY s.ordinal")).ToArray();
             NpcServiceKind[] expected =
             [
                 NpcServiceKind.QuestGiver, NpcServiceKind.Shop, NpcServiceKind.Warehouse, NpcServiceKind.ItemMix, NpcServiceKind.QuestEvent,
@@ -88,15 +88,25 @@ internal static class NpcServiceTests
             Assert.True(rows[0].Value == 1001 && rows[3].Value == 200 && rows[4].Value == 2 && rows[5].Value == 1 && rows[6].Text == "Socket",
                 "service values or defaults differ from the authored keys");
             Assert.True(await connection.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM world_import_unresolved_refs WHERE raw_reference = '없음'") == 1, "empty shop marker was not retained");
+                "SELECT COUNT(*) FROM world_import_unresolved_refs WHERE raw_reference = 'none'") == 1, "empty shop marker was not retained");
 
             var repository = provider.GetRequiredService<IWorldDataRepository>();
-            var definitions = WorldDataFactory.ToNpcDefinitions(await repository.GetAllNpcsAsync()).Definitions;
-            var store = definitions.Single(definition => definition.Name == "잡화점");
+            var definitions = WorldDataFactory.ToNpcDefinitions(await repository.GetAllNpcsAsync());
+            var store = definitions.Single(definition => definition.Name == "Miscellaneous Store");
             Assert.True(store.Label == "Miscellaneous Store" && store.Dialog.SequenceEqual(["Red potions restore HP.", "Second line."]),
                 "localized name or dialog was not imported");
             Assert.True(store.Has(NpcServiceKind.Shop) && store.Shop.MiscItemCodes.Single() == PotionCode, "runtime shop differs from the stock");
-            var guard = definitions.Single(definition => definition.Name == "경비병");
+            // Unregistered identities take the next ids; one without an English name is keyed by its id.
+            var guard = definitions.Single(definition => definition != store);
+            Assert.True(guard.Code == 128 && guard.Name == "NPC 128" && store.Code == 129, $"unregistered NPCs were keyed {guard.Code} {guard.Name}, {store.Code}");
+            Assert.True(report.Warnings.Count(static warning => warning.StartsWith("Identities/npcs.json lacks", StringComparison.Ordinal)) == 2,
+                "the import did not list the NPCs to register");
+            var dialog = (await connection.QueryAsync<(string Key, string Text)>(
+                "SELECT d.source_key, d.text FROM npc_dialog_lines d JOIN npcs n ON n.id = d.npc_id WHERE n.key = 'Miscellaneous Store' ORDER BY d.ordinal"))
+                .ToArray();
+            Assert.True(dialog.Length == 2 && dialog.All(static line => line.Key == "B_CHAT")
+                && await connection.ExecuteScalarAsync<string>("SELECT text FROM npc_labels WHERE source_key = 'B_NAME'") == "Miscellaneous Store",
+                "the dialog lines or the name label were not kept under their keys");
             Assert.True(guard.ModelInxPath.Replace('\\', '/').Contains("/b/", StringComparison.OrdinalIgnoreCase) && guard.Dialog.Single() == "Hello.",
                 "the placed file did not win over an unplaced file with the same name");
             Assert.True(guard.Find(NpcServiceKind.SkillMaster)?.Value == 1, "class change default was not carried by the skill master");
@@ -470,7 +480,7 @@ internal static class NpcServiceTests
             var characters = new MemoryCharacters(CharacterRecordFactory.FromLiveSession(starter, character, 3, new Vector3(100, 0, 100)));
             var warehouses = new MemoryWarehouses(characters);
             var stock = new NpcShopStock([AxeCode], [], [PotionCode]);
-            var npc = new NpcDefinition(1, "상인", "merchant.inx", services) { DisplayName = "Merchant", Dialog = Lines, Shop = stock };
+            var npc = new NpcDefinition(1, "Merchant", "merchant.inx", services) { DisplayName = "Merchant", Dialog = Lines, Shop = stock };
             var items = new ItemCatalog([Axe(), Potion(), new ItemDefinition(QuestCode, "Letter", ItemKind.Quest)]);
             var empty = WorldData.Empty;
             var holder = new WorldDataHolder

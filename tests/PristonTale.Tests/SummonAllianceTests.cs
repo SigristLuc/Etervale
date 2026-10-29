@@ -22,14 +22,14 @@ internal static class SummonAllianceTests
         };
         var hopy = SkillScenario.SummonModel("HOPY", 50) with
         {
-            Key = " 호피 ",
+            Key = "HOPY 2",
             Combat = new MonsterCombatStats(4, 400, new MonsterRange(5, 6), 6, 50, 50, 5, 0, 150, ResistanceBlock.Zero)
         };
         var scenario = SkillScenario.Create(PlayerClass.Fighter, 100, null, null, weak, strong, hopy);
         scenario.Character.Life = scenario.Character.MaxLife;
         var pet = scenario.Field.CallGameMasterPet(scenario.Player, strong, 240_000f);
-        Assert.True(scenario.Field.CallCrystalMonster(scenario.Player, "GP101", " 호피 ") is not null
-            && scenario.Field.CallCrystalMonster(scenario.Player, "GP101", " 호피 ") is not null, "the crystal pets were not called");
+        Assert.True(scenario.Field.CallCrystalMonster(scenario.Player, "GP101", "HOPY 2") is not null
+            && scenario.Field.CallCrystalMonster(scenario.Player, "GP101", "HOPY 2") is not null, "the crystal pets were not called");
         var wild = Enumerable.Range(0, 6).Select(index => scenario.Spawn(weak, new Vector3(200f + index * 30f, 0f, 120f))).ToList();
         var summons = scenario.Summons.Select(static summon => summon.EntityId).ToHashSet();
         Assert.True(summons.Count == 3, "the three pets are not all owned");

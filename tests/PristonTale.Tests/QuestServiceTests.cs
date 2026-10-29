@@ -327,7 +327,7 @@ internal static class QuestServiceTests
             }
 
             var characters = new MemoryCharacters(CharacterRecordFactory.FromLiveSession(starter, character, 3, Vector3.Zero));
-            var npcDefinition = new NpcDefinition(1, "퀘스트", "quest.inx", services) { DisplayName = "Quest NPC", Dialog = ["Hello."] };
+            var npcDefinition = new NpcDefinition(1, "Quest NPC", "quest.inx", services) { DisplayName = "Quest NPC", Dialog = ["Hello."] };
             var empty = WorldData.Empty;
             var holder = new WorldDataHolder
             {

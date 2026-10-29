@@ -20,7 +20,7 @@ public sealed record NpcShopStock(
     public bool Contains(uint code) => WeaponItemCodes.Contains(code) || ArmorItemCodes.Contains(code) || MiscItemCodes.Contains(code);
 }
 
-// Name is the authored identity that field placements reference; DisplayName is the localized label shown to players.
+// Name is the NPC's unique English key (the importer's identity registry); DisplayName is the English label shown to players.
 public sealed record NpcDefinition(
     int Code,
     string Name,

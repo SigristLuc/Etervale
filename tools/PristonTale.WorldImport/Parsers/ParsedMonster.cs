@@ -8,7 +8,9 @@ namespace PristonTale.WorldImport.Parsers;
 // item_templates.code by the Importer).
 public sealed class ParsedMonster
 {
-    public required string Name { get; init; }
+    // The authored identity, which the source files reference; the importer maps it to the monster's id and key.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string Name { get; init; } = "";
     public string DisplayName { get; init; } = "";
     public string Model { get; init; } = "";
     public int SoundCode { get; init; }
@@ -66,6 +68,9 @@ public sealed class ParsedMonster
     // *이벤트코드 / *이벤트정보: event creatures (code 100 walk at night in field EventInfo).
     public int EventCode { get; init; }
     public int EventInfo { get; init; }
+
+    // Every name label by stored key (NAME, E_NAME, B_NAME, J_NAME).
+    public Dictionary<string, string> Labels { get; } = new(StringComparer.Ordinal);
 
     // Keys of the file no rule reads; the importer reports them.
     public List<string> UnknownKeys { get; } = [];

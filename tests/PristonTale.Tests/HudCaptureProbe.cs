@@ -530,8 +530,8 @@ internal sealed class HudCaptureProbe : Game
             AlchemistNpc => new NpcInteraction(true, id, "Alchemist Lisa",
                 [Offer(NpcServiceKind.QuestGiver, 1017, false), Offer(NpcServiceKind.ItemMix, Simulation.Items.Mixing.MixingWork.AlchemyMode, true)],
                 ["Sheltoms become force orbs here."], ""),
-            _ => new NpcInteraction(true, id, "스킬마스터 베르칸", [Offer(NpcServiceKind.QuestGiver, 1003, false), Offer(NpcServiceKind.SkillMaster, 4, true)],
-                ["Bem-vindo à escola de habilidades. Escolha uma habilidade para aprender ou melhorar.", "안녕하세요. 스킬을 선택하세요."], "")
+            _ => new NpcInteraction(true, id, "Skill Master, Verkan", [Offer(NpcServiceKind.QuestGiver, 1003, false), Offer(NpcServiceKind.SkillMaster, 4, true)],
+                ["Welcome to the school of skills. Choose a skill to learn or improve.", "Choose a skill."], "")
         };
     }
 

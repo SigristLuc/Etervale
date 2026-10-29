@@ -142,7 +142,7 @@ internal static class MultiplayerPresenceTests
         var hopy = new MonsterDefinition(hopyCode, "Hopy", MonsterFaction.Enemy, MonsterClass.Normal, MonsterBrood.Normal,
             new MonsterCombatStats(5, 100, new MonsterRange(1, 2), 6, 40, 5, 0, 0, 2000, ResistanceBlock.Zero), "")
         {
-            Key = " \uD638\uD53C ",
+            Key = "HOPY 2",
             Ai = new MonsterAi(6, MonsterNature.Natural, 0, 2, 100, new MonsterRange(1, 1), MonsterActiveHour.Any)
         };
         var world = MultiplayerServer.WorldWith(MultiplayerServer.SpawnBeside(hopyCode, Spot), hopy);

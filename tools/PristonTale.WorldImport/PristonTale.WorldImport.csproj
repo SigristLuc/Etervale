@@ -24,6 +24,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The monster and NPC id registry (IdentityRegistry), read as PristonTale.WorldImport.Identities.<file>. -->
+    <EmbeddedResource Include="Identities\*.json" LogicalName="PristonTale.WorldImport.Identities.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Persistence\PristonTale.Persistence.Postgres\PristonTale.Persistence.Postgres.csproj" />
     <ProjectReference Include="..\..\Persistence\PristonTale.Persistence.Sqlite\PristonTale.Persistence.Sqlite.csproj" />
     <ProjectReference Include="..\..\Persistence\PristonTale.Persistence\PristonTale.Persistence.csproj" />

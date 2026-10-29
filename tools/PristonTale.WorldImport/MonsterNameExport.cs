@@ -3,12 +3,14 @@ using PristonTale.WorldImport.Parsers;
 
 namespace PristonTale.WorldImport;
 
-// Reproducible migration data, decoded by the same parser as normal imports.
+// Reproducible migration data, decoded by the same parser as normal imports: every monster's id and English key
+// (IdentityRegistry), its label and the file that defines it.
 internal static class MonsterNameExport
 {
     public static void Write(string sourceRoot, string outputPath)
     {
         var parser = new MonsterInfParser();
+        var registry = IdentityRegistry.Monsters();
         var names = new List<Entry>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var options = new EnumerationOptions { MatchCasing = MatchCasing.CaseInsensitive };
@@ -28,12 +30,13 @@ internal static class MonsterNameExport
                 throw new InvalidDataException($"Missing monster identity or *Name in '{path}'.");
             }
 
-            names.Add(new Entry(monster.Name, monster.DisplayName, Path.GetFileName(path)));
+            var identity = registry.Resolve(monster.Name, monster.DisplayName);
+            names.Add(new Entry(identity.Id, identity.Key, monster.DisplayName, Path.GetFileName(path)));
         }
 
         File.WriteAllText(outputPath, JsonSerializer.Serialize(names, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine($"Exported {names.Count} monster names to {outputPath}.");
     }
 
-    private sealed record Entry(string Name, string DisplayName, string SourceFile);
+    private sealed record Entry(int Id, string Key, string DisplayName, string SourceFile);
 }

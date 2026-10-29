@@ -28,21 +28,21 @@ public sealed record FieldSpawnPointRecord(
 public sealed record FieldMonsterSpawnRecord(
     long Id,
     int FieldCode,
-    string MonsterName,
+    int MonsterId,
     int Weight);
 
 public sealed record FieldBossSpawnRecord(
     long Id,
     int FieldCode,
-    string BossMonsterName,
-    string? EscortMonsterName,
+    int BossMonsterId,
+    int? EscortMonsterId,
     int EscortCount,
     string SpawnHours);
 
 public sealed record FieldFixedNpcRecord(
     long Id,
     int FieldCode,
-    string NpcName,
+    int NpcId,
     int X,
     int Z,
     int Angle,

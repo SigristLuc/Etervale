@@ -189,7 +189,7 @@ public sealed record SkillPassiveRule
 // and expires after LifetimeMs. One summon per owner: a new one replaces the old.
 public sealed record SkillSummonRule
 {
-    // The catalog monster (display name) that gives the model, motions, sight, reach and attack speed.
+    // The catalog monster (its key, else its display name) that gives the model, motions, sight, reach and attack speed.
     public string Monster { get; init; } = "";
     public int LifetimeMs { get; init; }
     // Per-rank values; an empty table keeps the definition's value.

@@ -1,4 +1,3 @@
-using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Loot;
@@ -158,20 +157,19 @@ public static class WorldDataFactory
     private static string ToInxModelPath(string modelPath) =>
         string.IsNullOrEmpty(modelPath) ? modelPath : System.IO.Path.ChangeExtension(modelPath, ".inx");
 
-    public static (IReadOnlyList<MonsterDefinition> Definitions, IReadOnlyDictionary<string, int> CodeByName)
-        ToMonsterDefinitions(IReadOnlyList<MonsterRecord> records, IReadOnlyDictionary<string, uint>? itemCodes = null)
+    // The monster code is the record's stable id; event forms take the codes after the highest one.
+    public static IReadOnlyList<MonsterDefinition> ToMonsterDefinitions(IReadOnlyList<MonsterRecord> records, IReadOnlyDictionary<string, uint>? itemCodes = null)
     {
-        var codeByName = new Dictionary<string, int>(records.Count);
         var defs = new List<MonsterDefinition>(records.Count);
-        for (var i = 0; i < records.Count; i++)
+        var nextFormCode = 1;
+        foreach (var record in records)
         {
-            var code = i + 1; // 1-based stable id; 0 stays "unset" for FieldEntitySpawn template ids.
-            codeByName[records[i].Name] = code;
-            defs.Add(ToMonsterDefinition(records[i], code, itemCodes));
+            defs.Add(ToMonsterDefinition(record, itemCodes));
+            nextFormCode = Math.Max(nextFormCode, record.Id + 1);
         }
 
-        // A monster with an event model gets its event form after every authored monster: the same monster, normal class,
-        // wearing the event model (the hammer event turns it into this form).
+        // A monster with an event model gets its event form: the same monster, normal class, wearing the event model (the
+        // hammer event turns it into this form).
         var authored = defs.Count;
         for (var i = 0; i < authored; i++)
         {
@@ -180,7 +178,7 @@ public static class WorldDataFactory
                 continue;
             }
 
-            var formCode = defs.Count + 1;
+            var formCode = nextFormCode++;
             defs.Add(defs[i] with
             {
                 Code = formCode, ModelInxPath = defs[i].EventModelInxPath, Class = MonsterClass.Normal, EventModelInxPath = "", EventFormCode = 0
@@ -188,11 +186,10 @@ public static class WorldDataFactory
             defs[i] = defs[i] with { EventFormCode = formCode };
         }
 
-        return (defs, codeByName);
+        return defs;
     }
 
-    private static MonsterDefinition ToMonsterDefinition(
-        MonsterRecord r, int code, IReadOnlyDictionary<string, uint>? itemCodes)
+    private static MonsterDefinition ToMonsterDefinition(MonsterRecord r, IReadOnlyDictionary<string, uint>? itemCodes)
     {
         var combat = new MonsterCombatStats(
             Level: r.Level,
@@ -228,7 +225,7 @@ public static class WorldDataFactory
 
         var monsterClass = (MonsterClass)r.Class;
         return new MonsterDefinition(
-            code, string.IsNullOrWhiteSpace(r.DisplayName) ? "Monster" : r.DisplayName,
+            r.Id, string.IsNullOrWhiteSpace(r.DisplayName) ? r.Key : r.DisplayName,
             Faction: r.Hostile ? MonsterFaction.Enemy : MonsterFaction.Npc,
             Class: monsterClass,
             Brood: (MonsterBrood)r.Brood,
@@ -236,10 +233,10 @@ public static class WorldDataFactory
             ModelInxPath: ToInxModelPath(r.Model))
         {
             Skill = skill,
-            Key = r.Name,
+            Key = r.Key,
             Ai = ai,
             Drops = ToDropTable(r, itemCodes),
-            ExpReward = r.Exp >= 0 ? (ulong)r.Exp : throw new InvalidDataException($"Monster '{r.Name}' has negative experience {r.Exp}."),
+            ExpReward = r.Exp >= 0 ? (ulong)r.Exp : throw new InvalidDataException($"Monster '{r.Key}' has negative experience {r.Exp}."),
             SoundCode = r.SoundCode,
             ModelScale = r.ModelScale,
             PortraitOffsetY = r.PortraitOffsetY,
@@ -317,23 +314,11 @@ public static class WorldDataFactory
         return key is not null && itemCodes is not null && itemCodes.TryGetValue(key, out code) && code != 0;
     }
 
-    public static (IReadOnlyList<NpcDefinition> Definitions, IReadOnlyDictionary<string, int> CodeByName)
-        ToNpcDefinitions(IReadOnlyList<NpcRecord> records)
-    {
-        var codeByName = new Dictionary<string, int>(records.Count);
-        var defs = new List<NpcDefinition>(records.Count);
-        for (var i = 0; i < records.Count; i++)
-        {
-            var code = i + 1;
-            codeByName[records[i].Name] = code;
-            defs.Add(ToNpcDefinition(records[i], code));
-        }
-        return (defs, codeByName);
-    }
+    // The NPC code is the record's stable id.
+    public static IReadOnlyList<NpcDefinition> ToNpcDefinitions(IReadOnlyList<NpcRecord> records) => records.Select(ToNpcDefinition).ToList();
 
-    private static NpcDefinition ToNpcDefinition(NpcRecord r, int code)
+    private static NpcDefinition ToNpcDefinition(NpcRecord r)
     {
-        var dialog = CharacterJson.Read<List<string>>(r.Dialog) ?? [];
         var weapons = r.ShopStock.Where(static s => s.Tab == 0).OrderBy(static s => s.Ordinal);
         var armour = r.ShopStock.Where(static s => s.Tab == 1).OrderBy(static s => s.Ordinal);
         var misc = r.ShopStock.Where(static s => s.Tab == 2).OrderBy(static s => s.Ordinal);
@@ -344,11 +329,11 @@ public static class WorldDataFactory
                 armour.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(ItemCodes.Parse).ToList(),
                 misc.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(ItemCodes.Parse).ToList());
 
-        return new NpcDefinition(code, r.Name, ToInxModelPath(r.Model), ToServices(r, shop))
+        return new NpcDefinition(r.Id, r.Key, ToInxModelPath(r.Model), ToServices(r, shop))
         {
-            DisplayName = r.DisplayName ?? "",
+            DisplayName = r.DisplayName,
             Shop = shop,
-            Dialog = dialog,
+            Dialog = r.Dialog,
             SoundCode = r.SoundCode,
             ModelScale = r.ModelScale,
             MoveRange = r.MoveRange,
@@ -367,64 +352,28 @@ public static class WorldDataFactory
     // A shop whose stock has no runtime item is not offered; unknown service kinds from a newer importer are skipped.
     private static List<NpcService> ToServices(NpcRecord r, NpcShopStock shop)
     {
-        var services = r.Services.Count > 0
-            ? r.Services
-                .OrderBy(static s => s.Ordinal)
-                .Where(static s => Enum.IsDefined((NpcServiceKind)s.Kind))
-                .Select(static s => new NpcService((NpcServiceKind)s.Kind, s.Value, s.Value2, s.Text ?? ""))
-                .ToList()
-            : FlagServices(r);
+        var services = r.Services
+            .OrderBy(static s => s.Ordinal)
+            .Where(static s => Enum.IsDefined((NpcServiceKind)s.Kind))
+            .Select(static s => new NpcService((NpcServiceKind)s.Kind, s.Value, s.Value2, s.Text))
+            .ToList();
         services.RemoveAll(service => service.Kind == NpcServiceKind.Shop && shop.IsEmpty);
         return services;
     }
 
-    private static List<NpcService> FlagServices(NpcRecord r)
-    {
-        var services = new List<NpcService>();
-        if (r.SvcQuest) services.Add(new NpcService(NpcServiceKind.QuestScript, r.QuestCode, r.QuestParam));
-        if (r.SvcShop) services.Add(new NpcService(NpcServiceKind.Shop));
-        if (r.SvcSkillMaster) services.Add(new NpcService(NpcServiceKind.SkillMaster, r.SvcJobChange ? r.JobChangeCode : 0));
-        if (r.SvcWarehouse) services.Add(new NpcService(NpcServiceKind.Warehouse));
-        if (r.SvcItemMix) services.Add(new NpcService(NpcServiceKind.ItemMix, 1));
-        if (r.SvcSmelting) services.Add(new NpcService(NpcServiceKind.Smelting));
-        if (r.SvcManufacture) services.Add(new NpcService(NpcServiceKind.Manufacture));
-        if (r.SvcCollectMoney) services.Add(new NpcService(NpcServiceKind.CollectMoney));
-        if (r.SvcTeleport) services.Add(new NpcService(NpcServiceKind.Teleporter, r.TeleportCode == 0 ? 1 : r.TeleportCode));
-        if (r.SvcGiveMoney) services.Add(new NpcService(NpcServiceKind.GiveMoney));
-        if (r.SvcEventBooth) services.Add(new NpcService(NpcServiceKind.EventBooth, 1));
-        if (r.SvcItemAging) services.Add(new NpcService(NpcServiceKind.ItemAging));
-        if (r.SvcClan) services.Add(new NpcService(NpcServiceKind.Clan));
-        if (r.SvcBlessCastle) services.Add(new NpcService(NpcServiceKind.BlessCastle, 1));
-        if (r.SvcMixtureReset) services.Add(new NpcService(NpcServiceKind.MixtureReset));
-        return services;
-    }
-
-    public static FieldSpawnData ToFieldSpawnData(
-        FieldSpawnRecord r,
-        IReadOnlyDictionary<string, int> monsterCodeByName,
-        IReadOnlyDictionary<string, int> npcCodeByName)
+    public static FieldSpawnData ToFieldSpawnData(FieldSpawnRecord r)
     {
         var points = r.SpawnPoints
             .Select(static p => new SpawnPoint(p.X, p.Z, Active: p.State != 0))
             .ToList();
-
         var table = r.MonsterSpawns
-            .Select(s => new SpawnTableEntry(Resolve(monsterCodeByName, s.MonsterName), s.Weight))
-            .Where(static e => e.MonsterCode != 0)
+            .Select(static s => new SpawnTableEntry(s.MonsterId, s.Weight))
             .ToList();
-
         var bosses = r.BossSpawns
-            .Select(b => new BossSpawn(
-                Resolve(monsterCodeByName, b.BossMonsterName),
-                b.EscortMonsterName is null ? 0 : Resolve(monsterCodeByName, b.EscortMonsterName),
-                b.EscortCount,
-                ParseHours(b.SpawnHours)))
-            .Where(static b => b.BossMonsterCode != 0)
+            .Select(static b => new BossSpawn(b.BossMonsterId, b.EscortMonsterId ?? 0, b.EscortCount, ParseHours(b.SpawnHours)))
             .ToList();
-
         var fixedNpcs = r.FixedNpcs
-            .Select(n => new FixedNpc(Resolve(npcCodeByName, n.NpcName), n.X, n.Z, n.Angle, n.Y))
-            .Where(static n => n.NpcCode != 0)
+            .Select(static n => new FixedNpc(n.NpcId, n.X, n.Z, n.Angle, n.Y))
             .ToList();
 
         return new FieldSpawnData(points, table, bosses, fixedNpcs)
@@ -436,18 +385,10 @@ public static class WorldDataFactory
         };
     }
 
-    public static IReadOnlyDictionary<int, FieldSpawnData> ToFieldSpawnData(
-        IEnumerable<FieldSpawnRecord> records,
-        IReadOnlyDictionary<string, int> monsterCodeByName,
-        IReadOnlyDictionary<string, int> npcCodeByName) =>
-        records.ToDictionary(
-            static r => r.FieldCode,
-            r => ToFieldSpawnData(r, monsterCodeByName, npcCodeByName));
+    public static IReadOnlyDictionary<int, FieldSpawnData> ToFieldSpawnData(IEnumerable<FieldSpawnRecord> records) =>
+        records.ToDictionary(static r => r.FieldCode, ToFieldSpawnData);
 
     private static short Channel(int value) => (short)Math.Clamp(value, -255, 255);
-
-    private static int Resolve(IReadOnlyDictionary<string, int> map, string name) =>
-        map.TryGetValue(name, out var code) ? code : 0;
 
     private static IReadOnlyList<int> ParseHours(string csv)
     {

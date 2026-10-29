@@ -4,9 +4,9 @@ using PristonTale.Simulation.World.Npcs;
 
 // Parses one NPC `.npc` and the name file it links to into a ParsedNpc. Every service key the original reads becomes
 // a typed NpcService; keys that share one original setting keep the last value read. Sell lists are at most 32 codes
-// per tab. Dialog comes from the first locale with lines in the order English, the Brazilian build's English text,
-// then the Korean base lines; the display name follows the same order, then the plain label. The identity name (`*이름`) is kept verbatim
-// because field placements reference it.
+// per tab. Every name label and dialog key is kept; the English name is *E_NAME, then *B_NAME, then *Name, and the
+// English dialog the *E_CHAT lines, else the *B_CHAT lines. The authored identity (`*이름`) is read verbatim, because
+// other files reference it, and becomes the NPC's id and English key in the importer; Korean lines are not kept.
 public sealed class NpcParser
 {
     private const int MaxDialogLines = 20;
@@ -18,18 +18,48 @@ public sealed class NpcParser
         var npc = new ParsedNpc { Name = FindName(lines) };
         var facts = new Facts();
         ApplyLines(lines, npc, facts);
-        npc.DisplayName = EnglishNames.Npc(npc.Name, facts.LocalNames.FirstOrDefault(static name => !string.IsNullOrEmpty(name)) ?? facts.PlainName);
-        ChooseDialog(npc, facts);
+        npc.DisplayName = EnglishNames.Npc(path, Normalize(AuthoredLabels.First(facts.Labels, KeyMaps.NpcNameLocales)));
+        foreach (var (key, text) in facts.Labels)
+        {
+            npc.Labels[key] = Normalize(text);
+        }
+
+        foreach (var (key, dialogLines) in facts.Dialog)
+        {
+            if (dialogLines.Count > 0)
+            {
+                npc.DialogLines[key] = dialogLines;
+            }
+        }
+
+        npc.DialogKey = KeyMaps.NpcDialogLocales.Select(KeyMaps.StoredKey).FirstOrDefault(npc.DialogLines.ContainsKey) ?? "";
         BuildServices(npc, facts);
         return npc;
     }
 
     private sealed class Facts
     {
-        public readonly string[] LocalNames = new string[KeyMaps.NpcNameLocales.Length];
-        public readonly List<string>[] LocalDialog = KeyMaps.NpcDialogLocales.Select(static _ => new List<string>()).ToArray();
-        public readonly List<string> KoreanDialog = [];
-        public string PlainName = "";
+        public readonly Dictionary<string, string> Labels = new(StringComparer.Ordinal);
+        public readonly Dictionary<string, List<string>> Dialog = new(StringComparer.Ordinal);
+        public bool SvcWarehouse;
+        public bool SvcShop;
+        public bool SvcSkillMaster;
+        public bool SvcJobChange;
+        public bool SvcTeleport;
+        public bool SvcItemAging;
+        public bool SvcSmelting;
+        public bool SvcManufacture;
+        public bool SvcMixtureReset;
+        public bool SvcClan;
+        public bool SvcBlessCastle;
+        public bool SvcQuest;
+        public bool SvcEventBooth;
+        public bool SvcCollectMoney;
+        public bool SvcGiveMoney;
+        public int JobChangeCode;
+        public int TeleportCode;
+        public int QuestCode;
+        public int QuestParam;
         public readonly int[] ShopOrdinals = new int[3];
         public bool ShopHasStock;
         public int QuestTrigger;
@@ -67,7 +97,7 @@ public sealed class NpcParser
                 continue;
             }
 
-            var unported = key == KeyMaps.CharName || KeyMaps.IsUnshippedLocale(key);
+            var unported = false;
             foreach (var (token, label) in KeyMaps.NpcUnportedServices)
             {
                 if (key == token)
@@ -89,37 +119,24 @@ public sealed class NpcParser
 
     private static bool ApplyLocale(string key, Tokenizer t, Facts facts)
     {
-        for (var index = 0; index < KeyMaps.NpcNameLocales.Length; index++)
+        if (AuthoredLabels.TryRead(key, t, facts.Labels))
         {
-            if (string.Equals(key, KeyMaps.NpcNameLocales[index], StringComparison.OrdinalIgnoreCase))
-            {
-                facts.LocalNames[index] = Normalize(t.NextValueOrQuoted());
-                return true;
-            }
-        }
-
-        for (var index = 0; index < KeyMaps.NpcDialogLocales.Length; index++)
-        {
-            if (string.Equals(key, KeyMaps.NpcDialogLocales[index], StringComparison.OrdinalIgnoreCase))
-            {
-                AddLine(facts.LocalDialog[index], t.NextValueOrQuoted());
-                return true;
-            }
-        }
-
-        if (string.Equals(key, KeyMaps.CharDisplayName, StringComparison.OrdinalIgnoreCase))
-        {
-            facts.PlainName = Normalize(t.NextValueOrQuoted());
             return true;
         }
 
-        if (key == KeyMaps.CharDialog)
+        if (KeyMaps.DialogKey(key) is { } dialogKey)
         {
-            AddLine(facts.KoreanDialog, t.NextValueOrQuoted());
+            if (!facts.Dialog.TryGetValue(dialogKey, out var lines))
+            {
+                facts.Dialog[dialogKey] = lines = [];
+            }
+
+            AddLine(lines, t.NextValueOrQuoted());
             return true;
         }
 
-        return false;
+        // The Korean identity is read by FindName; Korean lines are not kept.
+        return key is KeyMaps.CharName or KeyMaps.CharDialog;
     }
 
     private static bool ApplyAppearance(string key, Tokenizer t, ParsedNpc npc)
@@ -171,55 +188,53 @@ public sealed class NpcParser
         switch (key)
         {
             case KeyMaps.NpcWarehouse:
-                npc.SvcWarehouse = true;
+                facts.SvcWarehouse = true;
                 return true;
             case KeyMaps.NpcSkillMaster:
-                npc.SvcSkillMaster = true;
+                facts.SvcSkillMaster = true;
                 return true;
             case KeyMaps.NpcJobChange:
-                npc.SvcJobChange = true;
-                npc.JobChangeCode = OptionalInt(t, 1);
+                facts.SvcJobChange = true;
+                facts.JobChangeCode = OptionalInt(t, 1);
                 return true;
             case KeyMaps.NpcTeleport:
-                npc.SvcTeleport = true;
-                npc.TeleportCode = OptionalInt(t, 1);
+                facts.SvcTeleport = true;
+                facts.TeleportCode = OptionalInt(t, 1);
                 return true;
             case KeyMaps.NpcItemMix:
-                npc.SvcItemMix = true;
                 facts.ItemMix = 1;
                 return true;
             case KeyMaps.NpcItemAlchemy:
-                npc.SvcItemMix = true;
                 facts.ItemMix = 200;
                 return true;
             case KeyMaps.NpcItemAging:
-                npc.SvcItemAging = true;
+                facts.SvcItemAging = true;
                 return true;
             case KeyMaps.NpcSmelting:
-                npc.SvcSmelting = true;
+                facts.SvcSmelting = true;
                 return true;
             case KeyMaps.NpcManufacture:
-                npc.SvcManufacture = true;
+                facts.SvcManufacture = true;
                 return true;
             case KeyMaps.NpcMixtureReset:
-                npc.SvcMixtureReset = true;
+                facts.SvcMixtureReset = true;
                 return true;
             case KeyMaps.NpcClan:
-                npc.SvcClan = true;
+                facts.SvcClan = true;
                 return true;
             case KeyMaps.NpcBlessCastle:
-                npc.SvcBlessCastle = true;
+                facts.SvcBlessCastle = true;
                 facts.BlessCastle = OptionalInt(t, 1);
                 return true;
             case KeyMaps.NpcEventBooth:
-                npc.SvcEventBooth = true;
+                facts.SvcEventBooth = true;
                 facts.EventBooth = OptionalInt(t, 1);
                 return true;
             case KeyMaps.NpcCollectMoney:
-                npc.SvcCollectMoney = true;
+                facts.SvcCollectMoney = true;
                 return true;
             case KeyMaps.NpcGiveMoney:
-                npc.SvcGiveMoney = true;
+                facts.SvcGiveMoney = true;
                 return true;
             case KeyMaps.NpcEventGift:
                 facts.EventGift = true;
@@ -242,7 +257,7 @@ public sealed class NpcParser
                 facts.Polling = OptionalInt(t, 1);
                 return true;
             case KeyMaps.NpcMediaTitle:
-                facts.MediaTitle = t.NextValueOrQuoted();
+                facts.MediaTitle = EnglishNames.Text(t.NextValueOrQuoted());
                 return true;
             case KeyMaps.NpcMediaPath:
                 facts.MediaPath = t.NextValueOrQuoted();
@@ -257,9 +272,9 @@ public sealed class NpcParser
                 facts.QuestTrigger = t.NextInt();
                 return true;
             case KeyMaps.NpcQuestCode:
-                npc.SvcQuest = true;
-                npc.QuestCode = t.NextInt();
-                npc.QuestParam = t.NextInt();
+                facts.SvcQuest = true;
+                facts.QuestCode = t.NextInt();
+                facts.QuestParam = t.NextInt();
                 return true;
             case KeyMaps.NpcSellWeapon:
                 AddShop(npc, 0, facts, t);
@@ -279,37 +294,37 @@ public sealed class NpcParser
     private static void BuildServices(ParsedNpc npc, Facts facts)
     {
         var services = npc.Services;
-        npc.SvcShop = facts.ShopHasStock;
+        facts.SvcShop = facts.ShopHasStock;
         if (facts.QuestTrigger >= FirstQuestTriggerCode)
         {
             services.Add(new NpcService(NpcServiceKind.QuestGiver, facts.QuestTrigger));
         }
 
-        AddIf(services, npc.SvcQuest, NpcServiceKind.QuestScript, npc.QuestCode, npc.QuestParam);
-        AddIf(services, npc.SvcShop, NpcServiceKind.Shop);
-        AddIf(services, npc.SvcSkillMaster, NpcServiceKind.SkillMaster, npc.SvcJobChange ? npc.JobChangeCode : 0);
-        AddIf(services, npc.SvcWarehouse, NpcServiceKind.Warehouse);
+        AddIf(services, facts.SvcQuest, NpcServiceKind.QuestScript, facts.QuestCode, facts.QuestParam);
+        AddIf(services, facts.SvcShop, NpcServiceKind.Shop);
+        AddIf(services, facts.SvcSkillMaster, NpcServiceKind.SkillMaster, facts.SvcJobChange ? facts.JobChangeCode : 0);
+        AddIf(services, facts.SvcWarehouse, NpcServiceKind.Warehouse);
         AddIf(services, facts.ItemMix != 0, NpcServiceKind.ItemMix, facts.ItemMix);
-        AddIf(services, npc.SvcSmelting, NpcServiceKind.Smelting);
-        AddIf(services, npc.SvcManufacture, NpcServiceKind.Manufacture);
-        AddIf(services, npc.SvcCollectMoney, NpcServiceKind.CollectMoney);
+        AddIf(services, facts.SvcSmelting, NpcServiceKind.Smelting);
+        AddIf(services, facts.SvcManufacture, NpcServiceKind.Manufacture);
+        AddIf(services, facts.SvcCollectMoney, NpcServiceKind.CollectMoney);
         AddIf(services, facts.EventGift, NpcServiceKind.EventGift);
         AddIf(services, facts.GiftExpress, NpcServiceKind.GiftExpress);
         AddIf(services, facts.WingQuest != 0, facts.WingQuestIsEvent ? NpcServiceKind.QuestEvent : NpcServiceKind.WarpGate, facts.WingQuest);
-        AddIf(services, npc.SvcTeleport, NpcServiceKind.Teleporter, npc.TeleportCode);
+        AddIf(services, facts.SvcTeleport, NpcServiceKind.Teleporter, facts.TeleportCode);
         AddIf(services, facts.StarPoint != 0, NpcServiceKind.StarPoint, facts.StarPoint);
-        AddIf(services, npc.SvcGiveMoney, NpcServiceKind.GiveMoney);
-        AddIf(services, npc.SvcEventBooth, NpcServiceKind.EventBooth, facts.EventBooth);
-        AddIf(services, npc.SvcItemAging, NpcServiceKind.ItemAging);
-        AddIf(services, npc.SvcClan, NpcServiceKind.Clan);
-        AddIf(services, npc.SvcBlessCastle, NpcServiceKind.BlessCastle, facts.BlessCastle);
+        AddIf(services, facts.SvcGiveMoney, NpcServiceKind.GiveMoney);
+        AddIf(services, facts.SvcEventBooth, NpcServiceKind.EventBooth, facts.EventBooth);
+        AddIf(services, facts.SvcItemAging, NpcServiceKind.ItemAging);
+        AddIf(services, facts.SvcClan, NpcServiceKind.Clan);
+        AddIf(services, facts.SvcBlessCastle, NpcServiceKind.BlessCastle, facts.BlessCastle);
         AddIf(services, facts.Polling != 0, NpcServiceKind.Polling, facts.Polling);
         if (facts.MediaTitle.Length > 0 && facts.MediaPath.Length > 0)
         {
             services.Add(new NpcService(NpcServiceKind.Media, Text: facts.MediaPath + "\n" + facts.MediaTitle));
         }
 
-        AddIf(services, npc.SvcMixtureReset, NpcServiceKind.MixtureReset);
+        AddIf(services, facts.SvcMixtureReset, NpcServiceKind.MixtureReset);
         AddIf(services, facts.EventCode != 0 || facts.EventInfo != 0, NpcServiceKind.EventMonster, facts.EventCode, facts.EventInfo);
         foreach (var label in facts.Unported)
         {
@@ -325,30 +340,11 @@ public sealed class NpcParser
         }
     }
 
-    private static void ChooseDialog(ParsedNpc npc, Facts facts)
-    {
-        for (var index = 0; index < facts.LocalDialog.Length; index++)
-        {
-            if (facts.LocalDialog[index].Count > 0)
-            {
-                npc.Dialog.AddRange(facts.LocalDialog[index]);
-                npc.DialogKey = KeyMaps.NpcDialogLocales[index];
-                return;
-            }
-        }
-
-        if (facts.KoreanDialog.Count > 0)
-        {
-            npc.Dialog.AddRange(facts.KoreanDialog);
-            npc.DialogKey = KeyMaps.CharDialog;
-        }
-    }
-
     // Name files wrap their lines at a fixed width with runs of spaces; display text keeps single spaces.
     private static void AddLine(List<string> lines, string text)
     {
         var line = Normalize(text);
-        if (line.Length > 0 && lines.Count < MaxDialogLines)
+        if (line.Length > 0 && !AuthoredLabels.IsKorean(line) && lines.Count < MaxDialogLines)
         {
             lines.Add(line);
         }

@@ -120,7 +120,8 @@ static void PrintReport(ImportReport r)
     Console.WriteLine($"unresolved references retained: {r.UnresolvedReferenceRows}");
     Console.WriteLine($"items:    {r.ItemRows,5} rows from {r.ItemFilesParsed} files  (special {r.ItemSpecialRows}, job-random {r.ItemJobRandomRows})");
     Console.WriteLine($"monsters: {r.MonsterRows,5} rows from {r.MonsterFilesParsed} files  (drop-cfg {r.MonsterDropConfigRows}, drop-items {r.MonsterDropItemRows}, plus {r.MonsterDropPlusRows})");
-    Console.WriteLine($"npcs:     {r.NpcRows,5} rows from {r.NpcFilesParsed} files  (shop {r.NpcShopRows}, services {r.NpcServiceRows}, with dialog {r.NpcDialogRows})");
+    Console.WriteLine($"npcs:     {r.NpcRows,5} rows from {r.NpcFilesParsed} files  (shop {r.NpcShopRows}, services {r.NpcServiceRows}, with dialog {r.NpcDialogRows}, dialog lines {r.DialogLineRows})");
+    Console.WriteLine($"labels:   {r.LabelRows,5} item, monster and NPC name labels");
     Console.WriteLine($"fields:   {r.FieldRows,5} rows  (points {r.SpawnPointRows}, mon-spawns {r.MonsterSpawnRows}, bosses {r.BossSpawnRows}, fixed-npc {r.FixedNpcRows})");
     Console.WriteLine($"motion:   {r.MotionModelRows,5} models → {r.MotionTableRows} tables ({r.MotionSlotRows} clip rows; unresolved {r.MotionUnresolvedModels})");
     Console.WriteLine();
@@ -143,9 +144,9 @@ static async Task PrintRowCounts(IDbConnectionFactory connections)
 {
     string[] tables =
     [
-        "item_templates", "item_template_special", "item_template_job_random",
-        "monsters", "monster_drops", "monster_drop_items", "monster_drops_plus",
-        "npcs", "npc_shop_stock", "npc_services",
+        "item_templates", "item_template_special", "item_template_job_random", "item_labels",
+        "monsters", "monster_labels", "monster_drops", "monster_drop_items", "monster_drops_plus",
+        "npcs", "npc_labels", "npc_dialog_lines", "npc_shop_stock", "npc_services",
         "fields", "field_spawn_points", "field_monster_spawns", "field_boss_spawns", "field_fixed_npcs",
         "world_source_files",
         "world_entity_variants",
@@ -174,7 +175,7 @@ static async Task PrintCrossRefCheck(IDbConnectionFactory connections)
         "WHERE NOT EXISTS (SELECT 1 FROM item_templates i WHERE i.code = s.item_code)");
     var orphanSpawn = await conn.ExecuteScalarAsync<long>(
         "SELECT COUNT(*) FROM field_monster_spawns f " +
-        "WHERE NOT EXISTS (SELECT 1 FROM monsters m WHERE m.name = f.monster_name)");
+        "WHERE NOT EXISTS (SELECT 1 FROM monsters m WHERE m.id = f.monster_id)");
     Console.WriteLine($"  orphan drop item_code rows : {orphanDrops}");
     Console.WriteLine($"  orphan shop item_code rows : {orphanShop}");
     Console.WriteLine($"  orphan spawn monster rows  : {orphanSpawn}");
@@ -182,13 +183,13 @@ static async Task PrintCrossRefCheck(IDbConnectionFactory connections)
     Console.WriteLine();
     Console.WriteLine("=== npc services by kind (rows / npcs) ===");
     var kinds = await conn.QueryAsync<(long Kind, long Rows, long Npcs)>(
-        "SELECT kind, COUNT(*), COUNT(DISTINCT npc_name) FROM npc_services GROUP BY kind ORDER BY kind");
+        "SELECT kind, COUNT(*), COUNT(DISTINCT npc_id) FROM npc_services GROUP BY kind ORDER BY kind");
     foreach (var (kind, rows, npcs) in kinds)
     {
         Console.WriteLine($"  {(PristonTale.Simulation.World.Npcs.NpcServiceKind)kind,-14} {rows,5} / {npcs,5}");
     }
 
-    var talking = await conn.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM npcs WHERE dialog <> '[]'");
+    var talking = await conn.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM npcs WHERE dialog_key <> ''");
     var named = await conn.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM npcs WHERE display_name <> ''");
     Console.WriteLine($"  npcs with dialog           : {talking}");
     Console.WriteLine($"  npcs with a display name   : {named}");

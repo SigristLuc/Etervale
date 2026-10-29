@@ -1,8 +1,9 @@
 namespace PristonTale.WorldImport;
 
-// The names the supplied data gives only in Portuguese, in English as Etervale shows every name. A monster's label is
-// keyed by its file (variants of one identity are labelled apart), an item's name by its code, an NPC's label by its
-// identity. Variants of a monster the original set also has take that monster's English label verbatim.
+// English names where the supplied data gives a name only in Portuguese or Korean, or misspells it, as Etervale shows
+// every name in English. A monster's or NPC's label is keyed by its file (variants of one identity are labelled apart),
+// an item's name by its code. Variants of a monster the original set also has take that monster's English label
+// verbatim.
 internal static class EnglishNames
 {
     private static readonly Dictionary<string, string> Monsters = new(StringComparer.OrdinalIgnoreCase)
@@ -22,7 +23,10 @@ internal static class EnglishNames
         ["Cristal_KingHopy.inf"] = "Hopy King",
         ["Cristal_KingHopy2.inf"] = "Horropion",
         ["Cristal_Valento.inf"] = "Valento",
-        ["Cristal_Web2.inf"] = "Web"
+        ["Cristal_Web2.inf"] = "Web",
+        ["30_Leech.inf"] = "Leech",
+        ["88_Sadness.inf"] = "Sadness",
+        ["S72_HeavyGoblin.inf"] = "Heavy Goblin"
     };
 
     private static readonly Dictionary<string, string> Items = new(StringComparer.OrdinalIgnoreCase)
@@ -53,6 +57,7 @@ internal static class EnglishNames
         ["OS129"] = "Magic Celesto",
         ["OS130"] = "Magic Mirage",
         ["OS131"] = "Magic Inferna",
+        ["QW104"] = "Diamond Wing",
         ["OR127"] = "Phantom Ring",
         ["OR128"] = "Phantom Ring +1",
         ["OR130"] = "Phantom Ring +3",
@@ -83,14 +88,22 @@ internal static class EnglishNames
         ["WS235"] = "Draxos Sword"
     };
 
-    private static readonly Dictionary<string, string> Npcs = new(StringComparer.Ordinal)
+    private static readonly Dictionary<string, string> Npcs = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["리본 호피"] = "Ribbon Hopy"
+        ["Ribbonhopy.npc"] = "Ribbon Hopy"
     };
+
+    // Authored service texts given only in Korean.
+    private static readonly Dictionary<string, string> Texts = new(StringComparer.Ordinal)
+    {
+        ["공성전 생중계"] = "Siege War Live"
+    };
+
+    public static string Text(string text) => Texts.GetValueOrDefault(text, text);
 
     public static string Monster(string path, string label) => Monsters.GetValueOrDefault(Path.GetFileName(path), label);
 
     public static string Item(string code, string name) => Items.GetValueOrDefault(code, name);
 
-    public static string Npc(string identity, string label) => Npcs.GetValueOrDefault(identity.Trim(), label);
+    public static string Npc(string path, string label) => Npcs.GetValueOrDefault(Path.GetFileName(path), label);
 }

@@ -5,8 +5,8 @@ namespace PristonTale.WorldImport.Parsers;
 
 // Parses one OpenItem .txt → ParsedItem with the original item-definition rules.
 // Each line's leading word is matched exactly (case-sensitive, ordinal) against
-// the KeyMaps item tokens. The remake uses the supplied *Name alias for display,
-// falling back to *E_NAME, the original name, and then the item code.
+// the KeyMaps item tokens. The English name is the *Name label, then *E_NAME, then *B_NAME, then the item code; every
+// label is kept (ParsedItem.Labels).
 // Item identity and foreign keys remain the original item code.
 public sealed class ItemTxtParser
 {
@@ -14,7 +14,8 @@ public sealed class ItemTxtParser
     {
         var lines = SourceTextReader.ReadChain(path);
 
-        string code = "", displayName = "", koreanName = "", englishName = "", brazilianName = "";
+        var code = "";
+        var labels = new Dictionary<string, string>(StringComparer.Ordinal);
         long unique = 0, jobMask = 0;
         int durMin = 0, durMax = 0, weight = 0, price = 0;
         int dmgMinLow = 0, dmgMinHigh = 0, dmgMaxLow = 0, dmgMaxHigh = 0;
@@ -51,6 +52,10 @@ public sealed class ItemTxtParser
                 continue;
             var t = new Tokenizer(line);
             t.NextWord(); // consume the key
+            if (AuthoredLabels.TryRead(key, t, labels))
+            {
+                continue;
+            }
 
             // Resistances first (they share token text with damage/etc only across parsers, not within).
             var resHit = false;
@@ -69,20 +74,8 @@ public sealed class ItemTxtParser
 
             switch (key)
             {
-                case var displayKey when displayKey.Equals("*Name", StringComparison.OrdinalIgnoreCase):
-                    displayName = t.NextValueOrQuoted().Trim();
-                    break;
-
+                // The Korean name is not kept.
                 case KeyMaps.ItemName:
-                    koreanName = t.NextValueOrQuoted();
-                    break;
-                case var english when english.Equals("*E_NAME", StringComparison.OrdinalIgnoreCase):
-                    englishName = t.NextValueOrQuoted().Trim();
-                    break;
-                case var brazilian when brazilian.Equals("*B_NAME", StringComparison.OrdinalIgnoreCase):
-                    brazilianName = t.NextValueOrQuoted().Trim();
-                    break;
-                case var japanese when KeyMaps.IsUnshippedLocale(japanese):
                     break;
                 case KeyMaps.ItemCode: code = t.NextValueOrQuoted(); break;
                 case KeyMaps.ItemUniqueColor:
@@ -163,7 +156,7 @@ public sealed class ItemTxtParser
         var item = new ParsedItem
         {
             Code = code,
-            Name = EnglishNames.Item(code, SelectDisplayName(displayName, englishName, string.IsNullOrWhiteSpace(brazilianName) ? koreanName : brazilianName, code)),
+            Name = EnglishNames.Item(code, AuthoredLabels.First(labels, "*NAME", "*E_NAME", "*B_NAME") is { Length: > 0 } label ? label : code),
             Kind = ItemKinds.Classify(code),
             UniqueItem = unique,
             MaxStack = maxStack,
@@ -200,27 +193,12 @@ public sealed class ItemTxtParser
         Array.Copy(resMax, item.ResMax, 8);
         item.JobRandom.AddRange(jobRandom);
         item.Specials.AddRange(specials);
+        foreach (var (key, text) in labels)
+        {
+            item.Labels[key] = text;
+        }
+
         return item;
-    }
-
-    private static string SelectDisplayName(string displayName, string englishName, string koreanName, string code)
-    {
-        if (!string.IsNullOrWhiteSpace(displayName))
-        {
-            return displayName;
-        }
-
-        if (!string.IsNullOrWhiteSpace(englishName))
-        {
-            return englishName;
-        }
-
-        if (!string.IsNullOrWhiteSpace(koreanName))
-        {
-            return koreanName;
-        }
-
-        return code;
     }
 
     // The dual-alias regen/add/restore tokens, plus the ** special bonuses (commented out in this dataset).

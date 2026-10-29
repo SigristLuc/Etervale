@@ -23,7 +23,15 @@ internal static class NpcPlacementExport
         }
 
         var parser = new NpcParser();
-        var reader = new SpcReader(source => Resolve(source) is { } path ? parser.Parse(path).Name : null);
+        var registry = IdentityRegistry.Npcs();
+        var labels = new Dictionary<string, string>(StringComparer.Ordinal);
+        string Identity(ParsedNpc npc)
+        {
+            labels[npc.Name] = npc.DisplayName;
+            return npc.Name;
+        }
+
+        var reader = new SpcReader(source => Resolve(source) is { } path ? Identity(parser.Parse(path)) : null);
         var placements = new List<Placement>();
         foreach (var definition in new WorldCatalog().AllFields)
         {
@@ -46,7 +54,8 @@ internal static class NpcPlacementExport
                     continue;
                 }
 
-                placements.Add(new Placement(definition.FieldCode, placement.NpcName, placement.X, placement.Z,
+                var npc = registry.Resolve(placement.NpcName, labels.GetValueOrDefault(placement.NpcName, ""));
+                placements.Add(new Placement(definition.FieldCode, npc.Id, npc.Key, placement.X, placement.Z,
                     placement.Angle, placement.Y, placement.SourceFile));
             }
 
@@ -57,5 +66,5 @@ internal static class NpcPlacementExport
         Console.WriteLine($"Exported {placements.Count} NPC placements across all configured fields.");
     }
 
-    private sealed record Placement(int FieldCode, string NpcName, int X, int Z, int Angle, int Y, string SourceFile);
+    private sealed record Placement(int FieldCode, int NpcId, string NpcKey, int X, int Z, int Angle, int Y, string SourceFile);
 }

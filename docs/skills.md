@@ -216,7 +216,7 @@ owner's target while the owner fights) or `radius` (300, nearest enemy around th
   `CriticalChance`, `BlockChance` (`withoutShield`), `MaxLife`, `WeaponAttackRatingPercent`, `Evasion`; weapon effects
   need a weapon the skill lists, or one made for the class with `classWeapon`. Or `modifiers` (permanent effect via
   `PassiveSkillEffects`, optionally only while the main hand holds one of `weapons`).
-- `summon`: `monster` (world catalog display name: model, motions, sight, reach), `lifetimeMs` (> 0),
+- `summon`: `monster` (the world catalog monster's key, else its display name: model, motions, sight, reach), `lifetimeMs` (> 0),
   `damageMin[10]`/`damageMax[10]`, `attackRating[10]`, `defence[10]`, `life[10]` (empty keeps the catalog value),
   `lifePerStrength`, `defencePerAgility` (owner attributes added at the call), `scaleBase`, `scalePerRank` (model
   scale in 1/256; 0 keeps the catalog size), `aggressive`, `moveSpeedPercent` (100).

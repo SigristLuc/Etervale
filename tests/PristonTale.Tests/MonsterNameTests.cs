@@ -10,7 +10,7 @@ internal static class MonsterNameTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("baseline preserves monster display names, drops and spawn joins", BaselineAsync);
+        yield return ("a monster is keyed by its id and English key; drops and spawns join on the id, which is its runtime code", BaselineAsync);
     }
 
     private static async Task BaselineAsync()
@@ -29,12 +29,11 @@ internal static class MonsterNameTests
             var connections = provider.GetRequiredService<IDbConnectionFactory>();
             await using (var connection = await connections.OpenAsync())
             {
-                await connection.ExecuteAsync("INSERT INTO monsters (name, model, display_name) VALUES (@Name, @Model, @DisplayName)",
-                    new { Name = "호피", Model = @"char\monster\Hopy\hopy.INI", DisplayName = "HOPY" });
-                await connection.ExecuteAsync("INSERT INTO monster_drops (monster_name) VALUES (@Name)", new { Name = "호피" });
+                await connection.ExecuteAsync("INSERT INTO monsters (id, key, model, display_name) VALUES (196, @Key, @Model, @DisplayName)",
+                    new { Key = "HOPY", Model = @"char\monster\Hopy\hopy.INI", DisplayName = "Hopy" });
+                await connection.ExecuteAsync("INSERT INTO monster_drops (monster_id) VALUES (196)");
                 await connection.ExecuteAsync("INSERT INTO fields (field_code, ase_base) VALUES (3, 'fore-1')");
-                await connection.ExecuteAsync("INSERT INTO field_monster_spawns (field_code, monster_name, weight) VALUES (3, @Name, 35)",
-                    new { Name = "호피" });
+                await connection.ExecuteAsync("INSERT INTO field_monster_spawns (field_code, monster_id, weight) VALUES (3, 196, 35)");
             }
 
             await migrator.MigrateAsync();
@@ -42,14 +41,14 @@ internal static class MonsterNameTests
             var repository = provider.GetRequiredService<IWorldDataRepository>();
             var records = await repository.GetAllMonstersAsync();
             var record = records.Single();
-            Assert.True(record.Name == "호피" && record.DisplayName == "HOPY", "identity and display name were conflated");
-            Assert.True(record.DropConfig?.MonsterName == "호피", "drop association was lost");
+            Assert.True(record is { Id: 196, Key: "HOPY", DisplayName: "Hopy" }, "the id, key or display name was not read");
+            Assert.True(record.DropConfig?.MonsterId == 196, "drop association was lost");
 
-            var (definitions, codes) = WorldDataFactory.ToMonsterDefinitions(records);
-            Assert.True(definitions.Single().Name == "HOPY", "catalog still exposes the Korean identity");
+            var definition = WorldDataFactory.ToMonsterDefinitions(records).Single();
+            Assert.True(definition is { Code: 196, Key: "HOPY", Name: "Hopy" }, "the runtime code is not the id, or the key or label differs");
             var fields = await repository.GetAllFieldSpawnsAsync();
-            var spawns = WorldDataFactory.ToFieldSpawnData(fields.Single(), codes, new Dictionary<string, int>());
-            Assert.True(spawns.SpawnTable.Single().MonsterCode == definitions.Single().Code, "localized name broke spawn identity");
+            var spawns = WorldDataFactory.ToFieldSpawnData(fields.Single());
+            Assert.True(spawns.SpawnTable.Single().MonsterCode == 196, "the spawn does not name the monster by its id");
 
             await using var check = await connections.OpenAsync();
             Assert.True(await check.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM pragma_foreign_key_check") == 0, "migration broke foreign keys");

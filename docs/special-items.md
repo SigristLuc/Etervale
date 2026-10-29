@@ -130,7 +130,8 @@ from the inventory. Items without a rule keep the generic tooltip.
 | GP114-116 | Ricarten militia, Ricarten guard, Bless royal guard as castle mercenaries; refused (`CrystalRefused`) |
 | GP201-209 | Soul stones: a hostile "soul of" monster for 4 min from seven per stone, uniformly |
 
-Monsters are named by their authored name (`MonsterDefinition.Key`, spaces included). A crystal is refused in towns,
+Monsters are named by their key (`MonsterDefinition.Key`, the unique English name; a crystal pet is the crystal
+variant of its monster, `HOPY 2` for Hopy) and a soul stone's by `Soul of <key>`. A crystal is refused in towns,
 the quest arena and below its item level; a soul stone also in the castle (33), field 29 and field 16. Every crystal
 use starts a three-second delay; billing crystals (GP117-120) and soul stones refuse during it. A pet stands beside its
 user (one of the eight points 48 units around him), lives 4 min plus 2 s per owner level (levels 1-99) with 3 more

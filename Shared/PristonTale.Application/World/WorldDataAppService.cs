@@ -23,10 +23,9 @@ public sealed class WorldDataAppService
 
         var itemDefs = WorldDataFactory.ToItemDefinitions(itemRecords);
         var itemCodes = itemDefs.ToDictionary(item => item.CatalogKey, item => item.Code, StringComparer.OrdinalIgnoreCase);
-        var (monsterDefs, monsterCodeByName) = WorldDataFactory.ToMonsterDefinitions(monsterRecords, itemCodes);
-        var (npcDefs, npcCodeByName) = WorldDataFactory.ToNpcDefinitions(npcRecords);
-
-        var fieldSpawns = WorldDataFactory.ToFieldSpawnData(fieldRecords, monsterCodeByName, npcCodeByName);
+        var monsterDefs = WorldDataFactory.ToMonsterDefinitions(monsterRecords, itemCodes);
+        var npcDefs = WorldDataFactory.ToNpcDefinitions(npcRecords);
+        var fieldSpawns = WorldDataFactory.ToFieldSpawnData(fieldRecords);
 
         var motions = WorldDataFactory.ToMotionTimings(motionModels, motionSlots);
 

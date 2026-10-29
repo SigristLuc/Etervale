@@ -188,9 +188,9 @@ first `Order`; `Query` returns candidates sorted by `Order`, which keeps neighbo
 `MonsterDefinition` is built from the database by `WorldDataFactory.ToMonsterDefinitions`
 (`Persistence/PristonTale.Persistence.Abstractions/WorldData/`):
 
-- `Code` is the 1-based position of the record in the loaded list; 0 means unset. Spawn tables and boss spawns
-  reference monsters by name and are resolved to codes at load, so codes are stable only within one load.
-- `Faction` is `Enemy` for a hostile monster (`*속성 적`), `Npc` otherwise; `Name` is the display name (`"Monster"` when
+- `Code` is the monster's registry id ([world-import.md](world-import.md#identities)); 0 means unset. Spawn tables
+  and boss spawns hold the same id. `Key` is its unique English name, which crystals and skill summons use.
+- `Faction` is `Enemy` for a hostile monster (`*속성 적`), `Npc` otherwise; `Name` is the display name (the key when
   empty); `ModelInxPath` is normalized to `.inx`. `ShadowSizeLevel` is the authored shadow size.
 - `DeathGold` with `DeathGoldChance`: gold dropped on death on top of the drop table. `EventCode`/`EventInfo`: event
   creatures (code 100 walks at night in field `EventInfo`). `EventModelInxPath`: the model of the hammer event; a monster
@@ -206,7 +206,8 @@ first `Order`; `Query` returns candidates sorted by `Order`, which keeps neighbo
 - `SoundCode` is the original sound family code and doubles as a behaviour key (see Pitfalls).
 - `PotionCount`/`PotionPercent`: potions a spawn may carry (Valento, Kelvezu and Mokova use the count as lives, see
   Monster skills). `Skill` keeps curse-only skills (no damage, no area, a rating and a curse code).
-- `MonsterCatalog.TryFind(name)` matches the display name case-insensitively and returns the lowest code.
+- `MonsterCatalog.TryFindKey(key)` matches the key case-insensitively; `TryFind(name)` (game-master commands, skill
+  summons) matches the key, else the display name, and returns the lowest code (an event form shares its key).
 
 `MonsterInstance` holds live state: `Position`, `Facing`, `Life`, `AiState`, `Motion`, `HomeAnchor` (spawn position),
 `SpawnPointIndex` (-1 for summons), `TargetId`, timers, manoeuvre counters, `Effects` (modifier container stepped by the
@@ -454,11 +455,10 @@ the damage clip found this way (`WorldPlayer.FlinchMs`, set when the player ente
 
 ## NPCs and services
 
-`NpcDefinition` comes from `WorldDataFactory.ToNpcDefinitions`: `Code` is the 1-based record position, `Name` the
-authored identity that field placements reference, `DisplayName` the player label (`Label` falls back to `Name`),
+`NpcDefinition` comes from `WorldDataFactory.ToNpcDefinitions`: `Code` is the NPC's registry id, which field
+placements hold, `Name` its unique English key, `DisplayName` the player label (`Label` falls back to `Name`),
 `Services` in authored order with a bit set `ServiceSet` (`1 << kind`), `Shop` stock in three tabs (weapons, armour,
-misc), `Dialog`, `MoveRange` (default 64). A shop service without runtime stock is removed. Databases without typed
-service rows fall back to the older per-service flag columns.
+misc), `Dialog`, `MoveRange` (default 64). A shop service without runtime stock is removed.
 
 NPC placement and wandering (`WorldNpc`, Application): placed from `FixedNpc` (fixed point, 4096-step angle); walks
 only with `MoveRange > 0` and a walk clip, with a 25% chance at the end of each stand clip, at 70 units/s.

@@ -19,6 +19,7 @@ internal static class WorldImportTests
         yield return ("every key of the monster, item and NPC files reaches the world data, and unknown keys are reported", EveryKeyAsync);
         yield return ("set bonuses are read from the comment that states them", SetBonusAsync);
         yield return ("names the data gives only in Portuguese are imported in English", EnglishNamesAsync);
+        yield return ("every monster and NPC has one id and one English key, and every monster a crystal or a skill calls is registered", RegistryAsync);
     }
 
     private static Task SetBonusAsync()
@@ -45,7 +46,7 @@ internal static class WorldImportTests
             "*B_NAME \"Machado\"", "*J_NAME \"x\"", "*유니크색상 220 80 0 0 9 1.5", "*이펙트설정 1", "*발생제한 5", "//////// 세트 효과 ////////",
             "// 체력+400", "*세트아이템 1 2"));
         await WriteCp949Async(Path.Combine(source, "OpenItem", "_Uwa130_Rage.txt"),
-            Lines("*코드 WA130", "*이름 \"Rage\"", "*유니크", "*유니크색상 0 180 255 0 9"));
+            Lines("*코드 WA130", "*Name \"Rage\"", "*유니크", "*유니크색상 0 180 255 0 9"));
         await WriteCp949Async(Path.Combine(source, "Monster", "Wolverine.inf"), Lines("*이름 \"Wolverine\"", "*E_NAME \"Bronze Wolverine\"",
             "*속성 적", "*크기 중대형", "*매직 -5", "*이동타입 2", "*특수공격률 20", "*골드 8 15 80", "*보스",
             @"*예비모델 ""char\monster\Wolf\Wolf-b.ini""", "*이벤트코드 100", "*이벤트정보 1", "*언데드 유", "*수수께끼 1"));
@@ -76,7 +77,7 @@ internal static class WorldImportTests
             var set = WorldDataFactory.ToItemSets(await repository.GetAllItemSetsAsync()).Single();
             Assert.True(set.SetCode == 1 && set.Pieces == 2 && set.Life == 400, "the set bonus was not imported");
 
-            var monsters = WorldDataFactory.ToMonsterDefinitions(await repository.GetAllMonstersAsync()).Definitions;
+            var monsters = WorldDataFactory.ToMonsterDefinitions(await repository.GetAllMonstersAsync());
             var monster = monsters[0];
             Assert.True(monsters.Count == 2 && monster.EventFormCode == monsters[1].Code && monsters[1].Class == Simulation.World.Monsters.MonsterClass.Normal
                 && monsters[1].ModelInxPath.EndsWith("Wolf-b.inx", StringComparison.OrdinalIgnoreCase), "the event form of a monster was not built");
@@ -86,7 +87,7 @@ internal static class WorldImportTests
                 && monster.EventCode == 100 && monster.EventInfo == 1 && monster.Brood == Simulation.World.Monsters.MonsterBrood.Undead,
                 "a monster key was not imported");
 
-            var npc = WorldDataFactory.ToNpcDefinitions(await repository.GetAllNpcsAsync()).Definitions.Single();
+            var npc = WorldDataFactory.ToNpcDefinitions(await repository.GetAllNpcsAsync()).Single();
             Assert.True(npc.Hostile && npc.Level == 100 && npc.ShadowSizeLevel == 3 && npc.AppearSlot == 1 && npc.AppearCycle == 2
                 && npc.AppearsFor(3) && !npc.AppearsFor(4), "an NPC key was not imported");
         }
@@ -134,6 +135,12 @@ internal static class WorldImportTests
             var connections = provider.GetRequiredService<IDbConnectionFactory>();
             var importer = new Importer(connections, source);
             var first = await importer.RunAsync();
+            // A monster the source no longer defines (or one keyed again under another id) leaves on the next import.
+            await using (var stale = await connections.OpenAsync())
+            {
+                await stale.ExecuteAsync("INSERT INTO monsters (id, key) VALUES (9999, 'Stale')");
+            }
+
             var second = await importer.RunAsync();
 
             Assert.True(first.ItemRows == 2 && second.ItemRows == 2, "the base items were not selected consistently");
@@ -153,7 +160,7 @@ internal static class WorldImportTests
                 "linked item properties were not imported");
 
             var monster = await connection.QuerySingleAsync<(int SoundCode, float ModelScale, int MoveSpeed, int SizeLevel)>(
-                "SELECT sound_code, model_scale, move_speed, size_level FROM monsters WHERE name = 'Wolf'");
+                "SELECT sound_code, model_scale, move_speed, size_level FROM monsters WHERE key = 'WOLF'");
             Assert.True(monster.SizeLevel == 0, "a monster without a size key does not cast the small shadow");
             Assert.True(monster.SoundCode == CharacterSoundCodes.Wolverine, "monster sound code was not imported");
             Assert.True(Math.Abs(monster.ModelScale - 1.4f) < 0.001f && monster.MoveSpeed == 12,
@@ -170,14 +177,16 @@ internal static class WorldImportTests
                 "the preserved NPC definition lost its shop stock");
             Assert.True(await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM pragma_foreign_key_check") == 0,
                 "world import broke foreign keys");
+            Assert.True(await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM monsters WHERE id = 9999") == 0,
+                "a monster the source no longer defines stayed in the catalog");
 
             var repository = provider.GetRequiredService<IWorldDataRepository>();
             var items = WorldDataFactory.ToItemDefinitions(await repository.GetAllItemTemplatesAsync());
-            var monsters = WorldDataFactory.ToMonsterDefinitions(await repository.GetAllMonstersAsync()).Definitions;
+            var monsters = WorldDataFactory.ToMonsterDefinitions(await repository.GetAllMonstersAsync());
             var monstersWithCatalog = WorldDataFactory.ToMonsterDefinitions(
                 await repository.GetAllMonstersAsync(),
-                items.ToDictionary(static item => item.CatalogKey, static item => item.Code, StringComparer.OrdinalIgnoreCase)).Definitions;
-            var npcs = WorldDataFactory.ToNpcDefinitions(await repository.GetAllNpcsAsync()).Definitions;
+                items.ToDictionary(static item => item.CatalogKey, static item => item.Code, StringComparer.OrdinalIgnoreCase));
+            var npcs = WorldDataFactory.ToNpcDefinitions(await repository.GetAllNpcsAsync());
             Assert.True(items.Count == 2 && items.Single(static item => item.CatalogKey == "WA101").MaxStack == 20,
                 "runtime item catalog lost the imported stack size or an item family");
             Assert.True(monsters.Single().SoundCode == CharacterSoundCodes.Wolverine,
@@ -209,7 +218,7 @@ internal static class WorldImportTests
         {
             var item = Path.Combine(directory, "DA130.txt");
             var monster = Path.Combine(directory, "Cristal_Hopy.inf");
-            var npc = Path.Combine(directory, "ribbon.npc");
+            var npc = Path.Combine(directory, "Ribbonhopy.npc");
             await WriteCp949Async(item, Lines("*코드 DA130", "*이름 \"임페리얼 아머\"", "*B_NAME \"Armadura Imperial\""));
             await WriteCp949Async(monster, Lines("*이름 \" 호피 \"", "*E_NAME \"Hopi\""));
             await WriteCp949Async(npc, Lines("*이름 \"리본 호피\"", "*E_NAME \"Ribbon Hopi\""));
@@ -227,7 +236,26 @@ internal static class WorldImportTests
         Task<(string Item, string Monster, string Npc)> WriteAndParse() => Task.FromResult((
             new PristonTale.WorldImport.Parsers.ItemTxtParser().Parse(Path.Combine(directory, "DA130.txt")).Name,
             new PristonTale.WorldImport.Parsers.MonsterInfParser().Parse(Path.Combine(directory, "Cristal_Hopy.inf")).DisplayName,
-            new PristonTale.WorldImport.Parsers.NpcParser().Parse(Path.Combine(directory, "ribbon.npc")).DisplayName));
+            new PristonTale.WorldImport.Parsers.NpcParser().Parse(Path.Combine(directory, "Ribbonhopy.npc")).DisplayName));
+    }
+
+    private static Task RegistryAsync()
+    {
+        var monsters = IdentityRegistry.Monsters();
+        var npcs = IdentityRegistry.Npcs();
+        Assert.True(monsters.TryGet(" 호피 ", out var crystalHopy) && crystalHopy.Key == "HOPY 2" && monsters.TryGet("호피", out var hopy) && hopy.Key == "HOPY"
+            && npcs.TryGet("Zinjya", out var zinjya) && zinjya.Id == 127, "a registered identity lost its id or key");
+
+        var called = Simulation.Items.Usable.MonsterCrystals.All.Where(static crystal => crystal.Kind != Simulation.Items.Usable.CrystalKind.SoulStone)
+            .SelectMany(static crystal => crystal.Monsters.Concat(crystal.EventMonsters)).Select(static monster => monster.Key)
+            .Concat(Simulation.Skills.SkillRuleCatalog.All.Where(static rule => rule.Summon is not null).Select(static rule => rule.Summon.Monster));
+        var missing = called.Where(key => !monsters.HasKey(key)).Distinct().ToArray();
+        Assert.True(missing.Length == 0, $"crystals or skills call unregistered monsters: {string.Join(", ", missing)}");
+
+        // An unregistered identity takes the next id and its label as key, numbered when the key is taken.
+        Assert.True(monsters.Resolve("새 몬스터", "fury") is { Id: 604, Key: "Fury 5" } && monsters.Resolve("다른 몬스터", "") is { Id: 605, Key: "Monster 605" }
+            && monsters.Added.Count == 2, "an unregistered identity was not keyed as the registry promises");
+        return Task.CompletedTask;
     }
 
     private static string Lines(params string[] lines) => string.Join("\n", lines) + "\n";

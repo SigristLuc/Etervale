@@ -21,15 +21,15 @@ internal static class MonsterCrystalTests
 
     private static Task TablesAsync()
     {
-        Assert.True(MonsterCrystals.TryGet("gp109", out var mystic) && mystic.Pick(0, false) == " 호피 " && mystic.Pick(99, false) == " 킹호피 "
-            && mystic.Pick(39, false) == " 홉고블린 " && mystic.Pick(40, false) == " 디코이 ", "mystic weights");
-        Assert.True(mystic.Pick(0, true) == " 짱피 ", "mystic event table");
-        Assert.True(MonsterCrystals.TryGet("GP120", out var extreme) && extreme.Pick(34, false) == " 오미크론 " && extreme.Pick(35, false) == " 스파이더 트루퍼 "
-            && extreme.Pick(99, false) == " 오메가 " && extreme.SharedDelay, "extreme weights");
-        Assert.True(MonsterCrystals.TryGet("GP117", out var skeleton) && skeleton.Pick(1, false) == " 스켈레톤 레인저 " && skeleton.Pick(7, true) == " 스켈레톤 나이트 ",
+        Assert.True(MonsterCrystals.TryGet("gp109", out var mystic) && mystic.Pick(0, false) == "HOPY 2" && mystic.Pick(99, false) == "Hopy King 2"
+            && mystic.Pick(39, false) == "Hobgoblin 2" && mystic.Pick(40, false) == "Decoy 2", "mystic weights");
+        Assert.True(mystic.Pick(0, true) == "Zzangpy 2", "mystic event table");
+        Assert.True(MonsterCrystals.TryGet("GP120", out var extreme) && extreme.Pick(34, false) == "Omicron 2" && extreme.Pick(35, false) == "Spidertrooper 2"
+            && extreme.Pick(99, false) == "Omega 3" && extreme.SharedDelay, "extreme weights");
+        Assert.True(MonsterCrystals.TryGet("GP117", out var skeleton) && skeleton.Pick(1, false) == "Skeleton Ranger 2" && skeleton.Pick(7, true) == "Skeleton Knight 2",
             "billing crystals draw uniformly in and out of the event");
-        Assert.True(MonsterCrystals.TryGet("GP101", out var hopy) && hopy.Pick(5, false) == " 호피 " && !hopy.SharedDelay, "fixed crystal");
-        Assert.True(MonsterCrystals.TryGet("GP205", out var cyan) && cyan.Kind == CrystalKind.SoulStone && cyan.Pick(6, false) == " 굴가르의 영혼 ",
+        Assert.True(MonsterCrystals.TryGet("GP101", out var hopy) && hopy.Pick(5, false) == "HOPY 2" && !hopy.SharedDelay, "fixed crystal");
+        Assert.True(MonsterCrystals.TryGet("GP205", out var cyan) && cyan.Kind == CrystalKind.SoulStone && cyan.Pick(6, false) == "Soul of Icegoblin",
             "soul stone table");
         Assert.True(MonsterCrystals.PetLifetimeMs(50) == 340_000f && MonsterCrystals.PetLifetimeMs(100) == 240_000f && MonsterCrystals.PetBonusLife(99) == 297,
             "pet lifetime and life bonus");
@@ -97,8 +97,8 @@ internal static class MonsterCrystalTests
     {
         var wild = SkillScenario.Enemy("Wild", life: 2, sight: 0, level: 1) with { ExpReward = 100 };
         var scenario = SkillScenario.Create(PlayerClass.Fighter, 20, null, null, wild, Hopy());
-        Assert.True(scenario.Field.TryFindMonsterKey(" 호피 ", out var hopy), "catalog lacks the crystal monster");
-        var spawned = scenario.Field.CallCrystalMonster(scenario.Player, "GP101", " 호피 ");
+        Assert.True(scenario.Field.TryFindMonsterKey("HOPY 2", out var hopy), "catalog lacks the crystal monster");
+        var spawned = scenario.Field.CallCrystalMonster(scenario.Player, "GP101", "HOPY 2");
         Assert.True(spawned is not null, "pet was not called");
         var prey = scenario.Spawn(wild, spawned!.Value + new Vector3(60f, 0f, 0f));
         var experience = scenario.Character.Experience;
@@ -113,15 +113,15 @@ internal static class MonsterCrystalTests
 
     private static MonsterDefinition Hopy() => SkillScenario.SummonModel("HOPY", 50) with
     {
-        Key = " 호피 ",
+        Key = "HOPY 2",
         Combat = new MonsterCombatStats(4, 400, new MonsterRange(5, 6), 6, 50, 50, 5, 0, 150, ResistanceBlock.Zero)
     };
 
     private static MonsterDefinition[] Skeletons() =>
     [
-        SkillScenario.SummonModel("Skeleton Archer", 51) with { Key = " 스켈레톤 아처 " },
-        SkillScenario.SummonModel("Skeleton Ranger", 52) with { Key = " 스켈레톤 레인저 " },
-        SkillScenario.SummonModel("Skeleton Warrior", 53) with { Key = " 스켈레톤 워리어 " },
-        SkillScenario.SummonModel("Skeleton Knight", 54) with { Key = " 스켈레톤 나이트 " }
+        SkillScenario.SummonModel("Skeleton Archer", 51) with { Key = "Skeleton Archer 2" },
+        SkillScenario.SummonModel("Skeleton Ranger", 52) with { Key = "Skeleton Ranger 2" },
+        SkillScenario.SummonModel("Skeleton Warrior", 53) with { Key = "Skeleton Warrior 2" },
+        SkillScenario.SummonModel("Skeleton Knight", 54) with { Key = "Skeleton Knight 2" }
     ];
 }

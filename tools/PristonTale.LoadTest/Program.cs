@@ -8,16 +8,18 @@ using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.World;
 using PristonTale.Contracts.Combat;
 using PristonTale.Contracts.Characters;
+using PristonTale.Simulation.Items;
 
 // Headless load generator over the original Priston protocol. Each bot logs in, creates a character when the account
-// has none, enters the world and then walks, hunts monsters with basic attacks or casts a skill at them, reporting
-// its movement at 5 Hz and draining presence. Accounts (and placed hunting characters) come from:
+// has none, enters the world and then walks, hunts monsters with basic attacks, casts a skill at them or switches its
+// bag page (a stored inventory command, as a potion or a pickup is), reporting its movement at 5 Hz and draining
+// presence. Accounts (and placed hunting characters) come from:
 // dotnet run --project tools/PristonTale.DevAccounts -- create-bots <prefix> <count> <password> [--class ... --field ... --at x,z]
 var options = Options.Parse(args);
 if (options is null)
 {
     Console.Error.WriteLine("usage: --count <bots> [--address tcp://localhost:10009] [--prefix bot] [--password bot-pw] [--seconds 60] [--ramp 50]");
-    Console.Error.WriteLine("       [--mode walk|fight|cast|mixed] [--skill <hex>] [--server-pid <pid>] [--report <seconds>]");
+    Console.Error.WriteLine("       [--mode walk|fight|cast|items|mixed] [--skill <hex>] [--item-ms 1000] [--server-pid <pid>] [--report <seconds>]");
     return 1;
 }
 
@@ -39,6 +41,7 @@ for (var index = 1; index <= options.Count; index++)
 var server = options.ServerPid > 0 ? Process.GetProcessById(options.ServerPid) : null;
 var measured = Stopwatch.StartNew();
 var last = stats.Sample();
+stats.TakeItemLatencies();
 var lastCpu = server?.TotalProcessorTime ?? TimeSpan.Zero;
 var totals = new List<double>();
 while (measured.Elapsed < TimeSpan.FromSeconds(options.Seconds))
@@ -53,6 +56,13 @@ while (measured.Elapsed < TimeSpan.FromSeconds(options.Seconds))
         $"t={measured.Elapsed.TotalSeconds,5:F0}s playing={now.Playing,5} failed={now.Failures,4} in={(now.Bytes - last.Bytes) / 1024.0 / seconds,9:F1} KiB/s " +
         $"({perBot,6:F2} per bot) updates/s={(now.Updates - last.Updates) / (double)seconds,8:F0} hits/s={(now.Hits - last.Hits) / (double)seconds,7:F0} " +
         $"casts/s={(now.Casts - last.Casts) / (double)seconds,6:F0} ok={(now.CastsAccepted - last.CastsAccepted) / (double)seconds,6:F0} corrections={now.Corrections}");
+    if (stats.TakeItemLatencies() is { Count: > 0 } latencies)
+    {
+        latencies.Sort();
+        line += string.Create(CultureInfo.InvariantCulture,
+            $" items/s={latencies.Count / (double)seconds,6:F0} refused={now.ItemsRefused - last.ItemsRefused,5} " +
+            $"ms p50={latencies[latencies.Count / 2],6:F1} p99={latencies[latencies.Count * 99 / 100],7:F1} max={latencies[^1],7:F1}");
+    }
     if (server is not null)
     {
         server.Refresh();
@@ -77,6 +87,11 @@ if (!stats.Refusals.IsEmpty)
     Console.WriteLine("refused casts: " + string.Join(", ", stats.Refusals.Select(pair => $"{pair.Key} {pair.Value}")));
 }
 
+if (!stats.ItemRefusals.IsEmpty)
+{
+    Console.WriteLine("refused items: " + string.Join(", ", stats.ItemRefusals.Select(pair => $"{pair.Key} {pair.Value}")));
+}
+
 return final.Failures == 0 ? 0 : 2;
 
 internal enum BotMode
@@ -84,6 +99,7 @@ internal enum BotMode
     Walk,
     Fight,
     Cast,
+    Items,
     Mixed
 }
 
@@ -174,6 +190,8 @@ internal static class Bot
         uint sequence = 0;
         long lastBytes = 0;
         var nextCast = TimeSpan.FromSeconds(index % 30 / 10.0);
+        var nextItem = TimeSpan.FromMilliseconds(index * 37 % options.ItemMs);
+        var page = 0;
         var clock = Stopwatch.StartNew();
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(ReportSeconds));
         while (await timer.WaitForNextTickAsync(stop))
@@ -184,7 +202,30 @@ internal static class Bot
                 center = new Vector2(corrected.X, corrected.Z) - new Vector2(MathF.Cos(phase), MathF.Sin(phase)) * Radius;
             }
 
-            if (mode == BotMode.Walk)
+            if (mode == BotMode.Items)
+            {
+                await play.SendMovementAsync(position, 0f, false, false, 0, field, stop);
+                if (clock.Elapsed >= nextItem && world.InventoryRevision is { } revision)
+                {
+                    nextItem = clock.Elapsed + TimeSpan.FromMilliseconds(options.ItemMs);
+                    page ^= 1;
+                    var started = Stopwatch.GetTimestamp();
+                    var outcome = await play.ApplyInventoryAsync(
+                        new InventoryCommand(Guid.NewGuid(), revision, InventoryAction.SwitchBagPage, Guid.Empty, page, 0, default), stop);
+                    stats.RecordItem(Stopwatch.GetElapsedTime(started), outcome.Ok ? null : outcome.Message);
+                    // A refusal before the world (storage busy or failed) answers no revision; the expected one still holds.
+                    if (outcome.Revision > 0)
+                    {
+                        world.Answered(outcome.Revision);
+                    }
+
+                    if (!outcome.Ok)
+                    {
+                        page ^= 1;
+                    }
+                }
+            }
+            else if (mode == BotMode.Walk)
             {
                 phase += UnitsPerSecond * ReportSeconds / Radius;
                 position = new Vector3(center.X + MathF.Cos(phase) * Radius, 0f, center.Y + MathF.Sin(phase) * Radius);
@@ -271,10 +312,37 @@ internal sealed class BotWorld(ulong self)
     // Where the server last showed this bot.
     public Vector3? Self { get; private set; }
 
+    // The inventory revision the next command expects: the last command's answer, else the last owner state.
+    public long? InventoryRevision
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _revision;
+            }
+        }
+    }
+
+    private long? _revision;
+
+    public void Answered(long revision)
+    {
+        lock (_gate)
+        {
+            _revision = revision;
+        }
+    }
+
     public void Apply(PresenceUpdate update, Stats stats)
     {
         lock (_gate)
         {
+            if (update.Owner is { } owner)
+            {
+                _revision = owner.InventoryRevision;
+            }
+
             foreach (var spawn in update.Spawns)
             {
                 if (spawn.EntityId == self)
@@ -410,18 +478,47 @@ internal sealed class Stats
     public int Failures;
     public int Corrections;
     public int LeaveTimeouts;
+    public int ItemsRefused;
+    public readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> ItemRefusals = new();
+    private readonly object _itemGate = new();
+    private List<double> _itemLatencies = [];
     public readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> Refusals = new();
+
+    public void RecordItem(TimeSpan latency, string? refusal)
+    {
+        if (refusal is not null)
+        {
+            Interlocked.Increment(ref ItemsRefused);
+            ItemRefusals.AddOrUpdate(refusal, 1, static (_, count) => count + 1);
+        }
+
+        lock (_itemGate)
+        {
+            _itemLatencies.Add(latency.TotalMilliseconds);
+        }
+    }
+
+    // The answer times of the stored commands since the last call, in milliseconds.
+    public List<double> TakeItemLatencies()
+    {
+        lock (_itemGate)
+        {
+            var taken = _itemLatencies;
+            _itemLatencies = [];
+            return taken;
+        }
+    }
 
     public Snapshot Sample() => new(Interlocked.Read(ref BytesReceived), Interlocked.Read(ref Updates), Interlocked.Read(ref Hits), Interlocked.Read(ref Casts),
         Interlocked.Read(ref CastsAccepted), Volatile.Read(ref Playing), Volatile.Read(ref Entered), Volatile.Read(ref Failures), Volatile.Read(ref Corrections),
-        Volatile.Read(ref LeaveTimeouts));
+        Volatile.Read(ref LeaveTimeouts), Volatile.Read(ref ItemsRefused));
 
     public readonly record struct Snapshot(long Bytes, long Updates, long Hits, long Casts, long CastsAccepted, int Playing, int Entered, int Failures,
-        int Corrections, int LeaveTimeouts);
+        int Corrections, int LeaveTimeouts, int ItemsRefused);
 }
 
 internal sealed record Options(string Address, string Prefix, string Password, int Count, int Seconds, int RampPerSecond, BotMode Mode, uint Skill,
-    int ServerPid, int ReportSeconds)
+    int ServerPid, int ReportSeconds, int ItemMs)
 {
     public static Options? Parse(string[] args)
     {
@@ -447,6 +544,7 @@ internal sealed record Options(string Address, string Prefix, string Password, i
             mode,
             Convert.ToUInt32(values.GetValueOrDefault("--skill", "0x01010002"), 16),
             int.Parse(values.GetValueOrDefault("--server-pid", "0"), CultureInfo.InvariantCulture),
-            Math.Max(1, int.Parse(values.GetValueOrDefault("--report", "5"), CultureInfo.InvariantCulture)));
+            Math.Max(1, int.Parse(values.GetValueOrDefault("--report", "5"), CultureInfo.InvariantCulture)),
+            Math.Max(50, int.Parse(values.GetValueOrDefault("--item-ms", "1000"), CultureInfo.InvariantCulture)));
     }
 }

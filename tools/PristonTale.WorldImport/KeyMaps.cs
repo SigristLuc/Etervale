@@ -70,7 +70,6 @@ public static class KeyMaps
     // Monster (.inf) character tokens.
 
     public const string CharName = "*이름";            // Korean identity used by spawn references.
-    public const string CharDisplayName = "*Name";     // Display label authored in the supplied monster files.
     public const string CharModel = "*모양파일";       // quoted model file
     public const string CharDialog = "*대화";          // dialog line (at most 20)
     public const string CharAttribute = "*속성";       // 적 = enemy, otherwise NPC
@@ -203,15 +202,26 @@ public static class KeyMaps
     public const string NpcEventCode = "*이벤트코드";     // event creature code
     public const string NpcEventInfo = "*이벤트정보";     // event creature information
 
-    // Localized name and dialog keys of the linked name files, by preference: English, then the Brazilian build's
-    // English text. The original compares them case-sensitively; some files spell them in mixed case.
-    public static readonly string[] NpcNameLocales = ["*E_NAME", "*B_NAME"];
+    // Name and dialog keys of the definition files and their linked name files, kept with each entity as labels and
+    // dialog lines under the key upper-case without its asterisk. A key names the release a text was written for, not
+    // its language: the Brazilian build's B_NAME is mostly English and some files' J_NAME is Portuguese. The original
+    // compares them case-sensitively; some files spell them in mixed case, so they match case-insensitively. The
+    // Korean identity (*이름) and Korean lines (*대화) are not kept.
+    public static readonly string[] LabelKeys = ["*NAME", "*E_NAME", "*B_NAME", "*J_NAME", "*T_NAME"];
+    public static readonly string[] DialogKeys = ["*E_CHAT", "*B_CHAT", "*J_CHAT", "*T_CHAT"];
+
+    // The keys of an NPC's English name and dialog, by preference.
+    public static readonly string[] NpcNameLocales = ["*E_NAME", "*B_NAME", "*NAME"];
     public static readonly string[] NpcDialogLocales = ["*E_CHAT", "*B_CHAT"];
 
-    // Japanese names and lines: the game has no Japanese text, so they are read and left out.
-    public static readonly string[] UnshippedLocales = ["*J_NAME", "*J_CHAT"];
+    public static string? LabelKey(string key) => StoredKey(LabelKeys, key);
 
-    public static bool IsUnshippedLocale(string key) => UnshippedLocales.Contains(key, StringComparer.OrdinalIgnoreCase);
+    public static string? DialogKey(string key) => StoredKey(DialogKeys, key);
+
+    public static string StoredKey(string key) => key.TrimStart('*').ToUpperInvariant();
+
+    private static string? StoredKey(string[] keys, string key) =>
+        keys.Contains(key, StringComparer.OrdinalIgnoreCase) ? StoredKey(key) : null;
 
     // Keys present in the supplied NPC files that no original client handles, with the label kept for them.
     public static readonly (string Token, string Label)[] NpcUnportedServices =

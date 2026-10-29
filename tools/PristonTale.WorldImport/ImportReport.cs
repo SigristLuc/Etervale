@@ -23,6 +23,10 @@ public sealed class ImportReport
     public int NpcShopRows { get; set; }
     public int NpcServiceRows { get; set; }
     public int NpcDialogRows { get; set; }
+    public int DialogLineRows { get; set; }
+
+    // Name labels of items, monsters and NPCs.
+    public int LabelRows { get; set; }
 
     public int FieldRows { get; set; }
     public int SpawnPointRows { get; set; }

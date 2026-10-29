@@ -15,7 +15,6 @@ using PristonTale.Simulation.World;
 // is identical to what the server would create. The schema is ensured idempotently via DatabaseMigrator.
 
 const string DefaultSqlitePath = "data/pristontale.db";
-const int FieldCodes.Ricarten = 3; // Ricarten
 const int MaxSlots = 6;
 
 var argv = new List<string>(args);

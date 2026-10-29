@@ -84,7 +84,7 @@ that explains it in depth.
 | Bonus drop | Independent per-10,000 chance roll on top of the weighted main drops | world.md |
 | Kill payout | Kill result: credited player, experience, rolled drops | application.md |
 | Motion clip | INX frame window plus event offsets; 160 ticks per frame | world.md |
-| Monster / NPC code | 1-based position in the loaded catalog; shifts on re-import, never persist it | world-import.md |
+| Monster / NPC code | The importer's registry id (`Identities/*.json`); the same in every database and across imports | world-import.md |
 
 ## Server, sessions and transactions
 
@@ -100,7 +100,6 @@ that explains it in depth.
 | `WorldSnapshot` | Per-field state built each tick and specialised per receiver with `OwnerState` | application.md |
 | `WorldOutbox` | Per-connection channel keeping the latest entity state and every event; overflow disconnects | application.md |
 | Typed NPC service | `npc_services` row (`NpcServiceKind`, values, text) in click order | world-import.md |
-| `svc_*` flags | Older boolean NPC service columns, read only when an NPC has no `npc_services` rows | persistence.md |
 
 ## Protocol
 

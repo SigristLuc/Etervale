@@ -1,54 +1,35 @@
-using PristonTale.Persistence.Abstractions.Characters;
-
 namespace PristonTale.Persistence.Abstractions.WorldData;
 
-// The svc_* flags and their codes predate npc_services; the importer still fills them from the typed services, and the
-// runtime reads them only for databases imported before npc_services existed.
+// Id: the importer's stable NPC id, also the runtime NPC code; Key: its unique English name. DialogKey names the
+// dialog lines players read (the English lines, E_CHAT, else B_CHAT; empty when the NPC has none).
 public sealed record NpcRecord(
-    string Name,
+    int Id,
+    string Key,
+    string DisplayName,
     string Model,
     string LinkedFile,
-    bool SvcWarehouse,
-    bool SvcShop,
-    bool SvcSkillMaster,
-    bool SvcJobChange,
-    bool SvcTeleport,
-    bool SvcItemMix,
-    bool SvcItemAging,
-    bool SvcSmelting,
-    bool SvcManufacture,
-    bool SvcMixtureReset,
-    bool SvcClan,
-    bool SvcBlessCastle,
-    bool SvcQuest,
-    bool SvcEventBooth,
-    bool SvcCollectMoney,
-    bool SvcGiveMoney,
-    int JobChangeCode,
-    int TeleportCode,
-    int QuestCode,
-    int QuestParam,
-    JsonText Dialog,
-    int SoundCode = 0,
-    int MoveRange = 64,
-    float ModelScale = 1,
-    string DisplayName = "",
-    int PortraitOffsetY = 0,
-    int PortraitOffsetZ = 0,
-    bool Hostile = false,
-    int Level = 0,
-    int SizeLevel = -1,
-    int AppearSlot = 0,
-    int AppearCycle = 0)
+    string DialogKey,
+    int SoundCode,
+    int MoveRange,
+    float ModelScale,
+    int PortraitOffsetY,
+    int PortraitOffsetZ,
+    bool Hostile,
+    int Level,
+    int SizeLevel,
+    int AppearSlot,
+    int AppearCycle)
 {
     public IReadOnlyList<NpcShopStockRecord> ShopStock { get; init; } = [];
 
     public IReadOnlyList<NpcServiceRecord> Services { get; init; } = [];
+
+    public IReadOnlyList<string> Dialog { get; init; } = [];
 }
 
 public sealed record NpcShopStockRecord(
     long Id,
-    string NpcName,
+    int NpcId,
     int Tab,
     int Ordinal,
     string ItemCode);
@@ -56,9 +37,15 @@ public sealed record NpcShopStockRecord(
 // Kind is a PristonTale.Simulation.World.Npcs.NpcServiceKind value; Ordinal is the service's order on a click.
 public sealed record NpcServiceRecord(
     long Id,
-    string NpcName,
+    int NpcId,
     int Ordinal,
     int Kind,
     int Value,
     int Value2,
+    string Text);
+
+public sealed record NpcDialogLineRecord(
+    int NpcId,
+    string SourceKey,
+    int Ordinal,
     string Text);

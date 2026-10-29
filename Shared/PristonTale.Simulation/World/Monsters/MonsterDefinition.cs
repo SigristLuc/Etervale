@@ -95,7 +95,7 @@ public sealed record MonsterDefinition(
 {
     public MonsterSkillStats Skill { get; init; } = MonsterSkillStats.None;
 
-    // The authored monster name exactly as the data files spell it (spaces included); items name monsters by it.
+    // The monster's unique English name (the importer's identity registry); crystals and skills name monsters by it.
     public string Key { get; init; } = "";
 
     public MonsterAi Ai { get; init; } = MonsterAi.Default;

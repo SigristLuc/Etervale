@@ -16,25 +16,24 @@ public sealed class MonsterCatalog
 
     public bool TryGet(int code, out MonsterDefinition definition) => _byCode.TryGetValue(code, out definition);
 
-    // The definition with this display name; several share a name (field variants), the lowest code wins.
-    public bool TryFind(string name, out MonsterDefinition definition)
+    // The definition with this key, else with this display name, in any case. Several monsters share a display name
+    // (field variants) and an event form shares its monster's key: the lowest code wins.
+    public bool TryFind(string name, out MonsterDefinition definition) => TryFindKey(name, out definition) || TryLowest(name, byKey: false, out definition);
+
+    // The definition with this key (the monster's unique English name), in any case.
+    public bool TryFindKey(string key, out MonsterDefinition definition) => TryLowest(key, byKey: true, out definition);
+
+    private bool TryLowest(string text, bool byKey, out MonsterDefinition definition)
     {
         definition = null;
         foreach (var candidate in All)
         {
-            if (string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase) && (definition is null || candidate.Code < definition.Code))
+            if (string.Equals(byKey ? candidate.Key : candidate.Name, text, StringComparison.OrdinalIgnoreCase) && (definition is null || candidate.Code < definition.Code))
             {
                 definition = candidate;
             }
         }
 
-        return definition is not null;
-    }
-
-    // The definition with this authored name, spaces included.
-    public bool TryFindKey(string key, out MonsterDefinition definition)
-    {
-        definition = All.FirstOrDefault(candidate => string.Equals(candidate.Key, key, StringComparison.Ordinal));
         return definition is not null;
     }
 }

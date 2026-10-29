@@ -85,7 +85,11 @@ public sealed class ParsedItem
     // *세트아이템: set code and pieces worn for the bonus, with the bonus as the file states it.
     public int SetCode { get; init; }
     public int SetPieces { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
     public string SetBonus { get; init; } = "";
+
+    // Every name label by stored key (NAME, E_NAME, B_NAME, J_NAME, T_NAME).
+    public Dictionary<string, string> Labels { get; } = new(StringComparer.Ordinal);
 
     // Keys of the file no rule reads; the importer reports them.
     public List<string> UnknownKeys { get; } = [];

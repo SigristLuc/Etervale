@@ -14,7 +14,7 @@ public enum CrystalKind : byte
     SoulStone
 }
 
-// One monster a crystal may call: its authored name and its weight in a weighted draw (0 = drawn uniformly).
+// One monster a crystal may call: its key (MonsterDefinition.Key) and its weight in a weighted draw (0 = drawn uniformly).
 public readonly record struct CrystalMonster(string Key, int Weight = 0);
 
 // A crystal's monsters outside and during the crystal event; one entry means a fixed monster. SharedDelay crystals
@@ -103,60 +103,61 @@ public static class MonsterCrystals
         void Pet(string key, string name, string monster, string eventMonster) =>
             crystals[key] = new MonsterCrystalDefinition(key, name, CrystalKind.Pet, [new(monster)], [new(eventMonster)], false);
 
-        Pet("GP101", "Hopy", " 호피 ", " 짱피 ");
-        Pet("GP102", "Hobgoblin", " 홉고블린 ", " 와일드 고블린 ");
-        Pet("GP103", "Decoy", " 디코이 ", " 맥시멈 디코이 ");
-        Pet("GP104", "Bargon", " 바곤 ", " 바우톤 ");
-        Pet("GP105", "Head Cutter", " 헤드커터 ", " 베가 드미르 ");
-        Pet("GP106", "Figon", " 파이곤 ", " 헬싱 ");
-        Pet("GP107", "King Hopy", " 킹호피 ", " 호러피온 ");
-        Pet("GP108", "Hulk", " 헐크 ", " 타이푼 ");
-        Pet("GP111", "Web", " 웹 ", " 커즈웹 ");
-        Pet("GP112", "Dark Specter", " 다크 스펙터 ", " 다크 팬텀 ");
-        Pet("GP113", "Iron Guard", " 아이언 가드 ", " 이미티르 가드 ");
+        Pet("GP101", "Hopy", "HOPY 2", "Zzangpy 2");
+        Pet("GP102", "Hobgoblin", "Hobgoblin 2", "Wild Goblin");
+        Pet("GP103", "Decoy", "Decoy 2", "Maximum Decoy");
+        Pet("GP104", "Bargon", "Bargon", "Bauton 2");
+        Pet("GP105", "Head Cutter", "Head Cutter 2", "Vega Demir");
+        Pet("GP106", "Figon", "Figon 2", "HellSing 2");
+        Pet("GP107", "King Hopy", "Hopy King 2", "Horropion 2");
+        Pet("GP108", "Hulk", "Hulk 2", "Typhoon 2");
+        Pet("GP111", "Web", "Web 2", "CurseWeb");
+        Pet("GP112", "Dark Specter", "Dark Specter 2", "Dark Phantom");
+        Pet("GP113", "Iron Guard", "Iron Guard 2", "Imitir Guard");
 
         crystals["GP109"] = new MonsterCrystalDefinition("GP109", "Mystic", CrystalKind.Pet,
-            [new(" 호피 ", 20), new(" 홉고블린 ", 20), new(" 디코이 ", 15), new(" 바곤 ", 15), new(" 헤드커터 ", 15), new(" 파이곤 ", 10), new(" 킹호피 ", 5)],
-            [new(" 짱피 ", 20), new(" 와일드 고블린 ", 20), new(" 맥시멈 디코이 ", 15), new(" 바우톤 ", 15), new(" 베가 드미르 ", 15), new(" 헬싱 ", 10),
-                new(" 호러피온 ", 5)],
+            [new("HOPY 2", 20), new("Hobgoblin 2", 20), new("Decoy 2", 15), new("Bargon", 15), new("Head Cutter 2", 15), new("Figon 2", 10), new("Hopy King 2", 5)],
+            [new("Zzangpy 2", 20), new("Wild Goblin", 20), new("Maximum Decoy", 15), new("Bauton 2", 15), new("Vega Demir", 15), new("HellSing 2", 10),
+                new("Horropion 2", 5)],
             false);
         crystals["GP121"] = new MonsterCrystalDefinition("GP121", "Marvel", CrystalKind.Pet,
-            [new(" 바곤 ", 20), new(" 헤드커터 ", 20), new(" 파이곤 ", 15), new(" 킹호피 ", 15), new(" 헐크 ", 12), new(" 웹 ", 10), new(" 다크 스펙터 ", 5),
-                new(" 아이언 가드 ", 3)],
-            [new(" 바우톤 ", 20), new(" 베가 드미르 ", 20), new(" 헬싱 ", 15), new(" 호러피온 ", 15), new(" 타이푼 ", 12), new(" 커즈웹 ", 10), new(" 다크 팬텀 ", 5),
-                new(" 이미티르 가드 ", 3)],
+            [new("Bargon", 20), new("Head Cutter 2", 20), new("Figon 2", 15), new("Hopy King 2", 15), new("Hulk 2", 12), new("Web 2", 10), new("Dark Specter 2", 5),
+                new("Iron Guard 2", 3)],
+            [new("Bauton 2", 20), new("Vega Demir", 20), new("HellSing 2", 15), new("Horropion 2", 15), new("Typhoon 2", 12), new("CurseWeb", 10), new("Dark Phantom", 5),
+                new("Imitir Guard", 3)],
             false);
 
         void Billing(string key, string name, CrystalMonster[] monsters) =>
             crystals[key] = new MonsterCrystalDefinition(key, name, CrystalKind.Pet, monsters, monsters, true);
 
-        Billing("GP117", "Skeleton", [new(" 스켈레톤 아처 "), new(" 스켈레톤 레인저 "), new(" 스켈레톤 워리어 "), new(" 스켈레톤 나이트 ")]);
-        Billing("GP118", "Chaos", [new(" 나즈 "), new(" 헤비 고블린 "), new(" 스트라이더 "), new(" 디-머신 ")]);
-        Billing("GP119", "Inferna", [new(" 라투 "), new(" 그로테스크 "), new(" 아이언 피스트 "), new(" 프로스트 에이션트 ")]);
-        Billing("GP120", "Extreme", [new(" 오미크론 ", 35), new(" 스파이더 트루퍼 ", 30), new(" 마운틴 ", 20), new(" 오메가 ", 15)]);
+        Billing("GP117", "Skeleton", [new("Skeleton Archer 2"), new("Skeleton Ranger 2"), new("Skeleton Warrior 2"), new("Skeleton Knight 2")]);
+        Billing("GP118", "Chaos", [new("Naz 2"), new("Heavy Goblin 2"), new("Strider 2"), new("D-Machine 2")]);
+        Billing("GP119", "Inferna", [new("Ratoo 2"), new("Grotesque 2"), new("Iron Fist 2"), new("Frost 2")]);
+        Billing("GP120", "Extreme", [new("Omicron 2", 35), new("Spidertrooper 2", 30), new("Mountain 2", 20), new("Omega 3", 15)]);
 
-        crystals["GP110"] = new MonsterCrystalDefinition("GP110", "Guardian Saint", CrystalKind.ClanPet, [new("가디안 세인트")], [new("가디안 세인트")], false);
-        crystals["GP122"] = new MonsterCrystalDefinition("GP122", "Guardian Divine", CrystalKind.ClanPet, [new("가디안 디바인")], [new("가디안 디바인")], false);
-        crystals["GP114"] = new MonsterCrystalDefinition("GP114", "Ricarten Militia", CrystalKind.CastleMercenary, [new("리카르텐 민병대")], [new("리카르텐 민병대")], false);
-        crystals["GP115"] = new MonsterCrystalDefinition("GP115", "Ricarten Guard", CrystalKind.CastleMercenary, [new("리카르텐 경비대")], [new("리카르텐 경비대")], false);
-        crystals["GP116"] = new MonsterCrystalDefinition("GP116", "Bless Royal Guard", CrystalKind.CastleMercenary, [new("블레스왕국 경비대")], [new("블레스왕국 경비대")],
+        crystals["GP110"] = new MonsterCrystalDefinition("GP110", "Guardian Saint", CrystalKind.ClanPet, [new("Guardian Saint")], [new("Guardian Saint")], false);
+        crystals["GP122"] = new MonsterCrystalDefinition("GP122", "Guardian Divine", CrystalKind.ClanPet, [new("Guardian Divine")], [new("Guardian Divine")], false);
+        crystals["GP114"] = new MonsterCrystalDefinition("GP114", "Ricarten Militia", CrystalKind.CastleMercenary, [new("Ricarten Militia")], [new("Ricarten Militia")], false);
+        crystals["GP115"] = new MonsterCrystalDefinition("GP115", "Ricarten Guard", CrystalKind.CastleMercenary, [new("Ricarten Guard")], [new("Ricarten Guard")], false);
+        crystals["GP116"] = new MonsterCrystalDefinition("GP116", "Bless Royal Guard", CrystalKind.CastleMercenary, [new("Bless Royal Guard")], [new("Bless Royal Guard")],
             false);
 
+        // A soul stone calls the soul of each monster it names (the data has no soul monsters yet, so none appears).
         void Soul(string key, string name, params string[] souls)
         {
-            var monsters = souls.Select(static soul => new CrystalMonster($" {soul}의 영혼 ")).ToArray();
+            var monsters = souls.Select(static soul => new CrystalMonster($"Soul of {soul}")).ToArray();
             crystals[key] = new MonsterCrystalDefinition(key, name, CrystalKind.SoulStone, monsters, monsters, true);
         }
 
-        Soul("GP201", "Green Soul Stone", "코크리스", "리치", "싸이클롭스", "메핏", "비독", "좀비", "디코이");
-        Soul("GP202", "Yellow Soul Stone", "뱀피릭 뱃", "그리븐", "이블 스네일", "크립트", "부마", "바곤", "타이탄");
-        Soul("GP203", "Blue Soul Stone", "비블", "슬레이온", "슬러터", "타워 고렘", "머미", "나즈", "위치");
-        Soul("GP204", "Magenta Soul Stone", "버서커", "타이푼", "리자드포크", "램페이지", "아벨린", "인큐버스", "새드니스");
-        Soul("GP205", "Cyan Soul Stone", "디-머신", "킹호피", "오메가", "데드존", "아이스 고렘", "콜드아이", "굴가르");
-        Soul("GP206", "Violet Soul Stone", "뱀피릭 뱃", "그리븐", "이블 스네일", "크립트", "부마", "바곤", "머핀");
-        Soul("GP207", "Red Soul Stone", "비블", "슬레이온", "슬러터", "타워 고렘", "머미", "나즈", "슬리버");
-        Soul("GP208", "Black Soul Stone", "버서커", "타이푼", "리자드포크", "램페이지", "아벨린", "인큐버스", "메트론");
-        Soul("GP209", "Platinum Soul Stone", "디-머신", "킹호피", "오메가", "데드존", "아이스 고렘", "콜드아이", "그로테스크");
+        Soul("GP201", "Green Soul Stone", "Cokris", "Leech", "Cyclops", "Mephit", "Bee Dog", "Zombi", "Decoy");
+        Soul("GP202", "Yellow Soul Stone", "Vampiric Bat", "Greven", "Evil Snail", "Crypt", "Buma", "Bagon", "Titan");
+        Soul("GP203", "Blue Soul Stone", "BeEvil", "Slayon", "Slaughter", "Tower Golem", "Mummy", "Naz", "Witch");
+        Soul("GP204", "Magenta Soul Stone", "Berserker", "Typhoon", "Lizardfolk", "Rampage", "Avelin", "Incubus", "Sadness");
+        Soul("GP205", "Cyan Soul Stone", "D-Machine", "Hopy King", "Omega", "DeadZone", "Icegolem", "Coldeye", "Icegoblin");
+        Soul("GP206", "Violet Soul Stone", "Vampiric Bat", "Greven", "Evil Snail", "Crypt", "Buma", "Bagon", "Muffin");
+        Soul("GP207", "Red Soul Stone", "BeEvil", "Slayon", "Slaughter", "Tower Golem", "Mummy", "Naz", "Sliver");
+        Soul("GP208", "Black Soul Stone", "Berserker", "Typhoon", "Lizardfolk", "Rampage", "Avelin", "Incubus", "Metron");
+        Soul("GP209", "Platinum Soul Stone", "D-Machine", "Hopy King", "Omega", "DeadZone", "Icegolem", "Coldeye", "Grotesque");
         return crystals;
     }
 }

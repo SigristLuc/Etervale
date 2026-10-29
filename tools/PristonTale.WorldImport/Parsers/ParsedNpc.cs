@@ -3,11 +3,12 @@ using PristonTale.Simulation.World.Npcs;
 namespace PristonTale.WorldImport.Parsers;
 
 // Importer DTO for one NPC `.npc` (NpcParser) and its linked name file. Services are the typed services in click
-// order (the `npc_services` rows); the boolean flags and codes mirror the older `npcs.svc_*` columns. Shop item
-// references are raw 5-character codes, resolved by the Importer.
+// order (the `npc_services` rows). Shop item references are raw 5-character codes, resolved by the Importer.
 public sealed class ParsedNpc
 {
-    public required string Name { get; init; }
+    // The authored identity, which other files reference; the importer maps it to the NPC's id and key.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string Name { get; init; } = "";
     public string DisplayName { get; set; } = "";
     public int PortraitOffsetY { get; set; }
     public int PortraitOffsetZ { get; set; }
@@ -27,30 +28,10 @@ public sealed class ParsedNpc
     // Keys of the file no rule reads; the importer reports them.
     public List<string> UnknownKeys { get; } = [];
 
-    public bool SvcWarehouse { get; set; }
-    public bool SvcShop { get; set; }
-    public bool SvcSkillMaster { get; set; }
-    public bool SvcJobChange { get; set; }
-    public bool SvcTeleport { get; set; }
-    public bool SvcItemMix { get; set; }
-    public bool SvcItemAging { get; set; }
-    public bool SvcSmelting { get; set; }
-    public bool SvcManufacture { get; set; }
-    public bool SvcMixtureReset { get; set; }
-    public bool SvcClan { get; set; }
-    public bool SvcBlessCastle { get; set; }
-    public bool SvcQuest { get; set; }
-    public bool SvcEventBooth { get; set; }
-    public bool SvcCollectMoney { get; set; }
-    public bool SvcGiveMoney { get; set; }
-
-    public int JobChangeCode { get; set; }
-    public int TeleportCode { get; set; }
-    public int QuestCode { get; set; }
-    public int QuestParam { get; set; }
-
-    // Dialog lines of the chosen locale (at most 20) and the key they came from.
-    public List<string> Dialog { get; } = [];
+    // Every name label by stored key (NAME, E_NAME, B_NAME, J_NAME, T_NAME), and every dialog key's lines (at most 20
+    // each); DialogKey names the English lines players read (E_CHAT, else B_CHAT; empty when there are none).
+    public Dictionary<string, string> Labels { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, List<string>> DialogLines { get; } = new(StringComparer.Ordinal);
     public string DialogKey { get; set; } = "";
 
     public List<NpcService> Services { get; } = [];

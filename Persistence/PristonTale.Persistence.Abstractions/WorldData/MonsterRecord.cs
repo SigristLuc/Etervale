@@ -1,7 +1,10 @@
 namespace PristonTale.Persistence.Abstractions.WorldData;
 
+// Id: the importer's stable monster id, also the runtime monster code; Key: its unique English name.
 public sealed record MonsterRecord(
-    string Name,
+    int Id,
+    string Key,
+    string DisplayName,
     string Model,
     int Level,
     int AttackMin,
@@ -39,7 +42,6 @@ public sealed record MonsterRecord(
     int ResWater,
     int ResWind,
     int StunPct,
-    string DisplayName = "Monster",
     int SoundCode = 0,
     float ModelScale = 1,
     int PortraitOffsetY = 0,
@@ -68,13 +70,13 @@ public sealed record MonsterRecord(
 }
 
 public sealed record MonsterDropConfigRecord(
-    string MonsterName,
+    int MonsterId,
     int MaxItemsPerKill,
     bool AllPlayersSee);
 
 public sealed record MonsterDropItemRecord(
     long Id,
-    string MonsterName,
+    int MonsterId,
     int Kind,
     int Weight,
     string? ItemCode,
@@ -83,6 +85,6 @@ public sealed record MonsterDropItemRecord(
 
 public sealed record MonsterDropPlusRecord(
     long Id,
-    string MonsterName,
+    int MonsterId,
     int Weight,
     string? ItemCode);
