@@ -143,12 +143,12 @@ public sealed partial class PristonRenderer
         }
     }
 
-    // An attached actor's world: its parent's bone (the cheer bone while the parent plays Yahoo), grown by its
-    // appearance's scale about the bone.
+    // An attached actor's world: its parent's bone (the cheer bone while the parent plays Yahoo) in the pose of the
+    // parent's palette, grown by its appearance's scale about the bone.
     private static Matrix AttachedWorld(ActorRuntime actor, ActorRuntime parent)
     {
         var index = actor.CheerBone >= 0 && parent.Motion?.State == (uint)MotionCode.Yahoo ? actor.CheerBone : actor.ParentBone;
-        var bone = parent.SampleSkeleton()[index] * parent.World;
+        var bone = parent.ShownPose()[index] * parent.World;
         return actor.Shade is { Scale: not 1f } shade ? Matrix.CreateScale(shade.Scale) * bone : bone;
     }
 

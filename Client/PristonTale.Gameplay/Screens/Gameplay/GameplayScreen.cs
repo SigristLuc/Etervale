@@ -110,10 +110,11 @@ public sealed class GameplayScreen : GameScreen
                 return $"Shadows {shadows} | {_scene.Status}";
 
             var stats = _scene.LastRenderStats;
+            var poses = _scene.LastAnimationCounts;
             var hour = _scene.TimeOfDay;
             var clock = $"{(int)hour:00}:{(int)((hour - (int)hour) * 60):00}";
             return $"Shadows {shadows} | {clock} | Pos {_scene.PlayerPosition.X:F0} {-_scene.PlayerPosition.Z:F0} | Lights {_scene.StageLightCount} | " +
-                   $"Draw {stats.DrawCalls} | " +
+                   $"Draw {stats.DrawCalls} | Pose {poses.Posed}/{poses.Posed + poses.Reused} | " +
                    $"Shadow S{(stats.SunShadowUpdated ? 1 : 0)}/L{stats.LampShadowMapsUpdated}/D{stats.ShadowDrawCalls} | " +
                    $"Vis {stats.VisibleBatches}/{stats.TotalBatches} | Tri {stats.Triangles} | State {stats.StateChanges} | " +
                    $"View {_scene.RenderDebugView}";

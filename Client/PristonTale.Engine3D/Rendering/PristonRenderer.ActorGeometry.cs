@@ -429,14 +429,15 @@ public sealed partial class PristonRenderer
         }
     }
 
-    private void UpdateActor(ActorRuntime runtime)
+    // refresh: sample the pose again (false keeps the last one, CrowdAnimationLod); the world always follows.
+    private void UpdateActor(ActorRuntime runtime, bool refresh = true)
     {
-        if (runtime.PaletteIsCurrent())
+        if (runtime.PaletteIsCurrent(refresh))
         {
             return;
         }
 
-        var skeletonTransforms = runtime.Parent.IsValid ? Array.Empty<Matrix>() : runtime.SampleSkeleton();
+        var skeletonTransforms = runtime.Parent.IsValid ? Array.Empty<Matrix>() : runtime.SamplePose(refresh);
         var world = runtime.World;
 
         var palette = runtime.Palette.Matrices;
@@ -453,6 +454,8 @@ public sealed partial class PristonRenderer
             var worldBounds = TransformBoundsByPalette(runtime.BindBounds, palette.AsSpan(0, paletteSize));
             ApplyWorldBounds(runtime.Batches, worldBounds);
             ApplyWorldBounds(runtime.ShadowBatches, worldBounds);
+            runtime.WorldBounds = worldBounds;
+            runtime.HasWorldBounds = true;
             var centre = (worldBounds.Min + worldBounds.Max) * 0.5f;
             var floorLight = FloorLightAt(new Vector3(centre.X, worldBounds.Min.Y, centre.Z));
             foreach (var batch in runtime.Batches)

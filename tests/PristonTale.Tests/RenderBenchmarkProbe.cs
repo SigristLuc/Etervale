@@ -90,6 +90,11 @@ internal sealed class RenderBenchmarkProbe : Game
     private bool _actorsPublished;
     private int _renderActorCount;
     private const int LogicalEntityCount = 25;
+    // Extra walking actors spread out to the edge of the view, for the crowd level of detail.
+    private readonly int _crowd;
+    private const float CrowdInnerRadius = 150f;
+    private const float CrowdOuterRadius = 1000f;
+    private static readonly float GoldenAngle = MathF.PI * (3f - MathF.Sqrt(5f));
 
     public RenderBenchmarkProbe(string root, string content, string output, string fieldId, string settingsPath,
         double duration = 60,
@@ -100,7 +105,8 @@ internal sealed class RenderBenchmarkProbe : Game
         float cameraPitch = float.NaN,
         float focusX = float.NaN,
         float focusZ = float.NaN,
-        float cameraYaw = 0f)
+        float cameraYaw = 0f,
+        int crowd = 0)
     {
         if (duration is < 1 or > 600 || repeat is < 1 or > 10 || hour is < 0 or > 23)
         {
@@ -108,6 +114,7 @@ internal sealed class RenderBenchmarkProbe : Game
         }
 
         _assetRoot = root;
+        _crowd = crowd;
         _output = Path.GetFullPath(output);
         _field = new WorldCatalog().AllFields.Single(field => field.Id == fieldId);
         if (fieldId is not "fore-1" and not "village-2")
@@ -582,6 +589,15 @@ internal sealed class RenderBenchmarkProbe : Game
                 : MotionCode.Stand;
             var scale = template.Monster && entity % templates.Count == templates.Count - 1 ? 0.75f : 1f;
             result.Add(new PreparedActor(template.Actor, ActorWorld(collision, focus, offset, angle + MathHelper.Pi, scale), motion));
+        }
+
+        for (var extra = 0; extra < _crowd; extra++)
+        {
+            var template = templates[extra % templates.Count];
+            var angle = extra * GoldenAngle;
+            var radius = CrowdInnerRadius + (CrowdOuterRadius - CrowdInnerRadius) * MathF.Sqrt((extra + 0.5f) / _crowd);
+            var offset = new Vector2(MathF.Sin(angle), MathF.Cos(angle)) * radius;
+            result.Add(new PreparedActor(template.Actor, ActorWorld(collision, focus, offset, angle, 1f), extra % 2 == 0 ? MotionCode.Walk : MotionCode.Run));
         }
 
         return result.ToArray();

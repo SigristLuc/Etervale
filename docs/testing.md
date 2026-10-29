@@ -208,8 +208,9 @@ when reading those assets is authorized. GPU probes:
 `--benchmark-render` details:
 
 - `[options]` is `<seconds> <runs> <hour> <orbit>` optionally followed by `<distance>`, then `<pitch>`, then
-  `<focusX> <focusZ>`, then `<yaw>`.
-- Accepted argument counts after the flag: 5, 9, 10, 11, 13 or 14; any other count runs the suite instead.
+  `<focusX> <focusZ>`, then `<yaw>`, then `<crowd>` (walking and running actors added out to 1000 units around the focus, for the
+  crowd level of detail; `NaN` keeps a default pitch or focus).
+- Accepted argument counts after the flag: 5, 9, 10, 11, 13, 14 or 15; any other count runs the suite instead.
 - Defaults without `[options]`: 60 s, 5 runs, hour 12, no orbit. `distance`, `pitch`, `focusX`, `focusZ` and `yaw` are
   floats; yaw is in radians (0 looks toward +Z, pi/2 toward -X).
 - The settings file must be a complete, valid client settings document with `maxFps` 0 and a windowed mode.

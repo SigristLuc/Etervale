@@ -34,7 +34,7 @@ sources are in [shaders.md](shaders.md); option fields in [client-settings.md](c
 | `Rendering/PristonMaterial*.cs`, `PristonMaterialAdapter.cs` | Original material to runtime material: queue classification, textures and layers, roughness/reflectance/shading model. |
 | `Rendering/PristonTextureLoader.cs`, `PristonImageDecoder.cs`, `PristonMipChain.cs` | Texture decode off-thread, mip chain with alpha-coverage preservation, GPU upload. |
 | `Rendering/RenderBatch.cs`, `RenderStageHandle.cs`, `RenderQueueBuilder.cs`, `PristonRenderQueue.cs`, `BatchUploader.cs`, `PristonGpuMesh*.cs` | Batches, per-stage residency, culling and sorting, dynamic-buffer uploads. |
-| `Rendering/PristonModelAnimator.cs`, `AnimatedModelRuntime.cs`, `PristonSkinPalette.cs`, `PristonModelNormals.cs`, `PristonMotionSelection.cs` | Keyframe evaluation, animated scenery, bone palettes (current and previous pose), rebuilt normals, motion clip choice. |
+| `Rendering/PristonModelAnimator.cs`, `AnimatedModelRuntime.cs`, `PristonSkinPalette.cs`, `PristonModelNormals.cs`, `PristonMotionSelection.cs`, `CrowdAnimationLod.cs` | Keyframe evaluation, animated scenery, bone palettes (current and previous pose), rebuilt normals, motion clip choice, the crowd level of detail of actor poses. |
 | `Rendering/PristonCamera*.cs` | Orbit camera, collision, field-of-view limits. |
 | `Rendering/PristonDayNightCycle.cs`, `DayNightSettings.cs` | Time of day, sun/moon direction and illuminance, sky colour, lamp factor, night hue. |
 | `Rendering/Lighting/` | Photometry and exposure, stage baked light and floor light field, shadow cascades, lamp shadows, light culling, transient lights, environment lighting, volumetric light, calibration spheres. |
@@ -95,6 +95,14 @@ Described in Etervale's terms; readers keep every field, including padding, for 
   holding the frame is sampled: a bone with no keys there takes its bind pose (relative to its parent), a missing
   rotation the base rotation, a missing position the base position, a missing scale none. An actor's rotation does not
   interpolate toward a key past its motion's end frame; the key before it holds.
+- Crowd level of detail (`CrowdAnimationLod`): a root actor samples its skeleton again every frame within 400 units of
+  the focus of the last frame drawn (on screen or not), every second frame to 900, every fourth beyond and every eighth
+  off screen (its last world bounds outside the view), staggered by its slot; a new motion is sampled at once, an actor
+  coming into view at once, and its world moves the palette every frame. The palette's pose is a copy (`ActorPose`), so
+  bone queries and portraits evaluating into the animator's buffer never change what is drawn; an attached actor (a
+  held weapon) hangs from that pose. The render statistics show the actors posed and the actors in the last update
+  (`Pose n/m`, `LastAnimationCounts`). With 176 actors in Ricarten (`--benchmark-render` with a crowd of 150, GTX 1050
+  Ti) the animation update costs about 1 ms of CPU a frame and allocates about 0.3 KB.
 - Materials: a TGA or opacity-mapped texture is a cut-out (alpha test at 60/255). Original blend types 2-6 draw late
   (blended queue) unless the material is an opaque cut-out; one layer above the base is carried over (multiply, add or
   sphere-map shine); there is no roughness or metalness in the data (`PristonMaterialAdapter` assigns 0.85 rough

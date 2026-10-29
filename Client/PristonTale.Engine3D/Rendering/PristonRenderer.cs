@@ -420,16 +420,30 @@ public sealed partial class PristonRenderer : IDisposable
                 UpdateAnimatedStageGroup(group);
             }
         }
-        foreach (var actor in _actors)
+        _animationFrame++;
+        var posed = 0;
+        var reused = 0;
+        for (var slot = 0; slot < _actors.Count; slot++)
         {
+            var actor = _actors[slot];
             if (!actor.Alive || actor.EchoSource.IsValid)
                 continue;
             actor.Advance(dt);
             if (!actor.Parent.IsValid)
             {
-                UpdateActor(actor);
+                var (interval, onScreen) = PoseLevel(actor);
+                // An actor coming into view shows its current pose at once.
+                var refresh = CrowdAnimationLod.Due(interval, _animationFrame, slot) || onScreen && !actor.WasOnScreen;
+                actor.WasOnScreen = onScreen;
+                UpdateActor(actor, refresh);
+                if (refresh)
+                    posed++;
+                else
+                    reused++;
             }
         }
+
+        LastAnimationCounts = (posed, reused);
 
         FollowEchoes();
         foreach (var actor in _actors)
@@ -443,6 +457,19 @@ public sealed partial class PristonRenderer : IDisposable
     }
 
     public bool UseExternalAnimationClock { get; set; }
+
+    // The root actors of the last animation update whose pose was sampled again, and those that kept theirs.
+    public (int Posed, int Reused) LastAnimationCounts { get; private set; }
+
+    // The crowd level of detail of an actor, from the view of the last frame drawn (every frame before the first): its
+    // distance from the camera's focus, so what the player looks at stays at full rate whatever the zoom.
+    private (int Interval, bool OnScreen) PoseLevel(ActorRuntime actor)
+    {
+        if (!_lodCameraKnown)
+            return (1, true);
+        var onScreen = !actor.HasWorldBounds || _lodFrustum.Intersects(actor.WorldBounds);
+        return (CrowdAnimationLod.Interval(Vector3.Distance(actor.World.Translation, _lodFocus), onScreen), onScreen);
+    }
 
     public void SetSceneAnimationFrame(float ticks)
     {
@@ -474,6 +501,9 @@ public sealed partial class PristonRenderer : IDisposable
     // Bloom, DisplayTransform, PostAntiAliasing) into the caller's target.
     public void Draw(PristonCamera camera)
     {
+        _lodFrustum.Matrix = camera.View * camera.Projection;
+        _lodFocus = camera.Target;
+        _lodCameraKnown = true;
         var staticBatches = 0;
         var dynamicBatches = 0;
         var drawCalls = 0;
@@ -838,6 +868,11 @@ public sealed partial class PristonRenderer : IDisposable
     private const float SelectionRimScale = 0.6f;
 
     private readonly BoundingFrustum _shadowCasterFrustum = new(Matrix.Identity);
+    // The camera of the last frame drawn, for the crowd level of detail of the next animation update.
+    private readonly BoundingFrustum _lodFrustum = new(Matrix.Identity);
+    private Vector3 _lodFocus;
+    private bool _lodCameraKnown;
+    private uint _animationFrame;
     private Func<Vector3, float, bool> _lampHasCasters;
 
     private bool _temporalTargetsBound;
@@ -963,6 +998,20 @@ public sealed partial class PristonRenderer : IDisposable
             return _sampledTransforms;
         }
 
+        // The pose of the palette: sampled again as Pose.NeedsSample says, otherwise the one it shows.
+        public ActorPose Pose { get; } = new();
+
+        public Matrix[] SamplePose(bool refresh) =>
+            Pose.NeedsSample(refresh, Frame, Motion) ? Pose.Take(SampleSkeleton(), Frame, Motion) : Pose.Transforms;
+
+        // The pose an attached actor hangs from: the palette's, or the current frame's before the first palette.
+        public Matrix[] ShownPose() => Pose.Taken ? Pose.Transforms : SampleSkeleton();
+
+        // The world bounds of the last palette and whether the last update found it in view, for the level of detail.
+        public BoundingBox WorldBounds { get; set; }
+        public bool HasWorldBounds { get; set; }
+        public bool WasOnScreen { get; set; }
+
         // Shares the animator's buffer with SampleSkeleton, so the next SampleSkeleton evaluates again.
         public Matrix[] SampleSkeletonAt(float frame, float rotationEnd)
         {
@@ -1008,16 +1057,18 @@ public sealed partial class PristonRenderer : IDisposable
             _paletteFrame = float.NaN;
         }
 
-        public bool PaletteIsCurrent()
+        // A pose kept by the level of detail stays current while the world and the motion do.
+        public bool PaletteIsCurrent(bool refresh)
         {
             var attached = Parent.IsValid;
-            var frame = attached ? 0f : Frame;
-            return _paletteFrame == frame && _paletteWorld == World && _paletteAttached == attached;
+            if (_paletteWorld != World || _paletteAttached != attached)
+                return false;
+            return attached || !Pose.NeedsSample(refresh, Frame, Motion) && _paletteFrame == Pose.Frame;
         }
 
         public void MarkPaletteCurrent()
         {
-            _paletteFrame = Parent.IsValid ? 0f : Frame;
+            _paletteFrame = Parent.IsValid ? 0f : Pose.Frame;
             _paletteWorld = World;
             _paletteAttached = Parent.IsValid;
         }

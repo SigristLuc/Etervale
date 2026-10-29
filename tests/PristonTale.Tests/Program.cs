@@ -19,7 +19,7 @@ if (args.Length == 2 && args[0] == "--validate-binary-assets")
     return 0;
 }
 
-if (args.Length is 6 or 10 or 11 or 12 or 14 or 15 && args[0] == "--benchmark-render")
+if (args.Length is 6 or 10 or 11 or 12 or 14 or 15 or 16 && args[0] == "--benchmark-render")
 {
     var hasOptions = args.Length >= 10;
     var duration = hasOptions ? double.Parse(args[6], System.Globalization.CultureInfo.InvariantCulture) : 60;
@@ -29,7 +29,7 @@ if (args.Length is 6 or 10 or 11 or 12 or 14 or 15 && args[0] == "--benchmark-re
     var cameraDistance = args.Length >= 11
         ? float.Parse(args[10], System.Globalization.CultureInfo.InvariantCulture)
         : 0f;
-    var cameraPitch = args.Length is 12 or 14 or 15
+    var cameraPitch = args.Length is 12 or 14 or 15 or 16
         ? float.Parse(args[11], System.Globalization.CultureInfo.InvariantCulture)
         : float.NaN;
     var focusX = args.Length >= 14
@@ -38,9 +38,10 @@ if (args.Length is 6 or 10 or 11 or 12 or 14 or 15 && args[0] == "--benchmark-re
     var focusZ = args.Length >= 14
         ? float.Parse(args[13], System.Globalization.CultureInfo.InvariantCulture)
         : float.NaN;
-    var cameraYaw = args.Length == 15
+    var cameraYaw = args.Length >= 15
         ? float.Parse(args[14], System.Globalization.CultureInfo.InvariantCulture)
         : 0f;
+    var crowd = args.Length == 16 ? int.Parse(args[15]) : 0;
     using var probe = new RenderBenchmarkProbe(
         args[1],
         args[2],
@@ -55,7 +56,8 @@ if (args.Length is 6 or 10 or 11 or 12 or 14 or 15 && args[0] == "--benchmark-re
         cameraPitch,
         focusX,
         focusZ,
-        cameraYaw);
+        cameraYaw,
+        crowd);
     probe.Run();
     probe.WriteReport();
     return 0;

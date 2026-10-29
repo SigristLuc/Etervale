@@ -337,6 +337,8 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
 
     public PristonRenderStats LastRenderStats => _renderer?.LastFrameStats ?? default;
 
+    public (int Posed, int Reused) LastAnimationCounts => _renderer?.LastAnimationCounts ?? default;
+
     public float TimeOfDay => _renderer?.TimeOfDay ?? 0f;
     public Color SkyColor => _renderer?.SkyColor ?? new Color(72, 92, 116);
     public int StageLightCount => _renderer?.StageLightCount ?? 0;
