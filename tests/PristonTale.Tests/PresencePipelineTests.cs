@@ -21,13 +21,17 @@ internal static class PresencePipelineTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("presence frames are reused only when no reader pins them and never while an outbox can still hand them out", FramesAsync);
-        yield return ("an entry encoded once for all receivers is byte for byte what one receiver would encode", SharedWireAsync);
+        yield return ("a description encoded once for all receivers is byte for byte what one receiver would encode", SharedWireAsync);
         yield return ("events routed by the entities a receiver knows are the events a full scan finds, in the field's order", RoutedEventsAsync);
-        yield return ("presence entries carry 64-bit ids and sequences, 32-bit life and world-wide positions at an eighth of a unit", EntriesAsync);
+        yield return ("presence entries carry handles, 64-bit ids and sequences, 32-bit life, only the values that changed and world-wide positions at an eighth of a unit, whole or as a change",
+            EntriesAsync);
         yield return ("descriptor revisions are field-wide and rise only when what a description shows changes", RevisionsAsync);
         yield return ("a receiver in a crowd shows its nearest players up to their cap, monsters to the rest, and never loses its NPCs, target, attackers, summons or party",
             CrowdCapAsync);
         yield return ("events of ticks a slow reader fell behind on keep their own tick on the timeline", SegmentsAsync);
+        yield return ("a receiver gets descriptions pushed ahead of spawns, positions as changes that never drift, and handles given again only after their removal",
+            HandlesAsync);
+        yield return ("a shown entity's new max life and description refresh it, and a lost pushed description is asked for", RefreshAsync);
         yield return ("the entity grid finds, counts and relates entities on both sides of zero", GridAsync);
         yield return ("running statuses are kept per field, carried across fields on the new clock and pruned when they end", StatusBookAsync);
         yield return ("a receiver whose events were lost gets the statuses running on every entity it shows again", LostEventsAsync);
@@ -86,45 +90,45 @@ internal static class PresencePipelineTests
         var view = new EntityView(42, EntityKind.Monster, false, new Vector3(-1234.5f, 17f, 999.25f), 1.1f, MotionState.Walk, 30, 77, 120, default,
             templateId: 9) { Revision = 3 };
         var wire = SharedPresenceWire.Create(4);
-        var direct = new byte[PresenceWire.MaxFullEntrySize];
-        var length = WireMapping.WriteFull(direct, view, 2, view.Revision);
-        Assert.True(wire.Full(1, view, 2).SequenceEqual(direct.AsSpan(0, length)), "the shared full entry differs from a receiver's own");
-        Assert.True(wire.Full(1, view, 2).SequenceEqual(direct.AsSpan(0, length)), "a second receiver got other bytes");
-        var motion = new byte[PresenceWire.MaxMotionEntrySize];
-        var motionLength = WireMapping.WriteMotion(motion, view);
-        Assert.True(wire.Motion(1, view).SequenceEqual(motion.AsSpan(0, motionLength)) && motionLength == PresenceWire.MotionEntrySize(42),
-            "the shared motion entry differs");
         var description = new byte[EntityDescriptionPacket.MaximumSize];
         var described = PresenceEncoder.DescriptionPacket(view, view.Revision, WorldData.Empty).Write(description);
         Assert.True(wire.Description(1, view, WorldData.Empty).SequenceEqual(description.AsSpan(0, described)), "the shared description differs");
+        Assert.True(wire.Description(1, view, WorldData.Empty).SequenceEqual(description.AsSpan(0, described)), "a second receiver got other bytes");
         wire.Reset(4);
-        var moved = new EntityView(42, EntityKind.Monster, false, Vector3.Zero, 0f, MotionState.Stand, 30, 77, 120, default, templateId: 9) { Revision = 3 };
-        length = WireMapping.WriteFull(direct, moved, 2, moved.Revision);
-        Assert.True(wire.Full(1, moved, 2).SequenceEqual(direct.AsSpan(0, length)), "a reset frame kept the previous tick's entry");
+        var renamed = view with { Revision = 4 };
+        described = PresenceEncoder.DescriptionPacket(renamed, renamed.Revision, WorldData.Empty).Write(description);
+        Assert.True(wire.Description(1, renamed, WorldData.Empty).SequenceEqual(description.AsSpan(0, described)), "a reset frame kept the previous tick's description");
         return Task.CompletedTask;
     }
 
     private static Task EntriesAsync()
     {
-        var entry = new PresenceEntry(uint.MaxValue, true, new Vector3(-999_999.875f, 1234.5f, 999_999.875f), 4.71f, MotionState.Skill, 100_000, 2_000_000,
-            285, 0x4000_0001, ulong.MaxValue - 3, 255, 0x3020, -1);
-        var buffer = new byte[PresenceWire.HeaderSize + PresenceWire.MaxFullEntrySize + PresenceWire.MaxMotionEntrySize];
-        var writer = new PresenceEntriesWriter(buffer, 77);
-        var full = PresenceWire.WriteFull(writer.Reserve(PresenceWire.MaxFullEntrySize), entry);
-        writer.Commit(full);
-        var motion = PresenceWire.WriteMotion(writer.Reserve(PresenceWire.MaxMotionEntrySize), 1, new Vector3(10.125f, -3f, 7.5f), 0.5f, MotionState.Run);
-        writer.Commit(motion);
+        var spawn = new PresenceEntry(300, MotionState.Skill, PresencePoint.From(new Vector3(-999_999.875f, 1234.5f, 999_999.875f)),
+            PresenceEntry.ToFacing(4.71f), true, ulong.MaxValue - 1, PresenceFields.All, 100_000, 2_000_000, 0x4000_0001, ulong.MaxValue - 3, 255,
+            0x3020 | PresenceWire.NpcTemplate, -1);
+        var step = new PresenceEntry(300, MotionState.Run, new PresencePoint(81, -24, 60), PresenceEntry.ToFacing(0.5f), Absolute: false);
+        var hit = new PresenceEntry(300, MotionState.Damage, default, 0, Absolute: false, Fields: PresenceFields.Life, Life: 99_000);
+        var buffer = new byte[PresenceWire.HeaderSize + PresenceWire.MaxEntrySize * 3];
+        var writer = new PresenceEntriesWriter(buffer, 77, 50);
+        var sizes = new List<int>();
+        foreach (var entry in new[] { spawn, step, hit })
+        {
+            sizes.Add(PresenceWire.Write(writer.Reserve(PresenceWire.MaxEntrySize), entry));
+            writer.Commit(sizes[^1]);
+        }
+
+        var message = writer.Finish();
         var read = new List<PresenceEntry>();
-        var sequence = PresenceEntriesReader.Read(writer.Finish(), (in PresenceEntry value) => read.Add(value));
-        Assert.True(sequence == 77 && read.Count == 2 && full <= PresenceWire.MaxFullEntrySize && motion == PresenceWire.MotionEntrySize(1),
-            "the presence message lost entries or overran its sizes");
-        var back = read[0];
-        Assert.True(back.Full && back.EntityId == uint.MaxValue && back.Life == 100_000 && back.MaxLife == 2_000_000 && back.Level == 285
-            && back.Target == 0x4000_0001 && back.AttackSequence == ulong.MaxValue - 3 && back.Revision == 255 && back.Template == 0x3020
-            && back.FieldCode == -1 && back.Motion == MotionState.Skill, $"a full entry did not round-trip: {back}");
-        Assert.True(Vector3.Distance(back.Position, entry.Position) <= 0.125f && MathF.Abs(back.Facing - entry.Facing) < 0.001f,
-            "positions or facing lost more than the wire's precision");
-        Assert.True(!read[1].Full && read[1].Position == new Vector3(10.125f, -3f, 7.5f) && read[1].Motion == MotionState.Run, "a motion entry did not round-trip");
+        PresenceEntriesReader.Read(message, (in PresenceEntry value) => read.Add(value));
+        Assert.True(PresenceEntriesReader.Clock(message) == new PresenceClockPacket(77, 50) && read is [var back, var moved, var struck]
+            && back == spawn && moved == step && struck == hit && sizes[0] <= PresenceWire.MaxEntrySize,
+            $"the presence message did not round-trip: {string.Join(", ", read)}");
+        Assert.True(sizes[1] == PresenceWire.MotionSize(300, step.Position, false) && sizes[1] == 8 && sizes[2] == 2 + 1 + 3 + 1 + 1 + 3,
+            $"a step or a hit took more bytes than its change: {sizes[1]}, {sizes[2]}");
+        Assert.True(Vector3.Distance(PresencePoint.From(new Vector3(-999_999.875f, 1234.5f, 999_999.875f)).ToWorld(), new Vector3(-999_999.875f, 1234.5f, 999_999.875f)) <= 0.0625f
+            && MathF.Abs(read[0].FacingRadians - 4.71f) < MathF.PI / 256f, "positions or facing lost more than the wire's precision");
+        Assert.True(PresenceWire.PrefersAbsolute(new PresencePoint(1 << 20, 1 << 20, 0)) && !PresenceWire.PrefersAbsolute(new PresencePoint(500, 3, -500)),
+            "a large change was not sent whole, or a small one was");
         foreach (var value in new ulong[] { 0, 127, 128, 16_383, 16_384, uint.MaxValue, ulong.MaxValue })
         {
             var bytes = new byte[VarInt.MaxBytes64];
@@ -209,6 +213,62 @@ internal static class PresencePipelineTests
         Assert.True(spawned.Contains(2) && !spawned.Contains(401) && spawned.Contains(1000), "the crowd did not keep its nearest members");
         var again = wire.PushMerged(new WorldSnapshot(2, views.ToArray(), fieldId: 3) { Party = party });
         Assert.True(again.Spawns.Count == 0 && again.Removed.Count == 0, "an unchanged crowd churned its visible set");
+        return Task.CompletedTask;
+    }
+
+    private static Task HandlesAsync()
+    {
+        static EntityView Monster(ulong id, Vector3 at) =>
+            new(id, EntityKind.Monster, false, at, 0.3f, MotionState.Walk, 1, 10, 10, default, templateId: 5) { Revision = 1 };
+        var self = new EntityView(1, EntityKind.Player, false, Vector3.Zero, 0f, MotionState.Stand, 1, 100, 100,
+            new PlayerAppearanceView("Self", PlayerClass.Mechanician, 0, 0, 0, "", "")) { Revision = 1 };
+        var wire = new WireRoundTrip(1);
+        var first = wire.PushMerged(new WorldSnapshot(1, [self, Monster(10, new Vector3(100, 0, 0)), Monster(11, new Vector3(0, 0, 100))], fieldId: 3));
+        Assert.True(first.Spawns.Count == 3 && wire.DescriptionRequests == 0, $"spawns waited for descriptions they had to ask: {wire.DescriptionRequests}");
+
+        // A walk of uneven steps arrives as changes, and the client's sum never drifts from the server's position.
+        var at = new Vector3(100, 0, 0);
+        PresenceUpdate update = first;
+        for (uint tick = 2; tick < 120; tick++)
+        {
+            at += new Vector3(1.37f, 0.11f, -0.93f);
+            update = wire.PushMerged(new WorldSnapshot(tick, [self, Monster(10, at), Monster(11, new Vector3(0, 0, 100))], fieldId: 3));
+        }
+
+        var walked = update.States.Concat(wire.PushMerged(new WorldSnapshot(200, [self, Monster(10, at), Monster(11, new Vector3(0, 0, 100))], fieldId: 3)).States)
+            .LastOrDefault(state => state.EntityId == 10);
+        // Rounding to an eighth of a unit leaves at most a sixteenth on each axis.
+        Assert.True(walked is not null && Vector3.Distance(walked.Position, at) <= MathF.Sqrt(3f) / 16f, $"the walked position drifted: {walked?.Position} against {at}");
+
+        wire.PushMerged(new WorldSnapshot(203, [self, Monster(10, at), Monster(11, new Vector3(0, 0, 50))], fieldId: 3));
+        var handleOf11 = wire.LastEntries.Single().Handle;
+
+        // 11 leaves and 12 arrives at once: 12 takes a new handle; the freed one is given again only on a later encode.
+        var swap = wire.PushMerged(new WorldSnapshot(204, [self, Monster(10, at), Monster(12, new Vector3(-100, 0, 0))], fieldId: 3));
+        Assert.True(wire.LastEntries.Single(entry => entry.Spawn).Handle != handleOf11, "a handle was given again before its removal went out");
+        var later = wire.PushMerged(new WorldSnapshot(205, [self, Monster(10, at), Monster(12, new Vector3(-100, 0, 0)), Monster(13, new Vector3(0, 0, -100))],
+            fieldId: 3));
+        Assert.True(wire.LastEntries.Single(entry => entry.Spawn) is { EntityId: 13 } reused && reused.Handle == handleOf11, "the freed handle was not given again");
+        var moved = wire.PushMerged(new WorldSnapshot(215, [self, Monster(10, at), Monster(12, new Vector3(-90, 0, 0)), Monster(13, new Vector3(0, 0, -90))],
+            fieldId: 3));
+        Assert.True(swap.Removed is [11] && swap.Spawns is [{ EntityId: 12 }] && later.Spawns is [{ EntityId: 13 }]
+            && moved.States.Single(state => state.EntityId == 12).Position == new Vector3(-90, 0, 0)
+            && moved.States.Single(state => state.EntityId == 13).Position == new Vector3(0, 0, -90),
+            "a handle given again moved another entity");
+        Assert.True(wire.DescriptionRequests == 0, "a monster of a template the client holds was described again on request");
+        return Task.CompletedTask;
+    }
+
+    private static Task RefreshAsync()
+    {
+        static EntityView Player(ulong id, int maxLife, byte revision, Vector3 at) => new(id, EntityKind.Player, false, at, 0f, MotionState.Stand, 1,
+            maxLife, maxLife, new PlayerAppearanceView("P" + id, PlayerClass.Mechanician, 0, 0, 0, "", "")) { Revision = revision };
+        var wire = new WireRoundTrip(1) { DropPushedDescriptions = 1 };
+        var first = wire.PushMerged(new WorldSnapshot(1, [Player(1, 100, 1, Vector3.Zero), Player(2, 100, 1, new Vector3(50, 0, 0))], fieldId: 3));
+        Assert.True(first.Spawns.Count == 2 && wire.DescriptionRequests == 1, $"a lost pushed description was not asked for: {wire.DescriptionRequests}");
+        var grown = wire.PushMerged(new WorldSnapshot(2, [Player(1, 100, 1, Vector3.Zero), Player(2, 180, 2, new Vector3(50, 0, 0))], fieldId: 3));
+        Assert.True(grown.Spawns is [{ EntityId: 2, MaxLife: 180 }] && wire.DescriptionRequests == 1,
+            "a shown player's new max life and description did not refresh it");
         return Task.CompletedTask;
     }
 

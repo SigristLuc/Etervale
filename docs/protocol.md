@@ -27,7 +27,7 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Packets/AccountPackets.cs` | `ProtocolVersion`, `ServerHello`, `Login`/`LoginResult`, `CharacterList`, `CharacterCommand`/`CharacterResult`, `Heartbeat`. |
 | `Packets/PlayerActionPackets.cs` | `MovementReport`, `AttackRequest` and `FieldWarp`. |
 | `Packets/WingGatePackets.cs` | `WingGateRequest` and `WingGateResult`. |
-| `Packets/PresencePackets.cs` | `PresenceEntries`: `VarInt`, `PresenceEntry`, `PresenceWire` (entry codec), writer and reader. |
+| `Packets/PresencePackets.cs` | `PresenceEntries`: `VarInt`, `PresencePoint`, `PresenceFields`, `PresenceEntry`, `PresenceWire` (entry codec), writer and reader. |
 | `Packets/WorldEntryPackets.cs` | `EnterWorld`, `WorldEntry`, `JoinWorld`, `WorldJoined` and `LeaveWorld`. |
 | `Packets/GroundItemPackets.cs` | `GroundItems` and `GroundItemsRemoved`. |
 | `Packets/ChatPackets.cs` | `ChatSay` (typed line), `ChatLine` (received line, kind `ChatKind` from Contracts). |
@@ -109,8 +109,8 @@ closing.
 | Message | Direction | Use |
 | --- | --- | --- |
 | `MovementReport` (`0x45540D00`) | C→S | The client's own position, facing, motion, action target and field (see [Player actions](#player-actions)). Sent every 200 ms while moving, on state changes (at most one per 50 ms) and every second while idle. |
-| `PresenceEntries` (`0x45540900`) | S→C | Nearby objects as compact full or motion entries (see [Presence entries](#presence-entries)). |
-| `DescribeEntity` / `EntityDescription` (`0x45540901` / `0x45540902`) | C→S / S→C | Describes an unknown object or one whose description revision changed (see [Entity descriptions](#entity-descriptions)). Monsters and NPCs are cached by template; owned summons and crystal pets carry template 0 in their presence entries and are always described on their own. The client asks again after a second without an answer (the server drops requests beyond its bucket). |
+| `PresenceEntries` (`0x45540900`) | S→C | Nearby objects under the receiver's handles: spawns, changed values and positions (see [Presence entries](#presence-entries)). |
+| `DescribeEntity` / `EntityDescription` (`0x45540901` / `0x45540902`) | C→S / S→C | The server pushes an object's description ahead of its spawn or revision change; the client asks for one it still lacks (see [Entity descriptions](#entity-descriptions)). Monsters and NPCs are cached by template key; owned summons and crystal pets carry template 0 in their presence entries and are always described on their own. The client asks again after a second without an answer (the server drops requests beyond its bucket). |
 | `FieldWarp` (`0x45540D02`) | S→C | The owner's authoritative field and position: a field confirmation, or forced (a correction after a rejected report, a teleport, a restart). |
 | `AttackRequest` (`0x45540D01`) | C→S | The clicked target and the request sequence. Monster: attack lock (held or one swing). NPC: opens it. |
 | `CloseRequest` (`0x45540D03`) | S→C | Asks the client to quit (the end of a game master's shutdown countdown). |
@@ -135,7 +135,7 @@ Bodies start with `uint16 Version = 1`; positions are fixed point (x256), entity
 Other field values:
 
 - The character slot record (character select) uses `dwArmorCode` and `dwTemp[13]` for the appearance data.
-- A full presence entry carries the descriptor revision (1 to 255) of the entity's description. The field
+- A presence spawn carries the descriptor revision (1 to 255) of the entity's description. The field
   keeps one revision per entity for every viewer (`FieldDescriptors`) and increments it when level, max HP, template,
   speed, attack rate, equipment, looks (hair, face, pets, big head), village flag, tier, owner or scale change.
 
@@ -182,7 +182,7 @@ Every message code has the high word `0x4554` ("ET"); every message keeps the `{
 | `0x45540140` | `CombatEvents` | S→C | Resolved swings, hits, potions and monster skill impacts. The original lets each client roll its own hits. |
 | `0x45540150` | `RemoveObjects` | S→C | Serials leaving the receiver's view. The original client times objects out after 4-30 seconds. |
 | `0x45540160` | `LeaveWorld` | C→S, echo | Leave the world after the server saves the character. |
-| `0x45540170` | `PresenceClock` | S→C | Server tick of the presence entries that follow (see below). |
+| `0x45540170` | `PresenceClock` | S→C | Server tick of the events that follow when no presence entries of that tick carried it (see below). |
 | `0x45540200` | `SkillCast` | C→S | Cast request (see below). |
 | `0x45540201` | `SkillCastResult` | S→C | Answer to the caster's own cast, by sequence. |
 | `0x45540202` | `SkillEvents` | S→C | Skill starts, impacts, releases and cancels on the presence timeline. |
@@ -334,25 +334,39 @@ receiver (`SharedPresenceWire`).
 ### Presence clock and remote playback
 
 `PresenceClock` is 20 bytes: `{int32 size, uint32 code, uint16 Version = 1, uint16 Flags = 0, uint32 ServerTick, uint32
-TickIntervalMs = 50}`. On a tick that produces timeline traffic for the receiver, the server sends it once, before the
-first `PresenceEntries`, `CombatEvents`, `SkillEvents` or `StatusEffects` of that tick, so every sample and event until
-the next clock belongs to `ServerTick × TickIntervalMs` on the server timeline. Readers reject version 0 and a zero
-interval.
+TickIntervalMs = 50}`. Every sample and event until the next clock belongs to `ServerTick × TickIntervalMs` on the server
+timeline. A `PresenceEntries` message carries the clock of its tick in its header, so the server sends `PresenceClock`
+only on a tick whose `CombatEvents`, `SkillEvents` or `StatusEffects` come without entries before them (and for the
+earlier ticks of a reader that fell behind). Readers reject version 0 and a zero interval.
 
 ### Presence entries
 
-`PresenceEntries` is `{int32 size, uint32 code, uint16 Version = 1, uint16 Flags = 0, uint32 Sequence, uint16 Count,
-uint16 0}` followed by `Count` entries that fill the message exactly. An entry is `{varuint EntityId, uint8 Kind (bit 0
-full), int24 X, Y, Z (world units × 8), uint16 Facing (65536 per turn), uint8 Motion}`; a full entry adds `{varuint Life,
-MaxLife, Level, Target, AttackSequence, uint8 Revision, varuint Template, zigzag varint FieldCode}`. `varuint` is
-little-endian base-128 (`VarInt`, up to 64 bits; an overlong encoding or a tenth byte above 1 is refused). `Motion`
-is `MotionState` (`Shared/PristonTale.Contracts`; 0 stand, 1 walk, 2 run, 3 attack, 4 damage, 5 dead, 6 skill, 7 eat,
-8 warp, 9 yahoo; a larger value is refused). Positions cover the world's ±1,000,000 units at 1/8 of a unit.
+`PresenceEntries` is `{int32 size, uint32 code, uint16 Version = 2, uint16 TickIntervalMs, uint32 Tick, uint16 Count,
+uint16 0}` followed by `Count` entries that fill the message exactly; another version is refused. An entry is
+`{varuint Handle, uint8 Head}`: bits 0 to 3 of `Head` are the `MotionState` (`Shared/PristonTale.Contracts`; 0 stand,
+1 walk, 2 run, 3 attack, 4 damage, 5 dead, 6 skill, 7 eat, 8 warp, 9 yahoo; a larger value or bit 7 is refused), bit 4
+Spawn, bit 5 Absolute, bit 6 Fields. Then, in order: `varuint EntityId` when Spawn; the position, `int24 X, Y, Z`
+(world units × 8) when Absolute, otherwise `zigzag varint dX, dY, dZ`, the change from the last position this receiver
+was sent for the handle; `uint8 Facing` (256 per turn); and when Fields, `uint8 PresenceFields` then each field it
+names in its bit order: `varuint Life` (bit 0), `MaxLife` (1), `Target` (2), `AttackSequence` (3),
+`uint8 Revision` (4), `varuint Template` (5), `zigzag varint FieldCode` (6); bit 7 is refused. A spawn must be
+Absolute and carry every field. Changes are 32-bit. `varuint` is little-endian base-128 (`VarInt`, up to 64 bits; an
+overlong encoding or a tenth byte above 1 is refused). Positions cover the world's ±1,000,000 units at 1/8 of a unit
+(held to ±2^23 eighths).
 
-The server sends a full entry when an entity enters the receiver's view and whenever its motion, life, target, attack
-sequence or description revision changes; otherwise a motion entry (about 14 bytes) at the near or far rate. Ids,
-targets and the attack sequence are 64-bit. `Template` is the shared template code (monsters and NPCs that are not owned), 0 otherwise;
-`FieldCode` is -1 when not sent.
+A handle is the receiver's own number for an entity: a spawn binds it to the 64-bit entity id, and once the entity's
+`RemoveObjects` went out the server may give it to another entity (a field change frees them all). The server spawns an
+entity when it enters the receiver's view, with Absolute and every field. Afterwards an entry carries the fields that
+changed since the last one sent; one with fields or a changed motion goes out at once, a position-only one (about 8
+bytes walking) at the near or far rate. The position is sent whole when that is not larger than the change.
+`Template` is the shared template key (`PresenceWire.TemplateKey`: a monster's code, or an NPC's code with bit 31 set,
+since the two are numbered apart) of monsters and NPCs that are not owned, 0 otherwise; `FieldCode` is the receiver's
+field. The level belongs to the description: a level change changes the revision.
+
+The server pushes an entity's `EntityDescription` ahead of the entry that spawns it or changes its revision, except a
+shared template's description of the revision it last sent that receiver (the client keeps the last description of each
+template). `DescribeEntity` remains for what the client still lacks: a template of another revision, or a description
+that did not come.
 
 The client plays remote objects back on that timeline
 (`Client/PristonTale.Gameplay/World/Remote/RemoteSnapshotBuffer.cs`): it keeps the timestamped samples of each object
@@ -513,13 +527,13 @@ receives what, in which order and how often is specified in [server.md](server.m
   other entities in view, at most 100 of them players (the nearest players, then the nearest others, plus its NPCs, its
   attack target, whoever targets it, its summons and its party; an entity already shown stays out to 1.15 times the
   cut-off), and sends an object only when it changed: spawns and discrete
-  changes (motion, HP, target, attack, description) immediately, positions at 5 Hz inside the high-detail range
+  changes (motion, HP, max HP, target, attack, template, description) immediately, positions at 5 Hz inside the high-detail range
   (squared `0x48000`, about 543 units) and 2 Hz out to the connect range (squared `0x120000`, about 1086 units); an
   object is forgotten beyond 1.15 times the connect range. Position updates share a budget of 2048 bytes per receiver
   per tick, ranked by how overdue they are (a bounded heap keeps only what the budget can carry), which plays the role
   of the original per-receiver user limit and round-robin cursor.
-- Full and motion presence entries and entity descriptions are encoded once per frame and entity
-  (`SharedPresenceWire`) and copied by every receiver that needs them.
+- Entity descriptions are encoded once per frame and entity (`SharedPresenceWire`) and copied by every receiver that
+  needs them; presence entries are each receiver's own (handles, changes from what it was sent).
 - Movement reports travel through the command queue as values (no closure or task per report); the verdict comes back
   through `IMovementVerdictSink`.
 - Sockets use .NET asynchronous I/O (IOCP on Windows) with pooled buffers and coalesced writes; the writer and the
@@ -543,14 +557,21 @@ beside them, a tenth cast an area skill every three seconds, monsters fight back
 
 | Players | Layout | Tick p50 / p99 | Encode p50 / p99 (all receivers) | Out per client | Allocated per tick |
 | --- | --- | --- | --- | --- | --- |
-| 500 | spread | 2.02 / 4.92 ms | 1.79 / 4.80 ms | 3.6 KiB/s (187 B/tick) | 129 KiB |
-| 1000 | spread | 3.26 / 35.69 ms | 1.75 / 15.72 ms | 3.8 KiB/s (192 B/tick) | 64 KiB |
-| 2000 | spread | 3.98 / 9.66 ms | 2.13 / 3.87 ms | 3.9 KiB/s (200 B/tick) | 82 KiB |
-| 5000 | spread | 13.64 / 24.92 ms | 4.44 / 16.36 ms | 4.0 KiB/s (206 B/tick) | 197 KiB |
-| 500 | crowded | 2.22 / 15.45 ms | 3.41 / 6.73 ms | 21.3 KiB/s (1.1 KiB/tick) | 26 KiB |
-| 1000 | crowded | 4.77 / 16.72 ms | 7.29 / 11.20 ms | 22.2 KiB/s (1.1 KiB/tick) | 45 KiB |
-| 2000 | crowded | 7.96 / 44.97 ms | 12.70 / 27.52 ms | 23.6 KiB/s (1.2 KiB/tick) | 135 KiB |
-| 5000 | crowded | 10.84 / 38.64 ms | 25.99 / 42.23 ms | 24.4 KiB/s (1.2 KiB/tick) | 292 KiB |
+| 500 | spread | 2.18 / 3.94 ms | 1.82 / 6.41 ms | 2.7 KiB/s (140 B/tick) | 221 KiB |
+| 1000 | spread | 3.31 / 28.63 ms | 1.21 / 2.44 ms | 2.8 KiB/s (144 B/tick) | 408 KiB |
+| 2000 | spread | 6.67 / 16.76 ms | 3.43 / 6.18 ms | 2.9 KiB/s (149 B/tick) | 657 KiB |
+| 5000 | spread | 15.42 / 28.32 ms | 6.63 / 10.59 ms | 3.0 KiB/s (154 B/tick) | 1640 KiB |
+| 500 | crowded | 2.92 / 15.20 ms | 5.59 / 15.90 ms | 17.2 KiB/s (882 B/tick) | 194 KiB |
+| 1000 | crowded | 5.05 / 15.56 ms | 8.96 / 16.85 ms | 22.2 KiB/s (1.1 KiB/tick) | 404 KiB |
+| 2000 | crowded | 9.82 / 36.81 ms | 18.85 / 43.24 ms | 25.2 KiB/s (1.3 KiB/tick) | 880 KiB |
+| 5000 | crowded | 13.36 / 70.00 ms | 31.37 / 55.90 ms | 27.4 KiB/s (1.4 KiB/tick) | 2459 KiB |
+
+The rows include the descriptions the server now pushes ahead of every spawn, which earlier runs never sent (the
+benchmark does not ask for them), and the cap of 100 players a receiver shows. Presence v2 (handles, position changes,
+changed fields only, the clock in the message), measured back to back against the build before it, cut 2000 spread
+from 4302 to 2976 bytes per client per second and 2000 crowded from 31246 to 25774 bytes even with those descriptions;
+the 2000 bots of `LoadTest --mode walk`, which do ask, went from 9.5 to 5.5 KiB/s each. Building the pushed
+descriptions allocates about 180 KiB more per crowded tick on the encoders.
 
 The compact presence entries halved the spread traffic and cut the crowded traffic by about 60%: with the original
 play-data entries (84 bytes near, 40 far) the same runs sent 7.6 to 8.4 KiB/s spread and 54.6 to 60.2 KiB/s crowded, and

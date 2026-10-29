@@ -13,6 +13,7 @@ public readonly record struct MovementReportPacket(MotionState Motion, int Field
 {
     public const ushort CurrentVersion = 1;
     public const int Size = 8 + 4 + 4 + 12 + 4 + 8;
+    private const int FacingSteps = 65536;
 
     public bool Moving => Motion is MotionState.Walk or MotionState.Run;
 
@@ -26,7 +27,7 @@ public readonly record struct MovementReportPacket(MotionState Motion, int Field
         writer.Int32(GameUnits.ToFixed(Position.X));
         writer.Int32(GameUnits.ToFixed(Position.Y));
         writer.Int32(GameUnits.ToFixed(Position.Z));
-        writer.UInt16(PresenceWire.ToFacing(Facing));
+        writer.UInt16((ushort)WireAngle.ToSteps(Facing, FacingSteps));
         writer.UInt16(0);
         writer.UInt64(ActionTarget);
         return writer.Finish();
@@ -49,7 +50,7 @@ public readonly record struct MovementReportPacket(MotionState Motion, int Field
 
         var field = reader.Int32();
         var position = new Vector3(GameUnits.FromFixed(reader.Int32()), GameUnits.FromFixed(reader.Int32()), GameUnits.FromFixed(reader.Int32()));
-        var facing = reader.UInt16() * (2f * MathF.PI / 65536f);
+        var facing = WireAngle.FromSteps(reader.UInt16(), FacingSteps);
         reader.Skip(2);
         return new MovementReportPacket(motion, field, position, facing, reader.UInt64());
     }

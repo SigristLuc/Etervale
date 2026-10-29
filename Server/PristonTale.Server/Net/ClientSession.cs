@@ -678,17 +678,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
             return;
         }
 
-        if (_encoder is { } encoder)
-        {
-            lock (_sendGate)
-            {
-                var length = encoder.WriteDescription(request.EntityId, _scratch);
-                if (length > 0)
-                {
-                    SendSpan(_scratch.AsSpan(0, length));
-                }
-            }
-        }
+        _encoder?.SendRequestedDescription(request.EntityId, _countingSink);
     }
 
     private async Task ApplyInventoryAsync(InventoryCommandPacket request)

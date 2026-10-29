@@ -18,16 +18,20 @@ using PristonTale.Contracts.Units;
 
 namespace PristonTale.Client.Net.Online;
 
-// Rebuilds the neutral presence model from the server's messages. An unknown entityId in a presence message triggers a
-// DescribeEntity request; the object is published once its EntityDescription arrives, and a changed descriptor revision
-// (PresenceEntry.Revision) requests a fresh description.
+// Rebuilds the neutral presence model from the server's messages. Entries name entities by this connection's handles: a
+// spawn binds a handle to an entity id and its removal frees it. The server pushes a description ahead of the entry that
+// introduces it or its revision; an object whose description did not come (or a shared template's of another revision)
+// is asked with DescribeEntity. The object is published once its description is known.
 internal sealed class PresenceDecoder
 {
     private const long DescriptionRetryMs = 1000;
+    // A description whose entity never spawned (one asked for that left meanwhile) is dropped after this long.
+    private const long UnspawnedDescriptionMs = 10_000;
     // The receive loop decodes; the connection's timer retries descriptions.
     private readonly object _gate = new();
     private readonly Dictionary<ulong, Tracked> _objects = new();
-    // Monster and NPC descriptions are shared by template, like the original client's enemy cache.
+    private readonly Dictionary<uint, ulong> _handles = new();
+    // Monster and NPC descriptions are shared by template (PresenceWire.TemplateKey), like the original client's enemy cache.
     private readonly Dictionary<uint, Description> _templates = new();
     private readonly WorldRenderCatalog _catalog;
     private readonly Action<ulong> _requestDescription;
@@ -62,18 +66,30 @@ internal sealed class PresenceDecoder
         }
     }
 
-    // Asks again for the descriptions whose answer did not come within a second. The connection calls it about once a
-    // second: an object that stands still sends no entries that would trigger the request again.
+    // Asks again for the descriptions whose answer did not come within a second, and drops descriptions no spawn followed.
+    // The connection calls it about once a second: an object that stands still sends no entries that would trigger the
+    // request again.
     public void RetryDescriptions()
     {
         lock (_gate)
         {
+            var now = Environment.TickCount64;
+            List<ulong>? unspawned = null;
             foreach (var (entityId, tracked) in _objects)
             {
-                if (tracked.HasState && (tracked.Description is null || tracked.Description.Revision != tracked.Revision))
+                if (!tracked.HasState && now - tracked.DescribedAtMs > UnspawnedDescriptionMs)
+                {
+                    (unspawned ??= []).Add(entityId);
+                }
+                else if (tracked.HasState && (tracked.Description is null || tracked.Description.Revision != tracked.Revision))
                 {
                     RequestDescription(entityId, tracked, tracked.Revision);
                 }
+            }
+
+            foreach (var entityId in unspawned ?? [])
+            {
+                _objects.Remove(entityId);
             }
         }
     }
@@ -283,75 +299,90 @@ internal sealed class PresenceDecoder
     {
         var spawns = new List<EntitySpawnInfo>();
         var states = new List<EntityStateInfo>();
-        _tick = PresenceEntriesReader.Read(packet, (in PresenceEntry entry) =>
-        {
-            if (entry.Full)
-            {
-                ApplyFull(entry, spawns, states);
-            }
-            else
-            {
-                ApplyMotion(entry, states);
-            }
-        });
+        // The message sets the presence clock its samples are taken at.
+        var clock = PresenceEntriesReader.Clock(packet);
+        _tick = clock.ServerTick;
+        _clockMs = clock.ServerTimeMs;
+        PresenceEntriesReader.Read(packet, (in PresenceEntry entry) => Apply(entry, spawns, states));
         return spawns.Count == 0 && states.Count == 0 ? null : Update(spawns, states) with { ServerTimeMs = _clockMs };
     }
 
-    private void ApplyFull(in PresenceEntry entry, List<EntitySpawnInfo> spawns, List<EntityStateInfo> states)
+    private void Apply(in PresenceEntry entry, List<EntitySpawnInfo> spawns, List<EntityStateInfo> states)
     {
-        var entityId = entry.EntityId;
-        if (!_objects.TryGetValue(entityId, out var tracked))
+        Tracked? tracked;
+        ulong entityId;
+        if (entry.Spawn)
         {
-            tracked = new Tracked();
-            _objects.Add(entityId, tracked);
+            entityId = entry.EntityId;
+            if (!_objects.TryGetValue(entityId, out tracked))
+            {
+                tracked = new Tracked();
+                _objects.Add(entityId, tracked);
+            }
+            else if (tracked.Handle != entry.Handle && _handles.TryGetValue(tracked.Handle, out var bound) && bound == entityId)
+            {
+                _handles.Remove(tracked.Handle);
+            }
+
+            tracked.Handle = entry.Handle;
+            _handles[entry.Handle] = entityId;
+        }
+        else if (!_handles.TryGetValue(entry.Handle, out entityId) || !_objects.TryGetValue(entityId, out tracked) || !tracked.HasState)
+        {
+            // Only a spawn introduces an object.
+            return;
         }
 
-        if (entityId == SelfEntityId && entry.FieldCode >= 0)
+        tracked.Point = entry.Absolute ? entry.Position : tracked.Point + entry.Position;
+        tracked.Position = tracked.Point.ToWorld();
+        tracked.Facing = entry.FacingRadians;
+        tracked.Motion = entry.Motion;
+        tracked.SampleTimeMs = _clockMs;
+        if (!entry.Spawn && entry.Fields == PresenceFields.None)
+        {
+            if (tracked.Published)
+            {
+                states.Add(State(entityId, tracked));
+            }
+
+            return;
+        }
+
+        var fields = entry.Fields;
+        var described = tracked.Description;
+        if ((fields & PresenceFields.FieldCode) != 0 && entityId == SelfEntityId && entry.FieldCode >= 0)
         {
             FieldId = entry.FieldCode;
         }
 
-        tracked.Life = entry.Life;
-        tracked.MaxLife = entry.MaxLife;
-        tracked.Target = entry.Target;
-        tracked.Sequence = entry.AttackSequence;
-        tracked.Position = entry.Position;
-        tracked.Facing = entry.Facing;
-        tracked.Motion = entry.Motion;
-        tracked.SampleTimeMs = _clockMs;
+        tracked.Life = (fields & PresenceFields.Life) != 0 ? entry.Life : tracked.Life;
+        tracked.MaxLife = (fields & PresenceFields.MaxLife) != 0 ? entry.MaxLife : tracked.MaxLife;
+        tracked.Target = (fields & PresenceFields.Target) != 0 ? entry.Target : tracked.Target;
+        tracked.Sequence = (fields & PresenceFields.AttackSequence) != 0 ? entry.AttackSequence : tracked.Sequence;
+        tracked.Template = (fields & PresenceFields.Template) != 0 ? entry.Template : tracked.Template;
+        tracked.Revision = (fields & PresenceFields.Revision) != 0 ? entry.Revision : tracked.Revision;
         tracked.HasState = true;
-        if (tracked.Description is null && entry.Template != 0 && _templates.TryGetValue(entry.Template, out var shared)
-            && shared.Revision == entry.Revision)
+        if ((tracked.Description is null || tracked.Description.Revision != tracked.Revision) && tracked.Template != 0
+            && _templates.TryGetValue(tracked.Template, out var shared) && shared.Revision == tracked.Revision)
         {
             tracked.Description = shared;
         }
 
-        tracked.Revision = entry.Revision;
-        if (tracked.Description is null || tracked.Description.Revision != entry.Revision)
+        if (tracked.Description is null || tracked.Description.Revision != tracked.Revision)
         {
-            RequestDescription(entityId, tracked, entry.Revision);
+            RequestDescription(entityId, tracked, tracked.Revision);
         }
 
-        Publish(entityId, tracked, spawns, states);
-    }
-
-    private void ApplyMotion(in PresenceEntry entry, List<EntityStateInfo> states)
-    {
-        var entityId = entry.EntityId;
-        if (!_objects.TryGetValue(entityId, out var tracked) || !tracked.HasState)
+        // What a state does not carry (max life, the description) reaches a shown object as a refresh, which the scene
+        // applies as a spawn of a known id.
+        if (tracked.Published && tracked.Description is not null
+            && ((fields & (PresenceFields.MaxLife | PresenceFields.Template | PresenceFields.Revision)) != 0 || !ReferenceEquals(described, tracked.Description)))
         {
-            // A motion entry never introduces an object; its next full entry does.
+            spawns.Add(Spawn(entityId, tracked));
             return;
         }
 
-        tracked.Position = entry.Position;
-        tracked.Facing = entry.Facing;
-        tracked.Motion = entry.Motion;
-        tracked.SampleTimeMs = _clockMs;
-        if (tracked.Published)
-        {
-            states.Add(State(entityId, tracked));
-        }
+        Publish(entityId, tracked, spawns, states);
     }
 
     // One GETPLAYERINFO per revision, repeated after a second when its answer does not come: the server drops requests
@@ -392,7 +423,9 @@ internal sealed class PresenceDecoder
         var entityId = packet.EntityId;
         if (!_objects.TryGetValue(entityId, out var tracked))
         {
-            return null;
+            // Pushed ahead of the spawn it describes.
+            tracked = new Tracked { DescribedAtMs = Environment.TickCount64 };
+            _objects.Add(entityId, tracked);
         }
 
         var description = new Description(packet.Revision, packet.Kind, packet);
@@ -402,7 +435,7 @@ internal sealed class PresenceDecoder
             // A summon's description names its owner, so it never stands for the wild monsters of its template.
             if (template.Template != 0 && template.Owner == 0)
             {
-                _templates[template.Template] = description;
+                _templates[PresenceWire.TemplateKey(description.Kind, template.Template)] = description;
             }
 
             if (description.Kind == EntityKind.Monster)
@@ -423,7 +456,8 @@ internal sealed class PresenceDecoder
             }
         }
 
-        if (!tracked.HasState)
+        // A description pushed ahead of the entry that brings its revision waits for that entry, which refreshes the object.
+        if (!tracked.HasState || tracked.Published && description.Revision != tracked.Revision)
         {
             return null;
         }
@@ -438,7 +472,17 @@ internal sealed class PresenceDecoder
         var removed = new List<ulong>(entityIds.Length);
         foreach (var entityId in entityIds)
         {
-            if (_objects.Remove(entityId, out var tracked) && tracked.Published)
+            if (!_objects.Remove(entityId, out var tracked))
+            {
+                continue;
+            }
+
+            if (_handles.TryGetValue(tracked.Handle, out var bound) && bound == entityId)
+            {
+                _handles.Remove(tracked.Handle);
+            }
+
+            if (tracked.Published)
             {
                 removed.Add(entityId);
             }
@@ -632,6 +676,10 @@ internal sealed class PresenceDecoder
         public int RequestedRevision { get; set; } = -1;
         public long RequestedAtMs { get; set; }
         public byte Revision { get; set; }
+        public uint Handle { get; set; }
+        public long DescribedAtMs { get; init; }
+        public uint Template { get; set; }
+        public PresencePoint Point { get; set; }
         public bool HasState { get; set; }
         public bool Published { get; set; }
         public Vector3 Position { get; set; }

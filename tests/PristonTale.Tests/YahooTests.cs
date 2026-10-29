@@ -97,8 +97,8 @@ internal static class YahooTests
         Assert.True(motion.ApplyLocomotion(MotionCode.Walk).Kind == MotionCommandKind.None, "walking cut the cheer");
 
         var buffer = new byte[PresenceWire.HeaderSize + PresenceWire.MaxMotionEntrySize];
-        var writer = new PresenceEntriesWriter(buffer, 1);
-        writer.Commit(PresenceWire.WriteMotion(writer.Reserve(PresenceWire.MaxMotionEntrySize), 7, Vector3.Zero, 0f, MotionState.Yahoo));
+        var writer = new PresenceEntriesWriter(buffer, 1, 50);
+        writer.Commit(PresenceWire.Write(writer.Reserve(PresenceWire.MaxMotionEntrySize), new PresenceEntry(7, MotionState.Yahoo, default, 0)));
         var read = new List<PresenceEntry>();
         PresenceEntriesReader.Read(writer.Finish(), (in PresenceEntry value) => read.Add(value));
         Assert.True(read.Single().Motion == MotionState.Yahoo, "the cheer motion did not round-trip");

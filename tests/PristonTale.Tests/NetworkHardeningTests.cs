@@ -144,7 +144,8 @@ internal static class NetworkHardeningTests
     private static Task SendLimitAsync()
     {
         var events = WorldOutbox.DefaultEventCapacity * Math.Max(Protocol.Packets.CombatEventEntry.Size, Protocol.Packets.SkillEventEntry.Size);
-        var crowd = PresenceEncoder.MaxVisible * Protocol.Packets.PresenceWire.MaxFullEntrySize;
+        // Every entity of a crowd entering view at once is described ahead of its spawn.
+        var crowd = PresenceEncoder.MaxVisible * (Protocol.Packets.PresenceWire.MaxEntrySize + Protocol.Packets.EntityDescriptionPacket.MaximumSize);
         Assert.True(ClientSession.PresenceBacklogBytes + events + crowd < new Protocol.Transport.FrameConnectionOptions().MaxPendingSendBytes,
             "a slow reader's full outbox could take its connection past the send limit");
         return Task.CompletedTask;

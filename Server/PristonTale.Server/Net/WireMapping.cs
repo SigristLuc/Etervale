@@ -19,22 +19,11 @@ internal static class WireMapping
 
     public static uint ItemCode(string? catalogKey) => ItemCodes.TryParse(catalogKey, out var code) ? code : 0;
 
-    // The template code clients use to share one description among monsters and NPCs of a kind. Players and owned
+    // The template key clients use to share one description among monsters and NPCs of a kind. Players and owned
     // summons describe themselves (a summon's owner and size are its own), so they carry none.
-    public static uint SharedTemplate(in EntityView view) => view.Kind == EntityKind.Player || view.OwnerId != 0 ? 0u : view.TemplateId;
+    public static uint SharedTemplate(in EntityView view) =>
+        view.Kind == EntityKind.Player || view.OwnerId != 0 ? 0u : PresenceWire.TemplateKey(view.Kind, view.TemplateId);
 
-
-    // A full presence entry: the motion part plus life, level, target, attack sequence, description revision, shared
-    // template and field.
-    public static PresenceEntry Entry(in EntityView view, int fieldCode, byte revision) => new(
-        view.EntityId, true, view.Position, view.Facing, view.MoveState, view.Life, view.MaxLife, view.Level, view.AttackTargetId,
-        view.AttackSequence, revision, SharedTemplate(view), fieldCode);
-
-    public static int WriteFull(Span<byte> destination, in EntityView view, int fieldCode, byte revision) =>
-        PresenceWire.WriteFull(destination, Entry(view, fieldCode, revision));
-
-    public static int WriteMotion(Span<byte> destination, in EntityView view) =>
-        PresenceWire.WriteMotion(destination, view.EntityId, view.Position, view.Facing, view.MoveState);
 
     private static DescribedGlow Glow(in Simulation.Items.HeldItemGlow glow) =>
         new(glow.Blink, glow.R, glow.G, glow.B, glow.A, glow.Scale, glow.Mix, glow.MixScroll, glow.ClassUp);

@@ -32,7 +32,7 @@ layouts live in [protocol.md](protocol.md).
 | `Net/ClientSession.Chat.cs` | The session's `IChatLink`: chat lines, forced warps, close requests and kicks from game masters. |
 | `Net/GameServerControl.cs` | `IServerOperations` for game masters: user limit, blocked logins, the shutdown countdown and host stop. |
 | `Net/PresenceEncoder.cs` | Turns the receiver's `WorldSnapshot` into presence packets (presence entries, events, drops, owner state, the restart offer); the crowd cap, the movement budget and descriptions. |
-| `Net/SharedPresenceWire.cs` | Full and motion presence entries and entity descriptions of one presence frame, encoded once for every receiver. |
+| `Net/SharedPresenceWire.cs` | The entity descriptions of one presence frame, encoded once for every receiver. |
 | `Net/VisibleSet.cs`, `Net/MotionCandidates.cs` | The receiver's visible crowd (nearest 100 players and up to 256 entities in all, plus essentials, keep band) and its most overdue position updates. |
 | `Net/WireMapping.cs`, `Net/NpcWireMapping.cs`, `Net/QuestWireMapping.cs` | Authoritative views to wire structs (presence entries, descriptions, events, NPC service state, quest messages). |
 | `Net/NetworkLimits.cs` | `Network:*` settings with defaults and validation; IPv4-mapped address normalisation. |
@@ -267,8 +267,9 @@ since its client stopped reading. A snapshot's packets are queued inside one `Fr
 the writer's wake-up, so they normally leave in one write.
 Per snapshot, in order:
 `FieldWarp` on a field change (after removing everything known), the events of earlier ticks the pump fell behind on
-(each tick's events after its own `PresenceClock`), `PresenceClock` before the first timeline packet of the snapshot's
-tick, `PresenceEntries` (one or more), `RemoveObjects`, `CombatEvents`, `SkillEvents`, `StatusEffects` (with the running
+(each tick's events after its own `PresenceClock`), each `EntityDescription` pushed ahead of the entity's spawn or
+revision change, `PresenceEntries` (one or more, carrying the tick's clock; `PresenceClock` only when the tick has events
+and no entries), `RemoveObjects`, `CombatEvents`, `SkillEvents`, `StatusEffects` (with the running
 statuses of entities the receiver starts seeing), `ItemEffects`, `GroundItems`/`GroundItemsRemoved`, `OwnerStatus` with `Inventory`
 parts and `Skills` when their revisions changed, `SkillCooldowns`, then `QuestJournal` and `QuestNotices` from the
 snapshot's quest update.
@@ -300,9 +301,9 @@ of the regression suite ([testing.md](testing.md#multiplayer-propagation)):
 
 | What | Who receives it | How and when |
 | --- | --- | --- |
-| An entity (player, monster, summon, pet, NPC) | Players of the same field within the connect range (about 1086 units); kept to 1.15 times that range; hidden game masters and other players' duel opponents never | Spawn (a full presence entry, then `EntityDescription` on request) the tick it enters the receiver's view; `RemoveObjects` the tick it leaves, dies away, logs out, disconnects or changes field |
-| Position, facing, motion | Its viewers | Motion, HP, target and attack changes the tick they happen; positions at 5 Hz near (543 units), 2 Hz far, within 2048 bytes per receiver per tick, most overdue first |
-| Description (level, equipment, looks, village flag, owner, size) | Its viewers | A new field-wide revision in the next entry; the client asks for the new `EntityDescription` |
+| An entity (player, monster, summon, pet, NPC) | Players of the same field within the connect range (about 1086 units); kept to 1.15 times that range; hidden game masters and other players' duel opponents never | Spawn (its `EntityDescription` pushed ahead of a presence spawn, unless it is a shared template's the receiver holds) the tick it enters the receiver's view; `RemoveObjects` the tick it leaves, dies away, logs out, disconnects or changes field |
+| Position, facing, motion | Its viewers | Motion, HP, max HP, target, attack and template changes the tick they happen; positions at 5 Hz near (543 units), 2 Hz far, within 2048 bytes per receiver per tick, most overdue first |
+| Description (level, equipment, looks, village flag, owner, size) | Its viewers | A new field-wide revision in the next entry, its `EntityDescription` pushed ahead of it |
 | Combat, skill and item events | The players that know its attacker or target (and the player itself) | Once, in server order, on the tick they happened; dropped only for a reader 4096 events behind, which then gets the running statuses again |
 | Statuses | The players that know the entity | `Add`, `Refresh`, `Remove` and ticks as they happen; a player that starts seeing the entity gets its running statuses with the time left |
 | Ground drops | Players within about 905 units; private drops only to their owner | `GroundItems` when they enter range, `GroundItemsRemoved` (batched) on pickup, expiry or leaving range |

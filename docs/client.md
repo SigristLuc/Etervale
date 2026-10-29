@@ -204,12 +204,14 @@ a pending buffer flushed by a single writer task (a backlog above 512 KiB closes
 `PresenceUpdate` published to a bounded channel (4096; when full the receive loop waits, so TCP pushes back on the
 server).
 
-- `PresenceEntries`: full and motion entries update tracked objects (a motion entry never introduces one). An unknown entity id or a
-  changed descriptor revision triggers `DescribeEntity`; an object is published as a spawn only once its `EntityDescription`
-  arrived. The connection's one-second timer
-  (`RetryDescriptions`, which shares the decoder's lock with the receive thread) asks again for every object still
-  undescribed after a second: the server drops requests beyond its bucket, and an object that stands still sends no
-  entry that would ask again.
+- `PresenceEntries`: sets the presence clock from its header; a spawn binds a handle to an entity id, and later entries
+  find the entity by handle and add their position change to the last position (`PresencePoint`) and apply the fields
+  they carry. `RemoveObjects` frees the handle. The server pushes an `EntityDescription` ahead of the spawn or revision
+  change it belongs to (the decoder keeps it until the spawn comes, at most 10 s); an object whose description is still
+  missing, or a shared template's of another revision, triggers `DescribeEntity`. An object is published as a spawn only
+  once its description is known. The connection's one-second timer (`RetryDescriptions`, which shares the decoder's lock
+  with the receive thread) asks again for every object still undescribed after a second: the server drops requests
+  beyond its bucket, and an object that stands still sends no entry that would ask again.
 - `EntityDescription`: monster and NPC descriptions register a `MonsterRenderInfo`/`NpcRenderInfo` in `WorldRenderCatalog`
   (model path, scale, name, level, brood, NPC services, sound code, portrait offsets) and are shared by template code;
   a summon's or crystal pet's description (user brood, its owner) is never shared. A new description is re-published
@@ -240,7 +242,7 @@ coordinates; their consumers mirror them with `WorldSpace` instead of negating Z
 
 ### Remote actor playback
 
-- `RemoteServerClock` maps local frame time onto the server clock from `PresenceClock`; early packets move the offset
+- `RemoteServerClock` maps local frame time onto the server clock from the clock of `PresenceEntries` and `PresenceClock`; early packets move the offset
   quickly, late ones slowly; a jump above 1 s resyncs. Without the extension samples are stamped with arrival time.
 - `RemoteSnapshotBuffer` (per entity, 32 samples) renders at `now - delay`. The delay starts at 150 ms and follows the
   observed sample cadence up to 600 ms. Position, height and facing interpolate linearly; a Walk/Run sample may be

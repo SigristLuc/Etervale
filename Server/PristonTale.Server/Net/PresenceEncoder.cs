@@ -14,8 +14,9 @@ namespace PristonTale.Server.Net;
 
 // Turns one subscriber's share of a field snapshot into presence messages. It keeps the original's view ranges and
 // distance-weighted detail, but queries the field grid instead of scanning every slot, sends an entity only when it
-// changed (a full entry for spawns and discrete changes, a motion entry for movement), and lets the near ring update
-// faster than the far ring.
+// changed and only what changed (a spawn names it under a handle of this receiver's and carries every value; a later
+// entry carries the values that changed and its position as a change from the last one sent), pushes its description
+// ahead of its spawn, and lets the near ring update faster than the far ring.
 internal sealed partial class PresenceEncoder
 {
     // Squared view ranges in world units: connect 0x120000, high detail 0x48000, ground items 0xC8000.
@@ -31,7 +32,7 @@ internal sealed partial class PresenceEncoder
     // Like the original per-receiver user limit, a crowd cannot exceed a per-receiver movement budget (about 40 KiB/s at 20 Hz).
     // Spawns and discrete changes always go out; position-only updates are ranked by how overdue they are.
     private const int MovementBudgetBytes = 2048;
-    private const uint TickIntervalMs = 1000 / WorldServer.TickHz;
+    private const ushort TickIntervalMs = 1000 / WorldServer.TickHz;
 
     private readonly ulong _self;
     private readonly WorldDataHolder _data;
@@ -49,7 +50,13 @@ internal sealed partial class PresenceEncoder
     private readonly List<int> _related = new();
     private readonly HashSet<int> _essential = new();
     private readonly Func<int, bool> _isShown;
-    private readonly MotionCandidates _pending = new(MovementBudgetBytes / PresenceWire.MotionEntrySize(0));
+    private readonly MotionCandidates _pending = new(MovementBudgetBytes / PresenceWire.MinEntrySize);
+    // Handles of removed entities. An entity is found removed only after every spawn of its encode, and its removal goes
+    // out before the next encode, so the client never reads a spawn under a handle before the removal that freed it.
+    private readonly Stack<uint> _freeHandles = new();
+    private uint _nextHandle;
+    // The description revision this receiver last got for each shared template, as its client keeps them.
+    private readonly Dictionary<uint, byte> _sentTemplates = new();
     private readonly HashSet<Guid> _visibleDrops = new();
     private readonly List<Guid> _goneDrops = new();
     private readonly List<ulong> _removed = new();
@@ -73,7 +80,6 @@ internal sealed partial class PresenceEncoder
     private long _inventoryRevision = -1;
     private long _skillsRevision = -1;
     private long _agingRevision = -1;
-    private uint _groupCounter;
     private uint _clockTick;
     private bool _clockPending;
     private uint _pass;
@@ -125,46 +131,30 @@ internal sealed partial class PresenceEncoder
         }
     }
 
-    // The description of an entity from the last encoded snapshot (its frame stays pinned until the next one); null when
-    // the entityId is not in this subscriber's view.
-    public EntityDescriptionPacket? Describe(ulong entityId)
-    {
-        EntityView view;
-        byte revision;
-        lock (_gate)
-        {
-            if (_describeGrid is null || !_known.TryGetValue(entityId, out var known) || !_describeGrid.TryGetIndex(entityId, out var index))
-            {
-                return null;
-            }
-
-            view = _describeViews[index];
-            revision = known.Revision;
-        }
-
-        return DescriptionPacket(view, revision, _data.Current);
-    }
-
-    // Writes the description into destination and returns its length, 0 when the entityId is not in view. Every receiver
-    // asking about an entity of the same frame gets the same bytes, so they are encoded once per frame.
-    public int WriteDescription(ulong entityId, Span<byte> destination)
+    // Answers DescribeEntity with the entity's description from the last encoded snapshot (its frame stays pinned until
+    // the next one); false when the entityId is not in this subscriber's view. It is sent under the encoder's lock, so it
+    // reaches the client in the order of the encodes that note which template descriptions the client holds. Every
+    // receiver asking about an entity of the same frame gets the same bytes, encoded once per frame.
+    public bool SendRequestedDescription(ulong entityId, IPacketSink connection)
     {
         lock (_gate)
         {
             if (_describeGrid is null || !_known.TryGetValue(entityId, out var known) || !_describeGrid.TryGetIndex(entityId, out var index))
             {
-                return 0;
+                return false;
             }
 
             ref readonly var view = ref _describeViews[index];
             if (_heldFrame is { } frame && view.Revision != 0 && ReferenceEquals(frame.Views, _describeViews))
             {
-                var shared = frame.Attachment(SharedPresenceWire.Create).Description(index, view, _data.Current);
-                shared.CopyTo(destination);
-                return shared.Length;
+                NoteTemplate(view, view.Revision);
+                connection.Send(frame.Attachment(SharedPresenceWire.Create).Description(index, view, _data.Current));
+                return true;
             }
 
-            return DescriptionPacket(view, known.Revision, _data.Current).Write(destination);
+            NoteTemplate(view, known.Revision);
+            connection.Send(_scratch.AsSpan(0, DescriptionPacket(view, known.Revision, _data.Current).Write(_scratch)));
+            return true;
         }
     }
 
@@ -252,13 +242,13 @@ internal sealed partial class PresenceEncoder
 
         _clockTick = tick;
         _clockPending = true;
-        // Entries every receiver of this frame shares are encoded once by whichever encoder needs them first.
+        // Descriptions every receiver of this frame shares are encoded once by whichever encoder needs them first.
         _wire = snapshot.Frame is { } frame && ReferenceEquals(frame.Views, snapshot.Entities)
             ? frame.Attachment(SharedPresenceWire.Create)
             : null;
         _entities = snapshot.Entities;
         _pass++;
-        var group = new PresenceEntriesWriter(_group, ++_groupCounter);
+        var group = new PresenceEntriesWriter(_group, tick, TickIntervalMs);
         _removed.Clear();
         _spawned.Clear();
         WriteEntity(ref group, connection, selfIndex, tick, field, near: true);
@@ -311,7 +301,7 @@ internal sealed partial class PresenceEncoder
         var budget = MovementBudgetBytes;
         foreach (var (index, _, near) in _pending.Ordered())
         {
-            var size = PresenceWire.MotionEntrySize(_entities[index].EntityId);
+            var size = MotionSize(index);
             if (budget < size)
             {
                 break;
@@ -326,6 +316,7 @@ internal sealed partial class PresenceEncoder
             if (known.Pass != _pass)
             {
                 _removed.Add(entityId);
+                _freeHandles.Push(known.Handle);
             }
         }
 
@@ -542,21 +533,21 @@ internal sealed partial class PresenceEncoder
         if (!exists)
         {
             var descriptor = view.Revision == 0 ? DescriptorHash(view) : 0;
-            known = new Known(view, view.Revision == 0 ? (byte)1 : view.Revision, tick, descriptor, _pass);
+            known = new Known(view, view.Revision == 0 ? (byte)1 : view.Revision, descriptor, _pass, TakeHandle());
             _spawned.Add(view.EntityId);
-            AppendFull(ref group, connection, index, field, known.Revision);
+            SendDescription(index, known.Revision, connection);
+            AppendEntry(ref group, connection, ref known, view, field, tick, PresenceFields.All, spawn: true);
             return null;
         }
 
         known.Pass = _pass;
-        var discrete = known.MoveState != view.MoveState || known.Life != view.Life || known.AttackTargetId != view.AttackTargetId
-            || known.AttackSequence != view.AttackSequence;
+        var fields = known.Changed(view, field);
         if (view.Revision != 0)
         {
             if (view.Revision != known.Revision)
             {
                 known.Revision = view.Revision;
-                discrete = true;
+                fields |= PresenceFields.Revision;
             }
         }
         else
@@ -567,14 +558,18 @@ internal sealed partial class PresenceEncoder
             {
                 known.Descriptor = descriptor;
                 known.Revision = (byte)(known.Revision == byte.MaxValue ? 1 : known.Revision + 1);
-                discrete = true;
+                fields |= PresenceFields.Revision;
             }
         }
 
-        if (discrete)
+        if ((fields & PresenceFields.Revision) != 0)
         {
-            known.Sent(view, tick);
-            AppendFull(ref group, connection, index, field, known.Revision);
+            SendDescription(index, known.Revision, connection);
+        }
+
+        if (fields != PresenceFields.None || known.MoveState != view.MoveState)
+        {
+            AppendEntry(ref group, connection, ref known, view, field, tick, fields, spawn: false);
             return null;
         }
 
@@ -598,42 +593,70 @@ internal sealed partial class PresenceEncoder
     {
         ref readonly var view = ref _entities[index];
         ref var known = ref CollectionsMarshal.GetValueRefOrNullRef(_known, view.EntityId);
-        known.Sent(view, tick);
-        EnsureSpace(ref group, connection, PresenceWire.MaxMotionEntrySize);
-        var entry = group.Reserve(PresenceWire.MaxMotionEntrySize);
-        int size;
-        if (_wire is { } wire && view.Revision != 0)
-        {
-            var shared = wire.Motion(index, view);
-            shared.CopyTo(entry);
-            size = shared.Length;
-        }
-        else
-        {
-            size = WireMapping.WriteMotion(entry, view);
-        }
-
-        group.Commit(size);
+        AppendEntry(ref group, connection, ref known, view, known.FieldCode, tick, PresenceFields.None, spawn: false);
     }
 
-    private void AppendFull(ref PresenceEntriesWriter group, IPacketSink connection, int index, int field, byte revision)
+    // The size of the position-only entry an entity would get now.
+    private int MotionSize(int index)
     {
         ref readonly var view = ref _entities[index];
-        EnsureSpace(ref group, connection, PresenceWire.MaxFullEntrySize);
-        var entry = group.Reserve(PresenceWire.MaxFullEntrySize);
-        int size;
-        if (_wire is { } wire && view.Revision != 0)
+        ref var known = ref CollectionsMarshal.GetValueRefOrNullRef(_known, view.EntityId);
+        var (sent, _, absolute) = Placement(view, known, spawn: false);
+        return PresenceWire.MotionSize(known.Handle, sent, absolute);
+    }
+
+    // The position an entry sends (whole, or as the change from the last one sent when that is smaller), and the point
+    // the client then holds.
+    private static (PresencePoint Sent, PresencePoint Point, bool Absolute) Placement(in EntityView view, in Known known, bool spawn)
+    {
+        var point = PresencePoint.From(view.Position);
+        var change = point - known.Point;
+        var absolute = spawn || PresenceWire.PrefersAbsolute(change);
+        return (absolute ? point : change, point, absolute);
+    }
+
+    private void AppendEntry(ref PresenceEntriesWriter group, IPacketSink connection, ref Known known, in EntityView view, int field, uint tick,
+        PresenceFields fields, bool spawn)
+    {
+        var (sent, point, absolute) = Placement(view, known, spawn);
+        var entry = new PresenceEntry(known.Handle, view.MoveState, sent, PresenceEntry.ToFacing(view.Facing), absolute,
+            spawn ? view.EntityId : 0, fields, view.Life, view.MaxLife, view.AttackTargetId, view.AttackSequence, known.Revision,
+            WireMapping.SharedTemplate(view), field);
+        EnsureSpace(ref group, connection, PresenceWire.MaxEntrySize);
+        group.Commit(PresenceWire.Write(group.Reserve(PresenceWire.MaxEntrySize), entry));
+        known.Sent(view, tick, field, point);
+    }
+
+    private uint TakeHandle() => _freeHandles.TryPop(out var handle) ? handle : _nextHandle++;
+
+    // Pushes the entity's description ahead of the entry that introduces it or its revision, unless it is a shared
+    // template's description the client already holds.
+    private void SendDescription(int index, byte revision, IPacketSink connection)
+    {
+        ref readonly var view = ref _entities[index];
+        var template = WireMapping.SharedTemplate(view);
+        if (template != 0 && _sentTemplates.TryGetValue(template, out var held) && held == revision)
         {
-            var shared = wire.Full(index, view, field);
-            shared.CopyTo(entry);
-            size = shared.Length;
-        }
-        else
-        {
-            size = WireMapping.WriteFull(entry, view, field, revision);
+            return;
         }
 
-        group.Commit(size);
+        NoteTemplate(view, revision);
+        if (_wire is { } wire && view.Revision != 0)
+        {
+            connection.Send(wire.Description(index, view, _data.Current));
+            return;
+        }
+
+        connection.Send(_scratch.AsSpan(0, DescriptionPacket(view, revision, _data.Current).Write(_scratch)));
+    }
+
+    // The client keeps the last description of each shared template it was sent.
+    private void NoteTemplate(in EntityView view, byte revision)
+    {
+        if (WireMapping.SharedTemplate(view) is var template and not 0)
+        {
+            _sentTemplates[template] = revision;
+        }
     }
 
     private void EnsureSpace(ref PresenceEntriesWriter group, IPacketSink connection, int size)
@@ -651,7 +674,8 @@ internal sealed partial class PresenceEncoder
             return;
         }
 
-        SendClock(connection);
+        // The message carries this tick's clock.
+        _clockPending = false;
         connection.Send(group.Finish());
         group.Reset();
     }
@@ -662,6 +686,8 @@ internal sealed partial class PresenceEncoder
         _removed.AddRange(_known.Keys.Where(entityId => entityId != _self));
         _known.Clear();
         SendRemovals(connection);
+        _freeHandles.Clear();
+        _nextHandle = 0;
         _goneDrops.Clear();
         _goneDrops.AddRange(_drops.Keys);
         _drops.Clear();
@@ -984,7 +1010,8 @@ internal sealed partial class PresenceEncoder
         }
     }
 
-    // Precedes the first presence entry of each tick so the client can place samples and events on the server timeline.
+    // Places the events of a tick on the server timeline when no entries message of that tick carried its clock (the
+    // tick had no entries for this receiver, or it is an earlier tick of a reader that fell behind).
     private void SendClock(IPacketSink connection)
     {
         if (!_clockPending)
@@ -1019,33 +1046,49 @@ internal sealed partial class PresenceEncoder
     private struct Known
     {
         public Vector3 Position;
+        public PresencePoint Point;
         public float Facing;
         public int Life;
+        public int MaxLife;
         public ulong AttackTargetId;
         public ulong AttackSequence;
+        public uint Template;
+        public int FieldCode;
         public uint LastSentTick;
         public uint Pass;
+        public uint Handle;
         public int Descriptor;
         public MotionState MoveState;
         public EntityKind Kind;
         public byte Revision;
 
-        public Known(in EntityView view, byte revision, uint tick, int descriptor, uint pass)
+        public Known(in EntityView view, byte revision, int descriptor, uint pass, uint handle)
         {
             Kind = view.Kind;
             Revision = revision;
             Descriptor = descriptor;
             Pass = pass;
-            Sent(view, tick);
+            Handle = handle;
         }
 
-        public void Sent(in EntityView view, uint tick)
+        // The values of the entry (other than the description revision) that differ from what was last sent.
+        public readonly PresenceFields Changed(in EntityView view, int field) =>
+            (Life != view.Life ? PresenceFields.Life : 0) | (MaxLife != view.MaxLife ? PresenceFields.MaxLife : 0)
+            | (AttackTargetId != view.AttackTargetId ? PresenceFields.Target : 0)
+            | (AttackSequence != view.AttackSequence ? PresenceFields.AttackSequence : 0)
+            | (Template != WireMapping.SharedTemplate(view) ? PresenceFields.Template : 0) | (FieldCode != field ? PresenceFields.FieldCode : 0);
+
+        public void Sent(in EntityView view, uint tick, int field, PresencePoint point)
         {
             Position = view.Position;
+            Point = point;
             Facing = view.Facing;
             Life = view.Life;
+            MaxLife = view.MaxLife;
             AttackTargetId = view.AttackTargetId;
             AttackSequence = view.AttackSequence;
+            Template = WireMapping.SharedTemplate(view);
+            FieldCode = field;
             MoveState = view.MoveState;
             LastSentTick = tick;
         }
