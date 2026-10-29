@@ -144,7 +144,9 @@ public sealed partial class PlayerCharacter
         return taken;
     }
 
-    public bool ReceiveGroundLoot(ItemInstance item, int gold)
+    // intoBag: the item goes into the bag as a stack of its own (InventoryCommand.PickupToBag), unless the special item box
+    // keeps it or the bag has no room, when it is received as any item.
+    public bool ReceiveGroundLoot(ItemInstance item, int gold, bool intoBag = false)
     {
         if (InventoryRevision == long.MaxValue)
         {
@@ -153,7 +155,8 @@ public sealed partial class PlayerCharacter
 
         if (item is not null)
         {
-            return gold == 0 && Items.CarriedWeight.CanTake(this, Items.CarriedWeight.Of(item)) && TryReceive(item);
+            return gold == 0 && Items.CarriedWeight.CanTake(this, Items.CarriedWeight.Of(item))
+                && (intoBag && !QuestItemBox.Keeps(item.Definition.Code) && Inventory.TryPlaceFirstFree(item) || TryReceive(item));
         }
 
         if (gold <= 0 || !TryChangeMoney(gold))

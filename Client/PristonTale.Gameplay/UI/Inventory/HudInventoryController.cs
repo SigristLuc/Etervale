@@ -26,6 +26,17 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     private Guid _settling;
     private Point _settleAt;
     private long _settleRevision;
+    // The item thrown whole to the ground, hidden from its place until the owner state shows it gone (the revision unknown
+    // until the reply); a refused throw shows it again.
+    private Guid _throwing;
+    private long _throwRevision;
+    // A ground item picked up with the window open comes to the cursor, as the original puts it on the mouse: the pickup
+    // asks for it in the bag as a stack of its own, and the bag item of its code that the pickup's owner state adds (not
+    // among _pickupBefore, the items when it left) is carried; until then it shows nowhere. Code 0: none awaited.
+    private uint _pickupCode;
+    private long _pickupRevision;
+    private readonly HashSet<Guid> _pickupBefore = [];
+    private bool _visible;
     // The item under the pointer this frame (the window open), for Shift and a belt key.
     private OwnedItemView _hovered;
     // A weapon pair asked for while the player swings or casts: held once that motion ends (the player stops, or the next
@@ -47,6 +58,52 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     public Guid Held => _dragging != Guid.Empty ? _dragging : _settling;
 
     public Point HeldAt(Point pointer) => _dragging != Guid.Empty ? pointer : _settleAt;
+
+    // The item thrown to the ground and not yet gone from the owner state: drawn nowhere.
+    public Guid Thrown => _throwing;
+
+    // Whether the window leaves an owned item out of its place: carried, set down elsewhere, thrown, or picked up for
+    // the cursor.
+    public bool Hides(OwnedItemView item) => item.InstanceId == Held || item.InstanceId == _throwing || AwaitedPickup(item);
+
+    private bool AwaitedPickup(OwnedItemView item) => _pickupCode != 0 && item.InBag && item.Code == _pickupCode && !_pickupBefore.Contains(item.InstanceId);
+
+    // Called as a ground item's pickup leaves: true when it should come to the cursor (the window open, nothing carried).
+    public bool ExpectPickup(uint itemCode)
+    {
+        if (!_visible || itemCode == 0 || _dragging != Guid.Empty || _pickupCode != 0 || _state is null)
+        {
+            return false;
+        }
+
+        _pickupBefore.Clear();
+        foreach (var item in _state.Items)
+        {
+            _pickupBefore.Add(item.InstanceId);
+        }
+
+        _pickupCode = itemCode;
+        _pickupRevision = long.MaxValue;
+        return true;
+    }
+
+    // The awaited pickup's reply: its revision, or nothing to carry when it failed.
+    public void PickupAnswered(bool ok, long revision)
+    {
+        if (_pickupCode == 0)
+        {
+            return;
+        }
+
+        if (ok)
+        {
+            _pickupRevision = revision;
+        }
+        else
+        {
+            _pickupCode = 0;
+        }
+    }
 
     // The owned item under the pointer while the window takes input and nothing is carried.
     public OwnedItemView Hovered => _hovered;
@@ -85,6 +142,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     public Action<string> ItemSound { get; set; }
     private string _pendingSound;
 
+    // Lets go of the item on the cursor (Esc): it stays where it lies on the server.
     public void CancelDrag()
     {
         _dragging = Guid.Empty;
@@ -104,6 +162,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     public void Update(OwnerState state, HudLayout layout, bool visible, KeyboardState keyboard, MouseState mouse)
     {
         _state = state;
+        _visible = visible;
         _origin = HudInventoryLayout.Origin(layout);
         var completed = _completedOperation;
         if (completed is not null)
@@ -123,19 +182,8 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                 CarryAfter(_carryOnSuccess, completed.Revision);
             }
 
-            // Only the set-down's own reply (the one command waiting since) settles it; a later command's does not.
-            if (_settling != Guid.Empty && _settleRevision == long.MaxValue)
-            {
-                if (completed.Ok)
-                {
-                    _settleRevision = completed.Revision;
-                }
-                else
-                {
-                    _settling = Guid.Empty;
-                }
-            }
-
+            AwaitState(ref _settling, ref _settleRevision, completed);
+            AwaitState(ref _throwing, ref _throwRevision, completed);
             _carryOnSuccess = Guid.Empty;
             _pendingSound = null;
         }
@@ -150,10 +198,9 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             _carryAfter = Guid.Empty;
         }
 
-        if (_settling != Guid.Empty && state is not null && state.InventoryRevision >= _settleRevision)
-        {
-            _settling = Guid.Empty;
-        }
+        Release(ref _settling, _settleRevision, state);
+        Release(ref _throwing, _throwRevision, state);
+        CarryPickup(state);
 
         if (_pairWanted >= 0 && (!PickupLocked || ActionStarts != _pairWantedDuring) && !_pendingOperation && state is not null)
         {
@@ -176,7 +223,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         _hovered = visible && state is not null && _dragging == Guid.Empty
             ? HudInventoryLayout.ItemAt(_origin, state.Items, layout.ToLogical(mouse.Position), QuestBoxShown)
             : null;
-        if (_hovered?.InstanceId == _settling)
+        if (_hovered is not null && Hides(_hovered))
         {
             _hovered = null;
         }
@@ -188,8 +235,9 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         }
         else
         {
-            // A closed window drops the carried item; a command waiting (a page switched with it) keeps it on the cursor.
-            if (!visible || state is null)
+            // The carried item stays on the cursor while the window is closed or under a modal box, as the original keeps the
+            // mouse item, and while a command waits (a page switched with it); only a lost owner state lets go of it.
+            if (state is null)
             {
                 CancelDrag();
             }
@@ -443,11 +491,64 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             covered?.InstanceId ?? Guid.Empty);
     }
 
-    // Puts `count` of a bag item, or with no item `count` gold, on the ground where the player stands.
+    // An item set down or thrown waits for its own command's reply (the one command waiting since), not a later one's: a
+    // success names the revision whose owner state shows it moved, a refusal lets it go back to its place.
+    private static void AwaitState(ref Guid item, ref long revision, InventoryOutcome completed)
+    {
+        if (item != Guid.Empty && revision == long.MaxValue)
+        {
+            if (completed.Ok)
+            {
+                revision = completed.Revision;
+            }
+            else
+            {
+                item = Guid.Empty;
+            }
+        }
+    }
+
+    private static void Release(ref Guid item, long revision, OwnerState state)
+    {
+        if (item != Guid.Empty && state is not null && state.InventoryRevision >= revision)
+        {
+            item = Guid.Empty;
+        }
+    }
+
+    // The awaited pickup's item to the cursor once its owner state came (none when the bag had no room for it alone and
+    // it went where any received item goes).
+    private void CarryPickup(OwnerState state)
+    {
+        if (_pickupCode == 0 || state is null || state.InventoryRevision < _pickupRevision)
+        {
+            return;
+        }
+
+        foreach (var item in state.Items)
+        {
+            if (_dragging == Guid.Empty && AwaitedPickup(item))
+            {
+                _dragging = item.InstanceId;
+                break;
+            }
+        }
+
+        _pickupCode = 0;
+    }
+
+    // Puts `count` of a bag item, or with no item `count` gold, on the ground where the player stands. An item thrown
+    // whole leaves its place at once (Thrown); part of a stack stays where it is.
     public void Drop(OwnedItemView item, int count)
     {
         if (!_pendingOperation && _state is not null)
         {
+            if (item is not null && count >= item.Count)
+            {
+                _throwing = item.InstanceId;
+                _throwRevision = long.MaxValue;
+            }
+
             SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, item is null ? InventoryAction.DropGold : InventoryAction.Drop,
                 item?.InstanceId ?? Guid.Empty, 0, count, default));
         }

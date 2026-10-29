@@ -418,7 +418,10 @@ totals.
   off-hand item or an item whose requirements are not met. A full bag does not keep it off an empty slot; otherwise
   it goes to the bag.
 - `TryUnequip` needs inventory space and is refused while the character is overweight (`ItemRuleMessages.OverWeight`).
-- `ReceiveGroundLoot` refuses an item that would carry the character over the weight limit.
+- `ReceiveGroundLoot` refuses an item that would carry the character over the weight limit. With `intoBag` (a pickup
+  with the inventory open, `InventoryCommand.PickupToBag`) the item goes into the bag's first free cells as a stack of
+  its own, for the client to carry, as the original puts it on the mouse; an item the special item box keeps, or one
+  the bag has no room for alone, is received as any item (`TryReceive`).
 - `EquipmentSlot` has no helmet and keeps `Sheltom` separate (the persisted equipment order).
 
 ## Commands, revisions and transactions

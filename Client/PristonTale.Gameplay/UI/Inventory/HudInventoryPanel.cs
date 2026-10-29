@@ -129,8 +129,9 @@ public sealed class HudInventoryPanel
         for (var index = 0; index < items.Count; index++)
         {
             var item = items[index];
-            // The carried item is on the cursor only: its place stays empty until it is set down, as in the original.
-            if (item.BeltBox >= 0 || !HudInventoryLayout.Shows(item, boxShown) || item.InstanceId == controller.Held)
+            // The carried item is on the cursor only: its place stays empty until it is set down, as in the original, and
+            // a thrown or picked up item's until the owner state shows where it went.
+            if (item.BeltBox >= 0 || !HudInventoryLayout.Shows(item, boxShown) || controller.Hides(item))
             {
                 continue;
             }
@@ -178,6 +179,15 @@ public sealed class HudInventoryPanel
         painter.Fill(new Rectangle(board.X, board.Bottom - 2 - offset, board.Width, 2), line);
     }
 
+    // The window closed with an item on the cursor: the item stays at the pointer, drawn by DrawOverlay, as the original
+    // keeps the mouse item.
+    public void TrackHeld(OwnerState state, HudInventoryController controller, Point pointer)
+    {
+        _hovered = null;
+        _held = state is null ? null : OwnedItemView.Find(state.Items, controller.Dragging);
+        _heldAt = pointer;
+    }
+
     // Drawn after the bottom bar so the held item and the item box stay on top, as the original draws items after the interface.
     public void DrawOverlay(HudPainter painter, HudLayout layout, HudItemIcons icons, Point pointer)
     {
@@ -219,7 +229,7 @@ public sealed class HudInventoryPanel
 
         foreach (var item in state.Items)
         {
-            if (item.BeltBox >= 0 && item.InstanceId != controller.Held)
+            if (item.BeltBox >= 0 && !controller.Hides(item))
             {
                 _counts.Draw(painter, icons, item, HudInventoryLayout.Bounds(origin, item), Color.White);
             }

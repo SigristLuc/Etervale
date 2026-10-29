@@ -298,6 +298,12 @@ internal static class ProgressionAndOwnershipTests
         var amulet = Gear(10, ItemKind.Amulet, EquipmentSlot.Amulet);
         Assert.True(packed.TryReceive(amulet) && packed.GetEquipped(EquipmentSlot.Amulet) == amulet, "an amulet was refused with the bag full and its slot empty");
         Assert.True(!packed.TryReceive(Gear(11, ItemKind.Amulet, EquipmentSlot.Amulet)), "a second amulet found room in a full bag");
+
+        // Picked up with the inventory open (into the bag, for the cursor), an armour lies in the bag beside its empty slot.
+        var open = classes.CreatePlayer(PlayerClass.Fighter, "Open", 6);
+        var robe = Gear(12, ItemKind.Armor, EquipmentSlot.Armor);
+        Assert.True(open.ReceiveGroundLoot(robe, 0, intoBag: true) && open.GetEquipped(EquipmentSlot.Armor) is null && open.Inventory.Find(robe.InstanceId) >= 0,
+            "an armour picked up for the cursor went on its slot");
         return Task.CompletedTask;
     }
 

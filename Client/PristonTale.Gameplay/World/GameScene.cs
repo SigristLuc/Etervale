@@ -265,6 +265,10 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             : Task.FromResult(new PristonTale.Simulation.Items.InventoryOutcome(false, 0, NoConnection));
     }
     public event Action<ulong> NpcSelected;
+    // Asked as a ground item's pickup leaves, with its item code: whether it comes to the inventory's cursor; that
+    // pickup's reply (succeeded, revision) is then heard by PickupToCursorAnswered.
+    public Func<uint, bool> PickupToCursor { get; set; }
+    public event Action<bool, long> PickupToCursorAnswered;
     // A player selling from a personal shop was reached: its shop opens.
     public event Action<ulong> ShopSellerSelected;
     // The NPC, seller or other player a click approaches (_approach says which).

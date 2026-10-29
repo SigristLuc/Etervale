@@ -296,6 +296,11 @@ public sealed partial class GameplayHud : IDisposable
 
     public void OpenNpc(ulong entityId) => _npc.Request(entityId);
 
+    // A ground item picked up with the inventory open comes to its cursor (HudInventoryController.ExpectPickup).
+    public bool ExpectPickup(uint itemCode) => _inventory.ExpectPickup(itemCode);
+
+    public void PickupAnswered(bool ok, long revision) => _inventory.PickupAnswered(ok, revision);
+
     public bool ClosePanel()
     {
         if (_countBox.IsOpen)
@@ -590,6 +595,10 @@ public sealed partial class GameplayHud : IDisposable
             _inventoryPanel.Draw(_painter, PanelOrigin(layout, _inventorySlide), _state, _inventory, _icons, pointer, _inventorySlide.FullyOpen,
                 _warehouse.Carried);
         }
+        else
+        {
+            _inventoryPanel.TrackHeld(_state, _inventory, pointer);
+        }
 
         if (_questWindow.Visible)
         {
@@ -691,7 +700,7 @@ public sealed partial class GameplayHud : IDisposable
             }
         }
 
-        if (_inventorySlide.FullyOpen)
+        if (_inventorySlide.FullyOpen || _inventory.Dragging != Guid.Empty)
         {
             _inventoryPanel.DrawOverlay(_painter, layout, _icons, pointer);
         }

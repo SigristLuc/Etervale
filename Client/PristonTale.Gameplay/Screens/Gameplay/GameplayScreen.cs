@@ -49,6 +49,8 @@ public sealed class GameplayScreen : GameScreen
         _hud.CraftResult += _scene.PlayCraftResult;
         _scene.NpcSelected += _hud.OpenNpc;
         _scene.ShopSellerSelected += _hud.ViewPersonalShop;
+        _scene.PickupToCursor = _hud.ExpectPickup;
+        _scene.PickupToCursorAnswered += _hud.PickupAnswered;
         _hud.PersonalShops = _scene;
         _scene.PresenceObserved += _hud.ObserveParty;
         _hud.Parties = _scene;

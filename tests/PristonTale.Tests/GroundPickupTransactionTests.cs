@@ -116,6 +116,23 @@ internal static class GroundPickupTransactionTests
         Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, pickup))).Ok, "the sword was not picked up");
         Assert.True(log.Rows[^1] is { Kind: ItemTransferKind.GroundPickup, ItemCode: "WS101", Amount: 1 } picked && picked.TransferId == thrownSword.TransferId
             && picked.FromCharacterId == starter.Id && picked.ToCharacterId == starter.Id, "the pickup of a thrown item was not logged");
+
+        // With the inventory open a pickup asks for the bag: the potions lie there as a stack of their own, for the cursor,
+        // beside the bag's own; a destination the pickup does not know is refused.
+        var potionDrop = ground.Single(drop => drop.View.CatalogKey == "PL101").View;
+        for (uint tick = 100; tick < 140; tick++)
+        {
+            world.Tick(0.05f, tick);
+        }
+
+        Assert.True(await WorldPump.RunAsync(world, world.ReportMovementAsync(3, session.EntityId, potionDrop.Position, 0f, true, true, 0))
+            == MovementVerdict.Accepted, "the walk to the potions was refused");
+        InventoryCommand PickUp(int destination) =>
+            new(Guid.NewGuid(), session.Character!.InventoryRevision, InventoryAction.Pickup, potionDrop.Id, destination, 1, default);
+        Assert.True(!(await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, PickUp(7)))).Ok, "a pickup to an unknown destination was taken");
+        Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, PickUp(InventoryCommand.PickupToBag)))).Ok, "the potions were not picked up");
+        var bag = session.Character!.Inventory;
+        Assert.True(Enumerable.Range(0, bag.Capacity).Count(index => bag[index]?.Definition == potion) == 2, "the potions picked up for the cursor joined the bag's stack");
     }
 
     private static async Task DurableAsync()

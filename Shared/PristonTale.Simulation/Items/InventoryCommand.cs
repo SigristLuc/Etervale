@@ -31,7 +31,12 @@ public enum InventoryAction
 }
 
 public sealed record InventoryCommand(Guid OperationId, long ExpectedRevision, InventoryAction Action,
-    Guid ItemId, int Destination, int Count, EquipmentSlot Slot);
+    Guid ItemId, int Destination, int Count, EquipmentSlot Slot)
+{
+    // A pickup's Destination with the inventory open: the item goes into the bag as a stack of its own, for the client to
+    // carry, as the original puts it on the mouse; 0 receives it as any item (PlayerCharacter.TryReceive).
+    public const int PickupToBag = 1;
+}
 
 public sealed record InventoryOutcome(bool Ok, long Revision, string Message);
 public sealed record AppliedInventoryOperation(InventoryCommand Command, long Revision) : IAppliedOperation

@@ -476,7 +476,18 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
   turn the original light blue, the item an exchange would pick up turns white, and a refused place turns red; the carried
   item is drawn on the cursor only, its place left empty, and once set down it stays where it was set down until the
   owner state shows where it went, or its own command fails; a later command's reply does not move it
-  (`HudInventoryController.Held`). The item box (`HudItemDetailTooltip`) lists, one centred label-and-value line each,
+  (`HudInventoryController.Held`). An item thrown whole to the ground (from the bag, or a worn item taken off, which
+  the server first lays on the bag's first free cells) is drawn nowhere until the owner state shows it gone, or shows
+  back in its place when the throw is refused (`HudInventoryController.Thrown`); part of a stack stays where it is.
+  A ground item picked up with the window open and nothing carried comes to the cursor, as the original puts it on the
+  mouse (with the window closed it goes where any received item goes: belt, empty slot, bag): `GroundLootInteraction`
+  asks `ExpectPickup` as the pickup leaves and sends `InventoryCommand.PickupToBag`, and the bag item of its code that
+  the reply's owner state adds is carried, shown nowhere until then (`HudInventoryController.Hides`). The item on the
+  cursor stays there when the window closes (V or I, the close button, another side window) or loses its input (a
+  modal box, the settings), drawn at the pointer (`HudInventoryPanel.TrackHeld`), as the original keeps the mouse item;
+  it is set down once the window is open again. Esc (`CloseAll`) lets go of it (`CancelDrag`): it stays where it lies
+  in the bag.
+  The item box (`HudItemDetailTooltip`) lists, one centred label-and-value line each,
   the name (unique,
   aged or normal colour), attack power, weapon speed, range, critical, defence, attack rating, absorb (with the catalog
   correction, one decimal), block, speed, integrity, the eight resistances, regeneration, added pools, potion storage,
