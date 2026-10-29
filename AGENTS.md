@@ -35,6 +35,10 @@ Applies throughout this repository. Follow the user's explicit instructions firs
   (`%LOCALAPPDATA%\Temp\claude` on Windows, `$TMPDIR/claude` on macOS, `/tmp/claude` on Linux). Captures, probe output,
   scratch scripts and file copies live there only while a step needs them; delete them as soon as it is done, and
   leave nothing behind at the end of a task.
+  - List what is there and decide file by file. Delete a file only when the work it served is finished and its result
+    is kept where it belongs (applied and committed, or recorded in the repository).
+  - Anything an ongoing task still uses stays until that task ends; a file worth keeping beyond it moves into the
+    repository first.
 
 ## Platforms
 
