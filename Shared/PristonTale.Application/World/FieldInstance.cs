@@ -71,7 +71,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     {
         FieldId = fieldId;
         Terrain = terrain ?? FieldTerrain.None;
-        GroundLoot = new FieldGroundLoot(items ?? new ItemCatalog([]));
+        GroundLoot = new FieldGroundLoot(items ?? new ItemCatalog([]), Terrain);
         _ids = ids;
         _rng = rng;
         _catalog = catalog;

@@ -270,7 +270,7 @@ Player basic attack:
 6. Kill credit goes to the killer unless the first attacker (latched at full HP) dealt enough damage and hit within
    `KillReward.FirstAttackerDisengageMs` (15000). Experience is `KillReward.ExpForKill(..., ExperienceMultiplier, ExperienceEventPercent)`
    awarded to the credited player; drops are rolled; the corpse despawns after `CorpseDespawnMs` (5710).
-7. `KillPayout` drops are placed at the corpse, settled on the floor (`FieldGroundLoot.Place`); each item copy is made
+7. `KillPayout` drops fall around the corpse (`FieldGroundLoot.Place`, see Ground loot); each item copy is made
    there with `ItemRoller.Create` from the field's stream (see [simulation.md](simulation.md#items)).
 
 Monster attacks (`ResolveMonsterHit`): basic hits check reach, reflection and evasion hooks, roll with
@@ -306,6 +306,11 @@ summon status ends. Charmed wild monsters become summons for the charm duration.
 
 ### Ground loot (`FieldGroundLoot`)
 
+- Every drop, thrown, made by a game master or from a corpse, lies on a cell of a square ring around its origin,
+  `CellSpacing` (24) units apart: the eight cells of the nearest ring are taken in turn with one counter per field
+  (north, then clockwise), passing over a cell whose floor is not within `FieldTerrain.DropTolerance` of the origin, one
+  behind a wall, and one another drop holds (within half a cell); a full ring sends the drop to the next ring out, up to
+  three. With every cell held the first cell with floor is taken, and with none the origin settled on its floor.
 - At most 1024 drops per field. Non-public drops (monster without `AllPlayersSeeDrops`) belong to the credited player
   for 5 s. Lifetime 90 s for gold and catalog keys starting `PL`/`PS`, 180 s otherwise.
 - Clients address drops by the drop's GUID, which `GroundItems` carries and the pick-up command names.
@@ -338,8 +343,8 @@ A prepared operation with `Snapshot == null` is final (rejection or replay) and 
 | Inventory move/split/merge/swap/equip/unequip | `WorldServer.PrepareInventoryAsync` -> `InventoryCommands.Apply`; a refusal names the item rule (`InventoryCommands.Refusal`) | inventory, equipment, histories |
 | `ConsumePotion` | same; refused when dead or a potion is pending (`PreparedPotionOperation`) | inventory, then `QueuePotion`; the field starts the eat motion and restores at the clip event; a warp before the event drinks it again where the player arrives |
 | `Pickup` | `GroundPickupTransactions.Prepare` (`PreparedPickupOperation`) | inventory, gold via `TryChangeMoney`, drop removed |
-| `Drop` | `GroundThrowTransactions.Prepare` (`PreparedThrowOperation`): a bag item, `Count` of it, refused for items `ItemDropRules` keeps or a full ground | inventory, then the item laid public where the player stood (`FieldGroundLoot.PlaceThrown`, which may pass the ground's capacity rather than lose a saved item) |
-| `DropGold` | the same: `Count` gold, at most what is carried | inventory and money, then the gold taken from the character and laid public where the player stood |
+| `Drop` | `GroundThrowTransactions.Prepare` (`PreparedThrowOperation`): a bag item, `Count` of it, refused for items `ItemDropRules` keeps or a full ground | inventory, then the item laid public around where the player stood (`FieldGroundLoot.PlaceThrown`, which may pass the ground's capacity rather than lose a saved item) |
+| `DropGold` | the same: `Count` gold, at most what is carried | inventory and money, then the gold taken from the character and laid public around where the player stood |
 | Progression (attributes, learn skill) | `ProgressionTransactions.Prepare`; learning needs a reachable skill master | re-applies the command to the live character (`ApplyProgression`) |
 | NPC services | `NpcServiceTransactions.Prepare` (`PreparedNpcOperation`) | inventory, gold delta, open warehouse, teleport arrival |
 | Quest requests | `QuestTransactions.Prepare` (`PreparedQuestOperation`); follow-ups must answer a step the NPC still offers | inventory, equipment, quest journal (merging tick kills), tier, stat/skill point and gold deltas, travel, arena duel |

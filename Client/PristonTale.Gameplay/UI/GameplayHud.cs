@@ -34,6 +34,7 @@ public sealed partial class GameplayHud : IDisposable
     private readonly Dictionary<Guid, string> _itemKeys = new();
     private readonly HudSkillBindings _bindings = new();
     private readonly HudBar _bar = new();
+    private readonly HudGroundLabels _dropNames = new();
     private readonly HudStatusPanel _status = new();
     private readonly HudSkillsPanel _skills;
     private readonly HudSkillHud _skillHud;
@@ -533,7 +534,7 @@ public sealed partial class GameplayHud : IDisposable
         var pointer = layout.ToLogical(_previousMouse.Position);
         var pressed = _previousMouse.LeftButton == ButtonState.Pressed;
         _painter.Begin(layout);
-        HudGroundLabels.Draw(_painter, layout, GroundLabels, GroundLabelPlaced);
+        _dropNames.Draw(_painter, layout, GroundLabels, GroundLabelPlaced);
         Combat.DrawNamePlates(_painter, layout, Overhead, HoveredId, TracedId, _context.Presentation.Requested.ClassicNamePlates);
         _chat.Bubbles.Signs = ShopSigns;
         _chat.Bubbles.Draw(_painter, layout, _clock.Elapsed.TotalMilliseconds, Overhead, id => _chat.NameColor(id, TargetId), TargetId);

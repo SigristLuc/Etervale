@@ -27,6 +27,7 @@ internal sealed class GroundLootCaptureProbe : Game
     private HudSprites _sprites = null!;
     private HudPainter _painter = null!;
     private readonly List<GroundLabel> _labels = [];
+    private readonly HudGroundLabels _labelBoxes = new();
 
     public GroundLootCaptureProbe(string root, string content, string output)
     {
@@ -169,7 +170,7 @@ internal sealed class GroundLootCaptureProbe : Game
         _ground.CollectLabels(GraphicsDevice.Viewport, _camera, hovered, showAll, _labels);
         var layout = HudLayout.Create(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
         _painter.Begin(layout);
-        HudGroundLabels.Draw(_painter, layout, _labels, _ground.SetLabelBounds);
+        _labelBoxes.Draw(_painter, layout, _labels, _ground.SetLabelBounds);
         _painter.End();
     }
 

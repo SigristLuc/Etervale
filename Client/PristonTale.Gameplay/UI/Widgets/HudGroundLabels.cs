@@ -1,39 +1,64 @@
+using System.Runtime.InteropServices;
 using Microsoft.Xna.Framework;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Gameplay.World.Remote;
 
 namespace PristonTale.Gameplay.UI.Widgets;
 
-// Drop names over the scene, in the classic name box geometry the original used for them: the box 36 pixels above the
-// drop's point, the text 9 pixels in, and a box that would leave the screen is not drawn. Labels draw in the order
-// given (the hovered drop last, on top) and before the monster and NPC names, which cover them. The original's grey
-// text is lavender here, brighter under the cursor.
-public static class HudGroundLabels
+// Drop names over the scene, in the classic name box geometry: the box 36 pixels above the drop's point and the text 9
+// pixels in. Labels come nearest first; each keeps its spot unless it would cover a label already placed, and then rises
+// just above it, so a pile of drops reads as a column of names. Labels are moved by whole pixels, not snapped to a grid,
+// and come in an order kept from frame to frame, so the column follows the pile without reshuffling.
+// A box that would leave the screen is not drawn. Labels draw before the monster and NPC names, which cover them; the
+// text is lavender, brighter under the cursor.
+public sealed class HudGroundLabels
 {
     private const int Lift = 36;
+    private const int Gap = 2;
     private static readonly Color Named = new(150, 144, 206);
     private static readonly Color Hovered = new(196, 186, 255);
+    private readonly List<Rectangle> _placed = [];
 
-    public static void Draw(HudPainter painter, HudLayout layout, IReadOnlyList<GroundLabel> labels, Action<Guid, Rectangle> placed)
+    public void Draw(HudPainter painter, HudLayout layout, IReadOnlyList<GroundLabel> labels, Action<Guid, Rectangle> placed)
     {
         var scale = Math.Max(1, layout.Scale);
         var lineHeight = Math.Max(16, painter.TextHeight);
         var height = 4 + lineHeight + 6 + 2;
+        _placed.Clear();
         foreach (var label in labels)
         {
             var width = painter.Measure(label.Text) + 18;
-            var x = (int)(label.Anchor.X / scale) - width / 2;
-            var y = (int)(label.Anchor.Y / scale) - Lift;
-            if (x < 0 || y < 0 || x + width > layout.Width || y + height > layout.Height)
+            var natural = new Rectangle((int)(label.Anchor.X / scale) - width / 2, (int)(label.Anchor.Y / scale) - Lift, width, height);
+            var box = Stack(natural, CollectionsMarshal.AsSpan(_placed));
+            if (box.X < 0 || box.Y < 0 || box.Right > layout.Width || box.Bottom > layout.Height)
             {
                 continue;
             }
 
+            _placed.Add(box);
             painter.Flush();
-            painter.NameBox(new Rectangle(x, y, width, height));
+            painter.NameBox(box);
             painter.Flush();
-            painter.Text(label.Text, x + 9, y + 5 + 2, label.Hovered ? Hovered : Named, false);
-            placed?.Invoke(label.Id, new Rectangle(x * scale, y * scale, width * scale, height * scale));
+            painter.Text(label.Text, box.X + 9, box.Y + 5 + 2, label.Hovered ? Hovered : Named, false);
+            placed?.Invoke(label.Id, new Rectangle(box.X * scale, box.Y * scale, box.Width * scale, box.Height * scale));
         }
+    }
+
+    // The box raised just above every placed box it would cover, Gap pixels apart; each rise moves it strictly up, so the
+    // search ends.
+    public static Rectangle Stack(Rectangle box, ReadOnlySpan<Rectangle> placed)
+    {
+        for (var index = 0; index < placed.Length; index++)
+        {
+            var guard = placed[index];
+            guard.Inflate(0, Gap);
+            if (box.Intersects(guard))
+            {
+                box.Y = guard.Top - box.Height;
+                index = -1;
+            }
+        }
+
+        return box;
     }
 }
