@@ -28,7 +28,7 @@ public sealed class DapperWorldDataRepository(IDbConnectionFactory connectionFac
                 d.res_bionic_min, d.res_bionic_max, d.res_earth_min, d.res_earth_max, d.res_fire_min, d.res_fire_max,
                 d.res_ice_min, d.res_ice_max, d.res_lightning_min, d.res_lightning_max, d.res_poison_min, d.res_poison_max,
                 d.res_water_min, d.res_water_max, d.res_wind_min, d.res_wind_max, d.max_stack, d.potion_space,
-                d.magic_mastery_min, d.glow_r, d.glow_g, d.glow_b, d.glow_a, d.glow_blink, d.glow_scale,
+                d.magic_mastery_min, d.magic_mastery_max, d.glow_r, d.glow_g, d.glow_b, d.glow_a, d.glow_blink, d.glow_scale,
                 d.display_effect, d.daily_drop_limit, d.set_code, d.set_pieces
             FROM item_definitions d
             JOIN items i ON i.code = d.item_code

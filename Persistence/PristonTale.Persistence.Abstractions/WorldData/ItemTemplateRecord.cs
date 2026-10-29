@@ -79,6 +79,7 @@ public sealed record ItemTemplateRecord(
     int MaxStack,
     int PotionSpace,
     float MagicMasteryMin,
+    float MagicMasteryMax,
     // The glow of a unique weapon: signed colour offsets, the pulse (2^blink ms each way, below 0 steady) and its scale.
     int GlowR,
     int GlowG,

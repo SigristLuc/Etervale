@@ -28,7 +28,7 @@ FluentMigrator migrations, the schema, and the SQLite and PostgreSQL providers. 
 | `.../WorldData/` | Read-side catalog records and [WorldDataFactory](../Persistence/PristonTale.Persistence.Abstractions/WorldData/WorldDataFactory.cs) |
 | `.../Security/PasswordHasher.cs` | PBKDF2-SHA256 hashes: `pbkdf2-sha256$<iterations>$<salt b64>$<key b64>` |
 | `Persistence/PristonTale.Persistence/Repositories/` | `Dapper*Repository` implementations shared by both providers |
-| `Persistence/PristonTale.Persistence/Migrations/` | `M013Baseline`, `M014PortraitData`, `M015NpcServices`, `M016QuestData`, `M019GameMasters`, `M021MonsterSkillData`, `M022MonsterExperience64`, `M023ItemFootprints`, `M024WorldDataFields`, `M026Contacts`, `M027CatalogIdentities`, `M028WorldCatalog`, `FluentMigratorDatabaseMigrator` |
+| `Persistence/PristonTale.Persistence/Migrations/` | `M013Baseline`, `M014PortraitData`, `M015NpcServices`, `M016QuestData`, `M019GameMasters`, `M021MonsterSkillData`, `M022MonsterExperience64`, `M023ItemFootprints`, `M024WorldDataFields`, `M026Contacts`, `M027CatalogIdentities`, `M028WorldCatalog`, `M029NpcPlacementFacts`, `FluentMigratorDatabaseMigrator` |
 | `Persistence/PristonTale.Persistence.Sqlite/` | `AddPristonSqlite`, connection factory (WAL), Dapper type handlers, path resolution |
 | `Persistence/PristonTale.Persistence.Postgres/` | `AddPristonPostgres`, `NpgsqlDataSource` factory, `jsonb` handler for `JsonText` |
 | `docker-compose.yml` | Local PostgreSQL 17 for development |
@@ -65,7 +65,7 @@ Consumers: `Server/PristonTale.Server/Hosting/HostingExtensions.cs` (provider se
 
 | Factory method | Contract |
 | --- | --- |
-| `ToItemDefinitions`, `ToQuestVariantDefinitions`, `ToNamedUniqueDefinitions` | The regular, quest and named-unique definitions (`variant`); a code `ItemCodes` cannot parse is skipped. Runtime item code = `ItemCodes.Parse(code)`; `CatalogKey` = `code`; `Name` = the English name, else the code. The shop form takes the low end of every range; a named unique's `UniqueVariant` is its `variant_ordinal`. `magic_mastery_max` is stored, not read yet |
+| `ToItemDefinitions`, `ToQuestVariantDefinitions`, `ToNamedUniqueDefinitions` | The regular, quest and named-unique definitions (`variant`); a code `ItemCodes` cannot parse is skipped. Runtime item code = `ItemCodes.Parse(code)`; `CatalogKey` = `code`; `Name` = the English name, else the code. The shop form takes the low end of every range; a named unique's `UniqueVariant` is its `variant_ordinal` |
 | `ToMonsterDefinitions` | Runtime code = the record's `id`; event forms take the codes after the highest id. `Key` = `key`, `Name` = the English name, else the key. The stored model path keeps its authored extension; the definition uses the `.inx` sibling (also for NPCs). A drop line of items splits its weight among them with integer division; an item the runtime catalog lacks keeps its share as an empty slot. Bonus drops whose item is missing are dropped |
 | `ToNpcDefinitions` | Runtime code = the record's `id`; `Name` = `key`, `DisplayName` = the English name (empty without one). Services from `npc_services` ordered by `ordinal`; unknown kinds skipped; `Shop` removed when no stock code maps to a runtime item; `Dialog` = the English `npc_dialog_lines` |
 | `ToFieldSpawnData` | Only stages with a field code. Spawns, bosses, escorts and placements carry the monster and NPC ids, which are the runtime codes; boss hours from `field_boss_hours` |
@@ -152,6 +152,7 @@ FluentMigrator scans `PristonTale.Persistence` for `[Migration(n)]` classes. Ver
 | 26 | `M026Contacts` | `character_contacts` table and its unique index |
 | 27 | `M027CatalogIdentities` | Drops and recreates `monsters`, `npcs` and every table that references them, keyed by id; adds `monster_labels`, `npc_labels`, `npc_dialog_lines`, `item_labels`; empties `world_entity_variants` and `world_import_unresolved_refs`; drops the `svc_*` columns and `npcs.dialog`. Import again afterwards. `Down` throws: restore a backup instead |
 | 28 | `M028WorldCatalog` | Drops every world catalog table of the earlier migrations and `mailboxes`; drops `warehouses.buy_area_count` and `characters.derived_stats`, which nothing read; creates `languages` (seeded with `en`) and the catalog [below](#world-catalog); empties `world_entity_variants` and `world_import_unresolved_refs`. Import again afterwards. `Down` throws: restore a backup instead |
+| 29 | `M029NpcPlacementFacts` | Drops `field_npcs.quest_trigger` and `size_level`: the class and size a placement record carries belong to the NPC file that lacks them, and the importer gives them to it. Import again afterwards |
 
 Upgrade path: databases from the earlier migration set at version 12 upgrade in place. Databases at
 versions 1-11 make `M013Baseline` throw; bring them to 12 with the previous release or back up and recreate them.
@@ -224,7 +225,7 @@ entity has its English name (`en`, `CatalogLanguages.English`); another language
 | `field_monster_spawns` | PK (`stage` FK, `ordinal`); `monster_id` FK `monsters`; `weight` |
 | `field_bosses` | PK (`stage` FK, `ordinal`); `monster_id` FK `monsters`; `escort_monster_id` nullable FK `monsters` (set null); `escort_count` |
 | `field_boss_hours` | PK (`stage`, `boss_ordinal`, `hour`), FK (`stage`, `boss_ordinal`) `field_bosses`: the hours the boss appears |
-| `field_npcs` | PK (`stage` FK, `record_index`); `npc_id` FK `npcs`; `x`, `y`, `z` in 1/256 world units; `angle` (4096 per turn); `quest_trigger` (the quest code the placement carries, 0 none) and `size_level`: stored, not read by the runtime yet |
+| `field_npcs` | PK (`stage` FK, `record_index`); `npc_id` FK `npcs`; `x`, `y`, `z` in 1/256 world units; `angle` (4096 per turn) |
 | `motion_models` | `model_key` (256) PK, normalized model path; `motion_table_key` |
 | `motion_slots` | PK (`motion_table_key`, `slot`); `state`; `start_frame`, `end_frame`; `event_frame0..3` int64 holding unsigned 32-bit values; `repeat`; `key_code` (M021) |
 

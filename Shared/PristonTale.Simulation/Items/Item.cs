@@ -192,5 +192,7 @@ public sealed class ItemInstance
 
     public int Critical => Definition.Critical + _roll.CriticalBonus;
 
+    public float MagicMastery => Definition.MagicMastery + _roll.MagicMasteryBonus;
+
     public int Price => _roll.Price;
 }

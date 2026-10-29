@@ -23,7 +23,7 @@ public sealed partial class Importer
                 """,
                 new
                 {
-                    identity.Id, identity.Key, n.Model, n.Level, n.Hostile, n.SizeLevel, n.MoveRange, n.ModelScale, n.SoundCode, n.PortraitOffsetY,
+                    identity.Id, identity.Key, n.Model, n.Level, n.Hostile, SizeLevel = n.SizeLevel ?? 0, n.MoveRange, n.ModelScale, n.SoundCode, n.PortraitOffsetY,
                     n.PortraitOffsetZ, n.AppearSlot, n.AppearCycle,
                 }, tx, cancellationToken: ct));
             await conn.ExecuteAsync(new CommandDefinition(

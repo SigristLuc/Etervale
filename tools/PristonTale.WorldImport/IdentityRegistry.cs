@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace PristonTale.WorldImport;
@@ -11,7 +12,11 @@ public sealed class IdentityRegistry
 {
     public sealed record Entry(int Id, string Key, string Source);
 
-    private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    // The registry files' JSON: camel-case members, and text unescaped so a reported entry reads as the file spells it.
+    internal static readonly JsonSerializerOptions Json = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 
     private readonly Dictionary<string, Entry> _bySource;
     private readonly HashSet<string> _keys = new(StringComparer.OrdinalIgnoreCase);
@@ -74,7 +79,8 @@ public sealed class IdentityRegistry
         return entry;
     }
 
-    public static string Line(Entry entry) => JsonSerializer.Serialize(entry, Json);
+    // A registry entry as the line to add to its file.
+    public static string Line<T>(T entry) => JsonSerializer.Serialize(entry, Json);
 
     // An English label as a key: trimmed, each word capitalised when the label is all lower case; empty when the label
     // is not plain ASCII text.
@@ -89,11 +95,14 @@ public sealed class IdentityRegistry
         return text == text.ToLowerInvariant() ? string.Join(' ', text.Split(' ').Select(static word => char.ToUpperInvariant(word[0]) + word[1..])) : text;
     }
 
-    private static IdentityRegistry Load(string fileName, string unnamed, StringComparer sources)
+    private static IdentityRegistry Load(string fileName, string unnamed, StringComparer sources) =>
+        new(fileName, unnamed, sources, ReadEntries<Entry>(fileName));
+
+    // The entries of a registry file embedded from Identities/.
+    internal static List<T> ReadEntries<T>(string fileName)
     {
         using var stream = typeof(IdentityRegistry).Assembly.GetManifestResourceStream($"PristonTale.WorldImport.Identities.{fileName}")
             ?? throw new InvalidOperationException($"Identities/{fileName} is not embedded in the importer.");
-        var entries = JsonSerializer.Deserialize<List<Entry>>(stream, Json) ?? [];
-        return new IdentityRegistry(fileName, unnamed, sources, entries);
+        return JsonSerializer.Deserialize<List<T>>(stream, Json) ?? [];
     }
 }

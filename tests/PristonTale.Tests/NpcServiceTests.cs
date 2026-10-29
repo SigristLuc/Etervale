@@ -61,7 +61,11 @@ internal static class NpcServiceTests
             "*B_NAME \"Miscellaneous Store\"\n*B_CHAT \"Red potions   restore HP.\"\n*b_chat \"Second line.\"\n");
         await WriteCp949Async(Path.Combine(npcs, "Guard1.npc"), "*이름 \"경비병\"\n*모양파일 \"char\\npc\\a\\a.ini\"\n*대화 \"한국어\"\n");
         await WriteCp949Async(Path.Combine(npcs, "Guard2.npc"), "*이름 \"경비병\"\n*모양파일 \"char\\npc\\b\\b.ini\"\n*E_CHAT \"Hello.\"\n*스킬수련\n*직업전환\n");
-        await File.WriteAllBytesAsync(Path.Combine(fields, "village-2.ase.spc"), PlacementFile("GameServer\\NPC\\Guard2.npc"));
+        await File.WriteAllBytesAsync(Path.Combine(fields, "village-2.ase.spc"), PlacementFile(("GameServer\\NPC\\Guard2.npc", 2004, 1)));
+        // A stage no field uses places Guard2 again with another class (the first placement's wins) and the store, whose
+        // own *계급 wins while it takes the size it lacks.
+        await File.WriteAllBytesAsync(Path.Combine(fields, "zz-unused.spc"),
+            PlacementFile(("GameServer\\NPC\\Guard2.npc", 2005, 1), ("GameServer\\NPC\\Store.npc", 2006, 2)));
 
         var services = new ServiceCollection();
         services.AddLogging();
@@ -74,7 +78,8 @@ internal static class NpcServiceTests
             var importer = new Importer(connections, source);
             var report = await importer.RunAsync();
             var again = await importer.RunAsync();
-            Assert.True(report.NpcServiceRows == 8 && again.NpcServiceRows == 8, $"typed service rows differ: {report.NpcServiceRows}");
+            // The store's seven, and the skill master and placement quest code of Guard2.
+            Assert.True(report.NpcServiceRows == 9 && again.NpcServiceRows == 9, $"typed service rows differ: {report.NpcServiceRows}");
 
             await using var connection = await connections.OpenAsync();
             var rows = (await connection.QueryAsync<(long Kind, long Value, string Text)>(
@@ -108,6 +113,17 @@ internal static class NpcServiceTests
                 && guard.ModelInxPath.Replace('\\', '/').Contains("/a/", StringComparison.OrdinalIgnoreCase) && guard.Dialog.Count == 0,
                 "a file sharing an identity did not keep its own model and lines, or an untranslated Korean line was kept");
             Assert.True(placed.Find(NpcServiceKind.SkillMaster)?.Value == 1, "class change default was not carried by the skill master");
+            // A file without *계급 or *크기 keeps the class and size of its placement; one never placed keeps neither.
+            Assert.True(placed.Services[0] is { Kind: NpcServiceKind.QuestGiver, Value: 2004 } && placed.ShadowSizeLevel == 1
+                && guard.Find(NpcServiceKind.QuestGiver) is null && guard.ShadowSizeLevel == 0,
+                "the placement's quest code or shadow size did not reach the file that lacks them");
+            Assert.True(store.Find(NpcServiceKind.QuestGiver)?.Value == 1001 && store.ShadowSizeLevel == 2,
+                "a file's own class lost to its placement's, or it did not take the size it lacks");
+            Assert.True(report.Warnings.Contains("npc Guard2.npc: its placements give different classes or sizes it lacks; the first is used")
+                && !report.Warnings.Any(static warning => warning.StartsWith("npc Store.npc: its placements", StringComparison.Ordinal)),
+                "placements that disagree were not reported, or a disagreement the file overrides was");
+            Assert.True(report.Warnings.Contains("npc Guard1.npc: 1 *대화 line(s) without an English translation (EnglishNames.Dialog) are not shown"),
+                "an untranslated line was not reported");
             Assert.True(await connection.ExecuteScalarAsync<int>("SELECT npc_id FROM field_npcs WHERE stage = 'village-2'") == 171,
                 "the placement does not name the file it places");
             var exported = Path.Combine(directory, "placements.json");
@@ -453,14 +469,22 @@ internal static class NpcServiceTests
         new(PotionCode, "Mini Life Potion", ItemKind.Potion) { Price = 25, Weight = 1, CatalogKey = "PL101" };
 
     // One live record of the fixed NPC file: size, a non-zero code and the configuration path at offset 104.
-    private static byte[] PlacementFile(string path)
+    // A field's placement file: one live record per placement, naming its NPC file, class and size.
+    private static byte[] PlacementFile(params (string Path, ushort Class, int SizeLevel)[] placements)
     {
         var bytes = new byte[504 * 100];
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(bytes, 504);
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(4), 1);
-        Cp949.Encoding.GetBytes(path).CopyTo(bytes.AsSpan(104));
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(476), 100 * 256);
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(484), 100 * 256);
+        for (var index = 0; index < placements.Length; index++)
+        {
+            var record = bytes.AsSpan(index * 504, 504);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(record, 504);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(record[4..], 1);
+            Cp949.Encoding.GetBytes(placements[index].Path).CopyTo(record[104..]);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(record[180..], placements[index].SizeLevel);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(record[392..], placements[index].Class);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(record[476..], 100 * 256);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(record[484..], 100 * 256);
+        }
+
         return bytes;
     }
 

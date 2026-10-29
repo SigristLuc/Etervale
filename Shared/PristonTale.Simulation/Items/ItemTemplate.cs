@@ -32,6 +32,7 @@ public sealed record ItemTemplate
     public ItemRange AddLife { get; init; }
     public ItemRange AddMana { get; init; }
     public ItemRange AddStamina { get; init; }
+    public ItemFloatRange MagicMastery { get; init; }
     public IReadOnlyList<ItemRange> Resistances { get; init; } = new ItemRange[8];
 
     // The fixed class specialization, and the classes one of which a dropped copy may take instead.

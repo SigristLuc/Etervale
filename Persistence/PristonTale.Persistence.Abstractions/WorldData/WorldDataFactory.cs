@@ -123,6 +123,7 @@ public static class WorldDataFactory
             AddLife = new ItemRange(r.AddLifeMin, r.AddLifeMax),
             AddMana = new ItemRange(r.AddManaMin, r.AddManaMax),
             AddStamina = new ItemRange(r.AddStaminaMin, r.AddStaminaMax),
+            MagicMastery = new ItemFloatRange(r.MagicMasteryMin, r.MagicMasteryMax),
             Resistances =
             [
                 new(r.ResBionicMin, r.ResBionicMax), new(r.ResEarthMin, r.ResEarthMax), new(r.ResFireMin, r.ResFireMax),

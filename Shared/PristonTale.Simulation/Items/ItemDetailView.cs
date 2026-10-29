@@ -28,7 +28,7 @@ public sealed record ItemDetailView(
     {
         var definition = item.Definition;
         return new ItemDetailView(item.DurabilityCurrent, item.DurabilityMax, item.UpgradeLevel, item.Roll, item.Critical,
-            definition.BaseStats.AttackSpeed + item.Roll.AttackSpeedBonus, definition.ShootingRange, definition.PotionSpace, definition.MagicMastery,
+            definition.BaseStats.AttackSpeed + item.Roll.AttackSpeedBonus, definition.ShootingRange, definition.PotionSpace, item.MagicMastery,
             CarriedWeight.Of(definition, 1), definition.UniqueItem, definition.TwoHanded, ItemUsability.ClassAllowed(owner, definition))
         {
             AgingCount = item.Maturity?.Count ?? 0,

@@ -61,6 +61,7 @@ public sealed partial class Importer
         var npcs = ParseNpcs(report);
         ReportUnknownKeys(report);
         var fields = ParseFields(report);
+        TakePlacements(npcs, fields, report);
 
         // Drops and shops name items in any case ("pm104"); references resolve to the code as its file spells it.
         var itemCodes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -423,17 +424,26 @@ public sealed partial class Importer
             _questVariants.Add(group.OrderBy(static entry => entry.Path, StringComparer.Ordinal).First().Item);
         }
 
-        // Named uniques (unique marker 1) of a code that lost the selection: one per distinct name in path order, numbered from 1.
+        // Named uniques (unique marker 1) of a code that lost the selection: one per distinct name, the first in path order,
+        // numbered by the registry.
         _namedUniques.Clear();
-        foreach (var group in parsed.Where(entry => entry.Item.Code.Length > 0 && entry.Item.UniqueItem == NamedUnique
+        var uniques = NamedUniqueRegistry.Load();
+        foreach (var entry in parsed.Where(entry => entry.Item.Code.Length > 0 && entry.Item.UniqueItem == NamedUnique
                          && !string.Equals(winners[entry.Item.Code].Path, entry.Path, StringComparison.Ordinal))
-                     .GroupBy(static entry => entry.Item.Code, StringComparer.OrdinalIgnoreCase))
+                     .OrderBy(static entry => entry.Path, StringComparer.Ordinal)
+                     .DistinctBy(static entry => (entry.Item.Code.ToUpperInvariant(), entry.Item.Name)))
         {
-            var variant = 0;
-            foreach (var entry in group.OrderBy(static entry => entry.Path, StringComparer.Ordinal).DistinctBy(static entry => entry.Item.Name))
-            {
-                _namedUniques.Add((++variant, entry.Item));
-            }
+            _namedUniques.Add((uniques.Resolve(entry.Item.Code, entry.Item.Name), entry.Item));
+        }
+
+        foreach (var added in uniques.Added)
+        {
+            report.Warnings.Add($"Identities/{NamedUniqueRegistry.FileName} lacks {added.Code} '{added.Name}': imported as number {added.Number}; add {IdentityRegistry.Line(added)}");
+        }
+
+        foreach (var unmet in uniques.Unmet)
+        {
+            report.Warnings.Add($"Identities/{NamedUniqueRegistry.FileName} lists {unmet.Code} '{unmet.Name}', which no file defines as a named unique; saved copies of it no longer load");
         }
 
         return result;
@@ -525,7 +535,36 @@ public sealed partial class Importer
             report.Warnings.Add($"npc {npc.File} has no English name in any definition; its key is shown");
         }
 
+        foreach (var npc in npcs.Where(static npc => npc.UntranslatedDialog.Count > 0))
+        {
+            report.Warnings.Add($"npc {npc.File}: {npc.UntranslatedDialog.Distinct(StringComparer.Ordinal).Count()} *대화 line(s) without an English translation (EnglishNames.Dialog) are not shown");
+        }
+
         return npcs;
+    }
+
+    // A file sets the class and size it lacks from its placement; placements of one file that disagree on a value it
+    // lacks give the first in stage and record order.
+    private static void TakePlacements(IReadOnlyList<ParsedNpc> npcs, IReadOnlyList<ParsedField> fields, ImportReport report)
+    {
+        var placements = fields.SelectMany(static field => field.FixedNpcs).ToLookup(static placement => placement.SourceFile, StringComparer.OrdinalIgnoreCase);
+        foreach (var npc in npcs)
+        {
+            var placed = placements[npc.File].ToList();
+            if (placed.Count == 0)
+            {
+                continue;
+            }
+
+            var first = placed[0];
+            if ((npc.Class is null && placed.Any(placement => placement.Class != first.Class))
+                || (npc.SizeLevel is null && placed.Any(placement => placement.SizeLevel != first.SizeLevel)))
+            {
+                report.Warnings.Add($"npc {npc.File}: its placements give different classes or sizes it lacks; the first is used");
+            }
+
+            NpcParser.TakePlacement(npc, first.Class, first.SizeLevel);
+        }
     }
 
     // Every stage with spawn files: the world catalog's fields (their stage is the stem of the stage model), then the

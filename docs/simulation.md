@@ -165,7 +165,8 @@ a transaction candidate) is the only writer.
    move speed, attack speed, shooting range, life/mana/stamina regeneration, added life/mana/stamina, resistances; an
    item set whose pieces are worn (each ring counts; `ItemCatalog` attaches the `ItemSetDefinition` to its items) adds
    its bonus once: added life, absorb, block and the three regenerations;
-   magic mastery and belt capacity (`PotionSpace`) are set by the last item that has one. A copy whose `SpecJob`
+   magic mastery (the copy's, `ItemInstance.MagicMastery`) and belt capacity (`PotionSpace`) are set by the last item
+   that has one. A copy whose `SpecJob`
    includes the class bit also adds its `ItemSpecBonus`: absorb (cut the same way), defence, speed, block, attack
    speed, critical, range, magic mastery, `Level / divisor` life, mana, attack rating and maximum damage, and half of
    its life, mana and stamina regeneration. `AbsorbItems` counts the copies (and specializations) with an absorb of
@@ -328,8 +329,11 @@ totals.
   the importer measured (`grid_width`, `grid_height`), applies `ItemClassRestrictions.AllowedJobs` and
   `ItemEquipmentMetadata.Apply`, sets `BaseStats`, `Resistances` and
   `MaxDurability` to the low end of each range and keeps every authored range in `Template` (`ItemTemplate`, with the
-  specialization bonuses in `ItemSpecTemplate`). `Critical`, `ShootingRange`, `PotionSpace`, `MagicMastery`,
-  `UniqueItem` and `BaseStats.AttackSpeed` are fixed per kind. A range whose upper value is 0 is a fixed value.
+  specialization bonuses in `ItemSpecTemplate`). `Critical`, `ShootingRange`, `PotionSpace`, `UniqueItem` and
+  `BaseStats.AttackSpeed` are fixed per kind. A range whose upper value is 0 is a fixed value. Magic
+  mastery is authored as a range: the definition holds its low end, and a dropped copy rolls whole points up to the
+  top (`ItemRoll.MagicMasteryBonus`, the last draw of the roll; the middle mode trims it like every whole-number
+  range); the shop form adds nothing and the best copy the whole span. The item tooltip shows it as `Magic APT`.
 - `Code` is the 32-bit item code; `CatalogKey` is the 5-character key (`WA101`). A key is a family of two letters and a
   letter or digit (`WA1`, `DA3`) plus a two-digit ordinal. `ItemCodes.TryParse` gives `family << 8 | ordinal`, where the
   family number is `(first * 26 + second) * 36 + third + 1` (letters A-Z = 0-25; third character 0-9 then A-Z = 10-35),

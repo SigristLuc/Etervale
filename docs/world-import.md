@@ -23,6 +23,7 @@ catalog tables, and the authored file formats it reads. Also covers the small `t
 | `tools/PristonTale.WorldImport/Tokenizer.cs` | Line tokenizer of the `*key value` text format; C-style integer and float parsing |
 | `tools/PristonTale.WorldImport/KeyMaps.cs` | Every recognised Korean key, the name and dialog keys, value literals, resistance index maps |
 | `tools/PristonTale.WorldImport/IdentityRegistry.cs`, `Identities/monsters.json`, `Identities/npcs.json` | The stable id and English key of every monster and NPC (embedded in the importer), see [Identities](#identities) |
+| `tools/PristonTale.WorldImport/NamedUniqueRegistry.cs`, `Identities/named-uniques.json` | The stable number of every named unique, by item code and English name |
 | `tools/PristonTale.WorldImport/EnglishNames.cs` | English names where the data gives Portuguese or Korean or misspells them; English translations of the Korean-only NPC lines |
 | `tools/PristonTale.WorldImport/Parsers/AuthoredLabels.cs` | Name labels by key; Korean text is not kept |
 | `tools/PristonTale.WorldImport/ImportReport.cs` | Counters and warnings printed after `import` |
@@ -123,7 +124,7 @@ Item, monster, NPC and spawn-table files share one line format, decoded as CP949
 | `**특화` class names | `spec_class`: the `JobBitCode` of the last known class name (English or Korean; Assassin and Shaman included; `Atalanter` is Atalanta) |
 | `**특화랜덤` class names | `item_spec_random_classes` rows in order; names of classes the game does not have (`MartialArtist`, misspellings) are skipped |
 | Other `**` stat keys | `item_spec_bonuses`, one row per `ItemSpecBonusKind` (`min_value`, `max_value`; a key written twice keeps the last): 0 absorb, 1 defence, 2 move speed, 3 block, 4 attack speed, 5 critical, 6 range, 7 magic mastery, 8 mana per level, 9 life per level, 10 attack rating per level, 11 damage per level (`max_value`), 12 mana regeneration, 13 life regeneration, 14 stamina regeneration, 15 life regeneration range (`**LifeRegenRange`) |
-| `*최대수량`, `*보유공간`, magic mastery keys | `max_stack` (min 1), `potion_space`, `magic_mastery_min/max` |
+| `*최대수량`, `*보유공간`, magic mastery keys | `max_stack` (min 1), `potion_space`, `magic_mastery_min/max` (a copy rolls whole points between them) |
 | `*유니크` | `unique_item` (1 when the key has no value) |
 | `*유니크색상 r g b a blink [scale]` | `glow_r/g/b/a`, `glow_blink` (ticks), `glow_scale`: the glow of a unique weapon in the hand |
 | `*이펙트설정` | `display_effect`: non-zero shows the class-up light on the held weapon |
@@ -137,7 +138,7 @@ files have no kind key) and its footprint. What a copy of the item is made from 
 | --- | --- | --- |
 | 0 regular | The catalog entry of the code | `ItemCatalog` |
 | 2 quest | The first file in path order whose `*유니크` is 2 (quest weapons, rank-up rings, Fury of Phantom rewards) | `ItemCatalog.QuestVariants`, handed out by quests ([quests.md](quests.md)) |
-| 1 named unique | Each distinct name, in path order, among the files whose `*유니크` has no value (1) and that lost the selection of their code (Vega, Ancient Rage, Bone Crasher...); `variant_ordinal` numbers them from 1 | `ItemCatalog.NamedUniques`; saved items name one by `ItemDefinition.NamedUniqueBase` + the ordinal. They never drop |
+| 1 named unique | Each distinct name, the first file in path order, among the files whose `*유니크` has no value (1) and that lost the selection of their code (Vega, Ancient Rage, Bone Crasher...); `variant_ordinal` is its number in `Identities/named-uniques.json` | `ItemCatalog.NamedUniques`; saved items name one by `ItemDefinition.NamedUniqueBase` + the number. They never drop |
 
 Each definition has its own English name, bonuses and random classes.
 
@@ -206,13 +207,18 @@ Code lookups are case-insensitive: drop and shop references (often lower case) a
   A file without one takes the first name among the files of the same authored identity; otherwise it warns and the
   key is written.
 - English dialog (`npc_dialog_lines`, at most 20 lines): the `*E_CHAT` lines, else the `*B_CHAT` lines, else the
-  Korean `*대화` lines in their English translation (`EnglishNames.Dialog`; a line without one is dropped). Lines in
+  Korean `*대화` lines in their English translation (`EnglishNames.Dialog`; a line without one is dropped and listed in
+  the import report). Lines in
   Korean, or saved through another code page (they decode as Korean syllables), are not kept. Runs of spaces and tabs
   collapse to one space (name files wrap text at a fixed width).
 - Shop lists `*무기판매`, `*방어구판매`, `*잡화판매` fill tabs 0, 1, 2, up to 32 codes each. The placeholder `없음`
   keeps its ordinal and becomes an unresolved `npc_shop` reference; the shop exists only if a tab has a real code.
 - `*이동범위` move range (default 64), sound keys, `*모델크기`, `*화면보정` as for monsters.
-- `*속성 적` hostile, `*레벨` level, `*크기` shadow size as for monsters; `*출현간격 <slot> <cycle>` the appearance draw
+- Class and size: `*계급` (from 1000 a quest code, the `QuestGiver` service) and `*크기` (shadow size as for monsters).
+  The original opens a placed NPC over its placement's character record, so a file that sets neither keeps the
+  placement's (`NpcParser.TakePlacement`: the first placement in stage and record order; placements that disagree are a
+  warning). A file never placed and without `*크기` has size 0.
+- `*속성 적` hostile, `*레벨` level; `*출현간격 <slot> <cycle>` the appearance draw
   (`appear_slot`, `appear_cycle`: the NPC appears only when the field's draw modulo the cycle is the slot).
 
 ### NPC services
@@ -256,7 +262,7 @@ that stem, or null for a stage no field uses yet; the runtime loads only stages 
 | --- | --- |
 | `.spm` (text) | `*출연자`/`*ACTOR "<monster>" <weight>`; `*출연자두목`/`*BOSS_ACTOR "<boss>" "<escort>" <count> <hours...>` (up to 32 hours); `*최대동시출현수`/`*MAX_ACTOR_POS` concurrent limit; `*출현수`/`*MAX_ACTOR` monsters per wave; `*출현간격`/`*DELAY <n> [seconds]`: `spawn_interval = (1 << n) - 1`, minimum 1, optional seconds × 1000 into `per_point_cooldown_ms` |
 | `.spp` (binary) | 200 records of 12 bytes, little-endian `int32 state, x, z`, no header. All-zero records are skipped; `point_index` is the record index; `state != 0` means active. Coordinates are world units |
-| `.spc` (binary) | 100 records of 504 bytes, little-endian, no header. Live when `int32` at +4 is non-zero. +104: 60-byte CP949 path of the NPC definition file. +180: `int32` size level. +392: `uint16` quest trigger. +476/+480/+484: `int32 x, y, z` in 1/256 world units. +492: heading (4096 per turn). The record index is `record_index` |
+| `.spc` (binary) | 100 records of 504 bytes, little-endian, no header. Live when `int32` at +4 is non-zero. +104: 60-byte CP949 path of the NPC definition file. +180: `int32` size level. +392: `uint16` class (`*계급`); both go to the NPC file that lacks them. +476/+480/+484: `int32 x, y, z` in 1/256 world units. +492: heading (4096 per turn). The record index is `record_index` |
 
 A placement stores the id of the NPC file its record names (matched by file name, case-insensitively); the name stored
 in the record is ignored, because it can be stale.
@@ -295,6 +301,11 @@ registry the authored identity remains only in the source preservation tables (`
   entry to add (`Identities/monsters.json lacks ...`). Add it to the file so the id stays the same in every database.
 - Crystals (`MonsterCrystals`) and skill summons name monsters by key; `WorldImportTests` checks that every one is
   registered.
+- Named uniques keep a number per item code (`NamedUniqueRegistry`, `Identities/named-uniques.json`,
+  `{code, number, name}`), because saved copies name a unique by it. A named unique the registry lacks takes the next
+  number of its code and the report lists the entry to add (`Identities/named-uniques.json lacks ...`); numbers are
+  never reused, and renaming a unique in `EnglishNames` needs its registry entry renamed too. An entry no file defines
+  any more is reported (`... lists ...`): saved copies of it no longer load.
 
 ## Catalog entries, variants and unresolved references
 
@@ -422,8 +433,8 @@ migrates before running a command.
   is lost.
 - `world_entity_variants.data_json` serializes the DTOs with `IncludeFields`, so value-tuple lists (item specials,
   NPC shop stock) appear as `Item1`, `Item2`... objects. `world_source_files` holds the complete source.
-- A Korean `*대화` line without an entry in `EnglishNames.Dialog` is dropped; add its translation when the data gains
-  one.
+- A Korean `*대화` line without an entry in `EnglishNames.Dialog` is dropped and listed in the report; add its
+  translation.
 - `--assets` is not required inside the repository: the default finds the repository `assets/` from the executable
   path. Pass it explicitly when running a published copy.
 - The default database without `--sqlite`/`--postgres` is a temporary file, not `data/pristontale.db`.

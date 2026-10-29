@@ -26,8 +26,8 @@ public sealed class ParsedField
 }
 
 // A placed NPC: its record index in the .spc, the NPC definition file it names, its position and heading, and the
-// quest trigger and shadow size the placement record carries.
-public sealed record ParsedNpcPlacement(int Index, string SourceFile, int X, int Y, int Z, int Angle, int QuestTrigger, int SizeLevel);
+// class and shadow size of the placement's character record (NpcParser.TakePlacement).
+public sealed record ParsedNpcPlacement(int Index, string SourceFile, int X, int Y, int Z, int Angle, int Class, int SizeLevel);
 
 // A *출연자두목 boss spawn: master + optional escort/slave + slave count + spawn hours.
 public sealed record ParsedBoss(string MasterName, string? SlaveName, int SlaveCount, IReadOnlyList<int> Hours);

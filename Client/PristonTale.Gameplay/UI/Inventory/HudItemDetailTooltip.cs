@@ -91,6 +91,7 @@ public static class HudItemDetailTooltip
         Add(lines, roll.AddLife != 0, "Add. HP: ", Whole(roll.AddLife), Mixed(mixed, MixStat.Life));
         Add(lines, roll.AddMana != 0, "Add. MP:  ", Whole(roll.AddMana), Raised(raised, AgedStats.Mana) ?? Mixed(mixed, MixStat.Mana));
         Add(lines, roll.AddStamina != 0, "Add. STM:  ", Whole(roll.AddStamina), Mixed(mixed, MixStat.Stamina));
+        Add(lines, details.MagicMastery != 0, "Magic APT:  ", Whole((int)details.MagicMastery));
         Add(lines, details.PotionSpace != 0, "Potion Storage:  ", Whole(details.PotionSpace));
 
         var level = owner?.Level ?? 0;

@@ -66,14 +66,11 @@ public sealed partial class Importer
                 report.FixedNpcRefsResolved++;
                 await conn.ExecuteAsync(new CommandDefinition(
                     """
-                    INSERT INTO field_npcs (stage, record_index, npc_id, x, y, z, angle, quest_trigger, size_level)
-                    VALUES (@Stage, @Index, @Npc, @X, @Y, @Z, @Angle, @QuestTrigger, @SizeLevel)
+                    INSERT INTO field_npcs (stage, record_index, npc_id, x, y, z, angle)
+                    VALUES (@Stage, @Index, @Npc, @X, @Y, @Z, @Angle)
                     """,
-                    new
-                    {
-                        stage.Stage, placement.Index, Npc = placed.Id, placement.X, placement.Y, placement.Z, placement.Angle, placement.QuestTrigger,
-                        placement.SizeLevel,
-                    }, tx, cancellationToken: ct));
+                    new { stage.Stage, placement.Index, Npc = placed.Id, placement.X, placement.Y, placement.Z, placement.Angle }, tx,
+                    cancellationToken: ct));
                 report.FixedNpcRows++;
             }
         }

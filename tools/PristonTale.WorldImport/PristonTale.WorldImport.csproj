@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The monster and NPC id registry (IdentityRegistry), read as PristonTale.WorldImport.Identities.<file>. -->
+    <!-- The monster, NPC and named unique registries (IdentityRegistry, NamedUniqueRegistry), read as PristonTale.WorldImport.Identities.<file>. -->
     <EmbeddedResource Include="Identities\*.json" LogicalName="PristonTale.WorldImport.Identities.%(Filename)%(Extension)" />
   </ItemGroup>
 

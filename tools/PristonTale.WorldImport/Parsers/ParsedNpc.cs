@@ -19,10 +19,12 @@ public sealed class ParsedNpc
     public int SoundCode { get; set; }
     public float ModelScale { get; set; } = 1f;
     public int MoveRange { get; set; } = 64;
-    // *속성 적 makes the character hostile; *레벨 its level; *크기 its shadow size (-1 none).
+    // *속성 적 makes the character hostile; *레벨 its level; *크기 its shadow size (-1 none); *계급 its class, a quest
+    // code from 1000. Null when the file does not set them (NpcParser.TakePlacement).
     public bool Hostile { get; set; }
     public int Level { get; set; }
-    public int SizeLevel { get; set; }
+    public int? SizeLevel { get; set; }
+    public int? Class { get; set; }
     // *출현간격 slot, cycle: the NPC appears only when the field's draw modulo the cycle equals the slot (cycle 0: always).
     public int AppearSlot { get; set; }
     public int AppearCycle { get; set; }
@@ -30,8 +32,9 @@ public sealed class ParsedNpc
     // Keys of the file no rule reads; the importer reports them.
     public List<string> UnknownKeys { get; } = [];
 
-    // The English lines players read (at most 20).
+    // The English lines players read (at most 20), and the Korean lines left out for want of a translation.
     public List<string> Dialog { get; } = [];
+    public List<string> UntranslatedDialog { get; } = [];
 
     public List<NpcService> Services { get; } = [];
 

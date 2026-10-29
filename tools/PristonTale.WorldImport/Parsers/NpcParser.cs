@@ -22,8 +22,28 @@ public sealed class NpcParser
         var english = KeyMaps.NpcDialogLocales.Select(KeyMaps.StoredKey).Select(key => facts.Dialog.GetValueOrDefault(key))
             .FirstOrDefault(static dialog => dialog is { Count: > 0 });
         npc.Dialog.AddRange(english ?? facts.TranslatedDialog);
+        if (english is null)
+        {
+            npc.UntranslatedDialog.AddRange(facts.Untranslated);
+        }
         BuildServices(npc, facts);
         return npc;
+    }
+
+    // The original opens a placed NPC over the character record of its placement, so a file that sets no class (*계급)
+    // or size (*크기) keeps the placement's: a quest code there makes the NPC a quest giver, first in its click order.
+    public static void TakePlacement(ParsedNpc npc, int placedClass, int placedSizeLevel)
+    {
+        if (npc.Class is null)
+        {
+            npc.Class = placedClass;
+            if (placedClass >= FirstQuestTriggerCode)
+            {
+                npc.Services.Insert(0, new NpcService(NpcServiceKind.QuestGiver, placedClass));
+            }
+        }
+
+        npc.SizeLevel ??= placedSizeLevel;
     }
 
     // A file without an English name takes the first one among the files of its authored identity, in list order;
@@ -50,6 +70,7 @@ public sealed class NpcParser
         public readonly Dictionary<string, string> Labels = new(StringComparer.Ordinal);
         public readonly Dictionary<string, List<string>> Dialog = new(StringComparer.Ordinal);
         public readonly List<string> TranslatedDialog = [];
+        public readonly List<string> Untranslated = [];
         public bool SvcWarehouse;
         public bool SvcShop;
         public bool SvcSkillMaster;
@@ -71,7 +92,6 @@ public sealed class NpcParser
         public int QuestParam;
         public readonly int[] ShopOrdinals = new int[3];
         public bool ShopHasStock;
-        public int QuestTrigger;
         public int ItemMix;
         public int WingQuest;
         public bool WingQuestIsEvent;
@@ -146,9 +166,14 @@ public sealed class NpcParser
 
         if (key == KeyMaps.CharDialog)
         {
-            if (EnglishNames.Dialog(Normalize(t.NextValueOrQuoted())) is { } translated)
+            var line = Normalize(t.NextValueOrQuoted());
+            if (EnglishNames.Dialog(line) is { } translated)
             {
                 AddLine(facts.TranslatedDialog, translated);
+            }
+            else if (line.Length > 0)
+            {
+                facts.Untranslated.Add(line);
             }
 
             return true;
@@ -288,7 +313,7 @@ public sealed class NpcParser
                 facts.EventInfo = t.NextInt();
                 return true;
             case KeyMaps.MonClass:
-                facts.QuestTrigger = t.NextInt();
+                npc.Class = t.NextInt();
                 return true;
             case KeyMaps.NpcQuestCode:
                 facts.SvcQuest = true;
@@ -314,9 +339,9 @@ public sealed class NpcParser
     {
         var services = npc.Services;
         facts.SvcShop = facts.ShopHasStock;
-        if (facts.QuestTrigger >= FirstQuestTriggerCode)
+        if (npc.Class >= FirstQuestTriggerCode)
         {
-            services.Add(new NpcService(NpcServiceKind.QuestGiver, facts.QuestTrigger));
+            services.Add(new NpcService(NpcServiceKind.QuestGiver, npc.Class.Value));
         }
 
         AddIf(services, facts.SvcQuest, NpcServiceKind.QuestScript, facts.QuestCode, facts.QuestParam);

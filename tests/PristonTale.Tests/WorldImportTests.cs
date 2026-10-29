@@ -20,6 +20,7 @@ internal static class WorldImportTests
         yield return ("set bonuses are read from the comment that states them", SetBonusAsync);
         yield return ("names the data gives only in Portuguese are imported in English", EnglishNamesAsync);
         yield return ("every monster and NPC has one id and one English key, and every monster a crystal or a skill calls is registered", RegistryAsync);
+        yield return ("a named unique keeps its number by code and name, and the registry refuses a number or name given twice", NamedUniqueRegistryAsync);
     }
 
     private static Task SetBonusAsync()
@@ -35,6 +36,17 @@ internal static class WorldImportTests
         return Task.CompletedTask;
     }
 
+    private static Task NamedUniqueRegistryAsync()
+    {
+        var registry = new NamedUniqueRegistry([new("DA112", 1, "Vega"), new("DA112", 2, "Transcendence")]);
+        Assert.True(registry.Resolve("da112", "Vega") == 1 && registry.Resolve("DA112", "Wings") == 3 && registry.Resolve("WA101", "Axe") == 1,
+            "a code in another case lost its number, or a new unique did not take the next number of its code");
+        Assert.True(registry.Unmet.Single() is { Code: "DA112", Number: 2 } && registry.Added.Count == 2, "met and unmet entries were mixed up");
+        Assert.Throws<InvalidDataException>(() => new NamedUniqueRegistry([new("DA112", 1, "Vega"), new("da112", 1, "Other")]), "a number given twice was accepted");
+        Assert.Throws<InvalidDataException>(() => new NamedUniqueRegistry([new("DA112", 1, "Vega"), new("DA112", 2, "Vega")]), "a name given twice was accepted");
+        return Task.CompletedTask;
+    }
+
     private static async Task EveryKeyAsync()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"priston-world-keys-{Guid.NewGuid():N}");
@@ -47,6 +59,10 @@ internal static class WorldImportTests
             "// 체력+400", "*세트아이템 1 2"));
         await WriteCp949Async(Path.Combine(source, "OpenItem", "_Uwa130_Rage.txt"),
             Lines("*코드 WA130", "*Name \"Rage\"", "*유니크", "*유니크색상 0 180 255 0 9"));
+        // A named unique keeps its registered number whatever its path order; one the registry lacks takes the next.
+        await WriteCp949Async(Path.Combine(source, "OpenItem", "WA105.txt"), Lines("*코드 WA105", "*Name \"Hand Axe\""));
+        await WriteCp949Async(Path.Combine(source, "OpenItem", "_Uwa105_A.txt"), Lines("*코드 WA105", "*Name \"Blade Crasher\"", "*유니크"));
+        await WriteCp949Async(Path.Combine(source, "OpenItem", "_Uwa105_B.txt"), Lines("*코드 WA105", "*Name \"Bone Crasher\"", "*유니크"));
         await WriteCp949Async(Path.Combine(source, "Monster", "Wolverine.inf"), Lines("*이름 \"Wolverine\"", "*E_NAME \"Bronze Wolverine\"",
             "*속성 적", "*크기 중대형", "*매직 -5", "*이동타입 2", "*특수공격률 20", "*골드 8 15 80", "*보스",
             @"*예비모델 ""char\monster\Wolf\Wolf-b.ini""", "*이벤트코드 100", "*이벤트정보 1", "*언데드 유", "*수수께끼 1"));
@@ -68,12 +84,18 @@ internal static class WorldImportTests
             var repository = provider.GetRequiredService<IWorldDataRepository>();
             var itemRecords = await repository.GetAllItemTemplatesAsync();
             var items = WorldDataFactory.ToItemDefinitions(itemRecords);
-            var axe = items.Single();
+            var axe = items.Single(static item => item.CatalogKey == "WA130");
             Assert.True(axe.Glow == new ItemGlow(220, 80, 0, 0, 9, 1.5f) && axe.DisplayEffect == 1 && axe.DailyDropLimit == 5 && axe.SetCode == 1,
                 "the glow, effect setting, daily limit or set of an item was lost");
             var uniques = WorldDataFactory.ToNamedUniqueDefinitions(itemRecords);
-            Assert.True(uniques.Single().Name == "Rage" && uniques.Single().UniqueVariant == 1 && uniques.Single().Code == axe.Code
-                && uniques.Single().SavedUnique == ItemDefinition.NamedUniqueBase + 1, "the named unique was not kept as a variant");
+            var rage = uniques.Single(static unique => unique.Name == "Rage");
+            Assert.True(rage.UniqueVariant == 1 && rage.Code == axe.Code && rage.SavedUnique == ItemDefinition.NamedUniqueBase + 1,
+                "the named unique was not kept as a variant");
+            Assert.True(uniques.Single(static unique => unique.Name == "Bone Crasher").UniqueVariant == 1
+                && uniques.Single(static unique => unique.Name == "Blade Crasher").UniqueVariant == 2,
+                "a registered named unique lost its number, or an unregistered one did not take the next");
+            Assert.True(report.Warnings.Count(static warning => warning.StartsWith("Identities/named-uniques.json lacks", StringComparison.Ordinal)) == 2,
+                "the import did not list the named uniques to register");
             var set = WorldDataFactory.ToItemSets(await repository.GetAllItemSetsAsync()).Single();
             Assert.True(set.SetCode == 1 && set.Pieces == 2 && set.Life == 400, "the set bonus was not imported");
 
@@ -238,8 +260,9 @@ internal static class WorldImportTests
 
             // A Korean line is read in its English translation; one without a translation is not kept.
             await WriteCp949Async(npc, Lines("*이름 \"상인\"", "*대화 \"다음에 꼭 들러주세요\"", "*대화 \"번역 없음\""));
-            Assert.True(new PristonTale.WorldImport.Parsers.NpcParser().Parse(npc).Dialog.SequenceEqual(["Please come by again."]),
-                "a Korean line was not translated, or an untranslated one was kept");
+            var merchant = new PristonTale.WorldImport.Parsers.NpcParser().Parse(npc);
+            Assert.True(merchant.Dialog.SequenceEqual(["Please come by again."]) && merchant.UntranslatedDialog.SequenceEqual(["번역 없음"]),
+                "a Korean line was not translated, or an untranslated one was kept or not reported");
         }
         finally
         {

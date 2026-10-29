@@ -30,6 +30,7 @@ internal static class ItemRulesTests
         yield return ("a two-handed weapon sends the off-hand item to the bag and an off-hand item sends a held two-handed weapon there", TwoHandedAsync);
         yield return ("drops roll every value inside its authored range and specialize four times in ten", DropRollsAsync);
         yield return ("the shop sells the lowest form and keeps a fixed specialization with the middle requirement shift", ShopFormAsync);
+        yield return ("magic mastery rolls whole points inside its authored range: the shop form takes the low end, the best copy the top", MagicMasteryAsync);
         yield return ("worn items feed absorb, critical, block, speed, regeneration, pools, resistances and specialization bonuses", DerivedStatsAsync);
         yield return ("worn block ratings block monster blows, monsters never block, and the cap needs a shield", BlockAsync);
         yield return ("carried weight slows movement, stops running and refuses pickups, purchases, withdrawals and unequipping", WeightAsync);
@@ -243,6 +244,26 @@ internal static class ItemRulesTests
         return Task.CompletedTask;
     }
 
+    private static Task MagicMasteryAsync()
+    {
+        var definition = Def("WM101", static record => record with { MagicMasteryMin = 15f, MagicMasteryMax = 19f });
+        Assert.True(new ItemInstance(definition).MagicMastery == 15f && ItemRoller.CreatePerfect(definition, 1, 0).MagicMastery == 19f,
+            "the shop form or the best copy does not take its end of the range");
+        var rng = new SeededSimRng(5);
+        var seen = new HashSet<float>();
+        for (var index = 0; index < 400; index++)
+        {
+            var mastery = ItemRoller.Create(definition, 1, rng).MagicMastery;
+            Assert.True(mastery is >= 15f and <= 19f && mastery == MathF.Round(mastery), $"magic mastery rolled {mastery}");
+            seen.Add(mastery);
+        }
+
+        Assert.True(seen.Count == 5, "a whole point of the range was never rolled");
+        var fixedMastery = Def("WM102", static record => record with { MagicMasteryMin = 8f });
+        Assert.True(ItemRoller.Create(fixedMastery, 1, rng).MagicMastery == 8f, "a single authored value did not stay fixed");
+        return Task.CompletedTask;
+    }
+
     private static Task DerivedStatsAsync()
     {
         var character = Fighter(10);
@@ -257,7 +278,8 @@ internal static class ItemRulesTests
         axe.Roll = axe.Roll with
         {
             SpecJob = (uint)JobBitCode.Fighter,
-            Spec = ItemSpecBonus.None with { LevelLife = 2, LevelAttackRating = 1, LevelDamage = 5, Block = 2f, ManaRegen = 0.8f }
+            Spec = ItemSpecBonus.None with { LevelLife = 2, LevelAttackRating = 1, LevelDamage = 5, Block = 2f, ManaRegen = 0.8f },
+            MagicMasteryBonus = 2f
         };
         foreach (var (item, slot) in new[] { (armor, EquipmentSlot.Armor), (boots, EquipmentSlot.Boots), (shield, EquipmentSlot.OffHand),
             (axe, EquipmentSlot.Weapon), (amulet, EquipmentSlot.Amulet), (ring, EquipmentSlot.RingLeft) })
@@ -278,7 +300,7 @@ internal static class ItemRulesTests
         Assert.Near(0.4f, derived.ManaRegen, 0.001f);
         Assert.True(derived.MaxStamina == bare.MaxStamina + 7 && derived.MaxMana == bare.MaxMana + 12, "added pools are missing");
         Assert.True(derived.MoveSpeed >= bare.MoveSpeed + 1, "boot speed does not raise the move speed");
-        Assert.Near(3f, derived.MagicMastery, 0.001f);
+        Assert.Near(5f, derived.MagicMastery, 0.001f);
         var weapon = WeaponDamage.Compute(character);
         var attributes = character.Attributes;
         var expectedMax = 4 + 9 * (attributes.Strength + 130) / 130 + (attributes.Talent + attributes.Agility) / 40 + 10 / 6 + 10 / 5;
@@ -378,7 +400,8 @@ internal static class ItemRulesTests
         var classes = new CharacterClassRegistry();
         var record = CharacterRecordFactory.NewStarter(classes, 1, "Rolls", 0, PlayerClass.Fighter, 3) with { Id = 1 };
         var character = classes.CreatePlayer(PlayerClass.Fighter, record.Name);
-        var definition = Def("WA110", item => item with { DamageMinLow = 10, DamageMinHigh = 14, DamageMaxLow = 20, DamageMaxHigh = 26, SpecClass = (long)JobBitCode.Fighter });
+        var definition = Def("WA110", item => item with { DamageMinLow = 10, DamageMinHigh = 14, DamageMaxLow = 20, DamageMaxHigh = 26, SpecClass = (long)JobBitCode.Fighter,
+            MagicMasteryMin = 5f, MagicMasteryMax = 9f });
         var catalog = new ItemCatalog([definition]);
         ItemInstance rolled;
         var rng = new SeededSimRng(11);
@@ -386,7 +409,7 @@ internal static class ItemRulesTests
         {
             rolled = ItemRoller.Create(definition, 1, rng);
         }
-        while (rolled.Roll.SpecJob == 0);
+        while (rolled.Roll.SpecJob == 0 || rolled.Roll.MagicMasteryBonus == 0);
 
         Assert.True(character.Inventory.TryPlace(rolled, 0), "the rolled copy did not fit");
         var encoded = CharacterRecordFactory.Capture(record, character, 3, Vector3.Zero).Encode();

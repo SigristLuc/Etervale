@@ -117,11 +117,13 @@ public static partial class ItemRoller
             }
         }
 
+        // Magic mastery rolls whole points. It draws last, so the other values of a seeded roll do not move.
+        var masteryBonus = Pick(rng, Points(template.MagicMastery), middle) - template.MagicMastery.Min;
         item.Roll = new ItemRoll(damageMin, damageMax, attackRating, defence, absorb, block, speed, lifeRegen, manaRegen, staminaRegen,
             addLife, addMana, addStamina,
             new ResistanceBlock(resistances[0], resistances[1], resistances[2], resistances[3], resistances[4], resistances[5], resistances[6],
                 resistances[7]),
-            definition.RequiredLevel, requirements, price, specJob, bonus);
+            definition.RequiredLevel, requirements, price, specJob, bonus) { MagicMasteryBonus = masteryBonus };
         return item;
     }
 
@@ -171,6 +173,8 @@ public static partial class ItemRoller
                 spec.LifeRegenRange.Max != 0 ? TopHundredths(spec.LifeRegenRange) : spec.LifeRegen, TopHundredths(spec.ManaRegen), spec.StaminaRegen);
         }
 
+        var mastery = Points(template.MagicMastery);
+        var masteryBonus = (mastery.Max != 0 ? Top(mastery) : mastery.Min) - template.MagicMastery.Min;
         item.Roll = new ItemRoll(weapon ? Top(template.DamageMin) : 0, weapon ? Top(template.DamageMax) : 0,
             template.AttackRating.Max != 0 ? Top(template.AttackRating) : template.AttackRating.Min,
             template.Defence.Max != 0 ? Top(template.Defence) : template.Defence.Min,
@@ -181,7 +185,7 @@ public static partial class ItemRoller
             template.AddStamina.Max != 0 ? Top(template.AddStamina) : template.AddStamina.Min,
             new ResistanceBlock(resistances[0], resistances[1], resistances[2], resistances[3], resistances[4], resistances[5], resistances[6],
                 resistances[7]),
-            definition.RequiredLevel, requirements, price, mask, bonus);
+            definition.RequiredLevel, requirements, price, mask, bonus) { MagicMasteryBonus = masteryBonus };
         return item;
     }
 
@@ -207,6 +211,9 @@ public static partial class ItemRoller
 
     // The highest value a roll of the range can produce; a reversed range keeps its lower bound plus the span below it.
     private static int Top(ItemRange range) => range.Max >= range.Min ? range.Max : range.Min + Math.Abs(range.Max + 1 - range.Min) - 1;
+
+    // The whole points of a range authored in whole numbers (magic mastery).
+    private static ItemRange Points(ItemFloatRange range) => new((int)range.Min, (int)range.Max);
 
     private static float TopTenths(ItemFloatRange range) => TopSteps(range, 10f);
 
