@@ -89,7 +89,8 @@ internal static class GroundPickupTransactionTests
         Assert.True(ground.Any(drop => drop.View.CatalogKey == "PL101" && drop.View.Amount == 2 && drop.Public)
             && ground.Any(drop => drop.View.CatalogKey == "WS101" && drop.View.Amount == 1)
             && ground.Any(drop => drop.View.Gold && drop.View.CatalogKey == ItemCodes.GoldKey && drop.View.Amount == 120 && drop.Public)
-            && ground.All(drop => drop.View.Position == Vector3.Zero),
+            && ground.All(drop => MathF.Max(MathF.Abs(drop.View.Position.X), MathF.Abs(drop.View.Position.Z)) == FieldGroundLoot.CellSpacing)
+            && ground.Select(drop => drop.View.Position).Distinct().Count() == ground.Length,
             $"the ground holds {string.Join(", ", ground.Select(drop => $"{drop.View.CatalogKey} x{drop.View.Amount} at {drop.View.Position}"))}");
     }
 
@@ -149,6 +150,14 @@ internal static class GroundPickupTransactionTests
 
         var drop = snapshot.GroundDrops.Single().View;
         Assert.True(session.Character!.Experience == 525, "production host omitted configured XP bonus");
+        // A drop falls on a cell around the corpse; the client walks to it, once the killing swing ends, before picking it up.
+        for (uint tick = 800; tick < 840; tick++)
+        {
+            world.Tick(0.05f, tick);
+        }
+
+        Assert.True(await WorldPump.RunAsync(world, world.ReportMovementAsync(3, session.EntityId, drop.Position, 0f, true, true, 0)) == MovementVerdict.Accepted,
+            "the walk to the drop was refused");
         long money = session.Character.Money;
         var writing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var storage = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);

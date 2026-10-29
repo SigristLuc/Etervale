@@ -11,6 +11,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Gameplay.UI;
 using PristonTale.Gameplay.World;
+using PristonTale.Gameplay.World.Remote;
 using PristonTale.Gameplay.UI.Widgets;
 using PristonTale.Gameplay.UI.Rendering;
 using PristonTale.Contracts.Characters;
@@ -38,6 +39,7 @@ internal static class HudInteractionTests
         yield return ("the weapon pair key holds the other pair with the window closed once the motion in progress ends, the next swing's start included", WeaponPairKeyAsync);
         yield return ("a worn two-handed weapon is also shown, taken and exchanged in the empty off-hand slot", TwoHandedShadowAsync);
         yield return ("the pointer attacks over wild monsters, talks over NPCs and stays the arrow elsewhere", CursorKindAsync);
+        yield return ("drop names on one spot rise into a column above the nearest, which keeps its place", DropNameColumnAsync);
         yield return ("the settings offer only the monitor's sizes: all in fullscreen, those that fit in a window, none borderless", ResolutionsAsync);
         yield return ("a carried item lands where the original sets it: free cells, one item to exchange, a potion to join, a slot of its kind", PlacementAsync);
         yield return ("original gauges crop bitmaps from the top and follow the source formulas", GaugeAsync);
@@ -404,6 +406,29 @@ internal static class HudInteractionTests
         Assert.True(HudCursor.ArtPath(HudCursorKind.Buy).EndsWith("BuyCursor.tga", StringComparison.Ordinal)
             && HudCursor.ArtPath(HudCursorKind.Sell).EndsWith("SellCursor.tga", StringComparison.Ordinal)
             && HudCursor.ArtPath(HudCursorKind.Repair).EndsWith("RepairCursor.tga", StringComparison.Ordinal), "the shop pointer art differs");
+        return Task.CompletedTask;
+    }
+
+    private static Task DropNameColumnAsync()
+    {
+        var nearest = new Rectangle(100, 200, 80, 28);
+        var second = HudGroundLabels.Stack(nearest, [nearest]);
+        var third = HudGroundLabels.Stack(new Rectangle(110, 210, 60, 28), [nearest, second]);
+        Assert.True(second == new Rectangle(100, 170, 80, 28) && third == new Rectangle(110, 140, 60, 28), "drop names on one spot did not rise into a column");
+        var aside = new Rectangle(181, 200, 50, 28);
+        var clear = new Rectangle(100, 170, 80, 28);
+        Assert.True(HudGroundLabels.Stack(aside, [nearest]) == aside && HudGroundLabels.Stack(clear, [nearest]) == clear, "a drop name that covers none moved");
+
+        // The stacking order: nearest first, but drops in one row, at nearly one depth, keep the order they had.
+        const float slack = GroundLootPresentation.OrderHysteresis;
+        var row = new List<float> { 100, 100 + slack, 100 + slack / 2 };
+        GroundLootPresentation.SettleOrder(row, static depth => depth);
+        Assert.True(row.SequenceEqual([100, 100 + slack, 100 + slack / 2]), $"drop names in one row swapped places: {string.Join(", ", row)}");
+        var turned = new List<float> { 100 + slack * 3, 100 + slack, 100 };
+        GroundLootPresentation.SettleOrder(turned, static depth => depth);
+        GroundLootPresentation.InsertByDepth(turned, 100 + slack * 2, static depth => depth);
+        Assert.True(turned.SequenceEqual([100 + slack, 100, 100 + slack * 2, 100 + slack * 3]),
+            $"drop names did not come nearest first once the camera turned, or a new one was not placed by depth: {string.Join(", ", turned)}");
         return Task.CompletedTask;
     }
 

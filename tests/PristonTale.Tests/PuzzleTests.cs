@@ -82,7 +82,7 @@ internal static class PuzzleTests
         loot.Step(0);
         var state = loot.Snapshot().Single();
         Assert.True(state.View.CatalogKey == Puzzles.LuckyBagIcon && state.View.Name == Puzzles.LuckyBagName, "the ground did not show the lucky bag");
-        var owner = new WorldPlayer(7, Vector3.Zero, new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Finder"), false, default);
+        var owner = new WorldPlayer(7, state.View.Position, new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Finder"), false, default);
         Assert.True(loot.TryReserve(state.View.Id, Guid.NewGuid(), owner, out _, out var picked) && picked is { Sealed: true } && picked.InstanceId == state.View.Id,
             "the picked-up piece lost its seal or its identity");
         return Task.CompletedTask;

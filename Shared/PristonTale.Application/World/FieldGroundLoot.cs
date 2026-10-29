@@ -1,20 +1,32 @@
 using System.Numerics;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
+using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Loot;
 
 namespace PristonTale.Application.World;
 
-public sealed class FieldGroundLoot(ItemCatalog catalog)
+public sealed class FieldGroundLoot(ItemCatalog catalog, FieldTerrain? terrain = null)
 {
     public const float PickupReach = 32f;
     public const int Capacity = 1024;
+    // Drops fall on the cells of a square ring around where they came from, CellSpacing units apart, the nearest ring
+    // first: north, then clockwise round the eight cells.
+    public const float CellSpacing = 24f;
+    private const int Rings = 3;
+    private static readonly Vector2[] RingCells =
+    [
+        new(0, -1), new(1, -1), new(1, 0), new(1, 1), new(0, 1), new(-1, 1), new(-1, 0), new(-1, -1)
+    ];
+
+    private readonly FieldTerrain _terrain = terrain ?? FieldTerrain.None;
     private readonly Dictionary<Guid, Entry> _entries = new();
     private readonly List<Guid> _expired = [];
     private GroundDropState[] _snapshot = [];
     private bool _dirty;
     private long _nowMs;
+    private int _turn;
 
     public int Count => _entries.Count;
 
@@ -41,10 +53,11 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
 
             bool gold = drop.Kind == DropKind.Gold;
             var id = Guid.NewGuid();
+            var spot = Spot(position);
             // A sealed puzzle piece lies on the ground as the lucky bag.
             var view = drop.Sealed
-                ? new GroundDropView(id, ItemCodes.Parse(Puzzles.LuckyBagIcon), Puzzles.LuckyBagIcon, Puzzles.LuckyBagName, drop.Amount, false, position)
-                : new GroundDropView(id, drop.ItemCode, gold ? ItemCodes.GoldKey : definition!.CatalogKey, gold ? ItemCodes.GoldName : definition!.Name, drop.Amount, gold, position);
+                ? new GroundDropView(id, ItemCodes.Parse(Puzzles.LuckyBagIcon), Puzzles.LuckyBagIcon, Puzzles.LuckyBagName, drop.Amount, false, spot)
+                : new GroundDropView(id, drop.ItemCode, gold ? ItemCodes.GoldKey : definition!.CatalogKey, gold ? ItemCodes.GoldName : definition!.Name, drop.Amount, gold, spot);
             var item = gold ? null : ItemRoller.Create(definition!, drop.Amount, rng);
             if (item is not null)
             {
@@ -75,11 +88,67 @@ public sealed class FieldGroundLoot(ItemCatalog catalog)
     private void Add(ItemInstance? item, int gold, Vector3 position, ulong ownerId, long nowMs)
     {
         var id = Guid.NewGuid();
+        var spot = Spot(position);
         var view = item is null
-            ? new GroundDropView(id, 0u, ItemCodes.GoldKey, ItemCodes.GoldName, gold, true, position)
-            : new GroundDropView(id, item.Definition.Code, item.Definition.CatalogKey, item.Definition.Name, item.Count, false, position);
+            ? new GroundDropView(id, 0u, ItemCodes.GoldKey, ItemCodes.GoldName, gold, true, spot)
+            : new GroundDropView(id, item.Definition.Code, item.Definition.CatalogKey, item.Definition.Name, item.Count, false, spot);
         _entries.Add(id, new Entry(view, item, ownerId, nowMs, nowMs + LifetimeMs(item?.Definition)));
         _dirty = true;
+    }
+
+    // Where a drop from the origin (a corpse, the thrower's feet) lies, as the original lays drops: on a ring cell taken in
+    // turn with one counter for the whole field, whose floor is within DropTolerance of the origin. The original meant to
+    // skip a cell another drop holds but never did, so a ninth drop fell on the first; here a held cell, or one behind a
+    // wall, is passed over, and when the nearest ring is full the next one out is tried. With every cell held the first
+    // cell with floor is taken, and with none the origin settled on its floor.
+    private Vector3 Spot(Vector3 origin)
+    {
+        Vector3? fallback = null;
+        for (var ring = 1; ring <= Rings; ring++)
+        {
+            for (var tries = 0; tries < RingCells.Length; tries++)
+            {
+                _turn++;
+                var cell = RingCells[_turn & (RingCells.Length - 1)] * (CellSpacing * ring);
+                var candidate = origin + new Vector3(cell.X, 0f, cell.Y);
+                if (!_terrain.TryFloorNear(candidate, FieldTerrain.DropTolerance, out var height)
+                    || MathF.Abs(height - origin.Y) >= FieldTerrain.DropTolerance)
+                {
+                    continue;
+                }
+
+                candidate.Y = height;
+                if (_terrain.CrossesWall(origin, candidate))
+                {
+                    continue;
+                }
+
+                if (!Held(candidate))
+                {
+                    return candidate;
+                }
+
+                fallback ??= candidate;
+            }
+        }
+
+        return fallback ?? _terrain.SettleNear(origin, FieldTerrain.DropTolerance);
+    }
+
+    // A drop lies within half a cell of the point.
+    private bool Held(Vector3 point)
+    {
+        const float reach = CellSpacing / 2f;
+        foreach (var entry in _entries.Values)
+        {
+            var delta = entry.View.Position - point;
+            if (delta.X * delta.X + delta.Z * delta.Z < reach * reach)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void Step(long nowMs)

@@ -263,15 +263,20 @@ coordinates; their consumers mirror them with `WorldSpace` instead of negating Z
 - `GroundLootPresentation` lays each drop as the original does: a yaw drawn from its position
   (`(x + z) >> 2` in fixed point, 4096 per turn), and weapons (`0x01xxxxxx` codes) turned a quarter turn about X so they
   lie flat. The turned mesh rests on the floor by its lowest rotated corner (`GroundLootPresentation.Orientation`).
-- Drop names, as the original draws them: each at its own drop's point 16 units up, recomputed every frame with no
-  attempt to keep labels apart, so they hold still while the camera moves and may overlap. Holding `A` names the drops
+- Drop names: each anchored at its own drop's point 16 units up, recomputed every frame. Holding `A` names the drops
   32 to 768 units from the camera; the drop under the cursor (`GameScene.HoveredDropId`, picked in `Update` by its
-  label or a sphere around it) is named at any distance and drawn last, on top. `GroundLootPresentation.CollectLabels`
-  lists them; `HudGroundLabels` draws them first in `GameplayHud.Draw`, under the monster and NPC names: a
-  `HudPainter.NameBox` 36 pixels above the point in the classic name box geometry, the text in (150, 144, 206),
-  (196, 186, 255) under the cursor, and a label that would leave the screen is skipped. Where each label landed goes
-  back through `GameScene.PlaceGroundLabel` so a click on it picks the drop; where labels overlap, the hovered one
-  keeps the cursor.
+  label or a sphere around it) is named at any distance. `GroundLootPresentation.CollectLabels` lists them nearest
+  first by depth before the camera, in an order kept from frame to frame: a newly named drop is placed by its depth
+  (`InsertByDepth`), and two neighbours swap only once the first lies more than `OrderHysteresis` (12 units, half a drop
+  cell) farther than the second (`SettleOrder`), so drops of one row, at nearly one depth, do not trade places as the
+  camera turns slightly while the player walks. `HudGroundLabels` draws them first in `GameplayHud.Draw`, under the
+  monster and NPC names: a `HudPainter.NameBox` 36 pixels above the point in the classic name box geometry, the text in
+  (150, 144, 206), (196, 186, 255) under the cursor. Labels never overlap: each keeps its spot unless it would cover a
+  label already placed, and then rises just above it, 2 pixels apart (`HudGroundLabels.Stack`), so a pile of drops
+  reads as a column of names over the nearest one. Labels move by whole pixels, with no grid, and keep their order, so
+  the column follows the pile without reshuffling as the player walks; only turning the camera well round reorders it.
+  A label that would leave the screen is skipped. Where each label landed goes back through
+  `GameScene.PlaceGroundLabel` so a click on it picks the drop.
 
 ## Local player: prediction and authority
 

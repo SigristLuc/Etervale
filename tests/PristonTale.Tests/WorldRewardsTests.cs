@@ -24,6 +24,7 @@ internal static class WorldRewardsTests
         yield return ("field death materializes its rolled loot and grants XP exactly once", DeathAsync);
         yield return ("ground loot respects ownership, reservations, rollback and expiry", GroundAsync);
         yield return ("ground presence survives skipped snapshots", PresenceAsync);
+        yield return ("drops fall in turn on a ring around their origin, passing held cells and cells without floor", DropSpotsAsync);
     }
 
     private static Task ExperienceAsync()
@@ -83,8 +84,8 @@ internal static class WorldRewardsTests
         ground.Place(new KillPayout(2, 1, 0, [RolledDrop.Item(55)]), Vector3.Zero, false, 0, new CombatRng(1));
         var drop = ground.Snapshot().Single().View;
         var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Owner");
-        var owner = new WorldPlayer(1, Vector3.Zero, character, false, default);
-        var stranger = new WorldPlayer(3, Vector3.Zero, character, false, default);
+        var owner = new WorldPlayer(1, drop.Position, character, false, default);
+        var stranger = new WorldPlayer(3, drop.Position, character, false, default);
         var operation = Guid.NewGuid();
         Assert.True(!ground.TryReserve(drop.Id, operation, stranger, out _, out _), "private drop could be stolen");
         Assert.True(ground.TryReserve(drop.Id, operation, owner, out _, out var item) && item!.InstanceId == drop.Id, "drop identity lost");
@@ -106,6 +107,41 @@ internal static class WorldRewardsTests
         ground.Place(new KillPayout(2, 1, 0, [RolledDrop.Gold(8)]), Vector3.Zero, true, 185_003, new CombatRng(1));
         ground.Step(275_004);
         Assert.True(ground.Count == 0, "gold did not expire after 90 seconds");
+        return Task.CompletedTask;
+    }
+
+    private static Task DropSpotsAsync()
+    {
+        var definition = new ItemDefinition(55, "Stone Axe", ItemKind.Axe) { CatalogKey = "WA101" };
+        const float cell = FieldGroundLoot.CellSpacing;
+        var open = new FieldGroundLoot(new ItemCatalog([definition]));
+        for (var drop = 0; drop < 9; drop++)
+        {
+            Assert.True(open.PlaceCreated(new ItemInstance(definition), 0, Vector3.Zero, 1, 0), "a drop was refused");
+        }
+
+        var spots = open.Snapshot().Select(drop => drop.View.Position).ToArray();
+        static float Ring(Vector3 spot) => MathF.Max(MathF.Abs(spot.X), MathF.Abs(spot.Z));
+        Assert.True(spots.Take(8).All(spot => Ring(spot) == cell) && Ring(spots[8]) == cell * 2, $"drops did not fill the nearest ring first: {string.Join(", ", spots)}");
+        Assert.True(spots[0] == new Vector3(cell, 0, -cell) && spots[1] == new Vector3(cell, 0, 0), "the ring is not taken in turn, clockwise");
+        Assert.True(spots.SelectMany((spot, index) => spots.Skip(index + 1), (left, right) => Vector3.Distance(left, right)).Min() >= cell,
+            "two drops from one spot lie on the same cell");
+
+        // Floor only on the north side of the origin: the southern cells have none to lie on.
+        var floor = new PristonTale.Geometry.CollisionMesh(
+        [
+            new(new Vector3(-100, 0, -100), new Vector3(100, 0, -100), new Vector3(100, 0, 12)),
+            new(new Vector3(-100, 0, -100), new Vector3(100, 0, 12), new Vector3(-100, 0, 12))
+        ]);
+        var edge = new FieldGroundLoot(new ItemCatalog([definition]), new PristonTale.Simulation.World.FieldTerrain(floor));
+        for (var drop = 0; drop < 6; drop++)
+        {
+            edge.PlaceCreated(new ItemInstance(definition), 0, Vector3.Zero, 1, 0);
+        }
+
+        var edgeSpots = edge.Snapshot().Select(drop => drop.View.Position).ToArray();
+        Assert.True(edgeSpots.All(spot => spot.Z <= 0) && edgeSpots.Count(spot => Ring(spot) == cell) == 5 && Ring(edgeSpots[5]) == cell * 2,
+            $"drops lay off the floor or left a free cell of the nearest ring: {string.Join(", ", edgeSpots)}");
         return Task.CompletedTask;
     }
 

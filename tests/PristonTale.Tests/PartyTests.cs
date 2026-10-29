@@ -293,8 +293,11 @@ internal static class PartyTests
         {
             Assert.True(field.GroundLoot.PlaceCreated(null, gold, Vector3.Zero, ann.Id, field.NowMs), "fixture gold not placed");
             fixture.Tick(1);
-            var drop = field.GroundLoot.Snapshot().Single().View.Id;
-            var command = new InventoryCommand(Guid.NewGuid(), ann.Session.Character!.InventoryRevision, InventoryAction.Pickup, drop, 0, 1, default);
+            var drop = field.GroundLoot.Snapshot().Single().View;
+            // The gold falls on a cell around the spot; the picker walks to it, as the client does.
+            Assert.True(await fixture.RunAsync(fixture.World.ReportMovementAsync(ChatFixture.Field, ann.Id, drop.Position, 0f, true, true, 0)) == MovementVerdict.Accepted,
+                "the walk to the gold was refused");
+            var command = new InventoryCommand(Guid.NewGuid(), ann.Session.Character!.InventoryRevision, InventoryAction.Pickup, drop.Id, 0, 1, default);
             Assert.True((await fixture.RunAsync(sessions.ApplyInventoryAsync(ann.Session.SessionToken, command))).Ok, "pickup refused");
             return gold;
         }
