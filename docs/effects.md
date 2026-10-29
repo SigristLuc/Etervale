@@ -145,7 +145,8 @@ resetting values. Particle pools hold at most 100 live particles.
 A converted particle stream: `texture`, `blend`, `shape` (Billboard, Ground, Upright, Trail), `count` live at most,
 `loops` (0 = until stopped), `rate` range drawn each frame, `delay`, `lifetime`, offset box `radiusMin`/`radiusMax`,
 gravity box (drawn every frame), `anchor`, `bone`, `offset`, `follow`, and `events` (`t`, `ramp`, `set`, `min`, `max`,
-`mode`). Properties: `Size`, `Stretch`, `Color`, `Red`..`Alpha`, `Velocity` (Vector, Outward, Inward) and its axes,
+`mode`). A particle that lives until stopped moves with its stream's anchor as `follow` does: it belongs to the effect
+(a monster's ground circle the original traces on a bone), so a followed child carries it along. Properties: `Size`, `Stretch`, `Color`, `Red`..`Alpha`, `Velocity` (Vector, Outward, Inward) and its axes,
 `Angle` and axes, `Orbit` and axes (turn the particle's offset), `Clock` (restart the event clock at a time).
 
 ### Part (`VfxPartDefinition`)

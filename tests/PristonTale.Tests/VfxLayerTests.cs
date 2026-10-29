@@ -11,7 +11,7 @@ internal static class VfxLayerTests
         yield return ("component layers keep the original keyed-event, loop and delay rules", ComponentsAsync);
         yield return ("component particle pools respect their count, loops and the 100-particle cap", ComponentParticlesAsync);
         yield return ("sequence layers emit their budget, loop on clock events and stop on request", SequencesAsync);
-        yield return ("child effects start late, follow their anchor and stop with the parent", ChildrenAsync);
+        yield return ("child effects start late, follow their anchor with the particles that live until they stop, and stop with the parent", ChildrenAsync);
         yield return ("component and sequence updates allocate nothing once warmed up", AllocationsAsync);
         yield return ("parts wait for their delays, start on their ring and end with their life", PartRingAsync);
         yield return ("parts fly to their goal, start their end effect there and fade out", PartGoalAsync);
@@ -341,6 +341,7 @@ internal static class VfxLayerTests
         Run(system, 0.05f);
         Assert.Near(50f, child.Spawn.Point.X, 0.01f);
         Assert.Near(5f, child.Spawn.Point.Y, 0.01f);
+        Assert.Near(50f, child.SequenceStates[0].Particles[0].World.X, 0.01f);
         instance.Stop();
         Run(system, 0.05f);
         Assert.True(child.SequenceStates[0].LiveCount == 1, "a stopped child must let its particles play out");

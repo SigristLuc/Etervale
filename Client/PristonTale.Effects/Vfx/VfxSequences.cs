@@ -185,7 +185,9 @@ internal sealed class SequenceState
                 }
 
                 ref var particle = ref Particles[index];
-                if (definition.Follow)
+                // A particle that lives until its effect stops is part of the effect (a monster's ground circle, which
+                // the original traces on the monster's bone): it moves with the effect's anchor.
+                if (definition.Follow || particle.Lifetime >= UntilStoppedLifetime)
                 {
                     particle.World = source;
                 }
