@@ -1,4 +1,5 @@
 using PristonTale.Application.Chat;
+using PristonTale.Application.Saves;
 using PristonTale.Application.Sessions;
 using PristonTale.Application.World;
 using PristonTale.Contracts.Social;
@@ -10,9 +11,10 @@ namespace PristonTale.Application.Services;
 // Personal shops outside the tick. A purchase holds the buyer's save gate and then the seller's (neither waits, so two
 // players buying from each other never block), stores both characters in one transaction and commits both on the tick.
 // Opening and closing hold the seller's gate too, so a listing never changes between a purchase's prepare and commit.
-public sealed class PersonalShopAppService(ISessionRegistry sessions, ICharacterRepository characters, WorldServer world, ChatDirectory? chat = null)
+public sealed class PersonalShopAppService(ISessionRegistry sessions, ICharacterSaves saves, ICharacterRepository characters, WorldServer world,
+    ChatDirectory? chat = null)
 {
-    private readonly DurableOperations _durable = new(characters);
+    private readonly DurableOperations _durable = new(saves);
 
     public async Task<PersonalShopOutcome> OpenAsync(string sessionToken, string sign, IReadOnlyList<PersonalShopEntry> entries, CancellationToken ct = default)
     {
@@ -63,7 +65,8 @@ public sealed class PersonalShopAppService(ISessionRegistry sessions, ICharacter
             },
             prepared => new PersonalShopReply(prepared.Outcome, listing),
             failure => new PersonalShopReply(Failed(failure)),
-            async (_, prepared) => await characters.UpdateAllAsync([prepared.Snapshot!.Encode(), prepared.SellerSnapshot!.Encode()], CancellationToken.None)
+            async (session, prepared) => await characters.UpdateAllAsync([session.Stamp(prepared.Snapshot!), seller!.Stamp(prepared.SellerSnapshot!)],
+                    CancellationToken.None)
                 ? null
                 : DurableFailure.StorageFailed);
         if (sold || reply.Outcome.Status is not (PersonalShopStatus.SoldOut or PersonalShopStatus.CountChanged or PersonalShopStatus.PriceChanged))

@@ -113,21 +113,6 @@ public sealed partial class WorldServer
         }, waitForCapacity: true);
     }
 
-    // The upkeep could not be stored: its drops wait for the next attempt.
-    public Task<bool> AbortQuestUpkeepAsync(PlayerSession session, PreparedQuestOperation operation)
-    {
-        return EnqueueAsync(NoOwner, () =>
-        {
-            if (TryGetOwnConnection(session, out var connection))
-            {
-                connection.Player.QuestState.ReturnDrops(operation.Drops);
-                connection.Player.QuestState.UpkeepSignaled = false;
-            }
-
-            return true;
-        }, waitForCapacity: true);
-    }
-
     // The upkeep could not run now (the save gate stayed busy): the field signals it again on its next check.
     public Task<bool> DeferQuestUpkeepAsync(PlayerSession session)
     {

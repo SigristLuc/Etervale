@@ -14,9 +14,11 @@ public sealed class DapperCharacterRepository(IDbConnectionFactory connectionFac
         "strength, spirit, talent, agility, health, stat_points, " +
         "life, mana, stamina, field_id, pos_x, pos_z, model_name, model_name2, face_index, " +
         "tier, hair_index, size_level, " +
-        "inventory, equipment, skills, quests, premium, last_played_at";
+        "inventory, equipment, skills, quests, premium, last_played_at, save_seq";
 
-    // Identity columns (id/account_id/name/slot/job_code/created_at) are immutable and never updated.
+    // Transactions that write several characters lock them in id order, so two of them never wait on each other.
+    // Identity columns (id/account_id/name/slot/job_code/created_at) are immutable and never updated. A capture older than
+    // the stored one (a lower save_seq) changes nothing; the same capture written again is harmless.
     internal const string UpdateSql =
         """
             UPDATE characters SET
@@ -29,8 +31,8 @@ public sealed class DapperCharacterRepository(IDbConnectionFactory connectionFac
                 tier = @Tier, hair_index = @HairIndex, size_level = @SizeLevel,
                 inventory = @Inventory, equipment = @Equipment, skills = @Skills,
                 quests = @Quests, premium = @Premium,
-                last_played_at = @LastPlayedAt
-            WHERE id = @Id
+                last_played_at = @LastPlayedAt, save_seq = @SaveSeq
+            WHERE id = @Id AND save_seq <= @SaveSeq
             """;
 
     public async Task<IReadOnlyList<CharacterRecord>> ListByAccountAsync(long accountId, CancellationToken ct = default)
@@ -107,11 +109,25 @@ public sealed class DapperCharacterRepository(IDbConnectionFactory connectionFac
         return rows > 0;
     }
 
+    public async Task<int> SaveAllAsync(IReadOnlyList<CharacterRecord> records, CancellationToken ct = default)
+    {
+        await using var connection = await connectionFactory.OpenAsync(ct);
+        await using var transaction = await connection.BeginTransactionAsync(ct);
+        var written = 0;
+        foreach (var record in records.OrderBy(static record => record.Id))
+        {
+            written += await connection.ExecuteAsync(new CommandDefinition(UpdateSql, record, transaction, cancellationToken: ct));
+        }
+
+        await transaction.CommitAsync(ct);
+        return written;
+    }
+
     public async Task<bool> UpdateAllAsync(IReadOnlyList<CharacterRecord> records, CancellationToken ct = default)
     {
         await using var connection = await connectionFactory.OpenAsync(ct);
         await using var transaction = await connection.BeginTransactionAsync(ct);
-        foreach (var record in records)
+        foreach (var record in records.OrderBy(static record => record.Id))
         {
             if (await connection.ExecuteAsync(new CommandDefinition(UpdateSql, record, transaction, cancellationToken: ct)) == 0)
             {

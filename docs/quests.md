@@ -40,7 +40,7 @@ quest data the importer reads, and the client's quest dialog, quest window, clas
 | [QuestTransactions.cs](../Shared/PristonTale.Application/World/QuestTransactions.cs) | Prepare a request or an upkeep on the tick against a candidate copy; follow-up validation; travel destination |
 | `Shared/PristonTale.Application/World/WorldServer.Quests.cs`, `PreparedQuestOperation.cs` | Prepare and commit on the tick, upkeep requests channel, travel, opening the duel |
 | `Shared/PristonTale.Application/World/FieldInstance.Quests.cs`, `PlayerQuestState.cs` | Kill credit and quest drops, deaths, timers, the periodic upkeep check, duels; per-player quest state and the snapshot `QuestUpdate` |
-| [QuestAppService.cs](../Shared/PristonTale.Application/Services/QuestAppService.cs) | Requests and upkeep off the tick: save gate, prepare, store, commit |
+| [QuestAppService.cs](../Shared/PristonTale.Application/Services/QuestAppService.cs) | Requests and upkeep off the tick: save gate, prepare, commit, then the save queue |
 | `Shared/PristonTale.Protocol/Packets/QuestPackets.cs` | `QuestRequestPacket`, `QuestResultPacket`, `QuestJournalPacket`, `QuestNoticesPacket` |
 | `Server/PristonTale.Server/Net/QuestWireMapping.cs`, `ClientSession.cs` (`RequestQuestAsync`), `PresenceEncoder.cs` | Wire edge; journal and notices from the snapshot; the arena's solo view |
 | `Server/PristonTale.Server/World/QuestUpkeepService.cs` | Hosted service running the quest upkeep the tick asks for |
@@ -139,7 +139,7 @@ After each rank-up the master offers one free redistribution of the learned skil
   kills counted while a request was being stored (`QuestJournal.AdoptCommitted`).
 - Item changes the tick cannot make (quest drops, weapon growth and expiry, leftovers of finished steps) set
   `UpkeepDue`; the field signals `WorldServer.QuestUpkeepRequests`, and `QuestUpkeepService` runs
-  `QuestAppService.RunUpkeepAsync` (prepare, store, commit; drops go back to the player when storage fails).
+  `QuestAppService.RunUpkeepAsync` (prepare and commit, then the save queue; a busy save gate defers it).
 - Each snapshot carries the owner's `QuestUpdate`: the journal view when the revision moved, quest notices and a dialog
   the world opened. `WorldOutbox` keeps notices in order (at most 256) and the newest view and dialog.
 

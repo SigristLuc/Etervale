@@ -116,12 +116,14 @@ Original asset paths are resolved with `AssetFiles`; do not build original paths
   one `WorldSnapshot` over it, specialised with the owner's state and cooldowns, to each connected player's outbound
   channel. The TCP session encodes snapshots into packets on its own task, pinning the frame while it reads; entries
   every receiver shares are encoded once per frame. Who receives what: [server.md](server.md#presence-propagation).
-- The tick never awaits IO. State changes that must be durable use prepare, persist, commit:
+- The tick never awaits IO. State changes that must be durable use prepare and commit, and storage follows:
   1. An application service takes the session's `SaveGate`, then asks the world to prepare (on the tick): validate and
      build a candidate state plus a save snapshot (`Prepared*Operation` records).
-  2. The service writes the snapshot through a repository off the tick, with `CancellationToken.None` once admitted.
-  3. Only if the write succeeded, the service enqueues the commit, which applies the candidate on the tick.
-  Operation ids make retries idempotent. `NpcAppService` and `SessionAppService` show the pattern.
+  2. The service enqueues the commit, which applies the candidate on the tick, then queues the snapshot for the
+     background character store (`ICharacterSaves`). A transfer out of the character (trade, personal shop, warehouse,
+     ground) instead writes the snapshot first and commits only if storage took it.
+  Operation ids make retries idempotent. `NpcAppService` and `SessionAppService` show the pattern; every playing
+  character is also captured once a minute ([application.md](application.md#character-saves)).
 - Catalogs (`WorldDataHolder.Current`, `WorldCatalog`, `FieldTerrainCatalog`) are loaded by hosted services at startup
   and treated as immutable afterwards.
 
@@ -143,7 +145,7 @@ Example: a player buys an item from an NPC shop.
 1. Client UI (`Client/PristonTale.Gameplay/UI/Npc`) sends the Etervale NPC service packet through `Client.Net`.
 2. `Server/PristonTale.Server/Net/ClientSession` decodes it and calls `NpcAppService`.
 3. `NpcAppService` takes the `SaveGate`, calls `WorldServer.PrepareNpcServiceAsync` (tick: reach, stock, price, carry
-   limit), stores the character snapshot, then `CommitNpcServiceAsync` (tick: apply inventory and gold).
+   limit), then `CommitNpcServiceAsync` (tick: apply inventory and gold); the character snapshot goes to the save queue.
 4. The reply packet goes back to the requester; inventory changes appear in the owner state of following snapshots.
 
 Combat, skills, pickup and potions follow the same shape with their own `Prepared*Operation` or tick-only command.

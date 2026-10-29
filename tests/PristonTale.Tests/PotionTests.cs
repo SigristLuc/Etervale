@@ -22,7 +22,7 @@ internal static class PotionTests
     {
         yield return ("potions restore at the EAT event once, clamp resources and cannot revive", TimingAsync);
         yield return ("the potion belt fills its boxes up to the potion space, exchanges kinds, drinks, returns to the bag and is saved", BeltAsync);
-        yield return ("potion storage failure preserves stacks; commit and replay consume once", DurabilityAsync);
+        yield return ("a potion is consumed and restores only at its commit, once, and a replay consumes nothing more", DurabilityAsync);
     }
 
     private static Task TimingAsync()
@@ -99,28 +99,17 @@ internal static class PotionTests
         var world = new WorldServer(holder, catalog);
         var sessions = new SessionRegistry();
         var session = sessions.Create(1, "owner");
-        var service = new SessionAppService(sessions, classes, repository, catalog, world, holder);
+        var service = new SessionAppService(sessions, classes, repository, new ImmediateSaves(repository), catalog, world, holder);
         Assert.True((await service.EnterWorldAsync(session.SessionToken, starter.Name)).Ok && session.TryBeginPlay(), "entry failed");
         var outbound = Channel.CreateUnbounded<WorldSnapshot>();
         var player = WorldPlayerFactory.Create(session);
         await WorldPump.RunAsync(world, world.JoinAsync(3, player, outbound.Writer, session));
-        var writing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var storage = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        repository.BeforeUpdate = _ =>
-        {
-            writing.TrySetResult();
-            return storage.Task;
-        };
         var command = new InventoryCommand(Guid.NewGuid(), session.Character!.InventoryRevision, InventoryAction.ConsumePotion,
             item.InstanceId, 0, 1, default);
-        var pending = service.ApplyInventoryAsync(session.SessionToken, command);
-        await WorldPump.RunAsync(world, writing.Task);
-        Assert.True(session.Character.Inventory[0].Count == 3 && session.Character.Life == 1 && !player.HasPendingPotion,
-            "pending save consumed/healed through shared item reference");
-        storage.SetResult(false);
-        Assert.True(!(await pending).Ok && session.Character.Inventory[0].Count == 3, "storage rejection consumed potion");
-        repository.BeforeUpdate = null;
         var accepted = service.ApplyInventoryAsync(session.SessionToken, command);
+        world.Tick(0.05f, 0);
+        Assert.True(!accepted.IsCompleted && session.Character.Inventory[0].Count == 3 && session.Character.Life == 1 && !player.HasPendingPotion,
+            "the prepared potion was consumed or healed through a shared item reference before its commit");
         await WorldPump.RunAsync(world, accepted);
         Assert.True((await accepted).Ok && session.Character.Inventory[0].Count == 2, "commit did not consume exactly one");
         for (uint tick = 0; tick < 30; tick++)

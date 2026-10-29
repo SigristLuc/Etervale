@@ -581,6 +581,12 @@ collision, the server and every bot on the same machine. Crowded bots start insi
 | 5000 | crowded | 0 | 26.29 / 48.87 ms | 9.3 cores | 27.1 MiB/s | 4398 MiB | 18.4 KiB/s (0.9 KiB/tick) |
 | 5000 | spread | 0 | 22.93 / 42.93 ms | 9.0 cores | 22.2 MiB/s | 3452 MiB | 15.7 KiB/s (0.8 KiB/tick) |
 
+Stored commands (`--mode items`, 2000 bots each switching the bag page once a second, PostgreSQL in Docker on the
+same machine, `Database:MaxPoolSize` 20): the server answers about 1740 commands/s at p50 19 ms, p99 52 to 65 ms and
+at most 95 ms (the prepare and the commit take a tick each), with no refusal and no lost leave save. The background
+character store ([application.md](application.md#character-saves)) writes about 1450 characters/s in batches of 100
+(65 ms each), its queue bounded by the characters playing, and the tick stays at p50 11 ms.
+
 Before this work the load test's 2000 crowded run allocated 57 to 82 MiB/s. At 5000 bots the load-test process itself
 uses most of the remaining cores, so the tick shares the machine; the encoders then fall behind the 20 Hz tick, their
 outboxes coalesce, and each client receives fewer, larger updates (the lower bandwidth per connection) while every

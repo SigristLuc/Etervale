@@ -61,15 +61,6 @@ public sealed class PlayerQuestState
         return drops;
     }
 
-    // Puts drops back when the upkeep could not store them.
-    public void ReturnDrops(IReadOnlyList<PendingQuestDrop> drops)
-    {
-        foreach (var drop in drops)
-        {
-            AddDrop(drop);
-        }
-    }
-
     public void Post(IReadOnlyList<QuestNotice> notices, QuestPrompt? prompt = null)
     {
         foreach (var notice in notices)

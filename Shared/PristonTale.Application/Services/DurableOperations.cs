@@ -1,6 +1,6 @@
+using PristonTale.Application.Saves;
 using PristonTale.Application.Sessions;
 using PristonTale.Application.World;
-using PristonTale.Persistence.Abstractions.Characters;
 
 namespace PristonTale.Application.Services;
 
@@ -15,9 +15,11 @@ public enum DurableFailure
     Conflict
 }
 
-// The durable path of every character change. The session's save gate admits one change per character at a time (saves
-// share it); under it the tick prepares, storage writes the prepared snapshot, then the tick commits.
-public sealed class DurableOperations(ICharacterRepository characters)
+// The path of every character change. The session's save gate admits one change per character at a time (saves share
+// it); under it the tick prepares and then commits. An ordinary change is stored in the background after its commit
+// (ICharacterSaves); a transfer between characters, or to the ground or the account warehouse, is stored before its
+// commit (a store), so no crash can keep an item or gold on both sides.
+public sealed class DurableOperations(ICharacterSaves saves)
 {
     public Task<DurableLease> AdmitAsync(ISessionRegistry sessions, string sessionToken, CancellationToken ct) =>
         sessions.TryGet(sessionToken, out var session)
@@ -25,18 +27,18 @@ public sealed class DurableOperations(ICharacterRepository characters)
             : Task.FromResult(DurableLease.Refused(DurableFailure.NoSession));
 
     public async Task<DurableLease> AdmitAsync(PlayerSession session, TimeSpan wait, CancellationToken ct) =>
-        await session.SaveGate.WaitAsync(wait, ct) ? new DurableLease(characters, session) : DurableLease.Refused(DurableFailure.Busy);
+        await session.SaveGate.WaitAsync(wait, ct) ? new DurableLease(saves, session) : DurableLease.Refused(DurableFailure.Busy);
 }
 
 // One admission to a session's save gate, released on Dispose. A refused lease runs nothing and answers its failure.
 public sealed class DurableLease : IDisposable
 {
-    private readonly ICharacterRepository? _characters;
+    private readonly ICharacterSaves? _saves;
     private PlayerSession? _session;
 
-    internal DurableLease(ICharacterRepository characters, PlayerSession session)
+    internal DurableLease(ICharacterSaves saves, PlayerSession session)
     {
-        _characters = characters;
+        _saves = saves;
         _session = session;
     }
 
@@ -48,16 +50,19 @@ public sealed class DurableLease : IDisposable
 
     internal static DurableLease Refused(DurableFailure failure) => new(failure);
 
-    // Prepares on the tick; a preparation without a snapshot answers at once. The write runs to its end despite
-    // cancellation, so retrying the operation id recovers the outcome. Store replaces the character write (null when
-    // stored); Abort runs whenever a prepared snapshot was not stored, a storage exception included.
+    // Prepares on the tick; a preparation without a snapshot answers at once. Without a store (or when storeFirst says the
+    // prepared change does not need one), the commit applies the change and the snapshot is queued for storage under the
+    // gate, ahead of any later capture. A store writes before
+    // the commit (null when stored) and runs to its end despite cancellation, so retrying the operation id recovers the
+    // outcome; Abort runs whenever the store did not take the snapshot, a storage exception included.
     public async Task<TReply> RunAsync<TPrepared, TReply>(
         Func<PlayerSession, Task<TPrepared?>> prepare,
         Func<PlayerSession, TPrepared, Task> commit,
         Func<TPrepared, TReply> reply,
         Func<DurableFailure, TReply> failed,
         Func<PlayerSession, TPrepared, Task<DurableFailure?>>? store = null,
-        Func<PlayerSession, TPrepared, Task>? abort = null)
+        Func<PlayerSession, TPrepared, Task>? abort = null,
+        Func<TPrepared, bool>? storeFirst = null)
         where TPrepared : PreparedOperation
     {
         if (Failure is { } refused)
@@ -77,12 +82,17 @@ public sealed class DurableLease : IDisposable
             return reply(prepared);
         }
 
+        if (store is null || storeFirst?.Invoke(prepared) == false)
+        {
+            await commit(session, prepared);
+            _saves!.Enqueue(session, snapshot);
+            return reply(prepared);
+        }
+
         DurableFailure? failure = DurableFailure.StorageFailed;
         try
         {
-            failure = store is not null
-                ? await store(session, prepared)
-                : await _characters!.UpdateAsync(snapshot.Encode(), CancellationToken.None) ? null : DurableFailure.StorageFailed;
+            failure = await store(session, prepared);
         }
         finally
         {

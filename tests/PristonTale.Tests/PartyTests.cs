@@ -287,10 +287,11 @@ internal static class PartyTests
         var cid = await fixture.JoinAsync("Cid", 3000, 0);
         await Group(fixture, parties, ann, bob);
         await Group(fixture, parties, ann, cid);
-        var sessions = new SessionAppService(fixture.Sessions, new CharacterClassRegistry(), fixture.Characters, fixture.Catalog, fixture.World, fixture.Data);
+        var sessions = new SessionAppService(fixture.Sessions, new CharacterClassRegistry(), fixture.Characters, new ImmediateSaves(fixture.Characters), fixture.Catalog, fixture.World, fixture.Data);
         var field = fixture.World.FieldFor(ChatFixture.Field)!;
 
-        async Task<long> PickUp(int gold)
+        // betweenTicks runs after the tick that prepares the pickup and before the one that commits it.
+        async Task<long> PickUp(int gold, Func<Task>? betweenTicks = null)
         {
             Assert.True(field.GroundLoot.PlaceCreated(null, gold, Vector3.Zero, ann.Id, field.NowMs), "fixture gold not placed");
             fixture.Tick(1);
@@ -299,7 +300,14 @@ internal static class PartyTests
             Assert.True(await fixture.RunAsync(fixture.World.ReportMovementAsync(ChatFixture.Field, ann.Id, drop.Position, 0f, true, true, 0)) == MovementVerdict.Accepted,
                 "the walk to the gold was refused");
             var command = new InventoryCommand(Guid.NewGuid(), ann.Session.Character!.InventoryRevision, InventoryAction.Pickup, drop.Id, 0, 1, default);
-            Assert.True((await fixture.RunAsync(sessions.ApplyInventoryAsync(ann.Session.SessionToken, command))).Ok, "pickup refused");
+            var pickup = sessions.ApplyInventoryAsync(ann.Session.SessionToken, command);
+            if (betweenTicks is not null)
+            {
+                fixture.Tick(1);
+                await betweenTicks();
+            }
+
+            Assert.True((await fixture.RunAsync(pickup)).Ok, "pickup refused");
             return gold;
         }
 
@@ -317,13 +325,8 @@ internal static class PartyTests
         bob.Session.SaveGate.Release();
         Assert.True(ann.Session.Character!.Money == 11_301 && bob.Session.Character!.Money == 500, "a busy member took a share");
 
-        // Bob's gate is taken while Ann's pickup is stored: the part split for Bob at the prepare is not given.
-        fixture.Characters.BeforeUpdate = record =>
-        {
-            fixture.Characters.BeforeUpdate = null;
-            return bob.Session.SaveGate.WaitAsync();
-        };
-        await PickUp(800);
+        // Bob's gate is taken between the prepare and the commit of Ann's pickup: the part split for Bob is not given.
+        await PickUp(800, () => bob.Session.SaveGate.WaitAsync());
         bob.Session.SaveGate.Release();
         Assert.True(ann.Session.Character!.Money == 11_701 && bob.Session.Character!.Money == 500,
             "a share landed on a member whose gate was taken during the pickup");

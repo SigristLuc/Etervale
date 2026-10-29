@@ -10,7 +10,12 @@ public interface ICharacterRepository
 
     Task<bool> DeleteByNameAsync(long accountId, string name, CancellationToken ct = default);
 
+    // False when no row took the record: the character is gone, or storage holds a newer capture (CharacterRecord.SaveSeq).
     Task<bool> UpdateAsync(CharacterRecord record, CancellationToken ct = default);
+
+    // Background saves: every record in one transaction; a record of a character that is gone, or older than the stored
+    // capture, is skipped. Returns the rows written.
+    Task<int> SaveAllAsync(IReadOnlyList<CharacterRecord> records, CancellationToken ct = default);
 
     // Every record or none, in one transaction (a trade between characters).
     Task<bool> UpdateAllAsync(IReadOnlyList<CharacterRecord> records, CancellationToken ct = default);

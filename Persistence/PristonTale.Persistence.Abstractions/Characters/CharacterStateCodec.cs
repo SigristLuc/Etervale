@@ -128,8 +128,8 @@ public static class CharacterStateCodec
         items.AddRange(character.Belt.Occupied().Select(static box => CaptureItem(box.Item, -1, null) with { Belt = box.Slot }));
         items.AddRange(character.QuestBox.Occupied().Select(static box => CaptureItem(box.Item, -1, null) with { QuestBox = box.Slot }));
 
-        return new SavedItems(1, items.ToArray(), character.InventoryRevision, character.InventoryOperations.ToArray(),
-            character.ServiceOperations.ToArray(), character.BagPage, character.ShopPurchases.ToArray());
+        return new SavedItems(1, items.ToArray(), character.InventoryRevision, StoredHistory.Newest(character.InventoryOperations),
+            StoredHistory.Newest(character.ServiceOperations), character.BagPage, StoredHistory.Newest(character.ShopPurchases));
     }
 
     public static SavedItems CaptureEquipment(PlayerCharacter character)
@@ -168,7 +168,7 @@ public static class CharacterStateCodec
         }
 
         return new SavedSkills(1, character.SkillPoints, character.EliteSkillPoints, skills,
-            character.ProgressionRevision, character.ProgressionOperations.ToArray());
+            character.ProgressionRevision, StoredHistory.Newest(character.ProgressionOperations));
     }
 
     internal static SavedItem CaptureItem(ItemInstance item, int anchor, EquipmentSlot? slot)
@@ -237,9 +237,12 @@ public static class CharacterStateCodec
         return state;
     }
 
+    // Longer owned-state JSON is corrupt: a full bag, belt and warehouse with their histories take a small part of it.
+    internal const int MaxStateLength = 4 * 1024 * 1024;
+
     internal static bool IsBlank(JsonText json, JsonValueKind expected)
     {
-        if (string.IsNullOrWhiteSpace(json.Value) || json.Value.Length > 65536)
+        if (string.IsNullOrWhiteSpace(json.Value) || json.Value.Length > MaxStateLength)
         {
             throw new InvalidDataException("Invalid owned-state JSON size.");
         }

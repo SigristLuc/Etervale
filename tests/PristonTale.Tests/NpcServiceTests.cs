@@ -311,11 +311,7 @@ internal static class NpcServiceTests
         var owned = character.FindOwnedItem(axe.InstanceId);
         Assert.True(repaired.Outcome.Ok && character.Money == 936 && owned.DurabilityCurrent == owned.DurabilityMax, "repair cost or durability differs");
 
-        fixture.Characters.BeforeUpdate = _ => Task.FromResult(false);
         var sell = new NpcServiceCommand(Guid.NewGuid(), npc, NpcServiceKind.Shop, NpcServiceAction.Sell, character.InventoryRevision, ItemId: axe.InstanceId);
-        Assert.True((await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, sell))).Outcome.Status == NpcServiceStatus.StorageFailed
-            && character.FindOwnedItem(axe.InstanceId) is not null && character.Money == 936, "a failed write sold the item");
-        fixture.Characters.BeforeUpdate = null;
         var sold = await WorldPump.RunAsync(world, service.RequestAsync(session.SessionToken, sell));
         Assert.True(sold.Outcome.Ok && character.FindOwnedItem(axe.InstanceId) is null && character.Money == 948
             && sold.Quotes!.Items.All(quote => quote.ItemId != axe.InstanceId), "sale proceeds or quotes differ");
@@ -526,7 +522,7 @@ internal static class NpcServiceTests
             var world = new WorldServer(holder, catalog);
             var sessions = new SessionRegistry();
             var session = sessions.Create(1, "owner");
-            var sessionService = new SessionAppService(sessions, classes, characters, catalog, world, holder);
+            var sessionService = new SessionAppService(sessions, classes, characters, new ImmediateSaves(characters), catalog, world, holder);
             Assert.True((await sessionService.EnterWorldAsync(session.SessionToken, starter.Name)).Ok && session.TryBeginPlay(), "entry failed");
             var outbox = Channel.CreateUnbounded<WorldSnapshot>();
             var player = WorldPlayerFactory.Create(session);
@@ -538,7 +534,7 @@ internal static class NpcServiceTests
                 World = world,
                 NpcId = placed.EntityId,
                 Session = session,
-                Npc = new NpcAppService(sessions, characters, warehouses, world, holder),
+                Npc = new NpcAppService(sessions, new ImmediateSaves(characters), warehouses, world, holder),
                 Characters = characters,
                 Warehouses = warehouses,
                 Player = player,

@@ -75,7 +75,7 @@ internal static class DeathPenaltyTests
 
     private static async Task<RestartReply> Restart(SpecialItemTests.Harness harness, RestartChoice choice)
     {
-        var service = new RestartAppService(harness.Sessions, harness.Repository, harness.World);
+        var service = new RestartAppService(harness.Sessions, new ImmediateSaves(harness.Repository), harness.World);
         var reply = service.RestartAsync(harness.Session.SessionToken, new RestartCommand(Guid.NewGuid(), choice));
         await harness.AdvanceAsync(reply);
         return await reply;

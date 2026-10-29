@@ -19,7 +19,7 @@ public sealed record SavedPremium(int Version, SavedPremiumTimer[] Timers, Appli
             .Select(static timer => new SavedPremiumTimer(timer.Kind, timer.Value, timer.DurationSeconds, timer.ExpiresAtSeconds))
             .ToArray();
         var premium = character.Premium;
-        return new SavedPremium(1, timers, character.ItemUses.ToArray(), premium.GravityScrolls, premium.BigHeadMode,
+        return new SavedPremium(1, timers, StoredHistory.Newest(character.ItemUses), premium.GravityScrolls, premium.BigHeadMode,
             premium.BigHeadExpiresAtSeconds, premium.ClockSeconds);
     }
 

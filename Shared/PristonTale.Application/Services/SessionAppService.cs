@@ -2,6 +2,7 @@ using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.World.Npcs;
 using System.Numerics;
 using System.Text.Json;
+using PristonTale.Application.Saves;
 using PristonTale.Application.Sessions;
 using PristonTale.Application.World;
 using PristonTale.Persistence.Abstractions.Characters;
@@ -19,6 +20,7 @@ public sealed class SessionAppService
     private readonly ISessionRegistry _sessions;
     private readonly CharacterClassRegistry _classes;
     private readonly ICharacterRepository _characters;
+    private readonly ICharacterSaves _saves;
     private readonly WorldCatalog _world;
     private readonly WorldServer? _host;
     private readonly DurableOperations _durable;
@@ -29,6 +31,7 @@ public sealed class SessionAppService
         ISessionRegistry sessions,
         CharacterClassRegistry classes,
         ICharacterRepository characters,
+        ICharacterSaves saves,
         WorldCatalog world,
         WorldServer? host = null,
         WorldDataHolder? worldData = null,
@@ -37,7 +40,8 @@ public sealed class SessionAppService
         _sessions = sessions;
         _classes = classes;
         _characters = characters;
-        _durable = new DurableOperations(characters);
+        _saves = saves;
+        _durable = new DurableOperations(saves);
         _world = world;
         _host = host;
         _worldData = worldData ?? new WorldDataHolder();
@@ -60,8 +64,22 @@ public sealed class SessionAppService
         var ready = false;
         try
         {
-            var record = await _characters.FindByNameForAccountAsync(session.AccountId, characterName ?? string.Empty, ct);
-            if (record is null)
+            var found = await _characters.FindByNameForAccountAsync(session.AccountId, characterName ?? string.Empty, ct);
+            if (found is null)
+            {
+                return EnterWorldOutcome.Denied(EnterWorldFailure.NotFound);
+            }
+
+            if (!_sessions.TryClaimCharacter(found.Id, sessionToken))
+            {
+                return EnterWorldOutcome.Denied(EnterWorldFailure.AlreadyActive);
+            }
+
+            claimedCharacter = found.Id;
+            // The previous session's leave save may have been stored, and its claim released, after the first read: the
+            // record is read again under the claim, when nothing else writes it.
+            var record = await _characters.FindByNameForAccountAsync(session.AccountId, found.Name, ct);
+            if (record is null || record.Id != found.Id)
             {
                 return EnterWorldOutcome.Denied(EnterWorldFailure.NotFound);
             }
@@ -70,13 +88,6 @@ public sealed class SessionAppService
             {
                 return EnterWorldOutcome.Denied(EnterWorldFailure.InvalidSavedClassOrField);
             }
-
-            if (!_sessions.TryClaimCharacter(record.Id, sessionToken))
-            {
-                return EnterWorldOutcome.Denied(EnterWorldFailure.AlreadyActive);
-            }
-
-            claimedCharacter = record.Id;
             var attributes = new CharacterAttributes(record.Strength, record.Spirit, record.Talent, record.Agility, record.Health);
             var character = new PlayerCharacter(_classes.Get((PlayerClass)record.JobCode), record.Name, record.Level, attributes);
             try
@@ -110,6 +121,7 @@ public sealed class SessionAppService
             session.CharacterName = record.Name;
             session.Character = character;
             session.Loaded = record;
+            session.ResumeSaves(record.SaveSeq);
             session.FieldId = field.FieldCode;
             session.SpawnPosition = spawn;
             session.InVillage = field.State == FieldState.Village;
@@ -154,7 +166,8 @@ public sealed class SessionAppService
 
     public Task<bool> SaveCharacterAsync(string sessionToken, CancellationToken ct = default) => SaveAsync(sessionToken, null, ct);
 
-    // Stores the capture the world took as the player left (WorldServer.LeaveAsync).
+    // Stores the capture the world took as the player left (WorldServer.LeaveAsync). A leave save completes once storage
+    // has it (or, as the server stops, the save journal), so the character is not released before.
     public Task<bool> SaveLeftCharacterAsync(string sessionToken, CharacterSaveSnapshot left, CancellationToken ct = default) =>
         SaveAsync(sessionToken, left, ct);
 
@@ -181,7 +194,7 @@ public sealed class SessionAppService
                 return false;
             }
 
-            return await _characters.UpdateAsync(snapshot.Encode(), ct);
+            return await _saves.SaveAsync(session, snapshot);
         }
         finally
         {
@@ -214,7 +227,6 @@ public sealed class SessionAppService
             return rejected("invalid session");
         }
 
-        // A pickup that was not stored puts its ground item back.
         using var lease = await _durable.AdmitAsync(_sessions, token, ct);
         return await lease.RunAsync(prepare, commit, prepared => prepared.Outcome,
             failure => rejected(failure switch
@@ -224,6 +236,11 @@ public sealed class SessionAppService
                 DurableFailure.StorageFailed => "storage rejected operation; character unchanged",
                 _ => "character is not playing"
             }),
-            abort: (_, prepared) => prepared is PreparedPickupOperation ? _host.AbortCharacterOperationAsync(prepared) : Task.CompletedTask);
+            // An item or gold thrown to the ground is stored before it lands there, so no crash keeps it in the bag and on
+            // the ground; any other change is stored in the background.
+            async (session, prepared) => await _characters.UpdateAsync(session.Stamp(prepared.Snapshot!), CancellationToken.None)
+                ? null
+                : DurableFailure.StorageFailed,
+            storeFirst: static prepared => prepared is PreparedThrowOperation);
     }
 }

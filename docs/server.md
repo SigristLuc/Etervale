@@ -20,6 +20,7 @@ layouts live in [protocol.md](protocol.md).
 | [Program.cs](../Server/PristonTale.Server/Program.cs) | Generic host: `Host.CreateApplicationBuilder(args)`, `AddPristonServer()`, `Run()`. No HTTP endpoints. |
 | [Hosting/HostingExtensions.cs](../Server/PristonTale.Server/Hosting/HostingExtensions.cs) | `AddPristonServer`: every DI registration, provider selection, `WorldServerOptions`, `DefaultGamePort` (10009, the default of `Network:Port`). |
 | `Hosting/DatabaseMigrationService.cs` | Hosted service: `IDatabaseMigrator.MigrateAsync` on start. |
+| `Hosting/CharacterSaveService.cs` | Hosted service: stores the save journal on start, runs `CharacterSaveQueue` until the host stops, logs its counts every `Server:ReportSeconds`. |
 | `Hosting/WorldDataLoadService.cs` | Hosted service: `WorldDataAppService.BuildAsync` into `WorldDataHolder.Current`; logs catalog counts. |
 | `Hosting/FieldTerrainLoadService.cs` | Hosted service: reads every field's stage `.smd` collision in parallel into `FieldTerrainCatalog`. |
 | `World/WorldTickService.cs` | `BackgroundService` calling `WorldServer.Tick(1/20 s, tick)` on a `PeriodicTimer`; logs tick percentiles, process CPU, allocation rate, collections, heap and working set. |
@@ -49,12 +50,19 @@ registration order. An exception from any `StartAsync` stops the host before the
 | Order | Service | Work | Fails startup when |
 | --- | --- | --- | --- |
 | 1 | `DatabaseMigrationService` | Applies pending FluentMigrator migrations of the chosen provider. | The database cannot be opened or migrated. |
-| 2 | `WorldDataLoadService` | Loads items, monsters, NPCs, field spawns and motion timings from the database. | Repository errors only. An empty, un-imported database loads zero rows and starts an empty world. |
-| 3 | `FieldTerrainLoadService` | Loads the collision of all 43 fields of `WorldCatalog.AllFields` (the quest arena included) (`FieldDef.StageSmd`). | No assets directory, or any stage missing or unreadable, unless `Assets:AllowMissingTerrain=true`. |
-| 4 | `WorldTickService` | Starts the 20 Hz tick loop. | Never; a throwing tick is logged and the loop continues. |
-| 5 | `ServerSettingsService` | Adds the missing `server_settings` rows with their defaults, reads the table and applies it on the tick, then reads it again every `server.settings_reload_minutes`. | The table cannot be read at start; later failures keep the settings in force. |
-| 6 | `GameTcpServer` | Loads the TLS certificate, binds `[::]:<Network:Port>` (10009) dual-stack, backlog 512, and accepts. | The port is in use (the host stops). |
-| 7 | `QuestUpkeepService` | Stores the quest work the tick queues (quest drops, quest weapon growth and expiry). | Never; a failed upkeep is logged and retried on the field's next check. |
+| 2 | `CharacterSaveService` | Stores the character save journal a previous run left (`save-journal/` beside the executable), then starts the background character store. | Never; a journal storage refuses is retried every 5 s, holding the start, because a player must not load a character older than its journaled capture. |
+| 3 | `WorldDataLoadService` | Loads items, monsters, NPCs, field spawns and motion timings from the database. | Repository errors only. An empty, un-imported database loads zero rows and starts an empty world. |
+| 4 | `FieldTerrainLoadService` | Loads the collision of all 43 fields of `WorldCatalog.AllFields` (the quest arena included) (`FieldDef.StageSmd`). | No assets directory, or any stage missing or unreadable, unless `Assets:AllowMissingTerrain=true`. |
+| 5 | `WorldTickService` | Starts the 20 Hz tick loop. | Never; a throwing tick is logged and the loop continues. |
+| 6 | `ServerSettingsService` | Adds the missing `server_settings` rows with their defaults, reads the table and applies it on the tick, then reads it again every `server.settings_reload_minutes`. | The table cannot be read at start; later failures keep the settings in force. |
+| 7 | `GameTcpServer` | Loads the TLS certificate, binds `[::]:<Network:Port>` (10009) dual-stack, backlog 512, and accepts. | The port is in use (the host stops). |
+| 8 | `QuestUpkeepService` | Applies the quest work the tick queues (quest drops, quest weapon growth and expiry) and queues the character for storage. | Never; a failed upkeep is logged and retried on the field's next check. |
+
+Shutdown runs the services in reverse: the game server closes every connection and awaits their leave saves while the
+tick still runs, and the character store stops last. Once the host is stopping, the first write storage refuses sends
+everything the store holds, and every later capture, to the save journal without another attempt; one failed attempt
+(a connection timeout, 15 s) is all a database that is down costs, inside the host's 60 s shutdown timeout
+(`HostOptions.ShutdownTimeout`, set by `AddPristonServer`).
 
 Terrain details:
 
@@ -80,10 +88,11 @@ All registrations are singletons in `HostingExtensions.AddPristonServer`.
 | `CharacterClassRegistry` | type | Class definitions (`PristonTale.Simulation.Characters`). |
 | `AuthAppService`, `CharacterAppService`, `SessionAppService`, `NpcAppService`, `QuestAppService` | types | Use cases called by `ClientSession` (and `QuestUpkeepService`). |
 | `WorldCatalog` (`PristonTale.Simulation.World`) | `_ => new WorldCatalog()` | Factory so DI does not pick the collection constructor with an empty field set. |
-| Persistence | `AddPristonSqlite(path)` or `AddPristonPostgres(connectionString)` | Repositories, `IDbConnectionFactory`, `IDatabaseMigrator`, FluentMigrator runner. See [persistence.md](persistence.md). |
+| Persistence | `AddPristonSqlite(path)` or `AddPristonPostgres(connectionString, Database:MaxPoolSize)` | Repositories, `IDbConnectionFactory`, `IDatabaseMigrator`, FluentMigrator runner. See [persistence.md](persistence.md). |
 | `WorldDataAppService`, `WorldDataHolder` | types | Catalog build and the swap-in holder read by the world and the encoders. |
 | `FieldTerrainCatalog` | type | Filled by `FieldTerrainLoadService`. |
-| `WorldServer` | factory with `WorldServerOptions` (only `World:MaxPendingCommandsPerPlayer` from the host) | The game settings arrive from the settings table through `ApplyOptionsAsync`. |
+| `WorldServer` | factory with `WorldServerOptions` (`World:MaxPendingCommandsPerPlayer` and `World:CheckpointSeconds` from the host) and the save queue | The game settings arrive from the settings table through `ApplyOptionsAsync`. |
+| `CharacterSaveQueue`, `ICharacterSaves` | factory: the character repository, `SaveJournal` (`Database:SaveJournalPath`), `Database:SaveBatchSize` | The background character store ([application.md](application.md#character-saves)); a failed batch is logged as an error. |
 | `ServerSettingsAppService` | factory | Reads the settings table and applies it to the world, `GameMasterCommands.Options` and `GameServerControl` (name, player limit). |
 | `IServerStatusReadModel` | `WorldStatusReadModel` | Registered for status queries; nothing in the server consumes it. |
 
@@ -117,9 +126,13 @@ that limit; negative values stop startup. The game settings live in the database
 | `Database:Provider` | `Sqlite` | `HostingExtensions` | `Sqlite` or `Postgres`; anything else throws. |
 | `Database:SqlitePath` | `data/pristontale.db` | `HostingExtensions` | SQLite file; relative to the solution root (see above). |
 | `ConnectionStrings:Postgres` | local compose string | `HostingExtensions` | Required when the provider is `Postgres`. |
+| `Database:MaxPoolSize` | 20 | `AddPristonPostgres` | PostgreSQL connections at most; keep it below the server's `max_connections`. |
+| `Database:SaveBatchSize` | 100 | `CharacterSaveQueue` | Characters stored per transaction; at least 1. |
+| `Database:SaveJournalPath` | `save-journal` | `CharacterSaveService` | Directory of the save journal, relative to the executable. |
 | `Assets:Root` | auto-detected `assets` | `FieldTerrainLoadService` | Directory holding the original asset tree with the field stages. |
 | `Assets:AllowMissingTerrain` | `false` | `FieldTerrainLoadService` | Start without an assets directory or with missing/unreadable stages. |
 | `World:MaxPendingCommandsPerPlayer` | 64 | `WorldServerOptions` | Commands one player may have waiting for the tick; at least 1. |
+| `World:CheckpointSeconds` | 60 | `WorldServerOptions` | Every playing character is captured for storage once per this many seconds; at least 1. |
 | `Network:Port` | 10009 | `GameTcpServer` | TCP game port, 0 to 65535; 0 binds a free port (in-process tests read it from `GameTcpServer.BoundPort`). The client always connects to 10009. |
 | `Network:Certificate:Path` | `data/server-certificate.pfx` | `ServerCertificate` | TLS certificate (PKCS#12); relative paths resolve from the solution root. Created self-signed when missing. |
 | `Network:Certificate:Password` | none | `ServerCertificate` | Password of the PKCS#12 file. |
@@ -349,8 +362,10 @@ or login timeout, packet flood, protocol error, send backlog, presence overflow,
 - An NPC click is recognised only when the `AttackRequest` target is an NPC the receiver's `PresenceEncoder` currently
   knows; an unknown entity id becomes an attack target change.
 - The server owns the character record; the client never sends one. `ClientSession` saves the
-  character on `LeaveWorld` and on disconnect (`SessionAppService.SaveCharacterAsync`); inventory, progression and NPC
-  transactions persist their own changes.
+  character on `LeaveWorld` and on disconnect (`SessionAppService.SaveCharacterAsync`, which waits until stored);
+  inventory, progression and NPC transactions queue their own changes.
+- The save journal is not a backup: it holds only captures storage refused while the server stopped, and the next start
+  stores it before players enter. Do not delete it while the server is down unless those captures are to be lost.
 
 ## Related
 

@@ -5,6 +5,7 @@ using PristonTale.Simulation.World.Npcs;
 using System.Collections.Concurrent;
 using System.Numerics;
 using System.Threading.Channels;
+using PristonTale.Application.Saves;
 using PristonTale.Application.Sessions;
 using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Combat;
@@ -43,6 +44,7 @@ public sealed partial class WorldServer
     private readonly BossSpawnSchedule _bossSchedule;
     private readonly FieldTerrainCatalog _terrain;
     private WorldServerOptions _options;
+    private readonly ICharacterSaves? _saves;
     // Commands each player has waiting in the shared queue; entries are dropped when the player leaves the world.
     private readonly ConcurrentDictionary<ulong, PendingCommands> _pendingByPlayer = new();
 
@@ -68,8 +70,10 @@ public sealed partial class WorldServer
         TimeProvider? clock = null,
         ISimRng? bossRng = null,
         FieldTerrainCatalog? terrain = null,
-        WorldServerOptions? options = null)
+        WorldServerOptions? options = null,
+        ICharacterSaves? saves = null)
     {
+        _saves = saves;
         _options = (options ?? WorldServerOptions.Default).Validated();
         _worldData = worldData;
         _terrain = terrain ?? new FieldTerrainCatalog();
@@ -325,6 +329,26 @@ public sealed partial class WorldServer
         return null;
     }
 
+    // Each playing character is captured once per CheckpointSeconds, on the tick its entity id falls on, unless an
+    // operation holds its save gate (that operation queues its own capture).
+    private void Checkpoint(uint serverTick)
+    {
+        if (_saves is null)
+        {
+            return;
+        }
+
+        var period = (ulong)_options.CheckpointSeconds * TickHz;
+        foreach (var connection in _connections.Values)
+        {
+            if (connection.Session is { IsPlaying: true } session && (serverTick + connection.Player.EntityId) % period == 0
+                && session.SaveGate.CurrentCount > 0 && CaptureForSave(session, connection) is { } snapshot)
+            {
+                _saves.Enqueue(session, snapshot);
+            }
+        }
+    }
+
     // The save of a character that left dead while an operation held its gate, once that operation is done.
     public Task<CharacterSaveSnapshot?> CaptureLeftAsync(PlayerSession session)
     {
@@ -528,19 +552,6 @@ public sealed partial class WorldServer
         return Volatile.Read(ref _activeCounts);
     }
 
-    public Task<bool> AbortCharacterOperationAsync<T>(PreparedCharacterOperation<T> operation)
-    {
-        return EnqueueAsync(NoOwner, () =>
-        {
-            if (operation is PreparedPickupOperation pickup)
-            {
-                pickup.Ground.Resolve(pickup.DropId, pickup.OperationId, committed: false);
-            }
-
-            return true;
-        }, waitForCapacity: true);
-    }
-
     private const ulong NoOwner = 0;
 
     public int PendingCommandsOf(ulong entityId) => _pendingByPlayer.TryGetValue(entityId, out var pending) ? Volatile.Read(ref pending.Count) : 0;
@@ -632,6 +643,7 @@ public sealed partial class WorldServer
         var night = WorldClock.IsNight(WorldClock.HoursAt(GameClockMs));
         Parallel.ForEach(_activeFields, field => StepField(field, dt, serverTick, bossHour, nowSeconds, night));
         ApplyQuestTravels();
+        Checkpoint(serverTick);
 
         if (!_membershipChanged)
         {

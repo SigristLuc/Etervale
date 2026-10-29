@@ -54,7 +54,7 @@ internal sealed class ChatFixture
         GameMasters = new GameMasterCommands(Directory, World, Data, options, Server, Audit)
         {
             Accounts = Accounts,
-            Characters = Characters,
+            Saves = new ImmediateSaves(Characters),
             Warehouses = Warehouses,
             NowMs = () => NowMs
         };
@@ -299,6 +299,16 @@ internal sealed class MemoryCharacterBook : ICharacterRepository
         Updates++;
         Records[record.Name] = record;
         return true;
+    }
+
+    public async Task<int> SaveAllAsync(IReadOnlyList<CharacterRecord> records, CancellationToken ct = default)
+    {
+        foreach (var record in records)
+        {
+            await UpdateAsync(record, ct);
+        }
+
+        return records.Count;
     }
 
     // Runs before a write of several characters; false refuses it with nothing written.

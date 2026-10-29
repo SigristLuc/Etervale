@@ -8,6 +8,7 @@ using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Persistence.Abstractions.GameMasters;
 using PristonTale.Persistence.Abstractions.Settings;
 using PristonTale.Persistence.Abstractions.Warehouses;
+using PristonTale.Application.Saves;
 using PristonTale.Application.Sessions;
 using PristonTale.Application.World;
 using PristonTale.Server.Net;
@@ -53,13 +54,15 @@ public static class HostingExtensions
         {
             var connectionString = builder.Configuration.GetConnectionString("Postgres")
                 ?? throw new InvalidOperationException("ConnectionStrings:Postgres is required for the Postgres provider.");
-            builder.Services.AddPristonPostgres(connectionString);
+            builder.Services.AddPristonPostgres(connectionString,
+                builder.Configuration.GetValue("Database:MaxPoolSize", PostgresPersistenceServiceCollectionExtensions.DefaultMaxPoolSize));
         }
         else
         {
             throw new InvalidOperationException($"Unsupported database provider '{provider}'. Use Sqlite or Postgres.");
         }
         builder.Services.AddHostedService<DatabaseMigrationService>();
+        AddCharacterSaves(builder);
 
         builder.Services.AddSingleton<WorldDataAppService>();
         builder.Services.AddSingleton<WorldDataHolder>();
@@ -70,14 +73,16 @@ public static class HostingExtensions
         var worldOptions = new WorldServerOptions
         {
             MaxPendingCommandsPerPlayer = builder.Configuration.GetValue("World:MaxPendingCommandsPerPlayer",
-                WorldServerOptions.DefaultMaxPendingCommandsPerPlayer)
+                WorldServerOptions.DefaultMaxPendingCommandsPerPlayer),
+            CheckpointSeconds = builder.Configuration.GetValue("World:CheckpointSeconds", WorldServerOptions.DefaultCheckpointSeconds)
         }.Validated();
         builder.Services.AddSingleton(worldOptions);
         builder.Services.AddSingleton(services => new WorldServer(
             services.GetRequiredService<WorldDataHolder>(),
             services.GetRequiredService<PristonTale.Simulation.World.WorldCatalog>(),
             terrain: services.GetRequiredService<FieldTerrainCatalog>(),
-            options: worldOptions));
+            options: worldOptions,
+            saves: services.GetRequiredService<ICharacterSaves>()));
         builder.Services.AddHostedService<WorldTickService>();
         AddChat(builder);
         builder.Services.AddSingleton(services =>
@@ -98,6 +103,33 @@ public static class HostingExtensions
         return builder;
     }
 
+    // The save journal lives beside the server executable (Database:SaveJournalPath, relative to it).
+    private static void AddCharacterSaves(HostApplicationBuilder builder)
+    {
+        var journal = Path.Combine(AppContext.BaseDirectory, builder.Configuration["Database:SaveJournalPath"] ?? "save-journal");
+        var batchSize = builder.Configuration.GetValue("Database:SaveBatchSize", CharacterSaveQueue.DefaultBatchSize);
+        if (batchSize < 1)
+        {
+            throw new InvalidOperationException("Database:SaveBatchSize must be at least 1.");
+        }
+
+        builder.Services.AddSingleton(services =>
+        {
+            var logger = services.GetRequiredService<ILogger<CharacterSaveQueue>>();
+            return new CharacterSaveQueue(services.GetRequiredService<ICharacterRepository>(), new SaveJournal(journal), batchSize)
+            {
+                Failed = exception => logger.LogError(exception, "A character save batch failed; it is retried")
+            };
+        });
+        builder.Services.AddSingleton<ICharacterSaves>(services => services.GetRequiredService<CharacterSaveQueue>());
+        builder.Services.AddHostedService<CharacterSaveService>();
+        // Room for the leave saves of every player: once stopping, the store journals what storage refuses after one
+        // failed attempt, which a connection timeout (15 s) bounds.
+        builder.Services.Configure<HostOptions>(options => options.ShutdownTimeout = ShutdownTimeout);
+    }
+
+    private static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(60);
+
     private static void AddChat(HostApplicationBuilder builder)
     {
         builder.Services.AddSingleton<ChatDirectory>();
@@ -110,7 +142,7 @@ public static class HostingExtensions
                 services.GetRequiredService<IGameMasterRepository>(), ex => logger.LogError(ex, "Could not write the game-master audit."))
             {
                 Accounts = services.GetRequiredService<IAccountRepository>(),
-                Characters = services.GetRequiredService<ICharacterRepository>(),
+                Saves = services.GetRequiredService<ICharacterSaves>(),
                 Warehouses = services.GetRequiredService<IWarehouseRepository>()
             };
         });

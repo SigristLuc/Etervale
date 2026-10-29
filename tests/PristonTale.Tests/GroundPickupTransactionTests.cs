@@ -19,7 +19,7 @@ internal static class GroundPickupTransactionTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("pickup reserves through storage, rolls back failure and replays without duplication", DurableAsync);
+        yield return ("a pickup commits at once, its capture goes to storage, and a retry replays without duplication", DurableAsync);
         yield return ("a thrown item (the asked part of a stack) or gold leaves the character and lies on the ground where the player stands", ThrowAsync);
     }
 
@@ -47,7 +47,7 @@ internal static class GroundPickupTransactionTests
         var world = new WorldServer(holder, catalog);
         var sessions = new SessionRegistry();
         var session = sessions.Create(1, "owner");
-        var service = new SessionAppService(sessions, classes, repository, catalog, world, holder);
+        var service = new SessionAppService(sessions, classes, repository, new ImmediateSaves(repository), catalog, world, holder);
         Assert.True((await service.EnterWorldAsync(session.SessionToken, starter.Name)).Ok && session.TryBeginPlay(), "fixture entry failed");
         var outbox = new WorldOutbox();
         await WorldPump.RunAsync(world, world.JoinAsync(3, WorldPlayerFactory.Create(session), outbox.Writer, session));
@@ -72,6 +72,12 @@ internal static class GroundPickupTransactionTests
         Assert.True(Enumerable.Range(0, carried.Capacity).Sum(index => carried[index]?.Definition == potion ? carried[index]!.Count : 0) == 3
             && Enumerable.Range(0, carried.Capacity).All(index => carried[index]?.Definition != sword)
             && Enumerable.Range(0, carried.Capacity).Any(index => carried[index]?.Definition == quest), "the bag kept the wrong items");
+        // A throw is stored before it lands: storage refusing it keeps the item in the bag.
+        repository.BeforeUpdate = _ => Task.FromResult(false);
+        var unstored = await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, Throw(potion, 1)));
+        repository.BeforeUpdate = null;
+        Assert.True(!unstored.Ok && Enumerable.Range(0, carried.Capacity).Sum(index => carried[index]?.Definition == potion ? carried[index]!.Count : 0) == 3,
+            "a throw storage refused left the bag");
 
         GroundDropState[] ground = [];
         for (uint tick = 0; tick < 20 && ground.Length < 3; tick++)
@@ -123,7 +129,7 @@ internal static class GroundPickupTransactionTests
         var world = new WorldServer(holder, catalog);
         var sessions = new SessionRegistry();
         var session = sessions.Create(1, "owner");
-        var service = new SessionAppService(sessions, classes, repository, catalog, world, holder);
+        var service = new SessionAppService(sessions, classes, repository, new ImmediateSaves(repository), catalog, world, holder);
         Assert.True((await service.EnterWorldAsync(session.SessionToken, starter.Name)).Ok && session.TryBeginPlay(), "fixture entry failed");
         var outbox = new WorldOutbox();
         await WorldPump.RunAsync(world, world.JoinAsync(3, WorldPlayerFactory.Create(session), outbox.Writer, session));
@@ -159,22 +165,9 @@ internal static class GroundPickupTransactionTests
         Assert.True(await WorldPump.RunAsync(world, world.ReportMovementAsync(3, session.EntityId, drop.Position, 0f, true, true, 0)) == MovementVerdict.Accepted,
             "the walk to the drop was refused");
         long money = session.Character.Money;
-        var writing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var storage = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        repository.BeforeUpdate = _ =>
-        {
-            writing.TrySetResult();
-            return storage.Task;
-        };
         var command = new InventoryCommand(Guid.NewGuid(), session.Character.InventoryRevision, InventoryAction.Pickup, drop.Id, 0, 1, default);
-        var pending = service.ApplyInventoryAsync(session.SessionToken, command);
-        await WorldPump.RunAsync(world, writing.Task);
-        Assert.True(session.Character.Money == money && !pending.IsCompleted, "pickup appeared before storage committed");
-        storage.SetResult(false);
-        Assert.True(!(await WorldPump.RunAsync(world, pending)).Ok, "storage rejection reported success");
-        repository.BeforeUpdate = null;
-        Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, command))).Ok, "failed storage left drop reserved");
-        Assert.True(session.Character.Money == money + 8, "gold pickup changed the wrong amount");
+        Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, command))).Ok, "the pickup failed");
+        Assert.True(session.Character.Money == money + 8 && repository.Record.Money == money + 8, "the gold was not taken, or its capture not stored");
         int writes = repository.UpdateCount;
         Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, command))).Ok && repository.UpdateCount == writes,
             "retry duplicated ground reward or storage");

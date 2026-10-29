@@ -1,4 +1,5 @@
 using System.Text.Json;
+using PristonTale.Application.Saves;
 using PristonTale.Application.Sessions;
 using PristonTale.Application.World;
 using PristonTale.Persistence.Abstractions.Characters;
@@ -7,16 +8,16 @@ using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Application.Services;
 
-// Typed NPC services outside the tick: the world validates and prepares, storage is written here, then the world commits
-// (DurableOperations).
+// Typed NPC services outside the tick: the world validates and prepares, then commits (DurableOperations). A change to the
+// account warehouse is stored with the character before its commit; any other change is stored in the background.
 public sealed class NpcAppService(
     ISessionRegistry sessions,
-    ICharacterRepository characters,
+    ICharacterSaves saves,
     IWarehouseRepository warehouses,
     WorldServer world,
     WorldDataHolder worldData)
 {
-    private readonly DurableOperations _durable = new(characters);
+    private readonly DurableOperations _durable = new(saves);
 
     public Task<NpcInteraction> InteractAsync(string sessionToken, ulong npcId)
     {
@@ -49,20 +50,15 @@ public sealed class NpcAppService(
                 DurableFailure.Conflict => Failed(NpcServiceStatus.Conflict, "the warehouse changed elsewhere; open it again"),
                 _ => Failed(NpcServiceStatus.Rejected, "character is not playing")
             },
-            StoreAsync);
+            StoreAsync,
+            storeFirst: static prepared => prepared.Warehouse is not null);
     }
 
-    // The character, and the warehouse with it when the service changed it. A warehouse stored elsewhere since this
-    // session read it is a conflict, and the session drops its copy.
+    // A change to the warehouse is stored with the character. A warehouse stored elsewhere since this session read it is
+    // a conflict, and the session drops its copy.
     private async Task<DurableFailure?> StoreAsync(PlayerSession session, PreparedNpcOperation prepared)
     {
-        var record = prepared.Snapshot!.Encode();
-        if (prepared.Warehouse is null)
-        {
-            return await characters.UpdateAsync(record, CancellationToken.None) ? null : DurableFailure.StorageFailed;
-        }
-
-        if (await warehouses.SaveWithCharacterAsync(record, WarehouseStateCodec.Capture(session.AccountId, prepared.Warehouse),
+        if (await warehouses.SaveWithCharacterAsync(session.Stamp(prepared.Snapshot!), WarehouseStateCodec.Capture(session.AccountId, prepared.Warehouse!),
                 prepared.ExpectedWarehouseRevision, CancellationToken.None))
         {
             return null;

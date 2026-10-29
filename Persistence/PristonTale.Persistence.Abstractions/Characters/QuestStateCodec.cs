@@ -48,7 +48,7 @@ public static class QuestStateCodec
         var saved = new SavedQuest(active.Code, active.State, active.Target, active.Kills, active.KillsNeeded, active.Variant, active.Timer, active.TimerMs,
             active.StartLevel, active.WeaponId, active.RingId, active.WeaponCreatedUnixMs, active.WeaponStage, active.WeaponKillsLeft, active.WeaponLifeBonus,
             active.WeaponManaRegenTenths, active.ArenaWon);
-        var operations = journal.Operations
+        var operations = StoredHistory.Newest(journal.Operations)
             .Select(static applied => new SavedQuestOperation(applied.Command.OperationId, applied.Command.NpcEntityId, applied.Command.Action,
                 applied.Command.Code, applied.Command.State, applied.Command.Choice, applied.Revision))
             .ToArray();

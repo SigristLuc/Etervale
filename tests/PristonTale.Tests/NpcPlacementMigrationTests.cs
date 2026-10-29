@@ -46,8 +46,9 @@ internal static class NpcPlacementMigrationTests
             Assert.True(
                 await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM pragma_table_info('characters') WHERE name = 'derived_stats'") == 0
                 && await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM pragma_table_info('warehouses') WHERE name = 'buy_area_count'") == 0
-                && await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM sqlite_master WHERE name = 'mailboxes'") == 0,
-                "a column or table nothing reads is still there");
+                && await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM sqlite_master WHERE name = 'mailboxes'") == 0
+                && await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM pragma_table_info('characters') WHERE name = 'save_seq'") == 1,
+                "a column or table nothing reads is still there, or the save sequence is missing");
             Assert.True(await connection.ExecuteScalarAsync<int>(
                     "SELECT COUNT(*) FROM pragma_table_info('field_npcs') WHERE name IN ('quest_trigger', 'size_level')") == 0,
                 "a placement still stores the class or size that belongs to its NPC");

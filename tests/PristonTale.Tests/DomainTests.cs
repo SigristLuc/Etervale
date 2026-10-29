@@ -52,7 +52,7 @@ internal static class DomainTests
         var repository = new MemoryCharacters(record);
         var registry = new SessionRegistry();
         var session = registry.Create(1, "test");
-        var service = new SessionAppService(registry, classes, repository, new WorldCatalog());
+        var service = new SessionAppService(registry, classes, repository, new ImmediateSaves(repository), new WorldCatalog());
         Assert.True((await service.EnterWorldAsync(session.SessionToken, record.Name)).Ok, "entry failed");
         Assert.True(await service.SaveCharacterAsync(session.SessionToken), "save failed");
         Assert.True(repository.Record.Strength == 123 && repository.Record.Health == 127, "saved attributes changed");
@@ -88,7 +88,7 @@ internal static class DomainTests
         };
         var registry = new SessionRegistry();
         var repository = new MemoryCharacters(record);
-        var service = new SessionAppService(registry, classes, repository, new WorldCatalog());
+        var service = new SessionAppService(registry, classes, repository, new ImmediateSaves(repository), new WorldCatalog());
         var first = registry.Create(1, "same-account");
         var second = registry.Create(1, "same-account");
         var outcomes = await Task.WhenAll(
@@ -106,7 +106,7 @@ internal static class DomainTests
 
         var closingRegistry = new ClosingRegistry();
         var closingSession = closingRegistry.Create(1, "closing");
-        var closingService = new SessionAppService(closingRegistry, classes, repository, new WorldCatalog());
+        var closingService = new SessionAppService(closingRegistry, classes, repository, new ImmediateSaves(repository), new WorldCatalog());
         var closedEntry = await closingService.EnterWorldAsync(closingSession.SessionToken, record.Name);
         Assert.True(!closedEntry.Ok && !closingSession.TryBeginPlay(), "closed session became ready after hydration");
         var replacement = closingRegistry.Create(1, "replacement");

@@ -10,6 +10,9 @@ public sealed class PlayerSession
     // 0 = authenticated, 1 = loading, 2 = ready, 3 = playing, 4 = closing.
     private int _state;
 
+    // The save sequence of the character's last capture (CharacterRecord.SaveSeq).
+    private long _saveSeq;
+
     internal SemaphoreSlim SaveGate { get; } = new(1, 1);
     internal bool TryBeginEntry() => Interlocked.CompareExchange(ref _state, 1, 0) == 0;
     internal bool CompleteEntry(bool success) => Interlocked.CompareExchange(ref _state, success ? 2 : 0, 1) == 1;
@@ -41,6 +44,14 @@ public sealed class PlayerSession
     public bool LeftDead { get; set; }
 
     public CharacterRecord? Loaded { get; set; }
+
+    // Captures of the loaded character continue the sequence storage holds.
+    internal void ResumeSaves(long storedSeq) => Interlocked.Exchange(ref _saveSeq, storedSeq);
+
+    public long NextSaveSeq() => Interlocked.Increment(ref _saveSeq);
+
+    // A capture stored at once, ahead of every earlier capture of this session (a transfer between characters).
+    public CharacterRecord Stamp(CharacterSaveSnapshot snapshot) => snapshot.Encode() with { SaveSeq = NextSaveSeq() };
 
     // The account warehouse as last loaded or committed, while this session has it open; changed only under SaveGate.
     internal WarehouseStorage? Warehouse { get; set; }

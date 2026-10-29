@@ -191,7 +191,6 @@ internal static class Bot
         long lastBytes = 0;
         var nextCast = TimeSpan.FromSeconds(index % 30 / 10.0);
         var nextItem = TimeSpan.FromMilliseconds(index * 37 % options.ItemMs);
-        var page = 0;
         var clock = Stopwatch.StartNew();
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(ReportSeconds));
         while (await timer.WaitForNextTickAsync(stop))
@@ -205,23 +204,17 @@ internal static class Bot
             if (mode == BotMode.Items)
             {
                 await play.SendMovementAsync(position, 0f, false, false, 0, field, stop);
-                if (clock.Elapsed >= nextItem && world.InventoryRevision is { } revision)
+                if (clock.Elapsed >= nextItem && world.Inventory is var (revision, page))
                 {
                     nextItem = clock.Elapsed + TimeSpan.FromMilliseconds(options.ItemMs);
-                    page ^= 1;
                     var started = Stopwatch.GetTimestamp();
                     var outcome = await play.ApplyInventoryAsync(
-                        new InventoryCommand(Guid.NewGuid(), revision, InventoryAction.SwitchBagPage, Guid.Empty, page, 0, default), stop);
+                        new InventoryCommand(Guid.NewGuid(), revision, InventoryAction.SwitchBagPage, Guid.Empty, page ^ 1, 0, default), stop);
                     stats.RecordItem(Stopwatch.GetElapsedTime(started), outcome.Ok ? null : outcome.Message);
-                    // A refusal before the world (storage busy or failed) answers no revision; the expected one still holds.
+                    // A refusal before the world (save gate busy) answers no revision; the expected one still holds.
                     if (outcome.Revision > 0)
                     {
-                        world.Answered(outcome.Revision);
-                    }
-
-                    if (!outcome.Ok)
-                    {
-                        page ^= 1;
+                        world.Answered(outcome.Revision, outcome.Ok ? page ^ 1 : page);
                     }
                 }
             }
@@ -312,25 +305,36 @@ internal sealed class BotWorld(ulong self)
     // Where the server last showed this bot.
     public Vector3? Self { get; private set; }
 
-    // The inventory revision the next command expects: the last command's answer, else the last owner state.
-    public long? InventoryRevision
+    // The inventory revision the next command expects and the bag page shown: the newer of the last command's answer and
+    // the last owner state (one sent before the answer carries an older revision). Null before the first owner state.
+    public (long Revision, int Page)? Inventory
     {
         get
         {
             lock (_gate)
             {
-                return _revision;
+                return _revision is { } revision ? (revision, _page) : null;
             }
         }
     }
 
     private long? _revision;
+    private int _page;
 
-    public void Answered(long revision)
+    public void Answered(long revision, int page)
     {
         lock (_gate)
         {
+            Take(revision, page);
+        }
+    }
+
+    private void Take(long revision, int page)
+    {
+        if (revision >= (_revision ?? 0))
+        {
             _revision = revision;
+            _page = page;
         }
     }
 
@@ -340,7 +344,7 @@ internal sealed class BotWorld(ulong self)
         {
             if (update.Owner is { } owner)
             {
-                _revision = owner.InventoryRevision;
+                Take(owner.InventoryRevision, owner.BagPage);
             }
 
             foreach (var spawn in update.Spawns)

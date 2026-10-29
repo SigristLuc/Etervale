@@ -24,7 +24,7 @@ into it is described in [server.md](server.md); skill resolution details are in 
 | [`Services/SessionAppService.cs`](../Shared/PristonTale.Application/Services/SessionAppService.cs) | World entry, saves, durable inventory and progression operations (`ApplyDurableAsync`) |
 | [`Services/NpcAppService.cs`](../Shared/PristonTale.Application/Services/NpcAppService.cs) | NPC click and NPC service requests; warehouse load and joint character+warehouse write |
 | [`Services/QuestAppService.cs`](../Shared/PristonTale.Application/Services/QuestAppService.cs) | Quest requests and the quest upkeep (see [quests.md](quests.md)) |
-| `Services/ItemUseAppService.cs` | Use of a carried item: prepare, store, commit ([special-items.md](special-items.md)) |
+| `Services/ItemUseAppService.cs` | Use of a carried item: prepare, commit, then the save queue ([special-items.md](special-items.md)) |
 | `Services/PersonalShopAppService.cs`, `World/WorldServer.PersonalShops.cs`, `World/PersonalShopTransactions.cs` | Personal shops: open, close, view, and a purchase that holds and stores two characters (below) |
 | `Services/PartyAppService.cs`, `World/WorldServer.Parties.cs`, `World/Parties/Party.cs` | Parties: requests, answers, the leader's commands, the members' view and the chat roster (below) |
 | `Services/TradeAppService.cs`, `World/WorldServer.Trades.cs`, `World/Trades/Trade.cs` | Trades between players: requests, offers, locks and the exchange that holds and stores two characters (below) |
@@ -49,7 +49,8 @@ into it is described in [server.md](server.md); skill resolution details are in 
 | `World/FieldGroundLoot.cs` | Ground drops per field: ownership window, expiry, reservation for pickup, client handles |
 | `World/FieldTransition.cs` | Authorizes gate and warp field changes |
 | `World/*Transactions.cs`, `World/Prepared*Operation.cs` | Prepare side of durable operations (pickup, progression, NPC services, quests); `PreparedOperation` is the base |
-| `Services/DurableOperations.cs` | `DurableOperations`, `DurableLease`, `DurableFailure`: the admit, prepare, store, commit and abort runner every durable service uses |
+| `Services/DurableOperations.cs` | `DurableOperations`, `DurableLease`, `DurableFailure`: the admit, prepare, commit (and store-first, abort) runner every durable service uses |
+| `Saves/` | `ICharacterSaves`, `CharacterSaveQueue` (background character storage), `SaveJournal` (captures storage could not take at shutdown) |
 | `World/WorldSnapshot.cs` | Published view types: `EntityView`, `CombatEventView`, `SkillEventView`, `StatusEventView`, `WorldSnapshot` |
 | `World/WorldOutbox.cs` | Per-connection coalescing channel between the tick and the edge; pins frames on read, keeps events per tick |
 | `World/SubscriberPresence.cs` | Spawn/state/remove diff of snapshots per subscriber (used by tests; the server encoder diffs itself) |
@@ -76,7 +77,7 @@ to `PristonTale.Tests`. No sockets, packets, SQL or MonoGame.
 | `CharacterAppService.CreateCharacterAsync` | Trimmed name 3-16, defined class, valid face, unique name, `CharacterSlots.Maximum` per account, first free slot, starter record in field 3 |
 | `CharacterAppService.DeleteCharacterAsync` / `NameExistsAsync` | Account-scoped delete by name; global name check. |
 | `SessionAppService.EnterWorldAsync` | Load record, validate field and class, claim the character, `CharacterStateCodec.Restore`, clamp resources, resolve spawn, mark ready |
-| `SessionAppService.SaveCharacterAsync` | Waits for `SaveGate`; captures on the tick while playing, else from the session; writes through `ICharacterRepository.UpdateAsync`. |
+| `SessionAppService.SaveCharacterAsync` | Waits for `SaveGate`; captures on the tick while playing, else from the session; `ICharacterSaves.SaveAsync`, which completes once storage (or, at shutdown, the journal) has it. |
 | `SessionAppService.ApplyInventoryAsync` / `ApplyProgressionAsync` | Durable operations, see [Durable operations](#durable-operations). |
 | `NpcAppService.InteractAsync` / `RequestAsync` | NPC dialog and services, see [NPC services](#npc-services). |
 | `QuestAppService.RequestAsync` / `RunUpkeepAsync` | Quest steps at an NPC and the quest upkeep the tick asks for, see [quests.md](quests.md#server-authority). |
@@ -109,13 +110,18 @@ Character ownership: `TryClaimCharacter(characterId, token)` admits one session 
 Spawn resolution on entry: saved X/Z when valid and not both zero, else the field's first start point, else its
 center. Height is resolved later on the field terrain (`FieldTerrain.PlaceOnFloor` in `JoinAsync`).
 
-`SaveGate` (`SemaphoreSlim(1,1)`) serializes everything that writes the character: saves wait for it; inventory,
+`SaveGate` (`SemaphoreSlim(1,1)`) serializes everything that changes the character: saves wait for it; inventory,
 progression and NPC operations try it with zero timeout and answer "save or character operation pending; retry" /
 `NpcServiceStatus.Busy`. `session.Warehouse` (the account warehouse while open) changes only under the gate.
 
+Every capture of a character for storage takes the session's next save sequence (`PlayerSession.NextSaveSeq`, resumed
+from the loaded record's `SaveSeq`); storage keeps the highest it was given ([persistence.md](persistence.md)), so a
+capture that reaches it late never replaces a newer one.
+
 Lifecycle seen from the edge: `LoginAsync` -> `EnterWorldAsync` -> `TryBeginPlay` -> `WorldPlayerFactory.Create` ->
 `WorldServer.JoinAsync(field, player, outbox.Writer, session)` -> play commands -> `LeaveAsync` -> `EndPlay` ->
-`SaveLeftCharacterAsync` (the capture `LeaveAsync` took) -> `SessionRegistry.Remove`. While a durable operation holds
+`SaveLeftCharacterAsync` (the capture `LeaveAsync` took; it completes once stored, so the character stays claimed until
+then) -> `SessionRegistry.Remove`. While a durable operation holds
 the session's `SaveGate`, `LeaveAsync` takes no capture (it only records the placement): that operation commits after
 the leaving tick, possibly on another character too (a personal shop sale), so the save waits for the gate and captures
 the character the operation leaves (`SaveCharacterAsync`); a player that left dead (`PlayerSession.LeftDead`) is then
@@ -150,8 +156,8 @@ value (no closure, task or completion), counts against the same quota, and its v
   (default 64, config `World:MaxPendingCommandsPerPlayer`). Over quota, or with the channel full, `EnqueueAsync`
   throws `WorldBusyException` synchronously; the edge drops the command like a lost packet.
 - Exempt commands use owner 0 (`NoOwner`) and `waitForCapacity: true`: `LeaveAsync`, `CaptureForSaveAsync`, every
-  `Commit*Async` and `AbortCharacterOperationAsync`. These cannot be refused because a durable write may already
-  have happened or the player is leaving.
+  `Commit*Async`. These cannot be refused because the operation already holds the save gate (and a transfer may already
+  be stored) or the player is leaving.
 - The per-player counter entry is removed on leave. `PendingCommandsOf(entityId)` exposes it for tests.
 
 ### Threading model
@@ -315,15 +321,21 @@ summon status ends. Charmed wild monsters become summons for the charm duration.
   for 5 s. Lifetime 90 s for gold and catalog keys starting `PL`/`PS`, 180 s otherwise.
 - Clients address drops by the drop's GUID, which `GroundItems` carries and the pick-up command names.
 - Pickup reserves a drop by operation id (`TryReserve`, reach 32 units); a reserved drop does not expire. `Resolve`
-  removes it on commit or releases it on abort. Inventory-delivered drops (`ToInventory`) throw `NotSupportedException`.
+  removes it on commit (a pickup has no store, so nothing releases it before). Inventory-delivered drops (`ToInventory`)
+  throw `NotSupportedException`.
 - The reserved copy keeps the rolled values of the drop under the drop's id. A pickup that would carry the character
   over the weight limit is refused with `ItemRuleMessages.OverWeight`.
 
 ## Durable operations
 
-Every change to a character's durable state uses prepare, persist, commit under the session's `SaveGate`, through one
-runner (`Services/DurableOperations.cs`): `AdmitAsync` takes the gate and returns a `DurableLease` (released on
-`Dispose`), and `lease.RunAsync(prepare, commit, reply, failed, store?, abort?)` runs the steps below. Every prepared
+Every change to a character's durable state is prepared and committed on the tick under the session's `SaveGate`,
+through one runner (`Services/DurableOperations.cs`): `AdmitAsync` takes the gate and returns a `DurableLease`
+(released on `Dispose`), and `lease.RunAsync(prepare, commit, reply, failed, store?, abort?, storeFirst?)` runs the
+steps below; `storeFirst` picks the prepared changes the store writes first (`NpcAppService`: a warehouse change;
+`SessionAppService`: a ground throw), the others take the queue.
+An ordinary change commits first and is stored in the background (write-behind, [Character saves](#character-saves)),
+so a player never waits for the database; a change that moves an item or gold out of the character to another one, to
+the ground or to the account warehouse is stored before its commit (a `store`), so no crash can keep it on both sides. Every prepared
 record derives from `PreparedOperation` (`Original`, `Candidate`, `Snapshot`). A service maps `DurableFailure`
 (`NoSession`, `Busy`, `NotPlaying`, `StorageFailed`, `Conflict`) to its own reply; work that must happen under the gate
 before preparing (the warehouse read on open) runs between admission and `RunAsync`.
@@ -332,9 +344,10 @@ before preparing (the warehouse read on open) runs between admission and `RunAsy
 | --- | --- | --- |
 | Admit | caller thread | `DurableOperations.AdmitAsync`: `SaveGate.WaitAsync(0)` (the quest upkeep waits 2 s); busy if held |
 | Prepare | tick (player-owned command) | verify session/connection, replay check, clone (`CloneForInventoryOperation`), apply to the candidate, record the operation, `CharacterRecordFactory.Capture` -> `CharacterSaveSnapshot` |
-| Persist | caller thread | `ICharacterRepository.UpdateAsync`, or the service's `store` (NPC: `IWarehouseRepository.SaveWithCharacterAsync`, a refusal is `Conflict`), always with `CancellationToken.None` once admitted |
+| Store first | caller thread | only with a `store`: the stamped snapshot (`PlayerSession.Stamp`) written before the commit, with `CancellationToken.None` once admitted. Ground throws (`ICharacterRepository.UpdateAsync`), trades and personal shop purchases (`UpdateAllAsync`, both sides), warehouse changes (`IWarehouseRepository.SaveWithCharacterAsync`, a refusal is `Conflict`). A refused or failed store answers `StorageFailed` and changes nothing |
 | Commit | tick (exempt command) | apply the candidate's domain to the live character; throws if the session's character changed |
-| Abort | tick (exempt) | the service's `abort`, whenever a snapshot was not stored (a storage exception included): pickups release the ground reservation, the quest upkeep returns its drops |
+| Queue | caller thread, under the gate, after the commit | without a store, or when `storeFirst` declines it, the snapshot goes to `ICharacterSaves.Enqueue` |
+| Abort | tick (exempt) | the service's `abort`, whenever a store did not take the snapshot: a refused trade releases the trade |
 
 A prepared operation with `Snapshot == null` is final (rejection or replay) and nothing is written.
 
@@ -348,22 +361,48 @@ A prepared operation with `Snapshot == null` is final (rejection or replay) and 
 | Progression (attributes, learn skill) | `ProgressionTransactions.Prepare`; learning needs a reachable skill master | re-applies the command to the live character (`ApplyProgression`) |
 | NPC services | `NpcServiceTransactions.Prepare` (`PreparedNpcOperation`) | inventory, gold delta, open warehouse, teleport arrival |
 | Quest requests | `QuestTransactions.Prepare` (`PreparedQuestOperation`); follow-ups must answer a step the NPC still offers | inventory, equipment, quest journal (merging tick kills), tier, stat/skill point and gold deltas, travel, arena duel |
-| Quest upkeep | `QuestTransactions.PrepareUpkeep`, run by the server's `QuestUpkeepService` | quest drops into the pack, quest weapon growth and expiry, leftovers removed; drops return to the player when the write is refused or throws |
+| Quest upkeep | `QuestTransactions.PrepareUpkeep`, run by the server's `QuestUpkeepService` | quest drops into the pack, quest weapon growth and expiry, leftovers removed; a busy save gate defers the work to the field's next check |
 | Item use | `ItemUseTransactions.Prepare` with the item's `ItemUseAction` (`PreparedItemUseOperation`) | inventory, premium state, resets and mastery re-applied with the prepared clock, item effects, hair, arrival |
-| Personal shop purchase | `PersonalShopTransactions.Prepare` (`PreparedShopPurchase`): the buyer's and the seller's candidates, stored together with `ICharacterRepository.UpdateAllAsync` | both inventories, the price from the buyer to the seller, the seller's listing pruned |
-| Trade exchange | `WorldServer.PrepareTradeAsync` (`PreparedTrade`): `TradeRules.Exchange` on candidates of both sides, stored together with `UpdateAllAsync` | both inventories and gold deltas; the trade ends |
+| Personal shop purchase | `PersonalShopTransactions.Prepare` (`PreparedShopPurchase`): the buyer's and the seller's candidates, stored together first with `ICharacterRepository.UpdateAllAsync` | both inventories, the price from the buyer to the seller, the seller's listing pruned |
+| Trade exchange | `WorldServer.PrepareTradeAsync` (`PreparedTrade`): `TradeRules.Exchange` on candidates of both sides, stored together first with `UpdateAllAsync` | both inventories and gold deltas; the trade ends |
 
 Revisions and idempotency:
 
 - Commands carry a client GUID `OperationId` and an `ExpectedRevision` (`InventoryRevision` or `ProgressionRevision`;
   warehouse actions also `ExpectedStorageRevision`). A stale revision is refused without writing.
-- Applied operations are stored per character in five histories (inventory, service, progression, item use, quests),
-  each an `OperationHistory<T>` capped at the last 64 and looked up with `Find(operationId)`, and persisted with the character. The same id with an identical command replays as success
+- Applied operations are kept per character in five histories (inventory, service, progression, item use, quests),
+  each an `OperationHistory<T>` capped at the last 64 and looked up with `Find(operationId)`; storage keeps the newest 16
+  of each (a reloaded client retries only what it sent last). The same id with an identical command replays as success
   ("already committed") with the recorded revision; the same id with a different command is an "operation identity
   conflict". This makes a retry after a lost reply safe and never charges twice.
 - Commit merges only the transaction's domain into the live character (inventory, equipment, histories, money
-  delta). Life, experience, skill use counters and position keep changing on the tick during storage IO and are not
-  overwritten; the next save persists them.
+  delta). Life, experience, skill use counters and position keep changing on the tick and are not overwritten; the
+  next capture (a later operation or the checkpoint) stores them.
+
+## Character saves
+
+`ICharacterSaves` takes a playing character's captures; the server's `CharacterSaveQueue` stores them off the tick:
+
+- `Enqueue` keeps only a character's newest pending capture (by save sequence). One writer takes up to
+  `Database:SaveBatchSize` (100) characters, the ones a leave waits for first, and stores them in one transaction
+  (`ICharacterRepository.SaveAllAsync`); the JSON is encoded on the writer, not on the tick.
+- `SaveAsync` (a leave) completes once storage has the capture or a newer one.
+- A batch storage refuses is tried again one character at a time. When the first of those is refused too, storage is
+  unavailable: the batch is requeued (a newer capture that arrived meanwhile keeps its place and takes the waiters) and
+  retried, backing off from 0.5 s to 30 s, until stored. A capture refused alone while storage answers an empty write
+  counts a refusal; at three it is dropped (`SaveQueueStats.Dropped`, its waiters answered false), so one capture
+  storage can never take (or that cannot be encoded) never holds the others. `Failed` reports every failure.
+- Once the host is stopping, the first refused write sends everything left to the `SaveJournal` (written aside,
+  flushed to the disk, then renamed) without another attempt, and so does any capture that arrives after the writer
+  stopped; their waiters complete as stored.
+- `ReplayAsync` stores the journal, oldest file first, deleting each file once storage took it. A file that cannot be
+  read becomes `.unreadable`; records a reachable storage refuses go to `<file>.refused`; both are reported, and only an
+  unreachable storage makes the replay throw. The server runs it before the game opens ([server.md](server.md)).
+- `WorldServer.Checkpoint` captures every playing character once per `World:CheckpointSeconds` (60), on the tick its
+  entity id falls on, unless an operation holds its save gate. A crash loses what was not stored yet: the captures
+  still queued, and up to that period of what no operation queued (experience, life, position).
+- `EnterWorldAsync` claims the character and then reads its record again: a leave save of the previous session may
+  have been stored, and its claim released, after the first read, and the session must continue from it.
 
 ## NPC services
 
@@ -526,8 +565,9 @@ Add a durable character operation:
    record, capture snapshot), a `WorldServer.Prepare*Async` (player-owned) and `Commit*Async` (exempt, merges only
    the operation's domain, throws on ownership change).
 3. A service method that admits with `DurableOperations.AdmitAsync` and calls `lease.RunAsync` (inventory and
-   progression go through `SessionAppService.ApplyDurableAsync`); if it reserves world resources, release them in its
-   `abort`.
+   progression go through `SessionAppService.ApplyDurableAsync`). An operation that moves an item or gold out of the
+   character to another character, the ground or the warehouse needs a `store` that writes first (and an `abort` that
+   releases what the prepare reserved); any other operation is queued after its commit.
 4. Persist the new history in `CharacterRecordFactory.Capture`/`CharacterStateCodec` ([persistence.md](persistence.md)).
 
 Add an NPC service or action:

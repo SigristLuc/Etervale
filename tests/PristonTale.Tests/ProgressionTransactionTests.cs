@@ -184,7 +184,7 @@ internal static class ProgressionTransactionTests
         var world = new WorldServer(holder, catalog);
         var sessions = new SessionRegistry();
         var session = sessions.Create(1, "owner");
-        var service = new SessionAppService(sessions, classes, repository, catalog, world, holder);
+        var service = new SessionAppService(sessions, classes, repository, new ImmediateSaves(repository), catalog, world, holder);
         Assert.True((await service.EnterWorldAsync(session.SessionToken, starter.Name)).Ok && session.TryBeginPlay(), "entry failed");
         var outbox = new WorldOutbox();
         var player = WorldPlayerFactory.Create(session);
@@ -198,22 +198,12 @@ internal static class ProgressionTransactionTests
         player.Teleport(new Vector3(1000, 0, 1000));
         Assert.True(!(await WorldPump.RunAsync(world, service.ApplyProgressionAsync(session.SessionToken, command))).Ok, "remote learning accepted");
         player.Teleport(new Vector3(100, 0, 100));
-        var writing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var storage = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        repository.BeforeUpdate = _ =>
-        {
-            writing.TrySetResult();
-            return storage.Task;
-        };
         var pending = service.ApplyProgressionAsync(session.SessionToken, command);
-        await WorldPump.RunAsync(world, writing.Task);
+        world.Tick(0.05f, 0);
         Assert.True(!pending.IsCompleted && session.Character!.Skills.RankOf(skill.Code) == 0 && session.Character.Money == 10000, "uncommitted learning leaked");
         Assert.True(!(await service.ApplyInventoryAsync(session.SessionToken,
             new InventoryCommand(Guid.NewGuid(), 0, InventoryAction.Move, Guid.NewGuid(), 0, 0, default))).Ok, "inventory bypassed shared save gate");
-        storage.SetResult(false);
-        Assert.True(!(await pending).Ok && session.Character!.SkillPoints == 40, "storage failure consumed skill points");
-        repository.BeforeUpdate = null;
-        Assert.True((await WorldPump.RunAsync(world, service.ApplyProgressionAsync(session.SessionToken, command))).Ok, "retry failed");
+        Assert.True((await WorldPump.RunAsync(world, pending)).Ok, "learning failed");
         Assert.True(session.Character!.Skills.RankOf(skill.Code) == 1 && session.Character.Money == 9500 && session.Character.SkillPoints == 39, "durable learning mismatch");
         var allocation = new ProgressionCommand(Guid.NewGuid(), 1, ProgressionAction.AllocateAttribute, CharacterAttribute.Strength, 1);
         var oldStrength = session.Character.Attributes.Strength;

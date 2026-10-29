@@ -136,7 +136,7 @@ internal static class PersonalShopTests
 
         var character = seller.Session.Character!;
         var axe = character.Inventory.Items().Single(item => item.Definition == ChatFixture.Axe);
-        var sessions = new SessionAppService(fixture.Sessions, new CharacterClassRegistry(), fixture.Characters, fixture.Catalog, fixture.World, fixture.Data);
+        var sessions = new SessionAppService(fixture.Sessions, new CharacterClassRegistry(), fixture.Characters, new ImmediateSaves(fixture.Characters), fixture.Catalog, fixture.World, fixture.Data);
         var move = await fixture.RunAsync(sessions.ApplyInventoryAsync(seller.Session.SessionToken,
             new InventoryCommand(Guid.NewGuid(), character.InventoryRevision, InventoryAction.Move, axe.InstanceId, 20, 1, default)));
         Assert.True(!move.Ok && move.Message == PersonalShopMessages.Of(PersonalShopStatus.Selling), "a selling player moves no item");
@@ -187,7 +187,7 @@ internal static class PersonalShopTests
             release.SetResult();
             Assert.True((await fixture.RunAsync(buy)).Outcome.Ok, "the sale went through");
 
-            var sessions = new SessionAppService(fixture.Sessions, new CharacterClassRegistry(), fixture.Characters, fixture.Catalog, fixture.World, fixture.Data);
+            var sessions = new SessionAppService(fixture.Sessions, new CharacterClassRegistry(), fixture.Characters, new ImmediateSaves(fixture.Characters), fixture.Catalog, fixture.World, fixture.Data);
             Assert.True(await fixture.RunAsync(sessions.SaveCharacterAsync(seller.Session.SessionToken)), "the seller was saved");
             var row = fixture.Characters.Records["Seller"];
             Assert.True(row.Money == 1000 && !row.Inventory.ToString().Contains(axeId.ToString(), StringComparison.OrdinalIgnoreCase),
@@ -229,7 +229,7 @@ internal static class PersonalShopTests
         var character = seller.Session.Character!;
         var axeId = character.Inventory.Items().Single(item => item.Definition == ChatFixture.Axe).InstanceId;
         seller.Session.MobileShopOpen = true;
-        var npc = new NpcAppService(fixture.Sessions, fixture.Characters, fixture.Warehouses, fixture.World, fixture.Data);
+        var npc = new NpcAppService(fixture.Sessions, new ImmediateSaves(fixture.Characters), fixture.Warehouses, fixture.World, fixture.Data);
         var sold = await fixture.RunAsync(npc.RequestAsync(seller.Session.SessionToken,
             new NpcServiceCommand(Guid.NewGuid(), 0, NpcServiceKind.Shop, NpcServiceAction.Sell, character.InventoryRevision, ItemId: axeId)));
         Assert.True(!sold.Outcome.Ok && character.Inventory.Find(axeId) >= 0, "a mobile shop takes nothing from a seller");
@@ -275,7 +275,7 @@ internal static class PersonalShopTests
     private static async Task<(ChatFixture Fixture, PersonalShopAppService Shops, ChatFixture.Player Seller, ChatFixture.Player Buyer)> OpenAsync()
     {
         var fixture = new ChatFixture(state: FieldState.Village);
-        var shops = new PersonalShopAppService(fixture.Sessions, fixture.Characters, fixture.World, fixture.Directory);
+        var shops = new PersonalShopAppService(fixture.Sessions, new ImmediateSaves(fixture.Characters), fixture.Characters, fixture.World, fixture.Directory);
         var seller = await fixture.JoinAsync("Seller", 100, 100);
         var buyer = await fixture.JoinAsync("Buyer", 140, 100);
         var axe = new ItemInstance(ChatFixture.Axe);

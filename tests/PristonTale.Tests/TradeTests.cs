@@ -38,7 +38,7 @@ internal static class TradeTests
     {
         var clock = new SpecialItemTests.ManualClock();
         var world = new ChatFixture(clock: clock);
-        return new Fixture(world, new TradeAppService(world.Sessions, world.Characters, world.World, world.Directory), clock);
+        return new Fixture(world, new TradeAppService(world.Sessions, new ImmediateSaves(world.Characters), world.Characters, world.World, world.Directory), clock);
     }
 
     private static Task Request(Fixture fixture, ChatFixture.Player from, ChatFixture.Player to) =>

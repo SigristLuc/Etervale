@@ -13,6 +13,9 @@ public sealed record WorldServerOptions
     // the queue shared by every player.
     public const int DefaultMaxPendingCommandsPerPlayer = 64;
 
+    // A crash loses at most this much of what no operation queued for storage: experience, life, position.
+    public const int DefaultCheckpointSeconds = 60;
+
     public static readonly WorldServerOptions Default = new();
 
     public int ExperienceMultiplier { get; init; } = DefaultExperienceMultiplier;
@@ -27,6 +30,9 @@ public sealed record WorldServerOptions
     public int ClockOffsetMinutes { get; init; }
 
     public int MaxPendingCommandsPerPlayer { get; init; } = DefaultMaxPendingCommandsPerPlayer;
+
+    // Every playing character is captured for storage once per this many seconds, each on its own tick.
+    public int CheckpointSeconds { get; init; } = DefaultCheckpointSeconds;
 
     // The crystal event: 0 off, 1 from 12:00 to 23:59 server time, 2 all day; crystals then call their event monsters.
     public int CrystalEvent { get; init; }
@@ -44,6 +50,11 @@ public sealed record WorldServerOptions
         if (MaxPendingCommandsPerPlayer < 1)
         {
             throw new InvalidOperationException("World:MaxPendingCommandsPerPlayer must be at least 1.");
+        }
+
+        if (CheckpointSeconds < 1)
+        {
+            throw new InvalidOperationException("World:CheckpointSeconds must be at least 1.");
         }
 
         if (CrystalEvent is < 0 or > 2)

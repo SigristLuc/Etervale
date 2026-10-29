@@ -1,5 +1,6 @@
 namespace PristonTale.Persistence.Abstractions.Characters;
 
+// One characters row. SaveSeq orders a character's captures: storage keeps the highest it was given.
 public sealed record CharacterRecord(
     long Id,
     long AccountId,
@@ -33,4 +34,5 @@ public sealed record CharacterRecord(
     JsonText Skills,
     JsonText Quests,
     JsonText Premium,
-    DateTime? LastPlayedAt);
+    DateTime? LastPlayedAt,
+    long SaveSeq = 0);

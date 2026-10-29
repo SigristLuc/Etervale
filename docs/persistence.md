@@ -28,7 +28,7 @@ FluentMigrator migrations, the schema, and the SQLite and PostgreSQL providers. 
 | `.../WorldData/` | Read-side catalog records and [WorldDataFactory](../Persistence/PristonTale.Persistence.Abstractions/WorldData/WorldDataFactory.cs) |
 | `.../Security/PasswordHasher.cs` | PBKDF2-SHA256 hashes: `pbkdf2-sha256$<iterations>$<salt b64>$<key b64>` |
 | `Persistence/PristonTale.Persistence/Repositories/` | `Dapper*Repository` implementations shared by both providers |
-| `Persistence/PristonTale.Persistence/Migrations/` | `M013Baseline`, `M014PortraitData`, `M015NpcServices`, `M016QuestData`, `M019GameMasters`, `M021MonsterSkillData`, `M022MonsterExperience64`, `M023ItemFootprints`, `M024WorldDataFields`, `M026Contacts`, `M027CatalogIdentities`, `M028WorldCatalog`, `M029NpcPlacementFacts`, `FluentMigratorDatabaseMigrator` |
+| `Persistence/PristonTale.Persistence/Migrations/` | `M013Baseline`, `M014PortraitData`, `M015NpcServices`, `M016QuestData`, `M019GameMasters`, `M021MonsterSkillData`, `M022MonsterExperience64`, `M023ItemFootprints`, `M024WorldDataFields`, `M026Contacts`, `M027CatalogIdentities`, `M028WorldCatalog`, `M029NpcPlacementFacts`, `M030CharacterSaveSequence`, `FluentMigratorDatabaseMigrator` |
 | `Persistence/PristonTale.Persistence.Sqlite/` | `AddPristonSqlite`, connection factory (WAL), Dapper type handlers, path resolution |
 | `Persistence/PristonTale.Persistence.Postgres/` | `AddPristonPostgres`, `NpgsqlDataSource` factory, `jsonb` handler for `JsonText` |
 | `docker-compose.yml` | Local PostgreSQL 17 for development |
@@ -43,7 +43,7 @@ Consumers: `Server/PristonTale.Server/Hosting/HostingExtensions.cs` (provider se
 | Interface | Implementation | Operations |
 | --- | --- | --- |
 | `IAccountRepository` | `DapperAccountRepository` | `FindByUserIdAsync`, `CreateAsync` (INSERT ... RETURNING), `UpdateLastLoginAsync` |
-| `ICharacterRepository` | `DapperCharacterRepository` | List by account (ordered by slot), find by name for account, global `NameExistsAsync`, `UsedSlotsAsync`, create (RETURNING), delete by name, `UpdateAsync`, `UpdateAllAsync` (several characters in one transaction, all or none: a personal shop sale) |
+| `ICharacterRepository` | `DapperCharacterRepository` | List by account (ordered by slot), find by name for account, global `NameExistsAsync`, `UsedSlotsAsync`, create (RETURNING), delete by name, `UpdateAsync`, `SaveAllAsync` (the background saves: every record in one transaction, skipping older captures and missing characters, returns the rows written), `UpdateAllAsync` (several characters in one transaction, all or none: a personal shop sale) |
 | `IContactRepository` | `DapperContactRepository` | `ListAsync` (in the order added), `AddAsync` (false when the name is already on the list), `RemoveAsync` |
 | `IWarehouseRepository` | `DapperWarehouseRepository` | `FindAsync`, `SaveWithCharacterAsync` (character + warehouse in one transaction) |
 | `IWorldDataRepository` | `DapperWorldDataRepository` | Read-only bulk loads: items, monsters, NPCs, field spawns, motion models, motion slots |
@@ -54,7 +54,12 @@ Consumers: `Server/PristonTale.Server/Hosting/HostingExtensions.cs` (provider se
 - `IWorldDataRepository` is read-only by design. Catalog writes live in the importer (`Importer`), see
   [world-import.md](world-import.md).
 - `UpdateAsync` writes every mutable column; identity columns (`id`, `account_id`, `name`, `slot`, `job_code`,
-  `created_at`) are never updated. It returns false when no row matched.
+  `created_at`) are never updated. Every character write (`UpdateAsync`, `SaveAllAsync`, `UpdateAllAsync`, the
+  warehouse's `SaveWithCharacterAsync`) shares `DapperCharacterRepository.UpdateSql`; transactions over several
+  characters write them in id order, so a save batch and a trade never wait on each other. `UpdateSql` writes only
+  when the stored `save_seq` is not higher than the record's: background saves may reach storage out of order, and an
+  older capture never replaces a newer one (writing the same capture again is harmless). `UpdateAsync` returns false when no row
+  took the record.
 - Child collections are loaded with one query per child table and joined in memory with `ToLookup` on the parent key
   (`definition_id`, `monster_id`, `npc_id`, `stage`). Names and dialog lines are read in English (`CatalogLanguages.English`)
   by a `LEFT JOIN` on the `*_texts` table; a record's `Name` is null when the entity has no text in that language.
@@ -119,7 +124,7 @@ and its account warehouse are always written together, so a gold or item move be
 | `quests` | `SavedQuests` v1: the running quest (`SavedQuest`), level and beginner logs, finished codes, `FinishedCount`, the redistribution offer, `Revision` and quest `Operations` (see [quests.md](quests.md)); `{}` reads as an idle journal | 32 finished codes, 64 operations, defined quest codes and timer kinds, non-negative counts |
 
 - Restore is strict: unknown JSON members are rejected, constructor parameters without defaults are required, max
-  depth 16, max 65536 characters, `Version` must be 1, instance ids must be unique and non-empty, the item code must
+  depth 16, at most `CharacterStateCodec.MaxStateLength` (4 MiB) characters, `Version` must be 1, instance ids must be unique and non-empty, the item code must
   exist in the runtime `ItemCatalog`, counts must fit `MaxStack`, `UpgradeLevel` must not be negative. Any violation
   throws `InvalidDataException`.
 - Each `SavedItem` carries the copy's `Roll` (`ItemRoll`: rolled stats, requirements, price, specialization and its
@@ -153,6 +158,7 @@ FluentMigrator scans `PristonTale.Persistence` for `[Migration(n)]` classes. Ver
 | 27 | `M027CatalogIdentities` | Drops and recreates `monsters`, `npcs` and every table that references them, keyed by id; adds `monster_labels`, `npc_labels`, `npc_dialog_lines`, `item_labels`; empties `world_entity_variants` and `world_import_unresolved_refs`; drops the `svc_*` columns and `npcs.dialog`. Import again afterwards. `Down` throws: restore a backup instead |
 | 28 | `M028WorldCatalog` | Drops every world catalog table of the earlier migrations and `mailboxes`; drops `warehouses.buy_area_count` and `characters.derived_stats`, which nothing read; creates `languages` (seeded with `en`) and the catalog [below](#world-catalog); empties `world_entity_variants` and `world_import_unresolved_refs`. Import again afterwards. `Down` throws: restore a backup instead |
 | 29 | `M029NpcPlacementFacts` | Drops `field_npcs.quest_trigger` and `size_level`: the class and size a placement record carries belong to the NPC file that lacks them, and the importer gives them to it. Import again afterwards |
+| 30 | `M030CharacterSaveSequence` | `characters.save_seq` (int64, default 0): the save sequence of the stored capture |
 
 Upgrade path: databases from the earlier migration set at version 12 upgrade in place. Databases at
 versions 1-11 make `M013Baseline` throw; bring them to 12 with the previous release or back up and recreate them.
@@ -178,7 +184,7 @@ columns of the `world_*` tables are plain text on both providers.
 
 | Table | Columns and constraints |
 | --- | --- |
-| `characters` | `id` int64 identity PK; `account_id` FK `accounts`; `name` globally unique; `slot` int16, unique with `account_id`; `job_code` (`PlayerClass`); `level`, `exp` int64 holding the unsigned 64-bit experience's bit pattern (past 2^63 it reads negative in SQL), `money` int64, `brood`; attributes `strength`, `spirit`, `talent`, `agility`, `health`, `stat_points`; vitals `life`, `mana`, `stamina`; `field_id`, `pos_x`, `pos_z` float; `model_name`, `model_name2` (head model for the chosen face); `face_index`, `tier` int16, `hair_index`, `size_level`; JSON `inventory`, `equipment`, `skills`, `quests`, `premium`; `created_at`, `last_played_at` nullable. Index `characters_account_id_idx` |
+| `characters` | `id` int64 identity PK; `account_id` FK `accounts`; `name` globally unique; `slot` int16, unique with `account_id`; `job_code` (`PlayerClass`); `level`, `exp` int64 holding the unsigned 64-bit experience's bit pattern (past 2^63 it reads negative in SQL), `money` int64, `brood`; attributes `strength`, `spirit`, `talent`, `agility`, `health`, `stat_points`; vitals `life`, `mana`, `stamina`; `field_id`, `pos_x`, `pos_z` float; `model_name`, `model_name2` (head model for the chosen face); `face_index`, `tier` int16, `hair_index`, `size_level`; JSON `inventory`, `equipment`, `skills`, `quests`, `premium`; `save_seq` int64 (M030); `created_at`, `last_played_at` nullable. Index `characters_account_id_idx` |
 | `character_contacts` | `id` int64 identity PK (the order added); `character_id` FK `characters`; `list` int16 (`ContactList`); `name`; unique (`character_id`, `list`, `name`) (M026) |
 
 ### Inventory and warehouse
@@ -261,6 +267,10 @@ first, when copying a database.
 Server configuration (`Server/PristonTale.Server/appsettings.json`): `Database:Provider` (`Sqlite` default or
 `Postgres`), `Database:SqlitePath` (default `data/pristontale.db`), `ConnectionStrings:Postgres`. Any other provider
 value stops startup.
+
+The PostgreSQL pool holds at most `Database:MaxPoolSize` connections (`AddPristonPostgres`, default 20, replacing the
+connection string's `Maximum Pool Size`), below the server's default `max_connections` (100): a pool larger than the
+server answers "too many clients" under load.
 
 `docker-compose.yml` runs `postgres:17` as container `pristontale-postgres`, database, user and password
 `pristontale`, host port 5433 mapped to 5432, named volume `pristontale-pgdata`, health check `pg_isready`. Start with

@@ -31,8 +31,8 @@ internal static class QuestServiceTests
         yield return ("the quest journal persists with the character and quest weapons keep their quest variant", PersistenceAsync);
         yield return ("quest messages round-trip their layouts inside the quest extension range", ProtocolAsync);
         yield return ("quest presence reaches the client and the arena shows only the player's own duel", PresenceAsync);
-        yield return ("quest requests store once, replay idempotently, refuse on storage failure and credit field kills", RequestsAsync);
-        yield return ("the quest upkeep stores quest drops in the pack and keeps them when storage fails", UpkeepAsync);
+        yield return ("quest requests store once, replay idempotently and credit field kills", RequestsAsync);
+        yield return ("the quest upkeep puts quest drops in the pack and stores them, and waits while the save gate is busy", UpkeepAsync);
         yield return ("a quest item a monster drops reaches the special item box through the upkeep and the master takes it for the rank-up",
             KillToMasterAsync);
         yield return ("the master duel travels to the arena, yields at a sixteenth and promotes from the victory dialog", ArenaAsync);
@@ -171,10 +171,6 @@ internal static class QuestServiceTests
             "a talk without an NPC was accepted");
 
         var accept = new QuestCommand(Guid.NewGuid(), npc, QuestAction.Accept, QuestCode.Level30, 0, 0);
-        world.Characters.BeforeUpdate = _ => Task.FromResult(false);
-        var refused = await world.Advance(quests.RequestAsync(token, accept));
-        Assert.True(refused.Status == QuestStatus.StorageFailed && character.Quests.Active.IsIdle, "a failed write started the quest");
-        world.Characters.BeforeUpdate = null;
         var accepted = await world.Advance(quests.RequestAsync(token, accept));
         Assert.True(accepted.Ok && character.Quests.Active is { Code: QuestCode.Level30, State: 1 }
             && QuestStateCodec.Read(world.Characters.Record.Quests).Active.Code == QuestCode.Level30, "the accepted quest was not stored");
@@ -246,14 +242,10 @@ internal static class QuestServiceTests
         var character = world.Session.Character!;
         character.Quests.Active = new ActiveQuest { Code = QuestCode.RankUpTrophies, State = 1 };
         world.Player.QuestState.AddDrop(new PendingQuestDrop(QuestItems.SilverWolverineTrophy, 1, 0, QuestDropSource.MainTable));
-        world.Characters.BeforeUpdate = _ => Task.FromResult(false);
+        await world.Session.SaveGate.WaitAsync();
         Assert.True(!await world.Advance(world.Quests.RunUpkeepAsync(world.Session)) && !QuestInventory.Has(character, QuestItems.SilverWolverineTrophy)
-            && world.Player.QuestState.Drops.Count == 1, "a failed upkeep lost or stored its drop");
-        world.Characters.BeforeUpdate = _ => throw new InvalidOperationException("storage down");
-        var thrown = world.Quests.RunUpkeepAsync(world.Session);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => world.Advance(thrown), "the upkeep hid the storage failure");
-        Assert.True(world.Player.QuestState.Drops.Count == 1, "a storage exception during the upkeep lost its drop");
-        world.Characters.BeforeUpdate = null;
+            && world.Player.QuestState.Drops.Count == 1, "an upkeep ran while the save gate was busy, or lost its drop");
+        world.Session.SaveGate.Release();
         Assert.True(await world.Advance(world.Quests.RunUpkeepAsync(world.Session)) && QuestInventory.Has(character, QuestItems.SilverWolverineTrophy)
             && world.Player.QuestState.Drops.Count == 0, "the upkeep did not store the drop");
         var record = Classes.CreatePlayer(PlayerClass.Fighter, character.Name, 20);
@@ -346,14 +338,14 @@ internal static class QuestServiceTests
             var server = new WorldServer(holder, catalog);
             var sessions = new SessionRegistry();
             var session = sessions.Create(1, "owner");
-            var sessionService = new SessionAppService(sessions, Classes, characters, catalog, server, holder);
+            var sessionService = new SessionAppService(sessions, Classes, characters, new ImmediateSaves(characters), catalog, server, holder);
             Assert.True((await sessionService.EnterWorldAsync(session.SessionToken, name)).Ok && session.TryBeginPlay(), "quest fixture entry failed");
             var player = WorldPlayerFactory.Create(session);
             var outbox = new WorldOutbox();
             var world = new QuestWorld
             {
                 Server = server,
-                Quests = new QuestAppService(sessions, characters, server),
+                Quests = new QuestAppService(sessions, new ImmediateSaves(characters), server),
                 Session = session,
                 Player = player,
                 Characters = characters,

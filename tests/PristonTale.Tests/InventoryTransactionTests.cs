@@ -15,7 +15,7 @@ internal static class InventoryTransactionTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("inventory commits only after storage and retries survive reconnect", DurabilityAsync);
+        yield return ("an inventory change commits under the save gate, is stored after its commit and its retries survive a reconnect", DurabilityAsync);
     }
 
     private static async Task DurabilityAsync()
@@ -35,30 +35,23 @@ internal static class InventoryTransactionTests
         var world = new WorldServer(holder, catalog);
         var sessions = new SessionRegistry();
         var session = sessions.Create(1, "owner");
-        var service = new SessionAppService(sessions, classes, repository, catalog, world, holder);
+        var service = new SessionAppService(sessions, classes, repository, new ImmediateSaves(repository), catalog, world, holder);
         Assert.True((await service.EnterWorldAsync(session.SessionToken, starter.Name)).Ok && session.TryBeginPlay(), "setup entry failed");
         var outbound = Channel.CreateUnbounded<WorldSnapshot>();
         await WorldPump.RunAsync(world, world.JoinAsync(3, WorldPlayerFactory.Create(session), outbound.Writer, session));
-        var writing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var storage = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        repository.BeforeUpdate = _ =>
-        {
-            writing.TrySetResult();
-            return storage.Task;
-        };
         var command = new InventoryCommand(Guid.NewGuid(), session.Character!.InventoryRevision, InventoryAction.Move,
             item.InstanceId, 2, 0, default);
         var pending = service.ApplyInventoryAsync(session.SessionToken, command);
-        await WorldPump.RunAsync(world, writing.Task);
-        Assert.True(!pending.IsCompleted && session.Character.Inventory[0] is not null && session.Character.Inventory[2] is null,
-            "pending storage exposed uncommitted inventory");
+        Assert.True(!pending.IsCompleted && session.Character.Inventory[0] is not null && repository.UpdateCount == 0,
+            "the move applied or was stored before the tick prepared it");
         var competing = await service.ApplyInventoryAsync(session.SessionToken, command);
         Assert.True(!competing.Ok, "concurrent operation bypassed save admission");
-        storage.SetResult(false);
-        Assert.True(!(await pending).Ok && session.Character.Inventory[0] is not null, "storage rejection changed live inventory");
-        repository.BeforeUpdate = null;
-        Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, command))).Ok, "valid retry failed");
-        Assert.True(session.Character.Inventory[0] is null && session.Character.Inventory[2].InstanceId == item.InstanceId, "durable move not committed");
+        Assert.True((await WorldPump.RunAsync(world, pending)).Ok, "the move failed");
+        Assert.True(session.Character.Inventory[0] is null && session.Character.Inventory[2].InstanceId == item.InstanceId, "the move was not committed");
+        var stored = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, starter.Name);
+        CharacterStateCodec.Restore(stored, repository.Record, holder.Current.Items);
+        Assert.True(repository.UpdateCount == 1 && stored.Inventory[2]?.InstanceId == item.InstanceId && repository.Record.SaveSeq > starter.SaveSeq,
+            "the committed move was not stored with a newer save sequence");
         var writes = repository.UpdateCount;
         Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, command))).Ok, "idempotent retry failed");
         Assert.True(repository.UpdateCount == writes, "idempotent retry wrote or mutated a second time");

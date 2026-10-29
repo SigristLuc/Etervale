@@ -1,3 +1,4 @@
+using PristonTale.Application.Saves;
 using PristonTale.Application.Chat;
 using PristonTale.Application.Sessions;
 using PristonTale.Application.World;
@@ -10,10 +11,10 @@ namespace PristonTale.Application.Services;
 // waits up to PartnerGateWait for its partner's (the partner's own lock or a save holds it briefly; nothing holds the
 // partner's gate while waiting for the locker's, so the wait cannot deadlock). It stores both characters in one
 // transaction and commits both on the tick; a partner's gate still busy unlocks the trade.
-public sealed class TradeAppService(ISessionRegistry sessions, ICharacterRepository characters, WorldServer world, ChatDirectory chat)
+public sealed class TradeAppService(ISessionRegistry sessions, ICharacterSaves saves, ICharacterRepository characters, WorldServer world, ChatDirectory chat)
 {
     private static readonly TimeSpan PartnerGateWait = TimeSpan.FromSeconds(2);
-    private readonly DurableOperations _durable = new(characters);
+    private readonly DurableOperations _durable = new(saves);
 
     public Task RequestAsync(string sessionToken, ulong targetId) =>
         WorldNoticeRequests.RunAsync(sessions, chat, sessionToken, session => world.RequestTradeAsync(session, targetId));
@@ -62,7 +63,8 @@ public sealed class TradeAppService(ISessionRegistry sessions, ICharacterReposit
             async (session, prepared) => await world.CommitTradeAsync(session, partner, prepared),
             static prepared => prepared.Notices,
             static _ => (WorldNotice[])[],
-            async (_, prepared) => await characters.UpdateAllAsync([prepared.Snapshot!.Encode(), prepared.PartnerSnapshot!.Encode()], CancellationToken.None)
+            async (session, prepared) => await characters.UpdateAllAsync([session.Stamp(prepared.Snapshot!), partner.Stamp(prepared.PartnerSnapshot!)],
+                    CancellationToken.None)
                 ? null
                 : DurableFailure.StorageFailed,
             async (_, _) => chat.Deliver(await world.ReleaseTradeAsync(trade, TradeStatus.StorageFailed)));

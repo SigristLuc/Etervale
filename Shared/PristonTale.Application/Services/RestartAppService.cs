@@ -1,6 +1,6 @@
+using PristonTale.Application.Saves;
 using PristonTale.Application.Sessions;
 using PristonTale.Application.World;
-using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Contracts.World;
 
 namespace PristonTale.Application.Services;
@@ -8,11 +8,11 @@ namespace PristonTale.Application.Services;
 // The answer to a restart: where the player stands up (FieldId 0 when it did not).
 public sealed record RestartReply(RestartOutcome Outcome, int FieldId = 0, System.Numerics.Vector3 Position = default);
 
-// A dead player's restart: the tick prepares its costs and place, the character is stored, then the tick applies it
-// (DurableOperations).
-public sealed class RestartAppService(ISessionRegistry sessions, ICharacterRepository characters, WorldServer world)
+// A dead player's restart: the tick prepares its costs and place, then applies it; the character is stored in the
+// background (DurableOperations).
+public sealed class RestartAppService(ISessionRegistry sessions, ICharacterSaves saves, WorldServer world)
 {
-    private readonly DurableOperations _durable = new(characters);
+    private readonly DurableOperations _durable = new(saves);
 
     public async Task<RestartReply> RestartAsync(string sessionToken, RestartCommand command, CancellationToken ct = default)
     {
@@ -24,7 +24,6 @@ public sealed class RestartAppService(ISessionRegistry sessions, ICharacterRepos
             failure => new RestartReply(new RestartOutcome(failure switch
             {
                 DurableFailure.Busy => RestartStatus.Busy,
-                DurableFailure.StorageFailed => RestartStatus.StorageFailed,
                 _ => RestartStatus.Rejected
             }, command.Choice)));
     }

@@ -8,21 +8,53 @@ internal sealed class MemoryCharacters(CharacterRecord initial) : ICharacterRepo
     public Func<CharacterRecord, Task<bool>>? BeforeUpdate { get; set; }
     public int UpdateCount { get; private set; }
 
+    // Records the next reads return before Record: what storage held before a write that lands meanwhile.
+    public Queue<CharacterRecord> EarlierReads { get; } = new();
+
     public Task<CharacterRecord?> FindByNameForAccountAsync(long accountId, string name, CancellationToken ct = default)
     {
-        return Task.FromResult<CharacterRecord?>(Record.AccountId == accountId && Record.Name == name ? Record : null);
+        var read = EarlierReads.TryDequeue(out var earlier) ? earlier : Record;
+        return Task.FromResult<CharacterRecord?>(read.AccountId == accountId && read.Name == name ? read : null);
     }
 
     public async Task<bool> UpdateAsync(CharacterRecord record, CancellationToken ct = default)
     {
         UpdateCount++;
-        if (BeforeUpdate is not null && !await BeforeUpdate(record))
+        if (BeforeUpdate is not null && !await BeforeUpdate(record) || record.SaveSeq < Record.SaveSeq)
         {
             return false;
         }
 
         Record = record;
         return true;
+    }
+
+    // A refused write throws, as storage that cannot take a batch does; while BeforeUpdate refuses the stored record,
+    // storage is unreachable and even an empty write throws.
+    public async Task<int> SaveAllAsync(IReadOnlyList<CharacterRecord> records, CancellationToken ct = default)
+    {
+        if (records.Count == 0 && BeforeUpdate is not null && !await BeforeUpdate(Record))
+        {
+            throw new InvalidOperationException("storage unreachable");
+        }
+
+        var written = 0;
+        foreach (var record in records)
+        {
+            if (BeforeUpdate is not null && !await BeforeUpdate(record))
+            {
+                throw new InvalidOperationException("storage refused the batch");
+            }
+
+            if (record.SaveSeq >= Record.SaveSeq)
+            {
+                Record = record;
+                written++;
+            }
+        }
+
+        UpdateCount++;
+        return written;
     }
 
     // One character's rows only: a trade between two characters needs MemoryCharacterBook.

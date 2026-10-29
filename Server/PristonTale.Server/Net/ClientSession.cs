@@ -631,7 +631,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                 ? QuestOutcome.Failed(QuestStatus.Rejected, "enter the world first")
                 : await _services.Quests.RequestAsync(RequireToken(), QuestWireMapping.ToCommand(request));
         }
-        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException or System.Data.Common.DbException)
+        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException)
         {
             outcome = QuestOutcome.Failed(QuestStatus.StorageFailed, ex.Message);
         }
@@ -695,7 +695,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         {
             reply = new ItemUseReply(ItemUseOutcome.Refused(request.ExpectedRevision, ItemUseStatus.Busy));
         }
-        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException or System.Data.Common.DbException)
+        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException)
         {
             reply = new ItemUseReply(ItemUseOutcome.Refused(request.ExpectedRevision, ItemUseStatus.StorageFailed));
         }
@@ -724,7 +724,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         {
             reply = new WingGateReply(new WingGateOutcome(WingGateStatus.Busy, command.Destination));
         }
-        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException or System.Data.Common.DbException)
+        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException)
         {
             reply = new WingGateReply(new WingGateOutcome(WingGateStatus.StorageFailed, command.Destination));
         }
@@ -753,7 +753,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         {
             reply = new RestartReply(new RestartOutcome(RestartStatus.Busy, command.Choice));
         }
-        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException or System.Data.Common.DbException)
+        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException)
         {
             reply = new RestartReply(new RestartOutcome(RestartStatus.StorageFailed, command.Choice));
         }
@@ -777,7 +777,7 @@ internal sealed partial class ClientSession : IMovementVerdictSink
         {
             outcome = await _services.Sessions.ApplyProgressionAsync(RequireToken(), command);
         }
-        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException or System.Data.Common.DbException)
+        catch (Exception ex) when (ex is InvalidSessionException or InvalidOperationException)
         {
             outcome = new ProgressionOutcome(false, request.ExpectedRevision, ex.Message);
         }

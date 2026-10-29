@@ -276,7 +276,7 @@ internal static class ProgressionAndOwnershipTests
         var repository = new MemoryCharacters(corrupt);
         var registry = new SessionRegistry();
         var session = registry.Create(1, "owner");
-        var service = new SessionAppService(registry, classes, repository, new WorldCatalog());
+        var service = new SessionAppService(registry, classes, repository, new ImmediateSaves(repository), new WorldCatalog());
         Assert.True(!(await service.EnterWorldAsync(session.SessionToken, record.Name)).Ok, "future version was treated as empty inventory");
         Assert.True(!await service.SaveCharacterAsync(session.SessionToken) && repository.Record.Inventory == corrupt.Inventory, "failed hydration overwrote saved state");
     }

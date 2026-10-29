@@ -94,9 +94,12 @@ that explains it in depth.
 | Tick | One `WorldServer.Tick` at 20 Hz; the only thread that mutates world state | architecture.md |
 | Command queue | Bounded single-reader channel of world commands drained by the tick | application.md |
 | Command quota | `World:MaxPendingCommandsPerPlayer` queued commands per player; over it, `WorldBusyException` | application.md |
-| Prepare / persist / commit | Validate and build a candidate on the tick, store it off the tick, apply it on the tick | application.md |
+| Prepare / commit | Validate and build a candidate on the tick, apply it on the tick, then queue it for storage (a transfer is stored between the two) | application.md |
 | Candidate | Clone of the character a transaction is applied to before commit | application.md |
 | `SaveGate` | Per-session semaphore serialising saves and durable character operations | application.md |
+| Save sequence | `characters.save_seq`: the order of a character's captures; storage keeps the highest it was given | persistence.md |
+| Checkpoint | The world's capture of every playing character once per `World:CheckpointSeconds` for background storage | application.md |
+| Save journal | Captures storage refused while the server stopped, stored by the next start before players enter | application.md |
 | Operation id | Client GUID per durable command; same id and command replays, different command conflicts | application.md |
 | `WorldSnapshot` | Per-field state built each tick and specialised per receiver with `OwnerState` | application.md |
 | `WorldOutbox` | Per-connection channel keeping the latest entity state and every event; overflow disconnects | application.md |

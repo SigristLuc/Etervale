@@ -27,7 +27,7 @@ and draws the result.
 | `.../Usable/UsableItemEffects.cs` | The character part of a use (timers, resets, mastery, aging, Gravity Scroll, big head) |
 | `.../Usable/ItemScrolls.cs`, `ForceOrbs.cs`, `TeleportCoreDestinations.cs` | Scroll effects, force orb tables, the 33 Teleport Core fields |
 | `.../Usable/ItemUseCommand.cs`, `ItemUseMessages.cs`, `ItemEffectKind.cs` | Command, statuses, outcome and history; the effect kinds sent to clients |
-| `Shared/PristonTale.Application/Services/ItemUseAppService.cs` | Prepare, store, commit under the session's `SaveGate` |
+| `Shared/PristonTale.Application/Services/ItemUseAppService.cs` | Prepare and commit under the session's `SaveGate`, then the save queue |
 | `Shared/PristonTale.Application/World/ItemUseTransactions.cs` | Tick-side shared checks and the candidate of a use |
 | `Shared/PristonTale.Application/World/ItemUses/ItemUseAction.cs` | `ItemUseAction`, one per `UsableItemAction` (`ItemUseActions.For`): `ForTheDead`, `Consumes`, `ReappliesAtCommit`, `Check`, `Arrival`, `Extend`, `Message`, `Store`, `Commit` (session), `Apply` (world, returns the effect viewers see) |
 | `Shared/PristonTale.Application/World/WorldServer.Items.cs` | `PrepareItemUseAsync`, `CommitItemUseAsync` (calls the kind's `Commit` and `Apply`) |

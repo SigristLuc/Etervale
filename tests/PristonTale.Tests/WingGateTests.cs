@@ -69,7 +69,7 @@ internal static class WingGateTests
 
     private static async Task<WingGateReply> Travel(SpecialItemTests.Harness harness, int destination)
     {
-        var service = new WingGateAppService(harness.Sessions, harness.Repository, harness.World);
+        var service = new WingGateAppService(harness.Sessions, new ImmediateSaves(harness.Repository), harness.World);
         var reply = service.TravelAsync(harness.Session.SessionToken, new WingGateCommand(Guid.NewGuid(), destination));
         await harness.AdvanceAsync(reply);
         return await reply;

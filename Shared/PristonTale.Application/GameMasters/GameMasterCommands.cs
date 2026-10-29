@@ -107,7 +107,7 @@ public sealed class GameMasterCommands
     public IServerOperations Server { get; }
     public IGameMasterRepository? Repository { get; }
     public IAccountRepository? Accounts { get; init; }
-    public ICharacterRepository? Characters { get; init; }
+    public Saves.ICharacterSaves? Saves { get; init; }
     public IWarehouseRepository? Warehouses { get; init; }
     public ItemCreationOverrides ItemOverrides { get; } = new();
 

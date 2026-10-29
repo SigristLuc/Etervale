@@ -219,7 +219,7 @@ movement every 200 ms (5 Hz) and draining presence:
 | `walk` | Walk a 150-unit circle through the spawn at 100 units/s; a forced warp restarts the circle from the authoritative position |
 | `fight` | Lock a held basic attack on the nearest wild monster in sight (900 units) and walk to 28 units of it, reporting the target |
 | `cast` | Walk to 70 units of the nearest wild monster and cast `--skill` at it, again when the cooldown the server answered ends (at least every 3 s) |
-| `items` | Stand still and switch the bag page every `--item-ms`: a stored inventory command, written to the database as a potion or a pickup is |
+| `items` | Stand still and switch the bag page every `--item-ms`: a stored inventory command, queued for storage as a potion or a pickup is. The bot expects the newer of its last answer's revision and the owner state's, and switches away from the page the owner state shows |
 | `mixed` | Half walk, three in ten fight, two in ten cast (by bot index) |
 
 Hunters move from the position the server shows them at (the stage's walls change it), and every forced warp counts as
