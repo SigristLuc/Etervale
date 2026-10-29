@@ -551,7 +551,8 @@ A character below level 10 has one of the four helper dragons beside it, as the 
 the same command shows it again). `HelpPets.Active` gives the helper pet beside a character: a premium helper pet's
 timer first, else the beginner's pet while it shows. Every viewer sees it through the player's looks
 (`PlayerAppearanceView.HelperPet`, part of the description), and it joins its owner's attacks as the premium helper
-pets do (`FieldPremium`; 21% of attacks up to level 5, 24% to level 9).
+pets do (`FieldPremium`; 21% of attacks up to level 5, 24% to level 9). Its help boxes and speech are the client's
+([client.md](client.md#hud-and-windows), helper pet).
 
 ## Starter gifts
 

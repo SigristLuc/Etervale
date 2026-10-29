@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using PristonTale.Gameplay.Screens.Framework;
 using PristonTale.Gameplay.UI.Chat;
+using PristonTale.Gameplay.UI.HelpPet;
 using PristonTale.Gameplay.UI.Inventory;
 using PristonTale.Gameplay.UI.Npc;
 using PristonTale.Gameplay.UI.Parties;
@@ -157,6 +158,8 @@ public sealed partial class GameplayHud : IDisposable
         _sprites.Request(HudChatWindow.Art);
         _sprites.Request(HudChatBubbles.Art);
         _chat.Lookup = id => (Combat.KindOf(id, out var owner), owner);
+        _helpPet = new HudHelpPet(HelpPetMessages.LoadAsync(context.AssetRoot, context.Log), new Random(), context.Log);
+        _sprites.Request(HudHelpPet.Art);
         SetUpParty();
         SetUpTrade();
         SetUpContacts();
@@ -435,6 +438,7 @@ public sealed partial class GameplayHud : IDisposable
 
         _hoveredButton = ButtonAt(design);
         _hoveredToggle = ToggleAt(design);
+        UpdateHelpPet(state, layout, pointer, design, mouse, _clock.Elapsed.TotalMilliseconds);
         var clicked = mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
         // A click the HUD takes stays its own when it closes the window under it (a close button over the ground).
         var clickTaken = clicked && Captures(layout, pointer, design);
@@ -541,6 +545,11 @@ public sealed partial class GameplayHud : IDisposable
         Combat.DrawNamePlates(_painter, layout, Overhead, HoveredId, TracedId, _context.Presentation.Requested.ClassicNamePlates);
         _chat.Bubbles.Signs = ShopSigns;
         _chat.Bubbles.Draw(_painter, layout, _clock.Elapsed.TotalMilliseconds, Overhead, id => _chat.NameColor(id, TargetId), TargetId);
+        if (_helpPet.Bubble is { } petLine && HelperPet.Point is { } petPoint)
+        {
+            _chat.Bubbles.DrawAt(_painter, layout, petLine, petPoint);
+        }
+
         _painter.Flush();
         if (MinimapShown)
         {
@@ -615,6 +624,9 @@ public sealed partial class GameplayHud : IDisposable
         {
             HudSystemMenu.Draw(_painter, layout, pointer);
         }
+
+        _painter.Flush();
+        _helpPet.Draw(_painter, pointer);
 
         // The quest dialog takes the help box from the NPC dialog; its yes/no box replaces both, as the classic client closed
         // the help box before asking.

@@ -162,6 +162,7 @@ public sealed class GameplayScreen : GameScreen
         }
         _scene.Update(gameTime);
         _hud.TargetId = _scene.SelectedTargetId;
+        _hud.HelperPet = _scene.SelfHelperPet();
         _hud.HoveredId = _scene.HoveredTargetId;
         _hud.TracedId = _scene.TracedTargetId;
         _hud.ButtonsPlayerId = _scene.ReachedPlayerId;

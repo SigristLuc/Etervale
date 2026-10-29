@@ -32,10 +32,11 @@ rendering internals, skill presentation and VFX data have their own documents (s
 | `Client/PristonTale.Gameplay/World/Remote/` | Remote actors: `RemoteEntityManager`, `RemoteSnapshotBuffer`, `RemoteServerClock`, actor composers, equipment visuals, ground loot, picking |
 | `Client/PristonTale.Gameplay/World/*.cs` (other) | `TargetSelection` (target frame owner), `NpcApproach`, `GroundTraversal`, `FieldCollisionQuery`, `LoadedField`, `EnteredCharacter` |
 | `Client/PristonTale.Gameplay/Combat/` | `ActorMotionController` (local motion state machine), `AttackInputController` (attack press/release and server reconcile) |
-| [`Client/PristonTale.Gameplay/UI/GameplayHud.cs`](../Client/PristonTale.Gameplay/UI/GameplayHud.cs) | In-game HUD root: windows, state, update and draw order. Partials: `.Input` (keys, click routing by priority, menu buttons and toggles, captures), `.Services` (NPC service windows and their actions, drops from the bag, icons), `.Quests` (dialog, boxes, quest window), `.Parties` (party window, request box, buttons under a player's portrait), `.PersonalShops`, `.Messages` (completed requests to the chat or the notice strip) |
+| [`Client/PristonTale.Gameplay/UI/GameplayHud.cs`](../Client/PristonTale.Gameplay/UI/GameplayHud.cs) | In-game HUD root: windows, state, update and draw order. Partials: `.Input` (keys, click routing by priority, menu buttons and toggles, captures), `.Services` (NPC service windows and their actions, drops from the bag, icons), `.Quests` (dialog, boxes, quest window), `.Parties` (party window, request box, buttons under a player's portrait), `.PersonalShops`, `.Messages` (completed requests to the chat or the notice strip), `.HelpPet` (what the helper pet speaks of) |
 | `Client/PristonTale.Gameplay/UI/` (root) | `HudLayout` (800x600 design space), `LoginPanel`/`LoginLayout`/`TextInputField`, `DisplayConfirmation` |
 | `Client/PristonTale.Gameplay/UI/Widgets/` | Bottom bar, status window, skill tree and sockets, minimap, target frame and combat history (`HudCombat`), 3D target portrait, NPC dialog, settings panel, system menu, notices |
 | `Client/PristonTale.Gameplay/UI/Chat/` | Chat window, tabs, input line and speech bubbles (see [chat-and-gm.md](chat-and-gm.md)) |
+| `Client/PristonTale.Gameplay/UI/HelpPet/` | The beginner's helper pet's talk: `HelpPetMessages` (its texts) and `HudHelpPet` (help boxes and speech) |
 | `Client/PristonTale.Gameplay/UI/Inventory/` | Inventory window layout, drag/drop and equip commands |
 | `Client/PristonTale.Gameplay/UI/Npc/` | NPC service controller, shop and warehouse windows, store layout, NPC art |
 | `Client/PristonTale.Gameplay/UI/Quests/` | Quest controller, quest dialog and yes/no boxes, quest window, quest texts and art (see [quests.md](quests.md#client)) |
@@ -577,6 +578,19 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
 - System menu (`HudSystemMenu`, the X button): the original 128x64 `ExitMenu.tga` sheet at 698,504 (Help above Quit,
   with their hover plaques `Option.bmp` and `Exit.bmp`) and the Settings plaque (`Settings.bmp`) just above it. Quit
   closes the game; Help is drawn without behaviour (the help window is not ported yet).
+- Helper pet (`UI/HelpPet/`, `GameplayHud.HelpPet.cs`; the scene's `SelfHelperPet` gives the pet beside the player
+  and the screen point over it): the texts are the client's `image/Sinimage/PetData/PetMessage.txt` (code page 949,
+  `*Topic` sections closed by `end`). Below level 10, while the pet is shown, it speaks over itself in a chat bubble
+  ("Name : message", 4 s) of the bar's buttons, toggles, skill sockets, gauges, day clock, minimap and chat window
+  when they are pointed at, clicked or right clicked (each topic's message 0, 1 or 2), and of the C, I/V, S, X, Q, D, R
+  and potion keys (message 3, the potions 3 to 5); it speaks when the pointer comes onto a part and keeps that part's
+  line up while the pointer stays. In town it says an idle line every 30 s, and while fighting below level 8 one battle
+  line each time the level's experience passes one or more of 5, 10, 20, 30, 35, 40, 50, 60, 70, 80 and 90%; neither
+  repeats until its list is spent. Its help boxes (the `GH-Box`
+  frame at the top left, the pet's portrait, OK `bltr_bt3`) queue and stay 15 s or until OK: the greeting of a level-1
+  character without experience (its dragon and name, then the welcome of its class's start town), the guides of
+  levels 2 to 10, the class guide at 90% of level 8 and the farewell at 90% of level 9 while fighting. The level-10
+  guide still shows when the server's removal of the pet arrives before the level (within 2 s).
 - Trade (`UI/Trades/`, art `HudTradeArt`; `GameplayHud.Trades.cs`, `GameScene.Trades.cs` as `ITradeClient`): the request
   box (`HudTradeArt.Request`, 10 s) is not shown while a service window is open. When the server opens the trade, the
   window (`HudTradeWindow`, a service window on the store frame) opens, closing the other service windows and opening

@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using PristonTale.Gameplay.UI.Chat;
+using PristonTale.Gameplay.UI.HelpPet;
 using PristonTale.Simulation.Social;
 
 namespace PristonTale.Gameplay.World;
@@ -10,6 +11,7 @@ public sealed partial class GameScene
     // The bubble hangs this far above the head bone (or above the feet when the head is not known).
     private const float BubbleAboveHead = 14f;
     private const float BubbleAboveFeet = 60f;
+    private const float BubbleAbovePet = 10f;
 
     // The chat input has the keyboard: letters must not act as game keys (the ground labels' A key).
     public bool KeyboardCaptured { get; set; }
@@ -58,6 +60,22 @@ public sealed partial class GameScene
             return null;
         }
 
+        return Project(anchor);
+    }
+
+    // The local player's helper pet and the point over it where it speaks (null while it is not drawn).
+    public HudHelperPetView SelfHelperPet()
+    {
+        if (_pets is null || !_pets.TryGetHelper(SelfEntityId, out var kind, out var position))
+        {
+            return default;
+        }
+
+        return new HudHelperPetView(kind, position is { } at && _camera is not null ? Project(at + Vector3.Up * BubbleAbovePet) : null);
+    }
+
+    private HudOverheadPoint? Project(Vector3 anchor)
+    {
         var depth = -Vector3.Transform(anchor, _camera.View).Z;
         if (depth <= 0f)
         {

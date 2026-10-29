@@ -16,6 +16,11 @@ public static class HelpPets
     public static PremiumEffectKind? Active(PlayerCharacter character) =>
         PremiumPets.HelperPet(character.Premium)
         ?? (character.HelpPet != 0 && !character.HelpPetHidden && character.Level < LeaveLevel
-            ? (PremiumEffectKind)((int)PremiumEffectKind.HelpPetTerry + character.HelpPet - 1)
+            ? Effect(character.HelpPet)
             : null);
+
+    // A helper pet's kind (1 to 4) and its premium effect.
+    public static int KindOf(PremiumEffectKind pet) => pet - PremiumEffectKind.HelpPetTerry + 1;
+
+    public static PremiumEffectKind Effect(int kind) => (PremiumEffectKind)((int)PremiumEffectKind.HelpPetTerry + kind - 1);
 }

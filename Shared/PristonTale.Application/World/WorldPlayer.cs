@@ -373,7 +373,7 @@ public sealed class WorldPlayer
         OffHandGlow = HeldItemGlow.For(_character.GetEquipped(EquipmentSlot.OffHand)),
         InVillage = _inVillage,
         Tier = _character.Tier,
-        HelperPet = HelpPets.Active(_character) is { } pet ? pet - PremiumEffectKind.HelpPetTerry + 1 : 0,
+        HelperPet = HelpPets.Active(_character) is { } pet ? HelpPets.KindOf(pet) : 0,
         Phoenix = _character.Premium.IsActive(PremiumEffectKind.PhoenixPet),
         BigHead = _character.Premium.BigHeadMode,
         ShopSign = Shop?.Sign ?? ""

@@ -5,6 +5,7 @@ using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
 using PristonTale.Engine3D.Rendering.Lighting;
 using PristonTale.Gameplay.Effects;
+using PristonTale.Simulation.Characters;
 using PristonTale.Simulation.Items.Usable;
 using PristonTale.Contracts.Motion;
 using PristonTale.Contracts.Units;
@@ -65,6 +66,15 @@ public sealed class PremiumPetPresentation : IDisposable
         _owners.SelectMany(pair => new[] { pair.Value.Helper, pair.Value.Phoenix }.Where(pet => pet is { HasActor: true })
             .Select(pet => (pair.Key, pet.Kind, pet.Position)));
 
+    // The helper pet beside a player (kind 1 to 4) and where it is drawn, null until its model is placed.
+    public bool TryGetHelper(ulong ownerId, out int kind, out Vector3? position)
+    {
+        var helper = _owners.TryGetValue(ownerId, out var owner) ? owner.Helper : null;
+        kind = helper is null ? 0 : HelpPets.KindOf(helper.Kind);
+        position = helper is { HasActor: true } ? helper.Position : null;
+        return helper is not null;
+    }
+
     // The pets each player shows, from the spawns of players, and the strikes the server reports.
     public void Observe(PresenceUpdate update, Func<ulong, Vector3?> targetPosition)
     {
@@ -108,7 +118,7 @@ public sealed class PremiumPetPresentation : IDisposable
             _owners[ownerId] = owner;
         }
 
-        var helperKind = helper is >= 1 and <= 4 ? (PremiumEffectKind)((int)PremiumEffectKind.HelpPetTerry + helper - 1) : (PremiumEffectKind?)null;
+        var helperKind = helper is >= 1 and <= HelpPets.Kinds ? HelpPets.Effect(helper) : (PremiumEffectKind?)null;
         if (owner.Helper?.Kind != helperKind)
         {
             owner.Helper?.Remove(_scene);

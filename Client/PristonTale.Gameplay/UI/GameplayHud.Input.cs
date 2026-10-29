@@ -57,36 +57,43 @@ public sealed partial class GameplayHud
         if (Pressed(keyboard, Keys.I) || Pressed(keyboard, Keys.V))
         {
             TogglePanel(_inventorySlide);
+            HelpPetKey("InvenTory");
         }
 
         if (Pressed(keyboard, Keys.C))
         {
             TogglePanel(_statusSlide);
+            HelpPetKey("CarStatus");
         }
 
         if (Pressed(keyboard, Keys.S))
         {
             TogglePanel(_skillSlide);
+            HelpPetKey("Skill");
         }
 
         if (Pressed(keyboard, Keys.X))
         {
             _systemMenu = !_systemMenu;
+            HelpPetKey("System");
         }
 
         if (Pressed(keyboard, Keys.Q))
         {
             ToggleQuestWindow();
+            HelpPetKey("Quest");
         }
 
         if (Pressed(keyboard, Keys.D))
         {
             TogglePartyWindow();
+            HelpPetKey("Party");
         }
 
         if (Pressed(keyboard, Keys.R))
         {
             RunToggleRequested?.Invoke();
+            HelpPetKey("RunAndWalk");
         }
 
         if (Pressed(keyboard, Keys.Space))
@@ -110,6 +117,7 @@ public sealed partial class GameplayHud
             if (Pressed(keyboard, BeltKeys[box]))
             {
                 _inventory.BeltKey(box, shift);
+                HelpPetKey("Potion_ShortKey", KeyIndex + box);
             }
         }
     }
@@ -126,6 +134,11 @@ public sealed partial class GameplayHud
         if (_personalShop.ModalOpen)
         {
             _personalShop.Click(pointer);
+            return;
+        }
+
+        if (_helpPet.Click(pointer, _clock.Elapsed.TotalMilliseconds))
+        {
             return;
         }
 
@@ -375,7 +388,7 @@ public sealed partial class GameplayHud
             return true;
         }
 
-        if (CapturesParty(layout, pointer) || _tradeRequest.Captures(pointer) || _personalShop.Captures(pointer) || _itemUse.Captures(pointer) || _wingGate.Captures(pointer) || _puzzle.Captures(pointer) || _premium.Contains(pointer))
+        if (_helpPet.Captures(pointer) || CapturesParty(layout, pointer) || _tradeRequest.Captures(pointer) || _personalShop.Captures(pointer) || _itemUse.Captures(pointer) || _wingGate.Captures(pointer) || _puzzle.Captures(pointer) || _premium.Contains(pointer))
         {
             return true;
         }

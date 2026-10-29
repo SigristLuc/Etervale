@@ -50,6 +50,7 @@ public sealed class HudBar
     public static Rectangle ManaHover => new(464, 499, 19, 96);
     public static Rectangle StaminaHover => new(301, 514, 12, 81);
     public static Rectangle ExperienceHover => new(574, 592, 222, 7);
+    public static Rectangle DayClockHover => new(366, 590, 69, 6);
 
     // Opaque parts of Menu-1 and Menu-2 that block world clicks.
     public static readonly Rectangle[] Body = [new Rectangle(296, 490, 248, 110), new Rectangle(544, 552, 256, 48)];

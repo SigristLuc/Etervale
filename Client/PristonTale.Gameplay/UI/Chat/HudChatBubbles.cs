@@ -89,6 +89,14 @@ public sealed class HudChatBubbles
         }
     }
 
+    // One line over a point that is no entity (the helper pet's speech), as an unselected speaker's.
+    public void DrawAt(HudPainter painter, HudLayout layout, string text, HudOverheadPoint point)
+    {
+        var scale = Math.Max(1, layout.Scale);
+        painter.Flush();
+        DrawBubble(painter, layout, text, (int)(point.Screen.X / scale), (int)(point.Screen.Y / scale), default, false, false);
+    }
+
     private void DrawBubble(HudPainter painter, HudLayout layout, string text, int anchorX, int anchorY, Color name, bool selected, bool sign)
     {
         var lines = _wrap.Wrap(text, MaxLines, painter.Measure);
