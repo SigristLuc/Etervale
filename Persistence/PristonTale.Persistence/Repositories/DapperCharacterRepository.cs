@@ -7,14 +7,14 @@ namespace PristonTale.Persistence.Repositories;
 public sealed class DapperCharacterRepository(IDbConnectionFactory connectionFactory) : ICharacterRepository
 {
     // The full column projection shared by every read and the INSERT/RETURNING. The JSON columns
-    // (inventory/equipment/skills/quests/derived_stats/premium) bind through the per-provider
+    // (inventory/equipment/skills/quests/premium) bind through the per-provider
     // JsonText type handler (Postgres jsonb / SQLite TEXT), so the SQL here stays provider-agnostic.
     private const string Columns =
         "id, account_id, name, slot, job_code, level, exp, money, brood, " +
         "strength, spirit, talent, agility, health, stat_points, " +
         "life, mana, stamina, field_id, pos_x, pos_z, model_name, model_name2, face_index, " +
         "tier, hair_index, size_level, " +
-        "inventory, equipment, skills, quests, derived_stats, premium, last_played_at";
+        "inventory, equipment, skills, quests, premium, last_played_at";
 
     // Identity columns (id/account_id/name/slot/job_code/created_at) are immutable and never updated.
     internal const string UpdateSql =
@@ -28,7 +28,7 @@ public sealed class DapperCharacterRepository(IDbConnectionFactory connectionFac
                 model_name = @ModelName, model_name2 = @ModelName2, face_index = @FaceIndex,
                 tier = @Tier, hair_index = @HairIndex, size_level = @SizeLevel,
                 inventory = @Inventory, equipment = @Equipment, skills = @Skills,
-                quests = @Quests, derived_stats = @DerivedStats, premium = @Premium,
+                quests = @Quests, premium = @Premium,
                 last_played_at = @LastPlayedAt
             WHERE id = @Id
             """;
@@ -77,13 +77,13 @@ public sealed class DapperCharacterRepository(IDbConnectionFactory connectionFac
                 strength, spirit, talent, agility, health, stat_points,
                 life, mana, stamina, field_id, pos_x, pos_z, model_name, model_name2, face_index,
                 tier, hair_index, size_level,
-                inventory, equipment, skills, quests, derived_stats, premium)
+                inventory, equipment, skills, quests, premium)
             VALUES (
                 @AccountId, @Name, @Slot, @JobCode, @Level, @Exp, @Money, @Brood,
                 @Strength, @Spirit, @Talent, @Agility, @Health, @StatPoints,
                 @Life, @Mana, @Stamina, @FieldId, @PosX, @PosZ, @ModelName, @ModelName2, @FaceIndex,
                 @Tier, @HairIndex, @SizeLevel,
-                @Inventory, @Equipment, @Skills, @Quests, @DerivedStats, @Premium)
+                @Inventory, @Equipment, @Skills, @Quests, @Premium)
             RETURNING {Columns}
             """,
             record, cancellationToken: ct));

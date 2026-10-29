@@ -26,9 +26,7 @@ internal static class AgingTests
         yield return ("aging requests, results, progress and saved maturities round-trip", WireAsync);
     }
 
-    private static ItemTemplateRecord Record(string code) => new(
-        code, ItemCodes.Parse(code), code, (int)ItemKind.Misc, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    private static ItemTemplateRecord Record(string code) => ItemRecords.Blank(code);
 
     private static ItemDefinition Def(string code, Func<ItemTemplateRecord, ItemTemplateRecord>? change = null) =>
         WorldDataFactory.ToItemDefinition(change is null ? Record(code) : change(Record(code)));

@@ -2,26 +2,27 @@ using System.Text.Json;
 
 namespace PristonTale.WorldImport;
 
-// The stable id and unique English key of every monster and NPC (Identities/monsters.json, Identities/npcs.json). The
-// source files name them by their authored identity, which spawn tables, boss tables and placements reference byte for
-// byte; the catalog and the game use only the id and the key. Ids are never reused or renumbered: an identity missing
-// from the registry takes the next free id and its English label as key (numbered when taken), and the import report
-// lists the entries to add to the file.
+// The stable id and unique English key of every monster and NPC (Identities/monsters.json, Identities/npcs.json). A
+// monster's source is its authored identity, which spawn and boss tables reference byte for byte; an NPC's source is
+// its definition file's name (case-insensitive), which field placements name. The catalog and the game use only the id
+// and the key. Ids are never reused or renumbered: a source missing from the registry takes the next free id and its
+// English label as key (numbered when taken), and the import report lists the entries to add to the file.
 public sealed class IdentityRegistry
 {
     public sealed record Entry(int Id, string Key, string Source);
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    private readonly Dictionary<string, Entry> _bySource = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Entry> _bySource;
     private readonly HashSet<string> _keys = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<int> _ids = [];
     private readonly string _unnamed;
     private int _lastId;
 
-    public IdentityRegistry(string fileName, string unnamed, IEnumerable<Entry> entries)
+    public IdentityRegistry(string fileName, string unnamed, StringComparer sources, IEnumerable<Entry> entries)
     {
         FileName = fileName;
+        _bySource = new Dictionary<string, Entry>(sources);
         _unnamed = unnamed;
         foreach (var entry in entries)
         {
@@ -39,9 +40,9 @@ public sealed class IdentityRegistry
     // Identities this import met that the registry file lacks, in the order met.
     public List<Entry> Added { get; } = [];
 
-    public static IdentityRegistry Monsters() => Load("monsters.json", "Monster");
+    public static IdentityRegistry Monsters() => Load("monsters.json", "Monster", StringComparer.Ordinal);
 
-    public static IdentityRegistry Npcs() => Load("npcs.json", "NPC");
+    public static IdentityRegistry Npcs() => Load("npcs.json", "NPC", StringComparer.OrdinalIgnoreCase);
 
     public bool TryGet(string source, out Entry entry) => _bySource.TryGetValue(source, out entry!);
 
@@ -88,11 +89,11 @@ public sealed class IdentityRegistry
         return text == text.ToLowerInvariant() ? string.Join(' ', text.Split(' ').Select(static word => char.ToUpperInvariant(word[0]) + word[1..])) : text;
     }
 
-    private static IdentityRegistry Load(string fileName, string unnamed)
+    private static IdentityRegistry Load(string fileName, string unnamed, StringComparer sources)
     {
         using var stream = typeof(IdentityRegistry).Assembly.GetManifestResourceStream($"PristonTale.WorldImport.Identities.{fileName}")
             ?? throw new InvalidOperationException($"Identities/{fileName} is not embedded in the importer.");
         var entries = JsonSerializer.Deserialize<List<Entry>>(stream, Json) ?? [];
-        return new IdentityRegistry(fileName, unnamed, entries);
+        return new IdentityRegistry(fileName, unnamed, sources, entries);
     }
 }

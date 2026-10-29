@@ -43,6 +43,28 @@ public sealed record ItemTemplate
     public bool CanSpecialize => SpecJob != 0 || RandomSpecJobs.Count > 0;
 }
 
+// A class specialization bonus an item definition grants (stored as item_spec_bonuses.bonus; append only).
+public enum ItemSpecBonusKind : short
+{
+    Absorb = 0,
+    Defence = 1,
+    MoveSpeed = 2,
+    Block = 3,
+    AttackSpeed = 4,
+    Critical = 5,
+    ShootingRange = 6,
+    MagicMastery = 7,
+    LevelMana = 8,
+    LevelLife = 9,
+    LevelAttackRating = 10,
+    // The authored damage per level pair; the second value is the divisor.
+    LevelDamage = 11,
+    ManaRegen = 12,
+    LifeRegen = 13,
+    StaminaRegen = 14,
+    LifeRegenRange = 15
+}
+
 // Bonuses a specialized copy grants to a character of its class. Level bonuses are divisors: the character gains
 // Level / divisor. Regeneration values are halved when applied.
 public sealed record ItemSpecTemplate

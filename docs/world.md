@@ -455,10 +455,10 @@ the damage clip found this way (`WorldPlayer.FlinchMs`, set when the player ente
 
 ## NPCs and services
 
-`NpcDefinition` comes from `WorldDataFactory.ToNpcDefinitions`: `Code` is the NPC's registry id, which field
-placements hold, `Name` its unique English key, `DisplayName` the player label (`Label` falls back to `Name`),
-`Services` in authored order with a bit set `ServiceSet` (`1 << kind`), `Shop` stock in three tabs (weapons, armour,
-misc), `Dialog`, `MoveRange` (default 64). A shop service without runtime stock is removed.
+`NpcDefinition` comes from `WorldDataFactory.ToNpcDefinitions`, one per NPC definition file: `Code` is the file's
+registry id, which field placements hold, `Name` its unique English key, `DisplayName` the English name (`Label`
+falls back to `Name`), `Dialog` its English lines, `Services` in authored order with a bit set `ServiceSet`
+(`1 << kind`), `Shop` stock in three tabs (weapons, armour, misc), `MoveRange` (default 64). A shop service without runtime stock is removed.
 
 NPC placement and wandering (`WorldNpc`, Application): placed from `FixedNpc` (fixed point, 4096-step angle); walks
 only with `MoveRange > 0` and a walk clip, with a 25% chance at the end of each stand clip, at 70 units/s.

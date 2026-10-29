@@ -1,13 +1,13 @@
 namespace PristonTale.WorldImport.Parsers;
 
-// Importer DTO aggregating the three field spawn files for one ASE base: the .spm text config
-// (budget knobs + weighted monster table + boss spawns), the .spp binary spawn points, and the
-// .spc binary fixed NPCs. Monster/NPC references are RAW names (resolved to FK rows by the
-// Importer). The Importer attaches a FieldCode + AseBase
-// from the Simulation WorldCatalog by joining on the ASE base name.
+// Importer DTO aggregating the three spawn files of one stage (the ASE base name): the .spm text config (budget knobs,
+// weighted monster table, bosses), the .spp binary spawn points and the .spc binary fixed NPCs. Monsters are named by
+// their authored identity and NPCs by their definition file, both resolved by the Importer. FieldCode is the world
+// catalog field that uses the stage, null for a stage no field uses.
 public sealed class ParsedField
 {
     public required string AseBase { get; init; }
+    public int? FieldCode { get; init; }
 
     // .spm budget knobs. Defaults match the original (10 concurrent monsters, 3 per wave).
     public int MaxConcurrentMonsters { get; set; } = 10;
@@ -21,11 +21,13 @@ public sealed class ParsedField
     // .spp spawn points: (index, state, x, z).
     public List<(int Index, int State, int X, int Z)> SpawnPoints { get; } = [];
 
-    // .spc fixed NPCs: (npc name, x, z, angle).
+    // .spc fixed NPCs.
     public List<ParsedNpcPlacement> FixedNpcs { get; } = [];
 }
 
-public sealed record ParsedNpcPlacement(string NpcName, int X, int Z, int Angle, int Y, string SourceFile);
+// A placed NPC: its record index in the .spc, the NPC definition file it names, its position and heading, and the
+// quest trigger and shadow size the placement record carries.
+public sealed record ParsedNpcPlacement(int Index, string SourceFile, int X, int Y, int Z, int Angle, int QuestTrigger, int SizeLevel);
 
 // A *출연자두목 boss spawn: master + optional escort/slave + slave count + spawn hours.
 public sealed record ParsedBoss(string MasterName, string? SlaveName, int SlaveCount, IReadOnlyList<int> Hours);

@@ -9,5 +9,4 @@ public sealed record ItemSetRecord(
     float Block,
     float LifeRegen,
     float ManaRegen,
-    float StaminaRegen,
-    string Description);
+    float StaminaRegen);

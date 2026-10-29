@@ -5,8 +5,8 @@ namespace PristonTale.WorldImport.Parsers;
 
 // Parses one OpenItem .txt → ParsedItem with the original item-definition rules.
 // Each line's leading word is matched exactly (case-sensitive, ordinal) against
-// the KeyMaps item tokens. The English name is the *Name label, then *E_NAME, then *B_NAME, then the item code; every
-// label is kept (ParsedItem.Labels).
+// the KeyMaps item tokens. The English name is the *Name label, then *E_NAME, then *B_NAME, then the *이름 name when it
+// is not Korean (a few items carry their only English name there), then the item code.
 // Item identity and foreign keys remain the original item code.
 public sealed class ItemTxtParser
 {
@@ -16,6 +16,7 @@ public sealed class ItemTxtParser
 
         var code = "";
         var labels = new Dictionary<string, string>(StringComparer.Ordinal);
+        var identityName = "";
         long unique = 0, jobMask = 0;
         int durMin = 0, durMax = 0, weight = 0, price = 0;
         int dmgMinLow = 0, dmgMinHigh = 0, dmgMaxLow = 0, dmgMaxHigh = 0;
@@ -26,7 +27,7 @@ public sealed class ItemTxtParser
         int reqLevel = 0, reqStr = 0, reqSpi = 0, reqTal = 0, reqDex = 0, reqHea = 0;
         int resStaMin = 0, resStaMax = 0, resManaMin = 0, resManaMax = 0, resLifeMin = 0, resLifeMax = 0;
         int shootRange = 0, atkSpeed = 0, maxStack = 1, potionSpace = 0;
-        float magicMastery = 0;
+        float magicMasteryMin = 0, magicMasteryMax = 0;
 
         var resMin = new int[8];
         var resMax = new int[8];
@@ -36,7 +37,7 @@ public sealed class ItemTxtParser
         string setBonus = "", lastComment = "";
         var unknown = new List<string>();
         var jobRandom = new List<long>();
-        var specials = new List<(int, float, float)>();
+        var specials = new List<(ItemSpecBonusKind, float, float)>();
 
         foreach (var sourceLine in lines)
         {
@@ -74,8 +75,8 @@ public sealed class ItemTxtParser
 
             switch (key)
             {
-                // The Korean name is not kept.
                 case KeyMaps.ItemName:
+                    identityName = t.NextValueOrQuoted().Trim();
                     break;
                 case KeyMaps.ItemCode: code = t.NextValueOrQuoted(); break;
                 case KeyMaps.ItemUniqueColor:
@@ -105,7 +106,8 @@ public sealed class ItemTxtParser
                 case "*마법숙련도":
                 case "*마법기술숙련도":
                 case "*기술숙련도":
-                    magicMastery = t.NextFloat();
+                    magicMasteryMin = t.NextFloat();
+                    magicMasteryMax = t.AtEnd ? 0f : t.NextFloat();
                     break;
                 case KeyMaps.ItemDamage:
                     dmgMinLow = t.NextInt(); dmgMinHigh = t.NextInt();
@@ -156,12 +158,13 @@ public sealed class ItemTxtParser
         var item = new ParsedItem
         {
             Code = code,
-            Name = EnglishNames.Item(code, AuthoredLabels.First(labels, "*NAME", "*E_NAME", "*B_NAME") is { Length: > 0 } label ? label : code),
+            Name = EnglishNames.Item(code, EnglishName(labels, identityName, code)),
             Kind = ItemKinds.Classify(code),
             UniqueItem = unique,
             MaxStack = maxStack,
             PotionSpace = potionSpace,
-            MagicMastery = magicMastery,
+            MagicMasteryMin = magicMasteryMin,
+            MagicMasteryMax = magicMasteryMax,
             DurabilityMin = durMin, DurabilityMax = durMax,
             Weight = weight, Price = price,
             DamageMinLow = dmgMinLow, DamageMinHigh = dmgMinHigh,
@@ -193,12 +196,18 @@ public sealed class ItemTxtParser
         Array.Copy(resMax, item.ResMax, 8);
         item.JobRandom.AddRange(jobRandom);
         item.Specials.AddRange(specials);
-        foreach (var (key, text) in labels)
+        return item;
+    }
+
+    private static string EnglishName(IReadOnlyDictionary<string, string> labels, string identityName, string code)
+    {
+        var label = AuthoredLabels.First(labels, "*NAME", "*E_NAME", "*B_NAME");
+        if (label.Length > 0)
         {
-            item.Labels[key] = text;
+            return label;
         }
 
-        return item;
+        return identityName.Length > 0 && !AuthoredLabels.IsKorean(identityName) ? identityName : code;
     }
 
     // The dual-alias regen/add/restore tokens, plus the ** special bonuses (commented out in this dataset).
@@ -210,7 +219,7 @@ public sealed class ItemTxtParser
         ref int addStaMin, ref int addStaMax,
         ref int resStaMin, ref int resStaMax, ref int resManaMin, ref int resManaMax,
         ref int resLifeMin, ref int resLifeMax,
-        List<(int, float, float)> specials)
+        List<(ItemSpecBonusKind, float, float)> specials)
     {
         if (Match(key, KeyMaps.ItemManaRegen)) { manaRegMin = t.NextFloat(); manaRegMax = t.NextFloat(); return true; }
         if (Match(key, KeyMaps.ItemLifeRegen)) { lifeRegMin = t.NextFloat(); lifeRegMax = t.NextFloat(); return true; }
@@ -226,10 +235,9 @@ public sealed class ItemTxtParser
         // bonus_code = a stable index over the recognised ** tokens.
         if (key.StartsWith("**", StringComparison.Ordinal))
         {
-            var bonusCode = SpecialBonusCode(key);
-            if (bonusCode >= 0)
+            if (SpecialBonus(key) is { } bonus)
             {
-                specials.Add((bonusCode, t.NextFloat(), t.NextFloat()));
+                specials.Add((bonus, t.NextFloat(), t.NextFloat()));
                 return true;
             }
         }
@@ -239,16 +247,26 @@ public sealed class ItemTxtParser
 
     private static bool Match(string key, string[] aliases) => Array.IndexOf(aliases, key) >= 0;
 
-    // Stable code for each ** special-bonus token (order = first appearance in the classic item decoder). -1 = unknown.
-    private static int SpecialBonusCode(string key) => key switch
+    // The specialization bonus of each ** token; null for a token that names none.
+    private static ItemSpecBonusKind? SpecialBonus(string key) => key switch
     {
-        "**흡수력" => 0, "**방어력" => 1, "**이동속도" => 2, "**블럭율" => 3, "**공격속도" => 4,
-        "**크리티컬" => 5, "**사정거리" => 6, "**마법숙련도" => 7, "**마나추가" or "**기력추가" => 8,
-        "**라이프추가" or "**생명력추가" => 9, "**명중력" => 10, "**공격력" => 11,
-        "**마나재생" or "**기력재생" => 12, "**라이프재생" or "**생명력재생" => 13,
-        "**스테미나재생" or "**근력재생" => 14,
-        "**LifeRegenRange" => 15,
-        _ => -1,
+        "**흡수력" => ItemSpecBonusKind.Absorb,
+        "**방어력" => ItemSpecBonusKind.Defence,
+        "**이동속도" => ItemSpecBonusKind.MoveSpeed,
+        "**블럭율" => ItemSpecBonusKind.Block,
+        "**공격속도" => ItemSpecBonusKind.AttackSpeed,
+        "**크리티컬" => ItemSpecBonusKind.Critical,
+        "**사정거리" => ItemSpecBonusKind.ShootingRange,
+        "**마법숙련도" => ItemSpecBonusKind.MagicMastery,
+        "**마나추가" or "**기력추가" => ItemSpecBonusKind.LevelMana,
+        "**라이프추가" or "**생명력추가" => ItemSpecBonusKind.LevelLife,
+        "**명중력" => ItemSpecBonusKind.LevelAttackRating,
+        "**공격력" => ItemSpecBonusKind.LevelDamage,
+        "**마나재생" or "**기력재생" => ItemSpecBonusKind.ManaRegen,
+        "**라이프재생" or "**생명력재생" => ItemSpecBonusKind.LifeRegen,
+        "**스테미나재생" or "**근력재생" => ItemSpecBonusKind.StaminaRegen,
+        "**LifeRegenRange" => ItemSpecBonusKind.LifeRegenRange,
+        _ => null,
     };
 
     // A fixed specialization names one class; when several are written the last known one wins.
@@ -275,7 +293,7 @@ public sealed class ItemTxtParser
         "mechanician" or "mechanic" or "기계공" => (uint)JobBitCode.Mechanician,
         "archer" or "궁수" => (uint)JobBitCode.Archer,
         "pikeman" or "창병" => (uint)JobBitCode.Pikeman,
-        "atalanta" or "아탈란타" => (uint)JobBitCode.Atalanta,
+        "atalanta" or "atalanter" or "아탈란타" => (uint)JobBitCode.Atalanta,
         "knight" or "기사" => (uint)JobBitCode.Knight,
         "magician" or "magic" or "마법사" => (uint)JobBitCode.Magician,
         "priestess" or "priest" or "사제" => (uint)JobBitCode.Priestess,

@@ -1,8 +1,9 @@
 namespace PristonTale.Persistence.Abstractions.WorldData;
 
+// The spawn data of a field (fields, keyed by its stage; only stages the world catalog places carry a field code).
 public sealed record FieldSpawnRecord(
+    string Stage,
     int FieldCode,
-    string AseBase,
     int MaxConcurrentMonsters,
     int MaxPerSpawnPoint,
     int SpawnInterval,
@@ -12,38 +13,45 @@ public sealed record FieldSpawnRecord(
 
     public IReadOnlyList<FieldMonsterSpawnRecord> MonsterSpawns { get; init; } = [];
 
-    public IReadOnlyList<FieldBossSpawnRecord> BossSpawns { get; init; } = [];
+    public IReadOnlyList<FieldBossRecord> Bosses { get; init; } = [];
 
-    public IReadOnlyList<FieldFixedNpcRecord> FixedNpcs { get; init; } = [];
+    public IReadOnlyList<FieldNpcRecord> Npcs { get; init; } = [];
 }
 
 public sealed record FieldSpawnPointRecord(
-    long Id,
-    int FieldCode,
+    string Stage,
     int PointIndex,
-    int State,
+    bool Active,
     int X,
     int Z);
 
 public sealed record FieldMonsterSpawnRecord(
-    long Id,
-    int FieldCode,
+    string Stage,
+    int Ordinal,
     int MonsterId,
     int Weight);
 
-public sealed record FieldBossSpawnRecord(
-    long Id,
-    int FieldCode,
-    int BossMonsterId,
+public sealed record FieldBossRecord(
+    string Stage,
+    int Ordinal,
+    int MonsterId,
     int? EscortMonsterId,
-    int EscortCount,
-    string SpawnHours);
+    int EscortCount)
+{
+    public IReadOnlyList<int> Hours { get; init; } = [];
+}
 
-public sealed record FieldFixedNpcRecord(
-    long Id,
-    int FieldCode,
+public sealed record FieldBossHourRecord(
+    string Stage,
+    int BossOrdinal,
+    int Hour);
+
+// A placed NPC: its position (1/256 world units) and heading (4096 per turn).
+public sealed record FieldNpcRecord(
+    string Stage,
+    int RecordIndex,
     int NpcId,
     int X,
+    int Y,
     int Z,
-    int Angle,
-    int Y = 0);
+    int Angle);

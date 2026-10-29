@@ -31,7 +31,7 @@ internal static class NpcServiceTests
 
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("NPC import types every service key, keys NPCs in English, keeps every label and dialog key and prefers placed files", ImportAsync);
+        yield return ("NPC import types every service key, makes every definition file an NPC keyed in English, and places the file a field names", ImportAsync);
         yield return ("shop prices, sell wear, repair cost, carry limit and warehouse rules follow the original", RulesAsync);
         yield return ("the warehouse keeps out what the original keeps out and exchanges the item a set-down covers", WarehouseExchangeAsync);
         yield return ("NPC service messages round-trip their layouts", ProtocolAsync);
@@ -96,22 +96,31 @@ internal static class NpcServiceTests
             Assert.True(store.Label == "Miscellaneous Store" && store.Dialog.SequenceEqual(["Red potions restore HP.", "Second line."]),
                 "localized name or dialog was not imported");
             Assert.True(store.Has(NpcServiceKind.Shop) && store.Shop.MiscItemCodes.Single() == PotionCode, "runtime shop differs from the stock");
-            // Unregistered identities take the next ids; one without an English name is keyed by its id.
-            var guard = definitions.Single(definition => definition != store);
-            Assert.True(guard.Code == 128 && guard.Name == "NPC 128" && store.Code == 129, $"unregistered NPCs were keyed {guard.Code} {guard.Name}, {store.Code}");
-            Assert.True(report.Warnings.Count(static warning => warning.StartsWith("Identities/npcs.json lacks", StringComparison.Ordinal)) == 2,
+            // Every definition file is an NPC; unregistered files take the next ids in path order, and one without an English
+            // name is keyed by its id.
+            var guard = definitions.Single(definition => definition.Code == 170);
+            var placed = definitions.Single(definition => definition.Code == 171);
+            Assert.True(definitions.Count == 3 && guard.Name == "NPC 170" && placed.Name == "NPC 171" && store.Code == 172,
+                $"the NPC files were keyed {string.Join(", ", definitions.Select(static definition => $"{definition.Code} {definition.Name}"))}");
+            Assert.True(report.Warnings.Count(static warning => warning.StartsWith("Identities/npcs.json lacks", StringComparison.Ordinal)) == 3,
                 "the import did not list the NPCs to register");
-            var dialog = (await connection.QueryAsync<(string Key, string Text)>(
-                "SELECT d.source_key, d.text FROM npc_dialog_lines d JOIN npcs n ON n.id = d.npc_id WHERE n.key = 'Miscellaneous Store' ORDER BY d.ordinal"))
-                .ToArray();
-            Assert.True(dialog.Length == 2 && dialog.All(static line => line.Key == "B_CHAT")
-                && await connection.ExecuteScalarAsync<string>("SELECT text FROM npc_labels WHERE source_key = 'B_NAME'") == "Miscellaneous Store",
-                "the dialog lines or the name label were not kept under their keys");
-            Assert.True(guard.ModelInxPath.Replace('\\', '/').Contains("/b/", StringComparison.OrdinalIgnoreCase) && guard.Dialog.Single() == "Hello.",
-                "the placed file did not win over an unplaced file with the same name");
-            Assert.True(guard.Find(NpcServiceKind.SkillMaster)?.Value == 1, "class change default was not carried by the skill master");
-            Assert.True(await connection.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM world_entity_variants WHERE kind = 'npc' AND is_catalog_entry = 0") == 1, "the unplaced variant was lost");
+            Assert.True(placed.ModelInxPath.Replace('\\', '/').Contains("/b/", StringComparison.OrdinalIgnoreCase) && placed.Dialog.Single() == "Hello."
+                && guard.ModelInxPath.Replace('\\', '/').Contains("/a/", StringComparison.OrdinalIgnoreCase) && guard.Dialog.Count == 0,
+                "a file sharing an identity did not keep its own model and lines, or an untranslated Korean line was kept");
+            Assert.True(placed.Find(NpcServiceKind.SkillMaster)?.Value == 1, "class change default was not carried by the skill master");
+            Assert.True(await connection.ExecuteScalarAsync<int>("SELECT npc_id FROM field_npcs WHERE stage = 'village-2'") == 171,
+                "the placement does not name the file it places");
+            var exported = Path.Combine(directory, "placements.json");
+            NpcPlacementExport.Write(source, exported);
+            using (var placements = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(exported)))
+            {
+                var row = placements.RootElement.EnumerateArray().Single();
+                Assert.True(row.GetProperty("NpcId").GetInt32() == 171 && row.GetProperty("NpcKey").GetString() == placed.Name,
+                    "the placement export keys an NPC differently from the import");
+            }
+
+            Assert.True(await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM npc_dialog_lines WHERE npc_id = 172 AND language = 'en'") == 2,
+                "the English dialog lines were not stored");
         }
         finally
         {

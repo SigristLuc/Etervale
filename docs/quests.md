@@ -157,7 +157,8 @@ arena. Fury falls once its potions are gone; a master yields.
 
 Messages are in [protocol.md](protocol.md#quests). The journal is the `characters.quests` JSON column
 ([persistence.md](persistence.md)); quest weapons and rings are saved with their unique marker and restore as the
-quest variant, which the importer stores in `item_templates` under `<code>#Q` ([world-import.md](world-import.md)).
+quest variant, which the importer stores as the code's quest definition (`item_definitions.variant` 2,
+[world-import.md](world-import.md)).
 
 ## Client
 

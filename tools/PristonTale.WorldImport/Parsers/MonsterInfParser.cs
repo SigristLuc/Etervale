@@ -12,7 +12,7 @@ namespace PristonTale.WorldImport.Parsers;
 //
 // The authored identity (*이름) is read VERBATIM, spaces included, because field .spm spawn tables reference monsters by
 // this exact string; the importer turns it into the monster's id and English key (IdentityRegistry) and keeps nothing
-// else of it. The English label is *E_NAME, then *Name, then *B_NAME; every label is kept (ParsedMonster.Labels).
+// else of it. The English name is *E_NAME, then *Name, then *B_NAME.
 public sealed class MonsterInfParser
 {
     public ParsedMonster Parse(string path)
@@ -44,7 +44,7 @@ public sealed class MonsterInfParser
         int eventCode = 0, eventInfo = 0;
         var eventModel = "";
         var unknown = new List<string>();
-        var dropItems = new List<ParsedDropMain>();
+        var dropLines = new List<ParsedDropLine>();
         var dropsPlus = new List<ParsedDropPlus>();
 
         foreach (var sourceLine in lines)
@@ -162,7 +162,7 @@ public sealed class MonsterInfParser
                         break;
                     }
                 case KeyMaps.MonDrop:
-                    ParseDropLine(t, dropItems);
+                    ParseDropLine(t, dropLines);
                     break;
                 case KeyMaps.ItemLinkedFile:
                     break;
@@ -199,48 +199,36 @@ public sealed class MonsterInfParser
         };
         m.UnknownKeys.AddRange(unknown);
         Array.Copy(res, m.Resistances, 8);
-        m.DropItems.AddRange(dropItems);
+        m.DropLines.AddRange(dropLines);
         m.DropsPlus.AddRange(dropsPlus);
-        foreach (var (key, text) in labels)
-        {
-            m.Labels[key] = text;
-        }
-
         return m;
     }
 
-    // *아이템 <weight> [없음 | 돈 min max | code1 code2 ...]
-    // For an item-code list the original divides the percentage across the codes and appends one slot each.
-    private static void ParseDropLine(Tokenizer t, List<ParsedDropMain> dropItems)
+    // *아이템 <weight> [없음 | 돈 min max | code1 code2 ...], kept as written: the runtime splits an item line's weight
+    // among its codes, as the original does.
+    private static void ParseDropLine(Tokenizer t, List<ParsedDropLine> dropLines)
     {
         var weight = t.NextInt();
         var keyword = t.NextWord();
         if (keyword.Length == 0)
             return;
 
-        var kind = KeyMaps.ClassifyDropKeyword(keyword);
-        switch (kind)
+        switch (KeyMaps.ClassifyDropKeyword(keyword))
         {
             case DropKind.Nothing:
-                dropItems.Add(new ParsedDropMain(DropKind.Nothing, weight, null, 0, 0));
+                dropLines.Add(new ParsedDropLine(DropKind.Nothing, weight, 0, 0, []));
                 break;
             case DropKind.Gold:
                 {
                     var min = t.NextInt();
                     var max = t.NextInt();
-                    dropItems.Add(new ParsedDropMain(DropKind.Gold, weight, null, min, max));
+                    dropLines.Add(new ParsedDropLine(DropKind.Gold, weight, min, max, []));
                     break;
                 }
             default:
-                {
-                    // keyword was actually the first item code; collect it + the rest.
-                    var codes = new List<string> { keyword };
-                    codes.AddRange(t.RemainingWords());
-                    var per = codes.Count > 0 ? weight / codes.Count : weight;
-                    foreach (var c in codes)
-                        dropItems.Add(new ParsedDropMain(DropKind.Item, per, c, 0, 0));
-                    break;
-                }
+                // The keyword is the first item code.
+                dropLines.Add(new ParsedDropLine(DropKind.Item, weight, 0, 0, [keyword, .. t.RemainingWords()]));
+                break;
         }
     }
 

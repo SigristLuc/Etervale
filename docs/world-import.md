@@ -18,11 +18,12 @@ catalog tables, and the authored file formats it reads. Also covers the small `t
 | Path | Responsibility |
 | --- | --- |
 | [Program.cs](../tools/PristonTale.WorldImport/Program.cs) | CLI: option parsing, defaults, provider setup, migration, report and `verify` output |
-| [Importer.cs](../tools/PristonTale.WorldImport/Importer.cs) | Parse all sources, choose catalog entries, write every table in one transaction |
+| [Importer.cs](../tools/PristonTale.WorldImport/Importer.cs) | Parse all sources, choose catalog entries, replace the catalog in one transaction |
+| `tools/PristonTale.WorldImport/Importer.Items.cs`, `.Monsters.cs`, `.Npcs.cs`, `.Fields.cs` | The catalog writes of each domain |
 | `tools/PristonTale.WorldImport/Tokenizer.cs` | Line tokenizer of the `*key value` text format; C-style integer and float parsing |
 | `tools/PristonTale.WorldImport/KeyMaps.cs` | Every recognised Korean key, the name and dialog keys, value literals, resistance index maps |
 | `tools/PristonTale.WorldImport/IdentityRegistry.cs`, `Identities/monsters.json`, `Identities/npcs.json` | The stable id and English key of every monster and NPC (embedded in the importer), see [Identities](#identities) |
-| `tools/PristonTale.WorldImport/EnglishNames.cs` | English names where the data gives Portuguese or Korean or misspells them |
+| `tools/PristonTale.WorldImport/EnglishNames.cs` | English names where the data gives Portuguese or Korean or misspells them; English translations of the Korean-only NPC lines |
 | `tools/PristonTale.WorldImport/Parsers/AuthoredLabels.cs` | Name labels by key; Korean text is not kept |
 | `tools/PristonTale.WorldImport/ImportReport.cs` | Counters and warnings printed after `import` |
 | `tools/PristonTale.WorldImport/Parsers/SourceTextReader.cs` | Reads a text file and follows its linked-file chain |
@@ -52,7 +53,7 @@ dotnet run --project tools/PristonTale.WorldImport -c Release --no-build -- veri
 | Command | Database | Effect |
 | --- | --- | --- |
 | `import` | yes | Migrate, parse, write the catalog and preservation tables, print the report and row counts. Exit 1 if the source root does not exist |
-| `verify` | yes | Migrate, print row counts, orphan checks (drop items, shop items, spawn monsters), NPC services by kind, NPCs with dialog and with a display name. On a new database it creates the schema and prints zero counts |
+| `verify` | yes | Migrate, print row counts, orphan checks (drop items, shop items, spawn monsters), NPC services by kind, NPCs with dialog and with a name. On a new database it creates the schema and prints zero counts |
 | `export-item-names` | no | `[{Code, Name}]` of item files, first per code, to `--output` |
 | `export-monster-names` | no | `[{Id, Key, DisplayName, SourceFile}]`, first per identity; fails on a file without identity or `*Name` |
 | `export-npc-placements` | no | Fixed NPC placements of every `WorldCatalog` field (field code, NPC id and key, position, angle, source file) |
@@ -80,9 +81,11 @@ executable directory for `assets/GameServer` or `GameServer`; otherwise `./GameS
 
 1. Parse items, monsters, NPCs and fields from disk; record every parsed definition as a variant.
 2. Open one connection and one transaction.
-3. Delete `world_import_unresolved_refs`.
-4. Write in foreign-key order: items, monsters (with drops), NPCs (services, then shop stock), fields (spawn points,
-   monster spawns, bosses, fixed NPCs), motion timing, `world_source_files`, `world_entity_variants`.
+3. Delete every catalog table and `world_import_unresolved_refs`, children first (`Importer.CatalogTables`).
+4. Write in foreign-key order: item sets and items (each definition with its English name, bonuses and random
+   classes), monsters (name, drop lines, bonus drops), NPCs (name, dialog, services, shop), fields (spawn points,
+   monster spawns, bosses and their hours, NPC placements), motion timing, `world_source_files`,
+   `world_entity_variants`.
 5. Commit. Any exception rolls back the whole import.
 
 Directories are matched case-insensitively (`OpenItem`, `Monster`, `NPC`, `Field`); file patterns too, because the
@@ -113,33 +116,32 @@ Item, monster, NPC and spawn-table files share one line format, decoded as CP949
 | Key (see `KeyMaps`) | Column |
 | --- | --- |
 | `*코드` | `code`, the 5-character natural key |
-| `*Name`, then `*E_NAME`, then `*B_NAME`, then the code | `name` (first non-empty), through `EnglishNames`; every name key (`*Name`, `*E_NAME`, `*B_NAME`, `*J_NAME`, `*T_NAME`) is kept in `item_labels`; the Korean `*이름` is not kept |
+| `*Name`, then `*E_NAME`, then `*B_NAME`, then `*이름` when it is not Korean, then the code | English `item_texts.name` (first non-empty, not Korean), through `EnglishNames` |
 | `*내구력`, `*무게`, `*가격`, `*공격력` (4 values), `*명중력`, `*방어력`, `*흡수력`, `*블럭율`, `*이동속도`, ... | Stat ranges |
-| Element keys (8) | `res_<element>_min/max` in bionic, earth, fire, ice, lighting, poison, water, wind order |
+| Element keys (8) | `res_<element>_min/max` in bionic, earth, fire, ice, lightning, poison, water, wind order |
 | Regen, add and restore keys | Each has two spellings (`KeyMaps.ItemManaRegen` and siblings) |
-| `**특화` class names | `job_mask`: the `JobBitCode` of the last known class name (English or Korean; Assassin and Shaman included) |
-| `**특화랜덤` class names | `item_template_job_random` rows in order; names of classes the game does not have (`MartialArtist`, misspellings) are skipped |
-| Other `**` stat keys | `item_template_special` with a stable bonus code (`ItemTxtParser.SpecialBonusCode`, value 0 and value 1): 0 absorb, 1 defence, 2 move speed, 3 block, 4 attack speed, 5 critical, 6 range, 7 magic mastery, 8 mana per level, 9 life per level, 10 attack rating per level, 11 damage per level (second value), 12 mana regeneration, 13 life regeneration, 14 stamina regeneration, 15 life regeneration range (`**LifeRegenRange`) |
-| `*최대수량`, `*보유공간`, magic mastery keys | `max_stack` (min 1), `potion_space`, `magic_mastery` |
+| `**특화` class names | `spec_class`: the `JobBitCode` of the last known class name (English or Korean; Assassin and Shaman included; `Atalanter` is Atalanta) |
+| `**특화랜덤` class names | `item_spec_random_classes` rows in order; names of classes the game does not have (`MartialArtist`, misspellings) are skipped |
+| Other `**` stat keys | `item_spec_bonuses`, one row per `ItemSpecBonusKind` (`min_value`, `max_value`; a key written twice keeps the last): 0 absorb, 1 defence, 2 move speed, 3 block, 4 attack speed, 5 critical, 6 range, 7 magic mastery, 8 mana per level, 9 life per level, 10 attack rating per level, 11 damage per level (`max_value`), 12 mana regeneration, 13 life regeneration, 14 stamina regeneration, 15 life regeneration range (`**LifeRegenRange`) |
+| `*최대수량`, `*보유공간`, magic mastery keys | `max_stack` (min 1), `potion_space`, `magic_mastery_min/max` |
 | `*유니크` | `unique_item` (1 when the key has no value) |
 | `*유니크색상 r g b a blink [scale]` | `glow_r/g/b/a`, `glow_blink` (ticks), `glow_scale`: the glow of a unique weapon in the hand |
 | `*이펙트설정` | `display_effect`: non-zero shows the class-up light on the held weapon |
 | `*발생제한` | `daily_drop_limit`: drops of the item per day across the server (0 unlimited) |
 | `*세트아이템 <set> <pieces>` | `set_code`, `set_pieces`; the comment line above it states the bonus (`item_sets`) |
 
-`kind` comes from the item key (`ItemKinds.Classify` in Simulation, the table the runtime uses); the files have no kind key.
+`items` holds the code, its `kind` (from the key: `ItemKinds.Classify` in Simulation, the table the runtime uses; the
+files have no kind key) and its footprint. What a copy of the item is made from is an `item_definitions` row:
 
-A file whose `*유니크` value is 2 is the quest variant of its code (the quest weapons, the rank-up rings, the Fury of
-Phantom rewards): besides the catalog entry, the first such file in path order is written to `item_templates` under
-the key `<code>#Q` with its own children. The runtime keeps it beside the regular catalog (`ItemCatalog.QuestVariants`)
-and the quests hand it out ([quests.md](quests.md)).
+| `variant` | Source | Runtime |
+| --- | --- | --- |
+| 0 regular | The catalog entry of the code | `ItemCatalog` |
+| 2 quest | The first file in path order whose `*유니크` is 2 (quest weapons, rank-up rings, Fury of Phantom rewards) | `ItemCatalog.QuestVariants`, handed out by quests ([quests.md](quests.md)) |
+| 1 named unique | Each distinct name, in path order, among the files whose `*유니크` has no value (1) and that lost the selection of their code (Vega, Ancient Rage, Bone Crasher...); `variant_ordinal` numbers them from 1 | `ItemCatalog.NamedUniques`; saved items name one by `ItemDefinition.NamedUniqueBase` + the ordinal. They never drop |
 
-A file whose `*유니크` has no value (1) and that lost the selection of its code is a named unique (Vega, Ancient Rage,
-Bone Crasher...): each distinct name in path order is written under `<code>#U<n>` (n from 1). The runtime keeps them as
-`ItemCatalog.NamedUniques`; saved items name one by `ItemDefinition.NamedUniqueBase` + n. They never drop.
+Each definition has its own English name, bonuses and random classes.
 
-`item_sets` has one row per set code: the most pieces any of its items asks, a `description` the importer writes in
-English from the bonus (`Life +400, Absorb +2`), and the bonus `SetBonusParser` reads from
+`item_sets` has one row per set code: the most pieces any of its items asks and the bonus `SetBonusParser` reads from
 the comment above `*세트아이템` (terms "stat+value" separated by commas; a term without a value takes the next value;
 `체력` life, `흡수력` absorption, `블럭율` block, a term ending in `재생` regeneration of the pools its letters name: 체/생
 life, 근 stamina, 기 mana). A bonus it cannot read is a warning and gives nothing.
@@ -148,8 +150,8 @@ life, 근 stamina, 기 mana). A bonus it cannot read is a warning and gives noth
 
 An item key is a family of two letters and a letter or digit plus two digits (`WA101`, `DA304`). `ItemCodes.TryParse`
 (`Shared/PristonTale.Simulation/Items/ItemCodes.cs`) derives the 32-bit item code from the key alone, so every family has
-one; the importer stores it as `item_code_mask`. A key of another shape is imported with `item_code_mask = 0`, listed in
-one report warning, kept in `item_templates` and skipped by the runtime catalog.
+one, and the runtime derives it again when it loads the catalog. A key of another shape is imported, listed in one
+report warning and skipped by the runtime catalog.
 
 ### Item footprints
 
@@ -157,20 +159,20 @@ one report warning, kept in `item_templates` and skipped by the runtime catalog.
 `<assets>/image/Sinimage/Items/**/it<KEY>.bmp` (`ItemIconFiles`, outside `DropItem`): one cell per whole 22 pixels in
 each direction, at least one. An item without a sprite takes the most common footprint of its family (the first three
 characters of its key), and one cell when the family has no sprite either; those items are listed in one report warning.
-The footprint is stored in `item_templates.grid_width` and `grid_height`. Without `--assets` every item takes one cell.
+The footprint is stored in `items.grid_width` and `grid_height`. Without `--assets` every item takes one cell.
 
-`WorldDataFactory.ToItemDefinition` turns each row into the shop form plus an `ItemTemplate` with every range and the
-specialization bonuses (`ToItemTemplate`); see [simulation.md](simulation.md#items).
+`WorldDataFactory.ToItemDefinition` turns each definition into the shop form plus an `ItemTemplate` with every range
+and the specialization bonuses (`ToItemTemplate`); see [simulation.md](simulation.md#items).
 
 Code lookups are case-insensitive: drop and shop references (often lower case) are rewritten to the casing stored in
-`item_templates.code`.
+`items.code`.
 
 ### Monsters: `Monster/*.inf` (+ linked name files)
 
 - Identity: `*이름`, read verbatim with its spaces because spawn tables reference it byte for byte, and turned into the
-  monster's id and English key ([Identities](#identities)); it is not stored. HUD label (`display_name`): `*E_NAME`,
-  then `*Name`, then `*B_NAME`, trimmed, through `EnglishNames`; empty gives a warning. Every name key is kept in
-  `monster_labels`.
+  monster's id and English key ([Identities](#identities)); it is not stored. English name (`monster_texts`):
+  `*E_NAME`, then `*Name`, then `*B_NAME`, trimmed, not Korean, through `EnglishNames`; without one the key is
+  written and a warning given.
 - Model: `*모양파일` (quoted path, usually `.ini`; the runtime and motion pass use the `.inx` sibling).
 - Resistances use a different key set from items and a different order; `KeyMaps.MonsterResistances` maps them to the
   same eight-element order.
@@ -186,25 +188,27 @@ Code lookups are case-insensitive: drop and shop references (often lower case) a
 - Sound keys resolve through `CharacterSoundCodes.Resolve`; `*모델크기` is the model scale; `*화면보정 <height>
   <distance>` is the target-frame portrait correction.
 - Quest keys: `*구별코드` is the classification code quest hunts count (`quest_code`); `*이벤트아이템 <code>` an item
-  every kill hands out (`event_item`, rewritten to the stored code casing; an unknown code keeps its authored text and
-  resolves to none at runtime); `*물약보유수` and `*물약보유률` the potions the monster carries and the chance to carry
+  every kill hands out (`event_item`, rewritten to the stored code casing; an unknown code is stored as null and
+  recorded as unresolved); `*물약보유수` and `*물약보유률` the potions the monster carries and the chance to carry
   them (`potion_count`, `potion_percent`; arena opponents drink the count).
-- Drops: `*아이템 <weight> 없음` (nothing), `*아이템 <weight> 돈 <min> <max>` (gold), or `*아이템 <weight> <code>...`,
-  which becomes one row per code with `weight / count` (integer division). `*추가아이템 <weight> <code>` is an
-  independent bonus drop. `*아이템모두` makes drops visible to all players; `*아이템카운터` caps items per kill.
-  A `monster_drops` row is written only when one of these is present.
+- Drops: each `*아이템` line is a `monster_drop_lines` row in authored order: `<weight> 없음` (nothing),
+  `<weight> 돈 <min> <max>` (gold), or `<weight> <code>...`, whose codes are `monster_drop_line_items` rows (the runtime
+  splits the weight among them). `*추가아이템 <chance> <code>` is a `monster_bonus_drops` row.
+  `*아이템모두` makes drops visible to all players (`drops_seen_by_all`); `*아이템카운터` caps items per kill
+  (`max_drops_per_kill`).
 
 ### NPCs: `NPC/*.npc` (+ linked `name/*.zhoon`)
 
-- Identity `*이름` read verbatim and turned into the NPC's id and English key ([Identities](#identities)); model
-  `*모양파일`; `*연결파일` is stored in `linked_file` and followed for more keys.
-- Display name: `*E_NAME`, then `*B_NAME`, then `*Name`, through `EnglishNames` (by file). If the chosen file has none,
-  the importer takes the first variant with the same identity that has one; otherwise it warns and
-  `NpcDefinition.Label` falls back to the key. Every name key is kept in `npc_labels`.
-- Dialog (at most 20 lines per key): the lines of every dialog key (`*E_CHAT`, `*B_CHAT`, `*J_CHAT`, `*T_CHAT`) are kept
-  in `npc_dialog_lines`; players read the `*E_CHAT` lines if any, else `*B_CHAT` (`dialog_key`). Korean `*대화` lines,
-  and lines saved through another code page (they decode as Korean syllables), are not kept. Runs of spaces
-  and tabs collapse to one space (name files wrap text at a fixed width).
+- Every definition file is an NPC: fields place a file, and files sharing an authored identity (`*이름`) differ in
+  model, lines and services. The file name is the NPC's identity in the registry ([Identities](#identities)); model
+  `*모양파일`; `*연결파일` is followed for more keys.
+- English name (`npc_texts`): `*E_NAME`, then `*B_NAME`, then `*Name`, not Korean, through `EnglishNames` (by file).
+  A file without one takes the first name among the files of the same authored identity; otherwise it warns and the
+  key is written.
+- English dialog (`npc_dialog_lines`, at most 20 lines): the `*E_CHAT` lines, else the `*B_CHAT` lines, else the
+  Korean `*대화` lines in their English translation (`EnglishNames.Dialog`; a line without one is dropped). Lines in
+  Korean, or saved through another code page (they decode as Korean syllables), are not kept. Runs of spaces and tabs
+  collapse to one space (name files wrap text at a fixed width).
 - Shop lists `*무기판매`, `*방어구판매`, `*잡화판매` fill tabs 0, 1, 2, up to 32 codes each. The placeholder `없음`
   keeps its ordinal and becomes an unresolved `npc_shop` reference; the shop exists only if a tab has a real code.
 - `*이동범위` move range (default 64), sound keys, `*모델크기`, `*화면보정` as for monsters.
@@ -244,19 +248,18 @@ title of the media service is written in English (`EnglishNames.Text`).
 
 ### Fields: `Field/<base>.spm`, `.spp`, `.spc`
 
-Fields come from `WorldCatalog.AllFields` (Simulation), not from the directory. The base name is the file stem of the
-field's stage model path; each file is found as `<base>.<ext>` or `<base>.ase.<ext>`, case-insensitively. A field is
-written only when at least one of the three files exists; `field_code` is the catalog field code.
+Every stage with a spawn file is a `fields` row keyed by its stage, the file name without `.<ext>` or `.ase.<ext>`
+(case-insensitive). `field_code` is the code of the `WorldCatalog.AllFields` (Simulation) field whose stage model has
+that stem, or null for a stage no field uses yet; the runtime loads only stages with a code.
 
 | File | Format |
 | --- | --- |
 | `.spm` (text) | `*출연자`/`*ACTOR "<monster>" <weight>`; `*출연자두목`/`*BOSS_ACTOR "<boss>" "<escort>" <count> <hours...>` (up to 32 hours); `*최대동시출현수`/`*MAX_ACTOR_POS` concurrent limit; `*출현수`/`*MAX_ACTOR` monsters per wave; `*출현간격`/`*DELAY <n> [seconds]`: `spawn_interval = (1 << n) - 1`, minimum 1, optional seconds × 1000 into `per_point_cooldown_ms` |
 | `.spp` (binary) | 200 records of 12 bytes, little-endian `int32 state, x, z`, no header. All-zero records are skipped; `point_index` is the record index; `state != 0` means active. Coordinates are world units |
-| `.spc` (binary) | 100 records of 504 bytes, little-endian, no header. Live when `int32` at +4 is non-zero. +8: 32-byte CP949 stored name. +104: 60-byte CP949 path of the NPC definition file. +476/+480/+484: `int32 x, y, z` in 1/256 world units. +492: heading (4096 per turn) |
+| `.spc` (binary) | 100 records of 504 bytes, little-endian, no header. Live when `int32` at +4 is non-zero. +104: 60-byte CP949 path of the NPC definition file. +180: `int32` size level. +392: `uint16` quest trigger. +476/+480/+484: `int32 x, y, z` in 1/256 world units. +492: heading (4096 per turn). The record index is `record_index` |
 
-A fixed NPC's identity comes from the parsed NPC file named by the record's path (matched by file name), and the
-placement stores that NPC's id. The stored name is a fallback only, because it can be stale. The NPC files placed by
-any field also decide which file wins when several share an identity.
+A placement stores the id of the NPC file its record names (matched by file name, case-insensitively); the name stored
+in the record is ignored, because it can be stale.
 
 ### Motion timing from INX
 
@@ -276,12 +279,13 @@ any field also decide which file wins when several share an identity.
 
 ## Identities
 
-Monsters and NPCs have no code in the source: the files name them by their authored identity (`*이름`, Korean, spaces
-included), and spawn tables, boss tables and placements reference that text byte for byte. The importer turns it into a
-stable id and a unique English key through `IdentityRegistry`, read from `Identities/monsters.json` and
-`Identities/npcs.json` (`{id, key, source}` per entry, embedded in the importer). Every catalog table and the game use
-only the id (the runtime code) and the key; outside the registry the authored identity remains only in the source
-preservation tables (`world_source_files`, and `world_import_unresolved_refs` for a reference that resolves to nothing).
+Monsters and NPCs have no code in the source. A monster is named by its authored identity (`*이름`, Korean, spaces
+included), which spawn and boss tables reference byte for byte; an NPC by its definition file, which placements
+reference (case-insensitive). The importer turns each into a stable id and a unique English key through
+`IdentityRegistry`, read from `Identities/monsters.json` and `Identities/npcs.json` (`{id, key, source}` per entry,
+embedded in the importer). Every catalog table and the game use only the id (the runtime code) and the key; outside the
+registry the authored identity remains only in the source preservation tables (`world_source_files`, and
+`world_import_unresolved_refs` for a reference that resolves to nothing).
 
 - Ids are never reused or renumbered. Keys are the English label, numbered when several monsters share one (`Fury`,
   `Fury 2`...: the one the fields spawn first, then by the identity's padding, then by path); a few name the creature
@@ -298,25 +302,27 @@ preservation tables (`world_source_files`, and `world_import_unresolved_refs` fo
 | --- | --- | --- |
 | Item | File whose name equals the code (case-insensitive), else first in path order | Variant only, warning |
 | Monster | First in path order | Variant only, warning |
-| NPC | First file placed by a field `.spc`, else first in path order | Variant only, warning |
+| NPC | Every file | - |
 
-Every parsed file is a `world_entity_variants` row (`is_catalog_entry` marks the winner); the others also produce a
-"retained outside the catalog" warning. Parse exceptions skip the file with a warning. The original server also resolves
+Every parsed file is a `world_entity_variants` row (`is_catalog_entry` marks the winner); the other item and monster
+files also produce a "retained outside the catalog" warning. Parse exceptions skip the file with a warning. The original server also resolves
 a monster identity to the first file in path order, so the source must not carry another release's files ahead of the
 original ones: a second data set's variant of an identity replaces the original monster's stats, drops and quest items.
 
 Names follow Etervale's English standard. `EnglishNames` holds the names the data gives only in Portuguese or Korean,
 or misspells: a monster's or NPC's label by its file and an item's name by its code, applied where each parser picks the
 name; a monster variant that the original set also has takes that monster's English label verbatim. Name labels and
-dialog lines in Korean, or saved through another code page, are not kept.
+dialog lines in Korean, or saved through another code page, are not kept; the NPC lines the data gives only in
+Korean are translated in `EnglishNames.Dialog`.
 
 `world_import_unresolved_refs.kind` values:
 
 | Kind | Owner | Effect on the catalog |
 | --- | --- | --- |
-| `monster_drop` | monster | Drop row kept with `item_code = NULL`, so its probability slot stays |
+| `monster_drop` | monster | Line item kept with `item_code = NULL`, so its share of the line stays |
 | `monster_bonus_drop` | monster | Bonus row kept with `item_code = NULL` |
-| `npc_shop` | NPC | Stock entry not written; the empty-slot placeholder is recorded as `none` |
+| `monster_event_item` | monster | `event_item` stored as null |
+| `npc_shop` | NPC | Shop item not written; the empty-slot placeholder is recorded as `none` |
 | `field_monster_spawn` | field base | Spawn entry not written; warning |
 | `field_boss` | field base | Boss entry not written; warning |
 | `field_boss_escort` | field base | Boss written without escort |
@@ -332,14 +338,13 @@ feature; behavior lives in Simulation and Application.
 
 ## Idempotent re-import
 
-- Parents (`item_templates`, `monsters`, `npcs`, `fields`, `motion_models`) upsert by natural key with
-  `INSERT ... ON CONFLICT ... DO UPDATE`.
-- Children are deleted and reinserted per parent; the three preservation tables are cleared and rewritten.
+- The catalog tables and the three preservation tables are cleared and rewritten; `motion_models` upserts by model
+  and each extracted table's `motion_slots` are replaced.
 - Running `import` twice on the same source gives the same rows (asserted by `WorldImportTests` and
-  `NpcServiceTests`).
-- `accounts`, `characters`, `warehouses` and `mailboxes` are never touched.
-- A monster or NPC whose source disappeared is deleted with its children; a removed item stays in the catalog with
-  its old children, because saved items may name it. Import into a fresh database to drop it.
+  `NpcServiceTests`); monster and NPC ids come from the registry, so they do not move between runs.
+- `accounts`, `characters` and `warehouses` are never touched. An item removed from the source leaves the catalog, so
+  a saved copy of it fails to load ([persistence.md](persistence.md#pitfalls)).
+- `item_definitions.id` is an identity and changes on every import: nothing outside the catalog refers to it.
 
 ## Import report
 
@@ -379,21 +384,23 @@ migrates before running a command.
 1. Add the token to `KeyMaps` with a comment giving its meaning in Etervale terms.
 2. Read it in the parser and carry it on the `Parsed*` DTO.
 3. Add the column and propagate it as in [persistence.md](persistence.md) "Add a column to a world catalog table"
-   (migration, record, repository, upsert column and `SET` lists, `WorldDataFactory`, Simulation definition).
+   (migration, record, repository, insert column and value lists, `WorldDataFactory`, Simulation definition). Text a
+   player reads goes in the entity's `*_texts` table, in English.
 4. Extend the CP949 fixture of `tests/PristonTale.Tests/WorldImportTests.cs` (or `NpcServiceTests`) and assert the
    value after two import runs.
 
 ### Import a new kind of authored data
 
-1. Schema: a structural migration with a parent table keyed by the authored code or a registry id, child tables with
-   identity keys, cascading foreign keys and parent indexes ([persistence.md](persistence.md)).
+1. Schema: a structural migration with a parent table keyed by the authored code or a registry id, child tables
+   keyed by the parent and an ordinal, cascading foreign keys, and a `*_texts` table for player-facing text
+   ([persistence.md](persistence.md)).
 2. Parser: `Parsers/<Kind>Parser.cs` returning `Parsed<Kind>`. Use `SourceTextReader.ReadChain` for linked text files,
    `Tokenizer` for lines, `Cp949` (`Shared/PristonTale.Assets`) for bytes, `BinaryPrimitives` little-endian for binary records; tokens in
    `KeyMaps`. Keep identities verbatim if other files reference them.
 3. Importer: a `Parse<Kind>` method that enumerates with `EnumerateFiles`, chooses the catalog entry, and calls
-   `CreateVariant` (kind at most 16 characters); a `Write<Kind>Async` in the transaction, after the tables it
-   references, that upserts parents, deletes and reinserts children, and calls `RecordUnresolvedAsync` (kind at most
-   32 characters) for every reference it cannot resolve.
+   `CreateVariant` (kind at most 16 characters); a `Write<Kind>Async` in `Importer.<Kind>.cs`, called in the transaction
+   after the tables it references, that inserts the rows and calls `RecordUnresolvedAsync` (kind at most 32
+   characters) for every reference it cannot resolve; its tables join `Importer.CatalogTables`, children first.
 4. Report: counters in `ImportReport`, a line in `PrintReport`, the tables in `PrintRowCounts`, and an integrity
    query in `PrintCrossRefCheck` when the kind has references.
 5. Preservation: add text extensions with `*key` lines to `Importer.ReadSourceFields`.
@@ -415,10 +422,12 @@ migrates before running a command.
   is lost.
 - `world_entity_variants.data_json` serializes the DTOs with `IncludeFields`, so value-tuple lists (item specials,
   NPC shop stock) appear as `Item1`, `Item2`... objects. `world_source_files` holds the complete source.
+- A Korean `*대화` line without an entry in `EnglishNames.Dialog` is dropped; add its translation when the data gains
+  one.
 - `--assets` is not required inside the repository: the default finds the repository `assets/` from the executable
   path. Pass it explicitly when running a published copy.
 - The default database without `--sqlite`/`--postgres` is a temporary file, not `data/pristontale.db`.
-- On an upgraded earlier database, NPC display names and services stay empty until `import` runs again.
+- After a migration that rebuilds the catalog (M027, M028) the catalog is empty until `import` runs again.
 
 ## Related
 

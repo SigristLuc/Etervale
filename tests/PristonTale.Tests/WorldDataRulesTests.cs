@@ -71,7 +71,7 @@ internal static class WorldDataRulesTests
 
     private static Task SetBonusAsync()
     {
-        var set = new ItemSetDefinition(1, 2, 400, 2f, 1.5f, 0f, 0f, 0f, "Life +400");
+        var set = new ItemSetDefinition(1, 2, 400, 2f, 1.5f, 0f, 0f, 0f);
         var axe = new ItemDefinition(ItemCodes.Parse("WA130"), "Verus Axe", ItemKind.Axe, EquipmentSlot.Weapon) { CatalogKey = "WA130", SetCode = 1 };
         var armor = new ItemDefinition(ItemCodes.Parse("DA302"), "Verus Armor", ItemKind.Armor, EquipmentSlot.Armor) { CatalogKey = "DA302", SetCode = 1 };
         var catalog = new ItemCatalog([axe, armor], sets: [set]);

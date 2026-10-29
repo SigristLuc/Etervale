@@ -119,9 +119,8 @@ static void PrintReport(ImportReport r)
     Console.WriteLine($"variants: {r.EntityVariants,5} parsed entity definitions preserved");
     Console.WriteLine($"unresolved references retained: {r.UnresolvedReferenceRows}");
     Console.WriteLine($"items:    {r.ItemRows,5} rows from {r.ItemFilesParsed} files  (special {r.ItemSpecialRows}, job-random {r.ItemJobRandomRows})");
-    Console.WriteLine($"monsters: {r.MonsterRows,5} rows from {r.MonsterFilesParsed} files  (drop-cfg {r.MonsterDropConfigRows}, drop-items {r.MonsterDropItemRows}, plus {r.MonsterDropPlusRows})");
+    Console.WriteLine($"monsters: {r.MonsterRows,5} rows from {r.MonsterFilesParsed} files  (drop lines {r.MonsterDropLineRows}, line items {r.MonsterDropItemRows}, bonus {r.MonsterDropPlusRows})");
     Console.WriteLine($"npcs:     {r.NpcRows,5} rows from {r.NpcFilesParsed} files  (shop {r.NpcShopRows}, services {r.NpcServiceRows}, with dialog {r.NpcDialogRows}, dialog lines {r.DialogLineRows})");
-    Console.WriteLine($"labels:   {r.LabelRows,5} item, monster and NPC name labels");
     Console.WriteLine($"fields:   {r.FieldRows,5} rows  (points {r.SpawnPointRows}, mon-spawns {r.MonsterSpawnRows}, bosses {r.BossSpawnRows}, fixed-npc {r.FixedNpcRows})");
     Console.WriteLine($"motion:   {r.MotionModelRows,5} models → {r.MotionTableRows} tables ({r.MotionSlotRows} clip rows; unresolved {r.MotionUnresolvedModels})");
     Console.WriteLine();
@@ -144,10 +143,10 @@ static async Task PrintRowCounts(IDbConnectionFactory connections)
 {
     string[] tables =
     [
-        "item_templates", "item_template_special", "item_template_job_random", "item_labels",
-        "monsters", "monster_labels", "monster_drops", "monster_drop_items", "monster_drops_plus",
-        "npcs", "npc_labels", "npc_dialog_lines", "npc_shop_stock", "npc_services",
-        "fields", "field_spawn_points", "field_monster_spawns", "field_boss_spawns", "field_fixed_npcs",
+        "languages", "items", "item_definitions", "item_texts", "item_spec_bonuses", "item_spec_random_classes", "item_sets",
+        "monsters", "monster_texts", "monster_drop_lines", "monster_drop_line_items", "monster_bonus_drops",
+        "npcs", "npc_texts", "npc_dialog_lines", "npc_shop_items", "npc_services",
+        "fields", "field_spawn_points", "field_monster_spawns", "field_bosses", "field_boss_hours", "field_npcs",
         "world_source_files",
         "world_entity_variants",
         "world_import_unresolved_refs",
@@ -168,11 +167,11 @@ static async Task PrintCrossRefCheck(IDbConnectionFactory connections)
     Console.WriteLine();
     Console.WriteLine("=== persisted cross-ref integrity ===");
     var orphanDrops = await conn.ExecuteScalarAsync<long>(
-        "SELECT COUNT(*) FROM monster_drop_items d WHERE d.item_code IS NOT NULL " +
-        "AND NOT EXISTS (SELECT 1 FROM item_templates i WHERE i.code = d.item_code)");
+        "SELECT COUNT(*) FROM monster_drop_line_items d WHERE d.item_code IS NOT NULL " +
+        "AND NOT EXISTS (SELECT 1 FROM items i WHERE i.code = d.item_code)");
     var orphanShop = await conn.ExecuteScalarAsync<long>(
-        "SELECT COUNT(*) FROM npc_shop_stock s " +
-        "WHERE NOT EXISTS (SELECT 1 FROM item_templates i WHERE i.code = s.item_code)");
+        "SELECT COUNT(*) FROM npc_shop_items s " +
+        "WHERE NOT EXISTS (SELECT 1 FROM items i WHERE i.code = s.item_code)");
     var orphanSpawn = await conn.ExecuteScalarAsync<long>(
         "SELECT COUNT(*) FROM field_monster_spawns f " +
         "WHERE NOT EXISTS (SELECT 1 FROM monsters m WHERE m.id = f.monster_id)");
@@ -189,8 +188,8 @@ static async Task PrintCrossRefCheck(IDbConnectionFactory connections)
         Console.WriteLine($"  {(PristonTale.Simulation.World.Npcs.NpcServiceKind)kind,-14} {rows,5} / {npcs,5}");
     }
 
-    var talking = await conn.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM npcs WHERE dialog_key <> ''");
-    var named = await conn.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM npcs WHERE display_name <> ''");
+    var talking = await conn.ExecuteScalarAsync<long>("SELECT COUNT(DISTINCT npc_id) FROM npc_dialog_lines");
+    var named = await conn.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM npc_texts");
     Console.WriteLine($"  npcs with dialog           : {talking}");
     Console.WriteLine($"  npcs with a display name   : {named}");
 }

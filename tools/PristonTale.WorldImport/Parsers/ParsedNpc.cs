@@ -6,9 +6,11 @@ namespace PristonTale.WorldImport.Parsers;
 // order (the `npc_services` rows). Shop item references are raw 5-character codes, resolved by the Importer.
 public sealed class ParsedNpc
 {
-    // The authored identity, which other files reference; the importer maps it to the NPC's id and key.
+    // The authored identity, shared by the files of one NPC; a file without an English name takes another's.
     [System.Text.Json.Serialization.JsonIgnore]
     public string Name { get; init; } = "";
+    // The definition file's name, which is the NPC's identity (field placements name it).
+    public string File { get; init; } = "";
     public string DisplayName { get; set; } = "";
     public int PortraitOffsetY { get; set; }
     public int PortraitOffsetZ { get; set; }
@@ -28,11 +30,8 @@ public sealed class ParsedNpc
     // Keys of the file no rule reads; the importer reports them.
     public List<string> UnknownKeys { get; } = [];
 
-    // Every name label by stored key (NAME, E_NAME, B_NAME, J_NAME, T_NAME), and every dialog key's lines (at most 20
-    // each); DialogKey names the English lines players read (E_CHAT, else B_CHAT; empty when there are none).
-    public Dictionary<string, string> Labels { get; } = new(StringComparer.Ordinal);
-    public Dictionary<string, List<string>> DialogLines { get; } = new(StringComparer.Ordinal);
-    public string DialogKey { get; set; } = "";
+    // The English lines players read (at most 20).
+    public List<string> Dialog { get; } = [];
 
     public List<NpcService> Services { get; } = [];
 

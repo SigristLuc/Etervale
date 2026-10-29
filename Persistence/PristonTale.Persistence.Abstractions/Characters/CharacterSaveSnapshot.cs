@@ -5,7 +5,6 @@ public sealed record CharacterSaveSnapshot(
     SavedItems Inventory,
     SavedItems Equipment,
     SavedSkills Skills,
-    DerivedStatsDto Derived,
     SavedPremium Premium,
     SavedQuests? Quests = null)
 {
@@ -16,7 +15,6 @@ public sealed record CharacterSaveSnapshot(
             Inventory = CharacterJson.Write(Inventory),
             Equipment = CharacterJson.Write(Equipment),
             Skills = CharacterJson.Write(Skills),
-            DerivedStats = CharacterJson.Write(Derived),
             Premium = CharacterJson.Write(Premium),
             Quests = Quests is null ? Scalars.Quests : CharacterJson.Write(Quests)
         };

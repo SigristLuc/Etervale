@@ -10,7 +10,7 @@ internal static class MonsterNameTests
 {
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
-        yield return ("a monster is keyed by its id and English key; drops and spawns join on the id, which is its runtime code", BaselineAsync);
+        yield return ("a monster is keyed by id and English key, named by its English text with other languages beside it, and spawned and dropped by id", BaselineAsync);
     }
 
     private static async Task BaselineAsync()
@@ -29,24 +29,33 @@ internal static class MonsterNameTests
             var connections = provider.GetRequiredService<IDbConnectionFactory>();
             await using (var connection = await connections.OpenAsync())
             {
-                await connection.ExecuteAsync("INSERT INTO monsters (id, key, model, display_name) VALUES (196, @Key, @Model, @DisplayName)",
-                    new { Key = "HOPY", Model = @"char\monster\Hopy\hopy.INI", DisplayName = "Hopy" });
-                await connection.ExecuteAsync("INSERT INTO monster_drops (monster_id) VALUES (196)");
-                await connection.ExecuteAsync("INSERT INTO fields (field_code, ase_base) VALUES (3, 'fore-1')");
-                await connection.ExecuteAsync("INSERT INTO field_monster_spawns (field_code, monster_id, weight) VALUES (3, 196, 35)");
+                await connection.ExecuteAsync("INSERT INTO languages (code, name) VALUES ('pt-BR', 'Portuguese (Brazil)')");
+                await connection.ExecuteAsync("INSERT INTO monsters (id, key, model, max_drops_per_kill) VALUES (196, 'HOPY', @Model, 2)",
+                    new { Model = @"char\monster\Hopy\hopy.INI" });
+                await connection.ExecuteAsync("INSERT INTO monsters (id, key) VALUES (197, 'Nameless')");
+                await connection.ExecuteAsync("INSERT INTO monster_texts (monster_id, language, name) VALUES (196, 'en', 'Hopy'), (196, 'pt-BR', 'Hopi')");
+                await connection.ExecuteAsync("INSERT INTO monster_drop_lines (monster_id, line, weight, kind) VALUES (196, 0, 9, 2)");
+                await connection.ExecuteAsync("INSERT INTO monster_drop_line_items (monster_id, line, ordinal, item_code) VALUES (196, 0, 0, NULL), (196, 0, 1, NULL)");
+                await connection.ExecuteAsync("INSERT INTO fields (stage, field_code) VALUES ('fore-1', 3), ('Slab', NULL)");
+                await connection.ExecuteAsync("INSERT INTO field_monster_spawns (stage, ordinal, monster_id, weight) VALUES ('fore-1', 0, 196, 35)");
             }
 
             await migrator.MigrateAsync();
 
             var repository = provider.GetRequiredService<IWorldDataRepository>();
             var records = await repository.GetAllMonstersAsync();
-            var record = records.Single();
-            Assert.True(record is { Id: 196, Key: "HOPY", DisplayName: "Hopy" }, "the id, key or display name was not read");
-            Assert.True(record.DropConfig?.MonsterId == 196, "drop association was lost");
+            Assert.True(records[0] is { Id: 196, Key: "HOPY", Name: "Hopy", MaxDropsPerKill: 2 } && records[1] is { Id: 197, Name: null },
+                "the runtime did not read the English name, or read a name a monster has not");
+            Assert.True(records[0].DropLines.Single() is { Weight: 9, Items.Count: 2 }, "the drop line or its items were not read");
 
-            var definition = WorldDataFactory.ToMonsterDefinitions(records).Single();
-            Assert.True(definition is { Code: 196, Key: "HOPY", Name: "Hopy" }, "the runtime code is not the id, or the key or label differs");
+            var definitions = WorldDataFactory.ToMonsterDefinitions(records);
+            Assert.True(definitions[0] is { Code: 196, Key: "HOPY", Name: "Hopy" } && definitions[1].Name == "Nameless",
+                "the runtime code is not the id, the key or name differs, or a monster without a name does not show its key");
+            // A line of two items splits its weight 9 into two slots of 4, as the original does; neither item exists here.
+            Assert.True(definitions[0].Drops.MainEntries.Count() == 2 && definitions[0].Drops.MainEntries.All(static entry => entry.Weight == 4),
+                "the drop line was not split among its items");
             var fields = await repository.GetAllFieldSpawnsAsync();
+            Assert.True(fields.Single().Stage == "fore-1", "a stage no field uses reached the runtime");
             var spawns = WorldDataFactory.ToFieldSpawnData(fields.Single());
             Assert.True(spawns.SpawnTable.Single().MonsterCode == 196, "the spawn does not name the monster by its id");
 

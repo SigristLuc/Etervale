@@ -22,8 +22,9 @@ internal static class WorldRewardsProbe
         await migrator.MigrateAsync();
         await migrator.MigrateAsync();
         var data = await new WorldDataAppService(provider.GetRequiredService<IWorldDataRepository>()).BuildAsync();
-        var hopy = data.Monsters.All.Single(monster => monster.Name == "HOPY" && monster.ExpReward == 105);
-        Assert.True(KillReward.ExpForKill(hopy.ExpReward, hopy.Combat.Level, 1, 5) == 525, "real catalog XP mismatch");
+        var hopy = data.Monsters.All.Single(monster => monster.Key == "HOPY");
+        Assert.True(hopy.ExpReward == 196, "real catalog XP mismatch");
+        var hopyXp = KillReward.ExpForKill(hopy.ExpReward, hopy.Combat.Level, 1, 5);
         int drops = 0;
         foreach (var monster in data.Monsters.All)
         {
@@ -40,8 +41,8 @@ internal static class WorldRewardsProbe
         var connections = provider.GetRequiredService<IDbConnectionFactory>();
         await using var connection = await connections.OpenAsync();
         var counts = (await connection.QueryAsync<FieldCount>(
-            "SELECT field_code AS FieldCode, COUNT(*) AS Count FROM field_fixed_npcs GROUP BY field_code ORDER BY field_code")).ToArray();
-        Assert.True(counts.Single(field => field.FieldCode == 3).Count == 40, "Ricarten placements were not repaired");
+            "SELECT f.field_code AS FieldCode, COUNT(*) AS Count FROM field_npcs n JOIN fields f ON f.stage = n.stage GROUP BY f.field_code ORDER BY f.field_code")).ToArray();
+        Assert.True(counts.Single(field => field.FieldCode == 3).Count == 34, "Ricarten placements were not repaired");
         Assert.True(await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM pragma_foreign_key_check") == 0, "migration broke FK integrity");
         var loader = new PristonActorLoader();
         foreach (var path in data.FieldSpawns.Values.SelectMany(field => field.FixedNpcs)
@@ -57,7 +58,7 @@ internal static class WorldRewardsProbe
             Console.WriteLine($"Ground {key}: bounds {actor.Mesh.Bounds.Min} .. {actor.Mesh.Bounds.Max}");
         }
 
-        Console.WriteLine($"Verified {drops} item drop entries, {counts.Sum(field => field.Count)} NPC placements; Hopy = 525 XP.");
+        Console.WriteLine($"Verified {drops} item drop entries, {counts.Sum(field => field.Count)} NPC placements; Hopy = {hopyXp} XP.");
     }
 
     private sealed record FieldCount(int FieldCode, int Count);

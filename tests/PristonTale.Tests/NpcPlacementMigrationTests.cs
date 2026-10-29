@@ -35,7 +35,7 @@ internal static class NpcPlacementMigrationTests
                 "the consolidated baseline version was not recorded");
             Assert.True(
                 await connection.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(*) FROM pragma_table_info('npcs') WHERE name IN ('display_name', 'portrait_offset_y', 'portrait_offset_z')") == 3
+                    "SELECT COUNT(*) FROM pragma_table_info('npcs') WHERE name IN ('portrait_offset_y', 'portrait_offset_z')") == 2
                 && await connection.ExecuteScalarAsync<int>(
                     "SELECT COUNT(*) FROM pragma_table_info('monsters') WHERE name IN ('portrait_offset_y', 'portrait_offset_z')") == 2,
                 "the target-frame portrait columns are missing");
@@ -43,11 +43,18 @@ internal static class NpcPlacementMigrationTests
                 await connection.ExecuteScalarAsync<int>(
                     "SELECT COUNT(*) FROM pragma_table_info('characters') WHERE name IN ('face_index', 'tier', 'hair_index', 'size_level')") == 4,
                 "the baseline omitted character appearance columns");
+            Assert.True(
+                await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM pragma_table_info('characters') WHERE name = 'derived_stats'") == 0
+                && await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM pragma_table_info('warehouses') WHERE name = 'buy_area_count'") == 0
+                && await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM sqlite_master WHERE name = 'mailboxes'") == 0,
+                "a column or table nothing reads is still there");
+            Assert.True(await connection.ExecuteScalarAsync<string>("SELECT name FROM languages WHERE code = 'en'") == "English",
+                "English is not a catalog language");
 
-            await connection.ExecuteAsync("INSERT INTO fields (field_code, ase_base) VALUES (3, 'fixture')");
+            await connection.ExecuteAsync("INSERT INTO fields (stage, field_code) VALUES ('fixture', 3)");
             await connection.ExecuteAsync("INSERT INTO npcs (id, key, model) VALUES (124, 'Warehouse', 'fixture.inx')");
             await connection.ExecuteAsync(
-                "INSERT INTO field_fixed_npcs (field_code, npc_id, x, y, z, angle) VALUES (3, 124, 1, 2, 3, 4)");
+                "INSERT INTO field_npcs (stage, record_index, npc_id, x, y, z, angle) VALUES ('fixture', 0, 124, 1, 2, 3, 4)");
             await connection.ExecuteAsync(
                 "INSERT INTO motion_models (model_key, motion_table_key) VALUES ('char/npc/tn-010/tn-010.inx', 'custom/npc-motion.inx')");
             await connection.ExecuteAsync(
@@ -71,7 +78,7 @@ internal static class NpcPlacementMigrationTests
                 await connection.ExecuteScalarAsync<int>("SELECT sound_code FROM npcs WHERE key = 'Warehouse'") == 0,
                 "the baseline omitted the NPC sound-code column");
             Assert.True(
-                await connection.ExecuteScalarAsync<int>("SELECT y FROM field_fixed_npcs WHERE npc_id = 124") == 2,
+                await connection.ExecuteScalarAsync<int>("SELECT y FROM field_npcs WHERE npc_id = 124") == 2,
                 "rerunning the baseline changed an imported NPC position");
             Assert.True(
                 await connection.ExecuteScalarAsync<string>(

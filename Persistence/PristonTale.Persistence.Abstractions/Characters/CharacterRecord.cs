@@ -32,6 +32,5 @@ public sealed record CharacterRecord(
     JsonText Equipment,
     JsonText Skills,
     JsonText Quests,
-    JsonText DerivedStats,
     JsonText Premium,
     DateTime? LastPlayedAt);

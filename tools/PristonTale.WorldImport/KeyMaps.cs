@@ -202,11 +202,10 @@ public static class KeyMaps
     public const string NpcEventCode = "*이벤트코드";     // event creature code
     public const string NpcEventInfo = "*이벤트정보";     // event creature information
 
-    // Name and dialog keys of the definition files and their linked name files, kept with each entity as labels and
-    // dialog lines under the key upper-case without its asterisk. A key names the release a text was written for, not
-    // its language: the Brazilian build's B_NAME is mostly English and some files' J_NAME is Portuguese. The original
-    // compares them case-sensitively; some files spell them in mixed case, so they match case-insensitively. The
-    // Korean identity (*이름) and Korean lines (*대화) are not kept.
+    // Name and dialog keys of the definition files and their linked name files. A key names the release a text was
+    // written for, not its language: the Brazilian build's B_NAME is mostly English and some files' J_NAME is
+    // Portuguese, so only the English choices below are imported. The original compares them case-sensitively; some
+    // files spell them in mixed case, so they match case-insensitively.
     public static readonly string[] LabelKeys = ["*NAME", "*E_NAME", "*B_NAME", "*J_NAME", "*T_NAME"];
     public static readonly string[] DialogKeys = ["*E_CHAT", "*B_CHAT", "*J_CHAT", "*T_CHAT"];
 

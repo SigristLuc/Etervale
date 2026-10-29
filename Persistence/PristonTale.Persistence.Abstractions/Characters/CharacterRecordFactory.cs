@@ -58,7 +58,6 @@ public static class CharacterRecordFactory
             Equipment: JsonText.EmptyObject,
             Skills: JsonText.EmptyArray,
             Quests: JsonText.EmptyObject,
-            DerivedStats: JsonText.EmptyObject,
             Premium: JsonText.EmptyObject,
             LastPlayedAt: null);
     }
@@ -103,7 +102,6 @@ public static class CharacterRecordFactory
             CharacterStateCodec.CaptureInventory(character),
             CharacterStateCodec.CaptureEquipment(character),
             CharacterStateCodec.CaptureSkills(character),
-            DerivedStatsDto.From(character.Derived),
             SavedPremium.Capture(character),
             QuestStateCodec.Capture(character.Quests));
     }

@@ -40,9 +40,7 @@ internal static class ItemRulesTests
         yield return ("potions stack in the bag, so a shop sells them by the count onto one stack and buys back part of it", PotionStacksAsync);
     }
 
-    private static ItemTemplateRecord Record(string code) => new(
-        code, ItemCodes.Parse(code), code, (int)ItemKind.Misc, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    private static ItemTemplateRecord Record(string code) => ItemRecords.Blank(code);
 
     private static ItemDefinition Def(string code, Func<ItemTemplateRecord, ItemTemplateRecord>? change = null) =>
         WorldDataFactory.ToItemDefinition(change is null ? Record(code) : change(Record(code)));
@@ -187,9 +185,9 @@ internal static class ItemRulesTests
         {
             DurabilityMin = 60, DurabilityMax = 80, DamageMinLow = 10, DamageMinHigh = 14, DamageMaxLow = 20, DamageMaxHigh = 26,
             AttackRatingMin = 30, AttackRatingMax = 40, BlockMin = 1.5f, BlockMax = 3.25f, AbsorbMin = 0.4f, AbsorbMax = 1.2f,
-            ResFireMin = 2, ResFireMax = 9, Price = 1000, ReqStrength = 100, ReqSpirit = 40, ReqDexterity = 80, JobMask = (long)JobBitCode.Fighter,
-            Specials = [new ItemTemplateSpecialRecord(0, "WA110", 1, 3, 7), new ItemTemplateSpecialRecord(0, "WA110", 10, 2, 4)],
-            JobRandom = [new ItemTemplateJobRandomRecord(0, "WA110", 0, (long)JobBitCode.Knight), new ItemTemplateJobRandomRecord(0, "WA110", 1, (long)JobBitCode.Pikeman)]
+            ResFireMin = 2, ResFireMax = 9, Price = 1000, ReqStrength = 100, ReqSpirit = 40, ReqAgility = 80, SpecClass = (long)JobBitCode.Fighter,
+            SpecBonuses = [new ItemSpecBonusRecord(0, (short)ItemSpecBonusKind.Defence, 3, 7), new ItemSpecBonusRecord(0, (short)ItemSpecBonusKind.LevelAttackRating, 2, 4)],
+            RandomSpecClasses = [(long)JobBitCode.Knight, (long)JobBitCode.Pikeman]
         });
         var rng = new SeededSimRng(7);
         var specialized = 0;
@@ -235,7 +233,7 @@ internal static class ItemRulesTests
         var definition = Def("DA110", record => record with
         {
             DurabilityMin = 40, DurabilityMax = 60, DefenceMin = 30, DefenceMax = 50, AbsorbMin = 1.1f, AbsorbMax = 2.0f, Price = 500,
-            ReqStrength = 100, ReqDexterity = 40, JobMask = (long)JobBitCode.Archer, Specials = [new ItemTemplateSpecialRecord(0, "DA110", 1, 4, 9)]
+            ReqStrength = 100, ReqAgility = 40, SpecClass = (long)JobBitCode.Archer, SpecBonuses = [new ItemSpecBonusRecord(0, (short)ItemSpecBonusKind.Defence, 4, 9)]
         });
         var item = new ItemInstance(definition);
         Assert.True(item.DurabilityMax == 40 && item.DurabilityCurrent == 40 && item.Roll.Defence == 30 && MathF.Abs(item.Roll.Absorb - 1.1f) < 0.0001f,
@@ -251,10 +249,10 @@ internal static class ItemRulesTests
         var bare = character.Derived;
         var bareLife = character.MaxLife;
         var armor = new ItemInstance(Def("DA102", record => record with { AbsorbMin = 1.0f, DefenceMin = 20 }));
-        var boots = new ItemInstance(Def("DB103", record => record with { AbsorbMin = 0.5f, SpeedMin = 1.5f }));
+        var boots = new ItemInstance(Def("DB103", record => record with { AbsorbMin = 0.5f, MoveSpeedMin = 1.5f }));
         var shield = new ItemInstance(Def("DS101", record => record with { BlockMin = 10.5f }));
-        var axe = new ItemInstance(Def("WA101", record => record with { CriticalHit = 30, DamageMinLow = 5, DamageMinHigh = 6, DamageMaxLow = 9, DamageMaxHigh = 10, MagicMastery = 3f }));
-        var amulet = new ItemInstance(Def("OA101", record => record with { CriticalHit = 30, AddManaMin = 12 }));
+        var axe = new ItemInstance(Def("WA101", record => record with { Critical = 30, DamageMinLow = 5, DamageMinHigh = 6, DamageMaxLow = 9, DamageMaxHigh = 10, MagicMasteryMin = 3f }));
+        var amulet = new ItemInstance(Def("OA101", record => record with { Critical = 30, AddManaMin = 12 }));
         var ring = new ItemInstance(Def("OR101", record => record with { ResFireMin = 10, AddLifeMin = 20, LifeRegenMin = 1.2f, AddStaminaMin = 7 }));
         axe.Roll = axe.Roll with
         {
@@ -380,7 +378,7 @@ internal static class ItemRulesTests
         var classes = new CharacterClassRegistry();
         var record = CharacterRecordFactory.NewStarter(classes, 1, "Rolls", 0, PlayerClass.Fighter, 3) with { Id = 1 };
         var character = classes.CreatePlayer(PlayerClass.Fighter, record.Name);
-        var definition = Def("WA110", item => item with { DamageMinLow = 10, DamageMinHigh = 14, DamageMaxLow = 20, DamageMaxHigh = 26, JobMask = (long)JobBitCode.Fighter });
+        var definition = Def("WA110", item => item with { DamageMinLow = 10, DamageMinHigh = 14, DamageMaxLow = 20, DamageMaxHigh = 26, SpecClass = (long)JobBitCode.Fighter });
         var catalog = new ItemCatalog([definition]);
         ItemInstance rolled;
         var rng = new SeededSimRng(11);
@@ -469,12 +467,12 @@ internal static class ItemRulesTests
         {
             var parsed = new ItemTxtParser().Parse(path);
             Assert.True(parsed.JobRandom.SequenceEqual([(long)JobBitCode.Assassin, (long)JobBitCode.Fighter]), "unknown classes were stored or known ones lost");
-            Assert.True(parsed.JobMask == (long)JobBitCode.Knight, "the fixed specialization did not keep the last known class");
+            Assert.True(parsed.JobMask == (long)JobBitCode.Atalanta, "the fixed specialization did not keep the last class, or the misspelled Atalanter was not Atalanta");
             var record = Record("WD120") with
             {
-                JobMask = parsed.JobMask,
-                Specials = parsed.Specials.Select(special => new ItemTemplateSpecialRecord(0, "WD120", special.Code, special.V0, special.V1)).ToList(),
-                JobRandom = parsed.JobRandom.Select((job, index) => new ItemTemplateJobRandomRecord(0, "WD120", index, job)).ToList()
+                SpecClass = parsed.JobMask,
+                SpecBonuses = parsed.Specials.Select(static special => new ItemSpecBonusRecord(0, (short)special.Bonus, special.Min, special.Max)).ToList(),
+                RandomSpecClasses = parsed.JobRandom
             };
             var template = WorldDataFactory.ToItemTemplate(record);
             Assert.True(template.Spec.LevelDamage == 6 && template.Spec.LevelAttackRating == new ItemRange(1, 3) && template.Spec.Critical == 4

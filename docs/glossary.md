@@ -41,12 +41,13 @@ that explains it in depth.
 | Catalog key | 5-character authored item key, 3-character category + 2 digits (`WA101`) | simulation.md |
 | Entity id | 64-bit id of a player, monster or NPC in the world; the wire, the views and the client use it (`EntityId`, `NpcId`, `TargetId`) | protocol.md |
 | Life, mana, stamina | The three pools; every layer names them `Life`/`MaxLife`, `Mana`/`MaxMana`, `Stamina`/`MaxStamina` (the world tables keep a `hp` column) | simulation.md |
-| Item code | 32-bit item code `family << 8 \| ordinal` derived from the item key by `ItemCodes`; stored as `item_code_mask` | simulation.md |
+| Item code | 32-bit item code `family << 8 \| ordinal` derived from the item key by `ItemCodes` when the catalog loads | simulation.md |
 | Item roll | The values one item copy was made with (`ItemRoll`): stats, requirements, price, specialization | simulation.md |
 | Shop form | The lowest form of an item, as NPC shops sell it (`ItemRoller.Lower`) | simulation.md |
 | Specialization | A copy made for one class (`ItemRoll.SpecJob`); grants its bonuses only to that class | simulation.md |
 | Carried weight | Weight of every owned item (potions one per unit) against `MaxWeight`; over it a character walks only | simulation.md |
-| `item_code_mask = 0` | Imported item whose category has no verified numeric code; the runtime skips it | world-import.md |
+| Item definition | What copies of an item code are made from: its regular, quest or named-unique variant (`item_definitions`) | persistence.md |
+| Catalog language | A `languages` code; every catalog name and NPC line is stored per language, English (`en`) required | persistence.md |
 | Anchor | Inventory cell index (`y * Width + x`) of an item's top-left corner | simulation.md |
 | Rolled bonus | Per-instance `ItemStatBlock` added to the definition's base stats | simulation.md |
 | Absorption | Flat damage reduction against players, percent reduction against monsters | simulation.md |
@@ -119,8 +120,8 @@ that explains it in depth.
 |---|---|---|
 | GameServer data | Authored server data in `assets/GameServer` (items, monsters, NPCs, fields), CP949 text | world-import.md |
 | CP949 | Korean code page of every authored text file and of names inside binary records | world-import.md |
-| Identity name | Verbatim authored name other files reference; differs from the display name | world-import.md |
-| Variant | Every parsed definition kept in `world_entity_variants`; the catalog keeps one per identity | world-import.md |
+| Identity name | Verbatim authored monster name spawn tables reference; differs from the English name. NPCs are identified by their file | world-import.md |
+| Variant | Every parsed definition kept in `world_entity_variants`; the catalog keeps one per item code and monster identity, and every NPC file | world-import.md |
 | Unresolved reference | Reference with no target, kept in `world_import_unresolved_refs` | world-import.md |
 | `.zhoon` | Name/locale file linked from item, monster and NPC definitions | world-import.md |
 | `.inf` / `.npc` / `.txt` | Monster, NPC and item definition files | world-import.md |

@@ -24,8 +24,8 @@ public static class WorldDataFactory
             Strength: 0, Spirit: 0, Talent: 0, Agility: 0, Health: 0);
 
         return ItemEquipmentMetadata.Apply(new ItemDefinition(
-            (uint)r.ItemCodeMask,
-            r.Name,
+            ItemCodes.Parse(r.Code),
+            r.Name ?? r.Code,
             (ItemKind)r.Kind,
             GridWidth: Math.Max(1, r.GridWidth),
             GridHeight: Math.Max(1, r.GridHeight),
@@ -37,89 +37,72 @@ public static class WorldDataFactory
                 ? new PotionDefinition(r.RestoreLifeMin, r.RestoreLifeMax, r.RestoreManaMin, r.RestoreManaMax, r.RestoreStaminaMin, r.RestoreStaminaMax)
                 : null,
             RequiredLevel = r.ReqLevel,
-            Requirements = new(r.ReqStrength, r.ReqSpirit, r.ReqTalent, r.ReqDexterity, r.ReqHealth),
+            Requirements = new(r.ReqStrength, r.ReqSpirit, r.ReqTalent, r.ReqAgility, r.ReqHealth),
             AllowedJobs = ItemClassRestrictions.AllowedJobs(r.Code),
-            SpecializationJobs = (uint)r.JobMask,
+            SpecializationJobs = (uint)r.SpecClass,
             ShootingRange = r.ShootingRange,
             BaseStats = baseStats,
             MaxDurability = r.DurabilityMin,
             Weight = r.Weight,
             Price = r.Price,
             Resistances = new ResistanceBlock((short)r.ResBionicMin, (short)r.ResEarthMin, (short)r.ResFireMin, (short)r.ResIceMin,
-                (short)r.ResLightingMin, (short)r.ResPoisonMin, (short)r.ResWaterMin, (short)r.ResWindMin),
-            Critical = r.CriticalHit,
+                (short)r.ResLightningMin, (short)r.ResPoisonMin, (short)r.ResWaterMin, (short)r.ResWindMin),
+            Critical = r.Critical,
             PotionSpace = r.PotionSpace,
-            MagicMastery = r.MagicMastery,
-            UniqueItem = (int)r.UniqueItem,
+            MagicMastery = r.MagicMasteryMin,
+            UniqueItem = r.UniqueItem,
             Template = ToItemTemplate(r),
             Glow = new ItemGlow(Channel(r.GlowR), Channel(r.GlowG), Channel(r.GlowB), Channel(r.GlowA), Math.Clamp(r.GlowBlink, -1, 16), r.GlowScale),
             DisplayEffect = r.DisplayEffect,
             DailyDropLimit = Math.Max(0, r.DailyDropLimit),
-            SetCode = r.SetCode,
+            SetCode = r.SetCode ?? 0,
         });
     }
 
-    public static IReadOnlyList<ItemDefinition> ToItemDefinitions(IEnumerable<ItemTemplateRecord> records) =>
-        records.Where(static record => record.ItemCodeMask != 0 && !IsQuestVariantKey(record.Code) && !IsNamedUniqueKey(record.Code))
-            .Select(ToItemDefinition).ToList();
+    // Item keys that are not a family and an ordinal (ItemCodes) have no runtime code and stay out of the catalog.
+    public static IReadOnlyList<ItemDefinition> ToItemDefinitions(IEnumerable<ItemTemplateRecord> records) => Of(records, ItemVariant.Regular);
 
-    // Rows of a code's named uniques are keyed "<code>#U<n>" by the importer.
-    public const string NamedUniqueSuffix = "#U";
-
-    public static bool IsNamedUniqueKey(string code) => code.Contains(NamedUniqueSuffix, StringComparison.OrdinalIgnoreCase);
-
+    // A named unique (Vega, Rage...) is saved by ItemDefinition.NamedUniqueBase + its variant ordinal.
     public static IReadOnlyList<ItemDefinition> ToNamedUniqueDefinitions(IEnumerable<ItemTemplateRecord> records) =>
-        records.Where(static record => record.ItemCodeMask != 0 && IsNamedUniqueKey(record.Code))
-            .Select(static record =>
-            {
-                var at = record.Code.IndexOf(NamedUniqueSuffix, StringComparison.OrdinalIgnoreCase);
-                var variant = int.Parse(record.Code[(at + NamedUniqueSuffix.Length)..], System.Globalization.CultureInfo.InvariantCulture);
-                return ToItemDefinition(record with { Code = record.Code[..at] }) with { UniqueVariant = variant };
-            })
+        records.Where(static record => record.Variant == (short)ItemVariant.NamedUnique && ItemCodes.TryParse(record.Code, out _))
+            .Select(static record => ToItemDefinition(record) with { UniqueVariant = record.VariantOrdinal })
             .ToList();
+
+    // The quest version of an item loads beside the regular catalog.
+    public static IReadOnlyList<ItemDefinition> ToQuestVariantDefinitions(IEnumerable<ItemTemplateRecord> records) => Of(records, ItemVariant.Quest);
+
+    private static List<ItemDefinition> Of(IEnumerable<ItemTemplateRecord> records, ItemVariant variant) =>
+        records.Where(record => record.Variant == (short)variant && ItemCodes.TryParse(record.Code, out _)).Select(ToItemDefinition).ToList();
 
     public static IReadOnlyList<ItemSetDefinition> ToItemSets(IEnumerable<ItemSetRecord> records) =>
-        records.Select(static r => new ItemSetDefinition(r.SetCode, r.Pieces, r.Life, r.Absorb, r.Block, r.LifeRegen, r.ManaRegen, r.StaminaRegen,
-            r.Description)).ToList();
+        records.Select(static r => new ItemSetDefinition(r.SetCode, r.Pieces, r.Life, r.Absorb, r.Block, r.LifeRegen, r.ManaRegen, r.StaminaRegen)).ToList();
 
-    // Rows of the quest variant of a code are keyed "<code>#Q" by the importer; they load beside the regular catalog.
-    public const string QuestVariantSuffix = "#Q";
-
-    public static bool IsQuestVariantKey(string code) => code.EndsWith(QuestVariantSuffix, StringComparison.OrdinalIgnoreCase);
-
-    public static IReadOnlyList<ItemDefinition> ToQuestVariantDefinitions(IEnumerable<ItemTemplateRecord> records) =>
-        records.Where(static record => record.ItemCodeMask != 0 && IsQuestVariantKey(record.Code))
-            .Select(static record => ToItemDefinition(record with { Code = record.Code[..^QuestVariantSuffix.Length] }))
-            .ToList();
-
-    // Special bonus codes as the importer stores them: 0 absorb, 1 defence, 2 move speed, 3 block, 4 attack speed,
-    // 5 critical, 6 range, 7 magic mastery, 8 mana per level, 9 life per level, 10 attack rating per level, 11 damage per
-    // level (second value), 12 mana regeneration, 13 life regeneration, 14 stamina regeneration, 15 life regeneration range.
     public static ItemTemplate ToItemTemplate(ItemTemplateRecord r)
     {
+        // Bonuses arrive by kind, so a life regeneration range (LifeRegenRange) overrides a plain LifeRegen.
         var spec = new ItemSpecTemplate();
-        foreach (var special in r.Specials)
+        foreach (var bonus in r.SpecBonuses)
         {
-            var range = new ItemFloatRange(special.Value0, special.Value1);
-            var whole = new ItemRange((int)special.Value0, (int)special.Value1);
-            spec = special.BonusCode switch
+            var range = new ItemFloatRange(bonus.MinValue, bonus.MaxValue);
+            var whole = new ItemRange((int)bonus.MinValue, (int)bonus.MaxValue);
+            spec = (ItemSpecBonusKind)bonus.Bonus switch
             {
-                0 => spec with { Absorb = range },
-                1 => spec with { Defence = whole },
-                2 => spec with { MoveSpeed = range },
-                3 => spec with { Block = special.Value0 },
-                4 => spec with { AttackSpeed = (int)special.Value0 },
-                5 => spec with { Critical = (int)special.Value0 },
-                6 => spec with { ShootingRange = (int)special.Value0 },
-                7 => spec with { MagicMastery = range },
-                8 => spec with { LevelMana = (int)special.Value0 },
-                9 => spec with { LevelLife = (int)special.Value0 },
-                10 => spec with { LevelAttackRating = whole },
-                11 => spec with { LevelDamage = (int)special.Value1 },
-                12 => spec with { ManaRegen = range },
-                13 => spec with { LifeRegen = special.Value0, LifeRegenRange = ItemFloatRange.None },
-                14 => spec with { StaminaRegen = special.Value0 },
-                15 => spec with { LifeRegen = special.Value0, LifeRegenRange = range },
+                ItemSpecBonusKind.Absorb => spec with { Absorb = range },
+                ItemSpecBonusKind.Defence => spec with { Defence = whole },
+                ItemSpecBonusKind.MoveSpeed => spec with { MoveSpeed = range },
+                ItemSpecBonusKind.Block => spec with { Block = bonus.MinValue },
+                ItemSpecBonusKind.AttackSpeed => spec with { AttackSpeed = (int)bonus.MinValue },
+                ItemSpecBonusKind.Critical => spec with { Critical = (int)bonus.MinValue },
+                ItemSpecBonusKind.ShootingRange => spec with { ShootingRange = (int)bonus.MinValue },
+                ItemSpecBonusKind.MagicMastery => spec with { MagicMastery = range },
+                ItemSpecBonusKind.LevelMana => spec with { LevelMana = (int)bonus.MinValue },
+                ItemSpecBonusKind.LevelLife => spec with { LevelLife = (int)bonus.MinValue },
+                ItemSpecBonusKind.LevelAttackRating => spec with { LevelAttackRating = whole },
+                ItemSpecBonusKind.LevelDamage => spec with { LevelDamage = (int)bonus.MaxValue },
+                ItemSpecBonusKind.ManaRegen => spec with { ManaRegen = range },
+                ItemSpecBonusKind.LifeRegen => spec with { LifeRegen = bonus.MinValue, LifeRegenRange = ItemFloatRange.None },
+                ItemSpecBonusKind.StaminaRegen => spec with { StaminaRegen = bonus.MinValue },
+                ItemSpecBonusKind.LifeRegenRange => spec with { LifeRegen = bonus.MinValue, LifeRegenRange = range },
                 _ => spec
             };
         }
@@ -133,7 +116,7 @@ public static class WorldDataFactory
             Defence = new ItemRange(r.DefenceMin, r.DefenceMax),
             Absorb = new ItemFloatRange(r.AbsorbMin, r.AbsorbMax),
             Block = new ItemFloatRange(r.BlockMin, r.BlockMax),
-            MoveSpeed = new ItemFloatRange(r.SpeedMin, r.SpeedMax),
+            MoveSpeed = new ItemFloatRange(r.MoveSpeedMin, r.MoveSpeedMax),
             LifeRegen = new ItemFloatRange(r.LifeRegenMin, r.LifeRegenMax),
             ManaRegen = new ItemFloatRange(r.ManaRegenMin, r.ManaRegenMax),
             StaminaRegen = new ItemFloatRange(r.StaminaRegenMin, r.StaminaRegenMax),
@@ -143,11 +126,11 @@ public static class WorldDataFactory
             Resistances =
             [
                 new(r.ResBionicMin, r.ResBionicMax), new(r.ResEarthMin, r.ResEarthMax), new(r.ResFireMin, r.ResFireMax),
-                new(r.ResIceMin, r.ResIceMax), new(r.ResLightingMin, r.ResLightingMax), new(r.ResPoisonMin, r.ResPoisonMax),
+                new(r.ResIceMin, r.ResIceMax), new(r.ResLightningMin, r.ResLightningMax), new(r.ResPoisonMin, r.ResPoisonMax),
                 new(r.ResWaterMin, r.ResWaterMax), new(r.ResWindMin, r.ResWindMax)
             ],
-            SpecJob = (uint)r.JobMask,
-            RandomSpecJobs = r.JobRandom.OrderBy(static job => job.Ordinal).Select(static job => (uint)job.JobBitCode).Where(static job => job != 0).ToList(),
+            SpecJob = (uint)r.SpecClass,
+            RandomSpecJobs = r.RandomSpecClasses.Select(static job => (uint)job).Where(static job => job != 0).ToList(),
             Spec = spec
         };
     }
@@ -225,7 +208,7 @@ public static class WorldDataFactory
 
         var monsterClass = (MonsterClass)r.Class;
         return new MonsterDefinition(
-            r.Id, string.IsNullOrWhiteSpace(r.DisplayName) ? r.Key : r.DisplayName,
+            r.Id, r.Name ?? r.Key,
             Faction: r.Hostile ? MonsterFaction.Enemy : MonsterFaction.Npc,
             Class: monsterClass,
             Brood: (MonsterBrood)r.Brood,
@@ -259,7 +242,7 @@ public static class WorldDataFactory
 
     private static ResistanceBlock ToMonsterResistances(MonsterRecord r) => new(
         (short)r.ResBionic, (short)r.ResEarth, (short)r.ResFire, (short)r.ResIce,
-        (short)r.ResLighting, (short)r.ResPoison, (short)r.ResWater, (short)r.ResWind);
+        (short)r.ResLightning, (short)r.ResPoison, (short)r.ResWater, (short)r.ResWind);
 
     private static MonsterActiveHour ToActiveHour(int raw) => raw switch
     {
@@ -268,44 +251,48 @@ public static class WorldDataFactory
         _ => MonsterActiveHour.Any,
     };
 
-    // Unresolved authored drops retain their probability as empty slots; bonus drops have no probability slot.
+    // A line of items splits its weight evenly among them with integer division, as the original does; an item the
+    // catalog lacks keeps its share as an empty slot. Bonus drops have no probability slot.
     private static DropTable ToDropTable(MonsterRecord r, IReadOnlyDictionary<string, uint>? itemCodes)
     {
-        if (r.DropConfig is null && r.DropItems.Count == 0 && r.DropsPlus.Count == 0)
+        if (r.DropLines.Count == 0 && r.BonusDrops.Count == 0 && r.MaxDropsPerKill == 0 && !r.DropsSeenByAll)
         {
             return DropTable.Empty;
         }
 
-        var entries = new List<DropEntry>(r.DropItems.Count + r.DropsPlus.Count);
-        foreach (var d in r.DropItems)
+        var entries = new List<DropEntry>(r.DropLines.Count + r.BonusDrops.Count);
+        foreach (var line in r.DropLines)
         {
-            if ((DropKind)d.Kind == DropKind.Gold)
+            switch ((DropKind)line.Kind)
             {
-                entries.Add(DropEntry.GoldSlot(d.Weight, d.GoldMin, d.GoldMax));
-            }
-            else if ((DropKind)d.Kind == DropKind.Item && TryResolveDrop(d.ItemCode, itemCodes, out var code))
-            {
-                entries.Add(new DropEntry(DropKind.Item, d.Weight, code, 0, 0, IsBonus: false));
-            }
-            else
-            {
-                entries.Add(DropEntry.NothingSlot(d.Weight));
+                case DropKind.Gold:
+                    entries.Add(DropEntry.GoldSlot(line.Weight, line.GoldMin, line.GoldMax));
+                    break;
+                case DropKind.Item when line.Items.Count > 0:
+                    var share = line.Weight / line.Items.Count;
+                    foreach (var item in line.Items)
+                    {
+                        entries.Add(TryResolveDrop(item, itemCodes, out var code)
+                            ? new DropEntry(DropKind.Item, share, code, 0, 0, IsBonus: false)
+                            : DropEntry.NothingSlot(share));
+                    }
+
+                    break;
+                default:
+                    entries.Add(DropEntry.NothingSlot(line.Weight));
+                    break;
             }
         }
-        foreach (var p in r.DropsPlus)
-        {
-            if (!TryResolveDrop(p.ItemCode, itemCodes, out var code))
-            {
-                continue;
-            }
 
-            entries.Add(new DropEntry(DropKind.Item, p.Weight, code, 0, 0, IsBonus: true));
+        foreach (var bonus in r.BonusDrops)
+        {
+            if (TryResolveDrop(bonus.ItemCode, itemCodes, out var code))
+            {
+                entries.Add(new DropEntry(DropKind.Item, bonus.Chance, code, 0, 0, IsBonus: true));
+            }
         }
 
-        return new DropTable(
-            entries,
-            MaxItemsPerKill: r.DropConfig?.MaxItemsPerKill ?? 0,
-            AllPlayersSeeDrops: r.DropConfig?.AllPlayersSee ?? false);
+        return new DropTable(entries, MaxItemsPerKill: r.MaxDropsPerKill, AllPlayersSeeDrops: r.DropsSeenByAll);
     }
 
     private static bool TryResolveDrop(string? key, IReadOnlyDictionary<string, uint>? itemCodes, out uint code)
@@ -319,10 +306,10 @@ public static class WorldDataFactory
 
     private static NpcDefinition ToNpcDefinition(NpcRecord r)
     {
-        var weapons = r.ShopStock.Where(static s => s.Tab == 0).OrderBy(static s => s.Ordinal);
-        var armour = r.ShopStock.Where(static s => s.Tab == 1).OrderBy(static s => s.Ordinal);
-        var misc = r.ShopStock.Where(static s => s.Tab == 2).OrderBy(static s => s.Ordinal);
-        var shop = r.ShopStock.Count == 0
+        var weapons = r.ShopItems.Where(static s => s.Tab == 0).OrderBy(static s => s.Ordinal);
+        var armour = r.ShopItems.Where(static s => s.Tab == 1).OrderBy(static s => s.Ordinal);
+        var misc = r.ShopItems.Where(static s => s.Tab == 2).OrderBy(static s => s.Ordinal);
+        var shop = r.ShopItems.Count == 0
             ? NpcShopStock.Empty
             : new NpcShopStock(
                 weapons.Select(static s => s.ItemCode).Where(IsSupportedItemCode).Select(ItemCodes.Parse).ToList(),
@@ -331,7 +318,7 @@ public static class WorldDataFactory
 
         return new NpcDefinition(r.Id, r.Key, ToInxModelPath(r.Model), ToServices(r, shop))
         {
-            DisplayName = r.DisplayName,
+            DisplayName = r.Name ?? "",
             Shop = shop,
             Dialog = r.Dialog,
             SoundCode = r.SoundCode,
@@ -364,15 +351,15 @@ public static class WorldDataFactory
     public static FieldSpawnData ToFieldSpawnData(FieldSpawnRecord r)
     {
         var points = r.SpawnPoints
-            .Select(static p => new SpawnPoint(p.X, p.Z, Active: p.State != 0))
+            .Select(static p => new SpawnPoint(p.X, p.Z, Active: p.Active))
             .ToList();
         var table = r.MonsterSpawns
             .Select(static s => new SpawnTableEntry(s.MonsterId, s.Weight))
             .ToList();
-        var bosses = r.BossSpawns
-            .Select(static b => new BossSpawn(b.BossMonsterId, b.EscortMonsterId ?? 0, b.EscortCount, ParseHours(b.SpawnHours)))
+        var bosses = r.Bosses
+            .Select(static b => new BossSpawn(b.MonsterId, b.EscortMonsterId ?? 0, b.EscortCount, b.Hours))
             .ToList();
-        var fixedNpcs = r.FixedNpcs
+        var fixedNpcs = r.Npcs
             .Select(static n => new FixedNpc(n.NpcId, n.X, n.Z, n.Angle, n.Y))
             .ToList();
 
@@ -389,17 +376,6 @@ public static class WorldDataFactory
         records.ToDictionary(static r => r.FieldCode, ToFieldSpawnData);
 
     private static short Channel(int value) => (short)Math.Clamp(value, -255, 255);
-
-    private static IReadOnlyList<int> ParseHours(string csv)
-    {
-        if (string.IsNullOrWhiteSpace(csv))
-            return [];
-        var hours = new List<int>();
-        foreach (var part in csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            if (int.TryParse(part, out var h))
-                hours.Add(h);
-        return hours;
-    }
 
     public static MotionTimingCatalog ToMotionTimings(
         IReadOnlyList<MotionModelRecord> models,

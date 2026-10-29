@@ -14,7 +14,7 @@ public sealed class ImportReport
 
     public int MonsterFilesParsed { get; set; }
     public int MonsterRows { get; set; }
-    public int MonsterDropConfigRows { get; set; }
+    public int MonsterDropLineRows { get; set; }
     public int MonsterDropItemRows { get; set; }
     public int MonsterDropPlusRows { get; set; }
 
@@ -24,9 +24,6 @@ public sealed class ImportReport
     public int NpcServiceRows { get; set; }
     public int NpcDialogRows { get; set; }
     public int DialogLineRows { get; set; }
-
-    // Name labels of items, monsters and NPCs.
-    public int LabelRows { get; set; }
 
     public int FieldRows { get; set; }
     public int SpawnPointRows { get; set; }

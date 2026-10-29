@@ -149,13 +149,14 @@ internal static class WorldImportTests
                 "unresolved references were dropped or duplicated");
 
             await using var connection = await connections.OpenAsync();
-            var item = await connection.QuerySingleAsync<(string Name, long Mask, int MaxStack, int PotionSpace, float MagicMastery)>(
-                "SELECT name, item_code_mask, max_stack, potion_space, magic_mastery FROM item_templates WHERE code = 'WA101'");
+            var item = await connection.QuerySingleAsync<(string Name, int MaxStack, int PotionSpace, float MagicMastery)>(
+                """
+                SELECT t.name, d.max_stack, d.potion_space, d.magic_mastery_min FROM item_definitions d
+                JOIN item_texts t ON t.definition_id = d.id AND t.language = 'en' WHERE d.item_code = 'WA101' AND d.variant = 0
+                """);
             Assert.True(item.Name == "Linked Axe", "linked display name was not imported");
-            Assert.True(item.Mask == ItemCodes.Parse("WA101"), "item code differs from its key");
-            Assert.True(await connection.ExecuteScalarAsync<long>(
-                "SELECT item_code_mask FROM item_templates WHERE code = 'BI319'") == ItemCodes.Parse("BI319"),
-                "an item of a family without other items has no code");
+            Assert.True(await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM items WHERE code IN ('WA101', 'BI319')") == 2,
+                "an item of a family without other items is missing");
             Assert.True(item.MaxStack == 20 && item.PotionSpace == 3 && Math.Abs(item.MagicMastery - 1.5f) < 0.001f,
                 "linked item properties were not imported");
 
@@ -196,10 +197,10 @@ internal static class WorldImportTests
             Assert.True(monstersWithCatalog.Single().Drops.MainEntries.Where(static entry => entry.Kind == PristonTale.Simulation.World.Loot.DropKind.Item)
                     .Select(static entry => entry.ItemCode).SequenceEqual([ItemCodes.Parse("BI319")]),
                 "an unknown authored item leaked into the runtime drop table");
-            Assert.True(npcs.Single().Shop.WeaponItemCodes.SequenceEqual([ItemCodes.Parse("WA101"), ItemCodes.Parse("BI319")]),
+            Assert.True(npcs[0].Shop.WeaponItemCodes.SequenceEqual([ItemCodes.Parse("WA101"), ItemCodes.Parse("BI319")]),
                 "runtime NPC shop uses a different item identity from the catalog");
-            Assert.True(npcs.Single().Label == "Travelling Merchant" && npcs.Single().PortraitOffsetZ == 70,
-                "the NPC lost the localized name of its variant or its portrait correction");
+            Assert.True(npcs.Count == 2 && npcs[0].Label == "Travelling Merchant" && npcs[0].PortraitOffsetZ == 70,
+                "a file without a name did not take its identity's English name, or lost its portrait correction");
             Assert.True(monsters.Single().PortraitOffsetY == -3 && monsters.Single().PortraitOffsetZ == 30,
                 "the monster portrait correction was not imported");
         }
@@ -227,6 +228,18 @@ internal static class WorldImportTests
 
             await WriteCp949Async(item, Lines("*코드 DA101", "*이름 \"배틀 슈트\"", "*B_NAME \"Battle Suit\""));
             Assert.True((await WriteAndParse()).Item == "Battle Suit", "a name the data gives in English was replaced");
+
+            // An item whose only English name is its *이름 takes it; a Korean one leaves the code. Magic mastery keeps its range.
+            await WriteCp949Async(item, Lines("*코드 DA403", "*이름 \"Abyssal Robe\"", "*마법기술숙련도 15 19"));
+            var robe = new PristonTale.WorldImport.Parsers.ItemTxtParser().Parse(item);
+            Assert.True(robe is { Name: "Abyssal Robe", MagicMasteryMin: 15f, MagicMasteryMax: 19f }, "the English *이름 or the magic mastery range was lost");
+            await WriteCp949Async(item, Lines("*코드 DA404", "*이름 \"버텍스 로브\""));
+            Assert.True(new PristonTale.WorldImport.Parsers.ItemTxtParser().Parse(item).Name == "DA404", "a Korean *이름 became the name");
+
+            // A Korean line is read in its English translation; one without a translation is not kept.
+            await WriteCp949Async(npc, Lines("*이름 \"상인\"", "*대화 \"다음에 꼭 들러주세요\"", "*대화 \"번역 없음\""));
+            Assert.True(new PristonTale.WorldImport.Parsers.NpcParser().Parse(npc).Dialog.SequenceEqual(["Please come by again."]),
+                "a Korean line was not translated, or an untranslated one was kept");
         }
         finally
         {
@@ -244,7 +257,7 @@ internal static class WorldImportTests
         var monsters = IdentityRegistry.Monsters();
         var npcs = IdentityRegistry.Npcs();
         Assert.True(monsters.TryGet(" 호피 ", out var crystalHopy) && crystalHopy.Key == "HOPY 2" && monsters.TryGet("호피", out var hopy) && hopy.Key == "HOPY"
-            && npcs.TryGet("Zinjya", out var zinjya) && zinjya.Id == 127, "a registered identity lost its id or key");
+            && npcs.TryGet("j_zinjya.NPC", out var zinjya) && zinjya is { Id: 127, Key: "Zinjya" }, "a registered identity lost its id or key");
 
         var called = Simulation.Items.Usable.MonsterCrystals.All.Where(static crystal => crystal.Kind != Simulation.Items.Usable.CrystalKind.SoulStone)
             .SelectMany(static crystal => crystal.Monsters.Concat(crystal.EventMonsters)).Select(static monster => monster.Key)

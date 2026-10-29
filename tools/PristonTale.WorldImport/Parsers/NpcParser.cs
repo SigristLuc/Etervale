@@ -4,9 +4,9 @@ using PristonTale.Simulation.World.Npcs;
 
 // Parses one NPC `.npc` and the name file it links to into a ParsedNpc. Every service key the original reads becomes
 // a typed NpcService; keys that share one original setting keep the last value read. Sell lists are at most 32 codes
-// per tab. Every name label and dialog key is kept; the English name is *E_NAME, then *B_NAME, then *Name, and the
-// English dialog the *E_CHAT lines, else the *B_CHAT lines. The authored identity (`*이름`) is read verbatim, because
-// other files reference it, and becomes the NPC's id and English key in the importer; Korean lines are not kept.
+// per tab. The English name is *E_NAME, then *B_NAME, then *Name; the English dialog is the *E_CHAT lines, else the
+// *B_CHAT lines, else the Korean *대화 lines in their English translation (EnglishNames.Dialog). The authored identity
+// (`*이름`) is read only to lend a name to a file of the same NPC that has none.
 public sealed class NpcParser
 {
     private const int MaxDialogLines = 20;
@@ -15,32 +15,41 @@ public sealed class NpcParser
     public ParsedNpc Parse(string path)
     {
         var lines = SourceTextReader.ReadChain(path);
-        var npc = new ParsedNpc { Name = FindName(lines) };
+        var npc = new ParsedNpc { Name = FindName(lines), File = Path.GetFileName(path) };
         var facts = new Facts();
         ApplyLines(lines, npc, facts);
         npc.DisplayName = EnglishNames.Npc(path, Normalize(AuthoredLabels.First(facts.Labels, KeyMaps.NpcNameLocales)));
-        foreach (var (key, text) in facts.Labels)
-        {
-            npc.Labels[key] = Normalize(text);
-        }
+        var english = KeyMaps.NpcDialogLocales.Select(KeyMaps.StoredKey).Select(key => facts.Dialog.GetValueOrDefault(key))
+            .FirstOrDefault(static dialog => dialog is { Count: > 0 });
+        npc.Dialog.AddRange(english ?? facts.TranslatedDialog);
+        BuildServices(npc, facts);
+        return npc;
+    }
 
-        foreach (var (key, dialogLines) in facts.Dialog)
+    // A file without an English name takes the first one among the files of its authored identity, in list order;
+    // returns the files left without one.
+    public static IReadOnlyList<ParsedNpc> ShareNames(IReadOnlyList<ParsedNpc> npcs)
+    {
+        var unnamed = new List<ParsedNpc>();
+        foreach (var npc in npcs.Where(static npc => npc.DisplayName.Length == 0))
         {
-            if (dialogLines.Count > 0)
+            npc.DisplayName = npc.Name.Length == 0
+                ? ""
+                : npcs.FirstOrDefault(other => other.Name == npc.Name && other.DisplayName.Length > 0)?.DisplayName ?? "";
+            if (npc.DisplayName.Length == 0)
             {
-                npc.DialogLines[key] = dialogLines;
+                unnamed.Add(npc);
             }
         }
 
-        npc.DialogKey = KeyMaps.NpcDialogLocales.Select(KeyMaps.StoredKey).FirstOrDefault(npc.DialogLines.ContainsKey) ?? "";
-        BuildServices(npc, facts);
-        return npc;
+        return unnamed;
     }
 
     private sealed class Facts
     {
         public readonly Dictionary<string, string> Labels = new(StringComparer.Ordinal);
         public readonly Dictionary<string, List<string>> Dialog = new(StringComparer.Ordinal);
+        public readonly List<string> TranslatedDialog = [];
         public bool SvcWarehouse;
         public bool SvcShop;
         public bool SvcSkillMaster;
@@ -135,8 +144,18 @@ public sealed class NpcParser
             return true;
         }
 
-        // The Korean identity is read by FindName; Korean lines are not kept.
-        return key is KeyMaps.CharName or KeyMaps.CharDialog;
+        if (key == KeyMaps.CharDialog)
+        {
+            if (EnglishNames.Dialog(Normalize(t.NextValueOrQuoted())) is { } translated)
+            {
+                AddLine(facts.TranslatedDialog, translated);
+            }
+
+            return true;
+        }
+
+        // The identity is read by FindName.
+        return key == KeyMaps.CharName;
     }
 
     private static bool ApplyAppearance(string key, Tokenizer t, ParsedNpc npc)

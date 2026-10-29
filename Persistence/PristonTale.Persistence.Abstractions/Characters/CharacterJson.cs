@@ -26,22 +26,3 @@ public static class CharacterJson
     public static T? Read<T>(JsonText json) =>
         string.IsNullOrWhiteSpace(json.Value) ? default : JsonSerializer.Deserialize<T>(json.Value, Options);
 }
-
-public sealed record DerivedStatsDto(
-    int MaxLife,
-    int MaxMana,
-    int MaxStamina,
-    int AttackRating,
-    int AttackDamageMin,
-    int AttackDamageMax,
-    int Defence,
-    int Absorption,
-    int MoveSpeed,
-    int MaxWeight,
-    int AttackSpeed)
-{
-    public static DerivedStatsDto From(DerivedStats d) => new(
-        d.MaxLife, d.MaxMana, d.MaxStamina,
-        d.AttackRating, d.AttackDamageMin, d.AttackDamageMax,
-        d.Defence, d.Absorption, d.MoveSpeed, d.MaxWeight, d.AttackSpeed);
-}

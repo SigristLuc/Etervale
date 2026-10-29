@@ -2,10 +2,8 @@ using PristonTale.Simulation.Items;
 
 namespace PristonTale.WorldImport.Parsers;
 
-// The importer DTO produced by ItemTxtParser for one OpenItem .txt. It carries the
-// parsed scalar fields plus the variadic **특화랜덤 job list and ** special bonuses. The
-// Importer turns this into an item_templates row (+ child rows), deriving the
-// item_code_mask from Code using the original category codes.
+// The importer DTO produced by ItemTxtParser for one OpenItem .txt: the parsed scalar fields plus the variadic
+// **특화랜덤 class list and ** specialization bonuses. The Importer writes it as an item_definitions row and its children.
 public sealed class ParsedItem
 {
     public required string Code { get; init; }     // 5-char item code, the natural PK
@@ -14,7 +12,9 @@ public sealed class ParsedItem
     public long UniqueItem { get; init; }
     public int MaxStack { get; init; } = 1;
     public int PotionSpace { get; init; }
-    public float MagicMastery { get; init; }
+    // The magic mastery range (the second value is a later release's upper bound; 0 when absent).
+    public float MagicMasteryMin { get; init; }
+    public float MagicMasteryMax { get; init; }
 
     public int DurabilityMin { get; init; }
     public int DurabilityMax { get; init; }
@@ -88,13 +88,10 @@ public sealed class ParsedItem
     [System.Text.Json.Serialization.JsonIgnore]
     public string SetBonus { get; init; } = "";
 
-    // Every name label by stored key (NAME, E_NAME, B_NAME, J_NAME, T_NAME).
-    public Dictionary<string, string> Labels { get; } = new(StringComparer.Ordinal);
-
     // Keys of the file no rule reads; the importer reports them.
     public List<string> UnknownKeys { get; } = [];
 
     // Variadic children.
     public List<long> JobRandom { get; } = [];                  // **특화랜덤 job bitcodes
-    public List<(int Code, float V0, float V1)> Specials { get; } = []; // ** special bonuses
+    public List<(ItemSpecBonusKind Bonus, float Min, float Max)> Specials { get; } = []; // ** specialization bonuses
 }
