@@ -72,6 +72,8 @@ Kinds: 0 server, 1 whisper, 2 system, 3 notice, 4 party, 5 clan, 6 trade, 9 assi
   `Unable to send private messages` (`/enable_whisper` undoes it); a receiver that ignores the sender (its friends page)
   gets the sender `Private Message has been refused`.
 - `/bosstime` answers `Boss Time: XX:mm` with the minute bosses appear.
+- `/도우미` (the original's command) or `/helper` hides the beginner's helper pet or shows it again while the player
+  is below level 10 ([application.md](application.md#beginners-helper-pet)); the line is not spoken.
 - A line that is only `yahoo`, `/yahoo` or `Yes!` (any case) is not spoken: the player cheers (the Yahoo motion, the
   weapon on the back) from standing, walking or running. For a minute after, Space (`YahooKey`) cheers again for 3% of
   the maximum stamina, refused while stamina is not above that (`YahooRules`). A firecracker cheers after the motion in

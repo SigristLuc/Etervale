@@ -36,4 +36,6 @@ public sealed record CharacterRecord(
     JsonText Premium,
     DateTime? LastPlayedAt,
     long SaveSeq = 0,
-    int StarterGiftsReceived = Simulation.Characters.StarterGifts.Count);
+    int StarterGiftsReceived = Simulation.Characters.StarterGifts.Count,
+    int HelpPet = 0,
+    bool HelpPetHidden = false);

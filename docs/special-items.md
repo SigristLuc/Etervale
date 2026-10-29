@@ -233,7 +233,8 @@ clan and refuses (`ClanOnly`).
 - The big head replaces the head model with the oversized one of the class (tier-0 head prefix, hair 1..3, look `b`
   or `t`); the descriptor carries it, so every client sees it.
 - Pets are client actors driven by the player's description (the Phoenix flag, the helper pet and the head look);
-  they follow their owner and play the strike the server announces.
+  they follow their owner and play the strike the server announces. A premium helper pet takes the place of the
+  beginner's pet ([application.md](application.md#beginners-helper-pet)), which uses the same dragons and strikes.
 
 ## Pitfalls
 

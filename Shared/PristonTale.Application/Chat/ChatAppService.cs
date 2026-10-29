@@ -68,6 +68,20 @@ public sealed class ChatAppService
             return;
         }
 
+        if (Simulation.Characters.HelpPets.Commands.Any(command => ChatCommandText.Match(command, text) > 0))
+        {
+            try
+            {
+                await World.ToggleHelpPetAsync(entityId);
+            }
+            catch (WorldBusyException)
+            {
+                // A full tick queue drops the command, as it drops a spoken line.
+            }
+
+            return;
+        }
+
         if (!await PlayerCommandAsync(member, text))
         {
             await GameMasters.HandleAsync(member, text);

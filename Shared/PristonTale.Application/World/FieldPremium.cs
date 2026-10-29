@@ -116,7 +116,7 @@ internal sealed class FieldPremium
     {
         var premium = owner.Character.Premium;
         var now = _host.NowMs;
-        if (PremiumPets.HelperPet(premium) is { } helper && !_helpers.ContainsKey(owner.EntityId)
+        if (Simulation.Characters.HelpPets.Active(owner.Character) is { } helper && !_helpers.ContainsKey(owner.EntityId)
             && _host.Rng.RollPercent() < PremiumPets.HelperChance(owner.Level))
         {
             _helpers[owner.EntityId] = new PetCycle(helper, target, now + PremiumPets.HelperHitMs, now + PremiumPets.HelperEndMs, false);

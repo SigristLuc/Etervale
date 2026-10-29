@@ -51,6 +51,10 @@ public sealed partial class WorldServer
         });
     }
 
+    // The beginner's pet command: shows or hides it; false when the player has none to show.
+    public Task<bool> ToggleHelpPetAsync(ulong entityId) =>
+        EnqueueAsync(entityId, () => _connections.TryGetValue(entityId, out var connection) && connection.Player.Character.ToggleHelpPet());
+
     // A yahoo word in the chat (key false) or Space inside its window (key true); false when the player may not cheer now.
     public Task<bool> YahooAsync(ulong entityId, bool key)
     {

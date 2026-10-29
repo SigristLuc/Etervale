@@ -49,6 +49,7 @@ internal static class NpcPlacementMigrationTests
                 && await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM sqlite_master WHERE name = 'mailboxes'") == 0
                 && await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM pragma_table_info('characters') WHERE name = 'save_seq'") == 1
                 && await connection.ExecuteScalarAsync<string>("SELECT dflt_value FROM pragma_table_info('characters') WHERE name = 'starter_gifts_received'") == "5"
+                && await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM pragma_table_info('characters') WHERE name IN ('help_pet', 'help_pet_hidden')") == 2
                 && await connection.ExecuteScalarAsync<int>(
                     "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('item_transfers', 'currency_sinks', 'server_events')") == 3,
                 "a column or table nothing reads is still there, or the save sequence, the served starter gifts of a stored character or a game log is missing");

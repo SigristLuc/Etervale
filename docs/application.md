@@ -543,6 +543,16 @@ delivered after the tick (`TakeTickNotices`). Every snapshot carries the receive
 their values for it) and pending `TradeRequest`. Meanwhile inventory commands and item uses on an offered item
 (`Offers`), NPC services and opening a personal shop are refused.
 
+## Beginner's helper pet
+
+A character below level 10 has one of the four helper dragons beside it, as the original's low-level pet
+(`HelpPets`): entering the world it draws one at random if it has none (`PlayerCharacter.MeetHelpPet`, stored in
+`help_pet`), and the pet stays until level 10 unless the player hides it with `/도우미` or `/helper` (`help_pet_hidden`;
+the same command shows it again). `HelpPets.Active` gives the helper pet beside a character: a premium helper pet's
+timer first, else the beginner's pet while it shows. Every viewer sees it through the player's looks
+(`PlayerAppearanceView.HelperPet`, part of the description), and it joins its owner's attacks as the premium helper
+pets do (`FieldPremium`; 21% of attacks up to level 5, 24% to level 9).
+
 ## Starter gifts
 
 With `players.starter_gifts` on, a new character (`CharacterRecordFactory.NewStarter` stores `StarterGiftsReceived`

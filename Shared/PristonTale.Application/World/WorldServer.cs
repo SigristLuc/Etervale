@@ -173,6 +173,7 @@ public sealed partial class WorldServer
             }
 
             var field = GetField(fieldId);
+            player.Character.MeetHelpPet(field.Rng);
             // A saved place without a floor (outside the stage) enters at the field's first start point instead.
             if (!field.Terrain.TryPlaceOnFloor(player.Position, out var position))
             {

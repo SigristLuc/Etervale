@@ -51,6 +51,37 @@ public sealed partial class PlayerCharacter
 
     public void CountStarterGift() => RestoreStarterGifts(StarterGiftsReceived + 1);
 
+    // The beginner's pet (HelpPets): its kind (0 before one is drawn) and whether the player hid it.
+    public int HelpPet { get; private set; }
+    public bool HelpPetHidden { get; private set; }
+
+    public void RestoreHelpPet(int kind, bool hidden)
+    {
+        HelpPet = kind is >= 0 and <= HelpPets.Kinds ? kind : throw new ArgumentOutOfRangeException(nameof(kind), "A help pet is 0 to HelpPets.Kinds.");
+        HelpPetHidden = hidden;
+    }
+
+    // A character below HelpPets.LeaveLevel without a pet draws one.
+    public void MeetHelpPet(World.Ai.ISimRng rng)
+    {
+        if (HelpPet == 0 && Level < HelpPets.LeaveLevel)
+        {
+            HelpPet = rng.NextInclusive(1, HelpPets.Kinds);
+        }
+    }
+
+    // Shows or hides the beginner's pet while it is there; false otherwise.
+    public bool ToggleHelpPet()
+    {
+        if (HelpPet == 0 || Level >= HelpPets.LeaveLevel)
+        {
+            return false;
+        }
+
+        HelpPetHidden = !HelpPetHidden;
+        return true;
+    }
+
     // Quest progress: the running quest, finished quests and the logs whose bits pay lasting rewards.
     public QuestJournal Quests { get; private set; } = new();
 
@@ -632,6 +663,7 @@ public sealed partial class PlayerCharacter
         clone.RestoreProgressionHistory(ProgressionRevision, ProgressionOperations);
         clone.Quests = Quests.Clone();
         clone.RestoreStarterGifts(StarterGiftsReceived);
+        clone.RestoreHelpPet(HelpPet, HelpPetHidden);
         clone.Premium.CopyFrom(Premium);
         clone.ItemUses.CopyFrom(ItemUses);
         clone.Recompute();

@@ -54,6 +54,7 @@ public static class CharacterStateCodec
         character.RestoreProgress(unchecked((ulong)record.Exp), record.Money, record.StatPoints, record.Tier, skills.Points, skills.ElitePoints);
         character.RestoreQuests(QuestStateCodec.Read(record.Quests));
         character.RestoreStarterGifts(record.StarterGiftsReceived);
+        character.RestoreHelpPet(record.HelpPet, record.HelpPetHidden);
 
         character.RestoreSides(inventory.ActiveSide, equipment.ActiveSide);
         // Gear restores first: the potion space it gives bounds the belt's stacks.
