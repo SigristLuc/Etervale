@@ -168,4 +168,6 @@ public static class MoneyLimits
             _ => 100_000_000
         };
     }
+
+    public static bool CanCarry(PlayerCharacter character, long gold) => character.Money <= CarryLimit(character.Level, character.Tier) - gold;
 }

@@ -286,11 +286,19 @@ internal sealed class MemoryCharacterBook : ICharacterRepository
     public Task<CharacterRecord?> FindByNameForAccountAsync(long accountId, string name, CancellationToken ct = default) =>
         Task.FromResult(Records.GetValueOrDefault(name));
 
-    public Task<bool> UpdateAsync(CharacterRecord record, CancellationToken ct = default)
+    // Runs before a write of one character.
+    public Func<CharacterRecord, Task>? BeforeUpdate { get; set; }
+
+    public async Task<bool> UpdateAsync(CharacterRecord record, CancellationToken ct = default)
     {
+        if (BeforeUpdate is not null)
+        {
+            await BeforeUpdate(record);
+        }
+
         Updates++;
         Records[record.Name] = record;
-        return Task.FromResult(true);
+        return true;
     }
 
     // Runs before a write of several characters; false refuses it with nothing written.

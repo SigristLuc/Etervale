@@ -13,6 +13,7 @@ using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Fields;
 using PristonTale.Simulation.World.Monsters;
+using PristonTale.Simulation.World.Npcs;
 using PristonTale.Simulation.World.Spawning;
 
 namespace PristonTale.Tests;
@@ -29,7 +30,7 @@ internal static class PartyTests
         yield return ("the leader delegates, kicks and disbands, a member only leaves, and a party of two is released", CommandsAsync);
         yield return ("a player leaving the world leaves its party: its leader hands over, a party of two is released", LeaveWorldAsync);
         yield return ("a kill's experience is taken at the party's average level and shared by size with the members in range", ExperienceAsync);
-        yield return ("gold under 10000 picked up is split with the members in range, the picker's part stored; a member who cannot carry its part is left out", GoldAsync);
+        yield return ("gold under 10000 picked up is split with the members in range, the picker's part stored; a member who cannot carry its part or whose save gate is held is left out", GoldAsync);
         yield return ("party rules: shares by size, the average level, the level gap, the share range and the gold split", RulesAsync);
         yield return ("party messages round-trip on the wire and refuse unknown commands and answers", WireAsync);
     }
@@ -307,15 +308,29 @@ internal static class PartyTests
         await PickUp(10_000);
         Assert.True(ann.Session.Character!.Money == 10_501 && bob.Session.Character!.Money == 500, "gold of 10000 was split");
 
-        // Bob's save gate is busy: its share does not wait for it.
+        // Bob's save gate is busy (a trade being stored): Bob is left out and Ann takes the whole gold.
         await bob.Session.SaveGate.WaitAsync();
         await PickUp(800);
         bob.Session.SaveGate.Release();
-        Assert.True(ann.Session.Character!.Money == 10_901 && bob.Session.Character!.Money == 900, "a busy member's share was held back");
+        Assert.True(ann.Session.Character!.Money == 11_301 && bob.Session.Character!.Money == 500, "a busy member took a share");
 
-        Assert.True(bob.Session.Character.TryChangeMoney(long.MaxValue - 900 - 100), "fixture gold not given");
+        // Bob's gate is taken while Ann's pickup is stored: the part split for Bob at the prepare is not given.
+        fixture.Characters.BeforeUpdate = record =>
+        {
+            fixture.Characters.BeforeUpdate = null;
+            return bob.Session.SaveGate.WaitAsync();
+        };
         await PickUp(800);
-        Assert.True(ann.Session.Character!.Money == 11_701, "a member who cannot carry its part kept the picker from the whole gold");
+        bob.Session.SaveGate.Release();
+        Assert.True(ann.Session.Character!.Money == 11_701 && bob.Session.Character!.Money == 500,
+            "a share landed on a member whose gate was taken during the pickup");
+
+        var bobCharacter = bob.Session.Character;
+        var room = MoneyLimits.CarryLimit(bobCharacter.Level, bobCharacter.Tier) - bobCharacter.Money;
+        Assert.True(bobCharacter.TryChangeMoney(room - 399), "fixture gold not given");
+        await PickUp(800);
+        Assert.True(ann.Session.Character!.Money == 12_501 && MoneyLimits.CanCarry(bobCharacter, 399) && !MoneyLimits.CanCarry(bobCharacter, 400),
+            "a member who cannot carry its part within the carry limit kept the picker from the whole gold");
     }
 
     private static Task RulesAsync()

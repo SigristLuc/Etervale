@@ -465,10 +465,11 @@ public sealed partial class WorldServer
                     throw new CommitInvariantException("Money changed beyond capacity during pickup commit.");
                 }
 
-                // A member who left or reloaded since the pickup was prepared gets nothing.
+                // A member who left or reloaded since the pickup was prepared, or who can no longer take its part, gets nothing.
                 foreach (var share in pickup.Shares)
                 {
-                    if (_connections.TryGetValue(share.MemberId, out var member) && ReferenceEquals(member.Player.Character, share.Character))
+                    if (_connections.TryGetValue(share.MemberId, out var member) && ReferenceEquals(member.Player.Character, share.Character)
+                        && TakesGoldShare(member) && MoneyLimits.CanCarry(share.Character, share.Gold))
                     {
                         share.Character.TryChangeMoney(share.Gold);
                     }
@@ -509,7 +510,7 @@ public sealed partial class WorldServer
         foreach (var id in party.Members)
         {
             if (id != picker.Player.EntityId && _connections.TryGetValue(id, out var member) && member.FieldId == picker.FieldId
-                && Simulation.Parties.PartyRules.InShareRange(picker.Player.Position, member.Player.Position))
+                && Simulation.Parties.PartyRules.InShareRange(picker.Player.Position, member.Player.Position) && TakesGoldShare(member))
             {
                 sharers.Add(member.Player);
             }
@@ -517,6 +518,10 @@ public sealed partial class WorldServer
 
         return sharers;
     }
+
+    // A member whose save gate is held is left out: its durable operation (a trade's receipt, a sale) checked the gold it
+    // may carry before the share, and its commit must not land past that limit.
+    private static bool TakesGoldShare(Connection member) => member.Session?.SaveGate.CurrentCount != 0;
 
     public IReadOnlyList<(int FieldId, int PlayerCount)> ActiveFieldCounts()
     {

@@ -2,6 +2,7 @@ using PristonTale.Application.Sessions;
 using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Parties;
+using PristonTale.Simulation.World.Npcs;
 
 namespace PristonTale.Application.World;
 
@@ -51,7 +52,7 @@ internal static class GroundPickupTransactions
         }
     }
 
-    // A member who cannot carry its part is left out and the gold is split again among the others.
+    // A member who cannot carry its part (MoneyLimits.CarryLimit) is left out and the gold is split again among the others.
     private static List<GoldShare> Shares(long gold, List<WorldPlayer> takers, out long pickerPart)
     {
         while (true)
@@ -63,7 +64,7 @@ internal static class GroundPickupTransactions
                 return [];
             }
 
-            if (takers.RemoveAll(taker => !taker.Character.CanChangeMoney(each)) > 0)
+            if (takers.RemoveAll(taker => !MoneyLimits.CanCarry(taker.Character, each)) > 0)
             {
                 continue;
             }

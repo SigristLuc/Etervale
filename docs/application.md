@@ -435,9 +435,11 @@ original's texts (`PartyMessages`, [simulation.md](simulation.md)).
   changed. `WorldServer.Parties` (`PartyRoster`) is the chat's `IPartyRoster`.
 - Shares: a kill's experience is taken at the party's average level and split by size (`FieldCombat.AwardParty`); gold
   under `PartyRules.SharedGoldBelow` picked up is split with the members in the picker's field and share range
-  (`GroundPickupTransactions`; one who cannot carry its part is left out). Only the picker's part is stored with its
-  pickup: the members' parts are rewards, as experience is, given at the commit to members still playing that
-  character and stored with their next save, so no member's save gate is held for them.
+  (`GroundPickupTransactions`; one who cannot carry its part within `MoneyLimits.CarryLimit` is left out). Only the
+  picker's part is stored with its pickup: the members' parts are rewards, as experience is, given at the commit to
+  members still playing that character and stored with their next save, so no member's save gate is held for them. A
+  member whose save gate is held, at the prepare or at the commit, is left out instead: its durable operation (a
+  trade's receipt, a sale) checked the gold it may carry before the share. A part refused at the commit is not given.
 - Support skills marked `party` reach only the caster's members, `requiresParty` refuses a cast without a party, and a
   revive looks only for dead members ([skills.md](skills.md)).
 

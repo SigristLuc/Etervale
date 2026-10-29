@@ -170,7 +170,7 @@ public static class TradeRules
             }
         }
 
-        if (receiver.Money > MoneyLimits.CarryLimit(receiver.Level, receiver.Tier) - money || !receiver.TryChangeMoney(money))
+        if (!MoneyLimits.CanCarry(receiver, money) || !receiver.TryChangeMoney(money))
         {
             return TradeStatus.GoldLimit;
         }
