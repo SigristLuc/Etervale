@@ -47,8 +47,8 @@ public sealed partial class WorldServer
         }
     }
 
-    // The next gift: a perfect copy worn on the first free slot that takes it, otherwise left in the bag. A gift the
-    // catalog lacks counts as given; one without room waits (no snapshot).
+    // The next gift the class has: a perfect copy worn on the first free slot that takes it, otherwise left in the bag. A
+    // gift the catalog lacks counts as given; one without room waits (no snapshot).
     public Task<PreparedCharacterOperation<StarterGiftOutcome>?> PrepareStarterGiftAsync(PlayerSession session)
     {
         return EnqueueAsync<PreparedCharacterOperation<StarterGiftOutcome>?>(NoOwner, () =>
@@ -60,7 +60,9 @@ public sealed partial class WorldServer
             }
 
             var original = connection.Player.Character;
-            var item = StarterGifts.Create(_worldData.Current.Items, original.Definition.Class, original.StarterGiftsReceived, _fields[connection.FieldId].Rng);
+            var items = _worldData.Current.Items;
+            var index = StarterGifts.Next(items, original.Definition.Class, original.StarterGiftsReceived);
+            var item = StarterGifts.Create(items, original.Definition.Class, index);
             var (candidate, snapshot) = Receive(session, connection, item, candidate =>
             {
                 if (item is not null)
@@ -68,10 +70,10 @@ public sealed partial class WorldServer
                     candidate.WearIfFree(item.InstanceId);
                 }
 
-                candidate.CountStarterGift();
+                candidate.RestoreStarterGifts(index + 1);
             });
             return new PreparedCharacterOperation<StarterGiftOutcome>(original, candidate, snapshot,
-                new StarterGiftOutcome(candidate is null ? null : item?.DisplayName, item?.Definition.Code ?? 0, original.StarterGiftsReceived));
+                new StarterGiftOutcome(candidate is null ? null : item?.DisplayName, item?.Definition.Code ?? 0, index));
         }, waitForCapacity: true);
     }
 

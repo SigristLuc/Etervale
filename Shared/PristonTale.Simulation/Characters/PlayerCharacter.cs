@@ -49,8 +49,6 @@ public sealed partial class PlayerCharacter
             ? received
             : throw new ArgumentOutOfRangeException(nameof(received), "A character received 0 to StarterGifts.Count starter gifts.");
 
-    public void CountStarterGift() => RestoreStarterGifts(StarterGiftsReceived + 1);
-
     // The beginner's pet (HelpPets): its kind (0 before one is drawn) and whether the player hid it.
     public int HelpPet { get; private set; }
     public bool HelpPetHidden { get; private set; }

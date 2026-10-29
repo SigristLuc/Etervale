@@ -33,7 +33,7 @@ progression, regeneration and movement rates. `World/`, `Physics/` and `Skills/`
 | `Characters/Locomotion.cs`, `AnimationRate.cs` | Move-speed stat to world units per second; walk/run/attack animation rates |
 | `Characters/DestinationMovement.cs` | Straight-line step toward a destination (client player and NPC walking) |
 | `Characters/HelpPets.cs` | The beginner's helper pet: one of the four helper dragons drawn below level 10 (`PlayerCharacter.MeetHelpPet`), active while shown and below level 10 behind a premium helper pet (`HelpPets.Active`), its chat commands |
-| `Characters/StarterGifts.cs` | The starter gifts of a new character: the item of each, created perfect with the class's specialization, their pace and chat line |
+| `Characters/StarterGifts.cs` | The starter gifts of a new character: the class's weapon, armour and off-hand and the crystals, created perfect with the class's specialization, their pace and chat line |
 | `Characters/OwnerState.cs` | `OwnerState.Capture`: the owner-only character snapshot sent to the client |
 | `Characters/CharacterHead*.cs`, `CharacterVisuals.cs` | Head/face/hair model path resolution per class and tier; `CharacterVisualSet` |
 | `Characters/CharacterSlots.cs` | Characters per account (6) |

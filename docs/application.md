@@ -557,13 +557,20 @@ pets do (`FieldPremium`; 21% of attacks up to level 5, 24% to level 9). Its help
 ## Starter gifts
 
 With `players.starter_gifts` on, a new character (`CharacterRecordFactory.NewStarter` stores `StarterGiftsReceived`
-0; characters stored before migration 32 count as served) receives `StarterGifts`, one at a time: its class's weapon
-(Archer WS101, Atalanta WT101, Magician and Priestess WM101, any other class one of WS201, WA101 and WH101), a body
-armour (DA202 for the Magician and the Priestess, DA102 otherwise) and three Hopy crystals (GP101). The original's
-new-user present gave them as any drop; Etervale gives perfect copies (`ItemRoller.CreatePerfect`) with the class's
-specialization where the item takes it.
+0; characters stored before migration 32 count as served) receives `StarterGifts`, one at a time, each a perfect copy
+(`ItemRoller.CreatePerfect`) specialized for its class:
 
-- Pace: the first gift 10 s after the character entered the world, each next one 60 s after the last ended. Once a
+1. The first weapon of the class's own family (`StarterGifts.WeaponKey`): Fighter WA101, Mechanician WC101, Archer
+   WS101, Pikeman WP101, Atalanta WT101, Knight WS201, Magician and Priestess WM101, Assassin WD101, Shaman WN101.
+2. A body armour: the robe DA202 for the Magician, the Priestess and the Shaman, DA102 otherwise.
+3. An off-hand beside a one-handed weapon: the first of the shield DS101 and the orb OM101 the class can specialize.
+   A class without one (a two-handed weapon, or none it can specialize) skips it at once (`StarterGifts.Next`).
+4. Three Hopy crystals (GP101).
+
+The original's new-user present gave the weapon and armour as any drop, and any melee class one of a sword, an axe and
+a hammer whatever its specialization; Etervale gives each class the family its low-level presents give it.
+
+- Pace: the first gift 5 s after the character entered the world, each next one 3 s after the last ended. Once a
   second the tick hands a playing character whose gift is due to `StarterGiftRequests` (`OfferStarterGifts`).
 - `StarterGiftAppService.GiveAsync` runs it as a durable operation: the copy goes into the bag and on the first empty
   slot that may hold it (`PlayerCharacter.WearIfFree`, as the original's client does with an item it receives), the
