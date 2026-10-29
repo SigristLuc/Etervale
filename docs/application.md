@@ -291,8 +291,10 @@ Monster attacks (`ResolveMonsterHit`): basic hits check reach, reflection and ev
 absorption, pass the skill
 `Defend` hook, then `WorldPlayer.ApplyDamage` (ignored during a revive guard), then the family's riders
 (`FieldMonsterSkills.AfterBlow`). Skill blows go to `FieldMonsterSkills.ResolveSkill`: a monster's area skill hits every
-player inside its shape once per cast (`SkillImpactPending` is consumed before visiting victims). Monster hits on
-summons use accuracy versus the summon's defence, the great bosses' multiplier and the summon's absorption. A stunned
+player inside its shape once per cast (`SkillImpactPending` is consumed before visiting victims). A monster's blow on
+another monster, a wild one's on a summon and a summon's on a wild one alike, is `FieldMonsterSkills.BlowOnMonster`:
+accuracy versus the target's defence at their levels, the damage (or skill damage) roll, the great bosses' multiplier
+and the target's absorption. A stunned
 player starts no swing and its movement reports are ignored.
 
 ### Player skills (`FieldSkills`)

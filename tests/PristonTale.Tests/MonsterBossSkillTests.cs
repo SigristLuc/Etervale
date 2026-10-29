@@ -25,7 +25,7 @@ internal static class MonsterBossSkillTests
         yield return ("the vampiric machine stands and sends bees until four stand on its point", VampiricMachineAsync);
         yield return ("the mystic explodes on death and by itself after its lifetime", MysticAsync);
         yield return ("ratoo's skill wakes the stunned monsters around it", RatooAsync);
-        yield return ("great bosses deal eight times their roll to summons and kelvezu kills them", BossesOnSummonsAsync);
+        yield return ("great bosses deal eight times their roll to monsters, wild on summons or summoned on wild ones, and kelvezu kills them", BossesOnSummonsAsync);
     }
 
     private static Task BabelAsync()
@@ -207,13 +207,25 @@ internal static class MonsterBossSkillTests
 
     private static Task BossesOnSummonsAsync()
     {
+        var rng = new CombatRng(3);
         var summon = new MonsterInstance(50, MonsterSkillField.Monster(0x3020, rating: 0, life: 100000), Vector3.Zero, 0f, -1) { OwnerId = 1 };
-        Assert.True(FieldMonsterSkills.AgainstMonster(new MonsterInstance(51, MonsterSkillField.Monster(CharacterSoundCodes.Babel), Vector3.Zero, 0f, 0), summon, 100)
-            == 800, "babel did not deal eight times its roll");
-        Assert.True(FieldMonsterSkills.AgainstMonster(new MonsterInstance(52, MonsterSkillField.Monster(0x1000), Vector3.Zero, 0f, 0), summon, 100) == 100,
-            "an ordinary monster was multiplied");
-        Assert.True(FieldMonsterSkills.AgainstMonster(new MonsterInstance(53, MonsterSkillField.Monster(CharacterSoundCodes.Kelvezu), Vector3.Zero, 0f, 0), summon, 1)
-            == summon.Life, "kelvezu did not kill a summon");
+        int Blow(int soundCode) => Enumerable.Range(0, 100)
+            .Select(_ => FieldMonsterSkills.BlowOnMonster(rng, new MonsterInstance(51, MonsterSkillField.Monster(soundCode, attack: 100), Vector3.Zero, 0f, 0), summon, false))
+            .First(damage => damage is not null)!.Value;
+        Assert.True(Blow(CharacterSoundCodes.Babel) == 800 && Blow(0x1000) == 100 && Blow(CharacterSoundCodes.Kelvezu) == summon.Life,
+            "babel did not deal eight times its roll, an ordinary monster was multiplied, or kelvezu did not kill");
+
+        // The same blow from a player's summoned boss on a wild monster.
+        var babel = MonsterSkillField.Monster(CharacterSoundCodes.Babel, rating: 0, attack: 100, life: 1_000_000) with { Key = "Babel" };
+        var wild = MonsterSkillField.Monster(0x1000, rating: 0, attack: 1, life: 1_000_000);
+        var world = new MonsterSkillField(babel, wild);
+        var owner = world.AddPlayer(1, Vector3.Zero);
+        Assert.True(world.Field.CallCrystalMonster(owner, "GP101", "Babel") is not null, "the pet was not called");
+        var pet = world.MonsterOf(CharacterSoundCodes.Babel)!;
+        var prey = world.Spawn(wild, new Vector3(60, 0, 0));
+        world.StepUntil(() => world.HitsOn(prey.EntityId).Any(hit => hit.AttackerId == pet.EntityId), 400, "the summoned babel never struck");
+        var struck = world.HitsOn(prey.EntityId).First(hit => hit.AttackerId == pet.EntityId);
+        Assert.True(struck.Damage == 800, $"a summoned babel's blow on a wild monster dealt {struck.Damage}, not eight times its roll");
         return Task.CompletedTask;
     }
 }

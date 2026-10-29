@@ -230,26 +230,17 @@ internal sealed partial class FieldSkills
         return nearest;
     }
 
-    // A summon's blow on an enemy: its accuracy against the target's defence, a roll of its damage (or its skill damage)
-    // less the target's absorption. The struck monster turns on the summon unless its player target is closer.
+    // A summon's blow on an enemy (FieldMonsterSkills.BlowOnMonster). The struck monster turns on the summon unless its
+    // player target is closer.
     public void ResolveSummonHit(MonsterInstance summon, in MonsterAttackEvent landed)
     {
         if (!summon.IsAlive || !_host.TryGetMonster(landed.TargetEntityId, out var target) || !Strikeable(target)
-            || !_host.TryGetPlayer(summon.OwnerId, out var owner))
+            || !_host.TryGetPlayer(summon.OwnerId, out var owner)
+            || FieldMonsterSkills.BlowOnMonster(_rng, summon, target, landed.IsSkill) is not { } damage)
         {
             return;
         }
 
-        var combat = summon.Def.Combat;
-        var attack = new AttackProfile(combat.AttackRatingAccuracy, combat.AttackDamage.Min, combat.AttackDamage.Max, combat.Level, Element.Bionic, 0, 0, 0);
-        var defence = DefenderProfile.FromMonster(target);
-        if (!CombatResolver.RollHit(_rng, CombatResolver.HitChance(attack, defence)))
-        {
-            return;
-        }
-
-        var range = landed.IsSkill && summon.Def.Skill.SkillDamage.Max > 0 ? summon.Def.Skill.SkillDamage : combat.AttackDamage;
-        var damage = CombatResolver.ApplyAbsorbMonster(_rng.Range(range.Min, Math.Max(range.Min, range.Max)), target.Def.Combat.Absorption);
         Retaliate(target, summon);
         Pay(owner, target, damage, false, source: summon.EntityId);
         SlowFromWeb(summon, target);

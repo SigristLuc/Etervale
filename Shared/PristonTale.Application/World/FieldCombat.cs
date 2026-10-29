@@ -246,25 +246,14 @@ internal sealed class FieldCombat
         MonsterSkills?.AfterBlow(attacker, target, damage, splash);
     }
 
-    // A wild monster's blow on a summon: its accuracy against the summon's defence, its damage (or skill damage), raised for
-    // the great bosses, less the summon's absorption percent.
+    // A wild monster's blow on a summon (FieldMonsterSkills.BlowOnMonster).
     internal void MonsterOnMonster(MonsterInstance attacker, MonsterInstance summon, bool skill)
     {
-        if (!summon.IsAlive)
+        if (!summon.IsAlive || FieldMonsterSkills.BlowOnMonster(_rng, attacker, summon, skill) is not { } damage)
         {
             return;
         }
 
-        var combat = attacker.Def.Combat;
-        var attack = new AttackProfile(combat.AttackRatingAccuracy, combat.AttackDamage.Min, combat.AttackDamage.Max, combat.Level, Element.Bionic, 0, 0, 0);
-        if (!CombatResolver.RollHit(_rng, CombatResolver.HitChance(attack, DefenderProfile.FromMonster(summon))))
-        {
-            return;
-        }
-
-        var range = skill ? attacker.Def.Skill.SkillDamage : combat.AttackDamage;
-        var roll = FieldMonsterSkills.AgainstMonster(attacker, summon, _rng.Range(range.Min, Math.Max(range.Min, range.Max)));
-        var damage = MonsterSkillRules.KillsMonsters(attacker.Def) ? roll : CombatResolver.ApplyAbsorbMonster(roll, summon.Def.Combat.Absorption);
         summon.ApplyDamage(damage);
         _host.EmitCombatEvent(new CombatEventView(attacker.EntityId, summon.EntityId, CombatEventKind.Hit, damage: damage, killed: !summon.IsAlive)
         {

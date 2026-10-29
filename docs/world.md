@@ -340,8 +340,9 @@ Boss and special rules:
 - Mystic: explodes when it dies, or by itself after 1920 updates (109.7 s): its skill damage on every player within
   `SkillRange`, double on a summon it fought.
 - Ratoo's skill ends the stuns of the monsters within 200 units (height 80).
-- Against summons, Babel, Chaos Cara, Valento, Mokova and Kelvezu deal 8 times their roll and Kelvezu's blow kills; the
-  Guardian Saint's skill strikes every monster within its `SkillRange`. Valento drops a summon farther than 120 units.
+- Against other monsters (a wild boss on a summon, or a player's summoned boss on a wild monster), Babel, Chaos Cara,
+  Valento, Mokova and Kelvezu deal 8 times their roll and Kelvezu's blow kills; the Guardian Saint's skill strikes every
+  monster within its `SkillRange`. Valento drops a summon farther than 120 units.
 
 Clients play each swing's clip from the `SwingBegin` slot and draw its effects from the clip itself
 ([effects.md](effects.md#monster-effects)).

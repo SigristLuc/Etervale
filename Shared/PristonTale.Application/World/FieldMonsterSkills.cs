@@ -627,15 +627,31 @@ internal sealed class FieldMonsterSkills
         return true;
     }
 
-    // Damage of a monster's roll against another monster: the bosses deal eight times as much, Kelvezu kills outright.
-    public static int AgainstMonster(MonsterInstance attacker, MonsterInstance target, int roll)
+    // A monster's blow on another monster, a wild one's on a summon or a summon's on a wild one alike: its accuracy against
+    // the target's defence at their levels, a roll of its damage (its skill damage for a skill that has any), eight times
+    // as much from the bosses, less the target's absorption; Kelvezu kills outright. Null on a miss.
+    public static int? BlowOnMonster(CombatRng rng, MonsterInstance attacker, MonsterInstance target, bool skill)
     {
+        var combat = attacker.Def.Combat;
+        var attack = new AttackProfile(combat.AttackRatingAccuracy, combat.AttackDamage.Min, combat.AttackDamage.Max, combat.Level, Element.Bionic, 0, 0, 0);
+        if (!CombatResolver.RollHit(rng, CombatResolver.HitChance(attack, DefenderProfile.FromMonster(target))))
+        {
+            return null;
+        }
+
         if (MonsterSkillRules.KillsMonsters(attacker.Def))
         {
             return Math.Max(1, target.Life);
         }
 
-        return MonsterSkillRules.MultipliesAgainstMonsters(attacker.Def) ? roll * MonsterSkillRules.MonsterDamageMultiplier : roll;
+        var range = skill && attacker.Def.Skill.SkillDamage.Max > 0 ? attacker.Def.Skill.SkillDamage : combat.AttackDamage;
+        var roll = rng.Range(range.Min, Math.Max(range.Min, range.Max));
+        if (MonsterSkillRules.MultipliesAgainstMonsters(attacker.Def))
+        {
+            roll *= MonsterSkillRules.MonsterDamageMultiplier;
+        }
+
+        return CombatResolver.ApplyAbsorbMonster(roll, target.Def.Combat.Absorption);
     }
 
     private void ApplyRiders(MonsterInstance attacker, WorldPlayer target, int count, int power)
