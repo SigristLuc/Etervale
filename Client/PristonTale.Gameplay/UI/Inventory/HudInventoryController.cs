@@ -22,6 +22,10 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     private Guid _carryOnSuccess;
     private Guid _carryAfter;
     private long _carryAt;
+    // The item set down, where, and the revision whose owner state shows it placed (unknown until the reply).
+    private Guid _settling;
+    private Point _settleAt;
+    private long _settleRevision;
     // The item under the pointer this frame (the window open), for Shift and a belt key.
     private OwnedItemView _hovered;
     // A weapon pair asked for while the player swings or casts: held once that motion ends (the player stops, or the next
@@ -37,6 +41,12 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     public bool LastOk { get; private set; }
     public int Completions { get; private set; }
     public Guid Dragging => _dragging;
+
+    // The item on the cursor, or the one just set down until the owner state shows where it went (its place on the server
+    // until then is the old one): drawn at the pointer, or where it was set down, and not in its old place.
+    public Guid Held => _dragging != Guid.Empty ? _dragging : _settling;
+
+    public Point HeldAt(Point pointer) => _dragging != Guid.Empty ? pointer : _settleAt;
 
     // The owned item under the pointer while the window takes input and nothing is carried.
     public OwnedItemView Hovered => _hovered;
@@ -78,6 +88,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     public void CancelDrag()
     {
         _dragging = Guid.Empty;
+        _settling = Guid.Empty;
     }
 
     public void ToggleQuestBox() => QuestBoxShown = !QuestBoxShown;
@@ -112,6 +123,15 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                 CarryAfter(_carryOnSuccess, completed.Revision);
             }
 
+            if (completed.Ok)
+            {
+                _settleRevision = completed.Revision;
+            }
+            else
+            {
+                _settling = Guid.Empty;
+            }
+
             _carryOnSuccess = Guid.Empty;
             _pendingSound = null;
         }
@@ -124,6 +144,11 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             }
 
             _carryAfter = Guid.Empty;
+        }
+
+        if (_settling != Guid.Empty && state is not null && state.InventoryRevision >= _settleRevision)
+        {
+            _settling = Guid.Empty;
         }
 
         if (_pairWanted >= 0 && (!PickupLocked || ActionStarts != _pairWantedDuring) && !_pendingOperation && state is not null)
@@ -147,6 +172,11 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         _hovered = visible && state is not null && _dragging == Guid.Empty
             ? HudInventoryLayout.ItemAt(_origin, state.Items, layout.ToLogical(mouse.Position), QuestBoxShown)
             : null;
+        if (_hovered?.InstanceId == _settling)
+        {
+            _hovered = null;
+        }
+
         if (visible && state is not null && !_pendingOperation)
         {
             var clicked = mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
@@ -154,7 +184,12 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         }
         else
         {
-            CancelDrag();
+            // A closed window drops the carried item; a command waiting (a page switched with it) keeps it on the cursor.
+            if (!visible || state is null)
+            {
+                CancelDrag();
+            }
+
             // The belt is on the bottom bar: its potions are drunk with a right click while the window is closed too.
             var pointer = layout.ToLogical(mouse.Position);
             if (state is not null && !_pendingOperation && mouse.RightButton == ButtonState.Pressed && _previousMouse.RightButton == ButtonState.Released
@@ -171,6 +206,25 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     // next click sets it down where HudInventoryPlacement says, or takes it out of the bag above the window.
     private void UpdateInventoryInput(KeyboardState keyboard, MouseState mouse, Point pointer, bool clicked)
     {
+        // The side buttons take their clicks with an item on the cursor too, which is never set down on them.
+        if (clicked)
+        {
+            for (var side = 0; side < PlayerCharacter.Sides; side++)
+            {
+                if (HudInventoryLayout.PageButton(_origin, side).Contains(pointer))
+                {
+                    ShowBagPage(side);
+                    return;
+                }
+
+                if (HudInventoryLayout.PairButton(_origin, side).Contains(pointer))
+                {
+                    HoldWeaponPair(side);
+                    return;
+                }
+            }
+        }
+
         if (_dragging != Guid.Empty)
         {
             var carried = OwnedItemView.Find(_state.Items, _dragging);
@@ -188,21 +242,6 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
 
         if (clicked)
         {
-            for (var side = 0; side < PlayerCharacter.Sides; side++)
-            {
-                if (HudInventoryLayout.PageButton(_origin, side).Contains(pointer))
-                {
-                    ShowBagPage(side);
-                    return;
-                }
-
-                if (HudInventoryLayout.PairButton(_origin, side).Contains(pointer))
-                {
-                    HoldWeaponPair(side);
-                    return;
-                }
-            }
-
             if (HudInventoryLayout.GoldButton(_origin).Contains(pointer))
             {
                 GoldRequested?.Invoke();
@@ -259,6 +298,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
 
     private void SetDown(OwnedItemView carried, Point pointer, bool split)
     {
+        _settleAt = pointer;
         // A box item goes back to its box wherever it is set down; a box item the full box left in the bag goes to the box
         // once there is room, as the original sets it.
         if (carried.QuestBox >= 0)
@@ -333,7 +373,8 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         }
     }
 
-    // The bag page and the weapon pair (the side buttons, keys E and W): not while an item is carried or a command waits.
+    // The bag page (the side buttons, key E): not while a command waits. A carried bag item goes along to the page shown
+    // and stays on the cursor. The weapon pair (key W): not while an item is carried.
     public void ShowBagPage(int page)
     {
         // With the special item box open the page buttons close it instead, as the original does.
@@ -343,9 +384,10 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
             return;
         }
 
-        if (!_pendingOperation && _state is not null && _dragging == Guid.Empty && page != _state.BagPage)
+        if (!_pendingOperation && _state is not null && page != _state.BagPage)
         {
-            SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.SwitchBagPage, Guid.Empty, page, 0, default));
+            var carried = OwnedItemView.Find(_state.Items, _dragging) is { InBag: true } item ? item.InstanceId : Guid.Empty;
+            SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, InventoryAction.SwitchBagPage, carried, page, 0, default));
         }
     }
 
@@ -391,6 +433,8 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         OwnedItemView covered = null)
     {
         _dragging = Guid.Empty;
+        _settling = carried.InstanceId;
+        _settleRevision = long.MaxValue;
         SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, action, carried.InstanceId, destination, count, slot),
             covered?.InstanceId ?? Guid.Empty);
     }
@@ -434,7 +478,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         _carryOnSuccess = carryOnSuccess;
         _pendingSound = command.Action switch
         {
-            InventoryAction.ConsumePotion => null,
+            InventoryAction.ConsumePotion or InventoryAction.SwitchBagPage => null,
             InventoryAction.DropGold => ItemCodes.GoldKey,
             _ => OwnedItemView.Find(_state.Items, command.ItemId)?.CatalogKey
         };

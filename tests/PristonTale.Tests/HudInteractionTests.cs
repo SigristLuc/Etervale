@@ -38,6 +38,8 @@ internal static class HudInteractionTests
         yield return ("a number typed above the count box's maximum shows the maximum at once", CountBoxAsync);
         yield return ("the weapon pair key holds the other pair with the window closed once the motion in progress ends, the next swing's start included", WeaponPairKeyAsync);
         yield return ("a worn two-handed weapon is also shown, taken and exchanged in the empty off-hand slot", TwoHandedShadowAsync);
+        yield return ("the page button with an item on the cursor switches the page taking the item along, which stays on the cursor", CarriedPageButtonAsync);
+        yield return ("an item set down stays where it was set down, not back in its old cell, until the owner state shows it moved", SettleAsync);
         yield return ("the pointer attacks over wild monsters, talks over NPCs and stays the arrow elsewhere", CursorKindAsync);
         yield return ("drop names on one spot rise into a column above the nearest, which keeps its place", DropNameColumnAsync);
         yield return ("the settings offer only the monitor's sizes: all in fullscreen, those that fit in a window, none borderless", ResolutionsAsync);
@@ -430,6 +432,57 @@ internal static class HudInteractionTests
         Assert.True(turned.SequenceEqual([100 + slack, 100, 100 + slack * 2, 100 + slack * 3]),
             $"drop names did not come nearest first once the camera turned, or a new one was not placed by depth: {string.Join(", ", turned)}");
         return Task.CompletedTask;
+    }
+
+    private static Task CarriedPageButtonAsync()
+    {
+        var layout = HudLayout.Create(800, 600);
+        var origin = HudInventoryLayout.Origin(layout);
+        var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Mechanician, "Pages");
+        var id = Guid.NewGuid();
+        var stone = new OwnedItemView(id, 1, "Stone", ItemKind.Material, 1, 0, -1, 1, 1);
+        var state = OwnerState.Capture(character) with { Items = new[] { stone }, InventoryRevision = 3 };
+        var sent = new List<InventoryCommand>();
+        var controller = new HudInventoryController(null!, command =>
+        {
+            sent.Add(command);
+            return Task.FromResult(new InventoryOutcome(true, state.InventoryRevision + 1, ""));
+        });
+        controller.Update(state, layout, true, default, MouseAt(HudInventoryLayout.Cell(origin, 0).Center, layout.Scale, ButtonState.Pressed));
+        controller.Update(state, layout, true, default, default);
+        Assert.True(controller.Dragging == id, "the stone was not picked up");
+
+        // The page button takes the click, not the bag below it: the stone goes along to page B and stays on the cursor.
+        controller.Update(state, layout, true, default, MouseAt(HudInventoryLayout.PageButton(origin, 1).Center, layout.Scale, ButtonState.Pressed));
+        Assert.True(sent is [{ Action: InventoryAction.SwitchBagPage, Destination: 1 } switched] && switched.ItemId == id && controller.Dragging == id,
+            "the page button with a carried stone did not switch the page taking the stone, or dropped it");
+        return Task.CompletedTask;
+    }
+
+    private static async Task SettleAsync()
+    {
+        var layout = HudLayout.Create(800, 600);
+        var origin = HudInventoryLayout.Origin(layout);
+        var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Mechanician, "Settle");
+        var id = Guid.NewGuid();
+        var stone = new OwnedItemView(id, 1, "Stone", ItemKind.Material, 1, 0, -1, 1, 1);
+        var state = OwnerState.Capture(character) with { Items = new[] { stone }, InventoryRevision = 3 };
+        var reply = new TaskCompletionSource<InventoryOutcome>();
+        var controller = new HudInventoryController(null!, _ => reply.Task);
+        controller.Update(state, layout, true, default, MouseAt(HudInventoryLayout.Cell(origin, 0).Center, layout.Scale, ButtonState.Pressed));
+        controller.Update(state, layout, true, default, default);
+        var target = HudInventoryLayout.Cell(origin, 5).Center;
+        controller.Update(state, layout, true, default, MouseAt(target, layout.Scale, ButtonState.Pressed));
+
+        // Set down, the stone stays where it was set down, not in its old cell, until the owner state shows it moved.
+        var away = new Point(target.X + 100, target.Y);
+        Assert.True(controller.Dragging == Guid.Empty && controller.Held == id && controller.HeldAt(away) == target, "the set-down stone left the click point");
+        reply.SetResult(new InventoryOutcome(true, 4, ""));
+        await Task.Yield();
+        controller.Update(state, layout, true, default, default);
+        Assert.True(controller.Held == id, "the stone went back to its old cell before the owner state showed the move");
+        controller.Update(state with { Items = new[] { stone with { Anchor = 5 } }, InventoryRevision = 4 }, layout, true, default, default);
+        Assert.True(controller.Held == Guid.Empty, "the stone stayed held once the owner state showed it moved");
     }
 
     private static MouseState MouseAt(Point logical, int scale, ButtonState left) => new(logical.X * scale, logical.Y * scale, 0,

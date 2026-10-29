@@ -20,11 +20,30 @@ public sealed partial class PlayerCharacter
     public ItemInstance StoredOffHand => _storedOffHand;
     public int WeaponSet { get; private set; }
 
-    public bool TrySwitchBagPage(int page)
+    // An item on the cursor (carried, by its id; empty for none) goes along to the page shown: it is laid on that page's
+    // first free cells, as the cursor keeps it there until it is set down. No room there refuses the switch.
+    public bool TrySwitchBagPage(int page, Guid carried = default)
     {
         if (page is < 0 or >= Sides || page == BagPage)
         {
             return false;
+        }
+
+        if (carried != Guid.Empty)
+        {
+            var anchor = Inventory.Find(carried);
+            if (anchor < 0)
+            {
+                return false;
+            }
+
+            var definition = Inventory[anchor].Definition;
+            if (!HiddenBag.HasRoom(definition.GridWidth, definition.GridHeight))
+            {
+                return false;
+            }
+
+            HiddenBag.TryPlaceFirstFree(Inventory.TakeAt(anchor));
         }
 
         Inventory.Changed -= OnInventoryChanged;

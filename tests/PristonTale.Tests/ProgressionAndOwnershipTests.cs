@@ -22,6 +22,7 @@ internal static class ProgressionAndOwnershipTests
         yield return ("inventory footprints, split identities and rejected swaps are atomic", GridAsync);
         yield return ("an item set down over one other takes its place and the other moves where it was or to free space", SwapAsync);
         yield return ("the second bag page and weapon pair hide and return their items, still carried and saved", SidesAsync);
+        yield return ("a bag item on the cursor goes along to the page shown, and a page without room for it refuses the switch", CarriedPageAsync);
         yield return ("quest items go to the special item box down each column, the bag takes them when it is full, and quests find them there",
             QuestBoxAsync);
         yield return ("equipment validates requirements, handedness and original weapon formula", EquipmentAsync);
@@ -153,6 +154,26 @@ internal static class ProgressionAndOwnershipTests
         var greatAxe = new ItemDefinition(5, "Great Axe", ItemKind.Axe, EquipmentSlot.Weapon, TwoHanded: true) { CatalogKey = "WA102" };
         Assert.True(paired.RestoreStored(EquipmentSlot.OffHand, new ItemInstance(shield)) && !paired.RestoreStored(EquipmentSlot.Weapon, new ItemInstance(greatAxe))
             && !paired.RestoreStored(EquipmentSlot.Armor, new ItemInstance(sword)), "the stored pair took a two-handed weapon beside a shield, or a third slot");
+        return Task.CompletedTask;
+    }
+
+    private static Task CarriedPageAsync()
+    {
+        var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Fighter, "Pages", 10);
+        var stone = new ItemInstance(new ItemDefinition(1, "Stone", ItemKind.Material) { CatalogKey = "MT101" });
+        Assert.True(character.Inventory.TryPlace(stone, 5), "fixture stone did not fit");
+        bool Switch(int page, Guid carried) => InventoryCommands.Apply(character,
+            new InventoryCommand(Guid.NewGuid(), character.InventoryRevision, InventoryAction.SwitchBagPage, carried, page, 0, default));
+
+        Assert.True(Switch(1, stone.InstanceId) && character.BagPage == 1 && character.Inventory.Find(stone.InstanceId) == 0
+            && character.HiddenBag.Find(stone.InstanceId) < 0, "the stone on the cursor did not go to page B's first free cell");
+        var block = new ItemDefinition(2, "Block", ItemKind.Misc, GridWidth: Inventory.DefaultWidth, GridHeight: Inventory.DefaultHeight);
+        Assert.True(character.HiddenBag.TryPlace(new ItemInstance(block), 0), "fixture block did not fill page A");
+        Assert.True(!Switch(0, stone.InstanceId) && character.BagPage == 1 && character.Inventory.Find(stone.InstanceId) == 0,
+            "the switch to a full page took the stone or changed the page");
+        Assert.True(!Switch(0, Guid.NewGuid()) && character.BagPage == 1, "a carried item the bag does not hold switched the page");
+        Assert.True(Switch(0, Guid.Empty) && character.BagPage == 0 && character.HiddenBag.Find(stone.InstanceId) == 0,
+            "a switch with nothing carried did not leave the stone on its page");
         return Task.CompletedTask;
     }
 
