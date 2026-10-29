@@ -428,8 +428,9 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
   with an item carried too: a carried bag item goes along to the page shown (the command names it, and
   `PlayerCharacter.TrySwitchBagPage` lays it on that page's first free cells, refusing the switch without room) and
   stays on the cursor; the pair does not switch while an item is carried. The side buttons take their clicks with an
-  item carried, which is never set down on them. A pair asked for while the player swings or casts is held once that motion ends (the player stops, or the
-  next swing or cast begins: `ActorMotionController.ActionStarts`), as the original swaps at the end of the motion.
+  item carried, which is never set down on them. A pair asked for while the player swings or casts is held once that
+  motion ends (the player stops, or the next swing or cast begins: `ActorMotionController.ActionStarts`), as the
+  original swaps at the end of the motion.
   The button under the pointer shows its label `HudInventoryLayout.HintRise` (27) pixels above it, as the original's
   `Inven/InfoBox` art: `ButtonItemA`/`B` over the pages, `ButtonA`/`B` over the pairs (the shipped art reads
   "Equipemt2" over A and "Equipemt1" over B), and over the close button its exit sign and `ButtonExit` 8 pixels left.
@@ -461,7 +462,9 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
   get the original red cell tint, in the bag and in their equipment slot. Under a carried item the landing cells or slot
   turn the original light blue, the item an exchange would pick up turns white, and a refused place turns red; the carried
   item is drawn on the cursor only, its place left empty, and once set down it stays where it was set down until the
-  owner state shows where it went, or the command fails (`HudInventoryController.Held`). The item box (`HudItemDetailTooltip`) lists, one centred label-and-value line each, the name (unique,
+  owner state shows where it went, or its own command fails; a later command's reply does not move it
+  (`HudInventoryController.Held`). The item box (`HudItemDetailTooltip`) lists, one centred label-and-value line each,
+  the name (unique,
   aged or normal colour), attack power, weapon speed, range, critical, defence, attack rating, absorb (with the catalog
   correction, one decimal), block, speed, integrity, the eight resistances, regeneration, added pools, potion storage,
   the requirements (orange when met, red when not), then the class specialization header and its bonuses in green, the

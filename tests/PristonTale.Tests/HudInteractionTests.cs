@@ -481,6 +481,14 @@ internal static class HudInteractionTests
         await Task.Yield();
         controller.Update(state, layout, true, default, default);
         Assert.True(controller.Held == id, "the stone went back to its old cell before the owner state showed the move");
+
+        // A later command refused before that owner state does not put the stone back in its old cell either.
+        reply = new TaskCompletionSource<InventoryOutcome>();
+        controller.Update(state, layout, true, default, MouseAt(HudInventoryLayout.PageButton(origin, 1).Center, layout.Scale, ButtonState.Pressed));
+        reply.SetResult(new InventoryOutcome(false, 3, "refused"));
+        await Task.Yield();
+        controller.Update(state, layout, true, default, default);
+        Assert.True(controller.Completions == 2 && controller.Held == id, "a later refused command put the set-down stone back in its old cell");
         controller.Update(state with { Items = new[] { stone with { Anchor = 5 } }, InventoryRevision = 4 }, layout, true, default, default);
         Assert.True(controller.Held == Guid.Empty, "the stone stayed held once the owner state showed it moved");
     }

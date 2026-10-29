@@ -123,13 +123,17 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                 CarryAfter(_carryOnSuccess, completed.Revision);
             }
 
-            if (completed.Ok)
+            // Only the set-down's own reply (the one command waiting since) settles it; a later command's does not.
+            if (_settling != Guid.Empty && _settleRevision == long.MaxValue)
             {
-                _settleRevision = completed.Revision;
-            }
-            else
-            {
-                _settling = Guid.Empty;
+                if (completed.Ok)
+                {
+                    _settleRevision = completed.Revision;
+                }
+                else
+                {
+                    _settling = Guid.Empty;
+                }
             }
 
             _carryOnSuccess = Guid.Empty;
