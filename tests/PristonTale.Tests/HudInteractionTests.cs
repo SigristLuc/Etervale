@@ -140,6 +140,8 @@ internal static class HudInteractionTests
         var entries = Enum.GetValues<HudSystemEntry>().Select(HudSystemMenu.Entry).ToArray();
         AssertDisjointInside(entries, HudSystemMenu.Bounds, "system menu entries");
         Assert.True(!buttons.Any(HudSystemMenu.Bounds.Intersects), "system menu covers the menu buttons");
+        Assert.True(HudSystemMenu.Entry(HudSystemEntry.Help) == new Rectangle(698, 504, 96, 20) && HudSystemMenu.Entry(HudSystemEntry.Exit) == new Rectangle(698, 535, 96, 20)
+            && HudSystemMenu.Entry(HudSystemEntry.Settings).Bottom < 504, "the exit menu's rows left the original sheet, or settings is not above it");
 
         var design = new Rectangle(0, 0, HudLayout.DesignWidth, HudLayout.DesignHeight);
         Assert.True(design.Contains(HudNpcPanel.Box) && HudNpcPanel.Box.Contains(HudNpcPanel.OkButton) && HudNpcPanel.Box.Contains(HudNpcPanel.Title),

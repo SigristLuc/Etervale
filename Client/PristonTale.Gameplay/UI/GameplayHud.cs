@@ -232,6 +232,9 @@ public sealed partial class GameplayHud : IDisposable
     // R or the bar's walk/run button.
     public event Action RunToggleRequested;
 
+    // Quit in the exit button's menu.
+    public event Action ExitRequested;
+
     public event Action YahooKeyPressed;
 
     // The fighting mode the player chose for a running summon skill (true: automatic), or null for other skills.

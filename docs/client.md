@@ -574,7 +574,9 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
 - Settings (`HudSettingsPanel`, system menu entry Settings) edits `PresentationSettings.Requested`;
   `PresentationController` applies it at the next frame boundary. Display changes require confirmation within 15 s
   (`DisplayConfirmation`), otherwise they revert.
-- System menu entries other than Settings are drawn without behaviour.
+- System menu (`HudSystemMenu`, the X button): the original 128x64 `ExitMenu.tga` sheet at 698,504 (Help above Quit,
+  with their hover plaques `Option.bmp` and `Exit.bmp`) and the Settings plaque (`Settings.bmp`) just above it. Quit
+  closes the game; Help is drawn without behaviour (the help window is not ported yet).
 - Trade (`UI/Trades/`, art `HudTradeArt`; `GameplayHud.Trades.cs`, `GameScene.Trades.cs` as `ITradeClient`): the request
   box (`HudTradeArt.Request`, 10 s) is not shown while a service window is open. When the server opens the trade, the
   window (`HudTradeWindow`, a service window on the store frame) opens, closing the other service windows and opening

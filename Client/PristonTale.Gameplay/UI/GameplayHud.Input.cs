@@ -195,6 +195,13 @@ public sealed partial class GameplayHud
                 return;
             }
 
+            if (entry == HudSystemEntry.Exit)
+            {
+                _systemMenu = false;
+                ExitRequested?.Invoke();
+                return;
+            }
+
             if (entry is not null)
             {
                 return;

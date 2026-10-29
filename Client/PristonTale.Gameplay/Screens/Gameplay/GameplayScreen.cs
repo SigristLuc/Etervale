@@ -72,6 +72,7 @@ public sealed class GameplayScreen : GameScreen
         _scene.PresenceObserved += _hud.ObserveChat;
         _hud.Chat.WhisperArrived += _scene.PlayWhisper;
         _hud.Chat.CloseRequested += RequestExit;
+        _hud.ExitRequested += RequestExit;
         _hud.Restart.Restart = _scene.RestartAsync;
         _hud.Restart.ExitRequested += RequestExit;
         _hud.WingGate.Travel = _scene.TravelWingGateAsync;
@@ -262,6 +263,7 @@ public sealed class GameplayScreen : GameScreen
             _scene.PresenceObserved -= _hud.ObserveChat;
             _hud.Chat.WhisperArrived -= _scene.PlayWhisper;
             _hud.Chat.CloseRequested -= RequestExit;
+            _hud.ExitRequested -= RequestExit;
             _hud.Restart.ExitRequested -= RequestExit;
             _hud.QuestFanfare -= _scene.PlayQuestFanfare;
             _hud.CraftResult -= _scene.PlayCraftResult;

@@ -6,23 +6,34 @@ namespace PristonTale.Gameplay.UI.Widgets;
 public enum HudSystemEntry
 {
     Settings,
-    CharacterSelect,
-    SubServers,
     Help,
     Exit
 }
 
-// Original exit button menu. The shipped ExitMenu.tga is a newer 128x159 five-entry sheet
-// (the original draws a 128x64 three-entry menu at 698,504), so it is raised to end just above the menu buttons.
+// The exit button's menu: the original's 128x64 ExitMenu.tga sheet (Help above Quit) at 698,504 with its hover plaques,
+// and Etervale's settings plaque just above it.
 public static class HudSystemMenu
 {
     public const int X = 698;
-    public const int Y = 560 - 159;
+    public const int Y = 504;
+    private const int PlaqueWidth = 96;
+    private const int PlaqueHeight = 19;
+    private const int SettingsY = Y - PlaqueHeight - 2;
+    // The rows of the sheet the original answers: Help on top, Quit at the bottom.
+    private const int HelpY = Y;
+    private const int ExitY = Y + 31;
 
-    private static readonly string[] Hover = [HudArt.SystemSettings, null, null, HudArt.SystemHelp, HudArt.SystemExit];
+    private static readonly string[] Hover = [null, HudArt.SystemHelp, HudArt.SystemExit];
 
-    public static Rectangle Bounds => new(X + 9, Y + 5, 80, 148);
-    public static Rectangle Entry(HudSystemEntry entry) => new(X + 9, Y + 5 + 30 * (int)entry, 80, 18);
+    // The plaques; the sheet's lowest chain hangs over the menu buttons and takes no clicks.
+    public static Rectangle Bounds => new(X, SettingsY, PlaqueWidth, ExitY + PlaqueHeight + 1 - SettingsY);
+
+    public static Rectangle Entry(HudSystemEntry entry) => entry switch
+    {
+        HudSystemEntry.Settings => new Rectangle(X, SettingsY, PlaqueWidth, PlaqueHeight),
+        HudSystemEntry.Help => new Rectangle(X, HelpY, PlaqueWidth, PlaqueHeight + 1),
+        _ => new Rectangle(X, ExitY, PlaqueWidth, PlaqueHeight + 1)
+    };
 
     public static HudSystemEntry? At(Point design)
     {
@@ -41,10 +52,10 @@ public static class HudSystemMenu
     {
         var offset = layout.BottomOffset;
         painter.Sprite(HudArt.SystemMenu, X, Y + offset);
+        painter.Sprite(HudArt.SystemSettings, X, SettingsY + offset);
         if (At(new Point(pointer.X, pointer.Y - offset)) is { } entry && Hover[(int)entry] is { } hover)
         {
-            var bounds = Entry(entry);
-            painter.Sprite(hover, X, bounds.Y + offset);
+            painter.Sprite(hover, X, Entry(entry).Y + offset);
         }
     }
 }
