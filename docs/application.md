@@ -507,7 +507,9 @@ original's texts (`PartyMessages`, [simulation.md](simulation.md)).
 - `RefreshParties` rebuilds each party's `PartyView` (name, level, life, planar place) and its average level after a
   change and every 10 ticks; every snapshot carries the receiver's view and pending request, and the encoder sends what
   changed. `WorldServer.Parties` (`PartyRoster`) is the chat's `IPartyRoster`.
-- Shares: a kill's experience is taken at the party's average level and split by size (`FieldCombat.AwardParty`); gold
+- Shares: a kill's experience is taken at the party's average level and split by size (`FieldCombat.AwardParty`); a
+  dead player, alone or in a party, gains no experience (its summons may still kill, and a level gained lying dead
+  would fill its life); gold
   under `PartyRules.SharedGoldBelow` picked up is split with the members in the picker's field and share range
   (`GroundPickupTransactions`; one who cannot carry its part within `MoneyLimits.CarryLimit` is left out). Only the
   picker's part is stored with its pickup: the members' parts are rewards, as experience is, given at the commit to

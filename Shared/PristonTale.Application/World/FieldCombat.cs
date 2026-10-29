@@ -341,10 +341,11 @@ internal sealed class FieldCombat
         return killerAward;
     }
 
-    // Each player's premium boosts its own part.
+    // Each player's premium boosts its own part. A dead player gains nothing: its summons may still kill, and a level gained
+    // lying dead would fill its life.
     private ulong Award(WorldPlayer player, ulong experience)
     {
-        var exp = PremiumRules.BoostExperience(experience, player.Character.Premium);
+        var exp = player.IsDead ? 0 : PremiumRules.BoostExperience(experience, player.Character.Premium);
         if (exp == 0)
         {
             return 0;

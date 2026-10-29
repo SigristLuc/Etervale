@@ -30,7 +30,7 @@ internal static class PartyTests
         yield return ("a member's request goes to its leader, who asks in the party's name; the level gap, other parties and a full party refuse", RequestsAsync);
         yield return ("the leader delegates, kicks and disbands, a member only leaves, and a party of two is released", CommandsAsync);
         yield return ("a player leaving the world leaves its party: its leader hands over, a party of two is released", LeaveWorldAsync);
-        yield return ("a kill's experience is taken at the party's average level and shared by size with the members in range", ExperienceAsync);
+        yield return ("a kill's experience is taken at the party's average level and shared by size with the living members in range", ExperienceAsync);
         yield return ("gold under 10000 picked up is split with the members in range, the picker's part stored; a member who cannot carry its part or whose save gate is held is left out", GoldAsync);
         yield return ("party rules: shares by size, the average level, the level gap, the share range and the gold split", RulesAsync);
         yield return ("party messages round-trip on the wire and refuse unknown commands and answers", WireAsync);
@@ -258,8 +258,10 @@ internal static class PartyTests
         var near = Join(2, 1, new Vector3(1000, 0, 0));
         var far = Join(3, 70, new Vector3(2000, 0, 0));
         var elsewhere = new WorldPlayer(4, new Vector3(10, 0, 0), classes.CreatePlayer(PlayerClass.Fighter, "Elsewhere"), false, default);
-        var party = SkillFixtures.Group(killer, near, far, elsewhere);
-        party.AverageLevel = PartyRules.AverageLevel([1, 1, 70, 1]);
+        var fallen = Join(5, 1, new Vector3(500, 0, 0));
+        fallen.ApplyDamage(fallen.Character.Life);
+        var party = SkillFixtures.Group(killer, near, far, elsewhere, fallen);
+        party.AverageLevel = PartyRules.AverageLevel([1, 1, 70, 1, 1]);
         var monster = ((ISpawnSink)field).Spawn(definition, new Vector3(24, 0, 0), -1, 0);
         Assert.True(field.SetAttackTarget(1, monster.EntityId, true), "fixture target rejected");
         for (var index = 0; index < 400 && monster.IsAlive; index++)
@@ -272,11 +274,11 @@ internal static class PartyTests
             field.Step(0.05f);
         }
 
-        // 525 at the average level 18, 14 levels from the monster: 85%, then 45% each for a party of four; the member in
-        // another field shares nothing.
-        Assert.True(!monster.IsAlive && killer.Character.Experience == 200 && near.Character.Experience == 200 && far.Character.Experience == 0
-            && elsewhere.Character.Experience == 0,
-            $"shares {killer.Character.Experience}/{near.Character.Experience}/{far.Character.Experience}/{elsewhere.Character.Experience}");
+        // 525 at the average level 14, 10 levels from the monster, then each share for a party of five; the member in another
+        // field and the dead one gain nothing.
+        Assert.True(!monster.IsAlive && killer.Character.Experience > 0 && near.Character.Experience == killer.Character.Experience
+            && far.Character.Experience == 0 && elsewhere.Character.Experience == 0 && fallen.IsDead && fallen.Character.Experience == 0,
+            $"shares {killer.Character.Experience}/{near.Character.Experience}/{far.Character.Experience}/{elsewhere.Character.Experience}/{fallen.Character.Experience}");
         return Task.CompletedTask;
     }
 
