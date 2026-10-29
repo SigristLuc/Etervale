@@ -510,8 +510,9 @@ receives what, in which order and how often is specified in [server.md](server.m
   frame also routes the tick's events by the entities they name (`EventRoutes`), so a receiver collects the events of
   the entities it sees instead of scanning every event of its field.
 - Each receiver's `PresenceEncoder` (on its connection's pump, never on the tick) queries the grid, keeps at most 256
-  other entities in view (the nearest, plus its NPCs, its attack target, whoever targets it and its summons; an entity
-  already shown stays out to 1.15 times the cut-off), and sends an object only when it changed: spawns and discrete
+  other entities in view, at most 100 of them players (the nearest players, then the nearest others, plus its NPCs, its
+  attack target, whoever targets it, its summons and its party; an entity already shown stays out to 1.15 times the
+  cut-off), and sends an object only when it changed: spawns and discrete
   changes (motion, HP, target, attack, description) immediately, positions at 5 Hz inside the high-detail range
   (squared `0x48000`, about 543 units) and 2 Hz out to the connect range (squared `0x120000`, about 1086 units); an
   object is forgotten beyond 1.15 times the connect range. Position updates share a budget of 2048 bytes per receiver

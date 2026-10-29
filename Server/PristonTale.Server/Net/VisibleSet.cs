@@ -1,17 +1,14 @@
 namespace PristonTale.Server.Net;
 
-// The entities one receiver may see in a tick. In a crowd the receiver sees its nearest Capacity entities, like the
-// classic server's per-receiver user limit: entities it must not lose (its attack target, whoever attacks it, its
-// summons, NPCs) always stay, and an entity it already shows is kept out to 1.15 times the crowd's cut-off distance so
-// that the edge of the crowd does not flicker in and out.
-internal sealed class VisibleSet(int capacity)
+// Entities one receiver may see in a tick. In a crowd the receiver sees the nearest ones up to a capacity, like the
+// classic server's per-receiver user limit: entities it must not lose (essential) always stay, and an entity it already
+// shows is kept out to 1.15 times the crowd's cut-off distance so that the edge of the crowd does not flicker in and out.
+internal sealed class VisibleSet
 {
     // Squared 1.15: the distance band beyond the cut-off in which already shown entities stay.
     private const float KeepBandSq = 1.3225f;
     private (int Index, float DistanceSq)[] _entries = new (int, float)[256];
     private int _count;
-
-    public int Capacity { get; } = capacity;
 
     public int Count => _count;
 
@@ -29,19 +26,25 @@ internal sealed class VisibleSet(int capacity)
 
     public ReadOnlySpan<(int Index, float DistanceSq)> Entries => _entries.AsSpan(0, _count);
 
-    // Keeps the Capacity nearest entries, plus already shown ones inside the keep band; isShown is asked only for the band.
-    public void Trim(Func<int, bool> isShown)
+    // Keeps the capacity nearest entries, plus already shown ones inside the keep band; isShown is asked only for the band.
+    public void Trim(int capacity, Func<int, bool> isShown)
     {
-        if (_count <= Capacity)
+        if (_count <= capacity)
         {
             return;
         }
 
+        if (capacity <= 0)
+        {
+            _count = 0;
+            return;
+        }
+
         var span = _entries.AsSpan(0, _count);
-        var cutoff = Select(span, Capacity - 1);
-        var kept = Capacity;
+        var cutoff = Select(span, capacity - 1);
+        var kept = capacity;
         var band = cutoff * KeepBandSq;
-        for (var position = Capacity; position < _count; position++)
+        for (var position = capacity; position < _count; position++)
         {
             var entry = span[position];
             if (entry.DistanceSq <= band && isShown(entry.Index))

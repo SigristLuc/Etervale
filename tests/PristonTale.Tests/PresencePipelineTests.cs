@@ -25,7 +25,8 @@ internal static class PresencePipelineTests
         yield return ("events routed by the entities a receiver knows are the events a full scan finds, in the field's order", RoutedEventsAsync);
         yield return ("presence entries carry 64-bit ids and sequences, 32-bit life and world-wide positions at an eighth of a unit", EntriesAsync);
         yield return ("descriptor revisions are field-wide and rise only when what a description shows changes", RevisionsAsync);
-        yield return ("a receiver in a crowd shows its nearest entities and never loses its NPCs, target, attackers or summons", CrowdCapAsync);
+        yield return ("a receiver in a crowd shows its nearest players up to their cap, monsters to the rest, and never loses its NPCs, target, attackers, summons or party",
+            CrowdCapAsync);
         yield return ("events of ticks a slow reader fell behind on keep their own tick on the timeline", SegmentsAsync);
         yield return ("the entity grid finds, counts and relates entities on both sides of zero", GridAsync);
         yield return ("running statuses are kept per field, carried across fields on the new clock and pruned when they end", StatusBookAsync);
@@ -189,13 +190,24 @@ internal static class PresencePipelineTests
             { OwnerId = 1, Revision = 1 });
         views.Add(new EntityView(903, EntityKind.Npc, false, new Vector3(0, 0, -700), 0f, MotionState.Stand, 1, 1, 1, default, templateId: 7)
             { Revision = 1 });
+        views.Add(Player(904, new Vector3(650, 0, 650)));
+        // A crowd of monsters behind the players, nearer than the essential ones.
+        for (ulong id = 1000; id < 1300; id++)
+        {
+            views.Add(new EntityView(id, EntityKind.Monster, false, new Vector3(-(float)(id % 20) * 8f - 10f, 0f, (id - 1000) / 20 * 8f), 0f,
+                MotionState.Stand, 1, 10, 10, default, templateId: 5) { Revision = 1 });
+        }
+
+        var party = new PartyView([new PartyMemberView(1, "P1", 1, 100, 100, 0, 0), new PartyMemberView(904, "P904", 1, 100, 100, 650, 650)]);
         var wire = new WireRoundTrip(1);
-        var update = wire.PushMerged(new WorldSnapshot(1, views.ToArray(), fieldId: 3));
+        var update = wire.PushMerged(new WorldSnapshot(1, views.ToArray(), fieldId: 3) { Party = party });
         var spawned = update.Spawns.Select(spawn => spawn.EntityId).ToHashSet();
-        Assert.True(spawned.Count == PresenceEncoder.MaxVisible + 1, $"the crowd showed {spawned.Count} entities");
-        Assert.True(new ulong[] { 900, 901, 902, 903 }.All(spawned.Contains), "an essential entity was dropped for the crowd");
-        Assert.True(spawned.Contains(2) && !spawned.Contains(401), "the crowd did not keep its nearest members");
-        var again = wire.PushMerged(new WorldSnapshot(2, views.ToArray(), fieldId: 3));
+        var players = spawned.Count(id => id is > 1 and < 1000 and not (>= 900 and < 904));
+        Assert.True(spawned.Count == PresenceEncoder.MaxVisible + 1 && players == PresenceEncoder.MaxVisiblePlayers,
+            $"the crowd showed {spawned.Count} entities, {players} of them players");
+        Assert.True(new ulong[] { 900, 901, 902, 903, 904 }.All(spawned.Contains), "an essential entity or a party member was dropped for the crowd");
+        Assert.True(spawned.Contains(2) && !spawned.Contains(401) && spawned.Contains(1000), "the crowd did not keep its nearest members");
+        var again = wire.PushMerged(new WorldSnapshot(2, views.ToArray(), fieldId: 3) { Party = party });
         Assert.True(again.Spawns.Count == 0 && again.Removed.Count == 0, "an unchanged crowd churned its visible set");
         return Task.CompletedTask;
     }

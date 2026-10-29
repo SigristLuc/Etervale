@@ -79,9 +79,12 @@ internal static class ClientTests
 
     private static Task CrowdBudgetAsync()
     {
-        EntityView Walker(int id, float offset) => new((uint)id, EntityKind.Player, false, new System.Numerics.Vector3(id + offset, 0, id % 20 * 10f), 0f,
-            MotionState.Walk, 1, 100, 100, new PlayerAppearanceView("W" + id, PlayerClass.Mechanician, 0, 0, 0, "", ""));
-        // The largest crowd a receiver shows at once: the receiver and MaxVisible others.
+        // The largest crowd a receiver shows at once: the receiver, MaxVisiblePlayers other players and monsters to MaxVisible.
+        EntityView Walker(int id, float offset) => id <= Server.Net.PresenceEncoder.MaxVisiblePlayers + 1
+            ? new((uint)id, EntityKind.Player, false, new System.Numerics.Vector3(id + offset, 0, id % 20 * 10f), 0f, MotionState.Walk, 1, 100, 100,
+                new PlayerAppearanceView("W" + id, PlayerClass.Mechanician, 0, 0, 0, "", ""))
+            : new((uint)id, EntityKind.Monster, false, new System.Numerics.Vector3(id + offset, 0, id % 20 * 10f), 0f, MotionState.Walk, 1, 100, 100,
+                default, templateId: 5);
         var crowd = Server.Net.PresenceEncoder.MaxVisible + 1;
         var wire = new WireRoundTrip(1);
         var spawned = wire.PushMerged(new WorldSnapshot(1, Enumerable.Range(1, crowd).Select(id => Walker(id, 0)).ToArray(), fieldId: 3));

@@ -33,7 +33,7 @@ layouts live in [protocol.md](protocol.md).
 | `Net/GameServerControl.cs` | `IServerOperations` for game masters: user limit, blocked logins, the shutdown countdown and host stop. |
 | `Net/PresenceEncoder.cs` | Turns the receiver's `WorldSnapshot` into presence packets (presence entries, events, drops, owner state, the restart offer); the crowd cap, the movement budget and descriptions. |
 | `Net/SharedPresenceWire.cs` | Full and motion presence entries and entity descriptions of one presence frame, encoded once for every receiver. |
-| `Net/VisibleSet.cs`, `Net/MotionCandidates.cs` | The receiver's visible crowd (nearest 256 plus essentials, keep band) and its most overdue position updates. |
+| `Net/VisibleSet.cs`, `Net/MotionCandidates.cs` | The receiver's visible crowd (nearest 100 players and up to 256 entities in all, plus essentials, keep band) and its most overdue position updates. |
 | `Net/WireMapping.cs`, `Net/NpcWireMapping.cs`, `Net/QuestWireMapping.cs` | Authoritative views to wire structs (presence entries, descriptions, events, NPC service state, quest messages). |
 | `Net/NetworkLimits.cs` | `Network:*` settings with defaults and validation; IPv4-mapped address normalisation. |
 | `Net/ConnectionGuards.cs` | `PacketRateLimiter`, `TokenBucket`, `ConnectionLimiter`, `LoginThrottle`, `LogSampler`. |
@@ -309,9 +309,10 @@ of the regression suite ([testing.md](testing.md#multiplayer-propagation)):
 | Owner state, inventory, skills, cooldowns, premium timers, quests | The player itself | When their revisions change |
 | Corrections | The player itself | Forced `FieldWarp`; viewers only ever see the authoritative position |
 
-- A crowd shows at most `PresenceEncoder.MaxVisible` (256) other entities: the nearest, plus the receiver's NPCs, its
-  attack target, the entities targeting it and its summons; an entity already shown stays until it is 1.15 times the
-  crowd's cut-off distance away.
+- A crowd shows at most `PresenceEncoder.MaxVisible` (256) other entities, of them at most `MaxVisiblePlayers` (100)
+  players: the nearest players, then the nearest monsters and NPCs to the rest, plus the receiver's NPCs, its attack
+  target, the entities targeting it, its summons and its party members; an entity already shown stays until it is 1.15
+  times its crowd's cut-off distance away. A client draws a crowd of players at a cost a crowd of monsters does not have.
 - Every viewer of an entity sees the same state for the same server tick: entries come from the field's single frame
   of that tick. Events follow the state of their tick.
 - A pump that falls behind gets the latest state of each entity and every event since its last read, each event on its

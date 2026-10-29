@@ -39,9 +39,13 @@ internal sealed partial class PresenceEncoder
     private readonly Dictionary<ulong, Known> _known = new();
     private readonly Dictionary<Guid, GroundDropView> _drops = new();
     private readonly List<int> _candidates = new();
-    // The entities a receiver may show at once; the nearest win in a denser crowd.
+    // The entities a receiver may show at once, players at most MaxVisiblePlayers of them: the nearest win in a denser
+    // crowd, players first, and monsters and NPCs fill the rest. A client draws a crowd of players at a cost a crowd of
+    // monsters does not have.
     public const int MaxVisible = 256;
-    private readonly VisibleSet _visible = new(MaxVisible);
+    public const int MaxVisiblePlayers = 100;
+    private readonly VisibleSet _visiblePlayers = new();
+    private readonly VisibleSet _visible = new();
     private readonly List<int> _related = new();
     private readonly HashSet<int> _essential = new();
     private readonly Func<int, bool> _isShown;
@@ -261,15 +265,25 @@ internal sealed partial class PresenceEncoder
 
         _candidates.Clear();
         _pending.Clear();
+        _visiblePlayers.Clear();
         _visible.Clear();
         _essential.Clear();
-        // Entities a receiver must not lose in a crowd: NPCs, its attack target, whoever targets it and its summons.
+        // Entities a receiver must not lose in a crowd: NPCs, its attack target, whoever targets it, its summons and its
+        // party.
         _related.Clear();
         _related.AddRange(grid.Npcs);
         grid.Related(_self, _related);
         if (self.AttackTargetId != 0 && grid.TryGetIndex(self.AttackTargetId, out var targetIndex))
         {
             _related.Add(targetIndex);
+        }
+
+        foreach (var member in snapshot.Party?.Members ?? [])
+        {
+            if (grid.TryGetIndex(member.EntityId, out var memberIndex))
+            {
+                _related.Add(memberIndex);
+            }
         }
 
         foreach (var index in _related)
@@ -289,20 +303,10 @@ internal sealed partial class PresenceEncoder
             }
         }
 
-        _visible.Trim(_isShown);
-        foreach (var (index, _) in _visible.Entries)
-        {
-            ref readonly var view = ref snapshot.Entities[index];
-            var distanceSq = PlanarDistanceSq(view.Position, self.Position);
-            var near = distanceSq <= NearRadius * NearRadius;
-            if (WriteEntity(ref group, connection, index, tick, field, near) is { } age)
-            {
-                // Overdue ratio: the wanted interval grows with distance, and every waiting entity keeps gaining
-                // priority, so a crowd is served round-robin like the classic server's rotating send cursor.
-                var wanted = NearIntervalTicks + MathF.Sqrt(distanceSq) / 50f;
-                _pending.Add(index, age / wanted, near);
-            }
-        }
+        _visiblePlayers.Trim(MaxVisiblePlayers, _isShown);
+        _visible.Trim(MaxVisible - _visiblePlayers.Count, _isShown);
+        WriteVisible(ref group, connection, _visiblePlayers, snapshot, self.Position, tick, field);
+        WriteVisible(ref group, connection, _visible, snapshot, self.Position, tick, field);
 
         var budget = MovementBudgetBytes;
         foreach (var (index, _, near) in _pending.Ordered())
@@ -480,6 +484,24 @@ internal sealed partial class PresenceEncoder
         return ForgetRadius;
     }
 
+    private void WriteVisible(ref PresenceEntriesWriter group, IPacketSink connection, VisibleSet visible, in WorldSnapshot snapshot, Vector3 center,
+        uint tick, int field)
+    {
+        foreach (var (index, _) in visible.Entries)
+        {
+            ref readonly var view = ref snapshot.Entities[index];
+            var distanceSq = PlanarDistanceSq(view.Position, center);
+            var near = distanceSq <= NearRadius * NearRadius;
+            if (WriteEntity(ref group, connection, index, tick, field, near) is { } age)
+            {
+                // Overdue ratio: the wanted interval grows with distance, and every waiting entity keeps gaining
+                // priority, so a crowd is served round-robin like the classic server's rotating send cursor.
+                var wanted = NearIntervalTicks + MathF.Sqrt(distanceSq) / 50f;
+                _pending.Add(index, age / wanted, near);
+            }
+        }
+    }
+
     private void ConsiderVisible(in WorldSnapshot snapshot, int field, int index, Vector3 center, bool essential)
     {
         ref readonly var view = ref snapshot.Entities[index];
@@ -494,7 +516,7 @@ internal sealed partial class PresenceEncoder
             return;
         }
 
-        _visible.Add(index, distanceSq, essential);
+        (view.Kind == EntityKind.Player ? _visiblePlayers : _visible).Add(index, distanceSq, essential);
     }
 
     // The duel arena is solo: a player sees only the opponent and helper of its own duel.
