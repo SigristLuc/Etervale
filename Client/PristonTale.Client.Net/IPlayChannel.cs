@@ -101,4 +101,9 @@ public interface IPlayChannel : IAsyncDisposable
     Task RefreshContactsAsync(CancellationToken ct = default) => Task.CompletedTask;
 
     IAsyncEnumerable<PresenceUpdate> ReadAllAsync(CancellationToken ct = default);
+
+    // The consumer is done with an update read from ReadAllAsync: its lists may be reused for a later one.
+    void Recycle(PresenceUpdate update)
+    {
+    }
 }

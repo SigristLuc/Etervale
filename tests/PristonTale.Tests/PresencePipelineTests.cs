@@ -238,7 +238,7 @@ internal static class PresencePipelineTests
         var walked = update.States.Concat(wire.PushMerged(new WorldSnapshot(200, [self, Monster(10, at), Monster(11, new Vector3(0, 0, 100))], fieldId: 3)).States)
             .LastOrDefault(state => state.EntityId == 10);
         // Rounding to an eighth of a unit leaves at most a sixteenth on each axis.
-        Assert.True(walked is not null && Vector3.Distance(walked.Position, at) <= MathF.Sqrt(3f) / 16f, $"the walked position drifted: {walked?.Position} against {at}");
+        Assert.True(walked.EntityId == 10 && Vector3.Distance(walked.Position, at) <= MathF.Sqrt(3f) / 16f, $"the walked position drifted: {walked.Position} against {at}");
 
         wire.PushMerged(new WorldSnapshot(203, [self, Monster(10, at), Monster(11, new Vector3(0, 0, 50))], fieldId: 3));
         var handleOf11 = wire.LastEntries.Single().Handle;

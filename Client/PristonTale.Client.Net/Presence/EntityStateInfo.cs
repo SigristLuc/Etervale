@@ -3,7 +3,7 @@ using PristonTale.Contracts.Motion;
 
 namespace PristonTale.Client.Net.Presence;
 
-public sealed record EntityStateInfo(
+public readonly record struct EntityStateInfo(
     ulong EntityId,
     Vector3 Position,
     float Facing,

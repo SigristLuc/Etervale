@@ -47,11 +47,23 @@ internal sealed class PresenceDecoder : IEventHandleReader
     private long _tick;
     private double? _clockMs;
     private IReadOnlyList<ItemDetailEntry> _tradeDetails = [];
+    // The states of a presence message are written into a list the decoder lends to its update; the consumer gives it
+    // back once applied (Recycle), and only the update it was lent to can. Once MaxLent loans are outstanding (a consumer
+    // that never gives them back) the decoder forgets them. The pool has its own lock, so the game thread's Recycle never
+    // waits on a decode.
+    private const int MaxLent = 1024;
+    private readonly object _poolGate = new();
+    private readonly Dictionary<List<EntityStateInfo>, PresenceUpdate> _lentStates = new();
+    private readonly Stack<List<EntityStateInfo>> _freeStates = new();
+    private readonly PresenceEntriesReader.EntryHandler _onEntry;
+    private List<EntitySpawnInfo>? _entrySpawns;
+    private List<EntityStateInfo>? _entryStates;
 
     public PresenceDecoder(WorldRenderCatalog catalog, Action<ulong> requestDescription)
     {
         _catalog = catalog;
         _requestDescription = requestDescription;
+        _onEntry = OnEntry;
     }
 
     public ulong SelfEntityId { get; set; }
@@ -298,22 +310,65 @@ internal sealed class PresenceDecoder : IEventHandleReader
         return null;
     }
 
-    public PresenceUpdate? OnPresenceEntries(ReadOnlySpan<byte> packet)
+    private PresenceUpdate? OnPresenceEntries(ReadOnlySpan<byte> packet)
     {
-        var spawns = new List<EntitySpawnInfo>();
-        var states = new List<EntityStateInfo>();
         // The message sets the presence clock its samples are taken at.
         var clock = PresenceEntriesReader.Clock(packet);
         _tick = clock.ServerTick;
         _clockMs = clock.ServerTimeMs;
-        PresenceEntriesReader.Read(packet, (in PresenceEntry entry) => Apply(entry, spawns, states));
-        return spawns.Count == 0 && states.Count == 0 ? null : Update(spawns, states) with { ServerTimeMs = _clockMs };
+        _entrySpawns = null;
+        lock (_poolGate)
+        {
+            _entryStates = _freeStates.TryPop(out var free) ? free : new List<EntityStateInfo>(PresenceEntriesReader.Count(packet));
+        }
+
+        PresenceEntriesReader.Read(packet, _onEntry);
+        var (spawns, states) = (_entrySpawns, _entryStates);
+        _entrySpawns = null;
+        _entryStates = null;
+        lock (_poolGate)
+        {
+            if (spawns is null && states.Count == 0)
+            {
+                _freeStates.Push(states);
+                return null;
+            }
+
+            if (_lentStates.Count >= MaxLent)
+            {
+                _lentStates.Clear();
+            }
+
+            var update = new PresenceUpdate(_tick, (IReadOnlyList<EntitySpawnInfo>?)spawns ?? [], states, [], [], FieldId) { ServerTimeMs = _clockMs };
+            _lentStates.Add(states, update);
+            return update;
+        }
     }
 
-    private void Apply(in PresenceEntry entry, List<EntitySpawnInfo> spawns, List<EntityStateInfo> states)
+    // Gives back the states list of an update the consumer is done with; another update may then reuse it.
+    public void Recycle(PresenceUpdate update)
+    {
+        if (update.States is not List<EntityStateInfo> states)
+        {
+            return;
+        }
+
+        lock (_poolGate)
+        {
+            if (_lentStates.TryGetValue(states, out var holder) && ReferenceEquals(holder, update))
+            {
+                _lentStates.Remove(states);
+                states.Clear();
+                _freeStates.Push(states);
+            }
+        }
+    }
+
+    private void OnEntry(in PresenceEntry entry)
     {
         Tracked? tracked;
         ulong entityId;
+        var states = _entryStates!;
         if (entry.Spawn)
         {
             entityId = entry.EntityId;
@@ -381,11 +436,11 @@ internal sealed class PresenceDecoder : IEventHandleReader
         if (tracked.Published && tracked.Description is not null
             && ((fields & (PresenceFields.MaxLife | PresenceFields.Template | PresenceFields.Revision)) != 0 || !ReferenceEquals(described, tracked.Description)))
         {
-            spawns.Add(Spawn(entityId, tracked));
+            (_entrySpawns ??= []).Add(Spawn(entityId, tracked));
             return;
         }
 
-        Publish(entityId, tracked, spawns, states);
+        Publish(entityId, tracked, states);
     }
 
     // One GETPLAYERINFO per revision, repeated after a second when its answer does not come: the server drops requests
@@ -403,7 +458,7 @@ internal sealed class PresenceDecoder : IEventHandleReader
         _requestDescription(entityId);
     }
 
-    private void Publish(ulong entityId, Tracked tracked, List<EntitySpawnInfo> spawns, List<EntityStateInfo> states)
+    private void Publish(ulong entityId, Tracked tracked, List<EntityStateInfo> states)
     {
         if (tracked.Description is null)
         {
@@ -413,7 +468,7 @@ internal sealed class PresenceDecoder : IEventHandleReader
         if (!tracked.Published)
         {
             tracked.Published = true;
-            spawns.Add(Spawn(entityId, tracked));
+            (_entrySpawns ??= []).Add(Spawn(entityId, tracked));
         }
         else
         {
@@ -622,7 +677,8 @@ internal sealed class PresenceDecoder : IEventHandleReader
     private static OwnedItemView Item(InventoryItemEntry entry) => new(entry.InstanceId, entry.Code, entry.Name, (ItemKind)entry.Kind, entry.Count,
         entry.Anchor, entry.Slot, entry.Width, entry.Height, ItemCodes.KeyOf(entry.Code));
 
-    private PresenceUpdate Update(List<EntitySpawnInfo> spawns, List<EntityStateInfo> states, List<ulong>? removed = null, List<CombatEventInfo>? events = null) =>
+    private PresenceUpdate Update(IReadOnlyList<EntitySpawnInfo> spawns, IReadOnlyList<EntityStateInfo> states, IReadOnlyList<ulong>? removed = null,
+        IReadOnlyList<CombatEventInfo>? events = null) =>
         new(_tick, spawns, states, removed ?? [], events ?? [], FieldId);
 
     private static Simulation.Items.HeldItemGlow Glow(in DescribedGlow glow) =>

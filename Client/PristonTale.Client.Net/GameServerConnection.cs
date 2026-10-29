@@ -389,6 +389,8 @@ public sealed class GameServerConnection : IGameBackend
 
     internal IAsyncEnumerable<PresenceUpdate> ReadPresenceAsync(CancellationToken ct) => _presenceUpdates.Reader.ReadAllAsync(ct);
 
+    internal void Recycle(PresenceUpdate update) => _presence.Recycle(update);
+
     private FrameConnection Connection
     {
         get

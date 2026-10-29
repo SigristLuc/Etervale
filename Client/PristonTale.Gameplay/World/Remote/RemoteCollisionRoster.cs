@@ -18,7 +18,7 @@ internal sealed class RemoteCollisionRoster
         }
     }
 
-    public void Update(EntityStateInfo state)
+    public void Update(in EntityStateInfo state)
     {
         if (_entries.TryGetValue(state.EntityId, out var entry))
         {

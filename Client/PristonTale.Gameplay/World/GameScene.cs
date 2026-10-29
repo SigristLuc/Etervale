@@ -155,6 +155,9 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
             SingleWriter = true,
             FullMode = BoundedChannelFullMode.Wait
         });
+    // The share of a frame presence updates may take (DrainPresence), and how many apply however long they take.
+    private static readonly TimeSpan PresenceBudget = TimeSpan.FromMilliseconds(4);
+    private const int MinPresencePerFrame = 8;
     // A walk toward a skill target reports its destination again once the target has moved this far from it.
     private const float ApproachReportDistance = 16f;
     private readonly MovementReportPacer _reports = new();

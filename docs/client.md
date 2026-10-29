@@ -213,6 +213,12 @@ server).
   once its description is known. The connection's one-second timer (`RetryDescriptions`, which shares the decoder's lock
   with the receive thread) asks again for every object still undescribed after a second: the server drops requests
   beyond its bucket, and an object that stands still sends no entry that would ask again.
+- The states of a `PresenceEntries` message (`EntityStateInfo`, a struct) go into a list the decoder lends to its update,
+  sized to the message's entry count; the consumer gives it back once applied (`IPlayChannel.Recycle`, which the scene
+  and the load test bots call; only the update it was lent to gives it back) and a later message reuses it. A message
+  without spawns allocates only its `PresenceUpdate`; a consumer that never gives lists back costs one list per message,
+  and the decoder forgets its loans once 1024 are outstanding. The pool has its own lock, so `Recycle` on the game
+  thread never waits on a decode.
 - `EntityDescription`: monster and NPC descriptions register a `MonsterRenderInfo`/`NpcRenderInfo` in `WorldRenderCatalog`
   (model path, scale, name, level, brood, NPC services, sound code, portrait offsets) and are shared by template code;
   a summon's or crystal pet's description (user brood, its owner) is never shared. A new description is re-published
@@ -229,16 +235,19 @@ server).
 
 ### Presence on the game thread
 
-`GameScene.DrainPresence`, per update: record field id, replace `Owner`, `RemapToWorld`, `RemoteEntityManager.Apply`,
-apply a warp, ground loot, effects, skills, then raise `PresenceObserved` (the HUD target frame, combat history and chat lines;
-a `CloseRequested` update ends the game).
+`GameScene.DrainPresence` applies updates in arrival order until the queue is empty or 4 ms of the frame are spent,
+never fewer than 8 a frame (`PresenceBudget`, `MinPresencePerFrame`), so a burst spreads over frames. Per update: record
+field id, replace `Owner`, `RemoteEntityManager.ApplyServer`, apply a warp, ground loot, effects, skills, raise
+`PresenceObserved` (the HUD target frame, combat history and chat lines; a `CloseRequested` update ends the game), then
+give the update back (`Recycle`).
 
 Coordinates: the wire uses PT-global `(x, z)` in fixed point (`GameUnits.FixedScale` = 256) and angles of 4096 per
 turn; the client world uses `(x, -z)`. Every conversion goes through `WorldSpace` (`Client/PristonTale.Engine3D`):
 `Mirror` for points (its own inverse), `Planar` for a transport `(x, z)` on the render plane, `MirrorFacing` for a
 wire facing, `TransportFacing` for the facing the wire carries of a render forward, and `RenderYaw` for the
-`CreateRotationY` angle of a render forward (facing = pi - yaw). `RemapToWorld` mirrors only spawns, states and the
-warp position (and facing). Combat events, skill events, ground items and the `PresenceObserved` copy keep transport
+`CreateRotationY` angle of a render forward (facing = pi - yaw). `RemoteEntityManager.ApplyServer` mirrors spawns and
+states as it reads them (no copy of the update) and the scene the warp position; `Apply` takes an update already in the
+world's coordinates. Combat events, skill events, ground items and the update `PresenceObserved` sees keep transport
 coordinates; their consumers mirror them with `WorldSpace` instead of negating Z inline.
 
 ### Remote actor playback
@@ -702,8 +711,8 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
    server ([server.md](server.md)).
 2. Stream data (world state, events): add a case to `PresenceDecoder.TryHandle` (both the `switch` and the opcode list
    in its return expression), convert to neutral types in `Client.Net/Presence`, and add an `init` property to
-   `PresenceUpdate`. Remap coordinates in `GameScene.RemapToWorld` if the property carries positions consumed in world
-   space, or flip Z in the consumer. Consume it in `GameScene.DrainPresence` or through `PresenceObserved`.
+   `PresenceUpdate`. Mirror its positions with `WorldSpace` where they are consumed in world
+   space. Consume it in `GameScene.DrainPresence` or through `PresenceObserved`.
 3. Request/reply data: a `PendingReplies` table keyed by operation id (state messages go to `_serviceParts`), a case
    in `GameServerConnection.HandleAsync` that calls its `Complete`, its `FailAll` in `RunAsync`'s `finally`, and the
    request through `IPlayChannel`/`OnlinePlayChannel` (await `_start` first). The request message implements
@@ -718,9 +727,12 @@ budget; never read files in `Update`/`Draw` after `BeginRemotePresence`. Resolve
 
 ## Pitfalls
 
-- Spawns, states and warps are in world `(x, -z)` after `RemapToWorld`; combat events, skill events, ground items and
-  the update passed to `PresenceObserved` (so `HudCombat` positions and the minimap NPC list) stay in transport
+- Spawns, states and warps reach the remote actors and the warp in world `(x, -z)`
+  (`RemoteEntityManager.ApplyServer`); the update itself, its combat events, skill events, ground items and what
+  `PresenceObserved` sees (so `HudCombat` positions and the minimap NPC list) stay in transport
   coordinates.
+- An update's `States` list goes back to the decoder once the scene gives it back: an observer must not keep the list
+  past `PresenceObserved`.
 - `GameScene` planar vectors are `(x, worldZ)`, not `(x, ptZ)`; `EnteredCharacter.SpawnZ` and field gate coordinates
   are PT-global and are negated when placed.
 - Self state echoes intentionally do not move the local avatar; adding a position correction from them causes rubber

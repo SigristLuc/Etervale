@@ -80,6 +80,18 @@ internal sealed class WireRoundTrip
 
     private bool _answering;
 
+    // The client's decoder, for measuring it alone over packets taken with Encode.
+    public PresenceDecoder Decoder => _decoder;
+
+    // The packets the server sends for one snapshot, not yet decoded.
+    public List<byte[]> Encode(in WorldSnapshot snapshot)
+    {
+        _encoder.Encode(snapshot, _sink);
+        var packets = _sink.Packets.ToList();
+        _sink.Packets.Clear();
+        return packets;
+    }
+
     // Merges one snapshot's updates into the single view the scene would observe.
     public PresenceUpdate PushMerged(in WorldSnapshot snapshot)
     {

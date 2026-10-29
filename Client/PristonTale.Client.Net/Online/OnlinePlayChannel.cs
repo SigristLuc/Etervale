@@ -214,6 +214,8 @@ internal sealed class OnlinePlayChannel : IPlayChannel
         }
     }
 
+    public void Recycle(PresenceUpdate update) => _connection.Recycle(update);
+
     public ValueTask DisposeAsync()
     {
         lock (_disposeGate)

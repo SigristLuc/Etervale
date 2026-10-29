@@ -387,12 +387,18 @@ public static class PresenceEntriesReader
         return interval != 0 ? new PresenceClockPacket(reader.UInt32(), interval) : throw new InvalidDataException("Presence message has no tick interval.");
     }
 
-    // Hands every entry to the handler; the entries must fill the packet exactly.
-    public static void Read(ReadOnlySpan<byte> packet, EntryHandler handler)
+    // How many entries the message holds.
+    public static int Count(ReadOnlySpan<byte> packet)
     {
         var reader = Header(packet);
         reader.Skip(2 + 4);
-        var count = reader.UInt16();
+        return reader.UInt16();
+    }
+
+    // Hands every entry to the handler; the entries must fill the packet exactly.
+    public static void Read(ReadOnlySpan<byte> packet, EntryHandler handler)
+    {
+        var count = Count(packet);
         var offset = PresenceWire.HeaderSize;
         for (var index = 0; index < count; index++)
         {

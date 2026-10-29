@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Threading.Channels;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
@@ -120,7 +121,12 @@ public sealed partial class GameScene
             _log.Error($"[Remote] held warp failed: {ex}");
         }
 
-        for (var processed = 0; processed < 64 && _presenceQueue.Reader.TryRead(out var update); processed++)
+        // Updates apply in arrival order until the queue is empty or the frame's budget is spent, never fewer than a few, so
+        // a burst (a crowd entering view, a field's arrival) spreads over frames instead of stalling one.
+        var started = Stopwatch.GetTimestamp();
+        for (var processed = 0;
+             (processed < MinPresencePerFrame || Stopwatch.GetElapsedTime(started) < PresenceBudget) && _presenceQueue.Reader.TryRead(out var update);
+             processed++)
         {
             try
             {
@@ -130,6 +136,8 @@ public sealed partial class GameScene
             {
                 _log.Error($"[Remote] presence update failed: {ex}");
             }
+
+            _playChannel?.Recycle(update);
         }
 
         try
@@ -151,11 +159,10 @@ public sealed partial class GameScene
             Owner = update.Owner;
         }
 
-        var remapped = RemapToWorld(update);
-        _remote.Apply(remapped);
-        if (remapped.Warp is { } warp)
+        _remote.ApplyServer(update);
+        if (update.Warp is { } warp)
         {
-            ApplyWarp(warp);
+            ApplyWarp(warp with { Position = WorldSpace.Mirror(warp.Position) });
         }
 
         _groundLoot.Apply(update);
@@ -166,38 +173,6 @@ public sealed partial class GameScene
         ObserveProgression(update);
         ObserveRestart(update);
         PresenceObserved?.Invoke(update);
-    }
-
-    private static PresenceUpdate RemapToWorld(PresenceUpdate u)
-    {
-        List<EntitySpawnInfo> spawns = null;
-        if (u.Spawns.Count > 0)
-        {
-            spawns = new List<EntitySpawnInfo>(u.Spawns.Count);
-            for (var i = 0; i < u.Spawns.Count; i++)
-            {
-                var s = u.Spawns[i];
-                spawns.Add(s with { Position = WorldSpace.Mirror(s.Position), Facing = WorldSpace.MirrorFacing(s.Facing) });
-            }
-        }
-
-        List<EntityStateInfo> states = null;
-        if (u.States.Count > 0)
-        {
-            states = new List<EntityStateInfo>(u.States.Count);
-            for (var i = 0; i < u.States.Count; i++)
-            {
-                var st = u.States[i];
-                states.Add(st with { Position = WorldSpace.Mirror(st.Position), Facing = WorldSpace.MirrorFacing(st.Facing) });
-            }
-        }
-
-        return u with
-        {
-            Spawns = spawns ?? u.Spawns,
-            States = states ?? u.States,
-            Warp = u.Warp is { } warp ? warp with { Position = WorldSpace.Mirror(warp.Position) } : null
-        };
     }
 
     private void TearDownRemotePresence()

@@ -87,8 +87,9 @@ public sealed partial class HudCombat
             }
         }
 
-        foreach (var state in update.States)
+        for (var index = 0; index < update.States.Count; index++)
         {
+            var state = update.States[index];
             if (_entities.TryGetValue(state.EntityId, out var entity))
             {
                 entity.Life = state.Life;

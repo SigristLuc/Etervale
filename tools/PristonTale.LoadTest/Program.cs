@@ -286,6 +286,7 @@ internal static class Bot
             {
                 Interlocked.Increment(ref stats.Updates);
                 world.Apply(update, stats);
+                play.Recycle(update);
             }
         }
         catch (Exception ex) when (ex is OperationCanceledException or IOException)
@@ -360,8 +361,9 @@ internal sealed class BotWorld(ulong self)
                 }
             }
 
-            foreach (var state in update.States)
+            for (var index = 0; index < update.States.Count; index++)
             {
+                var state = update.States[index];
                 if (state.EntityId == self)
                 {
                     Self = state.Position;

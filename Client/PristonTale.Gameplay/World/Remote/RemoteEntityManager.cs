@@ -1,5 +1,6 @@
 using PristonTale.Client.Net.Presence;
 using PristonTale.Client.Net.WorldCatalog;
+using PristonTale.Engine3D;
 using PristonTale.Engine3D.Diagnostics;
 using PristonTale.Engine3D.Formats;
 using PristonTale.Engine3D.Rendering;
@@ -100,7 +101,12 @@ public sealed partial class RemoteEntityManager
         }
     }
 
-    public void Apply(PresenceUpdate update)
+    public void Apply(PresenceUpdate update) => Apply(update, mirror: false);
+
+    // An update as the server sends it: positions and facings in its space, mirrored into the world's as they are read.
+    public void ApplyServer(PresenceUpdate update) => Apply(update, mirror: true);
+
+    private void Apply(PresenceUpdate update, bool mirror)
     {
         if (update.ServerTimeMs is { } serverTime)
         {
@@ -108,8 +114,9 @@ public sealed partial class RemoteEntityManager
         }
 
         var eventTime = _clock.Stamp(update.ServerTimeMs);
-        foreach (var spawn in update.Spawns)
+        foreach (var received in update.Spawns)
         {
+            var spawn = mirror ? received with { Position = WorldSpace.Mirror(received.Position), Facing = WorldSpace.MirrorFacing(received.Facing) } : received;
             _collisionRoster.Spawn(spawn);
             ApplySpawn(spawn);
             if (_entities.TryGetValue(spawn.EntityId, out var entity))
@@ -118,10 +125,16 @@ public sealed partial class RemoteEntityManager
             }
         }
 
-        foreach (var state in update.States)
+        for (var index = 0; index < update.States.Count; index++)
         {
-            _collisionRoster.Update(state);
-            ApplyState(state);
+            var state = update.States[index];
+            if (mirror)
+            {
+                state = state with { Position = WorldSpace.Mirror(state.Position), Facing = WorldSpace.MirrorFacing(state.Facing) };
+            }
+
+            _collisionRoster.Update(in state);
+            ApplyState(in state);
         }
 
         foreach (var combatEvent in update.Events)
@@ -356,7 +369,7 @@ public sealed partial class RemoteEntityManager
         _entities[spawn.EntityId] = monster;
     }
 
-    private void ApplyState(EntityStateInfo state)
+    private void ApplyState(in EntityStateInfo state)
     {
         if (state.EntityId == _selfEntityId && _selfEntityId != 0)
         {
