@@ -32,7 +32,7 @@ public readonly record struct HudPlacement(HudPlacementKind Kind, Rectangle High
 
 // The original's item colours: light blue where the item lands, white on the item it would pick up in exchange (or join),
 // red where it is refused or for an item the character cannot use; the item under the pointer, nothing carried, is
-// yellow. A carried item stays faint where it lies until it is set down.
+// yellow. Carried is the faint tint of an item another window holds: the warehouse's carried item, a shop's withheld one.
 public static class HudPlacementColors
 {
     public static readonly Color Fits = Color.FromNonPremultiplied(160, 235, 255, 128);

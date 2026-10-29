@@ -423,7 +423,8 @@ totals.
 - `InventoryAction.Swap` sets an item down over exactly one other bag item (`Inventory.TrySwap`), which moves to where
   the first one was, or to the first free space; anything else refuses it.
 - The two sides (`PlayerCharacter.Sides.cs`), as the original's E and W keys: a second bag page (`HiddenBag`, swapped
-  whole with `Inventory` by `SwitchBagPage`; `BagPage` 0 A, 1 B) and a second weapon and off-hand pair (`StoredWeapon`,
+  whole with `Inventory` by `SwitchBagPage`, which also takes the item on the cursor, when the command names one, to the
+  page shown's first free cells and is refused without room there; `BagPage` 0 A, 1 B) and a second weapon and off-hand pair (`StoredWeapon`,
   `StoredOffHand`, swapped with the held pair by `SwitchWeaponSet`; `WeaponSet`). Hidden items are still owned (weight,
   `FindOwnedItem`) and saved: `SavedItem.Hidden` and `SavedItems.ActiveSide` (the shown page in the inventory list, the
   held pair in the equipment list). Commands act on the shown page only; owner views carry `BagPage` and `WeaponSet`.

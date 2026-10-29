@@ -19,7 +19,8 @@ public enum InventoryAction
     BeltPut,
     // A belt box's potions into the bag at Destination (-1: wherever they fit).
     BeltTake,
-    // Shows bag page Destination (0 A, 1 B) and hides the other (PlayerCharacter.TrySwitchBagPage); ItemId is unused.
+    // Shows bag page Destination (0 A, 1 B) and hides the other (PlayerCharacter.TrySwitchBagPage); ItemId, when set, is the
+    // bag item on the cursor, which goes along to the page shown.
     SwitchBagPage,
     // Holds weapon pair Destination (0 A, 1 B) and stores the other (PlayerCharacter.TrySwitchWeaponSet); ItemId is unused.
     SwitchWeaponSet,
@@ -64,7 +65,7 @@ public static class InventoryCommands
             InventoryAction.BeltPut => character.TryPutOnBelt(command.ItemId, command.Destination, command.Count),
             InventoryAction.StoreQuestItem => character.TryStoreQuestItem(command.ItemId),
             InventoryAction.BeltTake => character.TryTakeFromBelt(command.ItemId, command.Destination),
-            InventoryAction.SwitchBagPage => character.TrySwitchBagPage(command.Destination),
+            InventoryAction.SwitchBagPage => character.TrySwitchBagPage(command.Destination, command.ItemId),
             InventoryAction.SwitchWeaponSet => Fitted(character, character.TrySwitchWeaponSet(command.Destination)),
             _ => false
         };

@@ -19,7 +19,9 @@ public sealed class HudInventoryPanel
     private string _weight = "";
     private OwnerState _state;
     private OwnedItemView _hovered;
-    private OwnedItemView _dragged;
+    // The item on the cursor or just set down (HudInventoryController.Held) and where it is drawn.
+    private OwnedItemView _held;
+    private Point _heldAt;
     // What the window colours on the belt boxes, drawn over the bottom bar by DrawBelt: the hovered potion, the landing box.
     private Rectangle _beltSelection;
     private (Rectangle Bounds, Color Color) _beltPlacement;
@@ -37,7 +39,7 @@ public sealed class HudInventoryPanel
         Point pointer, bool interactive, OwnedItemView stored = null)
     {
         _hovered = null;
-        _dragged = null;
+        _held = null;
         _beltSelection = Rectangle.Empty;
         _beltPlacement = default;
         painter.Sprite(HudArt.Inventory, origin.X, origin.Y + 400);
@@ -127,12 +129,13 @@ public sealed class HudInventoryPanel
         for (var index = 0; index < items.Count; index++)
         {
             var item = items[index];
-            if (item.BeltBox >= 0 || !HudInventoryLayout.Shows(item, boxShown))
+            // The carried item is on the cursor only: its place stays empty until it is set down, as in the original.
+            if (item.BeltBox >= 0 || !HudInventoryLayout.Shows(item, boxShown) || item.InstanceId == controller.Held)
             {
                 continue;
             }
 
-            var tint = controller.Dragging == item.InstanceId || Withheld?.Invoke(item.InstanceId) == true ? HudPlacementColors.Carried : Color.White;
+            var tint = Withheld?.Invoke(item.InstanceId) == true ? HudPlacementColors.Carried : Color.White;
             _counts.Draw(painter, icons, item, HudInventoryLayout.Bounds(origin, item), tint);
             if (item.InstanceId == shadow?.InstanceId)
             {
@@ -146,7 +149,8 @@ public sealed class HudInventoryPanel
         var weight = HudInventoryLayout.Weight(origin);
         painter.TextCentered(_weight, weight.Left, weight.Right, weight.Y);
         _hovered = hovered;
-        _dragged = dragged;
+        _held = OwnedItemView.Find(state.Items, controller.Held);
+        _heldAt = controller.HeldAt(pointer);
     }
 
     // While a puzzle piece or lucky bag is carried, the board backdrop covers the last four columns' top four rows; a
@@ -177,9 +181,9 @@ public sealed class HudInventoryPanel
     // Drawn after the bottom bar so the held item and the item box stay on top, as the original draws items after the interface.
     public void DrawOverlay(HudPainter painter, HudLayout layout, HudItemIcons icons, Point pointer)
     {
-        if (_dragged is not null)
+        if (_held is not null)
         {
-            _counts.Draw(painter, icons, _dragged, HudGridPlacement.Frame(_dragged, pointer), Color.White);
+            _counts.Draw(painter, icons, _held, HudGridPlacement.Frame(_held, _heldAt), Color.White);
         }
         else if (_hovered is not null)
         {
@@ -215,9 +219,9 @@ public sealed class HudInventoryPanel
 
         foreach (var item in state.Items)
         {
-            if (item.BeltBox >= 0)
+            if (item.BeltBox >= 0 && item.InstanceId != controller.Held)
             {
-                _counts.Draw(painter, icons, item, HudInventoryLayout.Bounds(origin, item), controller.Dragging == item.InstanceId ? HudPlacementColors.Carried : Color.White);
+                _counts.Draw(painter, icons, item, HudInventoryLayout.Bounds(origin, item), Color.White);
             }
         }
 
