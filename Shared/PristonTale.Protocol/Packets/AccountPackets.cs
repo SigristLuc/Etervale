@@ -6,11 +6,11 @@ namespace PristonTale.Protocol.Packets;
 
 // The version of this protocol. A client older than the server's minimum is refused at login.
 // The protocol a client speaks, sent in its login; a server refuses a client older than its Minimum as outdated. A change
-// of any message's layout raises both: 2 is the presence entries of version 2.
+// of any message's layout raises both: 2 is the presence entries of version 2, 3 the compact event lists.
 public static class ProtocolVersion
 {
-    public const uint Current = 2;
-    public const uint Minimum = 2;
+    public const uint Current = 3;
+    public const uint Minimum = 3;
 }
 
 // Account messages: the server greets every connection, the client logs in, manages its characters and keeps the

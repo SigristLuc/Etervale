@@ -215,31 +215,30 @@ internal static class SkillSystemTests
         Assert.True(SkillCastResultPacket.Read(buffer.AsSpan(0, result.Write(buffer))) == result, "cast result round trip");
         SkillEventEntry[] events =
         [
-            new(1, 2, 0x08010004, SkillEventPhase.Start, 4, SkillEventFlags.Area | SkillEventFlags.Projectile, 714f, 414f, 10, 20, 30, 1024, 0, 76),
-            new(1, 2, 0x08010004, SkillEventPhase.Impact, 4, SkillEventFlags.Area, 0f, 0f, 10, 20, 30, 1024, 3, 76)
+            new(1, 2, 0x08010004, SkillEventPhase.Start, 4, SkillEventFlags.Area | SkillEventFlags.Projectile, 714f, 414.5f, 320, 640, -960, 1024, 0, 76),
+            new(1, 2, 0x08010004, SkillEventPhase.Impact, 4, SkillEventFlags.Area, 0f, 0f, 320, 640, -960, 1024, 3, 76)
         ];
-        var length = SkillEventList.Write(buffer, events);
-        Assert.True(SkillEventList.Read(buffer.AsSpan(0, length)).SequenceEqual(events), "skill events round trip");
+        var length = SkillEventList.Write(buffer, events, NoEventHandles.Instance, out _);
+        Assert.True(SkillEventList.Read(buffer.AsSpan(0, length), NoEventHandles.Instance).SequenceEqual(events), "skill events round trip");
         StatusEffectEntry[] statuses =
         [
             new(2, 1, 0x06010001, StatusEffectOp.Add, 1, (byte)EffectSourceKind.PlayerSkill, (byte)ControlFlags.Stun, StatusEffectFlags.Harmful, 10000, 10000, 0),
             new(1, 0, 0x0A000001, StatusEffectOp.Remove, 1, (byte)EffectSourceKind.Item, 0, StatusEffectFlags.Permanent, 0, 0, 5)
         ];
-        length = StatusEffectList.Write(buffer, statuses);
-        Assert.True(StatusEffectList.Read(buffer.AsSpan(0, length)).SequenceEqual(statuses), "status round trip");
+        length = StatusEffectList.Write(buffer, statuses, NoEventHandles.Instance, out _);
+        Assert.True(StatusEffectList.Read(buffer.AsSpan(0, length), NoEventHandles.Instance).SequenceEqual(statuses), "status round trip");
         var cooldowns = new SkillCooldownsPacket(55, [new SkillCooldownEntry(0x08010002, 1000, 17150)]);
         var read = SkillCooldownsPacket.Read(buffer.AsSpan(0, cooldowns.Write(buffer)));
         Assert.True(read.ServerTick == 55 && read.Cooldowns.SequenceEqual(cooldowns.Cooldowns), "cooldowns round trip");
 
-        length = SkillEventList.Write(buffer, events);
-        buffer[16 + 20] = 9;
-        Assert.Throws<InvalidDataException>(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray()), "a malformed SkillEventList was read");
-        length = StatusEffectList.Write(buffer, statuses);
-        BitConverter.TryWriteBytes(buffer.AsSpan(16 + 32), 20000);
-        Assert.Throws<InvalidDataException>(() => StatusEffectList.Read(buffer.AsSpan(0, length).ToArray()), "a malformed StatusEffectList was read");
-        length = SkillEventList.Write(buffer, events);
-        BitConverter.TryWriteBytes(buffer.AsSpan(12), 3);
-        Assert.Throws<InvalidDataException>(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray()), "a malformed SkillEventList was read");
+        length = SkillEventList.Write(buffer, events, NoEventHandles.Instance, out _);
+        buffer[EventWire.HeaderSize] = 9;
+        Assert.Throws<InvalidDataException>(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray(), NoEventHandles.Instance), "a malformed SkillEventList was read");
+        length = StatusEffectList.Write(buffer, [statuses[0] with { RemainingMs = 20000 }], NoEventHandles.Instance, out _);
+        Assert.Throws<InvalidDataException>(() => StatusEffectList.Read(buffer.AsSpan(0, length).ToArray(), NoEventHandles.Instance), "a malformed StatusEffectList was read");
+        length = SkillEventList.Write(buffer, events, NoEventHandles.Instance, out _);
+        BitConverter.TryWriteBytes(buffer.AsSpan(EventWire.HeaderSize - 2), (ushort)3);
+        Assert.Throws<InvalidDataException>(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray(), NoEventHandles.Instance), "a malformed SkillEventList was read");
         return Task.CompletedTask;
     }
 

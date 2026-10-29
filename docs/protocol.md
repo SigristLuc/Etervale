@@ -22,12 +22,13 @@ The codecs live in `Shared/PristonTale.Protocol`; the server edge is `Server/Pri
 | `Binary/PacketReader.cs`, `Binary/PacketWriter.cs` | Little-endian sequential reader/writer; the writer patches the size in `Finish()`. |
 | `Binary/Utf8Text.cs` | Text fields: `{uint16 ByteLength, UTF-8}`, cut at a whole character. |
 | `Binary/WireHeader.cs` | `{uint16 Version, uint16 Flags = 0}` body header: `Write(version)`, `Read(name, minimumVersion = 1)` (newer versions append fields). Domain helpers (`NpcWire.Header`, `ItemUseWire.ReadHeader`...) delegate to it. |
-| `Binary/WireList.cs` | `IWireEntry<T>` (static `Size`, `Read`, instance `Write`) and `WireList`: `{int32 Count, entries}` with the entries filling the rest exactly; every fixed-size list (combat, skill and status events, cooldowns, timers, item effects, shop quotes, item details) uses it. |
+| `Binary/WireList.cs` | `IWireEntry<T>` (static `Size`, `Read`, instance `Write`) and `WireList`: `{int32 Count, entries}` with the entries filling the rest exactly; every fixed-size list (cooldowns, timers, item effects, shop quotes, item details) uses it. |
 | `Packets/IFramePacket.cs` | `IFramePacket`: a message that writes itself as one frame; every client-to-server message implements it. |
 | `Packets/AccountPackets.cs` | `ProtocolVersion`, `ServerHello`, `Login`/`LoginResult`, `CharacterList`, `CharacterCommand`/`CharacterResult`, `Heartbeat`. |
 | `Packets/PlayerActionPackets.cs` | `MovementReport`, `AttackRequest` and `FieldWarp`. |
 | `Packets/WingGatePackets.cs` | `WingGateRequest` and `WingGateResult`. |
 | `Packets/PresencePackets.cs` | `PresenceEntries`: `VarInt`, `PresencePoint`, `PresenceFields`, `PresenceEntry`, `PresenceWire` (entry codec), writer and reader. |
+| `Packets/EventWire.cs` | What the compact combat, skill and status event lists share: entities by presence handle (`IEventHandleWriter`, `IEventHandleReader`), times, points, header and batching. |
 | `Packets/WorldEntryPackets.cs` | `EnterWorld`, `WorldEntry`, `JoinWorld`, `WorldJoined` and `LeaveWorld`. |
 | `Packets/GroundItemPackets.cs` | `GroundItems` and `GroundItemsRemoved`. |
 | `Packets/ChatPackets.cs` | `ChatSay` (typed line), `ChatLine` (received line, kind `ChatKind` from Contracts). |
@@ -90,7 +91,7 @@ Bodies start with `uint16 Version = 1`; text is UTF-8 with a `uint16` byte lengt
 | Step | Packet | Notes |
 | --- | --- | --- |
 | Connect | S→C `ServerHello` (`0x45540F00`) | `{uint16 Version, uint16 0, uint32 Protocol, MinimumProtocol, int32 FullPlayers, text ServerName (32 B)}`: `FullPlayers` = players in the world when the player limit (`server.max_users` or `/user_limit`) is reached, else 0 (then only game masters may log in); `ServerName` is `server.name`. |
-| Log in | C→S `Login` (`0x45540F01`) | `{uint16 Version, uint16 0, uint32 Protocol, text Account (64 B), text Password (128 B)}`. `Protocol` is `ProtocolVersion.Current` (2); a change of any message's layout raises it and `ProtocolVersion.Minimum`, so a client built before it is refused instead of misreading the world. |
+| Log in | C→S `Login` (`0x45540F01`) | `{uint16 Version, uint16 0, uint32 Protocol, text Account (64 B), text Password (128 B)}`. `Protocol` is `ProtocolVersion.Current` (3); a change of any message's layout raises it and `ProtocolVersion.Minimum`, so a client built before it is refused instead of misreading the world. |
 | Result | S→C `CharacterList` (`0x45540F03`), then `LoginResult` (`0x45540F02`) | `LoginResult` = `{uint16 Version, uint8 Status, uint8 0}`: 0 ok, 1 bad credentials (also unknown accounts), 2 account blocked, 3 already logged in on this connection, 4 busy (throttled, full or storage failure), 5 client protocol older than the server's minimum. A failed login sends no list. |
 | Character list | S→C `CharacterList` | `{uint16 Version, uint16 0, int32 Count (at most 6)}`, then `{text Name, uint32 Class (PlayerClass), int32 Level, uint8 Tier, Face, Hair, Flags (1 in a village), uint32 WeaponCode, ArmorCode, OffHandCode, uint32 0}`. |
 | Create, delete | C→S `CharacterCommand` (`0x45540F04`), S→C `CharacterResult` (`0x45540F05`) | Command `{uint16 Version, uint8 Action (1 create, 2 delete), uint8 0, int32 Class (PlayerClass), FaceIndex, text Name}`; result `{uint16 Version, uint8 Action, uint8 Ok, int32 Failure (CreateCharacterFailure), text Name}`. |
@@ -213,7 +214,7 @@ Every message code has the high word `0x4554` ("ET"); every message keeps the `{
 
 ### Owner, inventory and combat layouts
 
-These bodies have no version header.
+These bodies have no version header, except the combat event list's (see [Event lists](#event-lists)).
 
 | Message | Layout after the header | Size |
 | --- | --- | --- |
@@ -222,7 +223,7 @@ These bodies have no version header.
 | `InventoryResult` / `ProgressionResult` | `Guid OperationId, int32 Ok, int64 Revision, text Message (128 B)` | 38 + text |
 | `Inventory` | `int64 Revision, int32 Part, Parts, Count`, then items `{Guid, uint Code, int32 Kind, Count, Anchor, Slot, int16 Width, Height, text Name (64 B)}` (at most 64 per part) | 28 + up to 106n |
 | `Skills` | `int64 Revision, int32 Count`, then `{uint Code, int32 Rank}` | 20 + 8n |
-| `CombatEvents` | `int32 Count`, then entries of 56 bytes | 12 + 56n |
+| `CombatEvents` | `uint16 Version (1), uint16 Count`, then compact entries (see [Event lists](#event-lists)) | 12 + 4 to 65 per entry |
 | `RemoveObjects` | `int32 Count`, then `uint64 EntityId` | 12 + 8n |
 | `GroundItems` | `uint16 Version (1), uint16 Flags, int32 Count`, then `{Guid Id, uint32 ItemCode, uint8 Flags (1 gold), uint8 0, uint16 0, int32 Amount, X, Y, Z, text Name (64 B)}` (1 to 64) | 16 + up to 106n |
 | `GroundItemsRemoved` | `uint16 Version (1), uint16 Flags, int32 Count`, then `Guid Id` | 16 + 16n |
@@ -240,8 +241,9 @@ MoveSpeed, LifeRegen, ManaRegen, StaminaRegen, MagicMastery, SpecAbsorb, SpecMov
 SpecLifeRegen, SpecManaRegen, SpecStaminaRegen, int16 Resistances[8]}` (`ItemDetailEntry`). The client attaches the
 entries to the inventory of the same revision (`OwnedItemView.Details`) and folds the status into the owner state.
 
-A combat entry is `{uint64 Attacker, Target, byte Kind, byte Flags (1 critical, 2 killed, 4 monster skill), int16 Clip,
-float DurationMs, HitAtMs, int Damage, Resources, SoundCode, X, Y, Z, int16 Angle, int16 0}`. `Kind` is
+A combat entry is `{uint8 Kind, uint8 Flags (1 critical, 2 killed, 4 monster skill), uint8 Fields, entity Attacker}`, then
+what `Fields` names in its bit order: 1 entity Target, 2 time DurationMs and HitAtMs, 4 varint Damage, 8 varint Resources,
+16 varint SoundCode, 32 point X, Y, Z, 64 varint Angle, 128 varint Clip (absent: Target 0, times 0, values 0, Clip -1). `Kind` is
 `CombatEventKind` (Contracts): 1 swing begin, 2 hit, 3 potion begin, 4 potion applied, 5 monster skill impact, 6 heal (amount
 in `Damage`), 7 evade, 8 revive (returned life in `Damage`), 9 block (a player blocked a monster's normal attack), 10 miss (a player's swing missed; its
 weapon's miss sound plays), 11 level up (a player gained a level; everyone near plays the level-up burst), 12 skill learned
@@ -253,16 +255,18 @@ motions `Eat` and `Warp` in its presence entries.
 
 ### Skills and status effects
 
-Every skill message body starts with `{uint16 Version, uint16 Flags}` (version 1, flags 0, unless stated); readers
-reject version 0, `SkillCast` rejects versions before 3 (the 32-bit target), and `SkillCast` and `SkillCastResult`
-accept newer versions that append fields (the list messages check their length exactly). Entity ids are 64-bit. Positions are fixed point (×256, `GameUnits`) and angles 4096 per turn.
+Every skill message body but the event lists starts with `{uint16 Version, uint16 Flags}` (version 1, flags 0, unless
+stated); readers reject version 0, `SkillCast` rejects versions before 3 (the 32-bit target), and `SkillCast` and
+`SkillCastResult` accept newer versions that append fields (the cooldown list checks its length exactly). The event
+lists (`SkillEvents`, `StatusEffects`) follow [Event lists](#event-lists). Entity ids are 64-bit; the event lists name
+entities by presence handle. Positions are fixed point (×256, `GameUnits`) and angles 4096 per turn.
 
 | Message | Layout after the header | Size |
 | --- | --- | --- |
 | `SkillCast` (version 3) | `uint Sequence, uint SkillCode, uint64 TargetId, int X, Y, Z, int16 Angle, int16 0, uint ClientTimeMs` | 48 |
 | `SkillCastResult` | `uint Sequence, uint SkillCode, byte Status, byte Rank, int16 0, uint CooldownMs, uint RemainingMs, int Mana, int Stamina, uint ServerTick` | 44 |
-| `SkillEvents` (version 3) | `int Count`, then `Count` skill entries of 56 bytes | 16 + 56n |
-| `StatusEffects` (version 2) | `int Count`, then `Count` status entries of 40 bytes | 16 + 40n |
+| `SkillEvents` (version 4) | `uint16 Version, uint16 Count`, then compact skill entries ([Event lists](#event-lists)) | 12 + 9 to 62 per entry |
+| `StatusEffects` (version 3) | `uint16 Version, uint16 Count`, then compact status entries ([Event lists](#event-lists)) | 12 + 7 to 49 per entry |
 | `SkillCooldowns` | `uint ServerTick, int Count`, then `{uint SkillCode, uint RemainingMs, uint DurationMs}` (at most 256) | 20 + 12n |
 
 `SkillCast` flags carry the command (`SkillCastCommand`): 0 a new cast, 1 the release of the held charge of that skill, 2
@@ -270,13 +274,31 @@ and 3 order the caster's summon of that skill to fight only the caster's target 
 above 3 fail to decode. A zero `X, Y, Z` means "no ground point". The server
 writes 0 in `SkillCastResult.ServerTick`.
 
-A skill entry is `{uint64 Caster, Target, uint SkillCode, byte Phase (1 start, 2 impact, 3 cancel, 4 release), byte Rank,
-uint16 Flags (1 area, 2 projectile, 4 self, 8 chain link from X, Y, Z to Target, 16 familiar strike, 32 support reaching
-another player, 64 counter strike, 128 full charge, bits 8-9 the resolution mode drawn for the cast), float DurationMs,
-HitAtMs, int X, Y, Z, int16 Angle, uint16 TargetCount, int Radius, int 0}`. A release entry gives the shortened
-remaining motion in `DurationMs` and the time to its next hit in `HitAtMs`. A status entry is `{uint64 Entity, Source,
-uint StatusCode, byte Op (1 add, 2 refresh, 3 remove, 4 tick), byte Stacks, byte SourceKind, byte Control, uint16 Flags (1
-harmful, 2 permanent), int16 0, int DurationMs, RemainingMs, Value}`. Permanent entries carry zero timers.
+A skill entry is `{uint8 Phase (1 start, 2 impact, 3 cancel, 4 release), uint8 Fields, varuint Flags (1 area, 2
+projectile, 4 self, 8 chain link from X, Y, Z to Target, 16 familiar strike, 32 support reaching another player, 64
+counter strike, 128 full charge, bits 8-9 the resolution mode drawn for the cast), uint32 SkillCode, uint8 Rank, entity
+Caster}`, then what `Fields` names: 1 entity Target, 2 time DurationMs and HitAtMs, 4 point X, Y, Z, 8 varint Angle, 16
+varuint TargetCount, 32 varint Radius. A release entry gives the shortened remaining motion in `DurationMs` and the time
+to its next hit in `HitAtMs`. A status entry is `{uint8 Op (1 add, 2 refresh, 3 remove, 4 tick), uint8 Fields, uint32
+StatusCode, entity Entity}`, then what `Fields` names: 1 entity Source, 2 uint8 Stacks, 4 uint8 SourceKind, 8 uint8
+Control, 16 varuint Flags (1 harmful, 2 permanent), 32 varuint DurationMs, 64 varuint RemainingMs, 128 varint Value.
+Permanent entries carry zero timers.
+
+### Event lists
+
+`CombatEvents`, `SkillEvents` and `StatusEffects` share one compact form (`EventWire`): `{size, code, uint16 Version,
+uint16 Count}` and `Count` entries that fill the message exactly; another version is refused. An entry carries only the
+values its event has, named by a `Fields` byte.
+
+- An entity is a varuint: 0 none, 1 followed by the varuint entity id, n >= 2 the receiver's presence handle n - 2 (the
+  one its `PresenceEntries` spawn bound). The server names by handle every entity it has shown the receiver and by id
+  any other; spawns and removals reach the receiver before the events of the same tick, so the reader resolves a
+  handle against the same table the writer used, and an unknown handle is a malformed message.
+- A time is a varuint in sixteenths of a millisecond.
+- A point is the entry's fixed-point (x256) X, Y, Z held at 1/8 of a unit as three int24, like `PresencePoint`.
+
+A message holds the entries that fit one frame; the next message continues. A hit by a shown attacker on the receiver
+takes 6 to 8 bytes. A skill event's `Fields` has no bits above 32; a reader refuses them.
 
 The client sends only the skill, the target and its own position. The server takes rank, costs, range, facing and timing
 from its own state and the class skill files (`Shared/PristonTale.Simulation/Skills/Data/Classes/<Class>.json`) and
@@ -667,8 +689,8 @@ when the received version has it.
 - Text on the wire is UTF-8, but the HUD font draws only its own glyph ranges; the chat input refuses characters the
   font cannot draw (`HudPainter.CanDraw`).
 - `PacketReader` accepts trailing bytes, so an old reader keeps working when a fixed-size body grows. List bodies
-  (`SkillEvents`, `StatusEffects`, `SkillCooldowns`, `CombatEvents`, `Inventory`, ...) check `Remaining == count *
-  EntrySize` exactly, so appending anything to them breaks every deployed reader; make readers version-aware first or
+  (`SkillCooldowns`, `Inventory`, ...) check `Remaining == count * EntrySize` exactly, and the event lists that their
+  entries end the message, so appending anything to them breaks every deployed reader; make readers version-aware first or
   add a new opcode.
 - A malformed packet that makes a `Read` throw closes the whole connection (`protocol: ...`).
 - Combat, skill and status codes (`CombatEventKind`, `SkillCastVerdict`, `SkillCastCommand`, `SkillEventPhase`,

@@ -27,19 +27,19 @@ internal static class SkillWireTests
         Assert.True(SkillCastResultPacket.Read(buffer.AsSpan(0, result.Write(buffer))) == result, "already-active result round trip");
         SkillEventEntry[] events =
         [
-            new(1, 5, 0x07080003, SkillEventPhase.Impact, 3, SkillEventFlags.Chain, 0f, 0f, 100, 0, 0, 0, 0, 120),
+            new(1, 5, 0x07080003, SkillEventPhase.Impact, 3, SkillEventFlags.Chain, 0f, 0f, 128, 0, 0, 0, 0, 120),
             new(1, 6, 0x08040004, SkillEventPhase.Impact, 1, SkillEventFlags.Companion, 0f, 0f, 0, 0, 0, 0, 0, 0),
             new(1, 2, 0x07040001, SkillEventPhase.Impact, 10, SkillEventFlags.Ally | SkillEventFlags.SelfCast, 0f, 0f, 0, 0, 0, 0, 0, 0)
         ];
-        var length = SkillEventList.Write(buffer, events);
-        Assert.True(SkillEventList.Read(buffer.AsSpan(0, length)).SequenceEqual(events), "chain, companion and ally events round trip");
+        var length = SkillEventList.Write(buffer, events, NoEventHandles.Instance, out _);
+        Assert.True(SkillEventList.Read(buffer.AsSpan(0, length), NoEventHandles.Instance).SequenceEqual(events), "chain, companion and ally events round trip");
         CombatEventEntry[] combat =
         [
             new(4, 1, CombatEventKind.Evade, 0, 0f, 0f, 0, 0, 0, 0, 0, 0, 0),
-            new(1, 2, CombatEventKind.Revive, 0, 0f, 0f, 840, 0, 0, 100, 0, -200, 0)
+            new(1, 2, CombatEventKind.Revive, 0, 0f, 0f, 840, 0, 0, 128, 0, -224, 0)
         ];
-        length = CombatEventList.Write(buffer, combat);
-        Assert.True(CombatEventList.Read(buffer.AsSpan(0, length)).SequenceEqual(combat), "evade and revive events round trip");
+        length = CombatEventList.Write(buffer, combat, NoEventHandles.Instance, out _);
+        Assert.True(CombatEventList.Read(buffer.AsSpan(0, length), NoEventHandles.Instance).SequenceEqual(combat), "evade and revive events round trip");
         return Task.CompletedTask;
     }
 
@@ -68,10 +68,10 @@ internal static class SkillWireTests
             new(1, 6, 0x01040004, SkillEventPhase.Impact, 3, SkillEventFlags.Counter, 0f, 0f, 0, 0, 0, 0, 1, 0),
             new(1, 6, 0x04040001, SkillEventPhase.Impact, 4, SkillEventFlags.Area | mode, 0f, 0f, 0, 0, 0, 0, 2, 75)
         ];
-        length = SkillEventList.Write(buffer, events);
-        Assert.True(SkillEventList.Read(buffer.AsSpan(0, length)).SequenceEqual(events), "release, charged, counter and mode events round trip");
-        buffer[16 + 20] = 5;
-        Assert.Throws<InvalidDataException>(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray()), "a malformed SkillEventList was read");
+        length = SkillEventList.Write(buffer, events, NoEventHandles.Instance, out _);
+        Assert.True(SkillEventList.Read(buffer.AsSpan(0, length), NoEventHandles.Instance).SequenceEqual(events), "release, charged, counter and mode events round trip");
+        buffer[EventWire.HeaderSize] = 5;
+        Assert.Throws<InvalidDataException>(() => SkillEventList.Read(buffer.AsSpan(0, length).ToArray(), NoEventHandles.Instance), "a malformed SkillEventList was read");
 
         var classes = new Simulation.Characters.CharacterClassRegistry();
         var character = classes.CreatePlayer(PlayerClass.Archer, "Tier", 80);

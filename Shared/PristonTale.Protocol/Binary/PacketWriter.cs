@@ -77,7 +77,7 @@ public ref struct PacketWriter
         _position += 16;
     }
 
-    public void Bytes(ReadOnlySpan<byte> value)
+    public void Bytes(scoped ReadOnlySpan<byte> value)
     {
         value.CopyTo(_buffer[_position..]);
         _position += value.Length;

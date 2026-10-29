@@ -9,6 +9,7 @@ namespace PristonTale.Protocol.Packets;
 // Little-endian base-128 integers: 7 bits per byte, low group first, high bit set on every byte but the last.
 public static class VarInt
 {
+    public const int MaxBytes16 = 3;
     public const int MaxBytes32 = 5;
     public const int MaxBytes64 = 10;
 
@@ -137,6 +138,7 @@ public readonly record struct PresenceEntry(
 // the world's +-1,000,000 units at 1/8 of a unit.
 public static class PresenceWire
 {
+    public const int Int24Bytes = 3;
     public const ushort Version = 2;
     public const int HeaderSize = 8 + 4 + 4 + 4;
     public const int FacingSteps = 256;
@@ -301,18 +303,18 @@ public static class PresenceWire
         (fields & field) != 0 ? VarInt.Write(destination, value) : 0;
 
     // The point is already within PresencePoint.Limit.
-    private static void WriteInt24(Span<byte> destination, ref int offset, int value)
+    internal static void WriteInt24(Span<byte> destination, ref int offset, int value)
     {
         destination[offset] = (byte)value;
         destination[offset + 1] = (byte)(value >> 8);
         destination[offset + 2] = (byte)(value >> 16);
-        offset += 3;
+        offset += Int24Bytes;
     }
 
-    private static int ReadInt24(ReadOnlySpan<byte> source, ref int offset)
+    internal static int ReadInt24(ReadOnlySpan<byte> source, ref int offset)
     {
         var value = source[offset] | source[offset + 1] << 8 | (sbyte)source[offset + 2] << 16;
-        offset += 3;
+        offset += Int24Bytes;
         return value;
     }
 

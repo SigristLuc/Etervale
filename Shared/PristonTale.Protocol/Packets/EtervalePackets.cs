@@ -271,8 +271,7 @@ public static class CombatEventFlags
     public const byte Skill = 4;
 }
 
-// {uint64 Attacker, Target, uint8 Kind, Flags, int16 Clip, float32 DurationMs, HitAtMs, int32 Damage, Resources, SoundCode,
-// X, Y, Z, int16 Angle, int16 0}.
+// A resolved combat event. Positions are fixed point (x256); the wire holds them at 1/8 of a unit.
 public readonly record struct CombatEventEntry(
     ulong Attacker,
     ulong Target,
@@ -287,66 +286,117 @@ public readonly record struct CombatEventEntry(
     int Y,
     int Z,
     short Angle,
-    short Clip = -1) : IWireEntry<CombatEventEntry>
+    short Clip = -1) : IEventEntry<CombatEventEntry>
 {
-    public const int Size = 56;
+    // {uint8 Kind, Flags, Fields, entity Attacker}, then what Fields names, in its bit order (EventWire).
+    public const int MinSize = 4;
+    public const int MaxSize = 3 + EventWire.MaxEntityBytes * 2 + EventWire.MaxTimeBytes * 2 + VarInt.MaxBytes32 * 3 + EventWire.PointBytes
+        + VarInt.MaxBytes16 * 2;
 
-    static int IWireEntry<CombatEventEntry>.Size => Size;
+    static int IEventEntry<CombatEventEntry>.MinSize => MinSize;
 
-    public void Write(ref PacketWriter writer)
+    static int IEventEntry<CombatEventEntry>.MaxSize => MaxSize;
+
+    [Flags]
+    private enum Fields : byte
     {
-        writer.UInt64(Attacker);
-        writer.UInt64(Target);
+        Target = 1,
+        Timing = 2,
+        Damage = 4,
+        Resources = 8,
+        Sound = 16,
+        Point = 32,
+        Angle = 64,
+        Clip = 128
+    }
+
+    public void Write(ref PacketWriter writer, IEventHandleWriter handles)
+    {
+        var fields = (Target != 0 ? Fields.Target : 0)
+            | (DurationMs != 0f || HitAtMs != 0f ? Fields.Timing : 0)
+            | (Damage != 0 ? Fields.Damage : 0)
+            | (Resources != 0 ? Fields.Resources : 0)
+            | (SoundCode != 0 ? Fields.Sound : 0)
+            | (X != 0 || Y != 0 || Z != 0 ? Fields.Point : 0)
+            | (Angle != 0 ? Fields.Angle : 0)
+            | (Clip != -1 ? Fields.Clip : 0);
         writer.Byte((byte)Kind);
         writer.Byte(Flags);
-        writer.Int16(Clip);
-        writer.Single(DurationMs);
-        writer.Single(HitAtMs);
-        writer.Int32(Damage);
-        writer.Int32(Resources);
-        writer.Int32(SoundCode);
-        writer.Int32(X);
-        writer.Int32(Y);
-        writer.Int32(Z);
-        writer.Int16(Angle);
-        writer.Zero(2);
+        writer.Byte((byte)fields);
+        EventWire.WriteEntity(ref writer, Attacker, handles);
+        if ((fields & Fields.Target) != 0)
+        {
+            EventWire.WriteEntity(ref writer, Target, handles);
+        }
+
+        if ((fields & Fields.Timing) != 0)
+        {
+            EventWire.WriteTime(ref writer, DurationMs);
+            EventWire.WriteTime(ref writer, HitAtMs);
+        }
+
+        if ((fields & Fields.Damage) != 0)
+        {
+            writer.VarInt(Damage);
+        }
+
+        if ((fields & Fields.Resources) != 0)
+        {
+            writer.VarInt(Resources);
+        }
+
+        if ((fields & Fields.Sound) != 0)
+        {
+            writer.VarInt(SoundCode);
+        }
+
+        if ((fields & Fields.Point) != 0)
+        {
+            EventWire.WritePoint(ref writer, X, Y, Z);
+        }
+
+        if ((fields & Fields.Angle) != 0)
+        {
+            writer.VarInt(Angle);
+        }
+
+        if ((fields & Fields.Clip) != 0)
+        {
+            writer.VarInt(Clip);
+        }
     }
 
-    public static CombatEventEntry Read(ref PacketReader reader)
+    public static CombatEventEntry Read(ref PacketReader reader, IEventHandleReader handles)
     {
-        var attacker = reader.UInt64();
-        var target = reader.UInt64();
         var kind = (CombatEventKind)reader.Byte();
         var flags = reader.Byte();
-        var clip = reader.Int16();
-        var entry = new CombatEventEntry(attacker, target, kind, flags, reader.Single(), reader.Single(), reader.Int32(), reader.Int32(),
-            reader.Int32(), reader.Int32(), reader.Int32(), reader.Int32(), reader.Int16(), clip);
-        reader.Skip(2);
-        return entry;
+        var fields = (Fields)reader.Byte();
+        var attacker = EventWire.ReadEntity(ref reader, handles);
+        var target = (fields & Fields.Target) != 0 ? EventWire.ReadEntity(ref reader, handles) : 0;
+        var (duration, hitAt) = (fields & Fields.Timing) != 0 ? (EventWire.ReadTime(ref reader), EventWire.ReadTime(ref reader)) : (0f, 0f);
+        var damage = (fields & Fields.Damage) != 0 ? reader.VarInt() : 0;
+        var resources = (fields & Fields.Resources) != 0 ? reader.VarInt() : 0;
+        var sound = (fields & Fields.Sound) != 0 ? reader.VarInt() : 0;
+        var (x, y, z) = (fields & Fields.Point) != 0 ? EventWire.ReadPoint(ref reader) : (0, 0, 0);
+        var angle = (fields & Fields.Angle) != 0 ? Short(reader.VarInt()) : (short)0;
+        var clip = (fields & Fields.Clip) != 0 ? Short(reader.VarInt()) : (short)-1;
+        return new CombatEventEntry(attacker, target, kind, flags, duration, hitAt, damage, resources, sound, x, y, z, angle, clip);
     }
+
+    private static short Short(int value) =>
+        value is >= short.MinValue and <= short.MaxValue ? (short)value : throw new InvalidDataException("Combat event value is out of range.");
 }
 
-// Resolved combat events ({size, code, Count, entries}); the original instead lets each client roll its own hits.
+// Resolved combat events (EventWire, version 1); the original instead lets each client roll its own hits.
 public static class CombatEventList
 {
-    public const int HeaderSize = 12;
-    public const int MaxEvents = (FrameCodec.MaxFrameSize - HeaderSize) / CombatEventEntry.Size;
+    public const ushort CurrentVersion = 1;
 
-    public static int SizeFor(int count) => HeaderSize + count * CombatEventEntry.Size;
+    public static int Write(Span<byte> destination, ReadOnlySpan<CombatEventEntry> events, IEventHandleWriter handles, out int written) =>
+        EventWire.Write(destination, EtervaleOpcodes.CombatEvents, CurrentVersion, events, handles, out written);
 
-    public static int Write(Span<byte> destination, ReadOnlySpan<CombatEventEntry> events)
-    {
-        var writer = new PacketWriter(destination, EtervaleOpcodes.CombatEvents);
-        WireList.Write(ref writer, events);
-
-        return writer.Finish();
-    }
-
-    public static CombatEventEntry[] Read(ReadOnlySpan<byte> packet)
-    {
-        var reader = new PacketReader(packet, HeaderSize);
-        return WireList.Read<CombatEventEntry>(ref reader, MaxEvents, "Combat event list");
-    }
+    public static CombatEventEntry[] Read(ReadOnlySpan<byte> packet, IEventHandleReader handles) =>
+        EventWire.Read<CombatEventEntry>(packet, CurrentVersion, "Combat event list", handles);
 }
 
 // Objects leaving the receiver's interest area ({size, code, int32 Count, uint64 EntityId...}); the original client instead

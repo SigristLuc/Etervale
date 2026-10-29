@@ -17,7 +17,7 @@ namespace PristonTale.Server.Net;
 // changed and only what changed (a spawn names it under a handle of this receiver's and carries every value; a later
 // entry carries the values that changed and its position as a change from the last one sent), pushes its description
 // ahead of its spawn, and lets the near ring update faster than the far ring.
-internal sealed partial class PresenceEncoder
+internal sealed partial class PresenceEncoder : IEventHandleWriter
 {
     // Squared view ranges in world units: connect 0x120000, high detail 0x48000, ground items 0xC8000.
     public static readonly float ViewRadius = MathF.Sqrt(0x120000);
@@ -792,11 +792,19 @@ internal sealed partial class PresenceEncoder
         }
 
         var events = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_events);
-        for (var offset = 0; offset < events.Length; offset += CombatEventList.MaxEvents)
+        while (!events.IsEmpty)
         {
-            var batch = events.Slice(offset, Math.Min(CombatEventList.MaxEvents, events.Length - offset));
-            connection.Send(_scratch.AsSpan(0, CombatEventList.Write(_scratch, batch)));
+            connection.Send(_scratch.AsSpan(0, CombatEventList.Write(_scratch, events, this, out var written)));
+            events = events[written..];
         }
+    }
+
+    // Events name the entities this receiver knows by their presence handles (called under the gate, while encoding).
+    bool IEventHandleWriter.TryGetHandle(ulong entityId, out uint handle)
+    {
+        var known = _known.TryGetValue(entityId, out var entry);
+        handle = known ? entry.Handle : 0;
+        return known;
     }
 
     private bool Relevant(ulong first, ulong second) =>
@@ -830,10 +838,10 @@ internal sealed partial class PresenceEncoder
 
         SendClock(connection);
         var events = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_skillEvents);
-        for (var offset = 0; offset < events.Length; offset += SkillEventList.MaxEvents)
+        while (!events.IsEmpty)
         {
-            var batch = events.Slice(offset, Math.Min(SkillEventList.MaxEvents, events.Length - offset));
-            connection.Send(_scratch.AsSpan(0, SkillEventList.Write(_scratch, batch)));
+            connection.Send(_scratch.AsSpan(0, SkillEventList.Write(_scratch, events, this, out var written)));
+            events = events[written..];
         }
     }
 
@@ -877,10 +885,10 @@ internal sealed partial class PresenceEncoder
 
         SendClock(connection);
         var entries = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_statusEvents);
-        for (var offset = 0; offset < entries.Length; offset += StatusEffectList.MaxEntries)
+        while (!entries.IsEmpty)
         {
-            var batch = entries.Slice(offset, Math.Min(StatusEffectList.MaxEntries, entries.Length - offset));
-            connection.Send(_scratch.AsSpan(0, StatusEffectList.Write(_scratch, batch)));
+            connection.Send(_scratch.AsSpan(0, StatusEffectList.Write(_scratch, entries, this, out var written)));
+            entries = entries[written..];
         }
     }
 

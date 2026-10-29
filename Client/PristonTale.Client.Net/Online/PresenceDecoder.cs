@@ -21,8 +21,9 @@ namespace PristonTale.Client.Net.Online;
 // Rebuilds the neutral presence model from the server's messages. Entries name entities by this connection's handles: a
 // spawn binds a handle to an entity id and its removal frees it. The server pushes a description ahead of the entry that
 // introduces it or its revision; an object whose description did not come (or a shared template's of another revision)
-// is asked with DescribeEntity. The object is published once its description is known.
-internal sealed class PresenceDecoder
+// is asked with DescribeEntity. The object is published once its description is known. Event lists name entities by
+// the same handles.
+internal sealed class PresenceDecoder : IEventHandleReader
 {
     private const long DescriptionRetryMs = 1000;
     // A description whose entity never spawned (one asked for that left meanwhile) is dropped after this long.
@@ -56,6 +57,8 @@ internal sealed class PresenceDecoder
     public ulong SelfEntityId { get; set; }
 
     public int? FieldId { get; private set; }
+
+    bool IEventHandleReader.TryGetEntity(uint handle, out ulong entityId) => _handles.TryGetValue(handle, out entityId);
 
     // Decodes one presence packet; returns false for opcodes that are not part of presence.
     public bool TryHandle(ReadOnlySpan<byte> packet, out PresenceUpdate? update)
@@ -102,7 +105,7 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.PresenceEntries => OnPresenceEntries(packet),
             EtervaleOpcodes.EntityDescription => OnDescription(EntityDescriptionPacket.Read(packet)),
             EtervaleOpcodes.RemoveObjects => OnRemoved(RemoveObjectList.Read(packet)),
-            EtervaleOpcodes.CombatEvents => OnCombatEvents(CombatEventList.Read(packet)),
+            EtervaleOpcodes.CombatEvents => OnCombatEvents(CombatEventList.Read(packet, this)),
             EtervaleOpcodes.GroundItems => OnGroundItems(GroundItemList.Read(packet)),
             EtervaleOpcodes.GroundItemsRemoved => Update([], []) with { GroundRemoved = GroundItemRemovals.Read(packet) },
             EtervaleOpcodes.FieldWarp => OnFieldWarp(FieldWarpPacket.Read(packet)),
@@ -110,8 +113,8 @@ internal sealed class PresenceDecoder
             EtervaleOpcodes.Inventory => OnInventory(InventoryPartPacket.Read(packet)),
             EtervaleOpcodes.Skills => OnSkills(SkillsPacket.Read(packet)),
             EtervaleOpcodes.PresenceClock => OnPresenceClock(PresenceClockPacket.Read(packet)),
-            EtervaleOpcodes.SkillEvents => OnSkillEvents(SkillEventList.Read(packet)),
-            EtervaleOpcodes.StatusEffects => OnStatusEffects(StatusEffectList.Read(packet)),
+            EtervaleOpcodes.SkillEvents => OnSkillEvents(SkillEventList.Read(packet, this)),
+            EtervaleOpcodes.StatusEffects => OnStatusEffects(StatusEffectList.Read(packet, this)),
             EtervaleOpcodes.SkillCooldowns => OnSkillCooldowns(SkillCooldownsPacket.Read(packet)),
             EtervaleOpcodes.SkillCastResult => OnSkillCastResult(SkillCastResultPacket.Read(packet)),
             EtervaleOpcodes.ItemDetails => OnItemDetails(ItemDetailsPartPacket.Read(packet)),

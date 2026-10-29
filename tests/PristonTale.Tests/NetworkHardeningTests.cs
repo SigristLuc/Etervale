@@ -143,7 +143,7 @@ internal static class NetworkHardeningTests
 
     private static Task SendLimitAsync()
     {
-        var events = WorldOutbox.DefaultEventCapacity * Math.Max(Protocol.Packets.CombatEventEntry.Size, Protocol.Packets.SkillEventEntry.Size);
+        var events = WorldOutbox.DefaultEventCapacity * Math.Max(Protocol.Packets.CombatEventEntry.MaxSize, Protocol.Packets.SkillEventEntry.MaxSize);
         // Every entity of a crowd entering view at once is described ahead of its spawn.
         var crowd = PresenceEncoder.MaxVisible * (Protocol.Packets.PresenceWire.MaxEntrySize + Protocol.Packets.EntityDescriptionPacket.MaximumSize);
         Assert.True(ClientSession.PresenceBacklogBytes + events + crowd < new Protocol.Transport.FrameConnectionOptions().MaxPendingSendBytes,
