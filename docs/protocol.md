@@ -71,7 +71,7 @@ search finds; they are not part of the build.
 | Port | TCP 10009; the server's `Network:Port` can change it |
 | Security | TLS 1.2 or 1.3 (`TlsTransport`) around the whole stream; the handshake must finish within `Network:HandshakeTimeoutSeconds` (10) |
 | Frame | `int32 size` (including the header), `uint32 code`, 8 to 8192 bytes, inside the TLS stream; anything else closes the connection |
-| Send backlog | More than 512 KiB pending closes the connection |
+| Send backlog | More than 512 KiB pending closes the connection; the server sends a slow reader fewer presence snapshots, and closes one whose backlog stays above 64 KiB for 30 s |
 
 The server presents the certificate in `Network:Certificate:Path` (PKCS#12, default `data/server-certificate.pfx`,
 password `Network:Certificate:Password`). When the file is missing it creates a self-signed ECDSA P-256 certificate for
@@ -598,7 +598,7 @@ dotnet run --project tools/PristonTale.DevAccounts -c Release --no-build -- --sq
   create-bots cw 5000 bot-pw --class Mechanician --level 20 --field 2 --at 4184,-11016 --spacing 0 \
   --skills 0x01010002:5,0x01010003:3
 dotnet run --project Server/PristonTale.Server -c Release --no-build -- --Database:SqlitePath=<copy.db> \
-  --Network:Port=10037 --Network:MaxConnectionsPerIp=0 --Server:ReportSeconds=10
+  --Network:Port=10037 --Network:MaxConnectionsPerIp=0 --Network:MaxHandshakesPerIp=0 --Server:ReportSeconds=10
 dotnet run --project tools/PristonTale.LoadTest -c Release --no-build -- --count 2000 \
   --address tcp://127.0.0.1:10037 --prefix cw --mode mixed --seconds 60 --ramp 100 --server-pid <pid> --report 10
 dotnet run --project tests/PristonTale.Tests -c Release --no-build -- \

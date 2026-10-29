@@ -106,7 +106,8 @@ Original asset paths are resolved with `AssetFiles`; do not build original paths
 - `WorldServer` (`Shared/PristonTale.Application/World/WorldServer.cs`) owns all live world state. Only the tick thread
   touches fields, players, monsters and NPCs.
 - `WorldTickService` (`Server/PristonTale.Server/World/WorldTickService.cs`) calls `WorldServer.Tick` at
-  `WorldServer.TickHz` (20 Hz) from a `PeriodicTimer` and logs p50/p99/max tick time every 30 s.
+  `WorldServer.TickHz` (20 Hz) on its own thread, on an absolute timeline (`TickSchedule`), and logs p50/p99/max tick
+  time and its phases every 30 s.
 - Every other thread reaches the world through `EnqueueAsync`: the operation is queued as an `Action` on a bounded
   single-reader channel and its result returns as a `Task`. Each tick drains at most `CommandsPerTick` commands, then
   steps every active `FieldInstance` in parallel (fields share only immutable catalogs and the thread-safe

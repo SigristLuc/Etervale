@@ -10,8 +10,8 @@ public sealed record WorldServerOptions
     public const int DefaultExperienceMultiplier = 5;
 
     // A client normally has a few commands waiting for the next tick; the cap keeps one connection from filling
-    // the queue shared by every player.
-    public const int DefaultMaxPendingCommandsPerPlayer = 64;
+    // the queue shared by every player, which holds the full quota of WorldServer.CommandQueueCapacity / this players.
+    public const int DefaultMaxPendingCommandsPerPlayer = 16;
 
     // A crash loses at most this much of what no operation queued for storage: experience, life, position.
     public const int DefaultCheckpointSeconds = 60;

@@ -31,10 +31,10 @@ var ramp = Stopwatch.StartNew();
 for (var index = 1; index <= options.Count; index++)
 {
     bots.Add(Bot.RunAsync(index, options, stats, stop.Token));
-    var due = TimeSpan.FromSeconds(index / (double)options.RampPerSecond);
-    if (due > ramp.Elapsed)
+    var wait = TimeSpan.FromSeconds(index / (double)options.RampPerSecond) - ramp.Elapsed;
+    if (wait > TimeSpan.Zero)
     {
-        await Task.Delay(due - ramp.Elapsed);
+        await Task.Delay(wait);
     }
 }
 

@@ -46,9 +46,12 @@ public sealed class GameTcpServer(
     private readonly LogSampler _closedLog = new(1000);
     private readonly TaskCompletionSource<int> _boundPort = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private ConnectionLimiter? _perAddress;
+    private ConnectionLimiter? _handshakesPerAddress;
     private LoginThrottle? _loginThrottle;
     private long _closedBytesSent;
     private long _closedBytesReceived;
+    private int _open;
+    private int _handshakes;
 
     public int ConnectionCount => _clients.Count;
 
@@ -58,6 +61,7 @@ public sealed class GameTcpServer(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _perAddress = new ConnectionLimiter(_limits.MaxConnectionsPerIp);
+        _handshakesPerAddress = new ConnectionLimiter(_limits.MaxHandshakesPerIp);
         _loginThrottle = new LoginThrottle(_limits.LoginFailuresPerAccount, _limits.LoginFailuresPerIp, _limits.LoginFailureWindowMs);
         control.Attach(() => _clients.Count, _loginThrottle);
         var services = new SessionServices(auth, characters, sessionsApp, sessions, world, worldData, logger, _limits, _loginThrottle, npc, itemUse,
@@ -94,18 +98,20 @@ public sealed class GameTcpServer(
             {
                 var socket = await listener.AcceptAsync(stoppingToken);
                 var address = NetworkLimits.AddressOf(socket.RemoteEndPoint);
-                if (!_perAddress.TryAcquire(address))
+                if (Refusal(address) is var refusal and not ConnectionRefusal.None)
                 {
                     socket.Close();
                     if (_refusedLog.TryEnter(Environment.TickCount64, out var suppressed))
                     {
-                        logger.LogWarning("Refused connection from {Address}: more than {Limit} open ({Suppressed} similar refusals not logged)",
-                            address, _limits.MaxConnectionsPerIp, suppressed);
+                        logger.LogWarning("Refused connection from {Address}: {Refusal} at its limit ({Suppressed} similar refusals not logged)",
+                            address, refusal, suppressed);
                     }
 
                     continue;
                 }
 
+                Interlocked.Increment(ref _open);
+                Interlocked.Increment(ref _handshakes);
                 var connection = RunClientAsync(socket, certificateContext, services, address, stoppingToken);
                 _connections[connection] = 0;
                 _ = connection.ContinueWith(static (task, state) => ((ConcurrentDictionary<Task, byte>)state!).TryRemove(task, out _), _connections,
@@ -127,7 +133,56 @@ public sealed class GameTcpServer(
         }
     }
 
+    private enum ConnectionRefusal
+    {
+        None,
+        Connections,
+        Handshakes,
+        AddressHandshakes,
+        AddressConnections
+    }
+
+    // Which limit refuses a new socket from the address; a socket taken holds its address's connection and handshake slots.
+    private ConnectionRefusal Refusal(IPAddress? address)
+    {
+        if (_limits.MaxConnections > 0 && Volatile.Read(ref _open) >= _limits.MaxConnections)
+        {
+            return ConnectionRefusal.Connections;
+        }
+
+        if (_limits.MaxHandshakes > 0 && Volatile.Read(ref _handshakes) >= _limits.MaxHandshakes)
+        {
+            return ConnectionRefusal.Handshakes;
+        }
+
+        if (!_handshakesPerAddress!.TryAcquire(address))
+        {
+            return ConnectionRefusal.AddressHandshakes;
+        }
+
+        if (!_perAddress!.TryAcquire(address))
+        {
+            _handshakesPerAddress.Release(address);
+            return ConnectionRefusal.AddressConnections;
+        }
+
+        return ConnectionRefusal.None;
+    }
+
     private async Task RunClientAsync(Socket socket, SslStreamCertificateContext certificate, SessionServices services, IPAddress? address,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await RunAcceptedAsync(socket, certificate, services, address, cancellationToken);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _open);
+        }
+    }
+
+    private async Task RunAcceptedAsync(Socket socket, SslStreamCertificateContext certificate, SessionServices services, IPAddress? address,
         CancellationToken cancellationToken)
     {
         await Task.Yield();
@@ -146,6 +201,11 @@ public sealed class GameTcpServer(
             }
 
             return;
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _handshakes);
+            _handshakesPerAddress?.Release(address);
         }
 
         var session = new ClientSession(connection, services);

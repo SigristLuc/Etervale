@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using PristonTale.Application.World;
+using PristonTale.Persistence.Abstractions;
 using PristonTale.Persistence.Abstractions.Accounts;
 using PristonTale.Persistence.Abstractions.Characters;
 using PristonTale.Persistence.Abstractions.Security;
@@ -44,6 +45,13 @@ internal sealed class MultiplayerServer : IAsyncDisposable
     public string Address { get; }
 
     public WorldServer World => _host.Services.GetRequiredService<WorldServer>();
+
+    // Runs a statement on the server's database, to put storage in the state a scenario needs.
+    public async Task ExecuteAsync(string sql)
+    {
+        await using var connection = await _host.Services.GetRequiredService<IDbConnectionFactory>().OpenAsync();
+        await Dapper.SqlMapper.ExecuteAsync(connection, sql);
+    }
 
     public static async Task<MultiplayerServer> StartAsync(WorldData world, params (string Key, string Value)[] settings)
     {

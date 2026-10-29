@@ -116,7 +116,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
 
     public IReadOnlyCollection<WorldNpc> Npcs => _npcs.Values;
     public bool TryGetNpc(ulong entityId, [MaybeNullWhen(false)] out WorldNpc npc) => _npcs.TryGetValue(entityId, out npc);
-    public IEnumerable<ulong> PlayerIds => _players.Keys;
+    internal Dictionary<ulong, WorldPlayer>.KeyCollection PlayerIds => _players.Keys;
 
     public void Add(WorldPlayer player)
     {

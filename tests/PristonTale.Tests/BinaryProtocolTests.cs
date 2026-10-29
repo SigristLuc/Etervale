@@ -24,6 +24,8 @@ internal static class BinaryProtocolTests
         yield return ("movement reports, attack requests and field warps round-trip with 64-bit targets and sequences", PlayerActionsAsync);
         yield return ("world entry, join and leave messages round-trip with 64-bit ids and UTF-8 names", WorldEntryAsync);
         yield return ("TLS connections deliver frames in order, coalesce sends and check the server certificate", ConnectionAsync);
+        yield return ("a connection counts its backlog until the stream takes it, and a batch of sends leaves in one write", BacklogAsync);
+        yield return ("a connection whose backlog stops draining closes as stalled", StallAsync);
     }
 
     private static Task MalformedAsync()
@@ -237,5 +239,83 @@ internal static class BinaryProtocolTests
 
         async Task<FrameConnection> AcceptAsync() =>
             await TlsTransport.AcceptAsync(await listener.AcceptAsync(timeout.Token), context, TlsTransport.DefaultHandshakeTimeout, timeout.Token);
+    }
+
+    private static async Task BacklogAsync()
+    {
+        using var socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+        var stream = new GatedStream();
+        await using var connection = new FrameConnection(socket, stream);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var run = connection.RunAsync(_ => ValueTask.CompletedTask, timeout.Token);
+        var buffer = new byte[HeartbeatPacket.Size];
+        new HeartbeatPacket(1, 0).Write(buffer);
+        using (connection.Batch())
+        {
+            connection.Send(buffer);
+            connection.Send(buffer);
+            await Task.Delay(50);
+            Assert.True(stream.Writes.IsEmpty, "a send inside a batch woke the writer");
+        }
+
+        await stream.Started.Task.WaitAsync(timeout.Token);
+        connection.Send(buffer);
+        Assert.True(connection.WaitForBacklogAsync(3 * HeartbeatPacket.Size, Timeout.InfiniteTimeSpan).IsCompleted, "the backlog counted bytes never sent");
+        var drained = connection.WaitForBacklogAsync(HeartbeatPacket.Size, Timeout.InfiniteTimeSpan);
+        Assert.True(!drained.IsCompleted, "the bytes on their way to the stream were not counted");
+        stream.Open();
+        await drained.WaitAsync(timeout.Token);
+        Assert.True(stream.Writes.First() == 2 * HeartbeatPacket.Size, "the batch did not leave in one write");
+        connection.Close("test done");
+        await run;
+    }
+
+    private static async Task StallAsync()
+    {
+        using var socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+        await using var connection = new FrameConnection(socket, new GatedStream());
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var run = connection.RunAsync(_ => ValueTask.CompletedTask, timeout.Token);
+        var buffer = new byte[HeartbeatPacket.Size];
+        new HeartbeatPacket(1, 0).Write(buffer);
+        connection.Send(buffer);
+        await connection.WaitForBacklogAsync(0, TimeSpan.FromMilliseconds(100)).WaitAsync(timeout.Token);
+        Assert.True(connection is { IsClosed: true, CloseReason: "send stalled" }, $"a peer that stopped reading kept its connection: {connection.CloseReason}");
+        await run;
+    }
+
+    // A stream whose writes wait until it is opened, recording each write's length.
+    private sealed class GatedStream : Stream
+    {
+        private readonly TaskCompletionSource _open = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public System.Collections.Concurrent.ConcurrentQueue<int> Writes { get; } = new();
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Open() => _open.TrySetResult();
+
+        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            Writes.Enqueue(buffer.Length);
+            Started.TrySetResult();
+            await _open.Task.WaitAsync(cancellationToken);
+        }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 }

@@ -24,9 +24,9 @@ layouts live in [protocol.md](protocol.md).
 | `Hosting/CharacterSaveService.cs` | Hosted service: stores the save journal on start, runs `CharacterSaveQueue` until the host stops, logs its counts every `Server:ReportSeconds`. |
 | `Hosting/WorldDataLoadService.cs` | Hosted service: `WorldDataAppService.BuildAsync` into `WorldDataHolder.Current`; logs catalog counts. |
 | `Hosting/FieldTerrainLoadService.cs` | Hosted service: reads every field's stage `.smd` collision in parallel into `FieldTerrainCatalog`. |
-| `World/WorldTickService.cs` | `BackgroundService` calling `WorldServer.Tick(1/20 s, tick)` on a `PeriodicTimer`; logs tick percentiles, process CPU, allocation rate, collections, heap and working set. |
+| `World/WorldTickService.cs` | `BackgroundService` calling `WorldServer.Tick(1/20 s, tick)` on its own thread, on the absolute timeline of `TickSchedule` (owed ticks run back to back, a stall past 5 ticks is skipped); logs tick percentiles, ticks caught up and skipped, the command and field phases, process CPU, allocation rate, collections, heap and working set. |
 | `World/QuestUpkeepService.cs` | `BackgroundService` reading `WorldServer.QuestUpkeepRequests` and running `QuestAppService.RunUpkeepAsync`, at most 8 players at a time ([quests.md](quests.md)). |
-| [Net/GameTcpServer.cs](../Server/PristonTale.Server/Net/GameTcpServer.cs) | Listener, per-address limit, TLS handshake, one `ClientSession` per connection, housekeeping (idle/login timeouts, bandwidth log). |
+| [Net/GameTcpServer.cs](../Server/PristonTale.Server/Net/GameTcpServer.cs) | Listener, connection and handshake caps (in all and per address), TLS handshake, one `ClientSession` per connection, housekeeping (idle/login timeouts, bandwidth log). |
 | `Net/ServerCertificate.cs` | Loads the TLS certificate, or creates and stores a self-signed one. |
 | [Net/ClientSession.cs](../Server/PristonTale.Server/Net/ClientSession.cs) | Per-connection state machine: packet dispatch to application services and replies. |
 | `Net/ClientSession.Chat.cs` | The session's `IChatLink`: chat lines, forced warps, close requests and kicks from game masters. |
@@ -134,7 +134,7 @@ that limit; negative values stop startup. The game settings live in the database
 | `Database:SaveJournalPath` | `save-journal` | `CharacterSaveService` | Directory of the save journal, relative to the executable. |
 | `Assets:Root` | auto-detected `assets` | `FieldTerrainLoadService` | Directory holding the original asset tree with the field stages. |
 | `Assets:AllowMissingTerrain` | `false` | `FieldTerrainLoadService` | Start without an assets directory or with missing/unreadable stages. |
-| `World:MaxPendingCommandsPerPlayer` | 64 | `WorldServerOptions` | Commands one player may have waiting for the tick; at least 1. |
+| `World:MaxPendingCommandsPerPlayer` | 16 | `WorldServerOptions` | Commands one player may have waiting for the tick; at least 1. The queue holds 4096 players' default quota. |
 | `Logs:CurrencyMinutes` | 10 | `GameLogOptions` | Period of the currency sink rows, 1 to 1440. |
 | `Logs:RetentionDays` | 180 | `GameLogOptions` | Game log rows older than this are deleted once a day; 0 keeps them, negative stops startup. |
 | `World:CheckpointSeconds` | 60 | `WorldServerOptions` | Every playing character is captured for storage once per this many seconds; at least 1. |
@@ -146,16 +146,23 @@ that limit; negative values stop startup. The game settings live in the database
 | `Network:PacketLimit` | 251 | `NetworkLimits` | Packets per window before the connection closes (`DescribeEntity` excluded). |
 | `Network:PacketWindowSeconds` | 5 | `NetworkLimits` | Fixed window of the packet limit. |
 | `Network:MaxConnectionsPerIp` | 8 | `NetworkLimits` | Open connections per remote address; extra sockets are closed on accept. |
+| `Network:MaxConnections` | 6000 | `NetworkLimits` | Open sockets, from accept to the end of their session; past it a new socket is closed before its TLS handshake. 0 disables it. |
+| `Network:MaxHandshakes` | 128 | `NetworkLimits` | TLS handshakes in progress; past it a new socket is closed before its handshake. 0 disables it. |
+| `Network:MaxHandshakesPerIp` | 4 | `NetworkLimits` | TLS handshakes in progress per remote address, so a few hosts of silent sockets cannot hold every handshake. 0 disables it. |
 | `Network:LoginTimeoutSeconds` | 30 | `NetworkLimits` | Close connections that have not logged in; checked every 5 s. |
 | `Network:LoginFailuresPerAccount` | 5 | `NetworkLimits` | Bad-password logins per account per window before refusal. |
 | `Network:LoginFailuresPerIp` | 20 | `NetworkLimits` | Bad-password logins per address per window before refusal. |
 | `Network:LoginFailureWindowSeconds` | 300 | `NetworkLimits` | Window of both failure counters. |
 | `Network:PlayerInfoBurst` | 512 | `NetworkLimits` | Token-bucket capacity for `DescribeEntity` requests. |
 | `Network:PlayerInfoPerSecond` | 128 | `NetworkLimits` | Token refill rate for `DescribeEntity`. |
+| `Network:StoredOperationBurst` | 40 | `NetworkLimits` | Token-bucket capacity for the requests that copy the character on the tick (inventory, progression, NPC services, item use, quests, restarts, wing gates); 0 disables the bucket. |
+| `Network:StoredOperationsPerSecond` | 20 | `NetworkLimits` | Token refill rate of those requests; past the bucket they are refused as busy. |
 | `Logging:LogLevel:Default` | `Information` | host | Standard .NET logging filter. |
 
 Fixed values that are not settings: idle timeout 60 s, housekeeping period 5 s, report period 30 s,
-tick rate 20 Hz, send backlog limit 512 KiB per connection (`FrameConnectionOptions.MaxPendingSendBytes`).
+tick rate 20 Hz, send backlog limit 512 KiB per connection (`FrameConnectionOptions.MaxPendingSendBytes`), presence
+backlog 64 KiB (`ClientSession.PresenceBacklogBytes`) and its stall time 30 s. The send limit holds the presence backlog,
+a full outbox's events and a full crowd's entries (`NetworkHardeningTests.SendLimitAsync`).
 
 ## Server settings table
 
@@ -194,8 +201,9 @@ experience, item event and aging values.
 
 ### Connection lifecycle
 
-1. `GameTcpServer` accepts, normalises IPv4-mapped addresses (`NetworkLimits.AddressOf`) and calls
-   `ConnectionLimiter.TryAcquire`; a refused socket is closed without a reply.
+1. `GameTcpServer` accepts, normalises IPv4-mapped addresses (`NetworkLimits.AddressOf`), and closes the socket
+   without a reply when `MaxConnections` sockets are open, `MaxHandshakes` handshakes are in progress, or its address
+   has `MaxHandshakesPerIp` handshakes in progress or `MaxConnectionsPerIp` sockets open (`ConnectionLimiter`).
 2. `TlsTransport.AcceptAsync` runs the TLS handshake under its deadline; a failed or late handshake closes the socket.
    A `ClientSession` then wraps the `FrameConnection` (framing and coalesced writer; see
    [protocol.md](protocol.md#transport)) and sends the `ServerHello` (protocol version and minimum).
@@ -219,7 +227,7 @@ the same switch.
 | `PartyInvite`, `PartyAnswer`, `PartyCommand` | `InviteToPartyAsync`, `AnswerPartyAsync`, `CommandPartyAsync` | `PartyAppService` | None; chat lines, and `PartyRequest` / `PartyMembers` from the snapshots ([application.md](application.md#parties)). |
 | `TradeRequest`, `TradeAnswer`, `TradeOffer`, `TradeLock`, `TradeCancel` | `RequestTradeAsync`, `AnswerTradeAsync`, `OfferTradeAsync`, `SignalTradeAsync` | `TradeAppService` | None; chat lines, and `TradeAsked` / `TradeDetails` + `TradeState` from the snapshots ([application.md](application.md#trades)). |
 | `ContactChange`, `ContactRefresh` | `ChangeContactAsync`, `RefreshContacts` | `ContactAppService` | Two `ContactList` (friends, ignored); a refused change also a chat line ([application.md](application.md#contacts)). The lists load before the player joins the world and are sent once it joined; lists storage could not read stay empty and refuse changes. |
-| `Login` | `LoginAsync` | `LoginThrottle.IsBlocked`, `AuthAppService.LoginAsync`, `ISessionRegistry.TryGet` | `CharacterList` + `LoginResult` 0, or `LoginResult` with the failure. |
+| `Login` | `LoginAsync` | `LoginThrottle.IsBlocked`, `AuthAppService.LoginAsync`, `ISessionRegistry.TryGet` | `CharacterList` + `LoginResult` 0, or `LoginResult` with the failure. The connection is logged in only once its character list is read: a list storage refuses answers busy, removes the new session and leaves the connection free to log in again. |
 | `CharacterCommand` | `ApplyCharacterCommandAsync` | `CharacterAppService.CreateCharacterAsync(token, name, class, face)` or `DeleteCharacterAsync` | New list on success, then `CharacterResult`. |
 | `EnterWorld` | `EnterWorldAsync` | `SessionAppService.EnterWorldAsync` | `WorldEntry` (id, field and spawn point, or the `EnterWorldFailure`). |
 | `JoinWorld` | `JoinWorldAsync` | `PlayerSession.TryBeginPlay`, `WorldPlayerFactory.Create`, `WorldServer.JoinAsync` | `WorldJoined`; starts the presence pump. |
@@ -251,7 +259,13 @@ not a refusal: it is logged as an error and closes the connection, and the next 
 ### Outbound presence
 
 After `WorldJoined`, `PumpAsync` reads the player's `WorldOutbox` and calls `PresenceEncoder.Encode` per snapshot on a
-thread-pool task, separate from the receive loop, then releases the snapshot's frame. Per snapshot, in order:
+thread-pool task, separate from the receive loop, then releases the snapshot's frame. Before each read it waits until
+the connection's backlog (`FrameConnection.WaitForBacklogAsync`, bytes queued or being written) is at most 64 KiB, so
+a client that reads slower than its world changes gets fewer snapshots, each joining what it missed, instead of a
+backlog that grows to the send limit; a backlog that stays above it for 30 s closes the connection (`send stalled`),
+since its client stopped reading. A snapshot's packets are queued inside one `FrameConnection.Batch`, which holds back
+the writer's wake-up, so they normally leave in one write.
+Per snapshot, in order:
 `FieldWarp` on a field change (after removing everything known), the events of earlier ticks the pump fell behind on
 (each tick's events after its own `PresenceClock`), `PresenceClock` before the first timeline packet of the snapshot's
 tick, `PresenceEntries` (one or more), `RemoveObjects`, `CombatEvents`, `SkillEvents`, `StatusEffects` (with the running
@@ -264,8 +278,10 @@ sorted by the entity ids they name; one binary search per known entity) instead 
 both ways give the same events in the field's order. A pump that fell behind gets merged copies of several ticks'
 events and scans them.
 In the quest arena (field 32) the encoder leaves out other players and monsters of other players' duels. View ranges,
-rates and the movement budget are in [protocol.md](protocol.md#server-capacity). A reliable-event overflow in the outbox
-(4096 queued events) ends the pump and closes the connection with `presence overflow`; the client must reconnect.
+rates and the movement budget are in [protocol.md](protocol.md#server-capacity). A reader 4096 events behind loses the
+events it has not read, never its connection: its next snapshot has `EventsLost`, and the encoder sends again the
+statuses running on every entity the receiver shows. A status removed early (dispelled, cancelled) among the lost
+events stays on that client until its own time runs out.
 
 ### Movement and corrections
 
@@ -287,7 +303,7 @@ of the regression suite ([testing.md](testing.md#multiplayer-propagation)):
 | An entity (player, monster, summon, pet, NPC) | Players of the same field within the connect range (about 1086 units); kept to 1.15 times that range; hidden game masters and other players' duel opponents never | Spawn (a full presence entry, then `EntityDescription` on request) the tick it enters the receiver's view; `RemoveObjects` the tick it leaves, dies away, logs out, disconnects or changes field |
 | Position, facing, motion | Its viewers | Motion, HP, target and attack changes the tick they happen; positions at 5 Hz near (543 units), 2 Hz far, within 2048 bytes per receiver per tick, most overdue first |
 | Description (level, equipment, looks, village flag, owner, size) | Its viewers | A new field-wide revision in the next entry; the client asks for the new `EntityDescription` |
-| Combat, skill and item events | The players that know its attacker or target (and the player itself) | Once, in server order, on the tick they happened; never dropped (an outbox that queues more than 4096 closes the connection) |
+| Combat, skill and item events | The players that know its attacker or target (and the player itself) | Once, in server order, on the tick they happened; dropped only for a reader 4096 events behind, which then gets the running statuses again |
 | Statuses | The players that know the entity | `Add`, `Refresh`, `Remove` and ticks as they happen; a player that starts seeing the entity gets its running statuses with the time left |
 | Ground drops | Players within about 905 units; private drops only to their owner | `GroundItems` when they enter range, `GroundItemsRemoved` (batched) on pickup, expiry or leaving range |
 | Owner state, inventory, skills, cooldowns, premium timers, quests | The player itself | When their revisions change |
@@ -307,13 +323,16 @@ of the regression suite ([testing.md](testing.md#multiplayer-propagation)):
 
 | Guard | Scope | Behaviour |
 | --- | --- | --- |
+| Connection caps | process-wide and per address | Sockets past `MaxConnections` open, `MaxHandshakes` handshakes in progress or `MaxHandshakesPerIp` handshakes from one address are closed before TLS. |
 | `ConnectionLimiter` | per remote address, process-wide | Refuses sockets above `MaxConnectionsPerIp`; released when the session ends. |
 | `PacketRateLimiter` | per connection, fixed window | Counts every decoded packet except `DescribeEntity`; exceeding it closes with `packet flood`. |
 | `TokenBucket` | per connection | `DescribeEntity` beyond the bucket is dropped (a few-byte request costs a description of up to a few hundred bytes). |
+| Stored operations | per connection | A request that copies the character on the tick beyond `StoredOperationBurst` / `StoredOperationsPerSecond` is answered busy (`too many requests`). |
 | `LoginThrottle` | per account (case-insensitive) and per address | Only `BadCredentials` counts. A blocked attempt gets `LoginResult` busy before the password hash is computed. Success clears the account counter only. At most 65536 keys per map. |
 | Login timeout | per connection | Unauthenticated sockets close after `LoginTimeoutSeconds`. |
 | Second login | per connection | `Login` after a successful login gets `LoginResult` 3 (already logged in). |
 | World quota | per player | `WorldServer` refuses more than `MaxPendingCommandsPerPlayer` queued commands with `WorldBusyException`; the shared queue holds 65536. |
+| Presence backlog | per connection | Past 64 KiB unsent the pump waits, and the outbox joins the snapshots meanwhile; still past it after 30 s closes the connection (`send stalled`). |
 | Send backlog | per connection | More than 512 KiB unsent closes the connection (`send backlog exceeded ...`). |
 
 `LoginResult` statuses: 1 bad credentials (unknown account, wrong or empty password), 2 account blocked, 3 already
@@ -323,14 +342,14 @@ logged in on this connection, 4 busy (throttled, full or storage failure), 5 out
 
 | Line | Period |
 | --- | --- |
-| `World tick: N players, p50, p99, max over N ticks (budget 50 ms); process N cores, N MiB/s allocated, GC gen0/1/2, heap, working set` | `Server:ReportSeconds` (30 s) |
+| `World tick: N players, p50, p99, max over N ticks (budget 50 ms), N caught up late, N skipped; commands p50, p99, at most N a tick; fields p50, p99; process N cores, N MiB/s allocated, GC gen0/1/2, heap, working set` | `Server:ReportSeconds` (30 s) |
 | `TCP: N connections, N in world, out KiB/s (KiB/s per connection), in KiB/s` | `Server:ReportSeconds` (checked every 5 s) |
 | `Refused connection from ...` | at most one per 5 s, with the count of suppressed lines |
 | `Closed ...: reason` | at most one per 1 s; normal reasons are never logged |
 | `Rejected <code> from ...: reason` | at most one per 5 s across all connections |
 
 Normal close reasons: `peer closed`, `receive ended`, `cancelled`, `server stopping`, `disposed`. Everything else (idle
-or login timeout, packet flood, protocol error, send backlog, presence overflow, socket errors) is sampled.
+or login timeout, packet flood, protocol error, send backlog, send stalled, presence failed, socket errors) is sampled.
 
 ## How to
 
@@ -347,7 +366,7 @@ or login timeout, packet flood, protocol error, send backlog, presence overflow,
 - **Register a startup step.** Add an `IHostedService` in `AddPristonServer` at the right position: anything the world
   reads must be registered before `WorldTickService` and `GameTcpServer`. Throw from `StartAsync` to stop startup.
 - **Run against a copy or Postgres.** `--Database:SqlitePath=<copy.db>` or `Database__Provider=Postgres` with
-  `ConnectionStrings__Postgres`; for local load tests add `--Network:MaxConnectionsPerIp=0`.
+  `ConnectionStrings__Postgres`; for local load tests add `--Network:MaxConnectionsPerIp=0 --Network:MaxHandshakesPerIp=0`.
 
 ## Pitfalls
 

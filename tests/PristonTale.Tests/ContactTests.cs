@@ -67,6 +67,11 @@ internal static class ContactTests
         Assert.True(ann.Link.Last == "bob is already on the list" && store.Rows.Count == 2, "a listed name was stored twice");
         lists = await service.ChangeAsync(ann.Id, ContactList.Friends, false, "ZED");
         Assert.True(lists?.Friends is [{ Name: "Bob" }] && store.Rows.Count == 1, "a name was not removed");
+        store.Refuse = true;
+        lists = await service.ChangeAsync(ann.Id, ContactList.Friends, true, "Cid");
+        Assert.True(lists?.Friends is [{ Name: "Bob" }] && ann.Link.Last == ContactMessages.Of(ContactStatus.Unavailable, "Cid"),
+            "a change storage refused was not answered with the lists as they were");
+        store.Refuse = false;
 
         await service.ChangeAsync(ann.Id, ContactList.Ignored, true, "Bob");
         bob.Link.Clear();
@@ -153,8 +158,10 @@ internal static class ContactTests
         return Task.CompletedTask;
     }
 
+    // Refuse throws on every change, as storage that is down does.
     private sealed class MemoryContacts : IContactRepository
     {
+        public bool Refuse;
         public List<(long Character, ContactList List, string Name)> Rows { get; } = [];
 
         public Task<IReadOnlyList<ContactRecord>> ListAsync(long characterId, CancellationToken ct = default) =>
@@ -162,11 +169,25 @@ internal static class ContactTests
 
         public Task<bool> AddAsync(long characterId, ContactList list, string name, CancellationToken ct = default)
         {
+            ThrowIfRefused();
             Rows.Add((characterId, list, name));
             return Task.FromResult(true);
         }
 
-        public Task<bool> RemoveAsync(long characterId, ContactList list, string name, CancellationToken ct = default) =>
-            Task.FromResult(Rows.RemoveAll(row => row.Character == characterId && row.List == list && row.Name == name) > 0);
+        public Task<bool> RemoveAsync(long characterId, ContactList list, string name, CancellationToken ct = default)
+        {
+            ThrowIfRefused();
+            return Task.FromResult(Rows.RemoveAll(row => row.Character == characterId && row.List == list && row.Name == name) > 0);
+        }
+
+        private void ThrowIfRefused()
+        {
+            if (Refuse)
+            {
+                throw new RefusedStorage();
+            }
+        }
     }
+
+    private sealed class RefusedStorage() : System.Data.Common.DbException("storage is down");
 }

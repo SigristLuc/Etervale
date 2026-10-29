@@ -104,7 +104,7 @@ that explains it in depth.
 | Save journal | Captures storage refused while the server stopped, stored by the next start before players enter | application.md |
 | Operation id | Client GUID per durable command; same id and command replays, different command conflicts | application.md |
 | `WorldSnapshot` | Per-field state built each tick and specialised per receiver with `OwnerState` | application.md |
-| `WorldOutbox` | Per-connection channel keeping the latest entity state and every event; overflow disconnects | application.md |
+| `WorldOutbox` | Per-connection channel keeping the latest entity state and every event; a reader 4096 events behind loses them (`EventsLost`) | application.md |
 | Typed NPC service | `npc_services` row (`NpcServiceKind`, values, text) in click order | world-import.md |
 
 ## Protocol

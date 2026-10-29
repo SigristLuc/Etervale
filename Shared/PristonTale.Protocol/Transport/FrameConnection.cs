@@ -14,7 +14,8 @@ public sealed record FrameConnectionOptions
 
 // One connection: frames {int32 Size, uint32 Code, body} of at most 8192 bytes over an authenticated TLS stream.
 // Sends from any thread are appended to one pending buffer and flushed by a single writer, so packets queued while a
-// write is in flight leave together in the next write (one TLS record batch).
+// write is in flight leave together in the next write (one TLS record batch); a Batch holds back the writer's wake-up
+// until its sends are all queued, so they normally leave in one write.
 public sealed class FrameConnection : IPacketSink, IAsyncDisposable
 {
     private const int ReceiveBufferSize = FrameCodec.MaxFrameSize * 2;
@@ -33,8 +34,12 @@ public sealed class FrameConnection : IPacketSink, IAsyncDisposable
     private byte[] _pending;
     private int _pendingLength;
     private bool _signalled;
-    // Taken bytes are on their way to the stream; FlushAndCloseAsync waits for them too.
-    private bool _writing;
+    private int _batches;
+    // Taken bytes on their way to the stream; FlushAndCloseAsync waits for them too.
+    private int _writingLength;
+    // The one waiter for the backlog to fall to _drainedAt bytes.
+    private TaskCompletionSource? _drained;
+    private int _drainedAt;
     private bool _closed;
     private long _bytesSent;
     private long _bytesReceived;
@@ -170,8 +175,7 @@ public sealed class FrameConnection : IPacketSink, IAsyncDisposable
             EnsureCapacity(_pendingLength + packet.Length);
             packet.CopyTo(_pending.AsSpan(_pendingLength));
             _pendingLength += packet.Length;
-            signal = !_signalled;
-            _signalled = true;
+            signal = TakeSignal();
         }
 
         if (signal)
@@ -180,6 +184,89 @@ public sealed class FrameConnection : IPacketSink, IAsyncDisposable
         }
 
         return true;
+    }
+
+    // Whether this send wakes the writer: the first since its last take, outside a batch.
+    private bool TakeSignal()
+    {
+        if (_signalled || _batches > 0 || _pendingLength == 0)
+        {
+            return false;
+        }
+
+        _signalled = true;
+        return true;
+    }
+
+    // Holds the writer until the batch is disposed, so the sends of one snapshot leave in one write.
+    public SendBatch Batch()
+    {
+        lock (_sendGate)
+        {
+            _batches++;
+        }
+
+        return new SendBatch(this);
+    }
+
+    public readonly struct SendBatch(FrameConnection owner) : IDisposable
+    {
+        public void Dispose() => owner.EndBatch();
+    }
+
+    private void EndBatch()
+    {
+        bool signal;
+        lock (_sendGate)
+        {
+            _batches--;
+            signal = !_closed && TakeSignal();
+        }
+
+        if (signal)
+        {
+            _sendSignal.Writer.TryWrite(true);
+        }
+    }
+
+    // Completes once the bytes queued or on their way to the stream are at most the given bytes, or the connection
+    // closed; a backlog that does not fall that far within the stall time closes the connection, since its peer stopped
+    // reading. One waiter at a time.
+    public async Task WaitForBacklogAsync(int bytes, TimeSpan stall)
+    {
+        Task drained;
+        lock (_sendGate)
+        {
+            if (_closed || _pendingLength + _writingLength <= bytes)
+            {
+                return;
+            }
+
+            _drainedAt = bytes;
+            _drained ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            drained = _drained.Task;
+        }
+
+        try
+        {
+            await drained.WaitAsync(stall);
+        }
+        catch (TimeoutException)
+        {
+            Close("send stalled");
+        }
+    }
+
+    // Under _sendGate: the waiter to release now, if any.
+    private TaskCompletionSource? TakeDrained()
+    {
+        if (_drained is not { } drained || !_closed && _pendingLength + _writingLength > _drainedAt)
+        {
+            return null;
+        }
+
+        _drained = null;
+        return drained;
     }
 
     private void EnsureCapacity(int required)
@@ -214,24 +301,22 @@ public sealed class FrameConnection : IPacketSink, IAsyncDisposable
                 {
                     _signalled = false;
                     length = _pendingLength;
-                    if (writing.Length < length)
-                    {
-                        ArrayPool<byte>.Shared.Return(writing);
-                        writing = ArrayPool<byte>.Shared.Rent(length);
-                    }
-
-                    _pending.AsSpan(0, length).CopyTo(writing);
+                    // The writer takes the pending buffer whole and leaves its own, empty, for the next sends.
+                    (_pending, writing) = (writing, _pending);
                     _pendingLength = 0;
-                    _writing = true;
+                    _writingLength = length;
                 }
 
                 await _stream.WriteAsync(writing.AsMemory(0, length), _lifetime.Token);
                 await _stream.FlushAsync(_lifetime.Token);
+                TaskCompletionSource? drained;
                 lock (_sendGate)
                 {
-                    _writing = false;
+                    _writingLength = 0;
+                    drained = TakeDrained();
                 }
 
+                drained?.TrySetResult();
                 Interlocked.Add(ref _bytesSent, length);
             }
         }
@@ -253,7 +338,7 @@ public sealed class FrameConnection : IPacketSink, IAsyncDisposable
         {
             lock (_sendGate)
             {
-                if (_pendingLength == 0 && !_signalled && !_writing)
+                if (_pendingLength == 0 && !_signalled && _writingLength == 0)
                 {
                     break;
                 }
@@ -293,6 +378,7 @@ public sealed class FrameConnection : IPacketSink, IAsyncDisposable
         _socket.Close();
         _sendSignal.Writer.TryComplete();
         _lifetime.Cancel();
+        TakeDrained()?.TrySetResult();
     }
 
     public async ValueTask DisposeAsync()

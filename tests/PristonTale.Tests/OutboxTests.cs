@@ -12,7 +12,7 @@ internal static class OutboxTests
     public static IEnumerable<(string, Func<Task>)> Cases()
     {
         yield return ("outbox coalesces positions while preserving every event in order", CoalescingAsync);
-        yield return ("event saturation fails the stream instead of silently dropping facts", SaturationAsync);
+        yield return ("a reader that falls past the event capacity loses the unread events, keeps its stream and is told so", SaturationAsync);
         yield return ("unchanged presence is suppressed and changed vitals remain visible", PresenceAsync);
         yield return ("HUD remains inside 4:3, widescreen and ultrawide viewports", LayoutAsync);
         yield return ("normal-rate outboxes share immutable event batches without cross-subscriber mutation", SharedBatchAsync);
@@ -54,13 +54,17 @@ internal static class OutboxTests
         return Task.CompletedTask;
     }
 
-    private static async Task SaturationAsync()
+    private static Task SaturationAsync()
     {
-        var outbox = new WorldOutbox(1);
-        var snapshot = new WorldSnapshot(1, [], [new CombatEventView(1, 2, CombatEventKind.Hit)]);
-        Assert.True(outbox.Writer.TryWrite(snapshot) && !outbox.Writer.TryWrite(snapshot), "event capacity not enforced");
-        Assert.True(outbox.Reader.TryRead(out var accepted) && accepted.Events.Length == 1, "previously accepted event was lost");
-        await Assert.ThrowsAsync<InvalidOperationException>(async () => await outbox.Reader.WaitToReadAsync(), "the faulted outbox stayed readable");
+        var outbox = new WorldOutbox(2);
+        WorldSnapshot Hit(uint tick, int damage) => new(tick, [], [new CombatEventView(1, 2, CombatEventKind.Hit, damage: damage)]);
+        Assert.True(outbox.Writer.TryWrite(Hit(1, 1)) && outbox.Writer.TryWrite(Hit(2, 2)) && outbox.Writer.TryWrite(Hit(3, 3)),
+            "a reader that fell behind lost its stream");
+        Assert.True(outbox.Reader.TryRead(out var behind) && behind is { ServerTick: 3, EventsLost: true } && behind.Events is [{ Damage: 3 }],
+            "the unread events were kept past the capacity, or the reader was not told they were lost");
+        Assert.True(outbox.Writer.TryWrite(Hit(4, 4)) && outbox.Reader.TryRead(out var next) && !next.EventsLost && next.Events is [{ Damage: 4 }],
+            "a reader that caught up was still told events were lost");
+        return Task.CompletedTask;
     }
 
     private static Task PresenceAsync()

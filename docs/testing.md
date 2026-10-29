@@ -47,7 +47,8 @@ Default case files by area (all `tests/PristonTale.Tests/<Name>.cs`):
 | Puzzles | `PuzzleTests` | Lucky bag seal and reveal, board completion and exchange, sealed ground drops |
 | Equipment | `EquipmentTests`, `RangedEquipmentTests` | Catalog rules, hands, class masks, bone attachments |
 | Item rules | `ItemRulesTests` | Wearable slots, requirements, two-handed swaps, drop and shop rolls, the item stat pipeline, block, carried weight, saved rolls, item details on the wire, item reader |
-| Protocol | `BinaryProtocolTests`, `ClientTests`, `NetworkHardeningTests` | Message layouts, framing, TLS and certificate checks, presence, abuse limits |
+| Protocol | `BinaryProtocolTests`, `ClientTests`, `NetworkHardeningTests` | Message layouts, framing, TLS and certificate checks, send backlog and batches, presence, abuse limits, connection caps |
+| World tick | `WorldTickTests` | The tick's absolute timeline: late ticks caught up, stalls skipped |
 | Multiplayer | `MultiplayerMovementTests`, `MultiplayerCombatTests`, `MultiplayerPresenceTests`, `MultiplayerSessionTests`, `MultiplayerSocialTests`, `PresencePipelineTests` | Propagation between real clients over TCP (see Multiplayer propagation); frames, shared encoding, revisions, crowd cap, event ticks, grid, status book |
 | World data | `WorldImportTests`, `NpcPlacementMigrationTests`, `MonsterNameTests`, `NpcServiceTests` | Import and migrations on temp SQLite |
 | Rewards, spawns | `WorldRewardsTests`, `SpawnGateTests`, `SpawnScheduleTests` | Loot, XP, spawn masks, boss hours |

@@ -29,6 +29,7 @@ internal static class PresencePipelineTests
         yield return ("events of ticks a slow reader fell behind on keep their own tick on the timeline", SegmentsAsync);
         yield return ("the entity grid finds, counts and relates entities on both sides of zero", GridAsync);
         yield return ("running statuses are kept per field, carried across fields on the new clock and pruned when they end", StatusBookAsync);
+        yield return ("a receiver whose events were lost gets the statuses running on every entity it shows again", LostEventsAsync);
     }
 
     private static Task FramesAsync()
@@ -234,6 +235,22 @@ internal static class PresencePipelineTests
         grid.Related(1, related);
         Assert.True(related.Order().SequenceEqual([1, 2]), "the attacker and the summon of entity 1 were not related to it");
         Assert.True(grid.Npcs.SequenceEqual([3]), "the NPC index is wrong");
+        return Task.CompletedTask;
+    }
+
+    private static Task LostEventsAsync()
+    {
+        static EntityView At(ulong id, float x) =>
+            new(id, id == 1 ? EntityKind.Player : EntityKind.Monster, false, new Vector3(x, 0, 0), 0f, MotionState.Stand, 1, 100, 100, default);
+        EntityView[] views = [At(1, 0), At(10, 20), At(11, 40)];
+        var receiver = new WireRoundTrip(1);
+        receiver.PushMerged(new WorldSnapshot(1, views, [], 3));
+        var book = new FieldStatusBook();
+        book.Apply([new StatusEventView(10, 9, 7, StatusEffectOp.Add, 1, 0, 0, false, false, 10000, 10000, 0)], 1000);
+        var running = new WorldSnapshot(2, views, [], 3) { ActiveStatuses = book.Snapshot, FieldNowMs = 4000 };
+        Assert.True(receiver.PushMerged(running).StatusEffects.Count == 0, "statuses were sent again with no event lost");
+        var resent = receiver.PushMerged(new WorldSnapshot(3, views, [], 3) { ActiveStatuses = book.Snapshot, FieldNowMs = 4000, EventsLost = true });
+        Assert.True(resent.StatusEffects is [{ StatusCode: 7 }], "the status running on a shown entity was not sent again after its events were lost");
         return Task.CompletedTask;
     }
 

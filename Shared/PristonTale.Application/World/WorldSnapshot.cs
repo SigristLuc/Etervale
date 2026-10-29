@@ -217,6 +217,9 @@ public readonly struct WorldSnapshot
     // null when every event belongs to ServerTick.
     public EventSegment[]? EventSegments { get; init; }
 
+    // Set when the reader fell so far behind that its outbox dropped the events it had not read.
+    public bool EventsLost { get; init; }
+
     // The field's shared frame of this tick (views and grid) and its generation; null for snapshots built by hand.
     public PresenceFrame? Frame { get; init; }
     public int FrameGeneration { get; init; }

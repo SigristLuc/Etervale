@@ -17,6 +17,7 @@ internal static class MultiplayerSessionTests
         yield return ("multiplayer: leaving the world removes the player for its viewers and a reconnect shows it again where it left", LeaveAsync);
         yield return ("multiplayer: a dropped connection removes the player and frees its character for the next login", DropAsync);
         yield return ("multiplayer: two logins racing for one character admit exactly one and viewers see one avatar", RaceAsync);
+        yield return ("multiplayer: a login whose character list storage refuses answers busy, and the connection logs in again", ListRefusedAsync);
     }
 
     private static async Task LeaveAsync()
@@ -87,5 +88,19 @@ internal static class MultiplayerSessionTests
         await Task.Delay(300);
         Assert.True(b.World.Read(world => world.Entities.Values.Count(entity => entity.Player?.Name == "Contested")) == 1, "the viewer shows two avatars");
         Assert.True(b.World.Read(world => world.Entities[winner.EntityId].Kind) == EntityKind.Player, "the winner is not a player");
+    }
+
+    private static async Task ListRefusedAsync()
+    {
+        await using var server = await MultiplayerServer.StartAsync(MultiplayerServer.WorldWith());
+        var account = await server.CreatePlayerAsync(new PlayerSetup("Patient", PlayerClass.Fighter, 10, MultiplayerServer.HuntingField, MultiplayerServer.Camp));
+        await using var connection = new Client.Net.GameServerConnection(server.Address);
+        await server.ExecuteAsync("ALTER TABLE characters RENAME TO characters_away");
+        var refused = await connection.LoginAsync(account, MultiplayerServer.Password);
+        await server.ExecuteAsync("ALTER TABLE characters_away RENAME TO characters");
+        var again = await connection.LoginAsync(account, MultiplayerServer.Password);
+        Assert.True(refused is { Ok: false, Failure: LoginFailure.Busy } && again.Ok
+            && (await connection.ListCharactersAsync()).Any(static character => character.Name == "Patient"),
+            $"a refused character list left the connection logged in: {refused.Failure}, then {again.Failure}");
     }
 }

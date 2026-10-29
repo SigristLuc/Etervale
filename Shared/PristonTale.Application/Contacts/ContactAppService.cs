@@ -11,7 +11,8 @@ public readonly record struct ContactEntry(string Name, bool Online);
 public sealed record ContactLists(IReadOnlyList<ContactEntry> Friends, IReadOnlyList<ContactEntry> Ignored);
 
 // The friends page on the server: a character's lists are loaded when it joins the chat (ChatMember.Contacts), changed and
-// stored one name at a time, and answered with each friend's presence. A refused change answers its line in the chat.
+// stored one name at a time, and answered with each friend's presence. A refused change, one storage refused too, answers
+// its line in the chat and the lists as they are.
 // One connection's requests come one at a time, so a check and the change it allows never interleave.
 public sealed class ContactAppService(ChatDirectory chat, IContactRepository contacts)
 {
@@ -32,22 +33,41 @@ public sealed class ContactAppService(ChatDirectory chat, IContactRepository con
             : !book.Available ? ContactStatus.Unavailable
             : listed is null ? ContactStatus.NotListed
             : ContactStatus.Ok;
+        if (status == ContactStatus.Ok)
+        {
+            status = await StoreAsync(loaded.Id, book, list, add, listed ?? name, ct);
+        }
+
         if (status != ContactStatus.Ok)
         {
             member.Link.Deliver(ChatLine.Reply(ContactMessages.Of(status, name)));
         }
-        else if (add)
-        {
-            await contacts.AddAsync(loaded.Id, list, name, ct);
-            book.Add(list, name);
-        }
-        else
-        {
-            await contacts.RemoveAsync(loaded.Id, list, listed!, ct);
-            book.Remove(list, listed!);
-        }
 
         return Lists(member);
+    }
+
+    // A change storage refuses leaves the lists as they were.
+    private async Task<ContactStatus> StoreAsync(long characterId, ContactBook book, ContactList list, bool add, string name, CancellationToken ct)
+    {
+        try
+        {
+            if (add)
+            {
+                await contacts.AddAsync(characterId, list, name, ct);
+                book.Add(list, name);
+            }
+            else
+            {
+                await contacts.RemoveAsync(characterId, list, name, ct);
+                book.Remove(list, name);
+            }
+
+            return ContactStatus.Ok;
+        }
+        catch (System.Data.Common.DbException)
+        {
+            return ContactStatus.Unavailable;
+        }
     }
 
     public ContactLists? Lists(ulong entityId) => chat.TryGet(entityId, out var member) ? Lists(member) : null;

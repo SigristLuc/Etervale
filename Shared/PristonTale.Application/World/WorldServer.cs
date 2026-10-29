@@ -3,6 +3,7 @@ using PristonTale.Simulation.World.Spawning;
 using PristonTale.Simulation.Progression;
 using PristonTale.Simulation.World.Npcs;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Numerics;
 using System.Threading.Channels;
 using PristonTale.Application.GameLogs;
@@ -25,7 +26,9 @@ public sealed partial class WorldServer
 {
     public const int TickHz = 20;
 
-    private readonly Channel<WorldCommand> _commands = Channel.CreateBounded<WorldCommand>(new BoundedChannelOptions(65536)
+    public const int CommandQueueCapacity = 65536;
+
+    private readonly Channel<WorldCommand> _commands = Channel.CreateBounded<WorldCommand>(new BoundedChannelOptions(CommandQueueCapacity)
     {
         SingleReader = true,
         FullMode = BoundedChannelFullMode.Wait
@@ -650,6 +653,11 @@ public sealed partial class WorldServer
         return await result;
     }
 
+    // The last tick's commands and the time its serial command phase and its fields' parallel step and publication took.
+    public readonly record struct TickPhases(int Commands, double CommandsMs, double FieldsMs);
+
+    public TickPhases LastPhases { get; private set; }
+
     public void Tick(float dt, uint serverTick)
     {
         if (!float.IsFinite(dt) || dt <= 0f)
@@ -657,7 +665,9 @@ public sealed partial class WorldServer
             return;
         }
 
-        for (var processed = 0; processed < CommandsPerTick && _commands.Reader.TryRead(out var command); processed++)
+        var started = Stopwatch.GetTimestamp();
+        var processed = 0;
+        for (; processed < CommandsPerTick && _commands.Reader.TryRead(out var command); processed++)
         {
             if (command.Action is { } action)
             {
@@ -669,6 +679,7 @@ public sealed partial class WorldServer
             }
         }
 
+        var commandsDone = Stopwatch.GetTimestamp();
         RefreshParties(serverTick);
         var localNow = _clock.GetLocalNow();
         bool bossPassDue = _bossSchedule.TryBeginPass(localNow, _clock.GetElapsedTime(_clockOrigin));
@@ -680,6 +691,8 @@ public sealed partial class WorldServer
         // Fields share only immutable catalogs and the thread-safe id allocator, so they step in parallel.
         var night = WorldClock.IsNight(WorldClock.HoursAt(GameClockMs));
         Parallel.ForEach(_activeFields, field => StepField(field, dt, serverTick, bossHour, nowSeconds, night));
+        LastPhases = new TickPhases(processed, Stopwatch.GetElapsedTime(started, commandsDone).TotalMilliseconds,
+            Stopwatch.GetElapsedTime(commandsDone).TotalMilliseconds);
         ApplyQuestTravels();
         Checkpoint(serverTick);
 

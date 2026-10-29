@@ -49,7 +49,8 @@ internal sealed partial class PresenceEncoder
     private readonly HashSet<Guid> _visibleDrops = new();
     private readonly List<Guid> _goneDrops = new();
     private readonly List<ulong> _removed = new();
-    // Entities this receiver started seeing in the snapshot being encoded; their running statuses follow.
+    // Entities this receiver started seeing in the snapshot being encoded (every entity shown when its events were lost);
+    // their running statuses follow.
     private readonly List<ulong> _spawned = new();
     private readonly List<CombatEventEntry> _events = new();
     private readonly List<SkillEventEntry> _skillEvents = new();
@@ -333,6 +334,13 @@ internal sealed partial class PresenceEncoder
         _wire = null;
         _entities = [];
         SendRemovals(connection);
+        if (snapshot.EventsLost)
+        {
+            // The statuses that started on entities already shown were among the events lost.
+            _spawned.Clear();
+            _spawned.AddRange(_known.Keys);
+        }
+
         var routed = RouteEvents(snapshot);
         SendEvents(combat, connection, routed ? _routedCombat : null);
         SendSkillEvents(skills, connection, routed ? _routedSkills : null);

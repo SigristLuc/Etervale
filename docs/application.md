@@ -132,8 +132,10 @@ captured through its town restart (`WorldServer.CaptureLeftAsync`).
 
 ### Tick loop
 
-`WorldTickService` (server) calls `WorldServer.Tick(1/20 s, ++tick)` from a `PeriodicTimer` at `WorldServer.TickHz`
-(20). `Tick` ignores non-finite or non-positive `dt`, then:
+`WorldTickService` (server) calls `WorldServer.Tick(1/20 s, ++tick)` at `WorldServer.TickHz` (20) on a thread of its
+own, on an absolute timeline (`TickSchedule`): tick n is due n periods after the start, the ticks owed after a late one
+run back to back, and a stall of more than 5 ticks is skipped and counted. `Tick` ignores non-finite or non-positive
+`dt`, then:
 
 1. Command phase: drains up to `CommandsPerTick` (16384) queued commands on the calling thread.
 2. Boss clock: `BossSpawnSchedule.TryBeginPass` on the injected `TimeProvider` yields at most one hour value per pass,
@@ -145,17 +147,20 @@ captured through its town restart (`WorldServer.CaptureLeftAsync`).
    cooldowns and the quest update, to each connection's outbox.
 4. When membership changed: publish `PlayerCount` and per-field counts with `Volatile.Write` for the read model.
 
+`LastPhases` gives the last tick's command count and the time of its command phase and field phase, for the tick report.
+
 ### Command queue
 
 All world access from other threads goes through `EnqueueAsync`, which wraps a closure into a bounded
-(65536, single reader) channel and returns a `Task` completed on the tick thread. A closure that throws faults the task.
+(`CommandQueueCapacity`, 65536, single reader) channel and returns a `Task` completed on the tick thread. A closure that throws faults the task.
 Movement reports, the bulk of the traffic, use `TryReportMovement`: the report travels in the same ordered queue as a
 value (no closure, task or completion), counts against the same quota, and its verdict is handed to the caller's
 `IMovementVerdictSink` on the tick thread; `false` means quota or queue full and the report is dropped.
 
 - Per-player quota: commands tagged with the player's entity id count against `MaxPendingCommandsPerPlayer`
-  (default 64, config `World:MaxPendingCommandsPerPlayer`). Over quota, or with the channel full, `EnqueueAsync`
-  throws `WorldBusyException` synchronously; the edge drops the command like a lost packet.
+  (default 16, config `World:MaxPendingCommandsPerPlayer`), so 4096 players at their quota fit the queue. Over quota, or
+  with the channel full, `EnqueueAsync` throws `WorldBusyException` synchronously; the edge drops the command like a
+  lost packet.
 - Exempt commands use owner 0 (`NoOwner`) and `waitForCapacity: true`: `LeaveAsync`, `CaptureForSaveAsync`, every
   `Commit*Async`. These cannot be refused because the operation already holds the save gate (and a transfer may already
   be stored) or the player is leaving.
@@ -541,8 +546,9 @@ The friends page (`ContactAppService`) keeps, per character, a friends list and 
 [simulation.md](simulation.md)). The server loads them before the player joins the world (`ChatMember.Contacts`; lists
 it could not read stay empty and refuse changes) and stores each change at once (`IContactRepository`,
 [persistence.md](persistence.md)); a name need not belong to a character, as the original's lists take any name. Every
-change and refresh answers both lists, each friend with whether a player of that name is in the world. A whisper from an
-ignored player is refused ([chat-and-gm.md](chat-and-gm.md)). The recent players are the client's
+change and refresh answers both lists, each friend with whether a player of that name is in the world; a change storage
+refuses answers the lists as they were and "The lists cannot be changed now". A whisper from an ignored player is
+refused ([chat-and-gm.md](chat-and-gm.md)). The recent players are the client's
 ([client.md](client.md)).
 
 ## Published outcomes and events
@@ -563,8 +569,9 @@ ignored player is refused ([chat-and-gm.md](chat-and-gm.md)). The recent players
   cooldown list wins; quest notices stay in order up to 256 and the newest journal view and dialog win). A reader that
   kept up gets the field's own event arrays; one that fell behind gets them joined in order with `EventSegments`
   telling which tick each part belongs to. Reading pins the snapshot's frame (`ReleaseFrame` after encoding); a frame
-  the field already reused yields a snapshot without entities. More than 4096 pending events completes the channel with
-  an `InvalidOperationException`; the edge closes the connection.
+  the field already reused yields a snapshot without entities. A write that would take the pending events past 4096
+  drops the ones not read yet and sets `EventsLost` on the next snapshot read: the reader keeps its stream, the entities
+  it shows catch up with that snapshot, and the encoder sends again the statuses running on them.
 - Statuses: the field keeps the last published `Add`/`Refresh` of every running status (`FieldStatusBook`), removes
   them on `Remove`, when the entity leaves (`TransferPlayer` carries a player's statuses to the new field on its clock)
   and when they run out (pruned every 5 s), so an encoder can send them to a viewer that starts seeing the entity.

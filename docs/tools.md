@@ -231,7 +231,7 @@ dotnet run --project tools/PristonTale.DevAccounts -c Release --no-build -- --sq
   create-bots cw 2000 bot-pw --class Mechanician --level 20 --field 2 --at 4184,-11016 --spacing 0 \
   --skills 0x01010002:5,0x01010003:3
 dotnet run --project Server/PristonTale.Server -c Release --no-build -- --Database:SqlitePath=<copy.db> \
-  --Network:Port=10037 --Network:MaxConnectionsPerIp=0 --Server:ReportSeconds=10
+  --Network:Port=10037 --Network:MaxConnectionsPerIp=0 --Network:MaxHandshakesPerIp=0 --Server:ReportSeconds=10
 dotnet run --project tools/PristonTale.LoadTest -c Release --no-build -- --count 2000 --address tcp://127.0.0.1:10037 \
   --prefix cw --mode mixed --seconds 60 --ramp 100 --server-pid <pid> --report 10
 ```
@@ -257,8 +257,8 @@ dotnet run --project tools/PristonTale.LoadTest -c Release --no-build -- --count
   maximum in milliseconds; the end lists the refusals by message. A refusal before the world answers no revision, and
   the bot keeps the one it expected.
 - Exit 0 without failures, 2 with any bot failure, 1 on a usage error. Only the first 10 failures are printed.
-- `--Network:MaxConnectionsPerIp=0` disables the per-address connection limit (default 8); every bot connects from one
-  address. Measured results and the server's capacity design are in [protocol.md](protocol.md) (Server capacity).
+- `--Network:MaxConnectionsPerIp=0 --Network:MaxHandshakesPerIp=0` disables the per-address connection and handshake
+  limits (defaults 8 and 4); every bot connects from one address. Measured results and the server's capacity design are in [protocol.md](protocol.md) (Server capacity).
 
 ## WorldJson (`ptworldjson`)
 
@@ -333,7 +333,7 @@ Run from Blender's Scripting tab after importing GLBs produced by `ptgltf`.
 - Seed a test login: `create-account`, then `add-char`, against the database the server uses.
 - Check a protocol or skill change end to end: start the server, run SmokeClient without and with `--character`.
 - Measure capacity: `create-bots` (with placed characters for hunting modes) on a copy, server with
-  `--Network:MaxConnectionsPerIp=0 --Server:ReportSeconds=10`, LoadTest, and the `--benchmark-presence` runner; update
+  `--Network:MaxConnectionsPerIp=0 --Network:MaxHandshakesPerIp=0 --Server:ReportSeconds=10`, LoadTest, and the `--benchmark-presence` runner; update
   the tables in [protocol.md](protocol.md) when results change.
 - Add a CLI option: update the tool's parsing and usage text and the matching table in this doc together.
 

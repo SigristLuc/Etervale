@@ -18,12 +18,15 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
     private readonly int _eventCapacity;
     private WorldSnapshot _latest;
     private int _eventCount;
+    private bool _eventsLost;
     private bool _hasState;
     private bool _completed;
     // Spreads the frame pins of many outboxes over the frame's counters.
     private readonly uint _pinKey = (uint)Random.Shared.Next();
 
-    public WorldOutbox(int eventCapacity = 4096)
+    public const int DefaultEventCapacity = 4096;
+
+    public WorldOutbox(int eventCapacity = DefaultEventCapacity)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(eventCapacity);
         _eventCapacity = eventCapacity;
@@ -43,15 +46,17 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
             var incoming = snapshot.Events.Length + snapshot.SkillEvents.Length + snapshot.StatusEvents.Length + snapshot.ItemEffects.Length;
             if (incoming > _eventCapacity - _eventCount)
             {
-                _completed = true;
-                _ready.Writer.TryComplete(new InvalidOperationException("Reliable world-event queue overflow; reconnect required."));
-                return false;
+                // A reader this far behind loses the events it has not read, never its connection: the entities it shows
+                // catch up with the next snapshot, and the encoder sends again the statuses running on them.
+                _batches.Clear();
+                _eventCount = 0;
+                _eventsLost = true;
             }
 
             _latest = snapshot;
             _hasState = true;
             // Skill, status and item events are as reliable as combat events; the newest cooldown list replaces older ones.
-            if (incoming > 0)
+            if (incoming > 0 && incoming <= _eventCapacity)
             {
                 _batches.Add(new EventBatch(snapshot.ServerTick, snapshot.Events, snapshot.SkillEvents, snapshot.StatusEvents, snapshot.ItemEffects));
                 _eventCount += incoming;
@@ -92,12 +97,14 @@ public sealed class WorldOutbox : Channel<WorldSnapshot>
             snapshot = WithBatches(latest) with
             {
                 Cooldowns = _cooldowns,
-                Quest = _quest.Take()
+                Quest = _quest.Take(),
+                EventsLost = _eventsLost
             };
             _batches.Clear();
             _cooldowns = null;
             _latest = default;
             _eventCount = 0;
+            _eventsLost = false;
             _hasState = false;
             _ready.Reader.TryRead(out _);
             return true;
