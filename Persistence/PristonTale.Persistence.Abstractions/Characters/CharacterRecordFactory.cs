@@ -59,7 +59,8 @@ public static class CharacterRecordFactory
             Skills: JsonText.EmptyArray,
             Quests: JsonText.EmptyObject,
             Premium: JsonText.EmptyObject,
-            LastPlayedAt: null);
+            LastPlayedAt: null,
+            StarterGiftsReceived: 0);
     }
 
     public static CharacterRecord FromLiveSession(
@@ -84,6 +85,7 @@ public static class CharacterRecordFactory
             Money = character.Money,
             StatPoints = character.StatPoints,
             Tier = character.Tier,
+            StarterGiftsReceived = character.StarterGiftsReceived,
             Strength = attributes.Strength,
             Spirit = attributes.Spirit,
             Talent = attributes.Talent,

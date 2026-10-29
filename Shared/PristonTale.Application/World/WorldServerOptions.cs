@@ -31,6 +31,8 @@ public sealed record WorldServerOptions
 
     public int MaxPendingCommandsPerPlayer { get; init; } = DefaultMaxPendingCommandsPerPlayer;
 
+    public bool GiveStarterGifts { get; init; } = true;
+
     // Every playing character is captured for storage once per this many seconds, each on its own tick.
     public int CheckpointSeconds { get; init; } = DefaultCheckpointSeconds;
 

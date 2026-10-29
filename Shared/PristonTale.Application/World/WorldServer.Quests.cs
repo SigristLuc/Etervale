@@ -13,11 +13,7 @@ public sealed partial class WorldServer
     private readonly CombatRng _questRng = new(0x5155);
 
     // Sessions with quest work for the upkeep worker; written from the field phase, read off the tick.
-    private readonly Channel<PlayerSession> _questUpkeep = Channel.CreateUnbounded<PlayerSession>(new UnboundedChannelOptions
-    {
-        SingleReader = true,
-        AllowSynchronousContinuations = false
-    });
+    private readonly Channel<PlayerSession> _questUpkeep = SessionRequests();
 
     public ChannelReader<PlayerSession> QuestUpkeepRequests => _questUpkeep.Reader;
 

@@ -68,6 +68,10 @@ public sealed partial class WorldServer
         public OwnerState? LastOwner { get; set; }
 
         public long CooldownRevision { get; set; } = -1;
+
+        // The tick the next starter gift is due on, and whether the gift service holds a request for it.
+        public uint NextGiftTick { get; set; }
+        public bool GiftRequested { get; set; }
     }
 
     public WorldServer(
@@ -178,7 +182,7 @@ public sealed partial class WorldServer
 
             player.EnterField(position, definition.State == FieldState.Village);
             field.Add(player);
-            _connections.Add(player.EntityId, new Connection(fieldId, player, outbound, session));
+            _connections.Add(player.EntityId, new Connection(fieldId, player, outbound, session) { NextGiftTick = GiftTick(StarterGifts.FirstDelay) });
             _membershipChanged = true;
             UpdatePlacement(session, fieldId, player.Position, definition.State == FieldState.Village);
             return true;
@@ -665,6 +669,7 @@ public sealed partial class WorldServer
             return;
         }
 
+        _serverTick = serverTick;
         var started = Stopwatch.GetTimestamp();
         var processed = 0;
         for (; processed < CommandsPerTick && _commands.Reader.TryRead(out var command); processed++)
@@ -695,6 +700,7 @@ public sealed partial class WorldServer
             Stopwatch.GetElapsedTime(commandsDone).TotalMilliseconds);
         ApplyQuestTravels();
         Checkpoint(serverTick);
+        OfferStarterGifts(serverTick);
 
         if (!_membershipChanged)
         {

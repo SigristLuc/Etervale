@@ -37,7 +37,8 @@ into it is described in [server.md](server.md); skill resolution details are in 
 | [`World/WorldServer.cs`](../Shared/PristonTale.Application/World/WorldServer.cs) | Command queue, tick, field registry, connections, prepare/commit entry points |
 | `World/WorldServer.Npc.cs` | NPC interaction, NPC service check/prepare/commit, teleport arrival |
 | `World/WorldServer.Quests.cs`, `World/FieldInstance.Quests.cs`, `World/QuestTransactions.cs`, `World/PlayerQuestState.cs` | Quest prepare/commit, upkeep requests, quest travel; kill credit, quest drops, timers and arena duels on the field |
-| `World/WorldServerOptions.cs` | `ExperienceMultiplier`, `ExperienceEventPercent`, `ClockOffsetMinutes`, `CrystalEvent`, `ItemEvents`, `Aging`, `MaxPendingCommandsPerPlayer`; `WorldBusyException` |
+| `World/WorldServerOptions.cs` | `ExperienceMultiplier`, `ExperienceEventPercent`, `ClockOffsetMinutes`, `CrystalEvent`, `ItemEvents`, `Aging`, `MaxPendingCommandsPerPlayer`, `GiveStarterGifts`; `WorldBusyException` |
+| `World/WorldServer.StarterGifts.cs`, `Services/StarterGiftAppService.cs` | The starter gifts of new characters: their offers on the tick, prepare and commit, the durable operation and its chat line ([Starter gifts](#starter-gifts)) |
 | `Settings/` | `ServerSettings`, `ServerSettingCatalog` (every row of the settings table), `ServerSettingsAppService` (read, apply, write) |
 | [`World/FieldInstance.cs`](../Shared/PristonTale.Application/World/FieldInstance.cs) | One live field: players, monsters, NPCs, spawner, AI, collision index, step order, views |
 | `World/FieldCombat.cs` | Basic attack and monster attack resolution, damage log, kill payout, corpses |
@@ -367,6 +368,7 @@ A prepared operation with `Snapshot == null` is final (rejection or replay) and 
 | Progression (attributes, learn skill) | `ProgressionTransactions.Prepare`; learning needs a reachable skill master | re-applies the command to the live character (`ApplyProgression`) |
 | NPC services | `NpcServiceTransactions.Prepare` (`PreparedNpcOperation`) | inventory, gold delta, open warehouse, teleport arrival |
 | Quest requests | `QuestTransactions.Prepare` (`PreparedQuestOperation`); follow-ups must answer a step the NPC still offers | inventory, equipment, quest journal (merging tick kills), tier, stat/skill point and gold deltas, travel, arena duel |
+| Starter gift | `WorldServer.PrepareStarterGiftAsync`, run by the server's `StarterGiftService` ([Starter gifts](#starter-gifts)) | inventory and equipment, the gift count |
 | Quest upkeep | `QuestTransactions.PrepareUpkeep`, run by the server's `QuestUpkeepService` | quest drops into the pack, quest weapon growth and expiry, leftovers removed; a busy save gate defers the work to the field's next check |
 | Item use | `ItemUseTransactions.Prepare` with the item's `ItemUseAction` (`PreparedItemUseOperation`) | inventory, premium state, resets and mastery re-applied with the prepared clock, item effects, hair, arrival |
 | Personal shop purchase | `PersonalShopTransactions.Prepare` (`PreparedShopPurchase`): the buyer's and the seller's candidates, stored together first with `ICharacterRepository.UpdateAllAsync` | both inventories, the price from the buyer to the seller, the seller's listing pruned |
@@ -540,6 +542,28 @@ command quota), leaving the world or changing place ends the trade for both; the
 delivered after the tick (`TakeTickNotices`). Every snapshot carries the receiver's `TradeView` (the partner items with
 their values for it) and pending `TradeRequest`. Meanwhile inventory commands and item uses on an offered item
 (`Offers`), NPC services and opening a personal shop are refused.
+
+## Starter gifts
+
+With `players.starter_gifts` on, a new character (`CharacterRecordFactory.NewStarter` stores `StarterGiftsReceived`
+0; characters stored before migration 32 count as served) receives `StarterGifts`, one at a time: its class's weapon
+(Archer WS101, Atalanta WT101, Magician and Priestess WM101, any other class one of WS201, WA101 and WH101), a body
+armour (DA202 for the Magician and the Priestess, DA102 otherwise) and three Hopy crystals (GP101). The original's
+new-user present gave them as any drop; Etervale gives perfect copies (`ItemRoller.CreatePerfect`) with the class's
+specialization where the item takes it.
+
+- Pace: the first gift 10 s after the character entered the world, each next one 60 s after the last ended. Once a
+  second the tick hands a playing character whose gift is due to `StarterGiftRequests` (`OfferStarterGifts`).
+- `StarterGiftAppService.GiveAsync` runs it as a durable operation: the copy goes into the bag and on the first empty
+  slot that may hold it (`PlayerCharacter.WearIfFree`, as the original's client does with an item it receives), the
+  count rises with it, and the chat tells the player "You received <item> as a gift.". A gift without room in the bag
+  waits for the next offer; one the catalog lacks counts as given; a save gate held by another operation leaves it for
+  the next offer. The game master's gift into a bag (`PrepareGiftAsync`) takes the same path (`Receive`,
+  `CheckReceived`).
+- The count is stored with the character and read back checked (0 to `StarterGifts.Count`). It holds whatever the
+  character has received, whenever: a character created while the setting was off (or one `add-char` made at a higher
+  level) gets the gifts once the setting is on again. Characters LoadTest creates over the wire receive them too; turn
+  the setting off for load runs.
 
 ## Contacts
 

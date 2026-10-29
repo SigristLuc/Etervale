@@ -44,6 +44,7 @@ public static class HostingExtensions
         builder.Services.AddSingleton<PartyAppService>();
         builder.Services.AddSingleton<TradeAppService>();
         builder.Services.AddSingleton<ContactAppService>();
+        builder.Services.AddSingleton<StarterGiftAppService>();
 
         var provider = builder.Configuration["Database:Provider"] ?? "Sqlite";
         if (string.Equals(provider, "Sqlite", StringComparison.OrdinalIgnoreCase))
@@ -100,6 +101,7 @@ public static class HostingExtensions
         builder.Services.AddHostedService<ServerSettingsService>();
         builder.Services.AddHostedService<GameTcpServer>();
         builder.Services.AddHostedService<PristonTale.Server.World.QuestUpkeepService>();
+        builder.Services.AddHostedService<PristonTale.Server.World.StarterGiftService>();
 
         builder.Services.AddSingleton<IServerStatusReadModel, WorldStatusReadModel>();
 

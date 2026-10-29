@@ -32,6 +32,7 @@ progression, regeneration and movement rates. `World/`, `Physics/` and `Skills/`
 | `Characters/Regeneration.cs` | Per-second life/mana/stamina recovery and the `RegenerationState` accumulator |
 | `Characters/Locomotion.cs`, `AnimationRate.cs` | Move-speed stat to world units per second; walk/run/attack animation rates |
 | `Characters/DestinationMovement.cs` | Straight-line step toward a destination (client player and NPC walking) |
+| `Characters/StarterGifts.cs` | The starter gifts of a new character: the item of each, created perfect with the class's specialization, their pace and chat line |
 | `Characters/OwnerState.cs` | `OwnerState.Capture`: the owner-only character snapshot sent to the client |
 | `Characters/CharacterHead*.cs`, `CharacterVisuals.cs` | Head/face/hair model path resolution per class and tier; `CharacterVisualSet` |
 | `Characters/CharacterSlots.cs` | Characters per account (6) |
@@ -410,6 +411,8 @@ totals.
   to the bag (first free place); an off-hand item first sends a held two-handed weapon there; then the item in the
   slot takes the bag cell. Without room nothing changes. `InventoryCommands.Refusal` names an unusable item
   (`ItemRuleMessages.CannotUse`).
+- `WearIfFree(itemId)`: a bag item goes on the first empty slot that `CanEquip` allows, as the original's client does
+  with an item it receives (a starter gift); otherwise it stays in the bag.
 - `TryUnequip` needs inventory space and is refused while the character is overweight (`ItemRuleMessages.OverWeight`).
 - `ReceiveGroundLoot` refuses an item that would carry the character over the weight limit.
 - `EquipmentSlot` has no helmet and keeps `Sheltom` separate (the persisted equipment order).

@@ -42,6 +42,15 @@ public sealed partial class PlayerCharacter
     public int EliteSkillPoints { get; private set; }
     public short Tier { get; private set; }
 
+    public int StarterGiftsReceived { get; private set; } = StarterGifts.Count;
+
+    public void RestoreStarterGifts(int received) =>
+        StarterGiftsReceived = received is >= 0 and <= StarterGifts.Count
+            ? received
+            : throw new ArgumentOutOfRangeException(nameof(received), "A character received 0 to StarterGifts.Count starter gifts.");
+
+    public void CountStarterGift() => RestoreStarterGifts(StarterGiftsReceived + 1);
+
     // Quest progress: the running quest, finished quests and the logs whose bits pay lasting rewards.
     public QuestJournal Quests { get; private set; } = new();
 
@@ -297,6 +306,27 @@ public sealed partial class PlayerCharacter
         }
 
         return true;
+    }
+
+    // Wears a bag item on the first empty slot that may hold it, as the original's client does with an item it receives;
+    // false when none may.
+    public bool WearIfFree(Guid itemId)
+    {
+        var anchor = Inventory.Find(itemId);
+        if (anchor < 0)
+        {
+            return false;
+        }
+
+        foreach (var slot in Enum.GetValues<EquipmentSlot>())
+        {
+            if (GetEquipped(slot) is null && CanEquip(slot, Inventory[anchor]))
+            {
+                return TryEquipFromInventory(anchor, slot);
+            }
+        }
+
+        return false;
     }
 
     // The item replaced in the slot takes the bag cell; a two-handed weapon also sends the off-hand item to the bag, and
@@ -601,6 +631,7 @@ public sealed partial class PlayerCharacter
         clone.RestorePurchaseHistory(ShopPurchases);
         clone.RestoreProgressionHistory(ProgressionRevision, ProgressionOperations);
         clone.Quests = Quests.Clone();
+        clone.RestoreStarterGifts(StarterGiftsReceived);
         clone.Premium.CopyFrom(Premium);
         clone.ItemUses.CopyFrom(ItemUses);
         clone.Recompute();

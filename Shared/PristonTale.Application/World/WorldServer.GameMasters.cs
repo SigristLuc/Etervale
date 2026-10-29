@@ -353,15 +353,8 @@ public sealed partial class WorldServer
                 return null;
             }
 
-            var original = connection.Player.Character;
-            var candidate = original.CloneForInventoryOperation();
-            if (!candidate.ReceiveGroundLoot(make(_fields[connection.FieldId].Rng), 0))
-            {
-                return new PreparedCharacterOperation<bool>(original, null, null, false);
-            }
-
-            var snapshot = CharacterRecordFactory.Capture(session.Loaded, candidate, connection.FieldId, connection.Player.Position);
-            return new PreparedCharacterOperation<bool>(original, candidate, snapshot, true);
+            var (candidate, snapshot) = Receive(session, connection, make(_fields[connection.FieldId].Rng), null);
+            return new PreparedCharacterOperation<bool>(connection.Player.Character, candidate, snapshot, candidate is not null);
         });
     }
 
@@ -369,18 +362,14 @@ public sealed partial class WorldServer
     {
         return EnqueueAsync(NoOwner, () =>
         {
-            if (!ReferenceEquals(session.Character, operation.Original) || operation.Candidate is null)
-            {
-                throw new CommitInvariantException("Character ownership changed during a game master's gift.");
-            }
-
+            var candidate = CheckReceived(session, operation, "a game master's gift");
             if (Transfer(Persistence.Abstractions.GameLogs.ItemTransferKind.GameMasterGift, Guid.NewGuid(), session.FieldId) is { } log)
             {
-                log.Arrived(operation.Original, operation.Candidate, null, CharacterIdOf(session));
+                log.Arrived(operation.Original, candidate, null, CharacterIdOf(session));
                 Log(log);
             }
 
-            operation.Original.CommitInventoryOperation(operation.Candidate);
+            operation.Original.CommitInventoryOperation(candidate);
             return true;
         }, waitForCapacity: true);
     }

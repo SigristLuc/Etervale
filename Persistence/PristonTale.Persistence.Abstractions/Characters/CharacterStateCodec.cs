@@ -53,6 +53,7 @@ public static class CharacterStateCodec
         // The column holds the unsigned experience's 64-bit pattern (CharacterRecordFactory).
         character.RestoreProgress(unchecked((ulong)record.Exp), record.Money, record.StatPoints, record.Tier, skills.Points, skills.ElitePoints);
         character.RestoreQuests(QuestStateCodec.Read(record.Quests));
+        character.RestoreStarterGifts(record.StarterGiftsReceived);
 
         character.RestoreSides(inventory.ActiveSide, equipment.ActiveSide);
         // Gear restores first: the potion space it gives bounds the belt's stacks.

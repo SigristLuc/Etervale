@@ -14,7 +14,7 @@ public sealed class DapperCharacterRepository(IDbConnectionFactory connectionFac
         "strength, spirit, talent, agility, health, stat_points, " +
         "life, mana, stamina, field_id, pos_x, pos_z, model_name, model_name2, face_index, " +
         "tier, hair_index, size_level, " +
-        "inventory, equipment, skills, quests, premium, last_played_at, save_seq";
+        "inventory, equipment, skills, quests, premium, last_played_at, save_seq, starter_gifts_received";
 
     // Transactions that write several characters lock them in id order, so two of them never wait on each other.
     // Identity columns (id/account_id/name/slot/job_code/created_at) are immutable and never updated. A capture older than
@@ -31,7 +31,7 @@ public sealed class DapperCharacterRepository(IDbConnectionFactory connectionFac
                 tier = @Tier, hair_index = @HairIndex, size_level = @SizeLevel,
                 inventory = @Inventory, equipment = @Equipment, skills = @Skills,
                 quests = @Quests, premium = @Premium,
-                last_played_at = @LastPlayedAt, save_seq = @SaveSeq
+                last_played_at = @LastPlayedAt, save_seq = @SaveSeq, starter_gifts_received = @StarterGiftsReceived
             WHERE id = @Id AND save_seq <= @SaveSeq
             """;
 
@@ -79,13 +79,13 @@ public sealed class DapperCharacterRepository(IDbConnectionFactory connectionFac
                 strength, spirit, talent, agility, health, stat_points,
                 life, mana, stamina, field_id, pos_x, pos_z, model_name, model_name2, face_index,
                 tier, hair_index, size_level,
-                inventory, equipment, skills, quests, premium)
+                inventory, equipment, skills, quests, premium, starter_gifts_received)
             VALUES (
                 @AccountId, @Name, @Slot, @JobCode, @Level, @Exp, @Money, @Brood,
                 @Strength, @Spirit, @Talent, @Agility, @Health, @StatPoints,
                 @Life, @Mana, @Stamina, @FieldId, @PosX, @PosZ, @ModelName, @ModelName2, @FaceIndex,
                 @Tier, @HairIndex, @SizeLevel,
-                @Inventory, @Equipment, @Skills, @Quests, @Premium)
+                @Inventory, @Equipment, @Skills, @Quests, @Premium, @StarterGiftsReceived)
             RETURNING {Columns}
             """,
             record, cancellationToken: ct));

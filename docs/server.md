@@ -25,6 +25,7 @@ layouts live in [protocol.md](protocol.md).
 | `Hosting/WorldDataLoadService.cs` | Hosted service: `WorldDataAppService.BuildAsync` into `WorldDataHolder.Current`; logs catalog counts. |
 | `Hosting/FieldTerrainLoadService.cs` | Hosted service: reads every field's stage `.smd` collision in parallel into `FieldTerrainCatalog`. |
 | `World/WorldTickService.cs` | `BackgroundService` calling `WorldServer.Tick(1/20 s, tick)` on its own thread, on the absolute timeline of `TickSchedule` (owed ticks run back to back, a stall past 5 ticks is skipped); logs tick percentiles, ticks caught up and skipped, the command and field phases, process CPU, allocation rate, collections, heap and working set. |
+| `World/StarterGiftService.cs`, `World/SessionWork.cs` | `BackgroundService` reading `WorldServer.StarterGiftRequests` and running `StarterGiftAppService.GiveAsync`; `SessionWork` is the loop it shares with `QuestUpkeepService` (a few sessions at a time, a failure logged). |
 | `World/QuestUpkeepService.cs` | `BackgroundService` reading `WorldServer.QuestUpkeepRequests` and running `QuestAppService.RunUpkeepAsync`, at most 8 players at a time ([quests.md](quests.md)). |
 | [Net/GameTcpServer.cs](../Server/PristonTale.Server/Net/GameTcpServer.cs) | Listener, connection and handshake caps (in all and per address), TLS handshake, one `ClientSession` per connection, housekeeping (idle/login timeouts, bandwidth log). |
 | `Net/ServerCertificate.cs` | Loads the TLS certificate, or creates and stores a self-signed one. |
@@ -59,6 +60,7 @@ registration order. An exception from any `StartAsync` stops the host before the
 | 7 | `ServerSettingsService` | Adds the missing `server_settings` rows with their defaults, reads the table and applies it on the tick, then reads it again every `server.settings_reload_minutes`. | The table cannot be read at start; later failures keep the settings in force. |
 | 8 | `GameTcpServer` | Loads the TLS certificate, binds `[::]:<Network:Port>` (10009) dual-stack, backlog 512, and accepts. | The port is in use (the host stops). |
 | 9 | `QuestUpkeepService` | Applies the quest work the tick queues (quest drops, quest weapon growth and expiry) and queues the character for storage. | Never; a failed upkeep is logged and retried on the field's next check. |
+| 10 | `StarterGiftService` | Gives the starter gifts the tick finds due ([application.md](application.md#starter-gifts)). | Never; a failed gift is logged and offered again after the interval. |
 
 Shutdown runs the services in reverse: the game server closes every connection and awaits their leave saves while the
 tick still runs, and the character store stops last. Once the host is stopping, the first write storage refuses sends
@@ -181,6 +183,7 @@ show or write one row with `/setting name [value]` ([chat-and-gm.md](chat-and-gm
 | `server.test` | false | Every game master may use `/GiveMeExp!` and `/GiveMeMoney!`. |
 | `server.debug` | false | As `server.test`, and `/` with an item code drops that item. |
 | `server.settings_reload_minutes` | 5 | Minutes between two readings, 1 to 1440. |
+| `players.starter_gifts` | true | A new character receives its starter gifts ([application.md](application.md#starter-gifts)). |
 | `gm.potion_monitor` | true | Enables `/get_potion`. |
 | `experience.multiplier` | 5 | Times the monsters' experience, 1 to 1000. |
 | `experience.event_percent` | 0 | Experience event: 0 off, else +100% (any value up to 199), +200%, +300% or +400% (400 and above) on each kill. |

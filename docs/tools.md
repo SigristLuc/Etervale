@@ -332,7 +332,8 @@ Run from Blender's Scripting tab after importing GLBs produced by `ptgltf`.
   for the class clips, then `play_animation.py`.
 - Seed a test login: `create-account`, then `add-char`, against the database the server uses.
 - Check a protocol or skill change end to end: start the server, run SmokeClient without and with `--character`.
-- Measure capacity: `create-bots` (with placed characters for hunting modes) on a copy, server with
+- Measure capacity: `create-bots` (with placed characters for hunting modes) on a copy, the `players.starter_gifts`
+  setting off (characters LoadTest creates would receive their gifts), server with
   `--Network:MaxConnectionsPerIp=0 --Network:MaxHandshakesPerIp=0 --Server:ReportSeconds=10`, LoadTest, and the `--benchmark-presence` runner; update
   the tables in [protocol.md](protocol.md) when results change.
 - Add a CLI option: update the tool's parsing and usage text and the matching table in this doc together.
