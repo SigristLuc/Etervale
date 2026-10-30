@@ -339,6 +339,8 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     {
         var summon = new MonsterInstance(_ids.NextMonsterId(), definition, Terrain.PlaceOnFloor(position), facing, spawnPointIndex: -1);
         _monsters[summon.EntityId] = summon;
+        // Into the collision index at once, so a summon called before the next step is seen standing there.
+        _collisionIndex.Put(summon.EntityId, summon.Position);
         return summon;
     }
 
@@ -373,7 +375,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
                     summon.AttackIsSkill ? tuning.SkillDurationMs : tuning.CooldownMs, summon.AttackIsSkill ? tuning.SkillWindupMs : tuning.WindupMs));
             }
 
-            if (summon.Position == before && summon.AiState == MonsterAiState.Idle)
+            if (summon.Position == before && summon.AiState == MonsterAiState.Idle && !summon.Effects.Has(ControlFlags.Stun))
             {
                 StepOutOfCrowd(summon, before, dtMs);
             }
@@ -423,22 +425,24 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     // or recalled together part instead of standing in each other.
     private void StepOutOfCrowd(MonsterInstance summon, Vector3 at, float dtMs)
     {
+        // Squared lengths below this give no direction (bodies on the very same spot).
+        const float NoDirection = 1e-6f;
         BuildMonsterNeighbours(summon.EntityId, at, 0f);
         var awayX = 0f;
         var awayZ = 0f;
         var overlapping = false;
         foreach (var neighbour in _neighbourScratch)
         {
-            var dx = at.X - neighbour.Position.X;
-            var dz = at.Z - neighbour.Position.Z;
-            var squared = (dx * dx) + (dz * dz);
-            if (MathF.Abs(neighbour.Position.Y - at.Y) >= neighbour.Radius || squared >= neighbour.Radius * neighbour.Radius)
+            if (!neighbour.Overlaps(at))
             {
                 continue;
             }
 
             overlapping = true;
-            if (squared > 1e-6f)
+            var dx = at.X - neighbour.Position.X;
+            var dz = at.Z - neighbour.Position.Z;
+            var squared = (dx * dx) + (dz * dz);
+            if (squared > NoDirection)
             {
                 var distance = MathF.Sqrt(squared);
                 awayX += dx / distance;
@@ -451,7 +455,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
             return;
         }
 
-        var heading = (awayX * awayX) + (awayZ * awayZ) > 1e-6f ? MathF.Atan2(awayX, awayZ) : summon.EntityId % 8 * MathF.PI / 4f;
+        var heading = (awayX * awayX) + (awayZ * awayZ) > NoDirection ? MathF.Atan2(awayX, awayZ) : FieldSkills.CompassAngle(summon.EntityId);
         var step = MonsterLocomotion.UnitsPerSecond(summon.Def, running: false) * dtMs / 1000f;
         summon.Facing = heading;
         summon.Motion = MotionState.Walk;
@@ -633,10 +637,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         {
             foreach (var neighbour in neighbours)
             {
-                float dx = neighbour.Position.X - position.X;
-                float dz = neighbour.Position.Z - position.Z;
-                float overlap = neighbour.Radius;
-                if (MathF.Abs(neighbour.Position.Y - position.Y) < overlap && (dx * dx) + (dz * dz) < overlap * overlap)
+                if (neighbour.Overlaps(position))
                 {
                     return true;
                 }

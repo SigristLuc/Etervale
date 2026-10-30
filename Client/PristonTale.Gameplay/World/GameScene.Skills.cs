@@ -359,7 +359,7 @@ public sealed partial class GameScene : ISkillSceneHost
         SkillNotice?.Invoke(aggressive ? $"{rule.Name}: attacks any enemy nearby." : $"{rule.Name}: attacks only your target.");
     }
 
-    // A confirmed right click on a crystal pet's icon dismisses the owner's pets of that crystal.
+    // A confirmed right click on a crystal pet's icon dismisses the pet of that status.
     public void DismissCrystalPets(uint statusCode)
     {
         if (_playChannel is null)

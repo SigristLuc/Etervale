@@ -190,7 +190,7 @@ public sealed record ItemEffectsPacket(IReadOnlyList<ItemEffectEntry> Effects)
 }
 
 // C->S {header, uint16 Version = 1, uint16 0, uint32 StatusCode}: the owner confirmed the right click on a crystal pet's
-// icon in the running-effects bar; the server dismisses his pets of that crystal (the status code names it).
+// icon in the running-effects bar; the server dismisses the pet that status code names.
 public readonly record struct DismissCrystalPetsPacket(uint StatusCode) : IFramePacket
 {
     public const ushort CurrentVersion = 1;

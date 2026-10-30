@@ -234,7 +234,7 @@ public sealed partial class GameplayHud : IDisposable
     // A double click on a summon's buff icon asks to switch the summon's fighting mode.
     public event Action<uint> SummonModeRequested;
 
-    // The owner confirmed dismissing his pets of one crystal (the status code of its icon).
+    // The owner confirmed dismissing the pet of one status (the code of its icon).
     public event Action<uint> CrystalPetDismissRequested;
 
     // R or the bar's walk/run button.
@@ -510,6 +510,11 @@ public sealed partial class GameplayHud : IDisposable
         if (mouse.RightButton == ButtonState.Pressed && _previousMouse.RightButton == ButtonState.Released && !ModalOpen && !_settingsOpen)
         {
             _crystalDismiss.Offer(_skillHud.BuffAt(pointer));
+        }
+        else if (_crystalDismiss.Confirming && !_skillHud.Shows(_crystalDismiss.StatusCode))
+        {
+            // The pet went (expired, died, or its owner entered a town) while its question was open.
+            _crystalDismiss.Close();
         }
 
         var skillOrigin = PanelOrigin(layout, _skillSlide);

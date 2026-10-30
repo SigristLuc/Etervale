@@ -18,6 +18,7 @@ namespace PristonTale.Application.World;
 internal sealed partial class FieldSkills
 {
     private const float SummonSpawnOffset = 48f;
+    private const int CompassPoints = 8;
     private const float SummonRetaliationLockMs = 4000f;
     private const float SummonVerticalSight = 140f;
 
@@ -85,15 +86,18 @@ internal sealed partial class FieldSkills
         }
     }
 
+    // The heading of one of the eight compass points (any whole number, taken round the compass).
+    internal static float CompassAngle(ulong point) => (int)(point % CompassPoints) * MathF.Tau / CompassPoints;
+
     // One of the eight compass points around the owner whose floor is near the owner's height, preferring one no monster
     // stands on (several pets are not called into each other), else the owner's spot.
     private Vector3 SpawnPoint(WorldPlayer owner)
     {
-        var start = _rng.NextExclusive(0, 8);
+        var start = _rng.NextExclusive(0, CompassPoints);
         Vector3? crowded = null;
-        for (var attempt = 0; attempt < 8; attempt++)
+        for (var attempt = 0; attempt < CompassPoints; attempt++)
         {
-            var angle = (start + attempt) % 8 * MathF.PI / 4f;
+            var angle = CompassAngle((ulong)(start + attempt));
             var point = new Vector3(owner.Position.X + MathF.Sin(angle) * SummonSpawnOffset, owner.Position.Y,
                 owner.Position.Z + MathF.Cos(angle) * SummonSpawnOffset);
             if (_host.Terrain.TryFloorNear(point, FieldTerrain.DropTolerance, out var height) && MathF.Abs(height - owner.Position.Y) < FieldTerrain.DropTolerance

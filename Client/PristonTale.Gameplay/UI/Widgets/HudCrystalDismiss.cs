@@ -14,6 +14,9 @@ public sealed class HudCrystalDismiss
 
     public bool Confirming { get; private set; }
 
+    // The status the open question is about.
+    public uint StatusCode => _statusCode;
+
     public bool Captures(Point pointer) => Confirming && HudMessageBox.Bounds.Contains(pointer);
 
     // Opens the question for a crystal pet's status; false for any other status.

@@ -362,6 +362,7 @@ Presentation (`SkillPresentation`):
   Sounds are asset paths loaded by `SkillSoundBank`.
 - HUD: `HudSkillHud` draws the socket icons with the cooldown sweep from `SkillCooldownBook` and, from (10, 10), the
   continuous-skill bar: one 32 px icon per status that has a `keepIcon` (or a skill button), longest running first,
+  ten to a row in up to two rows (ten crystal pets leave room for the other effects),
   each the `keep/GA_.tga` ring, a 72-step fan filling clockwise as the time runs out (cyan, red for harmful) and the
   keep icon. Icons fade in over 255 and out over the last 180 frames, blink every 31 frames in the last 4 s and slide
   2 px per frame (70 Hz frames). Hovering shows name, time left and, for summons, `Attack type: Auto/Manual`

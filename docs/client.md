@@ -265,7 +265,8 @@ coordinates; their consumers mirror them with `WorldSpace` instead of negating Z
 - `RemoteEntityManager`: the self entity's spawn/state/combat events go to `GameScene` sinks, not to an actor. A monster
   or NPC whose template is not in the catalog yet is held in `_pendingModels` until `SetCatalog`; a spawn whose models
   are loading waits in `_preparingActors` and keeps receiving the latest state. A player appearance change re-composes
-  the actor from the drawn pose. Summons record their owner and are not pickable; their name boxes are the HUD's (`HudCombat.DrawNamePlates`).
+  the actor from the drawn pose. Summons record their owner and are not pickable; their name boxes are the HUD's
+  (`HudCombat.DrawNamePlates`).
 - A monster or NPC model whose INX names a sub model on a skeleton of its own (`AlternateModel`; the mushroom's death,
   skeletons, golems, mummies, crystals and about fifty others) is composed with it hidden (`ModelActorComposer`,
   `ComposedModelActor.Alternate`). `RemoteModelEntity` shows the sub model in the main model's place while a motion only
@@ -462,8 +463,8 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
   item and goes back to its box wherever it is set down; a box item left in the bag goes to the box when set down and
   there is room (`HudInventoryController.GoesToQuestBox`, `StoreQuestItem`), neither showing a landing colour. Opening a service window or receiving an item into the bag closes the box, a page button
   closes it instead of switching, and nothing is thrown while it is open.
-- Count box (`HudCountBox`), the original's quantity question: `BoxMain.tga` in the message box's place (`HudMessageBox`,
-  centred on the screen; the original pins it at (300, 200)) with two lines, the number
+- Count box (`HudCountBox`), the original's quantity question: `BoxMain.tga` in the message box's place
+  (`HudMessageBox`, centred on the screen; the original pins it at (300, 200)) with two lines, the number
   in `COUNT.bmp` at (+34, +62), typed with the digit keys (Backspace erases) or stepped with the arrows at (+124, +62)
   and (+124, +75). A number typed above the question's maximum shows the maximum at once, and the arrows stay within
   it. OK or Enter accepts a non-zero count, Cancel or Escape closes. It is modal

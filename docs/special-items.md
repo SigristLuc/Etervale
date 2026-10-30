@@ -143,15 +143,14 @@ where it was called. An idle pet standing inside another monster walks out of it
 pets do not stand in each other. The owner keeps one status per pet (`MonsterCrystals.PetStatus`): code
 `PetStatusBase` 0xF0000500 + the number of the crystal it shows + its slot (the owner's lowest free one, 0..9) in bits
 12-23, GP101 in slot 0 0xF0000565, in slot 1 0xF0001565. A pet shows the crystal that calls its monster alone
-(`ShownCrystal`: a Mystic's or Marvel's Hobgoblin shows GP102), else the crystal used. The status has the pet's
-lifetime and starts with the next step (`QueueItemEffect`); a pet dies when it expires, with its status (its end, the
-owner's death), when the owner dismisses it (`DismissCrystalPets`, the `DismissCrystalPets` request), enters a town
-or leaves the field (`LeaveCrystalPets`; the statuses end in the field he enters, `ArriveWithoutCrystalPets`); a pet
-that falls ends its status. A Web pet's blow slows
-its target to half speed for 36 frames (not Kelvezu). A player keeps at most ten pets (`MonsterCrystals.PetSlots`); an
-eleventh crystal is refused as `SummonLimit` and kept. `events.crystal` (0 off,
-1 from 12:00 to 23:59, 2 all day) switches crystals to their event monsters. A crystal whose drawn monster the world
-data lacks is refused and kept; the data's soul monsters are absent, so soul stones refuse.
+(`ShownCrystal`: a Mystic's Hobgoblin shows GP102, a Marvel's Bargon GP104), else the crystal used. The status has
+the pet's lifetime and starts with the next step (`QueueItemEffect`); a pet dies when it expires, with its status (its
+end, the owner's death), when the owner dismisses it (`DismissCrystalPets`, the `DismissCrystalPets` request), enters a
+town or leaves the field (`LeaveCrystalPets`; the statuses end in the field he enters, `ArriveWithoutCrystalPets`); a
+pet that falls ends its status. A Web pet's blow slows its target to half speed for 36 frames (not Kelvezu). A player
+keeps at most ten pets (`MonsterCrystals.PetSlots`); an eleventh crystal is refused as `SummonLimit` and kept.
+`events.crystal` (0 off, 1 from 12:00 to 23:59, 2 all day) switches crystals to their event monsters. A crystal whose
+drawn monster the world data lacks is refused and kept; the data's soul monsters are absent, so soul stones refuse.
 
 ### Bless Castle items
 
@@ -266,7 +265,10 @@ clan and refuses (`ClanOnly`).
 - Crystal pets are summons (`OwnerId`) but not in the skill summon table; `FieldSkills.StepSummon` steps them through
   `StepCrystalPet` first.
 - A crystal pet is called in the command phase, so its status starts with the next step (`QueueItemEffect`) and a
-  dismissal ends it the same way (`EndItemEffect`); a status event added in the command phase would be lost.
+  dismissal ends it the same way (`EndItemEffect`); a status event added in the command phase would be lost. Ends are
+  applied before adds, so `EndItemEffect` also drops an add of that status still queued (a pet dismissed before its
+  first step leaves no status behind). A summon is put in the collision index when called, so pets called before a step
+  see each other.
 - Castle item ends queued from the command phase reach clients with the next step (`EndItemEffect`); leaving the castle
   removes them directly.
 - A puzzle bag keeps its piece's grid size; only its code, key and name are swapped for the lucky bag on the wire.

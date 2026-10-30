@@ -92,10 +92,11 @@ internal sealed partial class FieldSkills
     }
 
     // The owner's request (the icon's right click, confirmed): the pet of that status dies now and the status ends with
-    // the next step. False when the owner keeps no such pet.
+    // the next step, even one whose pet is already gone. False when the owner keeps neither.
     public bool DismissCrystalPets(WorldPlayer owner, uint statusCode)
     {
-        if (!EndCrystalPets(owner.EntityId, statusCode))
+        if (!MonsterCrystals.TryGetByPetStatus(statusCode, out _)
+            || !EndCrystalPets(owner.EntityId, statusCode) && !owner.Character.Effects.TryGet(statusCode, out _) && !HasPendingItemEffect(owner, statusCode))
         {
             return false;
         }
@@ -154,22 +155,8 @@ internal sealed partial class FieldSkills
             return null;
         }
 
-        if (!_host.TryGetPlayer(pet.OwnerId, out var owner) || _host.NowMs >= pet.ExpiresAtMs)
-        {
-            _crystalPets.Remove(pet.EntityId);
-            pet.ApplyDamage(pet.Life);
-            return null;
-        }
-
-        var statusCode = _crystalPets[pet.EntityId].StatusCode;
-        if (owner.InVillage)
-        {
-            EndCrystalPets(owner.EntityId, statusCode);
-            RemoveEffect(owner.Character.Effects, owner.EntityId, statusCode);
-            return null;
-        }
-
-        if (SummonBrain.NeedsRecall(pet, owner.Position) && !TryRecallBeside(pet, owner))
+        if (!_host.TryGetPlayer(pet.OwnerId, out var owner) || _host.NowMs >= pet.ExpiresAtMs || owner.InVillage
+            || SummonBrain.NeedsRecall(pet, owner.Position) && !TryRecallBeside(pet, owner))
         {
             LoseCrystalPet(pet);
             return null;
@@ -183,7 +170,8 @@ internal sealed partial class FieldSkills
         return _summonBrain.Tick(pet, tuning, orders, dtMs);
     }
 
-    // A pet that died or cannot follow its owner: it falls, and the owner's status for it ends with the next step.
+    // A pet that died, expired, cannot follow its owner or whose owner is gone or in a town: it falls, and the owner's
+    // status for it ends with the next step.
     private void LoseCrystalPet(MonsterInstance pet)
     {
         if (_crystalPets.Remove(pet.EntityId, out var lost) && _host.TryGetPlayer(lost.OwnerId, out var owner))

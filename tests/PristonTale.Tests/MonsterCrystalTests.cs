@@ -7,6 +7,7 @@ using PristonTale.Contracts.Skills;
 using PristonTale.Simulation.Combat;
 using PristonTale.Simulation.Items;
 using PristonTale.Simulation.Items.Usable;
+using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.World.Ai;
 using PristonTale.Simulation.World.Monsters;
 using PristonTale.Contracts.Characters;
@@ -23,6 +24,8 @@ internal static class MonsterCrystalTests
         yield return ("a crystal pet hunts the nearest wild monster, credits its owner and dies when it expires", PetHuntsAsync);
         yield return ("a crystal pet follows its owner, shows in his status bar and dies when dismissed, with his death or behind him", FollowsAndDismissesAsync);
         yield return ("every pet has its own icon, a mixed crystal's pet shows its monster's crystal, and pets do not stand in each other", PetsApartAsync);
+        yield return ("pets called before a step stand apart, a dismissal before the step leaves no status, a stunned pet stays put, and pets end in a town",
+            PetEndsAsync);
     }
 
     private static Task TablesAsync()
@@ -236,6 +239,42 @@ internal static class MonsterCrystalTests
             }
         }
 
+        return Task.CompletedTask;
+    }
+
+    private static Task PetEndsAsync()
+    {
+        var scenario = SkillScenario.Create(PlayerClass.Fighter, 20, null, null, Hopy());
+        Assert.True(MonsterCrystals.TryGet("GP101", out var crystal), "Hopy crystal missing");
+        var code = MonsterCrystals.PetStatusCode(crystal);
+
+        // Pets called before a step each see the one called before them.
+        scenario.Field.CallCrystalMonster(scenario.Player, "GP101", "HOPY 2");
+        scenario.Field.CallCrystalMonster(scenario.Player, "GP101", "HOPY 2");
+        var called = scenario.Field.MonstersForInspection.Where(monster => monster.OwnerId == scenario.Player.EntityId).ToArray();
+        Assert.True(called.Length == 2 && Vector3.Distance(called[0].Position, called[1].Position) >= 32f, "two pets called before a step landed on one spot");
+
+        // A dismissal before the step that starts the pet's status ends both: no status is left without its pet.
+        Assert.True(scenario.Field.DismissCrystalPets(scenario.Player, code) && called.Count(pet => !pet.IsAlive) == 1, "a pet dismissed before its status started stayed");
+        scenario.Run(2);
+        Assert.True(!scenario.Character.Effects.TryGet(code, out _), "a dismissed pet's status started after its dismissal");
+
+        // A stunned pet standing in another pet does not walk out of it.
+        var pet = called.Single(monster => monster.IsAlive);
+        scenario.Field.CallCrystalMonster(scenario.Player, "GP101", "HOPY 2");
+        scenario.Field.QueueItemEffect(pet.EntityId, new EffectSpec(0x01020003, EffectSourceKind.PlayerSkill, true, [], control: ControlFlags.Stun), 60000);
+        scenario.Run(1);
+        var other = scenario.Field.MonstersForInspection.Last(monster => monster.OwnerId == scenario.Player.EntityId && monster.IsAlive);
+        pet.Position = other.Position;
+        var stunnedAt = pet.Position;
+        scenario.Run(10);
+        Assert.True(pet.Effects.Has(ControlFlags.Stun) && Vector3.Distance(pet.Position, stunnedAt) < 1f, "a stunned pet walked");
+
+        // The pets die, and their statuses end, when their owner enters a town.
+        scenario.Player.CrossGate(inVillage: true);
+        scenario.Run(2);
+        Assert.True(!pet.IsAlive && !other.IsAlive && !scenario.Character.Effects.Effects.Any(effect => MonsterCrystals.TryGetByPetStatus(effect.Code, out _)),
+            "a pet outlived its owner entering a town, or its status stayed");
         return Task.CompletedTask;
     }
 

@@ -74,8 +74,8 @@ public interface IPlayChannel : IAsyncDisposable
     // Space inside the minute a yahoo word opened; the cheer arrives on the presence timeline.
     Task SendYahooKeyAsync(CancellationToken ct = default) => Task.CompletedTask;
 
-    // The owner confirmed dismissing his pets of one crystal (the status code its icon shows); the icon goes with the
-    // status's removal.
+    // The owner confirmed dismissing the pet of one status (the code its icon shows); the icon goes with the status's
+    // removal.
     Task SendDismissCrystalPetsAsync(uint statusCode, CancellationToken ct = default) => Task.CompletedTask;
 
     // Party requests: ask a player to group, answer a request (PresenceUpdate.PartyRequest), or a party window button. None
