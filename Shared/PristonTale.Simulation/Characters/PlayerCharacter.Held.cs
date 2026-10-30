@@ -13,17 +13,16 @@ public sealed partial class PlayerCharacter
     // False while the hand holds an item already.
     public bool TryHold(ItemInstance item)
     {
-        if (item is null || Held is not null)
+        if (!RestoreHeld(item))
         {
             return false;
         }
 
-        Held = item;
         OnInventoryChanged();
         return true;
     }
 
-    // As saved; false with a held item already.
+    // As saved, without a change; false with a held item already.
     public bool RestoreHeld(ItemInstance item)
     {
         if (item is null || Held is not null)
@@ -69,7 +68,6 @@ public sealed partial class PlayerCharacter
         }
 
         Held = displaced;
-        OnInventoryChanged();
         return true;
     }
 
@@ -82,8 +80,9 @@ public sealed partial class PlayerCharacter
             return null;
         }
 
-        var taken = count == held.Count ? held : held.Split(count);
-        if (count == held.Count)
+        var whole = count == held.Count;
+        var taken = whole ? held : held.Split(count);
+        if (whole)
         {
             Held = null;
         }
