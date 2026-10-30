@@ -10,8 +10,8 @@ namespace PristonTale.Application.World;
 
 // Crystal pets: monsters a crystal calls to fight for its user. Unlike a skill summon a player may keep several (ten). Each
 // follows its user as a skill summon does (SummonBrain's leash, the recall to a far user) and runs at the nearest wild
-// monster in its sight, never at another pet; its kills credit the user like his own. The original's pet stands where
-// it was called; Etervale's follows. The user keeps a status per pet (MonsterCrystals.PetStatus, in the pet's slot)
+// monster in its sight, never at another pet; its kills credit the user as the user's own. The original's pet stands
+// where it was called; Etervale's follows. The user keeps a status per pet (MonsterCrystals.PetStatus, in the pet's slot)
 // with its lifetime: its icon shows the crystal of the pet's monster and the time left, and a right click dismisses that
 // pet. A pet dies with its status (expiry, the user's death), when the user dismisses it, enters a town or leaves the
 // field; its status ends when the pet dies.
@@ -19,7 +19,6 @@ internal sealed partial class FieldSkills
 {
     private readonly Dictionary<ulong, CrystalPet> _crystalPets = new();
     private readonly List<ulong> _endingPets = new();
-    private readonly HashSet<int> _takenPetSlots = new();
 
     private sealed record CrystalPet(ulong OwnerId, int ClanId, uint StatusCode);
 
@@ -59,16 +58,16 @@ internal sealed partial class FieldSkills
         return monster.Position;
     }
 
-    // The lowest slot that neither a pet of the owner nor a pet status still on him holds (a dismissed pet's status ends
-    // with the next step), or -1 when all are taken.
+    // The lowest slot that neither a pet of the owner nor a pet status still on the owner holds (a dismissed pet's
+    // status ends with the next step), or -1 when all are taken.
     private int FreePetSlot(WorldPlayer owner)
     {
-        _takenPetSlots.Clear();
+        var taken = 0;
         foreach (var pet in _crystalPets.Values)
         {
             if (pet.OwnerId == owner.EntityId)
             {
-                _takenPetSlots.Add(MonsterCrystals.PetSlot(pet.StatusCode));
+                taken |= 1 << MonsterCrystals.PetSlot(pet.StatusCode);
             }
         }
 
@@ -76,13 +75,13 @@ internal sealed partial class FieldSkills
         {
             if (MonsterCrystals.TryGetByPetStatus(effect.Code, out _))
             {
-                _takenPetSlots.Add(MonsterCrystals.PetSlot(effect.Code));
+                taken |= 1 << MonsterCrystals.PetSlot(effect.Code);
             }
         }
 
         for (var slot = 0; slot < MonsterCrystals.PetSlots; slot++)
         {
-            if (!_takenPetSlots.Contains(slot))
+            if ((taken & (1 << slot)) == 0)
             {
                 return slot;
             }
@@ -105,11 +104,11 @@ internal sealed partial class FieldSkills
         return true;
     }
 
-    // The owner leaves the field: the pets stay behind and die (their statuses end in the field he enters,
-    // EndCrystalPetStatuses, where his client hears it).
+    // The owner leaves the field: the pets stay behind and die (their statuses end in the field entered,
+    // EndCrystalPetStatuses, where the owner's client hears it).
     public void LeaveCrystalPets(WorldPlayer owner) => EndCrystalPets(owner.EntityId, AnyCrystal);
 
-    // A player who arrived from another field left his pets there: their statuses end with this field's next step.
+    // A player who arrived from another field left its pets there: their statuses end with this field's next step.
     public void EndCrystalPetStatuses(WorldPlayer player)
     {
         foreach (var effect in player.Character.Effects.Effects)
@@ -123,7 +122,7 @@ internal sealed partial class FieldSkills
 
     private const uint AnyCrystal = 0;
 
-    // The owner's pet of one status (AnyCrystal: every pet) dies where it stands; false when he keeps none.
+    // The owner's pet of one status (AnyCrystal: every pet) dies where it stands; false when the owner keeps none.
     private bool EndCrystalPets(ulong ownerId, uint statusCode)
     {
         _endingPets.Clear();

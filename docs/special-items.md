@@ -146,7 +146,7 @@ pets do not stand in each other. The owner keeps one status per pet (`MonsterCry
 (`ShownCrystal`: a Mystic's Hobgoblin shows GP102, a Marvel's Bargon GP104), else the crystal used. The status has
 the pet's lifetime and starts with the next step (`QueueItemEffect`); a pet dies when it expires, with its status (its
 end, the owner's death), when the owner dismisses it (`DismissCrystalPets`, the `DismissCrystalPets` request), enters a
-town or leaves the field (`LeaveCrystalPets`; the statuses end in the field he enters, `ArriveWithoutCrystalPets`); a
+town or leaves the field (`LeaveCrystalPets`; the statuses end in the field entered, `ArriveWithoutCrystalPets`); a
 pet that falls ends its status. A Web pet's blow slows its target to half speed for 36 frames (not Kelvezu). A player
 keeps at most ten pets (`MonsterCrystals.PetSlots`); an eleventh crystal is refused as `SummonLimit` and kept.
 `events.crystal` (0 off, 1 from 12:00 to 23:59, 2 all day) switches crystals to their event monsters. A crystal whose

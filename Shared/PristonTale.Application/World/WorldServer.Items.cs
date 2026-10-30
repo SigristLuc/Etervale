@@ -10,7 +10,7 @@ public sealed partial class WorldServer
     private readonly Random _itemRandom = new();
 
     // The owner confirmed a right click on a crystal pet's icon: the pet of that status dies and the icon goes; false when
-    // he keeps no such pet or status.
+    // the owner keeps no such pet or status.
     public Task<bool> DismissCrystalPetsAsync(ulong entityId, uint statusCode)
     {
         return EnqueueAsync(entityId, () => _connections.TryGetValue(entityId, out var connection) && _fields.TryGetValue(connection.FieldId, out var field)

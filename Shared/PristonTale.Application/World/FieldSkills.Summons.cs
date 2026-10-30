@@ -116,8 +116,8 @@ internal sealed partial class FieldSkills
         return crowded ?? owner.Position;
     }
 
-    // A summon too far from its owner is placed beside him (SpawnPoint), not on his spot where the others would land;
-    // false when no floor is there.
+    // A summon too far from its owner is placed beside the owner (SpawnPoint), not on the owner's spot where the others
+    // would land; false when no floor is there.
     private bool TryRecallBeside(MonsterInstance summon, WorldPlayer owner)
     {
         var point = SpawnPoint(owner);

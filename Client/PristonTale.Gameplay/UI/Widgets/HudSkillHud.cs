@@ -20,7 +20,7 @@ public sealed class HudSkillHud : IDisposable
     private const int BuffIcon = 32;
     private const int BuffStep = 32;
     private const int BuffsPerRow = 10;
-    // Two rows: a player keeping all his crystal pets (MonsterCrystals.PetSlots) still sees his other effects.
+    // Two rows: a player keeping every crystal pet (MonsterCrystals.PetSlots) still sees the other effects.
     private const int MaxBuffs = BuffsPerRow * 2;
     private const int GaugeSteps = 72;
     private const float GaugeRadius = 14.14f;
@@ -118,9 +118,10 @@ public sealed class HudSkillHud : IDisposable
     }
 
     // The original's continuous-skill bar: from (10, 10), one 32 px icon per running effect, the one running longest
-    // first, ten to a row and a second row under the first. Each icon is the gauge background, a fan that fills clockwise from 12 o'clock as the time runs out, and the
-    // keep icon over it. Icons fade in over 255 frames, fade out over the last 180, blink every 31 frames in the last
-    // four seconds and slide 2 px per frame to their place; frames are the original's 70 Hz.
+    // first, ten to a row and a second row under the first. Each icon is the gauge background, a fan that fills clockwise
+    // from 12 o'clock as the time runs out, and the keep icon over it. Icons fade in over 255 frames, fade out over the
+    // last 180, blink every 31 frames in the last four seconds and slide 2 px per frame to their place; frames are the
+    // original's 70 Hz.
     public void DrawBuffs(HudPainter painter, IReadOnlyList<StatusEntry> statuses, double nowMs)
     {
         var frames = _lastBuffDrawMs < 0 ? 0d : Math.Max(0d, nowMs - _lastBuffDrawMs) / FrameMs;

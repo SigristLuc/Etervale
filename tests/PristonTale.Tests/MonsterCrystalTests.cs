@@ -22,7 +22,8 @@ internal static class MonsterCrystalTests
         yield return ("a crystal calls an owned pet beside its user, consumes itself and plays the return sparkle", SummonAsync);
         yield return ("billing crystals wait for the shared delay; towns, clan crystals, mercenaries and unknown souls refuse", RefusalsAsync);
         yield return ("a crystal pet hunts the nearest wild monster, credits its owner and dies when it expires", PetHuntsAsync);
-        yield return ("a crystal pet follows its owner, shows in his status bar and dies when dismissed, with his death or behind him", FollowsAndDismissesAsync);
+        yield return ("a crystal pet follows its owner, shows in the owner's status bar and dies when dismissed, with the owner's death or left behind",
+            FollowsAndDismissesAsync);
         yield return ("every pet has its own icon, a mixed crystal's pet shows its monster's crystal, and pets do not stand in each other", PetsApartAsync);
         yield return ("pets called before a step stand apart, a dismissal before the step leaves no status, a stunned pet stays put, and pets end in a town",
             PetEndsAsync);
@@ -189,7 +190,7 @@ internal static class MonsterCrystalTests
         scenario.Run(2);
         Assert.True(!scenario.Character.Effects.TryGet(secondCode, out _), "a dead pet's status stayed");
 
-        // The pets die with the status when the owner dies, and stay behind when he leaves the field.
+        // The pets die with the status when the owner dies, and stay behind when the owner leaves the field.
         var third = Call();
         scenario.Player.ApplyDamage(scenario.Character.Life);
         scenario.Run(2);
