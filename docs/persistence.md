@@ -117,7 +117,7 @@ and its account warehouse are always written together, so a gold or item move be
 
 | Column | Shape | Limits on restore |
 | --- | --- | --- |
-| `inventory` | `SavedItems` v1: items with `Anchor` (grid cell), `Slot = null`, plus `Revision`, inventory `Operations`, `ServiceOperations`, `ShopPurchases` | 72 items |
+| `inventory` | `SavedItems` v1: items with `Anchor` (grid cell), `Slot = null`, plus `Revision`, inventory `Operations`, `ServiceOperations`, `ShopPurchases`; the item in the hand has `Held = true` and `Anchor = -1` (written only when set) | 72 items |
 | `equipment` | `SavedItems` v1: items with `Slot` set and `Anchor = -1` | 72 items |
 | `skills` | `SavedSkills` v1: points, elite points, `(Code, Rank, Uses)`, progression `Revision` and `Operations` | 128 skills, points >= 0 |
 | `warehouses.items` | `SavedItems` v1 with anchors in the warehouse grid | `WarehouseStorage.MaxItems` |

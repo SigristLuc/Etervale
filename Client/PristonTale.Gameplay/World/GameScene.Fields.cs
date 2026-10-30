@@ -92,7 +92,8 @@ public sealed partial class GameScene
         _playerComposer = new PlayerActorComposer(actorScene, _actorLoader);
         _monsterComposer = new ModelActorComposer(actorScene, _actorLoader);
         _groundLoot = new GroundLootPresentation(actorScene, _actorLoader, _assetRoot, _log);
-        _lootInteraction = new GroundLootInteraction(ApplyInventoryAsync, _log, drop => _fieldAudio?.PlayItem(drop.CatalogKey, drop.Gold));
+        _lootInteraction = new GroundLootInteraction(ApplyInventoryAsync, _log, drop => _fieldAudio?.PlayItem(drop.CatalogKey, drop.Gold),
+            drop => PickupToCursor?.Invoke(drop.ItemCode) == true, (ok, revision) => PickupToCursorAnswered?.Invoke(ok, revision));
         _lootFloor = LootFloorAt;
     }
 

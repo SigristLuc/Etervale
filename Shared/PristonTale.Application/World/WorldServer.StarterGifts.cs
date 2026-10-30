@@ -63,15 +63,7 @@ public sealed partial class WorldServer
             var items = _worldData.Current.Items;
             var index = StarterGifts.Next(items, original.Definition.Class, original.StarterGiftsReceived);
             var item = StarterGifts.Create(items, original.Definition.Class, index);
-            var (candidate, snapshot) = Receive(session, connection, item, candidate =>
-            {
-                if (item is not null)
-                {
-                    candidate.WearIfFree(item.InstanceId);
-                }
-
-                candidate.RestoreStarterGifts(index + 1);
-            });
+            var (candidate, snapshot) = Receive(session, connection, item, candidate => candidate.RestoreStarterGifts(index + 1));
             return new PreparedCharacterOperation<StarterGiftOutcome>(original, candidate, snapshot,
                 new StarterGiftOutcome(candidate is null ? null : item?.DisplayName, item?.Definition.Code ?? 0, index));
         }, waitForCapacity: true);
@@ -109,7 +101,7 @@ public sealed partial class WorldServer
         }, waitForCapacity: true);
     }
 
-    // Tick only. A copy of the playing character with the item (if any) in its bag, changed by adjust, and its capture;
+    // Tick only. A copy of the playing character with the item (if any) received, changed by adjust, and its capture;
     // no copy when the item does not fit.
     private (PlayerCharacter? Candidate, CharacterSaveSnapshot? Snapshot) Receive(PlayerSession session, Connection connection, ItemInstance? item,
         Action<PlayerCharacter>? adjust)

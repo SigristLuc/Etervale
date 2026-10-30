@@ -6,12 +6,15 @@ using PristonTale.Simulation.World.Loot;
 
 namespace PristonTale.Gameplay.World.Remote;
 
-// pickedUp hears every drop the server handed over, for its sound.
-public sealed class GroundLootInteraction(Func<InventoryCommand, Task<InventoryOutcome>> submit, IClientLog log, Action<GroundDropView> pickedUp = null)
+// pickedUp hears every drop the server handed over, for its sound. toCursor, asked as an item's pickup leaves, says whether
+// it comes to the inventory's cursor (InventoryCommand.PickupToBag); toCursorAnswered then hears that pickup's reply.
+public sealed class GroundLootInteraction(Func<InventoryCommand, Task<InventoryOutcome>> submit, IClientLog log, Action<GroundDropView> pickedUp = null,
+    Func<GroundDropView, bool> toCursor = null, Action<bool, long> toCursorAnswered = null)
 {
     private Guid _selected;
     private Task<InventoryOutcome> _pending;
     private GroundDropView _pendingDrop;
+    private bool _pendingToCursor;
     public bool Busy => _pending is not null;
 
     public void Select(Guid id)
@@ -44,6 +47,12 @@ public sealed class GroundLootInteraction(Func<InventoryCommand, Task<InventoryO
                     log.Error($"[Loot] Pickup failed: {_pending.Exception?.GetBaseException().Message}");
                 }
 
+                if (_pendingToCursor)
+                {
+                    var ok = _pending.IsCompletedSuccessfully && _pending.Result.Ok;
+                    toCursorAnswered?.Invoke(ok, ok ? _pending.Result.Revision : 0);
+                }
+
                 _pending = null;
             }
 
@@ -71,7 +80,9 @@ public sealed class GroundLootInteraction(Func<InventoryCommand, Task<InventoryO
         var id = _selected;
         Cancel();
         _pendingDrop = ground.TryGetDrop(id, out var drop) ? drop : null;
-        _pending = submit(new InventoryCommand(Guid.NewGuid(), owner.InventoryRevision, InventoryAction.Pickup, id, 0, 1, default));
+        _pendingToCursor = _pendingDrop is { Gold: false } && toCursor?.Invoke(_pendingDrop) == true;
+        var destination = _pendingToCursor ? InventoryCommand.PickupToBag : 0;
+        _pending = submit(new InventoryCommand(Guid.NewGuid(), owner.InventoryRevision, InventoryAction.Pickup, id, destination, 1, default));
         _ = ObserveAsync(_pending);
     }
 

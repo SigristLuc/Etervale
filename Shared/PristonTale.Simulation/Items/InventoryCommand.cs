@@ -31,7 +31,12 @@ public enum InventoryAction
 }
 
 public sealed record InventoryCommand(Guid OperationId, long ExpectedRevision, InventoryAction Action,
-    Guid ItemId, int Destination, int Count, EquipmentSlot Slot);
+    Guid ItemId, int Destination, int Count, EquipmentSlot Slot)
+{
+    // A pickup's Destination with the inventory open: the item goes into the bag as a stack of its own, for the client to
+    // carry, as the original puts it on the mouse; 0 receives it as any item (PlayerCharacter.TryReceive).
+    public const int PickupToBag = 1;
+}
 
 public sealed record InventoryOutcome(bool Ok, long Revision, string Message);
 public sealed record AppliedInventoryOperation(InventoryCommand Command, long Revision) : IAppliedOperation
@@ -51,8 +56,11 @@ public static class InventoryCommands
         }
 
         var anchor = character.Inventory.Find(command.ItemId);
+        // The held item (on neither page) is set down by the same three actions, wherever it lands.
+        var held = anchor < 0 && character.Held?.InstanceId == command.ItemId;
         return command.Action switch
         {
+            InventoryAction.Move or InventoryAction.Merge or InventoryAction.Swap when held => character.TryPutDownHeld(command.ItemId, command.Destination),
             InventoryAction.Move => character.Inventory.TryMove(anchor, command.Destination),
             InventoryAction.Split => character.Inventory.TrySplit(anchor, command.Destination, command.Count),
             InventoryAction.Merge => character.Inventory.TryMerge(anchor, command.Destination),

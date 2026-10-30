@@ -10,12 +10,15 @@ public sealed record OwnedItemView(
     // The copy's values for tooltips and equipment rules; null until the owner receives them.
     public ItemDetailView Details { get; init; }
 
-    // Where it is: the bag (Anchor), an equipment slot (Slot), a potion belt box (Slot from PotionBelt.FirstOwnerSlot) or
-    // a special item box (Slot from QuestItemBox.FirstOwnerSlot).
+    // Where it is: the bag (Anchor), an equipment slot (Slot), a potion belt box (Slot from PotionBelt.FirstOwnerSlot), a
+    // special item box (Slot from QuestItemBox.FirstOwnerSlot) or the hand (HeldSlot, PlayerCharacter.Held).
+    public const int HeldSlot = QuestItemBox.FirstOwnerSlot + QuestItemBox.Boxes;
+
     public bool InBag => Slot < 0;
     public bool Equipped => Slot is >= 0 and < PotionBelt.FirstOwnerSlot;
     public int BeltBox => Slot is >= PotionBelt.FirstOwnerSlot and < QuestItemBox.FirstOwnerSlot ? Slot - PotionBelt.FirstOwnerSlot : -1;
-    public int QuestBox => Slot >= QuestItemBox.FirstOwnerSlot ? Slot - QuestItemBox.FirstOwnerSlot : -1;
+    public int QuestBox => Slot is >= QuestItemBox.FirstOwnerSlot and < HeldSlot ? Slot - QuestItemBox.FirstOwnerSlot : -1;
+    public bool Held => Slot == HeldSlot;
 
     // What a view shows of an item at a bag or grid anchor or an owner slot; a sealed puzzle piece shows as the lucky bag
     // until it is revealed.
@@ -175,6 +178,11 @@ public sealed record OwnerState(
         foreach (var (box, kept) in character.QuestBox.Occupied())
         {
             captured.Add(Project(kept, -1, QuestItemBox.FirstOwnerSlot + box, character));
+        }
+
+        if (character.Held is { } held)
+        {
+            captured.Add(Project(held, -1, OwnedItemView.HeldSlot, character));
         }
 
         return captured.AsReadOnly();

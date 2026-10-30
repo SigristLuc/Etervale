@@ -62,6 +62,79 @@ public sealed partial class PlayerCharacter
         return true;
     }
 
+    // A potion the character receives (TryReceive) goes to the belt first: it fills the boxes holding the same potion up to
+    // the potion space, then the empty boxes in order, and the bag takes what the belt leaves. The original takes the
+    // boxes strictly in order and sends a box's overflow to the bag at once; here every box with room is used. False when
+    // the belt takes none of it, or the bag has no room for the rest (then nothing moves).
+    private bool TryReceiveOnBelt(ItemInstance item)
+    {
+        if (item is not { Count: > 0, Definition: { Kind: ItemKind.Potion, Potion.IsValid: true } })
+        {
+            return false;
+        }
+
+        Span<int> amounts = stackalloc int[PotionBelt.Boxes];
+        var remaining = item.Count;
+        // First pass: boxes of the same potion; second pass: empty boxes.
+        for (var pass = 0; pass < 2; pass++)
+        {
+            for (var box = 0; box < PotionBelt.Boxes && remaining > 0; box++)
+            {
+                var held = Belt[box];
+                if (pass == 0 ? held?.Definition != item.Definition : held is not null)
+                {
+                    continue;
+                }
+
+                var amount = Math.Min(remaining, Derived.PotionSpace - (held?.Count ?? 0));
+                if (amount > 0)
+                {
+                    amounts[box] = amount;
+                    remaining -= amount;
+                }
+            }
+        }
+
+        if (remaining == item.Count)
+        {
+            return false;
+        }
+
+        // The received stack is left as it came (callers report its count); its id goes with the first new stack.
+        var keepId = true;
+        if (remaining > 0)
+        {
+            if (!Inventory.TryAdd(item.Copy(remaining, preserveId: true)))
+            {
+                return false;
+            }
+
+            keepId = false;
+        }
+
+        for (var box = 0; box < PotionBelt.Boxes; box++)
+        {
+            var amount = amounts[box];
+            if (amount == 0)
+            {
+                continue;
+            }
+
+            if (Belt[box] is { } held)
+            {
+                held.Count += amount;
+            }
+            else
+            {
+                Belt.Set(box, item.Copy(amount, keepId));
+                keepId = false;
+            }
+        }
+
+        OnInventoryChanged();
+        return true;
+    }
+
     // A box's stack into the bag: at the anchor (joining a stack of the same potion there), or wherever it fits when the
     // anchor is -1.
     public bool TryTakeFromBelt(Guid itemId, int anchor)

@@ -40,6 +40,8 @@ internal static class HudInteractionTests
         yield return ("a worn two-handed weapon is also shown, taken and exchanged in the empty off-hand slot", TwoHandedShadowAsync);
         yield return ("the page button with an item on the cursor switches the page taking the item along, which stays on the cursor", CarriedPageButtonAsync);
         yield return ("an item set down stays where it was set down, not back in its old cell, until the owner state shows it moved", SettleAsync);
+        yield return ("an item thrown to the ground shows nowhere until the owner state shows it gone, and back in its place when refused", ThrownAsync);
+        yield return ("a ground item picked up with the window open comes to the cursor, and goes where any item goes with it closed", PickupToCursorAsync);
         yield return ("the pointer attacks over wild monsters, talks over NPCs and stays the arrow elsewhere", CursorKindAsync);
         yield return ("drop names on one spot rise into a column above the nearest, which keeps its place", DropNameColumnAsync);
         yield return ("the settings offer only the monitor's sizes: all in fullscreen, those that fit in a window, none borderless", ResolutionsAsync);
@@ -493,6 +495,88 @@ internal static class HudInteractionTests
         Assert.True(controller.Completions == 2 && controller.Held == id, "a later refused command put the set-down stone back in its old cell");
         controller.Update(state with { Items = new[] { stone with { Anchor = 5 } }, InventoryRevision = 4 }, layout, true, default, default);
         Assert.True(controller.Held == Guid.Empty, "the stone stayed held once the owner state showed it moved");
+    }
+
+    private static async Task ThrownAsync()
+    {
+        var layout = HudLayout.Create(800, 600);
+        var origin = HudInventoryLayout.Origin(layout);
+        var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Mechanician, "Thrower");
+        var id = Guid.NewGuid();
+        var stone = new OwnedItemView(id, 1, "Stone", ItemKind.Material, 1, 0, -1, 1, 1);
+        var state = OwnerState.Capture(character) with { Items = new[] { stone }, InventoryRevision = 3 };
+        var reply = new TaskCompletionSource<InventoryOutcome>();
+        HudInventoryController controller = null!;
+        controller = new HudInventoryController(null!, _ => reply.Task)
+        {
+            ThrowRequested = item =>
+            {
+                controller.Drop(item, item.Count);
+                return true;
+            }
+        };
+        var above = new Point(400, origin.Y + 100);
+        void Throw()
+        {
+            controller.Update(state, layout, true, default, MouseAt(HudInventoryLayout.Cell(origin, 0).Center, layout.Scale, ButtonState.Pressed));
+            controller.Update(state, layout, true, default, default);
+            controller.Update(state, layout, true, default, MouseAt(above, layout.Scale, ButtonState.Pressed));
+            controller.Update(state, layout, true, default, default);
+        }
+
+        // Thrown above the window, the stone shows nowhere, not back in a bag cell, until the owner state shows it gone.
+        Throw();
+        Assert.True(controller.Dragging == Guid.Empty && controller.Held == Guid.Empty && controller.Thrown == id, "the thrown stone showed back in the bag");
+        reply.SetResult(new InventoryOutcome(true, 4, ""));
+        await Task.Yield();
+        controller.Update(state, layout, true, default, default);
+        Assert.True(controller.Thrown == id, "the thrown stone showed in the bag before the owner state showed it gone");
+        controller.Update(state with { Items = [], InventoryRevision = 4 }, layout, true, default, default);
+        Assert.True(controller.Thrown == Guid.Empty, "the throw stayed pending once the owner state showed the stone gone");
+
+        // A refused throw shows the stone in its place again.
+        reply = new TaskCompletionSource<InventoryOutcome>();
+        Throw();
+        reply.SetResult(new InventoryOutcome(false, 3, "refused"));
+        await Task.Yield();
+        controller.Update(state, layout, true, default, default);
+        Assert.True(controller.Thrown == Guid.Empty, "a refused throw kept the stone hidden");
+    }
+
+    private static Task PickupToCursorAsync()
+    {
+        var layout = HudLayout.Create(800, 600);
+        var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Mechanician, "Picker");
+        var stone = new OwnedItemView(Guid.NewGuid(), 1, "Stone", ItemKind.Material, 1, 0, -1, 1, 1);
+        var state = OwnerState.Capture(character) with { Items = new[] { stone }, InventoryRevision = 3 };
+        var sent = new List<InventoryCommand>();
+        var controller = new HudInventoryController(null!, command =>
+        {
+            sent.Add(command);
+            return Task.FromResult(new InventoryOutcome(true, 4, ""));
+        });
+        controller.Update(state, layout, false, default, default);
+        Assert.True(!controller.ExpectPickup(2), "a pickup came to the cursor with the window closed");
+
+        controller.Update(state, layout, true, default, default);
+        Assert.True(controller.ExpectPickup(2), "a pickup with the window open did not come to the cursor");
+        // The owner state may come before the reply: the new gem shows nowhere meanwhile, the stone stays.
+        var gem = new OwnedItemView(Guid.NewGuid(), 2, "Gem", ItemKind.Material, 1, 1, -1, 1, 1);
+        var arrived = state with { Items = new[] { stone, gem }, InventoryRevision = 4 };
+        controller.Update(arrived, layout, true, default, default);
+        Assert.True(controller.Hides(gem) && !controller.Hides(stone) && controller.Dragging == Guid.Empty, "the picked up gem showed in the bag before the reply");
+        controller.PickupAnswered(true, 4);
+        controller.Update(arrived, layout, true, default, default);
+        Assert.True(controller.Dragging == gem.InstanceId, "the picked up gem did not come to the cursor");
+        Assert.True(!controller.ExpectPickup(2), "a pickup came to the cursor over a carried item");
+
+        // The window closed (V), the gem stays on the cursor, as the original keeps the mouse item, and nothing is sent; Esc
+        // (CancelDrag) lets go of it where it lies.
+        controller.Update(arrived, layout, false, default, default);
+        Assert.True(controller.Dragging == gem.InstanceId && sent.Count == 0, "closing the window took the gem off the cursor, or moved it");
+        controller.CancelDrag();
+        Assert.True(controller.Dragging == Guid.Empty && sent.Count == 0, "Esc did not let go of the gem, or moved it");
+        return Task.CompletedTask;
     }
 
     private static MouseState MouseAt(Point logical, int scale, ButtonState left) => new(logical.X * scale, logical.Y * scale, 0,

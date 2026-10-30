@@ -323,7 +323,6 @@ public sealed partial class GameplayHud
         if (_inventorySlide.FullyOpen && HudInventoryLayout.Close(PanelOrigin(layout, _inventorySlide)).Contains(pointer))
         {
             _inventorySlide.Open = false;
-            _inventory.CancelDrag();
             return;
         }
 
@@ -462,7 +461,6 @@ public sealed partial class GameplayHud
                 _skills.CancelTraining();
             }
 
-            _inventory.CancelDrag();
             return;
         }
 
@@ -470,14 +468,14 @@ public sealed partial class GameplayHud
         OpenOnly(slide);
     }
 
-    // The status, skill and inventory windows share the same screen area; opening one closes the others.
+    // The status, skill and inventory windows share the same screen area; opening one closes the others (an item on the
+    // inventory's cursor stays there, as the original keeps the mouse item).
     private void OpenOnly(HudSlide slide)
     {
         _inventorySlide.Open = slide == _inventorySlide;
         _statusSlide.Open = slide == _statusSlide;
         _skillSlide.Open = slide == _skillSlide;
         _skills.CancelTraining();
-        _inventory.CancelDrag();
     }
 
     // The potion belt's boxes, left to right.

@@ -27,6 +27,7 @@ internal static class ProgressionAndOwnershipTests
         yield return ("quest items go to the special item box down each column, the bag takes them when it is full, and quests find them there",
             QuestBoxAsync);
         yield return ("equipment validates requirements, handedness and original weapon formula", EquipmentAsync);
+        yield return ("a received item goes on its empty slot when the character can wear it there, else to the bag", ReceivedWornAsync);
         yield return ("owned state round-trips detached copies and rejects unknown formats", PersistenceAsync);
     }
 
@@ -206,8 +207,10 @@ internal static class ProgressionAndOwnershipTests
             && character.QuestBox[0]?.Definition == letters[0] && character.QuestBox[QuestItemBox.Columns]?.Definition == letters[1]
             && character.QuestBox[2 * QuestItemBox.Columns]?.Definition == letters[2] && character.QuestBox[1]?.Definition == letters[3],
             "the box was not filled down each column, then the next");
-        Assert.True(character.TryReceive(new ItemInstance(sword)) && character.TryReceive(new ItemInstance(stray))
-            && character.Inventory.Items().Count() == 2, "an item the box does not keep went elsewhere than the bag");
+        // The first sword goes on the empty weapon slot; the second and the stray letter go to the bag.
+        Assert.True(character.TryReceive(new ItemInstance(sword)) && character.GetEquipped(EquipmentSlot.Weapon)?.Definition == sword
+            && character.TryReceive(new ItemInstance(sword)) && character.TryReceive(new ItemInstance(stray))
+            && character.Inventory.Items().Count() == 2, "an item the box does not keep went elsewhere than its slot or the bag");
         foreach (var letter in letters.Skip(4))
         {
             character.TryReceive(new ItemInstance(letter));
@@ -257,6 +260,50 @@ internal static class ProgressionAndOwnershipTests
         var attack = CombatProfileFactory.ForPlayerBasicAttack(character);
         Assert.True(attack.DamageMin == expectedMin && attack.DamageMax == expectedMax, "weapon formula double-counted bare-hand terms");
         Assert.True(character.TryUnequip(EquipmentSlot.Weapon) && character.Inventory.Find(axe.InstanceId) >= 0, "unequip lost identity");
+        return Task.CompletedTask;
+    }
+
+    private static Task ReceivedWornAsync()
+    {
+        var classes = new CharacterClassRegistry();
+        var character = classes.CreatePlayer(PlayerClass.Fighter, "Wearer", 6);
+        static ItemInstance Gear(uint code, ItemKind kind, EquipmentSlot slot, bool twoHanded = false) =>
+            new(new ItemDefinition(code, kind.ToString(), kind, slot, TwoHanded: twoHanded));
+        bool InBag(ItemInstance item) => character.Inventory.Find(item.InstanceId) >= 0;
+
+        var armor = Gear(1, ItemKind.Armor, EquipmentSlot.Armor);
+        var spare = Gear(2, ItemKind.Armor, EquipmentSlot.Armor);
+        Assert.True(character.ReceiveGroundLoot(armor, 0) && character.GetEquipped(EquipmentSlot.Armor) == armor && !InBag(armor),
+            "a picked up armour did not go on the empty armour slot");
+        Assert.True(character.TryReceive(spare) && InBag(spare), "a second armour did not go to the bag");
+
+        var rings = new[] { Gear(3, ItemKind.Ring, EquipmentSlot.RingLeft), Gear(4, ItemKind.Ring, EquipmentSlot.RingLeft), Gear(5, ItemKind.Ring, EquipmentSlot.RingLeft) };
+        Assert.True(rings.All(character.TryReceive) && character.GetEquipped(EquipmentSlot.RingLeft) == rings[0]
+            && character.GetEquipped(EquipmentSlot.RingRight) == rings[1] && InBag(rings[2]), "rings did not fill both ring slots, then the bag");
+
+        var shield = Gear(6, ItemKind.Shield, EquipmentSlot.OffHand);
+        var greatAxe = Gear(7, ItemKind.Axe, EquipmentSlot.Weapon, twoHanded: true);
+        Assert.True(character.TryReceive(shield) && character.TryReceive(greatAxe) && character.GetEquipped(EquipmentSlot.OffHand) == shield
+            && character.GetEquipped(EquipmentSlot.Weapon) is null && InBag(greatAxe), "a two-handed weapon was worn beside a shield");
+
+        var boots = Gear(8, ItemKind.Boots, EquipmentSlot.Boots);
+        boots.Roll = boots.Roll with { RequiredLevel = 99 };
+        Assert.True(character.TryReceive(boots) && character.GetEquipped(EquipmentSlot.Boots) is null && InBag(boots),
+            "boots the character cannot use were worn");
+
+        // A full bag does not keep an item from its empty slot.
+        var packed = classes.CreatePlayer(PlayerClass.Fighter, "Packed", 6);
+        var block = new ItemDefinition(9, "Block", ItemKind.Misc, GridWidth: Inventory.DefaultWidth, GridHeight: Inventory.DefaultHeight);
+        Assert.True(packed.Inventory.TryPlace(new ItemInstance(block), 0) && packed.HiddenBag.TryPlace(new ItemInstance(block), 0), "fixture blocks did not fill both pages");
+        var amulet = Gear(10, ItemKind.Amulet, EquipmentSlot.Amulet);
+        Assert.True(packed.TryReceive(amulet) && packed.GetEquipped(EquipmentSlot.Amulet) == amulet, "an amulet was refused with the bag full and its slot empty");
+        Assert.True(!packed.TryReceive(Gear(11, ItemKind.Amulet, EquipmentSlot.Amulet)), "a second amulet found room in a full bag");
+
+        // Picked up with the inventory open (into the bag, for the cursor), an armour lies in the bag beside its empty slot.
+        var open = classes.CreatePlayer(PlayerClass.Fighter, "Open", 6);
+        var robe = Gear(12, ItemKind.Armor, EquipmentSlot.Armor);
+        Assert.True(open.ReceiveGroundLoot(robe, 0, intoBag: true) && open.GetEquipped(EquipmentSlot.Armor) is null && open.Inventory.Find(robe.InstanceId) >= 0,
+            "an armour picked up for the cursor went on its slot");
         return Task.CompletedTask;
     }
 

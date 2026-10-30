@@ -26,7 +26,8 @@ public sealed record SavedItem(
     Simulation.Items.Mixing.MixStat MixStats = Simulation.Items.Mixing.MixStat.None,
     int? Belt = null,
     bool Hidden = false,
-    int? QuestBox = null);
+    int? QuestBox = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Held = false);
 
 // ActiveSide: the bag page shown (inventory) or the weapon pair held (equipment); Hidden items are on the other side.
 public sealed record SavedItems(int Version, SavedItem[] Items, long Revision = 0, AppliedInventoryOperation[]? Operations = null,
@@ -58,7 +59,7 @@ public static class CharacterStateCodec
 
         character.RestoreSides(inventory.ActiveSide, equipment.ActiveSide);
         // Gear restores first: the potion space it gives bounds the belt's stacks.
-        foreach (var saved in inventory.Items.Where(static saved => saved.Belt is null && saved.QuestBox is null))
+        foreach (var saved in inventory.Items.Where(static saved => saved.Belt is null && saved.QuestBox is null && !saved.Held))
         {
             var item = RestoreItem(saved, catalog, identities);
             var bag = saved.Hidden ? character.HiddenBag : character.Inventory;
@@ -103,6 +104,15 @@ public static class CharacterStateCodec
             }
         }
 
+        foreach (var saved in inventory.Items.Where(static saved => saved.Held))
+        {
+            if (saved.Slot.HasValue || saved.Anchor != -1 || saved.Belt is not null || saved.QuestBox is not null
+                || !character.RestoreHeld(RestoreItem(saved, catalog, identities)))
+            {
+                throw new InvalidDataException("Invalid saved held item.");
+            }
+        }
+
         foreach (var saved in inventory.Items.Where(static saved => saved.Belt is not null))
         {
             if (saved.Slot.HasValue || saved.Anchor != -1 || !character.RestoreBelt(saved.Belt!.Value, RestoreItem(saved, catalog, identities)))
@@ -129,6 +139,10 @@ public static class CharacterStateCodec
         items.AddRange(character.HiddenBag.Occupied().Select(static cell => CaptureItem(cell.Item, cell.Anchor, null) with { Hidden = true }));
         items.AddRange(character.Belt.Occupied().Select(static box => CaptureItem(box.Item, -1, null) with { Belt = box.Slot }));
         items.AddRange(character.QuestBox.Occupied().Select(static box => CaptureItem(box.Item, -1, null) with { QuestBox = box.Slot }));
+        if (character.Held is { } held)
+        {
+            items.Add(CaptureItem(held, -1, null) with { Held = true });
+        }
 
         return new SavedItems(1, items.ToArray(), character.InventoryRevision, StoredHistory.Newest(character.InventoryOperations),
             StoredHistory.Newest(character.ServiceOperations), character.BagPage, StoredHistory.Newest(character.ShopPurchases));

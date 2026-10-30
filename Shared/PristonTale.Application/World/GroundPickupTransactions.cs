@@ -14,7 +14,7 @@ internal static class GroundPickupTransactions
     {
         var original = player.Character;
         var dropId = command.ItemId;
-        if (command.ExpectedRevision != original.InventoryRevision || command.Count != 1
+        if (command.ExpectedRevision != original.InventoryRevision || command.Count != 1 || command.Destination is not (0 or InventoryCommand.PickupToBag)
             || !field.GroundLoot.TryReserve(dropId, command.OperationId, player, out var drop, out var item))
         {
             return new(original, null, null, new(false, original.InventoryRevision, "drop unavailable or out of reach"));
@@ -31,7 +31,7 @@ internal static class GroundPickupTransactions
 
             long gold = drop!.Gold ? drop.Amount : 0;
             var shares = PartyRules.SharesGold(gold) ? Shares(gold, sharers, out gold) : [];
-            if (!candidate.ReceiveGroundLoot(item, (int)gold))
+            if (!candidate.ReceiveGroundLoot(item, (int)gold, command.Destination == InventoryCommand.PickupToBag))
             {
                 return new(original, null, null, new(false, original.InventoryRevision, "inventory full or money limit reached"));
             }

@@ -155,13 +155,19 @@ internal static class StarterGiftTests
     {
         var (fixture, gifts, fresh) = await NewcomerAsync();
         var character = fresh.Session.Character!;
-        while (character.Inventory.TryAdd(new ItemInstance(Suit)) || character.Inventory.TryAdd(new ItemInstance(Shield)))
+        // A worn weapon keeps the claw off its slot, so only the bag could take it.
+        var held = new ItemInstance(Claw);
+        character.Equip(EquipmentSlot.Weapon, held);
+        foreach (var page in new[] { character.Inventory, character.HiddenBag })
         {
+            while (page.TryAdd(new ItemInstance(Suit)) || page.TryAdd(new ItemInstance(Shield)))
+            {
+            }
         }
 
         var session = NextOffer(fixture, StarterGifts.FirstDelay);
         await fixture.RunAsync(gifts.GiveAsync(session!, CancellationToken.None));
-        Assert.True(character.StarterGiftsReceived == 0 && character.GetEquipped(EquipmentSlot.Weapon) is null && fresh.Link.Lines.Count == 0,
+        Assert.True(character.StarterGiftsReceived == 0 && character.GetEquipped(EquipmentSlot.Weapon) == held && fresh.Link.Lines.Count == 0,
             "a gift without room was given or counted");
         Assert.True(NextOffer(fixture, StarterGifts.Interval) is not null, "a gift without room was not offered again");
 
