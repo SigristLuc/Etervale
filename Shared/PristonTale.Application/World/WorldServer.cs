@@ -799,6 +799,7 @@ public sealed partial class WorldServer
         player.Cooldowns.Rebase(from.NowMs, to.NowMs);
         to.Add(player);
         to.Statuses.Carry(player.EntityId, statuses, from.NowMs, to.NowMs);
+        to.ArriveWithoutCrystalPets(player);
     }
 
     private static void UpdatePlacement(PlayerSession? session, int fieldId, Vector3 position, bool? inVillage = null)

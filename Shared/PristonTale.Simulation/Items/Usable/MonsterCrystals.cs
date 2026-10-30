@@ -80,9 +80,42 @@ public static class MonsterCrystals
 
     // The quest arena refuses every crystal.
 
+    // A pet's owner keeps one status per pet in the running-effects bar: the base plus the number of the crystal its icon
+    // shows (GP101: 0xF0000565) plus the pet's slot in bits 12-23, so every pet has its own icon, time and dismissal. A
+    // player keeps at most ten pets, one per slot.
+    public const uint PetStatusBase = 0xF0000500;
+    public const int PetSlots = 10;
+    private const int PetSlotShift = 12;
+    private const uint PetSlotMask = 0x00FFF000;
+
     private static readonly Dictionary<string, MonsterCrystalDefinition> Crystals = Build();
 
+    private static readonly Dictionary<uint, MonsterCrystalDefinition> ByPetStatus = Crystals.Values
+        .Where(static crystal => crystal.Kind is CrystalKind.Pet or CrystalKind.ClanPet)
+        .ToDictionary(static crystal => PetStatusCode(crystal));
+
+    // The crystals that call one monster, by that monster in and out of the event.
+    private static readonly Dictionary<string, MonsterCrystalDefinition> ByOwnMonster = Crystals.Values
+        .Where(static crystal => crystal.Kind == CrystalKind.Pet && crystal.Monsters.Count == 1)
+        .SelectMany(static crystal => new[] { (crystal.Monsters[0].Key, crystal), (crystal.EventMonsters[0].Key, crystal) })
+        .ToDictionary(static pair => pair.Key, static pair => pair.crystal, StringComparer.OrdinalIgnoreCase);
+
     public static IReadOnlyCollection<MonsterCrystalDefinition> All => Crystals.Values;
+
+    public static uint PetStatusCode(MonsterCrystalDefinition crystal, int slot = 0) =>
+        PetStatusBase + uint.Parse(crystal.CatalogKey.AsSpan(2), System.Globalization.CultureInfo.InvariantCulture) + ((uint)slot << PetSlotShift);
+
+    public static bool TryGetByPetStatus(uint code, out MonsterCrystalDefinition crystal) => ByPetStatus.TryGetValue(code & ~PetSlotMask, out crystal);
+
+    public static int PetSlot(uint code) => (int)((code & PetSlotMask) >> PetSlotShift);
+
+    public static EffectSpec PetStatus(MonsterCrystalDefinition crystal, int slot) =>
+        new(PetStatusCode(crystal, slot), EffectSourceKind.Item, harmful: false, ReadOnlySpan<StatModifier>.Empty);
+
+    // The crystal a pet's icon shows: the crystal of its monster alone (a Mystic's Hobgoblin shows the Hobgoblin crystal),
+    // else the crystal used.
+    public static MonsterCrystalDefinition ShownCrystal(MonsterCrystalDefinition used, string monsterKey) =>
+        ByOwnMonster.TryGetValue(monsterKey, out var own) ? own : used;
 
     public static bool TryGet(string catalogKey, out MonsterCrystalDefinition crystal)
     {

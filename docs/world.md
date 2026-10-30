@@ -352,8 +352,10 @@ Clients play each swing's clip from the `SwingBegin` slot and draw its effects f
 `SummonBrain.Tick(summon, tuning, orders, dtMs)` takes `SummonOrders` (owner position, target) from the skills layer.
 It runs back to the owner (dropping the target) beyond 300 units with a target or 150 without, stops at 90; attacks
 when within `max(80, MeleeRange + 32)` planar and 64 vertical; uses the same clip timing. `NeedsRecall` (500 units)
-tells the host to place it beside the owner. Only stun stops it. Wild monsters see summons as target-only prey (they
-fight a summon that hits them, never pick it by sight). Summon skills are documented in [skills.md](skills.md).
+tells the host to place it beside the owner, at one of the eight spawn points around him that no monster stands on
+when one is free (`FieldSkills.TryRecallBeside`). Only stun stops it. Wild monsters see summons as target-only prey
+(they fight a summon that hits them, never pick it by sight). Summon skills are documented in [skills.md](skills.md);
+crystal pets follow the same orders ([special-items.md](special-items.md#monster-crystals-and-soul-stones)).
 
 ## Night and day
 

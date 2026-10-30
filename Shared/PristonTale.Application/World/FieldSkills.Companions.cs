@@ -1,5 +1,6 @@
 using System.Numerics;
 using PristonTale.Simulation.Combat;
+using PristonTale.Simulation.Items.Usable;
 using PristonTale.Simulation.Modifiers;
 using PristonTale.Simulation.Skills;
 using PristonTale.Simulation.World.Monsters;
@@ -141,6 +142,11 @@ internal sealed partial class FieldSkills
         if (_summonSkills.TryGetValue(change.Entity, out var summonSkill) && summonSkill == code)
         {
             DismissSummon(change.Entity);
+        }
+
+        if (MonsterCrystals.TryGetByPetStatus(code, out _))
+        {
+            EndCrystalPets(change.Entity, code);
         }
     }
 

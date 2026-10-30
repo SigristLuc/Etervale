@@ -359,6 +359,18 @@ public sealed partial class GameScene : ISkillSceneHost
         SkillNotice?.Invoke(aggressive ? $"{rule.Name}: attacks any enemy nearby." : $"{rule.Name}: attacks only your target.");
     }
 
+    // A confirmed right click on a crystal pet's icon dismisses the pet of that status.
+    public void DismissCrystalPets(uint statusCode)
+    {
+        if (_playChannel is null)
+        {
+            return;
+        }
+
+        SendUpstream(_playChannel.SendDismissCrystalPetsAsync(statusCode, _presenceCts.Token), "crystal pet dismissal");
+        SkillNotice?.Invoke("Pet has been dismissed");
+    }
+
     // True when the summon skill's monster picks its own enemies, false when it fights only the owner's target; null
     // for skills that summon nothing.
     public bool? SummonAutomatic(uint skillCode) =>

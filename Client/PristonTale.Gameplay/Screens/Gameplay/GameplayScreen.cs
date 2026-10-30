@@ -61,6 +61,7 @@ public sealed class GameplayScreen : GameScreen
         _hud.PlayerButtonsUsed += _scene.DismissPlayerButtons;
         _scene.SkillNotice += _hud.Chat.System;
         _hud.SummonModeRequested += _scene.ToggleSummonMode;
+        _hud.CrystalPetDismissRequested += _scene.DismissCrystalPets;
         _hud.RunToggleRequested += _scene.ToggleRun;
         _hud.YahooKeyPressed += _scene.PressYahooKey;
         _hud.ItemSound += _scene.PlayItemSound;
@@ -179,9 +180,6 @@ public sealed class GameplayScreen : GameScreen
         Context.GraphicsDevice.Clear(_scene.SkyColor);
         _scene.Draw();
         _scene.CollectGroundLabels(_groundLabels);
-        Context.SpriteBatch.Begin();
-        _scene.DrawSummonPlates(Context.SpriteBatch, Context.Font);
-        Context.SpriteBatch.End();
         _scene.DrawCombatText(Context.SpriteBatch, Context.Font);
         _hud.Draw();
     }
@@ -281,6 +279,7 @@ public sealed class GameplayScreen : GameScreen
             _hud.PlayerButtonsUsed -= _scene.DismissPlayerButtons;
             _scene.SkillNotice -= _hud.Chat.System;
             _hud.SummonModeRequested -= _scene.ToggleSummonMode;
+            _hud.CrystalPetDismissRequested -= _scene.DismissCrystalPets;
             _hud.RunToggleRequested -= _scene.ToggleRun;
             _hud.YahooKeyPressed -= _scene.PressYahooKey;
             _hud.ItemSound -= _scene.PlayItemSound;

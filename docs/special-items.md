@@ -51,7 +51,7 @@ and draws the result.
 | `Shared/PristonTale.Application/World/FieldSkills.Crystals.cs`, `FieldInstance.Items.cs` | Crystal pets, soul monsters, castle items on the field |
 | `Client/PristonTale.Gameplay/UI/Widgets/HudPremiumKeeps.cs` | Boosters and the skill-delay item in the effects bar |
 | `Client/PristonTale.Gameplay/UI/Inventory/HudPuzzleExchange.cs` | The collector's question; the board is drawn by `HudInventoryPanel` |
-| `Client/PristonTale.Gameplay/World/Remote/SummonPlates.cs` | Name plates of crystal pets and summons |
+| `Client/PristonTale.Gameplay/UI/Widgets/HudCombat.NamePlates.cs` | Name boxes of crystal pets and summons (with the owner's name) |
 
 ## Use flow
 
@@ -84,6 +84,7 @@ and draws the result.
 | `MaleCannotUse`, `FemaleCannotUse` | A chocolate meant for the other gender |
 | `NotEnoughGold` | A lucky bag without 1000 gold |
 | `CrystalRefused` | Castle mercenaries outside a siege of the castle-master clan (Etervale runs no siege) |
+| `SummonLimit` | A pet crystal while the user keeps ten pets ("You can only have 10 crystal summons at a time") |
 
 ## Items and effects
 
@@ -133,13 +134,23 @@ from the inventory. Items without a rule keep the generic tooltip.
 Monsters are named by their key (`MonsterDefinition.Key`, the unique English name; a crystal pet is the crystal
 variant of its monster, `HOPY 2` for Hopy) and a soul stone's by `Soul of <key>`. A crystal is refused in towns,
 the quest arena and below its item level; a soul stone also in the castle (33), field 29 and field 16. Every crystal
-use starts a three-second delay; billing crystals (GP117-120) and soul stones refuse during it. A pet stands beside its
-user (one of the eight points 48 units around him), lives 4 min plus 2 s per owner level (levels 1-99) with 3 more
-life per level, does not follow, hunts the nearest wild monster in its sight and never another pet, credits its owner
-with the kill's experience and drops, and dies when it expires or the owner leaves the field. A Web pet's blow slows
-its target to half speed for 36 frames (not Kelvezu). Players may keep any number of pets. `events.crystal` (0 off,
-1 from 12:00 to 23:59, 2 all day) switches crystals to their event monsters. A crystal whose drawn monster the world
-data lacks is refused and kept; the data's soul monsters are absent, so soul stones refuse.
+use starts a three-second delay; billing crystals (GP117-120) and soul stones refuse during it. A pet is called beside
+its user (one of the eight points 48 units around him, preferring one no monster stands on), lives 4 min plus 2 s per
+owner level (levels 1-99) with 3 more life per level, hunts the nearest wild monster in its sight and never another
+pet, and credits its owner with the kill's experience and drops. It follows its owner as a skill summon does
+(`SummonBrain`: the leash, and the recall to a free point beside an owner 500 units away); the original's pet stands
+where it was called. An idle pet standing inside another monster walks out of it (`FieldInstance.StepOutOfCrowd`), so
+pets do not stand in each other. The owner keeps one status per pet (`MonsterCrystals.PetStatus`): code
+`PetStatusBase` 0xF0000500 + the number of the crystal it shows + its slot (the owner's lowest free one, 0..9) in bits
+12-23, GP101 in slot 0 0xF0000565, in slot 1 0xF0001565. A pet shows the crystal that calls its monster alone
+(`ShownCrystal`: a Mystic's Hobgoblin shows GP102, a Marvel's Bargon GP104), else the crystal used. The status has
+the pet's lifetime and starts with the next step (`QueueItemEffect`); a pet dies when it expires, with its status (its
+end, the owner's death), when the owner dismisses it (`DismissCrystalPets`, the `DismissCrystalPets` request), enters a
+town or leaves the field (`LeaveCrystalPets`; the statuses end in the field he enters, `ArriveWithoutCrystalPets`); a
+pet that falls ends its status. A Web pet's blow slows its target to half speed for 36 frames (not Kelvezu). A player
+keeps at most ten pets (`MonsterCrystals.PetSlots`); an eleventh crystal is refused as `SummonLimit` and kept.
+`events.crystal` (0 off, 1 from 12:00 to 23:59, 2 all day) switches crystals to their event monsters. A crystal whose
+drawn monster the world data lacks is refused and kept; the data's soul monsters are absent, so soul stones refuse.
 
 ### Bless Castle items
 
@@ -220,8 +231,13 @@ clan and refuses (`ClanOnly`).
 - Ether cores, crystal summons (at the called monster) and the Restoration play the return sparkle with the learn
   sound; the soccer-ball head starts and ends with the learn light; boosters and lucky bags play the drink sound; a gift
   box the eat sound under an orange light. Foods show the potion effects of their restored resources.
-- Crystal pets and summons carry a name plate: the name in pale green, the owner's life bar for his own pet and the
-  owner's name in parentheses for anyone else's.
+- Crystal pets and summons carry the HUD's name box (`HudCombat.DrawNamePlates`): the name in pale green, the owner's
+  name in parentheses on a second line, and under the box a life bar on the viewer's own.
+- Each crystal pet's status shows in the running-effects bar with the inventory sprite of the crystal it shows
+  (`image/Sinimage/Items/Event/it<KEY>.bmp`); the hover box reads `<name> Crystal`, "Summoned Pet that supports you in
+  Battle", `Time Left: m:ss` and "Right-click to dismiss". A right click on it asks "Monster Crystal / Do you want to /
+  dismiss this pet?" (`HudCrystalDismiss`); Yes (or Enter, while the chat input is closed) sends `DismissCrystalPets`
+  for that pet's status and the chat says "Pet has been dismissed".
 - While a puzzle piece or lucky bag is carried, the board backdrop (`NYEAR_00.bmp`) covers the last four columns'
   top four rows; a finished puzzle glows yellow under two orange lines sweeping one pixel every three 70 Hz frames. The
   collector asks "Do you wanna / exchange to the item?" under "Completed Puzzle", or explains the board.
@@ -248,6 +264,11 @@ clan and refuses (`ClanOnly`).
 - `HudNpcServiceController` accepts NPC id 0 only for the shop: that is the mobile shop.
 - Crystal pets are summons (`OwnerId`) but not in the skill summon table; `FieldSkills.StepSummon` steps them through
   `StepCrystalPet` first.
+- A crystal pet is called in the command phase, so its status starts with the next step (`QueueItemEffect`) and a
+  dismissal ends it the same way (`EndItemEffect`); a status event added in the command phase would be lost. Ends are
+  applied before adds, so `EndItemEffect` also drops an add of that status still queued (a pet dismissed before its
+  first step leaves no status behind). A summon is put in the collision index when called, so pets called before a step
+  see each other.
 - Castle item ends queued from the command phase reach clients with the next step (`EndItemEffect`); leaving the castle
   removes them directly.
 - A puzzle bag keeps its piece's grid size; only its code, key and name are swapped for the lucky bag on the wire.

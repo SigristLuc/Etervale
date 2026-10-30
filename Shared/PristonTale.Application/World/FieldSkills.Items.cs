@@ -12,8 +12,33 @@ internal sealed partial class FieldSkills
 
     public void QueueItemEffect(ulong entity, EffectSpec spec, float durationMs, int rank = 1) => _pendingItemEffects.Add((entity, spec, durationMs, rank));
 
-    // Ends an item's effect on a player with the next step (a castle item replaced or left behind).
-    public void EndItemEffect(WorldPlayer player, uint code) => _pendingItemEnds.Add((player.EntityId, code));
+    // Ends an item's effect on a player with the next step (a castle item replaced or left behind). An add of that effect
+    // still queued is dropped, since ends are applied before adds.
+    public void EndItemEffect(WorldPlayer player, uint code)
+    {
+        for (var index = _pendingItemEffects.Count - 1; index >= 0; index--)
+        {
+            if (_pendingItemEffects[index].Entity == player.EntityId && _pendingItemEffects[index].Spec.Code == code)
+            {
+                _pendingItemEffects.RemoveAt(index);
+            }
+        }
+
+        _pendingItemEnds.Add((player.EntityId, code));
+    }
+
+    private bool HasPendingItemEffect(WorldPlayer player, uint code)
+    {
+        foreach (var (entity, spec, _, _) in _pendingItemEffects)
+        {
+            if (entity == player.EntityId && spec.Code == code)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private void StartItemEffects()
     {

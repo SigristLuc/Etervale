@@ -177,6 +177,14 @@ internal sealed partial class ClientSession : IMovementVerdictSink
                     }
 
                     break;
+                case EtervaleOpcodes.DismissCrystalPets:
+                    var dismissal = DismissCrystalPetsPacket.Read(memory.Span);
+                    if (_player is not null && _session is { } owner)
+                    {
+                        _ = _services.World.DismissCrystalPetsAsync(owner.EntityId, dismissal.StatusCode);
+                    }
+
+                    break;
                 case EtervaleOpcodes.DescribeEntity:
                     DescribeObject(DescribeEntityPacket.Read(memory.Span));
                     break;

@@ -3,6 +3,8 @@ namespace PristonTale.Simulation.Items.Usable;
 // The line the player reads for each use result.
 public static class ItemUseMessages
 {
+    private static readonly string SummonLimit = $"You can only have {MonsterCrystals.PetSlots} crystal summons at a time";
+
     public static string For(ItemUseStatus status) => status switch
     {
         ItemUseStatus.Used => "Item used",
@@ -25,7 +27,7 @@ public static class ItemUseMessages
         ItemUseStatus.FemaleCannotUse => "The female character cannot use",
         ItemUseStatus.NotEnoughGold => "Not enough gold",
         ItemUseStatus.CrystalRefused => "You cannot use this crystal",
-        ItemUseStatus.SummonLimit => "Summon limit exceeded",
+        ItemUseStatus.SummonLimit => SummonLimit,
         _ => "The item could not be used"
     };
 }

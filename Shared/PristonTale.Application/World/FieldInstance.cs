@@ -128,6 +128,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         if (_players.TryGetValue(entityId, out var leaving))
         {
             LeaveCastleItems(leaving);
+            _skills.LeaveCrystalPets(leaving);
         }
 
         _players.Remove(entityId, out _);
@@ -338,6 +339,8 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
     {
         var summon = new MonsterInstance(_ids.NextMonsterId(), definition, Terrain.PlaceOnFloor(position), facing, spawnPointIndex: -1);
         _monsters[summon.EntityId] = summon;
+        // Into the collision index at once, so a summon called before the next step is seen standing there.
+        _collisionIndex.Put(summon.EntityId, summon.Position);
         return summon;
     }
 
@@ -372,6 +375,11 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
                     summon.AttackIsSkill ? tuning.SkillDurationMs : tuning.CooldownMs, summon.AttackIsSkill ? tuning.SkillWindupMs : tuning.WindupMs));
             }
 
+            if (summon.Position == before && summon.AiState == MonsterAiState.Idle && !summon.Effects.Has(ControlFlags.Stun))
+            {
+                StepOutOfCrowd(summon, before, dtMs);
+            }
+
             MoveMonster(summon, before);
             if (!summon.IsAlive)
             {
@@ -404,6 +412,54 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         {
             _combat.ResolveMonsterHit(monster, landed);
         }
+    }
+
+    bool IFieldSkillHost.MonsterStandsAt(Vector3 point)
+    {
+        BuildMonsterNeighbours(0, point, 0f);
+        return _occupancy.IsOccupied(point);
+    }
+
+    // An idle summon standing inside other monsters walks out of them, away from the bodies it overlaps (a summon on
+    // the very spot of another goes the way its id picks). MoveMonster lets an overlapping monster leave, so pets called
+    // or recalled together part instead of standing in each other.
+    private void StepOutOfCrowd(MonsterInstance summon, Vector3 at, float dtMs)
+    {
+        // Squared lengths below this give no direction (bodies on the very same spot).
+        const float NoDirection = 1e-6f;
+        BuildMonsterNeighbours(summon.EntityId, at, 0f);
+        var awayX = 0f;
+        var awayZ = 0f;
+        var overlapping = false;
+        foreach (var neighbour in _neighbourScratch)
+        {
+            if (!neighbour.Overlaps(at))
+            {
+                continue;
+            }
+
+            overlapping = true;
+            var dx = at.X - neighbour.Position.X;
+            var dz = at.Z - neighbour.Position.Z;
+            var squared = (dx * dx) + (dz * dz);
+            if (squared > NoDirection)
+            {
+                var distance = MathF.Sqrt(squared);
+                awayX += dx / distance;
+                awayZ += dz / distance;
+            }
+        }
+
+        if (!overlapping)
+        {
+            return;
+        }
+
+        var heading = (awayX * awayX) + (awayZ * awayZ) > NoDirection ? MathF.Atan2(awayX, awayZ) : FieldSkills.CompassAngle(summon.EntityId);
+        var step = MonsterLocomotion.UnitsPerSecond(summon.Def, running: false) * dtMs / 1000f;
+        summon.Facing = heading;
+        summon.Motion = MotionState.Walk;
+        summon.Position = new Vector3(at.X + (MathF.Sin(heading) * step), at.Y, at.Z + (MathF.Cos(heading) * step));
     }
 
     // Re-resolve AI movement against the stage and the other monsters only, sliding along blockers as the client's
@@ -581,10 +637,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         {
             foreach (var neighbour in neighbours)
             {
-                float dx = neighbour.Position.X - position.X;
-                float dz = neighbour.Position.Z - position.Z;
-                float overlap = neighbour.Radius;
-                if (MathF.Abs(neighbour.Position.Y - position.Y) < overlap && (dx * dx) + (dz * dz) < overlap * overlap)
+                if (neighbour.Overlaps(position))
                 {
                     return true;
                 }

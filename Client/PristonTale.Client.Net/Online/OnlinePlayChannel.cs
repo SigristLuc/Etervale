@@ -138,6 +138,12 @@ internal sealed class OnlinePlayChannel : IPlayChannel
         _connection.SendYahooKey();
     }
 
+    public async Task SendDismissCrystalPetsAsync(uint statusCode, CancellationToken ct = default)
+    {
+        await _start.WaitAsync(ct);
+        _connection.SendDismissCrystalPets(statusCode);
+    }
+
     public async Task InviteToPartyAsync(ulong targetId, CancellationToken ct = default)
     {
         await _start.WaitAsync(ct);

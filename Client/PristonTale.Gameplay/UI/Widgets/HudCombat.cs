@@ -37,6 +37,7 @@ public sealed partial class HudCombat
         public bool StateBarEnabled { get; set; }
         // Set when the local player swings at it at all: its name box over the scene then carries the life bar.
         public bool Attacked { get; set; }
+        public string OwnerLabel { get; set; }
     }
 
     private readonly Dictionary<ulong, Entity> _entities = new();

@@ -36,6 +36,7 @@ public static class EtervaleOpcodes
     public const uint ItemUseResult = 0x45540401;
     public const uint PremiumTimers = 0x45540402;
     public const uint ItemEffects = 0x45540403;
+    public const uint DismissCrystalPets = 0x45540404;
     public const uint QuestRequest = 0x45540500;
     public const uint QuestResult = 0x45540501;
     public const uint QuestJournal = 0x45540502;

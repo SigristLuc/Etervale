@@ -74,9 +74,6 @@ internal sealed class ItemEffectsCaptureProbe : Game
     private int _shot;
     private double _seconds;
     private bool _begun;
-    private SpriteBatch _batch = null!;
-    private SpriteFont _font = null!;
-    private Texture2D _pixel = null!;
     private PristonCollisionWorld _collision = null!;
 
     public ItemEffectsCaptureProbe(string assetRoot, string contentRoot, string output)
@@ -144,14 +141,10 @@ internal sealed class ItemEffectsCaptureProbe : Game
         var scripts = new SystemScriptEffects(_skills.System, _skills.Library);
         _orbs = new ForceOrbPresentation(_skills, scripts, _renderer.TransientLights);
         _pets = new PremiumPetPresentation(actorScene, loader, _assetRoot, scripts, _renderer.TransientLights, _sounds, ConsoleClientLog.Instance);
-        _batch = new SpriteBatch(GraphicsDevice);
-        _font = Content.Load<SpriteFont>("Fonts/UI");
-        _pixel = new Texture2D(GraphicsDevice, 1, 1);
-        _pixel.SetData([Color.White]);
     }
 
-    // Two crystal pets: the viewer's own with its life bar, and the friend's with the owner's name, each called in the
-    // return sparkle.
+    // Two crystal pets, the viewer's own and a friend's, each called in the return sparkle (their name boxes are HUD
+    // drawing, outside this probe).
     private void CrystalPets()
     {
         var own = Floor(_collision, _focus + new Vector3(-55f, 0f, 60f));
@@ -275,12 +268,6 @@ internal sealed class ItemEffectsCaptureProbe : Game
         _renderer.Draw(_camera);
         _skills.Draw(_camera.View, _camera.Projection, _camera.Position, _renderer.SceneLinearDepth);
         _renderer.ComposeScene();
-        if (shot.Name.StartsWith("crystal", StringComparison.Ordinal))
-        {
-            _batch.Begin();
-            SummonPlates.Draw(_batch, _font, _pixel, GraphicsDevice.Viewport, _camera.View, _camera.Projection, _remote, _renderer, SelfId, _focus);
-            _batch.End();
-        }
         GraphicsDevice.SetRenderTarget(null);
         var pixels = new Color[960 * 540];
         target.GetData(pixels);
@@ -308,8 +295,6 @@ internal sealed class ItemEffectsCaptureProbe : Game
 
     protected override void UnloadContent()
     {
-        _batch.Dispose();
-        _pixel.Dispose();
         _pets.Dispose();
         _remote.Dispose();
         _library.Dispose();

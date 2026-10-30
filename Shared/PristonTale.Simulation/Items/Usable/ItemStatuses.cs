@@ -1,12 +1,15 @@
 namespace PristonTale.Simulation.Items.Usable;
 
 // The keep icons, names and effect lines of item effects in the running-effects bar: scrolls, force orbs, castle items,
-// and the boosters and skill-delay item, which are premium timers drawn in that bar under their own codes.
+// crystal pets, and the boosters and skill-delay item, which are premium timers drawn in that bar under their own codes.
 public static class ItemStatuses
 {
     public const uint PremiumKeepBase = 0xF0000110;
 
     private const string Keep = "image/Sinimage/skill/keep/";
+
+    // A crystal pet shows its crystal's inventory sprite, every crystal's lying in the Event folder.
+    private const string CrystalIcons = "image/Sinimage/Items/Event/it";
 
     public static uint PremiumKeepCode(PremiumEffectKind kind) => PremiumKeepBase + (uint)kind;
 
@@ -31,6 +34,11 @@ public static class ItemStatuses
         if (CastleItems.TryGetByStatus(code, out var castle))
         {
             return castle.KeepIcon;
+        }
+
+        if (MonsterCrystals.TryGetByPetStatus(code, out var crystal))
+        {
+            return CrystalIcons + crystal.CatalogKey + ".bmp";
         }
 
         return TryGetPremiumKeep(code, out var kind) ? Keep + kind switch
@@ -59,6 +67,11 @@ public static class ItemStatuses
             return castle.Name;
         }
 
+        if (MonsterCrystals.TryGetByPetStatus(code, out var crystal))
+        {
+            return crystal.Name + " Crystal";
+        }
+
         return TryGetPremiumKeep(code, out var kind) ? kind switch
         {
             PremiumEffectKind.LifeBooster => "Life Booster",
@@ -74,6 +87,11 @@ public static class ItemStatuses
         if (CastleItems.TryGetByStatus(code, out var castle))
         {
             return castle.Effect;
+        }
+
+        if (MonsterCrystals.TryGetByPetStatus(code, out _))
+        {
+            return "Summoned Pet that supports you in Battle";
         }
 
         return TryGetPremiumKeep(code, out var kind) ? kind switch

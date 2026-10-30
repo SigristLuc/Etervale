@@ -19,7 +19,9 @@ public sealed class HudSkillHud : IDisposable
     private const int BuffOrigin = 10;
     private const int BuffIcon = 32;
     private const int BuffStep = 32;
-    private const int MaxBuffs = 10;
+    private const int BuffsPerRow = 10;
+    // Two rows: a player keeping all his crystal pets (MonsterCrystals.PetSlots) still sees his other effects.
+    private const int MaxBuffs = BuffsPerRow * 2;
     private const int GaugeSteps = 72;
     private const float GaugeRadius = 14.14f;
     private const double FrameMs = 1000d / 70d;
@@ -101,8 +103,22 @@ public sealed class HudSkillHud : IDisposable
         return 0;
     }
 
+    // Whether a status's icon was drawn in the last frame.
+    public bool Shows(uint code)
+    {
+        foreach (var (_, drawn) in _drawnBuffs)
+        {
+            if (drawn == code)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // The original's continuous-skill bar: from (10, 10), one 32 px icon per running effect, the one running longest
-    // first. Each icon is the gauge background, a fan that fills clockwise from 12 o'clock as the time runs out, and the
+    // first, ten to a row and a second row under the first. Each icon is the gauge background, a fan that fills clockwise from 12 o'clock as the time runs out, and the
     // keep icon over it. Icons fade in over 255 frames, fade out over the last 180, blink every 31 frames in the last
     // four seconds and slide 2 px per frame to their place; frames are the original's 70 Hz.
     public void DrawBuffs(HudPainter painter, IReadOnlyList<StatusEntry> statuses, double nowMs)
@@ -126,12 +142,12 @@ public sealed class HudSkillHud : IDisposable
         {
             var status = _ordered[index];
             _visibleCodes.Add(status.Code);
-            var target = (float)(index * BuffStep);
+            var target = (float)(index % BuffsPerRow * BuffStep);
             var x = _buffX.TryGetValue(status.Code, out var current) ? current : target;
             var step = (float)(SlidePixelsPerFrame * frames);
             x = x < target ? Math.Min(target, x + step) : Math.Max(target, x - step);
             _buffX[status.Code] = x;
-            var bounds = new Rectangle(BuffOrigin + (int)x, BuffOrigin, BuffIcon, BuffIcon);
+            var bounds = new Rectangle(BuffOrigin + (int)x, BuffRowY(index), BuffIcon, BuffIcon);
             _drawnBuffs.Add((bounds, status.Code));
             DrawBuff(painter, status, bounds, nowMs);
         }
@@ -141,6 +157,8 @@ public sealed class HudSkillHud : IDisposable
             _buffX.Remove(code);
         }
     }
+
+    private static int BuffRowY(int index) => BuffOrigin + index / BuffsPerRow * BuffStep;
 
     // Without a status book there are no effect icons to hit or to follow.
     public void ClearBuffs()
@@ -158,7 +176,8 @@ public sealed class HudSkillHud : IDisposable
             return;
         }
 
-        var bounds = new Rectangle(BuffOrigin + _drawnBuffs.Count * BuffStep, BuffOrigin, BuffIcon, BuffIcon);
+        var slot = _drawnBuffs.Count;
+        var bounds = new Rectangle(BuffOrigin + slot % BuffsPerRow * BuffStep, BuffRowY(slot), BuffIcon, BuffIcon);
         _questTimer = bounds;
         painter.Stretch(GaugeBackground, bounds);
         if (quest.Timer == QuestTimerKind.Expiring && _gauge is not null)
@@ -219,9 +238,16 @@ public sealed class HudSkillHud : IDisposable
             lines.Add(effect);
         }
 
+        var crystalPet = MonsterCrystals.TryGetByPetStatus(code, out _);
         if (!status.Permanent && status.DurationMs > 0)
         {
-            lines.Add($"Time left: {(int)Math.Ceiling(status.RemainingMs(nowMs) / 1000d)} s");
+            var seconds = (int)Math.Ceiling(status.RemainingMs(nowMs) / 1000d);
+            lines.Add(crystalPet ? $"Time Left: {seconds / 60}:{seconds % 60:D2}" : $"Time left: {seconds} s");
+        }
+
+        if (crystalPet)
+        {
+            lines.Add("Right-click to dismiss");
         }
 
         if (summonAutomatic?.Invoke(code) is { } automatic)

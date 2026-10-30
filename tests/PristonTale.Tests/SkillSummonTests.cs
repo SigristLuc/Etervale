@@ -120,7 +120,7 @@ internal static class SkillSummonTests
         Assert.True(scenario.Run(20 * 10, () => Vector3.Distance(golem.Position, scenario.Player.Position) < 120f) > 0, "the golem did not follow");
         scenario.Player.Teleport(new Vector3(0, 0, 1200));
         scenario.Run(2);
-        Assert.True(Vector3.Distance(golem.Position, scenario.Player.Position) < 1f, "the golem was not recalled beside a far owner");
+        Assert.True(MathF.Abs(Vector3.Distance(golem.Position, scenario.Player.Position) - 48f) < 2f, "the golem was not recalled beside a far owner");
 
         var enemy = scenario.Spawn(SkillScenario.Enemy(), scenario.Player.Position + new Vector3(110, 0, 0));
         Assert.True(scenario.Cast(MetalGolem, command: SkillCastCommand.SummonPassive).Accepted && !golem.Aggressive, "passive order refused");
