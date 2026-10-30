@@ -56,8 +56,11 @@ public static class InventoryCommands
         }
 
         var anchor = character.Inventory.Find(command.ItemId);
+        // The held item (on neither page) is set down by the same three actions, wherever it lands.
+        var held = anchor < 0 && character.Held?.InstanceId == command.ItemId;
         return command.Action switch
         {
+            InventoryAction.Move or InventoryAction.Merge or InventoryAction.Swap when held => character.TryPutDownHeld(command.ItemId, command.Destination),
             InventoryAction.Move => character.Inventory.TryMove(anchor, command.Destination),
             InventoryAction.Split => character.Inventory.TrySplit(anchor, command.Destination, command.Count),
             InventoryAction.Merge => character.Inventory.TryMerge(anchor, command.Destination),

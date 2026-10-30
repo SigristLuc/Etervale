@@ -208,7 +208,7 @@ internal static class PotionTests
         // With the bag full, a pickup the belt cannot hold whole is refused and nothing moves; one it can hold is taken.
         var full = classes.CreatePlayer(PlayerClass.Fighter, "Full");
         var block = new ItemDefinition(3, "Block", ItemKind.Misc, GridWidth: Inventory.DefaultWidth, GridHeight: Inventory.DefaultHeight);
-        Assert.True(full.Inventory.TryPlace(new ItemInstance(block), 0), "fixture block did not fill the bag");
+        Assert.True(full.Inventory.TryPlace(new ItemInstance(block), 0) && full.HiddenBag.TryPlace(new ItemInstance(block), 0), "fixture blocks did not fill both pages");
         var tooMany = new ItemInstance(life, PotionBelt.Boxes * space + 1);
         var revision = full.InventoryRevision;
         Assert.True(!full.TryReceive(tooMany) && tooMany.Count == PotionBelt.Boxes * space + 1 && full.Belt.Occupied().Count() == 0

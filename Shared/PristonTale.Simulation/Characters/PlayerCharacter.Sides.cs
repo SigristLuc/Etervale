@@ -119,6 +119,7 @@ public sealed partial class PlayerCharacter
         _storedOffHand = source._storedOffHand?.Copy(1, preserveId: true);
         BagPage = source.BagPage;
         WeaponSet = source.WeaponSet;
+        Held = source.Held?.Copy(source.Held.Count, preserveId: true);
     }
 
     private IEnumerable<ItemInstance> HiddenItems()
@@ -136,6 +137,11 @@ public sealed partial class PlayerCharacter
         if (_storedOffHand is not null)
         {
             yield return _storedOffHand;
+        }
+
+        if (Held is not null)
+        {
+            yield return Held;
         }
     }
 }

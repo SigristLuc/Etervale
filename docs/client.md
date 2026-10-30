@@ -482,7 +482,10 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
   A ground item picked up with the window open and nothing carried comes to the cursor, as the original puts it on the
   mouse (with the window closed it goes where any received item goes: belt, empty slot, bag): `GroundLootInteraction`
   asks `ExpectPickup` as the pickup leaves and sends `InventoryCommand.PickupToBag`, and the bag item of its code that
-  the reply's owner state adds is carried, shown nowhere until then (`HudInventoryController.Hides`). The item on the
+  the reply's owner state adds is carried, shown nowhere until then (`HudInventoryController.Hides`); with the page
+  shown full the server puts it in the hand instead, and the item in the hand (`OwnedItemView.Held`) is always carried
+  (`CarryHeld`: at login, after a refused setting down, or once nothing else is carried or awaited), so it can be taken
+  to the other page with the side buttons or E and set down there. The item on the
   cursor stays there when the window closes (V or I, the close button, another side window) or loses its input (a
   modal box, the settings), drawn at the pointer (`HudInventoryPanel.TrackHeld`), as the original keeps the mouse item;
   it is set down once the window is open again. Esc (`CloseAll`) lets go of it (`CancelDrag`): it stays where it lies

@@ -201,6 +201,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         Release(ref _settling, _settleRevision, state);
         Release(ref _throwing, _throwRevision, state);
         CarryPickup(state);
+        CarryHeld(state);
 
         if (_pairWanted >= 0 && (!PickupLocked || ActionStarts != _pairWantedDuring) && !_pendingOperation && state is not null)
         {
@@ -382,7 +383,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
                 _dragging = Guid.Empty;
                 ItemSound?.Invoke(carried.CatalogKey);
                 break;
-            case HudPlacementKind.Fits when split && carried.Count > 1:
+            case HudPlacementKind.Fits when split && carried.Count > 1 && carried.InBag:
                 Send(InventoryAction.Split, carried, placement.Anchor, carried.Count / 2);
                 break;
             case HudPlacementKind.Fits:
@@ -535,6 +536,25 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         }
 
         _pickupCode = 0;
+    }
+
+    // The item in the hand (on neither page; PlayerCharacter.Held) is always on the cursor: after a pickup, a login, or a
+    // refused setting down, it comes back as soon as nothing else is carried or awaited.
+    private void CarryHeld(OwnerState state)
+    {
+        if (state is null || _dragging != Guid.Empty || _settling != Guid.Empty || _throwing != Guid.Empty)
+        {
+            return;
+        }
+
+        for (var index = 0; index < state.Items.Count; index++)
+        {
+            if (state.Items[index].Held)
+            {
+                _dragging = state.Items[index].InstanceId;
+                return;
+            }
+        }
     }
 
     // Puts `count` of a bag item, or with no item `count` gold, on the ground where the player stands. An item thrown

@@ -144,8 +144,9 @@ public sealed partial class PlayerCharacter
         return taken;
     }
 
-    // intoBag: the item goes into the bag as a stack of its own (InventoryCommand.PickupToBag), unless the special item box
-    // keeps it or the bag has no room, when it is received as any item.
+    // intoBag: the item goes into the bag as a stack of its own (InventoryCommand.PickupToBag) for the client to carry, or
+    // to the hand (Held) when the page shown has no room, as the original puts it on the mouse; unless the special item
+    // box keeps it or the hand is full, when it is received as any item.
     public bool ReceiveGroundLoot(ItemInstance item, int gold, bool intoBag = false)
     {
         if (InventoryRevision == long.MaxValue)
@@ -156,7 +157,7 @@ public sealed partial class PlayerCharacter
         if (item is not null)
         {
             return gold == 0 && Items.CarriedWeight.CanTake(this, Items.CarriedWeight.Of(item))
-                && (intoBag && !QuestItemBox.Keeps(item.Definition.Code) && Inventory.TryPlaceFirstFree(item) || TryReceive(item));
+                && (intoBag && !QuestItemBox.Keeps(item.Definition.Code) && (Inventory.TryPlaceFirstFree(item) || TryHold(item)) || TryReceive(item));
         }
 
         if (gold <= 0 || !TryChangeMoney(gold))
@@ -813,6 +814,7 @@ public sealed partial class PlayerCharacter
         HiddenBag = candidate.HiddenBag;
         (_storedWeapon, _storedOffHand) = (candidate._storedWeapon, candidate._storedOffHand);
         (BagPage, WeaponSet) = (candidate.BagPage, candidate.WeaponSet);
+        Held = candidate.Held;
 
         RestoreInventoryHistory(candidate.InventoryRevision, candidate.InventoryOperations);
         RestoreServiceHistory(candidate.ServiceOperations);

@@ -158,8 +158,11 @@ internal static class StarterGiftTests
         // A worn weapon keeps the claw off its slot, so only the bag could take it.
         var held = new ItemInstance(Claw);
         character.Equip(EquipmentSlot.Weapon, held);
-        while (character.Inventory.TryAdd(new ItemInstance(Suit)) || character.Inventory.TryAdd(new ItemInstance(Shield)))
+        foreach (var page in new[] { character.Inventory, character.HiddenBag })
         {
+            while (page.TryAdd(new ItemInstance(Suit)) || page.TryAdd(new ItemInstance(Shield)))
+            {
+            }
         }
 
         var session = NextOffer(fixture, StarterGifts.FirstDelay);

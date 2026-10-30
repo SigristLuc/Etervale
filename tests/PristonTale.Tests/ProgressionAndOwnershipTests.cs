@@ -294,7 +294,7 @@ internal static class ProgressionAndOwnershipTests
         // A full bag does not keep an item from its empty slot.
         var packed = classes.CreatePlayer(PlayerClass.Fighter, "Packed", 6);
         var block = new ItemDefinition(9, "Block", ItemKind.Misc, GridWidth: Inventory.DefaultWidth, GridHeight: Inventory.DefaultHeight);
-        Assert.True(packed.Inventory.TryPlace(new ItemInstance(block), 0), "fixture block did not fill the bag");
+        Assert.True(packed.Inventory.TryPlace(new ItemInstance(block), 0) && packed.HiddenBag.TryPlace(new ItemInstance(block), 0), "fixture blocks did not fill both pages");
         var amulet = Gear(10, ItemKind.Amulet, EquipmentSlot.Amulet);
         Assert.True(packed.TryReceive(amulet) && packed.GetEquipped(EquipmentSlot.Amulet) == amulet, "an amulet was refused with the bag full and its slot empty");
         Assert.True(!packed.TryReceive(Gear(11, ItemKind.Amulet, EquipmentSlot.Amulet)), "a second amulet found room in a full bag");

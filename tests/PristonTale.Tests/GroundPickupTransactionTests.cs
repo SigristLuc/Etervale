@@ -22,6 +22,7 @@ internal static class GroundPickupTransactionTests
     {
         yield return ("a pickup commits at once, its capture goes to storage, and a retry replays without duplication", DurableAsync);
         yield return ("a thrown item (the asked part of a stack) or gold leaves the character and lies on the ground where the player stands", ThrowAsync);
+        yield return ("a full page shown sends a pickup to the hand with the inventory open, else to the other page; the hand crosses pages and is saved", HandAsync);
     }
 
     private static async Task ThrowAsync()
@@ -133,6 +134,57 @@ internal static class GroundPickupTransactionTests
         Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, PickUp(InventoryCommand.PickupToBag)))).Ok, "the potions were not picked up");
         var bag = session.Character!.Inventory;
         Assert.True(Enumerable.Range(0, bag.Capacity).Count(index => bag[index]?.Definition == potion) == 2, "the potions picked up for the cursor joined the bag's stack");
+
+        // An item in the hand is thrown as a bag item is.
+        var inHand = new ItemInstance(sword);
+        Assert.True(session.Character!.TryHold(inHand), "the fixture's hand was taken");
+        var handThrow = new InventoryCommand(Guid.NewGuid(), session.Character.InventoryRevision, InventoryAction.Drop, inHand.InstanceId, 0, 1, default);
+        Assert.True((await WorldPump.RunAsync(world, service.ApplyInventoryAsync(session.SessionToken, handThrow))).Ok && session.Character!.Held is null,
+            "the item in the hand was not thrown");
+    }
+
+    private static Task HandAsync()
+    {
+        var potion = new ItemDefinition(101, "Mini Life Potion", ItemKind.Potion, MaxStack: 100) { CatalogKey = "PL101" };
+        var stone = new ItemDefinition(102, "Stone", ItemKind.Misc) { CatalogKey = "MI101" };
+        var classes = new CharacterClassRegistry();
+        var character = classes.CreatePlayer(PlayerClass.Fighter, "Hand");
+        while (character.Inventory.TryAdd(new ItemInstance(stone)))
+        {
+        }
+
+        // With the inventory closed, a full page shown sends the item to the other page.
+        var closed = new ItemInstance(stone);
+        Assert.True(character.ReceiveGroundLoot(closed, 0) && character.HiddenBag.Find(closed.InstanceId) >= 0 && character.Held is null,
+            "a pickup with the page shown full did not go to the other page");
+
+        // With it open, the item goes to the hand, which shows on the cursor; a second pickup with the hand full goes as any item.
+        var picked = new ItemInstance(potion, 3);
+        Assert.True(character.ReceiveGroundLoot(picked, 0, intoBag: true) && character.Held?.InstanceId == picked.InstanceId
+            && OwnerState.Capture(character).Items.Single(item => item.Held) is { InstanceId: var shown, QuestBox: -1, InBag: false } && shown == picked.InstanceId,
+            "a pickup with the inventory open and the page shown full did not go to the hand");
+        var second = new ItemInstance(stone);
+        Assert.True(character.ReceiveGroundLoot(second, 0, intoBag: true) && character.HiddenBag.Find(second.InstanceId) >= 0 && character.Held?.InstanceId == picked.InstanceId,
+            "a pickup with the hand full did not go to the other page");
+
+        // The hand stays across a page switch and is set down on the page shown.
+        var last = character.Inventory.Capacity - 1;
+        Assert.True(character.TrySwitchBagPage(1) && character.Held?.InstanceId == picked.InstanceId, "the hand did not stay across a page switch");
+        var move = new InventoryCommand(Guid.NewGuid(), character.InventoryRevision, InventoryAction.Move, picked.InstanceId, last, 0, default);
+        Assert.True(InventoryCommands.Apply(character, move) && character.Held is null && character.Inventory[last]?.InstanceId == picked.InstanceId,
+            "the held item was not set down on the page shown");
+
+        // Set down over one item, it takes that item's place and the item goes to the hand; the hand is saved.
+        Assert.True(character.TrySwitchBagPage(0) && character.TryHold(new ItemInstance(potion, 2)), "the fixture's hand was taken");
+        var covered = character.Inventory[0]!;
+        var swap = new InventoryCommand(Guid.NewGuid(), character.InventoryRevision, InventoryAction.Swap, character.Held!.InstanceId, 0, 0, default);
+        Assert.True(InventoryCommands.Apply(character, swap) && character.Held?.InstanceId == covered.InstanceId && character.Inventory[0]?.Definition == potion,
+            "the held item did not exchange places with the item under it");
+        var starter = CharacterRecordFactory.NewStarter(classes, 1, "Hand", 0, PlayerClass.Fighter, 3) with { Id = 1 };
+        var restored = classes.CreatePlayer(PlayerClass.Fighter, "Hand");
+        CharacterStateCodec.Restore(restored, CharacterRecordFactory.FromLiveSession(starter, character, 3, Vector3.Zero), new ItemCatalog([potion, stone]));
+        Assert.True(restored.Held?.InstanceId == covered.InstanceId && restored.OwnedItems().Count() == character.OwnedItems().Count(), "the hand was not saved");
+        return Task.CompletedTask;
     }
 
     private static async Task DurableAsync()

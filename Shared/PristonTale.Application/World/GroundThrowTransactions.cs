@@ -5,9 +5,9 @@ using PristonTale.Simulation.Items;
 
 namespace PristonTale.Application.World;
 
-// What a player puts on the ground, an item (Drop: Count of a bag stack) or gold (DropGold: Count of it): taken on a copy
-// of the character, saved, then laid where the player stood once the save commits (PreparedThrowOperation), with the
-// gold taken from the character there.
+// What a player puts on the ground, an item (Drop: Count of a bag stack or of the held item) or gold (DropGold: Count of
+// it): taken on a copy of the character, saved, then laid where the player stood once the save commits
+// (PreparedThrowOperation), with the gold taken from the character there.
 internal static class GroundThrowTransactions
 {
     public static PreparedCharacterOperation<InventoryOutcome> Prepare(PlayerSession session, WorldPlayer player, FieldInstance field, InventoryCommand command)
@@ -15,7 +15,8 @@ internal static class GroundThrowTransactions
         var original = player.Character;
         var gold = command.Action == InventoryAction.DropGold;
         var anchor = gold ? -1 : original.Inventory.Find(command.ItemId);
-        var item = anchor >= 0 ? original.Inventory[anchor] : null;
+        var fromHand = !gold && anchor < 0 && original.Held?.InstanceId == command.ItemId;
+        var item = anchor >= 0 ? original.Inventory[anchor] : fromHand ? original.Held : null;
         if (command.ExpectedRevision != original.InventoryRevision || command.Count < 1 || command.Count > (gold ? original.Money : item?.Count ?? 0))
         {
             return Refused(original, ItemRuleMessages.StaleInventory);
@@ -32,7 +33,7 @@ internal static class GroundThrowTransactions
         }
 
         var candidate = original.CloneForInventoryOperation();
-        var thrown = gold ? null : candidate.Inventory.TakeFrom(anchor, command.Count);
+        var thrown = gold ? null : fromHand ? candidate.TakeHeld(command.ItemId, command.Count) : candidate.Inventory.TakeFrom(anchor, command.Count);
         if (gold)
         {
             candidate.TryChangeMoney(-command.Count);
