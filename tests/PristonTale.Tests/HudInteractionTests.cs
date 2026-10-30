@@ -150,7 +150,11 @@ internal static class HudInteractionTests
         Assert.True(design.Contains(HudSettingsPanel.Box) && HudSettingsPanel.Box.Contains(HudSettingsPanel.OkButton)
             && HudSettingsPanel.Box.Contains(HudSettingsPanel.Row(15)), "settings rows escaped the help box");
         AssertDisjointInside([HudMessageBox.Accept, HudMessageBox.Reject], HudMessageBox.Bounds, "message box buttons");
+        HudMessageBox.Place(HudLayout.Create(1920, 1080));
+        Assert.True(HudMessageBox.Bounds == new Rectangle(876, 478, HudMessageBox.VisibleWidth, HudMessageBox.Height) && HudMessageBox.Bounds.Contains(HudMessageBox.Accept)
+            && HudMessageBox.Bounds.Contains(HudMessageBox.Reject), "the message box is not centred on a wide screen, or its buttons stayed behind");
         var layout = HudLayout.Create(800, 600);
+        HudMessageBox.Place(layout);
         Assert.True(HudNpcPanel.SkillMasterBox(layout).Contains(HudNpcPanel.TrainingButton(layout))
             && HudNpcPanel.SkillMasterBox(layout).Contains(HudNpcPanel.ExitButton(layout)), "skill master buttons escaped ReStartMain");
         return Task.CompletedTask;

@@ -188,3 +188,26 @@ public sealed record ItemEffectsPacket(IReadOnlyList<ItemEffectEntry> Effects)
         return new ItemEffectsPacket(WireList.Read<ItemEffectEntry>(ref reader, MaxEffects, "Item effect list"));
     }
 }
+
+// C->S {header, uint16 Version = 1, uint16 0, uint32 StatusCode}: the owner confirmed the right click on a crystal pet's
+// icon in the running-effects bar; the server dismisses his pets of that crystal (the status code names it).
+public readonly record struct DismissCrystalPetsPacket(uint StatusCode) : IFramePacket
+{
+    public const ushort CurrentVersion = 1;
+    public const int Size = 8 + WireHeader.Size + 4;
+
+    public int Write(Span<byte> destination)
+    {
+        var writer = new PacketWriter(destination, EtervaleOpcodes.DismissCrystalPets);
+        WireHeader.Write(ref writer, CurrentVersion);
+        writer.UInt32(StatusCode);
+        return writer.Finish();
+    }
+
+    public static DismissCrystalPetsPacket Read(ReadOnlySpan<byte> packet)
+    {
+        var reader = new PacketReader(packet, Size);
+        WireHeader.Read(ref reader, "Crystal pet dismissal");
+        return new DismissCrystalPetsPacket(reader.UInt32());
+    }
+}

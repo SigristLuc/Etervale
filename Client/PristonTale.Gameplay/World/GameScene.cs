@@ -569,7 +569,6 @@ public sealed partial class GameScene : IDisposable, IFieldContext, IHudPortrait
         TearDownRemotePresence();
         _equipmentPresentation?.Stop();
         _groundLoot?.Dispose();
-        _platePixel?.Dispose();
         _looks?.Clear();
         _skillFx?.Dispose();
         _renderer?.Dispose();

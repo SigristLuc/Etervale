@@ -219,9 +219,16 @@ public sealed class HudSkillHud : IDisposable
             lines.Add(effect);
         }
 
+        var crystalPet = MonsterCrystals.TryGetByPetStatus(code, out _);
         if (!status.Permanent && status.DurationMs > 0)
         {
-            lines.Add($"Time left: {(int)Math.Ceiling(status.RemainingMs(nowMs) / 1000d)} s");
+            var seconds = (int)Math.Ceiling(status.RemainingMs(nowMs) / 1000d);
+            lines.Add(crystalPet ? $"Time Left: {seconds / 60}:{seconds % 60:D2}" : $"Time left: {seconds} s");
+        }
+
+        if (crystalPet)
+        {
+            lines.Add("Right-click to dismiss");
         }
 
         if (summonAutomatic?.Invoke(code) is { } automatic)

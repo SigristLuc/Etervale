@@ -334,7 +334,8 @@ Input and cast flow (`GameScene.Skills.cs`, `HudSkillBindings`, `GameplayHud`):
   ends, the local motion controller returns from `Skill` to `Stand` (`EndSkillMotion`), so the floor is followed again.
 - Charge: an accepted charge skill records its button; releasing it while casting sends `SkillCastCommand.Release`.
 - Summons: double-clicking (0.4 s) a summon's buff icon sends `SummonAggressive`/`SummonPassive`; a new call resets
-  to the rule's `aggressive`.
+  to the rule's `aggressive`. A right click on a crystal pet's icon asks to dismiss it
+  ([special-items.md](special-items.md#client-presentation)).
 
 Presentation (`SkillPresentation`):
 

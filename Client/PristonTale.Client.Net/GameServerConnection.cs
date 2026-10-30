@@ -384,6 +384,11 @@ public sealed class GameServerConnection : IGameBackend
         Send(new YahooKeyPacket());
     }
 
+    internal void SendDismissCrystalPets(uint statusCode)
+    {
+        Send(new DismissCrystalPetsPacket(statusCode));
+    }
+
     // Party, trade and contact requests, answered by what the presence stream shows.
     internal void SendSocial(IFramePacket packet) => Send(packet);
 

@@ -7,8 +7,9 @@ using PristonTale.Contracts.World;
 namespace PristonTale.Gameplay.UI.Widgets;
 
 // Name boxes over the scene: an NPC's name always within 768 units of the camera, a party member's always with its life
-// bar, a monster's only while it is under the cursor or is the clicked target. Summons carry their own plates
-// (SummonPlates). Farther boxes draw first; the hovered and the clicked one draw last. Every box is HudPainter.NameBox,
+// bar, a monster's only while it is under the cursor or is the clicked target. A summon or crystal pet's box shows within
+// the same range, with its owner's name in parentheses on a second line and, on the viewer's own, its life bar. Farther
+// boxes draw first; the hovered and the clicked one draw last. Every box is HudPainter.NameBox,
 // the speech bubble's fill and gold rim with rounded corners, highlighted under the cursor. Classic (classicNamePlates)
 // is the original's layout: the HUD text size and the life bar while the cursor is on the monster. Otherwise the same box
 // holds smaller text, and the bar shows once the monster was clicked or the local player swung at it, not for the
@@ -28,6 +29,7 @@ public sealed partial class HudCombat
     private static readonly Color PlateTracedMonster = new(255, 230, 200);
     private static readonly Color PlateNpc = new(180, 180, 255);
     private static readonly Color PlateParty = new(220, 255, 160);
+    private static readonly Color PlateOwner = new(255, 255, 200);
     private readonly List<(ulong Id, HudOverheadPoint Point, bool Focus)> _plates = new();
 
     // Whether a player is in the local player's party.
@@ -44,7 +46,8 @@ public sealed partial class HudCombat
             var focus = id == hovered || id == traced;
             var kind = entity.Spawn.Kind;
             var member = kind == EntityKind.Player && InParty(id);
-            var shown = kind == EntityKind.Npc || member || (kind == EntityKind.Monster && focus && entity.Life > 0 && entity.Spawn.OwnerId == 0);
+            var summon = kind == EntityKind.Monster && entity.Spawn.OwnerId != 0;
+            var shown = kind == EntityKind.Npc || member || (kind == EntityKind.Monster && entity.Life > 0 && (summon || focus));
             if (shown && project(id) is { } point && (focus || member || point.Depth < NpcPlateDepth))
             {
                 _plates.Add((id, point, focus));
@@ -58,30 +61,48 @@ public sealed partial class HudCombat
             var entity = _entities[id];
             var monster = entity.Spawn.Kind == EntityKind.Monster;
             var member = entity.Spawn.Kind == EntityKind.Player;
-            var color = member ? PlateParty : !monster ? PlateNpc : id == traced ? PlateTracedMonster : PlateMonster;
+            var summon = monster && entity.Spawn.OwnerId != 0;
+            var color = member || summon ? PlateParty : !monster ? PlateNpc : id == traced ? PlateTracedMonster : PlateMonster;
+            var owner = summon ? OwnerLabel(entity) : null;
             var x = (int)(point.Screen.X / scale);
             var y = (int)(point.Screen.Y / scale);
+            var ownSummon = summon && entity.Spawn.OwnerId == _self;
             if (classic)
             {
-                DrawClassicPlate(painter, layout, Name(id), x, y, color, id == hovered,
-                    member || monster && ShowsPlateBar(true, id == hovered, id == traced, entity.Attacked) ? entity : null);
+                DrawClassicPlate(painter, layout, Name(id), owner, x, y, color, id == hovered,
+                    member || ownSummon || monster && !summon && ShowsPlateBar(true, id == hovered, id == traced, entity.Attacked) ? entity : null);
             }
             else
             {
-                DrawPlate(painter, layout, Name(id), x, y, color, id == hovered,
-                    member || monster && ShowsPlateBar(false, id == hovered, id == traced, entity.Attacked) ? entity : null);
+                DrawPlate(painter, layout, Name(id), owner, x, y, color, id == hovered,
+                    member || ownSummon || monster && !summon && ShowsPlateBar(false, id == hovered, id == traced, entity.Attacked) ? entity : null);
             }
         }
     }
 
-    // A box that would leave the screen is not drawn, as in the original.
-    private static void DrawClassicPlate(HudPainter painter, HudLayout layout, string name, int anchorX, int anchorY, Color color, bool hovered, Entity bar)
+    // "(owner)" under a summon's name, formatted once per summon; null while its owner is not in view.
+    private string OwnerLabel(Entity summon)
     {
-        var width = painter.Measure(name);
+        if (summon.OwnerLabel is null && PlayerName(summon.Spawn.OwnerId) is { } owner)
+        {
+            summon.OwnerLabel = $"({owner})";
+        }
+
+        return summon.OwnerLabel;
+    }
+
+    // A box that would leave the screen is not drawn, as in the original. A second line (owner) grows the box upwards.
+    private static void DrawClassicPlate(HudPainter painter, HudLayout layout, string name, string owner, int anchorX, int anchorY, Color color, bool hovered,
+        Entity bar)
+    {
+        var nameWidth = painter.Measure(name);
+        var ownerWidth = owner is null ? 0 : painter.Measure(owner);
+        var width = Math.Max(nameWidth, ownerWidth);
         var lineHeight = Math.Max(16, painter.TextHeight);
-        var frameHeight = 4 + lineHeight + 6 + 2;
+        var extraLine = owner is null ? 0 : lineHeight;
+        var frameHeight = 4 + lineHeight + extraLine + 6 + 2;
         var x = anchorX - width / 2 - 9;
-        var y = anchorY - ClassicPlateLift;
+        var y = anchorY - ClassicPlateLift - extraLine;
         if (x < 0 || y < 0 || x + width + 18 > layout.Width || y + frameHeight + PlateBarHeight > layout.Height)
         {
             return;
@@ -90,7 +111,12 @@ public sealed partial class HudCombat
         painter.Flush();
         painter.NameBox(new Rectangle(x, y, width + 18, frameHeight), hovered);
         painter.Flush();
-        painter.Text(name, x + 9, y + 5 + 2, color, false);
+        painter.Text(name, anchorX - nameWidth / 2, y + 5 + 2, color, false);
+        if (owner is not null)
+        {
+            painter.Text(owner, anchorX - ownerWidth / 2, y + 5 + 2 + lineHeight, PlateOwner, false);
+        }
+
         if (bar is not null)
         {
             DrawHealthBar(painter, new Rectangle(anchorX - PlateBarWidth / 2, y + frameHeight - 2, PlateBarWidth, PlateBarHeight), bar.Life, bar.Spawn.MaxLife);
@@ -98,14 +124,16 @@ public sealed partial class HudCombat
     }
 
     // The name box around the smaller text, the capitals centred inside with room for descenders.
-    private static void DrawPlate(HudPainter painter, HudLayout layout, string name, int anchorX, int anchorY, Color color, bool hovered, Entity bar)
+    private static void DrawPlate(HudPainter painter, HudLayout layout, string name, string owner, int anchorX, int anchorY, Color color, bool hovered, Entity bar)
     {
-        var textWidth = painter.MeasureAt(name, PlateTextScale);
+        var nameWidth = painter.MeasureAt(name, PlateTextScale);
+        var ownerWidth = owner is null ? 0 : painter.MeasureAt(owner, PlateTextScale);
         var (capitals, descent) = painter.LetterHeightsAt(PlateTextScale);
         var pad = (int)MathF.Ceiling(descent) + PlatePadY;
-        var content = (int)MathF.Ceiling(capitals) + pad * 2;
+        var line = (int)MathF.Ceiling(capitals) + pad * 2;
+        var content = owner is null ? line : line * 2;
         // The frame: a 4-pixel top and 2-pixel bottom border around the content, 9 pixels each side of the text.
-        var width = textWidth + 18;
+        var width = Math.Max(nameWidth, ownerWidth) + 18;
         var height = content + 6;
         var x = anchorX - width / 2;
         var y = anchorY - PlateLift - height;
@@ -117,7 +145,13 @@ public sealed partial class HudCombat
         painter.Flush();
         painter.NameBox(new Rectangle(x, y, width, height), hovered);
         painter.Flush();
-        painter.Text(name, x + 9, (int)(y + 4 + pad - HudPainter.CapTop), color, PlateTextScale);
+        var top = (int)(y + 4 + pad - HudPainter.CapTop);
+        painter.Text(name, anchorX - nameWidth / 2, top, color, PlateTextScale);
+        if (owner is not null)
+        {
+            painter.Text(owner, anchorX - ownerWidth / 2, top + line, PlateOwner, PlateTextScale);
+        }
+
         if (bar is not null)
         {
             DrawHealthBar(painter, new Rectangle(anchorX - PlateBarWidth / 2, y + height + 1, PlateBarWidth, PlateBarHeight), bar.Life, bar.Spawn.MaxLife);

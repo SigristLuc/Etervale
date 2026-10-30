@@ -128,6 +128,7 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         if (_players.TryGetValue(entityId, out var leaving))
         {
             LeaveCastleItems(leaving);
+            _skills.LeaveCrystalPets(leaving);
         }
 
         _players.Remove(entityId, out _);
@@ -372,6 +373,11 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
                     summon.AttackIsSkill ? tuning.SkillDurationMs : tuning.CooldownMs, summon.AttackIsSkill ? tuning.SkillWindupMs : tuning.WindupMs));
             }
 
+            if (summon.Position == before && summon.AiState == MonsterAiState.Idle)
+            {
+                StepOutOfCrowd(summon, before, dtMs);
+            }
+
             MoveMonster(summon, before);
             if (!summon.IsAlive)
             {
@@ -404,6 +410,52 @@ public sealed partial class FieldInstance : ISpawnSink, IPlayerProximity, IField
         {
             _combat.ResolveMonsterHit(monster, landed);
         }
+    }
+
+    bool IFieldSkillHost.MonsterStandsAt(Vector3 point)
+    {
+        BuildMonsterNeighbours(0, point, 0f);
+        return _occupancy.IsOccupied(point);
+    }
+
+    // An idle summon standing inside other monsters walks out of them, away from the bodies it overlaps (a summon on
+    // the very spot of another goes the way its id picks). MoveMonster lets an overlapping monster leave, so pets called
+    // or recalled together part instead of standing in each other.
+    private void StepOutOfCrowd(MonsterInstance summon, Vector3 at, float dtMs)
+    {
+        BuildMonsterNeighbours(summon.EntityId, at, 0f);
+        var awayX = 0f;
+        var awayZ = 0f;
+        var overlapping = false;
+        foreach (var neighbour in _neighbourScratch)
+        {
+            var dx = at.X - neighbour.Position.X;
+            var dz = at.Z - neighbour.Position.Z;
+            var squared = (dx * dx) + (dz * dz);
+            if (MathF.Abs(neighbour.Position.Y - at.Y) >= neighbour.Radius || squared >= neighbour.Radius * neighbour.Radius)
+            {
+                continue;
+            }
+
+            overlapping = true;
+            if (squared > 1e-6f)
+            {
+                var distance = MathF.Sqrt(squared);
+                awayX += dx / distance;
+                awayZ += dz / distance;
+            }
+        }
+
+        if (!overlapping)
+        {
+            return;
+        }
+
+        var heading = (awayX * awayX) + (awayZ * awayZ) > 1e-6f ? MathF.Atan2(awayX, awayZ) : summon.EntityId % 8 * MathF.PI / 4f;
+        var step = MonsterLocomotion.UnitsPerSecond(summon.Def, running: false) * dtMs / 1000f;
+        summon.Facing = heading;
+        summon.Motion = MotionState.Walk;
+        summon.Position = new Vector3(at.X + (MathF.Sin(heading) * step), at.Y, at.Z + (MathF.Cos(heading) * step));
     }
 
     // Re-resolve AI movement against the stage and the other monsters only, sliding along blockers as the client's

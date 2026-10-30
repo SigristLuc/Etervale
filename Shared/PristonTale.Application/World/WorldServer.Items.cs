@@ -9,6 +9,14 @@ public sealed partial class WorldServer
     // Touched only by the tick thread: the random rolls of an item use (firecracker colours, big-head look, prize tables).
     private readonly Random _itemRandom = new();
 
+    // The owner confirmed a right click on a crystal pet's icon: his pets of that crystal die and the icon goes; false when
+    // he keeps none.
+    public Task<bool> DismissCrystalPetsAsync(ulong entityId, uint statusCode)
+    {
+        return EnqueueAsync(entityId, () => _connections.TryGetValue(entityId, out var connection) && _fields.TryGetValue(connection.FieldId, out var field)
+            && field.DismissCrystalPets(connection.Player, statusCode));
+    }
+
     public Task<PreparedItemUseOperation?> PrepareItemUseAsync(PlayerSession session, ItemUseCommand command)
     {
         return EnqueueAsync<PreparedItemUseOperation?>(session.EntityId, () =>

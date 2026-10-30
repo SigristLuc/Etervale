@@ -85,10 +85,12 @@ internal sealed partial class FieldSkills
         }
     }
 
-    // One of the eight compass points around the owner whose floor is near the owner's height, else the owner's spot.
+    // One of the eight compass points around the owner whose floor is near the owner's height, preferring one no monster
+    // stands on (several pets are not called into each other), else the owner's spot.
     private Vector3 SpawnPoint(WorldPlayer owner)
     {
         var start = _rng.NextExclusive(0, 8);
+        Vector3? crowded = null;
         for (var attempt = 0; attempt < 8; attempt++)
         {
             var angle = (start + attempt) % 8 * MathF.PI / 4f;
@@ -97,11 +99,33 @@ internal sealed partial class FieldSkills
             if (_host.Terrain.TryFloorNear(point, FieldTerrain.DropTolerance, out var height) && MathF.Abs(height - owner.Position.Y) < FieldTerrain.DropTolerance
                 && !_host.Terrain.CrossesWall(owner.Position, point))
             {
-                return point with { Y = height };
+                var floor = point with { Y = height };
+                if (!_host.MonsterStandsAt(floor))
+                {
+                    return floor;
+                }
+
+                crowded ??= floor;
             }
         }
 
-        return owner.Position;
+        return crowded ?? owner.Position;
+    }
+
+    // A summon too far from its owner is placed beside him (SpawnPoint), not on his spot where the others would land;
+    // false when no floor is there.
+    private bool TryRecallBeside(MonsterInstance summon, WorldPlayer owner)
+    {
+        var point = SpawnPoint(owner);
+        if (!_host.Terrain.TryFloorNear(point, FieldTerrain.DropTolerance, out var height))
+        {
+            return false;
+        }
+
+        summon.Position = point with { Y = height };
+        summon.TargetId = 0;
+        summon.AiState = MonsterAiState.Idle;
+        return true;
     }
 
     // Ends the owner's summon: it dies where it stands and the owner's status ends.
@@ -173,17 +197,10 @@ internal sealed partial class FieldSkills
             return null;
         }
 
-        if (SummonBrain.NeedsRecall(summon, owner.Position))
+        if (SummonBrain.NeedsRecall(summon, owner.Position) && !TryRecallBeside(summon, owner))
         {
-            if (!_host.Terrain.TryFloorNear(owner.Position, FieldTerrain.DropTolerance, out var height))
-            {
-                DismissSummon(ownerId);
-                return null;
-            }
-
-            summon.Position = owner.Position with { Y = height };
-            summon.TargetId = 0;
-            summon.AiState = MonsterAiState.Idle;
+            DismissSummon(ownerId);
+            return null;
         }
 
         summon.SinceRetargetMs += dtMs;

@@ -77,6 +77,7 @@ public sealed partial class GameplayHud : IDisposable
     private readonly HudPremiumTimers _premium;
     private readonly HudPremiumKeeps _premiumKeeps = new();
     private readonly HudPuzzleExchange _puzzle = new();
+    private readonly HudCrystalDismiss _crystalDismiss = new();
     private readonly HudRestartPanel _restart = new();
     private readonly HudWingGate _wingGate;
     private int _itemUseCompletions;
@@ -233,6 +234,9 @@ public sealed partial class GameplayHud : IDisposable
     // A double click on a summon's buff icon asks to switch the summon's fighting mode.
     public event Action<uint> SummonModeRequested;
 
+    // The owner confirmed dismissing his pets of one crystal (the status code of its icon).
+    public event Action<uint> CrystalPetDismissRequested;
+
     // R or the bar's walk/run button.
     public event Action RunToggleRequested;
 
@@ -322,11 +326,13 @@ public sealed partial class GameplayHud : IDisposable
             || _questWindow.Open || _partyWindow.Open || _quests.Dialog is not null || _quests.SkillResetBox;
         closed |= _personalShop.Close();
         CloseServices();
-        closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming || _wingGate.IsOpen || _wingGate.Confirming || _helpWindow.IsOpen;
+        closed |= _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming || _crystalDismiss.Confirming || _wingGate.IsOpen || _wingGate.Confirming
+            || _helpWindow.IsOpen;
         _helpWindow.Close();
         _itemUse.Close();
         _wingGate.Close();
         _puzzle.Close();
+        _crystalDismiss.Close();
         _quests.CloseDialog();
         _quests.AnswerSkillReset(false);
         _quests.LeaveNpc();
@@ -403,6 +409,7 @@ public sealed partial class GameplayHud : IDisposable
         }
 
         var layout = Layout();
+        HudMessageBox.Place(layout);
         var pointer = layout.ToLogical(mouse.Position);
         var design = new Point(pointer.X, pointer.Y - layout.BottomOffset);
         if (_quests.Dialog is not null && HudQuestDialog.Box.Contains(pointer))
@@ -460,6 +467,11 @@ public sealed partial class GameplayHud : IDisposable
         {
             _personalShop.Type(typedText, key => Pressed(keyboard, key), _painter.CanDraw, _painter.Measure);
         }
+        else if (_crystalDismiss.Confirming && !_chat.Window.Focused && Pressed(keyboard, Keys.Enter))
+        {
+            // Enter answers Yes to the dismiss question instead of opening the chat input.
+            RequestCrystalPetDismiss(_crystalDismiss.Accept());
+        }
         else
         {
             _chat.Update(keyboard, _previousKeyboard, typedText, _clock.Elapsed.TotalMilliseconds, _chat.Window.Log.Tab);
@@ -494,6 +506,12 @@ public sealed partial class GameplayHud : IDisposable
             Click(state, layout, pointer, design, keyboard);
         }
 
+        // A right click on a crystal pet's icon in the running-effects bar asks whether to dismiss the pet.
+        if (mouse.RightButton == ButtonState.Pressed && _previousMouse.RightButton == ButtonState.Released && !ModalOpen && !_settingsOpen)
+        {
+            _crystalDismiss.Offer(_skillHud.BuffAt(pointer));
+        }
+
         var skillOrigin = PanelOrigin(layout, _skillSlide);
         _skills.RefreshRanks(_state);
         var hoveredSkill = _skillSlide.FullyOpen && _skillMaster == 0 ? _skills.HoveredSkill(skillOrigin, pointer) : 0;
@@ -522,7 +540,8 @@ public sealed partial class GameplayHud : IDisposable
     // A dialog, a message box or the warp map: it takes every click, the bag's included.
     private bool ModalOpen =>
         _countBox.IsOpen || _personalShop.ModalOpen || _npcOpen || _quests.Dialog is not null || _quests.Confirming || _quests.SkillResetBox || _skills.TrainingPending
-        || _wingGate.IsOpen || _wingGate.Confirming || _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming;
+        || _wingGate.IsOpen || _wingGate.Confirming || _itemUse.Teleport.IsOpen || _itemUse.Confirming || _puzzle.Confirming
+        || _crystalDismiss.Confirming;
 
     // As in the original, a modal or a work window keeps every click from the world (the work windows still trade items
     // with the bag); the status, inventory, skill and shop windows keep only their own area.
@@ -545,6 +564,7 @@ public sealed partial class GameplayHud : IDisposable
     public void Draw()
     {
         var layout = Layout();
+        HudMessageBox.Place(layout);
         var pointer = layout.ToLogical(_previousMouse.Position);
         var pressed = _previousMouse.LeftButton == ButtonState.Pressed;
         _painter.Begin(layout);
@@ -665,6 +685,7 @@ public sealed partial class GameplayHud : IDisposable
         }
 
         _puzzle.Draw(_painter, pointer);
+        _crystalDismiss.Draw(_painter, pointer);
         if (_personalShop.ModalOpen)
         {
             _painter.Flush();

@@ -25,6 +25,7 @@ internal interface IFieldSkillHost
     MonsterAiTuning TuningFor(MonsterDefinition definition);
     bool TryFindMonsterDefinition(string name, [MaybeNullWhen(false)] out MonsterDefinition definition);
     MonsterInstance AddSummon(MonsterDefinition definition, Vector3 position, float facing);
+    bool MonsterStandsAt(Vector3 point);
 }
 
 // Server authority for player skills on one field: cast validation, the skill timeline (hits at the motion's event

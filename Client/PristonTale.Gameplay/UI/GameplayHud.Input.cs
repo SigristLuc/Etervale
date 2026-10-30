@@ -122,6 +122,15 @@ public sealed partial class GameplayHud
         }
     }
 
+    // The dismiss question's Yes (a click or Enter); 0 is any other answer.
+    private void RequestCrystalPetDismiss(uint statusCode)
+    {
+        if (statusCode != 0)
+        {
+            CrystalPetDismissRequested?.Invoke(statusCode);
+        }
+    }
+
     private void Click(OwnerState state, HudLayout layout, Point pointer, Point design, KeyboardState keyboard)
     {
         // The count box holds every click until it closes.
@@ -175,6 +184,12 @@ public sealed partial class GameplayHud
         if (_skills.TrainingPending)
         {
             _skills.HandleTrainingClick(PanelOrigin(layout, _skillSlide), pointer, state, _skillMaster, _progression);
+            return;
+        }
+
+        if (_crystalDismiss.Click(pointer, out var dismissed))
+        {
+            RequestCrystalPetDismiss(dismissed);
             return;
         }
 
@@ -396,7 +411,8 @@ public sealed partial class GameplayHud
             return true;
         }
 
-        if (_helpPet.Captures(pointer) || CapturesHelp(pointer) || CapturesParty(layout, pointer) || _tradeRequest.Captures(pointer) || _personalShop.Captures(pointer) || _itemUse.Captures(pointer) || _wingGate.Captures(pointer) || _puzzle.Captures(pointer) || _premium.Contains(pointer))
+        if (_helpPet.Captures(pointer) || CapturesHelp(pointer) || CapturesParty(layout, pointer) || _tradeRequest.Captures(pointer) || _personalShop.Captures(pointer)
+            || _itemUse.Captures(pointer) || _wingGate.Captures(pointer) || _puzzle.Captures(pointer) || _crystalDismiss.Captures(pointer) || _premium.Contains(pointer))
         {
             return true;
         }

@@ -337,7 +337,6 @@ public sealed partial class RemoteEntityManager
         if (spawn.OwnerId != 0)
         {
             _summonOwners[spawn.EntityId] = spawn.OwnerId;
-            TrackSummonPlate(spawn, info.Name);
         }
 
         var scale = spawn.ModelScale > 0f ? spawn.ModelScale : info.ModelScale;
@@ -381,7 +380,6 @@ public sealed partial class RemoteEntityManager
         {
             entity.SetRates(state.MoveSpeed, state.AttackRate);
             entity.SetTarget(_clock.Stamp(state.ServerTimeMs), ToXna(state.Position), state.Facing, state.MoveState, state.Life);
-            UpdateSummonPlate(state.EntityId, state.Life);
             if (!_preparingActors.ContainsKey(state.EntityId))
             {
                 return;
@@ -451,7 +449,6 @@ public sealed partial class RemoteEntityManager
     private void ApplyRemoved(ulong entityId)
     {
         _summonOwners.Remove(entityId);
-        _summonPlates.Remove(entityId);
         _playerAppearances.Remove(entityId);
         _shopSigns.Remove(entityId);
         _collisionRoster.Remove(entityId);
@@ -752,7 +749,6 @@ public sealed partial class RemoteEntityManager
         }
 
         _entities.Clear();
-        _summonPlates.Clear();
         _playerAppearances.Clear();
         _shopSigns.Clear();
         _collisionRoster.Clear();
