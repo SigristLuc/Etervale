@@ -184,6 +184,7 @@ Every message code has the high word `0x4554` ("ET"); every message keeps the `{
 | `0x45540150` | `RemoveObjects` | S→C | Serials leaving the receiver's view. The original client times objects out after 4-30 seconds. |
 | `0x45540160` | `LeaveWorld` | C→S, echo | Leave the world after the server saves the character. |
 | `0x45540170` | `PresenceClock` | S→C | Server tick of the events that follow when no presence entries of that tick carried it (see below). |
+| `0x45540180` | `Weather` | S→C | `{uint16 Version = 1, uint16 0, uint8 Kind, uint8 Intensity, uint8 WindHeading, uint8 Wind}`: the receiver's field weather (`WeatherState`), when it enters the world and at each change. 16 B. |
 | `0x45540200` | `SkillCast` | C→S | Cast request (see below). |
 | `0x45540201` | `SkillCastResult` | S→C | Answer to the caster's own cast, by sequence. |
 | `0x45540202` | `SkillEvents` | S→C | Skill starts, impacts, releases and cancels on the presence timeline. |

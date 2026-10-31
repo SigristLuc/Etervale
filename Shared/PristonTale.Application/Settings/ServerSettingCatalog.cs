@@ -1,6 +1,7 @@
 using System.Globalization;
 using PristonTale.Application.World;
 using PristonTale.Persistence.Abstractions.Settings;
+using PristonTale.Simulation.World;
 
 namespace PristonTale.Application.Settings;
 
@@ -36,6 +37,12 @@ public static class ServerSettingCatalog
             static (s, v) => World(s, s.World with { ExperienceEventPercent = v })),
         Int("world.clock_offset_minutes", 0, -1440, 1440, "Game minutes added to the game clock, to start the day at another hour.",
             static (s, v) => World(s, s.World with { ClockOffsetMinutes = v })),
+        Bool("world.weather", WorldServerOptions.Default.Weather,
+            "Rain over the open fields on the original's schedule: clouds, then rain, light, steady, heavy or a storm, for some minutes of every cycle.",
+            static (s, v) => World(s, s.World with { Weather = v })),
+        Int("world.weather_cycle_minutes", WeatherSchedule.DefaultCycleMinutes, WeatherSchedule.MinimumCycleMinutes, 1_000_000,
+            "Game minutes (800 ms each) from one rain to the next; the original's 8192 rain about every 1 h 49 min.",
+            static (s, v) => World(s, s.World with { WeatherCycleMinutes = v })),
         Int("events.crystal", 0, 0, 2, "Crystal event: 0 off, 1 from 12:00 to 23:59 server time, 2 all day; crystals then call their event monsters.",
             static (s, v) => World(s, s.World with { CrystalEvent = v })),
         Bool("events.mandoo", false, "Mandoo event: monsters drop the event dumplings.",

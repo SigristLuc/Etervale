@@ -86,6 +86,8 @@ internal sealed partial class PresenceEncoder : IEventHandleWriter
     private SharedPresenceWire? _wire;
     private Simulation.Progression.RestartOffer? _restartOffer;
     private PartyView? _party;
+    // The weather last sent; null until the first snapshot sends it.
+    private WeatherState? _weather;
     private PartyRequest? _partyRequest;
     private TradeView? _trade;
     private TradeRequest? _tradeRequest;
@@ -346,6 +348,7 @@ internal sealed partial class PresenceEncoder : IEventHandleWriter
         SendPremium(snapshot.Owner, connection);
         SendCooldowns(snapshot, connection);
         SendRestartOffer(snapshot.Restart, connection);
+        SendWeather(snapshot.Weather, connection);
         SendParty(snapshot, connection);
         SendTrade(snapshot, connection);
         if (snapshot.Quest is not null)
@@ -452,6 +455,16 @@ internal sealed partial class PresenceEncoder : IEventHandleWriter
         SendOwner(snapshot.Owner, connection);
         SendPremium(snapshot.Owner, connection);
         SendCooldowns(snapshot, connection);
+        SendWeather(snapshot.Weather, connection);
+    }
+
+    private void SendWeather(WeatherState weather, IPacketSink connection)
+    {
+        if (weather != _weather)
+        {
+            _weather = weather;
+            connection.Send(_scratch.AsSpan(0, new WeatherPacket(weather).Write(_scratch)));
+        }
     }
 
     // In a crowd denser than the visible cap, only the neighbourhood that holds the nearest MaxVisible entities (and the

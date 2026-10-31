@@ -240,6 +240,9 @@ public readonly struct WorldSnapshot
     public ActiveStatusSet ActiveStatuses { get; init; }
     public long FieldNowMs { get; init; }
 
+    // The field's weather (FieldInstance.Weather); the encoder sends it when it changes.
+    public WeatherState Weather { get; init; }
+
     // The receiver's quest changes: the journal view when it changed, quest notices and a dialog the world opened.
     public QuestUpdate? Quest { get; init; }
 
@@ -265,7 +268,8 @@ public readonly struct WorldSnapshot
         FieldNowMs = FieldNowMs,
         Frame = Frame,
         FrameGeneration = FrameGeneration,
-        Cooldowns = cooldowns
+        Cooldowns = cooldowns,
+        Weather = Weather
     };
 
     internal WorldSnapshot WithPin(ulong key) => this with { Pinned = true, PinKey = key };
@@ -281,6 +285,7 @@ public readonly struct WorldSnapshot
         Frame = Frame,
         FrameGeneration = FrameGeneration,
         Cooldowns = Cooldowns,
+        Weather = Weather,
         Quest = Quest,
         Restart = Restart,
         Party = Party,

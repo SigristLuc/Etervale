@@ -172,6 +172,7 @@ public sealed partial class GameScene
         ObserveItems(update);
         ObserveProgression(update);
         ObserveRestart(update);
+        ObserveWeather(update);
         PresenceObserved?.Invoke(update);
     }
 

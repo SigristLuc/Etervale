@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Threading.Channels;
 using PristonTale.Application.GameLogs;
+using PristonTale.Contracts.World;
 using PristonTale.Application.Saves;
 using PristonTale.Persistence.Abstractions.GameLogs;
 using PristonTale.Application.Sessions;
@@ -119,6 +120,7 @@ public sealed partial class WorldServer
         field.State = _catalog.TryGetFieldByCode(fieldId, out var definition) ? definition.State : FieldState.Forest;
         ApplyOptions(field, _options);
         field.Event = _catalog.TryGetFieldByCode(fieldId, out var described) ? described.FieldEvent : FieldEventKind.None;
+        field.Rains = described is not null && WeatherSchedule.Rains(described);
         field.DropLedger = DropLedgerFor(_worldData.Current.Items);
         _fields.Add(fieldId, field);
         return field;
@@ -152,6 +154,22 @@ public sealed partial class WorldServer
 
     // The game clock in game milliseconds: the Unix time plus the configured offset (World:ClockOffsetMinutes game minutes).
     public long GameClockMs => _clock.GetUtcNow().ToUnixTimeMilliseconds() + _options.ClockOffsetMinutes * (long)WorldClock.MinuteMs;
+
+    // The weather of the fields that take rain: a game master's (/weather) while one is set, else the schedule on the
+    // game clock while World:Weather is on, else clear.
+    private WeatherState Weather => _weatherOverride
+        ?? (_options.Weather ? WeatherSchedule.At(GameClockMs, _options.WeatherCycleMinutes) : WeatherState.Clear);
+
+    private WeatherState? _weatherOverride;
+
+    // A game master's weather for every field, or null to follow the schedule again; the weather then.
+    public Task<WeatherState> SetWeatherAsync(ulong issuerId, WeatherState? weather) => EnqueueAsync(issuerId, () =>
+    {
+        _weatherOverride = weather;
+        return Weather;
+    });
+
+    public Task<WeatherState> WeatherNowAsync(ulong issuerId) => EnqueueAsync(issuerId, () => Weather);
 
     private DailyDropLedger? _dropLedger;
 
@@ -696,7 +714,8 @@ public sealed partial class WorldServer
         var nowSeconds = _clock.GetUtcNow().ToUnixTimeSeconds();
         // Fields share only immutable catalogs and the thread-safe id allocator, so they step in parallel.
         var night = WorldClock.IsNight(WorldClock.HoursAt(GameClockMs));
-        Parallel.ForEach(_activeFields, field => StepField(field, dt, serverTick, bossHour, nowSeconds, night));
+        var weather = Weather;
+        Parallel.ForEach(_activeFields, field => StepField(field, dt, serverTick, bossHour, nowSeconds, night, weather));
         LastPhases = new TickPhases(processed, Stopwatch.GetElapsedTime(started, commandsDone).TotalMilliseconds,
             Stopwatch.GetElapsedTime(commandsDone).TotalMilliseconds);
         ApplyQuestTravels();
@@ -722,10 +741,11 @@ public sealed partial class WorldServer
         Volatile.Write(ref _activeCounts, counts.AsReadOnly());
     }
 
-    private void StepField(FieldInstance field, float dt, uint serverTick, int? bossHour, long nowSeconds, bool night)
+    private void StepField(FieldInstance field, float dt, uint serverTick, int? bossHour, long nowSeconds, bool night, WeatherState weather)
     {
         field.Premium.NowSeconds = nowSeconds;
         field.Night = night;
+        field.SetWeather(weather);
         field.Step(dt, bossHour);
         if (field.PlayerCount == 0)
         {
@@ -746,7 +766,8 @@ public sealed partial class WorldServer
             StatusEvents = field.SnapshotStatusEvents(),
             ItemEffects = field.ItemEvents.Snapshot(),
             ActiveStatuses = field.Statuses.Snapshot,
-            FieldNowMs = field.NowMs
+            FieldNowMs = field.NowMs,
+            Weather = field.Weather
         };
         frame.Routes.Rebuild(snapshot.Events, snapshot.SkillEvents, snapshot.StatusEvents, snapshot.ItemEffects);
         foreach (var entityId in field.PlayerIds)

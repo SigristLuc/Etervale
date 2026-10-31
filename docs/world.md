@@ -376,6 +376,20 @@ it in `WorldJoined`; each tick it sets `FieldInstance.Night` for every field.
   hostile monsters die without reward and its people return, those with an appearance draw (`NpcDefinition.AppearSlot`,
   `AppearCycle`) only when the dawn's new draw picks them.
 
+## Weather
+
+`WeatherSchedule` (Simulation) is the original's rain on the world clock: in every cycle of `world.weather_cycle_minutes`
+game minutes (8192 by default, about 1 h 49 min) the sky clouds over after minute 512, rains from 60 minutes later until
+60 minutes before minute 932 (4 real minutes of rain), then clears. The original always rained the same; here each
+cycle's number draws its rain (`WeatherState`, Contracts): light, steady or heavy rain, or a storm (rain with lightning
+and thunder), with a wind heading and strength, so every restart agrees on it. Dungeons, rooms, the ice fields and
+Bellatra never take rain (`WeatherSchedule.Rains`, set as `FieldInstance.Rains` when the field opens).
+
+Each tick `WorldServer` takes the weather (a game master's `/weather` while one is set, else the schedule while
+`world.weather` is on, else clear) and `FieldInstance.SetWeather` keeps it for a field that takes rain, clear otherwise.
+Every snapshot carries the field's weather and the encoder sends `Weather` when it differs from the last one sent (the
+first snapshot, a change, a field of another sky).
+
 ## Spawning
 
 `FieldSpawnData` per field code comes from the database (`WorldDataFactory.ToFieldSpawnData`, imported from the field

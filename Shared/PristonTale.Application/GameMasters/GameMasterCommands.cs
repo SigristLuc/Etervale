@@ -137,6 +137,7 @@ public sealed class GameMasterCommands
         new("/kill", GameMasterLevel.Moderator, GmPlayerCommands.Kill),
         new("/open_warehouse", GameMasterLevel.Moderator, GmAccountCommands.OpenWarehouse),
         new("/shutdown", GameMasterLevel.Moderator, GmServerCommands.Shutdown),
+        new("/weather", GameMasterLevel.Moderator, GmServerCommands.Weather),
         new("/reload_settings", GameMasterLevel.Administrator, GmServerCommands.ReloadSettings),
         new("/setting", GameMasterLevel.Administrator, GmServerCommands.Setting),
         new("/insert", GameMasterLevel.Moderator, GmAccountCommands.Insert),

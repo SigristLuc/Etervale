@@ -22,6 +22,7 @@ public static class EtervaleOpcodes
     public const uint RemoveObjects = 0x45540150;
     public const uint LeaveWorld = 0x45540160;
     public const uint PresenceClock = 0x45540170;
+    public const uint Weather = 0x45540180;
 
     public const uint SkillCast = 0x45540200;
     public const uint SkillCastResult = 0x45540201;

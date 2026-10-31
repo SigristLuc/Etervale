@@ -145,6 +145,7 @@ internal sealed class PresenceDecoder : IEventHandleReader
             EtervaleOpcodes.TradeState => OnTradeState(TradeStatePacket.Read(packet)),
             EtervaleOpcodes.TradeAsked => OnTradeAsked(TradeAskedPacket.Read(packet)),
             EtervaleOpcodes.ContactList => OnContactList(ContactListPacket.Read(packet)),
+            EtervaleOpcodes.Weather => Update([], []) with { Weather = WeatherPacket.Read(packet).Weather },
             _ => null
         };
         return update is not null || code is EtervaleOpcodes.PresenceEntries or EtervaleOpcodes.EntityDescription or EtervaleOpcodes.RemoveObjects
@@ -154,7 +155,8 @@ internal sealed class PresenceDecoder : IEventHandleReader
             or EtervaleOpcodes.ItemDetails or EtervaleOpcodes.OwnerItemStatus or EtervaleOpcodes.AgingProgress
             or EtervaleOpcodes.PremiumTimers or EtervaleOpcodes.ItemEffects or EtervaleOpcodes.RestartOffer or EtervaleOpcodes.QuestJournal or EtervaleOpcodes.QuestNotices
             or EtervaleOpcodes.ChatLine or EtervaleOpcodes.CloseRequest or EtervaleOpcodes.PartyMembers or EtervaleOpcodes.PartyRequest
-            or EtervaleOpcodes.TradeDetails or EtervaleOpcodes.TradeState or EtervaleOpcodes.TradeAsked or EtervaleOpcodes.ContactList;
+            or EtervaleOpcodes.TradeDetails or EtervaleOpcodes.TradeState or EtervaleOpcodes.TradeAsked or EtervaleOpcodes.ContactList
+            or EtervaleOpcodes.Weather;
     }
 
     private PresenceUpdate OnContactList(ContactListPacket packet) =>

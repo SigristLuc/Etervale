@@ -31,6 +31,9 @@ public sealed record PresenceUpdate(
 
     // What standing up again would cost the local player while it is dead.
     public PristonTale.Simulation.Progression.RestartOffer? RestartOffer { get; init; }
+
+    // The weather of the local player's field, when it entered the world or the weather changed.
+    public PristonTale.Contracts.World.WeatherState? Weather { get; init; }
     public IReadOnlyList<ItemEffectInfo> ItemEffects { get; init; } = [];
 
     // The quest journal when it changed, quest notices and a quest dialog the world opened on its own.

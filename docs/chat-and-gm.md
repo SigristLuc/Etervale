@@ -132,7 +132,7 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
 | Guide | `/usercode`, `/userid`, `/username`, `/user`, `/sockets`, `/area_users`, `/dm_info`, `/get_guid` |
 | Guide | `/specific`, `/Performance`, `/talk`, `/monster`, `/mymonster`, `/event_monster`, `/area_monster` |
 | Guide | `/show_blackuser`, `/reset_blackuser`, `/free_blackuser`, `/hide`, `/show`, `/grant` |
-| Moderator | `/>`, `/>>`, `/user_limit`, `/kick`, `/kill`, `/open_warehouse`, `/shutdown`, `/insert`, `/near`, `/call`, `/where` |
+| Moderator | `/>`, `/>>`, `/user_limit`, `/kick`, `/kill`, `/open_warehouse`, `/shutdown`, `/weather`, `/insert`, `/near`, `/call`, `/where` |
 | Moderator | `/field`, `/player_location` |
 | Operator | `/get_money`, `/AgingSetting` |
 | Administrator | `/init_premiumitem`, `/@get_perf`, `/@get`, `/@put`, `/GiveMeExp!`, `/expup`, `/GiveMeMoney!`, `/reload_settings`, `/setting` |
@@ -152,7 +152,9 @@ Commands match by exact, case-sensitive prefix in table order. Levels:
   four minutes, `/event_monster name minutes permille` replaces spawns by chance, `/set_absorb id value`, `/talk
   id text` makes an entity speak in a bubble.
 - Server: `/user_limit [n]`, the blocked-login list, `/shutdown` (8 minutes: five notices, reminders every 30 s and
-  every 5 s in the last minute, then every client is asked to close and the server stops).
+  every 5 s in the last minute, then every client is asked to close and the server stops), `/weather
+  clear|overcast|rain|storm [1-255]` sets the weather of every field that takes rain (the density, heavy by default)
+  until `/weather auto` gives it back to the schedule, and `/weather` tells the weather now.
 - Accounts: `/insert account character` moves an offline character to the account's first free slot;
   `/open_warehouse [account]` lists the stored warehouse in the chat.
 - Experience: `/GiveMeExp! level` raises to a level, `/expup n` adds n points as a monster's award would.

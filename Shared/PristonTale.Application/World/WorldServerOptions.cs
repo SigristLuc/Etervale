@@ -1,4 +1,5 @@
 using PristonTale.Simulation.Items.Aging;
+using PristonTale.Simulation.World;
 using PristonTale.Simulation.World.Loot;
 
 namespace PristonTale.Application.World;
@@ -29,6 +30,12 @@ public sealed record WorldServerOptions
     // Game minutes added to the game clock, to start the server at another hour of the day.
     public int ClockOffsetMinutes { get; init; }
 
+    // Rain over the fields that take it on the original's schedule (WeatherSchedule), every WeatherCycleMinutes game
+    // minutes.
+    public bool Weather { get; init; } = true;
+
+    public int WeatherCycleMinutes { get; init; } = WeatherSchedule.DefaultCycleMinutes;
+
     public int MaxPendingCommandsPerPlayer { get; init; } = DefaultMaxPendingCommandsPerPlayer;
 
     public bool GiveStarterGifts { get; init; } = true;
@@ -52,6 +59,11 @@ public sealed record WorldServerOptions
         if (MaxPendingCommandsPerPlayer < 1)
         {
             throw new InvalidOperationException("World:MaxPendingCommandsPerPlayer must be at least 1.");
+        }
+
+        if (WeatherCycleMinutes < WeatherSchedule.MinimumCycleMinutes)
+        {
+            throw new InvalidOperationException($"World:WeatherCycleMinutes must be at least {WeatherSchedule.MinimumCycleMinutes}.");
         }
 
         if (CheckpointSeconds < 1)
