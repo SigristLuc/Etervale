@@ -15,7 +15,7 @@ public sealed class ConsoleClientLog : IClientLog
     public void Warn(string message) => Console.WriteLine("[warn] " + message);
 
     public void Error(string message, Exception exception = null) =>
-        Console.WriteLine(exception is null ? "[error] " + message : $"[error] {message}: {exception.Message}");
+        Console.WriteLine(exception is null ? "[error] " + message : $"[error] {message}: {exception}");
 }
 
 public sealed class NullClientLog : IClientLog

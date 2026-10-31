@@ -11,6 +11,7 @@ public sealed class FieldAudioController : IDisposable
     internal const float PositionalAmbientVolume = 1f;
     internal const float MusicFadeSeconds = 3.6f;
     private const float PositionalBlendRate = 8f;
+    private const long ItemSoundRepeatMs = 300;
 
     private readonly PristonAudioLibrary _library;
     private IReadOnlyList<FieldAmbient> _ambients = [];
@@ -25,6 +26,8 @@ public sealed class FieldAudioController : IDisposable
     private int _positionalAmbientCode = -1;
     private float _musicFadeRemaining;
     private float _positionalTargetVolume;
+    private SoundEffect _lastItemSound;
+    private long _lastItemSoundAt;
 
     public FieldAudioController(PristonAudioLibrary library)
     {
@@ -74,13 +77,23 @@ public sealed class FieldAudioController : IDisposable
         }
     }
 
-    // An item entering, leaving or moving in the pack; gold rings the coin.
+    // An item entering, leaving or moving in the pack; gold rings the coin. The same sound asked again within
+    // ItemSoundRepeatMs (a command's reply and the owner state that shows its item) plays once.
     public void PlayItem(string catalogKey, bool gold = false)
     {
-        if (_library.SoundEnabled && (gold ? _library.CoinSound : _library.ItemSound(catalogKey)) is { } sound)
+        if (!_library.SoundEnabled || (gold ? _library.CoinSound : _library.ItemSound(catalogKey)) is not { } sound)
         {
-            sound.Play(1f, 0f, 0f);
+            return;
         }
+
+        var now = Environment.TickCount64;
+        if (ReferenceEquals(sound, _lastItemSound) && now - _lastItemSoundAt < ItemSoundRepeatMs)
+        {
+            return;
+        }
+
+        (_lastItemSound, _lastItemSoundAt) = (sound, now);
+        sound.Play(1f, 0f, 0f);
     }
 
     public void PlayQuestFanfare()

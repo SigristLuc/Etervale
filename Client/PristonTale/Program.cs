@@ -1,6 +1,7 @@
 using System;
 using PristonTale;
 using PristonTale.Display;
+using PristonTale.Engine3D.Diagnostics;
 
 if (args.Length == 2 && args[0] == "--validate-display")
 {
@@ -26,6 +27,7 @@ else if (args.Length != 0)
     return 1;
 }
 
+using var log = ClientLogFile.Open(AppContext.BaseDirectory);
 using var game = new Game1(settingsPath);
 game.Run();
 return 0;

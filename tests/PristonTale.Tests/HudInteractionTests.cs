@@ -41,6 +41,7 @@ internal static class HudInteractionTests
         yield return ("the page button with an item on the cursor switches the page taking the item along, which stays on the cursor", CarriedPageButtonAsync);
         yield return ("an item set down stays where it was set down, not back in its old cell, until the owner state shows it moved", SettleAsync);
         yield return ("an item thrown to the ground shows nowhere until the owner state shows it gone, and back in its place when refused", ThrownAsync);
+        yield return ("an item that arrives by itself sounds, a moved item sounds on its reply, and a page switch sounds nothing", ArrivalSoundAsync);
         yield return ("a ground item picked up with the window open comes to the cursor, and goes where any item goes with it closed", PickupToCursorAsync);
         yield return ("the pointer attacks over wild monsters, talks over NPCs and stays the arrow elsewhere", CursorKindAsync);
         yield return ("drop names on one spot rise into a column above the nearest, which keeps its place", DropNameColumnAsync);
@@ -499,6 +500,39 @@ internal static class HudInteractionTests
         Assert.True(controller.Completions == 2 && controller.Held == id, "a later refused command put the set-down stone back in its old cell");
         controller.Update(state with { Items = new[] { stone with { Anchor = 5 } }, InventoryRevision = 4 }, layout, true, default, default);
         Assert.True(controller.Held == Guid.Empty, "the stone stayed held once the owner state showed it moved");
+    }
+
+    private static async Task ArrivalSoundAsync()
+    {
+        var layout = HudLayout.Create(800, 600);
+        var origin = HudInventoryLayout.Origin(layout);
+        var character = new CharacterClassRegistry().CreatePlayer(PlayerClass.Mechanician, "Listener");
+        var stone = new OwnedItemView(Guid.NewGuid(), 1, "Stone", ItemKind.Material, 1, 0, -1, 1, 1, "MA101");
+        var gift = new OwnedItemView(Guid.NewGuid(), 2, "Suit", ItemKind.Armor, 1, 2, -1, 2, 3, "DA102");
+        var state = OwnerState.Capture(character) with { Items = new[] { stone }, InventoryRevision = 3 };
+        var reply = new TaskCompletionSource<InventoryOutcome>();
+        var sounds = new List<string>();
+        var controller = new HudInventoryController(null!, _ => reply.Task) { ItemSound = sounds.Add };
+        controller.Update(state, layout, true, default, default);
+        Assert.True(sounds.Count == 0, "the first owner state sounded its items");
+
+        state = state with { Items = new[] { stone, gift }, InventoryRevision = 4 };
+        controller.Update(state, layout, true, default, default);
+        Assert.True(sounds is ["DA102"], $"the suit the server laid in the bag sounded {string.Join(", ", sounds)}");
+
+        var otherPage = state with { Items = new[] { stone with { InstanceId = Guid.NewGuid() } }, InventoryRevision = 5, BagPage = 1 };
+        controller.Update(otherPage, layout, true, default, default);
+        controller.Update(state with { InventoryRevision = 6 }, layout, true, default, default);
+        Assert.True(sounds.Count == 1, "switching the bag page sounded the other page's items");
+
+        sounds.Clear();
+        controller.Update(state with { InventoryRevision = 6 }, layout, true, default, MouseAt(HudInventoryLayout.Cell(origin, 0).Center, layout.Scale, ButtonState.Pressed));
+        controller.Update(state with { InventoryRevision = 6 }, layout, true, default, default);
+        controller.Update(state with { InventoryRevision = 6 }, layout, true, default, MouseAt(HudInventoryLayout.Cell(origin, 5).Center, layout.Scale, ButtonState.Pressed));
+        reply.SetResult(new InventoryOutcome(true, 7, ""));
+        await Task.Yield();
+        controller.Update(state with { InventoryRevision = 6 }, layout, true, default, default);
+        Assert.True(sounds is ["MA101", "MA101"], $"lifting and moving the stone sounded {string.Join(", ", sounds)}");
     }
 
     private static async Task ThrownAsync()

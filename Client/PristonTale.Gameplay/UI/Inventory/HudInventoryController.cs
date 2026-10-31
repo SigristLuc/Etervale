@@ -141,6 +141,12 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     // The catalog key of an item lifted from or set into the pack or the equipment, for its sound.
     public Action<string> ItemSound { get; set; }
     private string _pendingSound;
+    // The owned items of the last owner state seen (revision -1: none yet), to sound an item the server lays on the
+    // character by itself.
+    private readonly HashSet<Guid> _owned = [];
+    private long _ownedRevision = -1;
+    private int _ownedPage;
+    private int _ownedWeaponSet;
 
     // Lets go of the item on the cursor (Esc): it stays where it lies on the server.
     public void CancelDrag()
@@ -163,6 +169,7 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
     {
         _state = state;
         _visible = visible;
+        SoundArrival(state);
         _origin = HudInventoryLayout.Origin(layout);
         var completed = _completedOperation;
         if (completed is not null)
@@ -490,6 +497,43 @@ public sealed class HudInventoryController(ScreenContext context, Func<Inventory
         _settleRevision = long.MaxValue;
         SendInventory(new InventoryCommand(Guid.NewGuid(), _state.InventoryRevision, action, carried.InstanceId, destination, count, slot),
             covered?.InstanceId ?? Guid.Empty);
+    }
+
+    // An item that arrives without a command of this window (a gift, a quest prize, a trade, a pickup) sounds as the
+    // original's client sounds every item it sets; one already sounding for its own reply is not repeated
+    // (FieldAudioController.PlayItem). The first state after login and a switch of the bag page or the weapon pair, which
+    // show the other side's items, sound nothing.
+    private void SoundArrival(OwnerState state)
+    {
+        if (state is null || state.InventoryRevision == _ownedRevision)
+        {
+            return;
+        }
+
+        OwnedItemView arrived = null;
+        if (_ownedRevision >= 0 && state.BagPage == _ownedPage && state.WeaponSet == _ownedWeaponSet)
+        {
+            foreach (var item in state.Items)
+            {
+                if (!_owned.Contains(item.InstanceId))
+                {
+                    arrived = item;
+                    break;
+                }
+            }
+        }
+
+        _owned.Clear();
+        foreach (var item in state.Items)
+        {
+            _owned.Add(item.InstanceId);
+        }
+
+        (_ownedRevision, _ownedPage, _ownedWeaponSet) = (state.InventoryRevision, state.BagPage, state.WeaponSet);
+        if (arrived is not null)
+        {
+            ItemSound?.Invoke(arrived.CatalogKey);
+        }
     }
 
     // An item set down or thrown waits for its own command's reply (the one command waiting since), not a later one's: a

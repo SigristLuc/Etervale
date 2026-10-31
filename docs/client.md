@@ -52,7 +52,9 @@ rendering internals, skill presentation and VFX data have their own documents (s
 
 ## Startup
 
-1. `Program` builds `Game1` with an optional settings path (default `ClientSettingsStore.DefaultPath`,
+1. `Program` opens `client.log` beside the executable (`ClientLogFile`: the console copied with the local time on
+   every line, errors with their stack, unhandled exceptions; the previous run's log kept as `client.previous.log`; the
+   game runs without it when the file cannot be opened), then builds `Game1` with an optional settings path (default `ClientSettingsStore.DefaultPath`,
    `client-settings.json` beside the executable; fields in [client-settings.md](client-settings.md)).
 2. `Game1` constructor: HiDef device, `PreferMultiSampling = false` (the renderer owns its multisampled HDR target),
    `IsFixedTimeStep = false`, resizable window, `Content.RootDirectory = "Content"`.
@@ -710,8 +712,11 @@ come from the window's text input (`Game1` to `GameClient.TypeCharacter` to `Scr
   then two: axes, claws, hammers, staves, spears, bows, swords, throwing weapons, armour, boots, gloves, shields,
   amulets, armlets, rings, sheltoms, potions...) with per-item exceptions; gold rings the coin. They play for the local
   player only: a ground pickup the server accepted (`GroundLootInteraction`), lifting an item in the pack, a successful
-  move, split, merge, equip or unequip (`HudInventoryController.ItemSound`), and a shop buy or sell or a warehouse
-  deposit, withdrawal or move (`HudNpcServiceController.Succeeded`).
+  move, split, merge, equip or unequip (`HudInventoryController.ItemSound`), a shop buy or sell or a warehouse
+  deposit, withdrawal or move (`HudNpcServiceController.Succeeded`), and, as the original sounds every item it sets,
+  an item the owner state shows arriving without a command of the window (a gift, a quest prize, a trade:
+  `HudInventoryController.SoundArrival`; nothing for the first state after login or a bag page or weapon pair switch).
+  `FieldAudioController.PlayItem` plays the same sound asked again within 300 ms once (a reply and its owner state).
 
 ## How to
 
